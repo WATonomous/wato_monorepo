@@ -1,0 +1,261 @@
+#!/bin/bash
+set -e
+
+programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
+MONO_DIR="$(dirname "$(realpath "$0")")"
+ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
+function usage {
+    echo "Usage: $programname [OPTIONS]... [COMMAND]..."
+    echo "Executes docker-compose COMMAND in the the monorepo with appropriate environment variables."
+    echo "  launch_autonomous               launch the can_interface for autonomous mode"
+    echo "  -v --verbose                    verbose mode. Currently, prints .env variables"
+    echo "  -p --ports                      displays what applications are running at what ports"
+    echo "  -lp --local-ports               displays ssh local port forwarding commands for each Code Server found with -p"
+    echo "  -lc --local-config [local_base_port]"            
+    echo "                                  similar to -lp, but generates a ~/.ssh/config file instead of a one-off command"
+    echo "  -cb --catkin-build [all|service_name]"
+    echo "                                  run catkin_build in either all services or one specified service"
+    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
+    echo "                                  if a docker-compose command is specified, it will be run in the background."
+    echo "  -a --all                        run COMMAND with all profiles enabled. Profiles are defined in ./profiles/."
+    echo "  -np                             don't run fix-permissions.sh"
+    echo " Examples:" 
+    echo "   watod up                       start containers (docker-compose up)"
+    echo "   watod down                     stop and remove containers (docker-compose down)"
+    echo "   watod ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
+    echo "   watod --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
+    echo "   watod --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
+    echo "   watod -t perception            open a bash terminal into the perception container."
+    echo ""
+    echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
+    exit 0
+}
+function run_compose {
+    cd $MONO_DIR
+    if [ ! -z "$(source .env && echo $ACTIVE_PROFILES)" ] && [ -z "$PROFILES" ]; then 
+        PROFILES="$(source .env && printf -- "-f profiles/docker-compose.%s.yaml " ${ACTIVE_PROFILES[@]})"
+    fi
+    
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f docker-compose.yaml ${PROFILES[@]} "$@"
+}
+
+if [ $# == 0 ]; then
+    usage
+fi
+# generate .env file
+if [ ! -z $VERBOSE ]; then
+    cd $MONO_DIR && bash dev_config.sh
+else
+    cd $MONO_DIR && bash dev_config.sh &> /dev/null
+fi
+
+COMPOSE_CMD=""
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+      -cb|--catkin-build)
+        shift # past argument
+        BUILD_SERVICE="$1"
+        shift
+        if [ -z "$BUILD_SERVICE" ]; then
+            echo "Expected ./watod -cb [all|SERVICE_NAME]"
+        usage
+        fi
+        ;;
+      -v|--verbose)
+        VERBOSE=1
+        shift # past argument
+        ;;
+      -p|--ports)
+        PRINT_CODE_PORTS=1
+        shift # past argument
+        ;;
+      -lp|--local-ports)
+        PRINT_LOCAL_PORTS=1
+        shift
+        ;;
+      -lc|--local-config)
+        OUTPUT_LOCAL_CONFIG=1
+        shift
+        LOCAL_BASE_PORT="$1"
+        if [ ! -z "$LOCAL_BASE_PORT" ]; then
+            shift
+        fi
+        ;;
+      -t|--terminal)
+        START_TERMINAL=1
+        shift
+        SERVICE_NAME=$1
+        if [ -z "$SERVICE_NAME" ]; then
+            echo "Expected watod -t SERVICE_NAME"
+        usage
+        fi
+        shift
+        ;;
+      -a|--all)
+        PROFILE_BLACKLIST="$(source .env && echo $PROFILE_BLACKLIST)"
+        # Find all the profiles
+        PROFILES=$(ls $MONO_DIR/profiles)
+        # Remove profiles in the blacklist
+        for TO_REMOVE in ${PROFILE_BLACKLIST[@]}; do
+            PROFILES="${PROFILES//"docker-compose.$TO_REMOVE.yaml"/}"
+        done
+        # format properly for docker-compose
+        PROFILES=$(printf -- "-f profiles/%s " $PROFILES)
+        shift
+        ;;
+      -np)
+        NO_FIX_PERMISSIONS=1
+        shift
+        ;;
+      launch_autonomous)
+        LAUNCH_AUTONOMOUS=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        ;;
+      *)    # unknown option
+        break
+        ;;
+    esac
+done
+
+if [[ $# -gt 0 ]]; then
+	COMPOSE_CMD="${COMPOSE_CMD} $@"
+fi
+
+# run fix-permissions.sh
+if [ -z "$NO_FIX_PERMISSIONS" ]; then
+    bash .gitlab/ci/fix-permissions.sh
+fi
+if [ ! -z $LAUNCH_AUTONOMOUS ]; then
+    echo "============================================================                  "
+    echo "WARNING:  You are about to enter autonomous mode.                             "
+    echo ""
+    echo "Make sure that you are running the autonomous pipeline and have               "
+    echo "verified the output of the /feedback_desired_output rostopic.                 "
+    echo "Turn on the car and put car in drive with the brake off.                      "
+    echo "Press <CTRL-C> twice to exit autonomous mode                                  "
+    echo ""
+    read -p "Press <ENTER> to continue"
+
+    # Run actual CAN devices, not VCAN
+    echo "CAN_DEBUG=False" >> "$MONO_DIR/.env"
+    PROFILES="-f profiles/docker-compose.can_interface.yaml"
+
+    run_compose up can_interface
+    exit 0
+fi
+
+if [ ! -z $BUILD_SERVICE ] || [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
+    SERVICE_LIST="$(run_compose ps --services | awk '{if(NR>1)print}' | sort)"
+fi
+
+if [ ! -z $BUILD_SERVICE ]; then
+    if [ $BUILD_SERVICE == "all" ]; then
+        BUILD_SERVICE=$SERVICE_LIST
+    fi
+    for SERVICE in $BUILD_SERVICE; do
+        echo "Running catkin build in service:" "$SERVICE"
+        run_compose exec -T "$SERVICE" /bin/bash -c "cd ~/catkin_ws && source devel/setup.bash && catkin build"
+    done 
+fi
+
+
+if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
+    # fixes hostnames for VMs so that by default $HOSTNAME is the first element
+    # in the array, which often is the domain name that can be accessed
+    # externally
+    read -ra HOSTNAME <<< $(hostname -A)
+    if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ]; then
+        echo "Ports exposed by running containers:"
+    fi
+    LOCAL_FORWARD_ALL=""
+    PORTS_STRING=""
+    for SERVICE in $SERVICE_LIST; do
+        ENV_VARS="$(run_compose exec "$SERVICE" env || true)"
+        VNC_PORT=$(echo "$ENV_VARS" | grep ^VNC_PORT= | cut -d '=' -f2)
+        VNC_PORT=${VNC_PORT:0:5} # Strip unncessary characters
+        if [ ! -z $VNC_PORT ]; then
+            if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ]; then
+                echo "$SERVICE exposes a VNC Server at $HOSTNAME:$VNC_PORT"
+            fi
+            if [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
+                LOCAL_FORWARD="-L ${VNC_PORT}:localhost:${VNC_PORT}"
+                LOCAL_FORWARD_ALL="${LOCAL_FORWARD_ALL} $LOCAL_FORWARD"
+                PORTS_STRING="${PORTS_STRING},${VNC_PORT}:${SERVICE}_VNC"
+                if [ ! -z $PRINT_LOCAL_PORTS ]; then
+                    echo "	To forward it locally, run"
+                    echo "		ssh$LOCAL_FORWARD $USER@$HOSTNAME"
+                    echo "	on your local machine attach to VNC at localhost:${VNC_PORT}"
+                    echo
+                fi
+            fi
+        fi
+        CODE_PORT=$(echo "$ENV_VARS" | grep ^PORT= | cut -d '=' -f2)
+        CODE_PORT=${CODE_PORT:0:5}  # Strip unncessary characters
+        if [ ! -z $CODE_PORT ]; then
+            if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ]; then
+                echo "$SERVICE exposes a Code Server at http://$HOSTNAME:$CODE_PORT"
+            fi
+            if [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
+                LOCAL_FORWARD="-L ${CODE_PORT}:localhost:${CODE_PORT}"
+                LOCAL_FORWARD_ALL="${LOCAL_FORWARD_ALL} $LOCAL_FORWARD"
+                PORTS_STRING="${PORTS_STRING},${CODE_PORT}:${SERVICE}_Code_Server"
+                if [ ! -z $PRINT_LOCAL_PORTS ]; then
+                    echo "	To forward it locally, run"
+                    echo "		ssh $LOCAL_FORWARD $USER@$HOSTNAME"
+                    echo "	on your local machine and go to http://localhost:${CODE_PORT}"
+                    echo
+                fi
+            fi
+        fi
+    done
+    if [ ! -z $PRINT_LOCAL_PORTS ]; then
+        echo "To forward all ports locally:"
+        echo ""
+        echo "ssh $LOCAL_FORWARD_ALL $USER@$HOSTNAME"
+        echo ""
+        echo "See https://git.uwaterloo.ca/WATonomous/wato_monorepo#editing-code-in-docker-containers for usage details"
+    elif [ ! -z $PRINT_CODE_PORTS ]; then
+        echo "Try -lp (--local-ports) to forward these ports locally"
+    fi
+    if [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
+        REMOTE_BASE_PORT=""
+        if [ ! -z $LOCAL_BASE_PORT ]; then
+            REMOTE_BASE_PORT=$(($(id -u) * 20))
+        fi
+        VM_HOST=$(hostname)
+        echo "Saving hostname config to $MONO_DIR/ssh_config/_hosts"
+        mkdir -p $MONO_DIR/ssh_config
+        git clone https://gitlab+deploy-token-100:i4AqsLQGGr_ApTmCkhnL@git.uwaterloo.ca/WATonomous/ansible-config.git $ANSIBLE_TMP_DIR 2>/dev/null
+        python3 $ANSIBLE_TMP_DIR/host_ssh_config.py $ANSIBLE_TMP_DIR/hosts/config.yml $MONO_DIR/ssh_config/_hosts
+        rm -Rf $ANSIBLE_TMP_DIR
+        if [ ! -z $PORTS_STRING ]; then
+            echo "Saving ports config to $MONO_DIR/ssh_config/$VM_HOST"
+            python3 $MONO_DIR/scripts/ssh_port_config.py $MONO_DIR/ssh_config/$VM_HOST $PORTS_STRING $LOCAL_BASE_PORT $REMOTE_BASE_PORT
+        else
+            echo "No containers exposing ports, skipping port config generation"
+        fi
+        cat $MONO_DIR/ssh_config/* > $MONO_DIR/config
+        echo "Generated complete $MONO_DIR/config, please copy it to ~/.ssh/config on your local machine using"
+    fi
+fi
+
+if [ ! -z "$COMPOSE_CMD" ]; then
+    ADDITIONAL_ARGS=""
+    # If we are starting a terminal, run docker-compose up with the -d argument
+    if [ ! -z "$START_TERMINAL" ] && [[ ! " ${COMPOSE_CMD[@]} " =~ " -d " ]] && [[ " ${COMPOSE_CMD[@]} " =~ " up " ]]; then
+        ADDITIONAL_ARGS="-d"
+    fi
+    echo "Running docker-compose$COMPOSE_CMD $ADDITIONAL_ARGS:"
+    
+    run_compose ${COMPOSE_CMD[@]} ${ADDITIONAL_ARGS}
+fi
+
+if [ ! -z "$START_TERMINAL" ]; then
+    echo "Starting bash shell in service $SERVICE_NAME":
+    run_compose exec $SERVICE_NAME /bin/bash
+fi
