@@ -64,8 +64,9 @@ ROS_MASTER_URI=${ROS_MASTER_URI:-"https://localhost:11311"}
 #   - production    		:   configs for all containers required in production
 # 	- sensors				: 	starts all sensor drivers
 #   - can_interface    		:   starts the ROS drivers for CAN
+#   - samples               :   starts sample ROS2 pubsub nodes
 
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-"samples"}
 
 # List of profiles to IGNORE when using the --all flag
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
@@ -115,6 +116,9 @@ RADAR_DRIVER_IMAGE=${RADAR_DRIVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_
 GNSS_IMU_DRIVER_IMAGE=${GNSS_IMU_DRIVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/gnss_imu_driver"}
 # CAN Interface
 CAN_INTERFACE_IMAGE=${CAN_INTERFACE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/can_interface"}
+
+# Samples C++ Transformer
+SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -177,6 +181,7 @@ echo "LIDAR_ODOMETRY_IMAGE=$LIDAR_ODOMETRY_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "GNSS_IMU_DRIVER_IMAGE=$GNSS_IMU_DRIVER_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "CAN_INTERFACE_IMAGE=$CAN_INTERFACE_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "HD_MAPS_PROCESSING_IMAGE=$HD_MAPS_PROCESSING_IMAGE" >> "$SCRIPT_DIR/.env"
+echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$SCRIPT_DIR/.env"
 
 echo "TAG=$TAG" >> "$SCRIPT_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$SCRIPT_DIR/.env"

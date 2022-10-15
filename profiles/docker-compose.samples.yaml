@@ -1,0 +1,35 @@
+version: "3.8"
+services:
+  producer:
+    build:
+      context: .
+      dockerfile: docker/samples/cpp/Dockerfile.producer
+      cache_from:
+       - "${SAMPLES_CPP_PRODUCER_IMAGE:?}-${CACHE_FROM_TAG}"
+       - "${SAMPLES_CPP_PRODUCER_IMAGE:?}-${TAG}"
+    image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ./src/samples/cpp/producer:/home/docker/ament_ws/src/producer
+  transfomer:
+    build:
+      context: .
+      dockerfile: docker/samples/cpp/Dockerfile.transformer
+      cache_from:
+       - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${CACHE_FROM_TAG}"
+       - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${TAG}"
+    image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ./src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
+  aggregator:
+    build:
+      context: .
+      dockerfile: docker/samples/cpp/Dockerfile.aggregator
+      cache_from:
+       - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${CACHE_FROM_TAG}"
+       - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${TAG}"
+    image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ./src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator

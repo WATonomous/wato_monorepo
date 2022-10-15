@@ -37,6 +37,7 @@ function run_compose {
     fi
     
     DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f docker-compose.yaml ${PROFILES[@]} "$@"
+    # DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f ${PROFILES[@]} "$@"
 }
 
 if [ $# == 0 ]; then
@@ -158,8 +159,8 @@ if [ ! -z $BUILD_SERVICE ]; then
         BUILD_SERVICE=$SERVICE_LIST
     fi
     for SERVICE in $BUILD_SERVICE; do
-        echo "Running catkin build in service:" "$SERVICE"
-        run_compose exec -T "$SERVICE" /bin/bash -c "cd ~/catkin_ws && source devel/setup.bash && catkin build"
+        echo "Running colcon build in service:" "$SERVICE"
+        run_compose exec -T "$SERVICE" /bin/bash -c "cd ~/ament_ws && source install/setup.bash && colcon build"
     done 
 fi
 
