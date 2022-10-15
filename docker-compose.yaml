@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  # Services that ALWAYS need to run
+  rosmaster:
+     image: ros:noetic
+     command: "roscore"
+     environment:
+       - ROS_HOSTNAME=rosmaster
