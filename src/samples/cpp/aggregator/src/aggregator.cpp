@@ -5,7 +5,7 @@
 namespace samples
 {
 
-Aggregator::Aggregator(long int timestamp)
+Aggregator::Aggregator(int64_t timestamp)
 : raw_msg_count_(0), filtered_msg_count_(0), start_(timestamp),
   latest_raw_time_(-1), latest_filtered_time_(-1)
 {
@@ -31,7 +31,7 @@ void Aggregator::add_raw_msg(
   const sample_msgs::msg::Unfiltered::SharedPtr msg)
 {
   latest_raw_time_ = std::max(
-    msg->timestamp, latest_raw_time_);
+    static_cast<int64_t>(msg->timestamp), latest_raw_time_);
   raw_msg_count_++;
 }
 
@@ -40,7 +40,7 @@ void Aggregator::add_filtered_msg(
 {
   for (auto filtered_msg : msg->packets) {
     latest_filtered_time_ = std::max(
-      filtered_msg.timestamp, latest_filtered_time_);
+      static_cast<int64_t>(filtered_msg.timestamp), latest_filtered_time_);
   }
   filtered_msg_count_++;
 }
