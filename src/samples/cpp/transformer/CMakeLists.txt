@@ -11,27 +11,16 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-
-set(msg_files
-    msg/Filtered.msg
-    msg/FilteredArray.msg
-    msg/Unfiltered.msg
-    msg/Metadata.msg)
-rosidl_generate_interfaces(transformer
-    ${msg_files}
-    DEPENDENCIES std_msgs)
+find_package(sample_msgs REQUIRED)
 
 add_library(transformer_lib
   src/transformer.cpp)
 target_include_directories(transformer_lib
   PUBLIC
-  include
-  isEven_cpp/src)
-rosidl_target_interfaces(transformer_lib
-  ${PROJECT_NAME} "rosidl_typesupport_cpp")
-ament_target_dependencies(transformer_lib rclcpp std_msgs)
+  include)
+ament_target_dependencies(transformer_lib
+  rclcpp
+  sample_msgs)
 
 option(BUILD_TESTING "Build tests" ON)
 if(BUILD_TESTING)
@@ -41,16 +30,9 @@ if(BUILD_TESTING)
 
   list(APPEND AMENT_LINT_AUTO_EXCLUDE
     ament_cmake_cpplint
-    ament_cmake_uncrustify
     ament_cmake_copyright)
 
-  set(LINTER_DIRECTORY_INCLUDES
-    include
-    src
-    test)
-  ament_cpplint(${LINTER_DIRECTORY_INCLUDES}
-    FILTERS "-legal/copyright")
-  ament_uncrustify(${LINTER_DIRECTORY_INCLUDES})
+  ament_cpplint(FILTERS "-legal/copyright")
 
   ament_lint_auto_find_test_dependencies()
 
@@ -78,5 +60,4 @@ install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME})
 
-ament_export_dependencies(rosidl_default_runtime)
 ament_package()

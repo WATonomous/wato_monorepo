@@ -1,3 +1,3 @@
 string data
-int64 timestamp
+int64  timestamp
 bool   valid

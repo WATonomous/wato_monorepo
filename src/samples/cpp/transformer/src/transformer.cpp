@@ -1,73 +1,42 @@
 #include <string>
+#include <vector>
 
-#include "isEven.h"
 #include "transformer.hpp"
 
+namespace samples
+{
+
 Transformer::Transformer()
-: Node("transformer")
 {
-  raw_sub_ = this->create_subscription<transformer::msg::Unfiltered>(
-    "unfiltered", ADVERTISING_FREQ,
-    std::bind(
-      &Transformer::unfiltered_callback, this,
-      std::placeholders::_1));
-  transform_pub_ =
-    this->create_publisher<transformer::msg::FilteredArray>("filtered", ADVERTISING_FREQ);
-
-  // Define the default values for parameters if not defined in params.yaml
-  this->declare_parameter("version", rclcpp::ParameterValue(0));
-  this->declare_parameter("compression_method", rclcpp::ParameterValue(0));
 }
 
-void Transformer::unfiltered_callback(const transformer::msg::Unfiltered::SharedPtr msg)
+std::vector<sample_msgs::msg::Filtered> Transformer::buffer_messages() const
 {
-  auto filtered_msg = transformer::msg::Filtered();
-  bool valid = filtered_transformer(msg, filtered_msg);
-  // Filter out messages that are invalid
-  if (valid) {
-    publish_buffer(filtered_msg);
-  }
+  return buffer_;
 }
 
-bool Transformer::filtered_transformer(
-  const transformer::msg::Unfiltered::SharedPtr unfiltered,
-  transformer::msg::Filtered & filtered)
+void Transformer::clear_buffer()
 {
-  // Filter messages that are invalid or have an odd timestamp
-  if (!unfiltered->valid || !_isEven(unfiltered->timestamp % 2)) {
-    return false;
-  }
-
-  // Filter messages where serialized position data is corrupt
-  if (!deserialize_position(unfiltered, filtered)) {
-    return false;
-  }
-  filtered.timestamp = unfiltered->timestamp;
-  filtered.metadata.version = this->get_parameter("version").as_int();
-  filtered.metadata.compression_method =
-    this->get_parameter("compression_method").as_int();
-  return true;
+  buffer_.clear();
 }
 
-void Transformer::publish_buffer(const transformer::msg::Filtered & msg)
+bool Transformer::validate_message(
+  const sample_msgs::msg::Unfiltered::SharedPtr unfiltered)
 {
-  buffer_.push_back(msg);
-  // Publish processed data when the buffer reaches its capacity
-  if (buffer_.size() == BUFFER_CAPACITY) {
-    transformer::msg::FilteredArray filtered_msgs;
-    // Construct FilteredArray object
-    for (auto & packet : buffer_) {
-      filtered_msgs.packets.push_back(packet);
-    }
-
-    transform_pub_->publish(filtered_msgs);
-    buffer_.clear();
-  }
+  return unfiltered->valid;
 }
 
-bool Transformer::deserialize_position(
-  const transformer::msg::Unfiltered::SharedPtr unfiltered,
-  transformer::msg::Filtered & filtered)
+bool Transformer::enqueue_message(const sample_msgs::msg::Filtered & msg)
+{
+  if (buffer_.size() < BUFFER_CAPACITY) {
+    buffer_.push_back(msg);
+  }
+  return buffer_.size() == BUFFER_CAPACITY;
+}
+
+bool Transformer::deserialize_coordinate(
+  const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
+  sample_msgs::msg::Filtered & filtered)
 {
   std::string serialized_position = unfiltered->data;
   auto start_pos = serialized_position.find("x:");
@@ -110,3 +79,5 @@ bool Transformer::deserialize_position(
   filtered.pos_z = z;
   return true;
 }
+
+}  // namespace samples

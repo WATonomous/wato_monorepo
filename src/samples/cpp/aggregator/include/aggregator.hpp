@@ -3,51 +3,71 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "aggregator/msg/unfiltered.hpp"
-#include "aggregator/msg/filtered_array.hpp"
+#include "sample_msgs/msg/unfiltered.hpp"
+#include "sample_msgs/msg/filtered_array.hpp"
+
+namespace samples
+{
 
 /**
- * Implementation of a ROS2 node that listens to the "unfiltered" and "filtered"
- * topics and echoes the data to the console.
- * 
+ * Implementation of the internal logic used by the Aggregator Node to
+ * calculate the operating frequency of topics.
  */
-class Aggregator : public rclcpp::Node
+class Aggregator
 {
 public:
-  // Configure pubsub nodes to keep last 100 messages.
-  // https://docs.ros.org/en/foxy/Concepts/About-Quality-of-Service-Settings.html
-  static constexpr int ADVERTISING_FREQ = 100;
-
-public:
   /**
-   * Construct a new Aggregator object.
+   * @param timestamp the Unix timestamp https://en.wikipedia.org/wiki/Unix_time
    */
-  Aggregator();
+  explicit Aggregator(long int timestamp);
 
   /**
-   * A ROS2 subscription node callback used to unpack raw data from the "unfiltered"
-   * topic and echo its contents to the console.
-   * 
-   * @param msg a raw message from the "unfiltered" topic
+   * Calculates the operating frequency on the "unfiltered" topic. Handles
+   * invalid timestamps and division by zero by returning zero.
+   *
+   * @returns frequency of messages on "unfiltered" topic
    */
-  virtual void unfiltered_callback(
-    const aggregator::msg::Unfiltered::SharedPtr msg);
+  double raw_frequency() const;
+  /**
+   * Calculates the operating frequency on the "filtered" topic. Handles
+   * invalid timestamps and division by zero by returning zero.
+   *
+   * @returns frequency of messages on "filtered" topic
+   */
+  double filtered_frequency() const;
 
   /**
-   * A ROS2 subscription node callback used to unpack processed data from the
-   * "filtered" topic and echo its contents to the console.
-   * 
-   * @param msg a processed message from the "filtered" topic
+   * Used to keep track of latest timestamp and number of messages received
+   * over the "unfiltered" topic. Should be called before raw_frequency().
+   *
+   * @param msg
    */
-  virtual void filtered_callback(
-    const aggregator::msg::FilteredArray::SharedPtr msg);
+  void add_raw_msg(
+    const sample_msgs::msg::Unfiltered::SharedPtr msg);
+  /**
+   * Used to keep track of latest timestamp and number of messages received
+   * over the "filtered" topic. Should be called before filtered_frequency().
+   *
+   * @param msg
+   */
+  void add_filtered_msg(
+    const sample_msgs::msg::FilteredArray::SharedPtr msg);
 
-protected:
-  // ROS2 subscriber listening to the unfiltered topic.
-  rclcpp::Subscription<aggregator::msg::Unfiltered>::SharedPtr raw_sub_;
+private:
+  // Number of message received on "unfiltered" and "filtered" topics.
+  int raw_msg_count_;
+  int filtered_msg_count_;
 
-  // ROS2 subscriber listening to the filtered topic.
-  rclcpp::Subscription<aggregator::msg::FilteredArray>::SharedPtr filtered_sub_;
+  // Unix timestamp used to determine the amount of time that has passed
+  // since the beginning of the program.
+  long int start_;
+
+  // Unix timestamps for last time a message was received on the "unfiltered"
+  // and "filtered" topics.
+  long int latest_raw_time_;
+  long int latest_filtered_time_;
 };
+
+}  // namespace samples
 
 #endif  // AGGREGATOR_HPP_

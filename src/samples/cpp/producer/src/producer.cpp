@@ -4,41 +4,31 @@
 
 #include "producer.hpp"
 
-using namespace std::chrono_literals;
-
-Producer::Producer(bool disable_timer)
-: Node("producer")
+namespace samples
 {
-  data_pub_ = this->create_publisher<producer::msg::Unfiltered>(
-    "unfiltered", ADVERTISING_FREQ);
-  // Ignore initializing timer for unit tests
-  if (!disable_timer) {
-    timer_ = this->create_wall_timer(
-      100ms,
-      std::bind(&Producer::timer_callback, this));
-  }
 
-  // Define the default values for parameters if not defined in params.yaml
-  this->declare_parameter("x_pos", 0);
-  this->declare_parameter("y_pos", 0);
-  this->declare_parameter("z_pos", 0);
-  this->declare_parameter("valid", true);
+Producer::Producer(int x, int y, int z)
+: pos_x_(x), pos_y_(y), pos_z_(z), velocity_(0)
+{
 }
 
-void Producer::timer_callback()
+void Producer::set_velocity(int velocity)
 {
-  // Retrieve parameters from params.yaml
-  int pos_x = this->get_parameter("x_pos").as_int();
-  int pos_y = this->get_parameter("y_pos").as_int();
-  int pos_z = this->get_parameter("z_pos").as_int();
-  bool valid = this->get_parameter("valid").as_bool();
-
-  auto msg = producer::msg::Unfiltered();
-  msg.data = "x:" + std::to_string(pos_x) + ";y:" + std::to_string(pos_y) +
-    ";z:" + std::to_string(pos_z) + ";";
-  msg.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-  msg.valid = valid;
-
-  RCLCPP_INFO(this->get_logger(), "Publishing: %s\n", msg.data.c_str());
-  data_pub_->publish(msg);
+  velocity_ = velocity;
 }
+
+void Producer::update_coordinates()
+{
+  pos_x_ += velocity_;
+  pos_y_ += velocity_;
+  pos_z_ += velocity_;
+}
+
+void Producer::serialize_coordinates(sample_msgs::msg::Unfiltered & msg) const
+{
+  msg.data = "x:" + std::to_string(pos_x_) + ";y:" + std::to_string(pos_y_) +
+    ";z:" + std::to_string(pos_z_) + ";";
+  msg.valid = true;
+}
+
+}  // namespace samples
