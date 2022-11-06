@@ -36,8 +36,10 @@ function run_compose {
         PROFILES="$(source .env && printf -- "-f profiles/docker-compose.%s.yaml " ${ACTIVE_PROFILES[@]})"
     fi
     
-    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f docker-compose.yaml ${PROFILES[@]} "$@"
-    # DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f ${PROFILES[@]} "$@"
+    # DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f docker-compose.yaml ${PROFILES[@]} "$@"
+    echo $PROFILES
+    echo $ACTIVE_PROFILES
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f ${PROFILES[@]} "$@"
 }
 
 if [ $# == 0 ]; then

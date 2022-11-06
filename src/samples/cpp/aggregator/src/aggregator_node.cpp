@@ -28,7 +28,7 @@ void AggregatorNode::unfiltered_callback(
   aggregator_.add_raw_msg(msg);
   RCLCPP_INFO(
     this->get_logger(), "Raw Frequency(msg/s): %f\n",
-    aggregator_.raw_frequency()*1000);
+    aggregator_.raw_frequency() * 1000);
 }
 
 void AggregatorNode::filtered_callback(
@@ -37,7 +37,7 @@ void AggregatorNode::filtered_callback(
   aggregator_.add_filtered_msg(msg);
   RCLCPP_INFO(
     this->get_logger(), "Filtered Frequency(msg/s): %f\n",
-    aggregator_.filtered_frequency()*1000);
+    aggregator_.filtered_frequency() * 1000);
 }
 
 int main(int argc, char ** argv)

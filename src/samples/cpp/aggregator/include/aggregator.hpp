@@ -19,7 +19,7 @@ public:
   /**
    * @param timestamp the Unix timestamp https://en.wikipedia.org/wiki/Unix_time
    */
-  explicit Aggregator(long int timestamp);
+  explicit Aggregator(int64_t timestamp);
 
   /**
    * Calculates the operating frequency on the "unfiltered" topic. Handles
@@ -60,12 +60,12 @@ private:
 
   // Unix timestamp used to determine the amount of time that has passed
   // since the beginning of the program.
-  long int start_;
+  int64_t start_;
 
   // Unix timestamps for last time a message was received on the "unfiltered"
   // and "filtered" topics.
-  long int latest_raw_time_;
-  long int latest_filtered_time_;
+  int64_t latest_raw_time_;
+  int64_t latest_filtered_time_;
 };
 
 }  // namespace samples
