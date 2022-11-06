@@ -66,7 +66,7 @@ ROS_MASTER_URI=${ROS_MASTER_URI:-"https://localhost:11311"}
 #   - can_interface    		:   starts the ROS drivers for CAN
 #   - samples               :   starts sample ROS2 pubsub nodes
 
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-"samples"}
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-"perception gui_tools bag_bridge"}
 
 # List of profiles to IGNORE when using the --all flag
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}

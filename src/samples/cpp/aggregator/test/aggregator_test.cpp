@@ -1,5 +1,4 @@
 #include <memory>
-#include <thread>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -7,78 +6,73 @@
 
 #include "aggregator.hpp"
 
-class AggregatorMock : public Aggregator
+TEST(AggregatorTest, RawDivisionByZero)
 {
-public:
-  explicit AggregatorMock(int expected_count)
-  : Aggregator(), done(false), unfiltered_count(0), filtered_count(0),
-    expected_count(expected_count) {}
+  samples::Aggregator aggregator(0);
+  auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
+  msg->timestamp = 0;
 
-  void unfiltered_callback(
-    const aggregator::msg::Unfiltered::SharedPtr msg) override
-  {
-    unfiltered_count++;
-    if (unfiltered_count >= expected_count) {
-      done = true;
-    }
-  }
+  aggregator.add_raw_msg(msg);
+  EXPECT_DOUBLE_EQ(0.0, aggregator.raw_frequency());
+}
 
-  void filtered_callback(
-    const aggregator::msg::FilteredArray::SharedPtr msg) override
-  {
-    filtered_count++;
-    if (filtered_count >= expected_count) {
-      done = true;
-    }
-  }
-
-  bool done;
-  int unfiltered_count;
-  int filtered_count;
-  int expected_count;
-};
-
-TEST(AggregatorTest, ReceiveUnfiltered)
+TEST(AggregatorTest, FilteredDivisionByZero)
 {
-  rclcpp::init(0, nullptr);
-  int expected_msgs_received = 5;
-  auto aggregator_node = std::make_shared<AggregatorMock>(expected_msgs_received);
-  auto test_node = rclcpp::Node::make_shared("test_node");
-  auto publisher =
-    test_node->create_publisher<aggregator::msg::Unfiltered>(
-    "unfiltered", Aggregator::ADVERTISING_FREQ);
+  samples::Aggregator aggregator(1);
+  auto filtered_packet = std::make_shared<sample_msgs::msg::FilteredArray>();
+  std::vector<sample_msgs::msg::Filtered> msgs;
+  auto msg = sample_msgs::msg::Filtered();
+  msg.timestamp = 1;
+  msgs.push_back(msg);
+  filtered_packet->packets = msgs;
 
-  auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>(
-    rclcpp::ExecutorOptions(), 2, false);
-  executor->add_node(aggregator_node);
-  executor->add_node(test_node);
-  std::thread t([executor] {executor->spin();});
+  aggregator.add_filtered_msg(filtered_packet);
+  EXPECT_DOUBLE_EQ(0.0, aggregator.filtered_frequency());
+}
 
-  std::vector<aggregator::msg::Unfiltered> unfiltered_msgs;
-  for (int i = 0; i < expected_msgs_received; i++) {
-    auto msg = aggregator::msg::Unfiltered();
-    msg.data = "x:3;y:1;z:2;";
-    msg.valid = false;
-    unfiltered_msgs.push_back(msg);
-  }
+TEST(AggregatorTest, RawFrequencyAddSingleMessage)
+{
+  samples::Aggregator aggregator(0);
+  auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
 
-  for (auto & msg : unfiltered_msgs) {
-    publisher->publish(msg);
-  }
+  msg->timestamp = 2;
+  aggregator.add_raw_msg(msg);
+  EXPECT_DOUBLE_EQ(0.5, aggregator.raw_frequency());
+}
 
-  auto thread_sleep_ms = std::chrono::milliseconds(10);
-  int retries = 0;
-  int max_retries = 100;
-  while (!aggregator_node->done && retries < max_retries) {
-    std::this_thread::sleep_for(thread_sleep_ms);
-    retries++;
-  }
+TEST(AggregatorTest, RawFrequencyAddMultipleMessages)
+{
+  samples::Aggregator aggregator(0);
+  auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
 
-  executor->cancel();
-  t.join();
+  msg->timestamp = 2;
+  aggregator.add_raw_msg(msg);
+  EXPECT_DOUBLE_EQ(0.5, aggregator.raw_frequency());
 
-  EXPECT_EQ(aggregator_node->unfiltered_count, expected_msgs_received);
-  EXPECT_EQ(aggregator_node->filtered_count, 0);
+  msg->timestamp = 1;
+  aggregator.add_raw_msg(msg);
+  EXPECT_DOUBLE_EQ(1.0, aggregator.raw_frequency());
 
-  rclcpp::shutdown();
+  msg->timestamp = 5;
+  aggregator.add_raw_msg(msg);
+  EXPECT_DOUBLE_EQ(0.6, aggregator.raw_frequency());
+}
+
+TEST(AggregatorTest, FilteredUnorderedTimestamps)
+{
+  samples::Aggregator aggregator(0);
+  auto filtered_packet = std::make_shared<sample_msgs::msg::FilteredArray>();
+  std::vector<sample_msgs::msg::Filtered> msgs;
+  auto msg = sample_msgs::msg::Filtered();
+
+  msg.timestamp = 5;
+  msgs.push_back(msg);
+  msg.timestamp = 2;
+  msgs.push_back(msg);
+  msg.timestamp = 3;
+  msgs.push_back(msg);
+  filtered_packet->packets = msgs;
+
+  aggregator.add_filtered_msg(filtered_packet);
+  EXPECT_DOUBLE_EQ(0.2, aggregator.filtered_frequency());
 }
