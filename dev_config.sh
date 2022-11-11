@@ -10,7 +10,7 @@ if [ -f /.dockerenv ]; then
 	exit 1
 fi
 
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+SCRIPT_DIR="$(dirname "$(realpath "$0")")/profiles"
 
 # Allow for local overrides of any of the below parameters
 if [ -f "$SCRIPT_DIR/dev_config.local.sh" ]; then
@@ -27,8 +27,6 @@ BRANCH=${BRANCH/\//-}
 
 ## ----------------------- Configuration ----------------------------
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
-
-CODE_SERVER_PASS=${CODE_SERVER_PASS:-pass}
 
 # Docker build stage to build or run. Typically our dockerfiles have two main stages: 
 #   repo (minimal) and debug (containing debug tools, eg code-server)
@@ -48,8 +46,6 @@ CARLA_QUALITY=${CARLA_QUALITY:-"Low"}
 # ROS_IP is the IP that nodes will publish as (client's hostname)
 ROS_HOSTNAME=${ROS_HOSTNAME:-"localhost"}
 ROS_IP=${ROS_IP:-"127.0.0.1"}
-# URI is the IP at which the rosmaster is being hosted
-ROS_MASTER_URI=${ROS_MASTER_URI:-"https://localhost:11311"}
 
 ## ----------------- Profile Configuration --------------------
 
@@ -117,7 +113,9 @@ GNSS_IMU_DRIVER_IMAGE=${GNSS_IMU_DRIVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous
 # CAN Interface
 CAN_INTERFACE_IMAGE=${CAN_INTERFACE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/can_interface"}
 
-# Samples C++ Transformer
+# ROS2 C++ Samples
+SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_aggregator"}
+SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_producer"}
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
 
 ## -------------------------- User ID -----------------------------
@@ -129,19 +127,7 @@ FIXGID=$(id -g)
 
 BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT++))}
-GUI_TOOLS_CODE_PORT=${GUI_TOOLS_CODE_PORT:-$((BASE_PORT++))}
 MATLAB_VNC_PORT=${MATLAB_VNC_PORT:-$((BASE_PORT++))}
-PP_ENV_MODEL_CODE_PORT=${PP_ENV_MODEL_CODE_PORT:-$((BASE_PORT++))}
-OBJECT_TRACKING_CODE_PORT=${OBJECT_TRACKING_CODE_PORT:-$((BASE_PORT++))}
-PERCEPTION_CODE_PORT=${PERCEPTION_CODE_PORT:-$((BASE_PORT++))}
-CAMERA_DETECTION_CODE_PORT=${CAMERA_DETECTION_CODE_PORT:-$((BASE_PORT++))}
-ROSBRIDGE_CODE_PORT=${ROSBRIDGE_CODE_PORT:-$((BASE_PORT++))}
-PP_GLOBAL_MAPPING_CODE_PORT=${PP_GLOBAL_MAPPING_CODE_PORT:-$((BASE_PORT++))}
-LOCAL_PLANNING_CODE_PORT=${LOCAL_PLANNING_CODE_PORT:-$((BASE_PORT++))}
-EGO_LOCALIZATION_CODE_PORT=${EGO_LOCALIZATION_CODE_PORT:-$((BASE_PORT++))}
-LIDAR_ODOMETRY_CODE_PORT=${LIDAR_ODOMETRY_CODE_PORT:-$((BASE_PORT++))}
-OCCUPANCY_CODE_PORT=${OCCUPANCY_CODE_PORT:-$((BASE_PORT++))}
-HD_MAPS_PROCESSING_CODE_PORT=${HD_MAPS_PROCESSING_CODE_PORT:-$((BASE_PORT++))}
 
 ## -------------------- Environment Variables -------------------------
 
@@ -154,11 +140,9 @@ echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$SCRIPT_DIR/.env"
 
 echo "CARLA_VERSION=$CARLA_VERSION" >> "$SCRIPT_DIR/.env"
 echo "CARLA_QUALITY=$CARLA_QUALITY" >> "$SCRIPT_DIR/.env"
-echo "CODE_SERVER_PASS=$CODE_SERVER_PASS" >> "$SCRIPT_DIR/.env"
 
 echo "ROS_IP=$ROS_IP" >> "$SCRIPT_DIR/.env"
 echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$SCRIPT_DIR/.env"
-echo "ROS_MASTER_URI=$ROS_MASTER_URI" >> "$SCRIPT_DIR/.env"
 
 echo "ENV_MODEL_IMAGE=$ENV_MODEL_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "GLOBAL_MAPPING_IMAGE=$GLOBAL_MAPPING_IMAGE" >> "$SCRIPT_DIR/.env"
@@ -181,6 +165,8 @@ echo "LIDAR_ODOMETRY_IMAGE=$LIDAR_ODOMETRY_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "GNSS_IMU_DRIVER_IMAGE=$GNSS_IMU_DRIVER_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "CAN_INTERFACE_IMAGE=$CAN_INTERFACE_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "HD_MAPS_PROCESSING_IMAGE=$HD_MAPS_PROCESSING_IMAGE" >> "$SCRIPT_DIR/.env"
+echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$SCRIPT_DIR/.env"
+echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$SCRIPT_DIR/.env"
 
 echo "TAG=$TAG" >> "$SCRIPT_DIR/.env"
@@ -192,17 +178,5 @@ echo "FIXGID=$FIXGID" >> "$SCRIPT_DIR/.env"
 
 echo "BASE_PORT=$BASE_PORT" >> "$SCRIPT_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$SCRIPT_DIR/.env"
-echo "GUI_TOOLS_CODE_PORT=$GUI_TOOLS_CODE_PORT" >> "$SCRIPT_DIR/.env"
 echo "MATLAB_VNC_PORT=$MATLAB_VNC_PORT" >> "$SCRIPT_DIR/.env"
-echo "PP_ENV_MODEL_CODE_PORT=$PP_ENV_MODEL_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "OBJECT_TRACKING_CODE_PORT=$OBJECT_TRACKING_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "PERCEPTION_CODE_PORT=$PERCEPTION_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "CAMERA_DETECTION_CODE_PORT=$CAMERA_DETECTION_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "ROSBRIDGE_CODE_PORT=$ROSBRIDGE_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "PP_GLOBAL_MAPPING_CODE_PORT=$PP_GLOBAL_MAPPING_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "OCCUPANCY_CODE_PORT=$OCCUPANCY_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "LOCAL_PLANNING_CODE_PORT=$LOCAL_PLANNING_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "EGO_LOCALIZATION_CODE_PORT=$EGO_LOCALIZATION_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "HD_MAPS_PROCESSING_CODE_PORT=$HD_MAPS_PROCESSING_CODE_PORT" >> "$SCRIPT_DIR/.env"
-echo "LIDAR_ODOMETRY_CODE_PORT=$LIDAR_ODOMETRY_CODE_PORT" >> "$SCRIPT_DIR/.env"
-cat .env
+cat $SCRIPT_DIR/.env
