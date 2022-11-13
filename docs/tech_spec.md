@@ -3,7 +3,7 @@
 
 ## Docker
 
-Except in exceptional situations, each dockerfile in `docker/` should have three stages: `base`, `repo`, and `debug`. `base` contains the runtime dependencies for the project the image will be running. `repo` copies the source code into the image. `debug` contains all the fancy tools we use during development. For example, our code-server and vnc server. When we run the containers in production, we have no neeed for code-servers or vnc-servers, so we use the `repo` stage. In development, we use the `debug` stage. The target stage to launch can be specified in `dev_config.sh`
+Except in exceptional situations, each dockerfile in `docker/` should have three stages: `base`, `repo`, and `debug`. `base` contains the runtime dependencies for the project the image will be running. `repo` copies the source code into the image. `debug` contains all the fancy tools we use during development. For example, our code-server and vnc server. When we run the containers in production, we have no need for code-servers or vnc-servers, so we use the `repo` stage. In development, we use the `debug` stage. The target stage to launch can be specified in `dev_config.sh`
 
 ## Continuous Integration
 
