@@ -1,6 +1,6 @@
 # Monorepo Information
 
-Information about the MonoRepo
+Information about the Monorepo
 
 ## About
 
@@ -14,7 +14,7 @@ First, what is a monorepo? A monolithic software repository (monorepo) is a sing
 
 A monorepo's primary advantage is that each commit hash is a complete source of truth and snapshot of the pipeline. For our autonomous pipeline, dependencies are critical and difficult to manage with many self-contained repositories. Instead of having manually update and maintain the complex denepdency tree in both production and development, we can simply change a single commit hash and be sure that (with automated testing) a single commit hash represents a working pipeline.
 
-Using a monorepo also allows for more collaboration between the teams. The perception team can easily see what the Path Planning team is working on and make modifications or improvements to code outside of their specific domain. This allows for flexible code ownership. Motivating this further, changes to the API of a specific component often require changes to many other modules. Instead of having to synchronize multiple merge requests across multiple repositories, all code review can be done in one place and is visible by all teams. 
+Using a monorepo also allows for more collaboration between the teams. The Perception team can easily see what the Path Planning team is working on and make modifications or improvements to code outside of their specific domain. This allows for flexible code ownership. Motivating this further, changes to the API of a specific component often require changes to many other modules. Instead of having to synchronize multiple merge requests across multiple repositories, all code review can be done in one place and is visible by all teams. 
 
 Monorepos also make [Continuous Integration](https://en.wikipedia.org/wiki/Continuous_integration) easier. In a nutshell, continuous integration (CI) is the process of regularly and automatically collecting the all code in one place to run automated unit tests, integration tests, compilation tests, and continuous deployment (automatically deploying to users, CI/CD). CI ensures that work done by developers will not diverge over time. CI also ensures a baseline level of code quality through regular testing.  With a monorepo, we have a single place to implement unit testing and CI scripts instead of them being dispersed across multiple repositories. Aggregating code is also significantly easier.
 
