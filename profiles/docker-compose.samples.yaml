@@ -10,7 +10,7 @@ services:
     image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ./src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
+      - ../src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
   producer:
     build:
       context: ..
@@ -21,7 +21,7 @@ services:
     image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ./src/samples/cpp/producer:/home/docker/ament_ws/src/producer
+      - ../src/samples/cpp/producer:/home/docker/ament_ws/src/producer
   transformer:
     build:
       context: ..
@@ -32,4 +32,4 @@ services:
     image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ./src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
+      - ../src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
