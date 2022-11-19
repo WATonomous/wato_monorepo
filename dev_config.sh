@@ -1,4 +1,5 @@
 #!/bin/bash
+ACTIVE_PROFILES="samples"
 
 # This script generates a .env file to be used with docker-compose
 # To override any of the variables in this script, create dev_config.local.sh 
