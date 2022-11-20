@@ -1,5 +1,5 @@
 #!/bin/bash
-ACTIVE_PROFILES="samples"
+ACTIVE_PROFILES="python_samples"
 
 # This script generates a .env file to be used with docker-compose
 # To override any of the variables in this script, create dev_config.local.sh 
@@ -116,6 +116,12 @@ RADAR_DRIVER_IMAGE=${RADAR_DRIVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_
 GNSS_IMU_DRIVER_IMAGE=${GNSS_IMU_DRIVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/gnss_imu_driver"}
 # CAN Interface
 CAN_INTERFACE_IMAGE=${CAN_INTERFACE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/can_interface"}
+
+#ROS2 Python Samples
+SAMPLES_PYTHON_AGGREGATOR_IMAGE=${SAMPLES_PYTHON_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_python_aggregator"}
+SAMPLES_PYTHON_PRODUCER_IMAGE=${SAMPLES_PYTHON_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_python_producer"}
+SAMPLES_PYTHON_TRANSFORMER_IMAGE=${SAMPLES_PYTHON_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_python_transformer"}
+
 
 ## -------------------------- User ID -----------------------------
 
