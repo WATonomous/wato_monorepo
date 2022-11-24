@@ -11,7 +11,7 @@ if [ -f /.dockerenv ]; then
 	exit 1
 fi
 
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+SCRIPT_DIR="$(dirname "$(realpath "$0")")/profiles"
 
 # Allow for local overrides of any of the below parameters
 if [ -f "$SCRIPT_DIR/dev_config.local.sh" ]; then
@@ -48,10 +48,6 @@ CARLA_QUALITY=${CARLA_QUALITY:-"Low"}
 ROS_HOSTNAME=${ROS_HOSTNAME:-"localhost"}
 ROS_IP=${ROS_IP:-"127.0.0.1"}
 
-# REMOVE============================================================
-# URI is the IP at which the rosmaster is being hosted
-ROS_MASTER_URI=${ROS_MASTER_URI:-"https://localhost:11311"}
-
 ## ----------------- Profile Configuration --------------------
 
 # List of active profiles to run, defined in docker-compose.yaml.
@@ -65,8 +61,9 @@ ROS_MASTER_URI=${ROS_MASTER_URI:-"https://localhost:11311"}
 #   - production    		:   configs for all containers required in production
 # 	- sensors				: 	starts all sensor drivers
 #   - can_interface    		:   starts the ROS drivers for CAN
+#   - samples               :   starts sample ROS2 pubsub nodes
 
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-"samples"}
 
 # List of profiles to IGNORE when using the --all flag
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
@@ -145,11 +142,9 @@ echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$SCRIPT_DIR/.env"
 
 echo "CARLA_VERSION=$CARLA_VERSION" >> "$SCRIPT_DIR/.env"
 echo "CARLA_QUALITY=$CARLA_QUALITY" >> "$SCRIPT_DIR/.env"
-echo "CODE_SERVER_PASS=$CODE_SERVER_PASS" >> "$SCRIPT_DIR/.env"
 
 echo "ROS_IP=$ROS_IP" >> "$SCRIPT_DIR/.env"
 echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$SCRIPT_DIR/.env"
-echo "ROS_MASTER_URI=$ROS_MASTER_URI" >> "$SCRIPT_DIR/.env"
 
 echo "ENV_MODEL_IMAGE=$ENV_MODEL_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "GLOBAL_MAPPING_IMAGE=$GLOBAL_MAPPING_IMAGE" >> "$SCRIPT_DIR/.env"
@@ -172,6 +167,9 @@ echo "LIDAR_ODOMETRY_IMAGE=$LIDAR_ODOMETRY_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "GNSS_IMU_DRIVER_IMAGE=$GNSS_IMU_DRIVER_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "CAN_INTERFACE_IMAGE=$CAN_INTERFACE_IMAGE" >> "$SCRIPT_DIR/.env"
 echo "HD_MAPS_PROCESSING_IMAGE=$HD_MAPS_PROCESSING_IMAGE" >> "$SCRIPT_DIR/.env"
+echo "SAMPLES_PYTHON_AGGREGATOR_IMAGE=$SAMPLES_PYTHON_AGGREGATOR_IMAGE" >> "$SCRIPT_DIR/.env"
+echo "SAMPLES_PYTHON_PRODUCER_IMAGE=$SAMPLES_PYTHON_PRODUCER_IMAGE" >> "$SCRIPT_DIR/.env"
+echo "SAMPLES_PYTHON_TRANSFORMER_IMAGE=$SAMPLES_PYTHON_TRANSFORMER_IMAGE" >> "$SCRIPT_DIR/.env"
 
 echo "TAG=$TAG" >> "$SCRIPT_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$SCRIPT_DIR/.env"
@@ -183,4 +181,4 @@ echo "FIXGID=$FIXGID" >> "$SCRIPT_DIR/.env"
 echo "BASE_PORT=$BASE_PORT" >> "$SCRIPT_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$SCRIPT_DIR/.env"
 echo "MATLAB_VNC_PORT=$MATLAB_VNC_PORT" >> "$SCRIPT_DIR/.env"
-cat .env
+cat $SCRIPT_DIR/.env
