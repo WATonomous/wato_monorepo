@@ -15,11 +15,11 @@ services:
     build:
       context: ..
       dockerfile: docker/samples/python/Dockerfile.producer
-    #   cache_from:
-    #     - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}-${CACHE_FROM_TAG}"
-    #     - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}-develop"
-    # image: "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}-${TAG}"
-    # user: ${FIXUID:?}:${FIXGID:?}
+      cache_from:
+        - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}-develop"
+    image: "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/samples/python/producer:/home/docker/ament_ws/src/producer
   # transformer:
