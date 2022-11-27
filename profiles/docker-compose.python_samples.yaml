@@ -23,14 +23,15 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/samples/python/producer:/home/docker/ament_ws/src/producer
-  # transformer:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/samples/python/Dockerfile.transformer
-    #   cache_from:
-    #     - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}-${CACHE_FROM_TAG}"
-    #     - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}-develop"
-    # image: "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}-${TAG}"
-    # user: ${FIXUID:?}:${FIXGID:?}
-    # volumes:
-    #   - ../src/samples/python/transformer:/home/docker/ament_ws/src/transformer
+  transformer:
+    build:
+      context: ..
+      dockerfile: docker/samples/python/Dockerfile.transformer
+      cache_from:
+        - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}-develop"
+    image: "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}-${TAG}"
+    # command: tail -F anything
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/samples/python/transformer:/home/docker/ament_ws/src/transformer

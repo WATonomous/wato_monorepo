@@ -22,9 +22,9 @@ class Producer(Node):
         return velocity_
 
     def produce_data(self):
-        self.pos_x += self.set_velocity(2)
-        self.pos_y += self.set_velocity(2)
-        self.pos_z += self.set_velocity(2)
+        self.pos_x += self.set_velocity(2.2)
+        self.pos_y += self.set_velocity(1.5)
+        self.pos_z += self.set_velocity(1.3)
 
     def serialize_data(self):
         self.produce_data()
