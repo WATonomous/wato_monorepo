@@ -1,16 +1,17 @@
 version: "3.8"
 services:
-  # aggregator:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/samples/python/Dockerfile.aggregator
-    #   cache_from:
-    #     - "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}-${CACHE_FROM_TAG}"
-    #     - "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}-develop"
-    # image: "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}-${TAG}"
-    # user: ${FIXUID:?}:${FIXGID:?}
-    # volumes:
-    #   - ../src/samples/python/aggregator:/home/docker/ament_ws/src/aggregator
+  aggregator:
+    build:
+      context: ..
+      dockerfile: docker/samples/python/Dockerfile.aggregator
+      cache_from:
+        - "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}-develop"
+    image: "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}-${TAG}"
+    # command: tail -F anything
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/samples/python/aggregator:/home/docker/ament_ws/src/aggregator
   producer:
     build:
       context: ..
