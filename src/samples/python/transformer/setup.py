@@ -14,12 +14,13 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='aryanafrouzi',
-    maintainer_email='aryanafrouzi@swaprobotics.com',
+    maintainer_email='aafrouzi@watonomous.ca',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'transformer = transformer.transformer:main'
         ],
     },
 )
