@@ -38,7 +38,7 @@ The `watod2` will be your the main way that you interact with your containers. `
 
 We recommend you add `~/wato_monorepo_v2/` to your `$PATH` variable so that you can run `watod2` from anywhere on your computer, not just in your `~/wato_monorepo_v2` directory and add `watod2-completion.bash` to your bashrc to enable tab autocomplete:
 ```bash
-$ echo "export PATH=\$PATH:\$HOME/wato_monorepo_v2/" >> ~/.bashrc
-$ echo "source ~/wato_monorepo/scripts/watod2-completion.bash" >> ~/.bashrc
-$ source ~/.bashrc
+echo "export PATH=\$PATH:\$HOME/wato_monorepo_v2/" >> ~/.bashrc
+echo "source ~/wato_monorepo/scripts/watod2-completion.bash" >> ~/.bashrc
+source ~/.bashrc
 ```
