@@ -27,12 +27,12 @@ TEST(ProducerTest, MultipleCoordinateUpdate)
   auto producer = samples::Producer();
   auto msg = sample_msgs::msg::Unfiltered();
 
-  producer.set_velocity(1);
+  producer.update_velocity(1);
   producer.update_coordinates();
   producer.serialize_coordinates(msg);
   EXPECT_EQ(msg.data, "x:1;y:1;z:1;");
 
-  producer.set_velocity(-4);
+  producer.update_velocity(-4);
   producer.update_coordinates();
   producer.serialize_coordinates(msg);
   EXPECT_EQ(msg.data, "x:-3;y:-3;z:-3;");

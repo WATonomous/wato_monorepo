@@ -19,6 +19,9 @@ public:
   // https://docs.ros.org/en/foxy/Concepts/About-Quality-of-Service-Settings.html
   static constexpr int ADVERTISING_FREQ = 20;
 
+  /**
+   * Aggregator node constructor.
+   */
   AggregatorNode();
 
 private:

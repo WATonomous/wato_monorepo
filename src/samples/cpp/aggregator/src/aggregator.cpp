@@ -8,8 +8,7 @@ namespace samples
 Aggregator::Aggregator(int64_t timestamp)
 : raw_msg_count_(0), filtered_msg_count_(0), start_(timestamp),
   latest_raw_time_(-1), latest_filtered_time_(-1)
-{
-}
+{}
 
 double Aggregator::raw_frequency() const
 {

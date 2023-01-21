@@ -7,6 +7,12 @@
 
 #include "transformer.hpp"
 
+/**
+ * When writing a large number of tests it is desirable to wrap any common
+ * setup or cleanup logic in a test fixture. This improves readability and reduces
+ * the amount of boilerplate code in each test. For more information checkout
+ * https://google.github.io/googletest/primer.html#same-data-multiple-tests
+ */
 class TransformerFixtureTest : public ::testing::Test
 {
 public:
@@ -22,6 +28,11 @@ protected:
   samples::Transformer transformer;
 };
 
+/**
+ * Parameterized tests let us test the same logic with different parameters without
+ * having to write boilerplate for multiple tests. For more information checkout
+ * https://google.github.io/googletest/advanced.html#value-parameterized-tests
+ */
 class TransformerParameterizedTest
   : public ::testing::TestWithParam<std::tuple<const char *, bool>>
 {
@@ -79,6 +90,8 @@ TEST_P(TransformerParameterizedTest, SerializationValidation)
   EXPECT_EQ(transformer.deserialize_coordinate(unfiltered, filtered), valid);
 }
 
+// Parameterized testing lets us validate all edge cases for serialization
+// using one test case.
 INSTANTIATE_TEST_CASE_P(
   Serialization, TransformerParameterizedTest,
   ::testing::Values(

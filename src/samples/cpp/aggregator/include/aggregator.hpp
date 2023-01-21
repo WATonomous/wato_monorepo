@@ -17,6 +17,8 @@ class Aggregator
 {
 public:
   /**
+   * Aggregator constructor.
+   *
    * @param timestamp the Unix timestamp https://en.wikipedia.org/wiki/Unix_time
    */
   explicit Aggregator(int64_t timestamp);

@@ -17,7 +17,7 @@ ProducerNode::ProducerNode(int delay_ms)
   // Define the default values for parameters if not defined in params.yaml
   this->declare_parameter("velocity", 0);
   rclcpp::Parameter velocity = this->get_parameter("velocity");
-  producer_.set_velocity(velocity.as_int());
+  producer_.update_velocity(velocity.as_int());
 
   param_cb_ = this->add_on_set_parameters_callback(
     std::bind(&ProducerNode::parameters_callback, this, std::placeholders::_1));
@@ -47,7 +47,7 @@ rcl_interfaces::msg::SetParametersResult ProducerNode::parameters_callback(
     if (parameter.get_name() == "velocity" &&
       parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
     {
-      producer_.set_velocity(parameter.as_int());
+      producer_.update_velocity(parameter.as_int());
       RCLCPP_INFO(this->get_logger(), "Velocity successfully set to %d", parameter.as_int());
       result.successful = true;
     }

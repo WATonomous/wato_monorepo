@@ -22,6 +22,9 @@ public:
   static constexpr int BUFFER_CAPACITY = 10;
 
 public:
+  /**
+   * Transformer constructor.
+   */
   Transformer();
 
   /**

@@ -7,8 +7,7 @@ namespace samples
 {
 
 Transformer::Transformer()
-{
-}
+{}
 
 std::vector<sample_msgs::msg::Filtered> Transformer::buffer_messages() const
 {
