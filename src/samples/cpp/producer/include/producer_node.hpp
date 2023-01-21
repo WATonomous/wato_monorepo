@@ -22,6 +22,8 @@ public:
   static constexpr int ADVERTISING_FREQ = 20;
 
   /**
+   * Producer node constructor.
+   *
    * @param delay_ms the frequency with which the node produces data.
    */
   explicit ProducerNode(int delay_ms);
@@ -36,7 +38,7 @@ private:
   /**
    * Callback used to dynamically update velocity data at runtime.
    *
-   * @param parameters list of parameters that were modified
+   * @param parameters list of parameters (only velocity in this case) that were modified
    * @returns status message indicating whether update was successful
    */
   rcl_interfaces::msg::SetParametersResult parameters_callback(
@@ -51,7 +53,7 @@ private:
   // Callback to dynamically modify node parameters.
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_;
 
-  // Object containing methods to handle coordinate serialization and management.
+  // Producer implementation containing logic for coordinate serialization and management.
   samples::Producer producer_;
 };
 
