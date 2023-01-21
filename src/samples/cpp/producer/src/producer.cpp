@@ -12,7 +12,7 @@ Producer::Producer(int x, int y, int z)
 {
 }
 
-void Producer::set_velocity(int velocity)
+void Producer::update_velocity(int velocity)
 {
   velocity_ = velocity;
 }

@@ -16,6 +16,8 @@ class Producer
 {
 public:
   /**
+   * Producer constructor.
+   *
    * @param x optionally set the initial value of the x-coordinate
    * @param y same as above but for the y-coordinate
    * @param z same as above but for the z-coordinate
@@ -28,7 +30,7 @@ public:
    *
    * @param velocity the new value of the velocity
    */
-  void set_velocity(int velocity);
+  void update_velocity(int velocity);
 
   /**
    * Use the velocity parameter to increment the coordinate values.

@@ -3,12 +3,12 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    ld = LaunchDescription()
-
+    """Launch aggregator node."""
     aggregator_node = Node(
         package='aggregator',
         executable='aggregator_node',
     )
 
-    ld.add_action(aggregator_node)
-    return ld
+    return LaunchDescription([
+        aggregator_node
+    ])
