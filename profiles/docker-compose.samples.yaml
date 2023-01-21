@@ -3,7 +3,7 @@ services:
   aggregator:
     build:
       context: ..
-      dockerfile: docker/samples/cpp/Dockerfile.aggregator
+      dockerfile: docker/samples/cpp/aggregator.Dockerfile
       cache_from:
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${CACHE_FROM_TAG}"
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-develop"
@@ -14,7 +14,7 @@ services:
   producer:
     build:
       context: ..
-      dockerfile: docker/samples/cpp/Dockerfile.producer
+      dockerfile: docker/samples/cpp/producer.Dockerfile
       cache_from:
         - "${SAMPLES_CPP_PRODUCER_IMAGE:?}-${CACHE_FROM_TAG}"
         - "${SAMPLES_CPP_PRODUCER_IMAGE:?}-develop"
@@ -25,7 +25,7 @@ services:
   transformer:
     build:
       context: ..
-      dockerfile: docker/samples/cpp/Dockerfile.transformer
+      dockerfile: docker/samples/cpp/transformer.Dockerfile
       cache_from:
         - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${CACHE_FROM_TAG}"
         - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-develop"
