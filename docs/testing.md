@@ -1,16 +1,14 @@
 # Testing
 Our testing practices are motivated by the fact that we are developing a complex system in a field where safety is paramount.
 Over time we will introduce bugs and we want to reduce the amount of time spent debugging trivial issues.
-
 Testing is done in two phases. Unit testing, where modules are tested individually and integration testing, where groups of modules are tested together.
-The testing practices outlined below were inspired by the testing philosophies of [Autoware](https://autowarefoundation.gitlab.io/autoware.auto/AutowareAuto/testing-in-general.html).
 
 ## Unit Testing
 The goal of unit testing is to ensure that individual modules of the source code behave correctly.
 Since the focus of the tests is on a single component it is common to mock external inputs.
 This is important for testing ROS2 nodes since they are driven by a subscription model.
 The recommended way of structuring ROS2 nodes to facilitate unit testing is to have a class that manages tasks at the ROS system layer such as subscriptions, publishers, and parameters.
-Then have a class that manages the data processing methods that we would like to test.
+Then we have a class that manages the data processing methods that we would like to test.
 For instance,
 ```cpp
 class ROSNode : public rclcpp::Node
@@ -32,7 +30,7 @@ public:
 ```
 For more detailed examples checkout the [Sample C++ ROS2 Nodes](../src/samples/).
 
-For C++ Development ROS supports using gtest. Checkout the [Googletest Primer](https://google.github.io/googletest/primer.html) or the [Sample C++ ROS2 Nodes](../src/samples/) for more information.
+For C++ Development ROS2 supports using gtest. Checkout the [Googletest Primer](https://google.github.io/googletest/primer.html) or the [Sample C++ ROS2 Nodes](../src/samples/) for more information.
 
 ## Integration Testing
 In Progress

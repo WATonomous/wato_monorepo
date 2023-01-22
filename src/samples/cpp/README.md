@@ -1,8 +1,8 @@
 # Sample C++ Project
 A sample ROS2 project used as a reference for migrating ROS C++ nodes to ROS2. Highlights coding conventions and testing practices in ROS2.
 
-![Architecture](image/sample_ros_node_graph.png)
-Each ROS2 node is containerized([Producer](../../../docker/samples/cpp/Dockerfile.producer), [Transformer](../../../docker/samples/cpp/Dockerfile.transformer), [Aggregator](../../../docker/samples/cpp/Dockerfile.aggregator)) and communicate with each other using ROS2 publishers and subscribers.
+![Architecture](https://user-images.githubusercontent.com/65926174/213855531-8a663eac-8637-4d8a-adb3-9982d140f7b8.png)
+Each ROS2 node is containerized([Producer](../../../docker/samples/cpp/producer.Dockerfile), [Transformer](../../../docker/samples/cpp/transformer.Dockerfile), [Aggregator](../../../docker/samples/cpp/aggregator.Dockerfile)) and communicate with each other using ROS2 publishers and subscribers.
 
 ## Producer
 Produces [unfiltered](../../ros_msgs/sample_msgs/msg/Unfiltered.msg) coordinate data at 500ms intervals and publishes data to the [Transformer](#transformer) and [Aggregator](#aggregator) nodes. The coordinate data will be incremented according to the 'velocity' parameter. This can be dynamically adjusted with, `ros2 param set /producer velocity <some value>`.
@@ -19,6 +19,8 @@ Listens to messages from the Producer and Transfomer nodes and logs the frequenc
 To configure watod2, update `dev_config.local.sh` to include the samples profile.
 ```bash
 #!/bin/bash
+from dev_config.sh
+
 ACTIVE_PROFILES="samples"
 ```
 
