@@ -35,6 +35,7 @@ void TransformerNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::Sh
     this->get_parameter("compression_method").as_int();
 
   if (transformer_.enqueue_message(filtered)) {
+    RCLCPP_INFO(this->get_logger(), "Buffer Capacity Reached. PUBLISHING...\n");
     // Publish processed data when the buffer reaches its capacity
     sample_msgs::msg::FilteredArray filtered_msgs;
     auto buffer = transformer_.buffer_messages();
