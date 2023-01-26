@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'gap_follow'
+package_name = 'lidar_object_detection'
 
 setup(
     name=package_name,
@@ -15,12 +15,12 @@ setup(
     zip_safe=True,
     maintainer='s36gong, Steven Gong',
     maintainer_email='s36gong@uwaterloo.ca',
-    description='gap_follow',
+    description='lidar_object_detection',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'reactive_node = gap_follow.reactive_node:main',
+            'reactive_node = lidar_object_detection.reactive_node:main',
         ],
     },
 )

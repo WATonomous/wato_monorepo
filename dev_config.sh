@@ -63,6 +63,9 @@ SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
 
 LEADERBOARD_IMAGE=${LEADERBOARD_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/leaderboard"}
+CAMERA_OBJECT_DETECTION_IMAGE=${CAMERA_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/camera_object_detection"}
+LIDAR_OBJECT_DETECTION_IMAGE=${LIDAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_object_detection"}
+MULTIMODAL_OBJECT_DETECTION_IMAGE=${MULTIMODAL_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/multimodal_object_detection"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -91,6 +94,9 @@ echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "LEADERBOARD_IMAGE=$LEADERBOARD_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CAMERA_OBJECT_DETECTION_IMAGE=$CAMERA_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "LIDAR_OBJECT_DETECTION_IMAGE=$LIDAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "MULTIMODAL_OBJECT_DETECTION_IMAGE=$MULTIMODAL_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"
