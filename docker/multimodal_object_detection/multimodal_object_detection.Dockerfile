@@ -31,7 +31,7 @@ WORKDIR /home/docker/ament_ws/src
 # ================= Repositories ===================
 FROM base as repo
 
-COPY src/lidar_object_detection lidar_object_detection
+COPY src/multimodal_object_detection multimodal_object_detection
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
@@ -45,4 +45,4 @@ COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "run", "lidar_object_detection", "reactive_node"]
+CMD ["ros2", "run", "multimodal_object_detection", "reactive_node"]
