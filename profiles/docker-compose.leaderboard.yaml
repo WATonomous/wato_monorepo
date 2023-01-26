@@ -9,5 +9,12 @@ services:
         - "${LEADERBOARD_IMAGE:?}-develop"
     image: "${LEADERBOARD_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
+    expose:
+      - 2000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
     # volumes:
     #   - ../src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
