@@ -4,10 +4,10 @@ services:
     build:
       context: ..
       dockerfile: docker/camera_object_detection/camera_object_detection.Dockerfile
-      # cache_from:
-      #   - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${CACHE_FROM_TAG}"
-      #   - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-develop"
-    # image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${TAG}"
+      cache_from:
+        - "${CAMERA_OBJECT_DETECTION_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${CAMERA_OBJECT_DETECTION_IMAGE:?}-develop"
+    image: "${CAMERA_OBJECT_DETECTION_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/camera_object_detection:/home/docker/ament_ws/src/camera_object_detection

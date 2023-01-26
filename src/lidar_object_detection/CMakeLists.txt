@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(gap_follow)
+project(lidar_object_detection)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
