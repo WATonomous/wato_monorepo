@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  leaderboard:
+    build:
+      context: ..
+      dockerfile: docker/leaderboard/leaderboard.Dockerfile
+      cache_from:
+        - "${LEADERBOARD_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${LEADERBOARD_IMAGE:?}-develop"
+    image: "${LEADERBOARD_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    # volumes:
+    #   - ../src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
