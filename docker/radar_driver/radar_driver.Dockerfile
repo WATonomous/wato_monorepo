@@ -23,8 +23,9 @@ USER docker:docker
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-#COPY src/sensor_interfacing/radar_driver src/radar_driver
+COPY src/sensor_interfacing/radar_driver src/radar_driver
 
+WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
