@@ -1,10 +1,7 @@
 FROM ros:foxy AS base
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    ros-kinetic-perception-pcl build-essential \
-    python-catkin-tools python-rosdep libpcap0.8-dev \
-    wget curl
+RUN apt-get update && apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # Add a docker user so we that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
@@ -23,14 +20,16 @@ RUN USER=docker && \
 
 USER docker:docker
 
-RUN mkdir -p /home/docker/catkin_ws/src
-WORKDIR /home/docker/catkin_ws
+RUN mkdir -p ~/ament_ws/src
+WORKDIR /home/docker/ament_ws/src
 
-COPY src/sensor_interfacing/radar_driver src/radar_driver
+#COPY src/sensor_interfacing/radar_driver src/radar_driver
 
-RUN catkin config --extend /opt/ros/kinetic && \
-    catkin build && \
-    rm -rf .catkin_tools build
+RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
+    rosdep update && \
+    rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
+    colcon build \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
@@ -39,4 +38,4 @@ RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
 
-CMD ["roslaunch", "--wait", "radar_driver", "radarROSbag.launch"]
+#CMD ["roslaunch", "--wait", "radar_driver", "radarROSbag.launch"]
