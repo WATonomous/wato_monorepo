@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  carla_server:
+    build:
+      context: ..
+      dockerfile: docker/carla_server
+      # cache_from:
+      #   - "${CARLA_SERVER_IMAGE:?}-${CACHE_FROM_TAG}"
+      #   - "${CARLA_SERVER_IMAGE:?}-develop"
+      args:
+        - CARLA_VERSION=0.9.6
+    image: carlasim/carla:0.9.6
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla
+    runtime: nvidia
+    command: /bin/bash -c "SDL_VIDEODRIVER=offscreen SDL_HINT_CUDA_DEVICE=0 ./CarlaUE4.sh Town02 -quality-l"
