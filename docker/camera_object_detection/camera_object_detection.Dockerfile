@@ -32,6 +32,7 @@ WORKDIR /home/docker/ament_ws/src
 FROM base as repo
 
 COPY src/camera_object_detection camera_object_detection
+COPY src/wato_msgs/common_msgs common_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
@@ -45,4 +46,4 @@ COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "run", "camera_object_detection", "reactive_node"]
+CMD ["ros2", "run", "camera_object_detection", "camera_object_detection"]
