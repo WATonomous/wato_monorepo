@@ -16,11 +16,9 @@ foreach(PACKAGE
   ament_cmake_python
   rclcpp
   rclpy 
-  geometry_msgs
-  nav_msgs
-  ackermann_msgs
-  sensor_msgs
-  std_msgs)
+  std_msgs
+  common_msgs
+  )
 
   find_package(${PACKAGE} REQUIRED)
 
@@ -32,7 +30,7 @@ include_directories(include)
 # Create Cpp executable
 add_executable(reactive_node src/reactive_node.cpp)
 ament_target_dependencies(reactive_node 
-  rclcpp geometry_msgs ackermann_msgs nav_msgs sensor_msgs std_msgs
+  rclcpp std_msgs common_msgs 
 )
 
 # Install Cpp executables

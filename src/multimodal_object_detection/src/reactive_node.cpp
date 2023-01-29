@@ -1,71 +1,41 @@
+#include <chrono>
+#include <memory>
+
 #include "rclcpp/rclcpp.hpp"
-#include <string>
-#include <vector>
-#include "sensor_msgs/msg/laser_scan.hpp"
-#include "nav_msgs/msg/odometry.hpp"
-#include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
-/// CHECK: include needed ROS msg type headers and libraries
+#include "common_msgs/msg/object.hpp"
 
-class ReactiveFollowGap : public rclcpp::Node {
-// Implement Reactive Follow Gap on the car
-// This is just a template, you are free to implement your own node!
+using namespace std::chrono_literals;
 
-public:
-    ReactiveFollowGap() : Node("reactive_node")
-    {
-        /// TODO: create ROS subscribers and publishers
-    }
+class MinimalPublisher : public rclcpp::Node
+{
 
 private:
-    std::string lidarscan_topic = "/scan";
-    std::string drive_topic = "/drive";
-    /// TODO: create ROS subscribers and publishers
-
-    void preprocess_lidar(float* ranges)
-    {   
-        // Preprocess the LiDAR scan array. Expert implementation includes:
-        // 1.Setting each value to the mean over some window
-        // 2.Rejecting high values (eg. > 3m)
-        return;
+    void timer_callback()
+    {
+        auto message = common_msgs::msg::Object();                   // CHANGE
+        message.id = this->count_++;                                     // CHANGE
+        RCLCPP_INFO(this->get_logger(), "Publishing: '%d'", message.id); // CHANGE
+        publisher_->publish(message);
     }
+    rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::Publisher<common_msgs::msg::Object>::SharedPtr publisher_; // CHANGE
+    size_t count_;
 
-    void find_max_gap(float* ranges, int* indice)
-    {   
-        // Return the start index & end index of the max gap in free_space_ranges
-        return;
+public:
+    MinimalPublisher()
+        : Node("minimal_publisher"), count_(0)
+    {
+        publisher_ = this->create_publisher<common_msgs::msg::Object>("topic", 10); // CHANGE
+        timer_ = this->create_wall_timer(
+            500ms, std::bind(&MinimalPublisher::timer_callback, this));
     }
-
-    void find_best_point(float* ranges, int* indice)
-    {   
-        // Start_i & end_i are start and end indicies of max-gap range, respectively
-        // Return index of best point in ranges
-	    // Naive: Choose the furthest point within ranges and go there
-        return;
-    }
-
-
-    void lidar_callback(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg) 
-    {   
-        // Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
-
-        /// TODO:
-        // Find closest point to LiDAR
-
-        // Eliminate all points inside 'bubble' (set them to zero) 
-
-        // Find max length gap 
-
-        // Find the best point in the gap 
-
-        // Publish Drive message
-    }
-
-
 
 };
-int main(int argc, char ** argv) {
+
+int main(int argc, char *argv[])
+{
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ReactiveFollowGap>());
+    rclcpp::spin(std::make_shared<MinimalPublisher>());
     rclcpp::shutdown();
     return 0;
 }
