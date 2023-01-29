@@ -4,6 +4,12 @@ FROM carlasim/carla:${CARLA_VERSION}
 ARG CARLA_VERSION
 RUN : "${CARLA_VERSION:?Build argument needs to be set and non-empty.}"
 
-COPY src/simulation/carla_notebooks/maps /home/carla/CarlaUE4/Content/Carla/Maps
+USER root:root
+
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
+RUN apt update && apt upgrade -y && apt install -y python3-pip && pip3 install gdown
+
+# COPY import_maps.sh import_maps.sh
+# RUN ./import_maps.sh
 
 USER carla:carla
