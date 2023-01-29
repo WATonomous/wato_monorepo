@@ -2,6 +2,6 @@
 set -e
 
 # setup ROS2 environment
-source /home/docker/ament_ws/install/setup.bash
+# source /home/docker/ament_ws/install/setup.bash
 
 exec "/usr/local/bin/fixuid" "-q" "$@"

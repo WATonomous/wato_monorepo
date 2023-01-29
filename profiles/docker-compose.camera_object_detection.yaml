@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  camera_object_detection:
+    build:
+      context: ..
+      dockerfile: docker/camera_object_detection/camera_object_detection.Dockerfile
+      # cache_from:
+      #   - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${CACHE_FROM_TAG}"
+      #   - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-develop"
+    # image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    # volumes:
+    #   - ../src/camera_object_detection:/home/docker/ament_ws/src/camera_object_detection
