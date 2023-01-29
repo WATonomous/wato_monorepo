@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 
-from common_msgs.msg import Object    # CHANGE
+from common_msgs.msg import Object  
 
 class MinimalPublisher(Node):
 
@@ -14,10 +14,10 @@ class MinimalPublisher(Node):
         self.i = 0
 
     def timer_callback(self):
-        msg = Object()                                           # CHANGE
-        msg.id = self.i                                      # CHANGE
+        msg = Object()                                         
+        msg.id = self.i                                     
         self.publisher_.publish(msg)
-        self.get_logger().info('Publishing: "%d"' % msg.id)  # CHANGE
+        self.get_logger().info('Publishing: "%d"' % msg.id) 
         self.i += 1
 
 

@@ -32,6 +32,7 @@ WORKDIR /home/docker/ament_ws/src
 FROM base as repo
 
 COPY src/multimodal_object_detection multimodal_object_detection
+COPY src/wato_msgs/common_msgs common_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
