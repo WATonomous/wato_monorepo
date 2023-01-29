@@ -1,69 +1,34 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 
-import numpy as np
-from sensor_msgs.msg import LaserScan
-from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
+from common_msgs.msg import Object    # CHANGE
 
-class ReactiveFollowGap(Node):
-    """ 
-    Implement Wall Following on the car
-    This is just a template, you are free to implement your own node!
-    """
+class MinimalPublisher(Node):
+
     def __init__(self):
-        super().__init__('reactive_node')
-        # Topics & Subs, Pubs
-        lidarscan_topic = '/scan'
-        drive_topic = '/drive'
+        super().__init__('minimal_publisher')
+        self.publisher_ = self.create_publisher(Object, 'topic', 10)     # CHANGE
+        timer_period = 0.5
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
 
-        # TODO: Subscribe to LIDAR
-        # TODO: Publish to drive
-
-    def preprocess_lidar(self, ranges):
-        """ Preprocess the LiDAR scan array. Expert implementation includes:
-            1.Setting each value to the mean over some window
-            2.Rejecting high values (eg. > 3m)
-        """
-        proc_ranges = ranges
-        return proc_ranges
-
-    def find_max_gap(self, free_space_ranges):
-        """ Return the start index & end index of the max gap in free_space_ranges
-        """
-        return None
-    
-    def find_best_point(self, start_i, end_i, ranges):
-        """Start_i & end_i are start and end indicies of max-gap range, respectively
-        Return index of best point in ranges
-	    Naive: Choose the furthest point within ranges and go there
-        """
-        return None
-
-    def lidar_callback(self, data):
-        """ Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
-        """
-        ranges = data.ranges
-        proc_ranges = self.preprocess_lidar(ranges)
-        
-        # TODO:
-        #Find closest point to LiDAR
-
-        #Eliminate all points inside 'bubble' (set them to zero) 
-
-        #Find max length gap 
-
-        #Find the best point in the gap 
-
-        #Publish Drive message
+    def timer_callback(self):
+        msg = Object()                                           # CHANGE
+        msg.id = self.i                                      # CHANGE
+        self.publisher_.publish(msg)
+        self.get_logger().info('Publishing: "%d"' % msg.id)  # CHANGE
+        self.i += 1
 
 
 def main(args=None):
     rclpy.init(args=args)
-    print("WallFollow Initialized")
-    reactive_node = ReactiveFollowGap()
-    rclpy.spin(reactive_node)
 
-    reactive_node.destroy_node()
+    minimal_publisher = MinimalPublisher()
+
+    rclpy.spin(minimal_publisher)
+
+    minimal_publisher.destroy_node()
     rclpy.shutdown()
 
 
