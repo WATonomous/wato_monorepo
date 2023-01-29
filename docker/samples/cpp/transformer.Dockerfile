@@ -40,7 +40,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Entrypoint will run before any CMD on launch. Sources ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
