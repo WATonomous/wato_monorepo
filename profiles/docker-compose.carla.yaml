@@ -3,96 +3,13 @@ services:
   carla_server:
     build:
       context: ..
-      dockerfile: docker/carla_server/Dockerfile
-      cache_from:
-        - "${CARLA_SERVER_IMAGE:?}:latest"
+      dockerfile: docker/carla_server
+      # cache_from:
+      #   - "${CARLA_SERVER_IMAGE:?}-${CACHE_FROM_TAG}"
+      #   - "${CARLA_SERVER_IMAGE:?}-develop"
       args:
-        - CARLA_VERSION=0.9.13
-    image: "${CARLA_SERVER_IMAGE:?}:latest"
-    environment:
-      - DISPLAY=1
+        - CARLA_VERSION=0.9.6
+    image: carlasim/carla:0.9.6
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
-    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
-
-  carla_ros_bridge:
-    build:
-      context: ..
-      dockerfile: docker/carla_ros_bridge/Dockerfile
-      cache_from: 
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-develop"
-      args:
-        - CARLA_VERSION=0.9.13
-    environment:
-      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla
-      - USE_ACKERMANN_CONTROL=False
-    image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
-    user: ${FIXUID:?}:${FIXGID:?}
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
-    
-  carla_notebooks:
-    build:
-      context: ..
-      dockerfile: docker/simulation/carla_notebooks.Dockerfile
-      cache_from: 
-        - "${CARLA_NOTEBOOKS_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${CARLA_NOTEBOOKS_IMAGE:?}-develop"
-      args:
-        - CARLA_VERSION=0.9.13
-    image: "${CARLA_NOTEBOOKS_IMAGE:?}-${TAG}"
-    user: ${FIXUID:?}:${FIXGID:?}
-    ports:
-      - ${CARLA_NOTEBOOKS_PORT:?}:8888
-    environment:
-      - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla
-      - SCENARIO_RUNNER_ROOT=/home/docker/carla_notebooks/scenario_runner
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
-    volumes:
-      - ../src/simulation/carla_notebooks:/home/docker/carla_notebooks
-    command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser  --allow-root --NotebookApp.token='' --NotebookApp.password=''
-    
-  # camera_compression:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/simulation/camera_compression.Dockerfile
-  #     cache_from:
-  #       - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${CACHE_FROM_TAG}"
-  #       - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-develop"
-  #   image: "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${TAG}"
-  #   user: ${FIXUID:?}:${FIXGID:?}
-  #   volumes:
-  #     - ../src/simulation/camera_compression:/home/docker/ament_ws/src/camera_compression
-  
-  carla_sample_node:
-      build:
-        context: ..
-        dockerfile: docker/simulation/carla_sample_node.Dockerfile
-        cache_from:
-          - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
-          - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
-      image: "${CARLA_SAMPLE_NODE_IMAGE:?}-${TAG}"
-      user: ${FIXUID:?}:${FIXGID:?}
-      command: >
-        sh -c "colcon build --packages-select carla_sample_node &&
-              ros2 launch carla_sample_node carla_sample_node.launch.py"
-      volumes:
-        - ../src/simulation/carla_sample_node:/home/docker/ament_ws/src/carla_sample_node
-
-  # carla_manual_control:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/simulation/manual_control.Dockerfile
-  #     cache_from:
-  #       # - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-${CACHE_FROM_TAG}"
-  #       - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-simulation"
-  #       - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-develop"
-  #     args:
-  #       - CARLA_VERSION=0.9.13
-  #       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-  #   image: carla_manual_control
-  #   user: ${FIXUID:?}:${FIXGID:?}
-  #   ports:
-  #     - "6600:5900"
-    # environment:
-    #   - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
+    command: /bin/bash -c "SDL_VIDEODRIVER=offscreen SDL_HINT_CUDA_DEVICE=0 ./CarlaUE4.sh Town02 -quality-l"
