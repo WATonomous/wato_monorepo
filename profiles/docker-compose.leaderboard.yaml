@@ -8,13 +8,20 @@ services:
         - "${LEADERBOARD_IMAGE:?}-${CACHE_FROM_TAG}"
         - "${LEADERBOARD_IMAGE:?}-develop"
     image: "${LEADERBOARD_IMAGE:?}-${TAG}"
-    user: ${FIXUID:?}:${FIXGID:?}
-    expose:
-      - 2000
+    # user: ${FIXUID:?}:${FIXGID:?}
+    image: "carlasim/carla:0.9.11"
+    # runtime: nvidia
+    # ports:
+    #   - "5900:5900"
+    # environment:
+    #   - DISPLAY=:1
     deploy:
       resources:
         reservations:
           devices:
             - capabilities: [gpu]
     # volumes:
-    #   - ../src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
+    #   - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    # command: "/usr/bin/x11vnc -create -nopw -forever -autoport 5901"
+    # command: /bin/bash -c "SDL_VIDEODRIVER=offscreen SDL_HINT_CUDA_DEVICE=0 ./CarlaUE4.sh Town01 -quality-level=Low -world-port=2000 -nosound -carla-server"
+    command: /bin/bash -c "./CarlaUE4.sh -RenderOffScreen -quality-level=Low -nosound"

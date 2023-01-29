@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>test_utils</name>
+  <version>0.0.0</version>
+  <description>A set of reusable methods to write ROS2 system tests</description>
+
+  <maintainer email="watouser@todo.todo">watouser</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>launch_ros</depend>
+  <depend>launch_testing</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

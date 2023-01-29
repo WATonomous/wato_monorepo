@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  bag_bridge:
+    image: ros:foxy
+    volumes:
+      - /mnt/wato-drive/rosbags:/bags
+    tty: true
+    working_dir: /bags

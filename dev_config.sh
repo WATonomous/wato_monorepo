@@ -64,6 +64,8 @@ SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca
 
 LEADERBOARD_IMAGE=${LEADERBOARD_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/leaderboard"}
 
+GUI_TOOLS_IMAGE=${GUI_TOOLS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/gui_tools"}
+
 ## -------------------------- User ID -----------------------------
 
 FIXUID=$(id -u) 
@@ -72,7 +74,7 @@ FIXGID=$(id -g)
 ## --------------------------- Ports ------------------------------
 
 BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
-GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT++))}
+GUI_TOOLS_VNC_PORT=5901 #${GUI_TOOLS_VNC_PORT:-$((BASE_PORT++))}
 
 ## -------------------- Environment Variables -------------------------
 
@@ -91,6 +93,8 @@ echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "LEADERBOARD_IMAGE=$LEADERBOARD_IMAGE" >> "$PROFILES_DIR/.env"
+
+echo "GUI_TOOLS_IMAGE=$GUI_TOOLS_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"

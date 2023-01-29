@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  gui_tools:
+    build:
+      context: ..
+      dockerfile: docker/gui_tools/gui_tools.Dockerfile
+      cache_from:
+        - "${GUI_TOOLS_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${GUI_TOOLS_IMAGE:?}-develop"
+    image: "${GUI_TOOLS_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    ipc: host
+    ports:
+      - "5900:5900"
+      - "2000:2000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    # command: "/usr/bin/x11vnc -create -nopw -forever"
