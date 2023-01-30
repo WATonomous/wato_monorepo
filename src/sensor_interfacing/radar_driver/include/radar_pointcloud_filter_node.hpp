@@ -5,8 +5,8 @@
 
 #include "radar_msgs/msg/UnfilteredRadarLeft.hpp"
 #include "radar_msgs/msg/UnfilteredRadarRight.hpp"
-#include "radar_msgs/msg/CarlaUnfilteredRadar.hpp"
-#include "radar_msgs/msg/CarlaUnfilteredRadarTwo.hpp"
+#include "radar_msgs/msg/UnfilteredCarlaLeft.hpp"
+#include "radar_msgs/msg/UnfilteredCarlaRight.hpp"
 
 #include "radar_pointcloud_filter.hpp"
 
@@ -74,10 +74,10 @@ private:
   // ROS2 Subscriber listening to the unfiltered radar right topic.
   rclcpp::Subscription<radar_msgs::msg::UnfilteredRadarRight>::SharedPtr raw_right_sub_
 
-  // ROS2 Subscriber listening to the unfiltered Carla left topic.
+  // ROS2 Subscriber listening to the unfiltered Carla left topic (radar1).
   rclcpp::Subscription<radar_msgs::msg::UnfilteredCarlaLeft>::SharedPtr raw_carla_left_sub_
 
-  // ROS2 Subscriber listening to the unfiltered Carla right topic.
+  // ROS2 Subscriber listening to the unfiltered Carla right topic (radar2).
   rclcpp::Subscription<radar_msgs::msg::UnfilteredCarlaRight>::SharedPtr raw_carla_right_sub_
 
 };
