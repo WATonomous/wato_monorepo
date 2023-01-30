@@ -9,25 +9,25 @@ PointCloudFilterNode::PointCloudFilterNode()
     raw_left_sub_ = this->create_subscription<radar_msgs::msg::UnfilteredRadarLeft>(
     "unfilteredRadarLeft",
     std::bind(
-      &AggregatorNode::unfiltered_radar_left_callback, this,
+      &PointCloudFilterNode::unfiltered_radar_left_callback, this,
       std::placeholders::_1));
 
     raw_right_sub_ = this->create_subscription<sample_msgs::msg::UnfilteredRadarRight>(
     "unfilteredRadarRight", ADVERTISING_FREQ,
     std::bind(
-      &AggregatorNode::unfiltered_radar_right_callback, this,
+      &PointCloudFilterNode::unfiltered_radar_right_callback, this,
       std::placeholders::_1));
 
     raw_carla_left_sub_ = this->create_subscription<sample_msgs::msg::UnfilteredCarlaLeft>(
     "unfilteredCarlaLeft", ADVERTISING_FREQ,
     std::bind(
-      &AggregatorNode::unfiltered_carla_radar_left_callback, this,
+      &PointCloudFilterNode::unfiltered_carla_radar_left_callback, this,
       std::placeholders::_1));
 
     raw_carla_right_sub_ = this->create_subscription<sample_msgs::msg::UnfilteredCarlaRight>(
     "unfilteredCarlaRight", ADVERTISING_FREQ,
     std::bind(
-      &AggregatorNode::unfiltered_carla_radar_right_callback, this,
+      &PointCloudFilterNode::unfiltered_carla_radar_right_callback, this,
       std::placeholders::_1));
 }
   
