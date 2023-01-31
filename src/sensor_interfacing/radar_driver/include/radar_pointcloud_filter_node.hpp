@@ -80,6 +80,8 @@ private:
   // ROS2 Subscriber listening to the unfiltered Carla right topic (radar2).
   rclcpp::Subscription<radar_msgs::msg::UnfilteredCarlaRight>::SharedPtr raw_carla_right_sub_
 
+  // Add an object below from radar_pointcloud_filter.hpp that contains the methods
+
 };
 
 #endif  // RADAR_POINTCLOUD_FILTER_NODE_HPP_

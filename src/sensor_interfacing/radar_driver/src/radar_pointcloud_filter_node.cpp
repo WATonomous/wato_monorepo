@@ -34,28 +34,28 @@ PointCloudFilterNode::PointCloudFilterNode()
    void unfiltered_radar_right_callback(
     const radar_msgs::msg::UnfilteredRadarRight::SharedPtr msg)
     {
-        //
+        //messages from unfiltered right radar topic (rosbags)
     }
 
   
    void unfiltered_radar_left_callback(
     const radar_msgs::msg::UnfilteredRadarLeft::SharedPtr msg)
     {
-        //
+        //messages from unfiltered left radar topic (rosbags)
     }
 
 
   void unfiltered_carla_radar_left_callback(
     const radar_msgs::msg::UnfilteredCarlaLeft::SharedPtr msg)
     {
-        //
+        //messages from unfiltered left radar topic (CARLA ROS Bridge)
     }
 
 
   void unfiltered_carla_radar_right_callback(
     const radar_msgs::msg::UnfilteredCarlaRight::SharedPtr msg)
     {
-        //
+        //messages from unfiltered right radar topic (CARLA ROS Bridge)
     }
 
 int main(int argc, char ** argv)
