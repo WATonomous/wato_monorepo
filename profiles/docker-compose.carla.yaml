@@ -8,17 +8,21 @@ services:
       #   - "${CARLA_SERVER_IMAGE:?}-${CACHE_FROM_TAG}"
       #   - "${CARLA_SERVER_IMAGE:?}-develop"
       args:
-        - CARLA_VERSION=0.9.6
-    # image: carlasim/carla:0.9.6
+        - CARLA_VERSION=0.9.14
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
     command: /bin/bash -c "SDL_VIDEODRIVER=offscreen SDL_HINT_CUDA_DEVICE=0 ./CarlaUE4.sh Town02 -quality-l"
+
   carla_ros_bridge:
     build:
       context: ..
       dockerfile: docker/carla_ros_bridge/Dockerfile
       args:
-        - CARLA_VERSION=0.9.6
+        - CARLA_VERSION=0.9.14
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     runtime: nvidia
-    command: /bin/bash -c "SDL_VIDEODRIVER=offscreen SDL_HINT_CUDA_DEVICE=0 ./CarlaUE4.sh Town02 -quality-l"
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    command: tail -F anything
+    depends_on:
+      - carla_server
