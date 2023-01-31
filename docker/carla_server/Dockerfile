@@ -6,7 +6,7 @@ RUN : "${CARLA_VERSION:?Build argument needs to be set and non-empty.}"
 
 USER root:root
 
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
+# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
 RUN apt update && apt upgrade -y && apt install -y python3-pip && pip3 install gdown
 
 # COPY import_maps.sh import_maps.sh
