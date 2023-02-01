@@ -11,7 +11,7 @@ services:
         - CARLA_VERSION=0.9.14
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
-    command: /bin/bash -c "SDL_VIDEODRIVER=offscreen SDL_HINT_CUDA_DEVICE=0 ./CarlaUE4.sh Town02 -quality-l"
+    command: /bin/bash -c "./CarlaUE4.sh -quality-level=1 -world-port=2000 -nosound -carla-server -RenderOffscreen"
 
   carla_ros_bridge:
     build:
