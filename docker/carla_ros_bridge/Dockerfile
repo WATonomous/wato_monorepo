@@ -21,7 +21,7 @@ RUN apt-get update && \
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla /opt/carla/PythonAPI
 WORKDIR /opt/carla/PythonAPI
 RUN python3.8 -m easy_install pip && \
-      pip3 install carla
+      pip3 install carla==0.9.13
 
 # Add a docker user so we that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
@@ -82,22 +82,23 @@ RUN rm -rf build
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
-CMD ["roslaunch", "--wait", "carla_config", "carla.launch"]
+#CMD ["/bin/bash"]
+CMD ["ros2", "launch", "carla_ros_bridge", "carla_ros_bridge.launch.py"]
 
-# ================= Develop ===================
+# # ================= Develop ===================
 
-FROM repo as debug
+# FROM repo as debug
 
-USER root:root
+# USER root:root
 
-# Supervisor to manage multiple processes (code-server, roslaunch)
-RUN apt-get install -y wget curl gdb supervisor
-RUN ["/bin/bash", "-c", "set -o pipefail && curl -fsSL https://code-server.dev/install.sh | sh -s -- --version=3.8.0"]
-EXPOSE 8080
+# # Supervisor to manage multiple processes (code-server, roslaunch)
+# RUN apt-get install -y wget curl gdb supervisor
+# RUN ["/bin/bash", "-c", "set -o pipefail && curl -fsSL https://code-server.dev/install.sh | sh -s -- --version=3.8.0"]
+# EXPOSE 8080
 
-USER docker:docker
+# USER docker:docker
 
-CMD ["/usr/bin/supervisord"]
+# CMD ["/usr/bin/supervisord"]
 
 
 # # ================= Dependencies ===================
