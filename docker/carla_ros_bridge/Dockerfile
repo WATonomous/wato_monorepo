@@ -21,7 +21,7 @@ RUN apt-get update && \
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla /opt/carla/PythonAPI
 WORKDIR /opt/carla/PythonAPI
 RUN python3.8 -m easy_install pip && \
-      pip3 install carla==0.9.13
+      pip3 install carla==${CARLA_VERSION}
 
 # Add a docker user so we that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
