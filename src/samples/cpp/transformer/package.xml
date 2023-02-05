@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>transformer</name>
+  <version>0.0.0</version>
+  <description>A sample ROS package for pubsub communication</description>
+
+  <maintainer email="cmahalingam@watonomous.ca">Cheran Mahalingam</maintainer>
+  <license>TODO</license>
+
+  <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>sample_msgs</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <!--https://www.ros.org/reps/rep-0149.html#export-->
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

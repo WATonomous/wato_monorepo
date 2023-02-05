@@ -12,5 +12,5 @@ find "${SCRIPT_DIR}/../.." -type d -exec chmod 755 {} \+
 # set all files to rw by owner and r by everyone else
 find "${SCRIPT_DIR}/../.." -type f -exec chmod 644 {} \+
 # add executable bit for executable files
-find "${SCRIPT_DIR}/../.." -type f \( -name '*.sh' -o -name '*.exp' -o -name '*.py' -o -name 'watod' \) -exec chmod +x {} \+
+find "${SCRIPT_DIR}/../.." -type f \( -name '*.sh' -o -name '*.exp' -o -name '*.py' -o -name 'watod2' \) -exec chmod +x {} \+
 

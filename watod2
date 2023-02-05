@@ -3,6 +3,7 @@ set -e
 
 programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
 MONO_DIR="$(dirname "$(realpath "$0")")"
+PROFILES_DIR="$MONO_DIR/profiles"
 ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
 function usage {
     echo "Usage: $programname [OPTIONS]... [COMMAND]..."
@@ -17,23 +18,23 @@ function usage {
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
     echo " Examples:" 
-    echo "   watod up                       start containers (docker-compose up)"
-    echo "   watod down                     stop and remove containers (docker-compose down)"
-    echo "   watod ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
-    echo "   watod --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
-    echo "   watod --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
-    echo "   watod -t perception            open a bash terminal into the perception container."
+    echo "   watod2 up                       start containers (docker-compose up)"
+    echo "   watod2 down                     stop and remove containers (docker-compose down)"
+    echo "   watod2 ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
+    echo "   watod2 --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
+    echo "   watod2 --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
+    echo "   watod2 -t perception            open a bash terminal into the perception container."
     echo ""
     echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
     exit 0
 }
 function run_compose {
     cd $MONO_DIR
-    if [ ! -z "$(source .env && echo $ACTIVE_PROFILES)" ] && [ -z "$PROFILES" ]; then 
-        PROFILES="$(source .env && printf -- "-f profiles/docker-compose.%s.yaml " ${ACTIVE_PROFILES[@]})"
+    if [ ! -z "$(source $PROFILES_DIR/.env && echo $ACTIVE_PROFILES)" ] && [ -z "$PROFILES" ]; then 
+        PROFILES="$(source $PROFILES_DIR/.env && printf -- "-f profiles/docker-compose.%s.yaml " ${ACTIVE_PROFILES[@]})"
     fi
-    
-    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose -f ${PROFILES[@]} "$@"
+
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose ${PROFILES[@]} "$@"
 }
 
 # in case you need help
@@ -70,15 +71,15 @@ while [[ $# -gt 0 ]] ; do
         shift
         SERVICE_NAME=$1
         if [ -z "$SERVICE_NAME" ]; then
-            echo "Expected watod -t SERVICE_NAME"
+            echo "Expected watod2 -t SERVICE_NAME"
         usage
         fi
         shift
         ;;
       -a|--all)
-        PROFILE_BLACKLIST="$(source .env && echo $PROFILE_BLACKLIST)"
+        PROFILE_BLACKLIST="$(source $PROFILES_DIR/.env && echo $PROFILE_BLACKLIST)"
         # Find all the profiles
-        PROFILES=$(ls $MONO_DIR/profiles)
+        PROFILES=$(ls $PROFILES_DIR)
         # Remove profiles in the blacklist
         for TO_REMOVE in ${PROFILE_BLACKLIST[@]}; do
             PROFILES="${PROFILES//"docker-compose.$TO_REMOVE.yaml"/}"
@@ -126,17 +127,14 @@ if [ ! -z $LAUNCH_AUTONOMOUS ]; then
     read -p "Press <ENTER> to continue"
 
     # Run actual CAN devices, not VCAN
-    echo "CAN_DEBUG=False" >> "$MONO_DIR/.env"
+    echo "CAN_DEBUG=False" >> "$PROFILES_DIR/.env"
     PROFILES="-f profiles/docker-compose.can_interface.yaml"
 
     run_compose up can_interface
     exit 0
 fi
 
-# print any ports exposed by applications, shows how to connect locally
-if [ ! -z $PRINT_LOCAL_PORTS ] ; then
-    SERVICE_LIST="$(run_compose ps --services | awk '{if(NR>1)print}' | sort)"
-
+if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
     # fixes hostnames for VMs so that by default $HOSTNAME is the first element
     # in the array, which often is the domain name that can be accessed
     # externally
