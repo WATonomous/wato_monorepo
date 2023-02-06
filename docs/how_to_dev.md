@@ -1,6 +1,6 @@
 # How to Develop in the Monorepo
 
-Below is a tree diageram of the Monorepo.
+Below is a tree diagram of the Monorepo.
 
 ```
 wato_monorepo_v2
@@ -16,12 +16,10 @@ wato_monorepo_v2
 ├── profiles
 │   └── docker-compose.samples.yaml
 ├── scripts
-│   ├── format_files.sh
-│   └── watod2-completion.bash
 ├── src
 │   ├── motion_planning_and_control
 │   ├── perception
-│   ├── ros_msgs
+│   ├── wato_msgs
 │   │   └── sample_msgs
 │   │       ├── CMakeLists.txt
 │   │       ├── msg
@@ -44,10 +42,10 @@ wato_monorepo_v2
 Say you are trying to create a new ROS2 node. 
 
 1. What is the node's functionality?
-2. What subgroup of ASD is responsible for that ROS2 node?
-3. What is the input/output of that node?
+2. What subteam of ASD is responsible for that ROS2 node? (`Infrastructure, Perception, World Modeling, MP&C, Simulation`)
+3. What is the input/output of that node? (this is for when you actually code the node's logic. Not explained here, look at the node samples and ROS docs)
 
-Once those are decided. Find where your code fits in this repo. 
+Once those are decided. Find where your code fits in this repo. You can choose to dev in the order below:
 
 ## 1.0 src
 ---
@@ -58,17 +56,17 @@ Based on the subgroup, your ROS2 node should exist inside the subgroup's folder 
 
 ### 1.2 Where do my custom ROS2 message go?
 The ROS2 package creating your custom message should go under `/wato_messages`, similar structure to how you add a ROS2 node into the rest of the src. 
-* from the last example, a custom ROS2 message for your node in `motion planning and control` should go under `/src/wato_msgs/motion_planning_and_control/<your_node>/`
+* from the last example, a custom ROS2 message for your node in `motion planning and control` should go under `/src/wato_msgs/motion_planning_and_control/<your_message>/`
 
 ### How do I init a ROS2 node to begin development on? 
 We don't have ROS2 downloaded in the Server machines, therefore, just copy one of the sample nodes (depending on what language you plan on using)
-* **I want to made a cpp ROS2 node:** copy `/src/samples/cpp/aggregator/` to the directory you decided on based on 1.1
-* **I want to made a python ROS2 node:** copy `/src/samples/python/aggregator/` to the directory you decided on based on 1.1
+* **I want to make a cpp ROS2 node:** copy `/src/samples/cpp/transformer/` to the directory you decided on based on 1.1
+* **I want to make a python ROS2 node:** copy `/src/samples/python/transformer/` to the directory you decided on based on 1.1
 
 ### How do I init a ROS2 message to begin development on?
 We don't have ROS2 downloaded in the Server machines, therefore, just copy one of the sample nodes (depending on what language you plan on using)
-* **I want to made a cpp ROS2 node:** copy `/src/wato_msgs/samples/cpp/aggregator/` to the directory you decided on based on 1.2
-* **I want to made a python ROS2 node:** copy `/src/wato_msgs/samples/python/aggregator/` to the directory you decided on based on 1.2
+* **I want to make a cpp ROS2 message:** copy `/src/wato_msgs/sample_msgs/` to the directory you decided on based on 1.2
+* **I want to make a python ROS2 message:** copy `/src/wato_msgs/sample_msgs/` to the directory you decided on based on 1.2
 
 ## 2.0 docker and profiles
 ---
@@ -83,8 +81,8 @@ The profiles directory contains Docker Compose files that specify which nodes sh
 Contact your lead. Usually your ROS2 node will not need its own profile. It is up to your lead to decide whether your node should startup with a profile of their choosing. 
 
 ## 2.2.2 Structure of the docker compose file 
-A typical docker compose file consists of the following...
-```
+A typical docker compose file consists of the following (notes inside)...
+```yaml
 version: "3.8"
 services:
   aggregator: # name of the service
@@ -111,13 +109,17 @@ services:
   .
 ```
 
-The extent to which you will change this file is most likely to create a new service under `services`.
+The extent to which you will change this file is most likely to create a new service under `services`. Copy the previous service and change the environment variables (the ones in ALL CAPS) to the directory of your node divided with `_`.
+
+* eg. If your node is under `/src/motion_planning_and_control/<your_node>/` then your IMAGE name is `MP_AND_C_<YOUR_NODE_IN_CAPS>_IMAGE`
+
+This environment variable will make sense once you edit the `dev_config.sh` so that your dockerfile works with `watod2`.
 
 ### 2.3 Your ROS2 node's dockerfile
 A dockerfile specifies how to setup an environment (you could say a small isolated computer) that purely just runs your ROS2 node. The language used in the dockerfile is the same as the commands you use in a Linux terminal except with `RUN` in front of it. (as well as some other nice-to-haves like `ENV` which sets environment variables)
 
-A typical dockerfile consists of the following...
-```
+A typical dockerfile consists of the following (notes are written inside)...
+```dockerfile
 # ================= Dependencies ===================
 FROM ros:humble AS base # we use the ROS2 Humble base image, what this means is, your little vm already has ROS2 installed
 ENV DEBIAN_FRONTEND noninteractive # makes it so that any install is non-interactive and your build won't stall
@@ -171,49 +173,64 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
-RUN sudo chmod +x ~/wato_ros_entrypoint.sh
-ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
 CMD ["ros2", "launch", "aggregator", "aggregator.launch.py"]
 ```
 
-A dockerfile can be very finnicy at times. So if you have any questions, please ask infra.
+A dockerfile can be very finnicy at times. So if you have any questions, please ask infra or your lead. If you run into permission issues, this is most likely due to `fixuid`. We use `fixuid` to ensure that your files are stolen by the `docker root`. That is, `docker root` will steal ownership of your file/folder and you will no longer have access to it anymore. If this is the case, contact infra.
 
 ## 3.0 Linking up your ROS2 Node and docker stuff to watod2
 ---
-The `watod2` script is a custom built script to setup environment variables (some of which are very important for file permissions and managing images in the server) and up certain profiles. `watod2` is power because it gives us the freedom to pick different profiles (docker compose files) to run in a single, easy-to-use script.
+The `watod2` script is a custom built script to setup environment variables (some of which are very important for file permissions and managing images in the server) and up certain profiles of your choosing. `watod2` is power because it gives us the freedom to pick different profiles (docker compose files) to run in a single, easy-to-use script. We can also use `watod2` like docker compose, and interact with containers by simply calling `watod2 -t <service_name>`. 
 
 ### 3.1 watod2
 This script does not change regardless of any changes. Only people editing this script is Infra.
 
 ### 3.2 dev_config.sh
-This script is ran by `watod2` to setup all of the environment variables. YOU NEED TO ADD SOME NEW ENVIRONEMENT OF YOUR OWN IN ORDER FOR YOUR CODE TO WORK WITH `watod2`. In the `dev_config.sh` there are 2 sections with which you need to add things.
+This script is ran by `watod2` to setup all of the environment variables. YOU NEED TO ADD SOME NEW ENVIRONEMENT VARIABLES OF YOUR OWN IN ORDER FOR YOUR CODE TO WORK WITH `watod2`. In the `dev_config.sh` there are 2 sections with which you need to add things.
 
 #### 3.2.1 Images
 Under the `images` section of the `dev_config.sh`...
 
-```
+```bash
 ## --------------------------- Images -------------------------------
-
 # ROS2 C++ Samples
 SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_aggregator"}
+SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_producer"}
+SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
+
+# Infrastructure
+INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_vis_tools_vnc"}
+
+# Your ASD Subteam (WRITE HERE)
+YOUR_IMAGE_NAME_IMAGE=${YOUR_IMAGE_NAME_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/your_image_name_image_lowercase"}
 ```
 And under `environment variables` ...
-```
+```bash
 ## -------------------- Environment Variables -------------------------
-
 echo "# Auto-generated by ${BASH_SOURCE[0]}. Please do not edit." > "$PROFILES_DIR/.env"
 echo "ACTIVE_PROFILES=\"$ACTIVE_PROFILES\"" > "$PROFILES_DIR/.env"
 echo "PROFILE_BLACKLIST=\"$PROFILE_BLACKLIST\"" >> "$PROFILES_DIR/.env"
-
 echo "COMPOSE_DOCKER_CLI_BUILD=1" >> "$PROFILES_DIR/.env"
 echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$PROFILES_DIR/.env"
-
 echo "ROS_IP=$ROS_IP" >> "$PROFILES_DIR/.env"
 echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$PROFILES_DIR/.env"
 
-# ADD YOUR IMAGE NAME HERE AND ECHO INTO .ENV
+# Samples
 echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
+
+# Infrastructure
+echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >> "$PROFILES_DIR/.env"
+
+# Your ASD Subteam (WRITE HERE)
+echo "YOUR_IMAGE_NAME_IMAGE=$YOUR_IMAGE_NAME_IMAGE" >> "$PROFILES_DIR/.env"
 ```
 
-This is for image caching, which you saw in the docker compose file of section 2.2.2
+This is for image caching, which you saw in the docker compose file of section 2.2.2 when we told you to change your image environment variable. If you want to know why we do this, it's so that we don't fill WATcloud with images. Docker images are very memory intensive at times.. especially if you download pytorch in them.
 
+# Rules of Development
+1. Always make changes and `watod2 build` in your own branch. This is so that one member working on an image isn't affected by someone else randomly rebuilding it with new changes.
+2. Follow the file structure as stated above.
+3. Do not make changes in other people's branches unless they let you do so.
