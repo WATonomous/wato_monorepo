@@ -62,6 +62,15 @@ By default, `watod2` will use and create images tagged based on your current bra
 
 For any environment variable found in `dev-config.sh`, you can overwrite it on the command line as follows: `ENV=x ENV2=y ./watod2 ...`. For example, if I am on a different branch but I want to start `develop` images, I can use `TAG=develop ./watod2 up`
 
+**Don't like using `./watod2`? Want to use `watod2` instead??**
+
+We recommend you add `~/wato_monorepo_v2/` to your `$PATH` variable so that you can run `watod2` from anywhere on your computer, not just in your `~/wato_monorepo_v2` directory and add `watod2-completion.bash` to your bashrc to enable tab autocomplete:
+```bash
+echo "export PATH=\$PATH:\$HOME/wato_monorepo_v2/" >> ~/.bashrc
+echo "source ~/wato_monorepo_v2/scripts/watod2-completion.bash" >> ~/.bashrc
+source ~/.bashrc
+```
+
 **Starting Containers**: `watod2 up`
 - Runs `docker-compose up` after generating your `.env` file. Your terminal will start, print out a bunch of logs, then hang while waiting for more logs. **This command does not exit**. To stop your containers, press `ctrl-c`.
 - use `watod2 up -h` to see other arguments you can pass to `watod2 up`
