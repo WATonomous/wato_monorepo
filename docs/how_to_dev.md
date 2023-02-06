@@ -120,7 +120,7 @@ A typical dockerfile consists of the following (notes are written inside)...
 ```dockerfile
 # ================= Dependencies ===================
 FROM ros:humble AS base # we use the ROS2 Humble base image, what this means is, your little vm already has ROS2 installed
-ENV DEBIAN_FRONTEND noninteractive # makes it so that any install is non-interactive and your build won't stall
+ENV DEBIAN_FRONTEND noninteractive # makes it so that any install is non-interactive and your build will not stall
 
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
