@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>radar_point_cloud_filter</name>
+  <name>ars_pointcloud_filter</name>
   <version>0.0.0</version>
-  <description>A sample ROS package for pubsub communication</description>
+  <description>A ROS package for pubsub communication</description>
 
   <maintainer email="r9murali@watonomous.ca">Rijin Muralidharan</maintainer>
   <license>TODO</license>
