@@ -48,8 +48,9 @@ ROS_IP=${ROS_IP:-"127.0.0.1"}
 
 # List of active profiles to run, defined in docker-compose.yaml.
 # Possible values:
-#   - production    		:   configs for all containers required in production
-#   - samples               :   starts sample ROS2 pubsub nodes
+#   - vis_tools     		  :   starts visualization tools (vnc and foxglove)
+#   - production    		  :   configs for all containers required in production
+#   - samples             :   starts sample ROS2 pubsub nodes
 ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
 
 # List of profiles to IGNORE when using the --all flag
@@ -61,6 +62,9 @@ PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
 SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_aggregator"}
 SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_producer"}
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
+
+# Infrastructure
+INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_vis_tools_vnc"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -83,6 +87,8 @@ echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$PROFILES_DIR/.env"
 
 echo "ROS_IP=$ROS_IP" >> "$PROFILES_DIR/.env"
 echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$PROFILES_DIR/.env"
+
+echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/.env"
