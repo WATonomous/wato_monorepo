@@ -59,12 +59,12 @@ ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
 
 The `watod2` will be your the main way that you interact with your containers. `watod2` is a wrapper for `docker-compose` that automates the setup of environment varaibles and has some additional functionality. Get more information about `watod2` using: `$ watod2 -h`.
 
-# Don't like using `./watod2`? Want to use `watod2` instead??
+## Don't like using `./watod2`? Want to use `watod2` instead??
 We recommend you add `~/wato_monorepo_v2/` to your `$PATH` variable so that you can run `watod2` from anywhere on your computer, not just in your `~/wato_monorepo_v2` directory and add `watod2-completion.bash` to your bashrc to enable tab autocomplete:
 ```bash
 echo "export PATH=\$PATH:\$HOME/wato_monorepo_v2/" >> ~/.bashrc
 echo "source ~/wato_monorepo_v2/scripts/watod2-completion.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
-# Eager to begin development?
+## Eager to begin development?
 [docs/how_to_dev.md](docs/how_to_dev.md)
