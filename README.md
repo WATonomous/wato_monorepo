@@ -17,9 +17,51 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
     - ["Invalid reference format" when using watod2](#invalid-reference-format-when-using-watod2)
 
 ## Getting Started
-**READ THIS**: [docs/setup.md](docs/setup.md)
+Read the following:
+1. [docs/setup.md](docs/setup.md) How to setup our repo. TLDR: Clone the monorepo, specify active profiles, `watod2 up`. Everything is containerized, so there's no need to setup any dependencies on your end :).
+2. [docs/monorepo.md](docs/monorepo.md) What is a monorepo? Why a monorepo?
+3. [docs/how_to_dev.md](docs/monorepo.md) How to develop in the monorepo.
 
-## Description of Files
+## Description of Important Files and Directories
+
+Below is a tree diagram of the Monorepo.
+
+```
+wato_monorepo_v2
+├── dev_config.sh
+├── docker
+│   ├── samples
+│   │   └── cpp
+│   │       ├── Dockerfile.aggregator
+│   │       ├── Dockerfile.producer
+│   │       └── Dockerfile.transformer
+│   └── wato_ros_entrypoint.sh
+├── docs
+├── profiles
+│   └── docker-compose.samples.yaml
+├── scripts
+├── src
+│   ├── motion_planning_and_control
+│   ├── perception
+│   ├── wato_msgs
+│   │   └── sample_msgs
+│   │       ├── CMakeLists.txt
+│   │       ├── msg
+│   │       └── package.xml
+│   ├── samples
+│   │   └── cpp
+│   │       ├── aggregator
+│   │       ├── image
+│   │       ├── producer
+│   │       ├── README.md
+│   │       └── transformer
+│   ├── sensor_interfacing
+│   ├── simulation
+│   ├── tools
+│   └── world_modeling
+└── watod2
+```
+
 
 - `watod2`. 
   - This is the main bash script that you will use to interface with your containers. [More info](#watod2).
@@ -33,24 +75,6 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
   - This folder contains the `Dockerfiles` for each of our images. [Docker wiki](https://docs.docker.com/engine/reference/builder/).
 - `src/`: 
   - Here is where our actual code goes. The folders in `src` will be mounted to the docker images, so changes in the `src` directory will be reflected in the containers. 
-
-## Profiles
-
-You need to specify what profiles you want to use by setting `ACTIVE_PROFILES` in your `dev_config.local.sh`. For example, your `dev_config.local.sh` might include `ACTIVE_PROFILES="carla tools matlab perception path_planning"`. 
-
-Profiles are defined as `profiles/docker-compose.<PROFILE>.yaml`. If you want to overwrite your current profile and run the command against all profiles, use `watod2 --all COMMAND`
-
-```bash
-from dev_config.sh
-# Space-delimited list of active profiles to run, defined in docker-compose.yaml.
-# Possible values:
-#   - production    		:   configs for all containers required in production
-#   - samples           :   starts sample ROS2 pubsub nodes
-# Example override in dev_config.local.sh: 
-#   ACTIVE_PROFILES="samples production"
-
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
-```
 
 ## Common Operations
 

@@ -12,7 +12,7 @@ STRONGLY Recommended: Use a WATonomous server
 - Host Machine: The machine that you will be developing on. We recommend you use our WATonomous servers. The host and local machine can be the same.
 
 ## Prerequisites
-These are just some general prereqs to setup our monorepo. It's better that you follow our Server Onboarding first and enter our server. After that, no need to worry about these prereqs. You can clone the monorepo and get going!.
+These are just some general prereqs to setup our monorepo. It's better that you follow our Server Onboarding first and enter our server. After that, no need to worry about these prereqs. You can clone the monorepo and get going!
 
 1. **UW VPN:** You are either on-campus connected to Eduroam or you have the [UW VPN](https://uwaterloo.ca/information-systems-technology/services/virtual-private-network-vpn) installed on your local machine. **You only need the VPN to use GUI tools (e.g. Carla).**
 2. **Github SSH keys:** You have a [github ssh key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
@@ -28,19 +28,34 @@ Breifly familarize yourself with Docker and Docker Compose before continuing.
 
 1. Clone this repo onto the host machine on using `$ git clone git@github.com:WATonomous/wato_monorepo_v2.git`. We recommend you clone the repo into your home directory, `~`
 2. Ensure you are on the develop branch: `$ cd ~/wato_monorepo_v2 && git checkout develop && git pull`
-4. Create a file `dev_config.local.sh` in `~/wato_monorepo_v2` and add the line 
+3. Create a file `dev_config.local.sh` in `~/wato_monorepo_v2` and add the line 
 ```
 #!/bin/bash
 from dev_config.sh
 
 ACTIVE_PROFILES="${specific profiles}"
 ```
-See [the main `README.md`](https://git.uwaterloo.ca/WATonomous/wato_monorepo/-/blob/develop/README.md#profiles) for more info on active profiles.
 
-5. Run `$ ./watod2 pull` to pull latest docker images from our container registry.
-6. Run `$ ./watod2 up` to run the Docker images, and watch for any errors. If succesful, this will create a variety of containers prefixed with `${USER}_`. This command does not exit, and will continue to monitor the logs from your containers.
-7. In another terminal, enter `$ ./watod2 ps` to see a list of your open containers.
-8. When you're done, press `ctrl-c` in your original terminal to close the containers. 
+You need to specify what profiles you want to use by setting `ACTIVE_PROFILES` in your `dev_config.local.sh`. For example, your `dev_config.local.sh` might include `ACTIVE_PROFILES="carla tools matlab perception path_planning"`. 
+
+Profiles are defined as `profiles/docker-compose.<PROFILE>.yaml`. If you want to overwrite your current profile and run the command against all profiles, use `watod2 --all COMMAND`
+
+```bash
+from dev_config.sh
+# Space-delimited list of active profiles to run, defined in docker-compose.yaml.
+# Possible values:
+#   - production    		:   configs for all containers required in production
+#   - samples           :   starts sample ROS2 pubsub nodes
+# Example override in dev_config.local.sh: 
+#   ACTIVE_PROFILES="samples production"
+
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
+```
+
+4. Run `$ ./watod2 pull` to pull latest docker images from our container registry.
+5. Run `$ ./watod2 up` to run the Docker images, and watch for any errors. If succesful, this will create a variety of containers prefixed with `${USER}_`. This command does not exit, and will continue to monitor the logs from your containers.
+6. In another terminal, enter `$ ./watod2 ps` to see a list of your open containers.
+7. When you're done, press `ctrl-c` in your original terminal to close the containers. 
 
 The `watod2` will be your the main way that you interact with your containers. `watod2` is a wrapper for `docker-compose` that automates the setup of environment varaibles and has some additional functionality. Get more information about `watod2` using: `$ watod2 -h`.
 
@@ -51,3 +66,5 @@ echo "export PATH=\$PATH:\$HOME/wato_monorepo_v2/" >> ~/.bashrc
 echo "source ~/wato_monorepo_v2/scripts/watod2-completion.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
+# Eager to begin development?
+[docs/how_to_dev.md](docs/how_to_dev.md)
