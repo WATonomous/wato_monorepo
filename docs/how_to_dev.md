@@ -48,7 +48,6 @@ Say you are trying to create a new ROS2 node.
 Once those are decided. Find where your code fits in this repo. You can choose to dev in the order below:
 
 ## 1.0 src
----
 
 ### 1.1 Where does my ROS2 node go in the src
 Based on the subgroup, your ROS2 node should exist inside the subgroup's folder within the `src` directory
@@ -69,7 +68,6 @@ We don't have ROS2 downloaded in the Server machines, therefore, just copy one o
 * **I want to make a python ROS2 message:** copy `/src/wato_msgs/sample_msgs/` to the directory you decided on based on 1.2
 
 ## 2.0 docker and profiles
----
 
 ### 2.1 premise
 Docker and Docker Compose allow for modular development with little friction between ROS2 nodes. What this means is, the dependencies of a single ROS2 node in the monorepo is GUARENTEED to not clash with the dependencies of other ROS2 nodes. This is powerful because it allows us to rapidly remove and integrate new algorithms seemlessly without having to deal with clashing dependencies.
@@ -77,10 +75,10 @@ Docker and Docker Compose allow for modular development with little friction bet
 ### 2.2 Docker Compose and Profiles
 The profiles directory contains Docker Compose files that specify which nodes should startup. 
 
-## 2.2.1 Do I need to create my own profile (docker compose file)?
+#### 2.2.1 Do I need to create my own profile (docker compose file)?
 Contact your lead. Usually your ROS2 node will not need its own profile. It is up to your lead to decide whether your node should startup with a profile of their choosing. 
 
-## 2.2.2 Structure of the docker compose file 
+#### 2.2.2 Structure of the docker compose file 
 A typical docker compose file consists of the following (notes inside)...
 ```yaml
 version: "3.8"
@@ -180,7 +178,6 @@ CMD ["ros2", "launch", "aggregator", "aggregator.launch.py"]
 A dockerfile can be very finnicy at times. So if you have any questions, please ask infra or your lead. If you run into permission issues, this is most likely due to `fixuid`. We use `fixuid` to ensure that your files are stolen by the `docker root`. That is, `docker root` will steal ownership of your file/folder and you will no longer have access to it anymore. If this is the case, contact infra.
 
 ## 3.0 Linking up your ROS2 Node and docker stuff to watod2
----
 The `watod2` script is a custom built script to setup environment variables (some of which are very important for file permissions and managing images in the server) and up certain profiles of your choosing. `watod2` is power because it gives us the freedom to pick different profiles (docker compose files) to run in a single, easy-to-use script. We can also use `watod2` like docker compose, and interact with containers by simply calling `watod2 -t <service_name>`. 
 
 ### 3.1 watod2
