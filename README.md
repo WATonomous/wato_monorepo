@@ -142,9 +142,6 @@ If you want to attach VScode to a specific container instead of to the host, you
 8. Right click on your container and select "Attach VS Code to Container"
 9. Done! At this point you should be able to edit code and run Catkin/ROS commands in the container through the VS Code terminal
 
-## Monorepo Info
-[docs/monorepo.md](docs/monorepo.md)
-
 ## Technical Specification 
 Docker, Continuous Integration: [tech_spec.md](docs/tech_spec.md)
 
