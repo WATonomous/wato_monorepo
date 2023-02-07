@@ -3,21 +3,26 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "radar_msgs/msg/UnfilteredRadarLeftPacket.hpp"
-#include "radar_msgs/msg/UnfilteredRadarRightPacket.hpp"
-#include "radar_msgs/msg/UnfilteredCarlaLeftPacket.hpp"
-#include "radar_msgs/msg/UnfilteredCarlaRightPacket.hpp"
-#include "radar_msgs/msg/RadarDetection.hpp
+#include "radar_msgs/msg/RadarPacket.hpp"
+#include "radar_msgs/msg/RadarDetection.hpp"
 
-
-
-//SAMPLE FUNCTION
-
-class PointCloudFilter
+class ARSPointCloudFilter
 {
 
 public:
-  void snr_filter();
+  ARSPointCloudFilter();
 
-}
+  void snr_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars_left,
+                  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars_right);
+
+  void radar_velocity_filter();
+
+  void azimuth_angle_filter();
+
+  void radar_cross_section_filter();
+
+
+private:
+
+};
 
