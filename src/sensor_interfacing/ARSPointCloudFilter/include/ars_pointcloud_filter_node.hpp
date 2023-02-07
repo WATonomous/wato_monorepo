@@ -3,11 +3,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "radar_msgs/msg/UnfilteredRadarLeftPacket.hpp"
-#include "radar_msgs/msg/UnfilteredRadarRightPacket.hpp"
-#include "radar_msgs/msg/UnfilteredCarlaLeftPacket.hpp"
-#include "radar_msgs/msg/UnfilteredCarlaRightPacket.hpp"
-#include "radar_msgs/msg/RadarDetection.hpp
+#include "radar_msgs/msg/RadarPacket.hpp"
+#include "radar_msgs/msg/RadarDetection.hpp"
 
 #include "ars_pointcloud_filter.hpp"
 
@@ -37,7 +34,7 @@ private:
    * @param msg a raw message from the "unfiltered" topic
    */
    void unfiltered_ars_radar_right_callback(
-    const radar_msgs::msg::UnfilteredRadarRightPacket::SharedPtr msg);
+    const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
 
    /**
@@ -47,14 +44,14 @@ private:
    * @param msg a raw message from the "unfiltered" topic
    */
    void unfiltered_ars_radar_left_callback(
-    const radar_msgs::msg::UnfilteredRadarLeftPacket::SharedPtr msg);
+    const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
 
-  // ROS2 Subscriber listening to the unfiltered radar left topic.
-  rclcpp::Subscription<radar_msgs::msg::UnfilteredRadarLeftPacket>::SharedPtr raw_left_sub_
+  // ROS2 Subscriber listening to the unfiltered radar packet topic.
+  rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_left_sub_
 
-  // ROS2 Subscriber listening to the unfiltered radar right topic.
-  rclcpp::Subscription<radar_msgs::msg::UnfilteredRadarRightPacket>::SharedPtr raw_right_sub_
+  // ROS2 Subscriber listening to the unfiltered radar packet topic.
+  rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_
 
   // Add an object below from radar_pointcloud_filter.hpp that contains the methods (ADD LATER ONCE LOGIC CREATED)
 

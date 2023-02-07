@@ -2,7 +2,7 @@
 <package format="3">
   <name>ars_pointcloud_filter</name>
   <version>0.0.0</version>
-  <description>A ROS package for pubsub communication</description>
+  <description>A ROS package for filtering ARS and Carla Radar Data</description>
 
   <maintainer email="r9murali@watonomous.ca">Rijin Muralidharan</maintainer>
   <license>TODO</license>
