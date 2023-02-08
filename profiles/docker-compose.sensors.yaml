@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  continental_driver:
+    build:
+      context: ..
+      dockerfile: docker/continental_driver/Dockerfile
+      cache_from:
+        - "${CONTINENTAL_DRIVER_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${CONTINENTAL_DRIVER_IMAGE:?}-develop"
+    image: "${CONTINENTAL_DRIVER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/sensor_interfacing/continental_driver:/home/docker/ament_ws/src/continental_driver
