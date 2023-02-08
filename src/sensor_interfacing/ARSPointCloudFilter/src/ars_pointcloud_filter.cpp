@@ -3,34 +3,49 @@
 #include "ars_pointcloud_filter.hpp"
 
 
-//Packets will depend on which node is selected to run (could be carla packets or ars radar packets)
-
-void ARSPointCloudFilter :: snr_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars_left,
-                                       const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars_right)
+// unfiltered left and right ars (how is this combined)?
+void ARSPointCloudFilter :: snr_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+                                       float snr_threshold)
 {   
-    //create a new filtered message (based on UnfilteredRadarPacket message type (will be changed))
-    radar_msgs::msg::RadarPacket::SharedPtr filtered_left;
-    double threshold = 12.0;
-    for (auto detection:unfiltered_ars_left->Detections)
+    radar_msgs::msg::RadarPacket filtered_ars;
+    for (auto detection:unfiltered_ars->Detections)
     {
-        // -> or dot operator?
-        if(detection.snr < threshold)
+        if(detection->SNR < snr_threshold)
         {
-            //push filtered point somewhere
+            //an array of filtered objects
+            filtered_ars.Detections.push_back(detection);
         }
     }
-    return filtered_packets
+    return filtered_ars;
 }
 
-void ARSPointCloudFilter::radar_velocity_filter()
+void ARSPointCloudFilter::azimuth_angle_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+                                                float AzAng0_threshold, float AzAng1_threshold)           
 {
-
-
-    
+    radar_msgs::msg::RadarPacket filtered_ars;
+    for (auto detection:unfiltered_ars->Detections)
+    {
+        if(abs(detection->AzAng0) < abs(AzAng0_threshold) && detection->AzAng1 < abs(AzAng1_threshold))
+        {
+            //point angles are within the defined constraints
+            filtered_ars.Detections.push_back(detection);
+        }
+    }
+    return filtered_ars;
 
 }
 
-void ARSPointCloudFilter::azimuth_angle_filter()
+void ARSPointCloudFilter::range_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+                                       float range_threshold)
 {
-
+    radar_msgs::msg::RadarPacket filtered_ars;
+    for (auto detection:unfiltered_ars->Detections)
+    {
+        if(detection->Range < range_threshold)
+        {
+            //an array of filtered objects
+            filtered_ars.Detections.push_back(detection);
+        }
+    }
+    return filtered_ars;
 }
