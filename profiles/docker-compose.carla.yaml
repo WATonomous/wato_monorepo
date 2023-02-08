@@ -11,9 +11,11 @@ services:
         - CARLA_VERSION=0.9.13
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
+    # ports:
+    #   - 2000-2002:2000-2002
     ports:
-      - 2000-2002:2000-2002
-    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -carla-rpc-port=2000"
+      - 2000:2000
+    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
     #command: ["tail", "-f", "/dev/null"]
   carla_ros_bridge:
     build:
@@ -23,10 +25,10 @@ services:
         - CARLA_VERSION=0.9.13
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     runtime: nvidia
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
+    #stdin_open: true # docker run -i
+    #tty: true # docker run -t
     #command: ["tail", "-f", "/dev/null"]
-    command: ["ros2", "launch", "carla_ros_bridge", "carla_ros_bridge.launch.py", "host:=${COMPOSE_PROJECT_NAME:?}_carla"]
+    command: ["ros2", "launch", "carla_ros_bridge", "carla_ros_bridge.launch.py", "host:=${COMPOSE_PROJECT_NAME:?}_carla", "timeout:=200"]
     restart: always
     depends_on:
       - carla_server
