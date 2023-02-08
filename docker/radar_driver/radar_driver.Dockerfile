@@ -23,7 +23,8 @@ USER docker:docker
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-COPY src/sensor_interfacing/radar_driver src/radar_driver
+COPY src/sensor_interfacing/ARSPointCloudFilter src/ARSPointCloudFilter
+
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
