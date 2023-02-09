@@ -15,7 +15,6 @@ find_package(std_msgs REQUIRED)
 set(msg_files
     msg/RadarDetection.msg
     msg/RadarPacket.msg)
-
 rosidl_generate_interfaces(radar_msgs
     ${msg_files}
     DEPENDENCIES std_msgs)
