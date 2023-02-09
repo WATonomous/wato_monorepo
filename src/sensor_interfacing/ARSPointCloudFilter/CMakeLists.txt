@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(ars_radar_pointcloud_filter)
+project(ars_pointcloud_filter)
 
 # Set compiler to use C++ 17 standard
 if(NOT CMAKE_CXX_STANDARD)
@@ -71,6 +71,7 @@ install(TARGETS
 # Copy launch files to installation location
 install(DIRECTORY
   launch
+  config
   DESTINATION share/${PROJECT_NAME})
 
 ament_package()

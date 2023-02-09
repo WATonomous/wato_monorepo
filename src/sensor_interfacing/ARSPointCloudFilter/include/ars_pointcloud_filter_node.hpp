@@ -3,8 +3,9 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "radar_msgs/msg/RadarPacket.hpp"
-#include "radar_msgs/msg/RadarDetection.hpp"
+//ERROR
+#include "radar_msgs/msg/radar_packet.hpp"
+#include "radar_msgs/msg/radar_detection.hpp"
 
 #include "ars_pointcloud_filter.hpp"
 
@@ -13,13 +14,9 @@
     * topics from ARS ROSbags and publishes to "filtered" radar topic.
     */
 
-class ARSPointCloudFilterNode : public rclcpp:: Node
+class ARSPointCloudFilterNode : public rclcpp::Node
 {
 public:
-    // Configure pubsub nodes to keep last 20 messages.
-    // https://docs.ros.org/en/foxy/Concepts/About-Quality-of-Service-Settings.html
-    static constexpr int ADVERTISING_FREQ = 20;
-
     /**
     * PointCloudFilter Node Constructor.
     */
@@ -48,10 +45,10 @@ private:
 
 
   // ROS2 Subscriber listening to the unfiltered radar packet topic.
-  rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_left_sub_
+  rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_left_sub_;
 
   // ROS2 Subscriber listening to the unfiltered radar packet topic.
-  rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_
+  rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
   // Add an object below from radar_pointcloud_filter.hpp that contains the methods (ADD LATER ONCE LOGIC CREATED)
   

@@ -8,13 +8,13 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode()
 {
   
   raw_left_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>(
-  "unfilteredRadarLeft",
+  "unfilteredRadarLeft",1,
   std::bind(
     &ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback, this,
     std::placeholders::_1));
 
   raw_right_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>(
-  "unfilteredRadarRight", ADVERTISING_FREQ,
+  "unfilteredRadarRight", 1,
   std::bind(
     &ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback, this,
     std::placeholders::_1));
@@ -22,18 +22,19 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode()
 }
 
 
-void ARSPointCloudFilterNode :: unfiltered_ars_radar_right_callback(
+void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
-  
+  RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
     //messages from unfiltered right radar topic (ars)
 
 }
 
 
-void ARSPointCloudFilterNode :: unfiltered_ars_radar_left_callback(
+void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
+  RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
     //messages from unfiltered left radar topic (ars)
 }
 
