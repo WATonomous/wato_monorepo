@@ -4,8 +4,8 @@
 #include "rclcpp/rclcpp.hpp"
 
 //importing custom message types
-#include "radar_msgs/msg/RadarPacket.hpp"
-#include "radar_msgs/msg/RadarDetection.hpp"
+#include "radar_msgs/msg/radar_packet.hpp"
+#include "radar_msgs/msg/radar_detection.hpp"
 
 class ARSPointCloudFilter
 {
@@ -13,14 +13,14 @@ class ARSPointCloudFilter
 public:
   ARSPointCloudFilter();
 
-  void snr_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, float snr_threshold);
+  radar_msgs::msg::RadarPacket snr_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double snr_threshold);
 
-  void azimuth_angle_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                            float AzAng0_threshold, float AzAng1_threshold);
+  radar_msgs::msg::RadarPacket azimuth_angle_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+                            double AzAng0_threshold, double AzAng1_threshold);
 
-  void range_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, float range_threshold);
+  radar_msgs::msg::RadarPacket range_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double range_threshold);
 
-private:
 
 };
 
+#endif
