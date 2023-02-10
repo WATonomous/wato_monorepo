@@ -23,7 +23,6 @@ public:
     ARSPointCloudFilterNode();
 
 private:
-
    /**
    * A ROS2 subscription node callback used to unpack raw radar data from the "unfiltered"
    * topic 
@@ -50,11 +49,8 @@ private:
   // ROS2 Subscriber listening to the unfiltered radar packet topic.
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
-  // Add an object below from radar_pointcloud_filter.hpp that contains the methods (ADD LATER ONCE LOGIC CREATED)
+  // Add an object below from radar_pointcloud_filter.hpp that contains the methods
   
-
 };
-
-
 
 #endif  // ARS_POINTCLOUD_FILTER_NODE_HPP_
