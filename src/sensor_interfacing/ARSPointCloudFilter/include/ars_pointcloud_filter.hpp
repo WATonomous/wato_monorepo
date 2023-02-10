@@ -1,15 +1,14 @@
-#ifndef RADAR_POINTCLOUD_FILTER_HPP_
-#define RADAR_POINTCLOUD_FILTER_HPP_
+#ifndef ARS_POINTCLOUD_FILTER_HPP_
+#define ARS_POINTCLOUD_FILTER_HPP_
 
 #include "rclcpp/rclcpp.hpp"
 
-//importing custom message types
+// importing custom message types
 #include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
 
 class ARSPointCloudFilter
 {
-
 public:
   ARSPointCloudFilter();
 
@@ -20,7 +19,6 @@ public:
 
   radar_msgs::msg::RadarPacket range_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double range_threshold);
 
-
 };
 
-#endif
+#endif  // ARS_POINTCLOUD_FILTER_HPP_
