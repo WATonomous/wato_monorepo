@@ -17,13 +17,18 @@ function usage {
     echo "  -a --all                        run COMMAND with all profiles enabled. Profiles are defined in ./profiles/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
-    echo " Examples:" 
-    echo "   watod2 up                       start containers (docker-compose up)"
-    echo "   watod2 down                     stop and remove containers (docker-compose down)"
-    echo "   watod2 ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
-    echo "   watod2 --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
-    echo "   watod2 --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
-    echo "   watod2 -t perception            open a bash terminal into the perception container."
+    echo "Helpers                                  "
+    echo "  -irm --image-rm             Deletes/Prunes all wato_monorepo images under your branch tag"
+    echo "  -ils --image-ls             Lists all wato_monorepo images under your branch tag"
+    echo "  -cls --container-ls         Lists all wato_monorepo containers you own"
+    echo ""
+    echo "Examples:" 
+    echo "  watod2 up                       start containers (docker-compose up)"
+    echo "  watod2 down                     stop and remove containers (docker-compose down)"
+    echo "  watod2 ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
+    echo "  watod2 --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
+    echo "  watod2 --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
+    echo "  watod2 -t perception            open a bash terminal into the perception container."
     echo ""
     echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
     exit 0
@@ -105,6 +110,9 @@ while [[ $# -gt 0 ]] ; do
     esac
 done
 
+docker ps -f name=eddyzhou
+docker images --filter=reference="*/*/*/*:add_gui_tools"
+
 if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
 fi
@@ -134,7 +142,10 @@ if [ ! -z $LAUNCH_AUTONOMOUS ]; then
     exit 0
 fi
 
-if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
+if [ ! -z $PRINT_LOCAL_PORTS ]; then
+    # get list of services to traverse
+    SERVICE_LIST="$(run_compose ps --services | sort)"
+
     # fixes hostnames for VMs so that by default $HOSTNAME is the first element
     # in the array, which often is the domain name that can be accessed
     # externally

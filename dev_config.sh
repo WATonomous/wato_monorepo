@@ -36,9 +36,6 @@ TARGET_STAGE=${TARGET_STAGE:-"debug"}
 # Tag to use. Images as formatted as <IMAGE_NAME>:<TARGET_STAGE>-<TAG> with forward slashes replaced with dashes
 TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 
-# Additional tag to cache from
-CACHE_FROM_TAG=${CACHE_FROM_TAG:-$([[ $TAG != "develop" ]] && echo $TAG || echo "__develop_ignore_tag_cache__")}
-
 # ROS hostname + URI for the production profile
 # ROS_IP is the IP that nodes will publish as (client's hostname)
 ROS_HOSTNAME=${ROS_HOSTNAME:-"localhost"}
