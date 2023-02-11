@@ -137,7 +137,7 @@ fi
 
 if [ ! -z $PRINT_LOCAL_PORTS ]; then
     # get list of services to traverse
-    SERVICE_LIST="$(run_compose ps --services | awk '{if(NR>1)print}' | sort)"
+    SERVICE_LIST="$(run_compose ps --services | sort)"
 
     # fixes hostnames for VMs so that by default $HOSTNAME is the first element
     # in the array, which often is the domain name that can be accessed
