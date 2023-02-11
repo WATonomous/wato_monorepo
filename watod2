@@ -101,19 +101,27 @@ while [[ $# -gt 0 ]] ; do
         LAUNCH_AUTONOMOUS=1
         shift
         ;;
+
+      # Begin Helpers
       -ils)
         # */*/.. to account for git.uwaterloo.ca:5050/watonomous/wato_monorepo/<project>
         docker images --filter=reference="*/*/*/*:$TAG" 
         shift
         ;;
       -irm)
-        
+        if [ "$TAG" == "main" ]; then
+            echo "cannot remove images tagged with the main branch"
+        usage
+        fi
+        docker rmi -f $(docker images --filter=reference="*/*/*/*:$TAG" -q)
         shift
         ;;
       -cls)
         docker ps -f name=$COMPOSE_PROJECT_NAME
         shift
         ;; 
+
+      # Help
       -h|--help) # in case you got this far, but still need help :)
         usage
         ;;
