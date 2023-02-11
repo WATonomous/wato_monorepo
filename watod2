@@ -12,15 +12,15 @@ function usage {
     echo "  -v --verbose                    verbose mode. Currently, prints .env variables"                     
     echo "  -lp --local-ports               displays ports exposed by applications and shows the"
     echo "                                  ssh local port forwarding commands for each VNC Server found"
-    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo "                                  if a docker-compose command is specified, it will be run in the background."
     echo "  -a --all                        run COMMAND with all profiles enabled. Profiles are defined in ./profiles/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
-    echo "Helpers                                  "
-    echo "  -irm --image-rm             Deletes/Prunes all wato_monorepo images under your branch tag"
-    echo "  -ils --image-ls             Lists all wato_monorepo images under your branch tag"
-    echo "  -cls --container-ls         Lists all wato_monorepo containers you own"
+    echo "Docker Helpers                                  "
+    echo "  -ils --image-ls                 Lists all wato_monorepo images under your branch tag"
+    echo "  -irm --image-rm                 Deletes/Prunes all wato_monorepo images under your branch tag"
+    echo "  -cls --container-ls             Lists all wato_monorepo containers you own"
+    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo ""
     echo "Examples:" 
     echo "  watod2 up                       start containers (docker-compose up)"
@@ -101,6 +101,19 @@ while [[ $# -gt 0 ]] ; do
         LAUNCH_AUTONOMOUS=1
         shift
         ;;
+      -ils)
+        # */*/.. to account for git.uwaterloo.ca:5050/watonomous/wato_monorepo/<project>
+        docker images --filter=reference="*/*/*/*:$TAG" 
+        shift
+        ;;
+      -irm)
+        
+        shift
+        ;;
+      -cls)
+        docker ps -f name=$COMPOSE_PROJECT_NAME
+        shift
+        ;; 
       -h|--help) # in case you got this far, but still need help :)
         usage
         ;;
@@ -109,9 +122,6 @@ while [[ $# -gt 0 ]] ; do
         ;;
     esac
 done
-
-docker ps -f name=eddyzhou
-docker images --filter=reference="*/*/*/*:add_gui_tools"
 
 if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
