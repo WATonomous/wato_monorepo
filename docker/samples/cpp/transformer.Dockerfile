@@ -1,5 +1,5 @@
 # ================= Dependencies ===================
-FROM ros:foxy AS base
+FROM ros:humble AS base
 
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
@@ -25,12 +25,11 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN sudo chsh -s /bin/bash
 ENV SHELL=/bin/bash
 
-RUN mkdir -p ~/ament_ws/src
-WORKDIR /home/docker/ament_ws/src
-RUN git clone https://github.com/DarylStark/isEven_cpp.git
-
 # ================= Repositories ===================
 FROM base as repo
+
+RUN mkdir -p ~/ament_ws/src
+WORKDIR /home/docker/ament_ws/src
 
 COPY src/samples/cpp/transformer transformer
 COPY src/wato_msgs/sample_msgs sample_msgs
@@ -45,6 +44,5 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # Entrypoint will run before any CMD on launch. Sources ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
-RUN sudo chmod +x ~/wato_ros_entrypoint.sh
-ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
 CMD ["ros2", "launch", "transformer", "transformer.launch.py"]
