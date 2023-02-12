@@ -3,15 +3,16 @@
 #include "ars_pointcloud_filter.hpp"
 
 
-// Filter Template
+
+// TEST - Filter Template
 
 radar_msgs::msg::RadarPacket ARSPointCloudFilter::main_filter(
-  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double threshold, double filter_type)
+  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double threshold, &filter_type)
   {
     radar_msgs::msg::RadarPacket main_filtered_ars;
     for (auto detection : unfiltered_ars->detections)
     {
-      if(detection.{filter_type?} < threshold)
+      if(filter_type(detection) < threshold)
       {
         // Push filtered point/detection into an array
         main_filtered_ars.detections.push_back(detection);
@@ -20,29 +21,57 @@ radar_msgs::msg::RadarPacket ARSPointCloudFilter::main_filter(
     return main_filtered_ars;
   }
 
-// SNR Filter
+// TEST - LAMBDA - SNR Filter
 radar_msgs::msg::RadarPacket ARSPointCloudFilter::snr_filter(
   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double snr_threshold)
 {
-  //filter out only nearscan packets
-  if (unfiltered_ars->event_id == 12)
-  {
-    radar_msgs::msg::RadarPacket filtered_ars = main_filter(unfiltered_ars, snr_threshold, snr)
-    return filtered_ars;
-  }
+  auto filter_type=[snr_threshold](const radar_msgs::msg::RadarPacket::SharedPtr test_packet){
+    return test_packet->detections.detection.snr < snr_threshold;
+  };
+
+  radar_msgs::msg::RadarPacket filtered_ars = main_filter(unfiltered_ars, snr_threshold, filter_type)
+  return filtered_ars;
+
 }
 
-// Azimuth Angle Filter
-radar_msgs::msg::RadarPacket ARSPointCloudFilter::azimuth_angle_filter(
-  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double AzAng0_threshold)
-{
-  //filter out only nearscan packets
-  if (unfiltered_ars->event_id == 12)
-  {
-    radar_msgs::msg::RadarPacket filtered_ars = main_filter(unfiltered_ars, AzAng0_threshold, az_ang0)
-    return filtered_ars;
-  }
-}
+
+
+// // Filter Template
+
+// radar_msgs::msg::RadarPacket ARSPointCloudFilter::main_filter(
+//   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double threshold, double filter_type)
+//   {
+//     radar_msgs::msg::RadarPacket main_filtered_ars;
+//     for (auto detection : unfiltered_ars->detections)
+//     {
+//       if(detection.{filter_type?} < threshold)
+//       {
+//         // Push filtered point/detection into an array
+//         main_filtered_ars.detections.push_back(detection);
+//       }
+//     }
+//     return main_filtered_ars;
+//   }
+
+
+
+// // SNR Filter
+// radar_msgs::msg::RadarPacket ARSPointCloudFilter::snr_filter(
+//   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double snr_threshold)
+// {
+//     radar_msgs::msg::RadarPacket filtered_ars = main_filter(unfiltered_ars, snr_threshold, snr)
+//     return filtered_ars;
+
+// }
+
+// // Azimuth Angle Filter
+// radar_msgs::msg::RadarPacket ARSPointCloudFilter::azimuth_angle_filter(
+//   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double AzAng0_threshold)
+// {
+//     radar_msgs::msg::RadarPacket filtered_ars = main_filter(unfiltered_ars, AzAng0_threshold, az_ang0)
+//     return filtered_ars;
+  
+// }
 
 
 
