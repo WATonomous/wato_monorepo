@@ -44,6 +44,7 @@ private:
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
   // Add an object below from radar_pointcloud_filter.hpp that contains the methods
+  ARSPointCloudFilter pointcloudfilter_;
 };
 
 #endif  // ARS_POINTCLOUD_FILTER_NODE_HPP_

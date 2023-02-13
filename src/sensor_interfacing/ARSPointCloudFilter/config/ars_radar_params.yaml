@@ -1,3 +1,9 @@
 ars_point_cloud_filter:
   ros__parameters:
     filter_mode: "ars"
+    vrel_rad: -99999
+    el_ang: -99999
+    rcs0: -99999
+    snr: -99999
+    range: -99999
+    az_ang0: -99999
