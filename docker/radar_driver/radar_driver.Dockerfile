@@ -23,7 +23,7 @@ USER docker:docker
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-COPY src/sensor_interfacing/ARSPointCloudFilter src/ARSPointCloudFilter
+COPY src/sensor_interfacing/ARSPointCloudFilter ARSPointCloudFilter
 COPY src/wato_msgs/radar_msgs radar_msgs
 
 WORKDIR /home/docker/ament_ws

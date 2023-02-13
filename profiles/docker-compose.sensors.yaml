@@ -9,6 +9,6 @@ services:
         - "${RADAR_DRIVER_IMAGE:?}:develop"
     image: "${RADAR_DRIVER_IMAGE:?}:${TAG}"
     volumes:
-      - ./src/sensor_interfacing/ARSPointCloudFilter:/home/docker/ament_ws/src/ARSPointCloudFilter
+      - ../src/sensor_interfacing/ARSPointCloudFilter:/home/docker/ament_ws/src/ARSPointCloudFilter
    
  #command: roslaunch radar_driver radarROSbag.launch
