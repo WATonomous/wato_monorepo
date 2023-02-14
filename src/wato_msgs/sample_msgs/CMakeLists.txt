@@ -15,6 +15,7 @@ find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(std_msgs REQUIRED) # ROS2 common messages
 
 set(msg_files
+    msg/FilterArrayAverage.msg
     msg/Filtered.msg
     msg/FilteredArray.msg
     msg/Unfiltered.msg

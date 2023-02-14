@@ -1,0 +1,4 @@
+average_filter:
+  ros__parameters:
+    version: 1
+    compression_method: 0
