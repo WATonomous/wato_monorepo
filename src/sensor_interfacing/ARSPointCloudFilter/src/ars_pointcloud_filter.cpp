@@ -4,6 +4,10 @@
 
 // SOLUTION 1: Via Conditions and ROS parameters
 
+ARSPointCloudFilter::ARSPointCloudFilter()
+{
+
+}
 
 radar_msgs::msg::RadarPacket point_filter(
     const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
@@ -147,7 +151,7 @@ radar_msgs::msg::RadarPacket point_filter(
 
 
 
-// ------------------------------
+// // ------------------------------
 // // ORIGINAL IMPLEMENTATION
 // // SNR Filter
 // radar_msgs::msg::RadarPacket ARSPointCloudFilter::snr_filter(
