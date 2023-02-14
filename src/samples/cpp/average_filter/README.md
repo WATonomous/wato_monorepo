@@ -13,9 +13,6 @@ Collects [unfiltered](../../ros_msgs/sample_msgs/msg/Unfiltered.msg) coordinate 
 ## Aggregator
 Listens to messages from the Producer and Transfomer nodes and logs the frequency of messages to the console.
 
-## Average Filter Node
-Computes the average of the x, y, z values
-
 ## Usage
 **Before proceding ensure that you have followed the setup guide([setup](../../../docs/setup.md))**
 
