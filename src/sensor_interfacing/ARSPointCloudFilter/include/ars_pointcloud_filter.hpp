@@ -7,6 +7,9 @@
 #include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
 
+namespace filtering
+{
+  
 class ARSPointCloudFilter
 {
 public:
@@ -40,4 +43,5 @@ public:
   // radar_msgs::msg::RadarPacket rcs_filter(
   //   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double rcs_threshold);
 };
+}
 #endif  // ARS_POINTCLOUD_FILTER_HPP_

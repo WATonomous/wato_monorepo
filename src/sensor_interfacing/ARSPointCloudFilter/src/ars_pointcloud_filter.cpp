@@ -4,6 +4,9 @@
 
 // SOLUTION 1: Via Conditions and ROS parameters
 
+namespace filtering
+{
+
 ARSPointCloudFilter::ARSPointCloudFilter()
 {
 
@@ -249,3 +252,4 @@ radar_msgs::msg::RadarPacket point_filter(
 //     return filtered_ars;
 // }
 
+} // namespace filtering

@@ -2,7 +2,6 @@
 #include <memory>
 
 #include "ars_pointcloud_filter_node.hpp"
-#include "ars_pointcloud_filter.cpp"
 
 
 
@@ -34,8 +33,9 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter
 void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
+
   RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
-    // messages from unfiltered right radar topic (ars)
+  // messages from unfiltered right radar topic (ars)
 
   std::string mode_param = this->get_parameter("filter_mode").as_string();
   double vrel_rad_param = this->get_parameter("vrel_rad").as_double();
@@ -45,10 +45,13 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   double range_param = this->get_parameter("range").as_double();
   double az_ang0_param = this->get_parameter("az_ang0").as_double();
 
-  // Send unfiltered packets along with set thresholds to the filter
-  
-  pointcloudfilter_.point_filter(msg,snr_param,az_ang0_param,range_param,vrel_rad_param,
-                                 el_ang_param,rcs0_param);
+  // Send unfiltered packets along with set parameter thresholds to the filter
+
+  // RCLCPP_INFO(this->get_logger(), "Publishing: %d\n", 
+  // ARSPointCloudFilterNode::pointcloudfilter_.point_filter
+  // (msg,snr_param,az_ang0_param,range_param,vrel_rad_param,el_ang_param,rcs0_param).event_id);
+
+  pointcloudfilter_.point_filter(msg,snr_param,az_ang0_param,range_param,vrel_rad_param,el_ang_param,rcs0_param);
 
 }
 
