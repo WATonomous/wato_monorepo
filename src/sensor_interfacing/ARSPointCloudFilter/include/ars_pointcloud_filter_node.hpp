@@ -2,9 +2,12 @@
 #define ARS_POINTCLOUD_FILTER_NODE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
+
 #include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
+
 #include "ars_pointcloud_filter.hpp"
+
 
 /**
 * Implementation of a ROS2 Point Cloud Filter node that listens to "unfiltered" radar 
@@ -44,7 +47,8 @@ private:
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
   // Add an object below from radar_pointcloud_filter.hpp that contains the methods
-  ARSPointCloudFilter pointcloudfilter_;
+  filtering::ARSPointCloudFilter pointcloudfilter_;
 };
+
 
 #endif  // ARS_POINTCLOUD_FILTER_NODE_HPP_
