@@ -7,3 +7,4 @@ ars_point_cloud_filter:
     snr: -99999.99
     range: -99999.99
     az_ang0: -99999.99
+    scan: "near"
