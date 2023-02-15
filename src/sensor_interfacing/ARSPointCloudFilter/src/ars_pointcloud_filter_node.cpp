@@ -47,11 +47,11 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
 
   // Send unfiltered packets along with set parameter thresholds to the filter
 
-  // RCLCPP_INFO(this->get_logger(), "Publishing: %d\n", 
-  // ARSPointCloudFilterNode::pointcloudfilter_.point_filter
-  // (msg,snr_param,az_ang0_param,range_param,vrel_rad_param,el_ang_param,rcs0_param).event_id);
+  RCLCPP_INFO(this->get_logger(), "Publishing: %d\n", 
+  ARSPointCloudFilterNode::pointcloudfilter_.point_filter
+  (msg,snr_param,az_ang0_param,range_param,vrel_rad_param,el_ang_param,rcs0_param).event_id);
 
-  pointcloudfilter_.point_filter(msg,snr_param,az_ang0_param,range_param,vrel_rad_param,el_ang_param,rcs0_param);
+  // pointcloudfilter_.point_filter(msg,snr_param,az_ang0_param,range_param,vrel_rad_param,el_ang_param,rcs0_param);
 
 }
 

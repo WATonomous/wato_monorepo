@@ -12,7 +12,7 @@ ARSPointCloudFilter::ARSPointCloudFilter()
 
 }
 
-radar_msgs::msg::RadarPacket point_filter(
+radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
     const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
     double snr_threshold,
     double AzAng0_threshold,
