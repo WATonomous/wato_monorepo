@@ -3,6 +3,7 @@ FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
 FROM ros:foxy-ros-core AS api
 
+ARG CARLA_VERSION
 RUN apt-get update && \
       apt-get install -y lsb-release \
       software-properties-common \
@@ -31,12 +32,12 @@ RUN addgroup --gid 1000 docker && \
 # Remap the docker user and group to be the same uid and group as the host user.
 # Any created files by the docker container will be owned by the host user.
 RUN USER=docker && \
-    GROUP=docker && \
-    curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.4/fixuid-0.4-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
-    chown root:root /usr/local/bin/fixuid && \
-    chmod 4755 /usr/local/bin/fixuid && \
-    mkdir -p /etc/fixuid && \
-    printf "user: $USER\ngroup: $GROUP\npaths:\n  - /home/docker/" > /etc/fixuid/config.yml
+      GROUP=docker && \
+      curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.4/fixuid-0.4-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
+      chown root:root /usr/local/bin/fixuid && \
+      chmod 4755 /usr/local/bin/fixuid && \
+      mkdir -p /etc/fixuid && \
+      printf "user: $USER\ngroup: $GROUP\npaths:\n  - /home/docker/" > /etc/fixuid/config.yml
 
 USER docker:docker
 
@@ -79,7 +80,7 @@ RUN /bin/bash -c "source /opt/ros/foxy/setup.bash; colcon build"
 RUN rm -rf build
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/catkin_ws/devel/setup.bash
-COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
+COPY docker/wato_ros_entrypoint_foxy.sh /home/docker/wato_ros_entrypoint.sh
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
 #CMD ["/bin/bash"]
