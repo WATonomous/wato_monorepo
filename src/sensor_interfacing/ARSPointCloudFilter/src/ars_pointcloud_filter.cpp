@@ -1,5 +1,8 @@
 #include <algorithm>
 
+#include "rclcpp/rclcpp.hpp"
+
+#include "ars_pointcloud_filter_node.hpp"
 #include "ars_pointcloud_filter.hpp"
 
 // SOLUTION 1: Via Conditions and ROS parameters
@@ -52,6 +55,62 @@ radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
       }
       return filtered_ars;
     }
+
+
+
+
+void ARSPointCloudFilter::near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, radar_msgs::msg::RadarPacket &buffer_packet)
+{
+  if((msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5))
+  {
+    // Filter out far scan packets
+      if(!buffer_packet.detections.empty())
+      {
+        // If timestamp is the same as buffer packet
+        if(msg->timestamp == buffer_packet.timestamp)
+        {
+          // Filter out based on thresholds
+          const radar_msgs::msg::RadarPacket test_filtered_ars = ARSPointCloudFilterNode::pointcloudfilter_.point_filter(
+                msg, ARSPointCloudFilterNode::parameters.snr_param, ARSPointCloudFilterNode::parameters.az_ang0_param, ARSPointCloudFilterNode::parameters.range_param,
+                ARSPointCloudFilterNode::parameters.vrel_rad_param, ARSPointCloudFilterNode::parameters.el_ang_param, ARSPointCloudFilterNode::parameters.rcs0_param);
+                                                              
+          // Append all detections to buffer 
+          buffer_packet.detections.insert(buffer_packet.detections.end(), test_filtered_ars.detections.begin(), 
+                                         test_filtered_ars.detections.end());
+        }
+        else
+        {
+          // Publish buffer packet
+          // RCLCPP_INFO(this->get_logger(), "Publishing %d\n", buffer_packet.event_id);
+          left_right_pub_->publish(buffer_packet);
+
+          // Filter incoming data
+          const radar_msgs::msg::RadarPacket test_filtered_ars = ARSPointCloudFilterNode::pointcloudfilter_.point_filter(
+                msg, ARSPointCloudFilterNode::parameters.snr_param, ARSPointCloudFilterNode::parameters.az_ang0_param, ARSPointCloudFilterNode::parameters.range_param,
+                ARSPointCloudFilterNode::parameters.vrel_rad_param, ARSPointCloudFilterNode::parameters.el_ang_param, ARSPointCloudFilterNode::parameters.rcs0_param);
+          
+          // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
+          buffer_packet = test_filtered_ars;
+
+        }
+    }
+
+    else
+    {
+      // Filter incoming data based on parameters
+          const radar_msgs::msg::RadarPacket test_filtered_ars = ARSPointCloudFilterNode::pointcloudfilter_.point_filter(
+                msg, ARSPointCloudFilterNode::parameters.snr_param, ARSPointCloudFilterNode::parameters.az_ang0_param, ARSPointCloudFilterNode::parameters.range_param,
+                ARSPointCloudFilterNode::parameters.vrel_rad_param, ARSPointCloudFilterNode::parameters.el_ang_param, ARSPointCloudFilterNode::parameters.rcs0_param);
+      
+      // Append filtered data to the buffer packet
+      buffer_packet = test_filtered_ars;
+    }
+    
+  }
+}
+
+
+
 
 
 
