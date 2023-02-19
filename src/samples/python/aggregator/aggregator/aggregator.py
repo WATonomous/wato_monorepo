@@ -18,8 +18,8 @@ class Aggregator(Node):
 
         self.node_start_time = time.time()
 
-        self.subscription = self.create_subscription(Unfiltered, 'producer', self.producer_freq, 10)
-        self.subscription = self.create_subscription(FilteredArray, 'transformer',self.transformer_freq, 10)
+        self.subscription = self.create_subscription(Unfiltered, '/producer', self.producer_freq, 10)
+        self.subscription = self.create_subscription(FilteredArray, '/transformer',self.transformer_freq, 10)
         self.subscription
 
     def producer_freq(self, msg):
