@@ -8,7 +8,7 @@ class Producer(Node):
 
     def __init__(self):
         super().__init__('python_producer')
-        self.publisher_ = self.create_publisher(Unfiltered, 'producer', 10)
+        self.publisher_ = self.create_publisher(Unfiltered, '/producer', 10)
 
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.serialize_data)

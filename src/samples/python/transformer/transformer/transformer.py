@@ -7,8 +7,8 @@ class Transformer(Node):
 
     def __init__(self):
         super().__init__('python_transformer')
-        self.publisher_ = self.create_publisher(FilteredArray, 'transformer', 10)
-        self.subscription = self.create_subscription(Unfiltered, 'producer', self.check_msg_validity, 10)
+        self.publisher_ = self.create_publisher(FilteredArray, '/transformer', 10)
+        self.subscription = self.create_subscription(Unfiltered, '/producer', self.check_msg_validity, 10)
         self.subscription
 
         self.FilteredArray = []
