@@ -16,12 +16,28 @@
 class ARSPointCloudFilterNode : public rclcpp::Node
 {
 public:
-  /**
-  * PointCloudFilter Node Constructor.
-  */
+
+    /**
+    * PointCloudFilter Node Constructor.
+    */
     ARSPointCloudFilterNode();
 
+    struct filter_parameters
+    {
+      std::string scan_mode;
+      double vrel_rad_param;
+      double el_ang_param;
+      double rcs0_param;
+      double snr_param;
+      double range_param;
+      double az_ang0_param;
+    };
+
+  filter_parameters parameters;
+
 private:
+  radar_msgs::msg::RadarPacket buffer_packet;
+  
   /**
   * A ROS2 subscription node callback used to unpack raw radar data from the "unfiltered"
   * topic 
@@ -46,8 +62,12 @@ private:
   // ROS2 Subscriber listening to the unfiltered radar packet topic.
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
+  // ROS2 publisher that sends filtered messages from left and right radar to the processed topic.
+  rclcpp::Publisher<radar_msgs::msg::RadarPacket>::SharedPtr left_right_pub_;
+
   // Add an object below from radar_pointcloud_filter.hpp that contains the methods
   filtering::ARSPointCloudFilter pointcloudfilter_;
+
 };
 
 
