@@ -16,7 +16,8 @@ RUN apt-get update && \
       ros-foxy-tf2-eigen \
       git \
       python3-colcon-common-extensions \
-      python3-pygame
+      python3-pygame \
+      supervisor
 
 #Install Python Carla API
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla /opt/carla/PythonAPI
@@ -82,9 +83,25 @@ RUN rm -rf build
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/catkin_ws/devel/setup.bash
 COPY docker/wato_ros_entrypoint_foxy.sh /home/docker/wato_ros_entrypoint.sh
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
+
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
 #CMD ["/bin/bash"]
-CMD ["ros2", "launch", "carla_ros_bridge", "carla_ros_bridge.launch.py"]
+
+# ================= Develop ===================
+FROM repo as debug
+
+USER root:root
+
+ARG COMPOSE_PROJECT_NAME
+
+COPY --chown=docker docker/carla_ros_bridge/supervisord.conf /etc/supervisor/supervisord.conf
+RUN chown -R docker:docker /etc/supervisor
+RUN chmod 777 /var/log/supervisor/
+RUN sed -i s/CONTAINER_NAME/${COMPOSE_PROJECT_NAME}/ /etc/supervisor/supervisord.conf
+ENV DISPLAY=:1.0 
+CMD ["/usr/bin/supervisord"]
+
+
 
 # # ================= Develop ===================
 
