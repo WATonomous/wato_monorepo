@@ -23,12 +23,13 @@ services:
       dockerfile: docker/carla_ros_bridge/Dockerfile
       args:
         - CARLA_VERSION=0.9.13
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     runtime: nvidia
     #stdin_open: true # docker run -i
     #tty: true # docker run -t
     #command: ["tail", "-f", "/dev/null"]
-    command: ["ros2", "launch", "carla_ros_bridge", "carla_ros_bridge.launch.py", "host:=${COMPOSE_PROJECT_NAME:?}_carla", "timeout:=200"]
+    #command: ["ros2", "launch", "carla_ros_bridge", "carla_ros_bridge.launch.py", "host:=${COMPOSE_PROJECT_NAME:?}_carla", "timeout:=200"]
     restart: always
     depends_on:
       - carla_server
