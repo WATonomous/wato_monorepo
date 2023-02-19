@@ -1,13 +1,14 @@
+
 # ================= Dependencies ===================
-FROM ros:humble AS base
+FROM ros:foxy AS base
 
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y \
     # Install ROS viz tools
-    ros-humble-rqt* \
-    ros-humble-rviz2 \
+    ros-foxy-rqt* \
+    ros-foxy-rviz2 \
     # misc
     wget curl tmux
 
@@ -28,23 +29,28 @@ RUN USER=docker && \
 
 USER docker:docker
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 RUN sudo chsh -s /bin/bash
 ENV SHELL=/bin/bash
+
+
 
 # ================= Repositories ===================
 FROM base as repo
 
-RUN mkdir -p ~/ament_ws/src
+RUN mkdir -p ~/colcon/src
 WORKDIR /home/docker/ament_ws/src
 
 COPY src/wato_msgs/sample_msgs sample_msgs
 # If needed, you can copy over rviz configs here
 
+# Download rviz 
+# RUN git clone --branch foxy https://github.com/ros2/rviz.git
+
 WORKDIR /home/docker/ament_ws
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
+RUN . /opt/ros/foxy/setup.sh && \
     rosdep update && \
-    rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
+    rosdep install -i --from-path src --rosdistro foxy -y && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
