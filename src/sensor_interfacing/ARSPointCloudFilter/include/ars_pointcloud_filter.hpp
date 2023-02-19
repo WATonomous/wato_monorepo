@@ -24,6 +24,15 @@ public:
     double vrel_rad_threshold,
     double el_ang_threshold,
     double rcs_threshold);
+  
+  void near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+                        radar_msgs::msg::RadarPacket &buffer_packet);
+
+
+
+
+
+                        
 
   // radar_msgs::msg::RadarPacket snr_filter(
   //   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double snr_threshold);
