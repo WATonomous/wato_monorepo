@@ -109,9 +109,10 @@ If you want to attach VScode to a specific container instead of to the host, you
 
 ### Playing ROS2 Bags
 
-### Playing Rosbags
+A bag is a file that stores serialized ROS2 message data. We can play a bag to make data available on various topics.
+More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html.
 
-Enable `data_stream` as an `ACTIVE_PROFILE` in `dev_config.local.sh`. 
+Add `data_stream` as an `ACTIVE_PROFILE` in `dev_config.local.sh`. 
 
 Run `watod2 up` (or however you want to launch the `data_stream` service). 
 
