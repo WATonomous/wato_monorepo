@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  average_filter:
+    build:
+      context: ..
+      dockerfile: docker/world_modelling/average_filter/average_filter.Dockerfile
+    #   cache_from:
+    #     - "${WORLD_MODELLING_AVERAGE_FILTER_IMAGE:?}-${CACHE_FROM_TAG}"
+    #     - "${WORLD_MODELLING_AVERAGE_FILTER_IMAGE:?}-develop"
+    # image: "${WORLD_MODELLING_AVERAGE_FILTER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/world_modelling/average_filter:/home/docker/ament_ws/src/average_filter
