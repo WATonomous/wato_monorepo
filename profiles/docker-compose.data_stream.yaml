@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  data_stream:
+    build:
+      context: ..
+      dockerfile: docker/infrastructure/data_stream/data_stream.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}-develop"
+    image: "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - /mnt/wato-drive2/nuscenes_mcap/ros2bags:/home/docker/ament_ws/nuscenes
