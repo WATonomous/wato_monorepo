@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(sample_msgs)
+project(world_modelling_msgs)
 
 # Set compiler to use C++ 17 standard
 if(NOT CMAKE_CXX_STANDARD)
@@ -13,17 +13,15 @@ endif()
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(std_msgs REQUIRED) # ROS2 common messages
+find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 
-set(msg_files
-    msg/Filtered.msg
-    msg/FilteredArray.msg
-    msg/Unfiltered.msg
-    msg/Metadata.msg
-    msg/FilterArrayAverage.msg)
+set(msg_files  
+  msg/FilterArrayAverage.msg)
 # Parses message files to generate ROS2 interfaces
-rosidl_generate_interfaces(sample_msgs
+rosidl_generate_interfaces(world_modelling_msgs
     ${msg_files}
-    DEPENDENCIES std_msgs)
+    DEPENDENCIES std_msgs
+    DEPENDENCIES sample_msgs)
 
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()
