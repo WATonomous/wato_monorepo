@@ -9,6 +9,7 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
   - [Common Operations](#common-operations)
     - [watod2](#watod2)
     - [Remote VScode](#remote-vscode)
+    - [Playing ros2 bags](#playing-ros2-bags)
   - [Monorepo Info](#monorepo-info)
   - [Technical Specification](#technical-specification)
   - [Testing Infrastructure](#testing)
@@ -105,6 +106,20 @@ If you want to attach VScode to a specific container instead of to the host, you
 7. Enter the VS Code Docker extension tab and find your container in the "Individual Containers" section.
 8. Right click on your container and select "Attach VS Code to Container"
 9. Done! At this point you should be able to edit code and run Catkin/ROS commands in the container through the VS Code terminal
+
+### Playing ROS2 Bags
+
+### Playing Rosbags
+
+Enable `data_stream` as an `ACTIVE_PROFILE` in `dev_config.local.sh`. 
+
+Run `watod2 up` (or however you want to launch the `data_stream` service). 
+
+The working directory of the `data_stream` container should have a `nuscenes` directory, which contains the NuScenes dataset converted to ros2bag format. To confirm this, run `watod run data_stream ls nuscenes` to view the available bags. Each bag has its own directory. The location of the `.mcap` file is `<name>/<name>_0.mcap`. For example, one of the bags is in `nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`. 
+
+Now, using `watod run data_stream [ROS2 BAG COMMAND]` you can run any `ros2 bag ...` command as documented here: http://wiki.ros.org/rosbag/Commandline. You probably want to explore `ros2 bag play ...`: http://wiki.ros.org/rosbag/Commandline#rosbag_play. (Since this documentation is in ROS1, you can replace `rosbag` with `ros2 bag` to run the equivalent command in ROS2)
+
+Example: `watod2 run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`
 
 ## Monorepo Info
 [docs/monorepo.md](docs/monorepo.md)
