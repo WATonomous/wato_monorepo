@@ -7,6 +7,8 @@
 #include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
 
+#include "ars_pointcloud_filter_node.hpp"
+
 namespace filtering
 {
   
@@ -26,13 +28,17 @@ public:
     double rcs_threshold);
   
   void near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                        radar_msgs::msg::RadarPacket &buffer_packet);
+                        radar_msgs::msg::RadarPacket &buffer_packet, double vrel_rad_param, double el_ang_param,
+                        double rcs0_param, double snr_param, double range_param, double az_ang0_param);
+
+  // void far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+  //                     radar_msgs::msg::RadarPacket &buffer_packet, struct ARSPointCloudFilterNode::filter_parameters parameters);
 
 
 
 
 
-                        
+
 
   // radar_msgs::msg::RadarPacket snr_filter(
   //   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double snr_threshold);

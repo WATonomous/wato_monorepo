@@ -52,9 +52,14 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   // Send Unfiltered packets along with set parameter thresholds to the filter
   if(parameters.scan_mode == "near")
   {
-    filtering::ARSPointCloudFilter::near_scan_filter(msg, ARSPointCloudFilterNode::buffer_packet)
+    pointcloudfilter_.near_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
+                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param);
   }
-  
+  // else if (parameters.scan_mode == "far")
+  // {
+  //   pointcloudfilter_.far_scan_filter(msg,buffer_packet,parameters);
+  // }
+
 }
 
 void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
