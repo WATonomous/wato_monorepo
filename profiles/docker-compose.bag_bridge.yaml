@@ -3,7 +3,7 @@ services:
   bag_bridge:
     image: ros:noetic
     volumes:
-      - /mnt/wato-drive2/ros2bags:/bags
+      - /mnt/wato-drive2/rosbags2:/bags
     environment: 
       - ROS_MASTER_URI=http://rosmaster:11311/
     tty: true
