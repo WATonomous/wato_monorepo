@@ -67,6 +67,9 @@ private:
 
   // Add an object below from radar_pointcloud_filter.hpp that contains the methods
   filtering::ARSPointCloudFilter pointcloudfilter_;
+  
+  // Create a pair to check if packet can be published 
+  std::pair<bool, radar_msgs::msg::RadarPacket> publish_packet;
 
 };
 
