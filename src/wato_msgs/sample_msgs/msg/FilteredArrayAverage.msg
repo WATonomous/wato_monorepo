@@ -1,0 +1,4 @@
+Filtered[] array
+float32  avg_x
+float32  avg_y
+float32  avg_z
