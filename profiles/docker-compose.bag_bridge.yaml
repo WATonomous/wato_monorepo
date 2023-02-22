@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  bag_bridge:
+    image: ros:noetic
+    volumes:
+      - /mnt/wato-drive2/ros2bags:/bags
+    environment: 
+      - ROS_MASTER_URI=http://rosmaster:11311/
+    tty: true
+    working_dir: /bags
+    depends_on:
+      - rosmaster
