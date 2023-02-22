@@ -40,6 +40,7 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter
   
   left_right_pub_ = this->create_publisher<radar_msgs::msg::RadarPacket>("processed", 20);
 
+
 }
 
 void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
@@ -47,18 +48,34 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
 {
 
   RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
-  // messages from unfiltered right radar topic (ars)
 
-  // Send Unfiltered packets along with set parameter thresholds to the filter
+  // Send Unfiltered packets along with filter thresholds 
   if(parameters.scan_mode == "near")
   {
     pointcloudfilter_.near_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
-                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param);
+                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+
+    if(publish_packet.first == true)
+    {
+      // Publish buffer packet
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
+      left_right_pub_->publish(publish_packet.second);
+    }
+
   }
-  // else if (parameters.scan_mode == "far")
-  // {
-  //   pointcloudfilter_.far_scan_filter(msg,buffer_packet,parameters);
-  // }
+
+  else if (parameters.scan_mode == "far")
+  {
+    pointcloudfilter_.far_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
+                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+
+    if(publish_packet.first == true)
+    {
+      // Publish buffer packet
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
+      left_right_pub_->publish(publish_packet.second);
+    }
+  }
 
 }
 
@@ -66,7 +83,35 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
   RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
-    // messages from unfiltered left radar topic (ars)
+
+  // Send Unfiltered packets along with set parameter thresholds to the filter
+  if(parameters.scan_mode == "near")
+  {
+    pointcloudfilter_.near_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
+                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+
+    if(publish_packet.first == true)
+    {
+      // Publish buffer packet
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
+      left_right_pub_->publish(publish_packet.second);
+    }
+
+  }
+  
+  else if (parameters.scan_mode == "far")
+  {
+    pointcloudfilter_.far_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
+                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+
+    if(publish_packet.first == true)
+    {
+      // Publish buffer packet
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
+      left_right_pub_->publish(publish_packet.second);
+    }
+  }
+
 }
 
 int main(int argc, char ** argv)
