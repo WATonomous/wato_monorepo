@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script generates a .env file to be used with docker-compose
-# To override any of the variables in this script, create dev_config.local.sh 
+# To override any of the variables in this script, create dev_config.local.sh
 #   in the same directory and populate it with variables
 #   e.g. `COMPOSE_PROJECT_NAME=<NAME>`.
 
@@ -29,7 +29,7 @@ BRANCH=${BRANCH/\//-}
 ## ----------------------- Configuration ----------------------------
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
-# Docker build stage to build or run. Typically our dockerfiles have two main stages: 
+# Docker build stage to build or run. Typically our dockerfiles have two main stages:
 #   repo (minimal) and debug (containing debug tools, eg code-server)
 TARGET_STAGE=${TARGET_STAGE:-"debug"}
 
@@ -62,10 +62,13 @@ SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5
 SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_producer"}
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
 
+# ROS2 C++ Practice Sample
+SAMPLES_CPP_AVERAGE_FILTER_IMAGE=${SAMPLES_CPP_AVERAGE_FILTER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_average_filter"}
+
 ## -------------------------- User ID -----------------------------
 
-FIXUID=$(id -u) 
-FIXGID=$(id -g) 
+FIXUID=$(id -u)
+FIXGID=$(id -g)
 
 ## --------------------------- Ports ------------------------------
 
@@ -87,6 +90,9 @@ echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
+
+# ROS2 C++ Practice Sample
+echo "SAMPLES_CPP_AVERAGE_FILTER_IMAGE=$SAMPLES_CPP_AVERAGE_FILTER_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"

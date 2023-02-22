@@ -17,6 +17,7 @@ find_package(std_msgs REQUIRED) # ROS2 common messages
 set(msg_files
     msg/Filtered.msg
     msg/FilteredArray.msg
+    msg/FilteredArrayAverage.msg
     msg/Unfiltered.msg
     msg/Metadata.msg)
 # Parses message files to generate ROS2 interfaces

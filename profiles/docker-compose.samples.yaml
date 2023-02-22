@@ -1,5 +1,16 @@
 version: "3.8"
 services:
+  average_filter:
+    build:
+      context: ..
+      dockerfile: docker/samples/cpp/average_filter.Dockerfile
+      cache_from:
+        - "${SAMPLES_CPP_AVERAGE_FILTER_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${SAMPLES_CPP_AVERAGE_FILTER_IMAGE:?}-develop"
+    image: "${SAMPLES_CPP_AVERAGE_FILTER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/samples/cpp/average_filter:/home/docker/ament_ws/src/average_filter
   aggregator:
     build:
       context: ..
