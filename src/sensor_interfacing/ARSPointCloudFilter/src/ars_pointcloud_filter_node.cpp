@@ -4,8 +4,6 @@
 #include "ars_pointcloud_filter_node.hpp"
 #include "ars_pointcloud_filter.hpp"
 
-
-
 ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter")
 {
   //default values already declared in ars_radar_params.yaml
@@ -40,7 +38,6 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter
   
   left_right_pub_ = this->create_publisher<radar_msgs::msg::RadarPacket>("processed", 20);
 
-
 }
 
 void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
@@ -49,31 +46,40 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
 
   RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
 
-  // Send Unfiltered packets along with filter thresholds 
+  // If scan mode is near
   if(parameters.scan_mode == "near")
   {
-    pointcloudfilter_.near_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
-                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+    // Create a temporary empty packet for when we have a full near scan filtered packet ready to be published
+    radar_msgs::msg::RadarPacket publish_packet;
 
-    if(publish_packet.first == true)
+    /**
+    Send message to near scan filter and append detections to buffer packet based on timestamp.
+    Check if packet is ready to be published (if timestamp differs). Return true if ready to be published, return false otherwise.
+    **/
+    if(pointcloudfilter_.near_scan_filter(msg, parameters, publish_packet) == true)
     {
       // Publish buffer packet
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
-      left_right_pub_->publish(publish_packet.second);
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
+      left_right_pub_->publish(publish_packet);
     }
 
   }
 
+  // If scan mode is far
   else if (parameters.scan_mode == "far")
   {
-    pointcloudfilter_.far_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
-                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+    // Create a temporary empty packet for when we have a full far scan filtered packet ready to be published
+    radar_msgs::msg::RadarPacket publish_packet;
 
-    if(publish_packet.first == true)
+    /**
+    Send message to far scan filter and append detections to buffer packet based on timestamp.
+    Check if packet is ready to be published (if timestamp differs). Return true if ready to be published, return false otherwise.
+    **/
+    if(pointcloudfilter_.far_scan_filter(msg, parameters, publish_packet) == true)
     {
       // Publish buffer packet
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
-      left_right_pub_->publish(publish_packet.second);
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
+      left_right_pub_->publish(publish_packet);
     }
   }
 
@@ -84,31 +90,29 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
 {
   RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
 
-  // Send Unfiltered packets along with set parameter thresholds to the filter
+  // Send Unfiltered packets along with filter thresholds 
   if(parameters.scan_mode == "near")
   {
-    pointcloudfilter_.near_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
-                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+    radar_msgs::msg::RadarPacket publish_packet;
 
-    if(publish_packet.first == true)
+    if(pointcloudfilter_.near_scan_filter(msg, parameters, publish_packet) == true)
     {
       // Publish buffer packet
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
-      left_right_pub_->publish(publish_packet.second);
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
+      left_right_pub_->publish(publish_packet);
     }
 
   }
   
   else if (parameters.scan_mode == "far")
   {
-    pointcloudfilter_.far_scan_filter(msg, buffer_packet, parameters.vrel_rad_param, parameters.el_ang_param,
-                      parameters.rcs0_param, parameters.snr_param, parameters.range_param, parameters.az_ang0_param, publish_packet);
+    radar_msgs::msg::RadarPacket publish_packet;
 
-    if(publish_packet.first == true)
+    if(pointcloudfilter_.far_scan_filter(msg, parameters, publish_packet) == true)
     {
       // Publish buffer packet
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.second.event_id);
-      left_right_pub_->publish(publish_packet.second);
+      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
+      left_right_pub_->publish(publish_packet);
     }
   }
 
