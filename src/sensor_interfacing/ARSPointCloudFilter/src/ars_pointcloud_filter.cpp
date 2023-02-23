@@ -5,8 +5,6 @@
 #include "ars_pointcloud_filter_node.hpp"
 #include "ars_pointcloud_filter.hpp"
 
-// SOLUTION 1: Via Conditions and ROS parameters
-
 namespace filtering
 {
 
@@ -60,58 +58,68 @@ radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
 
 
 // Near Scan Filter Implementation
-void ARSPointCloudFilter::near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
-                                          radar_msgs::msg::RadarPacket &buffer_packet, double vrel_rad_param, double el_ang_param,
-                                          double rcs0_param, double snr_param, double range_param, double az_ang0_param, 
-                                          std::pair<bool, radar_msgs::msg::RadarPacket> &publish_packet)
+bool ARSPointCloudFilter::near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
+                                           const filter_parameters &parameters, radar_msgs::msg::RadarPacket &publish_packet)
 {
   if((msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5))
   {
-    // Filter out far scan packets
+      // Filter out far scan packets
       if(!buffer_packet.detections.empty())
       {
         // If timestamp is the same as buffer packet
         if(msg->timestamp == buffer_packet.timestamp)
         {
-          // Filter out based on thresholds
+          // Filter out detections based on given thresholds
           const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, snr_param, az_ang0_param, range_param, vrel_rad_param, el_ang_param, rcs0_param);
+                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
                                                               
           // Append all detections to buffer 
           buffer_packet.detections.insert(buffer_packet.detections.end(), test_filtered_ars.detections.begin(), 
                                          test_filtered_ars.detections.end());
+          return false;
+          
         }
         else
         {
-          publish_packet.first = true;
-          publish_packet.second = buffer_packet;
+          /**
+          Publish buffer packet since incoming message now has a different timestamp. 
+          This means that the buffer packet is full with detections from 18 packets of the same timestamp.
+          **/
+          publish_packet = buffer_packet;
           
-          // Filter incoming data
+          // Filter new incoming data
           const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, snr_param, az_ang0_param, range_param, vrel_rad_param, el_ang_param, rcs0_param);
+                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
           
           // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
           buffer_packet = test_filtered_ars;
+
+          return true;
         }
     }
     else
     {
       // Filter incoming data based on parameters
-          const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, snr_param, az_ang0_param, range_param, vrel_rad_param, el_ang_param, rcs0_param);
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
       
       // Append filtered data to the buffer packet
       buffer_packet = test_filtered_ars;
+
+      return false;
     }
   }
+
+  return false;
 }
 
 
 // Far Scan Filter Implementation
-void ARSPointCloudFilter::far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
-                                          radar_msgs::msg::RadarPacket &buffer_packet, double vrel_rad_param, double el_ang_param,
-                                          double rcs0_param, double snr_param, double range_param, double az_ang0_param, 
-                                          std::pair<bool, radar_msgs::msg::RadarPacket> &publish_packet)
+bool ARSPointCloudFilter::far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
+                                          const filter_parameters &parameters, radar_msgs::msg::RadarPacket &publish_packet)
 {
   if((msg->event_id == 1 || msg->event_id == 2))
   {
@@ -121,38 +129,51 @@ void ARSPointCloudFilter::far_scan_filter(const radar_msgs::msg::RadarPacket::Sh
         // If timestamp is the same as buffer packet
         if(msg->timestamp == buffer_packet.timestamp)
         {
-          // Filter incoming data based on parameters
+          // Filter incoming data based on given thresholds
           const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, snr_param, az_ang0_param, range_param, vrel_rad_param, el_ang_param, rcs0_param);
+                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
                                                               
           // Append all detections to buffer 
           buffer_packet.detections.insert(buffer_packet.detections.end(), test_filtered_ars.detections.begin(), 
                                          test_filtered_ars.detections.end());
+
+          return false;
         }
         else
         {
-          publish_packet.first = true;
-          publish_packet.second = buffer_packet;
+          /**
+          Publish buffer packet since incoming message now has a different timestamp. 
+          This means that the buffer packet is full with detections from 18 packets of the same timestamp.
+          **/
+          publish_packet = buffer_packet;
           
-          // Filter incoming data based on parameters
+          // // Filter new incoming data
           const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, snr_param, az_ang0_param, range_param, vrel_rad_param, el_ang_param, rcs0_param);
+                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
           
           // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
           buffer_packet = test_filtered_ars;
+
+          return true;
         }
     }
     else
     {
       // Filter incoming data based on parameters
           const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, snr_param, az_ang0_param, range_param, vrel_rad_param, el_ang_param, rcs0_param);
+                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
       
       // Append filtered data to the buffer packet
       buffer_packet = test_filtered_ars;
+
+      return false;
     }
   }
-}
 
+  return false;
+}
 
 } // namespace filtering

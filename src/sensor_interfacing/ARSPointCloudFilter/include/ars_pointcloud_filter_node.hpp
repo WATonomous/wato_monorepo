@@ -22,21 +22,9 @@ public:
     */
     ARSPointCloudFilterNode();
 
-    struct filter_parameters
-    {
-      std::string scan_mode;
-      double vrel_rad_param;
-      double el_ang_param;
-      double rcs0_param;
-      double snr_param;
-      double range_param;
-      double az_ang0_param;
-    };
-
-  filter_parameters parameters;
+    filtering::ARSPointCloudFilter::filter_parameters parameters;
 
 private:
-  radar_msgs::msg::RadarPacket buffer_packet;
   
   /**
   * A ROS2 subscription node callback used to unpack raw radar data from the "unfiltered"
@@ -68,9 +56,6 @@ private:
   // Add an object below from radar_pointcloud_filter.hpp that contains the methods
   filtering::ARSPointCloudFilter pointcloudfilter_;
   
-  // Create a pair to check if packet can be published 
-  std::pair<bool, radar_msgs::msg::RadarPacket> publish_packet;
-
 };
 
 
