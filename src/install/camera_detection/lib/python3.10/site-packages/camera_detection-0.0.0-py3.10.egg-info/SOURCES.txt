@@ -1,0 +1,17 @@
+README.md
+package.xml
+setup.cfg
+setup.py
+../build/camera_detection/camera_detection.egg-info/PKG-INFO
+../build/camera_detection/camera_detection.egg-info/SOURCES.txt
+../build/camera_detection/camera_detection.egg-info/dependency_links.txt
+../build/camera_detection/camera_detection.egg-info/entry_points.txt
+../build/camera_detection/camera_detection.egg-info/requires.txt
+../build/camera_detection/camera_detection.egg-info/top_level.txt
+../build/camera_detection/camera_detection.egg-info/zip-safe
+camera_detection/__init__.py
+camera_detection/yolov5_detection.py
+resource/camera_detection
+test/test_copyright.py
+test/test_flake8.py
+test/test_pep257.py

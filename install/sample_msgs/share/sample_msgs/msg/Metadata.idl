@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from sample_msgs/msg/Metadata.msg
+// generated code does not contain a copyright notice
+
+
+module sample_msgs {
+  module msg {
+    module Metadata_Constants {
+      const int8 DEFAULT = 0;
+      const int8 DICTIONARY = 1;
+      const int8 RUN_LENGTH = 2;
+    };
+    struct Metadata {
+      int8 version;
+
+      int8 compression_method;
+
+      int16 creation_date;
+    };
+  };
+};

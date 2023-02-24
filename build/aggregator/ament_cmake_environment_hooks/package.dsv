@@ -1,0 +1,4 @@
+source;share/aggregator/local_setup.bash
+source;share/aggregator/local_setup.dsv
+source;share/aggregator/local_setup.sh
+source;share/aggregator/local_setup.zsh
