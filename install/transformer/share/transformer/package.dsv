@@ -1,8 +1,0 @@
-source;share/transformer/hook/cmake_prefix_path.ps1
-source;share/transformer/hook/cmake_prefix_path.dsv
-source;share/transformer/hook/cmake_prefix_path.sh
-source;share/transformer/local_setup.bash
-source;share/transformer/local_setup.dsv
-source;share/transformer/local_setup.ps1
-source;share/transformer/local_setup.sh
-source;share/transformer/local_setup.zsh
