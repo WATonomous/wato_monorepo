@@ -1,0 +1,15 @@
+[0.000000] (-) TimerEvent: {}
+[0.000578] (camera_detection) JobQueued: {'identifier': 'camera_detection', 'dependencies': OrderedDict()}
+[0.001098] (sample_msgs) JobQueued: {'identifier': 'sample_msgs', 'dependencies': OrderedDict()}
+[0.001203] (aggregator) JobQueued: {'identifier': 'aggregator', 'dependencies': OrderedDict([('sample_msgs', '/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs')])}
+[0.001268] (producer) JobQueued: {'identifier': 'producer', 'dependencies': OrderedDict([('sample_msgs', '/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs')])}
+[0.002067] (transformer) JobQueued: {'identifier': 'transformer', 'dependencies': OrderedDict([('sample_msgs', '/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs')])}
+[0.002133] (sample_msgs) JobStarted: {'identifier': 'sample_msgs'}
+[0.018495] (camera_detection) JobStarted: {'identifier': 'camera_detection'}
+[0.023308] (camera_detection) StderrLine: {'line': b'Traceback (most recent call last):\n  File "/usr/lib/python3/dist-packages/colcon_core/executor/__init__.py", line 91, in __call__\n    rc = await self.task(*args, **kwargs)\n  File "/usr/lib/python3/dist-packages/colcon_core/task/__init__.py", line 93, in __call__\n    return await task_method(*args, **kwargs)\n  File "/usr/lib/python3/dist-packages/colcon_ros/task/ament_python/build.py", line 40, in build\n    additional_hooks = create_environment_hook(\n  File "/usr/lib/python3/dist-packages/colcon_core/shell/__init__.py", line 440, in create_environment_hook\n    raise RuntimeError(\nRuntimeError: Could not find a primary shell extension for creating an environment hook\n'}
+[0.024050] (camera_detection) JobEnded: {'identifier': 'camera_detection', 'rc': 1}
+[0.025365] (sample_msgs) JobEnded: {'identifier': 'sample_msgs', 'rc': 'SIGINT'}
+[0.034731] (aggregator) JobSkipped: {'identifier': 'aggregator'}
+[0.034779] (producer) JobSkipped: {'identifier': 'producer'}
+[0.034797] (transformer) JobSkipped: {'identifier': 'transformer'}
+[0.034813] (-) EventReactorShutdown: {}

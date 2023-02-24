@@ -1,0 +1,37 @@
+[0.870s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base build/camera_detection build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/install.log --single-version-externally-managed
+[1.189s] running egg_info
+[1.189s] creating build/camera_detection/camera_detection.egg-info
+[1.190s] writing build/camera_detection/camera_detection.egg-info/PKG-INFO
+[1.190s] writing dependency_links to build/camera_detection/camera_detection.egg-info/dependency_links.txt
+[1.190s] writing entry points to build/camera_detection/camera_detection.egg-info/entry_points.txt
+[1.190s] writing requirements to build/camera_detection/camera_detection.egg-info/requires.txt
+[1.190s] writing top-level names to build/camera_detection/camera_detection.egg-info/top_level.txt
+[1.190s] writing manifest file 'build/camera_detection/camera_detection.egg-info/SOURCES.txt'
+[1.192s] reading manifest file 'build/camera_detection/camera_detection.egg-info/SOURCES.txt'
+[1.193s] writing manifest file 'build/camera_detection/camera_detection.egg-info/SOURCES.txt'
+[1.193s] running build
+[1.193s] running build_py
+[1.193s] creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build
+[1.193s] creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build/lib
+[1.193s] creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build/lib/camera_detection
+[1.193s] copying camera_detection/__init__.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build/lib/camera_detection
+[1.193s] copying camera_detection/yolov5_detection.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build/lib/camera_detection
+[1.194s] running install
+[1.194s] running install_lib
+[1.194s] creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages/camera_detection
+[1.194s] copying /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build/lib/camera_detection/__init__.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages/camera_detection
+[1.194s] copying /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build/lib/camera_detection/yolov5_detection.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages/camera_detection
+[1.195s] byte-compiling /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages/camera_detection/__init__.py to __init__.cpython-310.pyc
+[1.195s] byte-compiling /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages/camera_detection/yolov5_detection.py to yolov5_detection.cpython-310.pyc
+[1.196s] running install_data
+[1.196s] creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/ament_index
+[1.196s] creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/ament_index/resource_index
+[1.196s] creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/ament_index/resource_index/packages
+[1.197s] copying resource/camera_detection -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/ament_index/resource_index/packages
+[1.197s] copying package.xml -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection
+[1.197s] running install_egg_info
+[1.198s] Copying build/camera_detection/camera_detection.egg-info to /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages/camera_detection-0.0.0-py3.10.egg-info
+[1.198s] running install_scripts
+[1.217s] Installing camera_detection_node script to /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/camera_detection
+[1.217s] writing list of installed files to '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/install.log'
+[1.249s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection' returned '0': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base build/camera_detection build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/install.log --single-version-externally-managed

@@ -1,0 +1,3 @@
+[console_scripts]
+camera_detection_node = camera_detection.yolov5_detection:main
+

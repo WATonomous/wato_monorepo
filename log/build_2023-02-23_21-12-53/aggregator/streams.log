@@ -1,0 +1,90 @@
+[0.023s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator': AMENT_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs/lib:${LD_LIBRARY_PATH} /usr/bin/cmake /home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator -DCMAKE_INSTALL_PREFIX=/home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator
+[0.075s] -- The C compiler identification is GNU 11.3.0
+[0.132s] -- The CXX compiler identification is GNU 11.3.0
+[0.139s] -- Detecting C compiler ABI info
+[0.202s] -- Detecting C compiler ABI info - done
+[0.210s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.211s] -- Detecting C compile features
+[0.211s] -- Detecting C compile features - done
+[0.214s] -- Detecting CXX compiler ABI info
+[0.287s] -- Detecting CXX compiler ABI info - done
+[0.296s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.296s] -- Detecting CXX compile features
+[0.297s] -- Detecting CXX compile features - done
+[0.301s] -- Found ament_cmake: 1.3.3 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.521s] -- Found Python3: /usr/bin/python3.10 (found version "3.10.6") found components: Interpreter 
+[0.614s] -- Found rclcpp: 16.0.3 (/opt/ros/humble/share/rclcpp/cmake)
+[0.680s] -- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[0.684s] -- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[0.691s] -- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[0.706s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.727s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.796s] -- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[0.800s] -- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[0.915s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[0.946s] -- Found FastRTPS: /opt/ros/humble/include  
+[0.999s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[1.015s] -- Looking for pthread.h
+[1.080s] -- Looking for pthread.h - found
+[1.081s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[1.148s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[1.150s] -- Found Threads: TRUE  
+[1.335s] -- Found sample_msgs: 0.0.0 (/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs/share/sample_msgs/cmake)
+[1.388s] -- Found ament_cmake_gtest: 1.3.3 (/opt/ros/humble/share/ament_cmake_gtest/cmake)
+[1.394s] -- Found ament_lint_auto: 0.12.5 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[1.396s] -- Found ament_lint_common: 0.12.5 (/opt/ros/humble/share/ament_lint_common/cmake)
+[1.489s] -- Found gtest sources under '/opt/ros/humble/src/gtest_vendor': C++ tests using 'Google Test' will be built
+[1.499s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[1.500s] -- Configured cppcheck include dirs: /home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator/include
+[1.500s] -- Configured cppcheck exclude dirs and/or files: 
+[1.500s] -- Added test 'flake8' to check Python code syntax and style conventions
+[1.501s] -- Added test 'lint_cmake' to check CMake code style
+[1.502s] -- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257
+[1.504s] -- Added test 'uncrustify' to check C / C++ code style
+[1.504s] -- Configured uncrustify additional arguments: 
+[1.505s] -- Added test 'xmllint' to check XML markup files
+[1.509s] -- Configuring done
+[1.528s] -- Generating done
+[1.530s] -- Build files have been written to: /home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator
+[1.541s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator' returned '0': AMENT_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs/lib:${LD_LIBRARY_PATH} /usr/bin/cmake /home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator -DCMAKE_INSTALL_PREFIX=/home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator
+[1.543s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator': AMENT_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs/lib:${LD_LIBRARY_PATH} /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator -- -j16 -l16
+[1.586s] [ 20%] [32mBuilding CXX object gtest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o[0m
+[1.587s] [ 20%] [32mBuilding CXX object CMakeFiles/aggregator_lib.dir/src/aggregator.cpp.o[0m
+[1.589s] [ 30%] [32mBuilding CXX object gtest/CMakeFiles/gtest.dir/src/gtest-all.cc.o[0m
+[2.682s] [ 40%] [32m[1mLinking CXX static library libgtest_main.a[0m
+[2.752s] [ 40%] Built target gtest_main
+[4.722s] [ 50%] [32m[1mLinking CXX static library libaggregator_lib.a[0m
+[4.806s] [ 50%] Built target aggregator_lib
+[4.831s] [ 60%] [32mBuilding CXX object CMakeFiles/aggregator_node.dir/src/aggregator_node.cpp.o[0m
+[5.039s] [ 70%] [32m[1mLinking CXX static library libgtest.a[0m
+[5.132s] [ 70%] Built target gtest
+[5.150s] [ 80%] [32mBuilding CXX object CMakeFiles/aggregator_test.dir/test/aggregator_test.cpp.o[0m
+[8.996s] [ 90%] [32m[1mLinking CXX executable aggregator_test[0m
+[9.198s] [ 90%] Built target aggregator_test
+[16.556s] [100%] [32m[1mLinking CXX executable aggregator_node[0m
+[17.090s] [100%] Built target aggregator_node
+[17.099s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator' returned '0': AMENT_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs/lib:${LD_LIBRARY_PATH} /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator -- -j16 -l16
+[17.128s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator': AMENT_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs/lib:${LD_LIBRARY_PATH} /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator
+[17.136s] -- Install configuration: ""
+[17.136s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/lib/aggregator/aggregator_test
+[17.138s] -- Set runtime path of "/home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/lib/aggregator/aggregator_test" to ""
+[17.138s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/lib/aggregator/aggregator_node
+[17.144s] -- Set runtime path of "/home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/lib/aggregator/aggregator_node" to ""
+[17.144s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/launch
+[17.144s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/launch/aggregator.launch.py
+[17.144s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/ament_index/resource_index/package_run_dependencies/aggregator
+[17.144s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/ament_index/resource_index/parent_prefix_path/aggregator
+[17.145s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/environment/ament_prefix_path.sh
+[17.145s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/environment/ament_prefix_path.dsv
+[17.145s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/environment/path.sh
+[17.145s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/environment/path.dsv
+[17.145s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/local_setup.bash
+[17.145s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/local_setup.sh
+[17.146s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/local_setup.zsh
+[17.146s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/local_setup.dsv
+[17.146s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/package.dsv
+[17.146s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/ament_index/resource_index/packages/aggregator
+[17.146s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/cmake/aggregatorConfig.cmake
+[17.146s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/cmake/aggregatorConfig-version.cmake
+[17.147s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/install/aggregator/share/aggregator/package.xml
+[17.154s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator' returned '0': AMENT_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs/lib:${LD_LIBRARY_PATH} /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/build/aggregator

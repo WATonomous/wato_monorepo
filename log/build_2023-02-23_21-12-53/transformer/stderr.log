@@ -1,0 +1,26 @@
+In file included from [01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/gtest.h:67[m[K,
+                 from [01m[K/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer/test/transformer_test.cpp:5[m[K:
+[01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/gtest-param-test.h:496:38:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconstexpr bool testing::internal::InstantiateTestCase_P_IsDeprecated()[m[K’ is deprecated: INSTANTIATE_TEST_CASE_P is deprecated, please use INSTANTIATE_TEST_SUITE_P [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wdeprecated-declarations-Wdeprecated-declarations]8;;[m[K]
+  496 |   static_assert(::testing::internal::[01;35m[KInstantiateTestCase_P_IsDeprecated[m[K(), \
+      |                                      [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/gtest-param-test.h:496:38:[m[K [01;36m[Knote: [m[Kin definition of macro ‘[01m[KINSTANTIATE_TEST_CASE_P[m[K’
+  496 |   static_assert(::testing::internal::[01;36m[KInstantiateTestCase_P_IsDeprecated[m[K(), \
+      |                                      [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+In file included from [01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/gtest.h:62[m[K,
+                 from [01m[K/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer/test/transformer_test.cpp:5[m[K:
+[01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/internal/gtest-internal.h:1210:16:[m[K [01;36m[Knote: [m[Kdeclared here
+ 1210 | constexpr bool [01;36m[KInstantiateTestCase_P_IsDeprecated[m[K() { return true; }
+      |                [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+In file included from [01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/gtest.h:67[m[K,
+                 from [01m[K/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer/test/transformer_test.cpp:5[m[K:
+[01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/gtest-param-test.h:496:72:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconstexpr bool testing::internal::InstantiateTestCase_P_IsDeprecated()[m[K’ is deprecated: INSTANTIATE_TEST_CASE_P is deprecated, please use INSTANTIATE_TEST_SUITE_P [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wdeprecated-declarations-Wdeprecated-declarations]8;;[m[K]
+  496 |   static_assert([01;35m[K::testing::internal::InstantiateTestCase_P_IsDeprecated()[m[K, \
+      |                 [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~[m[K
+[01m[K/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer/test/transformer_test.cpp:95:1:[m[K [01;36m[Knote: [m[Kin expansion of macro ‘[01m[KINSTANTIATE_TEST_CASE_P[m[K’
+   95 | [01;36m[KINSTANTIATE_TEST_CASE_P[m[K(
+      | [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K
+In file included from [01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/gtest.h:62[m[K,
+                 from [01m[K/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer/test/transformer_test.cpp:5[m[K:
+[01m[K/opt/ros/humble/src/gtest_vendor/include/gtest/internal/gtest-internal.h:1210:16:[m[K [01;36m[Knote: [m[Kdeclared here
+ 1210 | constexpr bool [01;36m[KInstantiateTestCase_P_IsDeprecated[m[K() { return true; }
+      |                [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
