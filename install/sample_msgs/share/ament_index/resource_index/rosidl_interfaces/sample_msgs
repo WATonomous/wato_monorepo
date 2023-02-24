@@ -1,0 +1,8 @@
+msg/Filtered.idl
+msg/Filtered.msg
+msg/FilteredArray.idl
+msg/FilteredArray.msg
+msg/Metadata.idl
+msg/Metadata.msg
+msg/Unfiltered.idl
+msg/Unfiltered.msg

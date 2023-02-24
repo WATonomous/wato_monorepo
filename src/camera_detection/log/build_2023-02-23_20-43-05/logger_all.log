@@ -1,0 +1,92 @@
+[0.409s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[0.409s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=16, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7f56c8c87e50>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7f56c96f4490>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7f56c96f4490>>)
+[0.442s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.442s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.442s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.442s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.442s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.442s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.443s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection'
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.443s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.458s] DEBUG:colcon.colcon_core.package_identification:Found ROS schema reference in package manifest in '.'
+[0.458s] WARNING:colcon.colcon_core.package_identification:Failed to parse ROS package manifest in '.': Error(s) in package './package.xml':
+Invalid email "j89leung" for person "Justin"
+[0.458s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.459s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.459s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.459s] DEBUG:colcon.colcon_core.package_identification:Python package in '.' passes arguments to the setup() function which requires a different identification extension than 'python'
+[0.459s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.459s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.796s] DEBUG:colcon.colcon_core.package_identification:Package '.' with type 'python' and name 'camera_detection'
+[0.796s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.796s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.796s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.796s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.797s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.839s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[0.839s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[0.846s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 282 installed packages in /opt/ros/humble
+[0.849s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_args' from command line to 'None'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_target' from command line to 'None'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_clean_cache' from command line to 'False'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_clean_first' from command line to 'False'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_force_configure' from command line to 'False'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'ament_cmake_args' from command line to 'None'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'catkin_cmake_args' from command line to 'None'
+[0.922s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.922s] DEBUG:colcon.colcon_core.verb:Building package 'camera_detection' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection', 'symlink_install': False, 'test_result_base': None}
+[0.923s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.926s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.926s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection'
+[0.940s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.940s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.940s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.770s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base build/camera_detection build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/install.log --single-version-externally-managed
+[2.129s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection' returned '0': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base build/camera_detection build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/build/camera_detection/install.log --single-version-externally-managed
+[2.142s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection' for CMake module files
+[2.143s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection' for CMake config files
+[2.144s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib'
+[2.144s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/bin'
+[2.144s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/pkgconfig/camera_detection.pc'
+[2.144s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/lib/python3.10/site-packages'
+[2.144s] Level 1:colcon.colcon_core.shell:create_environment_hook('camera_detection', 'pythonpath')
+[2.146s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/hook/pythonpath.ps1'
+[2.147s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/hook/pythonpath.dsv'
+[2.147s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/hook/pythonpath.sh'
+[2.148s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/bin'
+[2.148s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(camera_detection)
+[2.150s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/package.ps1'
+[2.151s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/package.dsv'
+[2.151s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/package.sh'
+[2.152s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/package.bash'
+[2.153s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/camera_detection/package.zsh'
+[2.154s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/camera_detection/share/colcon-core/packages/camera_detection)
+[2.154s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[2.154s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[2.155s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[2.155s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[2.164s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[2.164s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[2.164s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[2.164s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[2.205s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[2.207s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/local_setup.ps1'
+[2.209s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/_local_setup_util_ps1.py'
+[2.211s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/setup.ps1'
+[2.213s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/local_setup.sh'
+[2.214s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/_local_setup_util_sh.py'
+[2.215s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/setup.sh'
+[2.217s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/local_setup.bash'
+[2.218s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/setup.bash'
+[2.219s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/local_setup.zsh'
+[2.220s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/install/setup.zsh'

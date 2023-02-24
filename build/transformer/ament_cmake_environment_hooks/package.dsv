@@ -1,0 +1,4 @@
+source;share/transformer/local_setup.bash
+source;share/transformer/local_setup.dsv
+source;share/transformer/local_setup.sh
+source;share/transformer/local_setup.zsh

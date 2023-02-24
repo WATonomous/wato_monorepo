@@ -1,0 +1,2 @@
+/usr/bin/ar qc libproducer_lib.a CMakeFiles/producer_lib.dir/src/producer.cpp.o
+/usr/bin/ranlib libproducer_lib.a
