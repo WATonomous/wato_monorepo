@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaggregator_lib.a CMakeFiles/aggregator_lib.dir/src/aggregator.cpp.o
-/usr/bin/ranlib libaggregator_lib.a
