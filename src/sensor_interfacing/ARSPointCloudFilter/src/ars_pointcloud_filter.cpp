@@ -176,4 +176,66 @@ bool ARSPointCloudFilter::far_scan_filter(const radar_msgs::msg::RadarPacket::Sh
   return false;
 }
 
+
+
+
+
+// Near + Far Scan Filter Implementation (Double Buffer Algorithm)
+bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
+                                          const filter_parameters &parameters, radar_msgs::msg::RadarPacket &publish_packet)
+{
+  // Scan 1 (same timestamp for 18 near scan packets and a slightly different timestamp for 12 far scan packets)
+  // But they should be appended to the same packet (published in 30)
+
+  // Pseudocode
+
+  // Save near and far scan timestamps as member variables
+
+  if event id == near and msg timestamp != near timestamp member variable 
+     then update member timestamp, make scan1_near == false, scan2_near == true
+
+  else keep the same timestamp for near, make scan1_near = true, scan2_near = false
+
+  if event id is far and msg timestamp != far timestamp member variable 
+     then update member timestamp, make scan1_far == false, scan2_far = true
+
+  else keep the same timestamp for far, make scan1_far = true, scan2_far = false
+
+  if (msg timetamp  == near or far member timestamps)
+  {
+      if msg timestamp == near timestamp and scan1_near == true and scan2_near = false, 
+      {
+      append detections to buffer packet 1 
+      total_near_packets_count++ 
+      }
+
+      // Means near scans are full in buffer packet 1 
+      else 
+      {
+      Append detections to buffer packet 2 
+      }
+
+      if msg timestamp == far timestamp and scan1_far == true, scan2_far = false,
+      {
+      Append detections to buffer packet 1
+      total_far_packets_count++
+      }
+
+      // Means far scans are full in buffer packet 1 
+      else 
+      {
+      Append to buffer packet 2 (this means that we have 30 packets in buffer packet 1)
+      Publish buffer packet 1, (both member timestamps have already been updated at this point for scan 2) 
+      Reset packet counters
+      }
+  }
+
+}
+
+
+
+
+
+
+
 } // namespace filtering

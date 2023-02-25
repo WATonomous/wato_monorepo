@@ -82,6 +82,20 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
       left_right_pub_->publish(publish_packet);
     }
   }
+  
+  // If scan mode is near_far (Double Buffer)
+  else
+  {
+    // Create a temporary empty packet for when we have a full near and far scan filtered packet ready to be published
+    // Publish packet of 30 from first scan or second scan
+    radar_msgs::msg::RadarPacket publish_packet_near_far;
+
+    pointcloudfilter_.near_far_scan_filter(msg,parameters,publish_packet_near_far);
+
+    left_right_pub_->publish(publish_packet_near_far);
+
+
+  }
 
 }
 
