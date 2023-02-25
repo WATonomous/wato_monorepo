@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  camera_detection:
+    build:
+      context: ..
+      dockerfile: docker/camera_detection/camera_detection.Dockerfile
+      cache_from:
+        - camera_detection:latest
+    image: camera_detection
+
+    user: ${FIXUID:?}:${FIXGID:?}
+    # ports:
+    #   - "${GUI_TOOLS_VNC_PORT:?}:5900"
+    environment:
+      - XYZ=1

@@ -8,10 +8,13 @@ from sensor_msgs.msg import Image
 from yolov5.models.common import DetectMultiBackend
 from yolov5.utils.augmentations import letterbox
 from yolov5.utils.general import check_img_size, scale_segments, non_max_suppression
+from utils.plots import Annotator, colors
 
 
 import os
 from sensor_msgs.msg import Image
+# from common_msgs.msg import ObstacleList, Obstacle
+# from common_msgs.msg import Obstacle
 
 from easydict import EasyDict
 
@@ -23,14 +26,14 @@ from cv_bridge import CvBridge, CvBridgeError
 
 import torch
 
-CAMERA_TOPIC='/camera_pkg/video_mjpeg'
-MODEL_PATH="/home/leungjch/Downloads/yolov5s.pt"
+# CAMERA_TOPIC='/camera_pkg/video_mjpeg'
+CAMERA_TOPIC='/camera/right/image_color'
+MODEL_PATH="/perception_models/yolov5s.pt"
 
-class MinimalSubscriber(Node):
+class CameraDetectionNode(Node):
     
     def __init__(self):
         super().__init__('minimal_param_node')
-
 
         print(os.getcwd())
 
@@ -41,14 +44,14 @@ class MinimalSubscriber(Node):
         # self.config = EasyDict(config)
 
         print("Creating sub")
-        super().__init__('minimal_subscriber')
+        super().__init__('camera_detection_node')
+        self.get_logger().info("Creating node...")
         self.subscription = self.create_subscription(
             Image,
             CAMERA_TOPIC,
             self.listener_callback,
             10)
         self.subscription  # prevent unused variable warning
-        print("Done creating sub")
 
         # set device
         self.device = torch.device("cpu")
@@ -69,6 +72,9 @@ class MinimalSubscriber(Node):
 
 
         self.stride = int(self.model.stride)
+        self.get_logger().info("Done creating node...")
+
+
 
 
     def preprocess_image(self, cv_image):
@@ -94,13 +100,81 @@ class MinimalSubscriber(Node):
 
         return img
 
+    def postprocess_detections(self, detections, annotator):
+        """
+        Post-process detections by merging cyclists, draw bouningboxes on camera image
+
+        Parameters: 
+            detections: A list of dict with the format 
+                {
+                    "label": str,
+                    "bbox": [float],
+                    "conf": float
+                }
+            annotator: A yolov5.utils.general.Annotator for the current image
+        Returns:
+            processed_detections: filtered and cyclist combined detections
+            annotator_img: image with bounding boxes drawn on
+        """
+        processed_detections = []
+
+        for det in processed_detections:
+            label = f'{det["label"]} {det["conf"]:.2f}'
+            x1, y1, w1, h1 = det["bbox"]
+            xyxy = [x1, y1, x1 + w1, y1 + h1]
+            annotator.box_label(xyxy, label, color=colors(1, True))
+
+        annotator_img = annotator.result()
+        return (processed_detections, annotator_img)
+
+
+    def publish_vis(self, annotated_img, feed):
+        # Publish visualizations
+        imgmsg = self.cv_bridge.cv2_to_imgmsg(annotated_img, encoding="passthrough")
+        imgmsg.header.frame_id = "camera_{}_link".format(feed)
+        if feed == "left":
+            self.left_vis_publisher.publish(imgmsg)
+        elif feed == "right":
+            self.right_vis_publisher.publish(imgmsg)
+
+    def publish_detections(self, detections, msg, feed):
+        # Publish detections 
+        obstacle_list = ObstacleList()
+
+        # fill header for obstacle list
+        obstacle_list.header.seq = msg.header.seq + 1
+        obstacle_list.header.stamp = msg.header.stamp
+        obstacle_list.header.frame_id = msg.header.frame_id
+
+        # populate obstacle list
+        if detections is not None and len(detections):
+            for detection in detections:
+                obstacle = Obstacle()
+
+                # fill header for obstacle
+                obstacle.header.seq = msg.header.seq + 1
+                obstacle.header.stamp = msg.header.stamp
+                obstacle.header.frame_id = msg.header.frame_id
+
+                # populate obstacle
+                obstacle.confidence = detection["conf"]
+                obstacle.label = self.obstacle_dict[detection["label"]]
+                obstacle.pose.pose.position.x = detection["bbox"][0]
+                obstacle.pose.pose.position.y = detection["bbox"][1]
+                obstacle.width_along_x_axis = detection["bbox"][2]
+                obstacle.height_along_y_axis = detection["bbox"][3]
+
+                # append obstacle to obstacle list
+                obstacle_list.obstacles.append(obstacle)
+
+        return
+
 
     def listener_callback(self, msg):
-        print("Got listener")
         # msg.images is a list of images (size 1 for mono, size 2 for stereo)
-        self.get_logger().info('I heard: "%s"' % len(msg.images))
-
-        for image in msg.images:
+        self.get_logger().info('Got image')
+        images = [msg]
+        for image in images:
             # convert ros Image to cv::Mat
             try:
                 cv_image = self.cv_bridge.imgmsg_to_cv2(image, desired_encoding="passthrough")
@@ -111,34 +185,48 @@ class MinimalSubscriber(Node):
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
             pred = self.model(img)
+            print("hid")
 
-            print(pred)
             pred = non_max_suppression(pred) #nms function used same as yolov5 detect.py
-
-
-            
+            detections = []
             for i, det in enumerate(pred):  # per image
 
                 print(det.shape)
                 if len(det):
                     # Write results
                     for *xyxy, conf, cls in reversed(det):
-                        print(cls)
                         c = int(cls)  # integer class
                         label = self.names[int(cls)] 
-                        print(label)
-                # Save results (image with detections)
+
+                        bbox = [xyxy[0], xyxy[1], xyxy[2] - xyxy[0], xyxy[3] - xyxy[1]]
+                        bbox = [b.item() for b in bbox]
+
+                        detections.append(
+                            {
+                                "label": label,
+                                "conf": conf.item(),
+                                "bbox": bbox,
+                            }
+                        )
+                        self.get_logger().info(f"{label}: {bbox}")
+                        # Save results (image with detections)
+
+            # detections, annotated_img = self.postprocess_detections(detections, annotator)
+
+            # self.publish_vis(annotated_img, feed)
+            # self.publish_detections(detections, msg, feed)
+
+
 def main(args=None):
     rclpy.init(args=args)
 
-    minimal_subscriber = MinimalSubscriber()
-
-    rclpy.spin(minimal_subscriber)
+    camera_detection_node = CameraDetectionNode()
+    rclpy.spin(camera_detection_node)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    minimal_subscriber.destroy_node()
+    camera_detection_node.destroy_node()
     rclpy.shutdown()
 
 
