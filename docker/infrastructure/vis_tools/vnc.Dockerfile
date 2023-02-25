@@ -42,7 +42,6 @@ RUN mkdir -p ~/colcon/src
 WORKDIR /home/docker/ament_ws/src
 
 COPY src/wato_msgs/sample_msgs sample_msgs
-# If needed, you can copy over rviz configs here
 
 # Download rviz 
 # RUN git clone --branch foxy https://github.com/ros2/rviz.git
@@ -68,10 +67,13 @@ RUN apt-get update -y && apt-get install -y wget curl gdb supervisor
 EXPOSE 5900
 RUN apt-get update && apt-get install -y lxde x11vnc xvfb mesa-utils && apt-get purge -y light-locker
 
+# COPY --chown=docker src/simulation/rviz_configs simulation_rviz_configs
 COPY --chown=docker docker/infrastructure/vis_tools/supervisord.conf /etc/supervisor/supervisord.conf
 RUN chown -R docker:docker /etc/supervisor
 
 RUN mkdir /home/docker/ament_ws/src/simulation_rviz_configs
+RUN chown -R docker:docker /home/docker/ament_ws/src/simulation_rviz_configs 
+VOLUME /home/docker/ament_ws/src/simulation_rviz_configs
 RUN chmod 777 /home/docker/ament_ws/src/simulation_rviz_configs
 
 RUN chmod 777 /var/log/supervisor/
