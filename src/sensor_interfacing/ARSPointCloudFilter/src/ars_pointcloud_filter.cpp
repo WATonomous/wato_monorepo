@@ -10,7 +10,10 @@ namespace filtering
 
 ARSPointCloudFilter::ARSPointCloudFilter()
 {
-
+  buffer_index = 0;
+  default_timestamp = -1;
+  near_timestamp = -1;
+  far_timestamp = -1;
 }
 
 // Point Filter Implementation
@@ -177,65 +180,115 @@ bool ARSPointCloudFilter::far_scan_filter(const radar_msgs::msg::RadarPacket::Sh
 }
 
 
-
-
-
 // Near + Far Scan Filter Implementation (Double Buffer Algorithm)
 bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
                                           const filter_parameters &parameters, radar_msgs::msg::RadarPacket &publish_packet)
 {
-  // Scan 1 (same timestamp for 18 near scan packets and a slightly different timestamp for 12 far scan packets)
-  // But they should be appended to the same packet (published in 30)
+  // Rearranged Implementation 
 
-  // Pseudocode
-
-  // Save near and far scan timestamps as member variables
-
-  if event id == near and msg timestamp != near timestamp member variable 
-     then update member timestamp, make scan1_near == false, scan2_near == true
-
-  else keep the same timestamp for near, make scan1_near = true, scan2_near = false
-
-  if event id is far and msg timestamp != far timestamp member variable 
-     then update member timestamp, make scan1_far == false, scan2_far = true
-
-  else keep the same timestamp for far, make scan1_far = true, scan2_far = false
-
-  if (msg timetamp  == near or far member timestamps)
+  // Check if its near
+  if (msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5)
   {
-      if msg timestamp == near timestamp and scan1_near == true and scan2_near = false, 
-      {
-      append detections to buffer packet 1 
-      total_near_packets_count++ 
-      }
+    // Default case
+    if (near_timestamp == default_timestamp)
+    {
+      near_timestamp = msg->timestamp;
+    }
 
-      // Means near scans are full in buffer packet 1 
-      else 
-      {
-      Append detections to buffer packet 2 
-      }
+    // Check if new message is part of the same scan
+    if (msg->timestamp == near_timestamp)
+    {
+      // Append to buffer packet 1 
+      // Filter out detections based on given thresholds
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
+                                                          
+      // Append all detections to buffer packet 1 
+      near_far_buffer_packets[buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(), test_filtered_ars.detections.begin(), 
+                                      test_filtered_ars.detections.end());
+      
+      return false;
 
-      if msg timestamp == far timestamp and scan1_far == true, scan2_far = false,
-      {
-      Append detections to buffer packet 1
-      total_far_packets_count++
-      }
+    }
+    // This means 18 packets are collected in buffer packet 1 (all with the same timestamps) => new near scan data
+    else
+    {
+      next_near_timestamp = msg->timestamp;
 
-      // Means far scans are full in buffer packet 1 
-      else 
-      {
-      Append to buffer packet 2 (this means that we have 30 packets in buffer packet 1)
-      Publish buffer packet 1, (both member timestamps have already been updated at this point for scan 2) 
-      Reset packet counters
-      }
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
+
+      // Append to buffer packet 2 
+      near_far_buffer_packets[1 - buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(), test_filtered_ars.detections.begin(), 
+                                      test_filtered_ars.detections.end());
+      
+      return false;
+
+    }
   }
 
+  // Check if its far
+  if (msg->event_id == 1 || msg->event_id == 2)
+  {
+    // Default case
+    if (far_timestamp == default_timestamp)
+    {
+      far_timestamp = msg->timestamp;
+    }
+
+    // Check if new message is part of the same scan
+    if (msg->timestamp == far_timestamp)
+    {
+      // Append to buffer packet 1 
+      // Filter out detections based on given thresholds
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
+                                                          
+      // Append all detections to buffer packet 1 
+      near_far_buffer_packets[buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(), test_filtered_ars.detections.begin(), 
+                                      test_filtered_ars.detections.end());
+      
+      return false;
+
+    }
+    // This means 12 packets are collected in buffer packet 1 (all with the same timestamps)=> new far scan data
+    else
+    {
+      next_far_timestamp = msg->timestamp;
+
+      // This means we technically have 30 packets in buffer packet 1 at this point
+
+      // Publish buffer_packet
+      publish_packet = near_far_buffer_packets[buffer_index];
+
+      // Filter new far scan incoming data 
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
+
+      // Append to buffer packet 2 
+      near_far_buffer_packets[1 - buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(), test_filtered_ars.detections.begin(), 
+                                      test_filtered_ars.detections.end());
+
+      // Change timestamps, next_near and next_far become the "new" timestamps to check if incoming messages are part of the same scan
+      near_timestamp = next_near_timestamp;
+      far_timestamp = next_far_timestamp;
+
+      // Clear the buffer packet array
+      near_far_buffer_packets[buffer_index].detections.clear();
+
+      // Change index so next iteration, buffer packet 2 is considered to be part of scan 1 and buffer packet 1 is part of scan 2
+      buffer_index = 1 - buffer_index;
+
+      return true;
+
+    }
+  }
+  
+  return false;
 }
-
-
-
-
-
-
 
 } // namespace filtering

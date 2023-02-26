@@ -53,13 +53,15 @@ private:
   radar_msgs::msg::RadarPacket buffer_packet;
 
   // Create two buffer packets (for when both near and far scan mode filters are activated)
-  radar_msgs::msg::RadarPacket buffer_packet_near_far_01;
-  radar_msgs::msg::RadarPacket buffer_packet_near_far_02;
+  radar_msgs::msg::RadarPacket near_far_buffer_packets[2];
 
-  // Number of detection packets
-  int total_near_scan_packets = 0; // Would equal to 18 when full
-  int total_far_scan_packets = 0; // Would equal to 12 when full
-  int total_near_far = 30;
+  // Variables for double buffer
+  int buffer_index;
+  unsigned int default_timestamp;
+  unsigned int near_timestamp;
+  unsigned int far_timestamp;
+  unsigned int next_near_timestamp;
+  unsigned int next_far_timestamp;
 
 };
 
