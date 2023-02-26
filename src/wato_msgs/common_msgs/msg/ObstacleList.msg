@@ -1,0 +1,1 @@
+common_msgs/Obstacle[] obstacles
