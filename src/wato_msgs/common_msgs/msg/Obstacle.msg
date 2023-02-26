@@ -1,4 +1,3 @@
-Header header
 # Obstacle Type Enums
 string OBS_TP_UNKNOWN=UNKNOWN
 string OBS_TP_PED=PEDESTRIAN
@@ -16,9 +15,9 @@ float32 confidence
 # Coordinate system documentation: https://phabricator.watonomous.ca/w/integration/data_point_physical_representation/
 # For 3d bounding boxes, the (x, y, z) is the center point of the 3d bounding box
 # For 2d bounding boxes, the (x, y) is the top left point of the 2d bounding box
-geometry_msgs/PoseWithCovariance pose
+# geometry_msgs/PoseWithCovariance pose
 # Velocity and its uncertainty
-geometry_msgs/TwistWithCovariance twist 
+# geometry_msgs/TwistWithCovariance twist 
 # Dimensions of bounding box assuming BEV perspective
 # x=width, y=height, z=depth
 # For example, a vehicle with its bumper facing North that's

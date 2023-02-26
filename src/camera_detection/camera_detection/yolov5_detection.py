@@ -13,7 +13,7 @@ from utils.plots import Annotator, colors
 
 import os
 from sensor_msgs.msg import Image
-# from common_msgs.msg import ObstacleList, Obstacle
+from common_msgs.msg import Obstacle, ObstacleList
 # from common_msgs.msg import Obstacle
 
 from easydict import EasyDict
@@ -36,6 +36,8 @@ class CameraDetectionNode(Node):
         super().__init__('minimal_param_node')
 
         print(os.getcwd())
+
+        self.line_thickness = 3
 
         self.model_path = self.declare_parameter("model_path", MODEL_PATH).value
         self.image_size = self.declare_parameter("image_size", 480).value
@@ -142,9 +144,9 @@ class CameraDetectionNode(Node):
         obstacle_list = ObstacleList()
 
         # fill header for obstacle list
-        obstacle_list.header.seq = msg.header.seq + 1
-        obstacle_list.header.stamp = msg.header.stamp
-        obstacle_list.header.frame_id = msg.header.frame_id
+        # obstacle_list.header.seq = msg.header.seq + 1
+        # obstacle_list.header.stamp = msg.header.stamp
+        # obstacle_list.header.frame_id = msg.header.frame_id
 
         # populate obstacle list
         if detections is not None and len(detections):
@@ -152,9 +154,9 @@ class CameraDetectionNode(Node):
                 obstacle = Obstacle()
 
                 # fill header for obstacle
-                obstacle.header.seq = msg.header.seq + 1
-                obstacle.header.stamp = msg.header.stamp
-                obstacle.header.frame_id = msg.header.frame_id
+                # obstacle.header.seq = msg.header.seq + 1
+                # obstacle.header.stamp = msg.header.stamp
+                # obstacle.header.frame_id = msg.header.frame_id
 
                 # populate obstacle
                 obstacle.confidence = detection["conf"]
@@ -185,7 +187,6 @@ class CameraDetectionNode(Node):
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
             pred = self.model(img)
-            print("hid")
 
             pred = non_max_suppression(pred) #nms function used same as yolov5 detect.py
             detections = []
@@ -211,9 +212,12 @@ class CameraDetectionNode(Node):
                         self.get_logger().info(f"{label}: {bbox}")
                         # Save results (image with detections)
 
-            # detections, annotated_img = self.postprocess_detections(detections, annotator)
-
-            # self.publish_vis(annotated_img, feed)
+            annotator = Annotator(
+                cv_image, line_width=self.line_thickness, example=str(self.names)
+            )
+            detections, annotated_img = self.postprocess_detections(detections, annotator)
+            feed = ""
+            self.publish_vis(annotated_img, feed)
             # self.publish_detections(detections, msg, feed)
 
 
