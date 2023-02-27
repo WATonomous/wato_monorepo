@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'camera_detection_node = camera_detection.yolov5_detection:main'
+            # 'camera_detection_node = camera_detection.publisher:main'
         ],
     },
 )

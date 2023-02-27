@@ -1,3 +1,5 @@
+std_msgs/Header header
+
 # Obstacle Type Enums
 string OBS_TP_UNKNOWN=UNKNOWN
 string OBS_TP_PED=PEDESTRIAN

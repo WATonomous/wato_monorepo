@@ -1,0 +1,23 @@
+[0.372s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/common_msgs': CMAKE_PREFIX_PATH=/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake /home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/common_msgs -DCMAKE_INSTALL_PREFIX=/home/leungjch/Documents/repos/wato_monorepo_v2/install/common_msgs
+[0.420s] -- The C compiler identification is GNU 11.3.0
+[0.494s] -- The CXX compiler identification is GNU 11.3.0
+[0.504s] -- Detecting C compiler ABI info
+[0.575s] -- Detecting C compiler ABI info - done
+[0.585s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.585s] -- Detecting C compile features
+[0.585s] -- Detecting C compile features - done
+[0.588s] -- Detecting CXX compiler ABI info
+[0.668s] -- Detecting CXX compiler ABI info - done
+[0.677s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.677s] -- Detecting CXX compile features
+[0.677s] -- Detecting CXX compile features - done
+[0.679s] -- Found ament_cmake: 1.3.3 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.949s] -- Found Python3: /usr/bin/python3.10 (found version "3.10.6") found components: Interpreter 
+[1.044s] -- Found ament_lint_auto: 0.12.5 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[1.148s] [31mCMake Error at CMakeLists.txt:38 (rosidl_generate_interfaces):
+[1.148s]   Unknown CMake command "rosidl_generate_interfaces".
+[1.148s] 
+[1.148s] [0m
+[1.149s] -- Configuring incomplete, errors occurred!
+[1.149s] See also "/home/leungjch/Documents/repos/wato_monorepo_v2/build/common_msgs/CMakeFiles/CMakeOutput.log".
+[1.154s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/common_msgs' returned '1': CMAKE_PREFIX_PATH=/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake /home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/common_msgs -DCMAKE_INSTALL_PREFIX=/home/leungjch/Documents/repos/wato_monorepo_v2/install/common_msgs

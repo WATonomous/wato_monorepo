@@ -1,0 +1,1 @@
+Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/build/sample_msgs': CMAKE_PREFIX_PATH=/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake /home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs -DCMAKE_INSTALL_PREFIX=/home/leungjch/Documents/repos/wato_monorepo_v2/install/sample_msgs

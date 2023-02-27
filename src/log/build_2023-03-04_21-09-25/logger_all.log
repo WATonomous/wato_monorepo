@@ -1,0 +1,253 @@
+[0.894s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build', '--packages-select', 'py_pubsub']
+[0.895s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=16, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=['py_pubsub'], packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7f2b309d3e50>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7f2b309d38e0>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7f2b309d38e0>>)
+[0.959s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.959s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.959s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.959s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.959s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.960s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.960s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/leungjch/Documents/repos/wato_monorepo_v2/src'
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.960s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.984s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.984s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.984s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.984s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.984s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['ignore', 'ignore_ament_install']
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'ignore'
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'ignore_ament_install'
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['colcon_pkg']
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'colcon_pkg'
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['colcon_meta']
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'colcon_meta'
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['ros']
+[0.985s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'ros'
+[0.989s] DEBUG:colcon.colcon_core.package_identification:Found ROS schema reference in package manifest in 'camera_detection'
+[0.989s] WARNING:colcon.colcon_core.package_identification:Failed to parse ROS package manifest in 'camera_detection': Error(s) in package 'camera_detection/package.xml':
+Error(s):
+- The generic dependency on 'common_msgs' is redundant with: exec_depend
+- The manifest of package "camera_detection" (with format version 3) must not contain the following tags: build_type
+[0.989s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['cmake', 'python']
+[0.989s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'cmake'
+[0.989s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'python'
+[0.990s] DEBUG:colcon.colcon_core.package_identification:Python package in 'camera_detection' passes arguments to the setup() function which requires a different identification extension than 'python'
+[0.990s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['python_setup_py']
+[0.990s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'python_setup_py'
+[1.371s] DEBUG:colcon.colcon_core.package_identification:Package 'camera_detection' with type 'python' and name 'camera_detection'
+[1.372s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[1.372s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[1.372s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[1.372s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[1.372s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[1.372s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[1.372s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['ignore', 'ignore_ament_install']
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'ignore'
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'ignore_ament_install'
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['colcon_pkg']
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'colcon_pkg'
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['colcon_meta']
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'colcon_meta'
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['ros']
+[1.373s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'ros'
+[1.382s] DEBUG:colcon.colcon_core.package_identification:Package 'py_pubsub' with type 'ros.ament_python' and name 'py_pubsub'
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['ignore', 'ignore_ament_install']
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'ignore'
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'ignore_ament_install'
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['colcon_pkg']
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'colcon_pkg'
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['colcon_meta']
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'colcon_meta'
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['ros']
+[1.382s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'ros'
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['cmake', 'python']
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'cmake'
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'python'
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['python_setup_py']
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'python_setup_py'
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['ignore', 'ignore_ament_install']
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'ignore'
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'ignore_ament_install'
+[1.383s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['colcon_pkg']
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'colcon_pkg'
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['colcon_meta']
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'colcon_meta'
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['ros']
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'ros'
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['cmake', 'python']
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'cmake'
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'python'
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['python_setup_py']
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'python_setup_py'
+[1.384s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['ignore', 'ignore_ament_install']
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'ignore'
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'ignore_ament_install'
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['colcon_pkg']
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'colcon_pkg'
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['colcon_meta']
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'colcon_meta'
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['ros']
+[1.385s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'ros'
+[1.387s] DEBUG:colcon.colcon_core.package_identification:Package 'samples/cpp/aggregator' with type 'ros.ament_cmake' and name 'aggregator'
+[1.387s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['ignore', 'ignore_ament_install']
+[1.387s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'ignore'
+[1.387s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'ignore_ament_install'
+[1.387s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['colcon_pkg']
+[1.387s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'colcon_pkg'
+[1.387s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['colcon_meta']
+[1.388s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'colcon_meta'
+[1.388s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['ros']
+[1.388s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'ros'
+[1.389s] DEBUG:colcon.colcon_core.package_identification:Package 'samples/cpp/producer' with type 'ros.ament_cmake' and name 'producer'
+[1.389s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['ignore', 'ignore_ament_install']
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'ignore'
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'ignore_ament_install'
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['colcon_pkg']
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'colcon_pkg'
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['colcon_meta']
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'colcon_meta'
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['ros']
+[1.390s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'ros'
+[1.392s] DEBUG:colcon.colcon_core.package_identification:Package 'samples/cpp/transformer' with type 'ros.ament_cmake' and name 'transformer'
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['ignore', 'ignore_ament_install']
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'ignore'
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'ignore_ament_install'
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['colcon_pkg']
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'colcon_pkg'
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['colcon_meta']
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'colcon_meta'
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['ros']
+[1.392s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'ros'
+[1.394s] DEBUG:colcon.colcon_core.package_identification:Package 'tutorial_interfaces' with type 'ros.ament_cmake' and name 'tutorial_interfaces'
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['ignore', 'ignore_ament_install']
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'ignore'
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'ignore_ament_install'
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['colcon_pkg']
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'colcon_pkg'
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['colcon_meta']
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'colcon_meta'
+[1.394s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['ros']
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'ros'
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['cmake', 'python']
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'cmake'
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'python'
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['python_setup_py']
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'python_setup_py'
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['ignore', 'ignore_ament_install']
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'ignore'
+[1.395s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'ignore_ament_install'
+[1.396s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['colcon_pkg']
+[1.396s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'colcon_pkg'
+[1.396s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['colcon_meta']
+[1.396s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'colcon_meta'
+[1.396s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['ros']
+[1.396s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'ros'
+[1.397s] DEBUG:colcon.colcon_core.package_identification:Package 'wato_msgs/common_msgs' with type 'ros.ament_cmake' and name 'common_msgs'
+[1.397s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['ignore', 'ignore_ament_install']
+[1.397s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'ignore'
+[1.398s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'ignore_ament_install'
+[1.398s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['colcon_pkg']
+[1.398s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'colcon_pkg'
+[1.398s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['colcon_meta']
+[1.398s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'colcon_meta'
+[1.398s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['ros']
+[1.398s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'ros'
+[1.399s] DEBUG:colcon.colcon_core.package_identification:Package 'wato_msgs/sample_msgs' with type 'ros.ament_cmake' and name 'sample_msgs'
+[1.399s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[1.399s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[1.399s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[1.399s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[1.400s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[1.436s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'camera_detection' in 'camera_detection'
+[1.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'common_msgs' in 'wato_msgs/common_msgs'
+[1.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'sample_msgs' in 'wato_msgs/sample_msgs'
+[1.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'tutorial_interfaces' in 'tutorial_interfaces'
+[1.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'aggregator' in 'samples/cpp/aggregator'
+[1.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'producer' in 'samples/cpp/producer'
+[1.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'transformer' in 'samples/cpp/transformer'
+[1.438s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[1.438s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer' in the environment variable AMENT_PREFIX_PATH doesn't exist
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer' in the environment variable AMENT_PREFIX_PATH doesn't exist
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator' in the environment variable AMENT_PREFIX_PATH doesn't exist
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs' in the environment variable AMENT_PREFIX_PATH doesn't exist
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.catkin:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer' in the environment variable CMAKE_PREFIX_PATH doesn't exist
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.catkin:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer' in the environment variable CMAKE_PREFIX_PATH doesn't exist
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.catkin:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator' in the environment variable CMAKE_PREFIX_PATH doesn't exist
+[1.440s] WARNING:colcon.colcon_ros.prefix_path.catkin:The path '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs' in the environment variable CMAKE_PREFIX_PATH doesn't exist
+[1.442s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 4 installed packages in /home/leungjch/Documents/repos/wato_monorepo_v2/src/install
+[1.444s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 0 installed packages in /home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub/py_pubsub/install
+[1.445s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 282 installed packages in /opt/ros/humble
+[1.447s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_args' from command line to 'None'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_target' from command line to 'None'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_clean_cache' from command line to 'False'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_clean_first' from command line to 'False'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_force_configure' from command line to 'False'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'ament_cmake_args' from command line to 'None'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'catkin_cmake_args' from command line to 'None'
+[1.565s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.565s] DEBUG:colcon.colcon_core.verb:Building package 'py_pubsub' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub', 'symlink_install': False, 'test_result_base': None}
+[1.567s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[1.571s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[1.571s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub' with build type 'ament_python'
+[1.571s] Level 1:colcon.colcon_core.shell:create_environment_hook('py_pubsub', 'ament_prefix_path')
+[1.585s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[1.585s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/ament_prefix_path.ps1'
+[1.586s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/ament_prefix_path.dsv'
+[1.587s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/ament_prefix_path.sh'
+[1.589s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[1.589s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.013s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub'
+[2.017s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[2.017s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.601s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/py_pubsub build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/install.log --single-version-externally-managed
+[3.019s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub' returned '0': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/py_pubsub build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/install.log --single-version-externally-managed
+[3.032s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub' for CMake module files
+[3.033s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub' for CMake config files
+[3.035s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib'
+[3.035s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/bin'
+[3.035s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/pkgconfig/py_pubsub.pc'
+[3.035s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages'
+[3.035s] Level 1:colcon.colcon_core.shell:create_environment_hook('py_pubsub', 'pythonpath')
+[3.037s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/pythonpath.ps1'
+[3.037s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/pythonpath.dsv'
+[3.038s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/pythonpath.sh'
+[3.038s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/bin'
+[3.038s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(py_pubsub)
+[3.040s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.ps1'
+[3.040s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.dsv'
+[3.041s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.sh'
+[3.042s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.bash'
+[3.044s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.zsh'
+[3.045s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/colcon-core/packages/py_pubsub)
+[3.045s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[3.046s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[3.046s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[3.047s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[3.058s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[3.059s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[3.059s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[3.059s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[3.076s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[3.079s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.ps1'
+[3.081s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/_local_setup_util_ps1.py'
+[3.083s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.ps1'
+[3.086s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.sh'
+[3.087s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/_local_setup_util_sh.py'
+[3.088s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.sh'
+[3.091s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.bash'
+[3.092s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.bash'
+[3.095s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.zsh'
+[3.096s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.zsh'

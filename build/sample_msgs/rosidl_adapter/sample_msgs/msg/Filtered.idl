@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from sample_msgs/msg/Filtered.msg
+// generated code does not contain a copyright notice
+
+#include "sample_msgs/msg/Metadata.idl"
+
+module sample_msgs {
+  module msg {
+    struct Filtered {
+      float pos_x;
+
+      float pos_y;
+
+      float pos_z;
+
+      sample_msgs::msg::Metadata metadata;
+
+      int64 timestamp;
+    };
+  };
+};

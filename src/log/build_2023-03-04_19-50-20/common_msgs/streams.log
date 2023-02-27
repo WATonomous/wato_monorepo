@@ -1,0 +1,23 @@
+[0.417s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs -- -j16 -l16
+[0.487s] [  7%] Built target common_msgs__cpp
+[0.488s] [ 12%] Built target common_msgs__rosidl_generator_c
+[0.517s] [ 12%] Built target ament_cmake_python_copy_common_msgs
+[0.519s] [ 23%] Built target common_msgs__rosidl_typesupport_c
+[0.521s] [ 43%] Built target common_msgs__rosidl_typesupport_fastrtps_c
+[0.521s] [ 43%] Built target common_msgs__rosidl_typesupport_introspection_c
+[0.521s] [ 53%] Built target common_msgs__rosidl_typesupport_cpp
+[0.523s] [ 64%] Built target common_msgs__rosidl_typesupport_fastrtps_cpp
+[0.524s] [ 74%] Built target common_msgs__rosidl_typesupport_introspection_cpp
+[0.548s] [ 74%] Built target common_msgs
+[0.570s] [ 76%] Built target common_msgs__py
+[0.601s] [ 84%] Built target common_msgs__rosidl_generator_py
+[0.626s] [ 97%] Built target common_msgs__rosidl_typesupport_introspection_c__pyext
+[0.626s] [ 97%] Built target common_msgs__rosidl_typesupport_c__pyext
+[0.627s] [100%] Built target common_msgs__rosidl_typesupport_fastrtps_c__pyext
+[0.911s] running egg_info
+[0.911s] writing common_msgs.egg-info/PKG-INFO
+[0.912s] writing dependency_links to common_msgs.egg-info/dependency_links.txt
+[0.912s] writing top-level names to common_msgs.egg-info/top_level.txt
+[0.915s] reading manifest file 'common_msgs.egg-info/SOURCES.txt'
+[0.916s] writing manifest file 'common_msgs.egg-info/SOURCES.txt'
+[0.946s] [100%] Built target ament_cmake_python_build_common_msgs_egg

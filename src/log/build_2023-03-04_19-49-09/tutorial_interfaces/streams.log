@@ -1,0 +1,347 @@
+[0.393s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces -- -j16 -l16
+[0.417s] [33mCMake Warning (dev) in CMakeLists.txt:
+[0.418s]   No project() command is present.  The top-level CMakeLists.txt file must
+[0.418s]   contain a literal, direct call to the project() command.  Add a line of
+[0.418s]   code such as
+[0.418s] 
+[0.418s]     project(ProjectName)
+[0.418s] 
+[0.418s]   near the top of the file, but after cmake_minimum_required().
+[0.418s] 
+[0.419s]   CMake is pretending there is a "project(Project)" command on the first
+[0.419s]   line.
+[0.419s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.419s] [0m
+[0.428s] -- Found geometry_msgs: 4.2.3 (/opt/ros/humble/share/geometry_msgs/cmake)
+[0.534s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1831 (list):
+[0.534s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.534s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.534s]   command to set the policy and suppress this warning.  List has value =
+[0.534s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.534s] Call Stack (most recent call first):
+[0.534s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.534s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.535s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.535s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.535s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.535s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.535s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.535s]   CMakeLists.txt:1 (find_package)
+[0.535s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.535s] [0m
+[0.535s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1833 (list):
+[0.535s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.536s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.536s]   command to set the policy and suppress this warning.  List has value =
+[0.536s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.536s] Call Stack (most recent call first):
+[0.536s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.536s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.536s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.536s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.536s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.536s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.536s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.536s]   CMakeLists.txt:1 (find_package)
+[0.537s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.537s] [0m
+[0.537s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1834 (list):
+[0.537s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.537s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.537s]   command to set the policy and suppress this warning.  List has value =
+[0.537s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.537s] Call Stack (most recent call first):
+[0.537s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.537s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.537s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.538s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.538s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.538s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.538s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.538s]   CMakeLists.txt:1 (find_package)
+[0.538s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.538s] [0m
+[0.538s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1835 (list):
+[0.538s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.538s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.538s]   command to set the policy and suppress this warning.  List has value =
+[0.538s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.539s] Call Stack (most recent call first):
+[0.539s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.539s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.539s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.539s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.539s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.539s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.539s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.539s]   CMakeLists.txt:1 (find_package)
+[0.539s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.539s] [0m
+[0.540s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1837 (list):
+[0.540s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.540s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.540s]   command to set the policy and suppress this warning.  List has value =
+[0.540s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.540s] Call Stack (most recent call first):
+[0.540s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.540s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.540s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.540s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.540s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.540s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.541s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.541s]   CMakeLists.txt:1 (find_package)
+[0.541s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.541s] [0m
+[0.541s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1840 (list):
+[0.541s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.541s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.541s]   command to set the policy and suppress this warning.  List has value =
+[0.541s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.541s] Call Stack (most recent call first):
+[0.541s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.542s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.542s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.542s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.542s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.542s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.542s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.542s]   CMakeLists.txt:1 (find_package)
+[0.542s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.542s] [0m
+[0.542s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1841 (list):
+[0.542s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.542s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.543s]   command to set the policy and suppress this warning.  List has value =
+[0.543s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.543s] Call Stack (most recent call first):
+[0.543s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.543s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.543s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.543s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.543s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.543s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.543s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.543s]   CMakeLists.txt:1 (find_package)
+[0.544s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.544s] [0m
+[0.544s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1843 (list):
+[0.544s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.544s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.544s]   command to set the policy and suppress this warning.  List has value =
+[0.544s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.544s] Call Stack (most recent call first):
+[0.544s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.544s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.544s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.544s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.545s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.545s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.545s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.545s]   CMakeLists.txt:1 (find_package)
+[0.545s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.545s] [0m
+[0.545s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1844 (list):
+[0.545s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.545s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.545s]   command to set the policy and suppress this warning.  List has value =
+[0.545s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.546s] Call Stack (most recent call first):
+[0.546s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.546s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.546s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.546s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.546s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.546s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.546s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.546s]   CMakeLists.txt:1 (find_package)
+[0.546s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.546s] [0m
+[0.546s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1845 (list):
+[0.547s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.547s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.547s]   command to set the policy and suppress this warning.  List has value =
+[0.547s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.547s] Call Stack (most recent call first):
+[0.547s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.548s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.548s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.548s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.548s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.548s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.548s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.548s]   CMakeLists.txt:1 (find_package)
+[0.548s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.548s] [0m
+[0.548s] [33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1846 (list):
+[0.548s]   Policy CMP0007 is not set: list command no longer ignores empty elements.
+[0.549s]   Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy
+[0.549s]   command to set the policy and suppress this warning.  List has value =
+[0.549s]   [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].
+[0.549s] Call Stack (most recent call first):
+[0.549s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.549s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.549s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.549s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.549s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.549s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.549s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.549s]   CMakeLists.txt:1 (find_package)
+[0.550s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.550s] [0m
+[0.550s] [31mCMake Error at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1846 (list):
+[0.550s]   list index: 10 out of range (-10, 9)
+[0.550s] Call Stack (most recent call first):
+[0.550s]   /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)
+[0.550s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)
+[0.550s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)
+[0.550s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)
+[0.550s]   /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)
+[0.550s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)
+[0.550s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.551s]   CMakeLists.txt:1 (find_package)
+[0.551s] 
+[0.551s] [0m
+[0.624s] [33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:52 (while):
+[0.624s]   had incorrect arguments:
+[0.624s] 
+[0.624s]     "TRUE"
+[0.624s] 
+[0.624s]   An argument named "TRUE" appears in a conditional statement.  Policy
+[0.624s]   CMP0012 is not set: if() recognizes numbers and boolean constants.  Run
+[0.624s]   "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy
+[0.624s]   command to set the policy and suppress this warning.
+[0.625s] Call Stack (most recent call first):
+[0.625s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:34 (_normalize_path__collapse_redundant)
+[0.625s]   /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)
+[0.625s]   /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)
+[0.625s]   /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.625s]   /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)
+[0.625s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.625s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.625s]   CMakeLists.txt:1 (find_package)
+[0.625s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.625s] [0m
+[0.626s] [33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:72 (while):
+[0.626s]   had incorrect arguments:
+[0.626s] 
+[0.626s]     "TRUE"
+[0.626s] 
+[0.626s]   An argument named "TRUE" appears in a conditional statement.  Policy
+[0.626s]   CMP0012 is not set: if() recognizes numbers and boolean constants.  Run
+[0.626s]   "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy
+[0.626s]   command to set the policy and suppress this warning.
+[0.626s] Call Stack (most recent call first):
+[0.626s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:35 (_normalize_path__collapse_uplevel_reference)
+[0.626s]   /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)
+[0.627s]   /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)
+[0.627s]   /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.627s]   /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)
+[0.627s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.627s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.627s]   CMakeLists.txt:1 (find_package)
+[0.627s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.627s] [0m
+[0.636s] [33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:52 (while):
+[0.636s]   had incorrect arguments:
+[0.636s] 
+[0.636s]     "TRUE"
+[0.636s] 
+[0.636s]   An argument named "TRUE" appears in a conditional statement.  Policy
+[0.637s]   CMP0012 is not set: if() recognizes numbers and boolean constants.  Run
+[0.637s]   "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy
+[0.637s]   command to set the policy and suppress this warning.
+[0.637s] Call Stack (most recent call first):
+[0.637s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:34 (_normalize_path__collapse_redundant)
+[0.637s]   /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)
+[0.637s]   /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)
+[0.637s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.637s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)
+[0.637s]   /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.637s]   /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)
+[0.638s]   /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.638s]   /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)
+[0.638s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.638s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.638s]   CMakeLists.txt:1 (find_package)
+[0.638s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.638s] [0m
+[0.638s] [33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:72 (while):
+[0.638s]   had incorrect arguments:
+[0.638s] 
+[0.638s]     "TRUE"
+[0.638s] 
+[0.639s]   An argument named "TRUE" appears in a conditional statement.  Policy
+[0.639s]   CMP0012 is not set: if() recognizes numbers and boolean constants.  Run
+[0.639s]   "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy
+[0.639s]   command to set the policy and suppress this warning.
+[0.639s] Call Stack (most recent call first):
+[0.639s]   /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:35 (_normalize_path__collapse_uplevel_reference)
+[0.639s]   /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)
+[0.639s]   /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)
+[0.639s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.639s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)
+[0.639s]   /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.640s]   /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)
+[0.640s]   /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.640s]   /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)
+[0.640s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.640s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.640s]   CMakeLists.txt:1 (find_package)
+[0.640s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.640s] [0m
+[0.675s] [33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/list_append_unique.cmake:30 (if):
+[0.675s]   Policy CMP0057 is not set: Support new IN_LIST if() operator.  Run "cmake
+[0.676s]   --help-policy CMP0057" for policy details.  Use the cmake_policy command to
+[0.676s]   set the policy and suppress this warning.
+[0.676s] 
+[0.676s]   IN_LIST will be interpreted as an operator when the policy is set to NEW.
+[0.676s]   Since the policy is not set the OLD behavior will be used.
+[0.676s] Call Stack (most recent call first):
+[0.676s]   /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_dependencies-extras.cmake:84 (list_append_unique)
+[0.676s]   /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)
+[0.676s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.676s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)
+[0.677s]   /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.677s]   /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)
+[0.677s]   /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.677s]   /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)
+[0.677s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.677s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.677s]   CMakeLists.txt:1 (find_package)
+[0.677s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.677s] [0m
+[0.677s] [31mCMake Error at /opt/ros/humble/share/ament_cmake_core/cmake/core/list_append_unique.cmake:30 (if):
+[0.677s]   if given arguments:
+[0.677s] 
+[0.678s]     "NOT" "element" "IN_LIST" "rcutils_RECURSIVE_DEPENDENCIES"
+[0.678s] 
+[0.678s]   Unknown arguments specified
+[0.678s] Call Stack (most recent call first):
+[0.678s]   /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_dependencies-extras.cmake:84 (list_append_unique)
+[0.678s]   /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)
+[0.678s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.678s]   /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)
+[0.678s]   /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.678s]   /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)
+[0.678s]   /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.679s]   /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)
+[0.679s]   /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[0.679s]   /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)
+[0.679s]   CMakeLists.txt:1 (find_package)
+[0.679s] 
+[0.679s] [0m
+[0.679s] [33mCMake Warning (dev) in CMakeLists.txt:
+[0.679s]   No cmake_minimum_required command is present.  A line of code such as
+[0.679s] 
+[0.679s]     cmake_minimum_required(VERSION 3.22)
+[0.679s] 
+[0.679s]   should be added at the top of the file.  The version specified may be lower
+[0.680s]   if you wish to support older CMake versions for this project.  For more
+[0.680s]   information run "cmake --help-policy CMP0000".
+[0.680s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.680s] [0m
+[0.680s] -- Configuring incomplete, errors occurred!
+[0.680s] See also "/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces/CMakeFiles/CMakeOutput.log".
+[0.681s] gmake: *** [Makefile:1179: cmake_check_build_system] Error 1
+[0.684s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces' returned '2': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces -- -j16 -l16

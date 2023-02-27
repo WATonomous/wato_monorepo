@@ -1,0 +1,35 @@
+running egg_info
+creating ../build/py_pubsub/py_pubsub.egg-info
+writing ../build/py_pubsub/py_pubsub.egg-info/PKG-INFO
+writing dependency_links to ../build/py_pubsub/py_pubsub.egg-info/dependency_links.txt
+writing entry points to ../build/py_pubsub/py_pubsub.egg-info/entry_points.txt
+writing requirements to ../build/py_pubsub/py_pubsub.egg-info/requires.txt
+writing top-level names to ../build/py_pubsub/py_pubsub.egg-info/top_level.txt
+writing manifest file '../build/py_pubsub/py_pubsub.egg-info/SOURCES.txt'
+reading manifest file '../build/py_pubsub/py_pubsub.egg-info/SOURCES.txt'
+writing manifest file '../build/py_pubsub/py_pubsub.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build
+creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build/lib
+creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build/lib/py_pubsub
+copying py_pubsub/__init__.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build/lib/py_pubsub
+copying py_pubsub/publisher_member_function.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build/lib/py_pubsub
+running install
+running install_lib
+creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages/py_pubsub
+copying /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build/lib/py_pubsub/__init__.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages/py_pubsub
+copying /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build/lib/py_pubsub/publisher_member_function.py -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages/py_pubsub
+byte-compiling /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages/py_pubsub/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages/py_pubsub/publisher_member_function.py to publisher_member_function.cpython-310.pyc
+running install_data
+creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/ament_index
+creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/ament_index/resource_index
+creating /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/ament_index/resource_index/packages
+copying resource/py_pubsub -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/ament_index/resource_index/packages
+copying package.xml -> /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub
+running install_egg_info
+Copying ../build/py_pubsub/py_pubsub.egg-info to /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages/py_pubsub-0.0.0-py3.10.egg-info
+running install_scripts
+Installing talker script to /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/py_pubsub
+writing list of installed files to '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/install.log'
