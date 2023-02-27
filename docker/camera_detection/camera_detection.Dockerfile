@@ -42,6 +42,7 @@ WORKDIR /home/docker/ament_ws/src
 COPY src/camera_detection camera_detection
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/common_msgs common_msgs
+COPY src/tutorial_interfaces tutorial_interfaces
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
