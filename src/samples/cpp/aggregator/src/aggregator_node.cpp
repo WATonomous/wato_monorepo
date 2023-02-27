@@ -38,6 +38,7 @@ void AggregatorNode::filtered_callback(
   RCLCPP_INFO(
     this->get_logger(), "Filtered Frequency(msg/s): %f\n",
     aggregator_.filtered_frequency() * 1000);
+  // RCLCPP_INFO(this->get_logger(), "Received: %f\n", msg->packets[0].pos_x);
 }
 
 int main(int argc, char ** argv)

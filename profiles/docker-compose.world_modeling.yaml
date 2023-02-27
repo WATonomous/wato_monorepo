@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  averager:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/sample/averager.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_SAMPLE_AVERAGER_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_SAMPLE_AVERAGER_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_SAMPLE_AVERAGER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/world_modeling/sample/averager:/home/docker/ament_ws/src/averager

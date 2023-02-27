@@ -1,0 +1,4 @@
+FilteredArray filtered_array
+float32 x_avg
+float32 y_avg
+float32 z_avg
