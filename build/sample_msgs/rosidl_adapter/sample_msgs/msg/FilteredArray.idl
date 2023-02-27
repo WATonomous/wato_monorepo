@@ -1,0 +1,13 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from sample_msgs/msg/FilteredArray.msg
+// generated code does not contain a copyright notice
+
+#include "sample_msgs/msg/Filtered.idl"
+
+module sample_msgs {
+  module msg {
+    struct FilteredArray {
+      sequence<sample_msgs::msg::Filtered> packets;
+    };
+  };
+};

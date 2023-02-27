@@ -1,0 +1,665 @@
+[0.961s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[0.961s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=16, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7f506b123a00>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7f506b123490>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7f506b123490>>)
+[1.023s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[1.023s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[1.023s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[1.023s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[1.023s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[1.023s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[1.024s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/leungjch/Documents/repos/wato_monorepo_v2/src'
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[1.024s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[1.043s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[1.043s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[1.043s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[1.043s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[1.043s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[1.044s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[1.044s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[1.044s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['ignore', 'ignore_ament_install']
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'ignore'
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'ignore_ament_install'
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['colcon_pkg']
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'colcon_pkg'
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['colcon_meta']
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'colcon_meta'
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extensions ['ros']
+[1.045s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection) by extension 'ros'
+[1.051s] DEBUG:colcon.colcon_core.package_identification:Package 'camera_detection' with type 'ros.ament_python' and name 'camera_detection'
+[1.051s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extensions ['ignore', 'ignore_ament_install']
+[1.051s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extension 'ignore'
+[1.052s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extension 'ignore_ament_install'
+[1.052s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extensions ['colcon_pkg']
+[1.052s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extension 'colcon_pkg'
+[1.052s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extensions ['colcon_meta']
+[1.052s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extension 'colcon_meta'
+[1.052s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extensions ['ros']
+[1.052s] Level 1:colcon.colcon_core.package_identification:_identify(camera_detection_new) by extension 'ros'
+[1.053s] DEBUG:colcon.colcon_core.package_identification:Package 'camera_detection_new' with type 'ros.ament_python' and name 'camera_detection_new'
+[1.053s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[1.053s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[1.053s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[1.053s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[1.053s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[1.053s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[1.053s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['ignore', 'ignore_ament_install']
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'ignore'
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'ignore_ament_install'
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['colcon_pkg']
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'colcon_pkg'
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['colcon_meta']
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'colcon_meta'
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extensions ['ros']
+[1.054s] Level 1:colcon.colcon_core.package_identification:_identify(py_pubsub) by extension 'ros'
+[1.056s] DEBUG:colcon.colcon_core.package_identification:Package 'py_pubsub' with type 'ros.ament_python' and name 'py_pubsub'
+[1.056s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['ignore', 'ignore_ament_install']
+[1.056s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'ignore'
+[1.056s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'ignore_ament_install'
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['colcon_pkg']
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'colcon_pkg'
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['colcon_meta']
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'colcon_meta'
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['ros']
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'ros'
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['cmake', 'python']
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'cmake'
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'python'
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extensions ['python_setup_py']
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples) by extension 'python_setup_py'
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['ignore', 'ignore_ament_install']
+[1.057s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'ignore'
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'ignore_ament_install'
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['colcon_pkg']
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'colcon_pkg'
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['colcon_meta']
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'colcon_meta'
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['ros']
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'ros'
+[1.058s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['cmake', 'python']
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'cmake'
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'python'
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extensions ['python_setup_py']
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp) by extension 'python_setup_py'
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['ignore', 'ignore_ament_install']
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'ignore'
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'ignore_ament_install'
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['colcon_pkg']
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'colcon_pkg'
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['colcon_meta']
+[1.059s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'colcon_meta'
+[1.060s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extensions ['ros']
+[1.060s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/aggregator) by extension 'ros'
+[1.061s] DEBUG:colcon.colcon_core.package_identification:Package 'samples/cpp/aggregator' with type 'ros.ament_cmake' and name 'aggregator'
+[1.061s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['ignore', 'ignore_ament_install']
+[1.061s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'ignore'
+[1.062s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'ignore_ament_install'
+[1.062s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['colcon_pkg']
+[1.062s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'colcon_pkg'
+[1.062s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['colcon_meta']
+[1.062s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'colcon_meta'
+[1.062s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extensions ['ros']
+[1.062s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/producer) by extension 'ros'
+[1.064s] DEBUG:colcon.colcon_core.package_identification:Package 'samples/cpp/producer' with type 'ros.ament_cmake' and name 'producer'
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['ignore', 'ignore_ament_install']
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'ignore'
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'ignore_ament_install'
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['colcon_pkg']
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'colcon_pkg'
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['colcon_meta']
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'colcon_meta'
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extensions ['ros']
+[1.064s] Level 1:colcon.colcon_core.package_identification:_identify(samples/cpp/transformer) by extension 'ros'
+[1.066s] DEBUG:colcon.colcon_core.package_identification:Package 'samples/cpp/transformer' with type 'ros.ament_cmake' and name 'transformer'
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['ignore', 'ignore_ament_install']
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'ignore'
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'ignore_ament_install'
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['colcon_pkg']
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'colcon_pkg'
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['colcon_meta']
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'colcon_meta'
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extensions ['ros']
+[1.066s] Level 1:colcon.colcon_core.package_identification:_identify(tutorial_interfaces) by extension 'ros'
+[1.067s] DEBUG:colcon.colcon_core.package_identification:Package 'tutorial_interfaces' with type 'ros.ament_cmake' and name 'tutorial_interfaces'
+[1.067s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['ignore', 'ignore_ament_install']
+[1.067s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'ignore'
+[1.067s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'ignore_ament_install'
+[1.067s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['colcon_pkg']
+[1.067s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'colcon_pkg'
+[1.068s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['colcon_meta']
+[1.068s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'colcon_meta'
+[1.068s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['ros']
+[1.068s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'ros'
+[1.068s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['cmake', 'python']
+[1.068s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'cmake'
+[1.069s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'python'
+[1.069s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extensions ['python_setup_py']
+[1.069s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs) by extension 'python_setup_py'
+[1.069s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['ignore', 'ignore_ament_install']
+[1.069s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'ignore'
+[1.069s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'ignore_ament_install'
+[1.069s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['colcon_pkg']
+[1.070s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'colcon_pkg'
+[1.070s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['colcon_meta']
+[1.070s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'colcon_meta'
+[1.070s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extensions ['ros']
+[1.070s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/common_msgs) by extension 'ros'
+[1.071s] DEBUG:colcon.colcon_core.package_identification:Package 'wato_msgs/common_msgs' with type 'ros.ament_cmake' and name 'common_msgs'
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['ignore', 'ignore_ament_install']
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'ignore'
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'ignore_ament_install'
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['colcon_pkg']
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'colcon_pkg'
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['colcon_meta']
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'colcon_meta'
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extensions ['ros']
+[1.072s] Level 1:colcon.colcon_core.package_identification:_identify(wato_msgs/sample_msgs) by extension 'ros'
+[1.073s] DEBUG:colcon.colcon_core.package_identification:Package 'wato_msgs/sample_msgs' with type 'ros.ament_cmake' and name 'sample_msgs'
+[1.073s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[1.073s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[1.073s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[1.074s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[1.074s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[1.125s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[1.125s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[1.130s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 8 installed packages in /home/leungjch/Documents/repos/wato_monorepo_v2/src/install
+[1.132s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 0 installed packages in /home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub/py_pubsub/install
+[1.134s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 282 installed packages in /opt/ros/humble
+[1.136s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'cmake_args' from command line to 'None'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'cmake_target' from command line to 'None'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'cmake_clean_cache' from command line to 'False'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'cmake_clean_first' from command line to 'False'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'cmake_force_configure' from command line to 'False'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'ament_cmake_args' from command line to 'None'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'catkin_cmake_args' from command line to 'None'
+[1.257s] Level 5:colcon.colcon_core.verb:set package 'camera_detection_new' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.257s] DEBUG:colcon.colcon_core.verb:Building package 'camera_detection_new' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection_new', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection_new', 'symlink_install': False, 'test_result_base': None}
+[1.259s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'cmake_args' from command line to 'None'
+[1.259s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'cmake_target' from command line to 'None'
+[1.259s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.259s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'cmake_clean_cache' from command line to 'False'
+[1.259s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'cmake_clean_first' from command line to 'False'
+[1.259s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'cmake_force_configure' from command line to 'False'
+[1.260s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'ament_cmake_args' from command line to 'None'
+[1.260s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'catkin_cmake_args' from command line to 'None'
+[1.260s] Level 5:colcon.colcon_core.verb:set package 'common_msgs' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.260s] DEBUG:colcon.colcon_core.verb:Building package 'common_msgs' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/common_msgs', 'symlink_install': False, 'test_result_base': None}
+[1.261s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'cmake_args' from command line to 'None'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'cmake_target' from command line to 'None'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'cmake_clean_cache' from command line to 'False'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'cmake_clean_first' from command line to 'False'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'cmake_force_configure' from command line to 'False'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'ament_cmake_args' from command line to 'None'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'catkin_cmake_args' from command line to 'None'
+[1.262s] Level 5:colcon.colcon_core.verb:set package 'sample_msgs' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.262s] DEBUG:colcon.colcon_core.verb:Building package 'sample_msgs' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs', 'symlink_install': False, 'test_result_base': None}
+[1.263s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'cmake_args' from command line to 'None'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'cmake_target' from command line to 'None'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'cmake_clean_cache' from command line to 'False'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'cmake_clean_first' from command line to 'False'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'cmake_force_configure' from command line to 'False'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'ament_cmake_args' from command line to 'None'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'catkin_cmake_args' from command line to 'None'
+[1.264s] Level 5:colcon.colcon_core.verb:set package 'tutorial_interfaces' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.264s] DEBUG:colcon.colcon_core.verb:Building package 'tutorial_interfaces' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/tutorial_interfaces', 'symlink_install': False, 'test_result_base': None}
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'cmake_args' from command line to 'None'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'cmake_target' from command line to 'None'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'cmake_clean_cache' from command line to 'False'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'cmake_clean_first' from command line to 'False'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'cmake_force_configure' from command line to 'False'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'ament_cmake_args' from command line to 'None'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'catkin_cmake_args' from command line to 'None'
+[1.265s] Level 5:colcon.colcon_core.verb:set package 'aggregator' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.266s] DEBUG:colcon.colcon_core.verb:Building package 'aggregator' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator', 'symlink_install': False, 'test_result_base': None}
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_args' from command line to 'None'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_target' from command line to 'None'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_clean_cache' from command line to 'False'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_clean_first' from command line to 'False'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'cmake_force_configure' from command line to 'False'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'ament_cmake_args' from command line to 'None'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'catkin_cmake_args' from command line to 'None'
+[1.268s] Level 5:colcon.colcon_core.verb:set package 'camera_detection' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.268s] DEBUG:colcon.colcon_core.verb:Building package 'camera_detection' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection', 'symlink_install': False, 'test_result_base': None}
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'cmake_args' from command line to 'None'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'cmake_target' from command line to 'None'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'cmake_clean_cache' from command line to 'False'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'cmake_clean_first' from command line to 'False'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'cmake_force_configure' from command line to 'False'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'ament_cmake_args' from command line to 'None'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'catkin_cmake_args' from command line to 'None'
+[1.270s] Level 5:colcon.colcon_core.verb:set package 'producer' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.270s] DEBUG:colcon.colcon_core.verb:Building package 'producer' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/producer', 'symlink_install': False, 'test_result_base': None}
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_args' from command line to 'None'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_target' from command line to 'None'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_clean_cache' from command line to 'False'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_clean_first' from command line to 'False'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'cmake_force_configure' from command line to 'False'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'ament_cmake_args' from command line to 'None'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'catkin_cmake_args' from command line to 'None'
+[1.275s] Level 5:colcon.colcon_core.verb:set package 'py_pubsub' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.275s] DEBUG:colcon.colcon_core.verb:Building package 'py_pubsub' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub', 'symlink_install': False, 'test_result_base': None}
+[1.277s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'cmake_args' from command line to 'None'
+[1.277s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'cmake_target' from command line to 'None'
+[1.277s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.278s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'cmake_clean_cache' from command line to 'False'
+[1.278s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'cmake_clean_first' from command line to 'False'
+[1.278s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'cmake_force_configure' from command line to 'False'
+[1.278s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'ament_cmake_args' from command line to 'None'
+[1.278s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'catkin_cmake_args' from command line to 'None'
+[1.278s] Level 5:colcon.colcon_core.verb:set package 'transformer' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.278s] DEBUG:colcon.colcon_core.verb:Building package 'transformer' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer', 'merge_install': False, 'path': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer', 'symlink_install': False, 'test_result_base': None}
+[1.279s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[1.285s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[1.286s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs' with build type 'ament_cmake'
+[1.286s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs'
+[1.302s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[1.303s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[1.303s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.314s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/tutorial_interfaces' with build type 'ament_cmake'
+[1.314s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/tutorial_interfaces'
+[1.317s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[1.318s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.329s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/common_msgs' with build type 'ament_cmake'
+[1.329s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/common_msgs'
+[1.332s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[1.332s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.346s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection_new' with build type 'ament_python'
+[1.346s] Level 1:colcon.colcon_core.shell:create_environment_hook('camera_detection_new', 'ament_prefix_path')
+[1.348s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/hook/ament_prefix_path.ps1'
+[1.350s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/hook/ament_prefix_path.dsv'
+[1.351s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/hook/ament_prefix_path.sh'
+[1.357s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[1.357s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.390s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs -- -j16 -l16
+[1.404s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces -- -j16 -l16
+[1.412s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs -- -j16 -l16
+[2.165s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection_new'
+[2.167s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[2.167s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.185s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs -- -j16 -l16
+[2.356s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs
+[2.360s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs -- -j16 -l16
+[2.363s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces -- -j16 -l16
+[2.397s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(sample_msgs)
+[2.400s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs
+[2.414s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs' for CMake module files
+[2.415s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs' for CMake config files
+[2.417s] Level 1:colcon.colcon_core.shell:create_environment_hook('sample_msgs', 'cmake_prefix_path')
+[2.419s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/cmake_prefix_path.ps1'
+[2.420s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/cmake_prefix_path.dsv'
+[2.421s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/cmake_prefix_path.sh'
+[2.422s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib'
+[2.422s] Level 1:colcon.colcon_core.shell:create_environment_hook('sample_msgs', 'ld_library_path_lib')
+[2.424s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/ld_library_path_lib.ps1'
+[2.425s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/ld_library_path_lib.dsv'
+[2.425s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/ld_library_path_lib.sh'
+[2.426s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/bin'
+[2.426s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/pkgconfig/sample_msgs.pc'
+[2.426s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/python3.10/site-packages'
+[2.427s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/bin'
+[2.430s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.ps1'
+[2.433s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.dsv'
+[2.436s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.sh'
+[2.438s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.bash'
+[2.441s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.zsh'
+[2.443s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/colcon-core/packages/sample_msgs)
+[2.493s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs
+[2.553s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces
+[2.625s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(sample_msgs)
+[2.629s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs' for CMake module files
+[2.630s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs' for CMake config files
+[2.631s] Level 1:colcon.colcon_core.shell:create_environment_hook('sample_msgs', 'cmake_prefix_path')
+[2.633s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/cmake_prefix_path.ps1'
+[2.634s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/cmake_prefix_path.dsv'
+[2.634s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/cmake_prefix_path.sh'
+[2.635s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib'
+[2.635s] Level 1:colcon.colcon_core.shell:create_environment_hook('sample_msgs', 'ld_library_path_lib')
+[2.638s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/ld_library_path_lib.ps1'
+[2.641s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/ld_library_path_lib.dsv'
+[2.642s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/hook/ld_library_path_lib.sh'
+[2.643s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/bin'
+[2.643s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/pkgconfig/sample_msgs.pc'
+[2.643s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/python3.10/site-packages'
+[2.643s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/bin'
+[2.645s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.ps1'
+[2.646s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.dsv'
+[2.647s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.sh'
+[2.648s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.bash'
+[2.648s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.zsh'
+[2.649s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/colcon-core/packages/sample_msgs)
+[2.650s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator' with build type 'ament_cmake'
+[2.650s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator'
+[2.653s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[2.653s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.676s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/producer' with build type 'ament_cmake'
+[2.677s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/producer'
+[2.679s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[2.680s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.693s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer' with build type 'ament_cmake'
+[2.694s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/transformer'
+[2.697s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[2.697s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.714s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(common_msgs)
+[2.717s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs' for CMake module files
+[2.719s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs
+[2.720s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs' for CMake config files
+[2.721s] Level 1:colcon.colcon_core.shell:create_environment_hook('common_msgs', 'cmake_prefix_path')
+[2.725s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/cmake_prefix_path.ps1'
+[2.727s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/cmake_prefix_path.dsv'
+[2.729s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/cmake_prefix_path.sh'
+[2.731s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib'
+[2.731s] Level 1:colcon.colcon_core.shell:create_environment_hook('common_msgs', 'ld_library_path_lib')
+[2.733s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/ld_library_path_lib.ps1'
+[2.734s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/ld_library_path_lib.dsv'
+[2.734s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/ld_library_path_lib.sh'
+[2.735s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/bin'
+[2.735s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib/pkgconfig/common_msgs.pc'
+[2.735s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib/python3.10/site-packages'
+[2.736s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/bin'
+[2.738s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.ps1'
+[2.739s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.dsv'
+[2.740s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.sh'
+[2.740s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.bash'
+[2.741s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.zsh'
+[2.741s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/colcon-core/packages/common_msgs)
+[2.746s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(tutorial_interfaces)
+[2.751s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces' for CMake module files
+[2.752s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces
+[2.754s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces' for CMake config files
+[2.755s] Level 1:colcon.colcon_core.shell:create_environment_hook('tutorial_interfaces', 'cmake_prefix_path')
+[2.758s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/cmake_prefix_path.ps1'
+[2.758s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/cmake_prefix_path.dsv'
+[2.759s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/cmake_prefix_path.sh'
+[2.760s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib'
+[2.760s] Level 1:colcon.colcon_core.shell:create_environment_hook('tutorial_interfaces', 'ld_library_path_lib')
+[2.763s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/ld_library_path_lib.ps1'
+[2.764s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/ld_library_path_lib.dsv'
+[2.764s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/ld_library_path_lib.sh'
+[2.765s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/bin'
+[2.765s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/pkgconfig/tutorial_interfaces.pc'
+[2.765s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/python3.10/site-packages'
+[2.765s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/bin'
+[2.769s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.ps1'
+[2.770s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.dsv'
+[2.771s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.sh'
+[2.771s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.bash'
+[2.771s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.zsh'
+[2.772s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/colcon-core/packages/tutorial_interfaces)
+[2.783s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator -- -j16 -l16
+[2.788s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer -- -j16 -l16
+[2.795s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer -- -j16 -l16
+[2.907s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(common_msgs)
+[2.911s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs' for CMake module files
+[2.912s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs' for CMake config files
+[2.913s] Level 1:colcon.colcon_core.shell:create_environment_hook('common_msgs', 'cmake_prefix_path')
+[2.916s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/cmake_prefix_path.ps1'
+[2.919s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/cmake_prefix_path.dsv'
+[2.920s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/cmake_prefix_path.sh'
+[2.922s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib'
+[2.922s] Level 1:colcon.colcon_core.shell:create_environment_hook('common_msgs', 'ld_library_path_lib')
+[2.926s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/ld_library_path_lib.ps1'
+[2.927s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/ld_library_path_lib.dsv'
+[2.928s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/hook/ld_library_path_lib.sh'
+[2.928s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/bin'
+[2.929s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib/pkgconfig/common_msgs.pc'
+[2.929s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib/python3.10/site-packages'
+[2.929s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/bin'
+[2.932s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.ps1'
+[2.934s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.dsv'
+[2.935s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.sh'
+[2.936s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.bash'
+[2.937s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/common_msgs/package.zsh'
+[2.937s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/share/colcon-core/packages/common_msgs)
+[2.965s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(tutorial_interfaces)
+[2.969s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces' for CMake module files
+[2.972s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces' for CMake config files
+[2.973s] Level 1:colcon.colcon_core.shell:create_environment_hook('tutorial_interfaces', 'cmake_prefix_path')
+[2.975s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/cmake_prefix_path.ps1'
+[2.976s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/cmake_prefix_path.dsv'
+[2.977s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/cmake_prefix_path.sh'
+[2.977s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib'
+[2.978s] Level 1:colcon.colcon_core.shell:create_environment_hook('tutorial_interfaces', 'ld_library_path_lib')
+[2.980s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/ld_library_path_lib.ps1'
+[2.981s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/ld_library_path_lib.dsv'
+[2.982s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/hook/ld_library_path_lib.sh'
+[2.982s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/bin'
+[2.982s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/pkgconfig/tutorial_interfaces.pc'
+[2.982s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/python3.10/site-packages'
+[2.983s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/bin'
+[2.985s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.ps1'
+[2.986s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.dsv'
+[2.987s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.sh'
+[2.987s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.bash'
+[2.988s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.zsh'
+[2.988s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/colcon-core/packages/tutorial_interfaces)
+[2.989s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection' with build type 'ament_python'
+[2.990s] Level 1:colcon.colcon_core.shell:create_environment_hook('camera_detection', 'ament_prefix_path')
+[2.993s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/hook/ament_prefix_path.ps1'
+[2.996s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/hook/ament_prefix_path.dsv'
+[2.997s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/hook/ament_prefix_path.sh'
+[3.003s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[3.004s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[3.016s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub' with build type 'ament_python'
+[3.017s] Level 1:colcon.colcon_core.shell:create_environment_hook('py_pubsub', 'ament_prefix_path')
+[3.020s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/ament_prefix_path.ps1'
+[3.022s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/ament_prefix_path.dsv'
+[3.022s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/ament_prefix_path.sh'
+[3.025s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[3.025s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[3.039s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator -- -j16 -l16
+[3.042s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer -- -j16 -l16
+[3.046s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer -- -j16 -l16
+[3.756s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection'
+[3.760s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[3.760s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[4.378s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub'
+[4.382s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[4.382s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[4.412s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection_new': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection_new/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/camera_detection_new build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection_new/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection_new/install.log --single-version-externally-managed
+[4.415s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator
+[4.419s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer
+[4.426s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer
+[4.447s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(aggregator)
+[4.452s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator' for CMake module files
+[4.454s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator' for CMake config files
+[4.457s] Level 1:colcon.colcon_core.shell:create_environment_hook('aggregator', 'cmake_prefix_path')
+[4.461s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/hook/cmake_prefix_path.ps1'
+[4.463s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/hook/cmake_prefix_path.dsv'
+[4.464s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator
+[4.464s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/hook/cmake_prefix_path.sh'
+[4.465s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib'
+[4.465s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/bin'
+[4.465s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/pkgconfig/aggregator.pc'
+[4.466s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/python3.10/site-packages'
+[4.466s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/bin'
+[4.470s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.ps1'
+[4.471s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.dsv'
+[4.471s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.sh'
+[4.472s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.bash'
+[4.473s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.zsh'
+[4.473s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/colcon-core/packages/aggregator)
+[4.475s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(producer)
+[4.479s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer' for CMake module files
+[4.480s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer
+[4.481s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer' for CMake config files
+[4.481s] Level 1:colcon.colcon_core.shell:create_environment_hook('producer', 'cmake_prefix_path')
+[4.483s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/hook/cmake_prefix_path.ps1'
+[4.485s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/hook/cmake_prefix_path.dsv'
+[4.486s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/hook/cmake_prefix_path.sh'
+[4.486s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib'
+[4.486s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/bin'
+[4.487s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/pkgconfig/producer.pc'
+[4.487s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/python3.10/site-packages'
+[4.487s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/bin'
+[4.490s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.ps1'
+[4.491s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.dsv'
+[4.491s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.sh'
+[4.491s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.bash'
+[4.492s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.zsh'
+[4.492s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/colcon-core/packages/producer)
+[4.495s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(transformer)
+[4.499s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer' for CMake module files
+[4.500s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/transformer
+[4.500s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer' for CMake config files
+[4.501s] Level 1:colcon.colcon_core.shell:create_environment_hook('transformer', 'cmake_prefix_path')
+[4.504s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/hook/cmake_prefix_path.ps1'
+[4.505s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/hook/cmake_prefix_path.dsv'
+[4.506s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/hook/cmake_prefix_path.sh'
+[4.507s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib'
+[4.507s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/bin'
+[4.507s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib/pkgconfig/transformer.pc'
+[4.508s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib/python3.10/site-packages'
+[4.508s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/bin'
+[4.511s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.ps1'
+[4.512s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.dsv'
+[4.512s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.sh'
+[4.513s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.bash'
+[4.513s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.zsh'
+[4.514s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/colcon-core/packages/transformer)
+[4.529s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(aggregator)
+[4.532s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator' for CMake module files
+[4.533s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator' for CMake config files
+[4.533s] Level 1:colcon.colcon_core.shell:create_environment_hook('aggregator', 'cmake_prefix_path')
+[4.536s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/hook/cmake_prefix_path.ps1'
+[4.537s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/hook/cmake_prefix_path.dsv'
+[4.538s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/hook/cmake_prefix_path.sh'
+[4.539s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib'
+[4.539s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/bin'
+[4.540s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/pkgconfig/aggregator.pc'
+[4.540s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/python3.10/site-packages'
+[4.540s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/bin'
+[4.543s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.ps1'
+[4.544s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.dsv'
+[4.544s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.sh'
+[4.544s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.bash'
+[4.545s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.zsh'
+[4.545s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/colcon-core/packages/aggregator)
+[4.549s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(producer)
+[4.553s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer' for CMake module files
+[4.556s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer' for CMake config files
+[4.557s] Level 1:colcon.colcon_core.shell:create_environment_hook('producer', 'cmake_prefix_path')
+[4.561s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/hook/cmake_prefix_path.ps1'
+[4.562s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/hook/cmake_prefix_path.dsv'
+[4.562s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/hook/cmake_prefix_path.sh'
+[4.563s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib'
+[4.564s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/bin'
+[4.564s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/pkgconfig/producer.pc'
+[4.564s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/python3.10/site-packages'
+[4.564s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/bin'
+[4.568s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.ps1'
+[4.570s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.dsv'
+[4.572s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.sh'
+[4.574s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.bash'
+[4.575s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.zsh'
+[4.576s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/colcon-core/packages/producer)
+[4.580s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(transformer)
+[4.585s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer' for CMake module files
+[4.587s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer' for CMake config files
+[4.587s] Level 1:colcon.colcon_core.shell:create_environment_hook('transformer', 'cmake_prefix_path')
+[4.591s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/hook/cmake_prefix_path.ps1'
+[4.592s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/hook/cmake_prefix_path.dsv'
+[4.592s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/hook/cmake_prefix_path.sh'
+[4.593s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib'
+[4.593s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/bin'
+[4.593s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib/pkgconfig/transformer.pc'
+[4.593s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib/python3.10/site-packages'
+[4.593s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/bin'
+[4.595s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.ps1'
+[4.596s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.dsv'
+[4.596s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.sh'
+[4.597s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.bash'
+[4.597s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.zsh'
+[4.597s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/colcon-core/packages/transformer)
+[4.929s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new' for CMake module files
+[4.930s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection_new' returned '0': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection_new/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/camera_detection_new build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection_new/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection_new/install.log --single-version-externally-managed
+[4.930s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new' for CMake config files
+[4.931s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/lib'
+[4.931s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/bin'
+[4.931s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/lib/pkgconfig/camera_detection_new.pc'
+[4.931s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/lib/python3.10/site-packages'
+[4.932s] Level 1:colcon.colcon_core.shell:create_environment_hook('camera_detection_new', 'pythonpath')
+[4.934s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/hook/pythonpath.ps1'
+[4.934s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/hook/pythonpath.dsv'
+[4.934s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/hook/pythonpath.sh'
+[4.935s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/bin'
+[4.935s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(camera_detection_new)
+[4.938s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/package.ps1'
+[4.938s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/package.dsv'
+[4.939s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/package.sh'
+[4.939s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/package.bash'
+[4.940s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/camera_detection_new/package.zsh'
+[4.940s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection_new/share/colcon-core/packages/camera_detection_new)
+[5.035s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/camera_detection build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection/install.log --single-version-externally-managed
+[5.060s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/py_pubsub build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/install.log --single-version-externally-managed
+[5.469s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection' for CMake module files
+[5.470s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/camera_detection build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/camera_detection/install.log --single-version-externally-managed
+[5.471s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection' for CMake config files
+[5.472s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/lib'
+[5.473s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/bin'
+[5.473s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/lib/pkgconfig/camera_detection.pc'
+[5.473s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/lib/python3.10/site-packages'
+[5.473s] Level 1:colcon.colcon_core.shell:create_environment_hook('camera_detection', 'pythonpath')
+[5.475s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/hook/pythonpath.ps1'
+[5.475s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/hook/pythonpath.dsv'
+[5.476s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/hook/pythonpath.sh'
+[5.476s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/bin'
+[5.476s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(camera_detection)
+[5.478s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/package.ps1'
+[5.479s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/package.dsv'
+[5.479s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/package.sh'
+[5.480s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/package.bash'
+[5.480s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/camera_detection/package.zsh'
+[5.480s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/share/colcon-core/packages/camera_detection)
+[5.514s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub' for CMake module files
+[5.515s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/py_pubsub' returned '0': CONDA_PROMPT_MODIFIER=(base) PYTHONPATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/prefix_override:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../build/py_pubsub build --build-base /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/build install --record /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/py_pubsub/install.log --single-version-externally-managed
+[5.517s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub' for CMake config files
+[5.526s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib'
+[5.526s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/bin'
+[5.526s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/pkgconfig/py_pubsub.pc'
+[5.526s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/lib/python3.10/site-packages'
+[5.526s] Level 1:colcon.colcon_core.shell:create_environment_hook('py_pubsub', 'pythonpath')
+[5.529s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/pythonpath.ps1'
+[5.530s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/pythonpath.dsv'
+[5.530s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/hook/pythonpath.sh'
+[5.531s] Level 1:colcon.colcon_core.environment:checking '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/bin'
+[5.531s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(py_pubsub)
+[5.532s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.ps1'
+[5.533s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.dsv'
+[5.533s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.sh'
+[5.533s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.bash'
+[5.534s] INFO:colcon.colcon_core.shell:Creating package script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/py_pubsub/package.zsh'
+[5.534s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub/share/colcon-core/packages/py_pubsub)
+[5.534s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[5.535s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[5.535s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[5.535s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[5.552s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[5.553s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[5.553s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[5.553s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[5.568s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[5.570s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.ps1'
+[5.571s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/_local_setup_util_ps1.py'
+[5.574s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.ps1'
+[5.576s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.sh'
+[5.577s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/_local_setup_util_sh.py'
+[5.578s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.sh'
+[5.580s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.bash'
+[5.581s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.bash'
+[5.583s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/local_setup.zsh'
+[5.584s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/setup.zsh'

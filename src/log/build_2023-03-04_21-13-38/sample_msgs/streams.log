@@ -1,0 +1,159 @@
+[0.049s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs -- -j16 -l16
+[0.476s] [35m[1mConsolidate compiler generated dependencies of target sample_msgs__rosidl_generator_c[0m
+[0.477s] [  2%] Built target sample_msgs__cpp
+[0.477s] [ 16%] Built target sample_msgs__rosidl_generator_c
+[0.477s] [35m[1mConsolidate compiler generated dependencies of target sample_msgs__rosidl_typesupport_fastrtps_cpp[0m
+[0.478s] [35m[1mConsolidate compiler generated dependencies of target sample_msgs__rosidl_typesupport_introspection_cpp[0m
+[0.479s] [35m[1mConsolidate compiler generated dependencies of target sample_msgs__rosidl_typesupport_cpp[0m
+[0.479s] [35m[1mConsolidate compiler generated dependencies of target sample_msgs__rosidl_typesupport_fastrtps_c[0m
+[0.479s] [35m[1mConsolidate compiler generated dependencies of target sample_msgs__rosidl_typesupport_c[0m
+[0.479s] [35m[1mConsolidate compiler generated dependencies of target sample_msgs__rosidl_typesupport_introspection_c[0m
+[0.479s] [ 44%] Built target sample_msgs__rosidl_typesupport_introspection_cpp
+[0.479s] [ 44%] Built target sample_msgs__rosidl_typesupport_fastrtps_cpp
+[0.480s] [ 58%] Built target sample_msgs__rosidl_typesupport_cpp
+[0.480s] [ 83%] Built target sample_msgs__rosidl_typesupport_c
+[0.480s] [ 86%] Built target sample_msgs__rosidl_typesupport_introspection_c
+[0.480s] [100%] Built target sample_msgs__rosidl_typesupport_fastrtps_c
+[0.480s] [100%] Built target sample_msgs
+[0.484s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs -- -j16 -l16
+[0.604s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs
+[0.615s] -- Install configuration: ""
+[0.615s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/ament_index/resource_index/rosidl_interfaces/sample_msgs
+[0.615s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs
+[0.615s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg
+[0.616s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/filtered.h
+[0.616s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/rosidl_generator_c__visibility_control.h
+[0.616s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/filtered_array.h
+[0.616s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/metadata.h
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/unfiltered.h
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__functions.c
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__struct.h
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__type_support.h
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__functions.c
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__functions.c
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__functions.h
+[0.617s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__struct.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__type_support.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__struct.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__struct.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__functions.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__functions.c
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__type_support.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__type_support.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__functions.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__functions.h
+[0.618s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/environment/library_path.sh
+[0.619s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/environment/library_path.dsv
+[0.619s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/libsample_msgs__rosidl_generator_c.so
+[0.619s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs
+[0.619s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg
+[0.619s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/rosidl_typesupport_fastrtps_c__visibility_control.h
+[0.619s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail
+[0.619s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__rosidl_typesupport_fastrtps_c.h
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__rosidl_typesupport_fastrtps_c.h
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__rosidl_typesupport_fastrtps_c.h
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__rosidl_typesupport_fastrtps_c.h
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/libsample_msgs__rosidl_typesupport_fastrtps_c.so
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/filtered.hpp
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/filtered_array.hpp
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/unfiltered.hpp
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/metadata.hpp
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__struct.hpp
+[0.620s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__struct.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__builder.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__builder.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__builder.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__traits.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__traits.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__traits.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__builder.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__traits.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__struct.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__struct.hpp
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg
+[0.621s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/dds_fastrtps
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__rosidl_typesupport_fastrtps_cpp.hpp
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__rosidl_typesupport_fastrtps_cpp.hpp
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__rosidl_typesupport_fastrtps_cpp.hpp
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__rosidl_typesupport_fastrtps_cpp.hpp
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/libsample_msgs__rosidl_typesupport_fastrtps_cpp.so
+[0.622s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs
+[0.623s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg
+[0.623s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/rosidl_typesupport_introspection_c__visibility_control.h
+[0.623s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail
+[0.623s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__type_support.c
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__rosidl_typesupport_introspection_c.h
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__rosidl_typesupport_introspection_c.h
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__type_support.c
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__type_support.c
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__type_support.c
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__rosidl_typesupport_introspection_c.h
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__rosidl_typesupport_introspection_c.h
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/libsample_msgs__rosidl_typesupport_introspection_c.so
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/libsample_msgs__rosidl_typesupport_c.so
+[0.624s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs
+[0.625s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg
+[0.625s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail
+[0.625s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__type_support.cpp
+[0.625s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__rosidl_typesupport_introspection_cpp.hpp
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__type_support.cpp
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__type_support.cpp
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered_array__type_support.cpp
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/filtered__rosidl_typesupport_introspection_cpp.hpp
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/metadata__rosidl_typesupport_introspection_cpp.hpp
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/include/sample_msgs/sample_msgs/msg/detail/unfiltered__rosidl_typesupport_introspection_cpp.hpp
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/libsample_msgs__rosidl_typesupport_introspection_cpp.so
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib/libsample_msgs__rosidl_typesupport_cpp.so
+[0.626s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/Filtered.idl
+[0.627s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/FilteredArray.idl
+[0.627s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/Unfiltered.idl
+[0.627s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/Metadata.idl
+[0.627s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/Filtered.msg
+[0.627s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/FilteredArray.msg
+[0.627s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/Unfiltered.msg
+[0.627s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/msg/Metadata.msg
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/ament_index/resource_index/package_run_dependencies/sample_msgs
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/ament_index/resource_index/parent_prefix_path/sample_msgs
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/environment/ament_prefix_path.sh
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/environment/ament_prefix_path.dsv
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/environment/path.sh
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/environment/path.dsv
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/local_setup.bash
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/local_setup.sh
+[0.628s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/local_setup.zsh
+[0.629s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/local_setup.dsv
+[0.629s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.dsv
+[0.629s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/ament_index/resource_index/packages/sample_msgs
+[0.629s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/export_sample_msgs__rosidl_generator_cExport.cmake
+[0.629s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/export_sample_msgs__rosidl_generator_cExport-noconfig.cmake
+[0.630s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/export_sample_msgs__rosidl_typesupport_fastrtps_cExport.cmake
+[0.630s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/export_sample_msgs__rosidl_typesupport_fastrtps_cExport-noconfig.cmake
+[0.631s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/export_sample_msgs__rosidl_generator_cppExport.cmake
+[0.632s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/export_sample_msgs__rosidl_typesupport_fastrtps_cppExport.cmake
+[0.632s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/export_sample_msgs__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake
+[0.633s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_introspection_cExport.cmake
+[0.633s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_introspection_cExport-noconfig.cmake
+[0.634s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_cExport.cmake
+[0.634s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_cExport-noconfig.cmake
+[0.637s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_introspection_cppExport.cmake
+[0.637s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_introspection_cppExport-noconfig.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_cppExport.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgs__rosidl_typesupport_cppExport-noconfig.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/rosidl_cmake-extras.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/ament_cmake_export_dependencies-extras.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/ament_cmake_export_include_directories-extras.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/ament_cmake_export_libraries-extras.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/ament_cmake_export_targets-extras.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgsConfig.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake/sample_msgsConfig-version.cmake
+[0.640s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/package.xml
+[0.644s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/sample_msgs

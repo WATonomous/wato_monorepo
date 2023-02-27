@@ -1,0 +1,232 @@
+[0.434s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces -- -j16 -l16
+[0.465s] -- Found ament_cmake: 1.3.3 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.679s] -- Found ament_lint_auto: 0.12.5 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[0.758s] -- Found geometry_msgs: 4.2.3 (/opt/ros/humble/share/geometry_msgs/cmake)
+[0.808s] -- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[0.816s] -- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[0.825s] -- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[0.848s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.872s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[1.029s] -- Found rosidl_default_generators: 1.2.0 (/opt/ros/humble/share/rosidl_default_generators/cmake)
+[1.330s] -- Found ament_cmake_ros: 0.10.0 (/opt/ros/humble/share/ament_cmake_ros/cmake)
+[1.910s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[2.197s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[2.256s] -- Found python_cmake_module: 0.10.0 (/opt/ros/humble/share/python_cmake_module/cmake)
+[2.325s] -- Using PYTHON_EXECUTABLE: /home/leungjch/anaconda3/bin/python3
+[2.325s] -- Using PYTHON_INCLUDE_DIRS: /home/leungjch/anaconda3/include/python3.9
+[2.325s] -- Using PYTHON_LIBRARIES: /home/leungjch/anaconda3/lib/libpython3.9.so
+[2.610s] -- Using numpy include directory: /home/leungjch/anaconda3/lib/python3.9/site-packages/numpy/core/include
+[2.627s] -- Added test 'lint_cmake' to check CMake code style
+[2.629s] -- Added test 'xmllint' to check XML markup files
+[2.637s] -- Configuring done
+[2.702s] -- Generating done
+[2.705s] -- Build files have been written to: /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces
+[2.739s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_generator_c[0m
+[2.754s] [  2%] Built target tutorial_interfaces__cpp
+[2.755s] [ 12%] Built target tutorial_interfaces__rosidl_generator_c
+[2.768s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_fastrtps_cpp[0m
+[2.768s] [ 12%] Built target ament_cmake_python_copy_tutorial_interfaces
+[2.769s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_introspection_cpp[0m
+[2.769s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_cpp[0m
+[2.781s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_introspection_c[0m
+[2.781s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_c[0m
+[2.781s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_fastrtps_c[0m
+[2.788s] [ 23%] Built target tutorial_interfaces__rosidl_typesupport_introspection_cpp
+[2.789s] [ 34%] Built target tutorial_interfaces__rosidl_typesupport_fastrtps_cpp
+[2.792s] [ 44%] Built target tutorial_interfaces__rosidl_typesupport_cpp
+[2.802s] [ 55%] Built target tutorial_interfaces__rosidl_typesupport_c
+[2.805s] [ 65%] Built target tutorial_interfaces__rosidl_typesupport_introspection_c
+[2.808s] [ 76%] Built target tutorial_interfaces__rosidl_typesupport_fastrtps_c
+[2.832s] [ 76%] Built target tutorial_interfaces
+[2.856s] [ 78%] Built target tutorial_interfaces__py
+[2.867s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_generator_py[0m
+[2.888s] [ 87%] Built target tutorial_interfaces__rosidl_generator_py
+[2.900s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_fastrtps_c__pyext[0m
+[2.900s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_introspection_c__pyext[0m
+[2.902s] [35m[1mConsolidate compiler generated dependencies of target tutorial_interfaces__rosidl_typesupport_c__pyext[0m
+[2.914s] [ 93%] Built target tutorial_interfaces__rosidl_typesupport_introspection_c__pyext
+[2.914s] [ 95%] Built target tutorial_interfaces__rosidl_typesupport_fastrtps_c__pyext
+[2.919s] [100%] Built target tutorial_interfaces__rosidl_typesupport_c__pyext
+[3.136s] running egg_info
+[3.136s] writing tutorial_interfaces.egg-info/PKG-INFO
+[3.137s] writing dependency_links to tutorial_interfaces.egg-info/dependency_links.txt
+[3.137s] writing top-level names to tutorial_interfaces.egg-info/top_level.txt
+[3.139s] reading manifest file 'tutorial_interfaces.egg-info/SOURCES.txt'
+[3.143s] writing manifest file 'tutorial_interfaces.egg-info/SOURCES.txt'
+[3.173s] [100%] Built target ament_cmake_python_build_tutorial_interfaces_egg
+[3.194s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces -- -j16 -l16
+[3.332s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces
+[3.347s] -- Install configuration: ""
+[3.347s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/ament_index/resource_index/rosidl_interfaces/tutorial_interfaces
+[3.347s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces
+[3.347s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg
+[3.347s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/rosidl_generator_c__visibility_control.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/num.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/sphere.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__functions.c
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__struct.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__type_support.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__functions.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__functions.c
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__struct.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__type_support.h
+[3.348s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__functions.h
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/add_three_ints.h
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__functions.c
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__functions.h
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__struct.h
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__type_support.h
+[3.349s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/library_path.sh
+[3.349s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/library_path.dsv
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_generator_c.so
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/rosidl_typesupport_fastrtps_c__visibility_control.h
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__rosidl_typesupport_fastrtps_c.h
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__rosidl_typesupport_fastrtps_c.h
+[3.355s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv
+[3.356s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail
+[3.356s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__rosidl_typesupport_fastrtps_c.h
+[3.356s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_typesupport_fastrtps_c.so
+[3.356s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces
+[3.356s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg
+[3.356s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/sphere.hpp
+[3.357s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/num.hpp
+[3.357s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail
+[3.357s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__builder.hpp
+[3.357s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__struct.hpp
+[3.357s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__traits.hpp
+[3.357s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__struct.hpp
+[3.357s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__builder.hpp
+[3.358s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__traits.hpp
+[3.358s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv
+[3.358s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail
+[3.358s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__struct.hpp
+[3.358s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__builder.hpp
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__traits.hpp
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/add_three_ints.hpp
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/dds_fastrtps
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__rosidl_typesupport_fastrtps_cpp.hpp
+[3.359s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__rosidl_typesupport_fastrtps_cpp.hpp
+[3.360s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h
+[3.360s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv
+[3.360s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail
+[3.360s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/dds_fastrtps
+[3.360s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__rosidl_typesupport_fastrtps_cpp.hpp
+[3.360s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_typesupport_fastrtps_cpp.so
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/rosidl_typesupport_introspection_c__visibility_control.h
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__type_support.c
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__rosidl_typesupport_introspection_c.h
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__rosidl_typesupport_introspection_c.h
+[3.361s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__type_support.c
+[3.362s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv
+[3.362s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail
+[3.362s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__type_support.c
+[3.362s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__rosidl_typesupport_introspection_c.h
+[3.362s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_typesupport_introspection_c.so
+[3.362s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_typesupport_c.so
+[3.363s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces
+[3.363s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg
+[3.363s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail
+[3.363s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__rosidl_typesupport_introspection_cpp.hpp
+[3.363s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__rosidl_typesupport_introspection_cpp.hpp
+[3.364s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/num__type_support.cpp
+[3.364s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/msg/detail/sphere__type_support.cpp
+[3.364s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv
+[3.364s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail
+[3.364s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__type_support.cpp
+[3.364s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/include/tutorial_interfaces/tutorial_interfaces/srv/detail/add_three_ints__rosidl_typesupport_introspection_cpp.hpp
+[3.364s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_typesupport_introspection_cpp.so
+[3.365s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_typesupport_cpp.so
+[3.365s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/pythonpath.sh
+[3.365s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/pythonpath.dsv
+[3.365s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces-0.0.0-py3.10.egg-info
+[3.365s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces-0.0.0-py3.10.egg-info/dependency_links.txt
+[3.366s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces-0.0.0-py3.10.egg-info/top_level.txt
+[3.366s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces-0.0.0-py3.10.egg-info/SOURCES.txt
+[3.366s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces-0.0.0-py3.10.egg-info/PKG-INFO
+[3.366s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces
+[3.366s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/_tutorial_interfaces_s.ep.rosidl_typesupport_fastrtps_c.c
+[3.366s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/__init__.py
+[3.366s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/_tutorial_interfaces_s.ep.rosidl_typesupport_c.c
+[3.367s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/tutorial_interfaces_s__rosidl_typesupport_c.cpython-39-x86_64-linux-gnu.so
+[3.367s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/msg
+[3.367s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/msg/_num.py
+[3.367s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/msg/_sphere.py
+[3.367s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/msg/__init__.py
+[3.367s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/msg/_num_s.c
+[3.367s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/msg/_sphere_s.c
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/_tutorial_interfaces_s.ep.rosidl_typesupport_introspection_c.c
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/srv
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/srv/_add_three_ints_s.c
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/srv/_add_three_ints.py
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/srv/__init__.py
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/libtutorial_interfaces__rosidl_generator_py.so
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/tutorial_interfaces_s__rosidl_typesupport_fastrtps_c.cpython-39-x86_64-linux-gnu.so
+[3.368s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/tutorial_interfaces_s__rosidl_typesupport_introspection_c.cpython-39-x86_64-linux-gnu.so
+[3.423s] Listing '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces'...
+[3.423s] Compiling '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/__init__.py'...
+[3.423s] Listing '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/msg'...
+[3.423s] Listing '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/srv'...
+[3.427s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/tutorial_interfaces_s__rosidl_typesupport_fastrtps_c.cpython-39-x86_64-linux-gnu.so
+[3.427s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/tutorial_interfaces_s__rosidl_typesupport_introspection_c.cpython-39-x86_64-linux-gnu.so
+[3.428s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages/tutorial_interfaces/tutorial_interfaces_s__rosidl_typesupport_c.cpython-39-x86_64-linux-gnu.so
+[3.429s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib/libtutorial_interfaces__rosidl_generator_py.so
+[3.429s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/msg/Num.idl
+[3.429s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/msg/Sphere.idl
+[3.429s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/srv/AddThreeInts.idl
+[3.429s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/msg/Num.msg
+[3.430s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/msg/Sphere.msg
+[3.430s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/srv/AddThreeInts.srv
+[3.430s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/srv/AddThreeInts_Request.msg
+[3.430s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/srv/AddThreeInts_Response.msg
+[3.431s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/ament_index/resource_index/package_run_dependencies/tutorial_interfaces
+[3.431s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/ament_index/resource_index/parent_prefix_path/tutorial_interfaces
+[3.431s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/ament_prefix_path.sh
+[3.431s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/ament_prefix_path.dsv
+[3.431s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/path.sh
+[3.431s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/environment/path.dsv
+[3.432s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/local_setup.bash
+[3.432s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/local_setup.sh
+[3.432s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/local_setup.zsh
+[3.432s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/local_setup.dsv
+[3.432s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.dsv
+[3.432s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/ament_index/resource_index/packages/tutorial_interfaces
+[3.433s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_generator_cExport.cmake
+[3.433s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_generator_cExport-noconfig.cmake
+[3.433s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_typesupport_fastrtps_cExport.cmake
+[3.433s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_typesupport_fastrtps_cExport-noconfig.cmake
+[3.433s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_generator_cppExport.cmake
+[3.433s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_typesupport_fastrtps_cppExport.cmake
+[3.434s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake
+[3.434s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_introspection_cExport.cmake
+[3.434s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_introspection_cExport-noconfig.cmake
+[3.434s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_cExport.cmake
+[3.434s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_cExport-noconfig.cmake
+[3.435s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_introspection_cppExport.cmake
+[3.435s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_introspection_cppExport-noconfig.cmake
+[3.435s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_cppExport.cmake
+[3.435s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfaces__rosidl_typesupport_cppExport-noconfig.cmake
+[3.436s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_generator_pyExport.cmake
+[3.441s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/export_tutorial_interfaces__rosidl_generator_pyExport-noconfig.cmake
+[3.441s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/rosidl_cmake-extras.cmake
+[3.442s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake
+[3.442s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/ament_cmake_export_include_directories-extras.cmake
+[3.442s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/ament_cmake_export_libraries-extras.cmake
+[3.442s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/ament_cmake_export_targets-extras.cmake
+[3.443s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake
+[3.443s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake
+[3.443s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfacesConfig.cmake
+[3.443s] -- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/cmake/tutorial_interfacesConfig-version.cmake
+[3.443s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/share/tutorial_interfaces/package.xml
+[3.444s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces

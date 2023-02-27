@@ -1,0 +1,90 @@
+[0.030s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake /home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator -DCMAKE_INSTALL_PREFIX=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator
+[0.097s] -- The C compiler identification is GNU 11.3.0
+[0.165s] -- The CXX compiler identification is GNU 11.3.0
+[0.173s] -- Detecting C compiler ABI info
+[0.253s] -- Detecting C compiler ABI info - done
+[0.266s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.266s] -- Detecting C compile features
+[0.267s] -- Detecting C compile features - done
+[0.272s] -- Detecting CXX compiler ABI info
+[0.376s] -- Detecting CXX compiler ABI info - done
+[0.389s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.389s] -- Detecting CXX compile features
+[0.389s] -- Detecting CXX compile features - done
+[0.395s] -- Found ament_cmake: 1.3.3 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.678s] -- Found Python3: /usr/bin/python3.10 (found version "3.10.6") found components: Interpreter 
+[0.809s] -- Found rclcpp: 16.0.3 (/opt/ros/humble/share/rclcpp/cmake)
+[0.882s] -- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[0.889s] -- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[0.901s] -- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[0.918s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.939s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[1.012s] -- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[1.015s] -- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[1.155s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[1.191s] -- Found FastRTPS: /opt/ros/humble/include  
+[1.247s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[1.263s] -- Looking for pthread.h
+[1.346s] -- Looking for pthread.h - found
+[1.347s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[1.450s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[1.451s] -- Found Threads: TRUE  
+[1.648s] -- Found sample_msgs: 0.0.0 (/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake)
+[1.700s] -- Found ament_cmake_gtest: 1.3.3 (/opt/ros/humble/share/ament_cmake_gtest/cmake)
+[1.702s] -- Found ament_lint_auto: 0.12.5 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[1.704s] -- Found ament_lint_common: 0.12.5 (/opt/ros/humble/share/ament_lint_common/cmake)
+[1.833s] -- Found gtest sources under '/opt/ros/humble/src/gtest_vendor': C++ tests using 'Google Test' will be built
+[1.842s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[1.843s] -- Configured cppcheck include dirs: /home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator/include
+[1.843s] -- Configured cppcheck exclude dirs and/or files: 
+[1.843s] -- Added test 'flake8' to check Python code syntax and style conventions
+[1.844s] -- Added test 'lint_cmake' to check CMake code style
+[1.846s] -- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257
+[1.847s] -- Added test 'uncrustify' to check C / C++ code style
+[1.847s] -- Configured uncrustify additional arguments: 
+[1.848s] -- Added test 'xmllint' to check XML markup files
+[1.850s] -- Configuring done
+[1.872s] -- Generating done
+[1.874s] -- Build files have been written to: /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator
+[1.883s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake /home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/aggregator -DCMAKE_INSTALL_PREFIX=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator
+[1.886s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator -- -j16 -l16
+[1.947s] [ 30%] [32mBuilding CXX object CMakeFiles/aggregator_lib.dir/src/aggregator.cpp.o[0m
+[1.948s] [ 30%] [32mBuilding CXX object gtest/CMakeFiles/gtest.dir/src/gtest-all.cc.o[0m
+[1.948s] [ 30%] [32mBuilding CXX object gtest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o[0m
+[3.463s] [ 40%] [32m[1mLinking CXX static library libgtest_main.a[0m
+[3.549s] [ 40%] Built target gtest_main
+[5.671s] [ 50%] [32m[1mLinking CXX static library libaggregator_lib.a[0m
+[5.763s] [ 50%] Built target aggregator_lib
+[5.793s] [ 60%] [32mBuilding CXX object CMakeFiles/aggregator_node.dir/src/aggregator_node.cpp.o[0m
+[5.898s] [ 70%] [32m[1mLinking CXX static library libgtest.a[0m
+[6.047s] [ 70%] Built target gtest
+[6.073s] [ 80%] [32mBuilding CXX object CMakeFiles/aggregator_test.dir/test/aggregator_test.cpp.o[0m
+[10.426s] [ 90%] [32m[1mLinking CXX executable aggregator_test[0m
+[10.670s] [ 90%] Built target aggregator_test
+[19.124s] [100%] [32m[1mLinking CXX executable aggregator_node[0m
+[20.257s] [100%] Built target aggregator_node
+[20.275s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator -- -j16 -l16
+[20.326s] Invoking command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator
+[20.339s] -- Install configuration: ""
+[20.339s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/aggregator/aggregator_test
+[20.342s] -- Set runtime path of "/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/aggregator/aggregator_test" to ""
+[20.342s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/aggregator/aggregator_node
+[20.352s] -- Set runtime path of "/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/aggregator/aggregator_node" to ""
+[20.352s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/launch
+[20.352s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/launch/aggregator.launch.py
+[20.358s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/ament_index/resource_index/package_run_dependencies/aggregator
+[20.359s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/ament_index/resource_index/parent_prefix_path/aggregator
+[20.359s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/ament_prefix_path.sh
+[20.359s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/ament_prefix_path.dsv
+[20.359s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/path.sh
+[20.359s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/path.dsv
+[20.359s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.bash
+[20.359s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.sh
+[20.360s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.zsh
+[20.360s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.dsv
+[20.360s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.dsv
+[20.360s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/ament_index/resource_index/packages/aggregator
+[20.360s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/cmake/aggregatorConfig.cmake
+[20.361s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/cmake/aggregatorConfig-version.cmake
+[20.361s] -- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.xml
+[20.367s] Invoked command in '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator' returned '0': CMAKE_PREFIX_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/py_pubsub:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble CONDA_PROMPT_MODIFIER=(base) LD_LIBRARY_PATH=/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/aggregator

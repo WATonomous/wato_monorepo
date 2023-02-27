@@ -1,0 +1,86 @@
+-- The C compiler identification is GNU 11.3.0
+-- The CXX compiler identification is GNU 11.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.3 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3.10 (found version "3.10.6") found components: Interpreter 
+-- Found rclcpp: 16.0.3 (/opt/ros/humble/share/rclcpp/cmake)
+-- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+-- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/share/rosidl_adapter/cmake)
+-- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+-- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+-- Found FastRTPS: /opt/ros/humble/include  
+-- Using RMW implementation 'rmw_fastrtps_cpp' as default
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Found sample_msgs: 0.0.0 (/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/share/sample_msgs/cmake)
+-- Found ament_cmake_gtest: 1.3.3 (/opt/ros/humble/share/ament_cmake_gtest/cmake)
+-- Found ament_lint_auto: 0.12.5 (/opt/ros/humble/share/ament_lint_auto/cmake)
+-- Found ament_lint_common: 0.12.5 (/opt/ros/humble/share/ament_lint_common/cmake)
+-- Found gtest sources under '/opt/ros/humble/src/gtest_vendor': C++ tests using 'Google Test' will be built
+-- Added test 'cppcheck' to perform static code analysis on C / C++ code
+-- Configured cppcheck include dirs: /home/leungjch/Documents/repos/wato_monorepo_v2/src/samples/cpp/producer/include
+-- Configured cppcheck exclude dirs and/or files: 
+-- Added test 'flake8' to check Python code syntax and style conventions
+-- Added test 'lint_cmake' to check CMake code style
+-- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257
+-- Added test 'uncrustify' to check C / C++ code style
+-- Configured uncrustify additional arguments: 
+-- Added test 'xmllint' to check XML markup files
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/leungjch/Documents/repos/wato_monorepo_v2/src/build/producer
+[ 20%] [32mBuilding CXX object gtest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o[0m
+[ 20%] [32mBuilding CXX object gtest/CMakeFiles/gtest.dir/src/gtest-all.cc.o[0m
+[ 30%] [32mBuilding CXX object CMakeFiles/producer_lib.dir/src/producer.cpp.o[0m
+[ 40%] [32m[1mLinking CXX static library libgtest_main.a[0m
+[ 40%] Built target gtest_main
+[ 50%] [32m[1mLinking CXX static library libproducer_lib.a[0m
+[ 50%] Built target producer_lib
+[ 60%] [32mBuilding CXX object CMakeFiles/producer_node.dir/src/producer_node.cpp.o[0m
+[ 70%] [32m[1mLinking CXX static library libgtest.a[0m
+[ 70%] Built target gtest
+[ 80%] [32mBuilding CXX object CMakeFiles/producer_test.dir/test/producer_test.cpp.o[0m
+[ 90%] [32m[1mLinking CXX executable producer_test[0m
+[ 90%] Built target producer_test
+[100%] [32m[1mLinking CXX executable producer_node[0m
+[100%] Built target producer_node
+-- Install configuration: ""
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/producer/producer_test
+-- Set runtime path of "/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/producer/producer_test" to ""
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/producer/producer_node
+-- Set runtime path of "/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/lib/producer/producer_node" to ""
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/config
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/config/params.yaml
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/launch
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/launch/producer.launch.py
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/ament_index/resource_index/package_run_dependencies/producer
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/ament_index/resource_index/parent_prefix_path/producer
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/environment/ament_prefix_path.sh
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/environment/ament_prefix_path.dsv
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/environment/path.sh
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/environment/path.dsv
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/local_setup.bash
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/local_setup.sh
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/local_setup.zsh
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/local_setup.dsv
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.dsv
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/ament_index/resource_index/packages/producer
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/cmake/producerConfig.cmake
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/cmake/producerConfig-version.cmake
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer/share/producer/package.xml

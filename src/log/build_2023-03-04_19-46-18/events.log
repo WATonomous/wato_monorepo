@@ -1,0 +1,399 @@
+[0.000000] (-) TimerEvent: {}
+[0.001385] (-) JobUnselected: {'identifier': 'aggregator'}
+[0.001526] (-) JobUnselected: {'identifier': 'producer'}
+[0.001606] (-) JobUnselected: {'identifier': 'sample_msgs'}
+[0.001671] (-) JobUnselected: {'identifier': 'transformer'}
+[0.001733] (camera_detection) JobQueued: {'identifier': 'camera_detection', 'dependencies': OrderedDict()}
+[0.001802] (common_msgs) JobQueued: {'identifier': 'common_msgs', 'dependencies': OrderedDict()}
+[0.001863] (tutorial_interfaces) JobQueued: {'identifier': 'tutorial_interfaces', 'dependencies': OrderedDict()}
+[0.001920] (camera_detection) JobStarted: {'identifier': 'camera_detection'}
+[0.014627] (common_msgs) JobStarted: {'identifier': 'common_msgs'}
+[0.021974] (tutorial_interfaces) JobStarted: {'identifier': 'tutorial_interfaces'}
+[0.099790] (-) TimerEvent: {}
+[0.200165] (-) TimerEvent: {}
+[0.300822] (-) TimerEvent: {}
+[0.401158] (-) TimerEvent: {}
+[0.419536] (common_msgs) JobProgress: {'identifier': 'common_msgs', 'progress': 'cmake'}
+[0.421476] (common_msgs) JobProgress: {'identifier': 'common_msgs', 'progress': 'build'}
+[0.422702] (common_msgs) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs', '--', '-j16', '-l16'], 'cwd': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LLVM_ROOT', '/home/leungjch/Documents/Programs/emsdk/llvm/git/build_main_64/bin'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('CONDA_PROMPT_MODIFIER', '(base)'), ('USER', 'leungjch'), ('XDG_SESSION_TYPE', 'x11'), ('GIT_ASKPASS', '/usr/share/code/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/leungjch'), ('CHROME_DESKTOP', 'code-url-handler.desktop'), ('CONDA_SHLVL', '1'), ('OLDPWD', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/camera_detection'), ('TERM_PROGRAM_VERSION', '1.75.1'), ('DESKTOP_SESSION', 'pop'), ('NVM_BIN', '/home/leungjch/.nvm/versions/node/v16.16.0/bin'), ('NVM_INC', '/home/leungjch/.nvm/versions/node/v16.16.0/include/node'), ('BINARYEN_ROOT', '/home/leungjch/Documents/Programs/emsdk/binaryen/main_64bit_binaryen'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/code.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'pop'), ('GTK_MODULES', 'gail:atk-bridge:appmenu-gtk-module'), ('VSCODE_GIT_ASKPASS_MAIN', '/usr/share/code/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/usr/share/code/code'), ('MANAGERPID', '2445'), ('SYSTEMD_EXEC_PID', '4668'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('_CE_M', ''), ('LIBVIRT_DEFAULT_URI', 'qemu:///system'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '8172'), ('NVM_DIR', '/home/leungjch/.nvm'), ('MANDATORY_PATH', '/usr/share/gconf/pop.mandatory.path'), ('COLCON_PREFIX_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'leungjch'), ('JOURNAL_STREAM', '8:41839'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('DEFAULTS_PATH', '/usr/share/gconf/pop.default.path'), ('USERNAME', 'leungjch'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('_CE_CONDA', ''), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/home/leungjch/anaconda3/bin:/home/leungjch/anaconda3/condabin:/home/leungjch/.nvm/versions/node/v16.16.0/bin:/home/leungjch/Documents/Programs/emsdk:/home/leungjch/Documents/Programs/emsdk/llvm/git/build_main_64/bin:/home/leungjch/Documents/Programs/emsdk/node/14.18.2_64bit/bin:/home/leungjch/Documents/Programs/emsdk/emscripten/main:/home/leungjch/Documents/Programs/emsdk/binaryen/main_64bit_binaryen/bin:/home/leungjch/.cargo/bin:/home/leungjch/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/lib/cuda/bin:/home/leungjch/.local/bin:/usr/local/go/bin:/home/leungjch/go/bin'), ('SESSION_MANAGER', 'local/pop-os:@/tmp/.ICE-unix/4562,unix/pop-os:/tmp/.ICE-unix/4562'), ('INVOCATION_ID', '305ebcb37d2d4c29b2fbcde999481521'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':1'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'Unity'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'pop'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-25cbdc7e83.sock'), ('TERM_PROGRAM', 'vscode'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('ROS_DOMAIN_ID', '42'), ('AMENT_PREFIX_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/opt/ros/humble'), ('CONDA_PYTHON_EXE', '/home/leungjch/anaconda3/bin/python'), ('ORIGINAL_XDG_CURRENT_DESKTOP', 'pop:GNOME'), ('SHELL', '/bin/bash'), ('GOPATH', '/home/leungjch/Go'), ('QT_ACCESSIBILITY', '1'), ('NDK_HOME', '/home/leungjch/Android/Sdk/ndk/21.3.6528147'), ('GDMSESSION', 'pop'), ('EM_CONFIG', '/home/leungjch/Documents/Programs/emsdk/.emscripten'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('CONDA_DEFAULT_ENV', 'base'), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', '--ms-enable-electron-run-as-node'), ('QT_IM_MODULE', 'ibus'), ('EMSDK_NODE', '/home/leungjch/Documents/Programs/emsdk/node/14.18.2_64bit/bin/node'), ('PWD', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/common_msgs'), ('EMSCRIPTEN', '/home/leungjch/Documents/Programs/emsdk/emscripten/main'), ('EMSDK', '/home/leungjch/Documents/Programs/emsdk'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-pop:/etc/xdg'), ('CONDA_EXE', '/home/leungjch/anaconda3/bin/conda'), ('ANDROID_HOME', '/home/leungjch/Android/Sdk'), ('NVM_CD_FLAGS', ''), ('XDG_DATA_DIRS', '/usr/share/pop:/usr/share/gnome:/home/leungjch/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('EMCC_WASM_BACKEND', '1'), ('PYTHONPATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/lib/python3.10/site-packages:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('CONDA_PREFIX', '/home/leungjch/anaconda3'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble')]), 'shell': False}
+[0.431043] (tutorial_interfaces) JobProgress: {'identifier': 'tutorial_interfaces', 'progress': 'cmake'}
+[0.432278] (tutorial_interfaces) JobProgress: {'identifier': 'tutorial_interfaces', 'progress': 'build'}
+[0.432646] (tutorial_interfaces) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces', '--', '-j16', '-l16'], 'cwd': '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LLVM_ROOT', '/home/leungjch/Documents/Programs/emsdk/llvm/git/build_main_64/bin'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('CONDA_PROMPT_MODIFIER', '(base)'), ('USER', 'leungjch'), ('XDG_SESSION_TYPE', 'x11'), ('GIT_ASKPASS', '/usr/share/code/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs/lib:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/leungjch'), ('CHROME_DESKTOP', 'code-url-handler.desktop'), ('CONDA_SHLVL', '1'), ('OLDPWD', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/camera_detection/camera_detection'), ('TERM_PROGRAM_VERSION', '1.75.1'), ('DESKTOP_SESSION', 'pop'), ('NVM_BIN', '/home/leungjch/.nvm/versions/node/v16.16.0/bin'), ('NVM_INC', '/home/leungjch/.nvm/versions/node/v16.16.0/include/node'), ('BINARYEN_ROOT', '/home/leungjch/Documents/Programs/emsdk/binaryen/main_64bit_binaryen'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/code.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'pop'), ('GTK_MODULES', 'gail:atk-bridge:appmenu-gtk-module'), ('VSCODE_GIT_ASKPASS_MAIN', '/usr/share/code/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/usr/share/code/code'), ('MANAGERPID', '2445'), ('SYSTEMD_EXEC_PID', '4668'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('_CE_M', ''), ('LIBVIRT_DEFAULT_URI', 'qemu:///system'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '8172'), ('NVM_DIR', '/home/leungjch/.nvm'), ('MANDATORY_PATH', '/usr/share/gconf/pop.mandatory.path'), ('COLCON_PREFIX_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'leungjch'), ('JOURNAL_STREAM', '8:41839'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('DEFAULTS_PATH', '/usr/share/gconf/pop.default.path'), ('USERNAME', 'leungjch'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('_CE_CONDA', ''), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/home/leungjch/anaconda3/bin:/home/leungjch/anaconda3/condabin:/home/leungjch/.nvm/versions/node/v16.16.0/bin:/home/leungjch/Documents/Programs/emsdk:/home/leungjch/Documents/Programs/emsdk/llvm/git/build_main_64/bin:/home/leungjch/Documents/Programs/emsdk/node/14.18.2_64bit/bin:/home/leungjch/Documents/Programs/emsdk/emscripten/main:/home/leungjch/Documents/Programs/emsdk/binaryen/main_64bit_binaryen/bin:/home/leungjch/.cargo/bin:/home/leungjch/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/lib/cuda/bin:/home/leungjch/.local/bin:/usr/local/go/bin:/home/leungjch/go/bin'), ('SESSION_MANAGER', 'local/pop-os:@/tmp/.ICE-unix/4562,unix/pop-os:/tmp/.ICE-unix/4562'), ('INVOCATION_ID', '305ebcb37d2d4c29b2fbcde999481521'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':1'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'Unity'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'pop'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-25cbdc7e83.sock'), ('TERM_PROGRAM', 'vscode'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('ROS_DOMAIN_ID', '42'), ('AMENT_PREFIX_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/opt/ros/humble'), ('CONDA_PYTHON_EXE', '/home/leungjch/anaconda3/bin/python'), ('ORIGINAL_XDG_CURRENT_DESKTOP', 'pop:GNOME'), ('SHELL', '/bin/bash'), ('GOPATH', '/home/leungjch/Go'), ('QT_ACCESSIBILITY', '1'), ('NDK_HOME', '/home/leungjch/Android/Sdk/ndk/21.3.6528147'), ('GDMSESSION', 'pop'), ('EM_CONFIG', '/home/leungjch/Documents/Programs/emsdk/.emscripten'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('CONDA_DEFAULT_ENV', 'base'), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', '--ms-enable-electron-run-as-node'), ('QT_IM_MODULE', 'ibus'), ('EMSDK_NODE', '/home/leungjch/Documents/Programs/emsdk/node/14.18.2_64bit/bin/node'), ('PWD', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces'), ('EMSCRIPTEN', '/home/leungjch/Documents/Programs/emsdk/emscripten/main'), ('EMSDK', '/home/leungjch/Documents/Programs/emsdk'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-pop:/etc/xdg'), ('CONDA_EXE', '/home/leungjch/anaconda3/bin/conda'), ('ANDROID_HOME', '/home/leungjch/Android/Sdk'), ('NVM_CD_FLAGS', ''), ('XDG_DATA_DIRS', '/usr/share/pop:/usr/share/gnome:/home/leungjch/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('EMCC_WASM_BACKEND', '1'), ('PYTHONPATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces/local/lib/python3.10/dist-packages:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection/lib/python3.10/site-packages:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('CONDA_PREFIX', '/home/leungjch/anaconda3'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/tutorial_interfaces:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/producer:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/sample_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/common_msgs:/home/leungjch/Documents/repos/wato_monorepo_v2/src/install/camera_detection:/opt/ros/humble')]), 'shell': False}
+[0.456705] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) in CMakeLists.txt:\n'}
+[0.456956] (tutorial_interfaces) StderrLine: {'line': b'  No project() command is present.  The top-level CMakeLists.txt file must\n'}
+[0.457064] (tutorial_interfaces) StderrLine: {'line': b'  contain a literal, direct call to the project() command.  Add a line of\n'}
+[0.457148] (tutorial_interfaces) StderrLine: {'line': b'  code such as\n'}
+[0.457227] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.457309] (tutorial_interfaces) StderrLine: {'line': b'    project(ProjectName)\n'}
+[0.457388] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.457455] (tutorial_interfaces) StderrLine: {'line': b'  near the top of the file, but after cmake_minimum_required().\n'}
+[0.457540] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.457614] (tutorial_interfaces) StderrLine: {'line': b'  CMake is pretending there is a "project(Project)" command on the first\n'}
+[0.457699] (tutorial_interfaces) StderrLine: {'line': b'  line.\n'}
+[0.457789] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.457883] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.467784] (tutorial_interfaces) StdoutLine: {'line': b'-- Found geometry_msgs: 4.2.3 (/opt/ros/humble/share/geometry_msgs/cmake)\n'}
+[0.494684] (common_msgs) StdoutLine: {'line': b'[  2%] Built target common_msgs__cpp\n'}
+[0.501620] (-) TimerEvent: {}
+[0.505869] (common_msgs) StdoutLine: {'line': b'[ 12%] Built target common_msgs__rosidl_generator_c\n'}
+[0.514415] (common_msgs) StdoutLine: {'line': b'[ 12%] Built target ament_cmake_python_copy_common_msgs\n'}
+[0.526872] (common_msgs) StdoutLine: {'line': b'[ 33%] Built target common_msgs__rosidl_typesupport_fastrtps_cpp\n'}
+[0.527148] (common_msgs) StdoutLine: {'line': b'[ 33%] Built target common_msgs__rosidl_typesupport_introspection_cpp\n'}
+[0.532329] (common_msgs) StdoutLine: {'line': b'[ 43%] Built target common_msgs__rosidl_typesupport_cpp\n'}
+[0.533075] (common_msgs) StdoutLine: {'line': b'[ 61%] Built target common_msgs__rosidl_typesupport_c\n'}
+[0.533220] (common_msgs) StdoutLine: {'line': b'[ 64%] Built target common_msgs__rosidl_typesupport_fastrtps_c\n'}
+[0.534689] (common_msgs) StdoutLine: {'line': b'[ 74%] Built target common_msgs__rosidl_typesupport_introspection_c\n'}
+[0.560489] (common_msgs) StdoutLine: {'line': b'[ 74%] Built target common_msgs\n'}
+[0.584256] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1831 (list):\n'}
+[0.585589] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.585678] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.585751] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.585822] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.585893] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.585962] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.586029] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.586097] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.586164] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.586267] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.586337] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.586406] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.586473] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.586539] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.586606] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.586671] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1833 (list):\n'}
+[0.586738] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.586804] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.586871] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.586943] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.587025] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.587097] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.587169] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.587321] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.587389] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.587457] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.587523] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.587599] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.587666] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.587732] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.587798] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.587869] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1834 (list):\n'}
+[0.587964] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.588052] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.588122] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.588204] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.588277] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.588349] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.588416] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.588484] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.588550] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.588617] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.588684] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.588750] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.588816] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.588892] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.588959] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.589031] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1835 (list):\n'}
+[0.589099] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.589165] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.589231] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.589297] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.589363] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.589429] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.589497] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.589563] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.589629] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.589695] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.589767] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.589833] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.589901] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.589967] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.590034] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.590101] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1837 (list):\n'}
+[0.590187] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.590259] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.590326] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.590392] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.590458] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.590524] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.590589] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.590655] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.590722] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.590788] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.590854] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.590921] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.590992] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.591059] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.591125] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.591191] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1840 (list):\n'}
+[0.591257] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.591323] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.591389] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.591455] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.591530] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.591603] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.591671] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.591739] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.591818] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.591885] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.591953] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.592019] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.592085] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.592152] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.592219] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.592285] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1841 (list):\n'}
+[0.592354] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.592421] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.592488] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.592554] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.592632] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.592697] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.592764] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.592831] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.592898] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.592964] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.593031] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.593098] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.593165] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.593230] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.593297] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.593363] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1843 (list):\n'}
+[0.593429] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.593496] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.593564] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.593630] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.593697] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.593762] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.593838] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.593906] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.593973] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.594040] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.594107] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.594186] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.594258] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.594325] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.594392] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.594458] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1844 (list):\n'}
+[0.594525] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.594592] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.594660] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.594727] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.594801] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.594870] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.594937] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.595005] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.595072] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.595138] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.595206] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.595273] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.595340] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.595406] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.595473] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.595541] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1845 (list):\n'}
+[0.595608] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.595675] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.595743] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.595810] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.595886] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.595953] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.596020] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.596087] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.596154] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.596221] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.596303] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.596371] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.596438] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.596505] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.596575] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.596642] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1846 (list):\n'}
+[0.596709] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0007 is not set: list command no longer ignores empty elements.\n'}
+[0.596776] (tutorial_interfaces) StderrLine: {'line': b'  Run "cmake --help-policy CMP0007" for policy details.  Use the cmake_policy\n'}
+[0.596844] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.  List has value =\n'}
+[0.596910] (tutorial_interfaces) StderrLine: {'line': b'  [Python;3;10;6;64;;cpython-310-x86_64-linux-gnu;/usr/lib/python3.10;/usr/lib/python3.10;/usr/lib/python3/dist-packages;/usr/lib/python3/dist-packages].\n'}
+[0.596978] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.597045] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.597111] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.597178] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.597246] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.597312] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.597379] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.597447] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.597515] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.597581] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.597649] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.597716] (tutorial_interfaces) StderrLine: {'line': b'\x1b[31mCMake Error at /usr/share/cmake-3.22/Modules/FindPython/Support.cmake:1846 (list):\n'}
+[0.597784] (tutorial_interfaces) StderrLine: {'line': b'  list index: 10 out of range (-10, 9)\n'}
+[0.597851] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.597918] (tutorial_interfaces) StderrLine: {'line': b'  /usr/share/cmake-3.22/Modules/FindPython3.cmake:490 (include)\n'}
+[0.597993] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/python.cmake:21 (find_package)\n'}
+[0.598060] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/all.cmake:54 (include)\n'}
+[0.598133] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_core-extras.cmake:17 (include)\n'}
+[0.598217] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/ament_cmake_coreConfig.cmake:41 (include)\n'}
+[0.598286] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:15 (find_package)\n'}
+[0.598354] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.598420] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.598487] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.598554] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.598620] (common_msgs) StdoutLine: {'line': b'[ 76%] Built target common_msgs__py\n'}
+[0.601588] (-) TimerEvent: {}
+[0.612523] (common_msgs) StdoutLine: {'line': b'[ 84%] Built target common_msgs__rosidl_generator_py\n'}
+[0.640080] (common_msgs) StdoutLine: {'line': b'[ 94%] Built target common_msgs__rosidl_typesupport_introspection_c__pyext\n'}
+[0.640395] (common_msgs) StdoutLine: {'line': b'[ 94%] Built target common_msgs__rosidl_typesupport_fastrtps_c__pyext\n'}
+[0.644051] (common_msgs) StdoutLine: {'line': b'[100%] Built target common_msgs__rosidl_typesupport_c__pyext\n'}
+[0.669306] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:52 (while):\n'}
+[0.669652] (tutorial_interfaces) StderrLine: {'line': b'  had incorrect arguments:\n'}
+[0.669756] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.669852] (tutorial_interfaces) StderrLine: {'line': b'    "TRUE"\n'}
+[0.669947] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.670038] (tutorial_interfaces) StderrLine: {'line': b'  An argument named "TRUE" appears in a conditional statement.  Policy\n'}
+[0.670130] (tutorial_interfaces) StderrLine: {'line': b'  CMP0012 is not set: if() recognizes numbers and boolean constants.  Run\n'}
+[0.670236] (tutorial_interfaces) StderrLine: {'line': b'  "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy\n'}
+[0.670328] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.\n'}
+[0.670418] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.670507] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:34 (_normalize_path__collapse_redundant)\n'}
+[0.670607] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)\n'}
+[0.670712] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)\n'}
+[0.670819] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.670926] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)\n'}
+[0.671033] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.671139] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.671247] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.671353] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.671473] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.671581] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:72 (while):\n'}
+[0.671688] (tutorial_interfaces) StderrLine: {'line': b'  had incorrect arguments:\n'}
+[0.671794] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.671902] (tutorial_interfaces) StderrLine: {'line': b'    "TRUE"\n'}
+[0.672009] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.672115] (tutorial_interfaces) StderrLine: {'line': b'  An argument named "TRUE" appears in a conditional statement.  Policy\n'}
+[0.672223] (tutorial_interfaces) StderrLine: {'line': b'  CMP0012 is not set: if() recognizes numbers and boolean constants.  Run\n'}
+[0.672330] (tutorial_interfaces) StderrLine: {'line': b'  "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy\n'}
+[0.672437] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.\n'}
+[0.672542] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.672657] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:35 (_normalize_path__collapse_uplevel_reference)\n'}
+[0.672772] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)\n'}
+[0.672879] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)\n'}
+[0.672988] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.673095] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)\n'}
+[0.673202] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.673309] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.673416] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.673522] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.673629] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.681931] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:52 (while):\n'}
+[0.682207] (tutorial_interfaces) StderrLine: {'line': b'  had incorrect arguments:\n'}
+[0.682322] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.682430] (tutorial_interfaces) StderrLine: {'line': b'    "TRUE"\n'}
+[0.682534] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.682638] (tutorial_interfaces) StderrLine: {'line': b'  An argument named "TRUE" appears in a conditional statement.  Policy\n'}
+[0.682743] (tutorial_interfaces) StderrLine: {'line': b'  CMP0012 is not set: if() recognizes numbers and boolean constants.  Run\n'}
+[0.682846] (tutorial_interfaces) StderrLine: {'line': b'  "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy\n'}
+[0.682948] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.\n'}
+[0.683060] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.683163] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:34 (_normalize_path__collapse_redundant)\n'}
+[0.683265] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)\n'}
+[0.683378] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)\n'}
+[0.683488] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.683591] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)\n'}
+[0.683694] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.683796] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)\n'}
+[0.683898] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.684001] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)\n'}
+[0.684103] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.684205] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.684309] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.684405] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.684498] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.684590] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:72 (while):\n'}
+[0.684682] (tutorial_interfaces) StderrLine: {'line': b'  had incorrect arguments:\n'}
+[0.684773] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.684864] (tutorial_interfaces) StderrLine: {'line': b'    "TRUE"\n'}
+[0.684955] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.685045] (tutorial_interfaces) StderrLine: {'line': b'  An argument named "TRUE" appears in a conditional statement.  Policy\n'}
+[0.685145] (tutorial_interfaces) StderrLine: {'line': b'  CMP0012 is not set: if() recognizes numbers and boolean constants.  Run\n'}
+[0.685251] (tutorial_interfaces) StderrLine: {'line': b'  "cmake --help-policy CMP0012" for policy details.  Use the cmake_policy\n'}
+[0.685358] (tutorial_interfaces) StderrLine: {'line': b'  command to set the policy and suppress this warning.\n'}
+[0.685466] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.685572] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/normalize_path.cmake:35 (_normalize_path__collapse_uplevel_reference)\n'}
+[0.685679] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_include_directories-extras.cmake:13 (normalize_path)\n'}
+[0.685786] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)\n'}
+[0.685895] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.686002] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)\n'}
+[0.686109] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.686226] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)\n'}
+[0.686336] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.686443] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)\n'}
+[0.686559] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.686667] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.686775] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.686881] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.686998] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.701702] (-) TimerEvent: {}
+[0.715331] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /opt/ros/humble/share/ament_cmake_core/cmake/core/list_append_unique.cmake:30 (if):\n'}
+[0.715633] (tutorial_interfaces) StderrLine: {'line': b'  Policy CMP0057 is not set: Support new IN_LIST if() operator.  Run "cmake\n'}
+[0.715730] (tutorial_interfaces) StderrLine: {'line': b'  --help-policy CMP0057" for policy details.  Use the cmake_policy command to\n'}
+[0.715820] (tutorial_interfaces) StderrLine: {'line': b'  set the policy and suppress this warning.\n'}
+[0.715906] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.715992] (tutorial_interfaces) StderrLine: {'line': b'  IN_LIST will be interpreted as an operator when the policy is set to NEW.\n'}
+[0.716076] (tutorial_interfaces) StderrLine: {'line': b'  Since the policy is not set the OLD behavior will be used.\n'}
+[0.716160] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.716243] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_dependencies-extras.cmake:84 (list_append_unique)\n'}
+[0.716326] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)\n'}
+[0.716409] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.716494] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)\n'}
+[0.716579] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.716668] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)\n'}
+[0.716752] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.716834] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)\n'}
+[0.716919] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.717002] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.717085] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.717168] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.717251] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.717331] (tutorial_interfaces) StderrLine: {'line': b'\x1b[31mCMake Error at /opt/ros/humble/share/ament_cmake_core/cmake/core/list_append_unique.cmake:30 (if):\n'}
+[0.717412] (tutorial_interfaces) StderrLine: {'line': b'  if given arguments:\n'}
+[0.717494] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.717576] (tutorial_interfaces) StderrLine: {'line': b'    "NOT" "element" "IN_LIST" "rcutils_RECURSIVE_DEPENDENCIES"\n'}
+[0.717658] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.717739] (tutorial_interfaces) StderrLine: {'line': b'  Unknown arguments specified\n'}
+[0.717820] (tutorial_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[0.717910] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/ament_cmake_export_dependencies-extras.cmake:84 (list_append_unique)\n'}
+[0.717992] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rcutils/cmake/rcutilsConfig.cmake:41 (include)\n'}
+[0.718073] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.718155] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_runtime_c/cmake/rosidl_runtime_cConfig.cmake:41 (include)\n'}
+[0.718250] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.718326] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/builtin_interfaces/cmake/builtin_interfacesConfig.cmake:41 (include)\n'}
+[0.718386] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.718444] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/std_msgs/cmake/std_msgsConfig.cmake:41 (include)\n'}
+[0.718526] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[0.718612] (tutorial_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/geometry_msgs/cmake/geometry_msgsConfig.cmake:41 (include)\n'}
+[0.718703] (tutorial_interfaces) StderrLine: {'line': b'  CMakeLists.txt:1 (find_package)\n'}
+[0.718790] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.718877] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.718975] (tutorial_interfaces) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) in CMakeLists.txt:\n'}
+[0.719063] (tutorial_interfaces) StderrLine: {'line': b'  No cmake_minimum_required command is present.  A line of code such as\n'}
+[0.719147] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.719230] (tutorial_interfaces) StderrLine: {'line': b'    cmake_minimum_required(VERSION 3.22)\n'}
+[0.719318] (tutorial_interfaces) StderrLine: {'line': b'\n'}
+[0.719400] (tutorial_interfaces) StderrLine: {'line': b'  should be added at the top of the file.  The version specified may be lower\n'}
+[0.719498] (tutorial_interfaces) StderrLine: {'line': b'  if you wish to support older CMake versions for this project.  For more\n'}
+[0.719613] (tutorial_interfaces) StderrLine: {'line': b'  information run "cmake --help-policy CMP0000".\n'}
+[0.719705] (tutorial_interfaces) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[0.719798] (tutorial_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[0.719890] (tutorial_interfaces) StdoutLine: {'line': b'-- Configuring incomplete, errors occurred!\n'}
+[0.720045] (tutorial_interfaces) StdoutLine: {'line': b'See also "/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces/CMakeFiles/CMakeOutput.log".\n'}
+[0.720139] (tutorial_interfaces) StderrLine: {'line': b'gmake: *** [Makefile:1179: cmake_check_build_system] Error 1\n'}
+[0.722752] (tutorial_interfaces) CommandEnded: {'returncode': 2}
+[0.801812] (-) TimerEvent: {}
+[0.865398] (tutorial_interfaces) JobEnded: {'identifier': 'tutorial_interfaces', 'rc': 2}
+[0.901912] (-) TimerEvent: {}
+[0.908178] (common_msgs) StdoutLine: {'line': b'running egg_info\n'}
+[0.908930] (common_msgs) StdoutLine: {'line': b'writing common_msgs.egg-info/PKG-INFO\n'}
+[0.909151] (common_msgs) StdoutLine: {'line': b'writing dependency_links to common_msgs.egg-info/dependency_links.txt\n'}
+[0.909332] (common_msgs) StdoutLine: {'line': b'writing top-level names to common_msgs.egg-info/top_level.txt\n'}
+[0.913041] (common_msgs) StdoutLine: {'line': b"reading manifest file 'common_msgs.egg-info/SOURCES.txt'\n"}
+[0.913931] (common_msgs) StdoutLine: {'line': b"writing manifest file 'common_msgs.egg-info/SOURCES.txt'\n"}
+[0.955167] (common_msgs) StdoutLine: {'line': b'[100%] Built target ament_cmake_python_build_common_msgs_egg\n'}
+[0.969820] (common_msgs) JobEnded: {'identifier': 'common_msgs', 'rc': 'SIGINT'}
+[1.001995] (-) TimerEvent: {}
+[1.059957] (camera_detection) JobEnded: {'identifier': 'camera_detection', 'rc': 'SIGINT'}
+[1.070411] (-) EventReactorShutdown: {}

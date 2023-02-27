@@ -11,3 +11,5 @@ ssh_config/
 src/camera_detection/install
 src/camera_detection/build
 src/camera_detection/log
+src/build
+src/install

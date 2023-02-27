@@ -1,1 +1,3 @@
-common_msgs/Obstacle[] obstacles
+std_msgs/Header header
+
+Obstacle[] obstacles

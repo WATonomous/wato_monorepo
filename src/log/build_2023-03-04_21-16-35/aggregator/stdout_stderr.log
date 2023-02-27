@@ -1,0 +1,25 @@
+[ 20%] Built target gtest
+[ 40%] Built target aggregator_lib
+[ 60%] Built target gtest_main
+[ 80%] Built target aggregator_node
+[100%] Built target aggregator_test
+-- Install configuration: ""
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/aggregator/aggregator_test
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/lib/aggregator/aggregator_node
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/launch
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/launch/aggregator.launch.py
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/ament_index/resource_index/package_run_dependencies/aggregator
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/ament_index/resource_index/parent_prefix_path/aggregator
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/ament_prefix_path.sh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/ament_prefix_path.dsv
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/path.sh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/environment/path.dsv
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.bash
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.sh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.zsh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/local_setup.dsv
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.dsv
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/ament_index/resource_index/packages/aggregator
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/cmake/aggregatorConfig.cmake
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/cmake/aggregatorConfig-version.cmake
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/aggregator/share/aggregator/package.xml

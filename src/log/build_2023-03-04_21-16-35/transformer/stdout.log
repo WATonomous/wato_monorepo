@@ -1,0 +1,27 @@
+[ 20%] Built target transformer_lib
+[ 40%] Built target gtest
+[ 60%] Built target gtest_main
+[ 80%] Built target transformer_node
+[100%] Built target transformer_test
+-- Install configuration: ""
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib/transformer/transformer_test
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/lib/transformer/transformer_node
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/config
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/config/params.yaml
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/launch
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/launch/transformer.launch.py
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/ament_index/resource_index/package_run_dependencies/transformer
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/ament_index/resource_index/parent_prefix_path/transformer
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/environment/ament_prefix_path.sh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/environment/ament_prefix_path.dsv
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/environment/path.sh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/environment/path.dsv
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/local_setup.bash
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/local_setup.sh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/local_setup.zsh
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/local_setup.dsv
+-- Installing: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.dsv
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/ament_index/resource_index/packages/transformer
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/cmake/transformerConfig.cmake
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/cmake/transformerConfig-version.cmake
+-- Up-to-date: /home/leungjch/Documents/repos/wato_monorepo_v2/src/install/transformer/share/transformer/package.xml
