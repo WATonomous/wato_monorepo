@@ -23,12 +23,14 @@ from easydict import EasyDict
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
+import numpy as np
 
 import torch
 
-# CAMERA_TOPIC='/camera_pkg/video_mjpeg'
-CAMERA_TOPIC='/camera/right/image_color'
+CAMERA_TOPIC='/camera_pkg/display_mjpeg'
+# CAMERA_TOPIC='/camera/right/image_color'
 MODEL_PATH="/perception_models/yolov5s.pt"
+IMAGE_SIZE=480
 
 class CameraDetectionNode(Node):
     
@@ -37,10 +39,10 @@ class CameraDetectionNode(Node):
 
         print(os.getcwd())
 
-        self.line_thickness = 3
+        self.line_thickness = 1
 
         self.model_path = self.declare_parameter("model_path", MODEL_PATH).value
-        self.image_size = self.declare_parameter("image_size", 480).value
+        self.image_size = self.declare_parameter("image_size", IMAGE_SIZE).value
         self.half = False
         self.augment = False
         # self.config = EasyDict(config)
@@ -74,9 +76,11 @@ class CameraDetectionNode(Node):
 
 
         self.stride = int(self.model.stride)
-        self.get_logger().info("Done creating node...")
 
+        # setup vis publishers
+        self.vis_publisher = self.create_publisher(Image, 'annotated_img', 10)
 
+        self.get_logger().info(f"Done creating node listener for: {CAMERA_TOPIC}...")
 
 
     def preprocess_image(self, cv_image):
@@ -120,10 +124,11 @@ class CameraDetectionNode(Node):
         """
         processed_detections = []
 
-        for det in processed_detections:
+        for det in detections:
             label = f'{det["label"]} {det["conf"]:.2f}'
             x1, y1, w1, h1 = det["bbox"]
             xyxy = [x1, y1, x1 + w1, y1 + h1]
+            self.get_logger().info(f"writing {label} {xyxy}")
             annotator.box_label(xyxy, label, color=colors(1, True))
 
         annotator_img = annotator.result()
@@ -132,12 +137,13 @@ class CameraDetectionNode(Node):
 
     def publish_vis(self, annotated_img, feed):
         # Publish visualizations
-        imgmsg = self.cv_bridge.cv2_to_imgmsg(annotated_img, encoding="passthrough")
+        imgmsg = self.cv_bridge.cv2_to_imgmsg(annotated_img, "bgr8")
         imgmsg.header.frame_id = "camera_{}_link".format(feed)
-        if feed == "left":
-            self.left_vis_publisher.publish(imgmsg)
-        elif feed == "right":
-            self.right_vis_publisher.publish(imgmsg)
+        self.vis_publisher.publish(imgmsg)
+        # if feed == "left":
+        #     self.left_vis_publisher.publish(imgmsg)
+        # elif feed == "right":
+        #     self.right_vis_publisher.publish(imgmsg)
 
     def publish_detections(self, detections, msg, feed):
         # Publish detections 
@@ -175,6 +181,7 @@ class CameraDetectionNode(Node):
     def listener_callback(self, msg):
         # msg.images is a list of images (size 1 for mono, size 2 for stereo)
         self.get_logger().info('Got image')
+        # images = [msg.images[0]]
         images = [msg]
         for image in images:
             # convert ros Image to cv::Mat
@@ -186,6 +193,7 @@ class CameraDetectionNode(Node):
 
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
+            processed_cv_image = letterbox(cv_image, self.image_size, stride=self.stride)[0]
             pred = self.model(img)
 
             pred = non_max_suppression(pred) #nms function used same as yolov5 detect.py
@@ -209,11 +217,12 @@ class CameraDetectionNode(Node):
                                 "bbox": bbox,
                             }
                         )
-                        self.get_logger().info(f"{label}: {bbox}")
+                        self.get_logger().info(f"{label}:: {xyxy}")
                         # Save results (image with detections)
 
+            self.get_logger().info(f"image size is {cv_image.shape}")
             annotator = Annotator(
-                cv_image, line_width=self.line_thickness, example=str(self.names)
+                processed_cv_image, line_width=self.line_thickness, example=str(self.names)
             )
             detections, annotated_img = self.postprocess_detections(detections, annotator)
             feed = ""

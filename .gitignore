@@ -7,7 +7,13 @@ code_server_config/*/start_code_server.sh
 dev_config.local.sh
 .vscode/
 ssh_config/
+src/build
+src/install
+src/log
+src/deepracer_lidar/src/build
+src/deepracer_lidar/src/install
+src/deepracer_lidar/src/log
 
-src/camera_detection/install
-src/camera_detection/build
-src/camera_detection/log
+src/deepracer_lidar/build
+src/deepracer_lidar/install
+src/deepracer_lidar/log
