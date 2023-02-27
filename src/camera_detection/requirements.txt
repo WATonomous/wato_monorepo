@@ -1,6 +1,7 @@
 yolov5==7.0.8
-torch==1.13.1
+torch==1.4.0
 setuptools==58.2.0
 easydict
 huggingface
 huggingface_hub
+numpy==1.20.3
