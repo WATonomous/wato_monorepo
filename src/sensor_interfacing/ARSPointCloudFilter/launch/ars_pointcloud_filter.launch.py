@@ -22,18 +22,10 @@ def generate_launch_description():
             {'snr': -99999.99},
             {'range': -99999.99},
             {'az_ang0': -99999.99},
-            {'scan': 'near'}
+            {'scan_mode': 'near'}
         ]
-    )
-
+    )   
     return LaunchDescription([
         ars_pointcloud_filter_param,
         ars_pointcloud_filter_node
     ])
-    vrel_rad: -99999.99
-    el_ang: -99999.99
-    rcs0: -99999.99
-    snr: -99999.99
-    range: -99999.99
-    az_ang0: -99999.99
-    scan: "near"

@@ -1,25 +1,22 @@
 #ifndef ARS_POINTCLOUD_FILTER_HPP_
 #define ARS_POINTCLOUD_FILTER_HPP_
 
+#include <string>
 #include "rclcpp/rclcpp.hpp"
 
 // importing custom message types
 #include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
 
-
 namespace filtering
 {
-  
 class ARSPointCloudFilter
 {
-
 public:
-
   ARSPointCloudFilter();
 
   radar_msgs::msg::RadarPacket point_filter(
-  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, 
+  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
   double snr_threshold,
   double AzAng0_threshold,
   double range_threshold,
@@ -27,7 +24,7 @@ public:
   double el_ang_threshold,
   double rcs_threshold);
     
-  typedef struct 
+  typedef struct
   {
     std::string scan_mode;
     double vrel_rad_param;
@@ -39,16 +36,18 @@ public:
   } filter_parameters;
   
   bool near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                        const filter_parameters &parameters, radar_msgs::msg::RadarPacket &publish_packet);
+                        const filter_parameters &parameters,
+                        radar_msgs::msg::RadarPacket &publish_packet);
 
   bool far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                       const filter_parameters &parameters, radar_msgs::msg::RadarPacket &publish_packet);
+                       const filter_parameters &parameters, 
+                       radar_msgs::msg::RadarPacket &publish_packet);
 
   bool near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                            const filter_parameters &parameters, radar_msgs::msg::RadarPacket &publish_packet);
+                        const filter_parameters &parameters, 
+                        radar_msgs::msg::RadarPacket &publish_packet);
 
 private:
-
   // Create a buffer packet to hold detections from incoming messages (with the same timestamps)
   radar_msgs::msg::RadarPacket buffer_packet;
 
@@ -62,9 +61,8 @@ private:
   unsigned int far_timestamp;
   unsigned int next_near_timestamp;
   unsigned int next_far_timestamp;
-
 };
 
-}
+} // namespace filtering
 
 #endif  // ARS_POINTCLOUD_FILTER_HPP_
