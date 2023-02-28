@@ -36,16 +36,16 @@ public:
   } filter_parameters;
   
   bool near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                        const filter_parameters &parameters,
-                        radar_msgs::msg::RadarPacket &publish_packet);
+                       const filter_parameters &parameters,
+                       radar_msgs::msg::RadarPacket &publish_packet);
 
   bool far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
                        const filter_parameters &parameters, 
                        radar_msgs::msg::RadarPacket &publish_packet);
 
   bool near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                        const filter_parameters &parameters, 
-                        radar_msgs::msg::RadarPacket &publish_packet);
+                       const filter_parameters &parameters, 
+                       radar_msgs::msg::RadarPacket &publish_packet);
 
 private:
   // Create a buffer packet to hold detections from incoming messages (with the same timestamps)
