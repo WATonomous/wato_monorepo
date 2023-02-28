@@ -203,7 +203,6 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
     // Check if new message is part of the same scan
     if (msg->timestamp == near_timestamp)
     {
-      // Append to buffer packet 1
       // Filter out detections based on given thresholds
       const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
             msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
@@ -217,6 +216,7 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
       return false;
 
     }
+
     // This means all 18 near scan packets are in buffer packet 1 (all with the same timestamps)
     else
     {
@@ -248,7 +248,6 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
     // Check if new message is part of the same scan
     if (msg->timestamp == far_timestamp)
     {
-      // Append to buffer packet 1
       // Filter out detections based on given thresholds
       const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
             msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
@@ -261,6 +260,7 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
       return false;
 
     }
+    
     // This means that all 12 far scan packets are in buffer packet 1 (all with the same timestamps)
     else
     {
