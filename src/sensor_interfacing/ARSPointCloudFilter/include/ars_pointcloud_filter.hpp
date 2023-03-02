@@ -48,8 +48,16 @@ public:
                        radar_msgs::msg::RadarPacket &publish_packet);
 
 private:
+
+  // For near and far scan filters only
+  int near_packet_count_;
+  int far_packet_count_;
+  unsigned int packet_timestamp_;
+  
   // Create a buffer packet to hold detections from incoming messages (with the same timestamps)
   radar_msgs::msg::RadarPacket buffer_packet;
+
+
 
   // Create two buffer packets (for when both near and far scan mode filters are activated)
   radar_msgs::msg::RadarPacket near_far_buffer_packets[2];
