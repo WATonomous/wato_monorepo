@@ -10,6 +10,10 @@ namespace filtering
 
 ARSPointCloudFilter::ARSPointCloudFilter()
 {
+  near_packet_count_ = 0;
+  far_packet_count_ = 0;
+  packet_timestamp_ = -1;
+  
   buffer_index = 0;
   default_timestamp = -1;
   near_timestamp = -1;
@@ -61,131 +65,125 @@ radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
 
 // Near Scan Filter Implementation
 
+// Test cases
+// 1. Single packet (near)
+// 2. Single packet (far)
+// 3. Multiple packets with same timestamps (near)
+// 4. Multiple packets with different timestamps (near)
+
 bool ARSPointCloudFilter::near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg,
                                            const filter_parameters &parameters, 
                                            radar_msgs::msg::RadarPacket &publish_packet)
 {
-  if((msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5))
+  if(msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5)
   {
-      // Filter out far scan packets
-      if(!buffer_packet.detections.empty())
-      {
-        // If timestamp is the same as buffer packet
-        if(msg->timestamp == buffer_packet.timestamp)
-        {
-          // Filter out detections based on given thresholds
-          const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
-                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
+    if(packet_timestamp_ == -1)
+    {
+      packet_timestamp_ = msg->timestamp;
+    }
 
-          // Append all detections to buffer
-          buffer_packet.detections.insert(buffer_packet.detections.end(), 
-                                          test_filtered_ars.detections.begin(), 
-                                          test_filtered_ars.detections.end());
-          return false;
-        }
+    // If near packet is not full
+    if(near_packet_count_ != 18 && msg->timestamp == packet_timestamp_)
+    {
+      // Filter out detections based on given thresholds
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
 
-        else
-        {
-          /**
-          Publish buffer packet since the incoming message will now have a different timestamp.
-          This means that the buffer packet is full with detections from 18 packets
-          of the same timestamp.
-          **/
-          publish_packet = buffer_packet;
-          
-          // Filter new incoming data
-          const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
-                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
-          
-          // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
-          buffer_packet = test_filtered_ars;
-
-          return true;
-        }
+      // Append all detections to buffer
+      buffer_packet.detections.insert(buffer_packet.detections.end(), 
+                                      test_filtered_ars.detections.begin(), 
+                                      test_filtered_ars.detections.end());
+      near_packet_count_++;
+      return false;
     }
     else
     {
-      // Filter incoming data based on given thresholds
+      /**
+      Publish buffer packet since we have 18 packets.
+      **/
+     if(near_packet_count_!=18)
+     {
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Near packet is not full, size: %d ! \n ",near_packet_count_);
+     }
+      publish_packet = buffer_packet;
+      
+      // Filter new incoming data
       const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
             msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
             parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
       
-      // Append filtered data to the buffer packet
+      // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
       buffer_packet = test_filtered_ars;
+      near_packet_count_ = 1;
 
-      return false;
+      assert(msg->timestamp!=packet_timestamp_);
+
+      packet_timestamp_ = msg->timestamp;
+      return true;
     }
-
   }
   return false;
 }
+
 
 // Far Scan Filter Implementation
 bool ARSPointCloudFilter::far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
                                           const filter_parameters &parameters, 
                                           radar_msgs::msg::RadarPacket &publish_packet)
 {
-  if((msg->event_id == 1 || msg->event_id == 2))
+if(msg->event_id == 1 || msg->event_id == 2)
   {
-      // Filter out near scan packets
-      if(!buffer_packet.detections.empty())
-      {
-        // If timestamp is the same as buffer packet
-        if(msg->timestamp == buffer_packet.timestamp)
-        {
-          // Filter incoming data based on given thresholds
-          const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
-                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
-                                                              
-          // Append all detections to buffer packet
-          buffer_packet.detections.insert(buffer_packet.detections.end(), 
-                                          test_filtered_ars.detections.begin(), 
-                                          test_filtered_ars.detections.end());
-
-          return false;
-        }
-
-        else
-        {
-          /**
-          Publish buffer packet since the incoming message will now have a different timestamp. 
-          This means that the buffer packet is full of detections from 18 packets
-          of the same timestamp.
-          **/
-          publish_packet = buffer_packet;
-          
-          // Filter new incoming data
-          const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
-                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
-          
-          // Replace existing data in buffer packet with new data (new timestamp) after filtering
-          buffer_packet = test_filtered_ars;
-
-          return true;
-        }
+    if(packet_timestamp_ == -1)
+    {
+      packet_timestamp_ = msg->timestamp;
     }
 
-    else
+    // If near packet is not full
+    if(far_packet_count_ != 12 && msg->timestamp == packet_timestamp_)
     {
-          // Filter incoming data based on parameters
-          const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-                msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
-                parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
-      
-      // Append filtered data to the buffer packet
-      buffer_packet = test_filtered_ars;
+      // Filter out detections based on given thresholds
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
 
+      // Append all detections to buffer
+      buffer_packet.detections.insert(buffer_packet.detections.end(), 
+                                      test_filtered_ars.detections.begin(), 
+                                      test_filtered_ars.detections.end());
+      far_packet_count_++;
       return false;
     }
-  }
+    else
+    {
+      /**
+      Publish buffer packet since we have 18 packets.
+      **/
+     if(far_packet_count_!=12)
+     {
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Far packet is not full, size: %d ! \n ",far_packet_count_);
+     }
+      publish_packet = buffer_packet;
+      
+      // Filter new incoming data
+      const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+            msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+            parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
+      
+      // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
+      buffer_packet = test_filtered_ars;
+      far_packet_count_ = 1;
 
+      assert(msg->timestamp!=packet_timestamp_);
+
+      packet_timestamp_ = msg->timestamp;
+      return true;
+    }
+  }
   return false;
 }
 
+// CHANGE FROM TIMESTAMP TO COUNTS!! (30) Add Asserts and log statements
 // Near + Far Scan Filter Implementation (Double Buffer Algorithm)
 bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
                                           const filter_parameters &parameters,
