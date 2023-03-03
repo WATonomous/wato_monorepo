@@ -14,10 +14,10 @@ ARSPointCloudFilter::ARSPointCloudFilter()
   far_packet_count_ = 0;
   packet_timestamp_ = -1;
   
-  buffer_index = 0;
-  default_timestamp = -1;
-  near_timestamp = -1;
-  far_timestamp = -1;
+  buffer_index_ = 0;
+  default_timestamp_ = -1;
+  near_timestamp_ = -1;
+  far_timestamp_ = -1;
 }
 
 // Point Filter Implementation
@@ -77,7 +77,7 @@ bool ARSPointCloudFilter::near_scan_filter(const radar_msgs::msg::RadarPacket::S
 {
   if(msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5)
   {
-    if(packet_timestamp_ == -1)
+    if(packet_timestamp_ == default_timestamp_)
     {
       packet_timestamp_ = msg->timestamp;
     }
@@ -134,7 +134,7 @@ bool ARSPointCloudFilter::far_scan_filter(const radar_msgs::msg::RadarPacket::Sh
 {
 if(msg->event_id == 1 || msg->event_id == 2)
   {
-    if(packet_timestamp_ == -1)
+    if(packet_timestamp_ == default_timestamp_)
     {
       packet_timestamp_ = msg->timestamp;
     }
@@ -193,13 +193,13 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
   if (msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5)
   {
     // Default case when no near packets are appended
-    if (near_timestamp == default_timestamp)
+    if (near_timestamp_ == default_timestamp_)
     {
-      near_timestamp = msg->timestamp;
+      near_timestamp_ = msg->timestamp;
     }
 
     // Check if new message is part of the same scan
-    if (msg->timestamp == near_timestamp)
+    if (msg->timestamp == near_timestamp_)
     {
       // Filter out detections based on given thresholds
       const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
@@ -207,44 +207,41 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
             parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
                                                           
       // Append all detections to buffer packet 1
-      near_far_buffer_packets[buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(),
+      near_far_buffer_packets[buffer_index_].detections.insert(near_far_buffer_packets[buffer_index_].detections.end(),
                                                               test_filtered_ars.detections.begin(),
                                                               test_filtered_ars.detections.end());
-      
-      return false;
-
+      total_packet_count[buffer_index_]++;
     }
 
     // This means all 18 near scan packets are in buffer packet 1 (all with the same timestamps)
     else
     {
-      next_near_timestamp = msg->timestamp;
+      next_near_timestamp_ = msg->timestamp;
 
       const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
             msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
             parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
 
       // Append to buffer packet 2
-      near_far_buffer_packets[1 - buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(),
+      near_far_buffer_packets[1 - buffer_index_].detections.insert(near_far_buffer_packets[buffer_index_].detections.end(),
                                                                   test_filtered_ars.detections.begin(),
                                                                   test_filtered_ars.detections.end());
-      
-      return false;
-
+      total_packet_count[1-buffer_index_]++;
     }
+    return false;
   }
 
   // Check if its far
   if (msg->event_id == 1 || msg->event_id == 2)
   {
     // Default case when no far packets are appended
-    if (far_timestamp == default_timestamp)
+    if (far_timestamp_ == default_timestamp_)
     {
-      far_timestamp = msg->timestamp;
+      far_timestamp_ = msg->timestamp;
     }
 
     // Check if new message is part of the same scan
-    if (msg->timestamp == far_timestamp)
+    if (msg->timestamp == far_timestamp_)
     {
       // Filter out detections based on given thresholds
       const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
@@ -252,22 +249,16 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
             parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
                                                           
       // Append all detections to buffer packet 1
-      near_far_buffer_packets[buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(),
+      near_far_buffer_packets[buffer_index_].detections.insert(near_far_buffer_packets[buffer_index_].detections.end(),
                                                               test_filtered_ars.detections.begin(),
                                                               test_filtered_ars.detections.end());
-      return false;
-
+      total_packet_count[buffer_index_]++;
     }
     
     // This means that all 12 far scan packets are in buffer packet 1 (all with the same timestamps)
     else
     {
-      next_far_timestamp = msg->timestamp;
-
-      // This also means that there are 30 packets in buffer packet 1 at this point
-
-      // Publish buffer_packet
-      publish_packet = near_far_buffer_packets[buffer_index];
+      next_far_timestamp_ = msg->timestamp;
 
       // Filter new far scan incoming data
       const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
@@ -275,25 +266,37 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
             parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
 
       // Append to buffer packet 2
-      near_far_buffer_packets[1 - buffer_index].detections.insert(near_far_buffer_packets[buffer_index].detections.end(),
+      near_far_buffer_packets[1 - buffer_index_].detections.insert(near_far_buffer_packets[buffer_index_].detections.end(),
                                                                   test_filtered_ars.detections.begin(),
                                                                   test_filtered_ars.detections.end());
+      total_packet_count[1 - buffer_index_]++;
+    }   
 
+    if(total_packet_count[buffer_index_] == 30)
+    {
+      // This means that there are 30 packets in buffer packet 1 at this point
+
+      // Publish buffer_packet
+      publish_packet = near_far_buffer_packets[buffer_index_];
+    
       // Change timestamps, next_near and next_far become the "new" timestamps to check if incoming messages are part of the same scan
-      near_timestamp = next_near_timestamp;
-      far_timestamp = next_far_timestamp;
+      near_timestamp_ = next_near_timestamp_;
+      far_timestamp_ = next_far_timestamp_;
 
       // Clear the buffer packet array
-      near_far_buffer_packets[buffer_index].detections.clear();
-
+      near_far_buffer_packets[buffer_index_].detections.clear();
+      
+      total_packet_count[buffer_index_] = 0;
+      
       // Flip index for next iteration
-      buffer_index = 1 - buffer_index;
+      buffer_index_ = 1 - buffer_index_;
 
       return true;
-    }
 
+    }
+    return false;
   }
-  
+
   return false;
 }
 

@@ -57,18 +57,17 @@ private:
   // Create a buffer packet to hold detections from incoming messages (with the same timestamps)
   radar_msgs::msg::RadarPacket buffer_packet;
 
-
-
   // Create two buffer packets (for when both near and far scan mode filters are activated)
   radar_msgs::msg::RadarPacket near_far_buffer_packets[2];
 
   // Variables for double buffer
-  int buffer_index;
-  unsigned int default_timestamp;
-  unsigned int near_timestamp;
-  unsigned int far_timestamp;
-  unsigned int next_near_timestamp;
-  unsigned int next_far_timestamp;
+  int buffer_index_;
+  unsigned int default_timestamp_;
+  unsigned int near_timestamp_;
+  unsigned int far_timestamp_;
+  unsigned int next_near_timestamp_;
+  unsigned int next_far_timestamp_;
+  int total_packet_count[2];
 };
 
 } // namespace filtering
