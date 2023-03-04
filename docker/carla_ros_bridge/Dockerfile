@@ -50,14 +50,14 @@ ENV SHELL=/bin/bash
 
 FROM api as base
 # Set up workspace
-RUN mkdir -p ~/colcon_ws/src
-WORKDIR /home/docker/colcon_ws/src
+RUN mkdir -p ~/ament_ws/src
+WORKDIR /home/docker/ament_ws/src
 
 RUN sudo apt-get install -y git
 RUN git clone --depth 1 --branch master https://github.com/carla-simulator/ros-bridge.git
-WORKDIR /home/docker/colcon_ws/src/ros-bridge
+WORKDIR /home/docker/ament_ws/src/ros-bridge
 RUN git submodule update --init --recursive
-WORKDIR /home/docker/colcon_ws/src
+WORKDIR /home/docker/ament_ws/src
 
 # Download rviz 
 RUN git clone --branch foxy https://github.com/ros2/rviz.git
@@ -74,14 +74,14 @@ RUN sudo rm /etc/ros/rosdep/sources.list.d/20-default.list || true && \
       rosdep update && \
       rosdep install --from-paths . --ignore-src -r -y
 
-WORKDIR /home/docker/colcon_ws
+WORKDIR /home/docker/ament_ws
 
 RUN /bin/bash -c "source /opt/ros/foxy/setup.bash; colcon build"
 
 RUN rm -rf build
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/catkin_ws/devel/setup.bash
-COPY docker/wato_ros_entrypoint_foxy.sh /home/docker/wato_ros_entrypoint.sh
+COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]

@@ -17,4 +17,12 @@ services:
     environment:
       - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
     volumes:
-      - ./src/simulation/rviz_configs:/home/docker/ament_ws/src/simulation_rviz_configs
+      - rviz_configs:/home/docker/ament_ws/src/simulation_rviz_configs
+
+volumes:
+  rviz_configs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./src/simulation/rviz_configs
