@@ -1,0 +1,35 @@
+version: "3.8"
+services:
+  hd_map_sample:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/hd_map/sample.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/world_modeling/hd_map/sample:/home/docker/ament_ws/src/sample
+  localization_sample:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/localization/sample.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/world_modeling/localization/sample:/home/docker/ament_ws/src/sample
+  occupancy_sample:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/occupancy/sample.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/world_modeling/occupancy/sample:/home/docker/ament_ws/src/sample
