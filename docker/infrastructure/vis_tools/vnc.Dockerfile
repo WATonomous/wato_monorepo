@@ -72,8 +72,8 @@ COPY --chown=docker docker/infrastructure/vis_tools/supervisord.conf /etc/superv
 RUN chown -R docker:docker /etc/supervisor
 
 RUN mkdir /home/docker/ament_ws/src/simulation_rviz_configs
-RUN chown -R docker:docker /home/docker/ament_ws/src/simulation_rviz_configs 
-VOLUME /home/docker/ament_ws/src/simulation_rviz_configs
+#RUN chown -R docker:docker /home/docker/ament_ws/src/simulation_rviz_configs 
+# VOLUME /home/docker/ament_ws/src/simulation_rviz_configs
 RUN chmod 777 /home/docker/ament_ws/src/simulation_rviz_configs
 
 RUN chmod 777 /var/log/supervisor/
