@@ -12,7 +12,7 @@ SampleNode::SampleNode()
       std::placeholders::_1));
 
   sample_pub_ =
-    this->create_publisher<sample_msgs::msg::Unfiltered>("hd_map_sample_pub_topic", ADVERTISING_FREQ);
+    this->create_publisher<sample_msgs::msg::Unfiltered>("hd_map_sample_topic", ADVERTISING_FREQ);
 
   // Define the default values for parameters if not defined in params.yaml
   this->declare_parameter("version", rclcpp::ParameterValue(0));
