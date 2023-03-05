@@ -13,3 +13,6 @@ src/camera_detection/build
 src/camera_detection/log
 src/build
 src/install
+build/
+install/
+logs/
