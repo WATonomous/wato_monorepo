@@ -1,9 +1,0 @@
-{
-  "package_name": "sample_msgs",
-  "non_idl_tuples": [
-    "/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs:msg/Filtered.msg",
-    "/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs:msg/FilteredArray.msg",
-    "/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs:msg/Unfiltered.msg",
-    "/home/leungjch/Documents/repos/wato_monorepo_v2/src/wato_msgs/sample_msgs:msg/Metadata.msg"
-  ]
-}

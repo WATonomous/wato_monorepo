@@ -1,8 +1,0 @@
-[31mCMake Error at CMakeLists.txt:26:
-  Parse error.  Expected a command name, got unquoted argument with text
-  "<depend>geometry_msgs</depend>".
-
-[0m
--- Configuring incomplete, errors occurred!
-See also "/home/leungjch/Documents/repos/wato_monorepo_v2/src/build/tutorial_interfaces/CMakeFiles/CMakeOutput.log".
-gmake: *** [Makefile:1179: cmake_check_build_system] Error 1
