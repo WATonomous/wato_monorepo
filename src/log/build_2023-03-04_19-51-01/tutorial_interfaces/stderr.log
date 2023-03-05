@@ -1,9 +1,0 @@
-[31mCMake Error at /opt/ros/humble/share/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake:93 (message):
-  rosidl_generate_interfaces() the passed file 'srv/AddThreeInts.srv' doesn't
-  exist relative to the CMAKE_CURRENT_SOURCE_DIR
-  '/home/leungjch/Documents/repos/wato_monorepo_v2/src/tutorial_interfaces'
-Call Stack (most recent call first):
-  CMakeLists.txt:29 (rosidl_generate_interfaces)
-
-[0m
-gmake: *** [Makefile:1179: cmake_check_build_system] Error 1
