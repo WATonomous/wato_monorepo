@@ -7,6 +7,12 @@
 
 #include "ars_pointcloud_filter.hpp"
 
+// Unit test cases 
+// 1. Single packet (near)
+// 2. Single packet (far)
+// 3. Multiple packets with same timestamps (near)
+// 4. Multiple packets with different timestamps (near)
+
 TEST(ARSPointCloudFilterTest, PointFilter)
 {
   filtering::ARSPointCloudFilter pointcloudfilter;

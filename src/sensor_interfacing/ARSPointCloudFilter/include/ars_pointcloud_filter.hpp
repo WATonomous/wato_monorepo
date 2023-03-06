@@ -10,6 +10,13 @@
 
 namespace filtering
 {
+
+enum scan_type 
+{
+  NEAR,
+  FAR
+};
+
 class ARSPointCloudFilter
 {
 public:
@@ -34,7 +41,7 @@ public:
     double range_param;
     double az_ang0_param;
   } filter_parameters;
-  
+
   bool near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
                        const filter_parameters &parameters,
                        radar_msgs::msg::RadarPacket &publish_packet);
@@ -46,28 +53,39 @@ public:
   bool near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
                        const filter_parameters &parameters, 
                        radar_msgs::msg::RadarPacket &publish_packet);
+  
+  scan_type check_scan_type(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars);
+
+  void reset_scan_states(const int &buffer_index);
 
 private:
+  // For all Filters
+  unsigned int default_timestamp_;
 
   // For near and far scan filters only
-  int near_packet_count_;
-  int far_packet_count_;
+  int packet_count_;
   unsigned int packet_timestamp_;
   
   // Create a buffer packet to hold detections from incoming messages (with the same timestamps)
-  radar_msgs::msg::RadarPacket buffer_packet;
+  radar_msgs::msg::RadarPacket buffer_packet_;
+
+  // Create a struct for implementing current and next timestamps in near and far scans
+  typedef struct
+  {
+    unsigned int timestamp_;
+    int total_packet_count_;
+    bool publish_status_;
+  } scan_params;
+
+  int buffer_index_;
 
   // Create two buffer packets (for when both near and far scan mode filters are activated)
-  radar_msgs::msg::RadarPacket near_far_buffer_packets[2];
+  std::array<radar_msgs::msg::RadarPacket, 2> near_far_buffer_packets_;
 
-  // Variables for double buffer
-  int buffer_index_;
-  unsigned int default_timestamp_;
-  unsigned int near_timestamp_;
-  unsigned int far_timestamp_;
-  unsigned int next_near_timestamp_;
-  unsigned int next_far_timestamp_;
-  int total_packet_count[2];
+  // Not pointers
+  std::array<scan_params, 2> *near_scan_;
+  std::array<scan_params, 2> *far_scan_;
+
 };
 
 } // namespace filtering
