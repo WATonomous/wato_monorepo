@@ -93,7 +93,7 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
     Send message to near_far_scan_filter and append detections to the buffer packets based on timestamp.
     Check if packet is ready to be published (30 packets). Return true if ready to be published, return false otherwise.
     **/
-    if(pointcloudfilter_.near_far_scan_filter(msg, parameters, publish_packet_near_far) == true)
+    if(pointcloudfilter_.near_far_scan_filter(msg, parameters, publish_packet_near_far))
     {
       // Publish buffer packet
       RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet_near_far.event_id);
