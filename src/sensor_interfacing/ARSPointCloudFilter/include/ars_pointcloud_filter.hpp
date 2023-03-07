@@ -11,12 +11,6 @@
 namespace filtering
 {
 
-enum scan_type 
-{
-  NEAR,
-  FAR
-};
-
 class ARSPointCloudFilter
 {
 public:
@@ -42,12 +36,14 @@ public:
     double az_ang0_param;
   } filter_parameters;
 
-  bool near_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                       const filter_parameters &parameters,
-                       radar_msgs::msg::RadarPacket &publish_packet);
+  enum scan_type 
+  {
+    NEAR,
+    FAR
+  };
 
-  bool far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-                       const filter_parameters &parameters, 
+  bool common_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+                       const filter_parameters &parameters,
                        radar_msgs::msg::RadarPacket &publish_packet);
 
   bool near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
@@ -59,32 +55,42 @@ public:
   void reset_scan_states(const int &buffer_index);
 
 private:
+
   // For all Filters
   unsigned int default_timestamp_;
 
-  // For near and far scan filters only
-  int packet_count_;
-  unsigned int packet_timestamp_;
+
+  // Create a struct with variables for near and far scans
+  typedef struct
+  {
+    unsigned int timestamp_;
+    int packet_count_;
+    bool publish_status_;
+  } scan_params;
+
+  /*
+  Near and far Scan filters
+  */
+
+  scan_params near_scan_single_;
+  scan_params far_scan_single_;
   
   // Create a buffer packet to hold detections from incoming messages (with the same timestamps)
   radar_msgs::msg::RadarPacket buffer_packet_;
 
-  // Create a struct for implementing current and next timestamps in near and far scans
-  typedef struct
-  {
-    unsigned int timestamp_;
-    int total_packet_count_;
-    bool publish_status_;
-  } scan_params;
+
+  /*
+  Near + Far Scan Filter (Double buffer)
+  */
 
   int buffer_index_;
 
-  // Create two buffer packets (for when both near and far scan mode filters are activated)
+  // Create two buffer packets
   std::array<radar_msgs::msg::RadarPacket, 2> near_far_buffer_packets_;
 
-  // Not pointers
-  std::array<scan_params, 2> *near_scan_;
-  std::array<scan_params, 2> *far_scan_;
+  // Create an array of structs for each scan type 
+  std::array<scan_params, 2> near_scan_;
+  std::array<scan_params, 2> far_scan_;
 
 };
 
