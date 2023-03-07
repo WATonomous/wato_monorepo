@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script generates a .env file to be used with docker-compose
-# To override any of the variables in this script, create dev_config.local.sh 
+# To override any of the variables in this script, create dev_config.local.sh
 #   in the same directory and populate it with variables
 #   e.g. `COMPOSE_PROJECT_NAME=<NAME>`.
 
@@ -29,7 +29,7 @@ BRANCH=${BRANCH/\//-}
 ## ----------------------- Configuration ----------------------------
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
-# Docker build stage to build or run. Typically our dockerfiles have two main stages: 
+# Docker build stage to build or run. Typically our dockerfiles have two main stages:
 #   repo (minimal) and debug (containing debug tools, eg code-server)
 TARGET_STAGE=${TARGET_STAGE:-"debug"}
 
@@ -67,6 +67,7 @@ SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca
 WORLD_MODELING_HD_MAP_SAMPLE_IMAGE=${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/world_modeling_hd_map_sample"}
 WORLD_MODELING_LOCALIZATION_SAMPLE_IMAGE=${WORLD_MODELING_LOCALIZATION_SAMPLE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/world_modeling_localization_sample"}
 WORLD_MODELING_OCCUPANCY_SAMPLE_IMAGE=${WORLD_MODELING_OCCUPANCY_SAMPLE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/world_modeling_occupancy_sample"}
+WORLD_MODELING_OCCUPANCY_GRID_IMAGE=${WORLD_MODELING_OCCUPANCY_GRID_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/world_modeling_occupancy_grid"}
 
 # Infrastructure
 INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_vis_tools_vnc"}
@@ -74,8 +75,8 @@ INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/wat
 
 ## -------------------------- User ID -----------------------------
 
-FIXUID=$(id -u) 
-FIXGID=$(id -g) 
+FIXUID=$(id -u)
+FIXGID=$(id -g)
 
 ## --------------------------- Ports ------------------------------
 
@@ -102,6 +103,7 @@ echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILE
 echo "WORLD_MODELING_HD_MAP_SAMPLE_IMAGE=$WORLD_MODELING_HD_MAP_SAMPLE_IMAGE" >> "$PROFILES_DIR/.env"
 echo "WORLD_MODELING_LOCALIZATION_SAMPLE_IMAGE=$WORLD_MODELING_LOCALIZATION_SAMPLE_IMAGE" >> "$PROFILES_DIR/.env"
 echo "WORLD_MODELING_OCCUPANCY_SAMPLE_IMAGE=$WORLD_MODELING_OCCUPANCY_SAMPLE_IMAGE" >> "$PROFILES_DIR/.env"
+echo "WORLD_MODELING_OCCUPANCY_GRID_IMAGE=$WORLD_MODELING_OCCUPANCY_GRID_IMAGE" >> "$PROFILES_DIR/.env"
 echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"

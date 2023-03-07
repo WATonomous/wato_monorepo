@@ -33,3 +33,14 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/world_modeling/occupancy/sample:/home/docker/ament_ws/src/sample
+  occupancy_grid:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/occupancy/grid.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/world_modeling/occupancy/grid:/home/docker/ament_ws/src/grid

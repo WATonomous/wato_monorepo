@@ -31,7 +31,7 @@ FROM base as repo
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-COPY src/world_modeling/occupancy/sample sample
+COPY src/world_modeling/occupancy/grid grid
 COPY src/wato_msgs/sample_msgs sample_msgs
 
 WORKDIR /home/docker/ament_ws
@@ -45,4 +45,4 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "launch", "sample", "sample.launch.py"]
+CMD ["ros2", "launch", "grid", "grid.launch.py"]
