@@ -101,6 +101,11 @@ void ARSPointCloudFilter::reset_scan_states(const int &buffer_index)
 
 }
 
+
+
+
+
+
 // A common filter for near and far scan modes
 bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg,
                                            const filter_parameters &parameters, 
@@ -114,44 +119,65 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
   // Returns which scan parameters the program needs to work on
   auto scan = (incoming_scan_msg == NEAR) ? near_scan_single_ : far_scan_single_;
 
-
-  if(scan.timestamp_ == default_timestamp_)
+  if ((incoming_scan_msg == NEAR && parameters.scan_mode == "near") || (incoming_scan_msg == FAR && parameters.scan_mode == "far"))
   {
-    scan.timestamp_ = msg->timestamp;
-  }
-  
-  // Filter out detections based on given thresholds
-  const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
-        msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
-        parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
-
-  // If near/far packet is not full
-  if(scan.packet_count_ != scan_capacity && msg->timestamp == scan.timestamp_)
-  {
-    // Append all detections to buffer
-    buffer_packet_.detections.insert(buffer_packet_.detections.end(), 
-                                     test_filtered_ars.detections.begin(), 
-                                     test_filtered_ars.detections.end());
-    scan.packet_count_++;
-  }
-  else
-  {
-    if(scan.packet_count_!= scan_capacity)
-    {
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Near packet is not full, size: %d ! \n ", scan.packet_count_);
-    }
-    // Publish buffer packet
-    publish_packet = buffer_packet_;
+    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Initial Packet Timestamp %d \n ",scan.timestamp_);
     
-    // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
-    buffer_packet_ = test_filtered_ars;
-    scan.packet_count_ = 1;
+    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Initial Packet Size %d \n ",scan.packet_count_);
+    
+    if(scan.timestamp_ == default_timestamp_)
+    {
+      scan.timestamp_ = msg->timestamp;
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking for Default Timestamp \n ");
+    }
+    
+    // Filter out detections based on given thresholds
+    const radar_msgs::msg::RadarPacket test_filtered_ars = point_filter(
+          msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
+          parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
 
-    scan.timestamp_ = msg->timestamp;
-    return true;
+    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Filtering the message \n ");
+
+    // If near/far packet is not full
+    if(scan.packet_count_ != scan_capacity && msg->timestamp == scan.timestamp_)
+    {
+      // Append all detections to buffer
+      buffer_packet_.detections.insert(buffer_packet_.detections.end(), 
+                                      test_filtered_ars.detections.begin(), 
+                                      test_filtered_ars.detections.end());
+      scan.packet_count_++;
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Appending to buffer packet, size: %d\n ",scan.packet_count_);
+    }
+    else
+    {
+      if(scan.packet_count_!= scan_capacity)
+      {
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, size: %d ! \n ", scan.packet_count_);
+      }
+      // Publish buffer packet
+      publish_packet = buffer_packet_;
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Publishing Packet, size: %d\n ",scan.packet_count_);
+      
+      // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
+      buffer_packet_ = test_filtered_ars;
+      scan.packet_count_ = 1;
+
+      scan.timestamp_ = msg->timestamp;
+      return true;
+    }
   }
   return false;
 }
+
+
+
+
+
+
+
+
+
+
 
 // Near + Far Scan Filter Implementation (Double Buffer Algorithm)
 bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
