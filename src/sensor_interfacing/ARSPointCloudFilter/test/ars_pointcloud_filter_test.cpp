@@ -7,12 +7,6 @@
 
 #include "ars_pointcloud_filter.hpp"
 
-// Unit test cases 
-// 1. Single packet (near)
-// 2. Single packet (far)
-// 3. Multiple packets with same timestamps (near)
-// 4. Multiple packets with different timestamps (near)
-
 TEST(ARSPointCloudFilterTest, PointFilter)
 {
   filtering::ARSPointCloudFilter pointcloudfilter;
@@ -89,25 +83,72 @@ TEST(ARSPointCloudFilterTest, CheckScanType)
   EXPECT_EQ(1, scan_type_1);
 }
 
+TEST(ARSPointCloudFilterTest, CommonScanFilter)
+{
+  // ONLY NEAR SCAN DATA
+  filtering::ARSPointCloudFilter pointcloudfilter;
+  auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
 
-// TEST(ARSPointCloudFilterTest, ResetScanState)
-// {
-//   // Need getters and setters to access the private variables in this test
-// }
+  auto msg_detection = std::make_shared<radar_msgs::msg::RadarDetection>();
 
-// TEST(ARSPointCloudFilterTest, CommonScanFilter)
-// {
-//   filtering::ARSPointCloudFilter pointcloudfilter;
-//   auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
+  // Fake Publish packet
+  radar_msgs::msg::RadarPacket publish_packet;
 
-//   // make a fake publish packet
-//   // make a fake parameter list
-//   // make a fake message
+  // Fake parameters
+  filtering::ARSPointCloudFilter::filter_parameters parameters;
+  parameters.scan_mode = "near";
+  parameters.vrel_rad_param = -9999.99;
+  parameters.el_ang_param = -9999.99;
+  parameters.rcs0_param = -9999.99;
+  parameters.snr_param = -9999.99;
+  parameters.range_param = -9999.99;
+  parameters.az_ang0_param = -9999.99;
 
-//   // verify with buffer packet thats in the member variables
-//   // one case for each branch
+  // Data input (Packet 1)
+  msg->event_id = 3;
+  msg->timestamp = 2;
+  msg->measurement_counter = 1;
+  msg->vambig = 3.0;
+  msg->center_frequency = 6.0;
 
-//   // Near Scan message
+  msg_detection->vrel_rad = 100.0;
+  msg_detection->az_ang0 = 60.0;
+  msg_detection->el_ang = 20.0;
+  msg_detection->rcs0 = 5.0;
+  msg_detection->snr = 100.0;
+  msg_detection->range = 90.0;
+
+  msg->detections.push_back(*msg_detection);
+
+  // Check if it doesn't return data and only gives it when its ready to publish
+
+  for (int packet_size = 0; packet_size < 18; packet_size++)
+  {
+    pointcloudfilter.common_scan_filter(msg, parameters, publish_packet);
+  }
+
+  EXPECT_EQ(3, publish_packet.event_id);
+  EXPECT_EQ(unsigned(2), publish_packet.timestamp);
+  
+  for(int i = 0; i < 18; i++)
+  {
+    EXPECT_EQ(100.0, publish_packet.detections[i].snr);
+  }
 
 
-// }
+  // Packet count check
+  // verify with buffer packet thats in the member variables
+  // one case for each branch
+
+  // Near Scan message
+
+  // Check if timestamp is set correctly
+
+
+}
+
+// Unit test cases 
+// 1. Single packet (near)
+// 2. Single packet (far)
+// 3. Multiple packets with same timestamps (near)
+// 4. Multiple packets with different timestamps (near)
