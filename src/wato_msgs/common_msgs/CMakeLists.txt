@@ -19,7 +19,11 @@ find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
     msg/Object.msg
-    msg/ObjectList.msg)
+    msg/ObjectList.msg
+    msg/Obstacle.msg
+    msg/ObstacleList.msg
+    msg/BoundingBox.msg
+    msg/BoundingBoxArray.msg)
 # Parses message files to generate ROS2 interfaces
 rosidl_generate_interfaces(common_msgs
     ${msg_files}
