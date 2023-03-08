@@ -50,7 +50,7 @@ ROS_IP=${ROS_IP:-"127.0.0.1"}
 # Possible values:
 #   - production    		:   configs for all containers required in production
 #   - samples               :   starts sample ROS2 pubsub nodes
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-"camera_object_detection"}
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-"lidar_object_detection"}
 
 # List of profiles to IGNORE when using the --all flag
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}

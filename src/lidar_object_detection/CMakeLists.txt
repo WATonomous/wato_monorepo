@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.5)
 project(lidar_object_detection)
 
-# Default to C++14
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
-endif()
+set(CMAKE_CXX_STANDARD 14)
+SET(CMAKE_BUILD_TYPE "Debug") 
+# SET(CMAKE_BUILD_TYPE "Release")
+SET(CMAKE_CXX_FLAGS "-std=c++14 -O3 -Wall")
+SET(CMAKE_CXX_FLAGS_RELEASE "-std=c++14 -O3 -Wall")
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -15,9 +16,14 @@ foreach(PACKAGE
   ament_cmake 
   ament_cmake_python
   rclcpp
-  rclpy 
   std_msgs
   common_msgs
+  geometry_msgs
+  pcl_conversions
+  pcl_ros
+  tf2
+  tf2_geometry_msgs
+  CUDA
   )
 
   find_package(${PACKAGE} REQUIRED)
@@ -27,23 +33,34 @@ endforeach()
 # Include Cpp "include" directory
 include_directories(include)
 
-# Create Cpp executable
-add_executable(reactive_node src/reactive_node.cpp)
-ament_target_dependencies(reactive_node 
-  rclcpp std_msgs common_msgs 
+include(cmake/PCL.cmake)
+
+file(GLOB_RECURSE ALL_SRCS "*.cpp")
+file(GLOB_RECURSE CUDA_SRCS "*.cu")
+
+cuda_add_executable(
+  lidar_object_detection 
+    main.cpp 
+    ${SOURCE_FILES} 
+    ${ALL_SRCS} 
+    ${CUDA_SRCS}
 )
 
-# Install Cpp executables
+target_link_libraries(
+  lidar_object_detection
+  libnvinfer.so
+  libnvonnxparser.so
+  # ${Boost_SYSTEM_LIBRARIES} 
+  # ${PCL_LIBRARIES}
+  # ${PCL_COMMON_LIBRARIES} ${PCL_IO_LIBRARIES} ${PCL_FILTERS_LIBRARIES}
+)
+
+ament_target_dependencies(lidar_object_detection
+  rclcpp std_msgs common_msgs geometry_msgs pcl_conversions pcl_ros tf2 tf2_geometry_msgs
+)
+
 install(TARGETS
-  reactive_node
-  DESTINATION lib/${PROJECT_NAME})
-
-# Install Python modules
-ament_python_install_package(${PROJECT_NAME})
-
-# Install Python executables
-install(PROGRAMS
-  scripts/reactive_node.py
+  lidar_object_detection
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -58,6 +75,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-
+# include(cmake/PCL.cmake)
+include(cmake/pprt.cmake)
 
 ament_package()
