@@ -15,15 +15,6 @@ class ARSPointCloudFilter
 {
 public:
   ARSPointCloudFilter();
-
-  radar_msgs::msg::RadarPacket point_filter(
-  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-  double snr_threshold,
-  double AzAng0_threshold,
-  double range_threshold,
-  double vrel_rad_threshold,
-  double el_ang_threshold,
-  double rcs_threshold);
     
   typedef struct
   {
@@ -55,6 +46,16 @@ public:
   void reset_scan_states(const int &buffer_index);
 
 private:
+
+  // Filter message based on thresholds
+  radar_msgs::msg::RadarPacket point_filter(
+  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+  double snr_threshold,
+  double AzAng0_threshold,
+  double range_threshold,
+  double vrel_rad_threshold,
+  double el_ang_threshold,
+  double rcs_threshold);
 
   // For all Filters
   unsigned int default_timestamp_;
