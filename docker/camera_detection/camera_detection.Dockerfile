@@ -42,16 +42,19 @@ WORKDIR /home/docker/ament_ws/src
 COPY src/camera_detection camera_detection
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/common_msgs common_msgs
-COPY src/tutorial_interfaces tutorial_interfaces
 
 WORKDIR /home/docker/ament_ws
+
+RUN python3 -m pip install -r src/camera_detection/requirements.txt
+
+RUN sudo apt-get update
+
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-RUN python3 -m pip install -r src/camera_detection/requirements.txt
 
 # Download yolov5 model
 RUN sudo mkdir -m 777 -p /perception_models

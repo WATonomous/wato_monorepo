@@ -3,24 +3,19 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
-# from deepracer_interfaces_pkg.msg import CameraMsg
 
 from yolov5.models.common import DetectMultiBackend
 from yolov5.utils.augmentations import letterbox
 from yolov5.utils.general import check_img_size, scale_segments, non_max_suppression
 from utils.plots import Annotator, colors
 
-from tutorial_interfaces.msg import Num                            # CHANGE
-
 
 import os
 from common_msgs.msg import Obstacle, ObstacleList
-# from common_msgs.msg import Obstacle
 
 from easydict import EasyDict
 
 # https://github.com/ultralytics/yolov5/issues/5304
-
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -28,7 +23,10 @@ import numpy as np
 
 import torch
 
+# For deepracer image topic
 # CAMERA_TOPIC='/camera_pkg/display_mjpeg'
+
+# For wato rosbag iamge topic
 CAMERA_TOPIC='/camera/right/image_color'
 
 PUBLISH_VIS_TOPIC='/annotated_img'
