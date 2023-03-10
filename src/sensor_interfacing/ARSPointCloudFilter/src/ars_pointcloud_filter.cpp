@@ -141,7 +141,9 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
     // If near/far packet is not full
     if(scan->packet_count_ != scan_capacity && msg->timestamp == scan->timestamp_)
     {
+      // Update buffer packet timestamp
       buffer_packet_.timestamp = scan->timestamp_;
+
       // Append all detections to buffer
       buffer_packet_.detections.insert(buffer_packet_.detections.end(), 
                                       test_filtered_ars.detections.begin(), 
@@ -154,6 +156,8 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
         // Publish buffer packet
         publish_packet = buffer_packet_;
         RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Publishing Packet, size: %d\n ",scan->packet_count_);
+
+        buffer_packet_.detections.clear();
 
         scan->packet_count_ = 0;
 
@@ -168,7 +172,6 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
       {
       RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, size: %d ! \n ", scan->packet_count_);
       }
-      scan->publish_status_ = true;
 
       // Publish buffer packet
       publish_packet = buffer_packet_;
@@ -220,6 +223,7 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
   if(scan[buffer_index_].timestamp_ == msg->timestamp)
   {
     near_far_buffer_packets_[buffer_index_].timestamp = scan[buffer_index_].timestamp_;
+
     near_far_buffer_packets_[buffer_index_].detections.insert(near_far_buffer_packets_[buffer_index_].detections.end(),
                                                               test_filtered_ars.detections.begin(),
                                                               test_filtered_ars.detections.end());
@@ -236,6 +240,7 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
     scan[buffer_index_].publish_status_ = true;
 
     near_far_buffer_packets_[1 - buffer_index_].timestamp = scan[1 - buffer_index_].timestamp_;
+
     near_far_buffer_packets_[1 - buffer_index_].detections.insert(near_far_buffer_packets_[buffer_index_].detections.end(),
                                                                   test_filtered_ars.detections.begin(),
                                                                   test_filtered_ars.detections.end());

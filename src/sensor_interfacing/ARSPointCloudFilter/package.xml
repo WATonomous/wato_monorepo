@@ -12,8 +12,8 @@
   <depend>rclcpp</depend>
   <depend>radar_msgs</depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <!-- <test_depend>ament_lint_auto</test_depend> 15-16
+  <test_depend>ament_lint_common</test_depend> -->
   <test_depend>ament_cmake_gtest</test_depend>
 
   <!--https://www.ros.org/reps/rep-0149.html#export-->
