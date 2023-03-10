@@ -39,13 +39,14 @@ FROM base as repo
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
+COPY src/camera_detection/requirements.txt camera_detection/requirements.txt
+RUN python3 -m pip install -r camera_detection/requirements.txt
+
 COPY src/camera_detection camera_detection
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/common_msgs common_msgs
 
 WORKDIR /home/docker/ament_ws
-
-RUN python3 -m pip install -r src/camera_detection/requirements.txt
 
 RUN sudo apt-get update
 
