@@ -9,7 +9,6 @@ from yolov5.utils.augmentations import letterbox
 from yolov5.utils.general import check_img_size, scale_segments, non_max_suppression
 from utils.plots import Annotator, colors
 
-
 import os
 from common_msgs.msg import Obstacle, ObstacleList
 

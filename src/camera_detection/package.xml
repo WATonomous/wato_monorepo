@@ -4,9 +4,8 @@
   <name>camera_detection</name>
   <version>0.0.0</version>
   <description>The camera detection package</description>
-  <maintainer email="j89leung@watonomous.ca">Justin</maintainer>
+  <maintainer email="j89leung@watonomous.ca">Justin Leung</maintainer>
   <license>TODO: License declaration</license>
-
 
 
   <depend>cv_bridge</depend>

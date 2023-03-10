@@ -7,3 +7,4 @@ services:
       cache_from:
         - camera_detection:latest
     image: camera_detection
+    user: ${FIXUID:?}:${FIXGID:?}
