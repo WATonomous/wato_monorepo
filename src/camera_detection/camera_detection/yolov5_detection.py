@@ -9,7 +9,6 @@ from yolov5.utils.augmentations import letterbox
 from yolov5.utils.general import check_img_size, scale_segments, non_max_suppression
 from utils.plots import Annotator, colors
 
-
 import os
 from common_msgs.msg import Obstacle, ObstacleList
 
@@ -28,16 +27,17 @@ import torch
 # CAMERA_TOPIC='/camera_pkg/display_mjpeg'
 
 # For wato rosbag iamge topic
-CAMERA_TOPIC='/camera/right/image_color'
+CAMERA_TOPIC = '/camera/right/image_color'
 
-PUBLISH_VIS_TOPIC='/annotated_img'
-PUBLISH_OBSTACLE_TOPIC='/obstacles'
+PUBLISH_VIS_TOPIC = '/annotated_img'
+PUBLISH_OBSTACLE_TOPIC = '/obstacles'
 
-MODEL_PATH="/perception_models/yolov5s.pt"
-IMAGE_SIZE=480
+MODEL_PATH = "/perception_models/yolov5s.pt"
+IMAGE_SIZE = 480
+
 
 class CameraDetectionNode(Node):
-    
+
     def __init__(self):
         super().__init__('minimal_param_node')
 
@@ -45,8 +45,10 @@ class CameraDetectionNode(Node):
 
         self.line_thickness = 1
 
-        self.model_path = self.declare_parameter("model_path", MODEL_PATH).value
-        self.image_size = self.declare_parameter("image_size", IMAGE_SIZE).value
+        self.model_path = self.declare_parameter(
+            "model_path", MODEL_PATH).value
+        self.image_size = self.declare_parameter(
+            "image_size", IMAGE_SIZE).value
         self.half = False
         self.augment = False
         # self.config = EasyDict(config)
@@ -59,10 +61,10 @@ class CameraDetectionNode(Node):
             CAMERA_TOPIC,
             self.listener_callback,
             10)
-        self.subscription  # prevent unused variable warning
 
         # set device
-        self.device = torch.device("cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         # CV bridge
         self.cv_bridge = CvBridge()
@@ -78,14 +80,16 @@ class CameraDetectionNode(Node):
             else self.model.names
         )
 
-
         self.stride = int(self.model.stride)
 
         # setup vis publishers
-        self.vis_publisher = self.create_publisher(Image, PUBLISH_VIS_TOPIC, 10)
-        self.obstacle_publisher = self.create_publisher(ObstacleList, PUBLISH_OBSTACLE_TOPIC, 10)
+        self.vis_publisher = self.create_publisher(
+            Image, PUBLISH_VIS_TOPIC, 10)
+        self.obstacle_publisher = self.create_publisher(
+            ObstacleList, PUBLISH_OBSTACLE_TOPIC, 10)
 
-        self.get_logger().info(f"Successfully created node listening on camera topic: {CAMERA_TOPIC}...")
+        self.get_logger().info(
+            f"Successfully created node listening on camera topic: {CAMERA_TOPIC}...")
 
     def preprocess_image(self, cv_image):
         """
@@ -102,7 +106,7 @@ class CameraDetectionNode(Node):
         # Convert
         img = img.transpose(2, 0, 1)
 
-        # further conversion
+        # Further conversion
         img = torch.from_numpy(img).to(self.device)
         img = img.half() if self.half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -112,7 +116,7 @@ class CameraDetectionNode(Node):
 
     def postprocess_detections(self, detections, annotator):
         """
-        Post-process detections by merging cyclists, draw bouningboxes on camera image
+        Post-process draws bouningboxes on camera image
 
         Parameters: 
             detections: A list of dict with the format 
@@ -123,7 +127,7 @@ class CameraDetectionNode(Node):
                 }
             annotator: A yolov5.utils.general.Annotator for the current image
         Returns:
-            processed_detections: filtered and cyclist combined detections
+            processed_detections: filtered detections
             annotator_img: image with bounding boxes drawn on
         """
         processed_detections = []
@@ -137,19 +141,21 @@ class CameraDetectionNode(Node):
         annotator_img = annotator.result()
         return (processed_detections, annotator_img)
 
-
     def publish_vis(self, annotated_img, feed):
         # Publish visualizations
         imgmsg = self.cv_bridge.cv2_to_imgmsg(annotated_img, "bgr8")
         imgmsg.header.frame_id = "camera_{}_link".format(feed)
         self.vis_publisher.publish(imgmsg)
+
+        # TODO: Support reading stereo (left and right images)
         # if feed == "left":
         #     self.left_vis_publisher.publish(imgmsg)
         # elif feed == "right":
         #     self.right_vis_publisher.publish(imgmsg)
 
     def publish_detections(self, detections, msg, feed):
-        # Publish detections 
+        # Publish detections to an ObstacleList message
+
         obstacle_list = ObstacleList()
 
         # fill header for obstacle list
@@ -177,36 +183,38 @@ class CameraDetectionNode(Node):
         self.obstacle_publisher.publish(obstacle_list)
         return
 
-
     def listener_callback(self, msg):
-        # msg.images is a list of images (size 1 for mono, size 2 for stereo)
+
         self.get_logger().info('Received image')
-        # images = [msg.images[0]]
-        images = [msg]
+        images = [msg]  # msg is a single sensor image
         for image in images:
 
             # convert ros Image to cv::Mat
             try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(image, desired_encoding="passthrough")
+                cv_image = self.cv_bridge.imgmsg_to_cv2(
+                    image, desired_encoding="passthrough")
             except CvBridgeError as e:
                 self.get_logger().error(str(e))
                 return
 
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
-            processed_cv_image = letterbox(cv_image, self.image_size, stride=self.stride)[0]
+            processed_cv_image = letterbox(
+                cv_image, self.image_size, stride=self.stride)[0]
             pred = self.model(img)
 
-            pred = non_max_suppression(pred) #nms function used same as yolov5 detect.py
+            # nms function used same as yolov5 detect.py
+            pred = non_max_suppression(pred)
             detections = []
             for i, det in enumerate(pred):  # per image
                 if len(det):
                     # Write results
                     for *xyxy, conf, cls in reversed(det):
-                        c = int(cls)  # integer class
-                        label = self.names[int(cls)] 
+                        c = int(cls)
+                        label = self.names[int(cls)]
 
-                        bbox = [xyxy[0], xyxy[1], xyxy[2] - xyxy[0], xyxy[3] - xyxy[1]]
+                        bbox = [xyxy[0], xyxy[1], xyxy[2] -
+                                xyxy[0], xyxy[3] - xyxy[1]]
                         bbox = [b.item() for b in bbox]
 
                         detections.append(
@@ -219,10 +227,13 @@ class CameraDetectionNode(Node):
                         self.get_logger().info(f"{label}: {bbox}")
 
             annotator = Annotator(
-                processed_cv_image, line_width=self.line_thickness, example=str(self.names)
+                processed_cv_image, line_width=self.line_thickness, example=str(
+                    self.names)
             )
-            detections, annotated_img = self.postprocess_detections(detections, annotator)
-            feed = ""
+            detections, annotated_img = self.postprocess_detections(
+                detections, annotator)
+
+            feed = ""  # Currently we support a single camera so we pass an empty string
             self.publish_vis(annotated_img, feed)
             self.publish_detections(detections, msg, feed)
 
@@ -238,7 +249,6 @@ def main(args=None):
     # when the garbage collector destroys the node object)
     camera_detection_node.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
