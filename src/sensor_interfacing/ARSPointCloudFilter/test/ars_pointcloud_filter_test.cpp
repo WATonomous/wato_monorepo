@@ -7,34 +7,6 @@
 
 #include "ars_pointcloud_filter.hpp"
 
-// // The fixture for testing class ARSPointCloudFilterTest
-// class ARSPointCloudFilterTest : public ::testing::Test {
-//  protected:
-
-//   ARSPointCloudFilterTest() {
-//     filtering::ARSPointCloudFilter::filter_parameters parameters;
-//     parameters.scan_mode = "near";
-//     parameters.vrel_rad_param = -9999.99;
-//     parameters.el_ang_param = -9999.99;
-//     parameters.rcs0_param = -9999.99;
-//     parameters.snr_param = -9999.99;
-//     parameters.range_param = -9999.99;
-//     parameters.az_ang0_param = -9999.99;
-//   }
-
-//   void SetUp() override {
-//      // Code here will be called immediately after the constructor (right
-//      // before each test).
-//   }
-
-//   void TearDown() override {
-//      // Code here will be called immediately after each test (right
-//      // before the destructor).
-//   }
-
-// };
-
-
 // Checks if check_scan_type() correctly identifies if a packet is NEAR or FAR
 TEST(ARSPointCloudFilterTest, CheckScanType)
 {
@@ -55,15 +27,15 @@ TEST(ARSPointCloudFilterTest, CheckScanType)
   auto scan_type_0 = pointcloudfilter.check_scan_type(msg_0);
   auto scan_type_1 = pointcloudfilter.check_scan_type(msg_1);
 
+  // Near = 0 & Far = 1
   EXPECT_EQ(0, scan_type_0);
   EXPECT_EQ(1, scan_type_1);
 }
 
-
 // Send 18 near scan packets with the same timestamp and check if it returns a complete packet ready to be published
 TEST(ARSPointCloudFilterTest, CommonScanFilter_01)
 {
-  // ONLY NEAR SCAN DATA
+  // Near scan data
   filtering::ARSPointCloudFilter pointcloudfilter;
   auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
 
@@ -106,7 +78,7 @@ TEST(ARSPointCloudFilterTest, CommonScanFilter_01)
 // Send 12 far scan packets with the same timestamp and check if it returns a complete packet ready to be published
 TEST(ARSPointCloudFilterTest, CommonScanFilter_02)
 {
-  // ONLY FAR SCAN DATA
+  // Far Scan Message
   filtering::ARSPointCloudFilter pointcloudfilter;
   auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
 
@@ -216,7 +188,7 @@ TEST(ARSPointCloudFilterTest, CommonScanFilter_03)
   
 }
 
-// Send incomplete packets (5 that are the same) (18 that is different in timestamp)
+// Send incomplete packets (5 that are the same) (1 following packet that is different in timestamp)
 TEST(ARSPointCloudFilterTest, CommonScanFilter_04)
 {
   // Near Scan data
@@ -264,7 +236,6 @@ TEST(ARSPointCloudFilterTest, CommonScanFilter_04)
 
   // Publish packet shouldn't be updated
   EXPECT_EQ(0, publish_packet_.timestamp);
-
 
   // Scan 2 data (sending a packet of a different timestamp)
   for (int packet_size = 0; packet_size < 1; packet_size++)
@@ -404,52 +375,3 @@ TEST(ARSPointCloudFilterTest, CommonScanFilter_06)
 // 6. Send far scan packets when in near scan mode, does it filter correctly (done)
 // 7. Check if it filters out all the packets and returns an empty packet (pass thresholds into pointfilter) (done)
 
-
-
-
-// TEST(ARSPointCloudFilterTest, PointCloudFilter)
-// {
-//   filtering::ARSPointCloudFilter pointcloudfilter;
-//   auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
-//   auto msg_detection = std::make_shared<radar_msgs::msg::RadarDetection>();
-
-//   msg->event_id = 3;
-//   msg->timestamp = 2;
-//   msg->measurement_counter = 1;
-//   msg->vambig = 3.0;
-//   msg->center_frequency = 6.0;
-
-//   // Fake detection Data 1
-//   msg_detection->vrel_rad = 100.0;
-//   msg_detection->az_ang0 = 60.0;
-//   msg_detection->el_ang = 20.0;
-//   msg_detection->rcs0 = 5.0;
-//   msg_detection->snr = 100.0;
-//   msg_detection->range = 90.0;
-
-//   msg->detections.push_back(*msg_detection);
-
-//   // Fake detection Data 2
-//   msg_detection->vrel_rad = 100.0;
-//   msg_detection->az_ang0 = 20.0;
-//   msg_detection->el_ang = 20.0;
-//   msg_detection->rcs0 = 5.0;
-//   msg_detection->snr = 300.0;
-//   msg_detection->range = 90.0;
-
-//   msg->detections.push_back(*msg_detection);
-  
-//   auto test_packet = pointcloudfilter.point_filter(msg, 200, -9999.99, -9999.99, -9999.99, -9999.99, -9999.99);
-  
-//   // Fake detection data 1 should be removed and fake detection data 2 should be at index 0
-//   EXPECT_EQ(300, test_packet.detections[0].snr);
-
-//   test_packet = pointcloudfilter.point_filter(msg, 100, 40, -9999.99, -9999.99, -9999.99, -9999.99);
-//   // Fake detection data 1 should be left
-//   EXPECT_EQ(100, test_packet.detections[0].snr);
-//   EXPECT_EQ(60, test_packet.detections[0].az_ang0);
-
-//   // Fake detection data 2 should not exist, so all values should return 0
-//   EXPECT_EQ(0, test_packet.detections[1].snr);
-//   EXPECT_EQ(0, test_packet.detections[1].az_ang0);
-// }
