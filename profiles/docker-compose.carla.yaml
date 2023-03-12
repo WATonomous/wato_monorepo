@@ -30,3 +30,13 @@ services:
     runtime: nvidia
     depends_on:
       - carla_server
+
+  carla_bridge:
+    build: 
+      context: ..
+      dockerfile: docker/simulation/Dockerfile
+    #user: ${FIXUID:?}:${FIXGID:?}
+    user: root:root
+    # depends_on:
+    #   - carla_server
+    #   - carla_ros_bridge
