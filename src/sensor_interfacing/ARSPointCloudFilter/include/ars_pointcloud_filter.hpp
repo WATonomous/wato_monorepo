@@ -43,7 +43,7 @@ public:
   
   scan_type check_scan_type(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars);
 
-  void reset_scan_states(const int &buffer_index);
+  void reset_scan_states();
 
 private:
 
