@@ -1,9 +1,11 @@
 # ================= Dependencies ===================
 FROM ros:humble AS base
+FROM ros:humble AS base
 
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
+# Add a docker user so that created files in the docker container are owned by a non-root user
 # Add a docker user so that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
     adduser --uid 1000 --ingroup docker --home /home/docker --shell /bin/bash --disabled-password --gecos "" docker && \
@@ -22,12 +24,14 @@ RUN USER=docker && \
 USER docker:docker
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND noninteractive
 RUN sudo chsh -s /bin/bash
 ENV SHELL=/bin/bash
 
 # ================= Repositories ===================
 FROM base as repo
 
+RUN mkdir -p ~/ament_ws/src
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
@@ -36,7 +40,9 @@ COPY src/wato_msgs/sample_msgs sample_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
+RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
+    rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
     --cmake-args -DCMAKE_BUILD_TYPE=Release
