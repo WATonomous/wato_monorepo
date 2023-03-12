@@ -35,11 +35,12 @@ services:
     depends_on:
       - carla_server
 
-  lidar:
+  carla_bridge:
     build: 
       context: ..
-      dockerfile: docker/lidar/Dockerfile
-    user: ${FIXUID:?}:${FIXGID:?}
+      dockerfile: docker/simulation/Dockerfile
+    #user: ${FIXUID:?}:${FIXGID:?}
+    user: root:root
     # depends_on:
     #   - carla_server
     #   - carla_ros_bridge
