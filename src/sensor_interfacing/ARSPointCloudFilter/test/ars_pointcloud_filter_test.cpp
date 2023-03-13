@@ -408,6 +408,8 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 
   EXPECT_EQ(6, int(publish_packet_.timestamp));
   EXPECT_EQ(30, publish_packet_.detections.size());
+  EXPECT_EQ(80, publish_packet_.detections[0].range);
+  EXPECT_EQ(90, publish_packet_.detections[19].range);
 }
 
 
@@ -418,6 +420,8 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
 
   auto msg_0 = std::make_shared<radar_msgs::msg::RadarPacket>();
   auto msg_1 = std::make_shared<radar_msgs::msg::RadarPacket>();
+  auto msg_2 = std::make_shared<radar_msgs::msg::RadarPacket>();
+  auto msg_3 = std::make_shared<radar_msgs::msg::RadarPacket>();
 
   radar_msgs::msg::RadarDetection msg_detection_0;
   radar_msgs::msg::RadarDetection msg_detection_1;
@@ -455,23 +459,28 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
   {
     pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_1);
   }
+
   RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"NEW CHECKPOINT 1 \n ");
+
   // Scan 1 data shouldn't be published at this point
   EXPECT_EQ(0, int(publish_packet_1.timestamp));
   EXPECT_EQ(0, publish_packet_1.detections.size());
 
   // Near Packet Data (Scan 2)
-  msg_0->event_id = 3;
-  msg_0->timestamp = 8;
+  msg_2->event_id = 3;
+  msg_2->timestamp = 8;
 
   msg_detection_0.range = 150.0; 
 
-  msg_0->detections.push_back(msg_detection_0);
+  msg_2->detections.push_back(msg_detection_0);
 
   for (int packet_size = 0; packet_size < 3; packet_size++)
   {
-    pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_2);
+    pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet_2);
   }
+  EXPECT_EQ(0, int(publish_packet_2.timestamp));
+  EXPECT_EQ(0, publish_packet_2.detections.size());
+
 
   RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"NEW CHECKPOINT 2 \n ");
 
@@ -479,14 +488,14 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
   {
     pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_1);
   }
-  // PACKET 1 SHOULD GET PUBLISHED HERE SINCE SCAN 1 DATA IS FULL AND ALL SCAN STATES SHOULD BE RESET
 
+  // Packet 1 should get published here since scan 1 data is full and all scan states should be reset
   EXPECT_EQ(6, int(publish_packet_1.timestamp));
   EXPECT_EQ(30, publish_packet_1.detections.size());
 
   RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"NEW CHECKPOINT 3 \n ");
 
-  // SENDING DATA FROM SCAN 2
+  // Sending data from scan 2
   for (int packet_size = 0; packet_size < 15; packet_size++)
   {
     pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_2);
@@ -496,26 +505,144 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
   EXPECT_EQ(0, publish_packet_2.detections.size());
 
   // Far Packet Data (Scan 2)
-  msg_1->event_id = 1;
-  msg_1->timestamp = 9;
+  msg_3->event_id = 1;
+  msg_3->timestamp = 9;
 
   msg_detection_1.range = 210.0; 
 
-  msg_1->detections.push_back(msg_detection_1);
+  msg_3->detections.push_back(msg_detection_1);
 
   for (int packet_size = 0; packet_size < 12; packet_size++)
   {
-    pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_2);
+    pointcloudfilter.near_far_scan_filter(msg_3, parameters, publish_packet_2);
   }
 
   EXPECT_EQ(9, int(publish_packet_2.timestamp));
-  EXPECT_EQ(30, publish_packet_2.detections.size()); // DETECTIONS ARE RETURNING 60 for some reason (seems that publish packet doesnt reset in the actual implementation)
+  EXPECT_EQ(150, publish_packet_2.detections[0].range);
+  EXPECT_EQ(210, publish_packet_2.detections[19].range);
+  EXPECT_EQ(30, publish_packet_2.detections.size());
+}
 
+TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
+{
+  SetUp("nearfar");
+
+  auto msg_0 = std::make_shared<radar_msgs::msg::RadarPacket>();
+  auto msg_1 = std::make_shared<radar_msgs::msg::RadarPacket>();
+
+  radar_msgs::msg::RadarDetection msg_detection_0;
+  radar_msgs::msg::RadarDetection msg_detection_1;
+
+  // Fake Publish packets
+  radar_msgs::msg::RadarPacket publish_packet_0;
+
+ // Near Packet Data (Scan 1)
+  msg_0->event_id = 3;
+  msg_0->timestamp = 5;
+
+  msg_detection_0.range = 80.0; 
+
+  msg_0->detections.push_back(msg_detection_0);
+
+  // Far Packet Data (Scan 1)
+  msg_1->event_id = 1;
+  msg_1->timestamp = 6;
+
+  msg_detection_1.range = 120.0; 
+
+  msg_1->detections.push_back(msg_detection_1);
+
+  for (int packet_size = 0; packet_size < 5; packet_size++)
+  {
+    pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_0);
+  }
+
+  EXPECT_EQ(0, int(publish_packet_0.timestamp));
+  EXPECT_EQ(0, publish_packet_0.detections.size());
+
+  for (int packet_size = 0; packet_size < 12; packet_size++)
+  {
+    pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_0);
+  }
+
+  EXPECT_EQ(6, int(publish_packet_0.timestamp));
+  EXPECT_EQ(17, publish_packet_0.detections.size());
+  EXPECT_EQ(80, publish_packet_0.detections[0].range);
+  EXPECT_EQ(120, publish_packet_0.detections[6].range);
+}
+
+// Send 7 far (scan 1) (NEAR SCANS WERE IGNORED), Send 1 Near (scan 2), then check if the 7 far is published
+TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
+{
+  SetUp("nearfar");
+
+  auto msg_0 = std::make_shared<radar_msgs::msg::RadarPacket>();
+  auto msg_1 = std::make_shared<radar_msgs::msg::RadarPacket>();
+  auto msg_2 = std::make_shared<radar_msgs::msg::RadarPacket>();
+
+  radar_msgs::msg::RadarDetection msg_detection_0;
+  radar_msgs::msg::RadarDetection msg_detection_1;
+  radar_msgs::msg::RadarDetection msg_detection_2;
+
+  // Fake Publish packets
+  radar_msgs::msg::RadarPacket publish_packet_0;
+
+  // Far Packet Data (Scan 1)
+  msg_0->event_id = 1;
+  msg_0->timestamp = 6;
+
+  msg_detection_0.range = 80.0; 
+
+  msg_0->detections.push_back(msg_detection_0);
+
+  // Near Packet Data (Scan 2)
+  msg_1->event_id = 4;
+  msg_1->timestamp = 7;
+
+  msg_detection_1.range = 120.0; 
+
+  msg_1->detections.push_back(msg_detection_1);
+
+  // Far Packet Data (Scan 2)
+  msg_2->event_id = 1;
+  msg_2->timestamp = 8;
+
+  msg_detection_2.range = 180.0; 
+
+  msg_2->detections.push_back(msg_detection_2);
+
+  // Sending far packet data from scan 1
+  for (int packet_size = 0; packet_size < 7; packet_size++)
+  {
+    pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_0);
+  }
+
+  EXPECT_EQ(0, int(publish_packet_0.timestamp));
+  EXPECT_EQ(0, publish_packet_0.detections.size());
+
+  // Sending near packet data from scan 2
+  for (int packet_size = 0; packet_size < 1; packet_size++)
+  {
+    pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_0);
+  }
+
+  EXPECT_EQ(0, int(publish_packet_0.timestamp));
+  EXPECT_EQ(0, publish_packet_0.detections.size());
+
+  // Sending far packet data from scan 2
+  for (int packet_size = 0; packet_size < 1; packet_size++)
+  {
+    pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet_0);
+  }
+
+  EXPECT_EQ(6, int(publish_packet_0.timestamp));
+  EXPECT_EQ(7, publish_packet_0.detections.size());
+  
 }
 
 // Unit Test Cases
 // 1. Send 18 Near Scan Packets and 12 Far Scan Packets (done)
 // (It shouldn't publish after 18 packets. It should publish together when there is also complete 12 far scan packets)
-// 2. 18 Near scan (scan1), 10 far scan (scan1), 3 Near (scan 2), 2 far (scan 1) (SCAN 1 SHOULD BE PUBLISHED), 15 Near (scan 2), 12 Far (scan2) (SCAN 2 GETS PUBLISHED HERE)
-// 3. Send 7 far (scan 1) (NEAR SCANS WERE IGNORED), Send 1 Near (scan 2), then check if the 7 far is published
-// 4. Send 5 Near (scan 1), Send 12 far
+// 2. 18 Near scan (scan1), 10 far scan (scan1), 3 Near (scan 2), 2 far (scan 1) (SCAN 1 SHOULD BE PUBLISHED), 15 Near (scan 2), 12 Far (scan2) (SCAN 2 GETS PUBLISHED HERE) (done)
+// 3. Send 7 far (scan 1) (NEAR SCANS WERE IGNORED), Send 1 Near (Scan 2), Send 1 Far (Scan 2)then check if the 7 far is published 
+// 4. Send 5 Near (scan 1), Send 12 far (scan 1) (done)
