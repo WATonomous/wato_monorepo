@@ -91,6 +91,7 @@ ARSPointCloudFilter::scan_type ARSPointCloudFilter::check_scan_type(const radar_
 
 void ARSPointCloudFilter::reset_scan_states()
 {
+  RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Reseting all states! \n ");
   near_scan_[buffer_index_].timestamp_ = 0;
   near_scan_[buffer_index_].publish_status_ = false;
   near_scan_[buffer_index_].packet_count_= 0;
@@ -223,6 +224,7 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
 
   if(scan[buffer_index_].timestamp_ == default_timestamp_)
   {
+    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Buffer Index: %d\n ", buffer_index_);
     RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Comparing Scan buffer Timestamp with default timestamp, Scan Buffer Timestamp: %d\n ", scan[buffer_index_].timestamp_);
     scan[buffer_index_].timestamp_ = msg->timestamp;
   }
@@ -265,9 +267,12 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
     scan[buffer_index_].publish_status_ = true;
   }
 
-  if(near_scan_[buffer_index_].publish_status_ == true && far_scan_[buffer_index_].publish_status_ == true)
+  // Removed "near_scan_[buffer_index_].publish_status_ == true" from if condition
+  // then if this is true, then we know in general that packet is done collecting data from that particular scan (whether its the full 30 or not)
+  if(far_scan_[buffer_index_].publish_status_ == true)
   {
     RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking if both packets are ready to be published! \n ");
+    
     publish_packet = near_far_buffer_packets_[buffer_index_];
 
     RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Publishing packet, Detections: %d \n ", publish_packet.detections.size());
