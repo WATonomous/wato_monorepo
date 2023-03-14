@@ -102,11 +102,6 @@ void ARSPointCloudFilter::reset_scan_states()
 
 }
 
-
-
-
-
-
 // A common filter for near and far scan modes
 bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg,
                                            const filter_parameters &parameters, 
@@ -189,16 +184,6 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
   return false;
 }
 
-
-
-
-
-
-
-
-
-
-
 // Near + Far Scan Filter Implementation (Double Buffer Algorithm)
 bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
                                                const filter_parameters &parameters,
@@ -211,9 +196,6 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
 
   // Returns which scan parameters the program needs to work on
   auto scan = (incoming_scan_msg == NEAR) ? near_scan_.data() : far_scan_.data();
-
-  // RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Initial Packet Timestamp %d \n ",scan->timestamp_);
-  // RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Initial Packet Size %d \n ",scan->packet_count_);
 
   RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Filtering the message \n ");
 
@@ -286,9 +268,6 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
     return true;
   }
   return false;
-
-  // Edge Cases to test
-  // 1. Data collections start in the middle instead of right in the beginning (0 packet count)
 }
 
 } // namespace filtering
