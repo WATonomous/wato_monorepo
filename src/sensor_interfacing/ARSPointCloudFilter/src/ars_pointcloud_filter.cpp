@@ -9,7 +9,7 @@ namespace filtering
 {
 
 ARSPointCloudFilter::ARSPointCloudFilter()
-{
+{ 
   near_scan_single_.timestamp_ = 0;
   near_scan_single_.packet_count_= 0;
 
