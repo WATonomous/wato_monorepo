@@ -4,7 +4,6 @@
 #include <string>
 #include "rclcpp/rclcpp.hpp"
 
-// importing custom message types
 #include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
 
@@ -47,7 +46,9 @@ public:
 
 private:
 
-  // Filter message based on thresholds
+  /**
+  * @brief Pointfilter() filters an incoming radar message based on the parameters passed
+  */
   radar_msgs::msg::RadarPacket point_filter(
   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
   double snr_threshold,
@@ -57,11 +58,11 @@ private:
   double el_ang_threshold,
   double rcs_threshold);
 
-  // For all Filters
+  /**
+  * @brief Variables below are used for all the filters
+  */
   unsigned int default_timestamp_;
-
-
-  // Create a struct with variables for near and far scans
+  
   typedef struct
   {
     unsigned int timestamp_;
@@ -69,27 +70,19 @@ private:
     bool publish_status_;
   } scan_params;
 
-  /*
-  Near and far Scan filters
+  /**
+  * @brief Near & Far Scan Filter (Common Scan Filter)
   */
-
   scan_params near_scan_single_;
   scan_params far_scan_single_;
-  
-  // Create a buffer packet to hold detections from incoming messages (with the same timestamps)
   radar_msgs::msg::RadarPacket buffer_packet_;
 
 
-  /*
-  Near + Far Scan Filter (Double buffer)
+  /**
+  * @brief Near Far Scan Filter (Double Buffer Algorithm)
   */
-
   int buffer_index_;
-
-  // Create two buffer packets
   std::array<radar_msgs::msg::RadarPacket, 2> near_far_buffer_packets_;
-
-  // Create an array of structs for each scan type 
   std::array<scan_params, 2> near_scan_;
   std::array<scan_params, 2> far_scan_;
 

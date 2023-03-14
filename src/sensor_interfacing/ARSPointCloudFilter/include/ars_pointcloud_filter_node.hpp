@@ -41,10 +41,10 @@ private:
   void unfiltered_ars_radar_left_callback(
     const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
-  // ROS2 Subscriber listening to the unfiltered radar packet topic (left sensor).
+  // ROS2 Subscriber listening to the unfiltered radar packet topic (left sensor)
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_left_sub_;
 
-  // ROS2 Subscriber listening to the unfiltered radar packet topic (right sensor).
+  // ROS2 Subscriber listening to the unfiltered radar packet topic (right sensor)
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
   // ROS2 publisher that sends filtered messages from left and right radar to the processed topic.
