@@ -227,17 +227,17 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteScanPackets)
   EXPECT_EQ(0, int(publish_packet.timestamp));
 
   // Scan 2 data (sending a packet of a different timestamp)
-  for (int packet_size = 0; packet_size < 1; packet_size++)
+  for (int packet_size = 0; packet_size < 18; packet_size++)
   {
     pointcloudfilter.common_scan_filter(msg_1, parameters, publish_packet);
   }
 
-  // Timestamp should be from msg_0
-  EXPECT_EQ(7, int(publish_packet.timestamp));
+  // Timestamp should be from msg_1 (msg_0 should be discarded)
+  EXPECT_EQ(3, int(publish_packet.timestamp));
   
-  for(int index = 0; index < 5; index++)
+  for(int index = 0; index < 18; index++)
   {
-    EXPECT_EQ(120, publish_packet.detections[index].range);
+    EXPECT_EQ(50, publish_packet.detections[index].range);
   }
 }
 
@@ -285,7 +285,6 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendFarScanPacketsInNearMode)
   {
     EXPECT_EQ(120, publish_packet.detections[index].range);
   }
-
 }
 
 /**
@@ -349,16 +348,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
   EXPECT_EQ(50, int(publish_packet.detections[0].range));
   EXPECT_EQ(90, int(publish_packet.detections[0].rcs0));
   EXPECT_EQ(200, int(publish_packet.detections[0].snr));
-
 }
-// Unit test cases (Common Scan Filter)
-// 1. Send 18 near scan packets and check if it returns a complete 18 packet ready to be published (done)
-// 2. Send 12 far scan packets and check if it returns a complete 12 packet ready to be published (done)
-// 3. Send 18 that are the same (different timestamp), and 18 that are different (different timestamp) (done)
-// 4. Send incomplete packets (5 that are the same) (1 that is different in timestamp) (done)
-// 5. Send 19 near scan packets and see if it behaves correctly (Is not required) (done)
-// 6. Send far scan packets when in near scan mode, does it filter correctly (done)
-// 7. Check if it filters out all the packets and returns an empty packet (pass thresholds into pointfilter) (done)
 
 // Double Buffer Algorithm Test
 
@@ -485,7 +475,6 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
   EXPECT_EQ(0, int(publish_packet_2.timestamp));
   EXPECT_EQ(0, publish_packet_2.detections.size());
 
-
   RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"NEW CHECKPOINT 2 \n ");
 
   for (int packet_size = 0; packet_size < 2; packet_size++)
@@ -536,12 +525,14 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 
   auto msg_0 = std::make_shared<radar_msgs::msg::RadarPacket>();
   auto msg_1 = std::make_shared<radar_msgs::msg::RadarPacket>();
+  auto msg_2 = std::make_shared<radar_msgs::msg::RadarPacket>();
+  auto msg_3 = std::make_shared<radar_msgs::msg::RadarPacket>();
 
   radar_msgs::msg::RadarDetection msg_detection_0;
   radar_msgs::msg::RadarDetection msg_detection_1;
 
   // Fake Publish packets
-  radar_msgs::msg::RadarPacket publish_packet_0;
+  radar_msgs::msg::RadarPacket publish_packet;
 
  // Near Packet Data (Scan 1)
   msg_0->event_id = 3;
@@ -561,21 +552,53 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 
   for (int packet_size = 0; packet_size < 5; packet_size++)
   {
-    pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_0);
+    pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet);
   }
 
-  EXPECT_EQ(0, int(publish_packet_0.timestamp));
-  EXPECT_EQ(0, publish_packet_0.detections.size());
+  EXPECT_EQ(0, int(publish_packet.timestamp));
+  EXPECT_EQ(0, publish_packet.detections.size());
 
   for (int packet_size = 0; packet_size < 12; packet_size++)
   {
-    pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_0);
+    pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet);
   }
 
-  EXPECT_EQ(6, int(publish_packet_0.timestamp));
-  EXPECT_EQ(17, publish_packet_0.detections.size());
-  EXPECT_EQ(80, publish_packet_0.detections[0].range);
-  EXPECT_EQ(120, publish_packet_0.detections[6].range);
+  // Special Case data should be discarded at this point
+  EXPECT_EQ(0, int(publish_packet.timestamp));
+  EXPECT_EQ(0, publish_packet.detections.size());
+
+  // Sending a full packet to validate that previous data was actually discarded
+
+  // Near Packet Data (Scan 2)
+  msg_2->event_id = 3;
+  msg_2->timestamp = 7;
+
+  msg_detection_0.range = 160.0; 
+
+  msg_2->detections.push_back(msg_detection_0);
+
+  // Far Packet Data (Scan 2)
+  msg_3->event_id = 1;
+  msg_3->timestamp = 8;
+
+  msg_detection_1.range = 200.0; 
+
+  msg_3->detections.push_back(msg_detection_1);
+
+  for(int packet_size = 0; packet_size < 18; packet_size++)
+  {
+    pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet);
+  }
+
+  for(int packet_size = 0; packet_size < 12; packet_size++)
+  {
+    pointcloudfilter.near_far_scan_filter(msg_3, parameters, publish_packet);
+  }
+
+  EXPECT_EQ(8, int(publish_packet.timestamp));
+  EXPECT_EQ(30, publish_packet.detections.size());
+  EXPECT_EQ(160, publish_packet.detections[0].range);
+  EXPECT_EQ(200, publish_packet.detections[19].range);
 }
 
 /**
@@ -593,8 +616,8 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
   radar_msgs::msg::RadarDetection msg_detection_1;
   radar_msgs::msg::RadarDetection msg_detection_2;
 
-  // Fake Publish packets
-  radar_msgs::msg::RadarPacket publish_packet_0;
+  // Fake Publish Packet
+  radar_msgs::msg::RadarPacket publish_packet;
 
   // Far Packet Data (Scan 1)
   msg_0->event_id = 1;
@@ -623,33 +646,42 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
   // Sending far packet data from scan 1
   for (int packet_size = 0; packet_size < 7; packet_size++)
   {
-    pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_0);
+    pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet);
   }
 
-  EXPECT_EQ(0, int(publish_packet_0.timestamp));
-  EXPECT_EQ(0, publish_packet_0.detections.size());
+  EXPECT_EQ(0, int(publish_packet.timestamp));
+  EXPECT_EQ(0, publish_packet.detections.size());
 
   // Sending near packet data from scan 2
-  for (int packet_size = 0; packet_size < 1; packet_size++)
+  for (int packet_size = 0; packet_size < 18; packet_size++)
   {
-    pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_0);
+    pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet);
   }
 
-  EXPECT_EQ(0, int(publish_packet_0.timestamp));
-  EXPECT_EQ(0, publish_packet_0.detections.size());
+  EXPECT_EQ(0, int(publish_packet.timestamp));
+  EXPECT_EQ(0, publish_packet.detections.size());
 
   // Sending far packet data from scan 2
-  for (int packet_size = 0; packet_size < 1; packet_size++)
+  for (int packet_size = 0; packet_size < 12; packet_size++)
   {
-    pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet_0);
+    pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet);
   }
 
-  EXPECT_EQ(6, int(publish_packet_0.timestamp));
-  EXPECT_EQ(7, publish_packet_0.detections.size());
-  
+  EXPECT_EQ(8, int(publish_packet.timestamp));
+  EXPECT_EQ(30, publish_packet.detections.size());
 }
 
-// Unit Test Cases
+
+// Unit test cases (Common Scan Filter)
+// 1. Send 18 near scan packets and check if it returns a complete 18 packet ready to be published (done)
+// 2. Send 12 far scan packets and check if it returns a complete 12 packet ready to be published (done)
+// 3. Send 18 that are the same (different timestamp), and 18 that are different (different timestamp) (done)
+// 4. Send incomplete packets (5 that are the same) (1 that is different in timestamp) (done)
+// 5. Send 19 near scan packets and see if it behaves correctly (is not required) (done)
+// 6. Send far scan packets when in near scan mode, does it filter correctly (done)
+// 7. Check if it filters out all the packets and returns an empty packet (pass thresholds into pointfilter) (done)
+
+// Unit Test Cases (Double Buffer Algorithm)
 // 1. Send 18 Near Scan Packets and 12 Far Scan Packets (done)
 // (It shouldn't publish after 18 packets. It should publish together when there is also complete 12 far scan packets)
 // 2. 18 Near scan (scan1), 10 far scan (scan1), 3 Near (scan 2), 2 far (scan 1) (SCAN 1 SHOULD BE PUBLISHED), 15 Near (scan 2), 12 Far (scan2) (SCAN 2 GETS PUBLISHED HERE) (done)
