@@ -159,7 +159,7 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
       // Special Case (If the scans start in the middle)
       if(scan->packet_count_!= scan_capacity)
       {
-        RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, size: %d ! Packet Discarded.\n ", scan->packet_count_);
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, size: %d! Packet Discarded.\n ", scan->packet_count_);
       }
       buffer_packet_ = filtered_packet;
       scan->packet_count_ = 1;
