@@ -37,8 +37,9 @@ ARSPointCloudFilter::ARSPointCloudFilter()
   
 }
 
-// Point Filter Implementation
-
+/**
+* @brief Filters packet detections based on set thresholds
+*/
 radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
     const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double snr_threshold,
     double AzAng0_threshold, double range_threshold, double vrel_rad_threshold, 
@@ -76,7 +77,9 @@ radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
   return filtered_ars;
 }
 
-// Checks Event ID and returns which scan it is (NEAR OR FAR)
+/**
+* @brief Checks Event ID and returns which scan it is (NEAR OR FAR)
+*/
 ARSPointCloudFilter::scan_type ARSPointCloudFilter::check_scan_type(const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
   if (msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5)
@@ -89,9 +92,11 @@ ARSPointCloudFilter::scan_type ARSPointCloudFilter::check_scan_type(const radar_
   }
 }
 
+/**
+* @brief Resets all scan states
+*/
 void ARSPointCloudFilter::reset_scan_states()
 {
-  RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Reseting all states! \n ");
   near_scan_[buffer_index_].timestamp_ = 0;
   near_scan_[buffer_index_].publish_status_ = false;
   near_scan_[buffer_index_].packet_count_= 0;
@@ -99,10 +104,11 @@ void ARSPointCloudFilter::reset_scan_states()
   far_scan_[buffer_index_].timestamp_ = 0;
   far_scan_[buffer_index_].publish_status_ = false;
   far_scan_[buffer_index_].packet_count_= 0;
-
 }
 
-// A common filter for near and far scan modes
+/**
+* @brief A common filter for near and far scan modes
+*/
 bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg,
                                            const filter_parameters &parameters, 
                                            radar_msgs::msg::RadarPacket &publish_packet)
@@ -112,27 +118,20 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
 
   int scan_capacity = (incoming_scan_msg == NEAR) ? 18 : 12;
 
-  // Returns which scan parameters the program needs to work on
+  // Returns which scan parameters the program is using
   auto scan = (incoming_scan_msg == NEAR) ? &near_scan_single_ : &far_scan_single_;
 
   if ((incoming_scan_msg == NEAR && parameters.scan_mode == "near") || (incoming_scan_msg == FAR && parameters.scan_mode == "far"))
   {
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Initial Packet Timestamp %d \n ",scan->timestamp_);
-    
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Initial Packet Size %d \n ",scan->packet_count_);
-    
     if(scan->timestamp_ == default_timestamp_)
     {
       scan->timestamp_ = msg->timestamp;
-      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking for Default Timestamp \n ");
     }
     
-    // Filter out detections based on given thresholds (PASS IN ONLY PARAMETERS)
+    // Filter out detections based on given thresholds
     const radar_msgs::msg::RadarPacket filtered_packet = point_filter(
           msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
           parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
-
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Filtering the message \n ");
 
     // If near/far packet is not full
     if(scan->packet_count_ != scan_capacity && msg->timestamp == scan->timestamp_)
@@ -145,30 +144,23 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
                                       filtered_packet.detections.begin(), 
                                       filtered_packet.detections.end());
       scan->packet_count_++;
-      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Appending to buffer packet, size: %d\n ",scan->packet_count_);
 
       if(scan->packet_count_ == scan_capacity)
       {
-        // Publish buffer packet
         publish_packet = buffer_packet_;
-        RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Publishing Packet, size: %d\n ",scan->packet_count_);
-
         buffer_packet_.detections.clear();
-
         scan->packet_count_ = 0;
-
         scan->timestamp_ = default_timestamp_;
         return true;
       }
     }
     else
     {
+      // Special Case (If the scans start in the middle)
       if(scan->packet_count_!= scan_capacity)
       {
-      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, size: %d ! Packet Discarded.\n ", scan->packet_count_);
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, size: %d ! Packet Discarded.\n ", scan->packet_count_);
       }
-  
-      // Replace existing data in buffer packet with new incoming data (new timestamp) after filtering
       buffer_packet_ = filtered_packet;
       scan->packet_count_ = 1;
       scan->timestamp_ = msg->timestamp;
@@ -177,48 +169,39 @@ bool ARSPointCloudFilter::common_scan_filter(const radar_msgs::msg::RadarPacket:
   return false;
 }
 
-// Near + Far Scan Filter Implementation (Double Buffer Algorithm)
+/**
+* @brief Near + Far Scan Filter Implementation (Double Buffer Algorithm)
+*/
 bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr msg, 
                                                const filter_parameters &parameters,
                                                radar_msgs::msg::RadarPacket &publish_packet)
 {
-  // Variables to create on every callback (message can be near or far)
   scan_type incoming_scan_msg = check_scan_type(msg);
 
   int scan_capacity = (incoming_scan_msg == NEAR) ? 18 : 12;
 
-  // Returns which scan parameters the program needs to work on
   auto scan = (incoming_scan_msg == NEAR) ? near_scan_.data() : far_scan_.data();
-
-  RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Filtering the message \n ");
 
   const radar_msgs::msg::RadarPacket filtered_packet = point_filter(
       msg, parameters.snr_param, parameters.az_ang0_param, parameters.range_param,
       parameters.vrel_rad_param, parameters.el_ang_param, parameters.rcs0_param);
 
-
   if(scan[buffer_index_].timestamp_ == default_timestamp_)
   {
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Buffer Index: %d\n ", buffer_index_);
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Comparing Scan buffer Timestamp with default timestamp, Scan Buffer Timestamp: %d\n ", scan[buffer_index_].timestamp_);
     scan[buffer_index_].timestamp_ = msg->timestamp;
   }
 
   if(scan[buffer_index_].timestamp_ == msg->timestamp)
   {
-    // Special case (If you start in the middle with far scans)
+    // Special case (If you start in the middle with far scans, and no near scans were collected before)
     if(incoming_scan_msg == FAR && near_scan_[buffer_index_].packet_count_ == 0)
     {
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Ignoring far scan packet! \n");
       scan[buffer_index_].timestamp_ = default_timestamp_;
       return false;
     }
-
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking for incoming msg timestamp \n ");
     
     near_far_buffer_packets_[buffer_index_].timestamp = scan[buffer_index_].timestamp_;
-
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Appending detections to packet, Buffer Index: %d\n ", buffer_index_);
-
     near_far_buffer_packets_[buffer_index_].detections.insert(near_far_buffer_packets_[buffer_index_].detections.end(),
                                                               filtered_packet.detections.begin(),
                                                               filtered_packet.detections.end());
@@ -228,15 +211,11 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
   {
     if(scan[buffer_index_].packet_count_ != scan_capacity)
     {
-      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, Actual Size: %d! \n ", scan[buffer_index_].packet_count_);
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Packet is not full, Actual Size: %d! \n", scan[buffer_index_].packet_count_);
     }
 
     scan[buffer_index_].publish_status_ = true;
-
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Appending detections to other packet, Buffer Index: %d! \n ", 1 - buffer_index_);
-
     near_far_buffer_packets_[1 - buffer_index_].timestamp = scan[1 - buffer_index_].timestamp_;
-
     near_far_buffer_packets_[1 - buffer_index_].detections.insert(near_far_buffer_packets_[1 - buffer_index_].detections.end(),
                                                                   filtered_packet.detections.begin(),
                                                                   filtered_packet.detections.end());
@@ -245,42 +224,29 @@ bool ARSPointCloudFilter::near_far_scan_filter(const radar_msgs::msg::RadarPacke
 
   if(scan[buffer_index_].packet_count_ == scan_capacity)
   {
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking for scan capacity: %d  \n ", scan_capacity);
     scan[buffer_index_].publish_status_ = true;
   }
 
-  // Removed "near_scan_[buffer_index_].publish_status_ == true" from if condition
-  // then if this is true, then we know in general that packet is done collecting data from that particular scan (whether its the full 30 or not)
+  // If true, packet is done collecting data from that particular scan (whether its the full 30 or not)
   if(far_scan_[buffer_index_].publish_status_ == true)
   {
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking packet count Near: %d, Far: %d \n ",near_scan_[buffer_index_].packet_count_,far_scan_[buffer_index_].packet_count_);
-
-    // If the packet started in the middle, and it does not have all 30 detections (special case discard)
+    // If the packet started in the middle, and it does not have all 30 detections (Special Case)
     if(near_scan_[buffer_index_].packet_count_ != 18 || far_scan_[buffer_index_].packet_count_ != 12)
     {
-      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking incomplete packet count %d \n ",near_scan_[buffer_index_].packet_count_);
-
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Incomplete total packet count! Not 30.\n");
       near_far_buffer_packets_[buffer_index_].detections.clear();
       reset_scan_states();
       buffer_index_ = 1 - buffer_index_;
       return false;
     }
 
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Checking if both packets are ready to be published! \n ");
-    
     publish_packet = near_far_buffer_packets_[buffer_index_];
-
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),"Publishing packet, Detections: %d \n ", publish_packet.detections.size());
-    
     near_far_buffer_packets_[buffer_index_].detections.clear();
-
     reset_scan_states();
-
     buffer_index_ = 1 - buffer_index_;
-
     return true;
   }
   return false;
 }
 
-} // namespace filtering
+}  // namespace filtering
