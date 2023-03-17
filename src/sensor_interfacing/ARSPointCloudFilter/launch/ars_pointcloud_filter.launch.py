@@ -24,7 +24,7 @@ def generate_launch_description():
             {'az_ang0': -99999.99},
             {'scan_mode': 'near'}
         ]
-    )   
+    )
     return LaunchDescription([
         ars_pointcloud_filter_param,
         ars_pointcloud_filter_node
