@@ -6,7 +6,9 @@
 
 ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter")
 {
-  // Default values are already declared in ars_radar_params.yaml
+  /**
+  * @note Default values are already declared in yaml file
+  */
   this->declare_parameter("filter_mode");
   this->declare_parameter("scan_mode");
   this->declare_parameter("vrel_rad");
@@ -24,10 +26,10 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter
   parameters.range_param = this->get_parameter("range").as_double();
   parameters.az_ang0_param = this->get_parameter("az_ang0").as_double();
 
-  raw_left_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarLeft", 1, 
+  raw_left_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarLeft", 1,
   std::bind(&ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback, this, std::placeholders::_1));
 
-  raw_right_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarRight", 1, 
+  raw_right_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarRight", 1,
   std::bind( &ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback, this, std::placeholders::_1));
 
   left_right_pub_ = this->create_publisher<radar_msgs::msg::RadarPacket>("processed", 20);
@@ -39,15 +41,15 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
 
   /**
-  * Scan Mode = Near or Scan Mode = Far
-  * @brief Send incoming scan message to common Scan filter and append detections to buffer packet based on timestamp.
-           Check if packet is ready to be published. Return true if ready, return false otherwise.
+  * @brief When scan mode = near or far,
+  *        send incoming unfiltered msgs to common scan filter and append filtered detections to buffer packet
+  *        based on timestamp. Publish packet if ready to be published.
   */
   if(parameters.scan_mode == "near" || parameters.scan_mode == "far")
   {
     radar_msgs::msg::RadarPacket publish_packet;
 
-    if(pointcloudfilter_.common_scan_filter(msg, parameters, publish_packet) == true)
+    if(pointcloudfilter_.common_scan_filter(msg, parameters, publish_packet))
     {
       RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
       left_right_pub_->publish(publish_packet);
@@ -55,10 +57,9 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   }
 
   /**
-  * Scan Mode == NearFar
-  * @brief Send incoming scan message to NearFar Scan filter and append detections 
-  *        to buffer packet based on double buffer algorithm. Check if packet is ready to be published.
-  *        Return true if ready, return false otherwise.
+  * @brief When scan mode = nearfar,
+  *        send incoming unfiltered msgs to NearFar Scan filter and append filtered detections 
+  *        to buffer packets based on double buffer algorithm. Publish packet if ready to be published.
   */
   else
   {
@@ -72,6 +73,9 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   }
 }
 
+/**
+* @brief Implementation below is the same as the right callback function
+*/
 void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
@@ -81,7 +85,7 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
   {
     radar_msgs::msg::RadarPacket publish_packet;
 
-    if(pointcloudfilter_.common_scan_filter(msg, parameters, publish_packet) == true)
+    if(pointcloudfilter_.common_scan_filter(msg, parameters, publish_packet))
     {
       RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
       left_right_pub_->publish(publish_packet);
@@ -92,7 +96,7 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
   {
     radar_msgs::msg::RadarPacket publish_packet_near_far;
 
-    if(pointcloudfilter_.near_far_scan_filter(msg, parameters, publish_packet_near_far) == true)
+    if(pointcloudfilter_.near_far_scan_filter(msg, parameters, publish_packet_near_far))
     {
       RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet_near_far.event_id);
       left_right_pub_->publish(publish_packet_near_far);

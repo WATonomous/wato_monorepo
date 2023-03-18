@@ -9,48 +9,45 @@
 #include "ars_pointcloud_filter.hpp"
 
 /**
-* Implementation of a ROS2 Point Cloud Filter node that listens to "unfiltered" radar 
-* topics from ARS ROSbags and publishes to "processed" radar topic.
+* @brief Implementation of a ROS2 Point Cloud Filter node that listens to "unfilteredRadarLeft" 
+*        and "unfilteredRadarRight" topics and publishes filtered radar data to "processed" radar topic.
 */
 class ARSPointCloudFilterNode : public rclcpp::Node
 {
 public:
-  /**
-  * PointCloudFilter Node Constructor.
-  */
-  ARSPointCloudFilterNode();
 
+  ARSPointCloudFilterNode();
   filtering::ARSPointCloudFilter::filter_parameters parameters;
 
 private:
   /**
-  * A ROS2 subscription node callback used to unpack raw ARS radar data from the "unfiltered"
+  * A ROS2 subscription node callback used to unpack raw ARS radar data from the "unfilteredRadarRight"
   * topic 
   *
-  * @param msg a raw message from the "unfiltered" topic
+  * @param msg a raw message from the "unfilteredRadarRight" topic
   */
   void unfiltered_ars_radar_right_callback(
     const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
   /**
-  * A ROS2 subscription node callback used to unpack raw radar data from the "unfiltered"
+  * A ROS2 subscription node callback used to unpack raw ARS radar data from the "unfilteredRadarLeft"
   * topic 
   *
-  * @param msg a raw message from the "unfiltered" topic
+  * @param msg a raw message from the "unfilteredRadarLeft" topic
   */
   void unfiltered_ars_radar_left_callback(
     const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
-  // ROS2 Subscriber listening to the unfiltered radar packet topic (left sensor)
+  // ROS2 Subscriber listening to "unfilteredRadarLeft" topic
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_left_sub_;
 
-  // ROS2 Subscriber listening to the unfiltered radar packet topic (right sensor)
+  // ROS2 Subscriber listening to "unfilteredRadarRight" topic
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
-  // ROS2 publisher that sends filtered messages from left and right radar to the processed topic.
+  // ROS2 publisher that sends filtered messages from left and right radar to the "processed" topic.
   rclcpp::Publisher<radar_msgs::msg::RadarPacket>::SharedPtr left_right_pub_;
 
-  // Object containing methods for near and far scan filters
+  // An object containing methods for near and far scan filters
   filtering::ARSPointCloudFilter pointcloudfilter_;
 };
 
