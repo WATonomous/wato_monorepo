@@ -10,6 +10,10 @@
 namespace filtering
 {
 
+/**
+* @brief Implementation of the internal logic used by the ARSPointCloudFilter Node to filter and publish
+*        incoming radar packets.
+*/
 class ARSPointCloudFilter
 {
 public:
@@ -32,22 +36,34 @@ public:
     FAR
   };
 
+  /**
+  * @brief A common filter for near and far scan modes
+  */
   bool common_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
                        const filter_parameters &parameters,
                        radar_msgs::msg::RadarPacket &publish_packet);
 
+  /**
+  * @brief Near + Far Scan Filter Implementation (Double Buffer Algorithm)
+  */
   bool near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
                        const filter_parameters &parameters, 
                        radar_msgs::msg::RadarPacket &publish_packet);
   
+  /**
+  * @brief Checks Event ID and returns which scan it is (NEAR OR FAR)
+  */
   scan_type check_scan_type(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars);
 
+  /**
+  * @brief Resets all scan states
+  */
   void reset_scan_states();
 
 private:
 
   /**
-  * @brief Pointfilter() filters an incoming radar message based on the parameters passed
+  * @brief Pointfilter() filters an incoming radar packet based on set thresholds
   */
   radar_msgs::msg::RadarPacket point_filter(
   const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
@@ -59,7 +75,7 @@ private:
   double rcs_threshold);
 
   /**
-  * @brief Variables below are used for all the filters
+  * @brief Variables below are used for all the filters (Common scan filter & NearFarScan Filter)
   */
   unsigned int default_timestamp_;
   
@@ -71,15 +87,14 @@ private:
   } scan_params;
 
   /**
-  * @brief Near & Far Scan Filter (Common Scan Filter)
+  * @brief Variables only used for common scan filter
   */
   scan_params near_scan_single_;
   scan_params far_scan_single_;
   radar_msgs::msg::RadarPacket buffer_packet_;
 
-
   /**
-  * @brief Near Far Scan Filter (Double Buffer Algorithm)
+  * @brief Variables only used for Near Far Scan Filter (Double Buffer Algorithm)
   */
   int buffer_index_;
   std::array<radar_msgs::msg::RadarPacket, 2> near_far_buffer_packets_;
