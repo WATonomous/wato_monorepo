@@ -32,6 +32,8 @@ protected:
   filtering::ARSPointCloudFilter::filter_parameters parameters;
 };
 
+// Common Scan Filter Test
+
 /**
 * @brief Checks if check_scan_type() correctly identifies if a packet is NEAR or FAR.
 */
@@ -344,7 +346,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
   EXPECT_EQ(200, static_cast<int>(publish_packet.detections[0].snr));
 }
 
-// Double Buffer Algorithm Test
+// Double Buffer Algorithm (Nearfar scan filter) Test
 
 /**
 * @brief Send 18 Near Scan Packets and 12 Far Scan Packets.
@@ -400,8 +402,8 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 
 /**
 * @brief 18 Near scan (scan 1), 10 far scan (scan 1), 3 Near (scan 2), 
-         2 far (scan 1) (SCAN 1 SHOULD BE PUBLISHED), 15 Near (scan 2), 
-         12 Far (scan2) (SCAN 2 GETS PUBLISHED HERE)
+         2 far (scan 1) (Scan 1 packet should be published), 15 Near (scan 2), 
+         12 Far (scan2) (Scan 2 packet should be published)
 */
 TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
 {
@@ -676,7 +678,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
 //    (It shouldn't publish after 18 packets. It should publish together
 //    when there is also complete 12 far scan packets)
 // 2. 18 Near scan (scan1), 10 far scan (scan1), 3 Near (scan 2), 2 far (scan 1),
-//  (SCAN 1 SHOULD BE PUBLISHED) 15 Near (scan 2), 12 Far (scan2) (SCAN 2 GETS PUBLISHED HERE)
+//    (SCAN 1 SHOULD BE PUBLISHED) 15 Near (scan 2), 12 Far (scan2) (SCAN 2 GETS PUBLISHED HERE)
 // 3. Send 7 far (scan 1) (NEAR SCANS WERE IGNORED), Send 1 Near (Scan 2),
 //    Send 1 Far (Scan 2)then check if the 7 far is published
 // 4. Send 5 Near (scan 1), Send 12 far (scan 1)
