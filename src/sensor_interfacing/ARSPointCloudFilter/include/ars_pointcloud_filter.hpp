@@ -11,8 +11,17 @@ namespace filtering
 {
 
 /**
-* @brief Implementation of the internal logic used by the ARSPointCloudFilter Node to filter and publish
-*        incoming radar packets.
+* @brief The ARSPointCloudFilter is responsible for filtering and publishing radar detections 
+*        coming through custom ROS messages/packets. These packets can be composed of near scan
+*        or far scan detections. 
+*        There are various modes that can be set for the node.
+*        Mode 1. Recieves, filters and publishes only NEAR scan radar detections (Event ID 3, 4 or 5).
+*        Mode 2. Recieves, filters and publishes only FAR scan radar detections (Event ID 1, or 2).
+*        Mode 3. Recieves, filters and publishes BOTH near and far scan radar detections. In this case, 
+*        the implementation below follows the double buffer algorithm which allows the node
+*        to not only handle incoming packets from different scans but also filter and publish them
+*        accordingly (Refer to google drawing on the WATO Drive for more info)
+*                   
 */
 class ARSPointCloudFilter
 {
@@ -37,14 +46,14 @@ public:
   };
 
   /**
-  * @brief A common filter for near and far scan modes
+  * @brief A common filter for near and far scan modes - EXPLAIN
   */
   bool common_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
                        const filter_parameters &parameters,
                        radar_msgs::msg::RadarPacket &publish_packet);
 
   /**
-  * @brief Near + Far Scan Filter Implementation (Double Buffer Algorithm)
+  * @brief Near + Far Scan Filter Implementation (Double Buffer Algorithm) - EXPLAIN
   */
   bool near_far_scan_filter(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
                        const filter_parameters &parameters, 
