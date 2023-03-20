@@ -38,8 +38,6 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter
 void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
-  RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
-
   /**
   * @brief When scan mode = near or far,
   *        send incoming unfiltered msgs to common scan filter and append filtered detections to buffer packet
@@ -51,7 +49,6 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
 
     if(pointcloudfilter_.common_scan_filter(msg, parameters, publish_packet))
     {
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
       left_right_pub_->publish(publish_packet);
     }
   }
@@ -67,27 +64,23 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
 
     if(pointcloudfilter_.near_far_scan_filter(msg, parameters, publish_packet_near_far))
     {
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet_near_far.event_id);
       left_right_pub_->publish(publish_packet_near_far);
     }
   }
 }
 
 /**
-* @brief Implementation below is the same as the right callback function
+* @note Implementation below is the same as the right callback function
 */
 void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
-  RCLCPP_INFO(this->get_logger(), "Subscribing: %d\n", msg->event_id);
-
   if(parameters.scan_mode == "near" || parameters.scan_mode == "far")
   {
     radar_msgs::msg::RadarPacket publish_packet;
 
     if(pointcloudfilter_.common_scan_filter(msg, parameters, publish_packet))
     {
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet.event_id);
       left_right_pub_->publish(publish_packet);
     }
   }
@@ -98,7 +91,6 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
 
     if(pointcloudfilter_.near_far_scan_filter(msg, parameters, publish_packet_near_far))
     {
-      RCLCPP_INFO(this->get_logger(), "Publishing %d\n", publish_packet_near_far.event_id);
       left_right_pub_->publish(publish_packet_near_far);
     }
   }
