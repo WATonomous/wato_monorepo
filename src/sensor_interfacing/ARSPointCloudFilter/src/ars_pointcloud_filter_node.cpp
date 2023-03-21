@@ -26,11 +26,13 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode(): Node("ars_point_cloud_filter
   parameters.range_param = this->get_parameter("range").as_double();
   parameters.az_ang0_param = this->get_parameter("az_ang0").as_double();
 
-  raw_left_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarLeft", 1,
-  std::bind(&ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback, this, std::placeholders::_1));
+  raw_left_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarLeft",
+  1, std::bind(&ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback,
+  this, std::placeholders::_1));
 
-  raw_right_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarRight", 1,
-  std::bind( &ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback, this, std::placeholders::_1));
+  raw_right_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>("unfilteredRadarRight",
+  1, std::bind( &ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback,
+  this, std::placeholders::_1));
 
   left_right_pub_ = this->create_publisher<radar_msgs::msg::RadarPacket>("processed", 20);
 }
