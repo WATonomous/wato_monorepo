@@ -9,7 +9,7 @@
 #include "ars_pointcloud_filter.hpp"
 
 /**
-* @brief Implementation of a ROS2 Point Cloud Filter node that listens to "unfilteredRadarLeft" 
+* @brief Implementation of a ROS2 Point Cloud Filter node that listens to "unfilteredRadarLeft"
 *        and "unfilteredRadarRight" topics and publishes filtered radar data to "processed" radar topic.
 */
 class ARSPointCloudFilterNode : public rclcpp::Node
@@ -21,7 +21,7 @@ public:
 private:
   /**
   * A ROS2 subscription node callback used to unpack raw ARS radar data from the "unfilteredRadarRight"
-  * topic 
+  * topic
   *
   * @param msg a raw message from the "unfilteredRadarRight" topic
   */
@@ -30,7 +30,7 @@ private:
 
   /**
   * A ROS2 subscription node callback used to unpack raw ARS radar data from the "unfilteredRadarLeft"
-  * topic 
+  * topic
   *
   * @param msg a raw message from the "unfilteredRadarLeft" topic
   */
