@@ -13,10 +13,11 @@ class ARSPointCloudFilterFixtureTest : public ::testing::Test
 public:
   static constexpr double DEFAULT_FILTER_PARAM = -9999.99;
 
-  void SetUp(std::string scan_mode, double vrel_rad_param = DEFAULT_FILTER_PARAM,
-            double el_ang_param = DEFAULT_FILTER_PARAM, double rcs0_param = DEFAULT_FILTER_PARAM,
-            double snr_param = DEFAULT_FILTER_PARAM, double range_param = DEFAULT_FILTER_PARAM,
-            double az_ang0_param = DEFAULT_FILTER_PARAM)
+  void SetUp(
+    std::string scan_mode, double vrel_rad_param = DEFAULT_FILTER_PARAM,
+    double el_ang_param = DEFAULT_FILTER_PARAM, double rcs0_param = DEFAULT_FILTER_PARAM,
+    double snr_param = DEFAULT_FILTER_PARAM, double range_param = DEFAULT_FILTER_PARAM,
+    double az_ang0_param = DEFAULT_FILTER_PARAM)
   {
     parameters.scan_mode = scan_mode;
     parameters.vrel_rad_param = vrel_rad_param;
@@ -80,15 +81,13 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearScanPackets)
 
   msg->detections.push_back(msg_detection);
 
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.common_scan_filter(msg, parameters, publish_packet);
   }
 
   EXPECT_EQ(2, static_cast<int>(publish_packet.timestamp));
 
-  for(int index = 0; index < 18; index++)
-  {
+  for (int index = 0; index < 18; index++) {
     EXPECT_EQ(100, publish_packet.detections[index].snr);
   }
 }
@@ -115,21 +114,19 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteFarScanPackets)
 
   msg->detections.push_back(msg_detection);
 
-  for (int packet_size = 0; packet_size < 12; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 12; packet_size++) {
     pointcloudfilter.common_scan_filter(msg, parameters, publish_packet);
   }
 
   EXPECT_EQ(7, static_cast<int>(publish_packet.timestamp));
 
-  for(int index = 0; index < 12; index++)
-  {
+  for (int index = 0; index < 12; index++) {
     EXPECT_EQ(5, publish_packet.detections[index].rcs0);
   }
 }
 
 /**
-* @brief Sends 18 packets that are the same (timestamp 1), and 18 packets with a new timestamp 
+* @brief Sends 18 packets that are the same (timestamp 1), and 18 packets with a new timestamp
 *        (timestamp 2) and checks if it returns a complete packet ready to be published.
 */
 TEST_F(ARSPointCloudFilterFixtureTest, SendTwoDifferentScanPackets)
@@ -161,34 +158,30 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendTwoDifferentScanPackets)
   msg_1->detections.push_back(msg_detection);
 
   // Scan 1
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.common_scan_filter(msg_0, parameters, publish_packet_0);
   }
 
   EXPECT_EQ(7, static_cast<int>(publish_packet_0.timestamp));
 
-  for(int index = 0; index < 18; index++)
-  {
+  for (int index = 0; index < 18; index++) {
     EXPECT_EQ(5, publish_packet_0.detections[index].rcs0);
   }
 
   // Scan 2
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.common_scan_filter(msg_1, parameters, publish_packet_1);
   }
 
   EXPECT_EQ(3, static_cast<int>(publish_packet_1.timestamp));
 
-  for(int index = 0; index < 18; index++)
-  {
+  for (int index = 0; index < 18; index++) {
     EXPECT_EQ(20, publish_packet_1.detections[index].rcs0);
   }
 }
 
 /**
-* @brief Sends incomplete packets (5 that are the same and 
+* @brief Sends incomplete packets (5 that are the same and
          1 packet after that is different in timestamp).
 */
 TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteScanPackets)
@@ -219,8 +212,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteScanPackets)
   msg_1->detections.push_back(msg_detection);
 
   // Incomplete packet of near scans
-  for (int packet_size = 0; packet_size < 5; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 5; packet_size++) {
     pointcloudfilter.common_scan_filter(msg_0, parameters, publish_packet);
   }
 
@@ -228,22 +220,20 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteScanPackets)
   EXPECT_EQ(0, static_cast<int>(publish_packet.timestamp));
 
   // Scan 2 data (sending a packet of a different timestamp)
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.common_scan_filter(msg_1, parameters, publish_packet);
   }
 
   // Timestamp should be from msg_1 (msg_0 should be discarded)
   EXPECT_EQ(3, static_cast<int>(publish_packet.timestamp));
 
-  for(int index = 0; index < 18; index++)
-  {
+  for (int index = 0; index < 18; index++) {
     EXPECT_EQ(50, publish_packet.detections[index].range);
   }
 }
 
 /**
-* @brief Sends far scan packets when in near scan mode and checks if it filters correctly. 
+* @brief Sends far scan packets when in near scan mode and checks if it filters correctly.
 */
 TEST_F(ARSPointCloudFilterFixtureTest, SendFarScanPacketsInNearMode)
 {
@@ -272,16 +262,14 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendFarScanPacketsInNearMode)
 
   msg_1->detections.push_back(msg_detection);
 
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.common_scan_filter(msg_0, parameters, publish_packet);
     pointcloudfilter.common_scan_filter(msg_1, parameters, publish_packet);
   }
 
   EXPECT_EQ(7, static_cast<int>(publish_packet.timestamp));
 
-  for(int index = 0; index < 18; index++)
-  {
+  for (int index = 0; index < 18; index++) {
     EXPECT_EQ(120, publish_packet.detections[index].range);
   }
 }
@@ -307,8 +295,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
   msg->timestamp = 7;
 
   // Sending messages with no detections
-  for(int packet_size = 0; packet_size < 17; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 17; packet_size++) {
     pointcloudfilter.common_scan_filter(msg, parameters, publish_packet);
   }
 
@@ -333,8 +320,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
 
   msg->detections.push_back(msg_detection_2);
 
-  for (int packet_size = 0; packet_size < 1; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 1; packet_size++) {
     pointcloudfilter.common_scan_filter(msg, parameters, publish_packet);
   }
 
@@ -350,7 +336,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
 // Double Buffer Algorithm (Nearfar scan filter) Test
 
 /**
-* @brief Sends 18 Near Scan Packets and 12 Far Scan Packets. Checks if it returns a 
+* @brief Sends 18 Near Scan Packets and 12 Far Scan Packets. Checks if it returns a
 *        complete packet ready to be published.
 */
 TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
@@ -381,8 +367,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 
   msg_1->detections.push_back(msg_detection_1);
 
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_);
   }
 
@@ -390,8 +375,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
   EXPECT_EQ(0, static_cast<int>(publish_packet_.timestamp));
   EXPECT_EQ(0, publish_packet_.detections.size());
 
-  for (int packet_size = 0; packet_size < 12; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 12; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_);
   }
 
@@ -402,8 +386,8 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 }
 
 /**
-* @brief Sends 18 Near scan (Scan 1), 10 far scan (Scan 1), 3 Near scan (Scan 2), 
-         2 far scan (Scan 1), 15 Near scan (Scan 2), 12 Far scan (Scan 2)
+* @brief Sends 18 Near scan (Scan 1), 10 far scan (Scan 1), 3 Near scan (Scan 2),
+*        2 far scan (Scan 1), 15 Near scan (Scan 2), 12 Far scan (Scan 2)
 */
 TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
 {
@@ -436,8 +420,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
 
   msg_1->detections.push_back(msg_detection_1);
 
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet_1);
   }
 
@@ -445,8 +428,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
   EXPECT_EQ(0, static_cast<int>(publish_packet_1.timestamp));
   EXPECT_EQ(0, publish_packet_1.detections.size());
 
-  for (int packet_size = 0; packet_size < 10; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 10; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_1);
   }
 
@@ -462,8 +444,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
 
   msg_2->detections.push_back(msg_detection_0);
 
-  for (int packet_size = 0; packet_size < 3; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 3; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet_2);
   }
 
@@ -471,8 +452,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
   EXPECT_EQ(0, static_cast<int>(publish_packet_2.timestamp));
   EXPECT_EQ(0, publish_packet_2.detections.size());
 
-  for (int packet_size = 0; packet_size < 2; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 2; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet_1);
   }
 
@@ -481,8 +461,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
   EXPECT_EQ(30, publish_packet_1.detections.size());
 
   // Sending the rest of the data from scan 2
-  for (int packet_size = 0; packet_size < 15; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 15; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet_2);
   }
 
@@ -497,8 +476,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
 
   msg_3->detections.push_back(msg_detection_1);
 
-  for (int packet_size = 0; packet_size < 12; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 12; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_3, parameters, publish_packet_2);
   }
 
@@ -542,16 +520,14 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 
   msg_1->detections.push_back(msg_detection_1);
 
-  for (int packet_size = 0; packet_size < 5; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 5; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet);
   }
 
   EXPECT_EQ(0, static_cast<int>(publish_packet.timestamp));
   EXPECT_EQ(0, publish_packet.detections.size());
 
-  for (int packet_size = 0; packet_size < 12; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 12; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet);
   }
 
@@ -577,13 +553,11 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 
   msg_3->detections.push_back(msg_detection_1);
 
-  for(int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet);
   }
 
-  for(int packet_size = 0; packet_size < 12; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 12; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_3, parameters, publish_packet);
   }
 
@@ -594,8 +568,8 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 }
 
 /**
-* @brief Sends 7 far (scan 1), Send 1 Near (scan 2), 
-         then checks if the 7 far (scan 1) is discarded (Special case)
+* @brief Sends 7 far (scan 1), Send 1 Near (scan 2),
+*        then checks if the 7 far (scan 1) is discarded (Special case)
 */
 TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
 {
@@ -636,8 +610,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
   msg_2->detections.push_back(msg_detection_2);
 
   // Sending far packet data from scan 1
-  for (int packet_size = 0; packet_size < 7; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 7; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_0, parameters, publish_packet);
   }
 
@@ -646,8 +619,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
   EXPECT_EQ(0, publish_packet.detections.size());
 
   // Sending near packet data from scan 2
-  for (int packet_size = 0; packet_size < 18; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 18; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_1, parameters, publish_packet);
   }
 
@@ -655,8 +627,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
   EXPECT_EQ(0, publish_packet.detections.size());
 
   // Sending far packet data from scan 2
-  for (int packet_size = 0; packet_size < 12; packet_size++)
-  {
+  for (int packet_size = 0; packet_size < 12; packet_size++) {
     pointcloudfilter.near_far_scan_filter(msg_2, parameters, publish_packet);
   }
 

@@ -11,11 +11,11 @@ namespace filtering
 {
 
 /**
-* @brief The ARSPointCloudFilter is responsible for filtering and publishing radar detections 
-*        coming from the ARS430 radar sensor in the Radar ROS2 pipeline. These incoming 
-*        detections are organized and transformed into custom ROS messages/packets from the
-*        previous node and later is sent into this node. Note each message/packet consist 
-*        detections of two types. These detections can be from a near scan or a far scan. 
+* @brief The ARSPointCloudFilter is responsible for filtering and publishing radar detections
+*        coming from the ARS430 radar sensor in the Radar ROS2 pipeline. These incoming
+*        detections are first organized and transformed into custom ROS messages/packets prior
+*        to being sent into this node. Note each message has detections of two types.
+*        These detections can be from a near scan or a far scan.
 *
 *        The internal logic for this node is divided into three sections or "modes".
 *
@@ -25,11 +25,10 @@ namespace filtering
 *        Mode 2. The node recieves, filters and publishes only FAR scan radar detections
 *        These are packets with the event id 1 or 2.
 *
-*        Mode 3. The node recieves, filters and publishes BOTH NEAR and FAR scan radar detections. 
-*        In this case, it is much more complex to handle detections from both NEAR and FAR scan 
+*        Mode 3. The node recieves, filters and publishes BOTH NEAR and FAR scan radar detections.
+*        In this case, it is much more complex to handle detections from both NEAR and FAR scan
 *        especially if they are also from two seperate scans. To solve this, the node uses the double
 *        buffer algorithm.
-*                   
 */
 class ARSPointCloudFilter
 {
@@ -56,39 +55,36 @@ public:
   * @brief The following is the internal logic of the common_scan_filter for near and far scan modes.
   *        This filter works by checking the timestamps of incoming messages. If messages share the same
   *        timestamp, this means that they are part of the same scan. Therefore, all the detections from
-  *        that incoming message is appended to a buffer packet. This process continues until the packet count
-  *        is at maxiumum capacity or when there is a timestamp change indicating that a new scan has begun
-  *        and the old buffer packet is ready to be published.
-  * 
-  *        Special case to consider: If the scan starts in the middle such that we don't have a 
-  *        complete number of packets (18 or 12) collected, then the code discards these detections 
-  *        and starts from scratch with a new scan. 
-  *          
+  *        that incoming message are filtered and appended to a buffer packet. This process continues
+  *        until the packet count is at maxiumum capacity or when there is a timestamp change indicating
+  *        that a new scan has begun and the old buffer packet is ready to be published.
+  *        Special case to consider: If the scan starts in the middle such that we don't have a
+  *        complete number of packets (18 or 12) collected, then the code discards these detections
+  *        and starts from scratch with a new scan.
   */
   bool common_scan_filter(
     const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-    const filter_parameters &parameters,
-    radar_msgs::msg::RadarPacket &publish_packet);
+    const filter_parameters & parameters,
+    radar_msgs::msg::RadarPacket & publish_packet);
 
   /**
   * @brief The following is the internal logic of the near_far_scan_filter
-  *        for the "nearfar" mode. This is when the double buffer algorithm is utilized. 
-  *        Explain more. Please refer to the figure in the WATO drive for more information
+  *        for the "nearfar" mode. This is when the double buffer algorithm is utilized.
+  *        Please refer to the figure in the WATO drive for more information
   *        on the algorithm.
-  *       
-  *        Main special sases to consider:
+  *        Special cases to consider:
   *        1. If the scan started in the middle such that there is an incomplete packets of
   *           near scans but a full number of far scans. This means that we will have
-  *           less than 30 packets when publishing. Therefore, the program discards this 
+  *           less than 30 packets when publishing. Therefore, the program discards this
   *           incomplete packet and starts from scratch.
   *        2. If the scan started in the middle, and we are only receiving far scan packets
-  *           for that scan (no near scan packets were collected). Then the program discards 
-  *           each far scan packet that is recieved from that scan. 
+  *           for that scan (no near scan packets were collected). Then the program discards
+  *           each far scan packet that is recieved from that scan.
   */
   bool near_far_scan_filter(
     const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
-    const filter_parameters &parameters,
-    radar_msgs::msg::RadarPacket &publish_packet);
+    const filter_parameters & parameters,
+    radar_msgs::msg::RadarPacket & publish_packet);
   /**
   * @brief Checks the Event ID of a message and returns which scan it is (NEAR OR FAR)
   */
@@ -139,7 +135,6 @@ private:
   std::array<scan_params, 2> far_scan_;
 };
 
-} // namespace filtering
-
+}  // namespace filtering
 
 #endif  // ARS_POINTCLOUD_FILTER_HPP_
