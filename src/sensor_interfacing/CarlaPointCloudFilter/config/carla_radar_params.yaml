@@ -1,3 +1,0 @@
-radar_point_cloud_filter:
-  ros__parameters:
-    filter_mode: "carla"
