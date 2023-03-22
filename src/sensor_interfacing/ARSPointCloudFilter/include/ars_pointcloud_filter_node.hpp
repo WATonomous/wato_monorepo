@@ -43,7 +43,7 @@ private:
   // ROS2 Subscriber listening to "unfilteredRadarRight" topic
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_right_sub_;
 
-  // ROS2 publisher that sends filtered messages from left and right radar to the "processed" topic
+  // ROS2 Publisher that sends filtered messages from left and right radar to the "processed" topic
   rclcpp::Publisher<radar_msgs::msg::RadarPacket>::SharedPtr left_right_pub_;
 
   // An object containing methods for near and far scan filters
