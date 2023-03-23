@@ -8,7 +8,7 @@ ContinentalPointCloudFilterNode::ContinentalPointCloudFilterNode()
 : Node("continental_point_cloud_filter")
 {
   /**
-  * @note Default values are already declared in yaml file
+  * @note Default values are already declared in yaml file.
   */
   this->declare_parameter("filter_mode", "continental");
   this->declare_parameter("scan_mode", "near");
@@ -47,9 +47,9 @@ void ContinentalPointCloudFilterNode::unfiltered_continental_radar_right_callbac
 {
   /**
   * @brief Depending on the scan mode ("near", "far", "nearfar"),
-  *        send incoming unfiltered msgs to common_scan_filter or near_far_scan_filter.
-  *        Append filtered detections to the buffer packets.
-  *        Publish packet when ready to be published.
+  *    send incoming unfiltered msgs to common_scan_filter or near_far_scan_filter.
+  *    Append filtered detections to the buffer packets.
+  *    Publish packet when ready to be published.
   */
   if (parameters.scan_mode == "near" || parameters.scan_mode == "far") {
     radar_msgs::msg::RadarPacket publish_packet;
@@ -67,7 +67,7 @@ void ContinentalPointCloudFilterNode::unfiltered_continental_radar_right_callbac
 }
 
 /**
-* @note Implementation below is the same as the right callback function
+* @note Implementation below is the same as the right callback function.
 */
 void ContinentalPointCloudFilterNode::unfiltered_continental_radar_left_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)

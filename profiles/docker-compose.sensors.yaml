@@ -8,5 +8,6 @@ services:
         - "${CONTINENTAL_DRIVER_IMAGE:?}:${CACHE_FROM_TAG}"
         - "${CONTINENTAL_DRIVER_IMAGE:?}:develop"
     image: "${CONTINENTAL_DRIVER_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/sensor_interfacing/ContinentalPointCloudFilter:/home/docker/ament_ws/src/ContinentalPointCloudFilter
+      - ../src/sensor_interfacing/continental_driver:/home/docker/ament_ws/src/continental_driver
