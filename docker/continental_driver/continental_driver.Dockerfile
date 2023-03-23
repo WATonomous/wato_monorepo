@@ -23,7 +23,7 @@ USER docker:docker
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-COPY src/sensor_interfacing/ContinentalPointCloudFilter ContinentalPointCloudFilter
+COPY src/sensor_interfacing/continental_driver continental_driver
 COPY src/wato_msgs/radar_msgs radar_msgs
 
 WORKDIR /home/docker/ament_ws
@@ -38,6 +38,6 @@ COPY docker/.bashrc /home/docker/.bashrc
 
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 
-ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
 
 CMD ["tail", "-f", "/dev/null"]
