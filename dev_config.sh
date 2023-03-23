@@ -63,7 +63,7 @@ SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
 
 # Sensor Interfacing 
-RADAR_DRIVER_IMAGE=${RADAR_DRIVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_driver"}
+CONTINENTAL_DRIVER_IMAGE=${CONTINENTAL_DRIVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/continental_driver"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -92,7 +92,7 @@ echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
 
 
-echo "RADAR_DRIVER_IMAGE=$RADAR_DRIVER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CONTINENTAL_DRIVER_IMAGE=$CONTINENTAL_DRIVER_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"

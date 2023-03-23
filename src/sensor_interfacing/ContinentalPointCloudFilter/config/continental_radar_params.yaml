@@ -1,6 +1,6 @@
-ars_point_cloud_filter:
+continental_point_cloud_filter:
   ros__parameters:
-    filter_mode: "ars"
+    filter_mode: "continental"
     vrel_rad: -99999.99
     el_ang: -99999.99
     rcs0: -99999.99

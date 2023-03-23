@@ -5,10 +5,10 @@
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 
-#include "ars_pointcloud_filter.hpp"
+#include "continental_pointcloud_filter.hpp"
 
 
-class ARSPointCloudFilterFixtureTest : public ::testing::Test
+class ContinentalPointCloudFilterFixtureTest : public ::testing::Test
 {
 public:
   static constexpr double DEFAULT_FILTER_PARAM = -9999.99;
@@ -29,8 +29,8 @@ public:
   }
 
 protected:
-  filtering::ARSPointCloudFilter pointcloudfilter;
-  filtering::ARSPointCloudFilter::filter_parameters parameters;
+  filtering::ContinentalPointCloudFilter pointcloudfilter;
+  filtering::ContinentalPointCloudFilter::filter_parameters parameters;
 };
 
 // Common Scan Filter Test
@@ -38,7 +38,7 @@ protected:
 /**
 * @brief Checks if check_scan_type() correctly identifies if a packet is NEAR or FAR.
 */
-TEST_F(ARSPointCloudFilterFixtureTest, CheckScanType)
+TEST_F(ContinentalPointCloudFilterFixtureTest, CheckScanType)
 {
   // Near Scan message
   auto msg_0 = std::make_shared<radar_msgs::msg::RadarPacket>();
@@ -64,7 +64,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, CheckScanType)
 * @brief Sends 18 near scan packets with the same timestamp and checks if it returns a
 *        complete packet ready to be published.
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearScanPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteNearScanPackets)
 {
   SetUp("near");
 
@@ -96,7 +96,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearScanPackets)
 * @brief Sends 12 far scan packets with the same timestamp and checks if it returns a
 *        complete packet ready to be published.
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteFarScanPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteFarScanPackets)
 {
   SetUp("far");
 
@@ -129,7 +129,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteFarScanPackets)
 * @brief Sends 18 packets that are the same (timestamp 1), and 18 packets with a new timestamp
 *        (timestamp 2) and checks if it returns a complete packet ready to be published.
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendTwoDifferentScanPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendTwoDifferentScanPackets)
 {
   SetUp("near");
 
@@ -184,7 +184,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendTwoDifferentScanPackets)
 * @brief Sends incomplete packets (5 that are the same and
          1 packet after that is different in timestamp).
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteScanPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteScanPackets)
 {
   SetUp("near");
 
@@ -235,7 +235,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteScanPackets)
 /**
 * @brief Sends far scan packets when in near scan mode and checks if it filters correctly.
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendFarScanPacketsInNearMode)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendFarScanPacketsInNearMode)
 {
   SetUp("near");
 
@@ -277,7 +277,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendFarScanPacketsInNearMode)
 /**
 * @brief Checks if a packet with several detections is filtered out correctly.
 */
-TEST_F(ARSPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
+TEST_F(ContinentalPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
 {
   SetUp("near", DEFAULT_FILTER_PARAM, DEFAULT_FILTER_PARAM, 70, 100, 40, DEFAULT_FILTER_PARAM);
 
@@ -339,7 +339,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
 * @brief Sends 18 Near Scan Packets and 12 Far Scan Packets. Checks if it returns a
 *        complete packet ready to be published.
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 {
   SetUp("nearfar");
 
@@ -389,7 +389,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 * @brief Sends 18 Near scan (Scan 1), 10 far scan (Scan 1), 3 Near scan (Scan 2),
 *        2 far scan (Scan 1), 15 Near scan (Scan 2), 12 Far scan (Scan 2)
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendMultipleScanPackets)
 {
   SetUp("nearfar");
 
@@ -490,7 +490,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendMultipleScanPackets)
 * @brief Sends 5 Near (scan 1), Send 12 far (scan 1) and checks if it returns the correct packet.
 *        (Special Case)
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 {
   SetUp("nearfar");
 
@@ -571,7 +571,7 @@ TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 * @brief Sends 7 far (scan 1), Send 1 Near (scan 2),
 *        then checks if the 7 far (scan 1) is discarded (Special case)
 */
-TEST_F(ARSPointCloudFilterFixtureTest, SendIncompleteFarPackets)
+TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteFarPackets)
 {
   SetUp("nearfar");
 

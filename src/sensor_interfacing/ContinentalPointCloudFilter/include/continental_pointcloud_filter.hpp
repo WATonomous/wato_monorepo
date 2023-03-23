@@ -1,5 +1,5 @@
-#ifndef ARS_POINTCLOUD_FILTER_HPP_
-#define ARS_POINTCLOUD_FILTER_HPP_
+#ifndef CONTINENTAL_POINTCLOUD_FILTER_HPP_
+#define CONTINENTAL_POINTCLOUD_FILTER_HPP_
 
 #include <string>
 #include "rclcpp/rclcpp.hpp"
@@ -11,7 +11,7 @@ namespace filtering
 {
 
 /**
-* @brief The ARSPointCloudFilter is responsible for filtering and publishing radar detections
+* @brief The ContinentalPointCloudFilter is responsible for filtering, and publishing radar detections
 *        coming from the ARS430 radar sensor in the Radar ROS2 pipeline. These incoming
 *        detections are first organized and transformed into custom ROS messages/packets prior
 *        to being sent into this node. Note each message has detections of two types.
@@ -30,10 +30,10 @@ namespace filtering
 *        especially if they are also from two seperate scans. To solve this, the node uses the double
 *        buffer algorithm.
 */
-class ARSPointCloudFilter
+class ContinentalPointCloudFilter
 {
 public:
-  ARSPointCloudFilter();
+  ContinentalPointCloudFilter();
   typedef struct
   {
     std::string scan_mode;
@@ -63,7 +63,7 @@ public:
   *        and starts from scratch with a new scan.
   */
   bool common_scan_filter(
-    const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+    const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_continental,
     const filter_parameters & parameters,
     radar_msgs::msg::RadarPacket & publish_packet);
 
@@ -82,13 +82,14 @@ public:
   *           each far scan packet that is recieved from that scan.
   */
   bool near_far_scan_filter(
-    const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+    const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_continental,
     const filter_parameters & parameters,
     radar_msgs::msg::RadarPacket & publish_packet);
+
   /**
   * @brief Checks the Event ID of a message and returns which scan it is (NEAR OR FAR)
   */
-  scan_type check_scan_type(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars);
+  scan_type check_scan_type(const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_continental);
 
   /**
   * @brief Resets all scan states (timestamp, packet count, and publish status)
@@ -100,7 +101,7 @@ private:
   * @brief Pointfilter() filters an incoming radar packet based on set thresholds
   */
   radar_msgs::msg::RadarPacket point_filter(
-    const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars,
+    const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_continental,
     double snr_threshold,
     double AzAng0_threshold,
     double range_threshold,
@@ -137,4 +138,4 @@ private:
 
 }  // namespace filtering
 
-#endif  // ARS_POINTCLOUD_FILTER_HPP_
+#endif  // CONTINENTAL_POINTCLOUD_FILTER_HPP_
