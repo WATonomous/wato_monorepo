@@ -1,4 +1,4 @@
-FROM ros:foxy AS base
+FROM ros:humble AS base
 
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
@@ -23,7 +23,7 @@ USER docker:docker
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-COPY src/sensor_interfacing/ARSPointCloudFilter ARSPointCloudFilter
+COPY src/sensor_interfacing/ContinentalPointCloudFilter ContinentalPointCloudFilter
 COPY src/wato_msgs/radar_msgs radar_msgs
 
 WORKDIR /home/docker/ament_ws
