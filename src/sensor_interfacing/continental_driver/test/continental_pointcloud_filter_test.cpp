@@ -62,7 +62,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, CheckScanType)
 
 /**
 * @brief Sends 18 near scan packets with the same timestamp and checks if it returns a
-*        complete packet ready to be published.
+*    complete packet ready to be published.
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteNearScanPackets)
 {
@@ -94,7 +94,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteNearScanPackets)
 
 /**
 * @brief Sends 12 far scan packets with the same timestamp and checks if it returns a
-*        complete packet ready to be published.
+*    complete packet ready to be published.
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteFarScanPackets)
 {
@@ -127,7 +127,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteFarScanPackets)
 
 /**
 * @brief Sends 18 packets that are the same (timestamp 1), and 18 packets with a new timestamp
-*        (timestamp 2) and checks if it returns a complete packet ready to be published.
+*    (timestamp 2) and checks if it returns a complete packet ready to be published.
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendTwoDifferentScanPackets)
 {
@@ -182,7 +182,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, SendTwoDifferentScanPackets)
 
 /**
 * @brief Sends incomplete packets (5 that are the same and
-         1 packet after that is different in timestamp).
+*    1 packet after that is different in timestamp).
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteScanPackets)
 {
@@ -337,7 +337,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, CheckIfDetectionsFiltered)
 
 /**
 * @brief Sends 18 Near Scan Packets and 12 Far Scan Packets. Checks if it returns a
-*        complete packet ready to be published.
+*    complete packet ready to be published.
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 {
@@ -387,7 +387,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, SendCompleteNearAndFarPackets)
 
 /**
 * @brief Sends 18 Near scan (Scan 1), 10 far scan (Scan 1), 3 Near scan (Scan 2),
-*        2 far scan (Scan 1), 15 Near scan (Scan 2), 12 Far scan (Scan 2)
+*    2 far scan (Scan 1), 15 Near scan (Scan 2), 12 Far scan (Scan 2).
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendMultipleScanPackets)
 {
@@ -488,7 +488,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, SendMultipleScanPackets)
 
 /**
 * @brief Sends 5 Near (scan 1), Send 12 far (scan 1) and checks if it returns the correct packet.
-*        (Special Case)
+*    (Special Case).
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 {
@@ -569,7 +569,7 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteNearPackets)
 
 /**
 * @brief Sends 7 far (scan 1), Send 1 Near (scan 2),
-*        then checks if the 7 far (scan 1) is discarded (Special case)
+*    then checks if the 7 far (scan 1) is discarded (Special case).
 */
 TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteFarPackets)
 {
@@ -634,23 +634,3 @@ TEST_F(ContinentalPointCloudFilterFixtureTest, SendIncompleteFarPackets)
   EXPECT_EQ(8, static_cast<int>(publish_packet.timestamp));
   EXPECT_EQ(30, publish_packet.detections.size());
 }
-
-
-// Unit test cases (Common Scan Filter)
-// 1. Send 18 near scan packets and check if it returns a complete 18 packet ready to be published
-// 2. Send 12 far scan packets and check if it returns a complete 12 packet ready to be published
-// 3. Send 18 that are the same (timestamp 1), and 18 that are different (timestamp 2)
-// 4. Send incomplete packets (5 that are the same) (1 that is different in timestamp)
-// 5. Send far scan packets when in near scan mode, does it filter correctly
-// 6. Check if it filters out all the packets and returns an empty packet
-//    (pass thresholds into pointfilter)
-
-// Unit Test Cases (Double Buffer Algorithm)
-// 1. Send 18 Near Scan Packets and 12 Far Scan Packets
-//    (It shouldn't publish after 18 packets. It should publish together
-//    when there is also complete 12 far scan packets)
-// 2. 18 Near scan (scan1), 10 far scan (scan1), 3 Near (scan 2), 2 far (scan 1),
-//    (SCAN 1 SHOULD BE PUBLISHED) 15 Near (scan 2), 12 Far (scan2) (SCAN 2 GETS PUBLISHED HERE)
-// 3. Send 7 far (scan 1) (NEAR SCANS WERE IGNORED), Send 1 Near (Scan 2),
-//    Send 1 Far (Scan 2)then check if the 7 far is published
-// 4. Send 5 Near (scan 1), Send 12 far (scan 1)
