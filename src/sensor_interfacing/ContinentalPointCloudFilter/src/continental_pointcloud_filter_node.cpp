@@ -1,23 +1,23 @@
 #include <chrono>
 #include <memory>
 
-#include "ars_pointcloud_filter_node.hpp"
-#include "ars_pointcloud_filter.hpp"
+#include "continental_pointcloud_filter_node.hpp"
+#include "continental_pointcloud_filter.hpp"
 
-ARSPointCloudFilterNode::ARSPointCloudFilterNode()
-: Node("ars_point_cloud_filter")
+ContinentalPointCloudFilterNode::ContinentalPointCloudFilterNode()
+: Node("continental_point_cloud_filter")
 {
   /**
   * @note Default values are already declared in yaml file
   */
-  this->declare_parameter("filter_mode");
-  this->declare_parameter("scan_mode");
-  this->declare_parameter("vrel_rad");
-  this->declare_parameter("el_ang");
-  this->declare_parameter("rcs0");
-  this->declare_parameter("snr");
-  this->declare_parameter("range");
-  this->declare_parameter("az_ang0");
+  this->declare_parameter("filter_mode", "continental");
+  this->declare_parameter("scan_mode", "near");
+  this->declare_parameter("vrel_rad", 0);
+  this->declare_parameter("el_ang", 0);
+  this->declare_parameter("rcs0", 0);
+  this->declare_parameter("snr", 0);
+  this->declare_parameter("range", 0);
+  this->declare_parameter("az_ang0", 0);
 
   parameters.scan_mode = this->get_parameter("scan_mode").as_string();
   parameters.vrel_rad_param = this->get_parameter("vrel_rad").as_double();
@@ -30,19 +30,19 @@ ARSPointCloudFilterNode::ARSPointCloudFilterNode()
   raw_left_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>(
     "unfilteredRadarLeft",
     1, std::bind(
-      &ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback,
+      &ContinentalPointCloudFilterNode::unfiltered_continental_radar_left_callback,
       this, std::placeholders::_1));
 
   raw_right_sub_ = this->create_subscription<radar_msgs::msg::RadarPacket>(
     "unfilteredRadarRight",
     1, std::bind(
-      &ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback,
+      &ContinentalPointCloudFilterNode::unfiltered_continental_radar_right_callback,
       this, std::placeholders::_1));
 
   left_right_pub_ = this->create_publisher<radar_msgs::msg::RadarPacket>("processed", 20);
 }
 
-void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
+void ContinentalPointCloudFilterNode::unfiltered_continental_radar_right_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
   /**
@@ -69,7 +69,7 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_right_callback(
 /**
 * @note Implementation below is the same as the right callback function
 */
-void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
+void ContinentalPointCloudFilterNode::unfiltered_continental_radar_left_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
   if (parameters.scan_mode == "near" || parameters.scan_mode == "far") {
@@ -90,7 +90,7 @@ void ARSPointCloudFilterNode::unfiltered_ars_radar_left_callback(
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<ARSPointCloudFilterNode>());
+  rclcpp::spin(std::make_shared<ContinentalPointCloudFilterNode>());
   rclcpp::shutdown();
   return 0;
 }

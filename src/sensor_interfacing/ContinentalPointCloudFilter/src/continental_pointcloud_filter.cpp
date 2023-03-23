@@ -2,13 +2,13 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "ars_pointcloud_filter_node.hpp"
-#include "ars_pointcloud_filter.hpp"
+#include "continental_pointcloud_filter_node.hpp"
+#include "continental_pointcloud_filter.hpp"
 
 namespace filtering
 {
 
-ARSPointCloudFilter::ARSPointCloudFilter()
+ContinentalPointCloudFilter::ContinentalPointCloudFilter()
 {
   near_scan_single_.timestamp_ = 0;
   near_scan_single_.packet_count_ = 0;
@@ -36,13 +36,13 @@ ARSPointCloudFilter::ARSPointCloudFilter()
   default_timestamp_ = 0;
 }
 
-radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
-  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_ars, double snr_threshold,
+radar_msgs::msg::RadarPacket ContinentalPointCloudFilter::point_filter(
+  const radar_msgs::msg::RadarPacket::SharedPtr unfiltered_continental, double snr_threshold,
   double AzAng0_threshold, double range_threshold, double vrel_rad_threshold,
   double el_ang_threshold, double rcs_threshold)
 {
-  radar_msgs::msg::RadarPacket filtered_ars;
-  for (auto detection : unfiltered_ars->detections) {
+  radar_msgs::msg::RadarPacket filtered_continental;
+  for (auto detection : unfiltered_continental->detections) {
     if (detection.snr < snr_threshold) {
       continue;
     }
@@ -61,12 +61,12 @@ radar_msgs::msg::RadarPacket ARSPointCloudFilter::point_filter(
     if (detection.rcs0 < rcs_threshold) {
       continue;
     }
-    filtered_ars.detections.push_back(detection);
+    filtered_continental.detections.push_back(detection);
   }
-  return filtered_ars;
+  return filtered_continental;
 }
 
-ARSPointCloudFilter::scan_type ARSPointCloudFilter::check_scan_type(
+ContinentalPointCloudFilter::scan_type ContinentalPointCloudFilter::check_scan_type(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
   if (msg->event_id == 3 || msg->event_id == 4 || msg->event_id == 5) {
@@ -76,7 +76,7 @@ ARSPointCloudFilter::scan_type ARSPointCloudFilter::check_scan_type(
   }
 }
 
-void ARSPointCloudFilter::reset_scan_states()
+void ContinentalPointCloudFilter::reset_scan_states()
 {
   near_scan_[buffer_index_].timestamp_ = 0;
   near_scan_[buffer_index_].publish_status_ = false;
@@ -87,7 +87,7 @@ void ARSPointCloudFilter::reset_scan_states()
   far_scan_[buffer_index_].packet_count_ = 0;
 }
 
-bool ARSPointCloudFilter::common_scan_filter(
+bool ContinentalPointCloudFilter::common_scan_filter(
   const radar_msgs::msg::RadarPacket::SharedPtr msg,
   const filter_parameters & parameters,
   radar_msgs::msg::RadarPacket & publish_packet)
@@ -139,7 +139,7 @@ bool ARSPointCloudFilter::common_scan_filter(
   return false;
 }
 
-bool ARSPointCloudFilter::near_far_scan_filter(
+bool ContinentalPointCloudFilter::near_far_scan_filter(
   const radar_msgs::msg::RadarPacket::SharedPtr msg,
   const filter_parameters & parameters,
   radar_msgs::msg::RadarPacket & publish_packet)

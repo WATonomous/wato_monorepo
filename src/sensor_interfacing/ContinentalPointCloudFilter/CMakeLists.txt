@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(ars_pointcloud_filter)
+project(continental_pointcloud_filter)
 
 # Set compiler to use C++ 17 standard
 if(NOT CMAKE_CXX_STANDARD)
@@ -20,13 +20,13 @@ find_package(radar_msgs REQUIRED) # Custom package containing ROS2 messages
 # against it to access defined methods and classes.
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
-add_library(arspointcloudfilter_lib
-  src/ars_pointcloud_filter.cpp)
+add_library(continentalpointcloudfilter_lib
+  src/continental_pointcloud_filter.cpp)
 # Indicate to compiler where to search for header files
-target_include_directories(arspointcloudfilter_lib
+target_include_directories(continentalpointcloudfilter_lib
   PUBLIC include)
 # Add ROS2 dependencies required by package
-ament_target_dependencies(arspointcloudfilter_lib rclcpp radar_msgs)
+ament_target_dependencies(continentalpointcloudfilter_lib rclcpp radar_msgs)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
@@ -48,24 +48,24 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 
   # Create test executable from source files
-  ament_add_gtest(ars_pointcloud_filter_test test/ars_pointcloud_filter_test.cpp)
-  # Link to the previously built library to access ARSPointCloudFilter classes and methods
-  target_link_libraries(ars_pointcloud_filter_test arspointcloudfilter_lib)
+  ament_add_gtest(continental_pointcloud_filter_test test/continental_pointcloud_filter_test.cpp)
+  # Link to the previously built library to access ContinentalPointCloudFilter classes and methods
+  target_link_libraries(continental_pointcloud_filter_test continentalpointcloudfilter_lib)
 
   # Copy executable to installation location
   install(TARGETS
-    ars_pointcloud_filter_test
+    continental_pointcloud_filter_test
     DESTINATION lib/${PROJECT_NAME})
 endif()
 
 # Create ROS2 node executable from source files
-add_executable(ars_pointcloud_filter_node src/ars_pointcloud_filter_node.cpp)
+add_executable(continental_pointcloud_filter_node src/continental_pointcloud_filter_node.cpp)
 # Link to the previously built library to access Aggregator classes and methods
-target_link_libraries(ars_pointcloud_filter_node arspointcloudfilter_lib)
+target_link_libraries(continental_pointcloud_filter_node continentalpointcloudfilter_lib)
 
 # Copy executable to installation location
 install(TARGETS
-  ars_pointcloud_filter_node
+  continental_pointcloud_filter_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch files to installation location

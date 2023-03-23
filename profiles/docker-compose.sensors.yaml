@@ -1,14 +1,12 @@
 version: "3.8"
 services:
-  radar_driver:
+  continental_driver:
     build:
       context: ..
-      dockerfile: docker/radar_driver/radar_driver.Dockerfile
+      dockerfile: docker/continental_driver/continental_driver.Dockerfile
       cache_from: 
-        - "${RADAR_DRIVER_IMAGE:?}:${CACHE_FROM_TAG}"
-        - "${RADAR_DRIVER_IMAGE:?}:develop"
-    image: "${RADAR_DRIVER_IMAGE:?}:${TAG}"
+        - "${CONTINENTAL_DRIVER_IMAGE:?}:${CACHE_FROM_TAG}"
+        - "${CONTINENTAL_DRIVER_IMAGE:?}:develop"
+    image: "${CONTINENTAL_DRIVER_IMAGE:?}:${TAG}"
     volumes:
-      - ../src/sensor_interfacing/ARSPointCloudFilter:/home/docker/ament_ws/src/ARSPointCloudFilter
-   
- #command: roslaunch radar_driver radarROSbag.launch
+      - ../src/sensor_interfacing/ContinentalPointCloudFilter:/home/docker/ament_ws/src/ContinentalPointCloudFilter
