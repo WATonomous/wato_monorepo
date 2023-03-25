@@ -2,7 +2,7 @@ version: "3.8"
 services:
   data_stream:
     build:
-      context: ..
+      context: $MONOREPO_DIR
       dockerfile: docker/infrastructure/data_stream/data_stream.Dockerfile
       cache_from:
         - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:${TAG}"
