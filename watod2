@@ -13,6 +13,7 @@ function usage {
     echo "  -lp --local-ports               displays ports exposed by applications and shows the"
     echo "                                  ssh local port forwarding commands for each VNC Server found"
     echo "                                  if a docker-compose command is specified, it will be run in the background."
+    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo "  -a --all                        run COMMAND with all profiles enabled. Profiles are defined in ./profiles/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
