@@ -63,6 +63,9 @@ INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uw
 INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_data_stream"}
 INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_foxglove"}
 
+# Perception
+RADAR_RVIZ_IMAGE=${RADAR_RVIZ_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_rviz"}
+
 ## -------------------------- User ID -----------------------------
 
 FIXUID=$(id -u) 

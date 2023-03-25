@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>aggregator</name>
+  <name>radar_rviz</name>
   <version>0.0.0</version>
   <description>A sample ROS package for pubsub communication</description>
 
@@ -10,7 +10,7 @@
   <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
-  <depend>sample_msgs</depend>
+  <depend>radar_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
