@@ -16,11 +16,6 @@ function usage {
     echo "  -a --all                        run COMMAND with all profiles enabled. Profiles are defined in ./profiles/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
-    echo "Docker Helpers                                  "
-    echo "  -ils --image-ls                 Lists all wato_monorepo images under your branch tag"
-    echo "  -irm --image-rm                 Deletes/Prunes all wato_monorepo images under your branch tag"
-    echo "  -cls --container-ls             Lists all wato_monorepo containers you own"
-    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo ""
     echo "Examples:" 
     echo "  watod2 up                       start containers (docker-compose up)"
@@ -101,27 +96,6 @@ while [[ $# -gt 0 ]] ; do
         LAUNCH_AUTONOMOUS=1
         shift
         ;;
-
-      # Begin Helpers
-      -ils)
-        # */*/.. to account for git.uwaterloo.ca:5050/watonomous/wato_monorepo/<project>
-        docker images --filter=reference="*/*/*/*:$TAG" 
-        shift
-        ;;
-      -irm)
-        if [ "$TAG" == "main" ]; then
-            echo "cannot remove images tagged with the main branch"
-        usage
-        fi
-        docker rmi -f $(docker images --filter=reference="*/*/*/*:$TAG" -q)
-        shift
-        ;;
-      -cls)
-        docker ps -f name=$COMPOSE_PROJECT_NAME
-        shift
-        ;; 
-
-      # Help
       -h|--help) # in case you got this far, but still need help :)
         usage
         ;;
