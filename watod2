@@ -5,6 +5,7 @@ programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
 MONO_DIR="$(dirname "$(realpath "$0")")"
 PROFILES_DIR="$MONO_DIR/profiles"
 ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
+
 function usage {
     echo "Usage: $programname [OPTIONS]... [COMMAND]..."
     echo "Executes docker-compose COMMAND in the the monorepo with appropriate environment variables."
@@ -143,7 +144,9 @@ if [ ! -z $PRINT_LOCAL_PORTS ]; then
     # in the array, which often is the domain name that can be accessed
     # externally
     read -ra HOSTNAME <<< $(hostname -A)
+    echo "========================================================================="
     echo "Ports exposed by running containers:"
+    echo "========================================================================="
     LOCAL_FORWARD_ALL=""
 
     PORTS_STRING=""
@@ -153,7 +156,7 @@ if [ ! -z $PRINT_LOCAL_PORTS ]; then
         VNC_PORT=${VNC_PORT:0:5} # Strip unncessary characters
 
         if [ ! -z $VNC_PORT ]; then
-            echo "$SERVICE exposes a VNC Server at $HOSTNAME:$VNC_PORT"
+            echo "$SERVICE service exposes a VNC Server at $HOSTNAME:$VNC_PORT"
             
             LOCAL_FORWARD="-L ${VNC_PORT}:localhost:${VNC_PORT}"
             LOCAL_FORWARD_ALL="${LOCAL_FORWARD_ALL} $LOCAL_FORWARD"
@@ -165,11 +168,10 @@ if [ ! -z $PRINT_LOCAL_PORTS ]; then
         fi
     done
     
+    echo "========================================================================="
     echo "To forward all ports locally:"
-    echo ""
     echo "ssh $LOCAL_FORWARD_ALL $USER@$HOSTNAME"
-    echo ""
-    echo "See https://git.uwaterloo.ca/WATonomous/wato_monorepo#editing-code-in-docker-containers for usage details"
+    echo "========================================================================="
 fi
 
 if [ ! -z "$COMPOSE_CMD" ]; then
