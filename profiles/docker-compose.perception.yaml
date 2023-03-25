@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  radar_rviz:
+    build:
+      context: ..
+      dockerfile: docker/radar_object_detection/radar_rviz.Dockerfile
+      cache_from: 
+        - "${RADAR_RVIZ_IMAGE:?}:${CACHE_FROM_TAG}"
+        - "${RADAR_RVIZ_IMAGE:?}:develop"
+    image: "${RADAR_RVIZ_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/perception/radar_object_detection/radar_rviz:/home/docker/ament_ws/src/radar_rviz
