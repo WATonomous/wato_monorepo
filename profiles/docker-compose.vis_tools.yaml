@@ -5,10 +5,9 @@ services:
       context: ..
       dockerfile: docker/infrastructure/vis_tools/vnc.Dockerfile
       cache_from:
-        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-develop"
-    image: "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-${TAG}"
-
+        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}:${TAG}"
+        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}:main"
+    image: "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     ports:
       - "${GUI_TOOLS_VNC_PORT:?}:5900"
