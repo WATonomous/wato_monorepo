@@ -2,8 +2,8 @@
 set -e
 
 programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
-MONO_DIR="$(dirname "$(realpath "$0")")"
-PROFILES_DIR="$MONO_DIR/profiles"
+MONOREPO_DIR="$(dirname "$(realpath "$0")")"
+PROFILES_DIR="$MONOREPO_DIR/profiles"
 ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
 
 function usage {
@@ -31,7 +31,7 @@ function usage {
     exit 0
 }
 function run_compose {
-    cd $MONO_DIR
+    cd $MONOREPO_DIR
     if [ ! -z "$(source $PROFILES_DIR/.env && echo $ACTIVE_PROFILES)" ] && [ -z "$PROFILES" ]; then 
         PROFILES="$(source $PROFILES_DIR/.env && printf -- "-f profiles/docker-compose.%s.yaml " ${ACTIVE_PROFILES[@]})"
     fi
@@ -48,11 +48,11 @@ if [ $# == 0 ]; then
     usage
 fi
 
-# generate .env file from dev_config.sh
+# generate .env file from setup_env.sh
 if [ ! -z $VERBOSE ]; then # if we want to see all verbose coming from setting up env
-    cd $MONO_DIR && bash dev_config.sh
+    cd $MONOREPO_DIR && bash scripts/setup_env.sh
 else
-    cd $MONO_DIR && bash dev_config.sh &> /dev/null
+    cd $MONOREPO_DIR && bash scripts/setup_env.sh &> /dev/null
 fi
 
 # run options
