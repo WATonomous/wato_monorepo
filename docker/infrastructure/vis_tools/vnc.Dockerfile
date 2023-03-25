@@ -1,14 +1,13 @@
-
 # ================= Dependencies ===================
-FROM ros:foxy AS base
+FROM ros:humble AS base
 
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y \
     # Install ROS viz tools
-    ros-foxy-rqt* \
-    ros-foxy-rviz2 \
+    ros-humble-rqt* \
+    ros-humble-rviz2 \
     # misc
     wget curl tmux
 
@@ -29,27 +28,23 @@ RUN USER=docker && \
 
 USER docker:docker
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND noninteractive
 RUN sudo chsh -s /bin/bash
 ENV SHELL=/bin/bash
-
-
 
 # ================= Repositories ===================
 FROM base as repo
 
-RUN mkdir -p ~/colcon/src
+RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
 COPY src/wato_msgs/sample_msgs sample_msgs
-
-# Download rviz 
-# RUN git clone --branch foxy https://github.com/ros2/rviz.git
+# If needed, you can copy over rviz configs here
 
 WORKDIR /home/docker/ament_ws
-RUN . /opt/ros/foxy/setup.sh && \
+RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
-    rosdep install -i --from-path src --rosdistro foxy -y && \
+    rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
     --cmake-args -DCMAKE_BUILD_TYPE=Release
 
@@ -72,8 +67,6 @@ COPY --chown=docker docker/infrastructure/vis_tools/supervisord.conf /etc/superv
 RUN chown -R docker:docker /etc/supervisor
 
 RUN mkdir /home/docker/ament_ws/src/simulation_rviz_configs
-#RUN chown -R docker:docker /home/docker/ament_ws/src/simulation_rviz_configs 
-# VOLUME /home/docker/ament_ws/src/simulation_rviz_configs
 RUN chmod 777 /home/docker/ament_ws/src/simulation_rviz_configs
 
 RUN chmod 777 /var/log/supervisor/
