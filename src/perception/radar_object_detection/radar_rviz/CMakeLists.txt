@@ -20,7 +20,7 @@ find_package(radar_msgs REQUIRED) # Custom package containing ROS2 messages
 # against it to access defined methods and classes.
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
-add_library(radar_viz_lib
+add_library(radar_rviz_lib
   src/radar_rviz.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(radar_rviz_lib
