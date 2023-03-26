@@ -7,15 +7,15 @@
 
 namespace processing
 {
-    RadarRvizProcessor::RadarRvizProcessor()
-    {
-        
-    }
 
-    // bool RadarRvizProcessor::convert_packet_to_pointcloud(
-    //     const radar_msgs::msg::RadarPacket::SharedPtr msg)
-    // {
-    //     return false;
-    // }
+RadarRvizProcessor::RadarRvizProcessor()
+{}
+
+bool RadarRvizProcessor::convert_packet_to_pointcloud(
+    const radar_msgs::msg::RadarPacket::SharedPtr msg)
+{
+    return false;
+}
 
 }
+
