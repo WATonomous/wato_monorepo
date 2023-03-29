@@ -4,11 +4,11 @@ services:
     build:
       context: ..
       dockerfile: docker/carla_server/Dockerfile
-      # cache_from:
-      #   - "${CARLA_SERVER_IMAGE:?}-${CACHE_FROM_TAG}"
-      #   - "${CARLA_SERVER_IMAGE:?}-develop"
+      cache_from:
+        - "${CARLA_SERVER_IMAGE:?}:latest"
       args:
         - CARLA_VERSION=0.9.13
+    image: "${CARLA_SERVER_IMAGE:?}:latest"
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
     # ports:
