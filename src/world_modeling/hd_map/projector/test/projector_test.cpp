@@ -5,10 +5,10 @@
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 
-#include "sample.hpp"
+#include "hd_map_projector.hpp"
 
 // Placeholder test
-TEST(SampleTest, DefaultTest)
+TEST(ProjectorTest, DefaultTest)
 {
   EXPECT_DOUBLE_EQ(0.0, 0.0);
 }

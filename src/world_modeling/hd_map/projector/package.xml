@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>sample</name>
+  <name>projector</name>
   <version>0.0.0</version>
-  <description>A sample ROS package for pubsub communication</description>
+  <description>A projector ROS package for pubsub communication</description>
 
   <maintainer email="oleather@watonomous.ca">Owen Leather</maintainer>
   <license>TODO</license>
@@ -11,6 +11,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>sample_msgs</depend>
+  <depend>lanelet2</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
