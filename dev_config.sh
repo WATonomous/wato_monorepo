@@ -36,9 +36,6 @@ TARGET_STAGE=${TARGET_STAGE:-"debug"}
 # Tag to use. Images as formatted as <IMAGE_NAME>:<TARGET_STAGE>-<TAG> with forward slashes replaced with dashes
 TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 
-# Additional tag to cache from
-CACHE_FROM_TAG=${CACHE_FROM_TAG:-$([[ $TAG != "develop" ]] && echo $TAG || echo "__develop_ignore_tag_cache__")}
-
 # ROS hostname + URI for the production profile
 # ROS_IP is the IP that nodes will publish as (client's hostname)
 ROS_HOSTNAME=${ROS_HOSTNAME:-"localhost"}
@@ -48,9 +45,10 @@ ROS_IP=${ROS_IP:-"127.0.0.1"}
 
 # List of active profiles to run, defined in docker-compose.yaml.
 # Possible values:
-#   - production    		:   configs for all containers required in production
-#   - samples               :   starts sample ROS2 pubsub nodes
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-"lidar_object_detection"}
+#   - vis_tools     		  :   starts visualization tools (vnc and foxglove)
+#   - production    		  :   configs for all containers required in production
+#   - samples             :   starts sample ROS2 pubsub nodes
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
 
 # List of profiles to IGNORE when using the --all flag
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
@@ -61,11 +59,6 @@ PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
 SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_aggregator"}
 SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_producer"}
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
-
-LEADERBOARD_IMAGE=${LEADERBOARD_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/leaderboard"}
-CAMERA_OBJECT_DETECTION_IMAGE=${CAMERA_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/camera_object_detection"}
-LIDAR_OBJECT_DETECTION_IMAGE=${LIDAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_object_detection"}
-MULTIMODAL_OBJECT_DETECTION_IMAGE=${MULTIMODAL_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/multimodal_object_detection"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -89,18 +82,14 @@ echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$PROFILES_DIR/.env"
 echo "ROS_IP=$ROS_IP" >> "$PROFILES_DIR/.env"
 echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$PROFILES_DIR/.env"
 
+echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >> "$PROFILES_DIR/.env"
+
 echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
 
-echo "LEADERBOARD_IMAGE=$LEADERBOARD_IMAGE" >> "$PROFILES_DIR/.env"
-echo "CAMERA_OBJECT_DETECTION_IMAGE=$CAMERA_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
-echo "LIDAR_OBJECT_DETECTION_IMAGE=$LIDAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
-echo "MULTIMODAL_OBJECT_DETECTION_IMAGE=$MULTIMODAL_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
-
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"
-echo "CACHE_FROM_TAG=$CACHE_FROM_TAG" >> "$PROFILES_DIR/.env"
 
 echo "FIXUID=$FIXUID" >> "$PROFILES_DIR/.env"
 echo "FIXGID=$FIXGID" >> "$PROFILES_DIR/.env"
