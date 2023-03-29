@@ -33,3 +33,14 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/world_modeling/occupancy/sample:/home/docker/ament_ws/src/sample
+  hd_map_projector:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/hd_map/projector.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_HD_MAP_PROJECTOR_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_HD_MAP_PROJECTOR_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_HD_MAP_PROJECTOR_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/world_modeling/hd_map/projector:/home/docker/ament_ws/src/projector
