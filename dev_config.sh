@@ -68,6 +68,7 @@ INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uw
 
 # Simulation
 CARLA_SERVER_IMAGE=${CARLA_SERVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_server_image"}
+CARLA_ROS2_BRIDGE_IMAGE=${CARLA_ROS2_BRIDGE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_ros2_bridge_image"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -98,6 +99,7 @@ echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "CARLA_SERVER_IMAGE=$CARLA_SERVER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_ROS2_BRIDGE_IMAGE=$CARLA_ROS2_BRIDGE_IMAGE" >> "$PROFILES_DIR/.env"
 
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
