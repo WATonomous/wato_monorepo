@@ -22,9 +22,13 @@ services:
     build:
       context: ..
       dockerfile: docker/carla_ros_bridge/Dockerfile
+      cache_from: 
+        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-develop"
       args:
         - CARLA_VERSION=0.9.13
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+    image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     runtime: nvidia
     #stdin_open: true # docker run -i
