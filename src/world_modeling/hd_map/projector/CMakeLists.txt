@@ -14,6 +14,9 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
+find_package(lanelet2_core REQUIRED) # Lanelet2 Core
+find_package(lanelet2_io REQUIRED) # Lanelet2 IO
+find_package(lanelet2_projection REQUIRED) # Lanelet2 Projection
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -22,14 +25,19 @@ find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 # both the unit test and ROS2 node executables.
 add_library(projector_lib
   src/hd_map_projector.cpp)
-# Indicate to compiler where to search for header files
+
+  # Indicate to compiler where to search for header files
 target_include_directories(projector_lib
   PUBLIC
   include)
+  
 # Add ROS2 dependencies required by package
 ament_target_dependencies(projector_lib
   rclcpp
-  sample_msgs)
+  sample_msgs
+  lanelet2_core
+  lanelet2_io
+  lanelet2_projection)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
