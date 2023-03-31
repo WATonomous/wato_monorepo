@@ -13,7 +13,8 @@ endif()
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
-find_package(radar_msgs REQUIRED) # Custom package containing ROS2 messages
+find_package(sensor_msgs REQUIRED) # ROS2 package containing point cloud messages
+find_package(radar_msgs REQUIRED)  # Custom package containing ROS2 messages
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -26,7 +27,7 @@ add_library(radar_rviz_lib
 target_include_directories(radar_rviz_lib
   PUBLIC include)
 # Add ROS2 dependencies required by package
-ament_target_dependencies(radar_rviz_lib rclcpp radar_msgs)
+ament_target_dependencies(radar_rviz_lib rclcpp radar_msgs sensor_msgs)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
