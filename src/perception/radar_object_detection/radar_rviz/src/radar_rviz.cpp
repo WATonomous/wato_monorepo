@@ -11,10 +11,13 @@ namespace processing
 RadarRvizProcessor::RadarRvizProcessor()
 {}
 
-bool RadarRvizProcessor::convert_packet_to_pointcloud(
+sensor_msgs::msg::PointCloud2 RadarRvizProcessor::convert_packet_to_pointcloud(
     const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
-    return false;
+    sensor_msgs::msg::PointCloud2 packet;
+
+    return packet;
+
 }
 
 }
