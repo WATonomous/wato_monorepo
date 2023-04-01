@@ -6,10 +6,10 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "radar_rviz.hpp"
+#include "radar_rviz_node.hpp"
 
-
-class RadarRvizFixtureTest : public ::testing::Test
+class RadarRvizProcessorNodeFixtureTest : public ::testing::Test
 {
 public:
-  void SetUp(){}
+  void SetUp() {}
 };

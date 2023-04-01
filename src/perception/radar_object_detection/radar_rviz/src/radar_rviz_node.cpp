@@ -1,6 +1,5 @@
-#include <algorithm>
-
-#include "rclcpp/rclcpp.hpp"
+#include <chrono>
+#include <memory>
 
 #include "radar_rviz_node.hpp"
 #include "radar_rviz.hpp"
@@ -13,7 +12,6 @@ RadarRvizProcessorNode::RadarRvizProcessorNode()
     1, std::bind(
       &RadarRvizProcessorNode::process_radar_data_callback,
       this, std::placeholders::_1));
-  
   raw_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("visualization", 20);
 }
 
@@ -26,10 +24,10 @@ void RadarRvizProcessorNode::process_radar_data_callback(
   raw_pub_->publish(publish_packet_point_cloud);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<RadarRvizProcessorNode>());
   rclcpp::shutdown();
   return 0;
 }
-

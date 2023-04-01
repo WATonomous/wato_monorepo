@@ -17,8 +17,7 @@ class RadarRvizProcessorNode : public rclcpp::Node
 {
 public:
   RadarRvizProcessorNode();
-
-private:
+  
   /**
   * @brief A ROS2 subscription node callback used to unpack filtered data from the "processed"
   *    topic.
@@ -27,6 +26,8 @@ private:
   */
   void process_radar_data_callback(
     const radar_msgs::msg::RadarPacket::SharedPtr msg);
+
+private:
 
   // ROS2 Subscriber listening to "processed" topic.
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_sub_;
