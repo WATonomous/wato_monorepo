@@ -12,13 +12,74 @@ RadarRvizProcessor::RadarRvizProcessor()
 {}
 
 sensor_msgs::msg::PointCloud2 RadarRvizProcessor::convert_packet_to_pointcloud(
-    const radar_msgs::msg::RadarPacket::SharedPtr msg)
+  const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
-    sensor_msgs::msg::PointCloud2 packet;
+  // Could be called in another function setup which returns updated point cloud and field
+  sensor_msgs::msg::PointCloud2 point_cloud;
+  sensor_msgs::msg::PointField point_field;
 
-    return packet;
+  point_cloud.header = msg->header;
+  point_cloud.height = 1;
+  point_cloud.width = 0;
+  point_cloud.is_bigendian = false;
+  point_cloud.point_step = 16;
+  point_cloud.row_step = 0;
+  point_cloud.is_dense = true;
+  point_field.datatype = sensor_msgs::msg::PointField::FLOAT32;
+  point_field.count = 1;
 
+  // X Coordinate - Point Field
+  point_field.name = "x";
+  point_field.offset = 0;
+  point_cloud.fields.push_back(point_field);
+
+  // Y Coordinate - Point Field
+  point_field.name = "y";
+  point_field.offset = 4;
+  point_cloud.fields.push_back(point_field);
+
+  // Z Coordinate - Point Field
+  point_field.name = "z";
+  point_field.offset = 8;
+  point_cloud.fields.push_back(point_field);
+
+  // Intensity - Point Field
+  point_field.name = "intensity";
+  point_field.offset = 12;
+  point_cloud.fields.push_back(point_field);
+
+  // Convert data to 4 bytes (little endian)
+  uint8_t * tmp_ptr;
+  for (uint8_t index = 0; index < msg->detections.size(); index++) {
+    // Position x - point cloud conversion
+    tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].pos_x));
+    for (int byte = 0; byte < 4; byte++) {
+      point_cloud.data.push_back(tmp_ptr[byte]);
+    }
+
+    // Position y - point cloud conversion
+    tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].pos_y));
+    for (int byte = 0; byte < 4; byte++) {
+      point_cloud.data.push_back(tmp_ptr[byte]);
+    }
+
+    // Position z - point cloud conversion
+    tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].pos_z));
+    for (int byte = 0; byte < 4; byte++) {
+      point_cloud.data.push_back(tmp_ptr[byte]);
+    }
+
+    // intensity (rcs0) - point cloud conversion
+    tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].rcs0));
+    for (int byte = 0; byte < 4; byte++) {
+      point_cloud.data.push_back(tmp_ptr[byte]);
+    }
+    point_cloud.width++;
+  }
+
+  point_cloud.row_step = point_cloud.width * point_cloud.point_step;
+  return point_cloud;
 }
 
-}
+}  // namespace processing
 
