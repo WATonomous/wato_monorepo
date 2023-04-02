@@ -1,5 +1,5 @@
 # Sample Python Project
-A sample ROS2 project used as a reference for migrating ROS Python nodes to ROS2. Highlights coding conventions and testing practices in ROS2.
+A sample ROS2 project used as reference for migrating ROS Python nodes to ROS2. Highlights coding conventions and testing practices in ROS2.
 
 ![Architecture](https://user-images.githubusercontent.com/65926174/213855531-8a663eac-8637-4d8a-adb3-9982d140f7b8.png)
 Each ROS2 node is containerized([Producer](../../../docker/samples/python/producer.Dockerfile), [Transformer](../../../docker/samples/python/transformer.Dockerfile), [Aggregator](../../../docker/samples/python/aggregator.Dockerfile)) and communicate with each other using ROS2 publishers and subscribers.
@@ -21,7 +21,7 @@ To configure watod2, update `dev_config.local.sh` to include the samples profile
 #!/bin/bash
 from dev_config.sh
 
-ACTIVE_PROFILES="samples"
+ACTIVE_PROFILES="samples_python"
 ```
 
 Then bring up the containers with,

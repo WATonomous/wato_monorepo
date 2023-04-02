@@ -13,8 +13,13 @@ class Transformer(Node):
 
         self.FilteredArray = []
 
+
+        self.declare_parameter('message_length', 5)
+        self.message_length = self.get_parameter('message_length').value
+
+
     def check_msg_validity(self, msg):
-        if msg.valid == 1:
+        if msg.valid:
             self.deserialize_data(msg)
         else:
             self.get_logger().info('INVALID MSG')
@@ -25,7 +30,7 @@ class Transformer(Node):
         unfiltered_array = msg.data
         unfiltered_array.split(";")
 
-        filtered_msg.pos_x = float(unfiltered_array[unfiltered_array.find("x") + 2])
+        filtered_msg.pos_x = float(unfiltered_array[unfiltered_array.find("x") + 2]) #the plus 2 here is just sloppy code by me to get to the right index ;o
         filtered_msg.pos_y = float(unfiltered_array[unfiltered_array.find("y") + 2])
         filtered_msg.pos_z = float(unfiltered_array[unfiltered_array.find("z") + 2])
 
@@ -36,10 +41,10 @@ class Transformer(Node):
         filtered_array = FilteredArray()
 
 
-        if len(self.FilteredArray) < 10:
+        if len(self.FilteredArray) < self.message_length:
             self.FilteredArray.append(msg)
 
-        elif len(self.FilteredArray) == 10:
+        elif len(self.FilteredArray) == self.message_length:
             filtered_array.packets = self.FilteredArray
             self.publisher_.publish(filtered_array)
             self.FilteredArray.clear()
