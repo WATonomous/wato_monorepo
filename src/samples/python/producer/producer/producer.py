@@ -13,18 +13,24 @@ class Producer(Node):
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.serialize_data)
 
-        self.pos_x = 0
-        self.pos_y = 0
-        self.pos_z = 0
+        # Declare and get the parameters
+        self.declare_parameter('velocity', 0.1)
+        self.declare_parameter('pos_x', 0.0)
+        self.declare_parameter('pos_y', 0.0)
+        self.declare_parameter('pos_z', 0.0)
+
+        self.pos_x = self.get_parameter('pos_x').value
+        self.pos_y = self.get_parameter('pos_y').value
+        self.pos_z = self.get_parameter('pos_z').value
 
     def set_velocity(self, velocity):
         velocity_ = velocity
         return velocity_
 
     def produce_data(self):
-        self.pos_x += self.set_velocity(2.2)
-        self.pos_y += self.set_velocity(1.5)
-        self.pos_z += self.set_velocity(1.3)
+        self.pos_x += self.set_velocity(self.get_parameter('velocity').value)
+        self.pos_y += self.set_velocity(self.get_parameter('velocity').value)
+        self.pos_z += self.set_velocity(self.get_parameter('velocity').value)
 
     def serialize_data(self):
         self.produce_data()
