@@ -17,7 +17,6 @@ class RadarRvizProcessor
 public:
   RadarRvizProcessor();
 
-  // Public for now
   sensor_msgs::msg::PointCloud2 convert_packet_to_pointcloud(
     const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
