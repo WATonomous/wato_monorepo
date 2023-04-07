@@ -14,11 +14,13 @@ RadarRvizProcessor::RadarRvizProcessor()
 sensor_msgs::msg::PointCloud2 RadarRvizProcessor::convert_packet_to_pointcloud(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
+  std::string radar_frame = "radar_fixed";
   // Could be called in another function setup which returns updated point cloud and field
   sensor_msgs::msg::PointCloud2 point_cloud;
   sensor_msgs::msg::PointField point_field;
 
   point_cloud.header = msg->header;
+  point_cloud.header.frame_id = radar_frame; 
   point_cloud.height = 1;
   point_cloud.width = 0;
   point_cloud.is_bigendian = false;
@@ -70,7 +72,8 @@ sensor_msgs::msg::PointCloud2 RadarRvizProcessor::convert_packet_to_pointcloud(
     }
 
     // intensity (rcs0) - point cloud conversion
-    tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].rcs0));
+    float intensity = (msg->detections[index].rcs0 / 2.0) + 50.0;
+    tmp_ptr = reinterpret_cast<uint8_t *>(&(intensity));
     for (int byte = 0; byte < 4; byte++) {
       point_cloud.data.push_back(tmp_ptr[byte]);
     }
