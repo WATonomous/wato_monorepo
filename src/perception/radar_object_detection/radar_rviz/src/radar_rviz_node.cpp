@@ -18,7 +18,6 @@ RadarRvizProcessorNode::RadarRvizProcessorNode()
 void RadarRvizProcessorNode::process_radar_data_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
-  // Temporary point cloud data
   sensor_msgs::msg::PointCloud2 publish_packet_point_cloud;
   publish_packet_point_cloud = packet_to_rviz_processor_.convert_packet_to_pointcloud(msg);
   raw_pub_->publish(publish_packet_point_cloud);
@@ -28,29 +27,7 @@ void RadarRvizProcessorNode::process_radar_data_callback(
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
-  radar_msgs::msg::RadarDetection msg_detection;
-
-  msg->event_id = 3;
-  msg->timestamp = 2;
-
-
-  auto test_node = std::make_shared<RadarRvizProcessorNode>();
-  rclcpp::Rate loop_rate(2000);
-
-  while(rclcpp::ok())
-  {
-    msg_detection.pos_x = 1;
-    msg_detection.pos_y = 1;
-    msg_detection.pos_z = 1;
-    msg_detection.rcs0 = 1;
-    msg->detections.push_back(msg_detection);
-
-    RCLCPP_INFO(test_node->get_logger(), "%s\n", "Sending data to callback.");
-    test_node->process_radar_data_callback(msg);
-    loop_rate.sleep();
-  }
-
+  rclcpp::spin(std::make_shared<RadarRvizProcessorNode>());
   rclcpp::shutdown();
   return 0;
 }

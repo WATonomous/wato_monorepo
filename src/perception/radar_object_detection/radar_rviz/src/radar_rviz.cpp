@@ -15,12 +15,11 @@ sensor_msgs::msg::PointCloud2 RadarRvizProcessor::convert_packet_to_pointcloud(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
   std::string radar_frame = "radar_fixed";
-  // Could be called in another function setup which returns updated point cloud and field
   sensor_msgs::msg::PointCloud2 point_cloud;
   sensor_msgs::msg::PointField point_field;
 
   point_cloud.header = msg->header;
-  point_cloud.header.frame_id = radar_frame; 
+  point_cloud.header.frame_id = radar_frame;
   point_cloud.height = 1;
   point_cloud.width = 0;
   point_cloud.is_bigendian = false;
@@ -53,25 +52,25 @@ sensor_msgs::msg::PointCloud2 RadarRvizProcessor::convert_packet_to_pointcloud(
   // Convert data to 4 bytes (little endian)
   uint8_t * tmp_ptr;
   for (uint8_t index = 0; index < msg->detections.size(); index++) {
-    // Position x - point cloud conversion
+    // Position X - Point Cloud Conversion
     tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].pos_x));
     for (int byte = 0; byte < 4; byte++) {
       point_cloud.data.push_back(tmp_ptr[byte]);
     }
 
-    // Position y - point cloud conversion
+    // Position Y - Point Cloud Conversion
     tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].pos_y));
     for (int byte = 0; byte < 4; byte++) {
       point_cloud.data.push_back(tmp_ptr[byte]);
     }
 
-    // Position z - point cloud conversion
+    // Position Z - Point Cloud Conversion
     tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].pos_z));
     for (int byte = 0; byte < 4; byte++) {
       point_cloud.data.push_back(tmp_ptr[byte]);
     }
 
-    // intensity (rcs0) - point cloud conversion
+    // Intensity (rcs0) - Point Cloud Conversion
     float intensity = (msg->detections[index].rcs0 / 2.0) + 50.0;
     tmp_ptr = reinterpret_cast<uint8_t *>(&(intensity));
     for (int byte = 0; byte < 4; byte++) {
