@@ -84,4 +84,3 @@ sensor_msgs::msg::PointCloud2 RadarRvizProcessor::convert_packet_to_pointcloud(
 }
 
 }  // namespace processing
-

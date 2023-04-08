@@ -26,4 +26,3 @@ private:
 }  // namespace processing
 
 #endif  // RADAR_RVIZ_HPP_
-
