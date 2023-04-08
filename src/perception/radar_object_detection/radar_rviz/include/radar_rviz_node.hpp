@@ -39,4 +39,3 @@ private:
 };
 
 #endif  // RADAR_RVIZ_NODE_HPP_
-
