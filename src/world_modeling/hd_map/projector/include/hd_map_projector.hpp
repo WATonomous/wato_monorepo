@@ -1,16 +1,15 @@
-#ifndef WORLD_MODELING_HD_MAP_HD_MAP_PROJECTOR_HPP_
-#define WORLD_MODELING_HD_MAP_HD_MAP_PROJECTOR_HPP_
+#ifndef HD_MAP_PROJECTOR_HPP_
+#define HD_MAP_PROJECTOR_HPP_
 
 #include <vector>
 
 // Include the necessary Lanelet2 headers
-#include "lanelet2_core/geometry/Point.h"
-#include "lanelet2_core/geometry/Lanelet.h"
-#include "lanelet2_projection/UTM.h"
+#include <lanelet2_core/geometry/Point.h>
+#include <lanelet2_core/geometry/Lanelet.h>
+#include <lanelet2_projection/UTM.h>
 
 #include "sample_msgs/msg/unfiltered.hpp"
 #include "sample_msgs/msg/filtered.hpp"
-
 
 namespace world_modeling::hd_map
 {
@@ -32,12 +31,12 @@ namespace world_modeling::hd_map
     lanelet::GPSPoint reverse(const lanelet::BasicPoint3d& local_point) const;
 
   private:
-    // An instance of the UTMProjector class from Lanelet2.
-    lanelet::projection::UTMProjector utm_projector_;
+    // An instance of the UtmProjector class from Lanelet2.
+    lanelet::projection::UtmProjector utm_projector_;
 
     // The origin point in the local metric coordinate system.
     lanelet::BasicPoint3d origin_;
   };
 }  // namespace world_modeling::hd_map
 
-#endif  // WORLD_MODELING_HD_MAP_HD_MAP_PROJECTOR_HPP_
+#endif  // HD_MAP_PROJECTOR_HPP_
