@@ -18,7 +18,8 @@ set(msg_files
     msg/Filtered.msg
     msg/FilteredArray.msg
     msg/Unfiltered.msg
-    msg/Metadata.msg)
+    msg/Metadata.msg
+    msg/FilteredArrayAverage.msg)
 # Parses message files to generate ROS2 interfaces
 rosidl_generate_interfaces(sample_msgs
     ${msg_files}

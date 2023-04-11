@@ -1,0 +1,14 @@
+#include <memory>
+#include <string>
+#include <tuple>
+
+#include "gtest/gtest.h"
+#include "rclcpp/rclcpp.hpp"
+
+#include "average_filter.hpp"
+
+// Placeholder test
+TEST(AverageFilterTest, DefaultTest)
+{
+  EXPECT_DOUBLE_EQ(0.0, 0.0);
+}
