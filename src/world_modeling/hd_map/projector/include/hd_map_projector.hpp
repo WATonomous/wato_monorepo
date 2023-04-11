@@ -32,7 +32,7 @@ namespace world_modeling::hd_map
 
   private:
     // An instance of the UtmProjector class from Lanelet2.
-    lanelet::projection::UtmProjector::Ptr utm_projector_;
+    lanelet::projection::UtmProjector utm_projector_;
 
     // The origin point in the local metric coordinate system.
     lanelet::BasicPoint3d origin_;
