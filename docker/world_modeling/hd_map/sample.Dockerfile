@@ -33,6 +33,7 @@ WORKDIR /home/docker/ament_ws/src
 
 COPY src/world_modeling/hd_map/sample sample
 COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \

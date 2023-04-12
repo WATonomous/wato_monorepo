@@ -25,7 +25,14 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('sample_param_file')],
     )
 
+    lanelet_service = Node(
+        package='sample',
+        executable='lanelet_service',
+        parameters=[LaunchConfiguration('sample_param_file')]
+    )
+
     return LaunchDescription([
         sample_param,
-        sample_node
+        sample_node,
+        lanelet_service
     ])

@@ -14,6 +14,7 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
+find_package(world_modeling_msgs REQUIRED) # Custom package containing ROS2 messages
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -29,7 +30,8 @@ target_include_directories(sample_lib
 # Add ROS2 dependencies required by package
 ament_target_dependencies(sample_lib
   rclcpp
-  sample_msgs)
+  sample_msgs
+  world_modeling_msgs)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
@@ -68,9 +70,14 @@ add_executable(sample_node src/sample_node.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(sample_node sample_lib)
 
+# service stub
+add_executable(lanelet_service src/lanelet_service.cpp)
+target_link_libraries(lanelet_service sample_lib)
+
 # Copy executable to installation location
 install(TARGETS
-sample_node
+  sample_node
+  lanelet_service
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location
