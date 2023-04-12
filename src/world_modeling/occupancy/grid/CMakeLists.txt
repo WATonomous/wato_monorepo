@@ -13,6 +13,9 @@ endif()
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
+find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 
 # Compiles source files into a library
@@ -29,7 +32,10 @@ target_include_directories(grid_lib
 # Add ROS2 dependencies required by package
 ament_target_dependencies(grid_lib
   rclcpp
-  sample_msgs)
+  std_msgs
+  sample_msgs
+  nav_msgs
+  sensor_msgs)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
