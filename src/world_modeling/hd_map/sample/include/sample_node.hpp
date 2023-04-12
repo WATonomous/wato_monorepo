@@ -6,6 +6,7 @@
 #include "sample_msgs/msg/filtered.hpp"
 #include "sample_msgs/msg/filtered_array.hpp"
 #include "sample_msgs/msg/unfiltered.hpp"
+#include "world_modeling_msgs/srv/lanelet_service.hpp"
 
 #include "sample.hpp"
 
