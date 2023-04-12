@@ -4,9 +4,11 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
-
-#include "sample_msgs/msg/unfiltered.hpp"
-#include "sample_msgs/msg/filtered.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+// #include <ros/ros.h>
+// #include "sample_msgs/msg/point_cloud2.hpp"
+// #include "sample_msgs/msg/occupancy_grid.hpp"
 
 namespace world_modeling::occupancy
 {
@@ -23,10 +25,10 @@ namespace world_modeling::occupancy
      */
     Grid();
 
-    bool Grid::arbitrary_occupancy(
+    bool arbitrary_occupancy(
       // the message needs to be replaced with the lidar message which does not exist yet from what I can see
-        const sample_msgs::msg::THIS NEEDS TO BE CHANGED::SharedPtr msg,
-        sample_msgs::msg::OccupancyGrid & occupancy_grid);
+        const sensor_msgs::msg::PointCloud2::SharedPtr msg,
+        nav_msgs::msg::OccupancyGrid & occupancy_grid);
   };
 }  // namespace world_modeling::occupancy
 
