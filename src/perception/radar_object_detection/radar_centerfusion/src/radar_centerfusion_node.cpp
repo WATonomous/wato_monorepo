@@ -16,7 +16,7 @@ RadarCenterFusionNode::RadarCenterFusionNode()
   raw_pub_ = this->create_publisher<radar_msgs::msg::RadarPacket>("centerfusion_inference", 20);
 }
 
-void RadarRvizProcessorNode::radar_data_callback(
+void RadarCenterFusionNode::radar_data_callback(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
 
