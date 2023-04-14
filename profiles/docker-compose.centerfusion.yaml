@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  radar_centerfusion:
+    build:
+      context: ..
+      dockerfile: docker/radar_object_detection/radar_centerfusion.Dockerfile
+      cache_from: 
+        - "${RADAR_CENTERFUSION_IMAGE:?}:${CACHE_FROM_TAG}"
+        - "${RADAR_CENTERFUSION_IMAGE:?}:develop"
+    image: "${RADAR_CENTERFUSION_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/perception/radar_object_detection/radar_centerfusion:/home/docker/ament_ws/src/radar_centerfusion
