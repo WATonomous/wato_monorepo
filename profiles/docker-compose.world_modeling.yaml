@@ -1,35 +1,35 @@
 version: "3.8"
 services:
-  hd_map_sample:
+  hd_map:
     build:
       context: ..
-      dockerfile: docker/world_modeling/hd_map/sample.Dockerfile
+      dockerfile: docker/world_modeling/hd_map.Dockerfile
       cache_from:
-        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-develop"
-    image: "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${TAG}"
+        - "${WORLD_MODELING_HD_MAP_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_HD_MAP_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_HD_MAP_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/world_modeling/hd_map/sample:/home/docker/ament_ws/src/sample
-  localization_sample:
+      - ../src/world_modeling/hd_map:/home/docker/ament_ws/src/hd_map
+  localization:
     build:
       context: ..
-      dockerfile: docker/world_modeling/localization/sample.Dockerfile
+      dockerfile: docker/world_modeling/localization.Dockerfile
       cache_from:
-        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-develop"
-    image: "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${TAG}"
+        - "${WORLD_MODELING_LOCALIZATION_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_LOCALIZATION_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_LOCALIZATION_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/world_modeling/localization/sample:/home/docker/ament_ws/src/sample
-  occupancy_sample:
+      - ../src/world_modeling/localization:/home/docker/ament_ws/src/localization
+  occupancy:
     build:
       context: ..
-      dockerfile: docker/world_modeling/occupancy/sample.Dockerfile
+      dockerfile: docker/world_modeling/occupancy.Dockerfile
       cache_from:
-        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-develop"
-    image: "${WORLD_MODELING_HD_MAP_SAMPLE_IMAGE:?}-${TAG}"
+        - "${WORLD_MODELING_OCCUPANCY_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${WORLD_MODELING_OCCUPANCY_IMAGE:?}-develop"
+    image: "${WORLD_MODELING_OCCUPANCY_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/world_modeling/occupancy/sample:/home/docker/ament_ws/src/sample
+      - ../src/world_modeling/occupancy:/home/docker/ament_ws/src/occupancy
