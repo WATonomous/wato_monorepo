@@ -30,7 +30,7 @@ target_include_directories(sample_lib
 ament_target_dependencies(sample_lib
   rclcpp
   sample_msgs)
-./
+
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
 option(BUILD_TESTING "Build tests" ON)
