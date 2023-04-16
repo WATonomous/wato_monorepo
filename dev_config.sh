@@ -66,6 +66,7 @@ INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/wat
 
 # Perception
 RADAR_CENTERFUSION_IMAGE=${RADAR_CENTERFUSION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_centerfusion"}
+RADAR_INFERENCE_IMAGE=${RADAR_INFERENCE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_inference"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -97,6 +98,8 @@ echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILE
 echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "RADAR_CENTERFUSION_IMAGE=$RADAR_CENTERFUSION_IMAGE" >> "$PROFILES_DIR/.env"
+
+echo "RADAR_INFERENCE_IMAGE=$RADAR_INFERENCE_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"
