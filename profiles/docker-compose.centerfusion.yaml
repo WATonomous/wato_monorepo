@@ -11,3 +11,23 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/perception/radar_object_detection/radar_centerfusion:/home/docker/ament_ws/src/radar_centerfusion
+
+  radar_inference:
+    build:
+      context: ..
+      dockerfile: docker/radar_object_detection/radar_inference.Dockerfile
+      cache_from: 
+        - "${RADAR_INFERENCE_IMAGE:?}:${CACHE_FROM_TAG}"
+        - "${RADAR_INFERENCE_IMAGE:?}:develop"
+    image: "${RADAR_INFERENCE_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    ipc: host
+    tty: true
+    volumes:
+      - /mnt/wato-drive/perception/nuscenes_CLEAN
+      - ../src/testing_pretrained:/mnt/testing_pretrained
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
