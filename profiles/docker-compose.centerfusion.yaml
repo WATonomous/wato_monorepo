@@ -25,7 +25,7 @@ services:
     tty: true
     volumes:
       - /mnt/wato-drive/perception/nuscenes_CLEAN
-      - ../src/testing_pretrained:/mnt/testing_pretrained
+      - ../src/testing_pretrained:/home/docker/ament_ws/src/testing_pretrained
     deploy:
       resources:
         reservations:
