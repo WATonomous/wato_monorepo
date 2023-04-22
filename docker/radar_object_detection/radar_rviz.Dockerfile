@@ -3,7 +3,7 @@ FROM ros:humble AS base
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Add a docker user so we that created files in the docker container are owned by a non-root user
+# Add a docker user so that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
     adduser --uid 1000 --ingroup docker --home /home/docker --shell /bin/bash --disabled-password --gecos "" docker && \
     echo "docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
