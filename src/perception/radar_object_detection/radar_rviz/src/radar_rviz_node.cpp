@@ -21,7 +21,6 @@ void RadarRvizProcessorNode::process_radar_data_callback(
   sensor_msgs::msg::PointCloud2 publish_packet_point_cloud;
   publish_packet_point_cloud = packet_to_rviz_processor_.convert_packet_to_pointcloud(msg);
   raw_pub_->publish(publish_packet_point_cloud);
-  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Publishing point cloud data to rviz \n");
 }
 
 int main(int argc, char ** argv)

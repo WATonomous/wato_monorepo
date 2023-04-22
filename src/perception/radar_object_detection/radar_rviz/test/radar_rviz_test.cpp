@@ -54,7 +54,7 @@ TEST_F(RadarRvizProcessorNodeFixtureTest, CheckConvertPacketToPointCloud)
   EXPECT_EQ(test_point_cloud.fields[3].name, "intensity");
   EXPECT_EQ(test_point_cloud.fields[3].offset, 12);
 
-  // Little Endian Conversion (float 32 bit into 4 bytes; each 4 bytes represents one point field)
+  // Little Endian Conversion (32 bit float into 4 bytes; each 4 bytes represents one point field)
 
   // Position X
   EXPECT_EQ(test_point_cloud.data[0], 0);
