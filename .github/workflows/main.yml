@@ -3,10 +3,10 @@ name: Build and Test WATonomous Monorepo
 on:
   push:
     branches:
-      - main
+      - more-testing
   pull_request:
     branches:
-      - main
+      - more-testing
 
 jobs:
   setup:
@@ -34,7 +34,7 @@ jobs:
       ACTIVE_PROFILES: ${{ needs.setup.outputs.profiles }}
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         context: ${{ fromJSON(needs.setup.outputs.context) }}
 
