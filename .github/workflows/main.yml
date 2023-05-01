@@ -42,20 +42,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # - name: Set up Docker Buildx
-      #   uses: docker/setup-buildx-action@v2
-      #
-      # - name: Build image
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     push: false
-      #     file: ${{ matrix.context.path }}
-      #     load: true
-      #     cache-from: type=gha
-      #     cache-to: type=gha,mode=max
+      - name: Build image
+        uses: docker/build-push-action@v4
+        with:
+          push: false
+          file: ${{ matrix.context.path }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Run testing suite
         uses: "./.github/templates/test"
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
         with:
           service: ${{ matrix.context.service }}
 

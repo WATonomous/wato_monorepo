@@ -6,6 +6,10 @@ bash dev_config.sh
 echo "Running $SERVICE tests..."
 CONTAINER_NAME="$SERVICE-github-actions"
 
+# DOCKER_BUILDKIT=1
+# COMPOSE_DOCKER_CLI_BUILD=1
+# BUILDKIT_INLINE_CACHE=1
+
 # Run docker-compose service in detached mode and prevent early exit
 bash watod2 run -d --name "$CONTAINER_NAME" "$SERVICE" tail -f /dev/null
 
