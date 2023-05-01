@@ -3,10 +3,10 @@ name: Build and Test WATonomous Monorepo
 on:
   push:
     branches:
-      - main
+      - self-host-ci
   pull_request:
     branches:
-      - main
+      - self-host-ci
 
 jobs:
   setup:
@@ -27,7 +27,7 @@ jobs:
 
   build:
     name: Build and run testing suite
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
     needs: setup
 
     env:
