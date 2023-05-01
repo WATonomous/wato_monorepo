@@ -1,0 +1,61 @@
+name: Build and Test WATonomous Monorepo
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup:
+    name: Setup environment
+    runs-on: ubuntu-20.04
+
+    outputs:
+      context: ${{ steps.environment.outputs.context }}
+      profiles: ${{ steps.environment.outputs.profiles }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Generate environment
+        id: environment
+        uses: "./.github/templates/setup"
+
+  build:
+    name: Build and run testing suite
+    runs-on: ubuntu-20.04
+    needs: setup
+
+    env:
+      ACTIVE_PROFILES: ${{ needs.setup.outputs.profiles }}
+
+    strategy:
+      fail-fast: true
+      matrix:
+        context: ${{ fromJSON(needs.setup.outputs.context) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build image
+        uses: docker/build-push-action@v4
+        with:
+          push: false
+          file: ${{ matrix.context.path }}
+          tags: latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run testing suite
+        uses: "./.github/templates/test"
+        with:
+          service: ${{ matrix.context.service }}
+
