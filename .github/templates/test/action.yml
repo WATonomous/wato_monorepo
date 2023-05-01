@@ -1,0 +1,15 @@
+name: Docker test
+
+inputs:
+  service:
+    description: "docker compose service"
+    required: true
+
+runs: 
+  using: "composite"
+  steps:
+    - run: ${{ github.action_path }}/test_image.sh
+      shell: bash
+      env:
+        SERVICE: ${{ inputs.service }}
+
