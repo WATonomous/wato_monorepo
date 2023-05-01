@@ -34,7 +34,7 @@ jobs:
       ACTIVE_PROFILES: ${{ needs.setup.outputs.profiles }}
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         context: ${{ fromJSON(needs.setup.outputs.context) }}
 
@@ -50,7 +50,7 @@ jobs:
         with:
           push: false
           file: ${{ matrix.context.path }}
-          tags: latest
+          load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
