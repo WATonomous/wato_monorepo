@@ -112,11 +112,6 @@ if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
 fi
 
-# run fix-permissions.sh
-if [ -z "$NO_FIX_PERMISSIONS" ]; then
-    bash .gitlab/ci/fix-permissions.sh
-fi
-
 # launch autonomy on the car
 if [ ! -z $LAUNCH_AUTONOMOUS ]; then
     echo "============================================================                  "
