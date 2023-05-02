@@ -34,6 +34,8 @@ ContinentalPointCloudFilter::ContinentalPointCloudFilter()
 
   buffer_index_ = 0;
   default_timestamp_ = 0;
+  near_scan_capacity_ = 18;
+  far_scan_capacity_ = 12;
 }
 
 radar_msgs::msg::RadarPacket ContinentalPointCloudFilter::point_filter(
@@ -94,7 +96,7 @@ bool ContinentalPointCloudFilter::common_scan_filter(
 {
   scan_type incoming_scan_msg = check_scan_type(msg);
 
-  int scan_capacity = (incoming_scan_msg == NEAR) ? 18 : 12;
+  int scan_capacity = (incoming_scan_msg == NEAR) ? near_scan_capacity_ : far_scan_capacity_;
 
   auto scan = (incoming_scan_msg == NEAR) ? &near_scan_single_ : &far_scan_single_;
 
@@ -146,7 +148,7 @@ bool ContinentalPointCloudFilter::near_far_scan_filter(
 {
   scan_type incoming_scan_msg = check_scan_type(msg);
 
-  int scan_capacity = (incoming_scan_msg == NEAR) ? 18 : 12;
+  int scan_capacity = (incoming_scan_msg == NEAR) ? near_scan_capacity_ : far_scan_capacity_;
 
   auto scan = (incoming_scan_msg == NEAR) ? near_scan_.data() : far_scan_.data();
 
@@ -198,8 +200,8 @@ bool ContinentalPointCloudFilter::near_far_scan_filter(
 
   if (far_scan_[buffer_index_].publish_status_ == true) {
     // Special Case
-    if (near_scan_[buffer_index_].packet_count_ != 18 ||
-      far_scan_[buffer_index_].packet_count_ != 12)
+    if (near_scan_[buffer_index_].packet_count_ != near_scan_capacity_ ||
+      far_scan_[buffer_index_].packet_count_ != far_scan_capacity_)
     {
       RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Incomplete total packet count! Not 30.\n");
       near_far_buffer_packets_[buffer_index_].detections.clear();
