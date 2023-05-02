@@ -14,6 +14,7 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sensor_msgs REQUIRED) # Custom package containing ROS2 messages
+find_package(carla_msgs REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -26,7 +27,7 @@ add_library(simulation_lib
 target_include_directories(simulation_lib
   PUBLIC include)
 # Add ROS2 dependencies required by package
-ament_target_dependencies(simulation_lib rclcpp sensor_msgs)
+ament_target_dependencies(simulation_lib rclcpp sensor_msgs carla_msgs)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
