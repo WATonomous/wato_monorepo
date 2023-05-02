@@ -112,6 +112,8 @@ private:
   /**
   * @brief Variables below are used for all the filters (Common scan filter & NearFarScan Filter).
   */
+  int near_scan_capacity_;
+  int far_scan_capacity_;
   unsigned int default_timestamp_;
   typedef struct
   {
