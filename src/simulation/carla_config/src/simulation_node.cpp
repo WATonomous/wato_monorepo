@@ -4,13 +4,19 @@
 #include "simulation_node.hpp"
 
 SimulationNode::SimulationNode() : Node("simulation"){
-  // Subscribe to topic (the 10 is an arbitrary refresh rate)
-  lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "/carla/ego_vehicle/lidar", 10,
-    std::bind(
-      &SimulationNode::lidar_callback, this,
-      std::placeholders::_1));
-    RCLCPP_INFO(this->get_logger(), "Once the carla ros bridge connects to carla you should see lidar data below");
+  drive_pub = this->create_publisher<carla_msgs::msg::CarlaEgoVehicleControl>("/carla/ego_vehicle/vehicle_control_cmd", 10);
+
+  timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(10),
+    std::bind(&SimulationNode::timer_callback, this));
+
+  // // Subscribe to topic (the 10 is an arbitrary refresh rate)
+  // lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+  //   "/carla/ego_vehicle/lidar", 10,
+  //   std::bind(
+  //     &SimulationNode::lidar_callback, this,
+  //     std::placeholders::_1));
+  //   RCLCPP_INFO(this->get_logger(), "Once the carla ros bridge connects to carla you should see lidar data below");
 }
 
 void SimulationNode::lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -21,24 +27,20 @@ void SimulationNode::lidar_callback(const sensor_msgs::msg::PointCloud2::SharedP
   // }
 }
 
+void SimulationNode::timer_callback()
+{
+  auto message = carla_msgs::msg::CarlaEgoVehicleControl();
+  message.throttle = 0.9;
+  RCLCPP_INFO(this->get_logger(), "Publishing: %.1f", message.throttle);
+  drive_pub->publish(message);
+}
+
+
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-
-  //Create Node 
-  auto node = std::make_shared<SimulationNode>();
-
-  std::string role_name;
-
-  if (!node->get_parameter("/carla/ego_vehicle/role_name", role_name)){  
-      //RCLCPP_ERROR(node->get_logger(), "/carla/ego_vehicle/role_name is not specified");
-      //return 1;
-  }
-
-
-  //ros::Subscriber steeringAngleSub = n.subscribe("/carla/" + role_name + "/vehicle_status", 2, publish_steering);
-
-  rclcpp::spin(node);
+  rclcpp::spin(std::make_shared<SimulationNode>());
   rclcpp::shutdown();
   return 0;
 }
