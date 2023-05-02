@@ -7,6 +7,8 @@
 
 #include "simulation.hpp"
 
+#include "carla_msgs/msg/carla_ego_vehicle_control.hpp"
+
 class SimulationNode : public rclcpp::Node
 {
   public:
@@ -15,9 +17,14 @@ class SimulationNode : public rclcpp::Node
   private:
     // Callback when new messages arrive 
     void lidar_callback(sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void timer_callback();
+
+    // ROS2 timer used to call data generation callback at fixed intervals.
+    rclcpp::TimerBase::SharedPtr timer_;
 
     // Actual Subscription Object (Shared Pointer)
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
+    rclcpp::Publisher<carla_msgs::msg::CarlaEgoVehicleControl>::SharedPtr drive_pub;
 };
 
 #endif
