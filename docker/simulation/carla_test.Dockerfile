@@ -34,12 +34,13 @@ WORKDIR /home/docker/ament_ws/src
 COPY src/simulation/carla_config simulation
 # COPY src/wato_msgs/simulation_msgs simulation_msgs
 
-# WORKDIR /home/docker/ament_ws
-# RUN . /opt/ros/foxy/setup.sh && \
-#     rosdep update && \
-#     rosdep install -i --from-path src --rosdistro foxy -y && \
-#     colcon build --continue-on-error \
-#     --cmake-args -DCMAKE_BUILD_TYPE=Release
+RUN git clone https://github.com/carla-simulator/ros-carla-msgs.git
+
+WORKDIR /home/docker/ament_ws
+RUN . /opt/ros/foxy/setup.sh && \
+    rosdep update && \
+    rosdep install -i --from-path src --rosdistro foxy -y   && \
+    colcon build
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
