@@ -13,14 +13,15 @@
 /**
 * @brief Implementation of a Radar Rviz node that listens to "processed" topic
 */
-class RadarRvizProcessorNode : public rclcpp::Node
+class RadarRvizNode : public rclcpp::Node
 {
 public:
-  RadarRvizProcessorNode();
+  RadarRvizNode();
 
   /**
-  * @brief A ROS2 subscription node callback used to unpack filtered data from the "processed"
-  *    topic.
+  * @brief A ROS2 subscription node callback used to unpack filtered radar data from the "processed"
+  *    topic. The callback listens to radar packets on this topic and processes them
+  *    in order to visualize them in RViz.
   *
   * @param msg a raw message from the "processed" topic
   */
@@ -35,7 +36,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr raw_pub_;
 
   // An object containing methods for converting radar packets into point clouds.
-  processing::RadarRvizProcessor packet_to_rviz_processor_;
+  visualization::RadarRviz packet_to_rviz_converter_;
 };
 
 #endif  // RADAR_RVIZ_NODE_HPP_

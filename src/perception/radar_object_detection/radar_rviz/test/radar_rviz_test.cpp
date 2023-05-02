@@ -1,6 +1,5 @@
 #include <memory>
 #include <string>
-#include <tuple>
 
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
@@ -8,17 +7,10 @@
 #include "radar_rviz.hpp"
 #include "radar_rviz_node.hpp"
 
-class RadarRvizProcessorNodeFixtureTest : public ::testing::Test
-{
-public:
-  void SetUp() {}
 
-protected:
-  processing::RadarRvizProcessor test_rviz_processor;
-};
-
-TEST_F(RadarRvizProcessorNodeFixtureTest, CheckConvertPacketToPointCloud)
+TEST(RadarRvizNodeTest, CheckConvertPacketToPointCloud)
 {
+  visualization::RadarRviz test_rviz;
   auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
   radar_msgs::msg::RadarDetection msg_detection;
   sensor_msgs::msg::PointCloud2 test_point_cloud;
@@ -32,7 +24,7 @@ TEST_F(RadarRvizProcessorNodeFixtureTest, CheckConvertPacketToPointCloud)
   msg_detection.rcs0 = 20.0;
   msg->detections.push_back(msg_detection);
 
-  test_point_cloud = test_rviz_processor.convert_packet_to_pointcloud(msg);
+  test_point_cloud = test_rviz.convert_packet_to_pointcloud(msg);
 
   EXPECT_EQ(test_point_cloud.header.frame_id, "radar_fixed");
   EXPECT_EQ(test_point_cloud.height, 1);
