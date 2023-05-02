@@ -40,4 +40,4 @@ RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
 
-CMD ["tail", "-f", "/dev/null"]
+CMD ["ros2", "launch", "radar_rviz", "radar_rviz.launch.py"]

@@ -3,7 +3,7 @@ services:
   radar_rviz:
     build:
       context: ..
-      dockerfile: docker/radar_object_detection/radar_rviz.Dockerfile
+      dockerfile: docker/perception/radar_object_detection.Dockerfile
       cache_from: 
         - "${RADAR_RVIZ_IMAGE:?}:${CACHE_FROM_TAG}"
         - "${RADAR_RVIZ_IMAGE:?}:develop"

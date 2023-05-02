@@ -9,20 +9,18 @@
 #include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
 
-namespace processing
+namespace visualization
 {
 
-class RadarRvizProcessor
+class RadarRviz
 {
 public:
-  RadarRvizProcessor();
+  RadarRviz();
 
   sensor_msgs::msg::PointCloud2 convert_packet_to_pointcloud(
     const radar_msgs::msg::RadarPacket::SharedPtr msg);
-
-private:
 };
 
-}  // namespace processing
+}  // namespace visualization
 
 #endif  // RADAR_RVIZ_HPP_
