@@ -64,7 +64,7 @@ INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/wat
 INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_foxglove"}
 
 # Perception
-RADAR_RVIZ_IMAGE=${RADAR_RVIZ_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_rviz"}
+RADAR_OBJECT_DETECTION_IMAGE=${RADAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_object_detection"}
 
 ## -------------------------- User ID -----------------------------
 
