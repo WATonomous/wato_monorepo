@@ -23,7 +23,7 @@ USER docker:docker
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-COPY src/perception/radar_object_detection/radar_rviz radar_rviz
+COPY src/perception/radar_object_detection radar_object_detection
 COPY src/wato_msgs/radar_msgs radar_msgs
 
 WORKDIR /home/docker/ament_ws
@@ -40,4 +40,4 @@ RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
 
-CMD ["ros2", "launch", "radar_rviz", "radar_rviz.launch.py"]
+CMD ["ros2", "launch", "radar_object_detection_launch", "radar_object_detection.launch.py"]

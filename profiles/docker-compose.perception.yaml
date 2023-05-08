@@ -1,6 +1,6 @@
 version: "3.8"
 services:
-  radar_rviz:
+  radar_object_detection:
     build:
       context: ..
       dockerfile: docker/perception/radar_object_detection.Dockerfile
@@ -10,4 +10,4 @@ services:
     image: "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/perception/radar_object_detection/radar_rviz:/home/docker/ament_ws/src/radar_rviz
+      - ../src/perception/radar_object_detection:/home/docker/ament_ws/src/radar_object_detection
