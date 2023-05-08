@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>radar_object_detection_launch</name>
+  <version>0.0.0</version>
+  <description>A ROS package for launching the radar object detection system</description>
+
+  <maintainer email="cheranm@watonomous.ca">Cheran Mahalingam</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>radar_rviz</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
