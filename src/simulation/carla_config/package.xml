@@ -1,23 +1,23 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>simulation</name>
+  <name>carla_config</name>
   <version>0.0.0</version>
-  <description>A node to help in developing carla bridges</description>
+  <description>Contains launch files, scenario scripts, and custom carla bridge nodes</description>
 
   <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
-  <license>TODO</license>
 
-  <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <license>TODO: License declaration</license>
+
   <depend>rclcpp</depend>
-  <depend>sensor_msgs</depend>
-  <depend>carla_msgs</depend>
+  <depend>path_planning_msgs</depend>
+  <depend>embedded_msgs</depend>
+  <depend>common_msgs</depend>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-  <test_depend>ament_cmake_gtest</test_depend>
 
-  <!--https://www.ros.org/reps/rep-0149.html#export-->
   <export>
     <build_type>ament_cmake</build_type>
   </export>

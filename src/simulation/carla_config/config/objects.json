@@ -28,7 +28,7 @@
             [
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "rgb_right",
+                    "id": "right",
                     "spawn_point": {"x": 0.304, "y": 0.345, "z": 1.723, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "image_size_x": 1920,
                     "image_size_y": 1200,
@@ -87,7 +87,7 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "rgb_center",
+                    "id": "center",
                     "spawn_point": {"x": 0.304, "y": 0.0, "z": 1.617, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "image_size_x": 1920,
                     "image_size_y": 1200,
@@ -131,7 +131,7 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "rgb_left",
+                    "id": "left",
                     "spawn_point": {"x": 0.304, "y": -0.345, "z": 1.723, "roll": 0.0, "pitch": 0.0, "yaw": -20.0},
                     "image_size_x": 1920,
                     "image_size_y": 1200,
@@ -175,7 +175,7 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "rgb_view",
+                    "id": "view",
                     "spawn_point": {"x": -4.5, "y": 0.0, "z": 2.8, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "image_size_x": 800,
                     "image_size_y": 600,
@@ -262,18 +262,9 @@
                 },
                 {
                     "type": "sensor.other.lane_invasion",
-                    "id": "laneinvasion",
+                    "id": "laneinvasion1",
                     "spawn_point": {"x": 0.0, "y": 0.0, "z": 0.0}
-                },
-                {
-                    "type": "sensor.pseudo.tf",
-                    "id": "tf"
-                },
-                {
-                    "type": "sensor.pseudo.odom",
-                    "id": "odometry"
                 }
-
             ]
         }
     ]

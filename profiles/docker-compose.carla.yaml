@@ -24,39 +24,32 @@ services:
         - "${CARLA_ROS2_BRIDGE_IMAGE:?}-develop"
       args:
         - CARLA_VERSION=0.9.13
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+    environment:
+      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla
     image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
+    # user: ${FIXUID:?}:${FIXGID:?}
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     runtime: nvidia
+    restart: always
     depends_on:
       - carla_server
-
-  # carla_bridge:
-  #   build: 
-  #     context: ..
-  #     dockerfile: docker/simulation/carla_test.Dockerfile
-  #   #user: ${FIXUID:?}:${FIXGID:?}
-  #   user: root:root
-  #   # depends_on:
-  #   #   - carla_server
-  #   #   - carla_ros_bridge
   
-  carla_manual_control:
-    build:
-      context: ..
-      dockerfile: docker/simulation/manual_control.Dockerfile
-      cache_from:
-        # - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-simulation"
-        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-develop"
-      args:
-        - CARLA_VERSION=0.9.13
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-    image: carla_manual_control
-    user: ${FIXUID:?}:${FIXGID:?}
-    ports:
-      - "6600:5900"
-    environment:
-      - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
+  # carla_manual_control:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/simulation/manual_control.Dockerfile
+  #     cache_from:
+  #       # - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-${CACHE_FROM_TAG}"
+  #       - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-simulation"
+  #       - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-develop"
+  #     args:
+  #       - CARLA_VERSION=0.9.13
+  #       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+  #   image: carla_manual_control
+  #   user: ${FIXUID:?}:${FIXGID:?}
+  #   ports:
+  #     - "6600:5900"
+  #   environment:
+  #     - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
       
 
