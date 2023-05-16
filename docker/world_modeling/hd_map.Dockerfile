@@ -13,6 +13,7 @@ RUN apt-get update && \
     apt-get install -y \ 
     ros-humble-lanelet2
 
+
 # Add a docker user so that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
     adduser --uid 1000 --ingroup docker --home /home/docker --shell /bin/bash --disabled-password --gecos "" docker && \
