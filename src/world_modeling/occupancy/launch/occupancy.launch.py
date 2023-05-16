@@ -25,7 +25,13 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('sample_param_file')],
     )
 
+    voxel_segmentation_node = Node(
+        package='occupancy',
+        executable='voxel_segmentation_node.py'
+    )
+
     return LaunchDescription([
         sample_param,
-        sample_node
+        sample_node,
+        voxel_segmentation_node
     ])

@@ -6,6 +6,7 @@
 #include "sample_msgs/msg/filtered.hpp"
 #include "sample_msgs/msg/filtered_array.hpp"
 #include "sample_msgs/msg/unfiltered.hpp"
+#include "world_modeling_msgs/msg/voxel_grid.hpp" 
 
 #include "sample.hpp"
 
