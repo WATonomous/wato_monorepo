@@ -31,5 +31,7 @@ services:
         - "${WORLD_MODELING_OCCUPANCY_IMAGE:?}-develop"
     image: "${WORLD_MODELING_OCCUPANCY_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
+    ports:
+      - "8765:8765"
     volumes:
       - ../src/world_modeling/occupancy:/home/docker/ament_ws/src/occupancy
