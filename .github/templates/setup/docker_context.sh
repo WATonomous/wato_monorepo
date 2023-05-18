@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# bash dev_config.sh
+bash dev_config.sh
 #
 # profiles=$(find profiles -name "docker-compose*")
 # dockerfile_paths=()
