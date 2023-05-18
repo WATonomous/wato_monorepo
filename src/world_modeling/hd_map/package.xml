@@ -11,6 +11,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>sample_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>geometry_msgs</depend>
 
   <!--Lanelet2 Dependencies-->
   <depend>lanelet2_core</depend>
