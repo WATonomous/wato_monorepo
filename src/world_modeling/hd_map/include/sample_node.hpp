@@ -6,9 +6,13 @@
 #include "sample_msgs/msg/filtered.hpp"
 #include "sample_msgs/msg/filtered_array.hpp"
 #include "sample_msgs/msg/unfiltered.hpp"
+#include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
+#include "std_msgs/msg/header.hpp"
+#include "geometry_msgs/msg/point.hpp"
 
 #include "sample.hpp"
-
+#include "hd_map_routing.hpp"
 /**
  * Implementation of a ROS2 node that converts unfiltered messages to filtered_array
  * messages.
@@ -30,26 +34,17 @@ public:
   SampleNode();
 
 private:
-  /**
-   * A ROS2 subscription node callback used to process raw data from the
-   * "unfiltered" topic and publish to the "filtered" topic.
-   *
-   * @param msg a raw message from the "unfiltered" topic
-   */
-  void sample_sub_callback(
-    const sample_msgs::msg::Unfiltered::SharedPtr msg);
+  void sample_publish();
 
-  void sample_publish(
-    const sample_msgs::msg::Unfiltered::SharedPtr msg);
-
-  // ROS2 subscriber listening to the unfiltered topic.
-  rclcpp::Subscription<sample_msgs::msg::Unfiltered>::SharedPtr sample_sub_;
+  rclcpp::TimerBase::SharedPtr timer_;
 
   // ROS2 publisher sending processed messages to the filtered topic.
-  rclcpp::Publisher<sample_msgs::msg::Unfiltered>::SharedPtr sample_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr sample_pub_;
 
   // Object that handles data processing and validation.
   world_modeling::hd_map::Sample sample_;
+
+  world_modeling::hd_map::HDMapRouting routing_;
 };
 
 #endif  // SAMPLE_NODE_HPP_
