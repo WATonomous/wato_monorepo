@@ -1,160 +1,276 @@
-# WATonomous Monorepo v2
+# dive
+[![Go Report Card](https://goreportcard.com/badge/github.com/wagoodman/dive)](https://goreportcard.com/report/github.com/wagoodman/dive)
+[![Pipeline Status](https://circleci.com/gh/wagoodman/dive.svg?style=svg)](https://circleci.com/gh/wagoodman/dive)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg?style=flat)](https://www.paypal.me/wagoodman)
 
-Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
+**A tool for exploring a docker image, layer contents, and discovering ways to shrink the size of your Docker/OCI image.**
 
-- [WATonomous Monorepo](#watonomous-monorepo)
-  - [Getting Started](#getting-started)
-  - [Description of Files](#description-of-files)
-  - [Profiles](#profiles)
-  - [Common Operations](#common-operations)
-    - [watod2](#watod2)
-    - [Remote VScode](#remote-vscode)
-    - [Playing ros2 bags](#playing-ros2-bags)
-  - [Monorepo Info](#monorepo-info)
-  - [Technical Specification](#technical-specification)
-  - [Testing Infrastructure](#testing)
-  - [FAQ](#faq)
-    - [Every time I make a new branch I need to rebuild all the images from scratch](#every-time-i-make-a-new-branch-i-need-to-rebuild-all-the-images-from-scratch)
-    - ["Invalid reference format" when using watod2](#invalid-reference-format-when-using-watod2)
+![Image](.data/demo.gif)
 
-## Getting Started
-**READ THIS**: [docs/setup.md](docs/setup.md)
-
-## Description of Files
-
-- `watod2`. 
-  - This is the main bash script that you will use to interface with your containers. [More info](#watod2).
-- `dev_config.sh`. 
-  - dev_config.sh will create a [.env file](https://docs.docker.com/compose/env-file/) specifying environment variables for docker-compose. `watod2` automatically runs this script before running any commands. To override variables in `dev_config.sh`, create a `dev_config.local.sh` file and populate it with variables, for example `ACTIVE_PROFILES="perception path_planning"`. `dev_config.sh` will then take this file into account when building the `.env` file.
-- `scripts/watod2-completion.bash`.
-  - Bash autocomplete for watod2. Adapted from docker-compose. Add `source <MONO_DIR>/scripts/watod2-completion.bash` to your bashrc to use autocomplete.
-- `profiles/`: 
-  - This folder contains all docker-compose files specifying the services we will run. They are divided into profiles. The root-level `docker-compose.yaml` file is loaded first, then profiles are loaded after. Note that by default no profiles are enabled. To select additional profiles, overwrite `ACTIVE_PROFILES=x` in `dev_config.local.sh`. See the [docker-compose wiki](https://docs.docker.com/compose/extends/).
-- `docker/`: 
-  - This folder contains the `Dockerfiles` for each of our images. [Docker wiki](https://docs.docker.com/engine/reference/builder/).
-- `src/`: 
-  - Here is where our actual code goes. The folders in `src` will be mounted to the docker images, so changes in the `src` directory will be reflected in the containers. 
-
-## Profiles
-
-You need to specify what profiles you want to use by setting `ACTIVE_PROFILES` in your `dev_config.local.sh`. For example, your `dev_config.local.sh` might include `ACTIVE_PROFILES="carla tools matlab perception path_planning"`. 
-
-Profiles are defined as `profiles/docker-compose.<PROFILE>.yaml`. If you want to overwrite your current profile and run the command against all profiles, use `watod2 --all COMMAND`
-
+To analyze a Docker image simply run dive with an image tag/id/digest:
 ```bash
-from dev_config.sh
-# Space-delimited list of active profiles to run, defined in docker-compose.yaml.
-# Possible values:
-#   - production    		:   configs for all containers required in production
-#   - samples           :   starts sample ROS2 pubsub nodes
-# Example override in dev_config.local.sh: 
-#   ACTIVE_PROFILES="samples production"
-
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
+dive <your-image-tag>
 ```
 
-## Common Operations
-
-### watod2
-
-`watod2` is a wrapper for docker-compose. The format is `watod2 [watod2 options] [docker-compose options]`. See watod2 options using `watod2 -h`. `docker-compose` interface can be found here: https://docs.docker.com/compose/ 
-
-By default, `watod2` will use and create images tagged based on your current branch. For example, `perception/debug-develop`. If you switch to a new branch, you will need to rebuild your images (automatic with `watod2 up`)
-
-For any environment variable found in `dev-config.sh`, you can overwrite it on the command line as follows: `ENV=x ENV2=y ./watod2 ...`. For example, if I am on a different branch but I want to start `develop` images, I can use `TAG=develop ./watod2 up`
-
-**Starting Containers**: `watod2 up`
-- Runs `docker-compose up` after generating your `.env` file. Your terminal will start, print out a bunch of logs, then hang while waiting for more logs. **This command does not exit**. To stop your containers, press `ctrl-c`.
-- use `watod2 up -h` to see other arguments you can pass to `watod2 up`
-
-**Stopping containers**: `watod2 down`
-
-**Building images**: `watod2 build`
-
-**Seeing exposed ports**: `watod2 --ports`
-- Your docker containers expose a certain number of applications that can be accessed publicly. For example, [VNC](https://en.wikipedia.org/wiki/Virtual_Network_Computing)
-- Start your containers with `watod2 up` then in another terminal use `watod2 --ports`
-- `watod2 -lp` will  also print information if you want to forward the ports from the external server to your local machine over SSH.
-- `watod2 -lc [local_base_port]` will generate a [~/.ssh/config file](https://linuxize.com/post/using-the-ssh-config-file/) for you to copy to your local machine. A newly generated config file will always be up to date with VM hostnames, watod2 ports forwards, etc... and in our oppinion is the best way to configure your communication with WATO's server cluster. The optional `[local_base_port]` argument allows you to define your own port range on your local machine. For example, if the `pp_env_model` service is running on remote port `3864`, with your remote base port being `3860`, then running `watod2 -lc 1000` will place a forwarding rule in the config to forward the  `pp_env_model`'s code server to `localhost:1004`.
-  
-**Opening a shell inside a docker container**: `watod2 -t <SERVICE_NAME>`
-- Opens a bash shell into the specified service. Find a list of your services using `watod2 ps --services`
-- From here, you can execute commands inside the docker container. For example, ROS2 commands. 
-
-### Remote VScode
-
-**Over SSH**
-
-1. Download and install [Visual Studio Code](https://code.visualstudio.com/) on your local machine
-3. In VS Code, install the [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
-4. Select the "Remote Explorer" tab in the left taskbar
-5. Make sure the Remote Explorer is targeting "SSH Targets" and click plus to add the server you are trying to access.  For example, "wato-tr.uwaterloo.ca".
-6. Right click on the added target and connect. Select your workspace, and you can edit code in `src`.
-7. To make an integrated VScode terminal that runs on the host, use `ctrl->p` `> Create New Integrated Terminal`.
-
-**Over SSH and Docker**
-
-If you want to attach VScode to a specific container instead of to the host, you need to follow some extra steps as the interaction between vscode-remote and vscode-docker is buggy. The issue is currently being tracked here: https://github.com/microsoft/vscode-remote-release/issues/2514
-
-1. Download and install [Docker](https://www.docker.com) on your local machine
-2. Follow the "Over SSH" instructions
-3. Once your VScode is connected to the server, install the [Docker extension pack](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker) on the remote VScode
-4. in VScode, open `settings.json` (`ctrl-p` `>settings.json`)
-5. Add the line: `"docker.host": "tcp://localhost:23750",` near the top
-6. In a terminal on your local machine, start an SSH tunnel for the docker daemon
-    `ssh -L localhost:23750:/var/run/docker.sock user@hostname.`
-7. Enter the VS Code Docker extension tab and find your container in the "Individual Containers" section.
-8. Right click on your container and select "Attach VS Code to Container"
-9. Done! At this point you should be able to edit code and run Catkin/ROS commands in the container through the VS Code terminal
-
-### Playing ROS2 Bags
-
-A bag is a file that stores serialized ROS2 message data. We can play a bag to make data available on various topics.
-More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html.
-
-Add `data_stream` as an `ACTIVE_PROFILE` in `dev_config.local.sh`. 
-
-Run `watod2 up` (or however you want to launch the `data_stream` service). 
-
-The working directory of the `data_stream` container should have a `nuscenes` directory, which contains the NuScenes dataset converted to ros2bag format. To confirm this, run `watod run data_stream ls nuscenes` to view the available bags. Each bag has its own directory. The location of the `.mcap` file is `<name>/<name>_0.mcap`. For example, one of the bags is in `nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`. 
-
-Now, using `watod run data_stream [ROS2 BAG COMMAND]` you can run any `ros2 bag ...` command as documented here: http://wiki.ros.org/rosbag/Commandline. You probably want to explore `ros2 bag play ...`: http://wiki.ros.org/rosbag/Commandline#rosbag_play. (Since this documentation is in ROS1, you can replace `rosbag` with `ros2 bag` to run the equivalent command in ROS2)
-
-Example: `watod2 run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`
-
-## Monorepo Info
-[docs/monorepo.md](docs/monorepo.md)
-
-## Technical Specification 
-Docker, Continuous Integration: [tech_spec.md](docs/tech_spec.md)
-
-## Testing
-[docs/testing.md](docs/testing.md)
-
-## FAQ 
-
-### Every time I make a new branch I need to rebuild all the images from scratch
-
-Whenever you make a new branch, new images need to be compiled. However, Docker will use the `develop` images as a cache. You probably don't have the `develop` images downloaded on your machine.
-
-Try these steps:
+or if you want to build your image then jump straight into analyzing it:
 ```bash
-# Log into the docker registry
-$ docker login git.uwaterloo.ca:5050
-# Pull the latest develop images
-$ TAG=develop ./watod2 --all pull
-# Start your containers
-$ ./watod2 up
+dive build -t <some-tag> .
 ```
 
-### "Invalid reference format" when using watod2
-
-If you get an error such as: `ERROR: no such image: git.uwaterloo.ca:5050/watonomous/wato_monorepo/perception:debug-charles/test: invalid reference format`
-
-This is because your branch name has a slash (`/`) in it. This breaks the image naming system that docker uses. Please change your branch name to use dashes `-` instead.
+Building on Macbook (supporting only the Docker container engine)
 
 ```bash
-git checkout -b <NEW_BRANCH_NAME>
-# VERIFY all of your changes are saved in your new branch
-git branch -d <OLD_BRANCH_NAME>
+docker run --rm -it \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v  "$(pwd)":"$(pwd)" \
+      -w "$(pwd)" \
+      -v "$HOME/.dive.yaml":"$HOME/.dive.yaml" \
+      wagoodman/dive:latest build -t <some-tag> .
 ```
+
+Additionally you can run this in your CI pipeline to ensure you're keeping wasted space to a minimum (this skips the UI):
+```
+CI=true dive <your-image>
+```
+
+![Image](.data/demo-ci.png)
+
+**This is beta quality!** *Feel free to submit an issue if you want a new feature or find a bug :)*
+
+## Basic Features
+
+**Show Docker image contents broken down by layer**
+
+As you select a layer on the left, you are shown the contents of that layer combined with all previous layers on the right. Also, you can fully explore the file tree with the arrow keys.
+
+**Indicate what's changed in each layer**
+
+Files that have changed, been modified, added, or removed are indicated in the file tree. This can be adjusted to show changes for a specific layer, or aggregated changes up to this layer.
+
+**Estimate "image efficiency"**
+
+The lower left pane shows basic layer info and an experimental metric that will guess how much wasted space your image contains. This might be from duplicating files across layers, moving files across layers, or not fully removing files. Both a percentage "score" and total wasted file space is provided.
+
+**Quick build/analysis cycles**
+
+You can build a Docker image and do an immediate analysis with one command:
+`dive build -t some-tag .`
+
+You only need to replace your `docker build` command with the same `dive build`
+command.
+
+**CI Integration**
+
+Analyze an image and get a pass/fail result based on the image efficiency and wasted space. Simply set `CI=true` in the environment when invoking any valid dive command.
+
+**Multiple Image Sources and Container Engines Supported**
+
+With the `--source` option, you can select where to fetch the container image from:
+```bash
+dive <your-image> --source <source>
+```
+or
+```bash
+dive <source>://<your-image>
+```
+
+With valid `source` options as such:
+- `docker`: Docker engine (the default option)
+- `docker-archive`: A Docker Tar Archive from disk
+- `podman`: Podman engine (linux only)
+
+## Installation
+
+**Ubuntu/Debian**
+```bash
+wget https://github.com/wagoodman/dive/releases/download/v0.9.2/dive_0.9.2_linux_amd64.deb
+sudo apt install ./dive_0.9.2_linux_amd64.deb
+```
+
+**RHEL/Centos**
+```bash
+curl -OL https://github.com/wagoodman/dive/releases/download/v0.9.2/dive_0.9.2_linux_amd64.rpm
+rpm -i dive_0.9.2_linux_amd64.rpm
+```
+
+**Arch Linux**
+
+Available as [dive](https://aur.archlinux.org/packages/dive/) in the Arch User Repository (AUR).
+
+```bash
+yay -S dive
+```
+
+The above example assumes [`yay`](https://aur.archlinux.org/packages/yay/) as the tool for installing AUR packages.
+
+**Mac**
+
+If you use [Homebrew](https://brew.sh):
+
+```bash
+brew install dive
+```
+
+If you use [MacPorts](https://www.macports.org):
+
+```bash
+sudo port install dive
+```
+
+Or download the latest Darwin build from the [releases page](https://github.com/wagoodman/dive/releases/download/v0.9.2/dive_0.9.2_darwin_amd64.tar.gz).
+
+**Windows**
+
+Download the [latest release](https://github.com/wagoodman/dive/releases/download/v0.9.2/dive_0.9.2_windows_amd64.zip).
+
+**Go tools**
+Requires Go version 1.10 or higher.
+
+```bash
+go get github.com/wagoodman/dive
+```
+*Note*: installing in this way you will not see a proper version when running `dive -v`.
+
+**Docker**
+```bash
+docker pull wagoodman/dive
+```
+
+or
+
+```bash
+docker pull quay.io/wagoodman/dive
+```
+
+When running you'll need to include the docker socket file:
+```bash
+docker run --rm -it \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    wagoodman/dive:latest <dive arguments...>
+```
+
+Docker for Windows (showing PowerShell compatible line breaks; collapse to a single line for Command Prompt compatibility)
+```bash
+docker run --rm -it `
+    -v /var/run/docker.sock:/var/run/docker.sock `
+    wagoodman/dive:latest <dive arguments...>
+```
+
+**Note:** depending on the version of docker you are running locally you may need to specify the docker API version as an environment variable:
+```bash
+   DOCKER_API_VERSION=1.37 dive ...
+```
+or if you are running with a docker image:
+```bash
+docker run --rm -it \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e DOCKER_API_VERSION=1.37 \
+    wagoodman/dive:latest <dive arguments...>
+```
+
+## CI Integration
+
+When running dive with the environment variable `CI=true` then the dive UI will be bypassed and will instead analyze your docker image, giving it a pass/fail indication via return code. Currently there are three metrics supported via a `.dive-ci` file that you can put at the root of your repo:
+```
+rules:
+  # If the efficiency is measured below X%, mark as failed.
+  # Expressed as a ratio between 0-1.
+  lowestEfficiency: 0.95
+
+  # If the amount of wasted space is at least X or larger than X, mark as failed.
+  # Expressed in B, KB, MB, and GB.
+  highestWastedBytes: 20MB
+
+  # If the amount of wasted space makes up for X% or more of the image, mark as failed.
+  # Note: the base image layer is NOT included in the total image size.
+  # Expressed as a ratio between 0-1; fails if the threshold is met or crossed.
+  highestUserWastedPercent: 0.20
+```
+You can override the CI config path with the `--ci-config` option.
+
+## KeyBindings
+
+Key Binding                                | Description
+-------------------------------------------|---------------------------------------------------------
+<kbd>Ctrl + C</kbd>                        | Exit
+<kbd>Tab</kbd>                             | Switch between the layer and filetree views
+<kbd>Ctrl + F</kbd>                        | Filter files
+<kbd>PageUp</kbd>                          | Scroll up a page
+<kbd>PageDown</kbd>                        | Scroll down a page
+<kbd>Ctrl + A</kbd>                        | Layer view: see aggregated image modifications
+<kbd>Ctrl + L</kbd>                        | Layer view: see current layer modifications
+<kbd>Space</kbd>                           | Filetree view: collapse/uncollapse a directory
+<kbd>Ctrl + Space</kbd>                    | Filetree view: collapse/uncollapse all directories
+<kbd>Ctrl + A</kbd>                        | Filetree view: show/hide added files
+<kbd>Ctrl + R</kbd>                        | Filetree view: show/hide removed files
+<kbd>Ctrl + M</kbd>                        | Filetree view: show/hide modified files
+<kbd>Ctrl + U</kbd>                        | Filetree view: show/hide unmodified files
+<kbd>Ctrl + B</kbd>                        | Filetree view: show/hide file attributes
+<kbd>PageUp</kbd>                          | Filetree view: scroll up a page
+<kbd>PageDown</kbd>                        | Filetree view: scroll down a page
+
+## UI Configuration
+
+No configuration is necessary, however, you can create a config file and override values:
+```yaml
+# supported options are "docker" and "podman"
+container-engine: docker
+# continue with analysis even if there are errors parsing the image archive
+ignore-errors: false
+log:
+  enabled: true
+  path: ./dive.log
+  level: info
+
+# Note: you can specify multiple bindings by separating values with a comma.
+# Note: UI hinting is derived from the first binding
+keybinding:
+  # Global bindings
+  quit: ctrl+c
+  toggle-view: tab
+  filter-files: ctrl+f, ctrl+slash
+
+  # Layer view specific bindings
+  compare-all: ctrl+a
+  compare-layer: ctrl+l
+
+  # File view specific bindings
+  toggle-collapse-dir: space
+  toggle-collapse-all-dir: ctrl+space
+  toggle-added-files: ctrl+a
+  toggle-removed-files: ctrl+r
+  toggle-modified-files: ctrl+m
+  toggle-unmodified-files: ctrl+u
+  toggle-filetree-attributes: ctrl+b
+  page-up: pgup
+  page-down: pgdn
+
+diff:
+  # You can change the default files shown in the filetree (right pane). All diff types are shown by default.
+  hide:
+    - added
+    - removed
+    - modified
+    - unmodified
+
+filetree:
+  # The default directory-collapse state
+  collapse-dir: false
+
+  # The percentage of screen width the filetree should take on the screen (must be >0 and <1)
+  pane-width: 0.5
+
+  # Show the file attributes next to the filetree
+  show-attributes: true
+
+layer:
+  # Enable showing all changes from this layer and every previous layer
+  show-aggregated-changes: false
+
+```
+
+dive will search for configs in the following locations:
+- `$XDG_CONFIG_HOME/dive/*.yaml`
+- `$XDG_CONFIG_DIRS/dive/*.yaml`
+- `~/.config/dive/*.yaml`
+- `~/.dive.yaml`

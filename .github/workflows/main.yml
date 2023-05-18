@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     outputs:
-      context: ${{ steps.environment.outputs.context }}
+      services: ${{ steps.environment.outputs.services }}
       profiles: ${{ steps.environment.outputs.profiles }}
 
     steps:
@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        context: ${{ fromJSON(needs.setup.outputs.context) }}
+        service: ${{ fromJSON(needs.setup.outputs.services) }}
 
     steps:
       - name: Checkout repository
@@ -49,5 +49,5 @@ jobs:
           COMPOSE_DOCKER_CLI_BUILD: 1
           BUILDKIT_INLINE_CACHE: 1
         with:
-          service: ${{ matrix.context.service }}
+          service: ${{ matrix.service }}
 
