@@ -36,10 +36,13 @@ set -e
 # echo "context=$json_context" >> "$GITHUB_OUTPUT"
 
 profiles=$(find profiles -name "docker-compose*")
+echo "$profiles"
 
 readarray -t services < <(echo "$profiles" | \
   xargs -I{} docker-compose -f {} config --services)
+echo "${services[@]}"
 json_services=$(jq -nc '$ARGS.positional' --args -- "${services[@]}")
+echo "$json_services"
 echo "services=$json_services" >> "$GITHUB_OUTPUT"
 
 # Retrieve path of all docker-compose files
