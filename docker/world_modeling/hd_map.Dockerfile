@@ -41,6 +41,10 @@ FROM base as repo
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
+# Download maps
+ENV MAPS_DIR="/home/docker/ament_ws/src/maps"
+RUN git clone https://docker-image:wnYipLhHecUSW5NEKb2V@git.uwaterloo.ca/WATonomous/map_data.git $MAPS_DIR
+
 COPY src/world_modeling/hd_map hd_map
 COPY src/wato_msgs/sample_msgs sample_msgs
 
