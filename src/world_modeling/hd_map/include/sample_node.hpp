@@ -9,10 +9,14 @@
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "std_msgs/msg/header.hpp"
+#include "std_msgs/msg/color_rgba.hpp"
 #include "geometry_msgs/msg/point.hpp"
+
 
 #include "sample.hpp"
 #include "hd_map_routing.hpp"
+#include "lanelet_visualization.hpp"
+
 /**
  * Implementation of a ROS2 node that converts unfiltered messages to filtered_array
  * messages.
@@ -39,7 +43,7 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
 
   // ROS2 publisher sending processed messages to the filtered topic.
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr sample_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr sample_pub_;
 
   // Object that handles data processing and validation.
   world_modeling::hd_map::Sample sample_;
