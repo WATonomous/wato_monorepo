@@ -27,7 +27,8 @@ find_package(lanelet2_projection REQUIRED) # Lanelet2 Projection
 # both the unit test and ROS2 node executables.
 add_library(sample_lib
   src/sample.cpp
-  src/hd_map_routing.cpp)
+  src/hd_map_routing.cpp
+  src/lanelet_visualization.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(sample_lib
   PUBLIC
