@@ -1,0 +1,53 @@
+name: Build and Test WATonomous Monorepo
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup:
+    name: Setup environment
+    runs-on: ubuntu-20.04
+
+    outputs:
+      services: ${{ steps.environment.outputs.services }}
+      profiles: ${{ steps.environment.outputs.profiles }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Generate environment
+        id: environment
+        uses: "./.github/templates/setup"
+
+  build:
+    name: Build image and run testing suite
+    runs-on: ubuntu-20.04
+    needs: setup
+
+    env:
+      ACTIVE_PROFILES: ${{ needs.setup.outputs.profiles }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.setup.outputs.services) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run testing suite
+        uses: "./.github/templates/test"
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          BUILDKIT_INLINE_CACHE: 1
+        with:
+          service: ${{ matrix.service }}
+
