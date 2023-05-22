@@ -41,11 +41,7 @@ RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
 # Add any custom messages here for foxglove to interpret them
-COPY src/wato_msgs wato_msgs
-
-RUN git clone https://github.com/ros-drivers/ackermann_msgs.git --branch ros2 && \
-    git clone https://github.com/ros-perception/image_common.git --branch $ROS_DISTRO && \
-    git clone https://github.com/carla-simulator/ros-carla-msgs.git --branch master
+COPY src/wato_msgs/sample_msgs sample_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
