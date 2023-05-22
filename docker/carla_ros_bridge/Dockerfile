@@ -108,4 +108,4 @@ COPY --chown=docker docker/carla_ros_bridge/supervisord.conf /etc/supervisor/sup
 RUN chown -R docker:docker /etc/supervisor
 RUN chmod 777 /var/log/supervisor/
 ENV DISPLAY=:1.0 
-CMD ["/usr/bin/supervisord"]
+CMD /bin/bash -c "ros2 launch carla_config carla.launch.py"
