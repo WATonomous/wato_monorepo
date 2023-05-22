@@ -25,14 +25,20 @@ void CameraCompressionNode::image_sub_callback(int i, const sensor_msgs::msg::Im
 
 void CameraCompressionNode::timer_callback(){
   for(int i = 0; i < this->image_topics_.size(); i++){
-    image_publishers_[i].publish(this->carla_images_[i]);
+    try{
+      image_publishers_[i].publish(this->carla_images_[i]);
+    }
+    catch (const std::exception& e) {
+    }
   }
+
+  // RCLCPP_INFO(this->get_logger(), "Published");
 }
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  std::vector<std::string> image_topics = {"carla/ego_vehicle/rgb_view/image"};
+  std::vector<std::string> image_topics = {"carla/ego_vehicle/rgb_view/image", "carla/ego_vehicle/rgb_front/image"};
   int publish_freq_ms = 50;
   auto node = std::make_shared<CameraCompressionNode>(image_topics, publish_freq_ms);
 
