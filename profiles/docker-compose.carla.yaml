@@ -12,7 +12,7 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
     ports:
-      - 2000:2000
+      - 2001:2000
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
 
   carla_ros_bridge:
@@ -29,10 +29,9 @@ services:
     image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
     # user: ${FIXUID:?}:${FIXGID:?}
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
-    runtime: nvidia
     restart: always
-    depends_on:
-      - carla_server
+    # depends_on:
+    #   - carla_server
   
   # carla_manual_control:
   #   build:
@@ -49,7 +48,20 @@ services:
   #   user: ${FIXUID:?}:${FIXGID:?}
   #   ports:
   #     - "6600:5900"
-  #   environment:
-  #     - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
+    # environment:
+    #   - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
+  
+  
       
 
+  camera_compression:
+    build:
+      context: ..
+      dockerfile: docker/simulation/camera_compression.Dockerfile
+      cache_from:
+        - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-develop"
+    image: "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/simulation/camera_compression:/home/docker/ament_ws/src/camera_compression

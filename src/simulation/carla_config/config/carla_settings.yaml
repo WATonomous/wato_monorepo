@@ -4,7 +4,7 @@ carla:
   # don't make anything other than the host setting reference an environment variable
   host: $(optenv CARLA_HOSTNAME localhost)
   port: 2000
-  timeout: 60
+  timeout: 10
   # enable/disable synchronous mode. If enabled ros-bridge waits until
   # expected data is received for all sensors
   synchronous_mode: true
