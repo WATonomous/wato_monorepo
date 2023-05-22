@@ -11,3 +11,15 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - /mnt/wato-drive2/nuscenes_mcap/ros2bags:/home/docker/ament_ws/nuscenes
+  foxglove:
+    build:
+      context: ..
+      dockerfile: docker/infrastructure/data_stream/foxglove.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:${TAG}"
+        - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:main"
+    image: "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765"]
+    ports:
+      - "8765:8765"
