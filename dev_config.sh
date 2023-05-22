@@ -36,9 +36,6 @@ TARGET_STAGE=${TARGET_STAGE:-"debug"}
 # Tag to use. Images as formatted as <IMAGE_NAME>:<TARGET_STAGE>-<TAG> with forward slashes replaced with dashes
 TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 
-# Additional tag to cache from
-CACHE_FROM_TAG=${CACHE_FROM_TAG:-$([[ $TAG != "develop" ]] && echo $TAG || echo "__develop_ignore_tag_cache__")}
-
 # ROS hostname + URI for the production profile
 # ROS_IP is the IP that nodes will publish as (client's hostname)
 ROS_HOSTNAME=${ROS_HOSTNAME:-"localhost"}
@@ -66,6 +63,7 @@ SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca
 # Infrastructure
 INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_vis_tools_vnc"}
 INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_data_stream"}
+INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_foxglove"}
 
 # Simulation
 CARLA_SERVER_IMAGE=${CARLA_SERVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_server_image"}
@@ -99,6 +97,7 @@ echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$PROFILES_
 echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$PROFILES_DIR/.env"
+echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "CARLA_SERVER_IMAGE=$CARLA_SERVER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "CARLA_ROS2_BRIDGE_IMAGE=$CARLA_ROS2_BRIDGE_IMAGE" >> "$PROFILES_DIR/.env"
@@ -106,7 +105,6 @@ echo "SIMULATION_CAMERA_COMPRESSION_IMAGE=$SIMULATION_CAMERA_COMPRESSION_IMAGE" 
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"
-echo "CACHE_FROM_TAG=$CACHE_FROM_TAG" >> "$PROFILES_DIR/.env"
 
 echo "FIXUID=$FIXUID" >> "$PROFILES_DIR/.env"
 echo "FIXGID=$FIXGID" >> "$PROFILES_DIR/.env"
