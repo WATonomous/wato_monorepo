@@ -19,6 +19,7 @@ services:
       - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
     volumes:
       - rviz_configs:/home/docker/ament_ws/src/simulation_rviz_configs
+    runtime: nvidia
 
 volumes:
   rviz_configs:
