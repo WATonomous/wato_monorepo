@@ -30,3 +30,14 @@ services:
     runtime: nvidia
     depends_on:
       - carla_server
+  camera_compression:
+    build:
+      context: ..
+      dockerfile: docker/simulation/camera_compression.Dockerfile
+      cache_from:
+        - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-develop"
+    image: "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/simulation/camera_compression:/home/docker/ament_ws/src/camera_compression
