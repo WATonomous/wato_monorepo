@@ -46,7 +46,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
@@ -64,6 +64,10 @@ RUN apt-get update && apt-get install -y lxde x11vnc xvfb mesa-utils && apt-get 
 
 COPY --chown=docker docker/infrastructure/vis_tools/supervisord.conf /etc/supervisor/supervisord.conf
 RUN chown -R docker:docker /etc/supervisor
+
+RUN mkdir /home/docker/ament_ws/src/simulation_rviz_configs
+RUN chmod 777 /home/docker/ament_ws/src/simulation_rviz_configs
+
 RUN chmod 777 /var/log/supervisor/
 ENV DISPLAY=:1.0 
 CMD ["/usr/bin/supervisord"]
