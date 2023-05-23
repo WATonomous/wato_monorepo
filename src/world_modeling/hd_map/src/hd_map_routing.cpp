@@ -6,9 +6,9 @@
 namespace world_modeling::hd_map
 {
     HDMapRouting::HDMapRouting() {
-        std::string exampleMapPath = "/home/docker/ament_ws/src/maps/osm/roads_around_campus.osm";
+        std::string exampleMapPath = "/home/docker/ament_ws/src/maps/osm/Town05.osm";
 
-        this->map_ = lanelet::load(exampleMapPath, lanelet::projection::UtmProjector(lanelet::Origin({43.46811824, -80.539398054})));
+        this->map_ = lanelet::load(exampleMapPath, lanelet::projection::UtmProjector(lanelet::Origin({0, 0})));
         // lanelet::traffic_rules::TrafficRulesPtr trafficRules =
             // lanelet::traffic_rules::TrafficRulesFactory::create(lanelet::Locations::Germany, lanelet::Participants::Vehicle);
 

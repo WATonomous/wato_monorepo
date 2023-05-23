@@ -63,6 +63,7 @@ namespace world_modeling::hd_map
         auto marker = visualization_msgs::msg::Marker(); 
         std_msgs::msg::Header header; // empty header
         header.stamp = rclcpp::Clock().now(); // time
+        header.frame_id = "map";
         
         marker.header = header;
         marker.type = type;
