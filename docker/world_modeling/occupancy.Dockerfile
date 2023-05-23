@@ -4,15 +4,6 @@ FROM ros:humble AS base
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up apt repo
-RUN apt-get update && apt-get install -y lsb-release software-properties-common apt-transport-https && \
-    apt-add-repository universe
-
-# Install Dependencies
-RUN apt-get update && \
-    apt-get install -y \ 
-    ros-$ROS_DISTRO-foxglove-bridge
-
 # Add a docker user so that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
     adduser --uid 1000 --ingroup docker --home /home/docker --shell /bin/bash --disabled-password --gecos "" docker && \
