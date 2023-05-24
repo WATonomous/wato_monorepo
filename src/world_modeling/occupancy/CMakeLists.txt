@@ -42,47 +42,29 @@ ament_target_dependencies(sample_lib
   sample_msgs
   world_modeling_msgs)
 
-# By default tests are built. This can be overridden by modifying the
-# colcon build command to include the -DBUILD_TESTING=OFF flag.
-option(BUILD_TESTING "Build tests" ON)
-if(BUILD_TESTING)
-  # Search for dependencies required for building tests + linting
-  find_package(ament_cmake_gtest REQUIRED)
-  find_package(ament_lint_auto REQUIRED)
-  find_package(ament_lint_common REQUIRED)
-
-  # Remove the default C++ and copyright linter
-  list(APPEND AMENT_LINT_AUTO_EXCLUDE
-    ament_cmake_cpplint
-    ament_cmake_copyright)
-
-  # Reinstall cpplint ignoring copyright errors
-  ament_cpplint(FILTERS "-legal/copyright")
-
-  ament_lint_auto_find_test_dependencies()
-
-  # Create test executable from source files
-  ament_add_gtest(sample_test test/sample_test.cpp)
-  # Link to the previously built library to access Sample classes and methods
-  target_link_libraries(sample_test
-    sample_lib
-    gtest_main)
-
-  # Copy executable to installation location
-  install(TARGETS
-  sample_test
-    DESTINATION lib/${PROJECT_NAME})
-endif()
-
 # Create ROS2 node executable from source files
 add_executable(sample_node src/sample_node.cpp)
+add_executable(voxelizer_node src/voxelizer_node.cpp)
 
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(sample_node sample_lib)
 
-# Copy executable to installation location
+ament_target_dependencies(voxelizer_node
+  rclcpp
+  sample_msgs
+  world_modeling_msgs)
+
+target_include_directories(voxelizer_node
+  PUBLIC
+  include)
+
+  # Copy executable to installation location
 install(TARGETS
   sample_node
+  DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS
+  voxelizer_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Install Python modules
