@@ -50,10 +50,7 @@ services:
   #     - "6600:5900"
     # environment:
     #   - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
-  
-  
-      
-
+    
   camera_compression:
     build:
       context: ..
