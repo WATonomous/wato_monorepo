@@ -1,0 +1,8 @@
+source;share/lidar_object_detection/hook/cmake_prefix_path.ps1
+source;share/lidar_object_detection/hook/cmake_prefix_path.dsv
+source;share/lidar_object_detection/hook/cmake_prefix_path.sh
+source;share/lidar_object_detection/local_setup.bash
+source;share/lidar_object_detection/local_setup.dsv
+source;share/lidar_object_detection/local_setup.ps1
+source;share/lidar_object_detection/local_setup.sh
+source;share/lidar_object_detection/local_setup.zsh
