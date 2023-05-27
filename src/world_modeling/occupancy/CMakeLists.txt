@@ -17,6 +17,8 @@ find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(rclpy REQUIRED)       # ROS2 python package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(world_modeling_msgs REQUIRED) # Custom package containing ROS2 messages
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
 
 ament_export_dependencies(ament_cmake)
 ament_export_dependencies(ament_cmake_python)
@@ -24,6 +26,9 @@ ament_export_dependencies(rclcpp)
 ament_export_dependencies(rclpy)
 ament_export_dependencies(sample_msgs)
 ament_export_dependencies(world_modeling_msgs)
+ament_export_dependencies(pcl_conversions)
+ament_export_dependencies(pcl_ros)
+
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -52,7 +57,9 @@ target_link_libraries(sample_node sample_lib)
 ament_target_dependencies(voxelizer_node
   rclcpp
   sample_msgs
-  world_modeling_msgs)
+  world_modeling_msgs
+  pcl_conversions
+  pcl_ros)
 
 target_include_directories(voxelizer_node
   PUBLIC
