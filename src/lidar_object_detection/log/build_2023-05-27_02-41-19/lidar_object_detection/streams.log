@@ -1,0 +1,68 @@
+[0.008s] Invoking command in '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /wato_monorepo_v2/src/lidar_object_detection -DCMAKE_INSTALL_PREFIX=/wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection
+[0.049s] -- The C compiler identification is GNU 11.3.0
+[0.088s] -- The CXX compiler identification is GNU 11.3.0
+[0.094s] -- Detecting C compiler ABI info
+[0.137s] -- Detecting C compiler ABI info - done
+[0.142s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.143s] -- Detecting C compile features
+[0.143s] -- Detecting C compile features - done
+[0.145s] -- Detecting CXX compiler ABI info
+[0.196s] -- Detecting CXX compiler ABI info - done
+[0.201s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.201s] -- Detecting CXX compile features
+[0.202s] -- Detecting CXX compile features - done
+[0.204s] -- Found ament_cmake: 1.3.4 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.286s] -- Found Python3: /usr/bin/python3.10 (found version "3.10.6") found components: Interpreter 
+[0.334s] -- Found rclcpp: 16.0.4 (/opt/ros/humble/share/rclcpp/cmake)
+[0.359s] -- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[0.362s] -- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[0.368s] -- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[0.377s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.390s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.439s] -- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[0.440s] -- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[0.495s] -- Found OpenSSL: /usr/lib/aarch64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[0.507s] -- Found FastRTPS: /opt/ros/humble/include  
+[0.530s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[0.536s] -- Looking for pthread.h
+[0.581s] -- Looking for pthread.h - found
+[0.582s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[0.628s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[0.629s] -- Found Threads: TRUE  
+[0.750s] -- Found ament_lint_auto: 0.12.6 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[0.795s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[0.795s] -- Configured cppcheck include dirs: 
+[0.795s] -- Configured cppcheck exclude dirs and/or files: 
+[0.797s] -- Added test 'lint_cmake' to check CMake code style
+[0.801s] -- Added test 'uncrustify' to check C / C++ code style
+[0.801s] -- Configured uncrustify additional arguments: 
+[0.801s] -- Added test 'xmllint' to check XML markup files
+[0.802s] -- Configuring done
+[0.810s] -- Generating done
+[0.811s] -- Build files have been written to: /wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection
+[0.816s] Invoked command in '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /wato_monorepo_v2/src/lidar_object_detection -DCMAKE_INSTALL_PREFIX=/wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection
+[0.817s] Invoking command in '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection -- -j4 -l4
+[0.845s] [ 50%] [32mBuilding CXX object CMakeFiles/lidar_detection_node.dir/src/lidar_detection_node.cpp.o[0m
+[2.907s] [100%] [32m[1mLinking CXX executable lidar_detection_node[0m
+[3.035s] [100%] Built target lidar_detection_node
+[3.043s] Invoked command in '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection -- -j4 -l4
+[3.067s] Invoking command in '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection
+[3.071s] -- Install configuration: ""
+[3.071s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/lib/lidar_object_detection/lidar_detection_node
+[3.073s] -- Set runtime path of "/wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/lib/lidar_object_detection/lidar_detection_node" to ""
+[3.073s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/ament_index/resource_index/package_run_dependencies/lidar_object_detection
+[3.073s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/ament_index/resource_index/parent_prefix_path/lidar_object_detection
+[3.073s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/ament_prefix_path.sh
+[3.073s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/ament_prefix_path.dsv
+[3.074s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/path.sh
+[3.074s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/path.dsv
+[3.074s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.bash
+[3.074s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.sh
+[3.074s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.zsh
+[3.074s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.dsv
+[3.074s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/package.dsv
+[3.075s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/ament_index/resource_index/packages/lidar_object_detection
+[3.075s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/cmake/lidar_object_detectionConfig.cmake
+[3.075s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/cmake/lidar_object_detectionConfig-version.cmake
+[3.075s] -- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/package.xml
+[3.077s] Invoked command in '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection

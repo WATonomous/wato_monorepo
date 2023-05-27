@@ -1,0 +1,106 @@
+[0.000000] (-) TimerEvent: {}
+[0.000268] (lidar_object_detection) JobQueued: {'identifier': 'lidar_object_detection', 'dependencies': OrderedDict()}
+[0.000346] (lidar_object_detection) JobStarted: {'identifier': 'lidar_object_detection'}
+[0.006205] (lidar_object_detection) JobProgress: {'identifier': 'lidar_object_detection', 'progress': 'cmake'}
+[0.006583] (lidar_object_detection) Command: {'cmd': ['/usr/bin/cmake', '/wato_monorepo_v2/src/lidar_object_detection', '-DCMAKE_INSTALL_PREFIX=/wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection'], 'cwd': '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection', 'env': OrderedDict([('HOSTNAME', 'bd2e537f0223'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/lib/aarch64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('OLDPWD', '/wato_monorepo_v2/src/lidar_object_detection/src'), ('ROS_PYTHON_VERSION', '3'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('LANG', 'C.UTF-8'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('PWD', '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection'), ('LC_ALL', 'C.UTF-8'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[0.049385] (lidar_object_detection) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.3.0\n'}
+[0.088484] (lidar_object_detection) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.3.0\n'}
+[0.093825] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.099435] (-) TimerEvent: {}
+[0.137169] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.142701] (lidar_object_detection) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[0.142927] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.143267] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.145525] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.195829] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.199512] (-) TimerEvent: {}
+[0.201450] (lidar_object_detection) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[0.201687] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.202062] (lidar_object_detection) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.204796] (lidar_object_detection) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.4 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.286132] (lidar_object_detection) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3.10 (found version "3.10.6") found components: Interpreter \n'}
+[0.301098] (-) TimerEvent: {}
+[0.333822] (lidar_object_detection) StdoutLine: {'line': b'-- Found rclcpp: 16.0.4 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[0.359196] (lidar_object_detection) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[0.362572] (lidar_object_detection) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[0.368054] (lidar_object_detection) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[0.377410] (lidar_object_detection) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[0.390287] (lidar_object_detection) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[0.403047] (-) TimerEvent: {}
+[0.438809] (lidar_object_detection) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[0.440312] (lidar_object_detection) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)\n'}
+[0.495764] (lidar_object_detection) StdoutLine: {'line': b'-- Found OpenSSL: /usr/lib/aarch64-linux-gnu/libcrypto.so (found version "3.0.2")  \n'}
+[0.503141] (-) TimerEvent: {}
+[0.507052] (lidar_object_detection) StdoutLine: {'line': b'-- Found FastRTPS: /opt/ros/humble/include  \n'}
+[0.530308] (lidar_object_detection) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[0.536717] (lidar_object_detection) StdoutLine: {'line': b'-- Looking for pthread.h\n'}
+[0.581743] (lidar_object_detection) StdoutLine: {'line': b'-- Looking for pthread.h - found\n'}
+[0.582030] (lidar_object_detection) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[0.603248] (-) TimerEvent: {}
+[0.628095] (lidar_object_detection) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n'}
+[0.629134] (lidar_object_detection) StdoutLine: {'line': b'-- Found Threads: TRUE  \n'}
+[0.703317] (-) TimerEvent: {}
+[0.749932] (lidar_object_detection) StdoutLine: {'line': b'-- Found ament_lint_auto: 0.12.6 (/opt/ros/humble/share/ament_lint_auto/cmake)\n'}
+[0.795279] (lidar_object_detection) StdoutLine: {'line': b"-- Added test 'cppcheck' to perform static code analysis on C / C++ code\n"}
+[0.795384] (lidar_object_detection) StdoutLine: {'line': b'-- Configured cppcheck include dirs: \n'}
+[0.795423] (lidar_object_detection) StdoutLine: {'line': b'-- Configured cppcheck exclude dirs and/or files: \n'}
+[0.796935] (lidar_object_detection) StdoutLine: {'line': b"-- Added test 'lint_cmake' to check CMake code style\n"}
+[0.801013] (lidar_object_detection) StdoutLine: {'line': b"-- Added test 'uncrustify' to check C / C++ code style\n"}
+[0.801169] (lidar_object_detection) StdoutLine: {'line': b'-- Configured uncrustify additional arguments: \n'}
+[0.801777] (lidar_object_detection) StdoutLine: {'line': b"-- Added test 'xmllint' to check XML markup files\n"}
+[0.802699] (lidar_object_detection) StdoutLine: {'line': b'-- Configuring done\n'}
+[0.803394] (-) TimerEvent: {}
+[0.810126] (lidar_object_detection) StdoutLine: {'line': b'-- Generating done\n'}
+[0.811476] (lidar_object_detection) StdoutLine: {'line': b'-- Build files have been written to: /wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection\n'}
+[0.816102] (lidar_object_detection) CommandEnded: {'returncode': 0}
+[0.816661] (lidar_object_detection) JobProgress: {'identifier': 'lidar_object_detection', 'progress': 'build'}
+[0.817569] (lidar_object_detection) Command: {'cmd': ['/usr/bin/cmake', '--build', '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection', '--', '-j4', '-l4'], 'cwd': '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection', 'env': OrderedDict([('HOSTNAME', 'bd2e537f0223'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/lib/aarch64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('OLDPWD', '/wato_monorepo_v2/src/lidar_object_detection/src'), ('ROS_PYTHON_VERSION', '3'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('LANG', 'C.UTF-8'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('PWD', '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection'), ('LC_ALL', 'C.UTF-8'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[0.844917] (lidar_object_detection) StdoutLine: {'line': b'[ 50%] \x1b[32mBuilding CXX object CMakeFiles/lidar_detection_node.dir/src/lidar_detection_node.cpp.o\x1b[0m\n'}
+[0.903499] (-) TimerEvent: {}
+[1.003771] (-) TimerEvent: {}
+[1.103996] (-) TimerEvent: {}
+[1.204240] (-) TimerEvent: {}
+[1.305272] (-) TimerEvent: {}
+[1.406087] (-) TimerEvent: {}
+[1.507245] (-) TimerEvent: {}
+[1.607480] (-) TimerEvent: {}
+[1.712787] (-) TimerEvent: {}
+[1.813015] (-) TimerEvent: {}
+[1.913976] (-) TimerEvent: {}
+[2.015208] (-) TimerEvent: {}
+[2.115459] (-) TimerEvent: {}
+[2.215767] (-) TimerEvent: {}
+[2.319745] (-) TimerEvent: {}
+[2.423803] (-) TimerEvent: {}
+[2.524015] (-) TimerEvent: {}
+[2.624213] (-) TimerEvent: {}
+[2.724413] (-) TimerEvent: {}
+[2.824630] (-) TimerEvent: {}
+[2.907051] (lidar_object_detection) StdoutLine: {'line': b'[100%] \x1b[32m\x1b[1mLinking CXX executable lidar_detection_node\x1b[0m\n'}
+[2.924812] (-) TimerEvent: {}
+[3.026083] (-) TimerEvent: {}
+[3.035721] (lidar_object_detection) StdoutLine: {'line': b'[100%] Built target lidar_detection_node\n'}
+[3.043242] (lidar_object_detection) CommandEnded: {'returncode': 0}
+[3.060389] (lidar_object_detection) JobProgress: {'identifier': 'lidar_object_detection', 'progress': 'install'}
+[3.067373] (lidar_object_detection) Command: {'cmd': ['/usr/bin/cmake', '--install', '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection'], 'cwd': '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection', 'env': OrderedDict([('HOSTNAME', 'bd2e537f0223'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/lib/aarch64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('OLDPWD', '/wato_monorepo_v2/src/lidar_object_detection/src'), ('ROS_PYTHON_VERSION', '3'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('LANG', 'C.UTF-8'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('PWD', '/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection'), ('LC_ALL', 'C.UTF-8'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[3.071517] (lidar_object_detection) StdoutLine: {'line': b'-- Install configuration: ""\n'}
+[3.071776] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/lib/lidar_object_detection/lidar_detection_node\n'}
+[3.073096] (lidar_object_detection) StdoutLine: {'line': b'-- Set runtime path of "/wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/lib/lidar_object_detection/lidar_detection_node" to ""\n'}
+[3.073231] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/ament_index/resource_index/package_run_dependencies/lidar_object_detection\n'}
+[3.073395] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/ament_index/resource_index/parent_prefix_path/lidar_object_detection\n'}
+[3.073755] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/ament_prefix_path.sh\n'}
+[3.073810] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/ament_prefix_path.dsv\n'}
+[3.073935] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/path.sh\n'}
+[3.074083] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/environment/path.dsv\n'}
+[3.074204] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.bash\n'}
+[3.074363] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.sh\n'}
+[3.074448] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.zsh\n'}
+[3.074536] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/local_setup.dsv\n'}
+[3.074807] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/package.dsv\n'}
+[3.074926] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/ament_index/resource_index/packages/lidar_object_detection\n'}
+[3.075135] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/cmake/lidar_object_detectionConfig.cmake\n'}
+[3.075233] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/cmake/lidar_object_detectionConfig-version.cmake\n'}
+[3.075346] (lidar_object_detection) StdoutLine: {'line': b'-- Installing: /wato_monorepo_v2/src/lidar_object_detection/install/lidar_object_detection/share/lidar_object_detection/package.xml\n'}
+[3.077214] (lidar_object_detection) CommandEnded: {'returncode': 0}
+[3.105114] (lidar_object_detection) JobEnded: {'identifier': 'lidar_object_detection', 'rc': 0}
+[3.105610] (-) EventReactorShutdown: {}

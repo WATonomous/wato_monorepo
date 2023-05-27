@@ -1,0 +1,10 @@
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/uninstall.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/lidar_object_detection_uninstall.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/lidar_detection_node.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/test.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/edit_cache.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/rebuild_cache.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/list_install_components.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/install.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/install/local.dir
+/wato_monorepo_v2/src/lidar_object_detection/build/lidar_object_detection/CMakeFiles/install/strip.dir

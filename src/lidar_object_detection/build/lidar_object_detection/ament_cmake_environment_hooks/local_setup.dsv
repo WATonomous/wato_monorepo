@@ -1,0 +1,2 @@
+source;share/lidar_object_detection/environment/ament_prefix_path.sh
+source;share/lidar_object_detection/environment/path.sh
