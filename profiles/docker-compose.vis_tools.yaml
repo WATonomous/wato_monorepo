@@ -5,7 +5,8 @@ services:
       context: ..
       dockerfile: docker/infrastructure/vis_tools/vnc.Dockerfile
       cache_from:
-        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-${CACHE_FROM_TAG}"
+        # - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-simulation"
         - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}-develop"
       args:
         - CARLA_VERSION=0.9.13
@@ -18,6 +19,7 @@ services:
       - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
     volumes:
       - rviz_configs:/home/docker/ament_ws/src/simulation_rviz_configs
+    runtime: nvidia
 
 volumes:
   rviz_configs:
