@@ -74,7 +74,8 @@ def generate_launch_description():
             'synchronous_mode_wait_for_vehicle_control_command' : LaunchConfiguration('synchronous_mode_wait_for_vehicle_control_command'),
             'fixed_delta_seconds' : LaunchConfiguration('fixed_delta_seconds'),
             'town' : LaunchConfiguration('town'),
-        }]
+        }],
+        respawn=True
     )
 
     """Launch ego vehicle spawner nodes (using carla_example_ego_vehicle.launch.py)"""
@@ -90,16 +91,27 @@ def generate_launch_description():
         ]
     )
 
-    """ Launch Ackermann Control Node """
-    carla_ackermann_control = Node(
-        package='carla_ackermann_control',
-        executable='carla_ackermann_control_node',
-        output='screen',
-        parameters=[{
-            'role_name' : LaunchConfiguration('role_name'),
-            'control_loop_rate' : LaunchConfiguration('control_loop_rate')
-        }]
-    )
+    if(os.environ.get('USE_ACKERMANN_CONTROL', 'True').lower() == 'true'):
+        """ Launch Ackermann Control Node """
+        carla_control = Node(
+            package='carla_ackermann_control',
+            executable='carla_ackermann_control_node',
+            output='screen',
+            parameters=[{
+                'role_name' : LaunchConfiguration('role_name'),
+                'control_loop_rate' : LaunchConfiguration('control_loop_rate')
+            }]
+        )
+    else:
+        carla_control = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(get_package_share_directory(
+                    'carla_manual_control'), 'carla_manual_control.launch.py')
+            ),
+            launch_arguments={
+                'role_name': LaunchConfiguration('role_name')
+            }.items()
+        )
 
     """ Launch MPC Bridge Node """
     carla_mpc_bridge = Node(
@@ -123,6 +135,6 @@ def generate_launch_description():
         control_loop_rate_arg,
         carla_ros_bridge,
         carla_ego_vehicle,
-        carla_ackermann_control,
+        carla_control,
         carla_mpc_bridge,
     ])
