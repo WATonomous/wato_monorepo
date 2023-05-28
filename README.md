@@ -29,6 +29,8 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
   - This folder contains the `Dockerfiles` for each of our images. [Docker wiki](https://docs.docker.com/engine/reference/builder/).
 - `src/`: 
   - Here is where our actual code goes. The folders in `src` will be mounted to the docker images, so changes in the `src` directory will be reflected in the containers. 
+- `docs/`:
+  - This folder contains the documentation for this monorepo, including instructions for setup and details on how to navigate and develop in this monorepo.
 
 ## Documentation
 
