@@ -20,7 +20,8 @@ services:
         - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:main"
     image: "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
-    command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "send_buffer_limit:=100000000", "min_qos_depth:=5", "use_compression:=true"]
+    command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765"]
+    #command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "send_buffer_limit:=1000", "min_qos_depth:=5", "use_compression:=true"]
     # command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch rosbridge_server rosbridge_websocket_launch.xml && fg"
     ports:
-      - "${FOXGLOVE_BRIDGE_PORT:?}:8765"
+      - "8760:8765"
