@@ -22,7 +22,7 @@ LidarDetector::LidarDetector() : Node("lidar_object_detection") {
 
     std::string model_file = "/home/docker/ament_ws/pointpillar.onnx";
     pointpillar = std::make_shared<PointPillar>(model_file, stream);
-    RCLCPP_ERROR(this->get_logger(), "Model is initialized");
+    RCLCPP_DEBUG(this->get_logger(), "Model is initialized");
 
     lidar_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/lidar", 1, std::bind(&LidarDetector::lidarPointsCallback, this, _1)
