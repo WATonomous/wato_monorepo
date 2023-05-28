@@ -10,6 +10,7 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
     - [watod2](#watod2)
     - [Remote VScode](#remote-vscode)
     - [Playing ros2 bags](#playing-ros2-bags)
+    - [Using Foxglove](#using-foxglove)
   - [Monorepo Info](#monorepo-info)
   - [Technical Specification](#technical-specification)
   - [Testing Infrastructure](#testing)
@@ -47,6 +48,7 @@ from dev_config.sh
 # Possible values:
 #   - production    		:   configs for all containers required in production
 #   - samples           :   starts sample ROS2 pubsub nodes
+#   - carla             :   starts carla related containers
 # Example override in dev_config.local.sh: 
 #   ACTIVE_PROFILES="samples production"
 
@@ -121,6 +123,16 @@ The working directory of the `data_stream` container should have a `nuscenes` di
 Now, using `watod run data_stream [ROS2 BAG COMMAND]` you can run any `ros2 bag ...` command as documented here: http://wiki.ros.org/rosbag/Commandline. You probably want to explore `ros2 bag play ...`: http://wiki.ros.org/rosbag/Commandline#rosbag_play. (Since this documentation is in ROS1, you can replace `rosbag` with `ros2 bag` to run the equivalent command in ROS2)
 
 Example: `watod2 run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`
+
+### Using Foxglove
+
+[Foxglove](https://foxglove.dev/) is used to visualize ROS messages on a local machine.
+
+Add `data_stream` as an `ACTIVE_PROFILE` and declare `FOXGLOVE_BRIDGE_PORT=[port]` in `dev_config.local.sh`. This will launch the `foxglove.Dockerfile` container with an open port when `watod2 up` is ran. 
+
+It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which you will need to forward to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine.
+
+Then, open foxglove and add a connection `localhost:8765`, and it should connect.
 
 ## Monorepo Info
 [docs/monorepo.md](docs/monorepo.md)
