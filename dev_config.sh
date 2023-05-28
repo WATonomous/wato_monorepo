@@ -74,6 +74,7 @@ FIXGID=$(id -g)
 
 BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT++))}
+FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT++))}
 
 ## -------------------- Environment Variables -------------------------
 
@@ -103,4 +104,5 @@ echo "FIXGID=$FIXGID" >> "$PROFILES_DIR/.env"
 
 echo "BASE_PORT=$BASE_PORT" >> "$PROFILES_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$PROFILES_DIR/.env"
+echo "FOXGLOVE_BRIDGE_PORT=$FOXGLOVE_BRIDGE_PORT" >> "$PROFILES_DIR/.env"
 cat $PROFILES_DIR/.env

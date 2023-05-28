@@ -23,4 +23,4 @@ services:
     # command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "send_buffer_limit:=100000000", "min_qos_depth:=5", "use_compression:=true"]
     command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765 use_compression:=true && fg"
     ports:
-      - "8765:8765"
+      - "${FOXGLOVE_BRIDGE_PORT:?}:8765"
