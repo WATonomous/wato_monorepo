@@ -9,6 +9,8 @@ services:
       args:
         - CARLA_VERSION=0.9.13
     image: "${CARLA_SERVER_IMAGE:?}:latest"
+    environment:
+      - DISPLAY=1
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
     ports:
@@ -26,12 +28,13 @@ services:
         - CARLA_VERSION=0.9.13
     environment:
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla
+      - USE_ACKERMANN_CONTROL=False
     image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
-    # user: ${FIXUID:?}:${FIXGID:?}
+    user: ${FIXUID:?}:${FIXGID:?}
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     restart: always
-    # depends_on:
-    #   - carla_server
+    depends_on:
+      - carla_server
   
   # carla_manual_control:
   #   build:
