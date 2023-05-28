@@ -22,4 +22,4 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "send_buffer_limit:=100000000", "min_qos_depth:=5", "use_compression:=true"]
     ports:
-      - "8765:8765"
+      - "8760:8765"
