@@ -59,4 +59,4 @@ COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 RUN sudo chmod +x ~/wato_ros_entrypoint.sh
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "run", "lidar_object_detection"]
+CMD ["ros2", "run", "lidar_object_detection", "lidar_object_detection"]
