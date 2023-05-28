@@ -28,7 +28,7 @@
             [
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "right",
+                    "id": "rgb_right",
                     "spawn_point": {"x": 0.304, "y": 0.345, "z": 1.723, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "image_size_x": 1920,
                     "image_size_y": 1200,
@@ -87,7 +87,7 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "center",
+                    "id": "rgb_center",
                     "spawn_point": {"x": 0.304, "y": 0.0, "z": 1.617, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "image_size_x": 1920,
                     "image_size_y": 1200,
@@ -131,7 +131,7 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "left",
+                    "id": "rgb_left",
                     "spawn_point": {"x": 0.304, "y": -0.345, "z": 1.723, "roll": 0.0, "pitch": 0.0, "yaw": -20.0},
                     "image_size_x": 1920,
                     "image_size_y": 1200,
@@ -175,7 +175,7 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "view",
+                    "id": "rgb_view",
                     "spawn_point": {"x": -4.5, "y": 0.0, "z": 2.8, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "image_size_x": 800,
                     "image_size_y": 600,
@@ -262,7 +262,7 @@
                 },
                 {
                     "type": "sensor.other.lane_invasion",
-                    "id": "laneinvasion1",
+                    "id": "laneinvasion",
                     "spawn_point": {"x": 0.0, "y": 0.0, "z": 0.0}
                 }
             ]
