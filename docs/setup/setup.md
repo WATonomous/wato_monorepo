@@ -1,15 +1,15 @@
 # Getting Started
 
+## Terminology
+- Local Machine: Your personal machine
+- Host Machine: The machine that you will be developing on. We recommend you use our WATonomous servers. The host and local machine can be the same.
+
 ## System Requirements
 - Docker-compose 1.29.2 or later
 - Docker 20.10.18 or later
 - Nvidia GPU (for simulation)
 
-Recommended: Use a WATonomous server 
-
-## Terminology
-- Local Machine: Your personal machine
-- Host Machine: The machine that you will be developing on. We recommend you use our WATonomous servers. The host and local machine can be the same.
+Note: These are all available on WATonomous servers by default.
 
 ## Prerequisites
 
@@ -18,29 +18,28 @@ Recommended: Use a WATonomous server
     * If you have a github ssh key on your local machine, you can [forward it to the server](https://docs.github.com/en/developers/overview/using-ssh-agent-forwarding).
 3. **Authorized WATO user:** You have registered a user for yourself on WATO's servers as per the instrucitons in [`ansible-config`](https://git.uwaterloo.ca/WATonomous/ansible-config). Note that you can use your local machine's SSH public key for a passwordless login during the profile creation in [`ansible-config`](https://git.uwaterloo.ca/WATonomous/ansible-config). You can always update your profile should your password or SSH key(s) change. Members should consult with their manager, tech lead, or an infrastructure member about which server to use. Log in to a server VM with `$ ssh yourusername@vm-domain-name` where `vm-domain-name` can be found in [the server details spreadsheet](https://docs.google.com/spreadsheets/d/141TjJNwrWngtkDIp-4q6c1888kq4EBy0wa3FsS29BnE) (remember to use your watonomous.ca credentials).
 4. **ROS Knowledge:** You know how ROS works and how an ament workspace is structured. Otherwise this guide may be confusing. See the [ROS2 Tutorials](http://docs.ros.org.ros.informatik.uni-freiburg.de/en/foxy/Tutorials.html) for more information.
-5. **Docker:** You have access to Docker on the host machine. Verify this by running `$ docker info`. You shouldn't see any errors.
+5. **Docker:** You are familiar with Docker and Docker Compose and you have access to Docker on the host machine. Verify this by running `$ docker info`. You shouldn't see any errors.
 6. **Nvidia GPU:** The host machine has an Nvidia GPU. Otherwise you won't be able to use our Carla simulator. Verify this with `nvidia-smi`.
-
-Breifly familarize yourself with Docker and Docker Compose before continuing.
 
 ## Setting up your workspace
 
 1. Clone this repo onto the host machine on using `$ git clone git@github.com:WATonomous/wato_monorepo_v2.git`. We recommend you clone the repo into your home directory, `~`
 2. Ensure you are on the develop branch: `$ cd ~/wato_monorepo_v2 && git checkout develop && git pull`
-4. Create a file `dev_config.local.sh` in `~/wato_monorepo_v2` and add the line 
-```
-#!/bin/bash
-from dev_config.sh
+3. Create a file `dev_config.local.sh` in `~/wato_monorepo_v2` and add the line 
+    ```
+    #!/bin/bash
+    from dev_config.sh
 
-ACTIVE_PROFILES="${specific profiles}"
-```
-See [the main `README.md`](https://git.uwaterloo.ca/WATonomous/wato_monorepo/-/blob/develop/README.md#profiles) for more info on active profiles.
-5. Run `$ ./watod2 pull` to pull latest docker images from our container registry.
-6. Run `$ ./watod2 up` to run the Docker images, and watch for any errors. If succesful, this will create a variety of containers prefixed with `${USER}_`. This command does not exit, and will continue to monitor the logs from your containers.
-7. In another terminal, enter `$ ./watod2 ps` to see a list of your open containers.
-8. When you're done, press `ctrl-c` in your original terminal to close the containers. 
+    ACTIVE_PROFILES="${specific profiles}"
+    ```
+    See [docs/dev/profiles.md](../dev/profiles.md) for more info on active profiles.
 
-The `watod2` will be your the main way that you interact with your containers. `watod2` is a wrapper for `docker-compose` that automates the setup of environment varaibles and has some additional functionality. Get more information about `watod2` using: `$ watod2 -h`.
+4. Run `$ ./watod2 pull` to pull latest docker images from our container registry.
+5. Run `$ ./watod2 up` to run the Docker images, and watch for any errors. If succesful, this will create a variety of containers prefixed with `${USER}_`. This command does not exit, and will continue to monitor the logs from your containers.
+6. In another terminal, enter `$ ./watod2 ps` to see a list of your open containers.
+7. When you're done, press `ctrl-c` in your original terminal to close the containers. 
+
+The `watod2` will be your the main way that you interact with your containers. `watod2` is a wrapper for `docker-compose` that automates the setup of environment varaibles and has some additional functionality. Get more information about `watod2` using `$ watod2 -h`, or see [docs/dev/watod2.md](../dev/watod2.md).
 
 We recommend you add `~/wato_monorepo_v2/` to your `$PATH` variable so that you can run `watod2` from anywhere on your computer, not just in your `~/wato_monorepo_v2` directory and add `watod2-completion.bash` to your bashrc to enable tab autocomplete:
 ```bash
