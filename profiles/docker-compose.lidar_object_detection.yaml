@@ -1,0 +1,9 @@
+version: "3.8"
+services:
+  lidar_object_detection:
+    build:
+      context: ..
+      dockerfile: docker/lidar_object_detection/lidar_object_detection.Dockerfile
+    image: "lidar_object_detection:latest"
+    user: ${FIXUID:?}:${FIXGID:?}
+
