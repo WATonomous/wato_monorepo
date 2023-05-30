@@ -35,6 +35,21 @@ services:
     restart: always
     depends_on:
       - carla_server
+    
+  python_api_test:
+    build:
+      context: ..
+      dockerfile: docker/simulation/python_api_test.Dockerfile
+      args:
+        - CARLA_VERSION=0.9.13
+    image: python_api_test
+    user: root:root
+    ports:
+      - 8888:8888
+    environment:
+      - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla
+    container_name: ${COMPOSE_PROJECT_NAME:?}_python_api_test
+    command: jupyter notebook --ip 0.0.0.0 --port 8888 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password=''
   
   # carla_manual_control:
   #   build:
