@@ -134,6 +134,17 @@ It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which you 
 
 Then, open foxglove and add a connection `localhost:8765`, and it should connect.
 
+### Using Carla Jupyter Notebook
+
+Jupyter Notebook can be used to write python notebooks on a local machine that can be executed in a running container.
+This container is primarily to be used to interact with Carla without having to write ROS nodes that require a lot of boilerplate
+
+Add `carla` as an `ACTIVE_PROFILE` and declare `CARLA_NOTEBOOKS_PORT=[port]` in `dev_config.local.sh`. This will launch the `carla_notebooks.Dockerfile` container with an open port when `watod2 up` is ran. 
+
+It exposes the port specified by the `CARLA_NOTEBOOKS_PORT` variable, which you will need to forward to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8888:localhost:8888 <username>@<machine>-ubuntu1.watocluster.local` on your local machine.
+
+Then, open any browser and type `localhost:8888` and press enter. In the Jupyter Notebook UI select the `carla_notebook.ipynb` file and you should be able to start coding. 
+
 ## Monorepo Info
 [docs/monorepo.md](docs/monorepo.md)
 
