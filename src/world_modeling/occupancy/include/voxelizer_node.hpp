@@ -14,10 +14,10 @@ class VoxelizerNode : public rclcpp::Node
 
   private:
   void VoxelizerNode::voxel_sub_callback(
-    const pcl::PCLPointCloud2::SharedPtr msg)
+    const pcl::PCLPointCloud2::SharedPtr msg);
 
   void VoxelizerNode::voxel_publish(
-    const pcl::VoxelGrid::SharedPtr msg)
+    const pcl::VoxelGrid::SharedPtr msg);
 
   rclcpp::Subscription<pcl::PCLPointCloud2>::SharedPtr pointcloud_sub_;
 
