@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  lidar_publisher:
+    build:
+      context: ..
+      dockerfile: docker/lidar_publisher/lidar_publisher.Dockerfile
+      cache_from:
+        - "${LIDAR_PUBLISHER_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${LIDAR_PUBLISHER_IMAGE:?}-develop"
+    image: "${LIDAR_PUBLISHER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/lidar_publisher:/home/docker/ament_ws/src/lidar_publisher

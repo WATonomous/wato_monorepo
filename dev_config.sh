@@ -59,6 +59,8 @@ PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
 SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_aggregator"}
 SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_producer"}
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
+LIDAR_OBJECT_DETECTION_IMAGE=${LIDAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_object_detection"}
+LIDAR_PUBLISHER_IMAGE=${LIDAR_PUBLISHER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_publisher"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -87,6 +89,8 @@ echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >>
 echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "LIDAR_OBJECT_DETECTION_IMAGE=$LIDAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "LIDAR_PUBLISHER_IMAGE=$LIDAR_PUBLISHER_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"
