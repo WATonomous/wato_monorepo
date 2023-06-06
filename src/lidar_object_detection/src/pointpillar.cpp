@@ -59,6 +59,8 @@ TRT::TRT(std::string modelFile, cudaStream_t stream):stream_(stream)
         exit(-1);
     }
 
+    std::cout << "Parsing onnx model file success!" << std::endl;
+
     // define config
     auto networkConfig = builder->createBuilderConfig();
 #if defined (__arm64__) || defined (__aarch64__) 
@@ -72,20 +74,27 @@ TRT::TRT(std::string modelFile, cudaStream_t stream):stream_(stream)
 
     engine_ = (builder->buildEngineWithConfig(*network, *networkConfig));
 
+    std::cout << "Building engine success!" << std::endl;
+
     if (engine_ == nullptr)
     {
       std::cerr << ": engine init null!" << std::endl;
       exit(-1);
     }
 
+    std::cout << "Serializing engine" << std::endl;
     // serialize the engine, then close everything down
     auto trtModelStream = (engine_->serialize());
+    std::cout << "Done serialize" << std::endl;
     std::fstream trtOut(modelCache, std::ifstream::out);
+    std::cout << "Done trtout" << std::endl;
     if (!trtOut.is_open())
     {
        std::cout << "Can't store trt cache.\n";
        exit(-1);
     }
+
+    std::cout << "Storing trt cache." << std::endl;
 
     trtOut.write((char*)trtModelStream->data(), trtModelStream->size());
     trtOut.close();
@@ -95,6 +104,8 @@ TRT::TRT(std::string modelFile, cudaStream_t stream):stream_(stream)
     parser->destroy();
     network->destroy();
     builder->destroy();
+
+    std::cout << "Building TRT engine success."<<std::endl;
 
   } else {
 	  std::cout << "load TRT cache."<<std::endl;
@@ -156,6 +167,7 @@ PointPillar::PointPillar(std::string modelFile, cudaStream_t stream):stream_(str
   pre_.reset(new PreProcessCuda(stream_));
   trt_.reset(new TRT(modelFile, stream_));
   post_.reset(new PostProcessCuda(stream_));
+  std::cout << "Done post." << std::endl;
 
   //point cloud to voxels
   voxel_features_size_ = MAX_VOXELS * params_.max_num_points_per_pillar * 4 * sizeof(float);
@@ -189,6 +201,7 @@ PointPillar::PointPillar(std::string modelFile, cudaStream_t stream):stream_(str
   //output of post-process
   bndbox_size_ = (params_.feature_x_size * params_.feature_y_size * params_.num_anchors * 9 + 1) * sizeof(float);
   checkCudaErrors(cudaMallocManaged((void **)&bndbox_output_, bndbox_size_));
+  std::cout << "Done init." << std::endl;
 
   res_.reserve(100);
   return;

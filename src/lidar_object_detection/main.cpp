@@ -8,7 +8,8 @@ int main(int argc, char *argv[]) {
     
     RCLCPP_DEBUG(rclcpp::get_logger("tmp_logger"), "Starting LidarDetector node");
 
-    rclcpp::spin(std::make_shared<LidarDetector>());
+    auto node = std::make_shared<LidarDetector>();
+    rclcpp::spin(node);
 
     RCLCPP_DEBUG(rclcpp::get_logger("tmp_logger"), "LidarDetector node shutting down.");
     

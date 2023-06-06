@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/tensorrt:23.01-py3 as base
+FROM ubuntu:20.04 as base
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y curl vim wget build-essential manpages-dev wget zlib1g software-properties-common git && \
@@ -9,13 +9,15 @@ RUN apt-get update && apt-get --reinstall install sudo
 RUN add-apt-repository universe
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
 
 ENV ROS_DISTRO foxy
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-foxy-ros-base ros-foxy-ackermann-msgs ros-foxy-pcl-conversions ros-foxy-pcl-ros \
-    python3-colcon-common-extensions
-RUN sudo apt-get install -y --no-install-recommends python3-rosdep && sudo rosdep init
+
+RUN apt update
+RUN apt install -y ros-foxy-desktop \ 
+        python3-rosdep python3-colcon-common-extensions
 
 # Add a docker user so we that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
@@ -43,16 +45,15 @@ WORKDIR /home/docker/ament_ws/src
 # ================= Repositories ===================
 FROM base as repo
 
-COPY src/lidar_object_detection lidar_object_detection
+COPY src/lidar_publisher lidar_publisher
 COPY src/wato_msgs/common_msgs common_msgs
 
 WORKDIR /home/docker/ament_ws
-RUN wget --header='PRIVATE-TOKEN:glpat-ZyqY_SDbwsUbcs4tjn1z' 'https://gitlab.uwaterloo.ca/api/v4/projects/18367/repository/files/pp%2Fpp_og.onnx/raw?ref=add_pp' -O "pointpillar.onnx"
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
+RUN export DEBIAN_FRONTEND=noninteractive && . /opt/ros/$ROS_DISTRO/setup.sh && \
+    sudo rosdep init && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
-    colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda
+    colcon build
 
 # Entrypoint will run before any CMD on launch. Sources ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
@@ -68,5 +69,5 @@ RUN tree /home/docker/ament_ws
 
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
 
-CMD ["ros2", "run", "lidar_object_detection", "lidar_object_detection"]
+CMD ["ros2", "run", "lidar_publisher", "lidar_publisher"]
 # Run with BUILDKIT_PROGRESS=plain ./watod2 up --build

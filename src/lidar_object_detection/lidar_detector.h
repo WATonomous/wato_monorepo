@@ -59,7 +59,7 @@ public:
     void lidarPointsCallback(
         const sensor_msgs::msg::PointCloud2::SharedPtr in_sensor_cloud
     );
-
+    void test();
     void publishVis(const std::vector<Bndbox> &boxes);
 };
 
