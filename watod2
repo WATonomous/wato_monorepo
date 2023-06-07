@@ -30,6 +30,7 @@ function usage {
     echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
     exit 0
 }
+
 function run_compose {
     cd $MONO_DIR
     if [ ! -z "$(source $PROFILES_DIR/.env && echo $ACTIVE_PROFILES)" ] && [ -z "$PROFILES" ]; then 
@@ -109,11 +110,6 @@ done
 
 if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
-fi
-
-# run fix-permissions.sh
-if [ -z "$NO_FIX_PERMISSIONS" ]; then
-    bash .gitlab/ci/fix-permissions.sh
 fi
 
 # launch autonomy on the car
