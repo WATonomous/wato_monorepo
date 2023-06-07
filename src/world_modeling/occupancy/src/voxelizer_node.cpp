@@ -3,7 +3,7 @@
 
 #include "voxelizer_node.hpp"
 
-VoxelizerNode::VoxelizerNode() : Node("voxelizer") {
+VoxelizerNode::VoxelizerNode() : Node("voxelizer"), voxilizer_(world_modeling::occupancy::Voxilizer()) {
   RCLCPP_INFO(this->get_logger(), "Voxelizer Node\n");
 
   pointcloud_sub_ = this->create_subscription<pcl::PCLPointCloud2>(
@@ -12,8 +12,7 @@ VoxelizerNode::VoxelizerNode() : Node("voxelizer") {
       &VoxelizerNode::voxel_sub_callback, this,
       std::placeholders::_1));
 
-  voxelgrid_pub_ =
-    this->create_publisher<pcl::VoxelGrid>("VoxelGrid", ADVERTISING_FREQ);
+  voxelgrid_pub_ = this->create_publisher<pcl::VoxelGrid>("VoxelGrid", ADVERTISING_FREQ);
 
   // Define the default values for parameters if not defined in params.yaml
   this->declare_parameter("version", rclcpp::ParameterValue(0));
@@ -21,9 +20,11 @@ VoxelizerNode::VoxelizerNode() : Node("voxelizer") {
 }
 
 
-void VoxelizerNode::voxel_sub_callback(const pcl::PCLPointCloud2::SharedPtr msg)
+void VoxelizerNode::voxel_sub_callback(const pcl::PCLPointCloud2::Ptr msg)
 {
-  auto cloud = msg
+  // pcl::PCLPointCloud2::SharedPtr cloud = msg;
+  // pcl::PCLPointCloud2::Ptr voxel_cloud (new pcl::PCLPointCloud2());
+  pcl::PCLPointCloud2::Ptr cloud (new pcl::PCLPointCloud2());
   pcl::PCLPointCloud2::Ptr voxel_cloud (new pcl::PCLPointCloud2());
 
   pcl::VoxelGrid<pcl::PCLPointCloud2> voxel_filter;
@@ -34,11 +35,11 @@ void VoxelizerNode::voxel_sub_callback(const pcl::PCLPointCloud2::SharedPtr msg)
   this->voxel_publish(voxel_filter);
 }
 
-void VoxelizerNode::voxel_publish(const pcl::VoxelGrid<pcl::PCLPointCloud2>SharedPtr msg)
+void VoxelizerNode::voxel_publish(const pcl::VoxelGrid<pcl::PCLPointCloud2>Ptr msg)
 {
-  auto pub_msg = msg //I should probably just pass the msg but I am just going to copy the sample node.
+  auto pub_msg = msg; //I should probably just pass the msg but I am just going to copy the sample node.
   RCLCPP_INFO(this->get_logger(), "Publishing Voxel Grid Message...\n");
-  voxel_pub_->publish(pub_msg);
+  voxelgrid_pub_->publish(pub_msg);
 }
 
 

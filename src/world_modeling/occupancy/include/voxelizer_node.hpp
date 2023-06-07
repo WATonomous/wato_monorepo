@@ -10,16 +10,17 @@
 class VoxelizerNode : public rclcpp::Node
 {
   public:
+    static constexpr int ADVERTISING_FREQ = 20;
     VoxelizerNode();
 
   private:
-  void VoxelizerNode::voxel_sub_callback(
-    const pcl::PCLPointCloud2::SharedPtr msg);
+  void VoxelizerNode::voxel_sub_callback(const pcl::PCLPointCloud2::Ptr msg);
 
-  void VoxelizerNode::voxel_publish(
-    const pcl::VoxelGrid::SharedPtr msg);
+  void VoxelizerNode::voxel_publish(const pcl::VoxelGrid<pcl::PCLPointCloud2>Ptr msg);
 
   rclcpp::Subscription<pcl::PCLPointCloud2>::SharedPtr pointcloud_sub_;
 
-  rclcpp::Publisher<pcl::VoxelGrid>::SharedPtr voxel_pub_;
+  rclcpp::Publisher<pcl::VoxelGrid>::SharedPtr voxelgrid_pub_;
+
+  world_modeling::occupancy::Voxilizer voxilizer_;
 };
