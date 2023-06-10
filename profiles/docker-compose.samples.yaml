@@ -5,9 +5,9 @@ services:
       context: ..
       dockerfile: docker/samples/cpp/aggregator.Dockerfile
       cache_from:
-        - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-develop"
-    image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${TAG}"
+        - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:${TAG}"
+        - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:main"
+    image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
@@ -16,9 +16,9 @@ services:
       context: ..
       dockerfile: docker/samples/cpp/producer.Dockerfile
       cache_from:
-        - "${SAMPLES_CPP_PRODUCER_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${SAMPLES_CPP_PRODUCER_IMAGE:?}-develop"
-    image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}-${TAG}"
+        - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
+        - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:main"
+    image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/samples/cpp/producer:/home/docker/ament_ws/src/producer
@@ -27,9 +27,9 @@ services:
       context: ..
       dockerfile: docker/samples/cpp/transformer.Dockerfile
       cache_from:
-        - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-develop"
-    image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}-${TAG}"
+        - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
+        - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:main"
+    image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer

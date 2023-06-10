@@ -5,9 +5,22 @@ services:
       context: ..
       dockerfile: docker/infrastructure/data_stream/data_stream.Dockerfile
       cache_from:
-        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}-develop"
-    image: "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}-${TAG}"
+        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:${TAG}"
+        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:main"
+    image: "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - /mnt/wato-drive2/nuscenes_mcap/ros2bags:/home/docker/ament_ws/nuscenes
+  foxglove:
+    build:
+      context: ..
+      dockerfile: docker/infrastructure/data_stream/foxglove.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:${TAG}"
+        - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:main"
+    image: "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    # command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "send_buffer_limit:=100000000", "min_qos_depth:=5", "use_compression:=true"]
+    command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch rosbridge_server rosbridge_websocket_launch.xml && fg"
+    ports:
+      - "${FOXGLOVE_BRIDGE_PORT:?}:9090"
