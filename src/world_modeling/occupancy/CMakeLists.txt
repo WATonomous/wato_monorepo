@@ -19,6 +19,8 @@ find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(world_modeling_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 ament_export_dependencies(ament_cmake)
 ament_export_dependencies(ament_cmake_python)
@@ -28,7 +30,8 @@ ament_export_dependencies(sample_msgs)
 ament_export_dependencies(world_modeling_msgs)
 ament_export_dependencies(pcl_conversions)
 ament_export_dependencies(pcl_ros)
-
+ament_export_dependencies(visualization_msgs)
+ament_export_dependencies(geometry_msgs)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -45,7 +48,9 @@ target_include_directories(sample_lib
 ament_target_dependencies(sample_lib
   rclcpp
   sample_msgs
-  world_modeling_msgs)
+  world_modeling_msgs
+  visualization_msgs
+  geometry_msgs)
 
 # Create ROS2 node executable from source files
 add_executable(sample_node src/sample_node.cpp)
@@ -59,7 +64,9 @@ ament_target_dependencies(voxelizer_node
   sample_msgs
   world_modeling_msgs
   pcl_conversions
-  pcl_ros)
+  pcl_ros
+  visualization_msgs
+  geometry_msgs)
 
 target_include_directories(voxelizer_node
   PUBLIC
