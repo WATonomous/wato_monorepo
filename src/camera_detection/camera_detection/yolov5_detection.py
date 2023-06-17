@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, ImageCompressed
 
 from yolov5.models.common import DetectMultiBackend
 from yolov5.utils.augmentations import letterbox
