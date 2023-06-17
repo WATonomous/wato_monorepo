@@ -48,7 +48,7 @@ ROS_IP=${ROS_IP:-"127.0.0.1"}
 #   - vis_tools     		  :   starts visualization tools (vnc and foxglove)
 #   - production    		  :   configs for all containers required in production
 #   - samples             :   starts sample ROS2 pubsub nodes
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-""}
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-"camera_detection vis_tools"}
 
 # List of profiles to IGNORE when using the --all flag
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
