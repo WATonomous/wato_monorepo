@@ -7,3 +7,7 @@ code_server_config/*/start_code_server.sh
 dev_config.local.sh
 .vscode/
 ssh_config/
+
+**/install
+**/build
+**/log
