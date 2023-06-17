@@ -20,42 +20,32 @@ import numpy as np
 
 import torch
 
-# For deepracer image topic
-# CAMERA_TOPIC='/camera_pkg/display_mjpeg'
-
-# For wato rosbag iamge topic
-CAMERA_TOPIC = '/camera/right/image_color'
-
-PUBLISH_VIS_TOPIC = '/annotated_img'
-PUBLISH_OBSTACLE_TOPIC = '/obstacles'
-
-MODEL_PATH = "/perception_models/yolov5s.pt"
-IMAGE_SIZE = 480
-
-
 class CameraDetectionNode(Node):
 
     def __init__(self):
         super().__init__('minimal_param_node')
-
-        print(os.getcwd())
+        
+        self.declare_parameter('camera_topic', '/camera/right/image_color')
+        self.declare_parameter('publish_vis_topic', '/annotated_img')
+        self.declare_parameter('publish_obstacle_topic', '/obstacles')
+        self.declare_parameter('model_path', '/perception_models/yolov5s.pt')
+        self.declare_parameter('image_size', 480)
+        
+        self.camera_topic = self.get_parameter('camera_topic').value
+        self.publish_vis_topic = self.get_parameter('publish_vis_topic').value
+        self.publish_obstacle_topic = self.get_parameter('publish_obstacle_topic').value
+        self.model_path = self.get_parameter('model_path').value
+        self.image_size = self.get_parameter('image_size').value
 
         self.line_thickness = 1
-
-        self.model_path = self.declare_parameter(
-            "model_path", MODEL_PATH).value
-        self.image_size = self.declare_parameter(
-            "image_size", IMAGE_SIZE).value
         self.half = False
         self.augment = False
-        # self.config = EasyDict(config)
 
-        print("Creating sub")
         super().__init__('camera_detection_node')
         self.get_logger().info("Creating node...")
         self.subscription = self.create_subscription(
             Image,
-            CAMERA_TOPIC,
+            self.camera_topic,
             self.listener_callback,
             10)
 
@@ -80,13 +70,10 @@ class CameraDetectionNode(Node):
         self.stride = int(self.model.stride)
 
         # setup vis publishers
-        self.vis_publisher = self.create_publisher(
-            Image, PUBLISH_VIS_TOPIC, 10)
-        self.obstacle_publisher = self.create_publisher(
-            ObstacleList, PUBLISH_OBSTACLE_TOPIC, 10)
+        self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
+        self.obstacle_publisher = self.create_publisher(ObstacleList, self.publish_obstacle_topic, 10)
 
-        self.get_logger().info(
-            f"Successfully created node listening on camera topic: {CAMERA_TOPIC}...")
+        self.get_logger().info(f"Successfully created node listening on camera topic: {self.camera_topic}...")
 
     def preprocess_image(self, cv_image):
         """
