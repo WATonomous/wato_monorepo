@@ -60,7 +60,11 @@ SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"git.uwaterloo.ca:5
 SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_producer"}
 SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/samples_cpp_transformer"}
 
-LEADERBOARD_IMAGE=${LEADERBOARD_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/leaderboard"}
+# Infrastructure
+INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_vis_tools_vnc"}
+INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_data_stream"}
+
+# Perception
 CAMERA_OBJECT_DETECTION_IMAGE=${CAMERA_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/camera_object_detection"}
 LIDAR_OBJECT_DETECTION_IMAGE=${LIDAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_object_detection"}
 MULTIMODAL_OBJECT_DETECTION_IMAGE=${MULTIMODAL_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/multimodal_object_detection"}
