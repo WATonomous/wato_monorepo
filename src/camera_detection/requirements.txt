@@ -1,4 +1,4 @@
-yolov5==7.0.8
+ultralytics
 torch
 setuptools==58.2.0
 easydict

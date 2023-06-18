@@ -3,6 +3,6 @@ camera_detection_node:
     camera_topic: /CAM_FRONT/image_rect_compressed
     publish_vis_topic: /annotated_img
     publish_obstacle_topic: /obstacles
-    model_path: /perception_models/yolov5s.pt
-    image_size: 480
+    model_path: /perception_models/yolov8s.pt
+    image_size: 640
     compressed: true
