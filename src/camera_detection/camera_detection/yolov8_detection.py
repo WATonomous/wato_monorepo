@@ -10,6 +10,7 @@ from ultralytics.yolo.data.augment import LetterBox
 from ultralytics.yolo.utils.ops import non_max_suppression
 from ultralytics.yolo.utils.plotting import Annotator, colors
 
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from common_msgs.msg import Obstacle, ObstacleList
 
 import cv2
@@ -46,7 +47,12 @@ class CameraDetectionNode(Node):
             Image if not self.compressed else CompressedImage,
             self.camera_topic,
             self.listener_callback,
-            10)
+            qos_profile=QoSProfile(
+                reliability=QoSReliabilityPolicy.RELIABLE,
+                history=QoSHistoryPolicy.KEEP_LAST,
+                depth=10
+            )
+        )
 
         # set device
         self.device = torch.device(
