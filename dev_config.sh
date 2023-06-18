@@ -69,6 +69,7 @@ INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watono
 CARLA_SERVER_IMAGE=${CARLA_SERVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_server_image"}
 CARLA_ROS2_BRIDGE_IMAGE=${CARLA_ROS2_BRIDGE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_ros2_bridge_image"}
 SIMULATION_CAMERA_COMPRESSION_IMAGE=${SIMULATION_CAMERA_COMPRESSION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/simulation_camera_compression"}
+CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_sample_node"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -105,6 +106,7 @@ echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILE
 echo "CARLA_SERVER_IMAGE=$CARLA_SERVER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "CARLA_ROS2_BRIDGE_IMAGE=$CARLA_ROS2_BRIDGE_IMAGE" >> "$PROFILES_DIR/.env"
 echo "SIMULATION_CAMERA_COMPRESSION_IMAGE=$SIMULATION_CAMERA_COMPRESSION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_SAMPLE_NODE_IMAGE=$CARLA_SAMPLE_NODE_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"

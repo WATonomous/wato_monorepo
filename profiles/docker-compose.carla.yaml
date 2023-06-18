@@ -50,7 +50,31 @@ services:
       - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
     command: jupyter notebook --ip 0.0.0.0 --port 8888 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password=''
+    
+  # camera_compression:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/simulation/camera_compression.Dockerfile
+  #     cache_from:
+  #       - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${CACHE_FROM_TAG}"
+  #       - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-develop"
+  #   image: "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${TAG}"
+  #   user: ${FIXUID:?}:${FIXGID:?}
+  #   volumes:
+  #     - ../src/simulation/camera_compression:/home/docker/ament_ws/src/camera_compression
   
+  carla_sample_node:
+      build:
+        context: ..
+        dockerfile: docker/simulation/carla_sample_node.Dockerfile
+        cache_from:
+          - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
+          - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
+      image: "${CARLA_SAMPLE_NODE_IMAGE:?}-${TAG}"
+      user: ${FIXUID:?}:${FIXGID:?}
+      volumes:
+        - ../src/simulation/carla_sample_node:/home/docker/ament_ws/src/carla_sample_node
+
   # carla_manual_control:
   #   build:
   #     context: ..
@@ -68,15 +92,3 @@ services:
   #     - "6600:5900"
     # environment:
     #   - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
-    
-  camera_compression:
-    build:
-      context: ..
-      dockerfile: docker/simulation/camera_compression.Dockerfile
-      cache_from:
-        - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-develop"
-    image: "${SIMULATION_CAMERA_COMPRESSION_IMAGE:?}-${TAG}"
-    user: ${FIXUID:?}:${FIXGID:?}
-    volumes:
-      - ../src/simulation/camera_compression:/home/docker/ament_ws/src/camera_compression
