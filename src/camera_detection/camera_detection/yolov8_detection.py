@@ -4,15 +4,13 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from sensor_msgs.msg import Image, CompressedImage
 
-from yolov5.models.common import DetectMultiBackend
-from yolov5.utils.augmentations import letterbox
-from yolov5.utils.general import check_img_size, scale_segments, non_max_suppression
-from utils.plots import Annotator, colors
 
-import os
+from ultralytics.nn.autobackend import AutoBackend
+from ultralytics.yolo.data.augment import LetterBox
+from ultralytics.yolo.utils.ops import non_max_suppression
+from ultralytics.yolo.utils.plotting import Annotator, colors
+
 from common_msgs.msg import Obstacle, ObstacleList
-
-from easydict import EasyDict
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -23,12 +21,13 @@ import torch
 class CameraDetectionNode(Node):
 
     def __init__(self):
-        super().__init__('minimal_param_node')
-        
+        super().__init__('camera_detection_node')
+        self.get_logger().info("Creating camera detection node...")
+
         self.declare_parameter('camera_topic', '/camera/right/image_color')
         self.declare_parameter('publish_vis_topic', '/annotated_img')
         self.declare_parameter('publish_obstacle_topic', '/obstacles')
-        self.declare_parameter('model_path', '/perception_models/yolov5s.pt')
+        self.declare_parameter('model_path', '/perception_models/yolov8s.pt')
         self.declare_parameter('image_size', 480)
         self.declare_parameter('compressed', False)
         
@@ -43,8 +42,6 @@ class CameraDetectionNode(Node):
         self.half = False
         self.augment = False
 
-        super().__init__('camera_detection_node')
-        self.get_logger().info("Creating node...")
         self.subscription = self.create_subscription(
             Image if not self.compressed else CompressedImage,
             self.camera_topic,
@@ -58,8 +55,8 @@ class CameraDetectionNode(Node):
         # CV bridge
         self.cv_bridge = CvBridge()
 
-        # load YOLOv5 model
-        self.model = DetectMultiBackend(
+        # load yolov8 model
+        self.model = AutoBackend(
             self.model_path, device=self.device, dnn=False, fp16=False
         )
 
@@ -87,7 +84,7 @@ class CameraDetectionNode(Node):
         """
         # Padded resize
         img = cv_image
-        img = letterbox(cv_image, self.image_size, stride=self.stride)[0]
+        img = LetterBox(self.image_size, stride=self.stride)(image=cv_image)
 
         # Convert
         img = img.transpose(2, 0, 1)
@@ -111,7 +108,8 @@ class CameraDetectionNode(Node):
                     "bbox": [float],
                     "conf": float
                 }
-            annotator: A yolov5.utils.general.Annotator for the current image
+            annotator: A ultralytics.yolo.utils.plotting.Annotator for the current image
+
         Returns:
             processed_detections: filtered detections
             annotator_img: image with bounding boxes drawn on
@@ -189,11 +187,10 @@ class CameraDetectionNode(Node):
 
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
-            processed_cv_image = letterbox(
-                cv_image, self.image_size, stride=self.stride)[0]
+            processed_cv_image = LetterBox(self.image_size, stride=self.stride)(image=cv_image)
             pred = self.model(img)
 
-            # nms function used same as yolov5 detect.py
+            # nms function used same as yolov8 detect.py
             pred = non_max_suppression(pred)
             detections = []
             for i, det in enumerate(pred):  # per image
