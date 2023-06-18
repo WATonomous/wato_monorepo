@@ -9,7 +9,7 @@ from yolov5.utils.augmentations import letterbox
 from yolov5.utils.general import check_img_size, scale_segments, non_max_suppression
 from utils.plots import Annotator, colors
 
-import os
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from common_msgs.msg import Obstacle, ObstacleList
 
 from easydict import EasyDict
@@ -49,7 +49,12 @@ class CameraDetectionNode(Node):
             Image if not self.compressed else CompressedImage,
             self.camera_topic,
             self.listener_callback,
-            10)
+            qos_profile=QoSProfile(
+                reliability=QoSReliabilityPolicy.BEST_EFFORT,
+                history=QoSHistoryPolicy.KEEP_LAST,
+                depth=10
+            )
+        )
 
         # set device
         self.device = torch.device(
