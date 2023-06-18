@@ -1,7 +1,8 @@
 camera_detection_node:
   ros__parameters:
-    camera_topic: /CAM_FRONT_LEFT/image_rect_compressed
+    camera_topic: /CAM_FRONT/image_rect_compressed
     publish_vis_topic: /annotated_img
     publish_obstacle_topic: /obstacles
     model_path: /perception_models/yolov5s.pt
     image_size: 480
+    compressed: true
