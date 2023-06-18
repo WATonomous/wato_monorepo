@@ -1,7 +1,7 @@
 # ================= Dependencies ===================
-FROM ros:humble AS base
+FROM ros:foxy AS base
 
-RUN apt-get update && apt-get install -y curl ros-humble-ros2bag ros-humble-rosbag2* ros-humble-foxglove-msgs&& \
+RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Add a docker user so that created files in the docker container are owned by a non-root user
@@ -48,15 +48,18 @@ RUN pip3 install setuptools==58.2.0
 COPY src/simulation/carla_sample_node carla_sample_node
 
 WORKDIR /home/docker/ament_ws
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
+RUN . /opt/ros/foxy/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
     --cmake-args -DCMAKE_BUILD_TYPE=Release
 
+# WORKDIR /home/docker/ament_ws/src
+# RUN ros2 pkg create --build-type ament_python carla_sample_node
+
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
-# CMD ["ros2", "launch", "carla_sample_node", "carla_sample_node.launch.py"]
+CMD ["ros2", "launch", "carla_sample_node", "carla_sample_node.launch.py"]
 # CMD ["tail", "-f", "/dev/null"]
