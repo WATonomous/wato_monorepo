@@ -1,10 +1,11 @@
+
 # ================= Dependencies ===================
-FROM ros:foxy AS base
+FROM ros:humble AS base
 
 RUN apt-get update && apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Add a docker user so that created files in the docker container are owned by a non-root user
+# Add a docker user so we that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
     adduser --uid 1000 --ingroup docker --home /home/docker --shell /bin/bash --disabled-password --gecos "" docker && \
     echo "docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
@@ -48,7 +49,7 @@ RUN pip3 install setuptools==58.2.0
 COPY src/simulation/carla_sample_node carla_sample_node
 
 WORKDIR /home/docker/ament_ws
-RUN . /opt/ros/foxy/setup.sh && \
+RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
@@ -56,10 +57,6 @@ RUN . /opt/ros/foxy/setup.sh && \
 
 # WORKDIR /home/docker/ament_ws/src
 # RUN ros2 pkg create --build-type ament_python carla_sample_node
-
-USER root:root
-RUN chmod a+w ./src/carla_sample_node/logs
-USER docker:docker
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
