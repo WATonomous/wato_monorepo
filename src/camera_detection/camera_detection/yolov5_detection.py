@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String
-from sensor_msgs.msg import Image, ImageCompressed
+from sensor_msgs.msg import Image, CompressedImage
 
 from yolov5.models.common import DetectMultiBackend
 from yolov5.utils.augmentations import letterbox
@@ -30,12 +30,14 @@ class CameraDetectionNode(Node):
         self.declare_parameter('publish_obstacle_topic', '/obstacles')
         self.declare_parameter('model_path', '/perception_models/yolov5s.pt')
         self.declare_parameter('image_size', 480)
+        self.declare_parameter('compressed', False)
         
         self.camera_topic = self.get_parameter('camera_topic').value
         self.publish_vis_topic = self.get_parameter('publish_vis_topic').value
         self.publish_obstacle_topic = self.get_parameter('publish_obstacle_topic').value
         self.model_path = self.get_parameter('model_path').value
         self.image_size = self.get_parameter('image_size').value
+        self.compressed = self.get_parameter('compressed').value
 
         self.line_thickness = 1
         self.half = False
@@ -44,7 +46,7 @@ class CameraDetectionNode(Node):
         super().__init__('camera_detection_node')
         self.get_logger().info("Creating node...")
         self.subscription = self.create_subscription(
-            Image,
+            Image if not self.compressed else CompressedImage,
             self.camera_topic,
             self.listener_callback,
             10)
@@ -174,12 +176,16 @@ class CameraDetectionNode(Node):
         for image in images:
 
             # convert ros Image to cv::Mat
-            try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(
-                    image, desired_encoding="passthrough")
-            except CvBridgeError as e:
-                self.get_logger().error(str(e))
-                return
+            if self.compressed:
+                np_arr = np.frombuffer(msg.data, np.uint8)
+                cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            else:
+                try:
+                    cv_image = self.cv_bridge.imgmsg_to_cv2(
+                        image, desired_encoding="passthrough")
+                except CvBridgeError as e:
+                    self.get_logger().error(str(e))
+                    return
 
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
