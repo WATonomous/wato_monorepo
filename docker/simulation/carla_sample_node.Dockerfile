@@ -57,6 +57,10 @@ RUN . /opt/ros/foxy/setup.sh && \
 # WORKDIR /home/docker/ament_ws/src
 # RUN ros2 pkg create --build-type ament_python carla_sample_node
 
+USER root:root
+RUN chmod a+w ./src/carla_sample_node/logs
+USER docker:docker
+
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
