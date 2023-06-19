@@ -1,0 +1,50 @@
+version: "3.8"
+services:
+  carla_server_0:
+    build:
+      context: ..
+      dockerfile: docker/carla_server/Dockerfile
+      cache_from:
+        - "${CARLA_SERVER_IMAGE:?}:latest"
+      args:
+        - CARLA_VERSION=0.9.13
+    image: "${CARLA_SERVER_IMAGE:?}:latest"
+    environment:
+      - DISPLAY=1
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_0
+    runtime: nvidia
+    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
+
+  carla_ros_bridge_0:
+    build:
+      context: ..
+      dockerfile: docker/carla_ros_bridge/Dockerfile
+      cache_from: 
+        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-develop"
+      args:
+        - CARLA_VERSION=0.9.13
+    environment:
+      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla_0
+      - USE_ACKERMANN_CONTROL=False
+    image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
+    user: ${FIXUID:?}:${FIXGID:?}
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge_0
+  
+  carla_sample_node_0:
+    build:
+      context: ..
+      dockerfile: docker/simulation/carla_sample_node.Dockerfile
+      cache_from:
+        - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
+    environment:
+      - LOG_FILE=log_0
+    image: "${CARLA_SAMPLE_NODE_IMAGE:?}-${TAG}"
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_sample_node_0
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+        - ../src/simulation/carla_sample_node:/home/docker/ament_ws/src/carla_sample_node
+  # LAST LINE GETS REMOVED SO KEEP THIS
