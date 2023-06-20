@@ -13,6 +13,8 @@ services:
       - DISPLAY=1
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
+    ports:
+      - 2000:2000
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
 
   carla_ros_bridge:
