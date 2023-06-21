@@ -9,5 +9,3 @@ services:
         - "${LIDAR_OBJECT_DETECTION_IMAGE:?}-develop"
     image: "${LIDAR_OBJECT_DETECTION_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
-    volumes:
-      - ../src/lidar_object_detection:/home/docker/ament_ws/src/lidar_object_detection

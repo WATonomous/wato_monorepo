@@ -72,13 +72,13 @@ void LidarDetector::test()
 {
     RCLCPP_INFO(this->get_logger(), "Test function");
 
-  cudaEvent_t start, stop;
-  float elapsedTime = 0.0f;
-  cudaStream_t stream = NULL;
+    cudaEvent_t start, stop;
+    float elapsedTime = 0.0f;
+    cudaStream_t stream = NULL;
 
-  checkCudaErrors(cudaEventCreate(&start));
-  checkCudaErrors(cudaEventCreate(&stop));
-  checkCudaErrors(cudaStreamCreate(&stream));
+    checkCudaErrors(cudaEventCreate(&start));
+    checkCudaErrors(cudaEventCreate(&stop));
+    checkCudaErrors(cudaStreamCreate(&stream));
 
     std::vector<Bndbox> nms_pred;
     nms_pred.reserve(100);
@@ -147,9 +147,6 @@ void LidarDetector::lidarPointsCallback(
     checkCudaErrors(cudaStreamCreate(&stream));
 
     unsigned int length = 0;
-    // void *data = NULL;
-
-    // new code
 
     lidar_cloud_mutex_.lock();
 
@@ -159,36 +156,6 @@ void LidarDetector::lidarPointsCallback(
     cloud_data_buff_.push_back(cloud_data);
 
     lidar_cloud_mutex_.unlock();
-
-    // std::stringstream pcd_filename;
-    // pcd_filename << dump_pcd_path << "/" << std::to_string(cloud_data.time) << ".bin";
-    // std::cout << pcd_filename.str() << std::endl;
-    // // pcl::io::savePCDFileASCII<pcl::PointXYZI>(pcd_filename.str(), *cloud_data.cloud_ptr);
-    // pcl::io::savePCDFileBinary<pcl::PointXYZI>(pcd_filename.str(), *cloud_data.cloud_ptr);
-
-    /**
-     * @ Read File Start
-     */
-
-    // unsigned int length = 0;
-    // void *data = NULL;
-    // std::shared_ptr<char> buffer((char *)data, std::default_delete<char[]>());
-    // loadData(pcd_filename.str().data(), &data, &length);
-    // buffer.reset((char *)data);
-
-    // float* points = (float*)buffer.get();
-    // size_t points_size = length/sizeof(float)/4;
-
-    // float *points_data = nullptr;
-    // unsigned int points_data_size = points_size * 4 * sizeof(float);
-    // checkCudaErrors(cudaMallocManaged((void **)&points_data, points_data_size));
-    // checkCudaErrors(cudaMemcpy(points_data, points, points_data_size, cudaMemcpyDefault));
-    // checkCudaErrors(cudaDeviceSynchronize());
-    // remove(pcd_filename.str().data());
-
-    /**
-     * @ Read File End
-     */
 
     current_cloud_data_ = cloud_data_buff_.front();
     cloud_data_buff_.pop_front();
@@ -202,7 +169,8 @@ void LidarDetector::lidarPointsCallback(
             pointcloud_tmp.emplace_back(point.x);
             pointcloud_tmp.emplace_back(point.y);
             pointcloud_tmp.emplace_back(point.z);
-            pointcloud_tmp.emplace_back(point.intensity / 255);
+            pointcloud_tmp.emplace_back(point.intensity / 255.0);
+            // pointcloud_tmp.emplace_back(point.intensity / 255);
         }
     }
     float *points = &pointcloud_tmp[0];
@@ -211,15 +179,6 @@ void LidarDetector::lidarPointsCallback(
     checkCudaErrors(cudaMallocManaged((void **)&points_data, points_data_size));
     checkCudaErrors(cudaMemcpy(points_data, points, points_data_size, cudaMemcpyDefault));
     checkCudaErrors(cudaDeviceSynchronize());
-
-    // new code end
-
-    // RCLCPP_ERROR(this->getlogger(), "New code end pointcloud_tmp %d || points size %d || nms_pred %d", pointcloud_tmp.size(), points_size, nms_pred.size());
-    // for (int i = 0; i < points_size; i++){
-    //     if (i > points_size * 0.9){
-    //         RCLCPP_ERROR(this->getlogger(), "i: %d || X: %f || Y: %f || Z: %f || I: %f", i, *(points_data+0+i*4), *(points_data+1+i*4), *(points_data+2+i*4), *(points_data+3+i*4));
-    //     }
-    // }
 
     if (points_size <= 0)
     {
@@ -240,7 +199,7 @@ void LidarDetector::lidarPointsCallback(
 void LidarDetector::publishVis(
     const std::vector<Bndbox> &boxes)
 {
-    // RCLCPP_ERROR(this->get_logger(), "Num Boxes %d", boxes.size());
+    RCLCPP_INFO(this->get_logger(), "Num Boxes %d", boxes.size());
     common_msgs::msg::BoundingBoxArray jsk_boxes;
     jsk_boxes.header.frame_id = "base_link";
     for (int i = 0; i < boxes.size(); i++)

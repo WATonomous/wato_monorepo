@@ -35,6 +35,8 @@ private:
     // declare a timer to publish the point cloud
     rclcpp::TimerBase::SharedPtr timer_;
 
+    std::string kitti_data_dir;
+
 
 public:
     LidarPublisher(); 
