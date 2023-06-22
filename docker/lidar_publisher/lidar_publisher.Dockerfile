@@ -15,6 +15,7 @@ ENV LC_ALL C.UTF-8
 ENV ROS_DISTRO foxy
 ENV DEBIAN_FRONTEND noninteractive
 
+
 RUN apt update
 RUN apt install -y ros-foxy-desktop \ 
         python3-rosdep python3-colcon-common-extensions
@@ -47,6 +48,10 @@ FROM base as repo
 
 COPY src/lidar_publisher lidar_publisher
 COPY src/wato_msgs/common_msgs common_msgs
+
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+    ros-foxy-ros-base ros-foxy-ackermann-msgs ros-foxy-pcl-conversions ros-foxy-pcl-ros \
+    python3-colcon-common-extensions
 
 WORKDIR /home/docker/ament_ws
 RUN export DEBIAN_FRONTEND=noninteractive && . /opt/ros/$ROS_DISTRO/setup.sh && \
