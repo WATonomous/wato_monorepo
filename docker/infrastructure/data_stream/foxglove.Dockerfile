@@ -11,7 +11,9 @@ RUN apt-get update && apt-get install -y lsb-release software-properties-common 
 # Install Dependencies
 RUN apt-get update && \
     apt-get install -y \ 
-    ros-$ROS_DISTRO-foxglove-bridge
+    ros-$ROS_DISTRO-foxglove-bridge \
+    ros-$ROS_DISTRO-rosbridge-server \
+    ros-$ROS_DISTRO-topic-tools
 
 # Add a docker user so that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
