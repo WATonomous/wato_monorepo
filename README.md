@@ -127,9 +127,9 @@ Example: `watod2 run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-sce
 
 [Foxglove](https://foxglove.dev/) is used to visualize ROS messages on a local machine.
 
-Add `data_stream` as an `ACTIVE_PROFILE` in `dev_config.local.sh`. This will launch the `foxglove.Dockerfile` container when `watod2 up` is ran. 
+Add `data_stream` as an `ACTIVE_PROFILE` and declare `FOXGLOVE_BRIDGE_PORT=[port]` in `dev_config.local.sh`. This will launch the `foxglove.Dockerfile` container with an open port when `watod2 up` is ran. 
 
-It exposes port `8765` as the default foxglove websocket port, which you will need to forward to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine.
+It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which you will need to forward to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine.
 
 Then, open foxglove and add a connection `localhost:8765`, and it should connect.
 
