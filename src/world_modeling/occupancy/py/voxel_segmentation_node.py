@@ -21,7 +21,7 @@ class VoxelSegmentationNode(Node):
         msg.size_z = self.i+2
 
         self.publisher_.publish(msg)
-        self.get_logger().info('Publishing Voxel Grid: %f %f %f' % (msg.size_x, msg.size_y, msg.size_z))
+        # self.get_logger().info('Publishing Voxel Grid: %f %f %f' % (msg.size_x, msg.size_y, msg.size_z))
         self.i += 1
 
 
