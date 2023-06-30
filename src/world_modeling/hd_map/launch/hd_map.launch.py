@@ -19,13 +19,12 @@ def generate_launch_description():
         description='Path to config file for sample node'
     )
 
-    sample_node = Node(
+    hd_map_service_node = Node(
         package='hd_map',
-        executable='sample_node',
-        parameters=[LaunchConfiguration('sample_param_file')],
+        executable='hd_map_service'
     )
 
     return LaunchDescription([
         sample_param,
-        sample_node
+        hd_map_service_node
     ])

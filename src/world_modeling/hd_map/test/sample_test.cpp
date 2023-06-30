@@ -5,7 +5,6 @@
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 
-#include "sample.hpp"
 
 // Placeholder test
 TEST(SampleTest, DefaultTest)

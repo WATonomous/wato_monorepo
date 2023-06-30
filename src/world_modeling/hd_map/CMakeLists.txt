@@ -16,6 +16,7 @@ find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(visualization_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED) # Lanelet2 Core
 find_package(lanelet2_io REQUIRED) # Lanelet2 IO
 find_package(lanelet2_projection REQUIRED) # Lanelet2 Projection
@@ -25,20 +26,22 @@ find_package(lanelet2_projection REQUIRED) # Lanelet2 Projection
 # against it to access defined methods and classes.
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
-add_library(sample_lib
-  src/sample.cpp
-  src/hd_map_routing.cpp
-  src/lanelet_visualization.cpp)
+add_library(hd_map_lib
+  src/lanelet_visualization.cpp
+  src/hd_map_manager.cpp
+  src/hd_map_router.cpp)
+
 # Indicate to compiler where to search for header files
-target_include_directories(sample_lib
+target_include_directories(hd_map_lib
   PUBLIC
   include)
 # Add ROS2 dependencies required by package
-ament_target_dependencies(sample_lib
+ament_target_dependencies(hd_map_lib
   rclcpp
   sample_msgs
   visualization_msgs
   geometry_msgs
+  sensor_msgs
   lanelet2_core
   lanelet2_io
   lanelet2_projection)
@@ -66,7 +69,7 @@ if(BUILD_TESTING)
   ament_add_gtest(sample_test test/sample_test.cpp)
   # Link to the previously built library to access Sample classes and methods
   target_link_libraries(sample_test
-    sample_lib
+    hd_map_lib
     gtest_main)
 
   # Copy executable to installation location
@@ -76,13 +79,13 @@ if(BUILD_TESTING)
 endif()
 
 # Create ROS2 node executable from source files
-add_executable(sample_node src/sample_node.cpp)
+add_executable(hd_map_service src/hd_map_service.cpp)
 # Link to the previously built library to access Sample classes and methods
-target_link_libraries(sample_node sample_lib)
+target_link_libraries(hd_map_service hd_map_lib)
 
 # Copy executable to installation location
 install(TARGETS
-sample_node
+hd_map_service
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location

@@ -1,3 +1,6 @@
+#ifndef WORLD_MODELING_LANELET_VISUALIZATION_
+#define WORLD_MODELING_LANELET_VISUALIZATION_
+
 #include "rclcpp/rclcpp.hpp"
 
 #include "visualization_msgs/msg/marker.hpp"
@@ -21,3 +24,5 @@ namespace world_modeling::hd_map{
     visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(lanelet::LineStringLayer& lineStrings);
     visualization_msgs::msg::Marker lineStringAsMarker(lanelet::ConstLineString3d lineString, int *id, float thickness, int type, std_msgs::msg::ColorRGBA color);
 }
+
+#endif
