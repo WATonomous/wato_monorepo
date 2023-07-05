@@ -14,37 +14,31 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - NVIDIA_VISIBLE_DEVICES=0
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_0
+    restart: always
     runtime: nvidia
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
+    networks:
+      - carla_instance_network_0
 
-  carla_ros_bridge_0:
+  carla_notebook_0:
     build:
       context: ..
-      dockerfile: docker/carla_ros_bridge/Dockerfile
-      cache_from: 
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-develop"
+      dockerfile: docker/simulation/carla_notebooks.Dockerfile
       args:
         - CARLA_VERSION=0.9.13
+    image: python_api_test
+    user: root:root
     environment:
-      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla_0
-      - USE_ACKERMANN_CONTROL=False
-    image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
-    user: ${FIXUID:?}:${FIXGID:?}
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge_0
-  
-  carla_sample_node_0:
-    build:
-      context: ..
-      dockerfile: docker/simulation/carla_sample_node.Dockerfile
-      cache_from:
-        - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
-    environment:
-      - LOG_FILE=log_0
-    image: "${CARLA_SAMPLE_NODE_IMAGE:?}-${TAG}"
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_sample_node_0
-    user: ${FIXUID:?}:${FIXGID:?}
+      - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla_0
+      - VARIABLE=0.0
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebook_0
+    # command: python3 ./logs/data_collection_mpc.py
+    command: jupyter notebook --ip 0.0.0.0 --port 8888 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password=''
+    networks:
+      - carla_instance_network_0
     volumes:
-        - ../src/simulation/carla_sample_node:/home/docker/ament_ws/src/carla_sample_node
-  # LAST LINE GETS REMOVED SO KEEP THIS
+      - ../src/simulation/carla_notebooks/logs:/root/carla_notebooks/logs
+# LAST LINE GETS DELETED
+
+networks:
+  carla_instance_network_0:
