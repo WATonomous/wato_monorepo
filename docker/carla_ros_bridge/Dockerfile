@@ -12,19 +12,35 @@ RUN apt-get update && \
       curl \
       python3-rosdep \
       python3-rospkg \
-      ros-foxy-tf2-geometry-msgs \
-      ros-foxy-tf2-eigen \
       git \
       python3-colcon-common-extensions \
       python3-pygame \
-      supervisor
+      ros-$ROS_DISTRO-tf2-geometry-msgs \
+      ros-$ROS_DISTRO-tf2-eigen \
+      ros-$ROS_DISTRO-ackermann-msgs \
+      ros-$ROS_DISTRO-derived-object-msgs \
+      ros-$ROS_DISTRO-cv-bridge \
+      ros-$ROS_DISTRO-vision-opencv \
+      ros-$ROS_DISTRO-rqt-image-view \
+      ros-$ROS_DISTRO-rqt-gui-py \
+      qt5-default \
+      ros-$ROS_DISTRO-pcl-conversions \
+      ros-$ROS_DISTRO-resource-retriever \
+      ros-$ROS_DISTRO-yaml-cpp-vendor \
+      ros-$ROS_DISTRO-urdf \
+      ros-$ROS_DISTRO-map-msgs \
+      ros-$ROS_DISTRO-laser-geometry \
+      ros-$ROS_DISTRO-interactive-markers
 
 #Install Python Carla API
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla /opt/carla/PythonAPI
 WORKDIR /opt/carla/PythonAPI
 RUN python3.8 -m easy_install pip && \
       pip3 install carla==${CARLA_VERSION} && \
-      pip install simple-pid
+      pip install simple-pid && \
+      pip install transforms3d && \
+      pip install pexpect && \
+      pip install networkx
 
 # Add a docker user so we that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
@@ -54,7 +70,6 @@ FROM api as base
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-RUN sudo apt-get install -y git
 RUN git clone --depth 1 --branch master https://github.com/carla-simulator/ros-bridge.git
 WORKDIR /home/docker/ament_ws/src/ros-bridge
 RUN git submodule update --init --recursive
@@ -62,6 +77,10 @@ WORKDIR /home/docker/ament_ws/src
 
 # Download rviz 
 RUN git clone --branch foxy https://github.com/ros2/rviz.git
+WORKDIR /home/docker/ament_ws/src/ros-bridge
+RUN git submodule update --init --recursive
+WORKDIR /home/docker/ament_ws/src
+
 
 # Fix an error in the ackermann_control node 
 RUN sed -i s/simple_pid.PID/simple_pid.pid/g /home/docker/ament_ws/src/ros-bridge/carla_ackermann_control/src/carla_ackermann_control/carla_ackermann_control_node.py
@@ -69,15 +88,16 @@ RUN sed -i s/simple_pid.PID/simple_pid.pid/g /home/docker/ament_ws/src/ros-bridg
 FROM base as repo
 COPY src/wato_msgs ros_msgs
 
+WORKDIR /home/docker/ament_ws
+
 RUN sudo rm /etc/ros/rosdep/sources.list.d/20-default.list || true && \
+      . /opt/ros/$ROS_DISTRO/setup.sh && \
       sudo rosdep init && \
       sudo apt-get update && \
       rosdep update && \
-      rosdep install --from-paths . --ignore-src -r -y
-
-WORKDIR /home/docker/ament_ws
-
-RUN /bin/bash -c "source /opt/ros/foxy/setup.bash; colcon build"
+      rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
+      colcon build \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 RUN rm -rf build
 
