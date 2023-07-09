@@ -4,4 +4,8 @@ FROM carlasim/carla:${CARLA_VERSION}
 ARG CARLA_VERSION
 RUN : "${CARLA_VERSION:?Build argument needs to be set and non-empty.}"
 
+COPY src/simulation/carla_notebooks/mpc_map.umap /home/carla/CarlaUE4/Content/Carla/Maps
+COPY src/simulation/carla_notebooks/MyMap.umap /home/carla/CarlaUE4/Content/Carla/Maps
+COPY src/simulation/carla_notebooks/MyMap.uexp /home/carla/CarlaUE4/Content/Carla/Maps
+
 USER carla:carla
