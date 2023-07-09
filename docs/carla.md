@@ -10,7 +10,7 @@ The goal of the  CARLA setup is to provide an easy way for WATonomous members to
     - [Using a ROS Node to interact with CARLA](#using-a-ros-node-to-interact-with-carla)
     - [CARLA Visualization using Foxglove Studio](#carla-visualization-using-foxglove-studio)
     - [FAQ](#faq)
-        - [CARLA is running very slow (approx. 3 fps)](#carla-is-running-very-slow-approx-3-fps)
+        - [CARLA is running very slow (approx. 3 fps)](#every-time-i-make-a-new-branch-i-need-to-rebuild-all-the-images-from-scratch)
         - [I get an error saying port has already been allocated](#i-get-an-error-saying-port-has-already-been-allocated)
 
 
