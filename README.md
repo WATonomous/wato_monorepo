@@ -11,6 +11,7 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
     - [Remote VScode](#remote-vscode)
     - [Playing ros2 bags](#playing-ros2-bags)
     - [Using Foxglove](#using-foxglove)
+    - [Using Carla Jupyter Notebook](#using-carla-jupyter-notebook)
   - [Monorepo Info](#monorepo-info)
   - [Technical Specification](#technical-specification)
   - [Testing Infrastructure](#testing)
