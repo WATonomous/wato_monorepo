@@ -66,5 +66,5 @@ USER docker:docker
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "launch", "carla_sample_node", "carla_sample_node.launch.py"]
+# CMD ["ros2", "launch", "carla_sample_node", "carla_sample_node.launch.py"]
 # CMD ["tail", "-f", "/dev/null"]
