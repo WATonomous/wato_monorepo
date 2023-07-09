@@ -1,3 +1,9 @@
+##### IMPORTANT ####
+"""
+Uncomment the code under the main function (at the bottom of this file) to have the node actually run
+"""
+
+
 import rclpy
 from rclpy.node import Node
 
@@ -34,17 +40,17 @@ class Datalogger(Node):
         self.autopilotPublisher.publish(msg)
 
 def main(args=None):
-    rclpy.init(args=args)
+    # Uncomment the below lines to actually run the sample node
 
-    datalogger = Datalogger()
+    # rclpy.init(args=args)
+    
+    # datalogger = Datalogger()
 
-    rclpy.spin(datalogger)
+    # rclpy.spin(datalogger)
 
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    datalogger.destroy_node()
-    rclpy.shutdown()
+    # datalogger.destroy_node()
+    # rclpy.shutdown()
+    return
 
 if __name__ == '__main__':
     main()
