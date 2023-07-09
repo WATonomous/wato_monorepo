@@ -58,17 +58,20 @@ services:
   #   volumes:
   #     - ../src/simulation/camera_compression:/home/docker/ament_ws/src/camera_compression
   
-  # carla_sample_node:
-  #     build:
-  #       context: ..
-  #       dockerfile: docker/simulation/carla_sample_node.Dockerfile
-  #       cache_from:
-  #         - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
-  #         - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
-  #     image: "${CARLA_SAMPLE_NODE_IMAGE:?}-${TAG}"
-  #     user: ${FIXUID:?}:${FIXGID:?}
-  #     volumes:
-  #       - ../src/simulation/carla_sample_node:/home/docker/ament_ws/src/carla_sample_node
+  carla_sample_node:
+      build:
+        context: ..
+        dockerfile: docker/simulation/carla_sample_node.Dockerfile
+        cache_from:
+          - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
+          - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
+      image: "${CARLA_SAMPLE_NODE_IMAGE:?}-${TAG}"
+      user: ${FIXUID:?}:${FIXGID:?}
+      command: >
+        sh -c "colcon build --packages-select carla_sample_node &&
+              ros2 launch carla_sample_node carla_sample_node.launch.py"
+      volumes:
+        - ../src/simulation/carla_sample_node:/home/docker/ament_ws/src/carla_sample_node
 
   # carla_manual_control:
   #   build:
