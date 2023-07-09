@@ -72,7 +72,7 @@ class SimulationHelper:
         client = carla.Client(hostname, 2000)
         client.set_timeout(10.0)
         print(client.get_available_maps())
-        world = client.load_world('/Game/Carla/Maps/MyMap')
+        world = client.load_world('/Game/Carla/Maps/mpc_map')
         print("set world")
         settings = world.get_settings()
         # want to set synchronous mode + fixed timestep to ensure data repeatability
