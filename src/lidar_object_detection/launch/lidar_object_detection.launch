@@ -1,0 +1,6 @@
+<launch>
+	<node 
+		pkg="lidar_object_detection" type="lidar_object_detection" name="lidar_object_detection" 
+		output="screen" 
+	/>
+</launch>
