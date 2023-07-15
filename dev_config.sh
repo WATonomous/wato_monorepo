@@ -48,7 +48,7 @@ ROS_IP=${ROS_IP:-"127.0.0.1"}
 #   - vis_tools     		  :   starts visualization tools (vnc and foxglove)
 #   - production    		  :   configs for all containers required in production
 #   - samples             :   starts sample ROS2 pubsub nodes
-ACTIVE_PROFILES=${ACTIVE_PROFILES:-"camera_detection vis_tools"}
+ACTIVE_PROFILES=${ACTIVE_PROFILES:-"vis_tools"}
 
 # List of profiles to IGNORE when using the --all flag
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
@@ -71,6 +71,8 @@ INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watono
 # Perception
 CAMERA_OBJECT_DETECTION_IMAGE=${CAMERA_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/camera_object_detection"}
 LIDAR_OBJECT_DETECTION_IMAGE=${LIDAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_object_detection"}
+LIDAR_PUBLISHER_IMAGE=${LIDAR_PUBLISHER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_publisher"}
+
 MULTIMODAL_OBJECT_DETECTION_IMAGE=${MULTIMODAL_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/multimodal_object_detection"}
 
 ## -------------------------- User ID -----------------------------
@@ -106,6 +108,7 @@ echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILE
 
 echo "CAMERA_OBJECT_DETECTION_IMAGE=$CAMERA_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
 echo "LIDAR_OBJECT_DETECTION_IMAGE=$LIDAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "LIDAR_PUBLISHER_IMAGE=$LIDAR_PUBLISHER_IMAGE" >> "$PROFILES_DIR/.env"
 echo "MULTIMODAL_OBJECT_DETECTION_IMAGE=$MULTIMODAL_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"

@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lidar_object_detection</name>
+  <name>lidar_publisher</name>
   <version>0.0.0</version>
-  <description>lidar_object_detection package</description>
+  <description>lidar_publisher package</description>
   <maintainer email="s36gong@uwaterloo.ca">Steven Gong</maintainer>
   <license>MIT</license>
 

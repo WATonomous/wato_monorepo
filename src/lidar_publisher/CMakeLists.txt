@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(lidar_object_detection)
+project(lidar_publisher)
 
 set(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_BUILD_TYPE "Debug") 
@@ -23,44 +23,28 @@ foreach(PACKAGE
   pcl_ros
   tf2
   tf2_geometry_msgs
-  CUDA
   )
 
   find_package(${PACKAGE} REQUIRED)
 
 endforeach()
 
-# Include Cpp "include" directory
-include_directories(include)
-
-include(cmake/PCL.cmake)
-
-file(GLOB_RECURSE ALL_SRCS "*.cpp")
-file(GLOB_RECURSE CUDA_SRCS "*.cu")
-
-cuda_add_executable(
-  lidar_object_detection 
+add_executable(
+  lidar_publisher 
     main.cpp 
-    ${SOURCE_FILES} 
-    ${ALL_SRCS} 
-    ${CUDA_SRCS}
+    lidar_publisher.cpp
 )
 
 target_link_libraries(
-  lidar_object_detection
-  libnvinfer.so
-  libnvonnxparser.so
-  # ${Boost_SYSTEM_LIBRARIES} 
-  # ${PCL_LIBRARIES}
-  # ${PCL_COMMON_LIBRARIES} ${PCL_IO_LIBRARIES} ${PCL_FILTERS_LIBRARIES}
+  lidar_publisher
 )
 
-ament_target_dependencies(lidar_object_detection
+ament_target_dependencies(lidar_publisher
   rclcpp std_msgs common_msgs geometry_msgs pcl_conversions pcl_ros tf2 tf2_geometry_msgs
 )
 
 install(TARGETS
-  lidar_object_detection
+  lidar_publisher
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -76,6 +60,5 @@ if(BUILD_TESTING)
 endif()
 
 # include(cmake/PCL.cmake)
-include(cmake/pprt.cmake)
 
 ament_package()

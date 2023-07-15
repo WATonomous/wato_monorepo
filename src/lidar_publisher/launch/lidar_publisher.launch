@@ -1,0 +1,6 @@
+<launch>
+	<node 
+		pkg="lidar_publisher" type="lidar_publisher" name="lidar_publisher" 
+		output="screen" 
+	/>
+</launch>
