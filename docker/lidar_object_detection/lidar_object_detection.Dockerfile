@@ -1,6 +1,4 @@
 # ================= Repositories ===================
-ARG cachebust=0
-ARG cachebustt=0
 FROM leungjch/perception-base as repo
 
 WORKDIR /home/docker/ament_ws
