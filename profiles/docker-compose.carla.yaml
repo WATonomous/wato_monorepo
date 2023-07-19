@@ -37,14 +37,17 @@ services:
       dockerfile: docker/simulation/carla_notebooks.Dockerfile
       args:
         - CARLA_VERSION=0.9.13
-    image: python_api_test
-    user: root:root
+    image: "python_api_test"
+    user: ${FIXUID:?}:${FIXGID:?}
     ports:
       - ${CARLA_NOTEBOOKS_PORT:?}:8888
     environment:
       - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla
+      - SCENARIO_RUNNER_ROOT=/home/docker/carla_notebooks/scenario_runner
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
-    command: jupyter notebook --ip 0.0.0.0 --port 8888 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password=''
+    volumes:
+      - ../src/simulation/carla_notebooks:/home/docker/carla_notebooks
+    command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password='' 
     
   # camera_compression:
   #   build:
