@@ -33,5 +33,6 @@ WORKDIR /home/docker
 # Setup CARLA Scenario Runner
 RUN git clone https://github.com/carla-simulator/scenario_runner.git && \
     cd scenario_runner && pip3 install -r requirements.txt && \
-    sed -i s/np.int,/int,/g /home/docker/.local/lib/python3.8/site-packages/networkx/readwrite/graphml.py
-WORKDIR /home/docker/carla_notebooks
+    sed -i s/np.int,/int,/g /home/docker/.local/lib/python3.8/site-packages/networkx/readwrite/graphml.py && \
+    sed -i s/hero/ego_vehicle/g /home/docker/scenario_runner/srunner/tools/scenario_parser.py
+WORKDIR /home/docker
