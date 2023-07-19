@@ -45,6 +45,8 @@ services:
       - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla
       - SCENARIO_RUNNER_ROOT=/home/docker/carla_notebooks/scenario_runner
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
+    volumes:
+      - ../src/simulation/carla_notebooks:/home/docker/carla_notebooks
     command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password='' 
   
   # camera_compression:
