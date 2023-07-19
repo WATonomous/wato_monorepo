@@ -34,17 +34,18 @@ class Datalogger(Node):
         self.autopilotPublisher.publish(msg)
 
 def main(args=None):
-    rclpy.init(args=args)
+    # rclpy.init(args=args)
 
-    datalogger = Datalogger()
+    # datalogger = Datalogger()
 
-    rclpy.spin(datalogger)
+    # rclpy.spin(datalogger)
 
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    datalogger.destroy_node()
-    rclpy.shutdown()
+    # # Destroy the node explicitly
+    # # (optional - otherwise it will be done automatically
+    # # when the garbage collector destroys the node object)
+    # datalogger.destroy_node()
+    # rclpy.shutdown()
+    return
 
 if __name__ == '__main__':
     main()
