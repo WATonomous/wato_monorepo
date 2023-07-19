@@ -27,8 +27,9 @@ USER docker:docker
 ENTRYPOINT ["fixuid", "-q"]
 
 WORKDIR /home/docker/carla_notebooks
-COPY src/simulation/carla_notebooks /home/docker/carla_notebooks/
+COPY src/simulation/carla_notebooks /home/docker/carla_notebooks
 
+WORKDIR /home/docker
 # Setup CARLA Scenario Runner
 RUN git clone https://github.com/carla-simulator/scenario_runner.git && \
     cd scenario_runner && pip3 install -r requirements.txt && \
