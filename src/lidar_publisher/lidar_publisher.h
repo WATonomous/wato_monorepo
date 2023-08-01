@@ -29,6 +29,7 @@ using namespace std;
 class LidarPublisher : public rclcpp::Node {
 private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub;
+    rclcpp::Publisher<std::string>::SharedPtr pub2;
     int frameNum;
     int NUM_FRAMES = 10;
     std::string data_dir;

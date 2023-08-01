@@ -3,9 +3,14 @@
 <package format="3">
   <name>multimodal_object_detection</name>
   <version>0.0.0</version>
-  <description>Multimodal Object Detection package</description>
-  <maintainer email="s36gong@uwaterloo.ca">Steven Gong</maintainer>
-  <license>MIT</license>
+  <description>TODO: Package description</description>
+  <maintainer email="root@todo.todo">root</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
@@ -14,6 +19,12 @@
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
   <depend>common_msgs</depend>
+  <depend>tf2</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>pcl_conversions</depend>
+  <depend>pcl_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

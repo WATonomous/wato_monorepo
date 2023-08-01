@@ -13,6 +13,9 @@ LidarPublisher::LidarPublisher() : Node("lidar_publisher")
     // initialize the publisher
     pub = this->create_publisher<sensor_msgs::msg::PointCloud2>(
         "/lidar", 1);
+    // create a hello publisher
+    pub2 = this->create_publisher<std_msgs::msg::String>(
+        "/hello", 1);
     // initialize the timer to run the pub_callback every 1000ms
     timer_ = this->create_wall_timer(
         1000ms, std::bind(&LidarPublisher::pub_callback, this));
@@ -112,4 +115,8 @@ void LidarPublisher::pub_callback()
     msg.header.stamp = this->now();
 
     pub->publish(msg);
+
+    auto helloMsg := std_msgs::msg::String();
+    helloMsg.data = "Hello, world!";
+    pub2->publish(helloMsg);
 }

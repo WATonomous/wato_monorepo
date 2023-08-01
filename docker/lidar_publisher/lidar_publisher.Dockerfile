@@ -9,8 +9,8 @@ COPY src/wato_msgs/common_msgs common_msgs
 # RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
 #     ros-foxy-ros-base ros-foxy-ackermann-msgs ros-foxy-pcl-conversions ros-foxy-pcl-ros \
 #     python3-colcon-common-extensions
-
-RUN rosinstall_generator perception_pcl --rosdistro ${ROS_DISTRO} > deps.rosinstall
+ENV ROS_PACKAGE_PATH=/opt/ros/humble
+RUN rosinstall_generator perception_pcl --rosdistro ${ROS_DISTRO} --deps --exclude RPP > deps.rosinstall
 RUN vcs import src < deps.rosinstall
 
 RUN export DEBIAN_FRONTEND=noninteractive && . /opt/ros/$ROS_DISTRO/setup.bash && \
