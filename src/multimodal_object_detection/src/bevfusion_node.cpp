@@ -41,6 +41,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <pcl/point_cloud.h>
 
 
@@ -238,29 +239,29 @@ public:
       "/camera_data", 10, std::bind(&BevFusionNode::camera_callback, this, std::placeholders::_1));
     lidar_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/lidar_data", 10, std::bind(&BevFusionNode::lidar_callback, this, std::placeholders::_1));
-    radar_subscriber_ = this->create_subscription<sensor_msgs::msg::RadarEcho>(
-      "/radar_data", 10, std::bind(&BevFusionNode::radar_callback, this, std::placeholders::_1));
+    // radar_subscriber_ = this->create_subscription<sensor_msgs::msg::RadarEcho>(
+    //   "/radar_data", 10, std::bind(&BevFusionNode::radar_callback, this, std::placeholders::_1));
   }
 
 private:
   void camera_callback(const sensor_msgs::msg::Image::SharedPtr msg)
   {
-    // Implement your camera data handling logic here
+
   }
 
   void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    // Implement your lidar data handling logic here
+    
   }
 
-  void radar_callback(const sensor_msgs::msg::RadarEcho::SharedPtr msg)
-  {
-    // Implement your radar data handling logic here
-  }
+  // void radar_callback(const sensor_msgs::msg::RadarEcho::SharedPtr msg)
+  // {
+  //   // Implement your radar data handling logic here
+  // }
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr camera_subscriber_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_subscriber_;
-  rclcpp::Subscription<sensor_msgs::msg::RadarEcho>::SharedPtr radar_subscriber_;
+  // rclcpp::Subscription<sensor_msgs::msg::RadarEcho>::SharedPtr radar_subscriber_;
 };
 
 int main(int argc, char** argv) {
