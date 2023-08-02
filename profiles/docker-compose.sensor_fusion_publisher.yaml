@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  sensor_fusion_publisher:
+    build:
+      context: ..
+      dockerfile: docker/sensor_fusion_publisher/sensor_fusion_publisher.Dockerfile
+      cache_from:
+        - "${SENSOR_FUSION_PUBLISHER_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${SENSOR_FUSION_PUBLISHER_IMAGE:?}-develop"
+    image: "${SENSOR_FUSION_PUBLISHER_IMAGE:?}-${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}

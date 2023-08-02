@@ -35,9 +35,11 @@ project(multimodal_object_detection)
 cmake_minimum_required(VERSION 3.5)
 # project(bevfusion)
 
+set(CMAKE_CXX_STANDARD 14)
+
 set(CMAKE_BUILD_PYTHON $ENV{USE_Python})
-set(CMAKE_BUILD_TYPE "Release")
-# set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 set(arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
 
 foreach(PACKAGE 
@@ -47,8 +49,8 @@ foreach(PACKAGE
   std_msgs
   common_msgs
   geometry_msgs
-  # pcl_conversions
-  # pcl_ros
+  pcl_conversions
+  pcl_ros
   # tf2
   # tf2_geometry_msgs
   CUDA
@@ -78,7 +80,10 @@ include_directories(
   src/libraries/3DSparseConvolution/libspconv/include
   src/cuda-bevfusion/src/common
   src/cuda-bevfusion/src/
+  /opt/ros/humble
 )
+
+include(cmake/PCL.cmake)
 
 link_directories(
   $ENV{CUDA_Lib}
@@ -131,6 +136,11 @@ target_link_libraries(multimodal_object_detection
   ${Protobuf_LIBRARIES}
   libnvinfer_plugin.so
 )
+
+ament_target_dependencies(multimodal_object_detection
+  rclcpp std_msgs common_msgs geometry_msgs pcl_conversions pcl_ros
+)
+
 #######################################################################
 
 
