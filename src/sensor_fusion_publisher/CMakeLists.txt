@@ -12,6 +12,7 @@ find_package(std_msgs REQUIRED)
 find_package(common_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(message_filters REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 
@@ -22,13 +23,14 @@ target_include_directories(sensor_fusion_publisher PUBLIC
 target_compile_features(sensor_fusion_publisher PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
   sensor_fusion_publisher
-  "rclcpp"
-  "std_msgs"
-  "common_msgs"
-  "sensor_msgs"
-  "geometry_msgs"
-  "pcl_conversions"
-  "pcl_ros"
+  rclcpp
+  std_msgs
+  common_msgs
+  sensor_msgs
+  geometry_msgs
+  pcl_conversions
+  pcl_ros
+  message_filters
 )
 
 install(TARGETS sensor_fusion_publisher

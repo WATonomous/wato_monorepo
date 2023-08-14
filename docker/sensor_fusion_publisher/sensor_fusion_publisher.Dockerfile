@@ -6,8 +6,9 @@ WORKDIR /home/docker/ament_ws
 COPY src/sensor_fusion_publisher sensor_fusion_publisher
 COPY src/wato_msgs/common_msgs common_msgs
 
-RUN sudo apt install -y \
-    ros-humble-pcl-ros
+# To run rosbags
+RUN sudo apt-get update && sudo apt-get install -y curl ros-humble-ros2bag ros-humble-rosbag2* ros-humble-foxglove-msgs&& \
+    sudo rm -rf /var/lib/apt/lists/*
 
 RUN export DEBIAN_FRONTEND=noninteractive && . /opt/ros/$ROS_DISTRO/setup.bash && \
     sudo rosdep init && \
