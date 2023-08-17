@@ -44,6 +44,7 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <pcl/point_cloud.h>
 
+#include <common_msgs/msg/combined_sensor.hpp>
 
 const std::string root = "/home/docker/ament_ws/src/multimodal_object_detection/src";
 
@@ -241,6 +242,8 @@ public:
       "/lidar_data", 10, std::bind(&BevFusionNode::lidar_callback, this, std::placeholders::_1));
     // radar_subscriber_ = this->create_subscription<sensor_msgs::msg::RadarEcho>(
     //   "/radar_data", 10, std::bind(&BevFusionNode::radar_callback, this, std::placeholders::_1));
+    sensor_subscriber_ = this->create_subscription<common_msgs::msg::CombinedSensor>(
+      "/combined_sensor_data", 10, std::bind(&BevFusionNode::sensor_callback, this, std::placeholders::_1));
   }
 
 private:
@@ -259,9 +262,16 @@ private:
   //   // Implement your radar data handling logic here
   // }
 
+  void sensor_callback(const common_msgs::msg::CombinedSensor::SharedPtr msg)
+  {
+    // Implement your sensor fusion logic here
+    RCLCPP_INFO(this->get_logger(), "Received combined sensor message");
+  }
+
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr camera_subscriber_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_subscriber_;
   // rclcpp::Subscription<sensor_msgs::msg::RadarEcho>::SharedPtr radar_subscriber_;
+  rclcpp::Subscription<common_msgs::msg::CombinedSensor>::SharedPtr sensor_subscriber_;
 };
 
 int main(int argc, char** argv) {
