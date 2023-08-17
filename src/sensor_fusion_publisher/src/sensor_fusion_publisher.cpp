@@ -25,8 +25,7 @@ public:
         sync_ = std::make_shared<message_filters::Synchronizer<ApproximateTimePolicy>>(ApproximateTimePolicy(10), *camera_sub_, *lidar_sub_);
         sync_->registerCallback(&SensorFusionNode::callback, this);
 
-
-        combined_sensor_pub_ = this->create_publisher<common_msgs::msg::CombinedSensor>("combined_sensor", 1);
+        combined_sensor_pub_ = this->create_publisher<common_msgs::msg::CombinedSensor>("/combined_sensor", 1);
         RCLCPP_INFO(this->get_logger(), "Sensor fusion node has been initialized");
     }
 

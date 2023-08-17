@@ -11,9 +11,9 @@ COPY src/wato_msgs/common_msgs src/common_msgs
 RUN sudo apt update 
 
 ENV ROS_PACKAGE_PATH=/opt/ros/humble
-RUN rosinstall_generator perception_pcl --rosdistro ${ROS_DISTRO} --deps --exclude RPP > deps.rosinstall
-RUN cat deps.rosinstall
-RUN vcs import src < deps.rosinstall
+# RUN rosinstall_generator perception_pcl --rosdistro ${ROS_DISTRO} --deps --exclude RPP > deps.rosinstall
+# RUN cat deps.rosinstall
+# RUN vcs import src < deps.rosinstall
 
 RUN sudo ln -s /usr/local/cuda/lib64/libcudart.so /usr/local/lib/
 RUN sudo ln -s /usr/local/cuda/lib64/libcudart.a /usr/local/lib/
