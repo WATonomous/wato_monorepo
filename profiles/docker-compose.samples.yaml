@@ -12,7 +12,7 @@ services:
       - seccomp:${MONO_DIR}/seccomp_profile.json 
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
+      - ${MONO_DIR}/src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
 
   producer:
     build:
@@ -26,8 +26,8 @@ services:
       - seccomp:${MONO_DIR}/seccomp_profile.json 
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/samples/cpp/producer:/home/docker/ament_ws/src/producer
-      
+      - ${MONO_DIR}/src/samples/cpp/producer:/home/docker/ament_ws/src/producer
+
   transformer:
     build:
       context: ..
@@ -40,4 +40,4 @@ services:
       - seccomp:${MONO_DIR}/seccomp_profile.json 
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ../src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
+      - ${MONO_DIR}/src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
