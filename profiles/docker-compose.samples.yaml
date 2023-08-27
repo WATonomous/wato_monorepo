@@ -9,7 +9,7 @@ services:
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:main"
     image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:${TAG}"
     security_opt:
-      - seccomp:${MONO_DIR}/seccomp_profile.json 
+      - seccomp:${PROFILES_DIR}/seccomp_profile.json 
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ${MONO_DIR}/src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
@@ -23,7 +23,7 @@ services:
         - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:main"
     image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
     security_opt:
-      - seccomp:${MONO_DIR}/seccomp_profile.json 
+      - seccomp:${PROFILES_DIR}/seccomp_profile.json 
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ${MONO_DIR}/src/samples/cpp/producer:/home/docker/ament_ws/src/producer
@@ -37,7 +37,7 @@ services:
         - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:main"
     image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
     security_opt:
-      - seccomp:${MONO_DIR}/seccomp_profile.json 
+      - seccomp:${PROFILES_DIR}/seccomp_profile.json 
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ${MONO_DIR}/src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
