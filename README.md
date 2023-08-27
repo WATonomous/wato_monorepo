@@ -24,11 +24,11 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
 - `scripts/watod2-completion.bash`.
   - Bash autocomplete for watod2. Adapted from docker-compose. Add `source <MONO_DIR>/scripts/watod2-completion.bash` to your bashrc to use autocomplete.
 - `profiles/`: 
-  - This folder contains all docker-compose files specifying the services we will run. They are divided into profiles. The root-level `docker-compose.yaml` file is loaded first, then profiles are loaded after. Note that by default no profiles are enabled. To select additional profiles, overwrite `ACTIVE_PROFILES=x` in `dev_config.local.sh`. See the [docker-compose wiki](https://docs.docker.com/compose/extends/). More info on profiles: [docs/dev/profiles.md](docs/dev/profiles.md).
+  - This folder contains all docker-compose files specifying the services we will run. They are grouped up into profiles. Note that by default no profiles are enabled. To select additional profiles, overwrite `ACTIVE_PROFILES="<PROFILES_OF_YOUR_CHOICE"` in `dev_config.local.sh`. See the [docker-compose wiki](https://docs.docker.com/compose/extends/). More info on profiles: [docs/dev/profiles.md](docs/dev/profiles.md).
 - `docker/`: 
   - This folder contains the `Dockerfiles` for each of our images. [Docker wiki](https://docs.docker.com/engine/reference/builder/).
 - `src/`: 
-  - Here is where our actual code goes. The folders in `src` will be mounted to the docker images, so changes in the `src` directory will be reflected in the containers. 
+  - Here is where all the logic and cool technologies for autonomous software go. The folders in `src` will be mounted to our docker images, so changes in the `src` directory will be reflected in the containers. 
 - `docs/`:
   - This folder contains the documentation for this monorepo, including instructions for setup and details on how to navigate and develop in this monorepo.
 

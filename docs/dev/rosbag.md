@@ -3,6 +3,8 @@
 A bag is a file that stores serialized ROS2 message data. We can play a bag to make data available on various topics.
 More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html.
 
+## To Use
+
 Add `data_stream` as an `ACTIVE_PROFILE` in `dev_config.local.sh`. 
 
 Run `watod2 up` (or however you want to launch the `data_stream` service). 

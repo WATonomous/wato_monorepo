@@ -17,7 +17,6 @@ For any environment variable found in `dev-config.sh`, you can overwrite it on t
 - Your docker containers expose a certain number of applications that can be accessed publicly. For example, [VNC](https://en.wikipedia.org/wiki/Virtual_Network_Computing)
 - Start your containers with `watod2 up` then in another terminal use `watod2 --ports`
 - `watod2 -lp` will  also print information if you want to forward the ports from the external server to your local machine over SSH.
-- `watod2 -lc [local_base_port]` will generate a [~/.ssh/config file](https://linuxize.com/post/using-the-ssh-config-file/) for you to copy to your local machine. A newly generated config file will always be up to date with VM hostnames, watod2 ports forwards, etc... and in our oppinion is the best way to configure your communication with WATO's server cluster. The optional `[local_base_port]` argument allows you to define your own port range on your local machine. For example, if the `pp_env_model` service is running on remote port `3864`, with your remote base port being `3860`, then running `watod2 -lc 1000` will place a forwarding rule in the config to forward the  `pp_env_model`'s code server to `localhost:1004`.
   
 **Opening a shell inside a docker container**: `watod2 -t <SERVICE_NAME>`
 - Opens a bash shell into the specified service. Find a list of your services using `watod2 ps --services`
