@@ -13,4 +13,4 @@ containers, allowing us to parallelize jobs for higher efficiency. Using DIND, w
 
 ## Making a new docker image
 
-More documentation TBD. For now, see Charles's Docker Workshop: https://drive.google.com/file/d/1F78lINGzhCQlVni-znqyyePRVttKpeju/view?usp=sharing 
+See how to dev [here](dev/how_to_dev.md) 

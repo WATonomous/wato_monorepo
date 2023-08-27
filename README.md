@@ -13,9 +13,54 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
     - [FAQ](#faq)
 
 ## Getting Started
-**READ THIS**: [docs/setup/setup.md](docs/setup/setup.md)
+Read the following:
+1. [docs/setup.md](docs/setup.md) How to setup our repo. 
 
-## Description of Files
+**TLDR:** Clone the monorepo, specify active profiles, `watod2 up`. Everything is containerized, so there's little need to setup any dependencies on your end :).
+
+2. [docs/monorepo.md](docs/monorepo.md) What is a monorepo? Why a monorepo?
+3. [docs/how_to_dev.md](docs/how_to_dev.md) How to develop in the monorepo.
+
+## Description of Important Files and Directories
+
+Below is a tree diagram of the Monorepo.
+
+```
+wato_monorepo_v2
+├── dev_config.sh
+├── docker
+│   ├── samples
+│   │   └── cpp
+│   │       ├── Dockerfile.aggregator
+│   │       ├── Dockerfile.producer
+│   │       └── Dockerfile.transformer
+│   └── wato_ros_entrypoint.sh
+├── docs
+├── profiles
+│   └── docker-compose.samples.yaml
+├── scripts
+├── src
+│   ├── motion_planning_and_control
+│   ├── perception
+│   ├── wato_msgs
+│   │   └── sample_msgs
+│   │       ├── CMakeLists.txt
+│   │       ├── msg
+│   │       └── package.xml
+│   ├── samples
+│   │   └── cpp
+│   │       ├── aggregator
+│   │       ├── image
+│   │       ├── producer
+│   │       ├── README.md
+│   │       └── transformer
+│   ├── sensor_interfacing
+│   ├── simulation
+│   ├── tools
+│   └── world_modeling
+└── watod2
+```
+
 
 - `watod2`. 
   - This is the main bash script that you will use to interface with your containers. More info on `watod2`: [docs/dev/watod2.md](docs/dev/watod2.md).
