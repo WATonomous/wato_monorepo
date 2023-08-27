@@ -1,7 +1,7 @@
 # FAQ
 ## Every time I make a new branch I need to rebuild all the images from scratch
 
-Whenever you make a new branch, new images need to be compiled. However, Docker will use the `develop` images as a cache. You probably don't have the `develop` images downloaded on your machine.
+Whenever you make a new branch, new images need to be compiled. However, Docker will use the `main` images as a cache. You probably don't have the `main` images downloaded on your machine.
 
 Try these steps:
 ```bash
