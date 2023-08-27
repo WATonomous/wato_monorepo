@@ -25,10 +25,10 @@ Note: These are all available on WATonomous servers by default.
 ## Setting up your workspace
 
 1. Clone this repo onto the host machine on using `$ git clone git@github.com:WATonomous/wato_monorepo_v2.git`. We recommend you clone the repo into your home directory, `~`
-2. Create a file `dev_config.local.sh` in `~/wato_monorepo_v2` and add the line 
+2. Create a file `watod2-config.local.sh` in `~/wato_monorepo_v2` and add the line 
     ```
     #!/bin/bash
-    from dev_config.sh
+    from watod2-config.sh
 
     ACTIVE_PROFILES="${specific profiles}"
     ```

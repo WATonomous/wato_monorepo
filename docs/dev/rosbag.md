@@ -5,7 +5,7 @@ More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginne
 
 ## To Use
 
-Add `data_stream` as an `ACTIVE_PROFILE` in `dev_config.local.sh`. 
+Add `data_stream` as an `ACTIVE_PROFILE` in `watod2-config.sh`. 
 
 Run `watod2 up` (or however you want to launch the `data_stream` service). 
 
