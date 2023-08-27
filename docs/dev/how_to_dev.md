@@ -4,7 +4,7 @@ Below is a tree diagram of the Monorepo.
 
 ```
 wato_monorepo_v2
-├── dev_config.sh
+├── watod2-config.sh
 ├── docker
 │   ├── samples
 │   │   └── cpp
@@ -16,6 +16,7 @@ wato_monorepo_v2
 ├── profiles
 │   └── docker-compose.samples.yaml
 ├── scripts
+│   └── watod2-setup-env.sh
 ├── src
 │   ├── motion_planning_and_control
 │   ├── perception
@@ -111,7 +112,7 @@ The extent to which you will change this file is most likely to create a new ser
 
 * eg. If your node is under `/src/motion_planning_and_control/<your_node>/` then your IMAGE name is `MP_AND_C_<YOUR_NODE_IN_CAPS>_IMAGE`
 
-This environment variable will make sense once you edit the `dev_config.sh` so that your dockerfile works with `watod2`.
+This environment variable will make sense once you edit the `watod2-setup-env.sh` so that your dockerfile works with `watod2`.
 
 ### 2.3 Your ROS2 node's dockerfile
 A dockerfile specifies how to setup an environment (you could say a small isolated computer) that purely just runs your ROS2 node. The language used in the dockerfile is the same as the commands you use in a Linux terminal except with `RUN` in front of it. (as well as some other nice-to-haves like `ENV` which sets environment variables)
@@ -183,11 +184,11 @@ The `watod2` script is a custom built script to setup environment variables (som
 ### 3.1 watod2
 This script does not change regardless of any changes. Only people editing this script is Infra.
 
-### 3.2 dev_config.sh
-This script is ran by `watod2` to setup all of the environment variables. YOU NEED TO ADD SOME NEW ENVIRONEMENT VARIABLES OF YOUR OWN IN ORDER FOR YOUR CODE TO WORK WITH `watod2`. In the `dev_config.sh` there are 2 sections with which you need to add things.
+### 3.2 watod2-setup-env.sh
+This script is ran by `watod2` to setup all of the environment variables. YOU NEED TO ADD SOME NEW ENVIRONEMENT VARIABLES OF YOUR OWN IN ORDER FOR YOUR CODE TO WORK WITH `watod2`. In the `watod2-setup-env.sh` there are 2 sections with which you need to add things.
 
 #### 3.2.1 Images
-Under the `images` section of the `dev_config.sh`...
+Under the `images` section of the `watod2-setup-env.sh`...
 
 ```bash
 ## --------------------------- Images -------------------------------
