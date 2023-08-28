@@ -5,6 +5,7 @@ programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
 MONO_DIR="$(dirname "$(realpath "$0")")"
 PROFILES_DIR="$MONO_DIR/profiles"
 ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
+
 function usage {
     echo "Usage: $programname [OPTIONS]... [COMMAND]..."
     echo "Executes docker-compose COMMAND in the the monorepo with appropriate environment variables."
@@ -12,22 +13,24 @@ function usage {
     echo "  -v --verbose                    verbose mode. Currently, prints .env variables"                     
     echo "  -lp --local-ports               displays ports exposed by applications and shows the"
     echo "                                  ssh local port forwarding commands for each VNC Server found"
-    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo "                                  if a docker-compose command is specified, it will be run in the background."
+    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo "  -a --all                        run COMMAND with all profiles enabled. Profiles are defined in ./profiles/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
-    echo " Examples:" 
-    echo "   watod2 up                       start containers (docker-compose up)"
-    echo "   watod2 down                     stop and remove containers (docker-compose down)"
-    echo "   watod2 ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
-    echo "   watod2 --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
-    echo "   watod2 --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
-    echo "   watod2 -t perception            open a bash terminal into the perception container."
+    echo ""
+    echo "Examples:" 
+    echo "  watod2 up                       start containers (docker-compose up)"
+    echo "  watod2 down                     stop and remove containers (docker-compose down)"
+    echo "  watod2 ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
+    echo "  watod2 --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
+    echo "  watod2 --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
+    echo "  watod2 -t perception            open a bash terminal into the perception container."
     echo ""
     echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
     exit 0
 }
+
 function run_compose {
     cd $MONO_DIR
     if [ ! -z "$(source $PROFILES_DIR/.env && echo $ACTIVE_PROFILES)" ] && [ -z "$PROFILES" ]; then 
@@ -46,11 +49,11 @@ if [ $# == 0 ]; then
     usage
 fi
 
-# generate .env file from dev_config.sh
+# generate .env file from scripts/watod2-setup-env.sh
 if [ ! -z $VERBOSE ]; then # if we want to see all verbose coming from setting up env
-    cd $MONO_DIR && bash dev_config.sh
+    cd $MONO_DIR && bash scripts/watod2-setup-env.sh
 else
-    cd $MONO_DIR && bash dev_config.sh &> /dev/null
+    cd $MONO_DIR && bash scripts/watod2-setup-env.sh &> /dev/null
 fi
 
 # run options
@@ -109,11 +112,6 @@ if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
 fi
 
-# run fix-permissions.sh
-if [ -z "$NO_FIX_PERMISSIONS" ]; then
-    bash .gitlab/ci/fix-permissions.sh
-fi
-
 # launch autonomy on the car
 if [ ! -z $LAUNCH_AUTONOMOUS ]; then
     echo "============================================================                  "
@@ -134,12 +132,17 @@ if [ ! -z $LAUNCH_AUTONOMOUS ]; then
     exit 0
 fi
 
-if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_LOCAL_CONFIG ]; then
+if [ ! -z $PRINT_LOCAL_PORTS ]; then
+    # get list of services to traverse
+    SERVICE_LIST="$(run_compose ps --services | sort)"
+
     # fixes hostnames for VMs so that by default $HOSTNAME is the first element
     # in the array, which often is the domain name that can be accessed
     # externally
     read -ra HOSTNAME <<< $(hostname -A)
+    echo "========================================================================="
     echo "Ports exposed by running containers:"
+    echo "========================================================================="
     LOCAL_FORWARD_ALL=""
 
     PORTS_STRING=""
@@ -149,7 +152,7 @@ if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_L
         VNC_PORT=${VNC_PORT:0:5} # Strip unncessary characters
 
         if [ ! -z $VNC_PORT ]; then
-            echo "$SERVICE exposes a VNC Server at $HOSTNAME:$VNC_PORT"
+            echo "$SERVICE service exposes a VNC Server at $HOSTNAME:$VNC_PORT"
             
             LOCAL_FORWARD="-L ${VNC_PORT}:localhost:${VNC_PORT}"
             LOCAL_FORWARD_ALL="${LOCAL_FORWARD_ALL} $LOCAL_FORWARD"
@@ -161,11 +164,10 @@ if [ ! -z $PRINT_CODE_PORTS ] || [ ! -z $PRINT_LOCAL_PORTS ] || [ ! -z $OUTPUT_L
         fi
     done
     
+    echo "========================================================================="
     echo "To forward all ports locally:"
-    echo ""
     echo "ssh $LOCAL_FORWARD_ALL $USER@$HOSTNAME"
-    echo ""
-    echo "See https://git.uwaterloo.ca/WATonomous/wato_monorepo#editing-code-in-docker-containers for usage details"
+    echo "========================================================================="
 fi
 
 if [ ! -z "$COMPOSE_CMD" ]; then
