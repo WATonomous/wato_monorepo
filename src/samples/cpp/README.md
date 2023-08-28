@@ -16,10 +16,10 @@ Listens to messages from the Producer and Transfomer nodes and logs the frequenc
 ## Usage
 **Before proceding ensure that you have followed the setup guide([setup](../../../docs/setup.md))**
 
-To configure watod2, update `dev_config.local.sh` to include the samples profile.
+To configure watod2, update `watod2-config.local.sh` to include the samples profile.
 ```bash
 #!/bin/bash
-from dev_config.sh
+from watod2-config.sh
 
 ACTIVE_PROFILES="samples"
 ```

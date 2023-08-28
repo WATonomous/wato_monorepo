@@ -27,7 +27,7 @@ Below is a tree diagram of the Monorepo.
 
 ```
 wato_monorepo_v2
-├── dev_config.sh
+├── watod2-setup-env.sh
 ├── docker
 │   ├── samples
 │   │   └── cpp
@@ -64,12 +64,12 @@ wato_monorepo_v2
 
 - `watod2`. 
   - This is the main bash script that you will use to interface with your containers. More info on `watod2`: [docs/dev/watod2.md](docs/dev/watod2.md).
-- `dev_config.sh`. 
-  - dev_config.sh will create a [.env file](https://docs.docker.com/compose/env-file/) specifying environment variables for docker-compose. `watod2` automatically runs this script before running any commands. To override variables in `dev_config.sh`, create a `dev_config.local.sh` file and populate it with variables, for example `ACTIVE_PROFILES="perception path_planning"`. `dev_config.sh` will then take this file into account when building the `.env` file.
+- `watod2-setup-env.sh`. 
+  - watod2-setup-env.sh (in scripts directory) will create a [.env file](https://docs.docker.com/compose/env-file/) specifying environment variables for docker-compose. `watod2` automatically runs this script before running any commands. To override variables in `watod2-setup-env.sh`, create a `wato2-config.sh` file and populate it with variables, for example `ACTIVE_PROFILES="perception path_planning"`. `watod2-setup-env.sh` will then take this file into account when building the `.env` file.
 - `scripts/watod2-completion.bash`.
   - Bash autocomplete for watod2. Adapted from docker-compose. Add `source <MONO_DIR>/scripts/watod2-completion.bash` to your bashrc to use autocomplete.
 - `profiles/`: 
-  - This folder contains all docker-compose files specifying the services we will run. They are grouped up into profiles. Note that by default no profiles are enabled. To select additional profiles, overwrite `ACTIVE_PROFILES="<PROFILES_OF_YOUR_CHOICE"` in `dev_config.local.sh`. See the [docker-compose wiki](https://docs.docker.com/compose/extends/). More info on profiles: [docs/dev/profiles.md](docs/dev/profiles.md).
+  - This folder contains all docker-compose files specifying the services we will run. They are grouped up into profiles. Note that by default no profiles are enabled. To select additional profiles, overwrite `ACTIVE_PROFILES="<PROFILES_OF_YOUR_CHOICE"` in `wato2-config.sh`. See the [docker-compose wiki](https://docs.docker.com/compose/extends/). More info on profiles: [docs/dev/profiles.md](docs/dev/profiles.md).
 - `docker/`: 
   - This folder contains the `Dockerfiles` for each of our images. [Docker wiki](https://docs.docker.com/engine/reference/builder/).
 - `src/`: 
