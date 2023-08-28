@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
 
-# setup ROS environment
-echo "SOURCING SETUP.BASH"
+# setup ROS2 environment
 source /home/docker/ament_ws/install/setup.bash
 
 exec "$@"

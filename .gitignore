@@ -4,7 +4,5 @@ code_server_config/*/start_code_server.sh
 *.pyc 
 *.swp
 .env
-dev_config.local.sh
 .vscode/
-config
 ssh_config/
