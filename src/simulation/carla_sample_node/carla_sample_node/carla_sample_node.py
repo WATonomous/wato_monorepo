@@ -17,7 +17,6 @@ import os
 class Datalogger(Node):
     def __init__(self):
         super().__init__('datalogger')
-        self.containerId = os.getenv('LOG_FILE', 'log')
         self.gnssSubscription = self.create_subscription(
             NavSatFix,
             '/carla/ego_vehicle/gnss',
@@ -32,8 +31,9 @@ class Datalogger(Node):
         )
         self.timer = self.create_timer(10, self.timer_callback) # Publish autopilot message every 10 seconds
     def gnss_callback(self, msg):
-        with open("/home/docker/ament_ws/src/carla_sample_node/logs/gnss_" + self.containerId + ".txt", 'a+') as file:
-            file.write(str(msg.latitude) + ", " + str(msg.longitude) + "\n")
+        # with open("/home/docker/ament_ws/src/carla_sample_node/logs/gnss_" + self.containerId + ".txt", 'a+') as file:
+        #     file.write(str(msg.latitude) + ", " + str(msg.longitude) + "\n")
+        self.get_logger().info(str(msg.latitude) + ", " + str(msg.longitude)) # print to screen
     def timer_callback(self):
         msg = Bool()
         msg.data = True
@@ -42,14 +42,14 @@ class Datalogger(Node):
 def main(args=None):
     # Uncomment the below lines to actually run the sample node
 
-    # rclpy.init(args=args)
+    rclpy.init(args=args)
     
-    # datalogger = Datalogger()
+    datalogger = Datalogger()
 
-    # rclpy.spin(datalogger)
+    rclpy.spin(datalogger)
 
-    # datalogger.destroy_node()
-    # rclpy.shutdown()
+    datalogger.destroy_node()
+    rclpy.shutdown()
     return
 
 if __name__ == '__main__':
