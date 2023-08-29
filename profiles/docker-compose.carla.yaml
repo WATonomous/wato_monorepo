@@ -35,9 +35,12 @@ services:
     build:
       context: ..
       dockerfile: docker/simulation/carla_notebooks.Dockerfile
+      cache_from: 
+        - "${CARLA_NOTEBOOKS_IMAGE:?}-${CACHE_FROM_TAG}"
+        - "${CARLA_NOTEBOOKS_IMAGE:?}-develop"
       args:
         - CARLA_VERSION=0.9.13
-    image: "python_api_test"
+    image: "${CARLA_NOTEBOOKS_IMAGE:?}-${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     ports:
       - ${CARLA_NOTEBOOKS_PORT:?}:8888
@@ -47,7 +50,7 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
     volumes:
       - ../src/simulation/carla_notebooks:/home/docker/carla_notebooks
-    command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password='' 
+    command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser  --allow-root --NotebookApp.token='' --NotebookApp.password=''
     
   # camera_compression:
   #   build:
