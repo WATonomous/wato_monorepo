@@ -15,9 +15,18 @@ ProducerNode::ProducerNode(int delay_ms)
     std::bind(&ProducerNode::timer_callback, this));
 
   // Define the default values for parameters if not defined in params.yaml
-  this->declare_parameter("velocity", 0);
+  this->declare_parameter("pos_x", 0.0);
+  this->declare_parameter("pos_y", 0.0);
+  this->declare_parameter("pos_z", 0.0);
+  this->declare_parameter("velocity", 0.0);
+
+  rclcpp::Parameter pos_x = this->get_parameter("pos_x");
+  rclcpp::Parameter pos_y = this->get_parameter("pos_y");
+  rclcpp::Parameter pos_z = this->get_parameter("pos_z");
   rclcpp::Parameter velocity = this->get_parameter("velocity");
-  producer_.update_velocity(velocity.as_int());
+
+  producer_.update_position(pos_x.as_double(), pos_y.as_double(), pos_z.as_double());
+  producer_.update_velocity(velocity.as_double());
 
   param_cb_ = this->add_on_set_parameters_callback(
     std::bind(&ProducerNode::parameters_callback, this, std::placeholders::_1));

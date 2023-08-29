@@ -1,43 +1,53 @@
+import math
+
 import rclpy
 from rclpy.node import Node
 
 from sample_msgs.msg import Unfiltered
+from rcl_interfaces.msg import ParameterType, ParameterDescriptor
 
 
 class Producer(Node):
 
     def __init__(self):
         super().__init__('python_producer')
-        self.publisher_ = self.create_publisher(Unfiltered, '/producer', 10)
+        # Declare and get the parameters
+        self.declare_parameter('pos_x', 0.0),
+        self.declare_parameter('pos_y', 0.0),
+        self.declare_parameter('pos_z', 0.0),
+        self.declare_parameter('velocity', 0.0)
+
+        # For parameters, we need to explicitely declare its type for Python to know
+        # what to do with it
+        self.__pos_x = self.get_parameter('pos_x').get_parameter_value().double_value
+        self.__pos_y = self.get_parameter('pos_y').get_parameter_value().double_value
+        self.__pos_z = self.get_parameter('pos_z').get_parameter_value().double_value
+
+        self.__velocity = self.get_parameter('velocity').get_parameter_value().double_value
+
+        # Setup ROS2 constructs
+        queue_size = 10
+        self.publisher_ = self.create_publisher(Unfiltered, '/producer', queue_size)
 
         timer_period = 0.5
-        self.timer = self.create_timer(timer_period, self.serialize_data)
-
-        # Declare and get the parameters
-        self.declare_parameter('velocity', 0.1)
-        self.declare_parameter('pos_x', 0.0)
-        self.declare_parameter('pos_y', 0.0)
-        self.declare_parameter('pos_z', 0.0)
-
-        self.pos_x = self.get_parameter('pos_x').value
-        self.pos_y = self.get_parameter('pos_y').value
-        self.pos_z = self.get_parameter('pos_z').value
-
-    def set_velocity(self, velocity):
-        velocity_ = velocity
-        return velocity_
-
-    def produce_data(self):
-        self.pos_x += self.set_velocity(self.get_parameter('velocity').value)
-        self.pos_y += self.set_velocity(self.get_parameter('velocity').value)
-        self.pos_z += self.set_velocity(self.get_parameter('velocity').value)
+        self.timer = self.create_timer(timer_period, self.__publish_position)
+        
+    def update_position(self):
+        self.__pos_x += self.__velocity / math.sqrt(3)
+        self.__pos_y += self.__velocity / math.sqrt(3)
+        self.__pos_z += self.__velocity / math.sqrt(3)
 
     def serialize_data(self):
-        self.produce_data()
+        return "x:" + str(self.__pos_x) + ";y:" + str(self.__pos_y) + ";z:" + str(self.__pos_z) + ";"
+
+    def __publish_position(self):
+        self.update_position()
         msg = Unfiltered()
 
-        msg.data = "x:" + str(self.pos_x) + ";y:" + str(self.pos_y) + ";z:" + str(self.pos_z) + ";"
+        msg.data = self.serialize_data()
         msg.valid = True
+
+        self.get_logger().info(f'Publishing: {msg.data}')
 
         self.publisher_.publish(msg)
 
