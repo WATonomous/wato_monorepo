@@ -4,7 +4,7 @@ These projects are to be referenced when developing code for the monorepo. It hi
 ## General Structure
 This project contains three arbitrary ROS2 nodes which communicate with each other via ROS2 publishers and subscribers. The general communication pipeline can be summed up by the image below.
 
-![Architecture](https://user-images.githubusercontent.com/65926174/213855531-8a663eac-8637-4d8a-adb3-9982d140f7b8.png)
+![Architecture](https://github.com/WATonomous/wato_monorepo_v2/assets/71026430/36a63173-e2bd-4378-9e4b-40bee2dc7776)
 
 Each ROS2 node is containerized([Producer](../../docker/samples/cpp/producer.Dockerfile), [Transformer](../../docker/samples/cpp/transformer.Dockerfile), [Aggregator](../../docker/samples/cpp/aggregator.Dockerfile)) and communicate with each other using ROS2 publishers and subscribers.
 
