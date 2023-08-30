@@ -41,7 +41,7 @@ void ProducerNode::timer_callback()
     std::chrono::system_clock::now().time_since_epoch()).count();
   producer_.serialize_coordinates(msg);
 
-  RCLCPP_INFO(this->get_logger(), "Publishing: %s\n", msg.data.c_str());
+  RCLCPP_INFO(this->get_logger(), "Publishing: %s", msg.data.c_str());
   data_pub_->publish(msg);
 }
 
