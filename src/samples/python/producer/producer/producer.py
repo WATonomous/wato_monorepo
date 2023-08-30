@@ -1,4 +1,5 @@
 import math
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -25,9 +26,9 @@ class Producer(Node):
 
         self.__velocity = self.get_parameter('velocity').get_parameter_value().double_value
 
-        # Setup ROS2 constructs
+        # Initialize ROS2 constructs
         queue_size = 10
-        self.publisher_ = self.create_publisher(Unfiltered, '/producer', queue_size)
+        self.publisher_ = self.create_publisher(Unfiltered, '/unfiltered_topic', queue_size)
 
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.__publish_position)
@@ -46,6 +47,7 @@ class Producer(Node):
 
         msg.data = self.serialize_data()
         msg.valid = True
+        msg.timestamp = int(time.time())
 
         self.get_logger().info(f'Publishing: {msg.data}')
 

@@ -1,15 +1,21 @@
-from launch import LaunchDescription
-import launch_ros.actions
 import os
-import yaml
+from ament_index_python.packages import get_package_share_directory
+
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument
 
 def generate_launch_description():
-
-    param_file_path = os.path.join(os.path.dirname(__file__), '/home/docker/ament_ws/src/transformer/config/params.yaml')
-    with open(param_file_path, 'r') as f:
-        params = yaml.safe_load(f)['python_transformer']['ros__parameters']
+    param_file_path = os.path.join(
+        get_package_share_directory('transformer'), 
+        'config', 
+        'params.yaml'
+    )
 
     return LaunchDescription([
-        launch_ros.actions.Node(
-            namespace= "transformer", package='transformer', executable='transformer', output='screen'),
+        Node(
+            package='transformer',
+            name = "transformer_node", 
+            executable='transformer', 
+            parameters = [param_file_path]),
     ])
