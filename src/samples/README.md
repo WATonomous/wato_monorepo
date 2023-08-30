@@ -4,7 +4,7 @@ These projects are to be referenced when developing code for the monorepo. It hi
 ## General Structure
 This project contains three arbitrary ROS2 nodes which communicate with each other via ROS2 publishers and subscribers. The general communication pipeline can be summed up by the image below.
 
-![Architecture](samples_diagram.png)
+![Architecture](samples_diagram.svg)
 
 Each ROS2 node is containerized([Producer](../../docker/samples/cpp/producer.Dockerfile), [Transformer](../../docker/samples/cpp/transformer.Dockerfile), [Aggregator](../../docker/samples/cpp/aggregator.Dockerfile)) and communicate with each other using ROS2 publishers and subscribers.
 
