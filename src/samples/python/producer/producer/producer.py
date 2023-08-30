@@ -47,7 +47,7 @@ class Producer(Node):
 
         msg.data = self.serialize_data()
         msg.valid = True
-        msg.timestamp = int(time.time())
+        msg.timestamp = int(time.time() * 1000)
 
         self.get_logger().info(f'Publishing: {msg.data}')
 
