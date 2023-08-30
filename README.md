@@ -14,12 +14,12 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
 
 ## Getting Started
 Read the following:
-1. [docs/setup.md](docs/setup.md) How to setup our repo. 
+1. [docs/setup.md](docs/setup/setup.md) How to setup our repo. 
 
 **TLDR:** Clone the monorepo, specify active profiles, `watod2 up`. Everything is containerized, so there's little need to setup any dependencies on your end :).
 
 2. [docs/monorepo.md](docs/monorepo.md) What is a monorepo? Why a monorepo?
-3. [docs/how_to_dev.md](docs/how_to_dev.md) How to develop in the monorepo.
+3. [docs/how_to_dev.md](docs/dev/how_to_dev.md) How to develop in the monorepo.
 
 ## Description of Important Files and Directories
 
