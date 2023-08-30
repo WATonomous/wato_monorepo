@@ -7,22 +7,46 @@ class Transformer(Node):
 
     def __init__(self):
         super().__init__('python_transformer')
-        self.publisher_ = self.create_publisher(FilteredArray, '/transformer', 10)
-        self.subscription = self.create_subscription(Unfiltered, '/producer', self.check_msg_validity, 10)
-        self.subscription
+        # Declare and get the parameters
+        self.declare_parameter('version', 1)
+        self.declare_parameter('compression_method', 0)
+        self.declare_parameter('buffer_capacity', 5)
 
-        self.FilteredArray = []
+        self.__buffer_capacity = self.get_parameter('buffer_capacity').get_parameter_value().integer_value
 
+        # Initialize ROS2 Constructs
+        self.publisher_ = self.create_publisher(FilteredArray, '/filtered_topic', 10)
+        self.subscription = self.create_subscription(Unfiltered, '/unfiltered_topic', self.unfiltered_callback, 10)
 
-        self.declare_parameter('message_length', 5)
-        self.message_length = self.get_parameter('message_length').value
+        self.__filtered_array_packets = []
+
+    def unfiltered_callback(self, msg):
+        if not self.check_msg_validity(msg):
+            self.get_logger().info('INVALID MSG')
+            return
+        
+        filtered_msg = self.deserialize_data(msg)
+        filtered_msg.timestamp = msg.timestamp
+        filtered_msg.metadata.version = self.get_parameter('version').get_parameter_value().integer_value
+        filtered_msg.metadata.compression_method = self.get_parameter('compression_method').get_parameter_value().integer_value
+        
+        self.__filtered_array_packets.append(filtered_msg)
+        
+        if len(self.__filtered_array_packets) <= self.__buffer_capacity:
+            return
+
+        # If we reach the buffer capacity, publish the filtered packets
+        filtered_array_msg = FilteredArray()
+        filtered_array_msg.packets = self.__filtered_array_packets
+
+        self.get_logger().info('Buffer Capacity Reached. PUBLISHING...')
+        self.publisher_.publish(filtered_array_msg)
+
+        self.__filtered_array_packets.clear()       
 
 
     def check_msg_validity(self, msg):
-        if msg.valid:
-            self.deserialize_data(msg)
-        else:
-            self.get_logger().info('INVALID MSG')
+        return msg.valid
 
     def deserialize_data(self, msg):
         filtered_msg = Filtered()
@@ -30,27 +54,12 @@ class Transformer(Node):
         unfiltered_array = msg.data
         unfiltered_array.split(";")
 
-        filtered_msg.pos_x = float(unfiltered_array[unfiltered_array.find("x") + 2]) #the plus 2 here is just sloppy code by me to get to the right index ;o
+        filtered_msg.pos_x = float(unfiltered_array[unfiltered_array.find("x") + 2])
         filtered_msg.pos_y = float(unfiltered_array[unfiltered_array.find("y") + 2])
         filtered_msg.pos_z = float(unfiltered_array[unfiltered_array.find("z") + 2])
 
-        self.publish_filtered_array(filtered_msg)
+        return filtered_msg
 
-
-    def publish_filtered_array(self, msg):
-        filtered_array = FilteredArray()
-
-
-        if len(self.FilteredArray) < self.message_length:
-            self.FilteredArray.append(msg)
-
-        elif len(self.FilteredArray) == self.message_length:
-            filtered_array.packets = self.FilteredArray
-            self.publisher_.publish(filtered_array)
-            self.FilteredArray.clear()
-
-        else:
-            self.FilteredArray.clear()
 
 def main(args=None):
     rclpy.init(args=args)

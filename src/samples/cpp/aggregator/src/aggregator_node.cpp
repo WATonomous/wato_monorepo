@@ -11,12 +11,12 @@ AggregatorNode::AggregatorNode()
         std::chrono::system_clock::now().time_since_epoch()).count()))
 {
   raw_sub_ = this->create_subscription<sample_msgs::msg::Unfiltered>(
-    "unfiltered", ADVERTISING_FREQ,
+    "/unfiltered_topic", ADVERTISING_FREQ,
     std::bind(
       &AggregatorNode::unfiltered_callback, this,
       std::placeholders::_1));
   filtered_sub_ = this->create_subscription<sample_msgs::msg::FilteredArray>(
-    "filtered", ADVERTISING_FREQ,
+    "/filtered_topic", ADVERTISING_FREQ,
     std::bind(
       &AggregatorNode::filtered_callback, this,
       std::placeholders::_1));

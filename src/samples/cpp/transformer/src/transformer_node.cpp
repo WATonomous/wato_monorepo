@@ -6,12 +6,12 @@ TransformerNode::TransformerNode()
 : Node("transformer"), transformer_(samples::Transformer())
 {
   raw_sub_ = this->create_subscription<sample_msgs::msg::Unfiltered>(
-    "unfiltered", ADVERTISING_FREQ,
+    "/unfiltered_topic", ADVERTISING_FREQ,
     std::bind(
       &TransformerNode::unfiltered_callback, this,
       std::placeholders::_1));
   transform_pub_ =
-    this->create_publisher<sample_msgs::msg::FilteredArray>("filtered", ADVERTISING_FREQ);
+    this->create_publisher<sample_msgs::msg::FilteredArray>("/filtered_topic", ADVERTISING_FREQ);
 
   // Define the default values for parameters if not defined in params.yaml
   this->declare_parameter("version", rclcpp::ParameterValue(0));

@@ -8,7 +8,7 @@ ProducerNode::ProducerNode(int delay_ms)
 : Node("producer"), producer_(samples::Producer())
 {
   data_pub_ =
-    this->create_publisher<sample_msgs::msg::Unfiltered>("unfiltered", ADVERTISING_FREQ);
+    this->create_publisher<sample_msgs::msg::Unfiltered>("/unfiltered_topic", ADVERTISING_FREQ);
 
   timer_ = this->create_wall_timer(
     std::chrono::milliseconds(delay_ms),
