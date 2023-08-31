@@ -1,9 +1,7 @@
-#ifndef TRANSFORMER_HPP_
-#define TRANSFORMER_HPP_
+#ifndef TRANSFORMER_CORE_HPP_
+#define TRANSFORMER_CORE_HPP_
 
 #include <vector>
-
-#include "rclcpp/rclcpp.hpp"
 
 #include "sample_msgs/msg/unfiltered.hpp"
 #include "sample_msgs/msg/filtered.hpp"
@@ -15,7 +13,7 @@ namespace samples
  * Implementation for the internal logic for the Transformer ROS2
  * node performing data processing and validation.
  */
-class Transformer
+class TransformerCore
 {
 public:
   // Size of buffer before processed messages are published.
@@ -25,7 +23,7 @@ public:
   /**
    * Transformer constructor.
    */
-  Transformer();
+  TransformerCore();
 
   /**
    * Retrieve enqueued messages in buffer.
@@ -79,4 +77,4 @@ private:
 
 }  // namespace samples
 
-#endif  // TRANSFORMER_HPP_
+#endif  // TRANSFORMER_CORE_HPP_

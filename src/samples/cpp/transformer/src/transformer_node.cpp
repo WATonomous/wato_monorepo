@@ -3,15 +3,15 @@
 #include "transformer_node.hpp"
 
 TransformerNode::TransformerNode()
-: Node("transformer"), transformer_(samples::Transformer())
+: Node("transformer"), transformer_(samples::TransformerCore())
 {
   raw_sub_ = this->create_subscription<sample_msgs::msg::Unfiltered>(
-    "unfiltered", ADVERTISING_FREQ,
+    "/unfiltered_topic", ADVERTISING_FREQ,
     std::bind(
       &TransformerNode::unfiltered_callback, this,
       std::placeholders::_1));
   transform_pub_ =
-    this->create_publisher<sample_msgs::msg::FilteredArray>("filtered", ADVERTISING_FREQ);
+    this->create_publisher<sample_msgs::msg::FilteredArray>("/filtered_topic", ADVERTISING_FREQ);
 
   // Define the default values for parameters if not defined in params.yaml
   this->declare_parameter("version", rclcpp::ParameterValue(0));
@@ -35,7 +35,7 @@ void TransformerNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::Sh
     this->get_parameter("compression_method").as_int();
 
   if (transformer_.enqueue_message(filtered)) {
-    RCLCPP_INFO(this->get_logger(), "Buffer Capacity Reached. PUBLISHING...\n");
+    RCLCPP_INFO(this->get_logger(), "Buffer Capacity Reached. PUBLISHING...");
     // Publish processed data when the buffer reaches its capacity
     sample_msgs::msg::FilteredArray filtered_msgs;
     auto buffer = transformer_.buffer_messages();
