@@ -1,0 +1,16 @@
+name: Generate environment
+
+outputs:
+  services:
+    description: "list of docker compose services"
+    value: ${{ steps.environment-generator.outputs.services }}
+  profiles:
+    description: "space delimited string of supported profiles"
+    value: ${{ steps.environment-generator.outputs.profiles }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: environment-generator
+      run: ${{ github.action_path }}/docker_context.sh
+      shell: bash
