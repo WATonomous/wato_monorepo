@@ -14,6 +14,7 @@
 
 import math
 
+
 class ProducerCore():
 
     def __init__(self, pos_x, pos_y, pos_z, vel):
@@ -28,4 +29,5 @@ class ProducerCore():
         self.__pos_z += self.__velocity / math.sqrt(3)
 
     def serialize_data(self):
-        return "x:" + str(self.__pos_x) + ";y:" + str(self.__pos_y) + ";z:" + str(self.__pos_z) + ";"
+        return "x:" + str(self.__pos_x) + ";y:" + \
+            str(self.__pos_y) + ";z:" + str(self.__pos_z) + ";"
