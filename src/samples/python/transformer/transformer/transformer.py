@@ -30,9 +30,7 @@ class Transformer(Node):
         filtered_msg.metadata.version = self.get_parameter('version').get_parameter_value().integer_value
         filtered_msg.metadata.compression_method = self.get_parameter('compression_method').get_parameter_value().integer_value
         
-        self.__filtered_array_packets.append(filtered_msg)
-        
-        if len(self.__filtered_array_packets) <= self.__buffer_capacity:
+        if self.populate_packet(filtered_msg):
             return
 
         # If we reach the buffer capacity, publish the filtered packets
@@ -42,8 +40,11 @@ class Transformer(Node):
         self.get_logger().info('Buffer Capacity Reached. PUBLISHING...')
         self.publisher_.publish(filtered_array_msg)
 
-        self.__filtered_array_packets.clear()       
+        self.__filtered_array_packets.clear() 
 
+    def populate_packet(self, filtered_msg):
+        self.__filtered_array_packets.append(filtered_msg)
+        return len(self.__filtered_array_packets) <= self.__buffer_capacity
 
     def check_msg_validity(self, msg):
         return msg.valid

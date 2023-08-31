@@ -18,19 +18,27 @@ class Aggregator(Node):
 
         self.node_start_time = time.time()
 
-        self.subscription = self.create_subscription(Unfiltered, '/unfiltered_topic', self.producer_freq, 10)
-        self.subscription = self.create_subscription(FilteredArray, '/filtered_topic',self.transformer_freq, 10)
-        self.subscription
+        self.unfiltered_subcriber = self.create_subscription(Unfiltered,
+                                                             '/unfiltered_topic',
+                                                             self.unfiltered_callback,
+                                                             10)
+        self.filtered_subscriber = self.create_subscription(FilteredArray,
+                                                            '/filtered_topic',
+                                                            self.filtered_callback,
+                                                            10)
 
-    def producer_freq(self, msg):
+    def unfiltered_callback(self, msg):
         self.num_unfiltered_msgs += 1
-        self.producer_f = self.num_unfiltered_msgs / (time.time() - self.node_start_time)
+        self.producer_f = self.calc_freq(self.num_unfiltered_msgs)
         self.print_freqs()
 
-    def transformer_freq(self, msg):
+    def filtered_callback(self, msg):
         self.num_filtered_msgs += 1
-        self.transformer_f = self.num_filtered_msgs / (time.time() - self.node_start_time)
+        self.transformer_f = self.calc_freq(self.num_filtered_msgs)
         self.print_freqs()
+
+    def calc_freq(self, count):
+        return count / (time.time() - self.node_start_time)
 
     def print_freqs(self):
         self.get_logger().info('Number of unfiltered messages:' + str(self.num_unfiltered_msgs))
@@ -38,6 +46,7 @@ class Aggregator(Node):
 
         self.get_logger().info('Producer Frequency:' + str(self.producer_f))
         self.get_logger().info('Transformer Frequency:' + str(self.transformer_f))
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -51,6 +60,7 @@ def main(args=None):
     # when the garbage collector destroys the node object)
     python_aggregator.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
