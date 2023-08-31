@@ -32,11 +32,10 @@ FROM base as repo
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-# Add any custom messages here for foxglove to interpret them
-COPY src/wato_msgs/sample_msgs sample_msgs
-COPY src/wato_msgs/common_msgs common_msgs
-COPY src/wato_msgs/embedded_msgs embedded_msgs
-COPY src/wato_msgs/path_planning_msgs path_planning_msgs
+# Add any custom messages here
+COPY src/wato_msgs/simulation/common_msgs common_msgs
+COPY src/wato_msgs/simulation/embedded_msgs embedded_msgs
+COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
 
 # Carla specific messages
 RUN git clone https://github.com/ros-drivers/ackermann_msgs.git --branch ros2 && \
