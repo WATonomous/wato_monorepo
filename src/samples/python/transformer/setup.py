@@ -14,20 +14,21 @@ setup(
         # Include our package.xml file
         (os.path.join('share', package_name), ['package.xml']),
         # Include all launch files.
-        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*.launch.py'))),
+        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch',
+                                                                          '*.launch.py'))),
         # Include config files for parameters
         (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.yaml'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='aryanafrouzi',
-    maintainer_email='aafrouzi@watonomous.ca',
+    maintainer='eddyzhou, aryanafrouzi',
+    maintainer_email='e23zhou@watonomous.ca, aafrouzi@watonomous.ca',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'transformer = transformer.transformer:main'
+            'transformer_node = transformer.transformer_node:main'
         ],
     },
 )
