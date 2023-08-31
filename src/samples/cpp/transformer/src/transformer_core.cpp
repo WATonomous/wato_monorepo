@@ -1,31 +1,31 @@
 #include <string>
 #include <vector>
 
-#include "transformer.hpp"
+#include "transformer_core.hpp"
 
 namespace samples
 {
 
-Transformer::Transformer()
+TransformerCore::TransformerCore()
 {}
 
-std::vector<sample_msgs::msg::Filtered> Transformer::buffer_messages() const
+std::vector<sample_msgs::msg::Filtered> TransformerCore::buffer_messages() const
 {
   return buffer_;
 }
 
-void Transformer::clear_buffer()
+void TransformerCore::clear_buffer()
 {
   buffer_.clear();
 }
 
-bool Transformer::validate_message(
+bool TransformerCore::validate_message(
   const sample_msgs::msg::Unfiltered::SharedPtr unfiltered)
 {
   return unfiltered->valid;
 }
 
-bool Transformer::enqueue_message(const sample_msgs::msg::Filtered & msg)
+bool TransformerCore::enqueue_message(const sample_msgs::msg::Filtered & msg)
 {
   if (buffer_.size() < BUFFER_CAPACITY) {
     buffer_.push_back(msg);
@@ -33,7 +33,7 @@ bool Transformer::enqueue_message(const sample_msgs::msg::Filtered & msg)
   return buffer_.size() == BUFFER_CAPACITY;
 }
 
-bool Transformer::deserialize_coordinate(
+bool TransformerCore::deserialize_coordinate(
   const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
   sample_msgs::msg::Filtered & filtered)
 {

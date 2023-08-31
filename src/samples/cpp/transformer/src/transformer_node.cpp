@@ -3,7 +3,7 @@
 #include "transformer_node.hpp"
 
 TransformerNode::TransformerNode()
-: Node("transformer"), transformer_(samples::Transformer())
+: Node("transformer"), transformer_(samples::TransformerCore())
 {
   raw_sub_ = this->create_subscription<sample_msgs::msg::Unfiltered>(
     "/unfiltered_topic", ADVERTISING_FREQ,
