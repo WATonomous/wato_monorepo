@@ -48,3 +48,8 @@ echo "source ~/wato_monorepo_v2/scripts/watod2-completion.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 It also has the added bonus of letting you type `watod2` instead of `./watod2` :)
+
+## If it's your first time
+Check out our [Monorepo Samples](../../src/samples/)! These nodes provide a comprehensive understanding of the Monorepo's infrastructure, and they are also a great reference when coding up your own nodes in the Monorepo.
+
+You should also check out the rest of our documentation [here](../../docs/).

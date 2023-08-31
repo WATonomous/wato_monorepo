@@ -1,5 +1,5 @@
-#ifndef AGGREGATOR_HPP_
-#define AGGREGATOR_HPP_
+#ifndef AGGREGATOR_CORE_HPP_
+#define AGGREGATOR_CORE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -13,7 +13,7 @@ namespace samples
  * Implementation of the internal logic used by the Aggregator Node to
  * calculate the operating frequency of topics.
  */
-class Aggregator
+class AggregatorCore
 {
 public:
   /**
@@ -21,7 +21,7 @@ public:
    *
    * @param timestamp the Unix timestamp https://en.wikipedia.org/wiki/Unix_time
    */
-  explicit Aggregator(int64_t timestamp);
+  explicit AggregatorCore(int64_t timestamp);
 
   /**
    * Calculates the operating frequency on the "unfiltered" topic. Handles
@@ -72,4 +72,4 @@ private:
 
 }  // namespace samples
 
-#endif  // AGGREGATOR_HPP_
+#endif  // AGGREGATOR_CORE_HPP_

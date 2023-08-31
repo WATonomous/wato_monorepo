@@ -21,7 +21,7 @@ find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
 add_library(producer_lib
-  src/producer.cpp)
+  src/producer_core.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(producer_lib
   PUBLIC include)
