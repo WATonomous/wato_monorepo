@@ -5,7 +5,7 @@
 #include "producer_node.hpp"
 
 ProducerNode::ProducerNode(int delay_ms)
-: Node("producer"), producer_(samples::Producer())
+: Node("producer"), producer_(samples::ProducerCore())
 {
   data_pub_ =
     this->create_publisher<sample_msgs::msg::Unfiltered>("/unfiltered_topic", ADVERTISING_FREQ);
