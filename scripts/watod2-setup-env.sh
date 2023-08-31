@@ -62,6 +62,15 @@ SAMPLES_PYTHON_TRANSFORMER_IMAGE=${SAMPLES_PYTHON_TRANSFORMER_IMAGE:-"git.uwater
 INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_vis_tools_vnc"}
 INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_data_stream"}
 
+# Simulation
+CARLA_SERVER_IMAGE=${CARLA_SERVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_server_image"}
+CARLA_ROS2_BRIDGE_IMAGE=${CARLA_ROS2_BRIDGE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_ros2_bridge_image"}
+SIMULATION_CAMERA_COMPRESSION_IMAGE=${SIMULATION_CAMERA_COMPRESSION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/simulation_camera_compression"}
+CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_sample_node"}
+CARLA_NOTEBOOKS_IMAGE=${CARLA_NOTEBOOKS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
+
+
+
 ## -------------------------- User ID -----------------------------
 
 FIXUID=$(id -u) 
@@ -71,6 +80,8 @@ FIXGID=$(id -g)
 
 BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT++))}
+FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT++))}
+CARLA_NOTEBOOKS_PORT=${CARLA_NOTEBOOKS_PORT:-$((BASE_PORT++))}
 
 ## -------------------- Environment Variables -------------------------
 
@@ -94,6 +105,8 @@ echo "FIXGID=$FIXGID" >> "$PROFILES_DIR/.env"
 
 echo "BASE_PORT=$BASE_PORT" >> "$PROFILES_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$PROFILES_DIR/.env"
+echo "FOXGLOVE_BRIDGE_PORT=$FOXGLOVE_BRIDGE_PORT" >> "$PROFILES_DIR/.env"
+echo "CARLA_NOTEBOOKS_PORT=$CARLA_NOTEBOOKS_PORT" >> "$PROFILES_DIR/.env"
 cat $PROFILES_DIR/.env
 
 # ROS2 C++ Samples
@@ -114,3 +127,8 @@ echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$P
 # World Modeling
 # Control
 # Simulation
+echo "CARLA_SERVER_IMAGE=$CARLA_SERVER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_ROS2_BRIDGE_IMAGE=$CARLA_ROS2_BRIDGE_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SIMULATION_CAMERA_COMPRESSION_IMAGE=$SIMULATION_CAMERA_COMPRESSION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_SAMPLE_NODE_IMAGE=$CARLA_SAMPLE_NODE_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_NOTEBOOKS_IMAGE=$CARLA_NOTEBOOKS_IMAGE" >> "$PROFILES_DIR/.env"
