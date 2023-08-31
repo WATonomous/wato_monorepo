@@ -1,14 +1,26 @@
-import math
+# Copyright 2023 WATonomous
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import time
 
 import rclpy
 from rclpy.node import Node
 
 from sample_msgs.msg import Unfiltered
-from rcl_interfaces.msg import ParameterType, ParameterDescriptor
+from producer.producer_core import ProducerCore
 
-
-class Producer(Node):
+class ProducerNode(Node):
 
     def __init__(self):
         super().__init__('python_producer')
@@ -20,11 +32,13 @@ class Producer(Node):
 
         # For parameters, we need to explicitely declare its type for Python to know
         # what to do with it
-        self.__pos_x = self.get_parameter('pos_x').get_parameter_value().double_value
-        self.__pos_y = self.get_parameter('pos_y').get_parameter_value().double_value
-        self.__pos_z = self.get_parameter('pos_z').get_parameter_value().double_value
+        pos_x = self.get_parameter('pos_x').get_parameter_value().double_value
+        pos_y = self.get_parameter('pos_y').get_parameter_value().double_value
+        pos_z = self.get_parameter('pos_z').get_parameter_value().double_value
+        velocity = self.get_parameter('velocity').get_parameter_value().double_value
 
-        self.__velocity = self.get_parameter('velocity').get_parameter_value().double_value
+        # Initialize producer core logic for serialization
+        self.__producer = ProducerCore(pos_x, pos_y, pos_z, velocity)    
 
         # Initialize ROS2 constructs
         queue_size = 10
@@ -32,20 +46,13 @@ class Producer(Node):
 
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.__publish_position)
-        
-    def update_position(self):
-        self.__pos_x += self.__velocity / math.sqrt(3)
-        self.__pos_y += self.__velocity / math.sqrt(3)
-        self.__pos_z += self.__velocity / math.sqrt(3)
 
-    def serialize_data(self):
-        return "x:" + str(self.__pos_x) + ";y:" + str(self.__pos_y) + ";z:" + str(self.__pos_z) + ";"
 
     def __publish_position(self):
-        self.update_position()
+        self.__producer.update_position()
         msg = Unfiltered()
 
-        msg.data = self.serialize_data()
+        msg.data = self.__producer.serialize_data()
         msg.valid = True
         msg.timestamp = int(time.time() * 1000)
 
@@ -53,10 +60,11 @@ class Producer(Node):
 
         self.publisher_.publish(msg)
 
+
 def main(args=None):
     rclpy.init(args=args)
 
-    python_producer = Producer()
+    python_producer = ProducerNode()
 
     rclpy.spin(python_producer)
 
@@ -65,6 +73,7 @@ def main(args=None):
     # when the garbage collector destroys the node object)
     python_producer.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

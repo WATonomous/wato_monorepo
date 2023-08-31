@@ -12,25 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from ament_index_python.packages import get_package_share_directory
+import math
 
-from launch import LaunchDescription
-from launch_ros.actions import Node
+class ProducerCore():
 
+    def __init__(self, pos_x, pos_y, pos_z, vel):
+        self.__pos_x = pos_x
+        self.__pos_y = pos_y
+        self.__pos_z = pos_z
+        self.__velocity = vel
 
-def generate_launch_description():
-    param_file_path = os.path.join(
-        get_package_share_directory('producer'), 
-        'config', 
-        'params.yaml'
-    )
+    def update_position(self):
+        self.__pos_x += self.__velocity / math.sqrt(3)
+        self.__pos_y += self.__velocity / math.sqrt(3)
+        self.__pos_z += self.__velocity / math.sqrt(3)
 
-    return LaunchDescription([
-        Node(
-            package = 'producer',  
-            name = 'producer_node',
-            executable = 'producer_node',
-            parameters = [param_file_path]
-        )
-    ])
+    def serialize_data(self):
+        return "x:" + str(self.__pos_x) + ";y:" + str(self.__pos_y) + ";z:" + str(self.__pos_z) + ";"
