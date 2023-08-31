@@ -20,6 +20,9 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    # To load the yaml file, we are searching for its
+    # path is the share directory. Check setup.py for how
+    # the param file got there
     param_file_path = os.path.join(
         get_package_share_directory('transformer'),
         'config',

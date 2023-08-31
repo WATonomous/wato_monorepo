@@ -28,58 +28,58 @@ services:
   #   volumes:
   #     - ${MONO_DIR}/src/samples/python/aggregator:/home/docker/ament_ws/src/aggregator
 
-  producer: # C++
-    build:
-      context: ..
-      dockerfile: docker/samples/cpp/producer.Dockerfile
-      cache_from:
-        - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
-        - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:main"
-    image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
-    security_opt:
-      - seccomp:${PROFILES_DIR}/seccomp_profile.json 
-    user: ${FIXUID:?}:${FIXGID:?}
-    volumes:
-      - ${MONO_DIR}/src/samples/cpp/producer:/home/docker/ament_ws/src/producer
-
-  # producer: # PYTHON
+  # producer: # C++
   #   build:
   #     context: ..
-  #     dockerfile: docker/samples/python/producer.Dockerfile
+  #     dockerfile: docker/samples/cpp/producer.Dockerfile
   #     cache_from:
-  #       - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
-  #       - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:main"
-  #   image: "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
+  #       - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
+  #       - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:main"
+  #   image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
   #   security_opt:
   #     - seccomp:${PROFILES_DIR}/seccomp_profile.json 
   #   user: ${FIXUID:?}:${FIXGID:?}
   #   volumes:
-  #     - ${MONO_DIR}/src/samples/python/producer:/home/docker/ament_ws/src/producer
+  #     - ${MONO_DIR}/src/samples/cpp/producer:/home/docker/ament_ws/src/producer
 
-  transformer: # C++
+  producer: # PYTHON
     build:
       context: ..
-      dockerfile: docker/samples/cpp/transformer.Dockerfile
+      dockerfile: docker/samples/python/producer.Dockerfile
       cache_from:
-        - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
-        - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:main"
-    image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
+        - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
+        - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:main"
+    image: "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${PROFILES_DIR}/seccomp_profile.json 
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
-      - ${MONO_DIR}/src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
+      - ${MONO_DIR}/src/samples/python/producer:/home/docker/ament_ws/src/producer
 
-  # transformer: # PYTHON
+  # transformer: # C++
   #   build:
   #     context: ..
-  #     dockerfile: docker/samples/python/transformer.Dockerfile
+  #     dockerfile: docker/samples/cpp/transformer.Dockerfile
   #     cache_from:
-  #       - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
-  #       - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:main"
-  #   image: "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
+  #       - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
+  #       - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:main"
+  #   image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
   #   security_opt:
   #     - seccomp:${PROFILES_DIR}/seccomp_profile.json 
   #   user: ${FIXUID:?}:${FIXGID:?}
   #   volumes:
-  #     - ${MONO_DIR}/src/samples/python/transformer:/home/docker/ament_ws/src/transformer
+  #     - ${MONO_DIR}/src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
+
+  transformer: # PYTHON
+    build:
+      context: ..
+      dockerfile: docker/samples/python/transformer.Dockerfile
+      cache_from:
+        - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
+        - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:main"
+    image: "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
+    security_opt:
+      - seccomp:${PROFILES_DIR}/seccomp_profile.json 
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ${MONO_DIR}/src/samples/python/transformer:/home/docker/ament_ws/src/transformer

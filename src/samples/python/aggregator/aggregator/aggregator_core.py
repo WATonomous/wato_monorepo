@@ -18,6 +18,7 @@ import time
 class AggregatorCore():
 
     def __init__(self, start_time):
+        # Init member variables to calculate msg frequency
         self.num_unfiltered_msgs = 0
         self.num_filtered_msgs = 0
 
