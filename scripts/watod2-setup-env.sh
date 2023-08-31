@@ -70,6 +70,15 @@ SIMULATION_CAMERA_COMPRESSION_IMAGE=${SIMULATION_CAMERA_COMPRESSION_IMAGE:-"git.
 CARLA_NOTEBOOKS_IMAGE=${CARLA_NOTEBOOKS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
 CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_sample_node"}
 
+# Simulation
+CARLA_SERVER_IMAGE=${CARLA_SERVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_server_image"}
+CARLA_ROS2_BRIDGE_IMAGE=${CARLA_ROS2_BRIDGE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_ros2_bridge_image"}
+SIMULATION_CAMERA_COMPRESSION_IMAGE=${SIMULATION_CAMERA_COMPRESSION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/simulation_camera_compression"}
+CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_sample_node"}
+CARLA_NOTEBOOKS_IMAGE=${CARLA_NOTEBOOKS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
+
+
+
 ## -------------------------- User ID -----------------------------
 
 FIXUID=$(id -u) 
@@ -143,3 +152,8 @@ echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$P
 # World Modeling
 # Control
 # Simulation
+echo "CARLA_SERVER_IMAGE=$CARLA_SERVER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_ROS2_BRIDGE_IMAGE=$CARLA_ROS2_BRIDGE_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SIMULATION_CAMERA_COMPRESSION_IMAGE=$SIMULATION_CAMERA_COMPRESSION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_SAMPLE_NODE_IMAGE=$CARLA_SAMPLE_NODE_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_NOTEBOOKS_IMAGE=$CARLA_NOTEBOOKS_IMAGE" >> "$PROFILES_DIR/.env"

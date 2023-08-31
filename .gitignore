@@ -6,3 +6,4 @@ code_server_config/*/start_code_server.sh
 .env
 .vscode/
 ssh_config/
+watod2-config.sh
