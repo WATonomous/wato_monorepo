@@ -20,14 +20,15 @@ from rclpy.node import Node
 from sample_msgs.msg import Unfiltered
 from producer.producer_core import ProducerCore
 
+
 class ProducerNode(Node):
 
     def __init__(self):
         super().__init__('python_producer')
         # Declare and get the parameters
-        self.declare_parameter('pos_x', 0.0),
-        self.declare_parameter('pos_y', 0.0),
-        self.declare_parameter('pos_z', 0.0),
+        self.declare_parameter('pos_x', 0.0)
+        self.declare_parameter('pos_y', 0.0)
+        self.declare_parameter('pos_z', 0.0)
         self.declare_parameter('velocity', 0.0)
 
         # For parameters, we need to explicitely declare its type for Python to know
@@ -38,7 +39,7 @@ class ProducerNode(Node):
         velocity = self.get_parameter('velocity').get_parameter_value().double_value
 
         # Initialize producer core logic for serialization
-        self.__producer = ProducerCore(pos_x, pos_y, pos_z, velocity)    
+        self.__producer = ProducerCore(pos_x, pos_y, pos_z, velocity)
 
         # Initialize ROS2 constructs
         queue_size = 10
@@ -46,7 +47,6 @@ class ProducerNode(Node):
 
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.__publish_position)
-
 
     def __publish_position(self):
         self.__producer.update_position()

@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from producer.producer import Producer
+from producer.producer_core import ProducerCore
+
 
 def test_update_position():
-    pass
+    producer_core = ProducerCore(1, 1, 1, 1)
+    producer_core.update_position()
+
+    assert producer_core.serialize_data() == \
+        "x:1.5773502691896257;y:1.5773502691896257;z:1.5773502691896257;"
