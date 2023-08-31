@@ -56,4 +56,7 @@ source install/setup.bash
 colcon test
 colcon test-result --verbose // Get detailed information about failures
 ```
-When developing your own node, use these samples as reference for setting up ROS2 constructs, configuration parameters, etc.
+When developing your own node, use these samples as reference for setting up ROS2 constructs, configuration parameters, etc. 
+
+### Testing
+At this moment, the sample nodes contain unit tests, but not integration tests. As our codebase expands, we will update this section on how to do proper integration testing. See our [Testing Documentation](../../docs/dev/testing.md) for more details.
