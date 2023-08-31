@@ -16,6 +16,7 @@ from transformer.transformer_core import TransformerCore
 
 
 def test_deserialization():
+    # testing on the cpp transformer is more complete :)
     transformer_core = TransformerCore()
 
     serialized_msg = "x:1;y:1;z:1;"

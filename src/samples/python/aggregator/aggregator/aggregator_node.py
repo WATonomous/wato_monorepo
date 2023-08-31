@@ -25,9 +25,11 @@ class Aggregator(Node):
     def __init__(self):
         super().__init__('python_aggregator')
 
+        # Initialize Core Aggregator Logic (freq updates)
         node_start_time = time.time()
         self.__aggregator = AggregatorCore(node_start_time)
 
+        # Initialize ROS2 Constructs
         self.unfiltered_subcriber = self.create_subscription(Unfiltered,
                                                              '/unfiltered_topic',
                                                              self.unfiltered_callback,

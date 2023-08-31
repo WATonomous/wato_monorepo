@@ -30,6 +30,8 @@ class Transformer(Node):
 
         self.__buffer_capacity = self.get_parameter('buffer_capacity') \
             .get_parameter_value().integer_value
+
+        # Initialize Transformer Core Logic for Deserialization
         self.__transformer = TransformerCore()
 
         # Initialize ROS2 Constructs
@@ -44,8 +46,10 @@ class Transformer(Node):
             self.get_logger().info('INVALID MSG')
             return
 
+        # Init message object
         filtered_msg = Filtered()
 
+        # Populate message object
         filtered_msg.pos_x, filtered_msg.pos_y, filtered_msg.pos_z = self.__transformer \
             .deserialize_data(msg.data)
         filtered_msg.timestamp = msg.timestamp
@@ -54,6 +58,7 @@ class Transformer(Node):
         filtered_msg.metadata.compression_method = self.get_parameter('compression_method') \
             .get_parameter_value().integer_value
 
+        # We send off a list of Filtered Messages (a message made of messages!)
         if self.populate_packet(filtered_msg):
             return
 
@@ -64,6 +69,7 @@ class Transformer(Node):
         self.get_logger().info('Buffer Capacity Reached. PUBLISHING...')
         self.publisher_.publish(filtered_array_msg)
 
+        # clear packets for next round of messages
         self.__filtered_array_packets.clear()
 
     def populate_packet(self, filtered_msg):
