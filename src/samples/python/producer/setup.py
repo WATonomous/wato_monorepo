@@ -27,7 +27,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'producer = producer.producer:main'
+            'producer_node = producer.producer_node:main'
         ],
     },
 )
