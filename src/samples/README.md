@@ -1,12 +1,21 @@
 # Monorepo Samples
 These projects are to be referenced when developing code for the monorepo. It highlights coding conventions and testing practices.
 
-## General Structure
+## General Premise
 This project contains three arbitrary ROS2 nodes which communicate with each other via ROS2 publishers and subscribers. The general communication pipeline can be summed up by the image below.
 
 ![Architecture](samples_diagram.svg)
 
-Each ROS2 node is containerized([Producer](../../docker/samples/cpp/producer.Dockerfile), [Transformer](../../docker/samples/cpp/transformer.Dockerfile), [Aggregator](../../docker/samples/cpp/aggregator.Dockerfile)) and communicate with each other using ROS2 publishers and subscribers.
+Each ROS2 node is containerized([Producer](../../docker/samples/cpp/producer.Dockerfile), [Transformer](../../docker/samples/cpp/transformer.Dockerfile), [Aggregator](../../docker/samples/cpp/aggregator.Dockerfile)) and communicate with each other using ROS2 publishers and subscribers. 
+
+### Core Logic and Node Logic
+A single ROS2 node in our stack should contain two components, we call this the `WATO Core and Node paradigm`. The Core Logic of a node represents the crucial algorithms needed to augment data. This could be a neural network, control framework, RL algorithm, etc. On the other hand, the Node represents any ROS2 interfaces and practices which enable the node to communicate with the rest of the stack. This includes subscribers, publishers, buffers, etc. 
+
+At times, the boundary between core logic and node logic may be unclear, so a good rule of thumb is that the core logic does not contain function calls from `rclpy` and `rclcpp`. It may contain message types. This rule may be broken in rare cases.
+
+The reason why we do this is to make our code more intuitive to read. If any ROS2-related issues exist, we know to only look in the node component of your code, not the core logic. Another reason is for testing. Having core logic and node logic seperate enables us to not only do integration testing of the nodes, but also unit testing on only the node's logic, bypassing the need to spin up ROS2 within `pytest` and `gtest`. See more about testing [here](../../docs/dev/testing.md).
+
+## Sample Node Descriptions
 
 ### Producer
 Produces [unfiltered](../ros_msgs/sample_msgs/msg/Unfiltered.msg) coordinate data at 500ms intervals and publishes data to the [Transformer](#transformer) and [Aggregator](#aggregator) nodes. The coordinate data will be incremented according to the 'velocity' parameter. This can be dynamically adjusted with, `ros2 param set /producer velocity <some value>`.
