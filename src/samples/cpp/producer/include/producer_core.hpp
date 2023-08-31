@@ -1,7 +1,5 @@
-#ifndef PRODUCER_HPP_
-#define PRODUCER_HPP_
-
-#include "rclcpp/rclcpp.hpp"
+#ifndef PRODUCER_CORE_HPP_
+#define PRODUCER_CORE_HPP_
 
 #include "sample_msgs/msg/unfiltered.hpp"
 
@@ -12,7 +10,7 @@ namespace samples
  * Implementation of the internal logic used by the Producer Node to
  * serialize and update coordinates.
  */
-class Producer
+class ProducerCore
 {
 public:
   /**
@@ -22,7 +20,7 @@ public:
    * @param y same as above but for the y-coordinate
    * @param z same as above but for the z-coordinate
    */
-  explicit Producer(float x = 0, float y = 0, float z = 0);
+  explicit ProducerCore(float x = 0, float y = 0, float z = 0);
 
   /**
    * Modify the value of the velocity. Used by the Producer Node whenever
@@ -67,4 +65,4 @@ private:
 
 }  // namespace samples
 
-#endif  // PRODUCER_HPP_
+#endif  // PRODUCER_CORE_HPP_
