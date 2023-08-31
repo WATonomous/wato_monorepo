@@ -67,13 +67,6 @@ INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watono
 CARLA_SERVER_IMAGE=${CARLA_SERVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_server_image"}
 CARLA_ROS2_BRIDGE_IMAGE=${CARLA_ROS2_BRIDGE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_ros2_bridge_image"}
 SIMULATION_CAMERA_COMPRESSION_IMAGE=${SIMULATION_CAMERA_COMPRESSION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/simulation_camera_compression"}
-CARLA_NOTEBOOKS_IMAGE=${CARLA_NOTEBOOKS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
-CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_sample_node"}
-
-# Simulation
-CARLA_SERVER_IMAGE=${CARLA_SERVER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_server_image"}
-CARLA_ROS2_BRIDGE_IMAGE=${CARLA_ROS2_BRIDGE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_ros2_bridge_image"}
-SIMULATION_CAMERA_COMPRESSION_IMAGE=${SIMULATION_CAMERA_COMPRESSION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/simulation_camera_compression"}
 CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_sample_node"}
 CARLA_NOTEBOOKS_IMAGE=${CARLA_NOTEBOOKS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
 
@@ -147,6 +140,7 @@ echo "SAMPLES_PYTHON_TRANSFORMER_IMAGE=$SAMPLES_PYTHON_TRANSFORMER_IMAGE" >> "$P
 # Infrastructure
 echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >> "$PROFILES_DIR/.env"
 echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$PROFILES_DIR/.env"
+echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILES_DIR/.env"
 
 # Perception
 # World Modeling
