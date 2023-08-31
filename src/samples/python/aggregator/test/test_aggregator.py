@@ -14,19 +14,31 @@
 
 import time
 
-import rclpy
-from aggregator.aggregator import Aggregator
+from aggregator.aggregator_core import AggregatorCore
 
 
 def test_calc_freq():
-    rclpy.init()
+    start_time = time.time()
+    aggregator_node = AggregatorCore(start_time)
 
-    aggregator_node = Aggregator()
-
-    thresh = 100
-    start_time = aggregator_node.node_start_time
     test_count = 5
 
     test_freq = test_count / (time.time() - start_time)
 
-    assert abs(aggregator_node.calc_freq(5) - test_freq) < thresh
+    # only checking if frequencies canonically make sense
+    assert aggregator_node.calc_freq(5) - test_freq < 0
+
+
+def test_freq_update():
+    start_time = time.time()
+    aggregator_node = AggregatorCore(start_time)
+
+    aggregator_node.update_filtered_freq()
+    test_freq_filtered = 1 / (time.time() - start_time)
+
+    aggregator_node.update_raw_freq()
+    test_freq_raw = 1 / (time.time() - start_time)
+
+    # only checking if frequencies canonically make sense
+    assert aggregator_node.filtered_freq - test_freq_filtered > 0
+    assert aggregator_node.raw_freq - test_freq_raw > 0

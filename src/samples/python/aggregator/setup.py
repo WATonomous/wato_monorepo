@@ -26,7 +26,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'aggregator = aggregator.aggregator:main'
+            'aggregator_node = aggregator.aggregator_node:main'
         ],
     },
 )

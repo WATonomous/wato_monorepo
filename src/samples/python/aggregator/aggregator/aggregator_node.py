@@ -17,6 +17,7 @@ import time
 from rclpy.node import Node
 
 from sample_msgs.msg import Unfiltered, FilteredArray
+from aggregator.aggregator_core import AggregatorCore
 
 
 class Aggregator(Node):
@@ -24,13 +25,8 @@ class Aggregator(Node):
     def __init__(self):
         super().__init__('python_aggregator')
 
-        self.num_unfiltered_msgs = 0
-        self.num_filtered_msgs = 0
-
-        self.producer_f = 0
-        self.transformer_f = 0
-
-        self.node_start_time = time.time()
+        node_start_time = time.time()
+        self.__aggregator = AggregatorCore(node_start_time)
 
         self.unfiltered_subcriber = self.create_subscription(Unfiltered,
                                                              '/unfiltered_topic',
@@ -42,24 +38,21 @@ class Aggregator(Node):
                                                             10)
 
     def unfiltered_callback(self, msg):
-        self.num_unfiltered_msgs += 1
-        self.producer_f = self.calc_freq(self.num_unfiltered_msgs)
+        self.__aggregator.update_raw_freq()
         self.print_freqs()
 
     def filtered_callback(self, msg):
-        self.num_filtered_msgs += 1
-        self.transformer_f = self.calc_freq(self.num_filtered_msgs)
+        self.__aggregator.update_filtered_freq()
         self.print_freqs()
 
-    def calc_freq(self, count):
-        return count / (time.time() - self.node_start_time)
-
     def print_freqs(self):
-        self.get_logger().info('Number of unfiltered messages:' + str(self.num_unfiltered_msgs))
-        self.get_logger().info('Number of filtered messages:' + str(self.num_filtered_msgs))
+        self.get_logger().info('Number of unfiltered messages:' +
+                               str(self.__aggregator.num_unfiltered_msgs))
+        self.get_logger().info('Number of filtered messages:' +
+                               str(self.__aggregator.num_filtered_msgs))
 
-        self.get_logger().info('Producer Frequency:' + str(self.producer_f))
-        self.get_logger().info('Transformer Frequency:' + str(self.transformer_f))
+        self.get_logger().info('Producer Frequency:' + str(self.__aggregator.raw_freq))
+        self.get_logger().info('Transformer Frequency:' + str(self.__aggregator.filtered_freq))
 
 
 def main(args=None):

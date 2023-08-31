@@ -21,7 +21,7 @@ def generate_launch_description():
         launch_ros.actions.Node(
             namespace="aggregator",
             package='aggregator',
-            executable='aggregator',
+            executable='aggregator_node',
             output='screen',
             emulate_tty=True),
     ])
