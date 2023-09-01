@@ -33,7 +33,7 @@ RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
 COPY src/samples/python/transformer transformer 
-COPY src/ros_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/sample_msgs sample_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
