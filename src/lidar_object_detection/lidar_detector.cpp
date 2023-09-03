@@ -26,12 +26,19 @@ LidarDetector::LidarDetector() : Node("lidar_object_detection")
     pointpillar = std::make_shared<PointPillar>(model_file, stream);
     RCLCPP_INFO(this->get_logger(), "Model is initialized");
 
+    auto default_qos = rclcpp::QoS(rclcpp::SystemDefaultsQoS());
+
     lidar_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/lidar", 1, std::bind(&LidarDetector::lidarPointsCallback, this, _1));
+        "/LIDAR_TOP", 1, std::bind(&LidarDetector::lidarPointsCallback, this, _1));
     lidar_detection_pub = this->create_publisher<common_msgs::msg::ObstacleList>(
         "/lidar_cuda_dets", 1);
-    debug_boxes_pub = this->create_publisher<common_msgs::msg::BoundingBoxArray>(
-        "/detections_3d", 1);
+    // debug_boxes_pub = this->create_publisher<common_msgs::msg::BoundingBoxArray>(
+    //     "/detections_3d", 1);
+    debug_boxes_pub = this->create_publisher<visualization_msgs::msg::Marker>(
+        "/detections_3d_debug", default_qos);
+    publisher_ = this->create_publisher<std_msgs::msg::String>("simple_topic", default_qos);
+    dummy_point_cloud = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "/dummy_point_cloud", default_qos);
 };
 
 int loadData(const char *file, void **data, unsigned int *length)
@@ -141,6 +148,11 @@ void LidarDetector::test()
 void LidarDetector::lidarPointsCallback(
     const sensor_msgs::msg::PointCloud2::SharedPtr in_sensor_cloud)
 {
+
+    auto message = std_msgs::msg::String();
+    message.data = "Hello, ROS 2!!";
+    publisher_->publish(message);
+
     cudaEvent_t start, stop;
     float elapsedTime = 0.0f;
     cudaStream_t stream = NULL;
@@ -170,7 +182,6 @@ void LidarDetector::lidarPointsCallback(
             pointcloud_tmp.emplace_back(point.y);
             pointcloud_tmp.emplace_back(point.z);
             pointcloud_tmp.emplace_back(point.intensity / 255.0);
-            // pointcloud_tmp.emplace_back(point.intensity / 255);
         }
     }
     float *points = &pointcloud_tmp[0];
@@ -179,12 +190,36 @@ void LidarDetector::lidarPointsCallback(
     checkCudaErrors(cudaMallocManaged((void **)&points_data, points_data_size));
     checkCudaErrors(cudaMemcpy(points_data, points, points_data_size, cudaMemcpyDefault));
     checkCudaErrors(cudaDeviceSynchronize());
-
+    RCLCPP_INFO(this->get_logger(), "points_size: %d", points_size);
     if (points_size <= 0)
     {
         RCLCPP_ERROR(this->get_logger(), "No points detected");
         return;
     }
+    // convert points_data to a PCL point cloud
+    pcl::PointCloud<pcl::PointXYZI>::Ptr debug_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+    debug_cloud->header.frame_id = "LIDAR_TOP";
+    debug_cloud->height = 1;
+    debug_cloud->width = points_size;
+    debug_cloud->is_dense = false;
+    debug_cloud->points.resize(points_size);
+    for (int i = 0; i < points_size; i++)
+    {
+        // if distance >= 10 set the coords to 0
+        if (sqrt(points_data[i * 4 + 0] * points_data[i * 4 + 0] + points_data[i * 4 + 1] * points_data[i * 4 + 1] + points_data[i * 4 + 2] * points_data[i * 4 + 2]) >= 25)
+        {
+            points_data[i * 4 + 0] = 0;
+            points_data[i * 4 + 1] = 0;
+            points_data[i * 4 + 2] = 0;
+        } 
+        debug_cloud->points[i].x = points_data[i * 4 + 0];
+        debug_cloud->points[i].y = points_data[i * 4 + 1];
+        debug_cloud->points[i].z = points_data[i * 4 + 2];
+        debug_cloud->points[i].intensity = points_data[i * 4 + 3] * 255.0;
+    }
+    sensor_msgs::msg::PointCloud2 debug_cloud_msg = sensor_msgs::msg::PointCloud2();
+    pcl::toROSMsg(*debug_cloud, debug_cloud_msg);
+
     pp_mutex_.lock();
     pointpillar->doinfer(points_data, points_size, nms_pred);
     pp_mutex_.unlock();
@@ -192,6 +227,7 @@ void LidarDetector::lidarPointsCallback(
     checkCudaErrors(cudaFree(points_data));
 
     publishVis(nms_pred);
+    dummy_point_cloud->publish(debug_cloud_msg);
 
     nms_pred.clear();
 };
@@ -200,24 +236,42 @@ void LidarDetector::publishVis(
     const std::vector<Bndbox> &boxes)
 {
     RCLCPP_INFO(this->get_logger(), "Num Boxes %d", boxes.size());
-    common_msgs::msg::BoundingBoxArray jsk_boxes;
-    jsk_boxes.header.frame_id = "base_link";
+    auto timestamp = this->now();
+    int box_id = 0;
     for (int i = 0; i < boxes.size(); i++)
     {
-        common_msgs::msg::BoundingBox bounding_box;
-        bounding_box.header.frame_id = "base_link";
+        auto bounding_box = visualization_msgs::msg::Marker();
+        bounding_box.header.frame_id = "LIDAR_TOP";
+        bounding_box.header.stamp = timestamp;
+        bounding_box.ns = "bounding_boxes";
+        bounding_box.id = box_id++;
+        bounding_box.type = visualization_msgs::msg::Marker::CUBE;
+        bounding_box.action = visualization_msgs::msg::Marker::ADD;
+
+        bounding_box.color.r = 1.0;
+        bounding_box.color.g = 0.0;
+        bounding_box.color.b = 0.0;
+        bounding_box.color.a = 1.0;
         bounding_box.pose.position.x = boxes.at(i).x;
         bounding_box.pose.position.y = boxes.at(i).y;
         bounding_box.pose.position.z = boxes.at(i).z;
-        bounding_box.dimensions.x = boxes.at(i).w;
-        bounding_box.dimensions.y = boxes.at(i).l;
-        bounding_box.dimensions.z = boxes.at(i).h;
+        bounding_box.scale.x = boxes.at(i).l;
+        bounding_box.scale.y = boxes.at(i).w;
+        bounding_box.scale.z = boxes.at(i).h;
+        RCLCPP_INFO(this->get_logger(), "Box %d: x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f", i, boxes.at(i).x, boxes.at(i).y, boxes.at(i).z, boxes.at(i).w, boxes.at(i).l, boxes.at(i).h, boxes.at(i).rt);
 
         tf2::Quaternion quat;
         quat.setRPY(0.0, 0.0, boxes.at(i).rt);
-        bounding_box.pose.orientation = tf2::toMsg(quat);
+        // turn it -90 degrees
+        tf2::Quaternion quat_offset;
+        quat_offset.setRPY(0.0, 0.0, -1.5708);
+        quat = quat * quat_offset;
 
-        jsk_boxes.boxes.push_back(bounding_box);
+        bounding_box.pose.orientation.x = quat.x();
+        bounding_box.pose.orientation.y = quat.y();
+        bounding_box.pose.orientation.z = quat.z();
+        bounding_box.pose.orientation.w = quat.w();
+
+        debug_boxes_pub->publish(bounding_box);
     }
-    debug_boxes_pub->publish(jsk_boxes);
 }

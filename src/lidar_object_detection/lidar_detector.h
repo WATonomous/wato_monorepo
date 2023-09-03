@@ -21,6 +21,8 @@
 #include <common_msgs/msg/bounding_box_array.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include "visualization_msgs/msg/marker.hpp"
+#include "std_msgs/msg/string.hpp"
 
 #include "cuda_runtime.h"
 #include "params.h"
@@ -32,8 +34,11 @@ using namespace std;
 class LidarDetector : public rclcpp::Node {
 private:
     rclcpp::Publisher<common_msgs::msg::ObstacleList>::SharedPtr lidar_detection_pub;
-    rclcpp::Publisher<common_msgs::msg::BoundingBoxArray>::SharedPtr debug_boxes_pub;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr debug_boxes_pub;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr dummy_point_cloud;
+
 
     cudaStream_t stream;
     std::mutex lidar_cloud_mutex_;

@@ -1,17 +1,11 @@
 # ================= Repositories ===================
-FROM leungjch/perception-base as repo
+FROM leungjch/cuda118-tensorrt-base:latest as repo
 
 WORKDIR /home/docker/ament_ws
 
 COPY src/lidar_object_detection/pointpillar.onnx pointpillar.onnx
 COPY src/lidar_object_detection src/lidar_object_detection
 COPY src/wato_msgs/common_msgs src/common_msgs
-
-# Install pcl
-ENV ROS_PACKAGE_PATH=/opt/ros/humble
-RUN rosinstall_generator perception_pcl --rosdistro ${ROS_DISTRO} --deps --exclude RPP > deps.rosinstall
-RUN cat deps.rosinstall
-RUN vcs import src < deps.rosinstall
 
 RUN export DEBIAN_FRONTEND=noninteractive && . /opt/ros/$ROS_DISTRO/setup.bash && \
     sudo rosdep init && \

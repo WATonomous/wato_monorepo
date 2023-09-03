@@ -24,6 +24,7 @@ foreach(PACKAGE
   tf2
   tf2_geometry_msgs
   CUDA
+  visualization_msgs
   )
 
   find_package(${PACKAGE} REQUIRED)
@@ -56,7 +57,15 @@ target_link_libraries(
 )
 
 ament_target_dependencies(lidar_object_detection
-  rclcpp std_msgs common_msgs geometry_msgs pcl_conversions pcl_ros tf2 tf2_geometry_msgs
+  rclcpp
+  std_msgs
+  common_msgs
+  geometry_msgs
+  pcl_conversions
+  pcl_ros
+  tf2
+  tf2_geometry_msgs
+  visualization_msgs
 )
 
 install(TARGETS
