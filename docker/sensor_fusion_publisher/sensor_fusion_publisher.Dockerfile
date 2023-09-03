@@ -1,5 +1,5 @@
 # ================= Repositories ===================
-FROM leungjch/perception-ubuntu2004-base:latest as repo
+FROM leungjch/ubuntu2204-base:latest as repo
 
 WORKDIR /home/docker/ament_ws
 
@@ -10,6 +10,7 @@ COPY src/wato_msgs/common_msgs common_msgs
 RUN sudo apt-get update && sudo apt-get install -y curl ros-humble-ros2bag ros-humble-rosbag2* ros-humble-foxglove-msgs&& \
     sudo rm -rf /var/lib/apt/lists/*
 
+RUN OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4/OpenCVConfig.cmake
 RUN export DEBIAN_FRONTEND=noninteractive && . /opt/ros/$ROS_DISTRO/setup.bash && \
     sudo rosdep init && \
     rosdep update && \

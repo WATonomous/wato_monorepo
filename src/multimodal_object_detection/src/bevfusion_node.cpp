@@ -46,33 +46,70 @@
 
 #include <common_msgs/msg/combined_sensor.hpp>
 
+
 const std::string root = "/home/docker/ament_ws/src/multimodal_object_detection/src";
 
-static std::vector<unsigned char*> load_images(const std::string& data_dir) {
-  const char* file_names[] = {"0-FRONT.jpg", "1-FRONT_RIGHT.jpg", "2-FRONT_LEFT.jpg",
-                              "3-BACK.jpg",  "4-BACK_LEFT.jpg",   "5-BACK_RIGHT.jpg"};
 
-  std::vector<unsigned char*> images;
-  for (int i = 0; i < 6; ++i) {
+std::string getTensorInfoAsString(nv::Tensor tensor) {
+  std::string info = "Tensor info: ";
+  for (int i = 0; i < tensor.shape.size(); i++) {
+    info += std::to_string(tensor.shape[i]) + " ";
+  }
+  return info;
+}
+
+// nv::Tensor parseLidarPointCloud(sensor_msgs::msg::PointCloud2::SharedPtr pointcloud) {
+
+//   // Convert pcl::PointCloud to nv::Tensor
+//   std::vector<int> shape = {pointcloud->size(), 5};
+//   nv::Tensor tensor(shape, nv::DataType::Float32);
+//   std::vector<float> points;
+// /*
+// #uint32 point_step # Length of a point in bytes
+// #uint32 row_step # Length of a row in bytes
+// #uint8[] data # Actual point data, size is (row_step*height)
+// */
+//   for (int i = 0; i < pointcloud->data.size(); i+=3) {
+//     points.push_back(pointcloud->data[i]);
+//     points.push_back(pointcloud->data[i+1]);
+//     points.push_back(pointcloud->data[i+2]);
+//     points.push_back(1.0f);
+//     points.push_back(1.0f);
+//   }
+//   tensor.copy_from_host(points.data(), nullptr);
+//   return tensor;
+// }
+
+
+static std::vector<unsigned char *> load_images(const std::string &data_dir)
+{
+  const char *file_names[] = {"0-FRONT.jpg", "1-FRONT_RIGHT.jpg", "2-FRONT_LEFT.jpg",
+                              "3-BACK.jpg", "4-BACK_LEFT.jpg", "5-BACK_RIGHT.jpg"};
+
+  std::vector<unsigned char *> images;
+  for (int i = 0; i < 6; ++i)
+  {
     char path[200];
     sprintf(path, "%s/%s/%s", root.c_str(), data_dir.c_str(), file_names[i]);
 
     int width, height, channels;
     images.push_back(stbi_load(path, &width, &height, &channels, 0));
-    // printf("Image info[%d]: %d x %d : %d\n", i, width, height, channels);
   }
   return images;
 }
 
-static void free_images(std::vector<unsigned char*>& images) {
-  for (size_t i = 0; i < images.size(); ++i) stbi_image_free(images[i]);
+static void free_images(std::vector<unsigned char *> &images)
+{
+  for (size_t i = 0; i < images.size(); ++i)
+    stbi_image_free(images[i]);
 
   images.clear();
 }
 
-static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>& bboxes, const nv::Tensor& lidar_points,
-                      const std::vector<unsigned char*> images, const nv::Tensor& lidar2image, const std::string& save_path,
-                      cudaStream_t stream) {
+static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox> &bboxes, const nv::Tensor &lidar_points,
+                      const std::vector<unsigned char *> images, const nv::Tensor &lidar2image, const std::string &save_path,
+                      cudaStream_t stream)
+{
   std::vector<nv::Prediction> predictions(bboxes.size());
   memcpy(predictions.data(), bboxes.data(), bboxes.size() * sizeof(nv::Prediction));
 
@@ -128,7 +165,8 @@ static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>
       {content_width / 2 - camera_width - gap, +content_height / 2 - camera_height - camera_height / 2, 1}};
 
   auto visualizer = nv::create_image_artist(image_artist_param);
-  for (size_t icamera = 0; icamera < images.size(); ++icamera) {
+  for (size_t icamera = 0; icamera < images.size(); ++icamera)
+  {
     int ox = offset_cameras[icamera][0] + content_width / 2;
     int oy = offset_cameras[icamera][1] + content_height / 2;
     bool xflip = static_cast<bool>(offset_cameras[icamera][2]);
@@ -137,7 +175,8 @@ static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>
     nv::Tensor device_image(std::vector<int>{900, 1600, 3}, nv::DataType::UInt8);
     device_image.copy_from_host(images[icamera], stream);
 
-    if (xflip) {
+    if (xflip)
+    {
       auto clone = device_image.clone(stream);
       scene->flipx(clone.ptr<unsigned char>(), clone.size(1), clone.size(1) * 3, clone.size(0), device_image.ptr<unsigned char>(),
                    device_image.size(1) * 3, stream);
@@ -155,7 +194,8 @@ static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>
                  scene_device_image.to_host(stream).ptr(), 100);
 }
 
-std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std::string& precision) {
+std::shared_ptr<bevfusion::Core> create_core(const std::string &model, const std::string &precision)
+{
 
   printf("Create by %s, %s\n", model.c_str(), precision.c_str());
   bevfusion::camera::NormalizationParameter normalization;
@@ -187,9 +227,12 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   scn.model = nv::format("%s/cuda-bevfusion/model/%s/lidar.backbone.xyz.onnx", root.c_str(), model.c_str());
   scn.order = bevfusion::lidar::CoordinateOrder::XYZ;
 
-  if (precision == "int8") {
+  if (precision == "int8")
+  {
     scn.precision = bevfusion::lidar::Precision::Int8;
-  } else {
+  }
+  else
+  {
     scn.precision = bevfusion::lidar::Precision::Float16;
   }
 
@@ -227,34 +270,30 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   return bevfusion::create_core(param);
 }
 
-
-
 class BevFusionNode : public rclcpp::Node
 {
 public:
   BevFusionNode()
-  : Node("bev_fusion_node")
+      : Node("bev_fusion_node")
   {
     // Initialize subscribers
     camera_subscriber_ = this->create_subscription<sensor_msgs::msg::Image>(
-      "/camera_data", 10, std::bind(&BevFusionNode::camera_callback, this, std::placeholders::_1));
+        "/camera_data", 10, std::bind(&BevFusionNode::camera_callback, this, std::placeholders::_1));
     lidar_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/lidar_data", 10, std::bind(&BevFusionNode::lidar_callback, this, std::placeholders::_1));
+        "/lidar_data", 10, std::bind(&BevFusionNode::lidar_callback, this, std::placeholders::_1));
     // radar_subscriber_ = this->create_subscription<sensor_msgs::msg::RadarEcho>(
     //   "/radar_data", 10, std::bind(&BevFusionNode::radar_callback, this, std::placeholders::_1));
     sensor_subscriber_ = this->create_subscription<common_msgs::msg::CombinedSensor>(
-      "/combined_sensor_data", 10, std::bind(&BevFusionNode::sensor_callback, this, std::placeholders::_1));
+        "/combined_sensor", 10, std::bind(&BevFusionNode::sensor_callback, this, std::placeholders::_1));
   }
 
 private:
   void camera_callback(const sensor_msgs::msg::Image::SharedPtr msg)
   {
-
   }
 
   void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    
   }
 
   // void radar_callback(const sensor_msgs::msg::RadarEcho::SharedPtr msg)
@@ -266,6 +305,34 @@ private:
   {
     // Implement your sensor fusion logic here
     RCLCPP_INFO(this->get_logger(), "Received combined sensor message");
+
+    // Get the point cloud from msg->lidar
+    auto point_cloud = msg->lidar;
+    // Get the image from msg->image
+    auto image_msg = msg->image;
+
+    int width = image_msg.width;
+    int height = image_msg.height;
+    int num_channels = 3;
+    unsigned char *image_data = image_msg.data.data();
+
+    // unsigned char *image_data = stbi_load_from_memory(
+    //     image_msg->data.data(),   // Convert std::vector<uint8_t> to const pointer
+    //     static_cast<int>(image_msg->data.size()),  // Length of the data
+    //     &width,   // Will hold the image width
+    //     &height,  // Will hold the image height
+    //     &num_channels,  // Will hold number of channels
+    //     0    // Let stbi decide the number of channels, can be set to desired value
+    // );
+
+    if (image_data == nullptr)
+    {
+      RCLCPP_ERROR(this->get_logger(), "Failed to load image");
+      return;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Image info: %d x %d : %d", width, height, num_channels);
+
   }
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr camera_subscriber_;
@@ -274,26 +341,31 @@ private:
   rclcpp::Subscription<common_msgs::msg::CombinedSensor>::SharedPtr sensor_subscriber_;
 };
 
-int main(int argc, char** argv) {
-  const char* data      = "cuda-bevfusion/example-data";
-  const char* model     = "resnet50int8";
-  const char* precision = "int8";
+int main(int argc, char **argv)
+{
+  const char *data = "cuda-bevfusion/example-data";
+  const char *model = "resnet50int8";
+  const char *precision = "int8";
   std::cout << "Testing cout \n";
 
-  if (argc > 1) data      = argv[1];
-  if (argc > 2) model     = argv[2];
-  if (argc > 3) precision = argv[3];
+  if (argc > 1)
+    data = argv[1];
+  if (argc > 2)
+    model = argv[2];
+  if (argc > 3)
+    precision = argv[3];
   printf("Creating core...\n");
 
   auto core = create_core(model, precision);
-  if (core == nullptr) {
+  if (core == nullptr)
+  {
     printf("Core has been failed.\n");
     return -1;
   }
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
- 
+
   core->print();
   core->set_timer(true);
   printf("Done init\n");
@@ -304,24 +376,28 @@ int main(int argc, char** argv) {
   auto lidar2image = nv::Tensor::load(nv::format("%s/%s/lidar2image.tensor", root.c_str(), data), false);
   auto img_aug_matrix = nv::Tensor::load(nv::format("%s/%s/img_aug_matrix.tensor", root.c_str(), data), false);
   core->update(camera2lidar.ptr<float>(), camera_intrinsics.ptr<float>(), lidar2image.ptr<float>(), img_aug_matrix.ptr<float>(),
-              stream);
+               stream);
   // core->free_excess_memory();
   printf("Done load data\n");
 
   // Load image and lidar to host
   auto images = load_images(data);
   auto lidar_points = nv::Tensor::load(nv::format("%s/%s/points.tensor", root.c_str(), data), false);
+  std::string lidar_points_info = getTensorInfoAsString(lidar_points);
+  printf("Lidar points info: %s\n", lidar_points_info.c_str());
   printf("Done load images and lidar\n");
-  
+  return 0;
+
   // warmup
   auto bboxes =
-      core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+      core->forward((const unsigned char **)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
 
   printf("Done warmup\n");
 
   // evaluate inference time
-  for (int i = 0; i < 5; ++i) {
-    core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+  for (int i = 0; i < 5; ++i)
+  {
+    core->forward((const unsigned char **)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
   }
   printf("Done inference\n");
 
@@ -332,10 +408,8 @@ int main(int argc, char** argv) {
   free_images(images);
   checkRuntime(cudaStreamDestroy(stream));
 
-
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<BevFusionNode>());
   rclcpp::shutdown();
   return 0;
-
 }

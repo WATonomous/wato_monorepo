@@ -3,8 +3,6 @@ FROM leungjch/cuda118-tensorrt-base:latest as repo
 
 WORKDIR /home/docker/ament_ws
 
-COPY src/multimodal_object_detection src/multimodal_object_detection
-COPY src/wato_msgs/common_msgs src/common_msgs
 
 # Install pcl
 
@@ -17,6 +15,11 @@ ENV ROS_PACKAGE_PATH=/opt/ros/humble
 
 RUN sudo ln -s /usr/local/cuda/lib64/libcudart.so /usr/local/lib/
 RUN sudo ln -s /usr/local/cuda/lib64/libcudart.a /usr/local/lib/
+
+# ================= Build ===================
+
+COPY src/multimodal_object_detection src/multimodal_object_detection
+COPY src/wato_msgs/common_msgs src/common_msgs
 
 RUN source src/multimodal_object_detection/src/cuda-bevfusion/tool/environment.sh
 

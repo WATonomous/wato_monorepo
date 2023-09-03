@@ -9,6 +9,10 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <cv_bridge/cv_bridge.h>
+
 using ApproximateTimePolicy = message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::CompressedImage, sensor_msgs::msg::PointCloud2>;
 
 class SensorFusionNode : public rclcpp::Node
@@ -18,7 +22,7 @@ public:
     {
         camera_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::CompressedImage>>(this, "/CAM_FRONT/image_rect_compressed");
         lidar_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(this, "/LIDAR_TOP");
-        
+
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::PointCloud2> approximate_policy;
 
         // sync_ = std::make_shared<message_filters::TimeSynchronizer<approximate_policy>(approximate_policy(10), *camera_sub_, *lidar_sub_)>();
@@ -26,28 +30,46 @@ public:
         sync_->registerCallback(&SensorFusionNode::callback, this);
 
         combined_sensor_pub_ = this->create_publisher<common_msgs::msg::CombinedSensor>("/combined_sensor", 1);
+        // Pubisher for camera image
+        camera_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/camera", 1);
         RCLCPP_INFO(this->get_logger(), "Sensor fusion node has been initialized");
     }
 
 private:
-    void callback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr& image, const sensor_msgs::msg::PointCloud2::ConstSharedPtr& pointcloud)
+    void callback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &image, const sensor_msgs::msg::PointCloud2::ConstSharedPtr &pointcloud)
     {
-      // Create a combined sensor msg
-      auto combined_sensor_msg = std::make_unique<common_msgs::msg::CombinedSensor>();
-      combined_sensor_msg->header = image->header;
-      combined_sensor_msg->image = *image;
-      combined_sensor_msg->lidar = *pointcloud;
-      combined_sensor_pub_->publish(std::move(combined_sensor_msg));
-      RCLCPP_INFO(this->get_logger(), "Published combined sensor message");
+        // Create a combined sensor msg
+        auto combined_sensor_msg = std::make_unique<common_msgs::msg::CombinedSensor>();
+        combined_sensor_msg->header = image->header;
+
+        // convert image to cv::Mat
+        cv_bridge::CvImagePtr cv_ptr;
+        try
+        {
+            cv_ptr = cv_bridge::toCvCopy(image, sensor_msgs::image_encodings::BGR8);
+        }
+        catch (cv_bridge::Exception &e)
+        {
+            RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
+            return;
+        }
+        sensor_msgs::msg::Image::SharedPtr ros_image;
+        ros_image = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_ptr->image).toImageMsg();
+        camera_pub_->publish(*ros_image);
+
+        combined_sensor_msg->image = *ros_image;
+        combined_sensor_msg->lidar = *pointcloud;
+        combined_sensor_pub_->publish(std::move(combined_sensor_msg));
     }
 
     std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::CompressedImage>> camera_sub_;
     std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>> lidar_sub_;
+    std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::Image>> camera_pub_;
     std::shared_ptr<message_filters::Synchronizer<ApproximateTimePolicy>> sync_;
     std::shared_ptr<rclcpp::Publisher<common_msgs::msg::CombinedSensor>> combined_sensor_pub_;
 };
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<SensorFusionNode>());
