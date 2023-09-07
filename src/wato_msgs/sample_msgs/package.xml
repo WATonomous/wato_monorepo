@@ -2,9 +2,9 @@
 <package format="3">
   <name>sample_msgs</name>
   <version>0.0.0</version>
-  <description>Sample ROS2 messages</description>
+  <description>Sample ROS messages</description>
 
-  <maintainer email="cmahalingam@watonomous.ca">Cheran Mahalingam</maintainer>
+  <maintainer email="watouser@todo.todo">watouser</maintainer>
   <license>TODO</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

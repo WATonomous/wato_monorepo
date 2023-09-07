@@ -49,11 +49,11 @@ if [ $# == 0 ]; then
     usage
 fi
 
-# generate .env file from dev_config.sh
+# generate .env file from scripts/watod2-setup-env.sh
 if [ ! -z $VERBOSE ]; then # if we want to see all verbose coming from setting up env
-    cd $MONO_DIR && bash dev_config.sh
+    cd $MONO_DIR && bash scripts/watod2-setup-env.sh
 else
-    cd $MONO_DIR && bash dev_config.sh &> /dev/null
+    cd $MONO_DIR && bash scripts/watod2-setup-env.sh &> /dev/null
 fi
 
 # run options

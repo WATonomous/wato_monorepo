@@ -8,7 +8,7 @@
 
 #include "sample_msgs/msg/unfiltered.hpp"
 
-#include "producer.hpp"
+#include "producer_core.hpp"
 
 /**
  * Implementation of a ROS2 node that generates unfiltered ROS2 messages on a
@@ -54,7 +54,7 @@ private:
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_;
 
   // Producer implementation containing logic for coordinate serialization and management.
-  samples::Producer producer_;
+  samples::ProducerCore producer_;
 };
 
 #endif  // PRODUCER_NODE_HPP_

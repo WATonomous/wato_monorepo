@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-bash dev_config.sh
+bash scripts/watod2-setup-env.sh
 
 echo "Running $SERVICE tests..."
 CONTAINER_NAME="$SERVICE-github-actions"

@@ -15,6 +15,8 @@
 
 using std::placeholders::_1;
 
+rclcpp::Time timestamp;
+
 LidarDetector::LidarDetector() : Node("lidar_object_detection")
 {
     // Params params_;
@@ -73,76 +75,6 @@ int loadData(const char *file, void **data, unsigned int *length)
     *data = (void *)buffer;
     *length = len;
     return 0;
-}
-
-void LidarDetector::test()
-{
-    RCLCPP_INFO(this->get_logger(), "Test function");
-
-    cudaEvent_t start, stop;
-    float elapsedTime = 0.0f;
-    cudaStream_t stream = NULL;
-
-    checkCudaErrors(cudaEventCreate(&start));
-    checkCudaErrors(cudaEventCreate(&stop));
-    checkCudaErrors(cudaStreamCreate(&stream));
-
-    std::vector<Bndbox> nms_pred;
-    nms_pred.reserve(100);
-
-    for (int i = 0; i < 10; i++)
-    {
-        std::string dataFile = "/home/docker/ament_ws/src/lidar_object_detection/data/data/";
-        std::string Save_Dir = "/home/docker/ament_ws/lidar_object_detection";
-        std::stringstream ss;
-
-        ss << i;
-
-        int n_zero = 6;
-        std::string _str = ss.str();
-        std::string index_str = std::string(n_zero - _str.length(), '0') + _str;
-        dataFile += index_str;
-        dataFile += ".bin";
-
-        std::cout << "<<<<<<<<<<<" << std::endl;
-        std::cout << "load file: " << dataFile << std::endl;
-
-        // load points cloud
-        unsigned int length = 0;
-        void *data = NULL;
-        std::shared_ptr<char> buffer((char *)data, std::default_delete<char[]>());
-        loadData(dataFile.data(), &data, &length);
-        buffer.reset((char *)data);
-
-        float *points = (float *)buffer.get();
-        size_t points_size = length / sizeof(float) / 4;
-
-        std::cout << "find points num: " << points_size << std::endl;
-
-        float *points_data = nullptr;
-        unsigned int points_data_size = points_size * 4 * sizeof(float);
-        checkCudaErrors(cudaMallocManaged((void **)&points_data, points_data_size));
-        checkCudaErrors(cudaMemcpy(points_data, points, points_data_size, cudaMemcpyDefault));
-        checkCudaErrors(cudaDeviceSynchronize());
-
-        cudaEventRecord(start, stream);
-
-        pointpillar->doinfer(points_data, points_size, nms_pred);
-        cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&elapsedTime, start, stop);
-        std::cout << "TIME: pointpillar: " << elapsedTime << " ms." << std::endl;
-
-        checkCudaErrors(cudaFree(points_data));
-
-        std::cout << "Bndbox objs: " << nms_pred.size() << std::endl;
-        // std::string save_file_name = Save_Dir + index_str + ".txt";
-        // SaveBoxPred(nms_pred, save_file_name);
-
-        nms_pred.clear();
-
-        std::cout << ">>>>>>>>>>>" << std::endl;
-    }
 }
 
 void LidarDetector::lidarPointsCallback(
@@ -206,7 +138,7 @@ void LidarDetector::lidarPointsCallback(
     for (int i = 0; i < points_size; i++)
     {
         // if distance >= 10 set the coords to 0
-        if (sqrt(points_data[i * 4 + 0] * points_data[i * 4 + 0] + points_data[i * 4 + 1] * points_data[i * 4 + 1] + points_data[i * 4 + 2] * points_data[i * 4 + 2]) >= 25)
+        if (sqrt(points_data[i * 4 + 0] * points_data[i * 4 + 0] + points_data[i * 4 + 1] * points_data[i * 4 + 1] + points_data[i * 4 + 2] * points_data[i * 4 + 2]) >= 60)
         {
             points_data[i * 4 + 0] = 0;
             points_data[i * 4 + 1] = 0;
@@ -226,7 +158,9 @@ void LidarDetector::lidarPointsCallback(
 
     checkCudaErrors(cudaFree(points_data));
 
+    timestamp = this->now();
     publishVis(nms_pred);
+    debug_cloud_msg.header.stamp = timestamp;
     dummy_point_cloud->publish(debug_cloud_msg);
 
     nms_pred.clear();
@@ -235,11 +169,14 @@ void LidarDetector::lidarPointsCallback(
 void LidarDetector::publishVis(
     const std::vector<Bndbox> &boxes)
 {
-    RCLCPP_INFO(this->get_logger(), "Num Boxes %d", boxes.size());
-    auto timestamp = this->now();
+    // RCLCPP_INFO(this->get_logger(), "Num Boxes %d", boxes.size());
     int box_id = 0;
     for (int i = 0; i < boxes.size(); i++)
     {
+        if (boxes.at(i).score < 0.5)
+        {
+            continue;
+        }
         auto bounding_box = visualization_msgs::msg::Marker();
         bounding_box.header.frame_id = "LIDAR_TOP";
         bounding_box.header.stamp = timestamp;
@@ -255,17 +192,17 @@ void LidarDetector::publishVis(
         bounding_box.pose.position.x = boxes.at(i).x;
         bounding_box.pose.position.y = boxes.at(i).y;
         bounding_box.pose.position.z = boxes.at(i).z;
-        bounding_box.scale.x = boxes.at(i).l;
-        bounding_box.scale.y = boxes.at(i).w;
+        bounding_box.scale.x = boxes.at(i).w;
+        bounding_box.scale.y = boxes.at(i).l;
         bounding_box.scale.z = boxes.at(i).h;
-        RCLCPP_INFO(this->get_logger(), "Box %d: x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f", i, boxes.at(i).x, boxes.at(i).y, boxes.at(i).z, boxes.at(i).w, boxes.at(i).l, boxes.at(i).h, boxes.at(i).rt);
+        // RCLCPP_INFO(this->get_logger(), "Box %d: x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f", i, boxes.at(i).x, boxes.at(i).y, boxes.at(i).z, boxes.at(i).w, boxes.at(i).l, boxes.at(i).h, boxes.at(i).rt);
 
         tf2::Quaternion quat;
         quat.setRPY(0.0, 0.0, boxes.at(i).rt);
         // turn it -90 degrees
-        tf2::Quaternion quat_offset;
-        quat_offset.setRPY(0.0, 0.0, -1.5708);
-        quat = quat * quat_offset;
+        // tf2::Quaternion quat_offset;
+        // quat_offset.setRPY(0.0, 0.0, -1.5708);
+        // quat = quat * quat_offset;
 
         bounding_box.pose.orientation.x = quat.x();
         bounding_box.pose.orientation.y = quat.y();
