@@ -1,0 +1,6 @@
+transformer_node:
+  ros__parameters:
+    buffer_capacity: 6
+    
+    version: 1
+    compression_method: 0

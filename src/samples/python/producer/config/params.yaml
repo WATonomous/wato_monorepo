@@ -1,0 +1,9 @@
+# more info on YAML configs for ROS2 Params:
+# https://roboticsbackend.com/ros2-yaml-params/
+producer_node: 
+  ros__parameters:
+    pos_x: 1.0
+    pos_y: 1.0
+    pos_z: 1.0
+    
+    velocity: 1.0

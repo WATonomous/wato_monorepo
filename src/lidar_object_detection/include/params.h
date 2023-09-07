@@ -22,8 +22,15 @@ class Params
   public:
     static const int num_classes = 3;
     const char *class_name [num_classes] = { "Car","Pedestrian","Cyclist",};
+    // const float min_x_range = 0.0;
+    // const float max_x_range = 69.12;
+    // const float min_y_range = -39.68;
+    // const float max_y_range = 39.68;
+    // const float min_z_range = -3.0;
+    // const float max_z_range = 1.0;
+
     const float min_x_range = 0.0;
-    const float max_x_range = 69.12;
+    const float max_x_range = 50.0;
     const float min_y_range = -39.68;
     const float max_y_range = 39.68;
     const float min_z_range = -3.0;

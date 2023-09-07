@@ -7,7 +7,7 @@
 #include "sample_msgs/msg/filtered_array.hpp"
 #include "sample_msgs/msg/unfiltered.hpp"
 
-#include "transformer.hpp"
+#include "transformer_core.hpp"
 
 /**
  * Implementation of a ROS2 node that converts unfiltered messages to filtered_array
@@ -46,7 +46,7 @@ private:
   rclcpp::Publisher<sample_msgs::msg::FilteredArray>::SharedPtr transform_pub_;
 
   // Object that handles data processing and validation.
-  samples::Transformer transformer_;
+  samples::TransformerCore transformer_;
 };
 
 #endif  // TRANSFORMER_NODE_HPP_

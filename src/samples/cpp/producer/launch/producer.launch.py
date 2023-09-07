@@ -21,6 +21,7 @@ def generate_launch_description():
 
     producer_node = Node(
         package='producer',
+        name='producer_node',
         executable='producer_node',
         parameters=[LaunchConfiguration('producer_param_file')],
     )

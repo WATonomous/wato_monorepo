@@ -21,7 +21,7 @@ find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
 add_library(aggregator_lib
-  src/aggregator.cpp)
+  src/aggregator_core.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(aggregator_lib
   PUBLIC include)

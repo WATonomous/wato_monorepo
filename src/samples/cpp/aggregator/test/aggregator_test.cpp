@@ -4,11 +4,11 @@
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 
-#include "aggregator.hpp"
+#include "aggregator_core.hpp"
 
 TEST(AggregatorTest, RawDivisionByZero)
 {
-  samples::Aggregator aggregator(0);
+  samples::AggregatorCore aggregator(0);
   auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
   msg->timestamp = 0;
 
@@ -18,7 +18,7 @@ TEST(AggregatorTest, RawDivisionByZero)
 
 TEST(AggregatorTest, FilteredDivisionByZero)
 {
-  samples::Aggregator aggregator(1);
+  samples::AggregatorCore aggregator(1);
   auto filtered_packet = std::make_shared<sample_msgs::msg::FilteredArray>();
   std::vector<sample_msgs::msg::Filtered> msgs;
   auto msg = sample_msgs::msg::Filtered();
@@ -32,7 +32,7 @@ TEST(AggregatorTest, FilteredDivisionByZero)
 
 TEST(AggregatorTest, RawFrequencyAddSingleMessage)
 {
-  samples::Aggregator aggregator(0);
+  samples::AggregatorCore aggregator(0);
   auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
 
   msg->timestamp = 2;
@@ -42,7 +42,7 @@ TEST(AggregatorTest, RawFrequencyAddSingleMessage)
 
 TEST(AggregatorTest, RawFrequencyAddMultipleMessages)
 {
-  samples::Aggregator aggregator(0);
+  samples::AggregatorCore aggregator(0);
   auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
 
   msg->timestamp = 2;
@@ -60,7 +60,7 @@ TEST(AggregatorTest, RawFrequencyAddMultipleMessages)
 
 TEST(AggregatorTest, FilteredUnorderedTimestamps)
 {
-  samples::Aggregator aggregator(0);
+  samples::AggregatorCore aggregator(0);
   auto filtered_packet = std::make_shared<sample_msgs::msg::FilteredArray>();
   std::vector<sample_msgs::msg::Filtered> msgs;
   auto msg = sample_msgs::msg::Filtered();

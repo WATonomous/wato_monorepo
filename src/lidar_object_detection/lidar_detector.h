@@ -23,6 +23,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include "visualization_msgs/msg/marker.hpp"
 #include "std_msgs/msg/string.hpp"
+#include <rclcpp/time.hpp>
 
 #include "cuda_runtime.h"
 #include "params.h"
