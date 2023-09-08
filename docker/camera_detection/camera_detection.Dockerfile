@@ -60,6 +60,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # Download yolov8 model
 RUN sudo mkdir -m 777 -p /perception_models
 RUN wget -P /perception_models https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8s.pt
+RUN sudo chmod 777 -R /home/docker/.ros/
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh

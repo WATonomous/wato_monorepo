@@ -61,6 +61,13 @@ SAMPLES_PYTHON_TRANSFORMER_IMAGE=${SAMPLES_PYTHON_TRANSFORMER_IMAGE:-"git.uwater
 # Infrastructure
 INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_vis_tools_vnc"}
 INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_data_stream"}
+INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_foxglove"}
+
+# Perception
+CAMERA_OBJECT_DETECTION_IMAGE=${CAMERA_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/camera_object_detection"}
+LIDAR_OBJECT_DETECTION_IMAGE=${LIDAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_object_detection"}
+SENSOR_FUSION_PUBLISHER_IMAGE=${SENSOR_FUSION_PUBLISHER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/sensor_fusion_publisher"}
+MULTIMODAL_OBJECT_DETECTION_IMAGE=${MULTIMODAL_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/multimodal_object_detection"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -109,8 +116,16 @@ echo "SAMPLES_PYTHON_TRANSFORMER_IMAGE=$SAMPLES_PYTHON_TRANSFORMER_IMAGE" >> "$P
 # Infrastructure
 echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >> "$PROFILES_DIR/.env"
 echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$PROFILES_DIR/.env"
+echo "FOXGLOVE_BRIDGE_PORT=$FOXGLOVE_BRIDGE_PORT" >> "$PROFILES_DIR/.env"
+echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILES_DIR/.env"
 
 # Perception
+echo "CAMERA_OBJECT_DETECTION_IMAGE=$CAMERA_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "LIDAR_OBJECT_DETECTION_IMAGE=$LIDAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SENSOR_FUSION_PUBLISHER_IMAGE=$SENSOR_FUSION_PUBLISHER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "LIDAR_PUBLISHER_IMAGE=$LIDAR_PUBLISHER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "MULTIMODAL_OBJECT_DETECTION_IMAGE=$MULTIMODAL_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+
 # World Modeling
 # Control
 # Simulation
