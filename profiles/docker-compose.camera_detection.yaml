@@ -8,3 +8,10 @@ services:
         - camera_detection:latest
     image: camera_detection
     user: ${FIXUID:?}:${FIXGID:?}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

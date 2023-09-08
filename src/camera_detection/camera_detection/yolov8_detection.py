@@ -16,12 +16,15 @@ from common_msgs.msg import Obstacle, ObstacleList
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
+import time
 
 import torch
 
 class CameraDetectionNode(Node):
 
     def __init__(self):
+        torch.zeros(1).cuda()
+
         super().__init__('camera_detection_node')
         self.get_logger().info("Creating camera detection node...")
 
@@ -57,6 +60,10 @@ class CameraDetectionNode(Node):
         # set device
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+            self.get_logger().info("Using GPU for inference")
+        else:
+            self.get_logger().info("Using CPU for inference")
 
         # CV bridge
         self.cv_bridge = CvBridge()
@@ -177,6 +184,7 @@ class CameraDetectionNode(Node):
 
         self.get_logger().info('Received image')
         images = [msg]  # msg is a single sensor image
+        startTime = time.time()
         for image in images:
 
             # convert ros Image to cv::Mat
@@ -229,6 +237,9 @@ class CameraDetectionNode(Node):
             feed = ""  # Currently we support a single camera so we pass an empty string
             self.publish_vis(annotated_img, feed)
             self.publish_detections(detections, msg, feed)
+        # log time
+        self.get_logger().info(f"Finished in: {time.time() - startTime}")
+
 
 
 def main(args=None):

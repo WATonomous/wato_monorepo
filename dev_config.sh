@@ -73,7 +73,6 @@ CAMERA_OBJECT_DETECTION_IMAGE=${CAMERA_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca
 LIDAR_OBJECT_DETECTION_IMAGE=${LIDAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_object_detection"}
 LIDAR_PUBLISHER_IMAGE=${LIDAR_PUBLISHER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/lidar_publisher"}
 SENSOR_FUSION_PUBLISHER_IMAGE=${SENSOR_FUSION_PUBLISHER_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/sensor_fusion_publisher"}
-
 MULTIMODAL_OBJECT_DETECTION_IMAGE=${MULTIMODAL_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/multimodal_object_detection"}
 
 ## -------------------------- User ID -----------------------------
