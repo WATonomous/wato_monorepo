@@ -8,7 +8,7 @@ services:
         - "${CARLA_SERVER_IMAGE:?}:latest"
       args:
         - CARLA_VERSION=0.9.13
-    image: "${CARLA_SERVER_IMAGE:?}:latest"
+    image: "${CARLA_SERVER_IMAGE:?}:${TAG:?}"
     environment:
       - DISPLAY=1
       - CUDA_VISIBLE_DEVICES=0
@@ -17,6 +17,22 @@ services:
     runtime: nvidia
     restart: always
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
+
+  carla_viz:
+    build:
+      context: ..
+      dockerfile: docker/infrastructure/vis_tools/carla_viz.Dockerfile
+      args:
+        - CARLA_VERSION=0.9.13
+    image: "${CARLAVIZ_IMAGE:?}:${TAG}"
+    ports:
+      - ${CARLAVIZ_PORT}:8080
+      - ${CARLAVIZ_PORT_2}:8081
+    environment:
+      - CARLA_SERVER_HOST=${COMPOSE_PROJECT_NAME:?}_carla
+      - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_viz
+    restart: always
 
   carla_ros_bridge:
     build:
@@ -30,7 +46,7 @@ services:
     environment:
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla
       - USE_ACKERMANN_CONTROL=False
-    image: "${CARLA_ROS2_BRIDGE_IMAGE:?}-${TAG}" 
+    image: "${CARLA_ROS2_BRIDGE_IMAGE:?}:${TAG:?}" 
     user: ${FIXUID:?}:${FIXGID:?}
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     
@@ -43,7 +59,7 @@ services:
         - "${CARLA_NOTEBOOKS_IMAGE:?}-develop"
       args:
         - CARLA_VERSION=0.9.13
-    image: "${CARLA_NOTEBOOKS_IMAGE:?}-${TAG}"
+    image: "${CARLA_NOTEBOOKS_IMAGE:?}:${TAG:?}"
     user: ${FIXUID:?}:${FIXGID:?}
     ports:
       - ${CARLA_NOTEBOOKS_PORT:?}:8888
@@ -74,7 +90,7 @@ services:
         cache_from:
           - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
           - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
-      image: "${CARLA_SAMPLE_NODE_IMAGE:?}-${TAG}"
+      image: "${CARLA_SAMPLE_NODE_IMAGE:?}:${TAG:?}"
       user: ${FIXUID:?}:${FIXGID:?}
       command: >
         sh -c "colcon build --packages-select carla_sample_node &&
