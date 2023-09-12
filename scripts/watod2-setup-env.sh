@@ -69,7 +69,7 @@ CARLA_ROS2_BRIDGE_IMAGE=${CARLA_ROS2_BRIDGE_IMAGE:-"git.uwaterloo.ca:5050/watono
 SIMULATION_CAMERA_COMPRESSION_IMAGE=${SIMULATION_CAMERA_COMPRESSION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/simulation_camera_compression"}
 CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_sample_node"}
 CARLA_NOTEBOOKS_IMAGE=${CARLA_NOTEBOOKS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
-CARLAVIZ_IMAGE=${CARLAVIZ_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
+CARLAVIZ_IMAGE=${CARLAVIZ_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_viz"}
 
 
 
