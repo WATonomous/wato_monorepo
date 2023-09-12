@@ -22,9 +22,12 @@ services:
     build:
       context: ..
       dockerfile: docker/infrastructure/vis_tools/carla_viz.Dockerfile
+      cache_from: 
+        - "${CARLAVIZ_IMAGE:?}:${TAG:?}" 
+        - "${CARLAVIZ_IMAGE:?}:develop"
       args:
         - CARLA_VERSION=0.9.13
-    image: "${CARLAVIZ_IMAGE:?}:${TAG}"
+    image: "${CARLAVIZ_IMAGE:?}:${TAG:?}"
     ports:
       - ${CARLAVIZ_PORT}:8080
       - ${CARLAVIZ_PORT_2}:8081
@@ -33,14 +36,16 @@ services:
       - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_viz
     restart: always
-
+    logging:
+      driver: none
+  
   carla_ros_bridge:
     build:
       context: ..
       dockerfile: docker/carla_ros_bridge/Dockerfile
       cache_from: 
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}-develop"
+        - "${CARLA_ROS2_BRIDGE_IMAGE:?}:${TAG:?}" 
+        - "${CARLA_ROS2_BRIDGE_IMAGE:?}:develop"
       args:
         - CARLA_VERSION=0.9.13
     environment:
@@ -55,21 +60,19 @@ services:
       context: ..
       dockerfile: docker/simulation/carla_notebooks.Dockerfile
       cache_from: 
-        - "${CARLA_NOTEBOOKS_IMAGE:?}-${CACHE_FROM_TAG}"
-        - "${CARLA_NOTEBOOKS_IMAGE:?}-develop"
+        - "${CARLA_NOTEBOOKS_IMAGE:?}:${TAG:?}"
+        - "${CARLA_NOTEBOOKS_IMAGE:?}:develop"
       args:
         - CARLA_VERSION=0.9.13
     image: "${CARLA_NOTEBOOKS_IMAGE:?}:${TAG:?}"
     user: ${FIXUID:?}:${FIXGID:?}
-    ports:
-      - ${CARLA_NOTEBOOKS_PORT:?}:8888
     environment:
       - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla
       - SCENARIO_RUNNER_ROOT=/home/docker/scenario_runner
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
     volumes:
       - ../src/simulation/carla_notebooks:/home/docker/carla_notebooks
-    command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser  --allow-root --NotebookApp.token='' --NotebookApp.password=''
+    command: jupyter notebook --ip=0.0.0.0 --port=8187 --no-browser --NotebookApp.token='' --NotebookApp.password=''
     
   # camera_compression:
   #   build:
@@ -88,8 +91,8 @@ services:
         context: ..
         dockerfile: docker/simulation/carla_sample_node.Dockerfile
         cache_from:
-          - "${CARLA_SAMPLE_NODE_IMAGE:?}-${CACHE_FROM_TAG}"
-          - "${CARLA_SAMPLE_NODE_IMAGE:?}-develop"
+          - "${CARLA_SAMPLE_NODE_IMAGE:?}:${TAG:?}"
+          - "${CARLA_SAMPLE_NODE_IMAGE:?}:develop"
       image: "${CARLA_SAMPLE_NODE_IMAGE:?}:${TAG:?}"
       user: ${FIXUID:?}:${FIXGID:?}
       command: >
