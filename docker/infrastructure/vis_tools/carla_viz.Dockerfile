@@ -76,4 +76,4 @@ ENV CARLA_SERVER_PORT 2000
 
 WORKDIR /home/carla/carlaviz
 
-ENTRYPOINT ["/bin/bash", "./docker/run.sh"]
+ENTRYPOINT ["/bin/bash", "-c", "./docker/run.sh > /dev/null 2>&1"]
