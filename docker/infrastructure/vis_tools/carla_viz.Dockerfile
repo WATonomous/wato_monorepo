@@ -65,6 +65,7 @@ COPY --from=backend /home/carla/carlaviz/backend/lib/libboost_filesystem.so.1.72
 
 COPY --from=repo /carlaviz/docker/run.sh /home/carla/carlaviz/docker/run.sh
 RUN sed -i '$ d' /home/carla/carlaviz/docker/run.sh 
+RUN echo "sleep 10" >> /home/carla/carlaviz/docker/run.sh
 RUN echo 'sed -i s/:8081/:$CARLAVIZ_BACKEND_PORT/g /var/www/carlaviz/bundle.js' >> /home/carla/carlaviz/docker/run.sh
 RUN echo "sleep infinity" >> /home/carla/carlaviz/docker/run.sh
 
