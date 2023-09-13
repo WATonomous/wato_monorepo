@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-bash scripts/watod2-setup-env.sh
+bash scripts/watod-setup-env.sh
 
 profiles=$(find profiles -name "docker-compose*")
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script generates a .env file to be used with docker-compose
-# To override any of the variables in this script, create watod2-config.sh 
+# To override any of the variables in this script, create watod-config.sh 
 #   in the same directory and populate it with variables
 #   e.g. `COMPOSE_PROJECT_NAME=<NAME>`.
 
@@ -17,8 +17,8 @@ MONO_DIR=${MONO_DIR%/*}
 PROFILES_DIR="$MONO_DIR/profiles"
 
 # Allow for local overrides of any of the below parameters
-if [ -f "$MONO_DIR/watod2-config.sh" ]; then
-	source "$MONO_DIR/watod2-config.sh"
+if [ -f "$MONO_DIR/watod-config.sh" ]; then
+	source "$MONO_DIR/watod-config.sh"
 fi
 
 if ! [ -x "$(command -v git)" ]; then

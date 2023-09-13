@@ -1,4 +1,4 @@
-## ----------------------- Watod2 Configuration File Override ----------------------------
+## ----------------------- watod Configuration File Override ----------------------------
 ## ACTIVE PROFILES CONFIGURATION
 ## List of active profiles to run, defined in docker-compose.yaml.
 ##
@@ -7,7 +7,7 @@
 ##   - production    		  :   configs for all containers required in production
 ##   - samples             :   starts sample ROS2 pubsub nodes
 
-# ACTIVE_PROFILES=""
+ACTIVE_PROFILES="vis_tools samples data_stream"
 
 
 ## Name to append to docker containers. DEFAULT = <your_watcloud_username>
