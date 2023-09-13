@@ -21,7 +21,7 @@ carla:
     # the role name of the vehicles that acts as ego vehicle for this ros bridge instance
     # Only the vehicles within this list are controllable from within ROS.
     # (the vehicle from CARLA is selected which has the attribute 'role_name' set to this value)
-    role_name: "ego_vehicle"
+    role_name: "ego"
   ackermann_control:
     # override the default values of the pid speed controller
     # (only relevant for ackermann control mode) 
