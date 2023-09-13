@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# bash completion for watod2
+# bash completion for watod
 #
 # This work is based on the completion for the docker command.
 # Source: https://raw.githubusercontent.com/docker/compose/1.28.5/contrib/completion/bash/docker-compose
@@ -21,7 +21,7 @@ __docker_compose_previous_extglob_setting=$(shopt -p extglob)
 shopt -s extglob
 
 __docker_compose_q() {
-	watod2 -np 2>/dev/null "${top_level_options[@]}" "$@" | awk '{if(NR>1)print}'
+	watod -np 2>/dev/null "${top_level_options[@]}" "$@" | awk '{if(NR>1)print}'
 }
 
 # Transforms a multiline list of strings into a single line string
