@@ -11,17 +11,17 @@ services:
     image: "${CARLA_SERVER_IMAGE:?}:${TAG:?}"
     environment:
       - DISPLAY=1
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=2
+      - CUDA_VISIBLE_DEVICES=0,1,2
+      - NVIDIA_VISIBLE_DEVICES=0,1,2
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla
     runtime: nvidia
     restart: always
-    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000"
+    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
 
   carla_viz:
     build:
       context: ..
-      dockerfile: docker/infrastructure/vis_tools/carla_viz.Dockerfile
+      dockerfile: docker/simulation/carla_viz.Dockerfile
       cache_from: 
         - "${CARLAVIZ_IMAGE:?}:${TAG:?}" 
         - "${CARLAVIZ_IMAGE:?}:develop"
@@ -34,28 +34,28 @@ services:
     environment:
       - CARLA_SERVER_HOST=${COMPOSE_PROJECT_NAME:?}_carla
       - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
-    entrypoint: ["/bin/bash", "-c", "./docker/run.sh > /dev/null 2>&1"]
+    entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh"]
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_viz
     restart: always
   
-  carla_ros_bridge:
-    build:
-      context: ..
-      dockerfile: docker/carla_ros_bridge/Dockerfile
-      cache_from: 
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}:${TAG:?}" 
-        - "${CARLA_ROS2_BRIDGE_IMAGE:?}:develop"
-      args:
-        - CARLA_VERSION=0.9.13
-    environment:
-      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla
-      - USE_ACKERMANN_CONTROL=False
-    image: "${CARLA_ROS2_BRIDGE_IMAGE:?}:${TAG:?}" 
-    user: ${FIXUID:?}:${FIXGID:?}
-    command: >
-      sh -c "colcon build --packages-select carla_config &&
-            ros2 launch carla_config carla.launch.py"
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
+  # carla_ros_bridge:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/carla_ros_bridge/Dockerfile
+  #     cache_from: 
+  #       - "${CARLA_ROS2_BRIDGE_IMAGE:?}:${TAG:?}" 
+  #       - "${CARLA_ROS2_BRIDGE_IMAGE:?}:develop"
+  #     args:
+  #       - CARLA_VERSION=0.9.13
+  #   environment:
+  #     - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}_carla
+  #     - USE_ACKERMANN_CONTROL=False
+  #   image: "${CARLA_ROS2_BRIDGE_IMAGE:?}:${TAG:?}" 
+  #   user: ${FIXUID:?}:${FIXGID:?}
+  #   command: >
+  #     sh -c "colcon build --packages-select carla_config &&
+  #           ros2 launch carla_config carla.launch.py"
+  #   container_name: ${COMPOSE_PROJECT_NAME:?}_carla_ros_bridge
     
   carla_notebooks:
     build:

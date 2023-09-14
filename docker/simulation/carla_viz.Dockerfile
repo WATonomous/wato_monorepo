@@ -8,8 +8,6 @@ RUN git clone https://github.com/mjxu96/xviz.git && \
 WORKDIR /
 RUN mv /xviz /carlaviz/backend/third_party
 
-# RUN sed -i s/0.9.14.1/0.9.13/g /carlaviz/backend/conanfile.py
-
 # Frontend build stage
 FROM node:12-alpine AS frontend
 
@@ -63,12 +61,6 @@ COPY --from=backend /home/carla/carlaviz/backend/bin/backend /home/carla/carlavi
 COPY --from=backend /home/carla/protoc/protobuf-3.11.2/src/.libs/libprotobuf.so.22 /lib/x86_64-linux-gnu/libprotobuf.so.22
 COPY --from=backend /home/carla/carlaviz/backend/lib/libboost_filesystem.so.1.72.0 /lib/x86_64-linux-gnu/libboost_filesystem.so.1.72.0
 
-COPY --from=repo /carlaviz/docker/run.sh /home/carla/carlaviz/docker/run.sh
-RUN sed -i '$ d' /home/carla/carlaviz/docker/run.sh 
-RUN echo "sleep 10" >> /home/carla/carlaviz/docker/run.sh
-RUN echo 'sed -i s/:8081/:$CARLAVIZ_BACKEND_PORT/g /var/www/carlaviz/bundle.js' >> /home/carla/carlaviz/docker/run.sh
-RUN echo "sleep infinity" >> /home/carla/carlaviz/docker/run.sh
-
 ENV CARLAVIZ_BACKEND_HOST localhost
 ENV CARLAVIZ_BACKEND_PORT 8081
 ENV CARLA_SERVER_HOST localhost
@@ -76,4 +68,8 @@ ENV CARLA_SERVER_PORT 2000
 
 WORKDIR /home/carla/carlaviz
 
-ENTRYPOINT ["/bin/bash", "-c", "./docker/run.sh > /dev/null 2>&1"]
+COPY docker/simulation/carlaviz_entrypoint.sh /home/carla/carlaviz/docker/carlaviz_entrypoint.sh
+
+RUN chmod +x ./docker/carlaviz_entrypoint.sh
+
+ENTRYPOINT ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh > /dev/null 2>&1"]
