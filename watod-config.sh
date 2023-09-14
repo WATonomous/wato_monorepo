@@ -1,4 +1,4 @@
-## ----------------------- Watod2 Configuration File Override ----------------------------
+## ----------------------- watod Configuration File Override ----------------------------
 ## ACTIVE PROFILES CONFIGURATION
 ## List of active profiles to run, defined in docker-compose.yaml.
 ##
