@@ -6,7 +6,7 @@
 #include "sample_msgs/msg/unfiltered.hpp"
 #include "sample_msgs/msg/filtered_array.hpp"
 
-#include "aggregator.hpp"
+#include "aggregator_core.hpp"
 
 /**
  * Implementation of a ROS2 node that listens to the "unfiltered" and "filtered"
@@ -50,7 +50,7 @@ private:
   rclcpp::Subscription<sample_msgs::msg::FilteredArray>::SharedPtr filtered_sub_;
 
   // Object containing methods to determine the operating frequency on topics.
-  samples::Aggregator aggregator_;
+  samples::AggregatorCore aggregator_;
 };
 
 #endif  // AGGREGATOR_NODE_HPP_
