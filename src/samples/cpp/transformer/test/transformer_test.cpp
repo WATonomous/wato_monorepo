@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 
-#include "transformer.hpp"
+#include "transformer_core.hpp"
 
 /**
  * When writing a large number of tests it is desirable to wrap any common
@@ -25,7 +25,7 @@ public:
   }
 
 protected:
-  samples::Transformer transformer;
+  samples::TransformerCore transformer;
 };
 
 /**
@@ -37,7 +37,7 @@ class TransformerParameterizedTest
   : public ::testing::TestWithParam<std::tuple<const char *, bool>>
 {
 protected:
-  samples::Transformer transformer;
+  samples::TransformerCore transformer;
 };
 
 TEST(TransformerTest, FilterInvalidField)
@@ -45,14 +45,14 @@ TEST(TransformerTest, FilterInvalidField)
   auto unfiltered = std::make_shared<sample_msgs::msg::Unfiltered>();
   unfiltered->valid = false;
 
-  auto transformer = samples::Transformer();
+  auto transformer = samples::TransformerCore();
   bool valid = transformer.validate_message(unfiltered);
   EXPECT_FALSE(valid);
 }
 
 TEST_F(TransformerFixtureTest, BufferCapacity)
 {
-  SetUp(samples::Transformer::BUFFER_CAPACITY - 1);
+  SetUp(samples::TransformerCore::BUFFER_CAPACITY - 1);
 
   // Place last message that fits in buffer
   auto filtered = sample_msgs::msg::Filtered();
