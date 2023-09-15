@@ -17,6 +17,7 @@ RUN apt-get update && \
 
 # fix user permissions when deving in container
 COPY docker/fixuid_setup.sh /project/fixuid_setup.sh
+RUN chmod +x /project/fixuid_setup.sh
 RUN /project/fixuid_setup.sh
 USER docker:docker
 
