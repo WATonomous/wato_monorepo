@@ -34,7 +34,7 @@ services:
     environment:
       - CARLA_SERVER_HOST=${COMPOSE_PROJECT_NAME:?}_carla
       - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
-    entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh"]
+    entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_viz
     restart: always
   

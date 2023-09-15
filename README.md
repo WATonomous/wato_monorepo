@@ -16,7 +16,7 @@ Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
 Read the following:
 1. [docs/setup.md](docs/setup/setup.md) How to setup our repo. 
 
-**TLDR:** Clone the monorepo, specify active profiles, `watod2 up`. Everything is containerized, so there's little need to setup any dependencies on your end :).
+**TLDR:** Clone the monorepo, specify active profiles, `watod up`. Everything is containerized, so there's little need to setup any dependencies on your end :).
 
 2. [docs/monorepo.md](docs/monorepo.md) What is a monorepo? Why a monorepo?
 3. [docs/how_to_dev.md](docs/dev/how_to_dev.md) How to develop in the monorepo.
@@ -27,7 +27,7 @@ Below is a tree diagram of the Monorepo.
 
 ```
 wato_monorepo_v2
-├── watod2-setup-env.sh
+├── watod-setup-env.sh
 ├── docker
 │   ├── samples
 │   │   └── cpp
@@ -58,16 +58,16 @@ wato_monorepo_v2
 │   ├── simulation
 │   ├── tools
 │   └── world_modeling
-└── watod2
+└── watod
 ```
 
 
-- `watod2`. 
-  - This is the main bash script that you will use to interface with your containers. More info on `watod2`: [docs/dev/watod2.md](docs/dev/watod2.md).
-- `watod2-setup-env.sh`. 
-  - watod2-setup-env.sh (in scripts directory) will create a [.env file](https://docs.docker.com/compose/env-file/) specifying environment variables for docker-compose. `watod2` automatically runs this script before running any commands. To override variables in `watod2-setup-env.sh`, create a `wato2-config.sh` file and populate it with variables, for example `ACTIVE_PROFILES="perception path_planning"`. `watod2-setup-env.sh` will then take this file into account when building the `.env` file.
-- `scripts/watod2-completion.bash`.
-  - Bash autocomplete for watod2. Adapted from docker-compose. Add `source <MONO_DIR>/scripts/watod2-completion.bash` to your bashrc to use autocomplete.
+- `watod`. 
+  - This is the main bash script that you will use to interface with your containers. More info on `watod`: [docs/dev/watod.md](docs/dev/watod.md).
+- `watod-setup-env.sh`. 
+  - watod-setup-env.sh (in scripts directory) will create a [.env file](https://docs.docker.com/compose/env-file/) specifying environment variables for docker-compose. `watod` automatically runs this script before running any commands. To override variables in `watod-setup-env.sh`, create a `wato2-config.sh` file and populate it with variables, for example `ACTIVE_PROFILES="perception path_planning"`. `watod-setup-env.sh` will then take this file into account when building the `.env` file.
+- `scripts/watod-completion.bash`.
+  - Bash autocomplete for watod. Adapted from docker-compose. Add `source <MONO_DIR>/scripts/watod-completion.bash` to your bashrc to use autocomplete.
 - `profiles/`: 
   - This folder contains all docker-compose files specifying the services we will run. They are grouped up into profiles. Note that by default no profiles are enabled. To select additional profiles, overwrite `ACTIVE_PROFILES="<PROFILES_OF_YOUR_CHOICE"` in `wato2-config.sh`. See the [docker-compose wiki](https://docs.docker.com/compose/extends/). More info on profiles: [docs/dev/profiles.md](docs/dev/profiles.md).
 - `docker/`: 
