@@ -29,17 +29,17 @@ Listens to messages from the Producer and Transfomer nodes and logs the frequenc
 ## Usage
 **Before proceding ensure that you have followed the setup guide([setup](../../docs/setup.md))**
 
-To configure watod2, update `watod2-config.local.sh` to include the samples profile.
+To configure watod, update `watod-config.local.sh` to include the samples profile.
 ```bash
 #!/bin/bash
-from watod2-config.sh
+from watod-config.sh
 
 ACTIVE_PROFILES="samples"
 ```
 
 Then bring up the containers with,
 ```
-watod2 up
+watod up
 ```
 
 ### C++ and Python Samples
@@ -52,8 +52,8 @@ The development workflow in ROS2 is similar to ROS, however, it uses a different
 of tools. For developing and testing ROS2 nodes the process is as follows.
 1. Start the service and open a shell into a running Docker container
 ```
-watod2 up <SERVICE_NAME>
-watod2 -t <SERVICE_NAME>
+watod up <SERVICE_NAME>
+watod -t <SERVICE_NAME>
 ```
 2. After making changes to source code rebuild the ROS2 package and source the install folder
 ```

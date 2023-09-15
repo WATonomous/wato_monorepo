@@ -2,7 +2,7 @@
 # Technical Specification
 
 ## Docker
-Except in exceptional situations, each dockerfile in `docker/` should have two stages: `base` and `repo`. `base` contains the runtime dependencies for the project the image will be running. `repo` copies the source code into the image. The target stage to launch can be specified in `watod2-config.sh`. In the future, your specific subteam may expand on build stages.
+Except in exceptional situations, each dockerfile in `docker/` should have two stages: `base` and `repo`. `base` contains the runtime dependencies for the project the image will be running. `repo` copies the source code into the image. The target stage to launch can be specified in `watod-config.sh`. In the future, your specific subteam may expand on build stages.
 
 To optimize build times, and make the most out of our Docker registry, please stucture your Dockerfile for optimal cache management. More information on cache mamagement and Dockerfile structure can be found [here](https://docs.docker.com/build/cache/).
 

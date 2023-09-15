@@ -8,12 +8,12 @@ Try these steps:
 # Log into the docker registry
 $ docker login git.uwaterloo.ca:5050
 # Pull the latest develop images
-$ TAG=develop ./watod2 --all pull
+$ TAG=develop ./watod --all pull
 # Start your containers
-$ ./watod2 up
+$ ./watod up
 ```
 
-## "Invalid reference format" when using watod2
+## "Invalid reference format" when using watod
 
 If you get an error such as: `ERROR: no such image: git.uwaterloo.ca:5050/watonomous/wato_monorepo/perception:debug-charles/test: invalid reference format`
 

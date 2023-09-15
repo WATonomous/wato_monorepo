@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script generates a .env file to be used with docker-compose
-# To override any of the variables in this script, create watod2-config.sh 
+# To override any of the variables in this script, create watod-config.sh 
 #   in the same directory and populate it with variables
 #   e.g. `COMPOSE_PROJECT_NAME=<NAME>`.
 
@@ -17,8 +17,8 @@ MONO_DIR=${MONO_DIR%/*}
 PROFILES_DIR="$MONO_DIR/profiles"
 
 # Allow for local overrides of any of the below parameters
-if [ -f "$MONO_DIR/watod2-config.sh" ]; then
-	source "$MONO_DIR/watod2-config.sh"
+if [ -f "$MONO_DIR/watod-config.sh" ]; then
+	source "$MONO_DIR/watod-config.sh"
 fi
 
 if ! [ -x "$(command -v git)" ]; then
@@ -100,6 +100,23 @@ echo "PROFILE_BLACKLIST=\"$PROFILE_BLACKLIST\"" >> "$PROFILES_DIR/.env"
 
 echo "COMPOSE_DOCKER_CLI_BUILD=1" >> "$PROFILES_DIR/.env"
 echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$PROFILES_DIR/.env"
+
+echo "ROS_IP=$ROS_IP" >> "$PROFILES_DIR/.env"
+echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$PROFILES_DIR/.env"
+
+echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >> "$PROFILES_DIR/.env"
+
+echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$PROFILES_DIR/.env"
+echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILES_DIR/.env"
+
+echo "CARLA_SERVER_IMAGE=$CARLA_SERVER_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_ROS2_BRIDGE_IMAGE=$CARLA_ROS2_BRIDGE_IMAGE" >> "$PROFILES_DIR/.env"
+echo "SIMULATION_CAMERA_COMPRESSION_IMAGE=$SIMULATION_CAMERA_COMPRESSION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_NOTEBOOKS_IMAGE=$CARLA_NOTEBOOKS_IMAGE" >> "$PROFILES_DIR/.env"
+echo "CARLA_SAMPLE_NODE_IMAGE=$CARLA_SAMPLE_NODE_IMAGE" >> "$PROFILES_DIR/.env"
 
 echo "TAG=$TAG" >> "$PROFILES_DIR/.env"
 echo "TARGET_STAGE=$TARGET_STAGE" >> "$PROFILES_DIR/.env"

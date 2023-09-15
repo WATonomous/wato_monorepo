@@ -4,7 +4,7 @@ Below is a tree diagram of the Monorepo.
 
 ```
 wato_monorepo_v2
-├── watod2-config.sh
+├── watod-config.sh
 ├── docker
 │   ├── samples
 │   │   └── cpp
@@ -16,7 +16,7 @@ wato_monorepo_v2
 ├── profiles
 │   └── docker-compose.samples.yaml
 ├── scripts
-│   └── watod2-setup-env.sh
+│   └── watod-setup-env.sh
 ├── src
 │   ├── motion_planning_and_control
 │   ├── perception
@@ -36,7 +36,7 @@ wato_monorepo_v2
 │   ├── simulation
 │   ├── tools
 │   └── world_modeling
-└── watod2
+└── watod
 ```
 
 ## How to code in the Monorepo
@@ -112,7 +112,7 @@ The extent to which you will change this file is most likely to create a new ser
 
 * eg. If your node is under `/src/motion_planning_and_control/<your_node>/` then your IMAGE name is `MP_AND_C_<YOUR_NODE_IN_CAPS>_IMAGE`
 
-This environment variable will make sense once you edit the `watod2-setup-env.sh` so that your dockerfile works with `watod2`.
+This environment variable will make sense once you edit the `watod-setup-env.sh` so that your dockerfile works with `watod`.
 
 ### 2.3 Your ROS2 node's dockerfile
 A dockerfile specifies how to setup an environment (you could say a small isolated computer) that purely just runs your ROS2 node. The language used in the dockerfile is the same as the commands you use in a Linux terminal except with `RUN` in front of it. (as well as some other nice-to-haves like `ENV` which sets environment variables)
@@ -178,17 +178,17 @@ CMD ["ros2", "launch", "aggregator", "aggregator.launch.py"]
 
 A dockerfile can be very finnicy at times. So if you have any questions, please ask infra or your lead. If you run into permission issues, this is most likely due to `fixuid`. We use `fixuid` to ensure that your files are stolen by the `docker root`. That is, `docker root` will steal ownership of your file/folder and you will no longer have access to it anymore. If this is the case, contact infra.
 
-## 3.0 Linking up your ROS2 Node and docker stuff to watod2
-The `watod2` script is a custom built script to setup environment variables (some of which are very important for file permissions and managing images in the server) and up certain profiles of your choosing. `watod2` is power because it gives us the freedom to pick different profiles (docker compose files) to run in a single, easy-to-use script. We can also use `watod2` like docker compose, and interact with containers by simply calling `watod2 -t <service_name>`. 
+## 3.0 Linking up your ROS2 Node and docker stuff to watod
+The `watod` script is a custom built script to setup environment variables (some of which are very important for file permissions and managing images in the server) and up certain profiles of your choosing. `watod` is power because it gives us the freedom to pick different profiles (docker compose files) to run in a single, easy-to-use script. We can also use `watod` like docker compose, and interact with containers by simply calling `watod -t <service_name>`. 
 
-### 3.1 watod2
+### 3.1 watod
 This script does not change regardless of any changes. Only people editing this script is Infra.
 
-### 3.2 watod2-setup-env.sh
-This script is ran by `watod2` to setup all of the environment variables. YOU NEED TO ADD SOME NEW ENVIRONEMENT VARIABLES OF YOUR OWN IN ORDER FOR YOUR CODE TO WORK WITH `watod2`. In the `watod2-setup-env.sh` there are 2 sections with which you need to add things.
+### 3.2 watod-setup-env.sh
+This script is ran by `watod` to setup all of the environment variables. YOU NEED TO ADD SOME NEW ENVIRONEMENT VARIABLES OF YOUR OWN IN ORDER FOR YOUR CODE TO WORK WITH `watod`. In the `watod-setup-env.sh` there are 2 sections with which you need to add things.
 
 #### 3.2.1 Images
-Under the `images` section of the `watod2-setup-env.sh`...
+Under the `images` section of the `watod-setup-env.sh`...
 
 ```bash
 ## --------------------------- Images -------------------------------
@@ -229,6 +229,6 @@ echo "YOUR_IMAGE_NAME_IMAGE=$YOUR_IMAGE_NAME_IMAGE" >> "$PROFILES_DIR/.env"
 This is for image caching, which you saw in the docker compose file of section 2.2.2 when we told you to change your image environment variable. If you want to know why we do this, it's so that we don't fill WATcloud with images. Docker images are very memory intensive at times.. especially if you download pytorch in them.
 
 # Rules of Development
-1. Always make changes and `watod2 build` in your own branch. This is so that one member working on an image isn't affected by someone else randomly rebuilding it with new changes.
+1. Always make changes and `watod build` in your own branch. This is so that one member working on an image isn't affected by someone else randomly rebuilding it with new changes.
 2. Follow the file structure as stated above.
 3. Do not make changes in other people's branches unless they let you do so.

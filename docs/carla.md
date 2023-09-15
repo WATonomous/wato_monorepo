@@ -9,9 +9,9 @@ The goal of the  CARLA setup is to provide an easy way for WATonomous members to
     - [Interacting with CARLA using the Python API](#interacting-with-carla-using-the-python-api)
     - [Using a ROS Node to interact with CARLA](#using-a-ros-node-to-interact-with-carla)
     - [CARLA Visualization using Foxglove Studio](#carla-visualization-using-foxglove-studio)
+    - [CARLA Visualization using CarlaViz](#carla-visualization-using-carlaviz)
     - [FAQ](#faq)
         - [CARLA is running very slow (approx. 3 fps)](#carla-is-running-very-slow-approx-3-fps)
-        - [I get an error saying port has already been allocated](#i-get-an-error-saying-port-has-already-been-allocated)
 
 
 ## Getting Started
@@ -23,7 +23,7 @@ The goal of the  CARLA setup is to provide an easy way for WATonomous members to
 
 ## Initial Setup
 
-To run CARLA and all associated containers first add `carla` as an `ACTIVE_PROFILE` and declare `CARLA_NOTEBOOKS_PORT=[port]` in `dev_config.local.sh`. This will cause the following containers to launch when `watod2 up` is run: `carla_server`, `carla_ros_bridge` and `carla_notebooks` (`carla_notebooks` will launch with an open port specified by `CARLA_NOTEBOOKS_PORT`).
+To run CARLA and all associated containers first add `carla` as an `ACTIVE_PROFILE` in `watod-config.sh`. This will cause the following containers to launch when `watod up` is run: `carla_server`, `carla_viz`, `carla_ros_bridge`, `carla_notebooks`, `carla_sample_node`.
 
 ## Interacting with CARLA using the Python API
 
@@ -31,17 +31,17 @@ This is the simplest way of interacting with CARLA and most importantly does not
 
 **On the WATOnomous Server**
 
-Forward the port you specified in the `CARLA_NOTEBOOKS_PORT` variable in `dev_config.local.sh` using either the `ports` section of VS Code or by running the command `ssh -L 8888:localhost:8888 <username>@<machine>-ubuntu1.watocluster.local` on your local machine (replace 8888 with the port you specified in the `CARLA_NOTEBOOKS_PORT` variable).
+Forward the port specified by the variable `CARLA_NOTEBOOKS_PORT` (which can be found in the `.env` file in the `profiles` folder once `watod up` is run) using either the `ports` section of VS Code or by running the command `ssh -L 8888:localhost:8888 <username>@<machine>-ubuntu1.watocluster.local` on your local machine (replace 8888 with the port specified in the `CARLA_NOTEBOOKS_PORT` variable). If the port is auto-forwarded by VS Code then you do not need to add it manually.
 
 **On your local machine (your personal laptop/pc)**
 
-Open any web browser (Chrome, Firefox, Edge etc.) and type `localhost:8888` (replace 8888 with the port you specified in the `CARLA_NOTEBOOKS_PORT` variable) and click enter. You should be automatically redirected to the Jupyter Notebook home screen where you should see the file `carla_notebooks.ipynb`. Open that file and follow the instructions in it.
+Open any web browser (Chrome, Firefox, Edge etc.) and type `localhost:8888` (replace 8888 with the port specified in the `CARLA_NOTEBOOKS_PORT` variable) and click enter. You should be automatically redirected to the Jupyter Notebook home screen where you should see the file `carla_notebooks.ipynb`. Open that file and follow the instructions in it. Either edit the `carla_notebooks.ipynb` file directly or create a new file and copy the first code block in `carla_notebooks.ipynb`.
 
 ## Using a ROS Node to interact with CARLA
 
 **Ensure that you have a good understanding of ROS and writing ROS nodes before proceeding**
 
-The currently recommended (and the simplest) way of using a ROS Node to interact with CARLA is to simply edit the already setup CARLA sample node (currently only in Python unfortunately). Since the package (and all required CARLA and ROS dependencies) is already fully setup the only file you need to edit is the `carla_sample_node.py` found under `wato_monorepo_v2/src/simulation/carla_sample_node/carla_sample_node/`. Since the container is setup with a volume, simply restart the containers with `watod2 down` followed by `watod2 up` (or any other method to restart the containers) and the node should be rebuilt and launched with the changes you made to `carla_sample_node.py`. The sample node currently shows how to publish a message to enable (and keep enabled) autopilot, subsribe to the GNSS sensor topic and log the sensor data to a file.
+The currently recommended (and the simplest) way of using a ROS Node to interact with CARLA is to simply edit the already setup CARLA sample node (currently only in Python unfortunately). Since the package (and all required CARLA and ROS dependencies) is already fully setup the only file you need to edit is the `carla_sample_node.py` found under `wato_monorepo_v2/src/simulation/carla_sample_node/carla_sample_node/`. Since the container is setup with a volume, simply restart the containers with `watod down` followed by `watod up` (or any other method to restart the containers) and the node should be rebuilt and launched with the changes you made to `carla_sample_node.py`. The sample node currently shows how to publish a message to enable (and keep enabled) autopilot, subsribe to the GNSS sensor topic and output the data to the console.
  
 ## CARLA Visualization using Foxglove Studio
 
@@ -49,20 +49,26 @@ Foxglove Studio is a tool to visualize and interact with ROS messages. Using Fox
 
 **On the WATOnomous Server**
 
-Add `data_stream` as an `ACTIVE_PROFILE` and declare `FOXGLOVE_BRIDGE_PORT=[port]` in `dev_config.local.sh`. This will launch the `foxglove.Dockerfile` container with an open port when `watod2 up` is ran. 
+Add `vis_tools` as an `ACTIVE_PROFILE`. This will launch the `foxglove.Dockerfile` container with an open port when `watod up` is ran. 
 
-It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which you will need to forward to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine (replace 8765 with the port you specified in the `FOXGLOVE_BRIDGE_PORT` variable).
+It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which will be defined in the `.env` file in the `profiles` folder (the `.env` file is populated after `watod up` is run). This port may be auto-forwarded by VS Code automatically but if not the port will need to be forwarded manually to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine (replace 8765 with the port specified in the `FOXGLOVE_BRIDGE_PORT` variable).
 
 **On your local machine (your personal laptop/pc)**
 
 Open Foxglove Studio on your local machine using either the desktop app ([Download Here](https://foxglove.dev/studio)) or the [Web Application](https://studio.foxglove.dev/) (only supported on Chrome). Click on Open Connection then replace the default port (8765) with the port you specified in the `FOXGLOVE_BRIDGE_PORT` variable. Then click the Open button and after a few seconds Foxglove Studio should connect. You should now be able to access any of the topic being published or subscribed by the CARLA ROS Bridge.
+
+## CARLA Visualization using CarlaViz
+
+**On the WATOnomous Server**
+
+CarlaViz is a visualization tool that is useful when you are only using the CARLA Python API through a Jupyter Notebook and you don't want the overhead that comes with the ROS Bridge + Foxglove method of visualization. To use CarlaViz forward the ports specified by the variables `CARLAVIZ_PORT` and `CARLAVIZ_PORT_2` defined in the `.env` file in the `profiles` folder (make sure you forward **both** ports). If you want to stop the ROS Bridge from running (for the reasons I mentioned in the previous sentence) then make sure to comment out the `carla_ros_bridge` service in the `docker-compose.carla.yaml` file in the `profiles` folder.
+
+**On your local machine (your personal laptop/pc)**
+
+In any browser go to `localhost:8081` (replace 8081 with the port specified in the `CARLAVIZ_PORT` variable) and after waiting 10 seconds or so CarlaViz should appear.  
 
 ## FAQ
 
 ### CARLA is running very slow (approx. 3 fps)
 
 This is expected. The ROS bridge causes CARLA to render all the sensor data which slows down the simulation considerably. While this may be annoying when viewing real-time camera output or trying to control the car manual, the simulation is still running accurately.
-
-### I get an error saying port has already been allocated
-
-This is due another running container exposing the same port you are trying to expose. Go to `dev_config.local.sh` and change the port that is causing the conflict to another 4 digit number.
