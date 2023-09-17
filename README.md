@@ -85,9 +85,7 @@ wato_monorepo_v2
 ### Important Topics for Developers
 [docs/dev](docs/dev)
 
-<<<<<<< HEAD
 ### Using Foxglove
-
 [Foxglove](https://foxglove.dev/) is used to visualize ROS messages on a local machine.
 
 Add `data_stream` as an `ACTIVE_PROFILE` and declare `FOXGLOVE_BRIDGE_PORT=[port]` in `dev_config.local.sh`. This will launch the `foxglove.Dockerfile` container with an open port when `watod2 up` is ran. 
@@ -96,10 +94,7 @@ It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which you 
 
 Then, open foxglove and add a connection `localhost:8765`, and it should connect.
 
-## Monorepo Info
-=======
 ### Monorepo Info
->>>>>>> main
 [docs/monorepo.md](docs/monorepo.md)
 
 ### Technical Specification 
