@@ -3,7 +3,7 @@ services:
   lidar_object_detection:
     build:
       context: ..
-      dockerfile: docker/lidar_object_detection/lidar_object_detection.Dockerfile
+      dockerfile: docker/lidar_object_detection/tao_pointpillars.Dockerfile
       cache_from:
         - "${LIDAR_OBJECT_DETECTION_IMAGE:?}-${CACHE_FROM_TAG}"
         - "${LIDAR_OBJECT_DETECTION_IMAGE:?}-develop"
@@ -11,3 +11,10 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/lidar_object_detection:/home/docker/ament_ws/src/lidar_object_detection
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
