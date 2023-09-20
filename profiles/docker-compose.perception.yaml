@@ -5,8 +5,8 @@ services:
       context: ..
       dockerfile: docker/perception/radar_object_detection.Dockerfile
       cache_from: 
-        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:${CACHE_FROM_TAG}"
-        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:develop"
+        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:main"
     image: "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
