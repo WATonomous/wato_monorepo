@@ -63,6 +63,9 @@ INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"git.uw
 INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_data_stream"}
 INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/infrastructure_foxglove"}
 
+# Perception
+RADAR_OBJECT_DETECTION_IMAGE=${RADAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_object_detection"}
+
 ## -------------------------- User ID -----------------------------
 
 FIXUID=$(id -u) 
@@ -117,6 +120,8 @@ echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$P
 echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILES_DIR/.env"
 
 # Perception
+echo "RADAR_OBJECT_DETECTION_IMAGE=$RADAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+
 # World Modeling
 # Control
 # Simulation
