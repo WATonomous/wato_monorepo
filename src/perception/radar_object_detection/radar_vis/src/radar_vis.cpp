@@ -2,16 +2,16 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "radar_rviz_node.hpp"
-#include "radar_rviz.hpp"
+#include "radar_vis_node.hpp"
+#include "radar_vis.hpp"
 
 namespace visualization
 {
 
-RadarRviz::RadarRviz()
+RadarVis::RadarVis()
 {}
 
-sensor_msgs::msg::PointCloud2 RadarRviz::convert_packet_to_pointcloud(
+sensor_msgs::msg::PointCloud2 RadarVis::convert_packet_to_pointcloud(
   const radar_msgs::msg::RadarPacket::SharedPtr msg)
 {
   std::string radar_frame = "radar_fixed";
