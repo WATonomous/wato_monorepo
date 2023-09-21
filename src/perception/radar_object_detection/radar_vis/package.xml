@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>radar_rviz</name>
+  <name>radar_vis</name>
   <version>0.0.0</version>
   <description>A ROS package for visualizing radar detections</description>
 

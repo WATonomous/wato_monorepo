@@ -4,11 +4,11 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     """Launch Radar object detection system."""
-    radar_rviz_node = Node(
-        package='radar_rviz',
-        executable='radar_rviz_node',
+    radar_vis_node = Node(
+        package='radar_vis',
+        executable='radar_vis_node',
     )
 
     return LaunchDescription([
-        radar_rviz_node
+        radar_vis_node
     ])

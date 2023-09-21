@@ -1,5 +1,5 @@
-#ifndef RADAR_RVIZ_HPP_
-#define RADAR_RVIZ_HPP_
+#ifndef RADAR_VIS_HPP_
+#define RADAR_VIS_HPP_
 
 #include <string>
 #include "rclcpp/rclcpp.hpp"
@@ -12,10 +12,10 @@
 namespace visualization
 {
 
-class RadarRviz
+class RadarVis
 {
 public:
-  RadarRviz();
+  RadarVis();
 
   sensor_msgs::msg::PointCloud2 convert_packet_to_pointcloud(
     const radar_msgs::msg::RadarPacket::SharedPtr msg);
@@ -23,4 +23,4 @@ public:
 
 }  // namespace visualization
 
-#endif  // RADAR_RVIZ_HPP_
+#endif  // RADAR_VIS_HPP_
