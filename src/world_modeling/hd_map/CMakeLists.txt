@@ -20,7 +20,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED) # Lanelet2 Core
 find_package(lanelet2_io REQUIRED) # Lanelet2 IO
 find_package(lanelet2_projection REQUIRED) # Lanelet2 Projection
-find_package(lanelet2_routing REQUIRED) # Lanelet2 Routing
+find_package(lanelet2_routing REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
