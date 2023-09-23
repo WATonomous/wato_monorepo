@@ -7,7 +7,7 @@
 ##   - production    		  :   configs for all containers required in production
 ##   - samples             :   starts sample ROS2 pubsub nodes
 
-# ACTIVE_PROFILES=""
+ACTIVE_PROFILES="vis_tools perception"
 
 
 ## Name to append to docker containers. DEFAULT = <your_watcloud_username>
@@ -18,4 +18,4 @@
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = <your_current_github_branch> 
 
-# TAG=""
+TAG=""

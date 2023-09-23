@@ -1,13 +1,22 @@
 version: "3.8"
 services:
-  radar_object_detection:
+  # radar_object_detection:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/radar_object_detection.Dockerfile
+  #     cache_from: 
+  #       - "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+  #       - "${RADAR_OBJECT_DETECTION_IMAGE:?}:main"
+  #   image: "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+  #   user: ${FIXUID:?}:${FIXGID:?}
+  #   volumes:
+  #     - ../src/perception/radar_object_detection:/home/docker/ament_ws/src/radar_object_detection
+  lane_detection:
     build:
       context: ..
-      dockerfile: docker/perception/radar_object_detection.Dockerfile
+      dockerfile: docker/perception/lane_detection.Dockerfile
       cache_from: 
-        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:main"
-    image: "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+        - "${LANE_DETECTION_IMAGE:?}:${TAG}"
+        - "${LANE_DETECTION_IMAGE:?}:main"
+    image: "${LANE_DETECTION_IMAGE:?}:${TAG}"
     user: ${FIXUID:?}:${FIXGID:?}
-    volumes:
-      - ../src/perception/radar_object_detection:/home/docker/ament_ws/src/radar_object_detection
