@@ -11,3 +11,14 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/perception/radar_object_detection:/home/docker/ament_ws/src/radar_object_detection
+  camera_segmentation:
+    build:
+      context: ..
+      dockerfile: docker/perception/camera_segmentation.Dockerfile
+      cache_from: 
+        - "${CAMERA_SEGMENTATION_IMAGE:?}:${TAG}"
+        - "${CAMERA_SEGMENTATION_IMAGE:?}:main"
+    image: "${CAMERA_SEGMENTATION_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/perception/camera_segmentation:/home/docker/ament_ws/src/camera_segmentation
