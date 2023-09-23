@@ -6,6 +6,7 @@
 #include <lanelet2_core/primitives/Lanelet.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
+#include <lanelet2_routing/Exceptions.h>
 #include <lanelet2_routing/Route.h>
 #include <lanelet2_routing/RoutingCost.h>
 #include <lanelet2_routing/RoutingGraph.h>
@@ -25,11 +26,11 @@ class HDMapRouter {
     // TODO: implemtation of function to get nearest lanelet in lanelet map to gps point
     lanelet::ConstLanelet get_nearest_lanelet_to_gps(lanelet::GPSPoint gps_point);
 
-    lanelet::Optional<lanelet::routing::Route> route(lanelet::GPSPoint from_point, lanelet::GPSPoint to_point);
+    lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::GPSPoint from_point, lanelet::GPSPoint to_point);
     
     // TODO: implementation of route function to find shortest path from from_lanelet to to_lanelet
     // Reference: https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/06_routing/main.cpp
-    lanelet::Optional<lanelet::routing::Route> route(lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet);
+    lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet);
 
 
   private:
