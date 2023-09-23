@@ -71,7 +71,8 @@ CARLA_SAMPLE_NODE_IMAGE=${CARLA_SAMPLE_NODE_IMAGE:-"git.uwaterloo.ca:5050/watono
 CARLA_NOTEBOOKS_IMAGE=${CARLA_NOTEBOOKS_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_notebooks"}
 CARLAVIZ_IMAGE=${CARLAVIZ_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/carla_viz"}
 
-
+# Perception
+RADAR_OBJECT_DETECTION_IMAGE=${RADAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_object_detection"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -127,6 +128,7 @@ echo "FIXGID=$FIXGID" >> "$PROFILES_DIR/.env"
 echo "BASE_PORT=$BASE_PORT" >> "$PROFILES_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$PROFILES_DIR/.env"
 echo "FOXGLOVE_BRIDGE_PORT=$FOXGLOVE_BRIDGE_PORT" >> "$PROFILES_DIR/.env"
+
 echo "CARLA_NOTEBOOKS_PORT=$CARLA_NOTEBOOKS_PORT" >> "$PROFILES_DIR/.env"
 echo "CARLAVIZ_PORT=$CARLAVIZ_PORT" >> "$PROFILES_DIR/.env"
 echo "CARLAVIZ_PORT_2=$CARLAVIZ_PORT_2" >> "$PROFILES_DIR/.env"
@@ -148,6 +150,8 @@ echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$P
 echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILES_DIR/.env"
 
 # Perception
+echo "RADAR_OBJECT_DETECTION_IMAGE=$RADAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+
 # World Modeling
 # Control
 # Simulation

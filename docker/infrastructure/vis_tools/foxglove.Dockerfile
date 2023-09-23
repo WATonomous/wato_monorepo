@@ -40,6 +40,7 @@ COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
 RUN git clone https://github.com/ros-drivers/ackermann_msgs.git --branch ros2 && \
     git clone https://github.com/ros-perception/image_common.git --branch $ROS_DISTRO && \
     git clone https://github.com/carla-simulator/ros-carla-msgs.git --branch master
+COPY src/wato_msgs/sample_msgs sample_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
