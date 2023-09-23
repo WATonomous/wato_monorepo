@@ -4,7 +4,7 @@
   <name>traffic_light_detection</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="e23zhou@watonomous.ca">eddyzhou</maintainer>
+  <maintainer email="r9murali@watonomous.ca">Rijin Muralidharan</maintainer>
   <license>TODO: License declaration</license>
 
   <test_depend>ament_copyright</test_depend>

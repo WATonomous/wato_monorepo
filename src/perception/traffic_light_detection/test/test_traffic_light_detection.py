@@ -12,14 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class TrafficLightDetectionCore():
+from traffic_light_detection.traffic_light_detection_core import TrafficLightDetectionCore
 
-    def deserialize_data(self, msg_data):
-        unfiltered_array = msg_data
-        unfiltered_array.split(";")
-
-        pos_x = float(unfiltered_array[unfiltered_array.find("x") + 2])
-        pos_y = float(unfiltered_array[unfiltered_array.find("y") + 2])
-        pos_z = float(unfiltered_array[unfiltered_array.find("z") + 2])
-
-        return pos_x, pos_y, pos_z
+# def test_process_data():
+#     assert x == 1 and y == 1 and z == 1

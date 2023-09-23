@@ -12,14 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from traffic_light_detection.traffic_light_detection_core import TrafficLightDetectionCore
+class TrafficLightDetectionCore():
 
-
-def test_deserialization():
-    # testing on the cpp transformer is more complete :)
-    traffic_light_detection_core = TrafficLightDetectionCore()
-
-    serialized_msg = "x:1;y:1;z:1;"
-    x, y, z = traffic_light_detection_core.deserialize_data(serialized_msg)
-
-    assert x == 1 and y == 1 and z == 1
+    def process_data(self, msg_data):
+        return msg_data

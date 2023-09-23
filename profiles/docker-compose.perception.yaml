@@ -11,3 +11,14 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/perception/radar_object_detection:/home/docker/ament_ws/src/radar_object_detection
+  traffic_light_detection:
+    build:
+      context: ..
+      dockerfile: docker/perception/traffic_light_detection.Dockerfile
+      cache_from: 
+        - "${TRAFFIC_LIGHT_DETECTION_IMAGE:?}:${TAG}"
+        - "${TRAFFIC_LIGHT_DETECTION_IMAGE:?}:main"
+    image: "${TRAFFIC_LIGHT_DETECTION_IMAGE:?}:${TAG}"
+    user: ${FIXUID:?}:${FIXGID:?}
+    volumes:
+      - ../src/perception/traffic_light_detection:/home/docker/ament_ws/src/traffic_light_detection
