@@ -60,6 +60,14 @@ std::string HDMapManager::get_osm_map_from_coordinates(sensor_msgs::msg::NavSatF
     return get_osm_map_from_coordinates(ros_gps_msg_to_lanelet_gps_point(gps_msg));
 }
 
+struct OSMMap {
+    std::string filename;
+    double min_latitude;
+    double max_latitude;
+    double min_longitude;
+    double max_longitude;
+};
+
 /**
  * Get an osm map from the maps directory which falls within the coordinates specified.
  * 
@@ -71,6 +79,29 @@ std::string HDMapManager::get_osm_map_from_coordinates(lanelet::GPSPoint gps_poi
     // Each map will have GPS bounds (need to initialize list and hard-code bounds of maps for now)
     // Search through lists and find map which gps point is within bounds
     // return the filename of that map, empty string for no map
+    std::unordered_map<std::string, OSMMap> osm_maps;
+
+    // Initialize example maps into the hashmap
+        osm_maps = {
+            {{"map1.osm", 40.0, 41.0, -75.0, -74.0}},
+            {{"map2.osm", 42.0, 43.0, -76.0, -75.0}},       
+            // ...
+        };
+
+    // go through the maps and see if any of them are within the range
+    auto itr = osm_maps.begin();
+    while (itr != osm_maps.end()) {
+        if  (gps_point.latitude() >= itr->second.min_latitude &&
+             gps_point.latitude() <= itr->second.max_latitude &&
+             gps_point.longitude() >= itr->second.min_longitude &&
+             gps_point.longitude() <= itr->second.max_longitude){
+             return itr->map.filename;
+        }
+        itr++;
+    }
+
+    // return empty
+    return "";    
 }
 
 bool HDMapManager::project_osm_to_lanelet(std::string filename, lanelet::Origin origin, lanelet::LaneletMapPtr &lanelet_ptr) {
