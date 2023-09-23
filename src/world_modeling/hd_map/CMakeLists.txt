@@ -20,6 +20,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED) # Lanelet2 Core
 find_package(lanelet2_io REQUIRED) # Lanelet2 IO
 find_package(lanelet2_projection REQUIRED) # Lanelet2 Projection
+find_package(lanelet2_routing REQUIRED) # Lanelet2 Routing
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -44,7 +45,8 @@ ament_target_dependencies(hd_map_lib
   sensor_msgs
   lanelet2_core
   lanelet2_io
-  lanelet2_projection)
+  lanelet2_projection
+  lanelet2_routing)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
