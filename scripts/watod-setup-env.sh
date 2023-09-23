@@ -65,6 +65,7 @@ INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"git.uwaterloo.ca:5050/watono
 
 # Perception
 RADAR_OBJECT_DETECTION_IMAGE=${RADAR_OBJECT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/radar_object_detection"}
+TRAFFIC_LIGHT_DETECTION_IMAGE=${TRAFFIC_LIGHT_DETECTION_IMAGE:-"git.uwaterloo.ca:5050/watonomous/wato_monorepo/traffic_light_detection"}
 
 ## -------------------------- User ID -----------------------------
 
@@ -121,6 +122,7 @@ echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$PROFILE
 
 # Perception
 echo "RADAR_OBJECT_DETECTION_IMAGE=$RADAR_OBJECT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
+echo "TRAFFIC_LIGHT_DETECTION_IMAGE=$TRAFFIC_LIGHT_DETECTION_IMAGE" >> "$PROFILES_DIR/.env"
 
 # World Modeling
 # Control
