@@ -15,7 +15,7 @@
 import rclpy
 from rclpy.node import Node
 
-from sample_msgs.msg import Unfiltered, Filtered, FilteredArray
+from sensor_msgs.msg import Image
 from traffic_light_detection.traffic_light_detection_core import TrafficLightDetectionCore
 
 
@@ -30,10 +30,11 @@ class TrafficLightDetection(Node):
         self.__traffic_light_detection = TrafficLightDetectionCore()
 
         # Initialize ROS2 Constructs
-        self.subscription = self.create_subscription(Unfiltered, '/camera_data',
-                                                     self.unfiltered_callback, 10)
+        self.publisher_ = self.create_publisher(Image, '/publish_topic', 10)
+        self.subscription = self.create_subscription(Image, '/camera_topic',
+                                                     self.image_callback, 10)
 
-    def unfiltered_callback(self, msg):
+    def image_callback(self, msg):
         if not self.check_msg_validity(msg):
             self.get_logger().info('INVALID MSG')
             return
