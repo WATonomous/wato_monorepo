@@ -21,8 +21,13 @@ class HDMapRouter {
 
     bool set_lanelet(const lanelet::LaneletMapPtr &lanelet_ptr);
 
+    bool set_projector(std::shared_ptr<lanelet::Projector> projector);
+
     lanelet::LaneletMapPtr get_lanelet();
-    
+
+    lanelet::BasicPoint3d project_gps_to_point3d(lanelet::GPSPoint gps_point);
+    lanelet::GPSPoint project_point3d_to_gps(lanelet::BasicPoint3d point3d);
+
     // TODO: implemtation of function to get nearest lanelet in lanelet map to gps point
     lanelet::ConstLanelet get_nearest_lanelet_to_gps(lanelet::GPSPoint gps_point);
 
@@ -36,6 +41,7 @@ class HDMapRouter {
   private:
     lanelet::LaneletMapPtr lanelet_ptr_;
     lanelet::routing::RoutingGraphPtr routing_graph_;
+    std::shared_ptr<lanelet::Projector> projector_;
 };
 
 #endif
