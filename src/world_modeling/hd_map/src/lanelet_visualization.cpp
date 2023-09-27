@@ -9,12 +9,33 @@ namespace world_modeling::hd_map
         auto markerArray = visualization_msgs::msg::MarkerArray();
 
         int id = 0;
-        for (auto lanelet = lanelets .begin(); lanelet != lanelets.end(); ++lanelet){
+        for (auto lanelet = lanelets.begin(); lanelet != lanelets.end(); ++lanelet){
             auto markers = laneletAsMarkerArray(*lanelet, &id);
             for(auto marker : markers.markers){
                 markerArray.markers.push_back(marker);
             }
         }
+
+        return markerArray;
+    }
+
+    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::ConstLanelet lanelet, int *id) {
+        auto leftBound = lanelet.leftBound();
+        auto rightBound = lanelet.rightBound();
+        auto centerLine = lanelet.centerline();
+        
+        auto laneColor = std_msgs::msg::ColorRGBA();
+        laneColor.r = 0;
+        laneColor.g = 1;
+        laneColor.b = 0;
+        laneColor.a = 1;
+        
+        auto leftMarker = lineStringAsMarker(leftBound, id, .2, 4, laneColor);
+        auto rightMarker = lineStringAsMarker(rightBound, id, .2, 4, laneColor);
+
+        auto markerArray = visualization_msgs::msg::MarkerArray();
+        markerArray.markers.push_back(leftMarker);
+        markerArray.markers.push_back(rightMarker);
 
         return markerArray;
     }
@@ -36,6 +57,26 @@ namespace world_modeling::hd_map
         auto markerArray = visualization_msgs::msg::MarkerArray();
         markerArray.markers.push_back(leftMarker);
         markerArray.markers.push_back(rightMarker);
+
+        return markerArray;
+    }
+
+    visualization_msgs::msg::MarkerArray laneletPathAsMarkerArray(lanelet::routing::LaneletPath laneletPath) {        
+        auto markerArray = visualization_msgs::msg::MarkerArray();
+
+        int id = 0;
+
+        for (auto lanelet = laneletPath.begin(); lanelet != laneletPath.end(); ++lanelet){
+            auto laneColor = std_msgs::msg::ColorRGBA();
+            laneColor.r = 1;
+            laneColor.g = 0;
+            laneColor.b = 0;
+            laneColor.a = 1;
+            
+            auto marker = lineStringAsMarker(lanelet->centerline(), &id, 1, 4, laneColor);
+            
+            markerArray.markers.push_back(marker);
+        }
 
         return markerArray;
     }

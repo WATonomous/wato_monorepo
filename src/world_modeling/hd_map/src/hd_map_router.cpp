@@ -47,14 +47,30 @@ bool HDMapRouter::set_lanelet(const lanelet::LaneletMapPtr &lanelet_ptr){
     return true;
 }
 
+lanelet::LaneletMapPtr HDMapRouter::get_lanelet(){
+    return this->lanelet_ptr_;
+}
+
+bool HDMapRouter::set_projector(std::shared_ptr<lanelet::Projector> projector){
+    this->projector_ = projector;
+    return true;
+}
+
+lanelet::BasicPoint3d HDMapRouter::project_gps_to_point3d(lanelet::GPSPoint gps_point){
+    return projector_->forward(gps_point);
+}
+
+lanelet::GPSPoint HDMapRouter::project_point3d_to_gps(lanelet::BasicPoint3d point3d){
+    return projector_->reverse(point3d);
+}
+
 lanelet::ConstLanelet HDMapRouter::get_nearest_lanelet_to_gps(lanelet::GPSPoint gps_point){
-    // TODO: implementation of function to get nearest lanelet in lanelet map to gps point
-    lanelet::Point3d search_point{gps_point.lat, gps_point.lon, gps_point.ele};
+    auto search_point = project_gps_to_point3d(gps_point);
     double min_distance = __DBL_MAX__;
     lanelet::ConstLanelet nearest_lanelet;
 
     for (const auto &lanelet : lanelet_ptr_->laneletLayer){
-        double distance = lanelet::geometry::distance3d(lanelet, search_point);
+        double distance = lanelet::geometry::distanceToCenterline3d(lanelet, search_point);
         if (distance < min_distance){
             min_distance = distance;
             nearest_lanelet = lanelet;
@@ -75,6 +91,3 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
     return shortest_path;
 }
 
-lanelet::LaneletMapPtr HDMapRouter::get_lanelet(){
-    return this->lanelet_ptr_;
-}
