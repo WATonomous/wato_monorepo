@@ -9,6 +9,7 @@
 
 ACTIVE_PROFILES="vis_tools data_stream perception"
 
+FOXGLOVE_BRIDGE_PORT = 55201
 
 ## Name to append to docker containers. DEFAULT = <your_watcloud_username>
 
