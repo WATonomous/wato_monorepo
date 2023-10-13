@@ -70,9 +70,12 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     ports:
       - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
+      - 6006:6006
     environment:
       - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}_carla
       - SCENARIO_RUNNER_ROOT=/home/docker/scenario_runner
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=4
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
     volumes:
       - ../src/simulation/carla_notebooks:/home/docker/carla_notebooks

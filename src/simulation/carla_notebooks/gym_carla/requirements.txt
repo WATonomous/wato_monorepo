@@ -1,0 +1,5 @@
+gym
+scikit-image
+numpy
+gymnasium 
+stable-baselines3
