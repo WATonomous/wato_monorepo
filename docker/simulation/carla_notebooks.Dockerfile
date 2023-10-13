@@ -4,7 +4,7 @@ FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 FROM python:3.8.16-slim-bullseye
 ARG CARLA_VERSION
 
-RUN pip3 install carla==${CARLA_VERSION} jupyter tensorflow-probability
+RUN pip3 install carla==${CARLA_VERSION} jupyter tensorflow-probability gymnasium scikit-image numpy stable-baselines3
 RUN apt-get update && apt-get install -y curl git wget unzip && apt remove python3-networkx
 
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla/agents /usr/local/lib/python3.8/site-packages/agents
