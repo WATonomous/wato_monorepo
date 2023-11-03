@@ -85,9 +85,20 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::GPS
 }
 
 lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet){
-    //TODO: Implementation of route function to get shortest path from from_lanelet to to_lanelet
-    //https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/06_routing/main.cpp
     lanelet::Optional<lanelet::routing::LaneletPath> shortest_path = this->routing_graph_->shortestPath(from_lanelet, to_lanelet);
     return shortest_path;
 }
 
+// TODO: functions to add the three regulatory elements on the DRG
+// Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
+void HDMapRouter::add_stop_sign_reg_elem(){
+    // TODO : stop sign
+}
+
+void HDMapRouter::add_ped_reg_elem(){
+    // TODO : pedestrian
+}
+
+void HDMapRouter::add_traffic_light_reg_elem(){
+    // TODO : traffic light
+}

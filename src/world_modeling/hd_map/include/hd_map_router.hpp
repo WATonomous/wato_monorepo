@@ -37,6 +37,14 @@ class HDMapRouter {
     // Reference: https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/06_routing/main.cpp
     lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet);
 
+    // TODO: functions to add the three regulatory elements on the DRG
+    // Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
+
+    void add_stop_sign_reg_elem();
+
+    void add_ped_reg_elem();
+
+    void add_traffic_light_reg_elem();
 
   private:
     lanelet::LaneletMapPtr lanelet_ptr_;
