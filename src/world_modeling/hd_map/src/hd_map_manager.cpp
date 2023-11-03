@@ -76,32 +76,26 @@ struct OSMMap {
  * @return the file name of the lanelet within the gps_point
  */
 std::string HDMapManager::get_osm_map_from_coordinates(lanelet::GPSPoint gps_point) {
-    // TODO: Implement
-    // Each map will have GPS bounds (need to initialize list and hard-code bounds of maps for now)
-    // Search through lists and find map which gps point is within bounds
-    // return the filename of that map, empty string for no map
     std::unordered_map<std::string, OSMMap> osm_maps;
 
-    // Initialize example maps into the hashmap
-        osm_maps = {
-            {{"map1.osm", 40.0, 41.0, -75.0, -74.0}},
-            {{"map2.osm", 42.0, 43.0, -76.0, -75.0}},       
-            // ...
-        };
+    // Initializing example maps into the hashmap | TODO: transfer to maybe config (just for organizing the codebase)
+    osm_maps = {
+        {{"map1.osm", 40.0, 41.0, -75.0, -74.0}},
+        {{"map2.osm", 42.0, 43.0, -76.0, -75.0}},       
+        // ...
+    };
 
-    // go through the maps and see if any of them are within the range
+    // Parse through the maps and see if any of them are within the range
     auto itr = osm_maps.begin();
     while (itr != osm_maps.end()) {
-        if  (gps_point.latitude() >= itr->second.min_latitude &&
-             gps_point.latitude() <= itr->second.max_latitude &&
-             gps_point.longitude() >= itr->second.min_longitude &&
-             gps_point.longitude() <= itr->second.max_longitude){
-             return itr->map.filename;
+        if  (gps_point.latitude() >= itr->second.min_latitude && gps_point.latitude() <= itr->second.max_latitude &&
+             gps_point.longitude() >= itr->second.min_longitude && gps_point.longitude() <= itr->second.max_longitude){
+                return itr->map.filename;
         }
         itr++;
     }
 
-    // return empty
+    // Return an empty string if no map is found
     return "";    
 }
 
