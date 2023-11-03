@@ -1,4 +1,0 @@
-lane_detection_node:
-  ros__parameters:
-    camera_topic: /CAM_FRONT/image_rect_compressed
-    publish_topic: /lane_detection

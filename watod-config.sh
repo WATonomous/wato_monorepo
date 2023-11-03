@@ -7,7 +7,7 @@
 ##   - production    		  :   configs for all containers required in production
 ##   - samples             :   starts sample ROS2 pubsub nodes
 
-ACTIVE_PROFILES="vis_tools perception"
+ACTIVE_PROFILES="vis_tools data_stream perception"
 
 
 ## Name to append to docker containers. DEFAULT = <your_watcloud_username>
@@ -19,3 +19,5 @@ ACTIVE_PROFILES="vis_tools perception"
 ## DEFAULT = <your_current_github_branch> 
 
 TAG=""
+
+FOXGLOVE_BRIDGE_PORT=8768

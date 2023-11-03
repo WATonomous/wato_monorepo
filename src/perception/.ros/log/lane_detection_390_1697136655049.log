@@ -1,0 +1,7 @@
+[INFO] [1697136655.557947609] [lane_detection]: Publishing: 'Hello, world! 0'
+[INFO] [1697136656.057886701] [lane_detection]: Publishing: 'Hello, world! 1'
+[INFO] [1697136656.557891103] [lane_detection]: Publishing: 'Hello, world! 2'
+[INFO] [1697136657.057880535] [lane_detection]: Publishing: 'Hello, world! 3'
+[INFO] [1697136657.557912527] [lane_detection]: Publishing: 'Hello, world! 4'
+[INFO] [1697136658.057873399] [lane_detection]: Publishing: 'Hello, world! 5'
+[INFO] [1697136658.365526237] [rclcpp]: signal_handler(signum=2)
