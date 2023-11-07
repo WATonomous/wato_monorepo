@@ -32,10 +32,14 @@ def generate_launch_description():
         executable='sample_node',
         parameters=[LaunchConfiguration('sample_param_file')],
     )
-    
+
     voxelizer_node = Node(
         package='occupancy',
         executable='voxelizer_node'
+    )
+    voxel_seg_node = Node(
+        package='occupancy',
+        executable='voxel_seg_node'
     )
 
     voxel_segmentation_node = Node(
@@ -47,5 +51,6 @@ def generate_launch_description():
         sample_param,
         sample_node,
         voxel_segmentation_node,
-        voxelizer_node
+        voxelizer_node,
+        voxel_seg_node
     ])

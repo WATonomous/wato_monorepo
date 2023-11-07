@@ -55,6 +55,7 @@ ament_target_dependencies(sample_lib
 # Create ROS2 node executable from source files
 add_executable(sample_node src/sample_node.cpp)
 add_executable(voxelizer_node src/voxelizer_node.cpp)
+add_executable(voxel_seg_node src/voxel_seg_node.cpp)
 
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(sample_node sample_lib)
@@ -68,7 +69,19 @@ ament_target_dependencies(voxelizer_node
   visualization_msgs
   geometry_msgs)
 
+ament_target_dependencies(voxel_seg_node
+  rclcpp
+  sample_msgs
+  world_modeling_msgs
+  pcl_conversions
+  pcl_ros
+  visualization_msgs
+  geometry_msgs)
+
 target_include_directories(voxelizer_node
+  PUBLIC
+  include)
+target_include_directories(voxel_seg_node
   PUBLIC
   include)
 
@@ -79,6 +92,10 @@ install(TARGETS
 
 install(TARGETS
   voxelizer_node
+  DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS
+  voxel_seg_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Install Python modules
