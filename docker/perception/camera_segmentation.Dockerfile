@@ -27,12 +27,12 @@ RUN pip3 install ninja
 RUN pip install --no-cache-dir --upgrade requests urllib3
 
 # fix user permissions when deving in container
-# COPY docker/fixuid_setup.sh /project/fixuid_setup.sh
-# RUN /project/fixuid_setup.sh
+COPY docker/fixuid_setup.sh /project/fixuid_setup.sh
+RUN /project/fixuid_setup.sh
 USER docker:docker
 
 ENV DEBIAN_FRONTEND noninteractive
-RUN sudo chsh -s /bin/bash
+# RUN sudo chsh -s /bin/bash
 ENV SHELL=/bin/bash
 
 # ================= Repositories ===================
