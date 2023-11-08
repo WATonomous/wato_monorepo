@@ -7,7 +7,7 @@
 ##   - production    		  :   configs for all containers required in production
 ##   - samples             :   starts sample ROS2 pubsub nodes
 
-ACTIVE_PROFILES="vis_tools perception"
+ACTIVE_PROFILES="perception"
 
 
 ## Name to append to docker containers. DEFAULT = <your_watcloud_username>
