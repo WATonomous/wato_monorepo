@@ -60,6 +60,17 @@ class CameraSegmentationNode(Node):
         self.TASK_INFER = {"panoptic": self.panoptic_run, 
             "instance": self.instance_run, 
             "semantic": self.semantic_run}
+        
+    # def test_run(self):
+    #     predictor, metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
+
+    #     img = cv2.imread("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test.png")
+    #     img = imutils.resize(img, width=512)
+    #     task = "panoptic"
+    #     out = self.TASK_INFER[task](img, predictor, metadata).get_image()
+    #     cv2.imwrite("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test_results_new.png", out)
+
+    #     print("At the end")
 
     def image_callback(self):
         msg = Image()
@@ -131,19 +142,10 @@ def main(args=None):
     setup_logger()
     setup_logger(name="oneformer")
 
-    # subprocess.run('wget https://shi-labs.com/projects/oneformer/cityscapes/250_16_dinat_l_oneformer_cityscapes_90k.pth', shell=True)
-    # predictor, metadata = setup_modules("cityscapes", "250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
-
-    # img = cv2.imread("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test.png")
-    # img = imutils.resize(img, width=512)
-    # task = "panoptic"
-    # out = TASK_INFER[task](img, predictor, metadata).get_image()
-    # cv2.imwrite("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test_results.png", out)
-
-    print("At the end")
 
     rclpy.init(args=args)
     node = CameraSegmentationNode()
+    # node.test_run()
     rclpy.spin(node)
 
     # Destroy the node explicitly
