@@ -38,6 +38,8 @@ ENV SHELL=/bin/bash
 # ================= Repositories ===================
 FROM base as repo
 
+# RUN chmod +r /src/perception/camera_segmentation/camera_segmentation/data/bpe_simple_vocab_16e6.txt
+
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
@@ -60,4 +62,4 @@ RUN . /opt/ros/$ROS_DISTRO/setup.bash && \
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "launch", "camera_segmentation", "camera_segmentation.launch.py"]
+CMD ["sh", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/run.sh"]
