@@ -4,6 +4,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_core/primitives/BasicRegulatoryElements.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
 #include <lanelet2_routing/Exceptions.h>
@@ -14,7 +15,7 @@
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 #include "hd_map_router.hpp"
 
-class StopSignRegElem{
+class StopSignRegElem : public lanelet::RegulatoryElement{
     public:
     StopSignRegElem();
     void retrieve_stop_sign_msg();

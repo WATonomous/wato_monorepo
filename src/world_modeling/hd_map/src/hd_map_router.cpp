@@ -1,6 +1,8 @@
 #include "hd_map_router.hpp"
 
-HDMapRouter::HDMapRouter() { }
+HDMapRouter::HDMapRouter(rclcpp::Node::SharedPtr node) { 
+    obstacle_subscription();
+}
 
 
 lanelet::GPSPoint ros_gps_msg_to_lanelet_gps_point(sensor_msgs::msg::NavSatFix::SharedPtr gps_msg) {
@@ -13,19 +15,8 @@ lanelet::GPSPoint ros_gps_msg_to_lanelet_gps_point(sensor_msgs::msg::NavSatFix::
 }
 
 bool HDMapRouter::set_lanelet(const lanelet::LaneletMapPtr &lanelet_ptr){
-    // TODO: Build traffic rules factory and assign routing graph | DONE
     lanelet::routing::RoutingGraph::Errors errors;
     this->lanelet_ptr_ = lanelet_ptr;
-
-    /* 
-    **OPTIONAL**
-    //Routing Costs
-    double laneChangeCost = <add-lane-change-cost>;
-    RoutingCostPtrs costPtrs{std::make_shared<RoutingCostDistance>(laneChangeCost)};
-    //Config
-    RoutingGraph::Configuration routingGraphConf;
-    routingGraphConf.emplace(std::make_pair(RoutingGraph::ParticipantHeight, Attribute("2.")));
-    */
 
     lanelet::traffic_rules::TrafficRulesPtr traffic_rules{lanelet::traffic_rules::TrafficRulesFactory::instance().create(lanelet::Locations::Germany, lanelet::Participants::Vehicle)};
     lanelet::routing::RoutingGraphPtr routing_graph = lanelet::routing::RoutingGraph::build(*this->lanelet_ptr_, *traffic_rules);
@@ -89,16 +80,60 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
     return shortest_path;
 }
 
+void HDMapRouter::obstacle_subscriber(){
+    subscription_ = create_subscription<common_msgs::msg::Obstacle>("SPECIFY_TOPIC_HERE", 10, std::bind(process_obstacle_msg, this, _1))
+}
+
+
+void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+    if (!obstacle_msg_ptr){
+        return false;
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle message is empty!")
+    }
+
+    std::string obstacle_label = obstacle_msg_ptr->label;
+
+    geometry_msgs::msg::PoseWithCovariance obstacle_pose = obstacle_msg_ptr->pose;
+    geometry_msgs::msg::Point obstacle_point = pose->position;
+    float x = point->x;
+    float y = point->y;
+    float z = point->z;
+
+    float width_x = obstacle_msg_ptr->width_along_x_axis;
+    float height_y = obstacle_msg_ptr->height_along_y_axis;
+    float depth_z = obstacle_msg_ptr->depth_along_z_axis;
+
+    uint32_t object_id = obstacle_msg_ptr->object_id;
+
+    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle message retrieved!");
+    
+    lanelet::ConstLanelet reg_elem_lanelet = get_nearest_lanelet_to_xyz(x, y, z);
+
+    if (obstacle_label == "STOP SIGN"){
+        add_stop_sign_reg_elem(reg_elem_lanelet);
+    }
+    else if (obstacle_label == "PEDESTRIAN"){
+        add_pedestrian_reg_elem(reg_elem_lanelet);
+    }
+    else if (osbtacle_label == "TRAFFIC LIGHT"){
+        add_traffic_light_reg_elem(reg_elem_lanelet);
+    }
+    else {
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Recieved obstacle label has no associated RegElem!")
+    }
+}
+
+
 // TODO: functions to add the three regulatory elements on the DRG
 // Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
-void HDMapRouter::add_stop_sign_reg_elem(){
+void HDMapRouter::add_stop_sign_reg_elem(lanelet::ConstLanelet reg_elem_lanelet){
     // TODO : stop sign
 }
 
-void HDMapRouter::add_ped_reg_elem(){
+void HDMapRouter::add_pedestrian_reg_elem(lanelet::ConstLanelet reg_elem_lanelet){
     // TODO : pedestrian
 }
 
-void HDMapRouter::add_traffic_light_reg_elem(){
+void HDMapRouter::add_traffic_light_reg_elem(lanelet::ConstLanelet reg_elem_lanelet){
     // TODO : traffic light
 }
