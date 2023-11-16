@@ -1,6 +1,6 @@
 FROM leungjch/cuda118-tensorrt-base:latest as base
-
 WORKDIR /home/docker/ament_ws
+
 
 COPY model /model/pointpillars_model
 

@@ -1,0 +1,4 @@
+source;share/pp_infer/local_setup.bash
+source;share/pp_infer/local_setup.dsv
+source;share/pp_infer/local_setup.sh
+source;share/pp_infer/local_setup.zsh
