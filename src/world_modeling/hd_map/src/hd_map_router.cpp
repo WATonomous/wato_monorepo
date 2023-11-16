@@ -1,9 +1,6 @@
 #include "hd_map_router.hpp"
 
-HDMapRouter::HDMapRouter(rclcpp::Node::SharedPtr node) { 
-    obstacle_subscription();
-}
-
+HDMapRouter::HDMapRouter() {}
 
 lanelet::GPSPoint ros_gps_msg_to_lanelet_gps_point(sensor_msgs::msg::NavSatFix::SharedPtr gps_msg) {
     lanelet::GPSPoint gpsPoint = lanelet::GPSPoint();
@@ -71,6 +68,12 @@ lanelet::ConstLanelet HDMapRouter::get_nearest_lanelet_to_gps(lanelet::GPSPoint 
     return nearest_lanelet;
 }
 
+// TODO: implementation of get nearest lanelet to Obstacle x, y, z coordinates
+// Reference: [FINDING]
+lanelet::ConstLanelet HDMapRouter::get_nearest_lanelet_to_xyz(float x, float y, float z){
+
+}
+
 lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::GPSPoint from_point, lanelet::GPSPoint to_point){
     return route(get_nearest_lanelet_to_gps(from_point), get_nearest_lanelet_to_gps(to_point));
 }
@@ -80,24 +83,20 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
     return shortest_path;
 }
 
-void HDMapRouter::obstacle_subscriber(){
-    subscription_ = create_subscription<common_msgs::msg::Obstacle>("SPECIFY_TOPIC_HERE", 10, std::bind(process_obstacle_msg, this, _1))
-}
-
-
 void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
     if (!obstacle_msg_ptr){
-        return false;
-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle message is empty!")
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle message is empty!");
+        return;
     }
 
     std::string obstacle_label = obstacle_msg_ptr->label;
 
-    geometry_msgs::msg::PoseWithCovariance obstacle_pose = obstacle_msg_ptr->pose;
-    geometry_msgs::msg::Point obstacle_point = pose->position;
-    float x = point->x;
-    float y = point->y;
-    float z = point->z;
+    geometry_msgs::msg::PoseWithCovariance obstacle_pose_covariance = obstacle_msg_ptr->pose;
+    geometry_msgs::msg::Pose obstacle_pose = obstacle_pose_covariance.pose;
+    geometry_msgs::msg::Point obstacle_point = obstacle_pose.position;
+    float x = obstacle_point.x;
+    float y = obstacle_point.y;
+    float z = obstacle_point.z;
 
     float width_x = obstacle_msg_ptr->width_along_x_axis;
     float height_y = obstacle_msg_ptr->height_along_y_axis;
@@ -107,7 +106,7 @@ void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedP
 
     RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle message retrieved!");
     
-    lanelet::ConstLanelet reg_elem_lanelet = get_nearest_lanelet_to_xyz(x, y, z);
+    lanelet::ConstLanelet reg_elem_lanelet = HDMapRouter::get_nearest_lanelet_to_xyz(x, y, z);
 
     if (obstacle_label == "STOP SIGN"){
         add_stop_sign_reg_elem(reg_elem_lanelet);
@@ -115,11 +114,11 @@ void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedP
     else if (obstacle_label == "PEDESTRIAN"){
         add_pedestrian_reg_elem(reg_elem_lanelet);
     }
-    else if (osbtacle_label == "TRAFFIC LIGHT"){
+    else if (obstacle_label == "TRAFFIC LIGHT"){
         add_traffic_light_reg_elem(reg_elem_lanelet);
     }
     else {
-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Recieved obstacle label has no associated RegElem!")
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Recieved obstacle label has no associated RegElem!");
     }
 }
 

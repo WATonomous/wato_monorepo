@@ -15,6 +15,8 @@ find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(visualization_msgs REQUIRED)
+find_package(common_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED) # Lanelet2 Core
@@ -40,6 +42,7 @@ target_include_directories(hd_map_lib
 ament_target_dependencies(hd_map_lib
   rclcpp
   sample_msgs
+  common_msgs
   visualization_msgs
   geometry_msgs
   sensor_msgs
