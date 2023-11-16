@@ -47,6 +47,7 @@ RUN git clone https://docker-image:wnYipLhHecUSW5NEKb2V@git.uwaterloo.ca/WATonom
 
 COPY src/world_modeling/hd_map hd_map
 COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/common_msgs common_msgs
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
