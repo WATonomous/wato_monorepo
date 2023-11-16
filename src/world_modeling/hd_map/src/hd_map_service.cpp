@@ -2,8 +2,7 @@
 
 #include "hd_map_service.hpp"
 
-HDMapService::HDMapService()
-: Node("hd_map_service") {
+HDMapService::HDMapService() : Node("hd_map_service") {
   router_ = std::make_shared<HDMapRouter>();
   manager_ = std::make_shared<HDMapManager>(this->router_);
 
@@ -21,8 +20,14 @@ HDMapService::HDMapService()
   hd_map_start_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("hd_map_start_lanelet", 20);
   hd_map_end_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("hd_map_end_lanelet", 20);
 
+  // TODO : replace "SPECIFY_TOPIC_HERE" with perception's topic through which they send the Obstacle msg
+  hd_map_obstacle_subscriber_ = this->create_subscription<common_msgs::msg::Obstacle>("SPECIFY_TOPIC_HERE", 20, std::bind(&HDMapService::obstacle_msg_subscriber, this, std::placeholders::_1));
+  
   hd_map_visualization_timer_ = this->create_wall_timer(std::chrono::milliseconds(5000), std::bind(&HDMapService::publish_hd_map_marker, this));
+}
 
+void HDMapService::obstacle_msg_subscriber(common_msgs::msg::Obstacle::SharedPtr obstacle_msg){
+  router_->process_obstacle_msg(obstacle_msg);
 }
 
 void HDMapService::publish_hd_map_marker(){

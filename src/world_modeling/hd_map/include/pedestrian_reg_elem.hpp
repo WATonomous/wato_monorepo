@@ -1,5 +1,5 @@
-#ifndef WORLD_MODELING_STOP_SIGN_REG_ELEM_
-#define WORLD_MODELING_STOP_SIGN_REG_ELEM_
+#ifndef WORLD_MODELING_PEDESTRIAN_REG_ELEM_
+#define WORLD_MODELING_PEDESTRIAN_REG_ELEM_
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
@@ -15,9 +15,9 @@
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 #include "hd_map_router.hpp"
 
-class StopSignRegElem : public lanelet::RegulatoryElement{
+class PedestrianRegElem : public lanelet::RegulatoryElement{
     public:
-    StopSignRegElem();
+    PedestrianRegElem();
     
     private:
 
