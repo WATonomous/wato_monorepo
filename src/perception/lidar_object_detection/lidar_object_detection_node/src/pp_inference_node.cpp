@@ -70,6 +70,36 @@ using namespace std::chrono_literals;
     }                                                             \
   }
 
+
+int loadData(const char *file, void **data, unsigned int *length)
+{
+    std::fstream dataFile(file, std::ifstream::in);
+
+    if (!dataFile.is_open()) {
+        std::cout << "Can't open files: "<< file<<std::endl;
+        return -1;
+    }
+
+    unsigned int len = 0;
+    dataFile.seekg (0, dataFile.end);
+    len = dataFile.tellg();
+    dataFile.seekg (0, dataFile.beg);
+
+    char *buffer = new char[len];
+    if (buffer==NULL) {
+        std::cout << "Can't malloc buffer."<<std::endl;
+        dataFile.close();
+        exit(EXIT_FAILURE);
+    }
+
+    dataFile.read(buffer, len);
+    dataFile.close();
+
+    *data = (void*)buffer;
+    *length = len;
+    return 0;  
+}
+
 class MinimalPublisher : public rclcpp::Node
 {
 public:
@@ -92,11 +122,16 @@ public:
     pre_nms_top_n = this->get_parameter("pre_nms_top_n").as_int();
     model_path = this->get_parameter("model_path").as_string();
     engine_path = this->get_parameter("engine_path").as_string();
+    RCLCPP_INFO(this->get_logger(), " engine path  %s", engine_path.c_str());
+    RCLCPP_INFO(this->get_logger(), " model path  %s", model_path.c_str());
+
     data_type = this->get_parameter("data_type").as_string();
     intensity_scale = this->get_parameter("intensity_scale").as_double();
 
     cudaStream_t stream = NULL;
     pointpillar = new PointPillar(model_path, engine_path, stream, data_type);
+    RCLCPP_INFO(this->get_logger(), " done loading");
+
 
     publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("bbox", 700);
 
@@ -104,6 +139,146 @@ public:
         "/point_cloud", 700, std::bind(&MinimalPublisher::topic_callback, this, _1));
     dummy_point_cloud = this->create_publisher<sensor_msgs::msg::PointCloud2>(
         "/dummy_point_cloud", default_qos);
+
+
+    /*
+    Load data
+    */
+
+    std::vector<std::string> files = {"/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000000.bin", 
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000001.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000002.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000003.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000004.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000005.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000006.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000007.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000008.bin",
+    // "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/data/000009.bin"
+
+    };
+    while (true) {
+
+    for (auto dataFile : files) {
+        std::cout << "Load file: "<< dataFile <<std::endl;
+        RCLCPP_INFO(this->get_logger(), "  load file! %s ", dataFile.c_str());
+
+        //load points cloud
+        unsigned int length = 0;
+        void *data = NULL;
+        std::shared_ptr<char> buffer((char *)data, std::default_delete<char[]>());
+        loadData(dataFile.data(), &data, &length);
+        buffer.reset((char *)data);
+        int points_size = length/sizeof(float)/4;
+        std::cout << "Lidar points count: "<< points_size <<std::endl;
+
+        RCLCPP_INFO(this->get_logger(), "  Lidar points count %d ", points_size);
+
+        std::vector<Bndbox> nms_pred;
+        nms_pred.reserve(100);
+
+        float *points = static_cast<float *>(data);
+
+        // Use 4 because PCL has padding (4th value now has intensity information)
+        unsigned int points_data_size = points_size * sizeof(float) * 4;
+
+        float *points_data = nullptr;
+        unsigned int *points_num = nullptr;
+        cudaEvent_t start, stop;
+        // unsigned int points_data_size = points_size * num_point_values * sizeof(float);
+        checkCudaErrors(cudaMallocManaged((void **)&points_data, points_data_size));
+        checkCudaErrors(cudaMallocManaged((void **)&points_num, sizeof(unsigned int)));
+        checkCudaErrors(cudaMemcpy(points_data, points, points_data_size, cudaMemcpyDefault));
+        checkCudaErrors(cudaMemcpy(points_num, &points_size, sizeof(unsigned int), cudaMemcpyDefault));
+        checkCudaErrors(cudaDeviceSynchronize());
+
+        cudaEventRecord(start, stream);
+
+        pointpillar->doinfer(
+            points_data, points_num, nms_pred,
+            nms_iou_thresh,
+            pre_nms_top_n,
+            class_names,
+            do_profile);
+
+
+        RCLCPP_INFO(this->get_logger(), "  done inference! %d ", nms_pred.size());
+
+        // write out the detections
+        for (int i = 0; i < nms_pred.size(); i++)
+        {
+          RCLCPP_INFO(this->get_logger(), "  Box %d: x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f", i, nms_pred.at(i).x, nms_pred.at(i).y, nms_pred.at(i).z, nms_pred.at(i).w, nms_pred.at(i).l, nms_pred.at(i).h, nms_pred.at(i).rt);
+          RCLCPP_INFO(this->get_logger(), "  Box %d: id: %d, score: %f", i, nms_pred.at(i).id, nms_pred.at(i).score);
+        }
+
+        
+        // convert points_data to a PCL point cloud
+        pcl::PointCloud<pcl::PointXYZI>::Ptr debug_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+        debug_cloud->header.frame_id = "LIDAR_TOP";
+        debug_cloud->height = 1;
+        debug_cloud->width = points_size;
+        debug_cloud->is_dense = false;
+        debug_cloud->points.resize(points_size);
+        for (int i = 0; i < points_size; i+=4)
+        {
+
+          debug_cloud->points[i].x = points[i];
+          debug_cloud->points[i].y = points[i+1];
+          debug_cloud->points[i].z = points[i+2];
+          debug_cloud->points[i].intensity = points[i+3];
+        }
+        sensor_msgs::msg::PointCloud2 debug_cloud_msg = sensor_msgs::msg::PointCloud2();
+        pcl::toROSMsg(*debug_cloud, debug_cloud_msg);
+        debug_cloud_msg.header.stamp = this->now();
+        dummy_point_cloud->publish(debug_cloud_msg);
+
+
+    auto pc_detection_arr = std::make_shared<vision_msgs::msg::Detection3DArray>();
+    auto timestamp = this->now();
+    std::vector<vision_msgs::msg::Detection3D> detections;
+    int box_id = 0;
+    auto marker_array = visualization_msgs::msg::MarkerArray();
+    for (int i = 0; i < nms_pred.size(); i++)
+    {
+
+      auto bounding_box = visualization_msgs::msg::Marker();
+      bounding_box.header.frame_id = "LIDAR_TOP";
+      bounding_box.header.stamp = timestamp;
+      bounding_box.ns = "bounding_boxes";
+      bounding_box.id = box_id++;
+      bounding_box.type = visualization_msgs::msg::Marker::CUBE;
+      bounding_box.action = visualization_msgs::msg::Marker::ADD;
+
+      bounding_box.color.r = 1.0;
+      bounding_box.color.g = 0.0;
+      bounding_box.color.b = 0.0;
+      bounding_box.color.a = 1.0;
+      bounding_box.pose.position.x = nms_pred.at(i).x;
+      bounding_box.pose.position.y = nms_pred.at(i).y;
+      bounding_box.pose.position.z = nms_pred.at(i).z;
+      bounding_box.scale.x = nms_pred.at(i).w;
+      bounding_box.scale.y = nms_pred.at(i).l;
+      bounding_box.scale.z = nms_pred.at(i).h;
+      RCLCPP_INFO(this->get_logger(), "Box %d: x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f", i, nms_pred.at(i).x, nms_pred.at(i).y, nms_pred.at(i).z, nms_pred.at(i).w, nms_pred.at(i).l, nms_pred.at(i).h, nms_pred.at(i).rt);
+
+      tf2::Quaternion quat;
+      quat.setRPY(0.0, 0.0, nms_pred.at(i).rt);
+
+      bounding_box.pose.orientation.x = quat.x();
+      bounding_box.pose.orientation.y = quat.y();
+      bounding_box.pose.orientation.z = quat.z();
+      bounding_box.pose.orientation.w = quat.w();
+      bounding_box.text = class_names.at(nms_pred.at(i).id);
+      marker_array.markers.push_back(bounding_box);
+    }
+    publisher_->publish(marker_array);
+
+
+    }
+
+
+    }
+
   }
 
 private:

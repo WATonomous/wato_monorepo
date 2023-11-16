@@ -1,0 +1,71 @@
+[35m[1mConsolidate compiler generated dependencies of target pp_infer[0m
+[ 25%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/pp_inference_node.cpp.o[0m
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:49[m[K:
+[01m[K/opt/ros/humble/src/geometry2/tf2_geometry_msgs/include/tf2_geometry_msgs/tf2_geometry_msgs.h:35:2:[m[K [01;35m[Kwarning: [m[K#warning This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead [[01;35m[K-Wcpp[m[K]
+   35 | #[01;35m[Kwarning[m[K This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead
+      |  [01;35m[K^~~~~~~[m[K
+In file included from [01m[K/opt/ros/humble/build/rclcpp/include/rclcpp/logging.hpp:24[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/client.hpp:40[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/callback_group.hpp:24[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/any_executable.hpp:20[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/memory_strategy.hpp:25[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/memory_strategies.hpp:18[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executor_options.hpp:20[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executor.hpp:37[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executors/multi_threaded_executor.hpp:25[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executors.hpp:21[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/rclcpp.hpp:155[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/../include/pp_infer/pointpillar.h:31[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:39[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:[m[K In constructor ‘[01m[KMinimalPublisher::MinimalPublisher()[m[K’:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:193:41:[m[K [01;35m[Kwarning: [m[Kformat ‘[01m[K%d[m[K’ expects argument of type ‘[01m[Kint[m[K’, but argument 5 has type ‘[01m[Kstd::vector<Bndbox>::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K-Wformat=[m[K]
+  193 |         RCLCPP_INFO(this->get_logger(), [01;35m[K"  done inference! %d "[m[K, [32m[Knms_pred.size()[m[K);
+      |                                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K  [32m[K~~~~~~~~~~~~~~~[m[K
+      |                                                                               [32m[K|[m[K
+      |                                                                               [32m[Kstd::vector<Bndbox>::size_type {aka long unsigned int}[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:193:61:[m[K [01;36m[Knote: [m[Kformat string is defined here
+  193 |         RCLCPP_INFO(this->get_logger(), "  done inference! [01;36m[K%d[m[K ", nms_pred.size());
+      |                                                            [01;36m[K~^[m[K
+      |                                                             [01;36m[K|[m[K
+      |                                                             [01;36m[Kint[m[K
+      |                                                            [32m[K%ld[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:196:27:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kstd::vector<Bndbox>::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K-Wsign-compare[m[K]
+  196 |         for (int i = 0; [01;35m[Ki < nms_pred.size()[m[K; i++)
+      |                         [01;35m[K~~^~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:175:28:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kstop[m[K’ [[01;35m[K-Wunused-variable[m[K]
+  175 |         cudaEvent_t start, [01;35m[Kstop[m[K;
+      |                            [01;35m[K^~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:[m[K In member function ‘[01m[Kvoid MinimalPublisher::topic_callback(sensor_msgs::msg::PointCloud2_<std::allocator<void> >::ConstSharedPtr)[m[K’:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:284:23:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kstd::vector<Bndbox>::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K-Wsign-compare[m[K]
+  284 |     for (int i = 0; [01;35m[Ki < nms_pred.size()[m[K; i++)
+      |                     [01;35m[K~~^~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:354:23:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kstd::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI> >::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K-Wsign-compare[m[K]
+  354 |     for (int i = 0; [01;35m[Ki < pcl_cloud->points.size()[m[K; i++)
+      |                     [01;35m[K~~^~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:242:18:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Knum_point_values[m[K’ [[01;35m[K-Wunused-variable[m[K]
+  242 |     unsigned int [01;35m[Knum_point_values[m[K = pcl_cloud->size();
+      |                  [01;35m[K^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:[m[K In constructor ‘[01m[KMinimalPublisher::MinimalPublisher()[m[K’:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:183:24:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstart[m[K’ may be used uninitialized in this function [[01;35m[K-Wmaybe-uninitialized[m[K]
+  183 |         [01;35m[KcudaEventRecord(start, stream)[m[K;
+      |         [01;35m[K~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~[m[K
+[ 50%] [32m[1mLinking CXX executable pp_infer[0m
+[100%] Built target pp_infer
+-- Install configuration: "Release"
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib/pp_infer/pp_infer
+-- Set runtime path of "/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib/pp_infer/pp_infer" to ""
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer//launch
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer//launch/pp_infer_launch.py
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/ament_index/resource_index/package_run_dependencies/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/ament_index/resource_index/parent_prefix_path/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/environment/ament_prefix_path.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/environment/path.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.bash
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.sh
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.zsh
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.dsv
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/ament_index/resource_index/packages/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/cmake/pp_inferConfig.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/cmake/pp_inferConfig-version.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.xml

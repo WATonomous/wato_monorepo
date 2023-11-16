@@ -1,0 +1,19 @@
+[35m[1mConsolidate compiler generated dependencies of target pp_infer[0m
+[100%] Built target pp_infer
+-- Install configuration: "Release"
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib/pp_infer/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer//launch
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer//launch/pp_infer_launch.py
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/ament_index/resource_index/package_run_dependencies/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/ament_index/resource_index/parent_prefix_path/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/environment/ament_prefix_path.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/environment/path.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.bash
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.sh
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.zsh
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/local_setup.dsv
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/ament_index/resource_index/packages/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/cmake/pp_inferConfig.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/cmake/pp_inferConfig-version.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.xml

@@ -1,0 +1,10 @@
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/uninstall.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/pp_infer_uninstall.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/pp_infer.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/test.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/edit_cache.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/rebuild_cache.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/list_install_components.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/install.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/install/local.dir
+/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer/CMakeFiles/install/strip.dir

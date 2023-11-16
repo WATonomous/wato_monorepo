@@ -1,0 +1,46 @@
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:49[m[K:
+[01m[K/opt/ros/humble/src/geometry2/tf2_geometry_msgs/include/tf2_geometry_msgs/tf2_geometry_msgs.h:35:2:[m[K [01;35m[Kwarning: [m[K#warning This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead [[01;35m[K-Wcpp[m[K]
+   35 | #[01;35m[Kwarning[m[K This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead
+      |  [01;35m[K^~~~~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:[m[K In constructor ‘[01m[KMinimalPublisher::MinimalPublisher()[m[K’:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:171:25:[m[K [01;31m[Kerror: [m[K‘[01m[Kstart[m[K’ was not declared in this scope; did you mean ‘[01m[Kstat[m[K’?
+  171 |         cudaEventRecord([01;31m[Kstart[m[K, stream);
+      |                         [01;31m[K^~~~~[m[K
+      |                         [32m[Kstat[m[K
+In file included from [01m[K/opt/ros/humble/build/rclcpp/include/rclcpp/logging.hpp:24[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/client.hpp:40[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/callback_group.hpp:24[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/any_executable.hpp:20[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/memory_strategy.hpp:25[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/memory_strategies.hpp:18[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executor_options.hpp:20[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executor.hpp:37[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executors/multi_threaded_executor.hpp:25[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/executors.hpp:21[m[K,
+                 from [01m[K/opt/ros/humble/src/rclcpp/rclcpp/include/rclcpp/rclcpp.hpp:155[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/../include/pp_infer/pointpillar.h:31[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:39[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:181:41:[m[K [01;35m[Kwarning: [m[Kformat ‘[01m[K%d[m[K’ expects argument of type ‘[01m[Kint[m[K’, but argument 5 has type ‘[01m[Kstd::vector<Bndbox>::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K-Wformat=[m[K]
+  181 |         RCLCPP_INFO(this->get_logger(), [01;35m[K"  done inference! %d "[m[K, [32m[Knms_pred.size()[m[K);
+      |                                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K  [32m[K~~~~~~~~~~~~~~~[m[K
+      |                                                                               [32m[K|[m[K
+      |                                                                               [32m[Kstd::vector<Bndbox>::size_type {aka long unsigned int}[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:181:61:[m[K [01;36m[Knote: [m[Kformat string is defined here
+  181 | LCPP_INFO(this->get_logger(), "  done inference! [01;36m[K%d[m[K ", nms_pred.size());
+      |                                                  [01;36m[K~^[m[K
+      |                                                   [01;36m[K|[m[K
+      |                                                   [01;36m[Kint[m[K
+      |                                                  [32m[K%ld[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:[m[K In member function ‘[01m[Kvoid MinimalPublisher::topic_callback(sensor_msgs::msg::PointCloud2_<std::allocator<void> >::ConstSharedPtr)[m[K’:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:266:23:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kstd::vector<Bndbox>::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K-Wsign-compare[m[K]
+  266 |     for (int i = 0; [01;35m[Ki < nms_pred.size()[m[K; i++)
+      |                     [01;35m[K~~^~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:336:23:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kstd::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI> >::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K-Wsign-compare[m[K]
+  336 |     for (int i = 0; [01;35m[Ki < pcl_cloud->points.size()[m[K; i++)
+      |                     [01;35m[K~~^~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:224:18:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Knum_point_values[m[K’ [[01;35m[K-Wunused-variable[m[K]
+  224 |     unsigned int [01;35m[Knum_point_values[m[K = pcl_cloud->size();
+      |                  [01;35m[K^~~~~~~~~~~~~~~~[m[K
+make[2]: *** [CMakeFiles/pp_infer.dir/build.make:76: CMakeFiles/pp_infer.dir/src/pp_inference_node.cpp.o] Error 1
+make[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/pp_infer.dir/all] Error 2
+make: *** [Makefile:146: all] Error 2

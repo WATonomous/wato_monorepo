@@ -1,0 +1,144 @@
+[2.293s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[2.293s] DEBUG:colcon:Parsed command line arguments: Namespace(allow_overriding=[], ament_cmake_args=None, base_paths=['.'], build_base='build', catkin_cmake_args=None, catkin_skip_building_tests=False, cmake_args=None, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, cmake_target=None, cmake_target_skip_unavailable=False, continue_on_error=False, event_handlers=None, executor='parallel', ignore_user_meta=False, install_base='install', log_base=None, log_level=None, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7ff222e338e0>>, merge_install=False, metas=['./colcon.meta'], packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_end=None, packages_ignore=None, packages_ignore_regex=None, packages_select=None, packages_select_build_failed=False, packages_select_by_dep=None, packages_select_regex=None, packages_select_test_failures=False, packages_skip=None, packages_skip_build_finished=False, packages_skip_by_dep=None, packages_skip_regex=None, packages_skip_test_passed=False, packages_skip_up_to=None, packages_start=None, packages_up_to=None, packages_up_to_regex=None, parallel_workers=120, paths=None, symlink_install=False, test_result_base=None, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7ff222e338e0>, verb_name='build', verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7ff222e33b80>)
+[2.401s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[2.402s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[2.402s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[2.402s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[2.402s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[2.402s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[2.402s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/docker/ament_ws/src/lidar_object_detection'
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[2.402s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[2.413s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extensions ['ignore', 'ignore_ament_install']
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extension 'ignore'
+[2.414s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extension 'ignore_ament_install'
+[2.415s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extensions ['colcon_pkg']
+[2.415s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extension 'colcon_pkg'
+[2.415s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extensions ['colcon_meta']
+[2.415s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extension 'colcon_meta'
+[2.415s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extensions ['ros']
+[2.415s] Level 1:colcon.colcon_core.package_identification:_identify(lidar_object_detection_node) by extension 'ros'
+[2.418s] DEBUG:colcon.colcon_core.package_identification:Package 'lidar_object_detection_node' with type 'ros.ament_cmake' and name 'pp_infer'
+[2.427s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[2.427s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extensions ['ignore', 'ignore_ament_install']
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'ignore'
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'ignore_ament_install'
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extensions ['colcon_pkg']
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'colcon_pkg'
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extensions ['colcon_meta']
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'colcon_meta'
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extensions ['ros']
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'ros'
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extensions ['cmake', 'python']
+[2.428s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'cmake'
+[2.429s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'python'
+[2.429s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extensions ['python_setup_py']
+[2.429s] Level 1:colcon.colcon_core.package_identification:_identify(model) by extension 'python_setup_py'
+[2.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[2.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[2.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[2.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[2.429s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[2.657s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[2.657s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[2.742s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 1 installed packages in /home/docker/ament_ws/src/lidar_object_detection/install
+[2.781s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 1 installed packages in /home/docker/ament_ws/install
+[2.823s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 219 installed packages in /opt/ros/humble/install
+[2.825s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'cmake_args' from command line to 'None'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'cmake_target' from command line to 'None'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'cmake_clean_cache' from command line to 'False'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'cmake_clean_first' from command line to 'False'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'cmake_force_configure' from command line to 'False'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'ament_cmake_args' from command line to 'None'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'catkin_cmake_args' from command line to 'None'
+[2.919s] Level 5:colcon.colcon_core.verb:set package 'pp_infer' build argument 'catkin_skip_building_tests' from command line to 'False'
+[2.919s] DEBUG:colcon.colcon_core.verb:Building package 'pp_infer' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer', 'merge_install': False, 'path': '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node', 'symlink_install': False, 'test_result_base': None}
+[2.957s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[2.994s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[2.994s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node' with build type 'ament_cmake'
+[2.994s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node'
+[3.034s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[3.034s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[3.034s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[3.263s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --build /home/docker/ament_ws/src/lidar_object_detection/build/pp_infer -- -j120 -l120
+[23.508s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --build /home/docker/ament_ws/src/lidar_object_detection/build/pp_infer -- -j120 -l120
+[24.063s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --install /home/docker/ament_ws/src/lidar_object_detection/build/pp_infer
+[24.159s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(pp_infer)
+[24.159s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/build/pp_infer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --install /home/docker/ament_ws/src/lidar_object_detection/build/pp_infer
+[24.205s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer' for CMake module files
+[24.206s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer' for CMake config files
+[24.207s] Level 1:colcon.colcon_core.shell:create_environment_hook('pp_infer', 'cmake_prefix_path')
+[24.244s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/hook/cmake_prefix_path.ps1'
+[24.254s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/hook/cmake_prefix_path.dsv'
+[24.265s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/hook/cmake_prefix_path.sh'
+[24.277s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib'
+[24.277s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/bin'
+[24.277s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib/pkgconfig/pp_infer.pc'
+[24.280s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib/python3.8/site-packages'
+[24.280s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/bin'
+[24.318s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.ps1'
+[24.329s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.dsv'
+[24.340s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.sh'
+[24.357s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.bash'
+[24.366s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.zsh'
+[24.382s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/colcon-core/packages/pp_infer)
+[24.950s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(pp_infer)
+[24.989s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer' for CMake module files
+[24.990s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer' for CMake config files
+[24.990s] Level 1:colcon.colcon_core.shell:create_environment_hook('pp_infer', 'cmake_prefix_path')
+[25.028s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/hook/cmake_prefix_path.ps1'
+[25.042s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/hook/cmake_prefix_path.dsv'
+[25.056s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/hook/cmake_prefix_path.sh'
+[25.073s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib'
+[25.073s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/bin'
+[25.073s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib/pkgconfig/pp_infer.pc'
+[25.073s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/lib/python3.8/site-packages'
+[25.073s] Level 1:colcon.colcon_core.environment:checking '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/bin'
+[25.113s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.ps1'
+[25.126s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.dsv'
+[25.142s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.sh'
+[25.165s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.bash'
+[25.177s] INFO:colcon.colcon_core.shell:Creating package script '/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/pp_infer/package.zsh'
+[25.186s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/docker/ament_ws/src/lidar_object_detection/install/pp_infer/share/colcon-core/packages/pp_infer)
+[25.199s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[25.200s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[25.200s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[25.201s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[25.257s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[25.257s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[25.258s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[25.258s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[25.258s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.NotSupported: Unable to autolaunch a dbus-daemon without a $DISPLAY for X11
+[25.258s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[25.298s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/docker/ament_ws/src/lidar_object_detection/install/local_setup.ps1'
+[25.310s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/docker/ament_ws/src/lidar_object_detection/install/_local_setup_util_ps1.py'
+[25.324s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/docker/ament_ws/src/lidar_object_detection/install/setup.ps1'
+[25.392s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/docker/ament_ws/src/lidar_object_detection/install/local_setup.sh'
+[25.409s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/docker/ament_ws/src/lidar_object_detection/install/_local_setup_util_sh.py'
+[25.420s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/docker/ament_ws/src/lidar_object_detection/install/setup.sh'
+[25.477s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/docker/ament_ws/src/lidar_object_detection/install/local_setup.bash'
+[25.491s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/docker/ament_ws/src/lidar_object_detection/install/setup.bash'
+[25.547s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/docker/ament_ws/src/lidar_object_detection/install/local_setup.zsh'
+[25.561s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/docker/ament_ws/src/lidar_object_detection/install/setup.zsh'
