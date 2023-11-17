@@ -47,7 +47,7 @@ COPY src/perception/camera_segmentation/ camera_segmentation
 COPY src/wato_msgs/sample_msgs sample_msgs
 
 COPY src/perception/camera_segmentation/requirements.txt camera_segmentation/requirements.txt
-RUN pip3 install --no-cache-dir --upgrade -r camera_segmentation/requirements.txt
+RUN pip3 install --no-cache-dir --upgrade --trusted-host pypi.org --trusted-host shi-labs.com --trusted-host files.pythonhosted.org -r camera_segmentation/requirements.txt
 
 WORKDIR /home/docker/ament_ws
 RUN . /opt/ros/$ROS_DISTRO/setup.bash && \
