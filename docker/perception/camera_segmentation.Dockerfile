@@ -46,6 +46,7 @@ WORKDIR /home/docker/ament_ws/src
 COPY src/perception/camera_segmentation/ camera_segmentation
 COPY src/wato_msgs/sample_msgs sample_msgs
 
+# RUN sudo apt-get install ros-humble-cv-bridge
 COPY src/perception/camera_segmentation/requirements.txt camera_segmentation/requirements.txt
 RUN pip3 install --no-cache-dir --upgrade --trusted-host pypi.org --trusted-host shi-labs.com --trusted-host files.pythonhosted.org -r camera_segmentation/requirements.txt
 
