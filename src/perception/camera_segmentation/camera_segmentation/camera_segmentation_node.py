@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 
 import detectron2
 from detectron2.utils.logger import setup_logger
@@ -10,6 +10,7 @@ from detectron2.utils.logger import setup_logger
 # Import libraries
 import numpy as np
 import cv2
+from cv_bridge import CvBridge, CvBridgeError
 import torch
 import imutils
 import os
@@ -38,7 +39,7 @@ class CameraSegmentationNode(Node):
         # log initialization
         self.get_logger().info('Initializing node...')
         # Fetch parameters from yaml file
-        self.declare_parameter('camera_topic', '/camera_topic')
+        self.declare_parameter('camera_topic', '/CAM_FRONT/image_rect_compressed')
         self.declare_parameter('publish_topic', '/camera_segmentation')
         camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
         publish_topic = self.get_parameter('publish_topic').get_parameter_value().string_value
@@ -61,20 +62,38 @@ class CameraSegmentationNode(Node):
             "instance": self.instance_run, 
             "semantic": self.semantic_run}
         
-    def test_run(self):
-        predictor, metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
+        self.predictor, self.metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
+        self.cv_bridge = CvBridge()
+        
+    # def test_run(self):
+    #     predictor, metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
 
-        img = cv2.imread("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test.png")
-        img = imutils.resize(img, width=512)
-        task = "panoptic"
-        out = self.TASK_INFER[task](img, predictor, metadata).get_image()
-        cv2.imwrite("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test_results_new.png", out)
+    #     img = cv2.imread("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test.png")
+    #     img = imutils.resize(img, width=512)
+    #     task = "panoptic"
+    #     out = self.TASK_INFER[task](img, predictor, metadata).get_image()
+    #     cv2.imwrite("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test_results_new.png", out)
 
-        print("At the end")
+    #     print("At the end")
 
-    def image_callback(self):
-        msg = Image()
-        self.publisher_.publish(msg)
+    def image_callback(self, msg):
+        if self.compressed:
+            np_arr = np.frombuffer(msg.data, np.uint8)
+            cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        else:
+            try:
+                cv_image = self.cv_bridge.imgmsg_to_cv2(
+                    msg, desired_encoding="passthrough")
+            except CvBridgeError as e:
+                self.get_logger().error(str(e))
+                return
+            
+        cv_image = imutils.resize(cv_image, width=512)
+        out = self.TASK_INFER["panoptic"](cv_image, self.predictor, self.metadata).get_image()
+
+        img_msg = self.cv_bridge.cv2_to_imgmsg(out, "bgr8")
+
+        self.publisher_.publish(img_msg)
         self.get_logger().info('Publishing image: "%s"' % msg.data)
         self.i += 1
 
@@ -145,7 +164,7 @@ def main(args=None):
 
     rclpy.init(args=args)
     node = CameraSegmentationNode()
-    node.test_run()
+    # node.test_run()
     rclpy.spin(node)
 
     # Destroy the node explicitly
