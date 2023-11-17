@@ -61,16 +61,16 @@ class CameraSegmentationNode(Node):
             "instance": self.instance_run, 
             "semantic": self.semantic_run}
         
-    # def test_run(self):
-    #     predictor, metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
+    def test_run(self):
+        predictor, metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
 
-    #     img = cv2.imread("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test.png")
-    #     img = imutils.resize(img, width=512)
-    #     task = "panoptic"
-    #     out = self.TASK_INFER[task](img, predictor, metadata).get_image()
-    #     cv2.imwrite("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test_results_new.png", out)
+        img = cv2.imread("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test.png")
+        img = imutils.resize(img, width=512)
+        task = "panoptic"
+        out = self.TASK_INFER[task](img, predictor, metadata).get_image()
+        cv2.imwrite("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test_results_new.png", out)
 
-    #     print("At the end")
+        print("At the end")
 
     def image_callback(self):
         msg = Image()
@@ -145,7 +145,7 @@ def main(args=None):
 
     rclpy.init(args=args)
     node = CameraSegmentationNode()
-    # node.test_run()
+    node.test_run()
     rclpy.spin(node)
 
     # Destroy the node explicitly
