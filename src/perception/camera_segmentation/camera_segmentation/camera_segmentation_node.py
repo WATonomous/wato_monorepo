@@ -32,17 +32,21 @@ from .config import (
     add_convnext_config,
 )
 
+# Node initialization; setting up ROS2 parameters and the oneformer model
 class CameraSegmentationNode(Node):
 
     def __init__(self):
         super().__init__('node')
         # log initialization
         self.get_logger().info('Initializing node...')
+
         # Fetch parameters from yaml file
         self.declare_parameter('camera_topic', '/CAM_FRONT/image_rect_compressed')
         self.declare_parameter('publish_topic', '/camera_segmentation')
         camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
         publish_topic = self.get_parameter('publish_topic').get_parameter_value().string_value
+
+        # Create ROS2 publisher and subscriber
         self.publisher_ = self.create_publisher(Image, publish_topic, 10)
         self.subscriber_ = self.create_subscription(Image, camera_topic, self.image_callback, 10)
         self.i = 0
@@ -65,18 +69,9 @@ class CameraSegmentationNode(Node):
         self.predictor, self.metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
         self.cv_bridge = CvBridge()
         
-    # def test_run(self):
-    #     predictor, metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
-
-    #     img = cv2.imread("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test.png")
-    #     img = imutils.resize(img, width=512)
-    #     task = "panoptic"
-    #     out = self.TASK_INFER[task](img, predictor, metadata).get_image()
-    #     cv2.imwrite("/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/samples/test_results_new.png", out)
-
-    #     print("At the end")
-
     def image_callback(self, msg):
+
+        # Convert ROS2 image into cv2
         if self.compressed:
             np_arr = np.frombuffer(msg.data, np.uint8)
             cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -87,12 +82,17 @@ class CameraSegmentationNode(Node):
             except CvBridgeError as e:
                 self.get_logger().error(str(e))
                 return
-            
+        
+        # Resize cv2 image for oneformer
         cv_image = imutils.resize(cv_image, width=512)
+
+        # Do inference on the image using the model
         out = self.TASK_INFER["panoptic"](cv_image, self.predictor, self.metadata).get_image()
 
+        # Convert cv2 image back to a ROS2 image
         img_msg = self.cv_bridge.cv2_to_imgmsg(out, "bgr8")
 
+        # Publish ROS2 image
         self.publisher_.publish(img_msg)
         self.get_logger().info('Publishing image: "%s"' % msg.data)
         self.i += 1
@@ -157,20 +157,16 @@ class CameraSegmentationNode(Node):
         return out
 
 def main(args=None):
-    print("Hello World")
     setup_logger()
     setup_logger(name="oneformer")
 
-
     rclpy.init(args=args)
     node = CameraSegmentationNode()
-    # node.test_run()
     rclpy.spin(node)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-
     node.destroy_node()
     rclpy.shutdown()
 
