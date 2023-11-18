@@ -70,7 +70,6 @@ class CameraSegmentationNode(Node):
         self.cv_bridge = CvBridge()
         
     def image_callback(self, msg):
-
         # Convert ROS2 image into cv2
         if self.compressed:
             np_arr = np.frombuffer(msg.data, np.uint8)

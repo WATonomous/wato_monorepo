@@ -20,4 +20,4 @@ ACTIVE_PROFILES="perception vis_tools data_stream"
 
 TAG="justin"
 
-FOXGLOVE_BRIDGE_PORT=5768
+FOXGLOVE_BRIDGE_PORT=5772
