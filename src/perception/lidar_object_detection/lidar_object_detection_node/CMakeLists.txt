@@ -80,20 +80,49 @@ set(TENSORRT_LIBRARY_DIRS /usr/lib/${ARCH}-linux-gnu/)
 
 include_directories(
     ${CUDA_INCLUDE_DIRS}
+    /usr/local/cuda-11.4/targets/aarch64-linux/include/
     ${TENSORRT_INCLUDE_DIRS}
-    ../include/
+    /usr/include/aarch64-linux-gnu/
+    # ../include/
+    src/CUDA-PointPillars/src
 )
 
 link_directories(
     ${TENSORRT_LIBRARY_DIRS}
     /usr/lib/${ARCH}-linux-gnu
     /usr/${ARCH}-linux-gnu/lib/
+    $ENV{CUDA_Lib}
+    $ENV{TensorRT_Lib}
+    build
 )
 
 file(GLOB_RECURSE SOURCE_FILES
-    src/pointpillar.cpp
-    src/postprocess.cpp
+    # src/pointpillar.cpp
+    # src/postprocess.cpp
+    src/CUDA-PointPillars/src/pointpillar/*.cu
+    src/CUDA-PointPillars/src/pointpillar/*.cpp
+    src/CUDA-PointPillars/src/common/tensor.cu
+    src/CUDA-PointPillars/src/common/tensorrt.cpp
+
 )
+
+file(GLOB_RECURSE CORE_FILES
+  src/CUDA-PointPillars/src/pointpillar/*.cu
+  src/CUDA-PointPillars/src/pointpillar/*.cpp
+  src/CUDA-PointPillars/src/common/tensor.cu
+  src/CUDA-PointPillars/src/common/tensorrt.cpp
+)
+
+####################### libpointpillar_core.so ##########################
+cuda_add_library(pointpillar_core SHARED 
+  	${CORE_FILES}
+)
+
+target_link_libraries(pointpillar_core
+	libnvinfer.so
+)
+#######################################################################
+
 
 
 cuda_add_executable(${PROJECT_NAME} src/pp_inference_node.cpp ${SOURCE_FILES})
@@ -113,7 +142,9 @@ target_link_libraries(${PROJECT_NAME}
     libnvinfer.so
     libnvonnxparser.so
     libnvinfer_plugin.so
+    pointpillar_core
 )
+
 
 install(TARGETS
 	${PROJECT_NAME}

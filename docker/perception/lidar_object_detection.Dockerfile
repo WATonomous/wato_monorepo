@@ -1,3 +1,4 @@
+# FROM leungjch/cuda118-tensorrt-base:latest as base
 FROM leungjch/cuda118-tensorrt-base:latest as base
 
 WORKDIR /home/docker/ament_ws
@@ -6,13 +7,13 @@ RUN nvidia-smi >&2
 
 RUN ROS_DISTRO=humble
 
-# convert the pointpillars model from etlt format to tensorrt engine   
-RUN /model/pointpillars_model/tao-converter  -k tlt_encode \
-               -e /model/pointpillars_model/trt.engine \
-               -p points,1x204800x4,1x204800x4,1x204800x4 \
-               -p num_points,1,1,1 \
-               -t fp16 \
-               /model/pointpillars_model/pointpillars_deployable.etlt
+# # convert the pointpillars model from etlt format to tensorrt engine   
+# RUN /model/pointpillars_model/tao-converter  -k tlt_encode \
+#                -e /model/pointpillars_model/trt.engine \
+#                -p points,1x204800x4,1x204800x4,1x204800x4 \
+#                -p num_points,1,1,1 \
+#                -t fp16 \
+#                /model/pointpillars_model/pointpillars_deployable.etlt
 
 COPY src/perception/lidar_object_detection pointpillars_ws
 
