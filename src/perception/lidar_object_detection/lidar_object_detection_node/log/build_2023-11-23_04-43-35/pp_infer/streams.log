@@ -1,0 +1,34 @@
+[0.291s] Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer': _=/usr/bin/env /usr/local/bin/cmake /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node -DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer
+[0.686s] -- The C compiler identification is GNU 9.4.0
+[1.534s] -- The CXX compiler identification is GNU 9.4.0
+[1.682s] -- Detecting C compiler ABI info
+[5.598s] -- Detecting C compiler ABI info - done
+[5.606s] -- Check for working C compiler: /usr/bin/cc - skipped
+[5.606s] -- Detecting C compile features
+[5.607s] -- Detecting C compile features - done
+[5.749s] -- Detecting CXX compiler ABI info
+[8.741s] -- Detecting CXX compiler ABI info - done
+[8.752s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[8.753s] -- Detecting CXX compile features
+[8.753s] -- Detecting CXX compile features - done
+[9.227s] -- Architecture: x86_64
+[9.246s] [31mCMake Error at CMakeLists.txt:37 (find_package):
+[9.246s]   By not providing "Findament_cmake.cmake" in CMAKE_MODULE_PATH this project
+[9.246s]   has asked CMake to find a package configuration file provided by
+[9.246s]   "ament_cmake", but CMake did not find one.
+[9.246s] 
+[9.246s]   Could not find a package configuration file provided by "ament_cmake" with
+[9.246s]   any of the following names:
+[9.246s] 
+[9.246s]     ament_cmakeConfig.cmake
+[9.246s]     ament_cmake-config.cmake
+[9.247s] 
+[9.247s]   Add the installation prefix of "ament_cmake" to CMAKE_PREFIX_PATH or set
+[9.248s]   "ament_cmake_DIR" to a directory containing one of the above files.  If
+[9.248s]   "ament_cmake" provides a separate development package or SDK, be sure it
+[9.248s]   has been installed.
+[9.248s] 
+[9.248s] [0m
+[9.248s] -- Configuring incomplete, errors occurred!
+[9.248s] See also "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer/CMakeFiles/CMakeOutput.log".
+[9.312s] Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer' returned '1': _=/usr/bin/env /usr/local/bin/cmake /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node -DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer

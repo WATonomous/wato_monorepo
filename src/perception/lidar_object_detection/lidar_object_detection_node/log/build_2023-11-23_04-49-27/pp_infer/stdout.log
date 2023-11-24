@@ -1,0 +1,118 @@
+-- Architecture: x86_64
+-- Found ament_cmake: 1.3.5 (/opt/ros/humble/install/ament_cmake/share/ament_cmake/cmake)
+-- Found rclcpp: 16.0.4 (/opt/ros/humble/install/rclcpp/share/rclcpp/cmake)
+-- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/install/rosidl_generator_c/share/rosidl_generator_c/cmake)
+-- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/install/rosidl_adapter/share/rosidl_adapter/cmake)
+-- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_introspection_c;rosidl_typesupport_fastrtps_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_introspection_cpp;rosidl_typesupport_fastrtps_cpp
+-- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/install/rmw_implementation_cmake/share/rmw_implementation_cmake/cmake)
+-- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/install/rmw_fastrtps_cpp/share/rmw_fastrtps_cpp/cmake)
+-- Using RMW implementation 'rmw_fastrtps_cpp' as default
+-- Found vision_msgs: 4.1.0 (/opt/ros/humble/install/vision_msgs/share/vision_msgs/cmake)
+-- Found message_filters: 4.3.3 (/opt/ros/humble/install/message_filters/share/message_filters/cmake)
+-- Found pcl_conversions: 2.4.1 (/opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake)
+-- Eigen found (include: /usr/include/eigen3, version: 3.3.7)
+-- The imported target "vtkParseOGLExt" references the file
+   "/usr/bin/vtkParseOGLExt-7.1"
+but this file does not exist.  Possible reasons include:
+* The file was deleted, renamed, or moved to another location.
+* An install or uninstall procedure did not complete successfully.
+* The installation package was faulty and contained
+   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+but not all the files it references.
+
+-- The imported target "vtkRenderingPythonTkWidgets" references the file
+   "/usr/lib/x86_64-linux-gnu/libvtkRenderingPythonTkWidgets.so"
+but this file does not exist.  Possible reasons include:
+* The file was deleted, renamed, or moved to another location.
+* An install or uninstall procedure did not complete successfully.
+* The installation package was faulty and contained
+   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+but not all the files it references.
+
+-- The imported target "vtk" references the file
+   "/usr/bin/vtk"
+but this file does not exist.  Possible reasons include:
+* The file was deleted, renamed, or moved to another location.
+* An install or uninstall procedure did not complete successfully.
+* The installation package was faulty and contained
+   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+but not all the files it references.
+
+-- The imported target "pvtk" references the file
+   "/usr/bin/pvtk"
+but this file does not exist.  Possible reasons include:
+* The file was deleted, renamed, or moved to another location.
+* An install or uninstall procedure did not complete successfully.
+* The installation package was faulty and contained
+   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+but not all the files it references.
+
+-- Checking for module 'libusb-1.0'
+--   No package 'libusb-1.0' found
+-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+-- OpenNI disabled because libusb-1.0 not found.
+-- Checking for module 'libusb-1.0'
+--   No package 'libusb-1.0' found
+-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+-- OpenNI 2 disabled because libusb-1.0 not found.
+-- LIBUSB_1_LIBRARY (missing: LIBUSB_1_INCLUDE_DIR) 
+-- Checking for module 'libusb-1.0'
+--   No package 'libusb-1.0' found
+-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+-- OpenNI disabled because libusb-1.0 not found.
+-- Checking for module 'libusb-1.0'
+--   No package 'libusb-1.0' found
+-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+-- OpenNI 2 disabled because libusb-1.0 not found.
+-- QHULL found (include: /usr/include, lib: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so)
+-- Checking for module 'libusb-1.0'
+--   No package 'libusb-1.0' found
+-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+-- OpenNI disabled because libusb-1.0 not found.
+-- Found pcl_ros: 2.4.1 (/opt/ros/humble/install/pcl_ros/share/pcl_ros/cmake)
+-- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/install/eigen3_cmake_module/share/eigen3_cmake_module/cmake)
+-- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+-- Found visualization_msgs: 4.2.3 (/opt/ros/humble/install/visualization_msgs/share/visualization_msgs/cmake)
+-- Found ament_lint_auto: 0.12.6 (/opt/ros/humble/install/ament_lint_auto/share/ament_lint_auto/cmake)
+-- Added test 'copyright' to check source files copyright and LICENSE
+-- Added test 'cppcheck' to perform static code analysis on C / C++ code
+-- Configured cppcheck include dirs: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src
+-- Configured cppcheck exclude dirs and/or files: 
+-- Added test 'cpplint' to check C / C++ code against the Google style
+-- Configured cpplint exclude dirs and/or files: 
+-- Added test 'flake8' to check Python code syntax and style conventions
+-- Added test 'lint_cmake' to check CMake code style
+-- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257
+-- Added test 'uncrustify' to check C / C++ code style
+-- Configured uncrustify additional arguments: 
+-- Added test 'xmllint' to check XML markup files
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer
+[35m[1mConsolidate compiler generated dependencies of target pointpillar_core[0m
+[  4%] [32m[1mLinking CXX shared library libpointpillar_core.so[0m
+[ 37%] Built target pointpillar_core
+[35m[1mConsolidate compiler generated dependencies of target pp_infer[0m
+[ 41%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/pp_inference_node.cpp.o[0m
+[ 45%] [32m[1mLinking CXX executable pp_infer[0m
+[100%] Built target pp_infer
+-- Install configuration: "Release"
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer
+-- Set runtime path of "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer" to ""
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch/pp_infer_launch.py
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/package_run_dependencies/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/parent_prefix_path/pp_infer
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/ament_prefix_path.dsv
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/path.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.bash
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.sh
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.zsh
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.dsv
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/packages/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig-version.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.xml

@@ -22,15 +22,15 @@ def generate_launch_description():
         Node(
             package='pp_infer',
             executable='pp_infer',
-            parameters=[{
-                'nms_iou_thresh': 0.01,
-                'pre_nms_top_n': 4096,
-                'class_names': ['Vehicle', 'Pedestrian', 'Cyclist'],
-                'model_path': '', 
-                'engine_path': '/model/pointpillars_model/trt.engine',
-                'data_type': 'fp32',
-                'intensity_scale': 100.0,
-            }],
-            remappings=[('/point_cloud', '/LIDAR_TOP')],
+            # parameters=[{
+            #     'nms_iou_thresh': 0.01,
+            #     'pre_nms_top_n': 4096,
+            #     'class_names': ['Vehicle', 'Pedestrian', 'Cyclist'],
+            #     'model_path': '', 
+            #     'engine_path': '/model/pointpillars_model/trt.engine',
+            #     'data_type': 'fp32',
+            #     'intensity_scale': 100.0,
+            # }],
+            # remappings=[('/point_cloud', '/LIDAR_TOP')],
         )
     ])

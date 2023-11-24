@@ -19,3 +19,5 @@ ACTIVE_PROFILES="vis_tools data_stream perception"
 ## DEFAULT = <your_current_github_branch> 
 
 TAG="justin"
+
+FOXGLOVE_BRIDGE_PORT=8770

@@ -1,0 +1,555 @@
+[2.421s] Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --build /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer -- -j120 -l120
+[2.422s] -- Architecture: x86_64
+[2.422s] -- Found ament_cmake: 1.3.5 (/opt/ros/humble/install/ament_cmake/share/ament_cmake/cmake)
+[3.638s] -- Found rclcpp: 16.0.4 (/opt/ros/humble/install/rclcpp/share/rclcpp/cmake)
+[3.678s] -- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/install/rosidl_generator_c/share/rosidl_generator_c/cmake)
+[3.681s] -- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/install/rosidl_adapter/share/rosidl_adapter/cmake)
+[3.687s] -- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake)
+[3.804s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_introspection_c;rosidl_typesupport_fastrtps_c
+[3.931s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_introspection_cpp;rosidl_typesupport_fastrtps_cpp
+[4.068s] -- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/install/rmw_implementation_cmake/share/rmw_implementation_cmake/cmake)
+[4.163s] -- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/install/rmw_fastrtps_cpp/share/rmw_fastrtps_cpp/cmake)
+[4.456s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[4.615s] -- Found vision_msgs: 4.1.0 (/opt/ros/humble/install/vision_msgs/share/vision_msgs/cmake)
+[4.735s] -- Found message_filters: 4.3.3 (/opt/ros/humble/install/message_filters/share/message_filters/cmake)
+[4.740s] -- Found pcl_conversions: 2.4.1 (/opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake)
+[5.004s] -- Eigen found (include: /usr/include/eigen3, version: 3.3.7)
+[5.106s] -- The imported target "vtkParseOGLExt" references the file
+[5.106s]    "/usr/bin/vtkParseOGLExt-7.1"
+[5.107s] but this file does not exist.  Possible reasons include:
+[5.107s] * The file was deleted, renamed, or moved to another location.
+[5.108s] * An install or uninstall procedure did not complete successfully.
+[5.108s] * The installation package was faulty and contained
+[5.108s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[5.108s] but not all the files it references.
+[5.108s] 
+[5.108s] -- The imported target "vtkRenderingPythonTkWidgets" references the file
+[5.108s]    "/usr/lib/x86_64-linux-gnu/libvtkRenderingPythonTkWidgets.so"
+[5.108s] but this file does not exist.  Possible reasons include:
+[5.108s] * The file was deleted, renamed, or moved to another location.
+[5.108s] * An install or uninstall procedure did not complete successfully.
+[5.109s] * The installation package was faulty and contained
+[5.109s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[5.109s] but not all the files it references.
+[5.109s] 
+[5.109s] -- The imported target "vtk" references the file
+[5.109s]    "/usr/bin/vtk"
+[5.109s] but this file does not exist.  Possible reasons include:
+[5.109s] * The file was deleted, renamed, or moved to another location.
+[5.109s] * An install or uninstall procedure did not complete successfully.
+[5.110s] * The installation package was faulty and contained
+[5.110s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[5.110s] but not all the files it references.
+[5.110s] 
+[5.110s] -- The imported target "pvtk" references the file
+[5.110s]    "/usr/bin/pvtk"
+[5.110s] but this file does not exist.  Possible reasons include:
+[5.110s] * The file was deleted, renamed, or moved to another location.
+[5.110s] * An install or uninstall procedure did not complete successfully.
+[5.111s] * The installation package was faulty and contained
+[5.111s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[5.111s] but not all the files it references.
+[5.111s] 
+[5.124s] -- Checking for module 'libusb-1.0'
+[5.135s] --   No package 'libusb-1.0' found
+[5.143s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.143s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[5.143s]   does not match the name of the calling package (OpenNI).  This can lead to
+[5.143s]   problems in calling code that expects `find_package` result variables
+[5.143s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.143s] Call Stack (most recent call first):
+[5.143s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)
+[5.143s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)
+[5.143s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)
+[5.143s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[5.144s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.144s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.144s]   CMakeLists.txt:47 (find_package)
+[5.144s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.144s] [0m
+[5.144s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[5.144s] -- OpenNI disabled because libusb-1.0 not found.
+[5.150s] -- Checking for module 'libusb-1.0'
+[5.159s] --   No package 'libusb-1.0' found
+[5.168s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.168s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[5.168s]   does not match the name of the calling package (OpenNI2).  This can lead to
+[5.168s]   problems in calling code that expects `find_package` result variables
+[5.168s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.168s] Call Stack (most recent call first):
+[5.169s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI2.cmake:28 (find_package_handle_standard_args)
+[5.169s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:193 (find_package)
+[5.169s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_openni2)
+[5.169s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[5.169s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.169s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.169s]   CMakeLists.txt:47 (find_package)
+[5.169s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.169s] [0m
+[5.169s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[5.169s] -- OpenNI 2 disabled because libusb-1.0 not found.
+[5.183s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.184s]   The package name passed to `find_package_handle_standard_args` (libusb-1.0)
+[5.184s]   does not match the name of the calling package (PCL).  This can lead to
+[5.184s]   problems in calling code that expects `find_package` result variables
+[5.184s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.184s] Call Stack (most recent call first):
+[5.184s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:291 (find_package_handle_standard_args)
+[5.184s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:338 (find_libusb)
+[5.184s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[5.184s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.185s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.185s]   CMakeLists.txt:47 (find_package)
+[5.185s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.185s] [0m
+[5.185s] -- LIBUSB_1_LIBRARY (missing: LIBUSB_1_INCLUDE_DIR) 
+[5.190s] -- Checking for module 'libusb-1.0'
+[5.200s] --   No package 'libusb-1.0' found
+[5.210s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.210s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[5.210s]   does not match the name of the calling package (OpenNI).  This can lead to
+[5.210s]   problems in calling code that expects `find_package` result variables
+[5.211s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.211s] Call Stack (most recent call first):
+[5.211s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)
+[5.211s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)
+[5.211s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)
+[5.211s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[5.211s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.211s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.211s]   CMakeLists.txt:47 (find_package)
+[5.211s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.211s] [0m
+[5.211s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[5.212s] -- OpenNI disabled because libusb-1.0 not found.
+[5.218s] -- Checking for module 'libusb-1.0'
+[5.226s] --   No package 'libusb-1.0' found
+[5.235s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.235s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[5.235s]   does not match the name of the calling package (OpenNI2).  This can lead to
+[5.235s]   problems in calling code that expects `find_package` result variables
+[5.235s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.235s] Call Stack (most recent call first):
+[5.236s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI2.cmake:28 (find_package_handle_standard_args)
+[5.236s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:193 (find_package)
+[5.236s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_openni2)
+[5.236s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[5.236s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.236s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.236s]   CMakeLists.txt:47 (find_package)
+[5.236s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.236s] [0m
+[5.236s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[5.237s] -- OpenNI 2 disabled because libusb-1.0 not found.
+[5.245s] -- QHULL found (include: /usr/include, lib: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so)
+[5.252s] -- Checking for module 'libusb-1.0'
+[5.259s] --   No package 'libusb-1.0' found
+[5.268s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.268s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[5.268s]   does not match the name of the calling package (OpenNI).  This can lead to
+[5.268s]   problems in calling code that expects `find_package` result variables
+[5.268s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.268s] Call Stack (most recent call first):
+[5.268s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)
+[5.268s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)
+[5.268s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)
+[5.268s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[5.268s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.269s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.269s]   CMakeLists.txt:47 (find_package)
+[5.269s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.269s] [0m
+[5.269s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[5.269s] -- OpenNI disabled because libusb-1.0 not found.
+[5.277s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.277s]   The package name passed to `find_package_handle_standard_args` (PCL_COMMON)
+[5.277s]   does not match the name of the calling package (PCL).  This can lead to
+[5.277s]   problems in calling code that expects `find_package` result variables
+[5.278s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.278s] Call Stack (most recent call first):
+[5.278s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.278s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.278s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.278s]   CMakeLists.txt:47 (find_package)
+[5.278s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.278s] [0m
+[5.278s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.279s]   The package name passed to `find_package_handle_standard_args` (PCL_KDTREE)
+[5.279s]   does not match the name of the calling package (PCL).  This can lead to
+[5.279s]   problems in calling code that expects `find_package` result variables
+[5.279s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.279s] Call Stack (most recent call first):
+[5.279s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.280s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.280s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.280s]   CMakeLists.txt:47 (find_package)
+[5.280s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.280s] [0m
+[5.281s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.281s]   The package name passed to `find_package_handle_standard_args` (PCL_OCTREE)
+[5.281s]   does not match the name of the calling package (PCL).  This can lead to
+[5.281s]   problems in calling code that expects `find_package` result variables
+[5.281s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.281s] Call Stack (most recent call first):
+[5.281s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.281s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.282s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.282s]   CMakeLists.txt:47 (find_package)
+[5.282s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.282s] [0m
+[5.282s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.282s]   The package name passed to `find_package_handle_standard_args` (PCL_SEARCH)
+[5.283s]   does not match the name of the calling package (PCL).  This can lead to
+[5.283s]   problems in calling code that expects `find_package` result variables
+[5.283s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.283s] Call Stack (most recent call first):
+[5.283s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.283s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.283s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.283s]   CMakeLists.txt:47 (find_package)
+[5.284s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.284s] [0m
+[5.284s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.284s]   The package name passed to `find_package_handle_standard_args`
+[5.284s]   (PCL_SAMPLE_CONSENSUS) does not match the name of the calling package
+[5.284s]   (PCL).  This can lead to problems in calling code that expects
+[5.284s]   `find_package` result variables (e.g., `_FOUND`) to follow a certain
+[5.284s]   pattern.
+[5.284s] Call Stack (most recent call first):
+[5.285s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.285s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.285s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.285s]   CMakeLists.txt:47 (find_package)
+[5.285s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.285s] [0m
+[5.285s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.285s]   The package name passed to `find_package_handle_standard_args`
+[5.286s]   (PCL_FILTERS) does not match the name of the calling package (PCL).  This
+[5.286s]   can lead to problems in calling code that expects `find_package` result
+[5.286s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.286s] Call Stack (most recent call first):
+[5.286s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.286s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.286s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.287s]   CMakeLists.txt:47 (find_package)
+[5.287s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.287s] [0m
+[5.287s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.287s]   The package name passed to `find_package_handle_standard_args` (PCL_2D)
+[5.287s]   does not match the name of the calling package (PCL).  This can lead to
+[5.287s]   problems in calling code that expects `find_package` result variables
+[5.287s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.287s] Call Stack (most recent call first):
+[5.287s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[5.288s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.288s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.288s]   CMakeLists.txt:47 (find_package)
+[5.288s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.288s] [0m
+[5.288s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.288s]   The package name passed to `find_package_handle_standard_args`
+[5.288s]   (PCL_GEOMETRY) does not match the name of the calling package (PCL).  This
+[5.288s]   can lead to problems in calling code that expects `find_package` result
+[5.288s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.288s] Call Stack (most recent call first):
+[5.288s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[5.288s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.288s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.289s]   CMakeLists.txt:47 (find_package)
+[5.289s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.289s] [0m
+[5.289s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.289s]   The package name passed to `find_package_handle_standard_args` (PCL_IO)
+[5.289s]   does not match the name of the calling package (PCL).  This can lead to
+[5.289s]   problems in calling code that expects `find_package` result variables
+[5.289s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.289s] Call Stack (most recent call first):
+[5.289s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.289s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.289s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.289s]   CMakeLists.txt:47 (find_package)
+[5.289s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.290s] [0m
+[5.290s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.290s]   The package name passed to `find_package_handle_standard_args`
+[5.290s]   (PCL_FEATURES) does not match the name of the calling package (PCL).  This
+[5.290s]   can lead to problems in calling code that expects `find_package` result
+[5.290s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.290s] Call Stack (most recent call first):
+[5.290s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.290s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.290s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.290s]   CMakeLists.txt:47 (find_package)
+[5.290s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.290s] [0m
+[5.291s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.291s]   The package name passed to `find_package_handle_standard_args` (PCL_ML)
+[5.291s]   does not match the name of the calling package (PCL).  This can lead to
+[5.291s]   problems in calling code that expects `find_package` result variables
+[5.291s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.291s] Call Stack (most recent call first):
+[5.291s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.291s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.291s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.291s]   CMakeLists.txt:47 (find_package)
+[5.291s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.291s] [0m
+[5.291s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.291s]   The package name passed to `find_package_handle_standard_args`
+[5.292s]   (PCL_SEGMENTATION) does not match the name of the calling package (PCL).
+[5.292s]   This can lead to problems in calling code that expects `find_package`
+[5.292s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.292s] Call Stack (most recent call first):
+[5.292s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.292s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.292s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.292s]   CMakeLists.txt:47 (find_package)
+[5.292s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.292s] [0m
+[5.292s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.292s]   The package name passed to `find_package_handle_standard_args`
+[5.293s]   (PCL_VISUALIZATION) does not match the name of the calling package (PCL).
+[5.293s]   This can lead to problems in calling code that expects `find_package`
+[5.293s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.293s] Call Stack (most recent call first):
+[5.293s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.293s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.293s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.293s]   CMakeLists.txt:47 (find_package)
+[5.293s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.293s] [0m
+[5.293s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.293s]   The package name passed to `find_package_handle_standard_args`
+[5.293s]   (PCL_SURFACE) does not match the name of the calling package (PCL).  This
+[5.293s]   can lead to problems in calling code that expects `find_package` result
+[5.294s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.294s] Call Stack (most recent call first):
+[5.294s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.294s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.294s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.294s]   CMakeLists.txt:47 (find_package)
+[5.294s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.294s] [0m
+[5.294s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.294s]   The package name passed to `find_package_handle_standard_args`
+[5.294s]   (PCL_REGISTRATION) does not match the name of the calling package (PCL).
+[5.294s]   This can lead to problems in calling code that expects `find_package`
+[5.294s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.295s] Call Stack (most recent call first):
+[5.295s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.295s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.295s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.295s]   CMakeLists.txt:47 (find_package)
+[5.295s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.295s] [0m
+[5.295s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.295s]   The package name passed to `find_package_handle_standard_args`
+[5.295s]   (PCL_KEYPOINTS) does not match the name of the calling package (PCL).  This
+[5.295s]   can lead to problems in calling code that expects `find_package` result
+[5.295s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.296s] Call Stack (most recent call first):
+[5.296s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.296s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.296s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.296s]   CMakeLists.txt:47 (find_package)
+[5.296s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.296s] [0m
+[5.296s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.296s]   The package name passed to `find_package_handle_standard_args`
+[5.296s]   (PCL_TRACKING) does not match the name of the calling package (PCL).  This
+[5.296s]   can lead to problems in calling code that expects `find_package` result
+[5.296s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.296s] Call Stack (most recent call first):
+[5.296s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.297s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.297s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.297s]   CMakeLists.txt:47 (find_package)
+[5.297s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.297s] [0m
+[5.297s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.297s]   The package name passed to `find_package_handle_standard_args`
+[5.297s]   (PCL_RECOGNITION) does not match the name of the calling package (PCL).
+[5.297s]   This can lead to problems in calling code that expects `find_package`
+[5.297s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.297s] Call Stack (most recent call first):
+[5.297s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.297s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.298s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.298s]   CMakeLists.txt:47 (find_package)
+[5.298s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.298s] [0m
+[5.298s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.298s]   The package name passed to `find_package_handle_standard_args` (PCL_STEREO)
+[5.298s]   does not match the name of the calling package (PCL).  This can lead to
+[5.298s]   problems in calling code that expects `find_package` result variables
+[5.298s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.298s] Call Stack (most recent call first):
+[5.298s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.298s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.298s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.299s]   CMakeLists.txt:47 (find_package)
+[5.299s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.299s] [0m
+[5.299s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.299s]   The package name passed to `find_package_handle_standard_args` (PCL_APPS)
+[5.299s]   does not match the name of the calling package (PCL).  This can lead to
+[5.299s]   problems in calling code that expects `find_package` result variables
+[5.299s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.299s] Call Stack (most recent call first):
+[5.299s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.299s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.299s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.299s]   CMakeLists.txt:47 (find_package)
+[5.299s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.300s] [0m
+[5.300s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.300s]   The package name passed to `find_package_handle_standard_args`
+[5.300s]   (PCL_IN_HAND_SCANNER) does not match the name of the calling package (PCL).
+[5.300s]   This can lead to problems in calling code that expects `find_package`
+[5.300s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.300s] Call Stack (most recent call first):
+[5.300s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[5.300s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.300s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.300s]   CMakeLists.txt:47 (find_package)
+[5.300s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.300s] [0m
+[5.301s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.301s]   The package name passed to `find_package_handle_standard_args`
+[5.301s]   (PCL_POINT_CLOUD_EDITOR) does not match the name of the calling package
+[5.301s]   (PCL).  This can lead to problems in calling code that expects
+[5.301s]   `find_package` result variables (e.g., `_FOUND`) to follow a certain
+[5.301s]   pattern.
+[5.301s] Call Stack (most recent call first):
+[5.301s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[5.301s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.301s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.301s]   CMakeLists.txt:47 (find_package)
+[5.301s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.301s] [0m
+[5.302s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.302s]   The package name passed to `find_package_handle_standard_args`
+[5.302s]   (PCL_OUTOFCORE) does not match the name of the calling package (PCL).  This
+[5.302s]   can lead to problems in calling code that expects `find_package` result
+[5.302s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[5.302s] Call Stack (most recent call first):
+[5.302s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.302s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.302s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.302s]   CMakeLists.txt:47 (find_package)
+[5.302s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.302s] [0m
+[5.302s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[5.303s]   The package name passed to `find_package_handle_standard_args` (PCL_PEOPLE)
+[5.303s]   does not match the name of the calling package (PCL).  This can lead to
+[5.303s]   problems in calling code that expects `find_package` result variables
+[5.303s]   (e.g., `_FOUND`) to follow a certain pattern.
+[5.303s] Call Stack (most recent call first):
+[5.303s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[5.303s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[5.303s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[5.303s]   CMakeLists.txt:47 (find_package)
+[5.303s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[5.303s] [0m
+[5.303s] -- Found pcl_ros: 2.4.1 (/opt/ros/humble/install/pcl_ros/share/pcl_ros/cmake)
+[5.531s] -- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/install/eigen3_cmake_module/share/eigen3_cmake_module/cmake)
+[5.532s] -- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+[5.830s] -- Found visualization_msgs: 4.2.3 (/opt/ros/humble/install/visualization_msgs/share/visualization_msgs/cmake)
+[6.871s] -- Found ament_lint_auto: 0.12.6 (/opt/ros/humble/install/ament_lint_auto/share/ament_lint_auto/cmake)
+[8.101s] -- Added test 'copyright' to check source files copyright and LICENSE
+[14.249s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[14.250s] -- Configured cppcheck include dirs: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src
+[14.250s] -- Configured cppcheck exclude dirs and/or files: 
+[14.327s] -- Added test 'cpplint' to check C / C++ code against the Google style
+[14.327s] -- Configured cpplint exclude dirs and/or files: 
+[14.345s] -- Added test 'flake8' to check Python code syntax and style conventions
+[14.361s] -- Added test 'lint_cmake' to check CMake code style
+[14.371s] -- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257
+[14.435s] -- Added test 'uncrustify' to check C / C++ code style
+[14.436s] -- Configured uncrustify additional arguments: 
+[14.443s] -- Added test 'xmllint' to check XML markup files
+[14.657s] -- Configuring done
+[21.210s] -- Generating done
+[22.335s] -- Build files have been written to: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer
+[22.506s] [35m[1mConsolidate compiler generated dependencies of target pointpillar_core[0m
+[23.162s] [  4%] [32m[1mLinking CXX shared library libpointpillar_core.so[0m
+[24.391s] [ 37%] Built target pointpillar_core
+[24.441s] [35m[1mConsolidate compiler generated dependencies of target pp_infer[0m
+[24.789s] [ 41%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/pp_inference_node.cpp.o[0m
+[27.178s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:52[m[K:
+[27.179s] [01m[K/opt/ros/humble/src/geometry2/tf2_geometry_msgs/include/tf2_geometry_msgs/tf2_geometry_msgs.h:35:2:[m[K [01;35m[Kwarning: [m[K#warning This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead [[01;35m[K-Wcpp[m[K]
+[27.179s]    35 | #[01;35m[Kwarning[m[K This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead
+[27.179s]       |  [01;35m[K^~~~~~~[m[K
+[27.652s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:22[m[K,
+[27.652s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[27.653s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[27.653s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/dtype.hpp:69:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.653s]    69 | }[01;35m[K;[m[K  // namespace nvtype
+[27.653s]       |  [01;35m[K^[m[K
+[27.653s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[27.654s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[27.654s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:53:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.654s]    53 | }[01;35m[K;[m[K  // namespace lidar
+[27.654s]       |  [01;35m[K^[m[K
+[27.654s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:54:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.654s]    54 | }[01;35m[K;[m[K  // namespace pointpillar
+[27.654s]       |  [01;35m[K^[m[K
+[27.654s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:28[m[K,
+[27.655s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[27.655s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:49:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.655s]    49 | }[01;35m[K;[m[K  // namespace lidar
+[27.655s]       |  [01;35m[K^[m[K
+[27.655s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:50:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.655s]    50 | }[01;35m[K;[m[K  // namespace pointpillar
+[27.655s]       |  [01;35m[K^[m[K
+[27.655s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:29[m[K,
+[27.655s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[27.655s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:80:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.655s]    80 | }[01;35m[K;[m[K  // namespace lidar
+[27.656s]       |  [01;35m[K^[m[K
+[27.656s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:81:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.656s]    81 | }[01;35m[K;[m[K  // namespace pointpillar
+[27.656s]       |  [01;35m[K^[m[K
+[27.656s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[27.656s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:51:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.656s]    51 | }[01;35m[K;[m[K  // namespace lidar
+[27.656s]       |  [01;35m[K^[m[K
+[27.656s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:52:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.656s]    52 | }[01;35m[K;[m[K  // namespace pointpillar
+[27.656s]       |  [01;35m[K^[m[K
+[27.656s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:41[m[K:
+[27.657s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[27.657s]    99 | }[01;35m[K;[m[K  // namespace nv
+[27.657s]       |  [01;35m[K^[m[K
+[31.330s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:177:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[31.330s]   177 | }[01;35m[K;[m[K
+[31.330s]       |  [01;35m[K^[m[K
+[32.290s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:215:13:[m[K [01;35m[Kwarning: [m[K‘[01m[Kvoid help()[m[K’ defined but not used [[01;35m[K-Wunused-function[m[K]
+[32.290s]   215 | static void [01;35m[Khelp[m[K()
+[32.290s]       |             [01;35m[K^~~~[m[K
+[32.290s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:203:13:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool startswith(const char*, const char*, const char**)[m[K’ defined but not used [[01;35m[K-Wunused-function[m[K]
+[32.290s]   203 | static bool [01;35m[Kstartswith[m[K(const char *s, const char *with, const char **last)
+[32.290s]       |             [01;35m[K^~~~~~~~~~[m[K
+[33.272s] [ 45%] [32m[1mLinking CXX executable pp_infer[0m
+[36.275s] [100%] Built target pp_infer
+[38.016s] Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --build /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer -- -j120 -l120
+[38.558s] Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --install /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer
+[38.562s] -- Install configuration: "Release"
+[38.565s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer
+[38.779s] -- Set runtime path of "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer" to ""
+[38.779s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch
+[38.779s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch/pp_infer_launch.py
+[38.779s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/package_run_dependencies/pp_infer
+[38.779s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/parent_prefix_path/pp_infer
+[38.780s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/ament_prefix_path.dsv
+[38.933s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/path.dsv
+[39.404s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.bash
+[39.404s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.sh
+[39.404s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.zsh
+[39.404s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.dsv
+[39.586s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.dsv
+[39.757s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/packages/pp_infer
+[39.757s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig.cmake
+[39.757s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig-version.cmake
+[39.757s] -- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.xml
+[39.857s] Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --install /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer

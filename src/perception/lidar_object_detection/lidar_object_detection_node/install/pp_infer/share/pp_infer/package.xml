@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>pp_infer</name>
+  <version>0.0.0</version>
+  <description>ROS2 node for 3D object detection using PointPillars.</description>
+  <maintainer email="asawareeb@nvidia.com">nvidia</maintainer>
+  <license>Open</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+	 
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>vision_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>pcl_conversions</depend> 
+  <depend>pcl_ros</depend>
+  <depend>message_filters</depend>
+  <depend>visualization_msgs</depend>
+
+  
+  
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <exec_depend>ros2launch</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

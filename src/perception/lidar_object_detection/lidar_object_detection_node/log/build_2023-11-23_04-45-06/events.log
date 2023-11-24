@@ -1,0 +1,45 @@
+[0.000000] (-) TimerEvent: {}
+[0.000240] (pp_infer) JobQueued: {'identifier': 'pp_infer', 'dependencies': OrderedDict()}
+[0.000289] (pp_infer) JobStarted: {'identifier': 'pp_infer'}
+[0.067714] (-) TimerEvent: {}
+[0.128232] (pp_infer) JobProgress: {'identifier': 'pp_infer', 'progress': 'cmake'}
+[0.167849] (-) TimerEvent: {}
+[0.205142] (pp_infer) Command: {'cmd': ['/usr/local/bin/cmake', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node', '-DCMAKE_BUILD_TYPE=Release', '-DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda', '-DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer'], 'cwd': '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer', 'env': OrderedDict([('NPP_VERSION', '11.8.0.86'), ('SHELL', '/bin/bash'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('DALI_BUILD', '6562491'), ('CUSOLVER_VERSION', '11.4.1.48'), ('CUBLAS_VERSION', '11.11.3.6'), ('HOSTNAME', 'bdc0b86d88c4'), ('LANGUAGE', 'en_US:en'), ('NVIDIA_REQUIRE_CUDA', 'cuda>=9.0'), ('CUFFT_VERSION', '10.9.0.58'), ('CUDA_CACHE_DISABLE', '1'), ('NCCL_VERSION', '2.15.5'), ('CUSPARSE_VERSION', '11.7.5.86'), ('ENV', '/etc/shinit_v2'), ('PWD', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer'), ('TENSORRT_VERSION', '8.5.1.7'), ('OPENUCX_VERSION', '1.14.0'), ('NSIGHT_SYSTEMS_VERSION', '2022.4.2.1'), ('NVIDIA_DRIVER_CAPABILITIES', 'compute,utility,video'), ('POLYGRAPHY_VERSION', '0.43.1'), ('TRT_VERSION', '8.5.1.7'), ('NVIDIA_PRODUCT_NAME', 'NVIDIA TensorRT'), ('RDMACORE_VERSION', '36.0'), ('HOME', '/root'), ('LANG', 'en_US.UTF-8'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('CUDA_VERSION', '11.8.0.065'), ('CURAND_VERSION', '10.3.0.86'), ('CUTENSOR_VERSION', '1.6.1.5'), ('HPCX_VERSION', '2.13'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('COLCON', '1'), ('TERM', 'xterm'), ('GDRCOPY_VERSION', '2.3'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('OPENMPI_VERSION', '4.1.4'), ('NVJPEG_VERSION', '11.9.0.86'), ('LIBRARY_PATH', '/usr/local/cuda/lib64/stubs:'), ('SHLVL', '1'), ('BASH_ENV', '/etc/bash.bashrc'), ('CUDNN_VERSION', '8.7.0.84'), ('NSIGHT_COMPUTE_VERSION', '2022.3.0.22'), ('DALI_VERSION', '1.20.0'), ('LD_LIBRARY_PATH', '/usr/local/cuda/compat/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64'), ('NVIDIA_BUILD_ID', '49968236'), ('OMPI_MCA_coll_hcoll_enable', '0'), ('OPAL_PREFIX', '/opt/hpcx/ompi'), ('CUDA_DRIVER_VERSION', '520.61.05'), ('TRANSFORMER_ENGINE_VERSION', '0.3'), ('LC_ALL', 'en_US.UTF-8'), ('_CUDA_COMPAT_PATH', '/usr/local/cuda/compat'), ('NVIDIA_TENSORRT_VERSION', '22.12'), ('TENSORRT_OSS_VERSION', 'master'), ('NVIDIA_REQUIRE_JETPACK_HOST_MOUNTS', ''), ('PATH', '/opt/tensorrt/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/ucx/bin'), ('MOFED_VERSION', '5.4-rdmacore36.0'), ('TRTOSS_VERSION', '22.12'), ('DEBIAN_FRONTEND', 'noninteractive'), ('ROS_DISTRO', 'humble'), ('OLDPWD', '/root'), ('_', '/usr/bin/env')]), 'shell': False}
+[0.429997] (-) TimerEvent: {}
+[0.430170] (pp_infer) StdoutLine: {'line': b'-- Architecture: x86_64\n'}
+[0.430297] (pp_infer) StderrLine: {'line': b'\x1b[31mCMake Error at CMakeLists.txt:37 (find_package):\n'}
+[0.430414] (pp_infer) StderrLine: {'line': b'  By not providing "Findament_cmake.cmake" in CMAKE_MODULE_PATH this project\n'}
+[0.430510] (pp_infer) StderrLine: {'line': b'  has asked CMake to find a package configuration file provided by\n'}
+[0.430646] (pp_infer) StderrLine: {'line': b'  "ament_cmake", but CMake did not find one.\n'}
+[0.430793] (pp_infer) StderrLine: {'line': b'\n'}
+[0.430926] (pp_infer) StderrLine: {'line': b'  Could not find a package configuration file provided by "ament_cmake" with\n'}
+[0.431014] (pp_infer) StderrLine: {'line': b'  any of the following names:\n'}
+[0.431093] (pp_infer) StderrLine: {'line': b'\n'}
+[0.431217] (pp_infer) StderrLine: {'line': b'    ament_cmakeConfig.cmake\n'}
+[0.431302] (pp_infer) StderrLine: {'line': b'    ament_cmake-config.cmake\n'}
+[0.431385] (pp_infer) StderrLine: {'line': b'\n'}
+[0.431502] (pp_infer) StderrLine: {'line': b'  Add the installation prefix of "ament_cmake" to CMAKE_PREFIX_PATH or set\n'}
+[0.431582] (pp_infer) StderrLine: {'line': b'  "ament_cmake_DIR" to a directory containing one of the above files.  If\n'}
+[0.431655] (pp_infer) StderrLine: {'line': b'  "ament_cmake" provides a separate development package or SDK, be sure it\n'}
+[0.431723] (pp_infer) StderrLine: {'line': b'  has been installed.\n'}
+[0.432037] (pp_infer) StderrLine: {'line': b'\n'}
+[0.432117] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[0.432193] (pp_infer) StdoutLine: {'line': b'-- Configuring incomplete, errors occurred!\n'}
+[0.432267] (pp_infer) StdoutLine: {'line': b'See also "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer/CMakeFiles/CMakeOutput.log".\n'}
+[0.485007] (pp_infer) CommandEnded: {'returncode': 1}
+[0.530254] (-) TimerEvent: {}
+[0.630740] (-) TimerEvent: {}
+[0.731147] (-) TimerEvent: {}
+[0.831527] (-) TimerEvent: {}
+[0.931967] (-) TimerEvent: {}
+[1.032473] (-) TimerEvent: {}
+[1.132916] (-) TimerEvent: {}
+[1.233382] (-) TimerEvent: {}
+[1.333804] (-) TimerEvent: {}
+[1.434246] (-) TimerEvent: {}
+[1.534751] (-) TimerEvent: {}
+[1.635247] (-) TimerEvent: {}
+[1.735696] (-) TimerEvent: {}
+[1.826084] (pp_infer) JobEnded: {'identifier': 'pp_infer', 'rc': 1}
+[2.616524] (-) TimerEvent: {}
+[2.616686] (-) EventReactorShutdown: {}

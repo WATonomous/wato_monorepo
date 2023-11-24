@@ -1,0 +1,135 @@
+[0.000000] (-) TimerEvent: {}
+[0.000241] (pp_infer) JobQueued: {'identifier': 'pp_infer', 'dependencies': OrderedDict()}
+[0.000278] (-) TimerEvent: {}
+[0.000359] (pp_infer) JobStarted: {'identifier': 'pp_infer'}
+[0.083647] (pp_infer) JobProgress: {'identifier': 'pp_infer', 'progress': 'cmake'}
+[0.100463] (-) TimerEvent: {}
+[0.117694] (pp_infer) Command: {'cmd': ['/usr/local/bin/cmake', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node', '-DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer'], 'cwd': '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer', 'env': OrderedDict([('NPP_VERSION', '11.8.0.86'), ('SHELL', '/bin/bash'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('COLORTERM', 'truecolor'), ('DALI_BUILD', '6562491'), ('CUSOLVER_VERSION', '11.4.1.48'), ('TERM_PROGRAM_VERSION', '1.83.1'), ('CUBLAS_VERSION', '11.11.3.6'), ('HOSTNAME', 'bdc0b86d88c4'), ('LANGUAGE', 'en_US:en'), ('CUFFT_VERSION', '10.9.0.58'), ('NVIDIA_REQUIRE_CUDA', 'cuda>=9.0'), ('SSH_AUTH_SOCK', '/tmp/vscode-ssh-auth-f9e07b92-8819-473b-9c3b-b00e3d5692ff.sock'), ('CUDA_CACHE_DISABLE', '1'), ('REMOTE_CONTAINERS_IPC', '/tmp/vscode-remote-containers-ipc-f9e07b92-8819-473b-9c3b-b00e3d5692ff.sock'), ('NCCL_VERSION', '2.15.5'), ('CUSPARSE_VERSION', '11.7.5.86'), ('ENV', '/etc/shinit_v2'), ('PWD', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer'), ('TENSORRT_VERSION', '8.5.1.7'), ('OPENUCX_VERSION', '1.14.0'), ('NSIGHT_SYSTEMS_VERSION', '2022.4.2.1'), ('NVIDIA_DRIVER_CAPABILITIES', 'compute,utility,video'), ('POLYGRAPHY_VERSION', '0.43.1'), ('TRT_VERSION', '8.5.1.7'), ('NVIDIA_PRODUCT_NAME', 'NVIDIA TensorRT'), ('RDMACORE_VERSION', '36.0'), ('HOME', '/'), ('LANG', 'en_US.UTF-8'), ('REMOTE_CONTAINERS', 'true'), ('CUDA_VERSION', '11.8.0.065'), ('CURAND_VERSION', '10.3.0.86'), ('CUTENSOR_VERSION', '1.6.1.5'), ('HPCX_VERSION', '2.13'), ('COLCON', '1'), ('TERM', 'xterm-256color'), ('GDRCOPY_VERSION', '2.3'), ('REMOTE_CONTAINERS_SOCKETS', '["/tmp/vscode-ssh-auth-f9e07b92-8819-473b-9c3b-b00e3d5692ff.sock","/tmp/.X11-unix/X0","//.gnupg/S.gpg-agent"]'), ('OPENMPI_VERSION', '4.1.4'), ('NVJPEG_VERSION', '11.9.0.86'), ('LIBRARY_PATH', '/usr/local/cuda/lib64/stubs:'), ('VSCODE_GIT_IPC_HANDLE', '/tmp/vscode-git-a82ac1eaa0.sock'), ('DISPLAY', ':0'), ('SHLVL', '3'), ('BASH_ENV', '/etc/bash.bashrc'), ('CUDNN_VERSION', '8.7.0.84'), ('NSIGHT_COMPUTE_VERSION', '2022.3.0.22'), ('DALI_VERSION', '1.20.0'), ('LD_LIBRARY_PATH', '/usr/local/cuda/compat/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64'), ('NVIDIA_BUILD_ID', '49968236'), ('OMPI_MCA_coll_hcoll_enable', '0'), ('OPAL_PREFIX', '/opt/hpcx/ompi'), ('CUDA_DRIVER_VERSION', '520.61.05'), ('LC_ALL', 'en_US.UTF-8'), ('TRANSFORMER_ENGINE_VERSION', '0.3'), ('_CUDA_COMPAT_PATH', '/usr/local/cuda/compat'), ('NVIDIA_TENSORRT_VERSION', '22.12'), ('TENSORRT_OSS_VERSION', 'master'), ('NVIDIA_REQUIRE_JETPACK_HOST_MOUNTS', ''), ('BROWSER', '/root/.vscode-server/bin/f1b07bd25dfad64b0167beb15359ae573aecd2cc/bin/helpers/browser.sh'), ('PATH', '/root/.vscode-server/bin/f1b07bd25dfad64b0167beb15359ae573aecd2cc/bin/remote-cli:/opt/tensorrt/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/ucx/bin'), ('MOFED_VERSION', '5.4-rdmacore36.0'), ('TRTOSS_VERSION', '22.12'), ('DEBIAN_FRONTEND', 'noninteractive'), ('ROS_DISTRO', 'humble'), ('REMOTE_CONTAINERS_DISPLAY_SOCK', '/tmp/.X11-unix/X0'), ('OLDPWD', '/home/docker/ament_ws/src/lidar_object_detection'), ('TERM_PROGRAM', 'vscode'), ('VSCODE_IPC_HOOK_CLI', '/tmp/vscode-ipc-549af58f-6921-4f7d-adfe-7e49607a4abf.sock'), ('_', '/usr/bin/env')]), 'shell': False}
+[0.292452] (-) TimerEvent: {}
+[0.392804] (-) TimerEvent: {}
+[0.493230] (-) TimerEvent: {}
+[0.593711] (-) TimerEvent: {}
+[0.686540] (pp_infer) StdoutLine: {'line': b'-- The C compiler identification is GNU 9.4.0\n'}
+[0.693790] (-) TimerEvent: {}
+[0.794151] (-) TimerEvent: {}
+[0.894632] (-) TimerEvent: {}
+[0.995065] (-) TimerEvent: {}
+[1.095517] (-) TimerEvent: {}
+[1.195973] (-) TimerEvent: {}
+[1.296407] (-) TimerEvent: {}
+[1.396825] (-) TimerEvent: {}
+[1.497275] (-) TimerEvent: {}
+[1.533870] (pp_infer) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 9.4.0\n'}
+[1.597444] (-) TimerEvent: {}
+[1.681716] (pp_infer) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[1.697559] (-) TimerEvent: {}
+[1.797968] (-) TimerEvent: {}
+[1.898382] (-) TimerEvent: {}
+[1.998842] (-) TimerEvent: {}
+[2.099255] (-) TimerEvent: {}
+[2.199639] (-) TimerEvent: {}
+[2.300233] (-) TimerEvent: {}
+[2.400637] (-) TimerEvent: {}
+[2.501084] (-) TimerEvent: {}
+[2.601535] (-) TimerEvent: {}
+[2.701989] (-) TimerEvent: {}
+[2.802534] (-) TimerEvent: {}
+[2.902949] (-) TimerEvent: {}
+[3.003380] (-) TimerEvent: {}
+[3.103778] (-) TimerEvent: {}
+[3.204206] (-) TimerEvent: {}
+[3.304617] (-) TimerEvent: {}
+[3.405055] (-) TimerEvent: {}
+[3.505492] (-) TimerEvent: {}
+[3.605936] (-) TimerEvent: {}
+[3.706399] (-) TimerEvent: {}
+[3.806903] (-) TimerEvent: {}
+[3.907411] (-) TimerEvent: {}
+[4.007861] (-) TimerEvent: {}
+[4.108338] (-) TimerEvent: {}
+[4.208822] (-) TimerEvent: {}
+[4.309228] (-) TimerEvent: {}
+[4.409659] (-) TimerEvent: {}
+[4.510097] (-) TimerEvent: {}
+[4.610633] (-) TimerEvent: {}
+[4.711078] (-) TimerEvent: {}
+[4.811509] (-) TimerEvent: {}
+[4.911942] (-) TimerEvent: {}
+[5.012366] (-) TimerEvent: {}
+[5.112846] (-) TimerEvent: {}
+[5.213334] (-) TimerEvent: {}
+[5.313807] (-) TimerEvent: {}
+[5.414384] (-) TimerEvent: {}
+[5.514939] (-) TimerEvent: {}
+[5.598119] (pp_infer) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[5.606227] (pp_infer) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[5.606648] (pp_infer) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[5.606898] (pp_infer) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[5.615057] (-) TimerEvent: {}
+[5.715440] (-) TimerEvent: {}
+[5.748953] (pp_infer) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[5.815596] (-) TimerEvent: {}
+[5.916316] (-) TimerEvent: {}
+[6.016800] (-) TimerEvent: {}
+[6.117382] (-) TimerEvent: {}
+[6.217879] (-) TimerEvent: {}
+[6.318334] (-) TimerEvent: {}
+[6.418800] (-) TimerEvent: {}
+[6.519234] (-) TimerEvent: {}
+[6.619691] (-) TimerEvent: {}
+[6.720131] (-) TimerEvent: {}
+[6.820572] (-) TimerEvent: {}
+[6.920969] (-) TimerEvent: {}
+[7.021396] (-) TimerEvent: {}
+[7.121808] (-) TimerEvent: {}
+[7.222290] (-) TimerEvent: {}
+[7.322717] (-) TimerEvent: {}
+[7.423129] (-) TimerEvent: {}
+[7.523588] (-) TimerEvent: {}
+[7.624084] (-) TimerEvent: {}
+[7.724537] (-) TimerEvent: {}
+[7.825025] (-) TimerEvent: {}
+[7.925577] (-) TimerEvent: {}
+[8.026036] (-) TimerEvent: {}
+[8.126547] (-) TimerEvent: {}
+[8.227054] (-) TimerEvent: {}
+[8.327500] (-) TimerEvent: {}
+[8.427990] (-) TimerEvent: {}
+[8.528501] (-) TimerEvent: {}
+[8.628920] (-) TimerEvent: {}
+[8.729353] (-) TimerEvent: {}
+[8.741185] (pp_infer) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[8.752618] (pp_infer) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[8.752960] (pp_infer) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[8.753472] (pp_infer) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[8.829515] (-) TimerEvent: {}
+[8.929967] (-) TimerEvent: {}
+[9.030694] (-) TimerEvent: {}
+[9.131112] (-) TimerEvent: {}
+[9.227634] (pp_infer) StdoutLine: {'line': b'-- Architecture: x86_64\n'}
+[9.231209] (-) TimerEvent: {}
+[9.245656] (pp_infer) StderrLine: {'line': b'\x1b[31mCMake Error at CMakeLists.txt:37 (find_package):\n'}
+[9.245951] (pp_infer) StderrLine: {'line': b'  By not providing "Findament_cmake.cmake" in CMAKE_MODULE_PATH this project\n'}
+[9.246034] (pp_infer) StderrLine: {'line': b'  has asked CMake to find a package configuration file provided by\n'}
+[9.246131] (pp_infer) StderrLine: {'line': b'  "ament_cmake", but CMake did not find one.\n'}
+[9.246217] (pp_infer) StderrLine: {'line': b'\n'}
+[9.246298] (pp_infer) StderrLine: {'line': b'  Could not find a package configuration file provided by "ament_cmake" with\n'}
+[9.246384] (pp_infer) StderrLine: {'line': b'  any of the following names:\n'}
+[9.246497] (pp_infer) StderrLine: {'line': b'\n'}
+[9.246688] (pp_infer) StderrLine: {'line': b'    ament_cmakeConfig.cmake\n'}
+[9.246783] (pp_infer) StderrLine: {'line': b'    ament_cmake-config.cmake\n'}
+[9.246859] (pp_infer) StderrLine: {'line': b'\n'}
+[9.247123] (pp_infer) StderrLine: {'line': b'  Add the installation prefix of "ament_cmake" to CMAKE_PREFIX_PATH or set\n'}
+[9.247204] (pp_infer) StderrLine: {'line': b'  "ament_cmake_DIR" to a directory containing one of the above files.  If\n'}
+[9.247979] (pp_infer) StderrLine: {'line': b'  "ament_cmake" provides a separate development package or SDK, be sure it\n'}
+[9.248064] (pp_infer) StderrLine: {'line': b'  has been installed.\n'}
+[9.248141] (pp_infer) StderrLine: {'line': b'\n'}
+[9.248226] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[9.248330] (pp_infer) StdoutLine: {'line': b'-- Configuring incomplete, errors occurred!\n'}
+[9.248442] (pp_infer) StdoutLine: {'line': b'See also "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer/CMakeFiles/CMakeOutput.log".\n'}
+[9.309220] (pp_infer) CommandEnded: {'returncode': 1}
+[9.331364] (-) TimerEvent: {}
+[9.431828] (-) TimerEvent: {}
+[9.532329] (-) TimerEvent: {}
+[9.589661] (pp_infer) JobEnded: {'identifier': 'pp_infer', 'rc': 1}
+[9.604773] (-) EventReactorShutdown: {}

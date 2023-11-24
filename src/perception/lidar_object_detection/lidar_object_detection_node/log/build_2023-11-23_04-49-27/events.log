@@ -1,0 +1,983 @@
+[0.000000] (-) TimerEvent: {}
+[0.000234] (pp_infer) JobQueued: {'identifier': 'pp_infer', 'dependencies': OrderedDict()}
+[0.000301] (pp_infer) JobStarted: {'identifier': 'pp_infer'}
+[0.029003] (-) TimerEvent: {}
+[0.129286] (-) TimerEvent: {}
+[0.229703] (-) TimerEvent: {}
+[0.330112] (-) TimerEvent: {}
+[0.430552] (-) TimerEvent: {}
+[0.531032] (-) TimerEvent: {}
+[0.631433] (-) TimerEvent: {}
+[0.731874] (-) TimerEvent: {}
+[0.832277] (-) TimerEvent: {}
+[0.932739] (-) TimerEvent: {}
+[1.033138] (-) TimerEvent: {}
+[1.133535] (-) TimerEvent: {}
+[1.234016] (-) TimerEvent: {}
+[1.314282] (pp_infer) JobProgress: {'identifier': 'pp_infer', 'progress': 'cmake'}
+[1.334160] (-) TimerEvent: {}
+[1.434584] (-) TimerEvent: {}
+[1.534993] (-) TimerEvent: {}
+[1.635423] (-) TimerEvent: {}
+[1.695120] (pp_infer) JobProgress: {'identifier': 'pp_infer', 'progress': 'build'}
+[1.696841] (pp_infer) Command: {'cmd': ['/usr/local/bin/cmake', '--build', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer', '--', '-j120', '-l120'], 'cwd': '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer', 'env': OrderedDict([('NPP_VERSION', '11.8.0.86'), ('SHELL', '/bin/bash'), ('ROS_VERSION', '2'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('DALI_BUILD', '6562491'), ('CUSOLVER_VERSION', '11.4.1.48'), ('CUBLAS_VERSION', '11.11.3.6'), ('PKG_CONFIG_PATH', '/opt/ros/humble/install/urdfdom/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/urdfdom/lib/pkgconfig:/opt/ros/humble/install/urdfdom_headers/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/urdfdom_headers/lib/pkgconfig:/opt/ros/humble/install/osrf_testing_tools_cpp/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/osrf_testing_tools_cpp/lib/pkgconfig:/opt/ros/humble/install/cyclonedds/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/cyclonedds/lib/pkgconfig:/opt/ros/humble/install/iceoryx_posh/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/iceoryx_posh/lib/pkgconfig:/opt/ros/humble/install/iceoryx_hoofs/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/iceoryx_hoofs/lib/pkgconfig:/opt/ros/humble/install/iceoryx_binding_c/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/iceoryx_binding_c/lib/pkgconfig:/opt/ros/humble/install/gmock_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/gmock_vendor/lib/pkgconfig:/opt/ros/humble/install/gtest_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/gtest_vendor/lib/pkgconfig:/opt/ros/humble/install/google_benchmark_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/google_benchmark_vendor/lib/pkgconfig:/opt/ros/humble/install/foonathan_memory_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/foonathan_memory_vendor/lib/pkgconfig'), ('ROS_PYTHON_VERSION', '3'), ('HOSTNAME', 'bdc0b86d88c4'), ('LANGUAGE', 'en_US:en'), ('NVIDIA_REQUIRE_CUDA', 'cuda>=9.0'), ('CUFFT_VERSION', '10.9.0.58'), ('CUDA_CACHE_DISABLE', '1'), ('NCCL_VERSION', '2.15.5'), ('CUSPARSE_VERSION', '11.7.5.86'), ('ENV', '/etc/shinit_v2'), ('PWD', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer'), ('TENSORRT_VERSION', '8.5.1.7'), ('OPENUCX_VERSION', '1.14.0'), ('NSIGHT_SYSTEMS_VERSION', '2022.4.2.1'), ('NVIDIA_DRIVER_CAPABILITIES', 'compute,utility,video'), ('POLYGRAPHY_VERSION', '0.43.1'), ('TRT_VERSION', '8.5.1.7'), ('NVIDIA_PRODUCT_NAME', 'NVIDIA TensorRT'), ('RDMACORE_VERSION', '36.0'), ('HOME', '/root'), ('LANG', 'en_US.UTF-8'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('CUDA_VERSION', '11.8.0.065'), ('CURAND_VERSION', '10.3.0.86'), ('AMENT_PREFIX_PATH', '/opt/ros/humble/install/ros_base:/opt/ros/humble/install/rosbag2:/opt/ros/humble/install/rosbag2_compression_zstd:/opt/ros/humble/install/zstd_vendor:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/rosbag2_py:/opt/ros/humble/install/rosbag2_transport:/opt/ros/humble/install/rosbag2_compression:/opt/ros/humble/install/rosbag2_cpp:/opt/ros/humble/install/rosbag2_storage_default_plugins:/opt/ros/humble/install/rosbag2_storage:/opt/ros/humble/install/image_common:/opt/ros/humble/install/camera_info_manager:/opt/ros/humble/install/camera_calibration_parsers:/opt/ros/humble/install/yaml_cpp_vendor:/opt/ros/humble/install/ros_core:/opt/ros/humble/install/common_interfaces:/opt/ros/humble/install/visualization_msgs:/opt/ros/humble/install/vision_msgs:/opt/ros/humble/install/robot_state_publisher:/opt/ros/humble/install/kdl_parser:/opt/ros/humble/install/urdf:/opt/ros/humble/install/urdf_parser_plugin:/opt/ros/humble/install/geometry2:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_sensor_msgs:/opt/ros/humble/install/tf2_kdl:/opt/ros/humble/install/perception_pcl:/opt/ros/humble/install/pcl_ros:/opt/ros/humble/install/tf2_geometry_msgs:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/tf2_eigen:/opt/ros/humble/install/tf2_bullet:/opt/ros/humble/install/tf2_ros:/opt/ros/humble/install/tf2_py:/opt/ros/humble/install/tf2_msgs:/opt/ros/humble/install/test_msgs:/opt/ros/humble/install/sros2_cmake:/opt/ros/humble/install/ros2cli_common_extensions:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros_testing:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2cli_test_interfaces:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/pcl_conversions:/opt/ros/humble/install/image_transport:/opt/ros/humble/install/message_filters:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/rclpy:/opt/ros/humble/install/rclcpp_action:/opt/ros/humble/install/rcl_action:/opt/ros/humble/install/action_msgs:/opt/ros/humble/install/unique_identifier_msgs:/opt/ros/humble/install/ament_lint_common:/opt/ros/humble/install/ament_cmake_uncrustify:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/uncrustify_vendor:/opt/ros/humble/install/trajectory_msgs:/opt/ros/humble/install/rosbag2_test_common:/opt/ros/humble/install/ros2lifecycle_test_fixtures:/opt/ros/humble/install/rclcpp_lifecycle:/opt/ros/humble/install/rclcpp_components:/opt/ros/humble/install/rclcpp:/opt/ros/humble/install/rcl_lifecycle:/opt/ros/humble/install/libstatistics_collector:/opt/ros/humble/install/rcl:/opt/ros/humble/install/rmw_implementation:/opt/ros/humble/install/rmw_fastrtps_dynamic_cpp:/opt/ros/humble/install/rmw_fastrtps_cpp:/opt/ros/humble/install/rmw_fastrtps_shared_cpp:/opt/ros/humble/install/rmw_cyclonedds_cpp:/opt/ros/humble/install/tracetools:/opt/ros/humble/install/tinyxml_vendor:/opt/ros/humble/install/pluginlib:/opt/ros/humble/install/tinyxml2_vendor:/opt/ros/humble/install/tf2_eigen_kdl:/opt/ros/humble/install/tf2:/opt/ros/humble/install/test_interface_files:/opt/ros/humble/install/stereo_msgs:/opt/ros/humble/install/std_srvs:/opt/ros/humble/install/shape_msgs:/opt/ros/humble/install/pcl_msgs:/opt/ros/humble/install/sensor_msgs:/opt/ros/humble/install/nav_msgs:/opt/ros/humble/install/diagnostic_msgs:/opt/ros/humble/install/geometry_msgs:/opt/ros/humble/install/actionlib_msgs:/opt/ros/humble/install/std_msgs:/opt/ros/humble/install/statistics_msgs:/opt/ros/humble/install/sqlite3_vendor:/opt/ros/humble/install/rcl_logging_spdlog:/opt/ros/humble/install/spdlog_vendor:/opt/ros/humble/install/shared_queues_vendor:/opt/ros/humble/install/rmw_connextdds:/opt/ros/humble/install/rmw_connextdds_common:/opt/ros/humble/install/rti_connext_dds_cmake_module:/opt/ros/humble/install/rosgraph_msgs:/opt/ros/humble/install/rosbag2_interfaces:/opt/ros/humble/install/rmw_dds_common:/opt/ros/humble/install/composition_interfaces:/opt/ros/humble/install/rcl_interfaces:/opt/ros/humble/install/lifecycle_msgs:/opt/ros/humble/install/builtin_interfaces:/opt/ros/humble/install/rosidl_default_runtime:/opt/ros/humble/install/rosidl_default_generators:/opt/ros/humble/install/rosidl_generator_py:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_typesupport_cpp:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp:/opt/ros/humble/install/rosidl_typesupport_c:/opt/ros/humble/install/rosidl_typesupport_introspection_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp:/opt/ros/humble/install/rosidl_generator_cpp:/opt/ros/humble/install/rosidl_runtime_cpp:/opt/ros/humble/install/rcl_yaml_param_parser:/opt/ros/humble/install/rmw:/opt/ros/humble/install/rosidl_runtime_c:/opt/ros/humble/install/rosidl_generator_c:/opt/ros/humble/install/rosidl_typesupport_interface:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cmake:/opt/ros/humble/install/rosidl_parser:/opt/ros/humble/install/rosidl_adapter:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/rosbag2_tests:/opt/ros/humble/install/ros_environment:/opt/ros/humble/install/rmw_implementation_cmake:/opt/ros/humble/install/class_loader:/opt/ros/humble/install/rcpputils:/opt/ros/humble/install/rcl_logging_interface:/opt/ros/humble/install/rcutils:/opt/ros/humble/install/launch_testing_ament_cmake:/opt/ros/humble/install/python_cmake_module:/opt/ros/humble/install/pybind11_vendor:/opt/ros/humble/install/performance_test_fixture:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/orocos_kdl_vendor:/opt/ros/humble/install/mimick_vendor:/opt/ros/humble/install/libyaml_vendor:/opt/ros/humble/install/keyboard_handler:/opt/ros/humble/install/ament_cmake_ros:/opt/ros/humble/install/ament_cmake_gmock:/opt/ros/humble/install/ament_cmake_auto:/opt/ros/humble/install/ament_cmake_gtest:/opt/ros/humble/install/ament_cmake_google_benchmark:/opt/ros/humble/install/fastrtps_cmake_module:/opt/ros/humble/install/eigen3_cmake_module:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/console_bridge_vendor:/opt/ros/humble/install/ament_cmake_xmllint:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_cmake_pep257:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_lint_auto:/opt/ros/humble/install/ament_cmake:/opt/ros/humble/install/ament_cmake_version:/opt/ros/humble/install/ament_cmake_pytest:/opt/ros/humble/install/ament_cmake_lint_cmake:/opt/ros/humble/install/ament_cmake_flake8:/opt/ros/humble/install/ament_cmake_cpplint:/opt/ros/humble/install/ament_cmake_cppcheck:/opt/ros/humble/install/ament_cmake_copyright:/opt/ros/humble/install/ament_cmake_test:/opt/ros/humble/install/ament_cmake_target_dependencies:/opt/ros/humble/install/ament_cmake_python:/opt/ros/humble/install/ament_cmake_export_dependencies:/opt/ros/humble/install/ament_cmake_libraries:/opt/ros/humble/install/ament_cmake_include_directories:/opt/ros/humble/install/ament_cmake_gen_version_h:/opt/ros/humble/install/ament_cmake_export_targets:/opt/ros/humble/install/ament_cmake_export_link_flags:/opt/ros/humble/install/ament_cmake_export_interfaces:/opt/ros/humble/install/ament_cmake_export_libraries:/opt/ros/humble/install/ament_cmake_export_include_directories:/opt/ros/humble/install/ament_cmake_export_definitions:/opt/ros/humble/install/ament_cmake_core:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_index_cpp:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble/install/ros_base:/opt/ros/humble/install/rosbag2:/opt/ros/humble/install/rosbag2_compression_zstd:/opt/ros/humble/install/zstd_vendor:/opt/ros/humble/install/rosbag2_py:/opt/ros/humble/install/rosbag2_transport:/opt/ros/humble/install/rosbag2_compression:/opt/ros/humble/install/rosbag2_cpp:/opt/ros/humble/install/rosbag2_storage_default_plugins:/opt/ros/humble/install/rosbag2_storage:/opt/ros/humble/install/image_common:/opt/ros/humble/install/camera_info_manager:/opt/ros/humble/install/camera_calibration_parsers:/opt/ros/humble/install/yaml_cpp_vendor:/opt/ros/humble/install/ros_core:/opt/ros/humble/install/common_interfaces:/opt/ros/humble/install/visualization_msgs:/opt/ros/humble/install/vision_msgs:/opt/ros/humble/install/robot_state_publisher:/opt/ros/humble/install/kdl_parser:/opt/ros/humble/install/urdf:/opt/ros/humble/install/urdfdom:/opt/ros/humble/install/urdf_parser_plugin:/opt/ros/humble/install/urdfdom_headers:/opt/ros/humble/install/geometry2:/opt/ros/humble/install/tf2_sensor_msgs:/opt/ros/humble/install/tf2_kdl:/opt/ros/humble/install/perception_pcl:/opt/ros/humble/install/pcl_ros:/opt/ros/humble/install/tf2_geometry_msgs:/opt/ros/humble/install/tf2_eigen:/opt/ros/humble/install/tf2_bullet:/opt/ros/humble/install/tf2_ros:/opt/ros/humble/install/tf2_py:/opt/ros/humble/install/tf2_msgs:/opt/ros/humble/install/test_msgs:/opt/ros/humble/install/sros2_cmake:/opt/ros/humble/install/ros2cli_common_extensions:/opt/ros/humble/install/ros_testing:/opt/ros/humble/install/ros2cli_test_interfaces:/opt/ros/humble/install/pcl_conversions:/opt/ros/humble/install/image_transport:/opt/ros/humble/install/message_filters:/opt/ros/humble/install/rclpy:/opt/ros/humble/install/rclcpp_action:/opt/ros/humble/install/rcl_action:/opt/ros/humble/install/action_msgs:/opt/ros/humble/install/unique_identifier_msgs:/opt/ros/humble/install/ament_lint_common:/opt/ros/humble/install/ament_cmake_uncrustify:/opt/ros/humble/install/uncrustify_vendor:/opt/ros/humble/install/trajectory_msgs:/opt/ros/humble/install/rosbag2_test_common:/opt/ros/humble/install/ros2lifecycle_test_fixtures:/opt/ros/humble/install/rclcpp_lifecycle:/opt/ros/humble/install/rclcpp_components:/opt/ros/humble/install/rclcpp:/opt/ros/humble/install/rcl_lifecycle:/opt/ros/humble/install/libstatistics_collector:/opt/ros/humble/install/rcl:/opt/ros/humble/install/rmw_implementation:/opt/ros/humble/install/rmw_fastrtps_dynamic_cpp:/opt/ros/humble/install/rmw_fastrtps_cpp:/opt/ros/humble/install/rmw_fastrtps_shared_cpp:/opt/ros/humble/install/rmw_cyclonedds_cpp:/opt/ros/humble/install/tracetools:/opt/ros/humble/install/tinyxml_vendor:/opt/ros/humble/install/pluginlib:/opt/ros/humble/install/tinyxml2_vendor:/opt/ros/humble/install/tf2_eigen_kdl:/opt/ros/humble/install/tf2:/opt/ros/humble/install/test_interface_files:/opt/ros/humble/install/stereo_msgs:/opt/ros/humble/install/std_srvs:/opt/ros/humble/install/shape_msgs:/opt/ros/humble/install/pcl_msgs:/opt/ros/humble/install/sensor_msgs:/opt/ros/humble/install/nav_msgs:/opt/ros/humble/install/diagnostic_msgs:/opt/ros/humble/install/geometry_msgs:/opt/ros/humble/install/actionlib_msgs:/opt/ros/humble/install/std_msgs:/opt/ros/humble/install/statistics_msgs:/opt/ros/humble/install/sqlite3_vendor:/opt/ros/humble/install/rcl_logging_spdlog:/opt/ros/humble/install/spdlog_vendor:/opt/ros/humble/install/shared_queues_vendor:/opt/ros/humble/install/rmw_connextdds:/opt/ros/humble/install/rmw_connextdds_common:/opt/ros/humble/install/rti_connext_dds_cmake_module:/opt/ros/humble/install/rosgraph_msgs:/opt/ros/humble/install/rosbag2_interfaces:/opt/ros/humble/install/rmw_dds_common:/opt/ros/humble/install/composition_interfaces:/opt/ros/humble/install/rcl_interfaces:/opt/ros/humble/install/lifecycle_msgs:/opt/ros/humble/install/builtin_interfaces:/opt/ros/humble/install/rosidl_default_runtime:/opt/ros/humble/install/rosidl_default_generators:/opt/ros/humble/install/rosidl_generator_py:/opt/ros/humble/install/rosidl_typesupport_cpp:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp:/opt/ros/humble/install/rosidl_typesupport_c:/opt/ros/humble/install/rosidl_typesupport_introspection_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp:/opt/ros/humble/install/rosidl_generator_cpp:/opt/ros/humble/install/rosidl_runtime_cpp:/opt/ros/humble/install/rcl_yaml_param_parser:/opt/ros/humble/install/rmw:/opt/ros/humble/install/rosidl_runtime_c:/opt/ros/humble/install/rosidl_generator_c:/opt/ros/humble/install/rosidl_typesupport_interface:/opt/ros/humble/install/rosidl_cmake:/opt/ros/humble/install/rosidl_parser:/opt/ros/humble/install/rosidl_adapter:/opt/ros/humble/install/rosbag2_tests:/opt/ros/humble/install/ros_environment:/opt/ros/humble/install/rmw_implementation_cmake:/opt/ros/humble/install/class_loader:/opt/ros/humble/install/rcpputils:/opt/ros/humble/install/rcl_logging_interface:/opt/ros/humble/install/rcutils:/opt/ros/humble/install/launch_testing_ament_cmake:/opt/ros/humble/install/python_cmake_module:/opt/ros/humble/install/pybind11_vendor:/opt/ros/humble/install/performance_test_fixture:/opt/ros/humble/install/osrf_testing_tools_cpp:/opt/ros/humble/install/orocos_kdl_vendor:/opt/ros/humble/install/mimick_vendor:/opt/ros/humble/install/libyaml_vendor:/opt/ros/humble/install/keyboard_handler:/opt/ros/humble/install/cyclonedds:/opt/ros/humble/install/iceoryx_posh:/opt/ros/humble/install/iceoryx_hoofs:/opt/ros/humble/install/iceoryx_binding_c:/opt/ros/humble/install/ament_cmake_ros:/opt/ros/humble/install/ament_cmake_gmock:/opt/ros/humble/install/gmock_vendor:/opt/ros/humble/install/ament_cmake_auto:/opt/ros/humble/install/ament_cmake_gtest:/opt/ros/humble/install/gtest_vendor:/opt/ros/humble/install/ament_cmake_google_benchmark:/opt/ros/humble/install/google_benchmark_vendor:/opt/ros/humble/install/fastrtps:/opt/ros/humble/install/foonathan_memory_vendor:/opt/ros/humble/install/fastrtps_cmake_module:/opt/ros/humble/install/fastcdr:/opt/ros/humble/install/eigen3_cmake_module:/opt/ros/humble/install/console_bridge_vendor:/opt/ros/humble/install/ament_cmake_xmllint:/opt/ros/humble/install/ament_cmake_pep257:/opt/ros/humble/install/ament_lint_auto:/opt/ros/humble/install/ament_cmake:/opt/ros/humble/install/ament_cmake_version:/opt/ros/humble/install/ament_cmake_pytest:/opt/ros/humble/install/ament_cmake_lint_cmake:/opt/ros/humble/install/ament_cmake_flake8:/opt/ros/humble/install/ament_cmake_cpplint:/opt/ros/humble/install/ament_cmake_cppcheck:/opt/ros/humble/install/ament_cmake_copyright:/opt/ros/humble/install/ament_cmake_test:/opt/ros/humble/install/ament_cmake_target_dependencies:/opt/ros/humble/install/ament_cmake_python:/opt/ros/humble/install/ament_cmake_export_dependencies:/opt/ros/humble/install/ament_cmake_libraries:/opt/ros/humble/install/ament_cmake_include_directories:/opt/ros/humble/install/ament_cmake_gen_version_h:/opt/ros/humble/install/ament_cmake_export_targets:/opt/ros/humble/install/ament_cmake_export_link_flags:/opt/ros/humble/install/ament_cmake_export_interfaces:/opt/ros/humble/install/ament_cmake_export_libraries:/opt/ros/humble/install/ament_cmake_export_include_directories:/opt/ros/humble/install/ament_cmake_export_definitions:/opt/ros/humble/install/ament_cmake_core:/opt/ros/humble/install/ament_index_cpp:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck'), ('COLCON_PREFIX_PATH', '/opt/ros/humble/install'), ('CUTENSOR_VERSION', '1.6.1.5'), ('HPCX_VERSION', '2.13'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('PYTHONPATH', '/opt/ros/humble/build/ros2bag:/opt/ros/humble/install/ros2bag/lib/python3.8/site-packages:/opt/ros/humble/install/rosbag2_py/lib/python3.8/site-packages:/opt/ros/humble/install/visualization_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/vision_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/tf2_tools:/opt/ros/humble/install/tf2_tools/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_kdl/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_geometry_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/tf2_ros_py:/opt/ros/humble/install/tf2_ros_py/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_py/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/test_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/sros2:/opt/ros/humble/install/sros2/lib/python3.8/site-packages:/opt/ros/humble/build/ros2topic:/opt/ros/humble/install/ros2topic/lib/python3.8/site-packages:/opt/ros/humble/build/ros2test:/opt/ros/humble/install/ros2test/lib/python3.8/site-packages:/opt/ros/humble/build/ros2component:/opt/ros/humble/install/ros2component/lib/python3.8/site-packages:/opt/ros/humble/build/ros2param:/opt/ros/humble/install/ros2param/lib/python3.8/site-packages:/opt/ros/humble/build/ros2lifecycle:/opt/ros/humble/install/ros2lifecycle/lib/python3.8/site-packages:/opt/ros/humble/build/ros2service:/opt/ros/humble/install/ros2service/lib/python3.8/site-packages:/opt/ros/humble/build/ros2run:/opt/ros/humble/install/ros2run/lib/python3.8/site-packages:/opt/ros/humble/build/ros2launch:/opt/ros/humble/install/ros2launch/lib/python3.8/site-packages:/opt/ros/humble/build/ros2pkg:/opt/ros/humble/install/ros2pkg/lib/python3.8/site-packages:/opt/ros/humble/build/ros2node:/opt/ros/humble/install/ros2node/lib/python3.8/site-packages:/opt/ros/humble/build/ros2multicast:/opt/ros/humble/install/ros2multicast/lib/python3.8/site-packages:/opt/ros/humble/build/ros2interface:/opt/ros/humble/install/ros2interface/lib/python3.8/site-packages:/opt/ros/humble/build/ros2doctor:/opt/ros/humble/install/ros2doctor/lib/python3.8/site-packages:/opt/ros/humble/install/ros2cli_test_interfaces/lib/python3.8/site-packages:/opt/ros/humble/build/ros2action:/opt/ros/humble/install/ros2action/lib/python3.8/site-packages:/opt/ros/humble/build/ros2cli:/opt/ros/humble/install/ros2cli/lib/python3.8/site-packages:/opt/ros/humble/install/message_filters/lib/python3.8/site-packages:/opt/ros/humble/build/launch_testing_ros:/opt/ros/humble/install/launch_testing_ros/lib/python3.8/site-packages:/opt/ros/humble/build/launch_ros:/opt/ros/humble/install/launch_ros/lib/python3.8/site-packages:/opt/ros/humble/install/rclpy/lib/python3.8/site-packages:/opt/ros/humble/install/action_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/unique_identifier_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/ament_uncrustify:/opt/ros/humble/install/ament_uncrustify/lib/python3.8/site-packages:/opt/ros/humble/install/trajectory_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/stereo_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/std_srvs/lib/python3.8/site-packages:/opt/ros/humble/install/shape_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/pcl_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/sensor_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/nav_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/diagnostic_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/geometry_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/actionlib_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/std_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/statistics_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/rosgraph_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/rosbag2_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/rmw_dds_common/lib/python3.8/site-packages:/opt/ros/humble/install/composition_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/rcl_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/lifecycle_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/builtin_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_generator_py/lib/python3.8/site-packages:/opt/ros/humble/build/rpyutils:/opt/ros/humble/install/rpyutils/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_c/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_introspection_c/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_generator_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_generator_c/lib/python3.8/site-packages:/opt/ros/humble/build/rosidl_runtime_py:/opt/ros/humble/install/rosidl_runtime_py/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_cmake/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_parser/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_adapter/lib/python3.8/site-packages:/opt/ros/humble/build/rosidl_cli:/opt/ros/humble/install/rosidl_cli/lib/python3.8/site-packages:/opt/ros/humble/install/rcutils/lib/python3.8/site-packages:/opt/ros/humble/build/launch_testing:/opt/ros/humble/install/launch_testing/lib/python3.8/site-packages:/opt/ros/humble/build/launch_yaml:/opt/ros/humble/install/launch_yaml/lib/python3.8/site-packages:/opt/ros/humble/build/launch_xml:/opt/ros/humble/install/launch_xml/lib/python3.8/site-packages:/opt/ros/humble/build/launch:/opt/ros/humble/install/launch/lib/python3.8/site-packages:/opt/ros/humble/build/osrf_pycommon:/opt/ros/humble/install/osrf_pycommon/lib/python3.8/site-packages:/opt/ros/humble/install/ament_cmake_google_benchmark/lib/python3.8/site-packages:/opt/ros/humble/build/domain_coordinator:/opt/ros/humble/install/domain_coordinator/lib/python3.8/site-packages:/opt/ros/humble/build/ament_xmllint:/opt/ros/humble/install/ament_xmllint/lib/python3.8/site-packages:/opt/ros/humble/build/ament_pycodestyle:/opt/ros/humble/install/ament_pycodestyle/lib/python3.8/site-packages:/opt/ros/humble/build/ament_pep257:/opt/ros/humble/install/ament_pep257/lib/python3.8/site-packages:/opt/ros/humble/install/ament_cmake_test/lib/python3.8/site-packages:/opt/ros/humble/build/ament_package:/opt/ros/humble/install/ament_package/lib/python3.8/site-packages:/opt/ros/humble/build/ament_mypy:/opt/ros/humble/install/ament_mypy/lib/python3.8/site-packages:/opt/ros/humble/build/ament_lint_cmake:/opt/ros/humble/install/ament_lint_cmake/lib/python3.8/site-packages:/opt/ros/humble/build/ament_flake8:/opt/ros/humble/install/ament_flake8/lib/python3.8/site-packages:/opt/ros/humble/build/ament_copyright:/opt/ros/humble/install/ament_copyright/lib/python3.8/site-packages:/opt/ros/humble/build/ament_lint:/opt/ros/humble/install/ament_lint/lib/python3.8/site-packages:/opt/ros/humble/build/ament_index_python:/opt/ros/humble/install/ament_index_python/lib/python3.8/site-packages:/opt/ros/humble/build/ament_cpplint:/opt/ros/humble/install/ament_cpplint/lib/python3.8/site-packages:/opt/ros/humble/build/ament_cppcheck:/opt/ros/humble/install/ament_cppcheck/lib/python3.8/site-packages'), ('COLCON', '1'), ('TERM', 'xterm'), ('GDRCOPY_VERSION', '2.3'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('OPENMPI_VERSION', '4.1.4'), ('NVJPEG_VERSION', '11.9.0.86'), ('LIBRARY_PATH', '/usr/local/cuda/lib64/stubs:'), ('SHLVL', '1'), ('BASH_ENV', '/etc/bash.bashrc'), ('CUDNN_VERSION', '8.7.0.84'), ('NSIGHT_COMPUTE_VERSION', '2022.3.0.22'), ('DALI_VERSION', '1.20.0'), ('LD_LIBRARY_PATH', '/opt/ros/humble/install/rosbag2_compression_zstd/lib:/opt/ros/humble/install/zstd_vendor/lib:/opt/ros/humble/install/rosbag2_transport/lib:/opt/ros/humble/install/rosbag2_compression/lib:/opt/ros/humble/install/rosbag2_cpp/lib:/opt/ros/humble/install/rosbag2_storage_default_plugins/lib:/opt/ros/humble/install/rosbag2_storage/lib:/opt/ros/humble/install/camera_info_manager/lib:/opt/ros/humble/install/camera_calibration_parsers/lib:/opt/ros/humble/install/visualization_msgs/lib:/opt/ros/humble/install/vision_msgs/lib:/opt/ros/humble/install/robot_state_publisher/lib:/opt/ros/humble/install/kdl_parser/lib:/opt/ros/humble/install/urdf/lib:/opt/ros/humble/install/urdfdom/lib:/opt/ros/humble/install/pcl_ros/lib:/opt/ros/humble/install/tf2_ros/lib:/opt/ros/humble/install/tf2_msgs/lib:/opt/ros/humble/install/test_msgs/lib:/opt/ros/humble/install/ros2cli_test_interfaces/lib:/opt/ros/humble/install/image_transport/lib:/opt/ros/humble/install/message_filters/lib:/opt/ros/humble/install/rclpy/lib:/opt/ros/humble/install/rclcpp_action/lib:/opt/ros/humble/install/rcl_action/lib:/opt/ros/humble/install/action_msgs/lib:/opt/ros/humble/install/unique_identifier_msgs/lib:/opt/ros/humble/install/trajectory_msgs/lib:/opt/ros/humble/install/rclcpp_lifecycle/lib:/opt/ros/humble/install/rclcpp_components/lib:/opt/ros/humble/install/rclcpp/lib:/opt/ros/humble/install/rcl_lifecycle/lib:/opt/ros/humble/install/libstatistics_collector/lib:/opt/ros/humble/install/rcl/lib:/opt/ros/humble/install/rmw_implementation/lib:/opt/ros/humble/install/rmw_fastrtps_dynamic_cpp/lib:/opt/ros/humble/install/rmw_fastrtps_cpp/lib:/opt/ros/humble/install/rmw_fastrtps_shared_cpp/lib:/opt/ros/humble/install/rmw_cyclonedds_cpp/lib:/opt/ros/humble/install/tracetools/lib:/opt/ros/humble/install/tf2_eigen_kdl/lib:/opt/ros/humble/install/tf2/lib:/opt/ros/humble/install/stereo_msgs/lib:/opt/ros/humble/install/std_srvs/lib:/opt/ros/humble/install/shape_msgs/lib:/opt/ros/humble/install/pcl_msgs/lib:/opt/ros/humble/install/sensor_msgs/lib:/opt/ros/humble/install/nav_msgs/lib:/opt/ros/humble/install/diagnostic_msgs/lib:/opt/ros/humble/install/geometry_msgs/lib:/opt/ros/humble/install/actionlib_msgs/lib:/opt/ros/humble/install/std_msgs/lib:/opt/ros/humble/install/statistics_msgs/lib:/opt/ros/humble/install/rcl_logging_spdlog/lib:/opt/ros/humble/install/rosgraph_msgs/lib:/opt/ros/humble/install/rosbag2_interfaces/lib:/opt/ros/humble/install/rmw_dds_common/lib:/opt/ros/humble/install/composition_interfaces/lib:/opt/ros/humble/install/rcl_interfaces/lib:/opt/ros/humble/install/lifecycle_msgs/lib:/opt/ros/humble/install/builtin_interfaces/lib:/opt/ros/humble/install/rosidl_typesupport_cpp/lib:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp/lib:/opt/ros/humble/install/rosidl_typesupport_c/lib:/opt/ros/humble/install/rosidl_typesupport_introspection_c/lib:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c/lib:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp/lib:/opt/ros/humble/install/rcl_yaml_param_parser/lib:/opt/ros/humble/install/rmw/lib:/opt/ros/humble/install/rosidl_runtime_c/lib:/opt/ros/humble/install/class_loader/lib:/opt/ros/humble/install/rcpputils/lib:/opt/ros/humble/install/rcl_logging_interface/lib:/opt/ros/humble/install/rcutils/lib:/opt/ros/humble/install/performance_test_fixture/lib:/opt/ros/humble/install/osrf_testing_tools_cpp/lib:/opt/ros/humble/install/orocos_kdl_vendor/lib:/opt/ros/humble/install/mimick_vendor/lib:/opt/ros/humble/install/libyaml_vendor/lib:/opt/ros/humble/install/keyboard_handler/lib:/opt/ros/humble/install/cyclonedds/lib:/opt/ros/humble/install/iceoryx_posh/lib:/opt/ros/humble/install/iceoryx_hoofs/lib:/opt/ros/humble/install/iceoryx_binding_c/lib:/opt/ros/humble/install/google_benchmark_vendor/lib:/opt/ros/humble/install/fastrtps/lib:/opt/ros/humble/install/fastcdr/lib:/opt/ros/humble/install/console_bridge_vendor/lib:/opt/ros/humble/install/ament_index_cpp/lib:/usr/local/cuda/compat/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64'), ('NVIDIA_BUILD_ID', '49968236'), ('ROS_LOCALHOST_ONLY', '0'), ('OMPI_MCA_coll_hcoll_enable', '0'), ('OPAL_PREFIX', '/opt/hpcx/ompi'), ('CUDA_DRIVER_VERSION', '520.61.05'), ('TRANSFORMER_ENGINE_VERSION', '0.3'), ('LC_ALL', 'en_US.UTF-8'), ('_CUDA_COMPAT_PATH', '/usr/local/cuda/compat'), ('NVIDIA_TENSORRT_VERSION', '22.12'), ('TENSORRT_OSS_VERSION', 'master'), ('NVIDIA_REQUIRE_JETPACK_HOST_MOUNTS', ''), ('PATH', '/opt/ros/humble/install/urdfdom/bin:/opt/ros/humble/install/ros2cli/bin:/opt/ros/humble/install/ament_uncrustify/bin:/opt/ros/humble/install/uncrustify_vendor/bin:/opt/ros/humble/install/rosidl_cli/bin:/opt/ros/humble/install/launch_testing/bin:/opt/ros/humble/install/cyclonedds/bin:/opt/ros/humble/install/iceoryx_posh/bin:/opt/ros/humble/install/fastrtps/bin:/opt/ros/humble/install/foonathan_memory_vendor/bin:/opt/ros/humble/install/ament_xmllint/bin:/opt/ros/humble/install/ament_pycodestyle/bin:/opt/ros/humble/install/ament_pep257/bin:/opt/ros/humble/install/ament_mypy/bin:/opt/ros/humble/install/ament_lint_cmake/bin:/opt/ros/humble/install/ament_flake8/bin:/opt/ros/humble/install/ament_copyright/bin:/opt/ros/humble/install/ament_index_python/bin:/opt/ros/humble/install/ament_cpplint/bin:/opt/ros/humble/install/ament_cppcheck/bin:/opt/tensorrt/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/ucx/bin'), ('MOFED_VERSION', '5.4-rdmacore36.0'), ('TRTOSS_VERSION', '22.12'), ('DEBIAN_FRONTEND', 'noninteractive'), ('ROS_DISTRO', 'humble'), ('OLDPWD', '/root'), ('_', '/usr/bin/env')]), 'shell': False}
+[2.421696] (-) TimerEvent: {}
+[2.421860] (pp_infer) StdoutLine: {'line': b'-- Architecture: x86_64\n'}
+[2.421979] (pp_infer) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.5 (/opt/ros/humble/install/ament_cmake/share/ament_cmake/cmake)\n'}
+[2.521893] (-) TimerEvent: {}
+[2.622402] (-) TimerEvent: {}
+[2.722809] (-) TimerEvent: {}
+[2.823201] (-) TimerEvent: {}
+[2.923854] (-) TimerEvent: {}
+[3.024283] (-) TimerEvent: {}
+[3.124729] (-) TimerEvent: {}
+[3.225185] (-) TimerEvent: {}
+[3.325672] (-) TimerEvent: {}
+[3.426162] (-) TimerEvent: {}
+[3.526628] (-) TimerEvent: {}
+[3.627077] (-) TimerEvent: {}
+[3.638305] (pp_infer) StdoutLine: {'line': b'-- Found rclcpp: 16.0.4 (/opt/ros/humble/install/rclcpp/share/rclcpp/cmake)\n'}
+[3.678398] (pp_infer) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/install/rosidl_generator_c/share/rosidl_generator_c/cmake)\n'}
+[3.680993] (pp_infer) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/install/rosidl_adapter/share/rosidl_adapter/cmake)\n'}
+[3.687276] (pp_infer) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake)\n'}
+[3.727197] (-) TimerEvent: {}
+[3.804408] (pp_infer) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_introspection_c;rosidl_typesupport_fastrtps_c\n'}
+[3.827327] (-) TimerEvent: {}
+[3.927707] (-) TimerEvent: {}
+[3.931222] (pp_infer) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_introspection_cpp;rosidl_typesupport_fastrtps_cpp\n'}
+[4.027874] (-) TimerEvent: {}
+[4.068091] (pp_infer) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/install/rmw_implementation_cmake/share/rmw_implementation_cmake/cmake)\n'}
+[4.128023] (-) TimerEvent: {}
+[4.162916] (pp_infer) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/install/rmw_fastrtps_cpp/share/rmw_fastrtps_cpp/cmake)\n'}
+[4.228180] (-) TimerEvent: {}
+[4.328625] (-) TimerEvent: {}
+[4.429098] (-) TimerEvent: {}
+[4.456462] (pp_infer) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[4.529262] (-) TimerEvent: {}
+[4.615311] (pp_infer) StdoutLine: {'line': b'-- Found vision_msgs: 4.1.0 (/opt/ros/humble/install/vision_msgs/share/vision_msgs/cmake)\n'}
+[4.629389] (-) TimerEvent: {}
+[4.729823] (-) TimerEvent: {}
+[4.734707] (pp_infer) StdoutLine: {'line': b'-- Found message_filters: 4.3.3 (/opt/ros/humble/install/message_filters/share/message_filters/cmake)\n'}
+[4.739757] (pp_infer) StdoutLine: {'line': b'-- Found pcl_conversions: 2.4.1 (/opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake)\n'}
+[4.829989] (-) TimerEvent: {}
+[4.930406] (-) TimerEvent: {}
+[5.003646] (pp_infer) StdoutLine: {'line': b'-- Eigen found (include: /usr/include/eigen3, version: 3.3.7)\n'}
+[5.030587] (-) TimerEvent: {}
+[5.106019] (pp_infer) StdoutLine: {'line': b'-- The imported target "vtkParseOGLExt" references the file\n'}
+[5.106350] (pp_infer) StdoutLine: {'line': b'   "/usr/bin/vtkParseOGLExt-7.1"\n'}
+[5.106550] (pp_infer) StdoutLine: {'line': b'but this file does not exist.  Possible reasons include:\n'}
+[5.107275] (pp_infer) StdoutLine: {'line': b'* The file was deleted, renamed, or moved to another location.\n'}
+[5.107909] (pp_infer) StdoutLine: {'line': b'* An install or uninstall procedure did not complete successfully.\n'}
+[5.107997] (pp_infer) StdoutLine: {'line': b'* The installation package was faulty and contained\n'}
+[5.108070] (pp_infer) StdoutLine: {'line': b'   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"\n'}
+[5.108143] (pp_infer) StdoutLine: {'line': b'but not all the files it references.\n'}
+[5.108215] (pp_infer) StdoutLine: {'line': b'\n'}
+[5.108298] (pp_infer) StdoutLine: {'line': b'-- The imported target "vtkRenderingPythonTkWidgets" references the file\n'}
+[5.108375] (pp_infer) StdoutLine: {'line': b'   "/usr/lib/x86_64-linux-gnu/libvtkRenderingPythonTkWidgets.so"\n'}
+[5.108454] (pp_infer) StdoutLine: {'line': b'but this file does not exist.  Possible reasons include:\n'}
+[5.108541] (pp_infer) StdoutLine: {'line': b'* The file was deleted, renamed, or moved to another location.\n'}
+[5.108645] (pp_infer) StdoutLine: {'line': b'* An install or uninstall procedure did not complete successfully.\n'}
+[5.108762] (pp_infer) StdoutLine: {'line': b'* The installation package was faulty and contained\n'}
+[5.108884] (pp_infer) StdoutLine: {'line': b'   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"\n'}
+[5.109007] (pp_infer) StdoutLine: {'line': b'but not all the files it references.\n'}
+[5.109133] (pp_infer) StdoutLine: {'line': b'\n'}
+[5.109248] (pp_infer) StdoutLine: {'line': b'-- The imported target "vtk" references the file\n'}
+[5.109369] (pp_infer) StdoutLine: {'line': b'   "/usr/bin/vtk"\n'}
+[5.109493] (pp_infer) StdoutLine: {'line': b'but this file does not exist.  Possible reasons include:\n'}
+[5.109596] (pp_infer) StdoutLine: {'line': b'* The file was deleted, renamed, or moved to another location.\n'}
+[5.109694] (pp_infer) StdoutLine: {'line': b'* An install or uninstall procedure did not complete successfully.\n'}
+[5.109788] (pp_infer) StdoutLine: {'line': b'* The installation package was faulty and contained\n'}
+[5.109867] (pp_infer) StdoutLine: {'line': b'   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"\n'}
+[5.109942] (pp_infer) StdoutLine: {'line': b'but not all the files it references.\n'}
+[5.110011] (pp_infer) StdoutLine: {'line': b'\n'}
+[5.110074] (pp_infer) StdoutLine: {'line': b'-- The imported target "pvtk" references the file\n'}
+[5.110142] (pp_infer) StdoutLine: {'line': b'   "/usr/bin/pvtk"\n'}
+[5.110211] (pp_infer) StdoutLine: {'line': b'but this file does not exist.  Possible reasons include:\n'}
+[5.110276] (pp_infer) StdoutLine: {'line': b'* The file was deleted, renamed, or moved to another location.\n'}
+[5.110359] (pp_infer) StdoutLine: {'line': b'* An install or uninstall procedure did not complete successfully.\n'}
+[5.111282] (pp_infer) StdoutLine: {'line': b'* The installation package was faulty and contained\n'}
+[5.111368] (pp_infer) StdoutLine: {'line': b'   "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"\n'}
+[5.111448] (pp_infer) StdoutLine: {'line': b'but not all the files it references.\n'}
+[5.111562] (pp_infer) StdoutLine: {'line': b'\n'}
+[5.124641] (pp_infer) StdoutLine: {'line': b"-- Checking for module 'libusb-1.0'\n"}
+[5.130757] (-) TimerEvent: {}
+[5.133976] (pp_infer) StdoutLine: {'line': b"--   No package 'libusb-1.0' found\n"}
+[5.142835] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.143027] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (USB_10)\n'}
+[5.143113] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (OpenNI).  This can lead to\n'}
+[5.143199] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.143279] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.143361] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.143448] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)\n'}
+[5.143564] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)\n'}
+[5.143652] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)\n'}
+[5.143726] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)\n'}
+[5.143806] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.143899] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.144005] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.144083] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.144167] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.144242] (pp_infer) StdoutLine: {'line': b'-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) \n'}
+[5.144320] (pp_infer) StdoutLine: {'line': b'-- OpenNI disabled because libusb-1.0 not found.\n'}
+[5.149819] (pp_infer) StdoutLine: {'line': b"-- Checking for module 'libusb-1.0'\n"}
+[5.159623] (pp_infer) StdoutLine: {'line': b"--   No package 'libusb-1.0' found\n"}
+[5.168213] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.168420] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (USB_10)\n'}
+[5.168519] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (OpenNI2).  This can lead to\n'}
+[5.168599] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.168679] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.168759] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.168845] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI2.cmake:28 (find_package_handle_standard_args)\n'}
+[5.168934] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:193 (find_package)\n'}
+[5.169015] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_openni2)\n'}
+[5.169087] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)\n'}
+[5.169162] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.169241] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.169322] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.169395] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.169481] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.169551] (pp_infer) StdoutLine: {'line': b'-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) \n'}
+[5.169636] (pp_infer) StdoutLine: {'line': b'-- OpenNI 2 disabled because libusb-1.0 not found.\n'}
+[5.183529] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.183804] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (libusb-1.0)\n'}
+[5.183891] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.183974] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.184056] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.184132] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.184213] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:291 (find_package_handle_standard_args)\n'}
+[5.184327] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:338 (find_libusb)\n'}
+[5.184436] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)\n'}
+[5.184701] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.184783] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.184857] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.184931] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.185015] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.185110] (pp_infer) StdoutLine: {'line': b'-- LIBUSB_1_LIBRARY (missing: LIBUSB_1_INCLUDE_DIR) \n'}
+[5.190148] (pp_infer) StdoutLine: {'line': b"-- Checking for module 'libusb-1.0'\n"}
+[5.200456] (pp_infer) StdoutLine: {'line': b"--   No package 'libusb-1.0' found\n"}
+[5.210372] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.210581] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (USB_10)\n'}
+[5.210678] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (OpenNI).  This can lead to\n'}
+[5.210755] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.210844] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.210920] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.210996] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)\n'}
+[5.211094] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)\n'}
+[5.211177] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)\n'}
+[5.211258] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)\n'}
+[5.211334] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.211417] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.211534] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.211617] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.211693] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.211770] (pp_infer) StdoutLine: {'line': b'-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) \n'}
+[5.211846] (pp_infer) StdoutLine: {'line': b'-- OpenNI disabled because libusb-1.0 not found.\n'}
+[5.217655] (pp_infer) StdoutLine: {'line': b"-- Checking for module 'libusb-1.0'\n"}
+[5.226409] (pp_infer) StdoutLine: {'line': b"--   No package 'libusb-1.0' found\n"}
+[5.230868] (-) TimerEvent: {}
+[5.234978] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.235188] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (USB_10)\n'}
+[5.235274] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (OpenNI2).  This can lead to\n'}
+[5.235366] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.235558] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.235722] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.235831] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI2.cmake:28 (find_package_handle_standard_args)\n'}
+[5.235916] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:193 (find_package)\n'}
+[5.236007] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_openni2)\n'}
+[5.236090] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)\n'}
+[5.236169] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.236259] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.236348] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.236488] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.236628] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.236707] (pp_infer) StdoutLine: {'line': b'-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) \n'}
+[5.236791] (pp_infer) StdoutLine: {'line': b'-- OpenNI 2 disabled because libusb-1.0 not found.\n'}
+[5.245449] (pp_infer) StdoutLine: {'line': b'-- QHULL found (include: /usr/include, lib: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so)\n'}
+[5.251574] (pp_infer) StdoutLine: {'line': b"-- Checking for module 'libusb-1.0'\n"}
+[5.259397] (pp_infer) StdoutLine: {'line': b"--   No package 'libusb-1.0' found\n"}
+[5.267633] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.267945] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (USB_10)\n'}
+[5.268037] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (OpenNI).  This can lead to\n'}
+[5.268115] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.268191] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.268267] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.268348] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)\n'}
+[5.268462] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)\n'}
+[5.268568] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)\n'}
+[5.268657] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)\n'}
+[5.268741] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.268827] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.268907] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.268989] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.269066] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.269145] (pp_infer) StdoutLine: {'line': b'-- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) \n'}
+[5.269245] (pp_infer) StdoutLine: {'line': b'-- OpenNI disabled because libusb-1.0 not found.\n'}
+[5.277263] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.277405] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_COMMON)\n'}
+[5.277493] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.277606] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.277858] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.277969] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.278080] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.278185] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.278294] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.278391] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.278492] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.278593] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.278709] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.278828] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_KDTREE)\n'}
+[5.278933] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.279051] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.279167] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.279267] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.279366] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.279494] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.280340] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.280487] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.280611] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.280710] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.280831] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.280932] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_OCTREE)\n'}
+[5.281167] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.281257] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.281357] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.281553] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.281638] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.281722] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.281817] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.282009] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.282087] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.282162] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.282517] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.282704] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_SEARCH)\n'}
+[5.282838] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.282925] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.283026] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.283119] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.283217] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.283310] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.283418] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.283614] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.283774] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.283895] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.284029] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.284142] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.284239] (pp_infer) StderrLine: {'line': b'  (PCL_SAMPLE_CONSENSUS) does not match the name of the calling package\n'}
+[5.284337] (pp_infer) StderrLine: {'line': b'  (PCL).  This can lead to problems in calling code that expects\n'}
+[5.284513] (pp_infer) StderrLine: {'line': b'  `find_package` result variables (e.g., `_FOUND`) to follow a certain\n'}
+[5.284609] (pp_infer) StderrLine: {'line': b'  pattern.\n'}
+[5.284716] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.284807] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.285229] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.285312] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.285386] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.285465] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.285539] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.285608] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.285711] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.285810] (pp_infer) StderrLine: {'line': b'  (PCL_FILTERS) does not match the name of the calling package (PCL).  This\n'}
+[5.285911] (pp_infer) StderrLine: {'line': b'  can lead to problems in calling code that expects `find_package` result\n'}
+[5.286021] (pp_infer) StderrLine: {'line': b'  variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.286326] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.286433] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.286570] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.286679] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.286781] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.287035] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.287115] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.287187] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.287258] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_2D)\n'}
+[5.287357] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.287450] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.287567] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.287647] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.287718] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)\n'}
+[5.287804] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.287879] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.287950] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.288022] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.288097] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.288166] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.288233] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.288303] (pp_infer) StderrLine: {'line': b'  (PCL_GEOMETRY) does not match the name of the calling package (PCL).  This\n'}
+[5.288373] (pp_infer) StderrLine: {'line': b'  can lead to problems in calling code that expects `find_package` result\n'}
+[5.288446] (pp_infer) StderrLine: {'line': b'  variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.288517] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.288584] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)\n'}
+[5.288652] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.288728] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.288802] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.288874] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.288941] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.289013] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.289086] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_IO)\n'}
+[5.289154] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.289228] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.289294] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.289361] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.289429] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.289498] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.289581] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.289653] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.289723] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.289793] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.289865] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.289933] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.290004] (pp_infer) StderrLine: {'line': b'  (PCL_FEATURES) does not match the name of the calling package (PCL).  This\n'}
+[5.290078] (pp_infer) StderrLine: {'line': b'  can lead to problems in calling code that expects `find_package` result\n'}
+[5.290155] (pp_infer) StderrLine: {'line': b'  variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.290227] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.290303] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.290379] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.290457] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.290534] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.290621] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.290689] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.290769] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.290843] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_ML)\n'}
+[5.290915] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.290980] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.291064] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.291134] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.291205] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.291275] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.291347] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.291420] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.291531] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.291608] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.291679] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.291746] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.291823] (pp_infer) StderrLine: {'line': b'  (PCL_SEGMENTATION) does not match the name of the calling package (PCL).\n'}
+[5.291898] (pp_infer) StderrLine: {'line': b'  This can lead to problems in calling code that expects `find_package`\n'}
+[5.291972] (pp_infer) StderrLine: {'line': b'  result variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.292043] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.292118] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.292191] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.292254] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.292326] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.292420] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.292515] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.292595] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.292688] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.292767] (pp_infer) StderrLine: {'line': b'  (PCL_VISUALIZATION) does not match the name of the calling package (PCL).\n'}
+[5.292862] (pp_infer) StderrLine: {'line': b'  This can lead to problems in calling code that expects `find_package`\n'}
+[5.292931] (pp_infer) StderrLine: {'line': b'  result variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.293004] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.293071] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.293144] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.293213] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.293288] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.293357] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.293446] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.293518] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.293592] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.293667] (pp_infer) StderrLine: {'line': b'  (PCL_SURFACE) does not match the name of the calling package (PCL).  This\n'}
+[5.293737] (pp_infer) StderrLine: {'line': b'  can lead to problems in calling code that expects `find_package` result\n'}
+[5.293806] (pp_infer) StderrLine: {'line': b'  variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.293873] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.293944] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.294020] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.294091] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.294156] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.294244] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.294321] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.294395] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.294469] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.294542] (pp_infer) StderrLine: {'line': b'  (PCL_REGISTRATION) does not match the name of the calling package (PCL).\n'}
+[5.294610] (pp_infer) StderrLine: {'line': b'  This can lead to problems in calling code that expects `find_package`\n'}
+[5.294698] (pp_infer) StderrLine: {'line': b'  result variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.294806] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.294880] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.294956] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.295048] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.295158] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.295238] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.295311] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.295383] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.295485] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.295574] (pp_infer) StderrLine: {'line': b'  (PCL_KEYPOINTS) does not match the name of the calling package (PCL).  This\n'}
+[5.295652] (pp_infer) StderrLine: {'line': b'  can lead to problems in calling code that expects `find_package` result\n'}
+[5.295721] (pp_infer) StderrLine: {'line': b'  variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.295789] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.295857] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.295932] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.296003] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.296079] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.296144] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.296213] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.296286] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.296357] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.296437] (pp_infer) StderrLine: {'line': b'  (PCL_TRACKING) does not match the name of the calling package (PCL).  This\n'}
+[5.296518] (pp_infer) StderrLine: {'line': b'  can lead to problems in calling code that expects `find_package` result\n'}
+[5.296597] (pp_infer) StderrLine: {'line': b'  variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.296675] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.296745] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.296811] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.296882] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.296961] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.297033] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.297103] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.297174] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.297253] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.297331] (pp_infer) StderrLine: {'line': b'  (PCL_RECOGNITION) does not match the name of the calling package (PCL).\n'}
+[5.297402] (pp_infer) StderrLine: {'line': b'  This can lead to problems in calling code that expects `find_package`\n'}
+[5.297501] (pp_infer) StderrLine: {'line': b'  result variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.297596] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.297674] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.297750] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.297821] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.297894] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.297972] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.298038] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.298111] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.298182] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_STEREO)\n'}
+[5.298254] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.298333] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.298412] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.298490] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.298564] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.298634] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.298710] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.298790] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.298859] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.298942] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.299015] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.299090] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_APPS)\n'}
+[5.299157] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.299224] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.299292] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.299358] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.299424] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.299529] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.299597] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.299667] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.299733] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.299804] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.299880] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.299963] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.300038] (pp_infer) StderrLine: {'line': b'  (PCL_IN_HAND_SCANNER) does not match the name of the calling package (PCL).\n'}
+[5.300121] (pp_infer) StderrLine: {'line': b'  This can lead to problems in calling code that expects `find_package`\n'}
+[5.300193] (pp_infer) StderrLine: {'line': b'  result variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.300264] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.300340] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)\n'}
+[5.300427] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.300506] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.300584] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.300660] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.300739] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.300815] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.300890] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.300958] (pp_infer) StderrLine: {'line': b'  (PCL_POINT_CLOUD_EDITOR) does not match the name of the calling package\n'}
+[5.301025] (pp_infer) StderrLine: {'line': b'  (PCL).  This can lead to problems in calling code that expects\n'}
+[5.301103] (pp_infer) StderrLine: {'line': b'  `find_package` result variables (e.g., `_FOUND`) to follow a certain\n'}
+[5.301180] (pp_infer) StderrLine: {'line': b'  pattern.\n'}
+[5.301251] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.301333] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)\n'}
+[5.301405] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.301485] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.301557] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.301630] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.301709] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.301788] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.301863] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args`\n'}
+[5.301933] (pp_infer) StderrLine: {'line': b'  (PCL_OUTOFCORE) does not match the name of the calling package (PCL).  This\n'}
+[5.302002] (pp_infer) StderrLine: {'line': b'  can lead to problems in calling code that expects `find_package` result\n'}
+[5.302070] (pp_infer) StderrLine: {'line': b'  variables (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.302144] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.302211] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.302276] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.302458] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.302543] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.302625] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.302698] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.302765] (pp_infer) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):\n'}
+[5.302830] (pp_infer) StderrLine: {'line': b'  The package name passed to `find_package_handle_standard_args` (PCL_PEOPLE)\n'}
+[5.302926] (pp_infer) StderrLine: {'line': b'  does not match the name of the calling package (PCL).  This can lead to\n'}
+[5.303023] (pp_infer) StderrLine: {'line': b'  problems in calling code that expects `find_package` result variables\n'}
+[5.303096] (pp_infer) StderrLine: {'line': b'  (e.g., `_FOUND`) to follow a certain pattern.\n'}
+[5.303170] (pp_infer) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[5.303234] (pp_infer) StderrLine: {'line': b'  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)\n'}
+[5.303305] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)\n'}
+[5.303377] (pp_infer) StderrLine: {'line': b'  /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)\n'}
+[5.303446] (pp_infer) StderrLine: {'line': b'  CMakeLists.txt:47 (find_package)\n'}
+[5.303560] (pp_infer) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[5.303632] (pp_infer) StderrLine: {'line': b'\x1b[0m\n'}
+[5.303703] (pp_infer) StdoutLine: {'line': b'-- Found pcl_ros: 2.4.1 (/opt/ros/humble/install/pcl_ros/share/pcl_ros/cmake)\n'}
+[5.330981] (-) TimerEvent: {}
+[5.431327] (-) TimerEvent: {}
+[5.531125] (pp_infer) StdoutLine: {'line': b'-- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/install/eigen3_cmake_module/share/eigen3_cmake_module/cmake)\n'}
+[5.531482] (-) TimerEvent: {}
+[5.532653] (pp_infer) StdoutLine: {'line': b'-- Ensuring Eigen3 include directory is part of orocos-kdl CMake target\n'}
+[5.631555] (-) TimerEvent: {}
+[5.731911] (-) TimerEvent: {}
+[5.829686] (pp_infer) StdoutLine: {'line': b'-- Found visualization_msgs: 4.2.3 (/opt/ros/humble/install/visualization_msgs/share/visualization_msgs/cmake)\n'}
+[5.831998] (-) TimerEvent: {}
+[5.932286] (-) TimerEvent: {}
+[6.032697] (-) TimerEvent: {}
+[6.133156] (-) TimerEvent: {}
+[6.233665] (-) TimerEvent: {}
+[6.334168] (-) TimerEvent: {}
+[6.434614] (-) TimerEvent: {}
+[6.535063] (-) TimerEvent: {}
+[6.635540] (-) TimerEvent: {}
+[6.735948] (-) TimerEvent: {}
+[6.836359] (-) TimerEvent: {}
+[6.870971] (pp_infer) StdoutLine: {'line': b'-- Found ament_lint_auto: 0.12.6 (/opt/ros/humble/install/ament_lint_auto/share/ament_lint_auto/cmake)\n'}
+[6.936496] (-) TimerEvent: {}
+[7.036883] (-) TimerEvent: {}
+[7.137289] (-) TimerEvent: {}
+[7.237693] (-) TimerEvent: {}
+[7.338126] (-) TimerEvent: {}
+[7.438576] (-) TimerEvent: {}
+[7.539031] (-) TimerEvent: {}
+[7.639443] (-) TimerEvent: {}
+[7.739924] (-) TimerEvent: {}
+[7.840325] (-) TimerEvent: {}
+[7.940754] (-) TimerEvent: {}
+[8.041213] (-) TimerEvent: {}
+[8.101459] (pp_infer) StdoutLine: {'line': b"-- Added test 'copyright' to check source files copyright and LICENSE\n"}
+[8.141372] (-) TimerEvent: {}
+[8.241940] (-) TimerEvent: {}
+[8.342359] (-) TimerEvent: {}
+[8.442792] (-) TimerEvent: {}
+[8.543235] (-) TimerEvent: {}
+[8.643711] (-) TimerEvent: {}
+[8.744234] (-) TimerEvent: {}
+[8.844674] (-) TimerEvent: {}
+[8.945123] (-) TimerEvent: {}
+[9.045616] (-) TimerEvent: {}
+[9.146154] (-) TimerEvent: {}
+[9.246607] (-) TimerEvent: {}
+[9.347069] (-) TimerEvent: {}
+[9.447534] (-) TimerEvent: {}
+[9.547956] (-) TimerEvent: {}
+[9.648685] (-) TimerEvent: {}
+[9.749087] (-) TimerEvent: {}
+[9.849504] (-) TimerEvent: {}
+[9.949964] (-) TimerEvent: {}
+[10.050378] (-) TimerEvent: {}
+[10.150746] (-) TimerEvent: {}
+[10.251152] (-) TimerEvent: {}
+[10.351659] (-) TimerEvent: {}
+[10.452027] (-) TimerEvent: {}
+[10.552399] (-) TimerEvent: {}
+[10.652825] (-) TimerEvent: {}
+[10.753279] (-) TimerEvent: {}
+[10.853730] (-) TimerEvent: {}
+[10.954159] (-) TimerEvent: {}
+[11.054579] (-) TimerEvent: {}
+[11.155039] (-) TimerEvent: {}
+[11.255598] (-) TimerEvent: {}
+[11.356024] (-) TimerEvent: {}
+[11.456453] (-) TimerEvent: {}
+[11.556877] (-) TimerEvent: {}
+[11.657300] (-) TimerEvent: {}
+[11.757761] (-) TimerEvent: {}
+[11.858197] (-) TimerEvent: {}
+[11.958596] (-) TimerEvent: {}
+[12.058963] (-) TimerEvent: {}
+[12.159378] (-) TimerEvent: {}
+[12.259762] (-) TimerEvent: {}
+[12.360170] (-) TimerEvent: {}
+[12.460598] (-) TimerEvent: {}
+[12.561026] (-) TimerEvent: {}
+[12.661434] (-) TimerEvent: {}
+[12.761825] (-) TimerEvent: {}
+[12.862219] (-) TimerEvent: {}
+[12.962660] (-) TimerEvent: {}
+[13.063083] (-) TimerEvent: {}
+[13.163710] (-) TimerEvent: {}
+[13.264186] (-) TimerEvent: {}
+[13.364684] (-) TimerEvent: {}
+[13.465126] (-) TimerEvent: {}
+[13.565569] (-) TimerEvent: {}
+[13.666007] (-) TimerEvent: {}
+[13.766413] (-) TimerEvent: {}
+[13.866852] (-) TimerEvent: {}
+[13.967262] (-) TimerEvent: {}
+[14.067672] (-) TimerEvent: {}
+[14.168077] (-) TimerEvent: {}
+[14.249376] (pp_infer) StdoutLine: {'line': b"-- Added test 'cppcheck' to perform static code analysis on C / C++ code\n"}
+[14.250013] (pp_infer) StdoutLine: {'line': b'-- Configured cppcheck include dirs: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src\n'}
+[14.250159] (pp_infer) StdoutLine: {'line': b'-- Configured cppcheck exclude dirs and/or files: \n'}
+[14.268202] (-) TimerEvent: {}
+[14.327178] (pp_infer) StdoutLine: {'line': b"-- Added test 'cpplint' to check C / C++ code against the Google style\n"}
+[14.327537] (pp_infer) StdoutLine: {'line': b'-- Configured cpplint exclude dirs and/or files: \n'}
+[14.344676] (pp_infer) StdoutLine: {'line': b"-- Added test 'flake8' to check Python code syntax and style conventions\n"}
+[14.361454] (pp_infer) StdoutLine: {'line': b"-- Added test 'lint_cmake' to check CMake code style\n"}
+[14.368316] (-) TimerEvent: {}
+[14.371379] (pp_infer) StdoutLine: {'line': b"-- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257\n"}
+[14.435617] (pp_infer) StdoutLine: {'line': b"-- Added test 'uncrustify' to check C / C++ code style\n"}
+[14.435891] (pp_infer) StdoutLine: {'line': b'-- Configured uncrustify additional arguments: \n'}
+[14.443315] (pp_infer) StdoutLine: {'line': b"-- Added test 'xmllint' to check XML markup files\n"}
+[14.468523] (-) TimerEvent: {}
+[14.568988] (-) TimerEvent: {}
+[14.656764] (pp_infer) StdoutLine: {'line': b'-- Configuring done\n'}
+[14.669091] (-) TimerEvent: {}
+[14.769460] (-) TimerEvent: {}
+[14.869883] (-) TimerEvent: {}
+[14.970289] (-) TimerEvent: {}
+[15.070701] (-) TimerEvent: {}
+[15.171103] (-) TimerEvent: {}
+[15.271564] (-) TimerEvent: {}
+[15.371999] (-) TimerEvent: {}
+[15.472401] (-) TimerEvent: {}
+[15.572782] (-) TimerEvent: {}
+[15.673192] (-) TimerEvent: {}
+[15.773653] (-) TimerEvent: {}
+[15.874078] (-) TimerEvent: {}
+[15.974456] (-) TimerEvent: {}
+[16.074848] (-) TimerEvent: {}
+[16.175273] (-) TimerEvent: {}
+[16.275699] (-) TimerEvent: {}
+[16.376052] (-) TimerEvent: {}
+[16.476450] (-) TimerEvent: {}
+[16.576896] (-) TimerEvent: {}
+[16.677329] (-) TimerEvent: {}
+[16.777738] (-) TimerEvent: {}
+[16.878147] (-) TimerEvent: {}
+[16.978528] (-) TimerEvent: {}
+[17.079262] (-) TimerEvent: {}
+[17.179716] (-) TimerEvent: {}
+[17.280158] (-) TimerEvent: {}
+[17.380575] (-) TimerEvent: {}
+[17.480976] (-) TimerEvent: {}
+[17.581408] (-) TimerEvent: {}
+[17.681927] (-) TimerEvent: {}
+[17.782350] (-) TimerEvent: {}
+[17.882859] (-) TimerEvent: {}
+[17.983317] (-) TimerEvent: {}
+[18.083793] (-) TimerEvent: {}
+[18.184253] (-) TimerEvent: {}
+[18.284671] (-) TimerEvent: {}
+[18.385079] (-) TimerEvent: {}
+[18.485460] (-) TimerEvent: {}
+[18.585888] (-) TimerEvent: {}
+[18.686391] (-) TimerEvent: {}
+[18.786835] (-) TimerEvent: {}
+[18.887272] (-) TimerEvent: {}
+[18.987747] (-) TimerEvent: {}
+[19.088167] (-) TimerEvent: {}
+[19.188625] (-) TimerEvent: {}
+[19.288983] (-) TimerEvent: {}
+[19.389346] (-) TimerEvent: {}
+[19.489816] (-) TimerEvent: {}
+[19.590244] (-) TimerEvent: {}
+[19.690644] (-) TimerEvent: {}
+[19.791117] (-) TimerEvent: {}
+[19.891601] (-) TimerEvent: {}
+[19.992034] (-) TimerEvent: {}
+[20.092450] (-) TimerEvent: {}
+[20.192875] (-) TimerEvent: {}
+[20.293255] (-) TimerEvent: {}
+[20.393621] (-) TimerEvent: {}
+[20.494040] (-) TimerEvent: {}
+[20.594461] (-) TimerEvent: {}
+[20.695190] (-) TimerEvent: {}
+[20.795580] (-) TimerEvent: {}
+[20.895989] (-) TimerEvent: {}
+[20.996397] (-) TimerEvent: {}
+[21.096816] (-) TimerEvent: {}
+[21.197234] (-) TimerEvent: {}
+[21.209718] (pp_infer) StdoutLine: {'line': b'-- Generating done\n'}
+[21.297385] (-) TimerEvent: {}
+[21.397825] (-) TimerEvent: {}
+[21.498273] (-) TimerEvent: {}
+[21.598682] (-) TimerEvent: {}
+[21.699089] (-) TimerEvent: {}
+[21.799553] (-) TimerEvent: {}
+[21.899986] (-) TimerEvent: {}
+[22.000435] (-) TimerEvent: {}
+[22.100861] (-) TimerEvent: {}
+[22.201295] (-) TimerEvent: {}
+[22.301678] (-) TimerEvent: {}
+[22.334985] (pp_infer) StdoutLine: {'line': b'-- Build files have been written to: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer\n'}
+[22.401796] (-) TimerEvent: {}
+[22.502189] (-) TimerEvent: {}
+[22.505830] (pp_infer) StdoutLine: {'line': b'\x1b[35m\x1b[1mConsolidate compiler generated dependencies of target pointpillar_core\x1b[0m\n'}
+[22.602337] (-) TimerEvent: {}
+[22.702755] (-) TimerEvent: {}
+[22.803177] (-) TimerEvent: {}
+[22.903605] (-) TimerEvent: {}
+[23.004027] (-) TimerEvent: {}
+[23.104483] (-) TimerEvent: {}
+[23.161597] (pp_infer) StdoutLine: {'line': b'[  4%] \x1b[32m\x1b[1mLinking CXX shared library libpointpillar_core.so\x1b[0m\n'}
+[23.204653] (-) TimerEvent: {}
+[23.305152] (-) TimerEvent: {}
+[23.405562] (-) TimerEvent: {}
+[23.505987] (-) TimerEvent: {}
+[23.606384] (-) TimerEvent: {}
+[23.706812] (-) TimerEvent: {}
+[23.807234] (-) TimerEvent: {}
+[23.907633] (-) TimerEvent: {}
+[24.008022] (-) TimerEvent: {}
+[24.108443] (-) TimerEvent: {}
+[24.208899] (-) TimerEvent: {}
+[24.309313] (-) TimerEvent: {}
+[24.390688] (pp_infer) StdoutLine: {'line': b'[ 37%] Built target pointpillar_core\n'}
+[24.409409] (-) TimerEvent: {}
+[24.441293] (pp_infer) StdoutLine: {'line': b'\x1b[35m\x1b[1mConsolidate compiler generated dependencies of target pp_infer\x1b[0m\n'}
+[24.509582] (-) TimerEvent: {}
+[24.610009] (-) TimerEvent: {}
+[24.710414] (-) TimerEvent: {}
+[24.788769] (pp_infer) StdoutLine: {'line': b'[ 41%] \x1b[32mBuilding CXX object CMakeFiles/pp_infer.dir/src/pp_inference_node.cpp.o\x1b[0m\n'}
+[24.810539] (-) TimerEvent: {}
+[24.910933] (-) TimerEvent: {}
+[25.011488] (-) TimerEvent: {}
+[25.111916] (-) TimerEvent: {}
+[25.212359] (-) TimerEvent: {}
+[25.312806] (-) TimerEvent: {}
+[25.413265] (-) TimerEvent: {}
+[25.513750] (-) TimerEvent: {}
+[25.614170] (-) TimerEvent: {}
+[25.714610] (-) TimerEvent: {}
+[25.815029] (-) TimerEvent: {}
+[25.915499] (-) TimerEvent: {}
+[26.015970] (-) TimerEvent: {}
+[26.116466] (-) TimerEvent: {}
+[26.216919] (-) TimerEvent: {}
+[26.317400] (-) TimerEvent: {}
+[26.419119] (-) TimerEvent: {}
+[26.519595] (-) TimerEvent: {}
+[26.620069] (-) TimerEvent: {}
+[26.720494] (-) TimerEvent: {}
+[26.820973] (-) TimerEvent: {}
+[26.921438] (-) TimerEvent: {}
+[27.021889] (-) TimerEvent: {}
+[27.122327] (-) TimerEvent: {}
+[27.178505] (pp_infer) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:52\x1b[m\x1b[K:\n'}
+[27.178808] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/opt/ros/humble/src/geometry2/tf2_geometry_msgs/include/tf2_geometry_msgs/tf2_geometry_msgs.h:35:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K#warning This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead [\x1b[01;35m\x1b[K-Wcpp\x1b[m\x1b[K]\n'}
+[27.178907] (pp_infer) StderrLine: {'line': b'   35 | #\x1b[01;35m\x1b[Kwarning\x1b[m\x1b[K This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead\n'}
+[27.178988] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^~~~~~~\x1b[m\x1b[K\n'}
+[27.222470] (-) TimerEvent: {}
+[27.322923] (-) TimerEvent: {}
+[27.423390] (-) TimerEvent: {}
+[27.523858] (-) TimerEvent: {}
+[27.624271] (-) TimerEvent: {}
+[27.652375] (pp_infer) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:22\x1b[m\x1b[K,\n'}
+[27.652703] (pp_infer) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27\x1b[m\x1b[K,\n'}
+[27.652825] (pp_infer) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40\x1b[m\x1b[K:\n'}
+[27.652954] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/dtype.hpp:69:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.653359] (pp_infer) StderrLine: {'line': b'   69 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace nvtype\n'}
+[27.653486] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.653589] (pp_infer) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27\x1b[m\x1b[K,\n'}
+[27.653737] (pp_infer) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40\x1b[m\x1b[K:\n'}
+[27.654008] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:53:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.654141] (pp_infer) StderrLine: {'line': b'   53 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace lidar\n'}
+[27.654263] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.654400] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:54:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.654510] (pp_infer) StderrLine: {'line': b'   54 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace pointpillar\n'}
+[27.654613] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.654721] (pp_infer) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:28\x1b[m\x1b[K,\n'}
+[27.654831] (pp_infer) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40\x1b[m\x1b[K:\n'}
+[27.654918] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:49:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.655025] (pp_infer) StderrLine: {'line': b'   49 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace lidar\n'}
+[27.655130] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.655220] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:50:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.655298] (pp_infer) StderrLine: {'line': b'   50 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace pointpillar\n'}
+[27.655394] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.655509] (pp_infer) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:29\x1b[m\x1b[K,\n'}
+[27.655601] (pp_infer) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40\x1b[m\x1b[K:\n'}
+[27.655678] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:80:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.655756] (pp_infer) StderrLine: {'line': b'   80 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace lidar\n'}
+[27.655831] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.655910] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:81:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.656002] (pp_infer) StderrLine: {'line': b'   81 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace pointpillar\n'}
+[27.656091] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.656174] (pp_infer) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40\x1b[m\x1b[K:\n'}
+[27.656255] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:51:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.656347] (pp_infer) StderrLine: {'line': b'   51 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace lidar\n'}
+[27.656423] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.656502] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:52:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.656580] (pp_infer) StderrLine: {'line': b'   52 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace pointpillar\n'}
+[27.656656] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.656736] (pp_infer) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:41\x1b[m\x1b[K:\n'}
+[27.656847] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[27.656948] (pp_infer) StderrLine: {'line': b'   99 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K  // namespace nv\n'}
+[27.657029] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[27.724445] (-) TimerEvent: {}
+[27.824870] (-) TimerEvent: {}
+[27.925294] (-) TimerEvent: {}
+[28.025821] (-) TimerEvent: {}
+[28.126279] (-) TimerEvent: {}
+[28.226704] (-) TimerEvent: {}
+[28.327142] (-) TimerEvent: {}
+[28.427583] (-) TimerEvent: {}
+[28.528027] (-) TimerEvent: {}
+[28.628426] (-) TimerEvent: {}
+[28.728776] (-) TimerEvent: {}
+[28.829182] (-) TimerEvent: {}
+[28.929559] (-) TimerEvent: {}
+[29.029905] (-) TimerEvent: {}
+[29.130342] (-) TimerEvent: {}
+[29.230774] (-) TimerEvent: {}
+[29.331208] (-) TimerEvent: {}
+[29.431708] (-) TimerEvent: {}
+[29.532142] (-) TimerEvent: {}
+[29.632615] (-) TimerEvent: {}
+[29.733133] (-) TimerEvent: {}
+[29.833609] (-) TimerEvent: {}
+[29.933967] (-) TimerEvent: {}
+[30.034332] (-) TimerEvent: {}
+[30.134742] (-) TimerEvent: {}
+[30.235187] (-) TimerEvent: {}
+[30.335751] (-) TimerEvent: {}
+[30.436266] (-) TimerEvent: {}
+[30.536690] (-) TimerEvent: {}
+[30.637115] (-) TimerEvent: {}
+[30.737533] (-) TimerEvent: {}
+[30.837952] (-) TimerEvent: {}
+[30.938415] (-) TimerEvent: {}
+[31.038865] (-) TimerEvent: {}
+[31.139315] (-) TimerEvent: {}
+[31.239775] (-) TimerEvent: {}
+[31.329716] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:177:2:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wpedantic\x1b[m\x1b[K]\n'}
+[31.330005] (pp_infer) StderrLine: {'line': b'  177 | }\x1b[01;35m\x1b[K;\x1b[m\x1b[K\n'}
+[31.330107] (pp_infer) StderrLine: {'line': b'      |  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[31.339865] (-) TimerEvent: {}
+[31.440215] (-) TimerEvent: {}
+[31.540651] (-) TimerEvent: {}
+[31.641067] (-) TimerEvent: {}
+[31.741505] (-) TimerEvent: {}
+[31.841950] (-) TimerEvent: {}
+[31.942435] (-) TimerEvent: {}
+[32.042855] (-) TimerEvent: {}
+[32.143247] (-) TimerEvent: {}
+[32.243718] (-) TimerEvent: {}
+[32.289772] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:215:13:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K\xe2\x80\x98\x1b[01m\x1b[Kvoid help()\x1b[m\x1b[K\xe2\x80\x99 defined but not used [\x1b[01;35m\x1b[K-Wunused-function\x1b[m\x1b[K]\n'}
+[32.290021] (pp_infer) StderrLine: {'line': b'  215 | static void \x1b[01;35m\x1b[Khelp\x1b[m\x1b[K()\n'}
+[32.290107] (pp_infer) StderrLine: {'line': b'      |             \x1b[01;35m\x1b[K^~~~\x1b[m\x1b[K\n'}
+[32.290185] (pp_infer) StderrLine: {'line': b'\x1b[01m\x1b[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:203:13:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K\xe2\x80\x98\x1b[01m\x1b[Kbool startswith(const char*, const char*, const char**)\x1b[m\x1b[K\xe2\x80\x99 defined but not used [\x1b[01;35m\x1b[K-Wunused-function\x1b[m\x1b[K]\n'}
+[32.290268] (pp_infer) StderrLine: {'line': b'  203 | static bool \x1b[01;35m\x1b[Kstartswith\x1b[m\x1b[K(const char *s, const char *with, const char **last)\n'}
+[32.290346] (pp_infer) StderrLine: {'line': b'      |             \x1b[01;35m\x1b[K^~~~~~~~~~\x1b[m\x1b[K\n'}
+[32.343868] (-) TimerEvent: {}
+[32.444292] (-) TimerEvent: {}
+[32.544771] (-) TimerEvent: {}
+[32.645205] (-) TimerEvent: {}
+[32.745631] (-) TimerEvent: {}
+[32.846120] (-) TimerEvent: {}
+[32.946547] (-) TimerEvent: {}
+[33.046932] (-) TimerEvent: {}
+[33.147372] (-) TimerEvent: {}
+[33.247901] (-) TimerEvent: {}
+[33.272358] (pp_infer) StdoutLine: {'line': b'[ 45%] \x1b[32m\x1b[1mLinking CXX executable pp_infer\x1b[0m\n'}
+[33.348056] (-) TimerEvent: {}
+[33.448524] (-) TimerEvent: {}
+[33.548986] (-) TimerEvent: {}
+[33.649429] (-) TimerEvent: {}
+[33.749865] (-) TimerEvent: {}
+[33.850312] (-) TimerEvent: {}
+[33.950757] (-) TimerEvent: {}
+[34.051255] (-) TimerEvent: {}
+[34.151783] (-) TimerEvent: {}
+[34.485376] (-) TimerEvent: {}
+[34.585845] (-) TimerEvent: {}
+[34.686292] (-) TimerEvent: {}
+[34.786778] (-) TimerEvent: {}
+[34.887249] (-) TimerEvent: {}
+[34.987822] (-) TimerEvent: {}
+[35.088270] (-) TimerEvent: {}
+[35.188697] (-) TimerEvent: {}
+[35.289091] (-) TimerEvent: {}
+[35.389801] (-) TimerEvent: {}
+[35.490239] (-) TimerEvent: {}
+[35.590696] (-) TimerEvent: {}
+[35.691094] (-) TimerEvent: {}
+[35.791522] (-) TimerEvent: {}
+[35.891923] (-) TimerEvent: {}
+[35.992441] (-) TimerEvent: {}
+[36.092869] (-) TimerEvent: {}
+[36.193289] (-) TimerEvent: {}
+[36.274679] (pp_infer) StdoutLine: {'line': b'[100%] Built target pp_infer\n'}
+[36.293476] (-) TimerEvent: {}
+[36.393926] (-) TimerEvent: {}
+[36.494380] (-) TimerEvent: {}
+[36.595718] (-) TimerEvent: {}
+[36.696174] (-) TimerEvent: {}
+[36.796596] (-) TimerEvent: {}
+[36.897050] (-) TimerEvent: {}
+[36.997549] (-) TimerEvent: {}
+[37.098023] (-) TimerEvent: {}
+[37.198453] (-) TimerEvent: {}
+[37.298937] (-) TimerEvent: {}
+[37.399383] (-) TimerEvent: {}
+[37.499843] (-) TimerEvent: {}
+[37.600300] (-) TimerEvent: {}
+[37.700740] (-) TimerEvent: {}
+[37.801159] (-) TimerEvent: {}
+[37.901616] (-) TimerEvent: {}
+[38.002039] (-) TimerEvent: {}
+[38.015025] (pp_infer) CommandEnded: {'returncode': 0}
+[38.102247] (-) TimerEvent: {}
+[38.202732] (-) TimerEvent: {}
+[38.303241] (-) TimerEvent: {}
+[38.403880] (-) TimerEvent: {}
+[38.504315] (-) TimerEvent: {}
+[38.546293] (pp_infer) JobProgress: {'identifier': 'pp_infer', 'progress': 'install'}
+[38.557062] (pp_infer) Command: {'cmd': ['/usr/local/bin/cmake', '--install', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer'], 'cwd': '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer', 'env': OrderedDict([('NPP_VERSION', '11.8.0.86'), ('SHELL', '/bin/bash'), ('ROS_VERSION', '2'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('DALI_BUILD', '6562491'), ('CUSOLVER_VERSION', '11.4.1.48'), ('CUBLAS_VERSION', '11.11.3.6'), ('PKG_CONFIG_PATH', '/opt/ros/humble/install/urdfdom/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/urdfdom/lib/pkgconfig:/opt/ros/humble/install/urdfdom_headers/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/urdfdom_headers/lib/pkgconfig:/opt/ros/humble/install/osrf_testing_tools_cpp/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/osrf_testing_tools_cpp/lib/pkgconfig:/opt/ros/humble/install/cyclonedds/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/cyclonedds/lib/pkgconfig:/opt/ros/humble/install/iceoryx_posh/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/iceoryx_posh/lib/pkgconfig:/opt/ros/humble/install/iceoryx_hoofs/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/iceoryx_hoofs/lib/pkgconfig:/opt/ros/humble/install/iceoryx_binding_c/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/iceoryx_binding_c/lib/pkgconfig:/opt/ros/humble/install/gmock_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/gmock_vendor/lib/pkgconfig:/opt/ros/humble/install/gtest_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/gtest_vendor/lib/pkgconfig:/opt/ros/humble/install/google_benchmark_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/google_benchmark_vendor/lib/pkgconfig:/opt/ros/humble/install/foonathan_memory_vendor/lib/x86_64-linux-gnu/pkgconfig:/opt/ros/humble/install/foonathan_memory_vendor/lib/pkgconfig'), ('ROS_PYTHON_VERSION', '3'), ('HOSTNAME', 'bdc0b86d88c4'), ('LANGUAGE', 'en_US:en'), ('NVIDIA_REQUIRE_CUDA', 'cuda>=9.0'), ('CUFFT_VERSION', '10.9.0.58'), ('CUDA_CACHE_DISABLE', '1'), ('NCCL_VERSION', '2.15.5'), ('CUSPARSE_VERSION', '11.7.5.86'), ('ENV', '/etc/shinit_v2'), ('PWD', '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer'), ('TENSORRT_VERSION', '8.5.1.7'), ('OPENUCX_VERSION', '1.14.0'), ('NSIGHT_SYSTEMS_VERSION', '2022.4.2.1'), ('NVIDIA_DRIVER_CAPABILITIES', 'compute,utility,video'), ('POLYGRAPHY_VERSION', '0.43.1'), ('TRT_VERSION', '8.5.1.7'), ('NVIDIA_PRODUCT_NAME', 'NVIDIA TensorRT'), ('RDMACORE_VERSION', '36.0'), ('HOME', '/root'), ('LANG', 'en_US.UTF-8'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('CUDA_VERSION', '11.8.0.065'), ('CURAND_VERSION', '10.3.0.86'), ('AMENT_PREFIX_PATH', '/opt/ros/humble/install/ros_base:/opt/ros/humble/install/rosbag2:/opt/ros/humble/install/rosbag2_compression_zstd:/opt/ros/humble/install/zstd_vendor:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/rosbag2_py:/opt/ros/humble/install/rosbag2_transport:/opt/ros/humble/install/rosbag2_compression:/opt/ros/humble/install/rosbag2_cpp:/opt/ros/humble/install/rosbag2_storage_default_plugins:/opt/ros/humble/install/rosbag2_storage:/opt/ros/humble/install/image_common:/opt/ros/humble/install/camera_info_manager:/opt/ros/humble/install/camera_calibration_parsers:/opt/ros/humble/install/yaml_cpp_vendor:/opt/ros/humble/install/ros_core:/opt/ros/humble/install/common_interfaces:/opt/ros/humble/install/visualization_msgs:/opt/ros/humble/install/vision_msgs:/opt/ros/humble/install/robot_state_publisher:/opt/ros/humble/install/kdl_parser:/opt/ros/humble/install/urdf:/opt/ros/humble/install/urdf_parser_plugin:/opt/ros/humble/install/geometry2:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_sensor_msgs:/opt/ros/humble/install/tf2_kdl:/opt/ros/humble/install/perception_pcl:/opt/ros/humble/install/pcl_ros:/opt/ros/humble/install/tf2_geometry_msgs:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/tf2_eigen:/opt/ros/humble/install/tf2_bullet:/opt/ros/humble/install/tf2_ros:/opt/ros/humble/install/tf2_py:/opt/ros/humble/install/tf2_msgs:/opt/ros/humble/install/test_msgs:/opt/ros/humble/install/sros2_cmake:/opt/ros/humble/install/ros2cli_common_extensions:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros_testing:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2cli_test_interfaces:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/pcl_conversions:/opt/ros/humble/install/image_transport:/opt/ros/humble/install/message_filters:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/rclpy:/opt/ros/humble/install/rclcpp_action:/opt/ros/humble/install/rcl_action:/opt/ros/humble/install/action_msgs:/opt/ros/humble/install/unique_identifier_msgs:/opt/ros/humble/install/ament_lint_common:/opt/ros/humble/install/ament_cmake_uncrustify:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/uncrustify_vendor:/opt/ros/humble/install/trajectory_msgs:/opt/ros/humble/install/rosbag2_test_common:/opt/ros/humble/install/ros2lifecycle_test_fixtures:/opt/ros/humble/install/rclcpp_lifecycle:/opt/ros/humble/install/rclcpp_components:/opt/ros/humble/install/rclcpp:/opt/ros/humble/install/rcl_lifecycle:/opt/ros/humble/install/libstatistics_collector:/opt/ros/humble/install/rcl:/opt/ros/humble/install/rmw_implementation:/opt/ros/humble/install/rmw_fastrtps_dynamic_cpp:/opt/ros/humble/install/rmw_fastrtps_cpp:/opt/ros/humble/install/rmw_fastrtps_shared_cpp:/opt/ros/humble/install/rmw_cyclonedds_cpp:/opt/ros/humble/install/tracetools:/opt/ros/humble/install/tinyxml_vendor:/opt/ros/humble/install/pluginlib:/opt/ros/humble/install/tinyxml2_vendor:/opt/ros/humble/install/tf2_eigen_kdl:/opt/ros/humble/install/tf2:/opt/ros/humble/install/test_interface_files:/opt/ros/humble/install/stereo_msgs:/opt/ros/humble/install/std_srvs:/opt/ros/humble/install/shape_msgs:/opt/ros/humble/install/pcl_msgs:/opt/ros/humble/install/sensor_msgs:/opt/ros/humble/install/nav_msgs:/opt/ros/humble/install/diagnostic_msgs:/opt/ros/humble/install/geometry_msgs:/opt/ros/humble/install/actionlib_msgs:/opt/ros/humble/install/std_msgs:/opt/ros/humble/install/statistics_msgs:/opt/ros/humble/install/sqlite3_vendor:/opt/ros/humble/install/rcl_logging_spdlog:/opt/ros/humble/install/spdlog_vendor:/opt/ros/humble/install/shared_queues_vendor:/opt/ros/humble/install/rmw_connextdds:/opt/ros/humble/install/rmw_connextdds_common:/opt/ros/humble/install/rti_connext_dds_cmake_module:/opt/ros/humble/install/rosgraph_msgs:/opt/ros/humble/install/rosbag2_interfaces:/opt/ros/humble/install/rmw_dds_common:/opt/ros/humble/install/composition_interfaces:/opt/ros/humble/install/rcl_interfaces:/opt/ros/humble/install/lifecycle_msgs:/opt/ros/humble/install/builtin_interfaces:/opt/ros/humble/install/rosidl_default_runtime:/opt/ros/humble/install/rosidl_default_generators:/opt/ros/humble/install/rosidl_generator_py:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_typesupport_cpp:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp:/opt/ros/humble/install/rosidl_typesupport_c:/opt/ros/humble/install/rosidl_typesupport_introspection_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp:/opt/ros/humble/install/rosidl_generator_cpp:/opt/ros/humble/install/rosidl_runtime_cpp:/opt/ros/humble/install/rcl_yaml_param_parser:/opt/ros/humble/install/rmw:/opt/ros/humble/install/rosidl_runtime_c:/opt/ros/humble/install/rosidl_generator_c:/opt/ros/humble/install/rosidl_typesupport_interface:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cmake:/opt/ros/humble/install/rosidl_parser:/opt/ros/humble/install/rosidl_adapter:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/rosbag2_tests:/opt/ros/humble/install/ros_environment:/opt/ros/humble/install/rmw_implementation_cmake:/opt/ros/humble/install/class_loader:/opt/ros/humble/install/rcpputils:/opt/ros/humble/install/rcl_logging_interface:/opt/ros/humble/install/rcutils:/opt/ros/humble/install/launch_testing_ament_cmake:/opt/ros/humble/install/python_cmake_module:/opt/ros/humble/install/pybind11_vendor:/opt/ros/humble/install/performance_test_fixture:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/orocos_kdl_vendor:/opt/ros/humble/install/mimick_vendor:/opt/ros/humble/install/libyaml_vendor:/opt/ros/humble/install/keyboard_handler:/opt/ros/humble/install/ament_cmake_ros:/opt/ros/humble/install/ament_cmake_gmock:/opt/ros/humble/install/ament_cmake_auto:/opt/ros/humble/install/ament_cmake_gtest:/opt/ros/humble/install/ament_cmake_google_benchmark:/opt/ros/humble/install/fastrtps_cmake_module:/opt/ros/humble/install/eigen3_cmake_module:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/console_bridge_vendor:/opt/ros/humble/install/ament_cmake_xmllint:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_cmake_pep257:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_lint_auto:/opt/ros/humble/install/ament_cmake:/opt/ros/humble/install/ament_cmake_version:/opt/ros/humble/install/ament_cmake_pytest:/opt/ros/humble/install/ament_cmake_lint_cmake:/opt/ros/humble/install/ament_cmake_flake8:/opt/ros/humble/install/ament_cmake_cpplint:/opt/ros/humble/install/ament_cmake_cppcheck:/opt/ros/humble/install/ament_cmake_copyright:/opt/ros/humble/install/ament_cmake_test:/opt/ros/humble/install/ament_cmake_target_dependencies:/opt/ros/humble/install/ament_cmake_python:/opt/ros/humble/install/ament_cmake_export_dependencies:/opt/ros/humble/install/ament_cmake_libraries:/opt/ros/humble/install/ament_cmake_include_directories:/opt/ros/humble/install/ament_cmake_gen_version_h:/opt/ros/humble/install/ament_cmake_export_targets:/opt/ros/humble/install/ament_cmake_export_link_flags:/opt/ros/humble/install/ament_cmake_export_interfaces:/opt/ros/humble/install/ament_cmake_export_libraries:/opt/ros/humble/install/ament_cmake_export_include_directories:/opt/ros/humble/install/ament_cmake_export_definitions:/opt/ros/humble/install/ament_cmake_core:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_index_cpp:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble/install/ros_base:/opt/ros/humble/install/rosbag2:/opt/ros/humble/install/rosbag2_compression_zstd:/opt/ros/humble/install/zstd_vendor:/opt/ros/humble/install/rosbag2_py:/opt/ros/humble/install/rosbag2_transport:/opt/ros/humble/install/rosbag2_compression:/opt/ros/humble/install/rosbag2_cpp:/opt/ros/humble/install/rosbag2_storage_default_plugins:/opt/ros/humble/install/rosbag2_storage:/opt/ros/humble/install/image_common:/opt/ros/humble/install/camera_info_manager:/opt/ros/humble/install/camera_calibration_parsers:/opt/ros/humble/install/yaml_cpp_vendor:/opt/ros/humble/install/ros_core:/opt/ros/humble/install/common_interfaces:/opt/ros/humble/install/visualization_msgs:/opt/ros/humble/install/vision_msgs:/opt/ros/humble/install/robot_state_publisher:/opt/ros/humble/install/kdl_parser:/opt/ros/humble/install/urdf:/opt/ros/humble/install/urdfdom:/opt/ros/humble/install/urdf_parser_plugin:/opt/ros/humble/install/urdfdom_headers:/opt/ros/humble/install/geometry2:/opt/ros/humble/install/tf2_sensor_msgs:/opt/ros/humble/install/tf2_kdl:/opt/ros/humble/install/perception_pcl:/opt/ros/humble/install/pcl_ros:/opt/ros/humble/install/tf2_geometry_msgs:/opt/ros/humble/install/tf2_eigen:/opt/ros/humble/install/tf2_bullet:/opt/ros/humble/install/tf2_ros:/opt/ros/humble/install/tf2_py:/opt/ros/humble/install/tf2_msgs:/opt/ros/humble/install/test_msgs:/opt/ros/humble/install/sros2_cmake:/opt/ros/humble/install/ros2cli_common_extensions:/opt/ros/humble/install/ros_testing:/opt/ros/humble/install/ros2cli_test_interfaces:/opt/ros/humble/install/pcl_conversions:/opt/ros/humble/install/image_transport:/opt/ros/humble/install/message_filters:/opt/ros/humble/install/rclpy:/opt/ros/humble/install/rclcpp_action:/opt/ros/humble/install/rcl_action:/opt/ros/humble/install/action_msgs:/opt/ros/humble/install/unique_identifier_msgs:/opt/ros/humble/install/ament_lint_common:/opt/ros/humble/install/ament_cmake_uncrustify:/opt/ros/humble/install/uncrustify_vendor:/opt/ros/humble/install/trajectory_msgs:/opt/ros/humble/install/rosbag2_test_common:/opt/ros/humble/install/ros2lifecycle_test_fixtures:/opt/ros/humble/install/rclcpp_lifecycle:/opt/ros/humble/install/rclcpp_components:/opt/ros/humble/install/rclcpp:/opt/ros/humble/install/rcl_lifecycle:/opt/ros/humble/install/libstatistics_collector:/opt/ros/humble/install/rcl:/opt/ros/humble/install/rmw_implementation:/opt/ros/humble/install/rmw_fastrtps_dynamic_cpp:/opt/ros/humble/install/rmw_fastrtps_cpp:/opt/ros/humble/install/rmw_fastrtps_shared_cpp:/opt/ros/humble/install/rmw_cyclonedds_cpp:/opt/ros/humble/install/tracetools:/opt/ros/humble/install/tinyxml_vendor:/opt/ros/humble/install/pluginlib:/opt/ros/humble/install/tinyxml2_vendor:/opt/ros/humble/install/tf2_eigen_kdl:/opt/ros/humble/install/tf2:/opt/ros/humble/install/test_interface_files:/opt/ros/humble/install/stereo_msgs:/opt/ros/humble/install/std_srvs:/opt/ros/humble/install/shape_msgs:/opt/ros/humble/install/pcl_msgs:/opt/ros/humble/install/sensor_msgs:/opt/ros/humble/install/nav_msgs:/opt/ros/humble/install/diagnostic_msgs:/opt/ros/humble/install/geometry_msgs:/opt/ros/humble/install/actionlib_msgs:/opt/ros/humble/install/std_msgs:/opt/ros/humble/install/statistics_msgs:/opt/ros/humble/install/sqlite3_vendor:/opt/ros/humble/install/rcl_logging_spdlog:/opt/ros/humble/install/spdlog_vendor:/opt/ros/humble/install/shared_queues_vendor:/opt/ros/humble/install/rmw_connextdds:/opt/ros/humble/install/rmw_connextdds_common:/opt/ros/humble/install/rti_connext_dds_cmake_module:/opt/ros/humble/install/rosgraph_msgs:/opt/ros/humble/install/rosbag2_interfaces:/opt/ros/humble/install/rmw_dds_common:/opt/ros/humble/install/composition_interfaces:/opt/ros/humble/install/rcl_interfaces:/opt/ros/humble/install/lifecycle_msgs:/opt/ros/humble/install/builtin_interfaces:/opt/ros/humble/install/rosidl_default_runtime:/opt/ros/humble/install/rosidl_default_generators:/opt/ros/humble/install/rosidl_generator_py:/opt/ros/humble/install/rosidl_typesupport_cpp:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp:/opt/ros/humble/install/rosidl_typesupport_c:/opt/ros/humble/install/rosidl_typesupport_introspection_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp:/opt/ros/humble/install/rosidl_generator_cpp:/opt/ros/humble/install/rosidl_runtime_cpp:/opt/ros/humble/install/rcl_yaml_param_parser:/opt/ros/humble/install/rmw:/opt/ros/humble/install/rosidl_runtime_c:/opt/ros/humble/install/rosidl_generator_c:/opt/ros/humble/install/rosidl_typesupport_interface:/opt/ros/humble/install/rosidl_cmake:/opt/ros/humble/install/rosidl_parser:/opt/ros/humble/install/rosidl_adapter:/opt/ros/humble/install/rosbag2_tests:/opt/ros/humble/install/ros_environment:/opt/ros/humble/install/rmw_implementation_cmake:/opt/ros/humble/install/class_loader:/opt/ros/humble/install/rcpputils:/opt/ros/humble/install/rcl_logging_interface:/opt/ros/humble/install/rcutils:/opt/ros/humble/install/launch_testing_ament_cmake:/opt/ros/humble/install/python_cmake_module:/opt/ros/humble/install/pybind11_vendor:/opt/ros/humble/install/performance_test_fixture:/opt/ros/humble/install/osrf_testing_tools_cpp:/opt/ros/humble/install/orocos_kdl_vendor:/opt/ros/humble/install/mimick_vendor:/opt/ros/humble/install/libyaml_vendor:/opt/ros/humble/install/keyboard_handler:/opt/ros/humble/install/cyclonedds:/opt/ros/humble/install/iceoryx_posh:/opt/ros/humble/install/iceoryx_hoofs:/opt/ros/humble/install/iceoryx_binding_c:/opt/ros/humble/install/ament_cmake_ros:/opt/ros/humble/install/ament_cmake_gmock:/opt/ros/humble/install/gmock_vendor:/opt/ros/humble/install/ament_cmake_auto:/opt/ros/humble/install/ament_cmake_gtest:/opt/ros/humble/install/gtest_vendor:/opt/ros/humble/install/ament_cmake_google_benchmark:/opt/ros/humble/install/google_benchmark_vendor:/opt/ros/humble/install/fastrtps:/opt/ros/humble/install/foonathan_memory_vendor:/opt/ros/humble/install/fastrtps_cmake_module:/opt/ros/humble/install/fastcdr:/opt/ros/humble/install/eigen3_cmake_module:/opt/ros/humble/install/console_bridge_vendor:/opt/ros/humble/install/ament_cmake_xmllint:/opt/ros/humble/install/ament_cmake_pep257:/opt/ros/humble/install/ament_lint_auto:/opt/ros/humble/install/ament_cmake:/opt/ros/humble/install/ament_cmake_version:/opt/ros/humble/install/ament_cmake_pytest:/opt/ros/humble/install/ament_cmake_lint_cmake:/opt/ros/humble/install/ament_cmake_flake8:/opt/ros/humble/install/ament_cmake_cpplint:/opt/ros/humble/install/ament_cmake_cppcheck:/opt/ros/humble/install/ament_cmake_copyright:/opt/ros/humble/install/ament_cmake_test:/opt/ros/humble/install/ament_cmake_target_dependencies:/opt/ros/humble/install/ament_cmake_python:/opt/ros/humble/install/ament_cmake_export_dependencies:/opt/ros/humble/install/ament_cmake_libraries:/opt/ros/humble/install/ament_cmake_include_directories:/opt/ros/humble/install/ament_cmake_gen_version_h:/opt/ros/humble/install/ament_cmake_export_targets:/opt/ros/humble/install/ament_cmake_export_link_flags:/opt/ros/humble/install/ament_cmake_export_interfaces:/opt/ros/humble/install/ament_cmake_export_libraries:/opt/ros/humble/install/ament_cmake_export_include_directories:/opt/ros/humble/install/ament_cmake_export_definitions:/opt/ros/humble/install/ament_cmake_core:/opt/ros/humble/install/ament_index_cpp:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck'), ('COLCON_PREFIX_PATH', '/opt/ros/humble/install'), ('CUTENSOR_VERSION', '1.6.1.5'), ('HPCX_VERSION', '2.13'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('PYTHONPATH', '/opt/ros/humble/build/ros2bag:/opt/ros/humble/install/ros2bag/lib/python3.8/site-packages:/opt/ros/humble/install/rosbag2_py/lib/python3.8/site-packages:/opt/ros/humble/install/visualization_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/vision_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/tf2_tools:/opt/ros/humble/install/tf2_tools/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_kdl/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_geometry_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/tf2_ros_py:/opt/ros/humble/install/tf2_ros_py/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_py/lib/python3.8/site-packages:/opt/ros/humble/install/tf2_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/test_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/sros2:/opt/ros/humble/install/sros2/lib/python3.8/site-packages:/opt/ros/humble/build/ros2topic:/opt/ros/humble/install/ros2topic/lib/python3.8/site-packages:/opt/ros/humble/build/ros2test:/opt/ros/humble/install/ros2test/lib/python3.8/site-packages:/opt/ros/humble/build/ros2component:/opt/ros/humble/install/ros2component/lib/python3.8/site-packages:/opt/ros/humble/build/ros2param:/opt/ros/humble/install/ros2param/lib/python3.8/site-packages:/opt/ros/humble/build/ros2lifecycle:/opt/ros/humble/install/ros2lifecycle/lib/python3.8/site-packages:/opt/ros/humble/build/ros2service:/opt/ros/humble/install/ros2service/lib/python3.8/site-packages:/opt/ros/humble/build/ros2run:/opt/ros/humble/install/ros2run/lib/python3.8/site-packages:/opt/ros/humble/build/ros2launch:/opt/ros/humble/install/ros2launch/lib/python3.8/site-packages:/opt/ros/humble/build/ros2pkg:/opt/ros/humble/install/ros2pkg/lib/python3.8/site-packages:/opt/ros/humble/build/ros2node:/opt/ros/humble/install/ros2node/lib/python3.8/site-packages:/opt/ros/humble/build/ros2multicast:/opt/ros/humble/install/ros2multicast/lib/python3.8/site-packages:/opt/ros/humble/build/ros2interface:/opt/ros/humble/install/ros2interface/lib/python3.8/site-packages:/opt/ros/humble/build/ros2doctor:/opt/ros/humble/install/ros2doctor/lib/python3.8/site-packages:/opt/ros/humble/install/ros2cli_test_interfaces/lib/python3.8/site-packages:/opt/ros/humble/build/ros2action:/opt/ros/humble/install/ros2action/lib/python3.8/site-packages:/opt/ros/humble/build/ros2cli:/opt/ros/humble/install/ros2cli/lib/python3.8/site-packages:/opt/ros/humble/install/message_filters/lib/python3.8/site-packages:/opt/ros/humble/build/launch_testing_ros:/opt/ros/humble/install/launch_testing_ros/lib/python3.8/site-packages:/opt/ros/humble/build/launch_ros:/opt/ros/humble/install/launch_ros/lib/python3.8/site-packages:/opt/ros/humble/install/rclpy/lib/python3.8/site-packages:/opt/ros/humble/install/action_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/unique_identifier_msgs/lib/python3.8/site-packages:/opt/ros/humble/build/ament_uncrustify:/opt/ros/humble/install/ament_uncrustify/lib/python3.8/site-packages:/opt/ros/humble/install/trajectory_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/stereo_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/std_srvs/lib/python3.8/site-packages:/opt/ros/humble/install/shape_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/pcl_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/sensor_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/nav_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/diagnostic_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/geometry_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/actionlib_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/std_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/statistics_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/rosgraph_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/rosbag2_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/rmw_dds_common/lib/python3.8/site-packages:/opt/ros/humble/install/composition_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/rcl_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/lifecycle_msgs/lib/python3.8/site-packages:/opt/ros/humble/install/builtin_interfaces/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_generator_py/lib/python3.8/site-packages:/opt/ros/humble/build/rpyutils:/opt/ros/humble/install/rpyutils/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_c/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_introspection_c/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_generator_cpp/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_generator_c/lib/python3.8/site-packages:/opt/ros/humble/build/rosidl_runtime_py:/opt/ros/humble/install/rosidl_runtime_py/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_cmake/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_parser/lib/python3.8/site-packages:/opt/ros/humble/install/rosidl_adapter/lib/python3.8/site-packages:/opt/ros/humble/build/rosidl_cli:/opt/ros/humble/install/rosidl_cli/lib/python3.8/site-packages:/opt/ros/humble/install/rcutils/lib/python3.8/site-packages:/opt/ros/humble/build/launch_testing:/opt/ros/humble/install/launch_testing/lib/python3.8/site-packages:/opt/ros/humble/build/launch_yaml:/opt/ros/humble/install/launch_yaml/lib/python3.8/site-packages:/opt/ros/humble/build/launch_xml:/opt/ros/humble/install/launch_xml/lib/python3.8/site-packages:/opt/ros/humble/build/launch:/opt/ros/humble/install/launch/lib/python3.8/site-packages:/opt/ros/humble/build/osrf_pycommon:/opt/ros/humble/install/osrf_pycommon/lib/python3.8/site-packages:/opt/ros/humble/install/ament_cmake_google_benchmark/lib/python3.8/site-packages:/opt/ros/humble/build/domain_coordinator:/opt/ros/humble/install/domain_coordinator/lib/python3.8/site-packages:/opt/ros/humble/build/ament_xmllint:/opt/ros/humble/install/ament_xmllint/lib/python3.8/site-packages:/opt/ros/humble/build/ament_pycodestyle:/opt/ros/humble/install/ament_pycodestyle/lib/python3.8/site-packages:/opt/ros/humble/build/ament_pep257:/opt/ros/humble/install/ament_pep257/lib/python3.8/site-packages:/opt/ros/humble/install/ament_cmake_test/lib/python3.8/site-packages:/opt/ros/humble/build/ament_package:/opt/ros/humble/install/ament_package/lib/python3.8/site-packages:/opt/ros/humble/build/ament_mypy:/opt/ros/humble/install/ament_mypy/lib/python3.8/site-packages:/opt/ros/humble/build/ament_lint_cmake:/opt/ros/humble/install/ament_lint_cmake/lib/python3.8/site-packages:/opt/ros/humble/build/ament_flake8:/opt/ros/humble/install/ament_flake8/lib/python3.8/site-packages:/opt/ros/humble/build/ament_copyright:/opt/ros/humble/install/ament_copyright/lib/python3.8/site-packages:/opt/ros/humble/build/ament_lint:/opt/ros/humble/install/ament_lint/lib/python3.8/site-packages:/opt/ros/humble/build/ament_index_python:/opt/ros/humble/install/ament_index_python/lib/python3.8/site-packages:/opt/ros/humble/build/ament_cpplint:/opt/ros/humble/install/ament_cpplint/lib/python3.8/site-packages:/opt/ros/humble/build/ament_cppcheck:/opt/ros/humble/install/ament_cppcheck/lib/python3.8/site-packages'), ('COLCON', '1'), ('TERM', 'xterm'), ('GDRCOPY_VERSION', '2.3'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('OPENMPI_VERSION', '4.1.4'), ('NVJPEG_VERSION', '11.9.0.86'), ('LIBRARY_PATH', '/usr/local/cuda/lib64/stubs:'), ('SHLVL', '1'), ('BASH_ENV', '/etc/bash.bashrc'), ('CUDNN_VERSION', '8.7.0.84'), ('NSIGHT_COMPUTE_VERSION', '2022.3.0.22'), ('DALI_VERSION', '1.20.0'), ('LD_LIBRARY_PATH', '/opt/ros/humble/install/rosbag2_compression_zstd/lib:/opt/ros/humble/install/zstd_vendor/lib:/opt/ros/humble/install/rosbag2_transport/lib:/opt/ros/humble/install/rosbag2_compression/lib:/opt/ros/humble/install/rosbag2_cpp/lib:/opt/ros/humble/install/rosbag2_storage_default_plugins/lib:/opt/ros/humble/install/rosbag2_storage/lib:/opt/ros/humble/install/camera_info_manager/lib:/opt/ros/humble/install/camera_calibration_parsers/lib:/opt/ros/humble/install/visualization_msgs/lib:/opt/ros/humble/install/vision_msgs/lib:/opt/ros/humble/install/robot_state_publisher/lib:/opt/ros/humble/install/kdl_parser/lib:/opt/ros/humble/install/urdf/lib:/opt/ros/humble/install/urdfdom/lib:/opt/ros/humble/install/pcl_ros/lib:/opt/ros/humble/install/tf2_ros/lib:/opt/ros/humble/install/tf2_msgs/lib:/opt/ros/humble/install/test_msgs/lib:/opt/ros/humble/install/ros2cli_test_interfaces/lib:/opt/ros/humble/install/image_transport/lib:/opt/ros/humble/install/message_filters/lib:/opt/ros/humble/install/rclpy/lib:/opt/ros/humble/install/rclcpp_action/lib:/opt/ros/humble/install/rcl_action/lib:/opt/ros/humble/install/action_msgs/lib:/opt/ros/humble/install/unique_identifier_msgs/lib:/opt/ros/humble/install/trajectory_msgs/lib:/opt/ros/humble/install/rclcpp_lifecycle/lib:/opt/ros/humble/install/rclcpp_components/lib:/opt/ros/humble/install/rclcpp/lib:/opt/ros/humble/install/rcl_lifecycle/lib:/opt/ros/humble/install/libstatistics_collector/lib:/opt/ros/humble/install/rcl/lib:/opt/ros/humble/install/rmw_implementation/lib:/opt/ros/humble/install/rmw_fastrtps_dynamic_cpp/lib:/opt/ros/humble/install/rmw_fastrtps_cpp/lib:/opt/ros/humble/install/rmw_fastrtps_shared_cpp/lib:/opt/ros/humble/install/rmw_cyclonedds_cpp/lib:/opt/ros/humble/install/tracetools/lib:/opt/ros/humble/install/tf2_eigen_kdl/lib:/opt/ros/humble/install/tf2/lib:/opt/ros/humble/install/stereo_msgs/lib:/opt/ros/humble/install/std_srvs/lib:/opt/ros/humble/install/shape_msgs/lib:/opt/ros/humble/install/pcl_msgs/lib:/opt/ros/humble/install/sensor_msgs/lib:/opt/ros/humble/install/nav_msgs/lib:/opt/ros/humble/install/diagnostic_msgs/lib:/opt/ros/humble/install/geometry_msgs/lib:/opt/ros/humble/install/actionlib_msgs/lib:/opt/ros/humble/install/std_msgs/lib:/opt/ros/humble/install/statistics_msgs/lib:/opt/ros/humble/install/rcl_logging_spdlog/lib:/opt/ros/humble/install/rosgraph_msgs/lib:/opt/ros/humble/install/rosbag2_interfaces/lib:/opt/ros/humble/install/rmw_dds_common/lib:/opt/ros/humble/install/composition_interfaces/lib:/opt/ros/humble/install/rcl_interfaces/lib:/opt/ros/humble/install/lifecycle_msgs/lib:/opt/ros/humble/install/builtin_interfaces/lib:/opt/ros/humble/install/rosidl_typesupport_cpp/lib:/opt/ros/humble/install/rosidl_typesupport_introspection_cpp/lib:/opt/ros/humble/install/rosidl_typesupport_c/lib:/opt/ros/humble/install/rosidl_typesupport_introspection_c/lib:/opt/ros/humble/install/rosidl_typesupport_fastrtps_c/lib:/opt/ros/humble/install/rosidl_typesupport_fastrtps_cpp/lib:/opt/ros/humble/install/rcl_yaml_param_parser/lib:/opt/ros/humble/install/rmw/lib:/opt/ros/humble/install/rosidl_runtime_c/lib:/opt/ros/humble/install/class_loader/lib:/opt/ros/humble/install/rcpputils/lib:/opt/ros/humble/install/rcl_logging_interface/lib:/opt/ros/humble/install/rcutils/lib:/opt/ros/humble/install/performance_test_fixture/lib:/opt/ros/humble/install/osrf_testing_tools_cpp/lib:/opt/ros/humble/install/orocos_kdl_vendor/lib:/opt/ros/humble/install/mimick_vendor/lib:/opt/ros/humble/install/libyaml_vendor/lib:/opt/ros/humble/install/keyboard_handler/lib:/opt/ros/humble/install/cyclonedds/lib:/opt/ros/humble/install/iceoryx_posh/lib:/opt/ros/humble/install/iceoryx_hoofs/lib:/opt/ros/humble/install/iceoryx_binding_c/lib:/opt/ros/humble/install/google_benchmark_vendor/lib:/opt/ros/humble/install/fastrtps/lib:/opt/ros/humble/install/fastcdr/lib:/opt/ros/humble/install/console_bridge_vendor/lib:/opt/ros/humble/install/ament_index_cpp/lib:/usr/local/cuda/compat/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64'), ('NVIDIA_BUILD_ID', '49968236'), ('ROS_LOCALHOST_ONLY', '0'), ('OMPI_MCA_coll_hcoll_enable', '0'), ('OPAL_PREFIX', '/opt/hpcx/ompi'), ('CUDA_DRIVER_VERSION', '520.61.05'), ('TRANSFORMER_ENGINE_VERSION', '0.3'), ('LC_ALL', 'en_US.UTF-8'), ('_CUDA_COMPAT_PATH', '/usr/local/cuda/compat'), ('NVIDIA_TENSORRT_VERSION', '22.12'), ('TENSORRT_OSS_VERSION', 'master'), ('NVIDIA_REQUIRE_JETPACK_HOST_MOUNTS', ''), ('PATH', '/opt/ros/humble/install/urdfdom/bin:/opt/ros/humble/install/ros2cli/bin:/opt/ros/humble/install/ament_uncrustify/bin:/opt/ros/humble/install/uncrustify_vendor/bin:/opt/ros/humble/install/rosidl_cli/bin:/opt/ros/humble/install/launch_testing/bin:/opt/ros/humble/install/cyclonedds/bin:/opt/ros/humble/install/iceoryx_posh/bin:/opt/ros/humble/install/fastrtps/bin:/opt/ros/humble/install/foonathan_memory_vendor/bin:/opt/ros/humble/install/ament_xmllint/bin:/opt/ros/humble/install/ament_pycodestyle/bin:/opt/ros/humble/install/ament_pep257/bin:/opt/ros/humble/install/ament_mypy/bin:/opt/ros/humble/install/ament_lint_cmake/bin:/opt/ros/humble/install/ament_flake8/bin:/opt/ros/humble/install/ament_copyright/bin:/opt/ros/humble/install/ament_index_python/bin:/opt/ros/humble/install/ament_cpplint/bin:/opt/ros/humble/install/ament_cppcheck/bin:/opt/tensorrt/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/ucx/bin'), ('MOFED_VERSION', '5.4-rdmacore36.0'), ('TRTOSS_VERSION', '22.12'), ('DEBIAN_FRONTEND', 'noninteractive'), ('ROS_DISTRO', 'humble'), ('OLDPWD', '/root'), ('_', '/usr/bin/env')]), 'shell': False}
+[38.562281] (pp_infer) StdoutLine: {'line': b'-- Install configuration: "Release"\n'}
+[38.564825] (pp_infer) StdoutLine: {'line': b'-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer\n'}
+[38.604452] (-) TimerEvent: {}
+[38.704937] (-) TimerEvent: {}
+[38.778859] (pp_infer) StdoutLine: {'line': b'-- Set runtime path of "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer" to ""\n'}
+[38.779286] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch\n'}
+[38.779385] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch/pp_infer_launch.py\n'}
+[38.779511] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/package_run_dependencies/pp_infer\n'}
+[38.779636] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/parent_prefix_path/pp_infer\n'}
+[38.779791] (pp_infer) StdoutLine: {'line': b'-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/ament_prefix_path.dsv\n'}
+[38.805038] (-) TimerEvent: {}
+[38.905419] (-) TimerEvent: {}
+[38.933134] (pp_infer) StdoutLine: {'line': b'-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/path.dsv\n'}
+[39.005565] (-) TimerEvent: {}
+[39.105995] (-) TimerEvent: {}
+[39.206427] (-) TimerEvent: {}
+[39.306849] (-) TimerEvent: {}
+[39.404020] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.bash\n'}
+[39.404476] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.sh\n'}
+[39.404616] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.zsh\n'}
+[39.404708] (pp_infer) StdoutLine: {'line': b'-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.dsv\n'}
+[39.406932] (-) TimerEvent: {}
+[39.507289] (-) TimerEvent: {}
+[39.586238] (pp_infer) StdoutLine: {'line': b'-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.dsv\n'}
+[39.607420] (-) TimerEvent: {}
+[39.707847] (-) TimerEvent: {}
+[39.756872] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/packages/pp_infer\n'}
+[39.757204] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig.cmake\n'}
+[39.757306] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig-version.cmake\n'}
+[39.757399] (pp_infer) StdoutLine: {'line': b'-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.xml\n'}
+[39.807982] (-) TimerEvent: {}
+[39.856957] (pp_infer) CommandEnded: {'returncode': 0}
+[39.908124] (-) TimerEvent: {}
+[40.008540] (-) TimerEvent: {}
+[40.109047] (-) TimerEvent: {}
+[40.209515] (-) TimerEvent: {}
+[40.310040] (-) TimerEvent: {}
+[40.410542] (-) TimerEvent: {}
+[40.511050] (-) TimerEvent: {}
+[40.611444] (-) TimerEvent: {}
+[40.711941] (-) TimerEvent: {}
+[40.812423] (-) TimerEvent: {}
+[40.912976] (-) TimerEvent: {}
+[41.013479] (-) TimerEvent: {}
+[41.113928] (-) TimerEvent: {}
+[41.214391] (-) TimerEvent: {}
+[41.314813] (-) TimerEvent: {}
+[41.415309] (-) TimerEvent: {}
+[41.515808] (-) TimerEvent: {}
+[41.616229] (-) TimerEvent: {}
+[41.716707] (-) TimerEvent: {}
+[41.817223] (-) TimerEvent: {}
+[41.917631] (-) TimerEvent: {}
+[42.018117] (-) TimerEvent: {}
+[42.118583] (-) TimerEvent: {}
+[42.219021] (-) TimerEvent: {}
+[42.319427] (-) TimerEvent: {}
+[42.419915] (-) TimerEvent: {}
+[42.520360] (-) TimerEvent: {}
+[42.620790] (-) TimerEvent: {}
+[42.721204] (-) TimerEvent: {}
+[42.821663] (-) TimerEvent: {}
+[42.922091] (-) TimerEvent: {}
+[42.990845] (pp_infer) JobEnded: {'identifier': 'pp_infer', 'rc': 0}
+[43.232696] (-) TimerEvent: {}
+[43.232856] (-) EventReactorShutdown: {}

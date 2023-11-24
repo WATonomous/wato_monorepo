@@ -1,0 +1,77 @@
+[ 37%] Built target pointpillar_core
+[35m[1mConsolidate compiler generated dependencies of target pp_infer[0m
+[ 41%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/pp_inference_node.cpp.o[0m
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:52[m[K:
+[01m[K/opt/ros/humble/src/geometry2/tf2_geometry_msgs/include/tf2_geometry_msgs/tf2_geometry_msgs.h:35:2:[m[K [01;35m[Kwarning: [m[K#warning This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead [[01;35m[K-Wcpp[m[K]
+   35 | #[01;35m[Kwarning[m[K This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead
+      |  [01;35m[K^~~~~~~[m[K
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:22[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/dtype.hpp:69:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   69 | }[01;35m[K;[m[K  // namespace nvtype
+      |  [01;35m[K^[m[K
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:53:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   53 | }[01;35m[K;[m[K  // namespace lidar
+      |  [01;35m[K^[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:54:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   54 | }[01;35m[K;[m[K  // namespace pointpillar
+      |  [01;35m[K^[m[K
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:28[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:49:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   49 | }[01;35m[K;[m[K  // namespace lidar
+      |  [01;35m[K^[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:50:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   50 | }[01;35m[K;[m[K  // namespace pointpillar
+      |  [01;35m[K^[m[K
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:29[m[K,
+                 from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:80:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   80 | }[01;35m[K;[m[K  // namespace lidar
+      |  [01;35m[K^[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:81:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   81 | }[01;35m[K;[m[K  // namespace pointpillar
+      |  [01;35m[K^[m[K
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:51:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   51 | }[01;35m[K;[m[K  // namespace lidar
+      |  [01;35m[K^[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:52:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   52 | }[01;35m[K;[m[K  // namespace pointpillar
+      |  [01;35m[K^[m[K
+In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:41[m[K:
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+   99 | }[01;35m[K;[m[K  // namespace nv
+      |  [01;35m[K^[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:177:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+  177 | }[01;35m[K;[m[K
+      |  [01;35m[K^[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:215:13:[m[K [01;35m[Kwarning: [m[K‘[01m[Kvoid help()[m[K’ defined but not used [[01;35m[K-Wunused-function[m[K]
+  215 | static void [01;35m[Khelp[m[K()
+      |             [01;35m[K^~~~[m[K
+[01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:203:13:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool startswith(const char*, const char*, const char**)[m[K’ defined but not used [[01;35m[K-Wunused-function[m[K]
+  203 | static bool [01;35m[Kstartswith[m[K(const char *s, const char *with, const char **last)
+      |             [01;35m[K^~~~~~~~~~[m[K
+[ 45%] [32m[1mLinking CXX executable pp_infer[0m
+[100%] Built target pp_infer
+-- Install configuration: "Release"
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer
+-- Set runtime path of "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer" to ""
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch/pp_infer_launch.py
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/package_run_dependencies/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/parent_prefix_path/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/ament_prefix_path.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/path.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.bash
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.sh
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.zsh
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.dsv
+-- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.dsv
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/packages/pp_infer
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig-version.cmake
+-- Up-to-date: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.xml

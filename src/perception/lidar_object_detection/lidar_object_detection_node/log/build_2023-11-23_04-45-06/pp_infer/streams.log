@@ -1,0 +1,22 @@
+[0.429s] Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer': _=/usr/bin/env /usr/local/bin/cmake /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node -DCMAKE_BUILD_TYPE=Release -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda -DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer
+[0.430s] -- Architecture: x86_64
+[0.430s] [31mCMake Error at CMakeLists.txt:37 (find_package):
+[0.430s]   By not providing "Findament_cmake.cmake" in CMAKE_MODULE_PATH this project
+[0.430s]   has asked CMake to find a package configuration file provided by
+[0.430s]   "ament_cmake", but CMake did not find one.
+[0.431s] 
+[0.431s]   Could not find a package configuration file provided by "ament_cmake" with
+[0.431s]   any of the following names:
+[0.431s] 
+[0.431s]     ament_cmakeConfig.cmake
+[0.431s]     ament_cmake-config.cmake
+[0.431s] 
+[0.431s]   Add the installation prefix of "ament_cmake" to CMAKE_PREFIX_PATH or set
+[0.431s]   "ament_cmake_DIR" to a directory containing one of the above files.  If
+[0.431s]   "ament_cmake" provides a separate development package or SDK, be sure it
+[0.432s]   has been installed.
+[0.432s] 
+[0.432s] [0m
+[0.432s] -- Configuring incomplete, errors occurred!
+[0.432s] See also "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer/CMakeFiles/CMakeOutput.log".
+[0.488s] Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer' returned '1': _=/usr/bin/env /usr/local/bin/cmake /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node -DCMAKE_BUILD_TYPE=Release -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda -DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer

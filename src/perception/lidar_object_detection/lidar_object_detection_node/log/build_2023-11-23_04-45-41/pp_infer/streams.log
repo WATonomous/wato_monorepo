@@ -1,0 +1,1371 @@
+[0.695s] Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node -DCMAKE_BUILD_TYPE=Release -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda -DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer
+[0.696s] -- Architecture: x86_64
+[0.696s] -- Found ament_cmake: 1.3.5 (/opt/ros/humble/install/ament_cmake/share/ament_cmake/cmake)
+[2.621s] -- Found Python3: /usr/bin/python3.8 (found version "3.8.10") found components: Interpreter 
+[5.096s] -- Found rclcpp: 16.0.4 (/opt/ros/humble/install/rclcpp/share/rclcpp/cmake)
+[5.302s] -- Found rosidl_generator_c: 3.1.4 (/opt/ros/humble/install/rosidl_generator_c/share/rosidl_generator_c/cmake)
+[5.333s] -- Found rosidl_adapter: 3.1.4 (/opt/ros/humble/install/rosidl_adapter/share/rosidl_adapter/cmake)
+[5.366s] -- Found rosidl_generator_cpp: 3.1.4 (/opt/ros/humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake)
+[5.418s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_introspection_c;rosidl_typesupport_fastrtps_c
+[5.486s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_introspection_cpp;rosidl_typesupport_fastrtps_cpp
+[5.695s] -- Found rmw_implementation_cmake: 6.1.1 (/opt/ros/humble/install/rmw_implementation_cmake/share/rmw_implementation_cmake/cmake)
+[5.717s] -- Found rmw_fastrtps_cpp: 6.2.2 (/opt/ros/humble/install/rmw_fastrtps_cpp/share/rmw_fastrtps_cpp/cmake)
+[6.010s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "1.1.1f")  
+[6.084s] -- Found FastRTPS: /opt/ros/humble/install/fastrtps/include  
+[6.232s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[6.340s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[12.954s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+[12.997s] -- Looking for pthread_create in pthreads
+[19.743s] -- Looking for pthread_create in pthreads - not found
+[19.743s] -- Looking for pthread_create in pthread
+[25.484s] -- Looking for pthread_create in pthread - found
+[25.549s] -- Found Threads: TRUE  
+[25.739s] -- Found vision_msgs: 4.1.0 (/opt/ros/humble/install/vision_msgs/share/vision_msgs/cmake)
+[25.875s] -- Found message_filters: 4.3.3 (/opt/ros/humble/install/message_filters/share/message_filters/cmake)
+[25.887s] -- Found pcl_conversions: 2.4.1 (/opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake)
+[26.213s] -- Checking for module 'eigen3'
+[26.253s] --   Found eigen3, version 3.3.7
+[26.334s] -- Found Eigen: /usr/include/eigen3 (Required is at least version "3.1") 
+[26.334s] -- Eigen found (include: /usr/include/eigen3, version: 3.3.7)
+[26.795s] -- Checking for module 'flann'
+[26.856s] --   Found flann, version 1.9.1
+[27.003s] -- Found FLANN: /usr/lib/x86_64-linux-gnu/libflann_cpp.so  
+[27.040s] -- The imported target "vtkParseOGLExt" references the file
+[27.041s]    "/usr/bin/vtkParseOGLExt-7.1"
+[27.041s] but this file does not exist.  Possible reasons include:
+[27.041s] * The file was deleted, renamed, or moved to another location.
+[27.041s] * An install or uninstall procedure did not complete successfully.
+[27.041s] * The installation package was faulty and contained
+[27.041s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[27.041s] but not all the files it references.
+[27.042s] 
+[27.042s] -- The imported target "vtkRenderingPythonTkWidgets" references the file
+[27.042s]    "/usr/lib/x86_64-linux-gnu/libvtkRenderingPythonTkWidgets.so"
+[27.042s] but this file does not exist.  Possible reasons include:
+[27.042s] * The file was deleted, renamed, or moved to another location.
+[27.042s] * An install or uninstall procedure did not complete successfully.
+[27.042s] * The installation package was faulty and contained
+[27.042s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[27.042s] but not all the files it references.
+[27.042s] 
+[27.043s] -- The imported target "vtk" references the file
+[27.043s]    "/usr/bin/vtk"
+[27.043s] but this file does not exist.  Possible reasons include:
+[27.043s] * The file was deleted, renamed, or moved to another location.
+[27.043s] * An install or uninstall procedure did not complete successfully.
+[27.043s] * The installation package was faulty and contained
+[27.043s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[27.043s] but not all the files it references.
+[27.043s] 
+[27.043s] -- The imported target "pvtk" references the file
+[27.043s]    "/usr/bin/pvtk"
+[27.043s] but this file does not exist.  Possible reasons include:
+[27.044s] * The file was deleted, renamed, or moved to another location.
+[27.044s] * An install or uninstall procedure did not complete successfully.
+[27.044s] * The installation package was faulty and contained
+[27.044s]    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+[27.044s] but not all the files it references.
+[27.044s] 
+[27.064s] -- Checking for module 'libusb-1.0'
+[27.077s] --   No package 'libusb-1.0' found
+[27.087s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.087s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[27.087s]   does not match the name of the calling package (OpenNI).  This can lead to
+[27.087s]   problems in calling code that expects `find_package` result variables
+[27.087s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.087s] Call Stack (most recent call first):
+[27.088s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)
+[27.088s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)
+[27.088s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)
+[27.088s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[27.088s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.088s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.088s]   CMakeLists.txt:47 (find_package)
+[27.088s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.088s] [0m
+[27.088s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[27.088s] -- OpenNI disabled because libusb-1.0 not found.
+[27.098s] -- Checking for module 'libusb-1.0'
+[27.112s] --   No package 'libusb-1.0' found
+[27.121s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.122s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[27.122s]   does not match the name of the calling package (OpenNI2).  This can lead to
+[27.122s]   problems in calling code that expects `find_package` result variables
+[27.122s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.122s] Call Stack (most recent call first):
+[27.122s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI2.cmake:28 (find_package_handle_standard_args)
+[27.122s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:193 (find_package)
+[27.122s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_openni2)
+[27.122s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[27.122s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.122s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.122s]   CMakeLists.txt:47 (find_package)
+[27.123s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.123s] [0m
+[27.123s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[27.123s] -- OpenNI 2 disabled because libusb-1.0 not found.
+[27.138s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.138s]   The package name passed to `find_package_handle_standard_args` (libusb-1.0)
+[27.138s]   does not match the name of the calling package (PCL).  This can lead to
+[27.138s]   problems in calling code that expects `find_package` result variables
+[27.138s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.138s] Call Stack (most recent call first):
+[27.139s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:291 (find_package_handle_standard_args)
+[27.139s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:338 (find_libusb)
+[27.139s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[27.139s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.139s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.139s]   CMakeLists.txt:47 (find_package)
+[27.139s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.139s] [0m
+[27.139s] -- LIBUSB_1_LIBRARY (missing: LIBUSB_1_INCLUDE_DIR) 
+[27.149s] -- Checking for module 'libusb-1.0'
+[27.163s] --   No package 'libusb-1.0' found
+[27.172s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.172s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[27.172s]   does not match the name of the calling package (OpenNI).  This can lead to
+[27.172s]   problems in calling code that expects `find_package` result variables
+[27.172s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.172s] Call Stack (most recent call first):
+[27.172s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)
+[27.173s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)
+[27.173s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)
+[27.173s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[27.173s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.173s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.173s]   CMakeLists.txt:47 (find_package)
+[27.173s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.173s] [0m
+[27.173s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[27.173s] -- OpenNI disabled because libusb-1.0 not found.
+[27.183s] -- Checking for module 'libusb-1.0'
+[27.196s] --   No package 'libusb-1.0' found
+[27.206s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.206s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[27.206s]   does not match the name of the calling package (OpenNI2).  This can lead to
+[27.206s]   problems in calling code that expects `find_package` result variables
+[27.207s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.207s] Call Stack (most recent call first):
+[27.207s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI2.cmake:28 (find_package_handle_standard_args)
+[27.207s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:193 (find_package)
+[27.207s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:324 (find_openni2)
+[27.207s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[27.207s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.207s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.207s]   CMakeLists.txt:47 (find_package)
+[27.208s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.208s] [0m
+[27.208s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[27.208s] -- OpenNI 2 disabled because libusb-1.0 not found.
+[27.286s] -- Found Qhull: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so  
+[27.286s] -- QHULL found (include: /usr/include, lib: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so)
+[27.299s] -- Checking for module 'libusb-1.0'
+[27.312s] --   No package 'libusb-1.0' found
+[27.322s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.322s]   The package name passed to `find_package_handle_standard_args` (USB_10)
+[27.322s]   does not match the name of the calling package (OpenNI).  This can lead to
+[27.322s]   problems in calling code that expects `find_package` result variables
+[27.322s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.322s] Call Stack (most recent call first):
+[27.322s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindOpenNI.cmake:28 (find_package_handle_standard_args)
+[27.322s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:179 (find_package)
+[27.323s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:322 (find_openni)
+[27.323s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:548 (find_external_library)
+[27.323s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.323s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.323s]   CMakeLists.txt:47 (find_package)
+[27.323s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.323s] [0m
+[27.323s] -- Could NOT find USB_10 (missing: USB_10_LIBRARY USB_10_INCLUDE_DIR) 
+[27.323s] -- OpenNI disabled because libusb-1.0 not found.
+[27.332s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.332s]   The package name passed to `find_package_handle_standard_args` (PCL_COMMON)
+[27.333s]   does not match the name of the calling package (PCL).  This can lead to
+[27.333s]   problems in calling code that expects `find_package` result variables
+[27.333s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.333s] Call Stack (most recent call first):
+[27.333s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.333s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.333s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.333s]   CMakeLists.txt:47 (find_package)
+[27.334s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.334s] [0m
+[27.334s] -- Found PCL_COMMON: /usr/lib/x86_64-linux-gnu/libpcl_common.so  
+[27.334s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.334s]   The package name passed to `find_package_handle_standard_args` (PCL_KDTREE)
+[27.335s]   does not match the name of the calling package (PCL).  This can lead to
+[27.335s]   problems in calling code that expects `find_package` result variables
+[27.335s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.335s] Call Stack (most recent call first):
+[27.336s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.336s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.336s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.336s]   CMakeLists.txt:47 (find_package)
+[27.336s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.336s] [0m
+[27.336s] -- Found PCL_KDTREE: /usr/lib/x86_64-linux-gnu/libpcl_kdtree.so  
+[27.336s] -- Found PCL_OCTREE: /usr/lib/x86_64-linux-gnu/libpcl_octree.so  
+[27.337s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.337s]   The package name passed to `find_package_handle_standard_args` (PCL_OCTREE)
+[27.337s]   does not match the name of the calling package (PCL).  This can lead to
+[27.337s]   problems in calling code that expects `find_package` result variables
+[27.337s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.337s] Call Stack (most recent call first):
+[27.338s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.338s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.338s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.338s]   CMakeLists.txt:47 (find_package)
+[27.338s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.338s] [0m
+[27.339s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.339s]   The package name passed to `find_package_handle_standard_args` (PCL_SEARCH)
+[27.339s]   does not match the name of the calling package (PCL).  This can lead to
+[27.339s]   problems in calling code that expects `find_package` result variables
+[27.339s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.340s] Call Stack (most recent call first):
+[27.340s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.340s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.340s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.341s]   CMakeLists.txt:47 (find_package)
+[27.341s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.341s] [0m
+[27.341s] -- Found PCL_SEARCH: /usr/lib/x86_64-linux-gnu/libpcl_search.so  
+[27.341s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.341s]   The package name passed to `find_package_handle_standard_args`
+[27.341s]   (PCL_SAMPLE_CONSENSUS) does not match the name of the calling package
+[27.342s]   (PCL).  This can lead to problems in calling code that expects
+[27.342s]   `find_package` result variables (e.g., `_FOUND`) to follow a certain
+[27.342s]   pattern.
+[27.342s] Call Stack (most recent call first):
+[27.342s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.342s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.342s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.342s]   CMakeLists.txt:47 (find_package)
+[27.342s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.342s] [0m
+[27.343s] -- Found PCL_SAMPLE_CONSENSUS: /usr/lib/x86_64-linux-gnu/libpcl_sample_consensus.so  
+[27.343s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.343s]   The package name passed to `find_package_handle_standard_args`
+[27.343s]   (PCL_FILTERS) does not match the name of the calling package (PCL).  This
+[27.343s]   can lead to problems in calling code that expects `find_package` result
+[27.343s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.343s] Call Stack (most recent call first):
+[27.343s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.344s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.344s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.344s]   CMakeLists.txt:47 (find_package)
+[27.344s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.344s] [0m
+[27.345s] -- Found PCL_FILTERS: /usr/lib/x86_64-linux-gnu/libpcl_filters.so  
+[27.345s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.345s]   The package name passed to `find_package_handle_standard_args` (PCL_2D)
+[27.346s]   does not match the name of the calling package (PCL).  This can lead to
+[27.346s]   problems in calling code that expects `find_package` result variables
+[27.346s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.346s] Call Stack (most recent call first):
+[27.346s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[27.346s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.346s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.346s]   CMakeLists.txt:47 (find_package)
+[27.346s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.347s] [0m
+[27.347s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.347s]   The package name passed to `find_package_handle_standard_args`
+[27.347s]   (PCL_GEOMETRY) does not match the name of the calling package (PCL).  This
+[27.347s]   can lead to problems in calling code that expects `find_package` result
+[27.347s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.347s] Call Stack (most recent call first):
+[27.347s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[27.348s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.348s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.348s]   CMakeLists.txt:47 (find_package)
+[27.348s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.348s] [0m
+[27.348s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.349s]   The package name passed to `find_package_handle_standard_args` (PCL_IO)
+[27.349s]   does not match the name of the calling package (PCL).  This can lead to
+[27.349s]   problems in calling code that expects `find_package` result variables
+[27.349s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.349s] Call Stack (most recent call first):
+[27.349s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.349s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.350s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.350s]   CMakeLists.txt:47 (find_package)
+[27.350s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.350s] [0m
+[27.350s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.350s]   The package name passed to `find_package_handle_standard_args`
+[27.350s]   (PCL_FEATURES) does not match the name of the calling package (PCL).  This
+[27.350s]   can lead to problems in calling code that expects `find_package` result
+[27.350s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.350s] Call Stack (most recent call first):
+[27.351s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.351s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.351s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.351s]   CMakeLists.txt:47 (find_package)
+[27.351s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.351s] [0m
+[27.351s] -- Found PCL_2D: /usr/include/pcl-1.10  
+[27.351s] -- Found PCL_GEOMETRY: /usr/include/pcl-1.10  
+[27.351s] -- Found PCL_IO: /usr/lib/x86_64-linux-gnu/libpcl_io.so  
+[27.352s] -- Found PCL_FEATURES: /usr/lib/x86_64-linux-gnu/libpcl_features.so  
+[27.352s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.352s]   The package name passed to `find_package_handle_standard_args` (PCL_ML)
+[27.352s]   does not match the name of the calling package (PCL).  This can lead to
+[27.352s]   problems in calling code that expects `find_package` result variables
+[27.352s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.352s] Call Stack (most recent call first):
+[27.352s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.353s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.353s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.353s]   CMakeLists.txt:47 (find_package)
+[27.353s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.353s] [0m
+[27.353s] -- Found PCL_ML: /usr/lib/x86_64-linux-gnu/libpcl_ml.so  
+[27.354s] -- Found PCL_SEGMENTATION: /usr/lib/x86_64-linux-gnu/libpcl_segmentation.so  
+[27.354s] -- Found PCL_VISUALIZATION: /usr/lib/x86_64-linux-gnu/libpcl_visualization.so  
+[27.354s] -- Found PCL_SURFACE: /usr/lib/x86_64-linux-gnu/libpcl_surface.so  
+[27.354s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.354s]   The package name passed to `find_package_handle_standard_args`
+[27.354s]   (PCL_SEGMENTATION) does not match the name of the calling package (PCL).
+[27.354s]   This can lead to problems in calling code that expects `find_package`
+[27.354s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.355s] Call Stack (most recent call first):
+[27.355s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.355s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.355s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.355s]   CMakeLists.txt:47 (find_package)
+[27.355s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.355s] [0m
+[27.355s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.355s]   The package name passed to `find_package_handle_standard_args`
+[27.355s]   (PCL_VISUALIZATION) does not match the name of the calling package (PCL).
+[27.356s]   This can lead to problems in calling code that expects `find_package`
+[27.356s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.356s] Call Stack (most recent call first):
+[27.356s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.356s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.356s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.356s]   CMakeLists.txt:47 (find_package)
+[27.356s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.356s] [0m
+[27.356s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.356s]   The package name passed to `find_package_handle_standard_args`
+[27.356s]   (PCL_SURFACE) does not match the name of the calling package (PCL).  This
+[27.356s]   can lead to problems in calling code that expects `find_package` result
+[27.357s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.357s] Call Stack (most recent call first):
+[27.357s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.357s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.357s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.357s]   CMakeLists.txt:47 (find_package)
+[27.357s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.357s] [0m
+[27.357s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.357s]   The package name passed to `find_package_handle_standard_args`
+[27.357s]   (PCL_REGISTRATION) does not match the name of the calling package (PCL).
+[27.357s]   This can lead to problems in calling code that expects `find_package`
+[27.358s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.358s] Call Stack (most recent call first):
+[27.358s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.358s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.358s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.358s]   CMakeLists.txt:47 (find_package)
+[27.358s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.358s] [0m
+[27.358s] -- Found PCL_REGISTRATION: /usr/lib/x86_64-linux-gnu/libpcl_registration.so  
+[27.358s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.358s]   The package name passed to `find_package_handle_standard_args`
+[27.358s]   (PCL_KEYPOINTS) does not match the name of the calling package (PCL).  This
+[27.358s]   can lead to problems in calling code that expects `find_package` result
+[27.359s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.359s] Call Stack (most recent call first):
+[27.359s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.359s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.359s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.359s]   CMakeLists.txt:47 (find_package)
+[27.359s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.359s] [0m
+[27.359s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.359s]   The package name passed to `find_package_handle_standard_args`
+[27.359s]   (PCL_TRACKING) does not match the name of the calling package (PCL).  This
+[27.360s]   can lead to problems in calling code that expects `find_package` result
+[27.360s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.360s] Call Stack (most recent call first):
+[27.360s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.360s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.360s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.360s]   CMakeLists.txt:47 (find_package)
+[27.360s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.360s] [0m
+[27.360s] -- Found PCL_KEYPOINTS: /usr/lib/x86_64-linux-gnu/libpcl_keypoints.so  
+[27.360s] -- Found PCL_TRACKING: /usr/lib/x86_64-linux-gnu/libpcl_tracking.so  
+[27.360s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.360s]   The package name passed to `find_package_handle_standard_args`
+[27.361s]   (PCL_RECOGNITION) does not match the name of the calling package (PCL).
+[27.361s]   This can lead to problems in calling code that expects `find_package`
+[27.361s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.361s] Call Stack (most recent call first):
+[27.361s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.361s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.361s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.361s]   CMakeLists.txt:47 (find_package)
+[27.361s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.361s] [0m
+[27.361s] -- Found PCL_RECOGNITION: /usr/lib/x86_64-linux-gnu/libpcl_recognition.so  
+[27.361s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.361s]   The package name passed to `find_package_handle_standard_args` (PCL_STEREO)
+[27.361s]   does not match the name of the calling package (PCL).  This can lead to
+[27.362s]   problems in calling code that expects `find_package` result variables
+[27.362s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.362s] Call Stack (most recent call first):
+[27.362s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.362s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.362s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.362s]   CMakeLists.txt:47 (find_package)
+[27.362s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.362s] [0m
+[27.362s] -- Found PCL_STEREO: /usr/lib/x86_64-linux-gnu/libpcl_stereo.so  
+[27.362s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.362s]   The package name passed to `find_package_handle_standard_args` (PCL_APPS)
+[27.362s]   does not match the name of the calling package (PCL).  This can lead to
+[27.362s]   problems in calling code that expects `find_package` result variables
+[27.363s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.363s] Call Stack (most recent call first):
+[27.363s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.363s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.363s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.363s]   CMakeLists.txt:47 (find_package)
+[27.363s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.363s] [0m
+[27.363s] -- Found PCL_APPS: /usr/lib/x86_64-linux-gnu/libpcl_apps.so  
+[27.363s] -- Found PCL_IN_HAND_SCANNER: /usr/include/pcl-1.10  
+[27.363s] -- Found PCL_POINT_CLOUD_EDITOR: /usr/include/pcl-1.10  
+[27.363s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.364s]   The package name passed to `find_package_handle_standard_args`
+[27.364s]   (PCL_IN_HAND_SCANNER) does not match the name of the calling package (PCL).
+[27.364s]   This can lead to problems in calling code that expects `find_package`
+[27.364s]   result variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.364s] Call Stack (most recent call first):
+[27.364s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[27.364s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.364s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.364s]   CMakeLists.txt:47 (find_package)
+[27.364s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.364s] [0m
+[27.364s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.364s]   The package name passed to `find_package_handle_standard_args`
+[27.364s]   (PCL_POINT_CLOUD_EDITOR) does not match the name of the calling package
+[27.365s]   (PCL).  This can lead to problems in calling code that expects
+[27.365s]   `find_package` result variables (e.g., `_FOUND`) to follow a certain
+[27.365s]   pattern.
+[27.365s] Call Stack (most recent call first):
+[27.365s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:619 (find_package_handle_standard_args)
+[27.365s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.365s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.365s]   CMakeLists.txt:47 (find_package)
+[27.365s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.365s] [0m
+[27.365s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.365s]   The package name passed to `find_package_handle_standard_args`
+[27.365s]   (PCL_OUTOFCORE) does not match the name of the calling package (PCL).  This
+[27.365s]   can lead to problems in calling code that expects `find_package` result
+[27.365s]   variables (e.g., `_FOUND`) to follow a certain pattern.
+[27.366s] Call Stack (most recent call first):
+[27.366s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.366s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.366s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.366s]   CMakeLists.txt:47 (find_package)
+[27.366s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.366s] [0m
+[27.366s] -- Found PCL_OUTOFCORE: /usr/lib/x86_64-linux-gnu/libpcl_outofcore.so  
+[27.366s] -- Found PCL_PEOPLE: /usr/lib/x86_64-linux-gnu/libpcl_people.so  
+[27.366s] [33mCMake Warning (dev) at /usr/local/share/cmake-3.24/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+[27.366s]   The package name passed to `find_package_handle_standard_args` (PCL_PEOPLE)
+[27.366s]   does not match the name of the calling package (PCL).  This can lead to
+[27.366s]   problems in calling code that expects `find_package` result variables
+[27.367s]   (e.g., `_FOUND`) to follow a certain pattern.
+[27.367s] Call Stack (most recent call first):
+[27.367s]   /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:616 (find_package_handle_standard_args)
+[27.367s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/ament_cmake_export_dependencies-extras.cmake:21 (find_package)
+[27.367s]   /opt/ros/humble/install/pcl_conversions/share/pcl_conversions/cmake/pcl_conversionsConfig.cmake:41 (include)
+[27.367s]   CMakeLists.txt:47 (find_package)
+[27.367s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[27.367s] [0m
+[27.376s] -- Found pcl_ros: 2.4.1 (/opt/ros/humble/install/pcl_ros/share/pcl_ros/cmake)
+[27.778s] -- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/install/eigen3_cmake_module/share/eigen3_cmake_module/cmake)
+[27.779s] -- Found Eigen3: TRUE (found version "3.3.7") 
+[27.779s] -- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+[28.112s] -- Found visualization_msgs: 4.2.3 (/opt/ros/humble/install/visualization_msgs/share/visualization_msgs/cmake)
+[28.258s] -- Found CUDA: /usr/local/cuda (found version "11.8") 
+[41.685s] -- Found ament_lint_auto: 0.12.6 (/opt/ros/humble/install/ament_lint_auto/share/ament_lint_auto/cmake)
+[44.769s] -- Added test 'copyright' to check source files copyright and LICENSE
+[63.157s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[63.158s] -- Configured cppcheck include dirs: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src
+[63.158s] -- Configured cppcheck exclude dirs and/or files: 
+[63.355s] -- Added test 'cpplint' to check C / C++ code against the Google style
+[63.355s] -- Configured cpplint exclude dirs and/or files: 
+[63.486s] -- Added test 'flake8' to check Python code syntax and style conventions
+[63.629s] -- Added test 'lint_cmake' to check CMake code style
+[63.778s] -- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257
+[64.223s] -- Added test 'uncrustify' to check C / C++ code style
+[64.223s] -- Configured uncrustify additional arguments: 
+[64.587s] -- Added test 'xmllint' to check XML markup files
+[66.543s] -- Configuring done
+[76.267s] -- Generating done
+[77.682s] -- Build files have been written to: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer
+[77.703s] Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node -DCMAKE_BUILD_TYPE=Release -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda -DCMAKE_INSTALL_PREFIX=/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer
+[77.704s] Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --build /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer -- -j120 -l120
+[79.215s] [ 20%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar_core_generated_pillarscatter-kernel.cu.o[0m
+[79.215s] [ 20%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/common/pointpillar_core_generated_tensor.cu.o[0m
+[79.215s] [ 20%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar_core_generated_lidar-voxelization.cu.o[0m
+[79.215s] [ 20%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar_core_generated_lidar-backbone.cu.o[0m
+[79.215s] [ 20%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar_core_generated_lidar-postprocess.cu.o[0m
+[79.355s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[79.358s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[79.360s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[79.361s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[79.363s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[82.145s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[83.172s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[83.320s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[83.373s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[83.374s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[83.607s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[85.131s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[85.540s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[85.573s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[85.614s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[85.813s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[86.121s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[86.132s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[86.983s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[93.501s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[97.469s] [ 25%] [32mBuilding CXX object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/common/tensorrt.cpp.o[0m
+[97.639s] [ 33%] [32mBuilding CXX object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp.o[0m
+[97.639s] [ 33%] [32mBuilding CXX object CMakeFiles/pointpillar_core.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp.o[0m
+[98.075s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:22[m[K,
+[98.075s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[98.075s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[98.075s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/dtype.hpp:69:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.076s]    69 | }[01;35m[K;[m[K  // namespace nvtype
+[98.076s]       |  [01;35m[K^[m[K
+[98.076s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[98.076s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[98.076s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:53:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.076s]    53 | }[01;35m[K;[m[K  // namespace lidar
+[98.076s]       |  [01;35m[K^[m[K
+[98.076s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:54:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.076s]    54 | }[01;35m[K;[m[K  // namespace pointpillar
+[98.076s]       |  [01;35m[K^[m[K
+[98.088s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:24[m[K:
+[98.088s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.hpp:56:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.088s]    56 | }[01;35m[K;[m[K  // namespace TensorRT
+[98.088s]       |  [01;35m[K^[m[K
+[98.090s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:28[m[K,
+[98.090s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[98.091s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:49:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.091s]    49 | }[01;35m[K;[m[K  // namespace lidar
+[98.091s]       |  [01;35m[K^[m[K
+[98.091s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:50:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.091s]    50 | }[01;35m[K;[m[K  // namespace pointpillar
+[98.091s]       |  [01;35m[K^[m[K
+[98.092s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:29[m[K,
+[98.092s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[98.092s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:80:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.092s]    80 | }[01;35m[K;[m[K  // namespace lidar
+[98.092s]       |  [01;35m[K^[m[K
+[98.092s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:81:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.092s]    81 | }[01;35m[K;[m[K  // namespace pointpillar
+[98.092s]       |  [01;35m[K^[m[K
+[98.092s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[98.092s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:51:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.092s]    51 | }[01;35m[K;[m[K  // namespace lidar
+[98.092s]       |  [01;35m[K^[m[K
+[98.093s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:52:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.093s]    52 | }[01;35m[K;[m[K  // namespace pointpillar
+[98.093s]       |  [01;35m[K^[m[K
+[98.105s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:28[m[K:
+[98.105s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.105s]    99 | }[01;35m[K;[m[K  // namespace nv
+[98.105s]       |  [01;35m[K^[m[K
+[98.105s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:29[m[K:
+[98.105s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/timer.hpp:59:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.106s]    59 | }[01;35m[K;[m[K  // namespace nv
+[98.106s]       |  [01;35m[K^[m[K
+[98.111s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:30[m[K:
+[98.111s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensor.hpp:145:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.111s]   145 | }[01;35m[K;[m[K  // namespace nv
+[98.111s]       |  [01;35m[K^[m[K
+[98.130s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:166:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.130s]   166 | }[01;35m[K;[m[K  // namespace lidar
+[98.130s]       |  [01;35m[K^[m[K
+[98.130s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:167:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.130s]   167 | }[01;35m[K;[m[K  // namespace pointpillar
+[98.130s]       |  [01;35m[K^[m[K
+[98.263s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:38[m[K:
+[98.263s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.263s]    99 | }[01;35m[K;[m[K  // namespace nv
+[98.264s]       |  [01;35m[K^[m[K
+[98.278s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kbool TensorRT::__native_engine_context::construct(const void*, size_t, const char*)[m[K’:
+[98.278s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:122:106:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::ICudaEngine* nvinfer1::IRuntime::deserializeCudaEngine(const void*, std::size_t, nvinfer1::IPluginFactory*)[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.278s]   122 |     engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(runtime_->deserializeCudaEngine(pdata, size, nullptr[01;35m[K)[m[K,
+[98.279s]       |                                                                                                          [01;35m[K^[m[K
+[98.279s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.279s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.279s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:637:43:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.279s]   637 |     TRT_DEPRECATED nvinfer1::ICudaEngine* [01;36m[KdeserializeCudaEngine[m[K(
+[98.279s]       |                                           [01;36m[K^~~~~~~~~~~~~~~~~~~~~[m[K
+[98.292s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvoid TensorRT::EngineImplement::setup()[m[K’:
+[98.292s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:179:44:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.292s]   179 |     int nbBindings = engine->getNbBindings([01;35m[K)[m[K;
+[98.292s]       |                                            [01;35m[K^[m[K
+[98.292s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.293s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.293s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.293s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[98.293s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[98.293s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:183:57:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconst char* nvinfer1::ICudaEngine::getBindingName(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.293s]   183 |       const char *bindingName = engine->getBindingName(i[01;35m[K)[m[K;
+[98.293s]       |                                                         [01;35m[K^[m[K
+[98.293s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.293s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.293s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1450:32:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.293s]  1450 |     TRT_DEPRECATED char const* [01;36m[KgetBindingName[m[K(int32_t bindingIndex) const noexcept
+[98.293s]       |                                [01;36m[K^~~~~~~~~~~~~~[m[K
+[98.295s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::forward(const std::vector<const void*>&, void*, void*)[m[K’:
+[98.295s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:195:129:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::IExecutionContext::enqueueV2(void* const*, cudaStream_t, CUevent_st**)[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.295s]   195 | enqueueV2((void **)bindings.data(), (cudaStream_t)stream, (cudaEvent_t *)input_consum_event[01;35m[K)[m[K;
+[98.295s]       |                                                                                            [01;35m[K^[m[K
+[98.295s] 
+[98.295s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.296s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.296s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2812:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.296s]  2812 |     TRT_DEPRECATED bool [01;36m[KenqueueV2[m[K(void* const* bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept
+[98.296s]       |                         [01;36m[K^~~~~~~~~[m[K
+[98.297s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual std::vector<int> TensorRT::EngineImplement::run_dims(int)[m[K’:
+[98.297s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:201:71:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::IExecutionContext::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.297s]   201 |     auto dim = this->context_->context_->getBindingDimensions(ibinding[01;35m[K)[m[K;
+[98.297s]       |                                                                       [01;35m[K^[m[K
+[98.297s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.297s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.298s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2600:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.298s]  2600 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[98.298s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[98.298s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual std::vector<int> TensorRT::EngineImplement::static_dims(int)[m[K’:
+[98.298s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:208:70:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.298s]   208 |     auto dim = this->context_->engine_->getBindingDimensions(ibinding[01;35m[K)[m[K;
+[98.298s]       |                                                                      [01;35m[K^[m[K
+[98.298s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.299s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.299s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.299s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[98.300s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[98.300s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual int TensorRT::EngineImplement::num_bindings()[m[K’:
+[98.300s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:212:87:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.300s]   212 |   virtual int num_bindings() override { return this->context_->engine_->getNbBindings([01;35m[K)[m[K; }
+[98.300s]       |                                                                                       [01;35m[K^[m[K
+[98.300s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.301s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.301s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.301s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[98.301s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[98.301s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::is_input(int)[m[K’:
+[98.301s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:214:105:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::ICudaEngine::bindingIsInput(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.301s]   214 |   virtual bool is_input(int ibinding) override { return this->context_->engine_->bindingIsInput(ibinding[01;35m[K)[m[K; }
+[98.301s]       |                                                                                                         [01;35m[K^[m[K
+[98.301s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.301s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.301s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1465:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.301s]  1465 |     TRT_DEPRECATED bool [01;36m[KbindingIsInput[m[K(int32_t bindingIndex) const noexcept
+[98.302s]       |                         [01;36m[K^~~~~~~~~~~~~~[m[K
+[98.302s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::set_run_dims(int, const std::vector<int>&)[m[K’:
+[98.302s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:224:70:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::IExecutionContext::setBindingDimensions(int32_t, nvinfer1::Dims)[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.302s]   224 |     return this->context_->context_->setBindingDimensions(ibinding, d[01;35m[K)[m[K;
+[98.302s]       |                                                                      [01;35m[K^[m[K
+[98.302s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.302s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.302s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2549:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.302s]  2549 |     TRT_DEPRECATED bool [01;36m[KsetBindingDimensions[m[K(int32_t bindingIndex, Dims dimensions) noexcept
+[98.302s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[98.302s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual int TensorRT::EngineImplement::numel(int)[m[K’:
+[98.302s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:230:71:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::IExecutionContext::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.302s]   230 |     auto dim = this->context_->context_->getBindingDimensions(ibinding[01;35m[K)[m[K;
+[98.303s]       |                                                                       [01;35m[K^[m[K
+[98.303s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.303s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.303s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2600:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.303s]  2600 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[98.303s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[98.303s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual TensorRT::DType TensorRT::EngineImplement::dtype(int)[m[K’:
+[98.303s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:236:114:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::DataType nvinfer1::ICudaEngine::getBindingDataType(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.303s]   236 | int ibinding) override { return (DType)this->context_->engine_->getBindingDataType(ibinding[01;35m[K)[m[K; }
+[98.303s]       |                                                                                            [01;35m[K^[m[K
+[98.303s] 
+[98.303s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.303s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.304s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1522:29:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.304s]  1522 |     TRT_DEPRECATED DataType [01;36m[KgetBindingDataType[m[K(int32_t bindingIndex) const noexcept
+[98.304s]       |                             [01;36m[K^~~~~~~~~~~~~~~~~~[m[K
+[98.304s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::has_dynamic_dim()[m[K’:
+[98.304s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:241:62:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.304s]   241 |     int numBindings = this->context_->engine_->getNbBindings([01;35m[K)[m[K;
+[98.304s]       |                                                              [01;35m[K^[m[K
+[98.304s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.304s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.304s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.305s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[98.305s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[98.305s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:243:76:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.305s]   243 |       nvinfer1::Dims dims = this->context_->engine_->getBindingDimensions(i[01;35m[K)[m[K;
+[98.305s]       |                                                                            [01;35m[K^[m[K
+[98.305s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.305s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.305s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.305s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[98.305s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[98.305s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual void TensorRT::EngineImplement::print(const char*)[m[K’:
+[98.305s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:258:47:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.306s]   258 |     for (int i = 0; i < engine->getNbBindings([01;35m[K)[m[K; ++i) {
+[98.306s]       |                                               [01;35m[K^[m[K
+[98.306s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.306s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.306s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.306s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[98.306s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[98.306s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:259:35:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::ICudaEngine::bindingIsInput(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.306s]   259 |       if (engine->bindingIsInput(i[01;35m[K)[m[K)
+[98.306s]       |                                   [01;35m[K^[m[K
+[98.306s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.306s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.307s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1465:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.307s]  1465 |     TRT_DEPRECATED bool [01;36m[KbindingIsInput[m[K(int32_t bindingIndex) const noexcept
+[98.307s]       |                         [01;36m[K^~~~~~~~~~~~~~[m[K
+[98.307s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:267:43:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconst char* nvinfer1::ICudaEngine::getBindingName(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.307s]   267 |       auto name = engine->getBindingName(i[01;35m[K)[m[K;
+[98.307s]       |                                           [01;35m[K^[m[K
+[98.307s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.307s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.307s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1450:32:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.307s]  1450 |     TRT_DEPRECATED char const* [01;36m[KgetBindingName[m[K(int32_t bindingIndex) const noexcept
+[98.307s]       |                                [01;36m[K^~~~~~~~~~~~~~[m[K
+[98.307s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:268:48:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.308s]   268 |       auto dim = engine->getBindingDimensions(i[01;35m[K)[m[K;
+[98.308s]       |                                                [01;35m[K^[m[K
+[98.308s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.308s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.308s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.308s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[98.308s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[98.308s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:269:48:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::DataType nvinfer1::ICudaEngine::getBindingDataType(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.308s]   269 |       auto dtype = engine->getBindingDataType(i[01;35m[K)[m[K;
+[98.308s]       |                                                [01;35m[K^[m[K
+[98.308s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.308s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.308s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1522:29:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.309s]  1522 |     TRT_DEPRECATED DataType [01;36m[KgetBindingDataType[m[K(int32_t bindingIndex) const noexcept
+[98.309s]       |                             [01;36m[K^~~~~~~~~~~~~~~~~~[m[K
+[98.309s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:275:55:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconst char* nvinfer1::ICudaEngine::getBindingName(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.309s]   275 |       auto name = engine->getBindingName(i + num_input[01;35m[K)[m[K;
+[98.309s]       |                                                       [01;35m[K^[m[K
+[98.309s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.309s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.309s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1450:32:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.309s]  1450 |     TRT_DEPRECATED char const* [01;36m[KgetBindingName[m[K(int32_t bindingIndex) const noexcept
+[98.309s]       |                                [01;36m[K^~~~~~~~~~~~~~[m[K
+[98.309s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:276:60:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.309s]   276 |       auto dim = engine->getBindingDimensions(i + num_input[01;35m[K)[m[K;
+[98.309s]       |                                                            [01;35m[K^[m[K
+[98.310s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.310s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.310s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.310s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[98.310s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[98.310s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:277:60:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::DataType nvinfer1::ICudaEngine::getBindingDataType(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.310s]   277 |       auto dtype = engine->getBindingDataType(i + num_input[01;35m[K)[m[K;
+[98.310s]       |                                                            [01;35m[K^[m[K
+[98.310s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[98.310s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[98.310s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1522:29:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.310s]  1522 |     TRT_DEPRECATED DataType [01;36m[KgetBindingDataType[m[K(int32_t bindingIndex) const noexcept
+[98.311s]       |                             [01;36m[K^~~~~~~~~~~~~~~~~~[m[K
+[98.311s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K At global scope:
+[98.311s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:290:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[98.311s]   290 | }[01;35m[K;[m[K  // namespace TensorRT
+[98.311s]       |  [01;35m[K^[m[K
+[98.632s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[98.632s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:83:109:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.632s]    83 |     nvinfer1::IPluginV2* createPlugin(const char* name, const nvinfer1::PluginFieldCollection* fc) noexcept [01;35m[Koverride[m[K;
+[98.632s]       |                                                                                                             [01;35m[K^~~~~~~~[m[K
+[98.632s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[98.632s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[98.632s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[98.632s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[98.632s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[98.633s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.633s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[98.633s]       |                      [01;36m[K^~~~~~~~~[m[K
+[98.633s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[98.633s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:84:116:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.633s]    84 |     nvinfer1::IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept [01;35m[Koverride[m[K;
+[98.633s]       |                                                                                                                    [01;35m[K^~~~~~~~[m[K
+[98.633s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[98.633s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[98.633s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[98.633s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[98.634s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[98.634s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.634s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[98.634s]       |                      [01;36m[K^~~~~~~~~[m[K
+[98.701s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In constructor ‘[01m[Knvinfer1::plugin::PPScatterPlugin::PPScatterPlugin(const void*, size_t)[m[K’:
+[98.701s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:65:59:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Klength[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.701s]    65 | PPScatterPlugin::PPScatterPlugin(const void* data, [01;35m[Ksize_t length[m[K)
+[98.701s]       |                                                    [01;35m[K~~~~~~~^~~~~~[m[K
+[98.702s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::DimsExprs nvinfer1::plugin::PPScatterPlugin::getOutputDimensions(int, const nvinfer1::DimsExprs*, int, nvinfer1::IExprBuilder&)[m[K’:
+[98.702s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:80:9:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KoutputIndex[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.702s]    80 |     [01;35m[Kint outputIndex[m[K, const nvinfer1::DimsExprs* inputs, int nbInputs, nvinfer1::IExprBuilder& exprBuilder) noexcept
+[98.702s]       |     [01;35m[K~~~~^~~~~~~~~~~[m[K
+[98.702s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:80:61:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.702s]    80 |     int outputIndex, const nvinfer1::DimsExprs* inputs, [01;35m[Kint nbInputs[m[K, nvinfer1::IExprBuilder& exprBuilder) noexcept
+[98.702s]       |                                                         [01;35m[K~~~~^~~~~~~~[m[K
+[98.702s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual bool nvinfer1::plugin::PPScatterPlugin::supportsFormatCombination(int, const nvinfer1::PluginTensorDesc*, int, int)[m[K’:
+[98.703s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:93:59:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.703s]    93 |     int pos, const nvinfer1::PluginTensorDesc* inOut, [01;35m[Kint nbInputs[m[K, int nbOutputs) noexcept
+[98.703s]       |                                                       [01;35m[K~~~~^~~~~~~~[m[K
+[98.703s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:93:73:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbOutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.703s]    93 |     int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, [01;35m[Kint nbOutputs[m[K) noexcept
+[98.703s]       |                                                                     [01;35m[K~~~~^~~~~~~~~[m[K
+[98.703s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual void nvinfer1::plugin::PPScatterPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc*, int, const nvinfer1::DynamicPluginTensorDesc*, int)[m[K’:
+[98.703s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:118:80:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kin[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.703s]   118 | void PPScatterPlugin::configurePlugin([01;35m[Kconst nvinfer1::DynamicPluginTensorDesc* in[m[K, int nbInputs,
+[98.704s]       |                                       [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~[m[K
+[98.704s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:118:88:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.704s]   118 | void PPScatterPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, [01;35m[Kint nbInputs[m[K,
+[98.704s]       |                                                                                    [01;35m[K~~~~^~~~~~~~[m[K
+[98.704s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:119:46:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kout[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.704s]   119 |     [01;35m[Kconst nvinfer1::DynamicPluginTensorDesc* out[m[K, int nbOutputs) noexcept
+[98.704s]       |     [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~[m[K
+[98.704s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:119:55:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbOutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.704s]   119 |     const nvinfer1::DynamicPluginTensorDesc* out, [01;35m[Kint nbOutputs[m[K) noexcept
+[98.704s]       |                                                   [01;35m[K~~~~^~~~~~~~~[m[K
+[98.704s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual size_t nvinfer1::plugin::PPScatterPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc*, int, const nvinfer1::PluginTensorDesc*, int) const[m[K’:
+[98.704s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:124:76:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kinputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.705s]   124 | size_t PPScatterPlugin::getWorkspaceSize([01;35m[Kconst nvinfer1::PluginTensorDesc* inputs[m[K, int nbInputs,
+[98.705s]       |                                          [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~[m[K
+[98.705s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:124:88:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.705s]   124 | size_t PPScatterPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, [01;35m[Kint nbInputs[m[K,
+[98.705s]       |                                                                                    [01;35m[K~~~~^~~~~~~~[m[K
+[98.705s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:125:39:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Koutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.705s]   125 |     [01;35m[Kconst nvinfer1::PluginTensorDesc* outputs[m[K, int nbOutputs) const noexcept
+[98.705s]       |     [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~[m[K
+[98.705s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:125:52:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbOutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.705s]   125 |     const nvinfer1::PluginTensorDesc* outputs, [01;35m[Kint nbOutputs[m[K) const noexcept
+[98.705s]       |                                                [01;35m[K~~~~^~~~~~~~~[m[K
+[98.705s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual int nvinfer1::plugin::PPScatterPlugin::enqueue(const nvinfer1::PluginTensorDesc*, const nvinfer1::PluginTensorDesc*, const void* const*, void* const*, void*, cudaStream_t)[m[K’:
+[98.706s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:131:39:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KoutputDesc[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.706s]   131 |     [01;35m[Kconst nvinfer1::PluginTensorDesc* outputDesc[m[K, const void* const* inputs, void* const* outputs, void* workspace,
+[98.706s]       |     [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~[m[K
+[98.706s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:131:106:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kworkspace[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.706s]   131 |     const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, [01;35m[Kvoid* workspace[m[K,
+[98.706s]       |                                                                                                    [01;35m[K~~~~~~^~~~~~~~~[m[K
+[98.706s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::DataType nvinfer1::plugin::PPScatterPlugin::getOutputDataType(int, const nvinfer1::DataType*, int) const[m[K’:
+[98.706s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:193:9:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kindex[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.706s]   193 |     [01;35m[Kint index[m[K, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+[98.706s]       |     [01;35m[K~~~~^~~~~[m[K
+[98.706s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:193:58:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.706s]   193 |     int index, const nvinfer1::DataType* inputTypes, [01;35m[Kint nbInputs[m[K) const noexcept
+[98.707s]       |                                                      [01;35m[K~~~~^~~~~~~~[m[K
+[98.707s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K At global scope:
+[98.707s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:272:100:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.707s]   272 | IPluginV2* PPScatterPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) [01;35m[Knoexcept[m[K
+[98.707s]       |                                                                                                    [01;35m[K^~~~~~~~[m[K
+[98.707s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[98.707s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[98.707s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[98.707s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[98.707s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[98.707s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.708s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[98.708s]       |                      [01;36m[K^~~~~~~~~[m[K
+[98.708s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::IPluginV2* nvinfer1::plugin::PPScatterPluginCreator::createPlugin(const char*, const nvinfer1::PluginFieldCollection*)[m[K’:
+[98.708s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:272:61:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kname[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.708s]   272 | IPluginV2* PPScatterPluginCreator::createPlugin([01;35m[Kconst char* name[m[K, const PluginFieldCollection* fc) noexcept
+[98.708s]       |                                                 [01;35m[K~~~~~~~~~~~~^~~~[m[K
+[98.708s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K At global scope:
+[98.708s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:296:68:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[98.708s]   296 |     const char* name, const void* serialData, size_t serialLength) [01;35m[Knoexcept[m[K
+[98.708s]       |                                                                    [01;35m[K^~~~~~~~[m[K
+[98.708s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[98.708s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[98.708s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[98.709s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[98.709s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[98.709s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[98.709s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[98.709s]       |                      [01;36m[K^~~~~~~~~[m[K
+[98.709s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::IPluginV2* nvinfer1::plugin::PPScatterPluginCreator::deserializePlugin(const char*, const void*, size_t)[m[K’:
+[98.709s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:296:17:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kname[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[98.709s]   296 |     [01;35m[Kconst char* name[m[K, const void* serialData, size_t serialLength) noexcept
+[98.709s]       |     [01;35m[K~~~~~~~~~~~~^~~~[m[K
+[99.189s] [ 37%] [32m[1mLinking CXX shared library libpointpillar_core.so[0m
+[103.724s] [ 37%] Built target pointpillar_core
+[104.397s] [ 45%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/pointpillar/pp_infer_generated_pillarscatter-kernel.cu.o[0m
+[104.612s] [ 50%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/common/pp_infer_generated_tensor.cu.o[0m
+[104.778s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[104.782s] [ 58%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/pointpillar/pp_infer_generated_lidar-backbone.cu.o[0m
+[104.782s] [ 58%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/pointpillar/pp_infer_generated_lidar-postprocess.cu.o[0m
+[104.782s] [ 58%] [34m[1mBuilding NVCC (Device) object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/pointpillar/pp_infer_generated_lidar-voxelization.cu.o[0m
+[104.902s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[104.955s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[104.977s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[104.978s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[104.984s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[105.129s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[105.130s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[105.139s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[105.271s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[106.695s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[107.392s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[108.010s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[108.428s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[108.489s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[109.014s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[109.015s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[109.103s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[109.550s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[115.459s] <command-line>: warning: ISO C++11 requires whitespace after the macro name
+[120.308s] [ 75%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp.o[0m
+[120.309s] [ 75%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp.o[0m
+[120.309s] [ 75%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/CUDA-PointPillars/src/common/tensorrt.cpp.o[0m
+[120.309s] [ 75%] [32mBuilding CXX object CMakeFiles/pp_infer.dir/src/pp_inference_node.cpp.o[0m
+[120.902s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:22[m[K,
+[120.903s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[120.903s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[120.903s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/dtype.hpp:69:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.903s]    69 | }[01;35m[K;[m[K  // namespace nvtype
+[120.903s]       |  [01;35m[K^[m[K
+[120.903s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[120.903s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[120.903s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:53:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.903s]    53 | }[01;35m[K;[m[K  // namespace lidar
+[120.903s]       |  [01;35m[K^[m[K
+[120.904s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:54:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.904s]    54 | }[01;35m[K;[m[K  // namespace pointpillar
+[120.904s]       |  [01;35m[K^[m[K
+[120.918s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:28[m[K,
+[120.918s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[120.918s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:49:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.918s]    49 | }[01;35m[K;[m[K  // namespace lidar
+[120.919s]       |  [01;35m[K^[m[K
+[120.919s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:50:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.919s]    50 | }[01;35m[K;[m[K  // namespace pointpillar
+[120.919s]       |  [01;35m[K^[m[K
+[120.919s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:29[m[K,
+[120.919s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[120.919s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:80:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.919s]    80 | }[01;35m[K;[m[K  // namespace lidar
+[120.919s]       |  [01;35m[K^[m[K
+[120.920s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:81:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.920s]    81 | }[01;35m[K;[m[K  // namespace pointpillar
+[120.920s]       |  [01;35m[K^[m[K
+[120.920s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:24[m[K:
+[120.920s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:51:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.920s]    51 | }[01;35m[K;[m[K  // namespace lidar
+[120.920s]       |  [01;35m[K^[m[K
+[120.920s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:52:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.920s]    52 | }[01;35m[K;[m[K  // namespace pointpillar
+[120.920s]       |  [01;35m[K^[m[K
+[120.933s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[120.933s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:83:109:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[120.933s]    83 |     nvinfer1::IPluginV2* createPlugin(const char* name, const nvinfer1::PluginFieldCollection* fc) noexcept [01;35m[Koverride[m[K;
+[120.933s]       |                                                                                                             [01;35m[K^~~~~~~~[m[K
+[120.933s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[120.933s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[120.933s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[120.934s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[120.934s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[120.934s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[120.934s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[120.934s]       |                      [01;36m[K^~~~~~~~~[m[K
+[120.934s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[120.935s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:84:116:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[120.935s]    84 |     nvinfer1::IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept [01;35m[Koverride[m[K;
+[120.935s]       |                                                                                                                    [01;35m[K^~~~~~~~[m[K
+[120.935s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[120.935s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[120.935s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[120.935s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[120.935s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[120.935s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[120.935s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[120.936s]       |                      [01;36m[K^~~~~~~~~[m[K
+[120.936s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:28[m[K:
+[120.936s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.936s]    99 | }[01;35m[K;[m[K  // namespace nv
+[120.936s]       |  [01;35m[K^[m[K
+[120.936s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:29[m[K:
+[120.936s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/timer.hpp:59:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.936s]    59 | }[01;35m[K;[m[K  // namespace nv
+[120.936s]       |  [01;35m[K^[m[K
+[120.940s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:30[m[K:
+[120.940s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensor.hpp:145:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.940s]   145 | }[01;35m[K;[m[K  // namespace nv
+[120.940s]       |  [01;35m[K^[m[K
+[120.957s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:166:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.957s]   166 | }[01;35m[K;[m[K  // namespace lidar
+[120.958s]       |  [01;35m[K^[m[K
+[120.958s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.cpp:167:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[120.958s]   167 | }[01;35m[K;[m[K  // namespace pointpillar
+[120.958s]       |  [01;35m[K^[m[K
+[121.000s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In constructor ‘[01m[Knvinfer1::plugin::PPScatterPlugin::PPScatterPlugin(const void*, size_t)[m[K’:
+[121.000s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:65:59:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Klength[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.000s]    65 | PPScatterPlugin::PPScatterPlugin(const void* data, [01;35m[Ksize_t length[m[K)
+[121.001s]       |                                                    [01;35m[K~~~~~~~^~~~~~[m[K
+[121.001s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::DimsExprs nvinfer1::plugin::PPScatterPlugin::getOutputDimensions(int, const nvinfer1::DimsExprs*, int, nvinfer1::IExprBuilder&)[m[K’:
+[121.001s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:80:9:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KoutputIndex[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.001s]    80 |     [01;35m[Kint outputIndex[m[K, const nvinfer1::DimsExprs* inputs, int nbInputs, nvinfer1::IExprBuilder& exprBuilder) noexcept
+[121.001s]       |     [01;35m[K~~~~^~~~~~~~~~~[m[K
+[121.002s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:80:61:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.002s]    80 |     int outputIndex, const nvinfer1::DimsExprs* inputs, [01;35m[Kint nbInputs[m[K, nvinfer1::IExprBuilder& exprBuilder) noexcept
+[121.002s]       |                                                         [01;35m[K~~~~^~~~~~~~[m[K
+[121.002s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual bool nvinfer1::plugin::PPScatterPlugin::supportsFormatCombination(int, const nvinfer1::PluginTensorDesc*, int, int)[m[K’:
+[121.002s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:93:59:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.002s]    93 |     int pos, const nvinfer1::PluginTensorDesc* inOut, [01;35m[Kint nbInputs[m[K, int nbOutputs) noexcept
+[121.002s]       |                                                       [01;35m[K~~~~^~~~~~~~[m[K
+[121.002s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:93:73:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbOutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.003s]    93 |     int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, [01;35m[Kint nbOutputs[m[K) noexcept
+[121.003s]       |                                                                     [01;35m[K~~~~^~~~~~~~~[m[K
+[121.003s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual void nvinfer1::plugin::PPScatterPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc*, int, const nvinfer1::DynamicPluginTensorDesc*, int)[m[K’:
+[121.003s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:118:80:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kin[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.003s]   118 | void PPScatterPlugin::configurePlugin([01;35m[Kconst nvinfer1::DynamicPluginTensorDesc* in[m[K, int nbInputs,
+[121.003s]       |                                       [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~[m[K
+[121.003s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:118:88:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.003s]   118 | void PPScatterPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, [01;35m[Kint nbInputs[m[K,
+[121.003s]       |                                                                                    [01;35m[K~~~~^~~~~~~~[m[K
+[121.004s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:119:46:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kout[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.004s]   119 |     [01;35m[Kconst nvinfer1::DynamicPluginTensorDesc* out[m[K, int nbOutputs) noexcept
+[121.004s]       |     [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~[m[K
+[121.004s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:119:55:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbOutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.004s]   119 |     const nvinfer1::DynamicPluginTensorDesc* out, [01;35m[Kint nbOutputs[m[K) noexcept
+[121.004s]       |                                                   [01;35m[K~~~~^~~~~~~~~[m[K
+[121.004s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual size_t nvinfer1::plugin::PPScatterPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc*, int, const nvinfer1::PluginTensorDesc*, int) const[m[K’:
+[121.004s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:124:76:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kinputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.004s]   124 | size_t PPScatterPlugin::getWorkspaceSize([01;35m[Kconst nvinfer1::PluginTensorDesc* inputs[m[K, int nbInputs,
+[121.004s]       |                                          [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~[m[K
+[121.004s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:124:88:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.004s]   124 | size_t PPScatterPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, [01;35m[Kint nbInputs[m[K,
+[121.004s]       |                                                                                    [01;35m[K~~~~^~~~~~~~[m[K
+[121.005s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:125:39:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Koutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.005s]   125 |     [01;35m[Kconst nvinfer1::PluginTensorDesc* outputs[m[K, int nbOutputs) const noexcept
+[121.005s]       |     [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~[m[K
+[121.005s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:125:52:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbOutputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.005s]   125 |     const nvinfer1::PluginTensorDesc* outputs, [01;35m[Kint nbOutputs[m[K) const noexcept
+[121.005s]       |                                                [01;35m[K~~~~^~~~~~~~~[m[K
+[121.005s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual int nvinfer1::plugin::PPScatterPlugin::enqueue(const nvinfer1::PluginTensorDesc*, const nvinfer1::PluginTensorDesc*, const void* const*, void* const*, void*, cudaStream_t)[m[K’:
+[121.005s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:131:39:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KoutputDesc[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.005s]   131 |     [01;35m[Kconst nvinfer1::PluginTensorDesc* outputDesc[m[K, const void* const* inputs, void* const* outputs, void* workspace,
+[121.005s]       |     [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~[m[K
+[121.005s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:131:106:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kworkspace[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.005s]   131 |     const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, [01;35m[Kvoid* workspace[m[K,
+[121.005s]       |                                                                                                    [01;35m[K~~~~~~^~~~~~~~~[m[K
+[121.006s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::DataType nvinfer1::plugin::PPScatterPlugin::getOutputDataType(int, const nvinfer1::DataType*, int) const[m[K’:
+[121.006s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:193:9:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kindex[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.006s]   193 |     [01;35m[Kint index[m[K, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+[121.006s]       |     [01;35m[K~~~~^~~~~[m[K
+[121.006s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:193:58:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[KnbInputs[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.006s]   193 |     int index, const nvinfer1::DataType* inputTypes, [01;35m[Kint nbInputs[m[K) const noexcept
+[121.006s]       |                                                      [01;35m[K~~~~^~~~~~~~[m[K
+[121.006s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K At global scope:
+[121.006s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:272:100:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.006s]   272 | IPluginV2* PPScatterPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) [01;35m[Knoexcept[m[K
+[121.006s]       |                                                                                                    [01;35m[K^~~~~~~~[m[K
+[121.006s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[121.007s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[121.007s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[121.007s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[121.007s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[121.007s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.007s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[121.007s]       |                      [01;36m[K^~~~~~~~~[m[K
+[121.007s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::IPluginV2* nvinfer1::plugin::PPScatterPluginCreator::createPlugin(const char*, const nvinfer1::PluginFieldCollection*)[m[K’:
+[121.007s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:272:61:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kname[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.007s]   272 | IPluginV2* PPScatterPluginCreator::createPlugin([01;35m[Kconst char* name[m[K, const PluginFieldCollection* fc) noexcept
+[121.008s]       |                                                 [01;35m[K~~~~~~~~~~~~^~~~[m[K
+[121.008s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K At global scope:
+[121.008s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:296:68:[m[K [01;35m[Kwarning: [m[K‘[01m[KIPluginV2[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.008s]   296 |     const char* name, const void* serialData, size_t serialLength) [01;35m[Knoexcept[m[K
+[121.008s]       |                                                                    [01;35m[K^~~~~~~~[m[K
+[121.008s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInferLegacyDims.h:16[m[K,
+[121.008s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:16[m[K,
+[121.008s]                  from [01m[K/usr/include/x86_64-linux-gnu/NvInferPlugin.h:16[m[K,
+[121.008s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.hpp:24[m[K,
+[121.008s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:24[m[K:
+[121.008s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntimeCommon.h:393:22:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.008s]   393 | class TRT_DEPRECATED [01;36m[KIPluginV2[m[K
+[121.008s]       |                      [01;36m[K^~~~~~~~~[m[K
+[121.008s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:[m[K In member function ‘[01m[Kvirtual nvinfer1::IPluginV2* nvinfer1::plugin::PPScatterPluginCreator::deserializePlugin(const char*, const void*, size_t)[m[K’:
+[121.009s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar-scatter.cpp:296:17:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kname[m[K’ [[01;35m[K-Wunused-parameter[m[K]
+[121.009s]   296 |     [01;35m[Kconst char* name[m[K, const void* serialData, size_t serialLength) noexcept
+[121.009s]       |     [01;35m[K~~~~~~~~~~~~^~~~[m[K
+[121.078s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:24[m[K:
+[121.078s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.hpp:56:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[121.078s]    56 | }[01;35m[K;[m[K  // namespace TensorRT
+[121.079s]       |  [01;35m[K^[m[K
+[121.308s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:38[m[K:
+[121.308s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[121.309s]    99 | }[01;35m[K;[m[K  // namespace nv
+[121.309s]       |  [01;35m[K^[m[K
+[121.320s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kbool TensorRT::__native_engine_context::construct(const void*, size_t, const char*)[m[K’:
+[121.320s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:122:106:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::ICudaEngine* nvinfer1::IRuntime::deserializeCudaEngine(const void*, std::size_t, nvinfer1::IPluginFactory*)[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.320s]   122 |     engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(runtime_->deserializeCudaEngine(pdata, size, nullptr[01;35m[K)[m[K,
+[121.320s]       |                                                                                                          [01;35m[K^[m[K
+[121.320s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.321s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.321s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:637:43:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.321s]   637 |     TRT_DEPRECATED nvinfer1::ICudaEngine* [01;36m[KdeserializeCudaEngine[m[K(
+[121.321s]       |                                           [01;36m[K^~~~~~~~~~~~~~~~~~~~~[m[K
+[121.334s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvoid TensorRT::EngineImplement::setup()[m[K’:
+[121.334s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:179:44:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.334s]   179 |     int nbBindings = engine->getNbBindings([01;35m[K)[m[K;
+[121.334s]       |                                            [01;35m[K^[m[K
+[121.334s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.334s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.334s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.334s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[121.335s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[121.335s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:183:57:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconst char* nvinfer1::ICudaEngine::getBindingName(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.335s]   183 |       const char *bindingName = engine->getBindingName(i[01;35m[K)[m[K;
+[121.335s]       |                                                         [01;35m[K^[m[K
+[121.335s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.335s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.335s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1450:32:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.335s]  1450 |     TRT_DEPRECATED char const* [01;36m[KgetBindingName[m[K(int32_t bindingIndex) const noexcept
+[121.335s]       |                                [01;36m[K^~~~~~~~~~~~~~[m[K
+[121.336s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::forward(const std::vector<const void*>&, void*, void*)[m[K’:
+[121.336s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:195:129:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::IExecutionContext::enqueueV2(void* const*, cudaStream_t, CUevent_st**)[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.336s]   195 |     return this->context_->context_->enqueueV2((void **)bindings.data(), (cudaStream_t)stream, (cudaEvent_t *)input_consum_event[01;35m[K)[m[K;
+[121.337s]       |                                                                                                                                 [01;35m[K^[m[K
+[121.337s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.337s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.337s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2812:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.337s]  2812 |     TRT_DEPRECATED bool [01;36m[KenqueueV2[m[K(void* const* bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept
+[121.337s]       |                         [01;36m[K^~~~~~~~~[m[K
+[121.338s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual std::vector<int> TensorRT::EngineImplement::run_dims(int)[m[K’:
+[121.338s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:201:71:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::IExecutionContext::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.338s]   201 |     auto dim = this->context_->context_->getBindingDimensions(ibinding[01;35m[K)[m[K;
+[121.339s]       |                                                                       [01;35m[K^[m[K
+[121.339s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.339s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.339s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2600:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.340s]  2600 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[121.340s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[121.340s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual std::vector<int> TensorRT::EngineImplement::static_dims(int)[m[K’:
+[121.340s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:208:70:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.340s]   208 |     auto dim = this->context_->engine_->getBindingDimensions(ibinding[01;35m[K)[m[K;
+[121.340s]       |                                                                      [01;35m[K^[m[K
+[121.340s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.340s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.340s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.341s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[121.341s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[121.341s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual int TensorRT::EngineImplement::num_bindings()[m[K’:
+[121.341s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:212:87:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.341s]   212 |   virtual int num_bindings() override { return this->context_->engine_->getNbBindings([01;35m[K)[m[K; }
+[121.341s]       |                                                                                       [01;35m[K^[m[K
+[121.342s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.342s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.342s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.342s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[121.342s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[121.342s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::is_input(int)[m[K’:
+[121.342s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:214:105:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::ICudaEngine::bindingIsInput(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.342s]   214 |   virtual bool is_input(int ibinding) override { return this->context_->engine_->bindingIsInput(ibinding[01;35m[K)[m[K; }
+[121.342s]       |                                                                                                         [01;35m[K^[m[K
+[121.343s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.343s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.343s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1465:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.343s]  1465 |     TRT_DEPRECATED bool [01;36m[KbindingIsInput[m[K(int32_t bindingIndex) const noexcept
+[121.343s]       |                         [01;36m[K^~~~~~~~~~~~~~[m[K
+[121.343s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::set_run_dims(int, const std::vector<int>&)[m[K’:
+[121.343s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:224:70:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::IExecutionContext::setBindingDimensions(int32_t, nvinfer1::Dims)[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.343s]   224 |     return this->context_->context_->setBindingDimensions(ibinding, d[01;35m[K)[m[K;
+[121.343s]       |                                                                      [01;35m[K^[m[K
+[121.343s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.343s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.344s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2549:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.344s]  2549 |     TRT_DEPRECATED bool [01;36m[KsetBindingDimensions[m[K(int32_t bindingIndex, Dims dimensions) noexcept
+[121.344s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[121.344s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual int TensorRT::EngineImplement::numel(int)[m[K’:
+[121.344s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:230:71:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::IExecutionContext::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.344s]   230 |     auto dim = this->context_->context_->getBindingDimensions(ibinding[01;35m[K)[m[K;
+[121.344s]       |                                                                       [01;35m[K^[m[K
+[121.344s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.344s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.344s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:2600:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.344s]  2600 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[121.344s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[121.344s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual TensorRT::DType TensorRT::EngineImplement::dtype(int)[m[K’:
+[121.345s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:236:114:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::DataType nvinfer1::ICudaEngine::getBindingDataType(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.345s]   236 |   virtual DType dtype(int ibinding) override { return (DType)this->context_->engine_->getBindingDataType(ibinding[01;35m[K)[m[K; }
+[121.345s]       |                                                                                                                  [01;35m[K^[m[K
+[121.345s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.345s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.345s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1522:29:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.345s]  1522 |     TRT_DEPRECATED DataType [01;36m[KgetBindingDataType[m[K(int32_t bindingIndex) const noexcept
+[121.345s]       |                             [01;36m[K^~~~~~~~~~~~~~~~~~[m[K
+[121.345s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual bool TensorRT::EngineImplement::has_dynamic_dim()[m[K’:
+[121.345s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:241:62:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.345s]   241 |     int numBindings = this->context_->engine_->getNbBindings([01;35m[K)[m[K;
+[121.345s]       |                                                              [01;35m[K^[m[K
+[121.346s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.346s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.346s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.346s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[121.346s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[121.346s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:243:76:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.346s]   243 |       nvinfer1::Dims dims = this->context_->engine_->getBindingDimensions(i[01;35m[K)[m[K;
+[121.346s]       |                                                                            [01;35m[K^[m[K
+[121.346s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.346s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.346s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.347s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[121.347s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[121.347s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K In member function ‘[01m[Kvirtual void TensorRT::EngineImplement::print(const char*)[m[K’:
+[121.347s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:258:47:[m[K [01;35m[Kwarning: [m[K‘[01m[Kint32_t nvinfer1::ICudaEngine::getNbBindings() const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.347s]   258 |     for (int i = 0; i < engine->getNbBindings([01;35m[K)[m[K; ++i) {
+[121.347s]       |                                               [01;35m[K^[m[K
+[121.347s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.347s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.347s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1399:28:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.347s]  1399 |     TRT_DEPRECATED int32_t [01;36m[KgetNbBindings[m[K() const noexcept
+[121.347s]       |                            [01;36m[K^~~~~~~~~~~~~[m[K
+[121.348s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:259:35:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool nvinfer1::ICudaEngine::bindingIsInput(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.348s]   259 |       if (engine->bindingIsInput(i[01;35m[K)[m[K)
+[121.348s]       |                                   [01;35m[K^[m[K
+[121.348s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.348s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.348s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1465:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.348s]  1465 |     TRT_DEPRECATED bool [01;36m[KbindingIsInput[m[K(int32_t bindingIndex) const noexcept
+[121.348s]       |                         [01;36m[K^~~~~~~~~~~~~~[m[K
+[121.348s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:267:43:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconst char* nvinfer1::ICudaEngine::getBindingName(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.348s]   267 |       auto name = engine->getBindingName(i[01;35m[K)[m[K;
+[121.348s]       |                                           [01;35m[K^[m[K
+[121.348s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.348s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.349s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1450:32:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.349s]  1450 |     TRT_DEPRECATED char const* [01;36m[KgetBindingName[m[K(int32_t bindingIndex) const noexcept
+[121.349s]       |                                [01;36m[K^~~~~~~~~~~~~~[m[K
+[121.349s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:268:48:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.349s]   268 |       auto dim = engine->getBindingDimensions(i[01;35m[K)[m[K;
+[121.349s]       |                                                [01;35m[K^[m[K
+[121.349s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.349s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.349s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.350s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[121.350s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[121.350s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:269:48:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::DataType nvinfer1::ICudaEngine::getBindingDataType(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.350s]   269 |       auto dtype = engine->getBindingDataType(i[01;35m[K)[m[K;
+[121.350s]       |                                                [01;35m[K^[m[K
+[121.350s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.350s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.350s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1522:29:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.350s]  1522 |     TRT_DEPRECATED DataType [01;36m[KgetBindingDataType[m[K(int32_t bindingIndex) const noexcept
+[121.350s]       |                             [01;36m[K^~~~~~~~~~~~~~~~~~[m[K
+[121.351s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:275:55:[m[K [01;35m[Kwarning: [m[K‘[01m[Kconst char* nvinfer1::ICudaEngine::getBindingName(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.351s]   275 |       auto name = engine->getBindingName(i + num_input[01;35m[K)[m[K;
+[121.351s]       |                                                       [01;35m[K^[m[K
+[121.351s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.351s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.351s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1450:32:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.351s]  1450 |     TRT_DEPRECATED char const* [01;36m[KgetBindingName[m[K(int32_t bindingIndex) const noexcept
+[121.351s]       |                                [01;36m[K^~~~~~~~~~~~~~[m[K
+[121.351s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:276:60:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::Dims nvinfer1::ICudaEngine::getBindingDimensions(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.351s]   276 |       auto dim = engine->getBindingDimensions(i + num_input[01;35m[K)[m[K;
+[121.351s]       |                                                            [01;35m[K^[m[K
+[121.351s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.352s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.352s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1492:25:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.352s]  1492 |     TRT_DEPRECATED Dims [01;36m[KgetBindingDimensions[m[K(int32_t bindingIndex) const noexcept
+[121.352s]       |                         [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[121.352s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:277:60:[m[K [01;35m[Kwarning: [m[K‘[01m[Knvinfer1::DataType nvinfer1::ICudaEngine::getBindingDataType(int32_t) const[m[K’ is deprecated [[01;35m[K-Wdeprecated-declarations[m[K]
+[121.352s]   277 |       auto dtype = engine->getBindingDataType(i + num_input[01;35m[K)[m[K;
+[121.352s]       |                                                            [01;35m[K^[m[K
+[121.352s] In file included from [01m[K/usr/include/x86_64-linux-gnu/NvInfer.h:17[m[K,
+[121.352s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:36[m[K:
+[121.352s] [01m[K/usr/include/x86_64-linux-gnu/NvInferRuntime.h:1522:29:[m[K [01;36m[Knote: [m[Kdeclared here
+[121.352s]  1522 |     TRT_DEPRECATED DataType [01;36m[KgetBindingDataType[m[K(int32_t bindingIndex) const noexcept
+[121.352s]       |                             [01;36m[K^~~~~~~~~~~~~~~~~~[m[K
+[121.353s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:[m[K At global scope:
+[121.353s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/tensorrt.cpp:290:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[121.353s]   290 | }[01;35m[K;[m[K  // namespace TensorRT
+[121.353s]       |  [01;35m[K^[m[K
+[129.673s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:52[m[K:
+[129.674s] [01m[K/opt/ros/humble/src/geometry2/tf2_geometry_msgs/include/tf2_geometry_msgs/tf2_geometry_msgs.h:35:2:[m[K [01;35m[Kwarning: [m[K#warning This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead [[01;35m[K-Wcpp[m[K]
+[129.674s]    35 | #[01;35m[Kwarning[m[K This header is obsolete, please include tf2_geometry_msgs/tf2_geometry_msgs.hpp instead
+[129.674s]       |  [01;35m[K^~~~~~~[m[K
+[130.399s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:22[m[K,
+[130.400s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[130.400s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[130.400s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/dtype.hpp:69:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.400s]    69 | }[01;35m[K;[m[K  // namespace nvtype
+[130.400s]       |  [01;35m[K^[m[K
+[130.400s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:27[m[K,
+[130.400s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[130.400s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:53:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.401s]    53 | }[01;35m[K;[m[K  // namespace lidar
+[130.401s]       |  [01;35m[K^[m[K
+[130.401s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-voxelization.hpp:54:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.401s]    54 | }[01;35m[K;[m[K  // namespace pointpillar
+[130.401s]       |  [01;35m[K^[m[K
+[130.401s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:28[m[K,
+[130.401s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[130.401s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:49:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.401s]    49 | }[01;35m[K;[m[K  // namespace lidar
+[130.401s]       |  [01;35m[K^[m[K
+[130.401s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-backbone.hpp:50:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.401s]    50 | }[01;35m[K;[m[K  // namespace pointpillar
+[130.402s]       |  [01;35m[K^[m[K
+[130.402s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:29[m[K,
+[130.402s]                  from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[130.402s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:80:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.402s]    80 | }[01;35m[K;[m[K  // namespace lidar
+[130.402s]       |  [01;35m[K^[m[K
+[130.402s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/lidar-postprocess.hpp:81:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.402s]    81 | }[01;35m[K;[m[K  // namespace pointpillar
+[130.402s]       |  [01;35m[K^[m[K
+[130.402s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:40[m[K:
+[130.402s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:51:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.402s]    51 | }[01;35m[K;[m[K  // namespace lidar
+[130.402s]       |  [01;35m[K^[m[K
+[130.403s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/pointpillar/pointpillar.hpp:52:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.403s]    52 | }[01;35m[K;[m[K  // namespace pointpillar
+[130.403s]       |  [01;35m[K^[m[K
+[130.403s] In file included from [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/pp_inference_node.cpp:41[m[K:
+[130.403s] [01m[K/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/src/CUDA-PointPillars/src/common/check.hpp:99:2:[m[K [01;35m[Kwarning: [m[Kextra ‘[01m[K;[m[K’ [[01;35m[K-Wpedantic[m[K]
+[130.403s]    99 | }[01;35m[K;[m[K  // namespace nv
+[130.403s]       |  [01;35m[K^[m[K
+[135.728s] [ 79%] [32m[1mLinking CXX executable pp_infer[0m
+[141.552s] [100%] Built target pp_infer
+[144.315s] Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --build /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer -- -j120 -l120
+[144.868s] Invoking command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --install /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer
+[145.341s] -- Install configuration: "Release"
+[145.559s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer
+[145.735s] -- Set runtime path of "/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/lib/pp_infer/pp_infer" to ""
+[145.880s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch
+[145.987s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer//launch/pp_infer_launch.py
+[147.394s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/package_run_dependencies/pp_infer
+[148.225s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/parent_prefix_path/pp_infer
+[148.561s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/ament_prefix_path.sh
+[148.722s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/ament_prefix_path.dsv
+[148.908s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/path.sh
+[149.721s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/environment/path.dsv
+[150.000s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.bash
+[150.260s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.sh
+[150.413s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.zsh
+[150.429s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/local_setup.dsv
+[150.897s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.dsv
+[151.407s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/ament_index/resource_index/packages/pp_infer
+[151.744s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig.cmake
+[152.423s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/cmake/pp_inferConfig-version.cmake
+[152.768s] -- Installing: /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/install/pp_infer/share/pp_infer/package.xml
+[152.921s] Invoked command in '/home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble/install/ros2bag:/opt/ros/humble/install/tf2_tools:/opt/ros/humble/install/tf2_ros_py:/opt/ros/humble/install/sros2:/opt/ros/humble/install/ros2topic:/opt/ros/humble/install/ros2test:/opt/ros/humble/install/ros2component:/opt/ros/humble/install/ros2param:/opt/ros/humble/install/ros2lifecycle:/opt/ros/humble/install/ros2service:/opt/ros/humble/install/ros2run:/opt/ros/humble/install/ros2launch:/opt/ros/humble/install/ros2pkg:/opt/ros/humble/install/ros2node:/opt/ros/humble/install/ros2multicast:/opt/ros/humble/install/ros2interface:/opt/ros/humble/install/ros2doctor:/opt/ros/humble/install/ros2action:/opt/ros/humble/install/ros2cli:/opt/ros/humble/install/launch_testing_ros:/opt/ros/humble/install/launch_ros:/opt/ros/humble/install/ament_uncrustify:/opt/ros/humble/install/rpyutils:/opt/ros/humble/install/rosidl_runtime_py:/opt/ros/humble/install/rosidl_cli:/opt/ros/humble/install/launch_testing:/opt/ros/humble/install/launch_yaml:/opt/ros/humble/install/launch_xml:/opt/ros/humble/install/launch:/opt/ros/humble/install/osrf_pycommon:/opt/ros/humble/install/domain_coordinator:/opt/ros/humble/install/ament_xmllint:/opt/ros/humble/install/ament_pycodestyle:/opt/ros/humble/install/ament_pep257:/opt/ros/humble/install/ament_package:/opt/ros/humble/install/ament_mypy:/opt/ros/humble/install/ament_lint_cmake:/opt/ros/humble/install/ament_flake8:/opt/ros/humble/install/ament_copyright:/opt/ros/humble/install/ament_lint:/opt/ros/humble/install/ament_index_python:/opt/ros/humble/install/ament_cpplint:/opt/ros/humble/install/ament_cppcheck _=/usr/bin/env /usr/local/bin/cmake --install /home/docker/ament_ws/src/lidar_object_detection/lidar_object_detection_node/build/pp_infer
