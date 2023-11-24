@@ -43,7 +43,7 @@ find_package(std_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(message_filters REQUIRED)
-# find_package(PCL REQUIRED)
+find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -55,7 +55,7 @@ set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-${CUDA_VERSION})
 
 SET(CMAKE_BUILD_TYPE "Release")
 add_compile_options(-W)
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++17)
 
 set(SMS 50 52 53 60 61 62 70 72 75 80 86)
 foreach(sm ${SMS})
@@ -123,8 +123,6 @@ target_link_libraries(pointpillar_core
 )
 #######################################################################
 
-
-
 cuda_add_executable(${PROJECT_NAME} src/pp_inference_node.cpp ${SOURCE_FILES})
 ament_target_dependencies(${PROJECT_NAME} 
   rclcpp 
@@ -144,7 +142,6 @@ target_link_libraries(${PROJECT_NAME}
     libnvinfer_plugin.so
     pointpillar_core
 )
-
 
 install(TARGETS
 	${PROJECT_NAME}
