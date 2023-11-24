@@ -79,7 +79,8 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::GPS
 }
 
 lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet){
-    lanelet::Optional<lanelet::routing::LaneletPath> shortest_path = this->routing_graph_->shortestPath(from_lanelet, to_lanelet);
+    auto route = this->routing_graph_->getRoute(from_lanelet, to_lanelet, 0);
+    auto shortest_path = route->shortestPath();
     return shortest_path;
 }
 
