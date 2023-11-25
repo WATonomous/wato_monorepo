@@ -3,7 +3,7 @@ set -e
 
 programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
 MONO_DIR="$(dirname "$(realpath "$0")")"
-PROFILES_DIR="$MONO_DIR/profiles"
+MODULES_DIR="$MONO_DIR/modules"
 ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
 
 function usage {
@@ -15,7 +15,7 @@ function usage {
     echo "                                  ssh local port forwarding commands for each VNC Server found"
     echo "                                  if a docker-compose command is specified, it will be run in the background."
     echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
-    echo "  -a --all                        run COMMAND with all profiles enabled. Profiles are defined in ./profiles/."
+    echo "  -a --all                        run COMMAND with all modules enabled. Profiles are defined in ./modules/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
     echo ""
@@ -33,11 +33,11 @@ function usage {
 
 function run_compose {
     cd $MONO_DIR
-    if [ ! -z "$(source $PROFILES_DIR/.env && echo $ACTIVE_PROFILES)" ] && [ -z "$PROFILES" ]; then 
-        PROFILES="$(source $PROFILES_DIR/.env && printf -- "-f profiles/docker-compose.%s.yaml " ${ACTIVE_PROFILES[@]})"
+    if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
+        MODULES="$(source $MODULES_DIR/.env && printf -- "-f modules/docker-compose.%s.yaml " ${ACTIVE_MODULES[@]})"
     fi
 
-    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose ${PROFILES[@]} "$@"
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose ${MODULES[@]} "$@"
 }
 
 # in case you need help
@@ -80,15 +80,15 @@ while [[ $# -gt 0 ]] ; do
         shift
         ;;
       -a|--all)
-        PROFILE_BLACKLIST="$(source $PROFILES_DIR/.env && echo $PROFILE_BLACKLIST)"
-        # Find all the profiles
-        PROFILES=$(ls $PROFILES_DIR)
-        # Remove profiles in the blacklist
+        PROFILE_BLACKLIST="$(source $MODULES_DIR/.env && echo $PROFILE_BLACKLIST)"
+        # Find all the modules
+        MODULES=$(ls $MODULES_DIR)
+        # Remove modules in the blacklist
         for TO_REMOVE in ${PROFILE_BLACKLIST[@]}; do
-            PROFILES="${PROFILES//"docker-compose.$TO_REMOVE.yaml"/}"
+            MODULES="${MODULES//"docker-compose.$TO_REMOVE.yaml"/}"
         done
         # format properly for docker-compose
-        PROFILES=$(printf -- "-f profiles/%s " $PROFILES)
+        MODULES=$(printf -- "-f modules/%s " $MODULES)
         shift
         ;;
       -np)
@@ -125,8 +125,8 @@ if [ ! -z $LAUNCH_AUTONOMOUS ]; then
     read -p "Press <ENTER> to continue"
 
     # Run actual CAN devices, not VCAN
-    echo "CAN_DEBUG=False" >> "$PROFILES_DIR/.env"
-    PROFILES="-f profiles/docker-compose.can_interface.yaml"
+    echo "CAN_DEBUG=False" >> "$MODULES_DIR/.env"
+    MODULES="-f modules/docker-compose.can_interface.yaml"
 
     run_compose up can_interface
     exit 0

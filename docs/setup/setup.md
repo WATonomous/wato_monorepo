@@ -30,9 +30,9 @@ Note: These are all available on WATonomous servers by default.
     #!/bin/bash
     from watod-config.sh
 
-    ACTIVE_PROFILES="${specific profiles}"
+    ACTIVE_MODULES="${specific modules}"
     ```
-    See [docs/dev/profiles.md](../dev/profiles.md) for more info on active profiles.
+    See [docs/dev/modules.md](../dev/modules.md) for more info on active modules.
 
 3. Run `$ ./watod pull` to pull latest docker images from our container registry.
 4. Run `$ ./watod up` to run the Docker images, and watch for any errors. If succesful, this will create a variety of containers prefixed with `${USER}_`. This command does not exit, and will continue to monitor the logs from your containers.
