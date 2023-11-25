@@ -3,25 +3,14 @@ FROM leungjch/cuda122-ubuntu2204-tensorrt-base:latest as base
 
 # ADD DEPENDENCIES HERE
 
-# RUN apt-get update && apt-get install -y curl && \
-#     rm -rf /var/lib/apt/lists/*
-
-# # Add a docker user so that created files in the docker container are owned by a non-root user
-# RUN addgroup --gid 1000 docker && \
-#     adduser --uid 1000 --ingroup docker --home /home/docker --shell /bin/bash --disabled-password --gecos "" docker && \
-#     echo "docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
-
-# USER docker:docker
-# fix user permissions when deving in container
-# COPY docker/fixuid_setup.sh /project/fixuid_setup.sh
-# RUN /project/fixuid_setup.sh
-
 ENV DEBIAN_FRONTEND noninteractive
 RUN sudo chsh -s /bin/bash
 ENV SHELL=/bin/bash
 
 # ================= Repositories ===================
 FROM base as repo
+
+RUN sudo apt update
 
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
