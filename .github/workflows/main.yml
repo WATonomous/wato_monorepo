@@ -40,7 +40,7 @@ jobs:
 
       - name: Generate GitHub Environment
         id: github-environment
-        uses: "./.github/template/github_context"
+        uses: "./.github/templates/github_context"
 
   build-and-unittest:
     name: Build Image and Run Initial Unit Testing Suite
