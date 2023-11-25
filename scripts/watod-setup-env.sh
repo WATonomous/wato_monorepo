@@ -15,10 +15,12 @@ MONO_DIR="$(dirname "$(realpath "$0")")"
 MONO_DIR=${MONO_DIR%/*}
 
 MODULES_DIR="$MONO_DIR/modules"
+
 # default to the monorepo directory, this is for CI
 if [ ! -d "$MODULES_DIR" ]; then
     echo "Directory does not exist: $MODULES_DIR"
 	MODULES_DIR="$MONO_DIR"
+	echo "Switching to: $MODULES_DIR"
 fi
 
 # Allow for local overrides of any of the below parameters
