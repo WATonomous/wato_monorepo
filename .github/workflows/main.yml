@@ -76,7 +76,7 @@ jobs:
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
           username: ${{ secrets.GHCR_USER }}
-          username: ${{ secrets.GHCR_PWD }}
+          password: ${{ secrets.GHCR_PWD }}
 
       - name: Prepare Image Source
         uses: docker/build-push-action@v5
