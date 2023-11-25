@@ -60,6 +60,8 @@
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
+#include <cmath> // For M_PI
+
 using std::placeholders::_1;
 using namespace std::chrono_literals;
 
@@ -72,7 +74,7 @@ const char *out_dir = "/tmp/";
 
 void GetDeviceInfo(void)
 {
-  
+
   cudaDeviceProp prop;
 
   int count = 0;
@@ -193,8 +195,10 @@ void SaveBoxPred(std::vector<pointpillar::lidar::BoundingBox> boxes, std::string
 std::shared_ptr<pointpillar::lidar::Core> create_core()
 {
   pointpillar::lidar::VoxelizationParameter vp;
-  vp.min_range = nvtype::Float3(0.0, -39.68f, -3.0);
+  vp.min_range = nvtype::Float3(0, -39.68f, -3.0);
   vp.max_range = nvtype::Float3(69.12f, 39.68f, 1.0);
+  // vp.min_range = nvtype::Float3(0.0, -39.68f, -3.0);
+  // vp.max_range = nvtype::Float3(69.12f, 39.68f, 1.0);
   vp.voxel_size = nvtype::Float3(0.16f, 0.16f, 4.0f);
   vp.grid_size =
       vp.compute_grid_size(vp.max_range, vp.min_range, vp.voxel_size);
@@ -237,28 +241,30 @@ static void help()
   exit(EXIT_SUCCESS);
 }
 
-visualization_msgs::msg::Marker createBoundingBoxMarker(const pointpillar::lidar::BoundingBox& box, int id) {
-    visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "base_link"; // Use the appropriate frame ID
-    marker.header.stamp = rclcpp::Clock().now();
-    marker.ns = "bounding_boxes";
-    // marker.id = id;
-    marker.type = visualization_msgs::msg::Marker::CUBE;
-    marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.pose.position.x = box.x;
-    marker.pose.position.y = box.y;
-    marker.pose.position.z = box.z;
-    tf2::Quaternion q;
-    q.setRPY(0, 0, box.rt);
-    // marker.pose.orientation = tf2::toMsg(q);
-    marker.scale.x = box.l;
-    marker.scale.y = box.w;
-    marker.scale.z = box.h;
-    marker.color.a = 1.0; // Don't forget to set the alpha
-    marker.color.r = 1.0; // Adjust color as needed
-    marker.color.g = 0.0;
-    marker.color.b = 0.0;
-    return marker;
+visualization_msgs::msg::Marker createBoundingBoxMarker(const pointpillar::lidar::BoundingBox &box, int id, rclcpp::Time stamp)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header.frame_id = "base_link"; // Use the appropriate frame ID
+  marker.header.stamp = stamp;
+  marker.ns = "bounding_boxes";
+  marker.id = id;
+  marker.type = visualization_msgs::msg::Marker::CUBE;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+  marker.pose.position.x = box.x;
+  marker.pose.position.y = box.y;
+  marker.pose.position.z = box.z;
+  tf2::Quaternion q;
+  const double YAW_OFFSET = M_PI / 2.0; // Offset of π/2 to align coordinate systems
+  q.setRPY(0, 0, box.rt + YAW_OFFSET);
+  marker.pose.orientation = tf2::toMsg(q);
+  marker.scale.x = box.l;
+  marker.scale.y = box.w;
+  marker.scale.z = box.h;
+  marker.color.a = 1.0; // Don't forget to set the alpha
+  marker.color.r = 1.0; // Adjust color as needed
+  marker.color.g = 0.0;
+  marker.color.b = 0.0;
+  return marker;
 }
 
 class LidarDetectionNode : public rclcpp::Node
@@ -276,15 +282,19 @@ public:
     }
     cudaStreamCreate(&stream_);
 
+    // Subscriber callback
+    lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+        "/LIDAR_TOP", 10,
+        std::bind(&LidarDetectionNode::lidarCallback, this, _1));
+
     // Publisher for the point cloud data
     lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("published_lidar_data", 10);
-    bbox_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("bounding_boxes", 10);
+    bbox_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("bounding_boxes", 10);
 
     // Timer to trigger publishing data every 3 minutes
-    timer_ = this->create_wall_timer(
-        std::chrono::seconds(3),
-        std::bind(&LidarDetectionNode::timerCallback, this));
-
+    // timer_ = this->create_wall_timer(
+    //     std::chrono::seconds(10),
+    //     std::bind(&LidarDetectionNode::timerCallback, this));
 
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "done setup");
   }
@@ -295,6 +305,78 @@ public:
   }
 
 private:
+  void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+  {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    // Convert ROS2 message to PCL point cloud
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::fromROSMsg(*msg, *cloud);
+
+    // Publish the lidar data from cloud variable
+    // Convert to ROS2 message
+    sensor_msgs::msg::PointCloud2 output;
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filteredCloud(new pcl::PointCloud<pcl::PointXYZI>);
+
+    // Prepare data for inference
+    std::vector<float> data;
+    for (const auto &point : cloud->points)
+    {
+      // compute the distance and filter if it is too far
+      float distance = std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
+      if (distance > 32.0 || point.y < 0)
+      {
+        continue;
+      }
+      auto newPoint = pcl::PointXYZI();
+      newPoint.x = point.y;
+      newPoint.y = point.x;
+      newPoint.z = point.z;
+      newPoint.intensity = point.intensity;
+
+      filteredCloud->points.push_back(newPoint);
+    }
+
+    // Allocate buffer for the data
+    unsigned int length = filteredCloud->points.size() * sizeof(float) * 4;
+    char *buffer = new char[length];
+    if (buffer == nullptr)
+    {
+      RCLCPP_ERROR(this->get_logger(), "Failed to allocate buffer.");
+      return;
+    }
+
+    // Copy data to buffer
+    for (size_t i = 0, j = 0; i < filteredCloud->points.size(); ++i, j += 4)
+    {
+      float *ptr = reinterpret_cast<float *>(buffer + j * sizeof(float));
+      ptr[0] = filteredCloud->points[i].x;
+      ptr[1] = filteredCloud->points[i].y;
+      ptr[2] = filteredCloud->points[i].z;
+      ptr[3] = filteredCloud->points[i].intensity;
+    }
+
+    // Run inference
+    int points_size = length / sizeof(float) / 4;
+    std::shared_ptr<char> managed_buffer(buffer, std::default_delete<char[]>());
+    auto bboxes = core_->forward(reinterpret_cast<float *>(managed_buffer.get()), points_size, stream_);
+
+
+    pcl::toROSMsg(*filteredCloud, output);
+    output.header.frame_id = "base_link";
+    output.header.stamp = this->now();
+
+    // Publish the data
+    lidar_pub_->publish(output);
+
+    // Publish bounding boxes
+    publishBoundingBoxes(bboxes);
+
+    checkRuntime(cudaStreamDestroy(stream));
+  }
+
   void timerCallback()
   {
     std::vector<std::string> files;
@@ -313,11 +395,15 @@ private:
 
     core->print();
     core->set_timer(timer);
-
-    int count = 0;
-
+    int cnt = 0;
+    int chosen = rand() % 10;
     for (const auto &file : files)
     {
+      if (cnt != chosen)
+      {
+        cnt += 1;
+        continue;
+      }
       std::string dataFile = std::string(in_dir) + file + ".bin";
 
       std::cout << "\n<<<<<<<<<<<" << std::endl;
@@ -336,26 +422,31 @@ private:
       std::cout << "Detections after NMS: " << bboxes.size() << std::endl;
 
       visualization_msgs::msg::MarkerArray marker_array;
+      rclcpp::Time stamp = this->now();
       // Print out the bounding boxes using RCLCPP_INFO
-      for (const auto box : bboxes)
+      for (int i = 0; i < bboxes.size(); i++)
       {
+        auto box = bboxes[i];
+        if (box.score < 0.5)
+        {
+          continue;
+        }
         RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f, id: %d, score: %f", box.x, box.y, box.z, box.w, box.l, box.h, box.rt, box.id, box.score);
-        auto marker = createBoundingBoxMarker(box, count++);
+        auto marker = createBoundingBoxMarker(box, i, stamp);
         marker_array.markers.push_back(marker);
-
+        bbox_pub_->publish(marker);
       }
-      bbox_pub_->publish(marker_array);
-
 
       // Convert to PCL point cloud
       pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
-      for (size_t i = 0; i < length; i += 4 * sizeof(float))
+      for (size_t i = 0; i < length; i += sizeof(float) * 4)
       {
         pcl::PointXYZI point;
-        point.x = ((float *)buffer.get())[i];
-        point.y = ((float *)buffer.get())[i + 1];
-        point.z = ((float *)buffer.get())[i + 2];
-        point.intensity = ((float *)buffer.get())[i + 3];
+        point.x = *((float *)(buffer.get() + i));
+        point.y = *((float *)(buffer.get() + i + sizeof(float)));
+        point.z = *((float *)(buffer.get() + i + 2 * sizeof(float)));
+        point.intensity = *((float *)(buffer.get() + i + 3 * sizeof(float)));
+
         cloud->points.push_back(point);
       }
       cloud->width = cloud->points.size();
@@ -365,27 +456,79 @@ private:
       // Convert to ROS2 message
       sensor_msgs::msg::PointCloud2 output;
       pcl::toROSMsg(*cloud, output);
-      output.header.frame_id = "base_link";  // Set the appropriate frame id
+      output.header.frame_id = "base_link"; // Set the appropriate frame id
+      output.header.stamp = stamp;
 
       // Publish the data
       lidar_pub_->publish(output);
-
-
 
       std::string save_file_name = std::string(out_dir) + file + ".txt";
       SaveBoxPred(bboxes, save_file_name);
 
       std::cout << ">>>>>>>>>>>" << std::endl;
+      cnt += 1;
     }
 
-  checkRuntime(cudaStreamDestroy(stream));
+    checkRuntime(cudaStreamDestroy(stream));
+  }
 
+  void publishBoundingBoxes(const std::vector<pointpillar::lidar::BoundingBox> &bboxes)
+  {
+    
+    visualization_msgs::msg::MarkerArray marker_array;
+    rclcpp::Time stamp = this->now();
+    for (int i = 0; i < bboxes.size(); ++i)
+    {
+      if (bboxes[i].score < 0.5)
+        continue;
+      auto marker = createBoundingBoxMarker(bboxes[i], i, stamp);
+      // put the score in the text field of the marker
+      marker.text = std::to_string(bboxes[i].score);
+
+      // color the marker based on the id
+      switch (bboxes[i].id)
+      {
+      // red
+      case 0:
+        marker.color.r = 1.0;
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
+        break;
+      // green
+      case 1:
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;
+        break;
+      // blue
+      case 2:
+        marker.color.r = 0.0;
+        marker.color.g = 0.0;
+        marker.color.b = 1.0;
+        break;
+      }
+      marker_array.markers.push_back(marker);
+      bbox_pub_->publish(marker);
+
+      // Log the boudning box result
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f, id: %d, score: %f", bboxes[i].x, bboxes[i].y, bboxes[i].z, bboxes[i].w, bboxes[i].l, bboxes[i].h, bboxes[i].rt, bboxes[i].id, bboxes[i].score);
+    }
+    // publish DELETEALL marker to clear the previous bounding boxes
+    visualization_msgs::msg::MarkerArray delete_all_marker_array;
+    visualization_msgs::msg::Marker delete_all_marker;
+    delete_all_marker.header.frame_id = "base_link";
+    delete_all_marker.header.stamp = this->now();
+    delete_all_marker.ns = "bounding_boxes";
+    delete_all_marker.id = 0;
+    delete_all_marker.type = visualization_msgs::msg::Marker::DELETEALL;
+    bbox_pub_->publish(delete_all_marker);
   }
 
   std::shared_ptr<pointpillar::lidar::Core> core_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
   cudaStream_t stream_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bbox_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bbox_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 
