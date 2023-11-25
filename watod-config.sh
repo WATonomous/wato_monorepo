@@ -1,13 +1,18 @@
 ## ----------------------- watod Configuration File Override ----------------------------
-############################ ACTIVE PROFILES CONFIGURATION ############################
-## List of active profiles to run, defined in docker-compose.yaml.
-##
-## Possible values:
-##   - vis_tools     		  :   starts visualization tools (vnc and foxglove)
-##   - production    		  :   configs for all containers required in production
-##   - samples             :   starts sample ROS2 pubsub nodes
 
-# ACTIVE_PROFILES=""
+############################ ACTIVE MODULE CONFIGURATION ############################
+## List of active modules to run, defined in docker-compose.yaml.
+##
+## List of active modules to run, defined in docker-compose.yaml.
+## Possible values:
+##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc)
+##	 - perception			:	starts perception nodes
+##	 - world_modeling		:	starts world modeling nodes
+##	 - action				:	starts action nodes
+##	 - simulation			:	starts simulation
+##   - samples             	:   starts sample ROS2 pubsub nodes
+
+# ACTIVE_MODULES=""
 
 ############################## OPTIONAL CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"

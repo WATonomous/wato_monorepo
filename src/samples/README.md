@@ -34,7 +34,7 @@ To configure watod, update `watod-config.local.sh` to include the samples profil
 #!/bin/bash
 from watod-config.sh
 
-ACTIVE_PROFILES="samples"
+ACTIVE_MODULES="samples"
 ```
 
 Then bring up the containers with,
@@ -43,9 +43,9 @@ watod up
 ```
 
 ### C++ and Python Samples
-In the [Samples Profile](../../profiles/docker-compose.samples.yaml), you'll see that some of the services are commented out. The Python and C++ nodes are functionally equivalent. That is, if you were to switch out any of the C++ nodes with Python nodes by commenting and uncommenting their respective service, then the overall ROS2 communication pipeline will not change.
+In the [Samples Profile](../../modules/docker-compose.samples.yaml), you'll see that some of the services are commented out. The Python and C++ nodes are functionally equivalent. That is, if you were to switch out any of the C++ nodes with Python nodes by commenting and uncommenting their respective service, then the overall ROS2 communication pipeline will not change.
 
-Editing the profiles of the monorepo can be important during development, especially when you don't want to run the entire profile.
+Editing the modules of the monorepo can be important during development, especially when you don't want to run the entire profile.
 
 ### Development
 The development workflow in ROS2 is similar to ROS, however, it uses a different set
