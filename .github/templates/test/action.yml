@@ -1,8 +1,8 @@
 name: Docker test
 
 inputs:
-  service:
-    description: "docker compose service"
+  image:
+    description: "the image to be tested"
     required: true
 
 runs: 
@@ -11,7 +11,4 @@ runs:
     - run: ${{ github.action_path }}/test_image.sh
       shell: bash
       env:
-        SERVICE: ${{ inputs.service }}
-        # CI is unable to find the current branch for pull requests, normally used to generate tag
-        TAG: ${{ github.head_ref || github.ref_name }}
-
+        IMAGE: ${{ inputs.image }}

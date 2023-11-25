@@ -1,5 +1,5 @@
 ## ----------------------- watod Configuration File Override ----------------------------
-## ACTIVE PROFILES CONFIGURATION
+############################ ACTIVE PROFILES CONFIGURATION ############################
 ## List of active profiles to run, defined in docker-compose.yaml.
 ##
 ## Possible values:
@@ -9,13 +9,13 @@
 
 # ACTIVE_PROFILES=""
 
-
-## Name to append to docker containers. DEFAULT = <your_watcloud_username>
-
+############################## OPTIONAL CONFIGURATIONS ##############################
+## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
 # COMPOSE_PROJECT_NAME=""
 
-
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
-## DEFAULT = <your_current_github_branch> 
-
+## DEFAULT = "<your_current_github_branch>"
 # TAG=""
+
+# Docker Registry to pull/push images. DEFAULT = "ghcr.io/watonomous/wato_monorepo"
+# REGISTRY_URL=""
