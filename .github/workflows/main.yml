@@ -36,11 +36,11 @@ jobs:
 
       - name: Generate Docker Environment
         id: docker-environment
-        uses: "./.github/templates/docker_env"
+        uses: "./.github/templates/docker_context"
 
       - name: Generate GitHub Environment
         id: github-environment
-        uses: "./.github/template/github_env"
+        uses: "./.github/template/github_context"
 
   build-and-unittest:
     name: Build Image and Run Initial Unit Testing Suite
