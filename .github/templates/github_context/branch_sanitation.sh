@@ -8,8 +8,8 @@ sanitize_branch_name() {
 }
 
 ################# Setup Source and Target Branch #################
-SOURCE_BRANCH_NAME=$(sanitize_branch_name ${{ github.head_ref || github.ref_name }})
-TARGET_BRANCH_NAME=$(sanitize_branch_name ${{ github.base_ref || github.ref_name }})
+SOURCE_BRANCH_NAME=$(sanitize_branch_name $SOURCE_BRANCH)
+TARGET_BRANCH_NAME=$(sanitize_branch_name $TARGET_BRANCH)
 
 if [ -z "$TARGET_BRANCH_NAME" ]; then
     TARGET_BRANCH_NAME=$SOURCE_BRANCH_NAME
