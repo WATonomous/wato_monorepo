@@ -292,9 +292,9 @@ public:
     bbox_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("bounding_boxes", 10);
 
     // Timer to trigger publishing data every 3 minutes
-    // timer_ = this->create_wall_timer(
-    //     std::chrono::seconds(10),
-    //     std::bind(&LidarDetectionNode::timerCallback, this));
+    timer_ = this->create_wall_timer(
+        std::chrono::seconds(10),
+        std::bind(&LidarDetectionNode::timerCallback, this));
 
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "done setup");
   }
@@ -535,7 +535,7 @@ private:
 int main(int argc, char *argv[])
 {
 
-  // GetDeviceInfo();
+  GetDeviceInfo();
 
   // std::cout << "Hello world pp" << std::endl;
 
