@@ -1,0 +1,89 @@
+name: Build WATonomous Monorepo Base Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      use_docker_cache:
+        description: "Use Docker Cache"
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    name: Build Image and Run Initial Unit Testing Suite
+    runs-on: ubuntu-latest
+    needs: setup-environment
+
+    env:
+      DOCKER_REGISTRY: ${{ needs.setup.outputs.registry }}
+      DOCKER_REPOSITORY: ${{ needs.setup.outputs.repository }}
+      SOURCE_BRANCH: ${{ needs.setup.outputs.source_branch }}
+      TARGET_BRANCH: ${{ needs.setup.outputs.target_branch }}
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.services) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Construct Registry URL
+        id: construct-registry-url
+        run: |
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.profile }}_${{ matrix.service }}" \
+          >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        id: buildx
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.GHCR_USER }}
+          password: ${{ secrets.GHCR_PWD }}
+
+      - name: Prepare Image Source
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/${{ matrix.profile }}/${{ matrix.service }}.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+          cache-from: |
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.TARGET_BRANCH }}
+          cache-to: type=inline
+          builder: ${{ steps.buildx.outputs.name }}
+          target: source
+          build-args: |
+            BASE_IMAGE=${{ steps.update-platform-settings.outputs.NOETIC_IMAGE }}
+
+      - name: Build Image with Source
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/${{ matrix.profile }}/${{ matrix.service }}.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+          cache-from: |
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:${{ env.TARGET_BRANCH }}
+          cache-to: type=inline
+          builder: ${{ steps.buildx.outputs.name }}
+          target: build 
+          build-args: |
+            BASE_IMAGE=${{ steps.update-platform-settings.outputs.NOETIC_IMAGE }}
+
+      - name: Run testing suite
+        uses: "./.github/templates/test"
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          BUILDKIT_INLINE_CACHE: 1
+        with:
+          image: ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
