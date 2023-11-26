@@ -21,8 +21,8 @@
 namespace world_modeling::hd_map{
     visualization_msgs::msg::MarkerArray laneletMapAsMarkerArray(lanelet::LaneletMapPtr map);
     visualization_msgs::msg::MarkerArray laneletPathAsMarkerArray(lanelet::routing::LaneletPath laneletPath);
-    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::ConstLanelet lanelet, int *id);
-    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::Lanelet lanelet, int *id);
+    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::ConstLanelet lanelet, int *id, bool center = false, bool lanes = true, std_msgs::msg::ColorRGBA centerColor = std_msgs::msg::ColorRGBA(), std_msgs::msg::ColorRGBA laneColor = std_msgs::msg::ColorRGBA(), float centerThickness = .2, float laneThickness = .2);
+    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::Lanelet lanelet, int *id, bool center = false, bool lanes = true, std_msgs::msg::ColorRGBA centerColor = std_msgs::msg::ColorRGBA(), std_msgs::msg::ColorRGBA laneColor = std_msgs::msg::ColorRGBA(), float centerThickness = .2, float laneThickness = .2);
     visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(lanelet::LineStringLayer& lineStrings);
     visualization_msgs::msg::Marker lineStringAsMarker(lanelet::ConstLineString3d lineString, int *id, float thickness, int type, std_msgs::msg::ColorRGBA color);
 }

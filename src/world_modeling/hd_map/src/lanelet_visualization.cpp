@@ -10,7 +10,11 @@ namespace world_modeling::hd_map
 
         int id = 0;
         for (auto lanelet = lanelets.begin(); lanelet != lanelets.end(); ++lanelet){
-            auto markers = laneletAsMarkerArray(*lanelet, &id);
+            std_msgs::msg::ColorRGBA color;
+            color.g = 1;
+            color.a = 1;
+
+            auto markers = laneletAsMarkerArray(*lanelet, &id, false, true, color, color);
             for(auto marker : markers.markers){
                 markerArray.markers.push_back(marker);
             }
@@ -19,44 +23,44 @@ namespace world_modeling::hd_map
         return markerArray;
     }
 
-    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::ConstLanelet lanelet, int *id) {
+    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::ConstLanelet lanelet, int *id, bool center, bool lanes, std_msgs::msg::ColorRGBA centerColor, std_msgs::msg::ColorRGBA laneColor, float centerThickness, float laneThickness) {
         auto leftBound = lanelet.leftBound();
         auto rightBound = lanelet.rightBound();
         auto centerLine = lanelet.centerline();
         
-        auto laneColor = std_msgs::msg::ColorRGBA();
-        laneColor.r = 0;
-        laneColor.g = 1;
-        laneColor.b = 0;
-        laneColor.a = 1;
-        
-        auto leftMarker = lineStringAsMarker(leftBound, id, .2, 4, laneColor);
-        auto rightMarker = lineStringAsMarker(rightBound, id, .2, 4, laneColor);
+        auto leftMarker = lineStringAsMarker(leftBound, id, laneThickness, 4, laneColor);
+        auto rightMarker = lineStringAsMarker(rightBound, id, laneThickness, 4, laneColor);
+        auto centerMarker = lineStringAsMarker(centerLine, id, centerThickness, 4, centerColor);
 
         auto markerArray = visualization_msgs::msg::MarkerArray();
-        markerArray.markers.push_back(leftMarker);
-        markerArray.markers.push_back(rightMarker);
+        if(lanes) {
+            markerArray.markers.push_back(leftMarker);
+            markerArray.markers.push_back(rightMarker);
+        }
+        if(center){
+            markerArray.markers.push_back(centerMarker);
+        }
 
         return markerArray;
     }
 
-    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::Lanelet lanelet, int *id) {
+    visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::Lanelet lanelet, int *id, bool center, bool lanes, std_msgs::msg::ColorRGBA centerColor, std_msgs::msg::ColorRGBA laneColor, float centerThickness, float laneThickness) {
         auto leftBound = lanelet.leftBound();
         auto rightBound = lanelet.rightBound();
         auto centerLine = lanelet.centerline();
-        
-        auto laneColor = std_msgs::msg::ColorRGBA();
-        laneColor.r = 0;
-        laneColor.g = 1;
-        laneColor.b = 0;
-        laneColor.a = 1;
-        
-        auto leftMarker = lineStringAsMarker(leftBound, id, .2, 4, laneColor);
-        auto rightMarker = lineStringAsMarker(rightBound, id, .2, 4, laneColor);
+
+        auto leftMarker = lineStringAsMarker(leftBound, id, laneThickness, 4, laneColor);
+        auto rightMarker = lineStringAsMarker(rightBound, id, laneThickness, 4, laneColor);
+        auto centerMarker = lineStringAsMarker(centerLine, id, centerThickness, 4, centerColor);
 
         auto markerArray = visualization_msgs::msg::MarkerArray();
-        markerArray.markers.push_back(leftMarker);
-        markerArray.markers.push_back(rightMarker);
+        if(lanes) {
+            markerArray.markers.push_back(leftMarker);
+            markerArray.markers.push_back(rightMarker);
+        }
+        if(center){
+            markerArray.markers.push_back(centerMarker);
+        }
 
         return markerArray;
     }
