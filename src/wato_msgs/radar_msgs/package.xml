@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>sample_msgs</name>
+  <name>radar_msgs</name>
   <version>0.0.0</version>
-  <description>Sample ROS messages</description>
+  <description>Radar ROS2 messages</description>
 
-  <maintainer email="watouser@todo.todo">watouser</maintainer>
+  <maintainer email="r9murali@watonomous.ca">Rijin Muralidharan</maintainer>
   <license>TODO</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
