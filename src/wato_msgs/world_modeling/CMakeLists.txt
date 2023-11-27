@@ -14,6 +14,7 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(std_msgs REQUIRED) # ROS2 common messages
 find_package(geometry_msgs REQUIRED) # ROS2 common messages
+find_package(nav_msgs REQUIRED) # ROS2 common messages
 find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
@@ -22,7 +23,7 @@ set(msg_files
 # Parses message files to generate ROS2 interfaces
 rosidl_generate_interfaces(world_modeling_msgs
     ${msg_files}
-    DEPENDENCIES std_msgs geometry_msgs)
+    DEPENDENCIES std_msgs geometry_msgs nav_msgs)
 
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()
