@@ -2,13 +2,24 @@ name: Build WATonomous Monorepo Base Images
 
 on:
   workflow_dispatch:
-    inputs:
-      use_docker_cache:
-        description: "Use Docker Cache"
-        type: boolean
-        default: true
 
 jobs:
+  setup-environment:
+    name: Setup environment
+    runs-on: ubuntu-latest
+
+    outputs:
+      registry: ${{ steps.docker-environment.outputs.registry }}
+      repository: ${{ steps.docker-environment.outputs.repository }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Generate Docker Environment
+        id: docker-environment
+        uses: "./.github/templates/docker_context"
+
   build:
     name: Build Image and Run Initial Unit Testing Suite
     runs-on: ubuntu-latest
@@ -17,21 +28,31 @@ jobs:
     env:
       DOCKER_REGISTRY: ${{ needs.setup.outputs.registry }}
       DOCKER_REPOSITORY: ${{ needs.setup.outputs.repository }}
-      SOURCE_BRANCH: ${{ needs.setup.outputs.source_branch }}
-      TARGET_BRANCH: ${{ needs.setup.outputs.target_branch }}
 
+    # Define new base image configurations here
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.setup.outputs.services) }}
+      matrix:
+        - name: humble-ubuntu22.04
+          dockerfile: wato_base.Dockerfile
+          params:
+            EXTERNAL_IMAGE: ros:humble-ros-base
+        - name: cuda12.0.1-humble-ubuntu22.04
+          dockerfile: cuda_ros.Dockerfile
+          params:
+            UBUNTU_DISTRO: ubuntu22.04
+            CUDA_VERSION: 12.0.1
+            ROS_DISTRO: humble
 
     steps:
+      # Initial workflow setup
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Construct Registry URL
         id: construct-registry-url
         run: |
-          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.profile }}_${{ matrix.service }}" \
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/base:${{ matrix.name }}" \
           >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
@@ -45,45 +66,46 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_PWD }}
 
-      - name: Prepare Image Source
+      # Conditional jobs that are ran according to the dockerfile you've specified in the matrix
+      - name: Build Base Image from Generic 
+        if: ${{ matrix.dockerfile }} == wato_base.Dockerfile
+        run: |
+          docker pull ${{ matrix.params.EXTERNAL_IMAGE }}
+          docker tag ${{ matrix.params.EXTERNAL_IMAGE }} ${{ steps.construct-registry-url.outputs.url }}_base
+          docker push ${{ steps.construct-registry-url.outputs.url }}_base
+
+      - name: Build Base Image CUDA ROS
+        if: ${{ matrix.dockerfile }} == cuda_ros.Dockerfile
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.profile }}/${{ matrix.service }}.Dockerfile
+          file: docker/base/${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}_base
           cache-from: |
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.TARGET_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}_base
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
-          target: source
-          build-args: |
-            BASE_IMAGE=${{ steps.update-platform-settings.outputs.NOETIC_IMAGE }}
+          target: devel 
+          build-args: |  
+            UBUNTU_DISTRO=${{ matrix.params.UBUNTU_DISTRO }}
+            CUDA_VERSION=${{ matrix.params.CUDA_VERSION }}
+            ROS_DISTRO=${{ matrix.params.ROS_DISTRO }}
 
-      - name: Build Image with Source
+      # Prepares the image you built in the last step for monorepo docker images
+      - name: Prepare Image for Monorepo
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.profile }}/${{ matrix.service }}.Dockerfile
+          file: docker/base/wato_base.Dockerfile
           push: true
           tags: |
-            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}
           cache-from: |
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
-            ${{ steps.construct-registry-url.outputs.url }}:${{ env.TARGET_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
-          target: build 
-          build-args: |
-            BASE_IMAGE=${{ steps.update-platform-settings.outputs.NOETIC_IMAGE }}
-
-      - name: Run testing suite
-        uses: "./.github/templates/test"
-        env:
-          DOCKER_BUILDKIT: 1
-          COMPOSE_DOCKER_CLI_BUILD: 1
-          BUILDKIT_INLINE_CACHE: 1
-        with:
-          image: ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+          target: wato_base
+          build-args: | 
+            GENERIC_BASE=${{ steps.construct-registry-url.outputs.url }}_base
