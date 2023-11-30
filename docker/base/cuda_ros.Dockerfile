@@ -1,5 +1,5 @@
-ARG UBUNTU_DISTRO=ubuntu22.04
-ARG CUDA_VERSION=12.0.1
+ARG UBUNTU_DISTRO
+ARG CUDA_VERSION
 
 ####################### Nvidia CUDA Base Image #######################
 FROM nvidia/cuda:${CUDA_VERSION}-devel-${UBUNTU_DISTRO} as base
@@ -39,7 +39,7 @@ RUN echo "deb [arch=$(dpkg --print-architecture) \
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
-ARG ROS_DISTRO=humble
+ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 
 # install ros2 core packages
