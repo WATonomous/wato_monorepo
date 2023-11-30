@@ -82,7 +82,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.profile }}/${{ matrix.service }}.Dockerfile
+          file: docker/${{ matrix.profile }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
@@ -99,7 +99,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.profile }}/${{ matrix.service }}.Dockerfile
+          file: docker/${{ matrix.profile }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}

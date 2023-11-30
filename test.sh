@@ -36,25 +36,3 @@ echo "registry=$REGISTRY"
 
 ################# Setup Sub Registry Name #################
 echo "repository=$REPOSITORY"
-
-
-Perception (Perception Docker Compose)
-2D camera object detection (ros2 humble, ubuntu 2204)
-Traffic light detection  (ros2 humble, ubuntu 2204)
-Traffic sign detection  (ros2 humble, ubuntu 2204)
-Semantic segmentation  (ros2 humble, ubuntu 2204)
-Lane detection (ros2, ubuntu 2004, tensorrt)
-Lidar object detection (ros2, ubuntu 2004, tensorrt, cuda 11.3)
-Radar detection (ros2 and ubuntu 2204)
-Tracking (tbd, ros2 ubuntu)
-World Modeling (World Modeling Docker Compose and Action Docker Compose)
-HD map container (base ros2 cpp container with lanelet library)
-Occupancy grid interface container (base ros2 cpp container with maybe a voxel library like open3d)
-occupancy grid segmentation container (cuda environment with pytorch)
-motion forecasting container (cuda environment to run our eventual prediction research code)
-localization container (base ros2 cpp w/ gtsam library)
-behavior container (cuda environment with pytorch) (Action)
-MPC (Action Docker Compose)
-control container
-Simulation (Simulation Docker Compose)
-Simulation container
