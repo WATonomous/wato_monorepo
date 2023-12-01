@@ -43,11 +43,14 @@ class CameraSegmentationNode(Node):
         # Fetch parameters from yaml file
         self.declare_parameter('camera_topic', '/CAM_FRONT/image_rect_compressed')
         self.declare_parameter('publish_topic', '/camera_segmentation')
-        camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
+        # camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
+        camera_topic = '/CAM_FRONT/image_rect_compressed'
+        self.compressed = True
         publish_topic = self.get_parameter('publish_topic').get_parameter_value().string_value
 
+
         # Create ROS2 publisher and subscriber
-        self.publisher_ = self.create_publisher(Image, publish_topic, 10)
+        self.publisher_ = self.create_publisher(Image if not self.compressed else CompressedImage, publish_topic, 10)
         self.subscriber_ = self.create_subscription(Image, camera_topic, self.image_callback, 10)
         self.i = 0
 
@@ -68,8 +71,12 @@ class CameraSegmentationNode(Node):
         
         self.predictor, self.metadata = self.setup_modules("cityscapes", "/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models/250_16_dinat_l_oneformer_cityscapes_90k.pth", False)
         self.cv_bridge = CvBridge()
+
+        print("Done initializing node")
         
     def image_callback(self, msg):
+        self.get_logger().info('Got callback')
+        
         # Convert ROS2 image into cv2
         if self.compressed:
             np_arr = np.frombuffer(msg.data, np.uint8)
@@ -90,7 +97,7 @@ class CameraSegmentationNode(Node):
 
         # Convert cv2 image back to a ROS2 image
         img_msg = self.cv_bridge.cv2_to_imgmsg(out, "bgr8")
-
+        self.get_logger().info("Ran inference")
         # Publish ROS2 image
         self.publisher_.publish(img_msg)
         self.get_logger().info('Publishing image: "%s"' % msg.data)

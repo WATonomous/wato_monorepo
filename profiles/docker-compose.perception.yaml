@@ -19,7 +19,8 @@ services:
         - "${CAMERA_SEGMENTATION_IMAGE:?}:${TAG}"
         - "${CAMERA_SEGMENTATION_IMAGE:?}:main"
     image: "${CAMERA_SEGMENTATION_IMAGE:?}:${TAG}"
-    user: ${FIXUID:?}:${FIXGID:?}
+    # user: ${FIXUID:?}:${FIXGID:?}
+    user: root
     volumes:
       - ../src/perception/camera_segmentation:/home/docker/ament_ws/src/camera_segmentation
       - /mnt/wato-drive2/perception-weights/semantic_segmentation:/home/docker/ament_ws/src/camera_segmentation/camera_segmentation/models
