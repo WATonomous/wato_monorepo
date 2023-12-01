@@ -18,6 +18,6 @@ ACTIVE_PROFILES="perception vis_tools data_stream"
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = <your_current_github_branch> 
 
-TAG="justin"
+TAG="rijin"
 
 FOXGLOVE_BRIDGE_PORT=5772
