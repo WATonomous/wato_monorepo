@@ -2,7 +2,7 @@
 set -e
 
 # Setup watod Environment
-bash scripts/watod-setup-env.sh
+# bash scripts/watod-setup-env.sh
 
 ################# Sweep for Docker Services and Profiles #################
 # Scans for services and modules in the wato_monorepo,
