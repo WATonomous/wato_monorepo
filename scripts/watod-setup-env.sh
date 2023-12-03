@@ -15,10 +15,6 @@ MONO_DIR="$(dirname "$(realpath "$0")")"
 MONO_DIR=${MONO_DIR%/*}
 
 MODULES_DIR="$MONO_DIR/modules"
-# redirect the module directory if it doesn't exist, this is for CI
-if [ ! -d "$MODULES_DIR" ]; then
-    MODULES_DIR="$MONO_DIR"
-fi
 
 # Allow for local overrides of any of the below parameters
 if [ -f "$MONO_DIR/watod-config.sh" ]; then
