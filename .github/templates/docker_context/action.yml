@@ -14,8 +14,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
     - id: environment-generator
       run: ${{ github.action_path }}/docker_context.sh
       shell: bash
