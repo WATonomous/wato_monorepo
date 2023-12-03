@@ -51,10 +51,10 @@ ACTIVE_MODULES=${ACTIVE_MODULES:-""}
 PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
 
 # Docker Registry to pull/push images
-REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
+# REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
 
-REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
-REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
+# REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
+# REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
 
 ## --------------------------- Images -------------------------------
 # NOTE: ALL IMAGE NAMES MUCH BE IN THE FORMAT OF <COMPOSE_FILE>_<SERVICE>
