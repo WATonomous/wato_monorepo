@@ -26,13 +26,13 @@ while read -r module; do
         json_object=$(jq -nc --arg module_out "$module_out" --arg service_out "$service_out" \
         '{module: $module_out, service: $service_out}')
         # Append JSON object to the array
-        json_objects+=("$json_object")
+        json_objects+=("$json_object,")
     done <<< "$services"
 done <<< "$modules"
 
 # Convert the array of JSON objects to a single JSON array
 json_services=$(jq -nc '$ARGS.positional' --args -- "${json_objects[*]}")
-echo "docker_matrix={\"include\":$json_services}" >> $GITHUB_OUTPUT
+echo "docker_matrix=$json_services"
 
 ################# Setup Docker Registry and Repository Name #################
 # Docker Registry to pull/push images
@@ -41,5 +41,5 @@ REGISTRY_URL="ghcr.io/watonomous/wato_monorepo"
 REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
 REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
 
-echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
-echo "repository=$REPOSITORY" >> $GITHUB_OUTPUT
+echo "registry=$REGISTRY"
+echo "repository=$REPOSITORY"
