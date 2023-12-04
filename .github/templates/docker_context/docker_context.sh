@@ -42,9 +42,12 @@ echo "docker matrix"
 ################# Setup Docker Registry and Repository Name #################
 # Docker Registry to pull/push images
 REGISTRY_URL="ghcr.io/watonomous/wato_monorepo"
-
+echo "dwhereee"
 REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
+echo "kms"
 REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
-
+echo "HUH?"
 echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
+echo "HUH?"
 echo "repository=$REPOSITORY" >> $GITHUB_OUTPUT
+echo "idk"
