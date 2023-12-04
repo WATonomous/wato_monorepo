@@ -55,7 +55,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.setup.outputs.services) }}
+      matrix: ${{ fromJSON(needs.setup.outputs.docker_matrix) }}
 
     steps:
       - name: Checkout repository
