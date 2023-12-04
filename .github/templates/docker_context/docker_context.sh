@@ -32,7 +32,7 @@ done <<< "$modules"
 
 # Convert the array of JSON objects to a single JSON array
 json_services=$(jq -nc '$ARGS.positional' --args -- "${json_objects[*]}")
-echo "docker_matrix=$json_services" >> $GITHUB_OUTPUT
+echo "docker_matrix={\"include\":$json_services}" >> $GITHUB_OUTPUT
 
 ################# Setup Docker Registry and Repository Name #################
 # Docker Registry to pull/push images
