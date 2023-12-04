@@ -31,8 +31,8 @@ while read -r module; do
 done <<< "$modules"
 
 # Convert the array of JSON objects to a single JSON array
-json_services=$(jq -s . <<< "${json_objects[*]}")
-echo "docker_matrix='$json_services'" >> $GITHUB_OUTPUT
+json_services=$(jq -sc . <<< "${json_objects[*]}")
+echo "docker_matrix=$json_services" >> $GITHUB_OUTPUT
 
 ################# Setup Docker Registry and Repository Name #################
 # Docker Registry to pull/push images
