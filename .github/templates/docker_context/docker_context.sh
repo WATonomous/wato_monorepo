@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+################# Setup watod Environment #################
+bash scripts/watod-setup-env.sh
+
 ################# Sweep for Docker Services and Profiles #################
 # Scans for services and modules in the wato_monorepo,
 # dynamically builds a json matrix for downstream CI build and testing
@@ -40,6 +43,3 @@ REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
 
 echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
 echo "repository=$REPOSITORY" >> $GITHUB_OUTPUT
-
-################# Setup watod Environment #################
-bash scripts/watod-setup-env.sh
