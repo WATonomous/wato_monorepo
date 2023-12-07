@@ -22,6 +22,7 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ../src/perception/lidar_object_detection:/home/docker/ament_ws/src/lidar_object_detection
+      - /mnt/wato-drive2/kitti-lidar/2011_09_26/2011_09_26_drive_0001_sync/velodyne_points/data:/data
     deploy:
       resources:
         reservations:
