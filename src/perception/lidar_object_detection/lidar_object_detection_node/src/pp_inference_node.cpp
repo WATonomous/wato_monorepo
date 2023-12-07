@@ -69,7 +69,8 @@ std::string Data_File = "/home/docker/ament_ws/pointpillars_ws/lidar_object_dete
 std::string Save_Dir = "./";
 std::string Model_File = "/home/docker/ament_ws/pointpillars_ws/lidar_object_detection_node/src/CUDA-PointPillars/model/backbone.plan";
 
-const char *in_dir = "/home/docker/ament_ws/pointpillars_ws/lidar_object_detection_node/src/CUDA-PointPillars/data/";
+// const char *in_dir = "/home/docker/ament_ws/pointpillars_ws/lidar_object_detection_node/src/CUDA-PointPillars/data/";
+const char *in_dir = "/data/";
 const char *out_dir = "/tmp/";
 
 void GetDeviceInfo(void)
@@ -288,12 +289,13 @@ public:
         std::bind(&LidarDetectionNode::lidarCallback, this, _1));
 
     // Publisher for the point cloud data
-    lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("published_lidar_data", 10);
+    lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("published_lidar_data", 100);
+    lidar_timer_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("published_timer_lidar_data", 100);
     bbox_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("bounding_boxes", 10);
 
     // Timer to trigger publishing data every 3 minutes
     timer_ = this->create_wall_timer(
-        std::chrono::seconds(10),
+        std::chrono::milliseconds(500),
         std::bind(&LidarDetectionNode::timerCallback, this));
 
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "done setup");
@@ -377,10 +379,12 @@ private:
     checkRuntime(cudaStreamDestroy(stream));
   }
 
+
   void timerCallback()
   {
     std::vector<std::string> files;
     getFolderFile(in_dir, files);
+    std::sort(files.begin(), files.end());
     std::cout << "Total " << files.size() << std::endl;
     bool timer = false;
 
@@ -395,15 +399,10 @@ private:
 
     core->print();
     core->set_timer(timer);
-    int cnt = 0;
-    int chosen = rand() % 10;
-    for (const auto &file : files)
+    cnt = (cnt+1)%files.size();
     {
-      if (cnt != chosen)
-      {
-        cnt += 1;
-        continue;
-      }
+      auto file = files[cnt];
+
       std::string dataFile = std::string(in_dir) + file + ".bin";
 
       std::cout << "\n<<<<<<<<<<<" << std::endl;
@@ -460,7 +459,7 @@ private:
       output.header.stamp = stamp;
 
       // Publish the data
-      lidar_pub_->publish(output);
+      lidar_timer_pub_->publish(output);
 
       std::string save_file_name = std::string(out_dir) + file + ".txt";
       SaveBoxPred(bboxes, save_file_name);
@@ -477,6 +476,15 @@ private:
     
     visualization_msgs::msg::MarkerArray marker_array;
     rclcpp::Time stamp = this->now();
+    // publish DELETEALL marker to clear the previous bounding boxes
+    visualization_msgs::msg::MarkerArray delete_all_marker_array;
+    visualization_msgs::msg::Marker delete_all_marker;
+    delete_all_marker.header.frame_id = "base_link";
+    delete_all_marker.header.stamp = this->now();
+    delete_all_marker.ns = "bounding_boxes";
+    delete_all_marker.id = 0;
+    delete_all_marker.type = visualization_msgs::msg::Marker::DELETEALL;
+    bbox_pub_->publish(delete_all_marker);
     for (int i = 0; i < bboxes.size(); ++i)
     {
       if (bboxes[i].score < 0.5)
@@ -513,21 +521,14 @@ private:
       // Log the boudning box result
       RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "x: %f, y: %f, z: %f, w: %f, l: %f, h: %f, rt: %f, id: %d, score: %f", bboxes[i].x, bboxes[i].y, bboxes[i].z, bboxes[i].w, bboxes[i].l, bboxes[i].h, bboxes[i].rt, bboxes[i].id, bboxes[i].score);
     }
-    // publish DELETEALL marker to clear the previous bounding boxes
-    visualization_msgs::msg::MarkerArray delete_all_marker_array;
-    visualization_msgs::msg::Marker delete_all_marker;
-    delete_all_marker.header.frame_id = "base_link";
-    delete_all_marker.header.stamp = this->now();
-    delete_all_marker.ns = "bounding_boxes";
-    delete_all_marker.id = 0;
-    delete_all_marker.type = visualization_msgs::msg::Marker::DELETEALL;
-    bbox_pub_->publish(delete_all_marker);
   }
 
   std::shared_ptr<pointpillar::lidar::Core> core_;
+  int cnt = 0;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
   cudaStream_t stream_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_timer_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bbox_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
