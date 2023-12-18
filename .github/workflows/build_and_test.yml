@@ -34,6 +34,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Setup Watod Environment
+        steps:
+        run: ./watod_scripts/watod-setup-env.sh
+        shell: bash
+
       - name: Generate Docker Environment
         id: docker-environment
         uses: "./.github/templates/docker_context"
