@@ -19,16 +19,9 @@ RUN sudo apt-get -qq update && rosdep update --rosdistro noetic && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-# ADD DEPENDENCIES HERE
-
 # Install Rosdep requirements
 COPY --chown=${USER}:${USER} --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
-
-# Cleanup
-WORKDIR /
-RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
-    rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -46,10 +39,11 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Cleanup
-RUN rm -rf src/*
+WORKDIR /
+RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
+    rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/* ${AMENT_WS}/src/*
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "launch", "aggregator", "aggregator.launch.py"]
