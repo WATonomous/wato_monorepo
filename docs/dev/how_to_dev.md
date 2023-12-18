@@ -15,7 +15,7 @@ wato_monorepo_v2
 ├── docs
 ├── modules
 │   └── docker-compose.samples.yaml
-├── scripts
+├── watod_scripts
 │   └── watod-setup-env.sh
 ├── src
 │   ├── motion_planning_and_control
