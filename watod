@@ -15,7 +15,7 @@ function usage {
     echo "                                  ssh local port forwarding commands for each VNC Server found"
     echo "                                  if a docker-compose command is specified, it will be run in the background."
     echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
-    echo "  -a --all                        run COMMAND with all modules enabled. Profiles are defined in ./modules/."
+    echo "  -a --all                        run COMMAND with all modules enabled. Modules are defined in ./modules/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
     echo ""
@@ -80,11 +80,11 @@ while [[ $# -gt 0 ]] ; do
         shift
         ;;
       -a|--all)
-        PROFILE_BLACKLIST="$(source $MODULES_DIR/.env && echo $PROFILE_BLACKLIST)"
+        MODULE_BLACKLIST="$(source $MODULES_DIR/.env && echo $MODULE_BLACKLIST)"
         # Find all the modules
         MODULES=$(ls $MODULES_DIR)
         # Remove modules in the blacklist
-        for TO_REMOVE in ${PROFILE_BLACKLIST[@]}; do
+        for TO_REMOVE in ${MODULE_BLACKLIST[@]}; do
             MODULES="${MODULES//"docker-compose.$TO_REMOVE.yaml"/}"
         done
         # format properly for docker-compose

@@ -48,7 +48,7 @@ TAG=${TAG/\//-}
 ACTIVE_MODULES=${ACTIVE_MODULES:-""}
 
 # List of modules to IGNORE when using the --all flag
-PROFILE_BLACKLIST=${PROFILE_BLACKLIST:-"production"}
+MODULE_BLACKLIST=${MODULE_BLACKLIST:-"production"}
 
 # Docker Registry to pull/push images
 REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
@@ -97,7 +97,7 @@ echo "MODULES_DIR=$MODULES_DIR" >> "$MODULES_DIR/.env"
 echo "MONO_DIR=$MONO_DIR" >> "$MODULES_DIR/.env"
 
 echo "ACTIVE_MODULES=\"$ACTIVE_MODULES\"" >> "$MODULES_DIR/.env"
-echo "PROFILE_BLACKLIST=\"$PROFILE_BLACKLIST\"" >> "$MODULES_DIR/.env"
+echo "MODULE_BLACKLIST=\"$MODULE_BLACKLIST\"" >> "$MODULES_DIR/.env"
 
 echo "COMPOSE_DOCKER_CLI_BUILD=1" >> "$MODULES_DIR/.env"
 echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$MODULES_DIR/.env"

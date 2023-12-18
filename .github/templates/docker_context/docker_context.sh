@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-################# Sweep for Docker Services and Profiles #################
+################# Sweep for Docker Services and Modules #################
 # Scans for services and modules in the wato_monorepo,
 # dynamically builds a json matrix for downstream CI build and testing
 
@@ -11,7 +11,7 @@ modules=$(find modules -name "docker-compose*")
 # Initialize an empty array for JSON objects
 json_objects=()
 
-# Loop through each profile
+# Loop through each module
 while read -r module; do
     # Retrieve docker compose service names
     services=$(docker-compose -f "$module" config --services)
@@ -19,7 +19,7 @@ while read -r module; do
 
     # Loop through each service
     while read -r service_out; do
-        # Construct JSON object for each service with profile and service name
+        # Construct JSON object for each service with module and service name
         json_object=$(jq -nc --arg module_out "$module_out" --arg service_out "$service_out" \
         '{module: $module_out, service: $service_out}')
         # Append JSON object to the array
