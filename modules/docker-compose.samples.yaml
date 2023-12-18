@@ -3,7 +3,7 @@ services:
   aggregator: # C++
     build:
       context: ..
-      dockerfile: docker/samples/aggregator/cpp_aggregator.Dockerfile
+      dockerfile: docker/samples/cpp_aggregator/cpp_aggregator.Dockerfile
       cache_from:
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:${TAG}"
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:main"
@@ -17,7 +17,7 @@ services:
   # aggregator: # PYTHON
   #   build:
   #     context: ..
-  #     dockerfile: docker/samples/aggregator/py_aggregator.Dockerfile
+  #     dockerfile: docker/samples/py_aggregator/py_aggregator.Dockerfile
   #     cache_from:
   #       - "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}:${TAG}"
   #       - "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}:main"
@@ -31,7 +31,7 @@ services:
   # producer: # C++
   #   build:
   #     context: ..
-  #     dockerfile: docker/samples/producer/cpp_producer.Dockerfile
+  #     dockerfile: docker/samples/cpp_producer/cpp_producer.Dockerfile
   #     cache_from:
   #       - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
   #       - "${SAMPLES_CPP_PRODUCER_IMAGE:?}:main"
@@ -45,7 +45,7 @@ services:
   producer: # PYTHON
     build:
       context: ..
-      dockerfile: docker/samples/producer/py_producer.Dockerfile
+      dockerfile: docker/samples/py_producer/py_producer.Dockerfile
       cache_from:
         - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
         - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:main"
@@ -59,7 +59,7 @@ services:
   # transformer: # C++
   #   build:
   #     context: ..
-  #     dockerfile: docker/samples/transformer/cpp_transformer.Dockerfile
+  #     dockerfile: docker/samples/cpp_transformer/cpp_transformer.Dockerfile
   #     cache_from:
   #       - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
   #       - "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:main"
@@ -73,7 +73,7 @@ services:
   transformer: # PYTHON
     build:
       context: ..
-      dockerfile: docker/samples/transformer/py_transformer.Dockerfile
+      dockerfile: docker/samples/py_transformer/py_transformer.Dockerfile
       cache_from:
         - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
         - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:main"
