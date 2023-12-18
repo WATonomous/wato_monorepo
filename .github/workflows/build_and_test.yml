@@ -47,7 +47,7 @@ jobs:
         uses: "./.github/templates/github_context"
 
   build-and-unittest:
-    name: Build Image and Run Initial Unit Testing Suite
+    name: Build Image and Run Unit Testing Suite
     runs-on: ubuntu-latest
     needs: setup-environment
 
@@ -68,7 +68,7 @@ jobs:
       - name: Construct Registry URL
         id: construct-registry-url
         run: |
-          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.profile }}_${{ matrix.service }}" \
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}_${{ matrix.service }}" \
           >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
@@ -86,7 +86,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.profile }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
@@ -103,7 +103,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.profile }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
