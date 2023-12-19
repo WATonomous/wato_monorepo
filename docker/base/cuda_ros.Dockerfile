@@ -47,11 +47,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-$ROS_DISTRO-ros-core=0.10.0-1* \
     && rm -rf /var/lib/apt/lists/*
 
-######### Install ROS2 Developer Tools (rosdep, colcon, vcstools, apt-fast) #########
+######### Install ROS2 Developer Tools (rosdep, colcon, vcstools) #########
 FROM core as devel
 
 # install bootstrap tools
-RUN apt-get update && apt-fast install --no-install-recommends -y \
+RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential \
     git \
     python3-colcon-common-extensions \

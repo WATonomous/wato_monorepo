@@ -7,10 +7,8 @@ wato_monorepo_v2
 ├── watod-config.sh
 ├── docker
 │   ├── samples
-│   │   └── cpp
-│   │       ├── Dockerfile.aggregator
-│   │       ├── Dockerfile.producer
-│   │       └── Dockerfile.transformer
+│   │   └── cpp_aggregator
+│   │       └── cpp_aggregator.Dockerfile
 │   └── wato_ros_entrypoint.sh
 ├── docs
 ├── modules

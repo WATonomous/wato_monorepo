@@ -1,0 +1,15 @@
+[
+    {
+        "tag": "humble-ubuntu22.04",
+        "external_image": "ros:humble-ros-base"
+    },
+    {
+        "tag": "cuda12.0.1-humble-ubuntu22.04",
+        "dockerfile": "cuda_ros.Dockerfile",
+        "params": {
+            "UBUNTU_DISTRO": "ubuntu22.04",
+            "CUDA_VERSION": "12.0.1",
+            "ROS_DISTRO": "humble"
+        }
+    }
+]
