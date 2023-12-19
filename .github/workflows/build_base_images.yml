@@ -1,4 +1,4 @@
-name: Build Base Monorepo Images
+name: Build Monorepo Base Images
 
 on:
   workflow_dispatch:
