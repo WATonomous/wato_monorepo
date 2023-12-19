@@ -1,15 +1,7 @@
-ARG UBUNTU_DISTRO
-ARG CUDA_VERSION
-
-####################### Nvidia CUDA Base Image #######################
-FROM nvidia/cuda:${CUDA_VERSION}-devel-${UBUNTU_DISTRO} as base
-
-# Save Environment Properties
-ENV CUDA_VERSION=${CUDA_VERSION}
-ENV UBUNTU_DISTRO=${UBUNTU_DISTRO}
+ARG GENERIC_IMAGE
 
 ########################## Install ROS2 Core ##########################
-FROM base as core
+FROM {GENERIC_IMAGE} as core
 
 # setup timezone
 RUN echo 'Etc/UTC' > /etc/timezone && \
