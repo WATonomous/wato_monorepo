@@ -1,4 +1,4 @@
-name: Build and Test WATonomous Monorepo
+name: Build and Test
 
 on:
   workflow_dispatch:

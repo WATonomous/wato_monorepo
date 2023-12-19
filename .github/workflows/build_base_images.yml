@@ -1,7 +1,16 @@
-name: Build WATonomous Monorepo Base Images
+name: Build Base Images
 
 on:
   workflow_dispatch:
+    inputs:
+      pull_image:
+        description: "Pull Images from GitHub Registry"
+        type: boolean
+        default: true
+      push_image:
+        description: "Push Images to GitHub Registry"
+        type: boolean
+        default: true
   pull_request:
     branches:
       - main
