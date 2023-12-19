@@ -1,0 +1,4 @@
+name: Build Monorepo Base Images
+
+on:
+  workflow_dispatch:
