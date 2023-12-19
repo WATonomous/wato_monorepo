@@ -1,0 +1,4 @@
+name: Build and Test Monorepo
+
+on:
+  workflow_dispatch:
