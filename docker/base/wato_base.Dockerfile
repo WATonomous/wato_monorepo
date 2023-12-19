@@ -1,9 +1,9 @@
-ARG GENERIC_BASE
+ARG GENERIC_IMAGE
 
 ########### Setup WATO Tools and ENV (eg. AMENT_WS, apt-fast) ###########
 # This stage can be appended on any publicly available base image to make it ready
 # for the wato_monorepo.
-FROM ${GENERIC_BASE} as wato_base
+FROM ${GENERIC_IMAGE} as wato_base
 
 ENV AMENT_WS=/home/docker/ament_ws
 ENV DEBIAN_FRONTEND noninteractive

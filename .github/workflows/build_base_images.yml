@@ -2,6 +2,9 @@ name: Build WATonomous Monorepo Base Images
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   setup-environment:
@@ -29,20 +32,18 @@ jobs:
       DOCKER_REGISTRY: ${{ needs.setup.outputs.registry }}
       DOCKER_REPOSITORY: ${{ needs.setup.outputs.repository }}
 
-    # Define new base image configurations here
     strategy:
       fail-fast: false
       matrix:
-        - name: humble-ubuntu22.04
-          dockerfile: wato_base.Dockerfile
-          params:
-            EXTERNAL_IMAGE: ros:humble-ros-base
-        - name: cuda12.0.1-humble-ubuntu22.04
-          dockerfile: cuda_ros.Dockerfile
-          params:
-            UBUNTU_DISTRO: ubuntu22.04
-            CUDA_VERSION: 12.0.1
-            ROS_DISTRO: humble
+        include:
+          - tag: humble-ubuntu22.04
+            external_image: ros:humble-ros-base
+          - tag: cuda12.0.1-humble-ubuntu22.04
+            dockerfile: cuda_ros.Dockerfile
+            params:
+              UBUNTU_DISTRO: ubuntu22.04
+              CUDA_VERSION: 12.0.1
+              ROS_DISTRO: humble
 
     steps:
       # Initial workflow setup
@@ -52,7 +53,7 @@ jobs:
       - name: Construct Registry URL
         id: construct-registry-url
         run: |
-          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/base:${{ matrix.name }}" \
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/base:${{ matrix.tag }}" \
           >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
@@ -66,25 +67,16 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_PWD }}
 
-      # Conditional jobs that are ran according to the dockerfile you've specified in the matrix
-      - name: Build Base Image from Generic 
-        if: ${{ matrix.dockerfile }} == wato_base.Dockerfile
-        run: |
-          docker pull ${{ matrix.params.EXTERNAL_IMAGE }}
-          docker tag ${{ matrix.params.EXTERNAL_IMAGE }} ${{ steps.construct-registry-url.outputs.url }}_base
-          docker push ${{ steps.construct-registry-url.outputs.url }}_base
-
-      - name: Build Base Image CUDA ROS
-        if: ${{ matrix.dockerfile }} == cuda_ros.Dockerfile
+      - name: Build Generic Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/base/${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ steps.construct-registry-url.outputs.url }}_base
+            ${{ steps.construct-registry-url.outputs.url }}_generic
           cache-from: |
-            ${{ steps.construct-registry-url.outputs.url }}_base
+            ${{ steps.construct-registry-url.outputs.url }}_generic
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
           target: devel 
@@ -93,8 +85,7 @@ jobs:
             CUDA_VERSION=${{ matrix.params.CUDA_VERSION }}
             ROS_DISTRO=${{ matrix.params.ROS_DISTRO }}
 
-      # Prepares the image you built in the last step for monorepo docker images
-      - name: Prepare Image for Monorepo
+      - name: Prepare Generic Image as Monorepo Base Image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -108,4 +99,4 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           target: wato_base
           build-args: | 
-            GENERIC_BASE=${{ steps.construct-registry-url.outputs.url }}_base
+            GENERIC_BASE=${{ steps.construct-registry-url.outputs.url }}_generic
