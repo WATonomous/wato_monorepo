@@ -108,7 +108,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/base/wato_base.Dockerfile
+          file: docker/base/inject_wato_base.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}
