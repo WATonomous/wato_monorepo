@@ -32,6 +32,21 @@ jobs:
         id: docker-environment
         uses: "./.github/templates/docker_context"
 
+  matrix-prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - id: set-matrix
+        run: |
+          platform=$(echo '${{ inputs.platform }}')
+          matrix=$(jq --arg platform "$platform" 'map(
+              . | select((.run_if==$platform) or (.run_if=="always"))
+          )' .github/include/base_image_config.json)
+          echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
+
   build:
     name: Build Image and Run Initial Unit Testing Suite
     runs-on: ubuntu-latest
@@ -43,16 +58,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - tag: humble-ubuntu22.04
-            external_image: ros:humble-ros-base
-          - tag: cuda12.0.1-humble-ubuntu22.04
-            dockerfile: cuda_ros.Dockerfile
-            params:
-              UBUNTU_DISTRO: ubuntu22.04
-              CUDA_VERSION: 12.0.1
-              ROS_DISTRO: humble
+      matrix: ${{ fromJSON(needs.matrix-prep.outputs.matrix) }}
 
     steps:
       # Initial workflow setup
@@ -76,11 +82,12 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_PWD }}
 
-      - name: Build Generic Image
+      - name: Inject ROS2 into Image
+        if: $( -z "${{ matrix.injections.ros2 }}" )
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/base/${{ matrix.dockerfile }}
+          file: docker/base/inject_ros2.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}_generic
@@ -89,10 +96,9 @@ jobs:
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
           target: devel 
-          build-args: |  
-            UBUNTU_DISTRO=${{ matrix.params.UBUNTU_DISTRO }}
-            CUDA_VERSION=${{ matrix.params.CUDA_VERSION }}
-            ROS_DISTRO=${{ matrix.params.ROS_DISTRO }}
+          build-args: |
+            GENERIC_BASE=${{ matrix.external_image }}
+            ROS_DISTRO=${{ matrix.injections.ros2 }}
 
       - name: Prepare Generic Image as Monorepo Base Image
         uses: docker/build-push-action@v5
