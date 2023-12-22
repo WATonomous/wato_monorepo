@@ -66,5 +66,5 @@ RUN colcon mixin add default \
 
 # install ros2 base packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-$ROS_DISTRO-ros-base=0.10.0-1* \
+    ros-$ROS_DISTRO-ros-base \
     && rm -rf /var/lib/apt/lists/*
