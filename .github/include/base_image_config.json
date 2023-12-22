@@ -2,7 +2,10 @@
 [
     {
         "tag": "humble-ubuntu22.04",
-        "external_image": "ros:humble-ros-base"
+        "external_image": "ubuntu:22.04",
+        "injections": {
+            "ros2": "foxy"
+        }
     },
 
 
