@@ -28,6 +28,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Setup Watod Environment
+        run: ./watod_scripts/watod-setup-env.sh
+        shell: bash
+
       - name: Generate Docker Environment
         id: docker-environment
         uses: "./.github/templates/docker_context"
@@ -50,7 +54,7 @@ jobs:
   build:
     name: Build Image and Run Initial Unit Testing Suite
     runs-on: ubuntu-latest
-    needs: setup-environment
+    needs: [setup-environment, matrix-prep]
 
     env:
       DOCKER_REGISTRY: ${{ needs.setup.outputs.registry }}
