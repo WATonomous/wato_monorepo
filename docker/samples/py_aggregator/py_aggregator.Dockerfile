@@ -38,8 +38,7 @@ USER ${USER}
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    sudo chown -R $USER:$USER ${AMENT_WS} && \
+RUN sudo chown -R $USER:$USER ${AMENT_WS} && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
