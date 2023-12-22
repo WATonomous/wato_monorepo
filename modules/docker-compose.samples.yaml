@@ -1,6 +1,6 @@
 version: "3.8"
 services:
-  aggregator: # C++
+  cpp_aggregator: # C++
     build:
       context: ..
       dockerfile: docker/samples/cpp_aggregator/cpp_aggregator.Dockerfile
@@ -15,7 +15,7 @@ services:
       - ${MONO_DIR}/src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
     command: /bin/bash -c "ros2 launch aggregator aggregator.launch.py"
 
-  # aggregator: # PYTHON
+  # py_aggregator: # PYTHON
   #   build:
   #     context: ..
   #     dockerfile: docker/samples/py_aggregator/py_aggregator.Dockerfile
@@ -29,7 +29,7 @@ services:
   #   volumes:
   #     - ${MONO_DIR}/src/samples/python/aggregator:/home/docker/ament_ws/src/aggregator
 
-  # producer: # C++
+  # cpp_producer: # C++
   #   build:
   #     context: ..
   #     dockerfile: docker/samples/cpp_producer/cpp_producer.Dockerfile
@@ -44,7 +44,7 @@ services:
   #     - ${MONO_DIR}/src/samples/cpp/producer:/home/docker/ament_ws/src/producer
   #   command: /bin/bash -c "ros2 launch producer producer.launch.py"
 
-  producer: # PYTHON
+  py_producer: # PYTHON
     build:
       context: ..
       dockerfile: docker/samples/py_producer/py_producer.Dockerfile
@@ -58,7 +58,7 @@ services:
     volumes:
       - ${MONO_DIR}/src/samples/python/producer:/home/docker/ament_ws/src/producer
 
-  # transformer: # C++
+  # cpp_transformer: # C++
   #   build:
   #     context: ..
   #     dockerfile: docker/samples/cpp_transformer/cpp_transformer.Dockerfile
@@ -73,7 +73,7 @@ services:
   #     - ${MONO_DIR}/src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
   #   command: /bin/bash -c "ros2 launch transformer transformer.launch.py"
 
-  transformer: # PYTHON
+  py_transformer: # PYTHON
     build:
       context: ..
       dockerfile: docker/samples/py_transformer/py_transformer.Dockerfile
