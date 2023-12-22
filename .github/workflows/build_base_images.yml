@@ -62,7 +62,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.matrix-prep.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.base-matrix-prep.outputs.matrix) }}
 
     steps:
       # Initial workflow setup
