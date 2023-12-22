@@ -110,3 +110,4 @@ jobs:
         with:
           image: ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
           service: ${{ matrix.service }}
+          source_branch: ${{ env.SOURCE_BRANCH }}
