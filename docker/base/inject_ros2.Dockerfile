@@ -2,7 +2,7 @@ ARG GENERIC_IMAGE
 ARG ROS_DISTRO
 
 ########################## Install ROS2 Core ##########################
-FROM {GENERIC_IMAGE} as core
+FROM ${GENERIC_IMAGE} as core
 
 # setup timezone
 RUN echo 'Etc/UTC' > /etc/timezone && \
