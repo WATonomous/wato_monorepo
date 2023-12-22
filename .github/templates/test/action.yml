@@ -11,6 +11,9 @@ inputs:
 runs: 
   using: "composite"
   steps:
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     - run: ${{ github.action_path }}/test_image.sh
       shell: bash
       env:
