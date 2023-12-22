@@ -87,7 +87,7 @@ jobs:
           password: ${{ secrets.GHCR_PWD }}
 
       - name: Inject ROS2 into Image
-        if: $( -z "${{ matrix.injections.ros2 }}" )
+        if: $( -z ${{ matrix.injections.ros2 }} )
         uses: docker/build-push-action@v5
         with:
           context: .
