@@ -92,6 +92,7 @@ jobs:
         with:
           context: .
           file: docker/base/inject_ros2.Dockerfile
+          push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}_generic
           cache-from: |
