@@ -27,6 +27,11 @@ RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_li
 WORKDIR ${AMENT_WS}
 COPY --chown=${USER}:${USER} --from=source ${AMENT_WS}/src src
 
+# Dependency Cleanup
+WORKDIR /
+RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
+    rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
+
 ################################ Build ################################
 FROM dependencies as build
 USER ${USER}
@@ -38,10 +43,9 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# Cleanup
+# Build Cleanup
 WORKDIR /
-RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
-    rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/* ${AMENT_WS}/src/*
+RUN ${AMENT_WS}/src/*
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
