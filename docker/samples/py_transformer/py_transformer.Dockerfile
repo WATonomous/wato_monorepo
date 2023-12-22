@@ -38,13 +38,14 @@ USER ${USER}
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
-RUN sudo chown -R $USER:$USER ${AMENT_WS} && \
+RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
+    sudo chown -R $USER:$USER ${AMENT_WS} && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Build Cleanup
 WORKDIR /
-RUN ${AMENT_WS}/src/*
+RUN rm -rf ${AMENT_WS}/src/*
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
