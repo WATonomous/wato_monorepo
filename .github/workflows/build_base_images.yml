@@ -57,8 +57,8 @@ jobs:
     needs: [ setup-environment, base-matrix-prep ]
 
     env:
-      DOCKER_REGISTRY: ${{ needs.setup.outputs.registry }}
-      DOCKER_REPOSITORY: ${{ needs.setup.outputs.repository }}
+      DOCKER_REGISTRY: ${{ needs.setup-environment.outputs.registry }}
+      DOCKER_REPOSITORY: ${{ needs.setup-environment.outputs.repository }}
 
     strategy:
       fail-fast: false
