@@ -4,6 +4,9 @@ inputs:
   image:
     description: "the image to be tested"
     required: true
+  service:
+    description: "the service being tested"
+    required: true
 
 runs: 
   using: "composite"
@@ -12,3 +15,4 @@ runs:
       shell: bash
       env:
         IMAGE: ${{ inputs.image }}
+        SERVICE: ${{ inputs.service }}
