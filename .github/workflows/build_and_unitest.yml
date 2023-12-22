@@ -85,8 +85,6 @@ jobs:
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
           target: source
-          build-args: |
-            BASE_IMAGE=${{ steps.update-platform-settings.outputs.NOETIC_IMAGE }}
 
       - name: Build Image with Source
         uses: docker/build-push-action@v5
@@ -102,8 +100,6 @@ jobs:
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
           target: build 
-          build-args: |
-            BASE_IMAGE=${{ steps.update-platform-settings.outputs.NOETIC_IMAGE }}
 
       - name: Run testing suite
         uses: "./.github/templates/test"
