@@ -101,7 +101,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           target: devel 
           build-args: |
-            GENERIC_BASE=${{ matrix.external_image }}
+            GENERIC_IMAGE=${{ matrix.external_image }}
             ROS_DISTRO=${{ matrix.injections.ros2 }}
 
       - name: Prepare Generic Image as Monorepo Base Image
@@ -118,4 +118,4 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           target: wato_base
           build-args: | 
-            GENERIC_BASE=${{ steps.construct-registry-url.outputs.url }}_generic
+            GENERIC_IMAGE=${{ steps.construct-registry-url.outputs.url }}_generic
