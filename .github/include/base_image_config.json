@@ -1,15 +1,15 @@
 [
     {
         "tag": "humble-ubuntu22.04",
-        "external_image": "ros:humble-ros-base"
+        "external_image": "ros:humble-ros-base",
+        "injections": {}
     },
     {
-        "tag": "cuda12.0.1-humble-ubuntu22.04",
-        "dockerfile": "cuda_ros.Dockerfile",
-        "params": {
-            "UBUNTU_DISTRO": "ubuntu22.04",
-            "CUDA_VERSION": "12.0.1",
-            "ROS_DISTRO": "humble"
+        "tag": "cuda11.2-tensorrt8.6.0-humble-ubuntu22.04",
+        "external_image": "ros:humble-ros-base",
+        "injections": {
+            "ros2": "humble",
+            "tensorrt": "nv-tensorrt-local-repo-ubuntu2204-8.6.0-cuda-12.0_1.0-1_amd64"
         }
     }
 ]
