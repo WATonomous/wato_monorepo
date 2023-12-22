@@ -36,25 +36,10 @@ jobs:
         id: docker-environment
         uses: "./.github/templates/docker_context"
 
-  matrix-prep:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - id: set-matrix
-        run: |
-          platform=$(echo '${{ inputs.platform }}')
-          matrix=$(jq --arg platform "$platform" 'map(
-              . | select((.run_if==$platform) or (.run_if=="always"))
-          )' .github/include/base_image_config.json)
-          echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
-
   build:
     name: Build Image and Run Initial Unit Testing Suite
     runs-on: ubuntu-latest
-    needs: [setup-environment, matrix-prep]
+    needs: setup-environment
 
     env:
       DOCKER_REGISTRY: ${{ needs.setup.outputs.registry }}
