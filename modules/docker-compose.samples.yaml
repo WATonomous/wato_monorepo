@@ -28,6 +28,7 @@ services:
   #   user: ${FIXUID:?}:${FIXGID:?}
   #   volumes:
   #     - ${MONO_DIR}/src/samples/python/aggregator:/home/docker/ament_ws/src/aggregator
+  #   command: /bin/bash -c "ros2 launch aggregator aggregator.launch.py"
 
   # cpp_producer: # C++
   #   build:
@@ -57,6 +58,7 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ${MONO_DIR}/src/samples/python/producer:/home/docker/ament_ws/src/producer
+    command: /bin/bash -c "ros2 launch producer producer.launch.py"
 
   # cpp_transformer: # C++
   #   build:
@@ -86,3 +88,4 @@ services:
     user: ${FIXUID:?}:${FIXGID:?}
     volumes:
       - ${MONO_DIR}/src/samples/python/transformer:/home/docker/ament_ws/src/transformer
+    command: /bin/bash -c "ros2 launch transformer transformer.launch.py"

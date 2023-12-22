@@ -7,6 +7,9 @@ inputs:
   service:
     description: "the service being tested"
     required: true
+  source_branch:
+    description: "the source branch"
+    required: true
 
 runs: 
   using: "composite"
@@ -17,5 +20,6 @@ runs:
     - run: ${{ github.action_path }}/test_image.sh
       shell: bash
       env:
+        TAG: ${{ inputs.source_branch }}
         IMAGE: ${{ inputs.image }}
         SERVICE: ${{ inputs.service }}
