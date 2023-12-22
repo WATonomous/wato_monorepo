@@ -1,16 +1,6 @@
 name: Build and Test Monorepo
 
 on:
-  workflow_dispatch:
-    inputs:
-      pull_image:
-        description: "Pull Images from GitHub Registry"
-        type: boolean
-        default: true
-      push_image:
-        description: "Push Images to GitHub Registry"
-        type: boolean
-        default: true
   push:
     branches:
       - main
