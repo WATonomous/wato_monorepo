@@ -109,3 +109,4 @@ jobs:
           BUILDKIT_INLINE_CACHE: 1
         with:
           image: ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+          service: ${{ matrix.service }}
