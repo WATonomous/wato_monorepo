@@ -46,7 +46,10 @@ jobs:
         uses: actions/checkout@v4
       - id: set-matrix
         run: |
-          echo "matrix=$(jq -c . .github/include/base_image_config.json)" >> $GITHUB_OUTPUT
+          MATRIX=$(jq -c . .github/include/base_image_config.json)
+
+          echo "Base Image Matrix: $MATRIX"
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   build:
     name: Build Image and Run Initial Unit Testing Suite
