@@ -36,10 +36,22 @@ jobs:
         id: docker-environment
         uses: "./.github/templates/docker_context"
 
+  base-matrix-prep:
+    name: Prepare Base Image Matrix JSON
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - id: set-matrix
+        run: |
+          echo "matrix=$(cat .github/include/build_config.json | jq -c '{include: .}')" >> $GITHUB_OUTPUT
+
   build:
     name: Build Image and Run Initial Unit Testing Suite
     runs-on: ubuntu-latest
-    needs: setup-environment
+    needs: [ setup-environment, base-matrix-prep ]
 
     env:
       DOCKER_REGISTRY: ${{ needs.setup.outputs.registry }}
