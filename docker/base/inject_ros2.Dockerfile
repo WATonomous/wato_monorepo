@@ -1,5 +1,4 @@
 ARG GENERIC_IMAGE
-ARG ROS_DISTRO
 
 ########################## Install ROS2 Core ##########################
 FROM ${GENERIC_IMAGE} as core
@@ -32,6 +31,7 @@ RUN echo "deb [arch=$(dpkg --print-architecture) \
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
+ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 
 # install ros2 core packages
