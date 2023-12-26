@@ -38,7 +38,7 @@ TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 TAG=${TAG/\//-}
 
 # Happens during CI, we use the TAG from CI
-if [-z "$TAG"] && [! -z "$BACKUP_TAG"]; then
+if [ -z "$TAG" ] && [ ! -z "$BACKUP_TAG" ]; then
 	TAG=$BACKUP_TAG
 fi
 
