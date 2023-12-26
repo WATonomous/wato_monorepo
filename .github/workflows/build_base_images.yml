@@ -54,6 +54,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.base-matrix-prep.outputs.matrix) }}
 
+    concurrency:
+      group: ${{ matrix.tag }}-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
     steps:
       # Initial workflow setup
       - name: Checkout repository

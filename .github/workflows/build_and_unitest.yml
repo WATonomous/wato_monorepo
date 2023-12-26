@@ -51,6 +51,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup-environment.outputs.docker_matrix) }}
 
+    concurrency:
+      group: ${{ matrix.service }}-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -77,6 +81,7 @@ jobs:
         with:
           context: .
           file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
           cache-from: |
