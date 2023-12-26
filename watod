@@ -34,7 +34,7 @@ function usage {
 function run_compose {
     cd $MONO_DIR
     if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
-        MODULES="$(source $MODULES_DIR/.env && printf -- "-f modules/docker compose.%s.yaml" ${ACTIVE_MODULES[@]})"
+        MODULES="$(source $MODULES_DIR/.env && printf -- "-f modules/docker-compose.%s.yaml" ${ACTIVE_MODULES[@]})"
     fi
     echo "Running docker compose ${MODULES[@]} $@"
 

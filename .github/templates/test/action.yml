@@ -14,12 +14,9 @@ inputs:
 runs: 
   using: "composite"
   steps:
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-
     - run: ${{ github.action_path }}/test_image.sh
       shell: bash
       env:
-        BACKUP_TAG: ${{ inputs.source_branch }}
+        TAG: ${{ inputs.source_branch }}
         IMAGE: ${{ inputs.image }}
         SERVICE: ${{ inputs.service }}
