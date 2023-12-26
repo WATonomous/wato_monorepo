@@ -37,6 +37,11 @@ TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 # replace / with -
 TAG=${TAG/\//-}
 
+# Happens during CI, we use the TAG from CI
+if [-z "$TAG"] && [! -z "$BACKUP_TAG"]; then
+	TAG=$BACKUP_TAG
+fi
+
 # List of active modules to run, defined in docker-compose.yaml.
 # Possible values:
 #   - infrastructure     	:   starts visualization tools (foxglove and/or vnc)

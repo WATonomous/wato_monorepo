@@ -20,6 +20,6 @@ runs:
     - run: ${{ github.action_path }}/test_image.sh
       shell: bash
       env:
-        TAG: ${{ inputs.source_branch }}
+        BACKUP_TAG: ${{ inputs.source_branch }}
         IMAGE: ${{ inputs.image }}
         SERVICE: ${{ inputs.service }}
