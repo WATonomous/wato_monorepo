@@ -36,6 +36,7 @@ function run_compose {
     if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
         MODULES="$(source $MODULES_DIR/.env && printf -- "-f modules/docker-compose.%s.yaml " ${ACTIVE_MODULES[@]})"
     fi
+    echo "Running docker-compose ${MODULES[@]} $@"
 
     DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose ${MODULES[@]} "$@"
 }
@@ -176,7 +177,6 @@ if [ ! -z "$COMPOSE_CMD" ]; then
     if [ ! -z "$START_TERMINAL" ] && [[ ! " ${COMPOSE_CMD[@]} " =~ " -d " ]] && [[ " ${COMPOSE_CMD[@]} " =~ " up " ]]; then
         ADDITIONAL_ARGS="-d"
     fi
-    echo "Running docker-compose$COMPOSE_CMD $ADDITIONAL_ARGS:"
     
     run_compose ${COMPOSE_CMD[@]} ${ADDITIONAL_ARGS}
 fi
