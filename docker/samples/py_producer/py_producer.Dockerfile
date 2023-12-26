@@ -44,8 +44,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Build Cleanup
-WORKDIR /
-RUN rm -rf ${AMENT_WS}/src/*
+RUN rm -rf src/*
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
