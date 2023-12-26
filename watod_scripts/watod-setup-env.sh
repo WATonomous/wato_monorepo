@@ -31,7 +31,7 @@ fi
 
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
-# Tag to use. Images as formatted as <IMAGE_NAME>:<TARGET_STAGE>-<TAG> with forward slashes replaced
+# Tag to use. Images as formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced
 # with dashes
 TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 # replace / with -
@@ -111,7 +111,6 @@ echo "ROS_IP=$ROS_IP" >> "$MODULES_DIR/.env"
 echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$MODULES_DIR/.env"
 
 echo "TAG=$TAG" >> "$MODULES_DIR/.env"
-echo "TARGET_STAGE=$TARGET_STAGE" >> "$MODULES_DIR/.env"
 
 echo "FIXUID=$FIXUID" >> "$MODULES_DIR/.env"
 echo "FIXGID=$FIXGID" >> "$MODULES_DIR/.env"
