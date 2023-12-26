@@ -8,23 +8,23 @@ ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
 
 function usage {
     echo "Usage: $programname [OPTIONS]... [COMMAND]..."
-    echo "Executes docker-compose COMMAND in the the monorepo with appropriate environment variables."
+    echo "Executes docker compose COMMAND in the the monorepo with appropriate environment variables."
     echo "  launch_autonomous               launch the can_interface for autonomous mode"
     echo "  -v --verbose                    verbose mode. Currently, prints .env variables"                     
     echo "  -lp --local-ports               displays ports exposed by applications and shows the"
     echo "                                  ssh local port forwarding commands for each VNC Server found"
-    echo "                                  if a docker-compose command is specified, it will be run in the background."
+    echo "                                  if a docker compose command is specified, it will be run in the background."
     echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo "  -a --all                        run COMMAND with all modules enabled. Modules are defined in ./modules/."
     echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
     echo "                                  so that docker caching doesn't break."
     echo ""
     echo "Examples:" 
-    echo "  watod up                       start containers (docker-compose up)"
-    echo "  watod down                     stop and remove containers (docker-compose down)"
-    echo "  watod ps [--services]          list containers in the current project and show their current status (docker-compose ps)"
-    echo "  watod --all pull               pull all new containers from the GitLab container registry (docker-compose pull)"
-    echo "  watod --all build              build all new containers using Dockerfiles in docker/ (docker-compose build)"
+    echo "  watod up                       start containers (docker compose up)"
+    echo "  watod down                     stop and remove containers (docker compose down)"
+    echo "  watod ps [--services]          list containers in the current project and show their current status (docker compose ps)"
+    echo "  watod --all pull               pull all new containers from the GitLab container registry (docker compose pull)"
+    echo "  watod --all build              build all new containers using Dockerfiles in docker/ (docker compose build)"
     echo "  watod -t perception            open a bash terminal into the perception container."
     echo ""
     echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
@@ -34,11 +34,11 @@ function usage {
 function run_compose {
     cd $MONO_DIR
     if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
-        MODULES="$(source $MODULES_DIR/.env && printf -- "-f modules/docker-compose.%s.yaml " ${ACTIVE_MODULES[@]})"
+        MODULES="$(source $MODULES_DIR/.env && printf -- "-f modules/docker compose.%s.yaml" ${ACTIVE_MODULES[@]})"
     fi
-    echo "Running docker-compose ${MODULES[@]} $@"
+    echo "Running docker compose ${MODULES[@]} $@"
 
-    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker-compose ${MODULES[@]} "$@"
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker compose ${MODULES[@]} "$@"
 }
 
 # in case you need help
@@ -86,9 +86,9 @@ while [[ $# -gt 0 ]] ; do
         MODULES=$(ls $MODULES_DIR)
         # Remove modules in the blacklist
         for TO_REMOVE in ${MODULE_BLACKLIST[@]}; do
-            MODULES="${MODULES//"docker-compose.$TO_REMOVE.yaml"/}"
+            MODULES="${MODULES//"docker compose.$TO_REMOVE.yaml"/}"
         done
-        # format properly for docker-compose
+        # format properly for docker compose
         MODULES=$(printf -- "-f modules/%s " $MODULES)
         shift
         ;;
@@ -127,7 +127,7 @@ if [ ! -z $LAUNCH_AUTONOMOUS ]; then
 
     # Run actual CAN devices, not VCAN
     echo "CAN_DEBUG=False" >> "$MODULES_DIR/.env"
-    MODULES="-f modules/docker-compose.can_interface.yaml"
+    MODULES="-f modules/docker compose.can_interface.yaml"
 
     run_compose up can_interface
     exit 0
@@ -173,7 +173,7 @@ fi
 
 if [ ! -z "$COMPOSE_CMD" ]; then
     ADDITIONAL_ARGS=""
-    # If we are starting a terminal, run docker-compose up with the -d argument
+    # If we are starting a terminal, run docker compose up with the -d argument
     if [ ! -z "$START_TERMINAL" ] && [[ ! " ${COMPOSE_CMD[@]} " =~ " -d " ]] && [[ " ${COMPOSE_CMD[@]} " =~ " up " ]]; then
         ADDITIONAL_ARGS="-d"
     fi
