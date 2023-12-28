@@ -3,15 +3,7 @@ version: "3.8"
 x-fixuid: &fixuid
   user: ${FIXUID:?}:${FIXGID:?}
   entrypoint: |
-    /bin/bash -c "USER=docker && \
-      GROUP=docker && \                                                                     
-      curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.4/fixuid-0.4-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \                                                                                                            
-      chown root:root /usr/local/bin/fixuid && \                                                                              
-      chmod 4755 /usr/local/bin/fixuid && \
-      mkdir -p /etc/fixuid && \                                                                                               
-      printf "user: $USER\ngroup: $GROUP\npaths:\n  - /home/docker/ \n  - /tmp/" > /etc/fixuid/config.yml && \
-      /usr/local/bin/fixuid && \
-      /home/docker/wato_ros_entrypoint.sh"
+    /bin/bash -c "/usr/local/bin/fixuid && /home/docker/wato_ros_entrypoint.sh"
 
 services:
   cpp_aggregator:
