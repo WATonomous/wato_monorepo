@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - eddy-infra-setup
       - main
 
 jobs:
