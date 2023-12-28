@@ -10,14 +10,12 @@ function usage {
     echo "Usage: $programname [OPTIONS]... [COMMAND]..."
     echo "Executes docker compose COMMAND in the the monorepo with appropriate environment variables."
     echo "  launch_autonomous               launch the can_interface for autonomous mode"
+    echo "  -dev --devel                    configures containers for development (allows you to edit inside a container)"
     echo "  -v --verbose                    verbose mode. Currently, prints .env variables"                     
     echo "  -lp --local-ports               displays ports exposed by applications and shows the"
     echo "                                  ssh local port forwarding commands for each VNC Server found"
     echo "                                  if a docker compose command is specified, it will be run in the background."
     echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
-    echo "  -a --all                        run COMMAND with all modules enabled. Modules are defined in ./modules/."
-    echo "  -np                             don't run fix-permissions.sh, makes permissions consistent across all systems"
-    echo "                                  so that docker caching doesn't break."
     echo ""
     echo "Examples:" 
     echo "  watod up                       start containers (docker compose up)"
@@ -34,7 +32,7 @@ function usage {
 function run_compose {
     cd $MONO_DIR
     if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
-        MODULES="$(source $MODULES_DIR/.env && printf -- "-f modules/docker-compose.%s.yaml" ${ACTIVE_MODULES[@]})"
+        MODULES="$(source $MODULES_DIR/.env && printf -- "-f $MODULES_DIR/docker-compose.%s.yaml" ${ACTIVE_MODULES[@]})"
     fi
     echo "Running docker compose ${MODULES[@]} $@"
 
@@ -50,18 +48,15 @@ if [ $# == 0 ]; then
     usage
 fi
 
-# generate .env file from watod_scripts/watod-setup-env.sh
-if [ ! -z $VERBOSE ]; then # if we want to see all verbose coming from setting up env
-    cd $MONO_DIR && bash watod_scripts/watod-setup-env.sh
-else
-    cd $MONO_DIR && bash watod_scripts/watod-setup-env.sh &> /dev/null
-fi
-
 # run options
 COMPOSE_CMD=""
 while [[ $# -gt 0 ]] ; do
     key="$1"
     case $key in
+      -dev|--devel)
+        DEVEL=1
+        shift
+        ;;
       -v|--verbose)
         VERBOSE=1
         shift # past argument
@@ -80,26 +75,6 @@ while [[ $# -gt 0 ]] ; do
         fi
         shift
         ;;
-      -a|--all)
-        MODULE_BLACKLIST="$(source $MODULES_DIR/.env && echo $MODULE_BLACKLIST)"
-        # Find all the modules
-        MODULES=$(ls $MODULES_DIR)
-        # Remove modules in the blacklist
-        for TO_REMOVE in ${MODULE_BLACKLIST[@]}; do
-            MODULES="${MODULES//"docker compose.$TO_REMOVE.yaml"/}"
-        done
-        # format properly for docker compose
-        MODULES=$(printf -- "-f modules/%s " $MODULES)
-        shift
-        ;;
-      -np)
-        NO_FIX_PERMISSIONS=1
-        shift
-        ;;
-      launch_autonomous)
-        LAUNCH_AUTONOMOUS=1
-        shift
-        ;;
       -h|--help) # in case you got this far, but still need help :)
         usage
         ;;
@@ -113,24 +88,17 @@ if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
 fi
 
-# launch autonomy on the car
-if [ ! -z $LAUNCH_AUTONOMOUS ]; then
-    echo "============================================================                  "
-    echo "WARNING:  You are about to enter autonomous mode.                             "
-    echo ""
-    echo "Make sure that you are running the autonomous pipeline and have               "
-    echo "verified the output of the /feedback_desired_output rostopic.                 "
-    echo "Turn on the car and put car in drive with the brake off.                      "
-    echo "Press <CTRL-C> twice to exit autonomous mode                                  "
-    echo ""
-    read -p "Press <ENTER> to continue"
+if [ ! -z $DEVEL ]; then
+    MODULES_DIR="$MONO_DIR/modules/dev_overrides"
+    export MODULES_DIR_EXP="$MODULES_DIR"
+    echo "hi"
+fi
 
-    # Run actual CAN devices, not VCAN
-    echo "CAN_DEBUG=False" >> "$MODULES_DIR/.env"
-    MODULES="-f modules/docker compose.can_interface.yaml"
-
-    run_compose up can_interface
-    exit 0
+# generate .env file from watod_scripts/watod-setup-env.sh
+if [ ! -z $VERBOSE ]; then # if we want to see all verbose coming from setting up env
+    cd $MONO_DIR && bash watod_scripts/watod-setup-env.sh
+else
+    cd $MONO_DIR && bash watod_scripts/watod-setup-env.sh &> /dev/null
 fi
 
 if [ ! -z $PRINT_LOCAL_PORTS ]; then
