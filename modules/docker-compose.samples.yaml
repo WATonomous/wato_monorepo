@@ -10,9 +10,6 @@ services:
     image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MODULES_DIR}/seccomp_profile.json 
-    user: ${FIXUID:?}:${FIXGID:?}
-    volumes:
-      - ${MONO_DIR}/src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
     command: /bin/bash -c "ros2 launch aggregator aggregator.launch.py"
 
   # py_aggregator: # PYTHON
@@ -25,9 +22,6 @@ services:
   #   image: "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}:${TAG}"
   #   security_opt:
   #     - seccomp:${MODULES_DIR}/seccomp_profile.json 
-  #   user: ${FIXUID:?}:${FIXGID:?}
-  #   volumes:
-  #     - ${MONO_DIR}/src/samples/python/aggregator:/home/docker/ament_ws/src/aggregator
   #   command: /bin/bash -c "ros2 launch aggregator aggregator.launch.py"
 
   # cpp_producer: # C++
@@ -40,9 +34,6 @@ services:
   #   image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}:${TAG}"
   #   security_opt:
   #     - seccomp:${MODULES_DIR}/seccomp_profile.json 
-  #   user: ${FIXUID:?}:${FIXGID:?}
-  #   volumes:
-  #     - ${MONO_DIR}/src/samples/cpp/producer:/home/docker/ament_ws/src/producer
   #   command: /bin/bash -c "ros2 launch producer producer.launch.py"
 
   py_producer: # PYTHON
@@ -55,9 +46,6 @@ services:
     image: "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MODULES_DIR}/seccomp_profile.json 
-    user: ${FIXUID:?}:${FIXGID:?}
-    volumes:
-      - ${MONO_DIR}/src/samples/python/producer:/home/docker/ament_ws/src/producer
     command: /bin/bash -c "ros2 launch producer producer.launch.py"
 
   # cpp_transformer: # C++
@@ -70,9 +58,6 @@ services:
   #   image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:${TAG}"
   #   security_opt:
   #     - seccomp:${MODULES_DIR}/seccomp_profile.json 
-  #   user: ${FIXUID:?}:${FIXGID:?}
-  #   volumes:
-  #     - ${MONO_DIR}/src/samples/cpp/transformer:/home/docker/ament_ws/src/transformer
   #   command: /bin/bash -c "ros2 launch transformer transformer.launch.py"
 
   py_transformer: # PYTHON
@@ -85,7 +70,4 @@ services:
     image: "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MODULES_DIR}/seccomp_profile.json 
-    user: ${FIXUID:?}:${FIXGID:?}
-    volumes:
-      - ${MONO_DIR}/src/samples/python/transformer:/home/docker/ament_ws/src/transformer
     command: /bin/bash -c "ros2 launch transformer transformer.launch.py"
