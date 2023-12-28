@@ -16,7 +16,6 @@ MONO_DIR=${MONO_DIR%/*}
 
 if [ ! -z $MODULES_DIR_EXP ]; then
 	MODULES_DIR="$MODULES_DIR_EXP"
-	echo "$MODULES_DIR"
 else
 	MODULES_DIR="$MONO_DIR/modules"
 fi
@@ -43,8 +42,8 @@ TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 TAG=${TAG/\//-}
 
 # Happens during CI, we use the TAG from CI
-if [ -z "$TAG" ] && [ ! -z "$BACKUP_TAG" ]; then
-	TAG=$BACKUP_TAG
+if [ ! -z $MODULES_DIR_EXP ]; then
+	TAG="build_$TAG"
 fi
 
 # List of active modules to run, defined in docker-compose.yaml.
