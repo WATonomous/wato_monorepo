@@ -9,9 +9,14 @@ ENV AMENT_WS=/home/docker/ament_ws
 ENV DEBIAN_FRONTEND noninteractive
 ENV USER="docker"
 
-# fix user permissions when deving in container
-COPY docker/fixuid_setup.sh /tmp/fixuid_setup.sh
-RUN /tmp/fixuid_setup.sh
+# User Setup
+RUN apt-get update && apt-get install -y curl sudo && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add a docker user so that created files in the docker container are owned by a non-root user
+RUN addgroup --gid 1000 docker && \
+    adduser --uid 1000 --ingroup docker --home /home/docker --shell /bin/bash --disabled-password --gecos "" docker && \
+    echo "docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
 
 # install apt-fast
 RUN apt-get -qq update && \
