@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-bash watod_scripts/watod-setup-env.sh
-
 echo "Running $SERVICE tests..."
 CONTAINER_NAME="$SERVICE-github-actions"
 
