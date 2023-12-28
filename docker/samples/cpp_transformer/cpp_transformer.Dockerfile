@@ -10,7 +10,7 @@ COPY src/samples/cpp/transformer transformer
 COPY src/wato_msgs/sample_msgs sample_msgs
 
 # Scan for rosdeps
-RUN sudo apt-get -qq update && rosdep update --rosdistro noetic && \
+RUN apt-get -qq update && rosdep update --rosdistro noetic && \
     rosdep install --from-paths . --ignore-src -r -s \
         | grep 'apt-get install' \
         | awk '{print $3}' \
@@ -20,12 +20,12 @@ RUN sudo apt-get -qq update && rosdep update --rosdistro noetic && \
 FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
-COPY --chown=${USER}:${USER} --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
-COPY --chown=${USER}:${USER} --from=source ${AMENT_WS}/src src
+COPY --from=source ${AMENT_WS}/src src
 
 # Dependency Cleanup
 WORKDIR /
@@ -34,12 +34,10 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 
 ################################ Build ################################
 FROM dependencies as build
-USER ${USER}
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    sudo chown -R $USER:$USER ${AMENT_WS} && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
@@ -50,6 +48,10 @@ ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build as prod
+
+# Switching users, giving ownership only of the ament_ws
+USER ${USER}
+RUN sudo chown -R $USER:$USER ${AMENT_WS}
 
 # Source Cleanup and Security Sanitation
 RUN sudo rm -rf src/* /usr/local/bin/fixuid /etc/fixuid
