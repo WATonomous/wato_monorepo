@@ -3,7 +3,7 @@ version: "3.8"
 x-fixuid: &fixuid
   build:
     target: build
-  user: ${FIXUID:?}:${FIXGID:?}
+  user: ${UID:?}:${GID:?}
 
 services:
   cpp_aggregator:
