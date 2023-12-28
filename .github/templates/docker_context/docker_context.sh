@@ -6,7 +6,7 @@ set -e
 # dynamically builds a json matrix for downstream CI build and testing
 
 # Find docker compose files in 'modules' directory
-modules=$(find modules -name "docker-compose*")
+modules=$(find modules -maxdepth 1 -name "docker-compose*")
 
 # Initialize an empty array for JSON objects
 json_objects=()
