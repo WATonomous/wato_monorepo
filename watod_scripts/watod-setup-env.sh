@@ -119,7 +119,7 @@ echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$MODULES_DIR/.env"
 echo "TAG=$TAG" >> "$MODULES_DIR/.env"
 
 echo "SETUID=$SETUID" >> "$MODULES_DIR/.env"
-echo "SETUID=$SETUID" >> "$MODULES_DIR/.env"
+echo "SETGID=$SETGID" >> "$MODULES_DIR/.env"
 
 echo "BASE_PORT=$BASE_PORT" >> "$MODULES_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$MODULES_DIR/.env"
