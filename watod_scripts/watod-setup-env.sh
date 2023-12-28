@@ -89,8 +89,8 @@ RADAR_OBJECT_DETECTION_IMAGE=${RADAR_OBJECT_DETECTION_IMAGE:-"$REGISTRY_URL/rada
 
 ## -------------------------- User ID -----------------------------
 
-UID=$(id -u) 
-GID=$(id -g) 
+SETUID=$(id -u) 
+SETGID=$(id -g) 
 
 ## --------------------------- Ports ------------------------------
 
@@ -118,8 +118,8 @@ echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$MODULES_DIR/.env"
 
 echo "TAG=$TAG" >> "$MODULES_DIR/.env"
 
-echo "UID=$UID" >> "$MODULES_DIR/.env"
-echo "GID=$GID" >> "$MODULES_DIR/.env"
+echo "SETUID=$SETUID" >> "$MODULES_DIR/.env"
+echo "SETUID=$SETUID" >> "$MODULES_DIR/.env"
 
 echo "BASE_PORT=$BASE_PORT" >> "$MODULES_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$MODULES_DIR/.env"

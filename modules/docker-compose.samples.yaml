@@ -8,6 +8,7 @@ services:
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:${TAG}"
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:main"
       target: prod
+    user: ${SETUID:?}:${SETUID:?}
     image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
@@ -45,6 +46,7 @@ services:
         - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
         - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:main"
       target: prod
+    user: ${SETUID:?}:${SETUID:?}
     image: "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
@@ -70,6 +72,7 @@ services:
         - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
         - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:main"
       target: prod
+    user: ${SETUID:?}:${SETUID:?}
     image: "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
