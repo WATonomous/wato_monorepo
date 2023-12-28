@@ -43,10 +43,13 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# Build Cleanup
-RUN rm -rf src/*
-
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 ENTRYPOINT ["/home/docker/wato_ros_entrypoint.sh"]
+
+################################ Prod ################################
+FROM build as prod
+
+# Source Cleanup and Security Sanitation
+RUN sudo rm -rf src/* /usr/local/bin/fixuid /etc/fixuid

@@ -91,7 +91,6 @@ fi
 if [ ! -z $DEVEL ]; then
     MODULES_DIR="$MONO_DIR/modules/dev_overrides"
     export MODULES_DIR_EXP="$MODULES_DIR"
-    echo "hi"
 fi
 
 # generate .env file from watod_scripts/watod-setup-env.sh

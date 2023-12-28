@@ -98,14 +98,30 @@ jobs:
           file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
-            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
           cache-from: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.TARGET_BRANCH }}
+          cache-to: type=inline
+          builder: ${{ steps.buildx.outputs.name }}
+          target: build
+
+      - name: Build Prod Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+          cache-from: |
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.TARGET_BRANCH }}
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
-          target: build 
+          target: prod
 
       - name: Run testing suite
         uses: "./.github/templates/test"

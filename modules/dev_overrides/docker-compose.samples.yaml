@@ -1,9 +1,10 @@
 version: "3.8"
 
 x-fixuid: &fixuid
+  build:
+    target: build
   user: ${FIXUID:?}:${FIXGID:?}
-  entrypoint: |
-    /bin/bash -c "/usr/local/bin/fixuid && /home/docker/wato_ros_entrypoint.sh"
+  entrypoint: /usr/local/bin/fixuid /home/docker/wato_ros_entrypoint.sh
 
 services:
   cpp_aggregator:
@@ -11,6 +12,7 @@ services:
     extends:
       file: ../docker-compose.samples.yaml
       service: cpp_aggregator
+    command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/samples/cpp/aggregator:/home/docker/ament_ws/src/aggregator
 
@@ -35,6 +37,7 @@ services:
     extends:
       file: ../docker-compose.samples.yaml
       service: py_producer
+    command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/samples/python/producer:/home/docker/ament_ws/src/producer
 
@@ -51,5 +54,6 @@ services:
     extends:
       file: ../docker-compose.samples.yaml
       service: py_transformer
+    command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/samples/python/transformer:/home/docker/ament_ws/src/transformer
