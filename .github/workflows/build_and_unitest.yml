@@ -101,6 +101,7 @@ jobs:
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
           cache-from: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.TARGET_BRANCH }}
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
