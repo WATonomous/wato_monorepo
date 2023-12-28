@@ -4,7 +4,6 @@ x-fixuid: &fixuid
   build:
     target: build
   user: ${FIXUID:?}:${FIXGID:?}
-  entrypoint: /usr/local/bin/fixuid /home/docker/wato_ros_entrypoint.sh
 
 services:
   cpp_aggregator:
