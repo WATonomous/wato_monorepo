@@ -9,7 +9,7 @@ bash watod -dev pull "$SERVICE"
 bash watod -dev run -d --name "$CONTAINER_NAME" "$SERVICE" tail -f /dev/null
 
 # Run tests for ros2 packages, on failure script will exit with error message
-docker exec "$CONTAINER_NAME" /bin/bash -c "source ~/.bashrc; colcon test; colcon test-result --verbose"
+docker exec "$CONTAINER_NAME" /bin/bash -c "; colcon test; colcon test-result --verbose"
 
 docker stop "$CONTAINER_NAME"
 docker rm "$CONTAINER_NAME"

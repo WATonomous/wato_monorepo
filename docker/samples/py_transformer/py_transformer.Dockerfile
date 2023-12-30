@@ -43,7 +43,6 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
-COPY docker/.bashrc ${AMENT_WS}/.bashrc
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################

@@ -30,3 +30,6 @@ RUN apt-get -qq update && \
     echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
     echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
     echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections
+
+# sources ament_ws automatically when we start a terminal inside the container
+RUN echo "source /home/$USER/ament_ws/install/setup.bash" >> ~/.bashrc
