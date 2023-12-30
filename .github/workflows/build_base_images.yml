@@ -46,7 +46,7 @@ jobs:
 
   build:
     name: Build Base Images
-    if: contains('fromJSON(needs.base-matrix-prep.outputs.auth_users)', github.actor)
+    if: contains('fromJSON(base-matrix-prep.outputs.auth_users)', github.actor)
     runs-on: ubuntu-latest
     needs: [ setup-environment, base-matrix-prep ]
 
