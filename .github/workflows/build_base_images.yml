@@ -2,9 +2,6 @@ name: Build Monorepo Base Images
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   setup-environment:
@@ -38,12 +35,16 @@ jobs:
       - id: set-matrix
         run: |
           MATRIX=$(jq -c . .github/include/base_image_config.json)
+          AUTH_USERS=$(jq -c . .github/include/base_image_auth.json)
 
           echo "Base Image Matrix: $MATRIX"
+          echo "Authorized Users to Build Base Images: $AUTH_USERS"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "auth_users=$AUTH_USERS" >> $GITHUB_OUTPUT
 
   build:
     name: Build Base Images
+    if: contains('${{ fromJSON(needs.base-matrix-prep.outputs.auth_users) }}', github.actor)
     runs-on: ubuntu-latest
     needs: [ setup-environment, base-matrix-prep ]
 
