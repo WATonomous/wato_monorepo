@@ -43,7 +43,6 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
-COPY docker/.bashrc ${AMENT_WS}/.bashrc
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
@@ -54,4 +53,4 @@ USER ${USER}
 RUN sudo chown -R $USER:$USER ${AMENT_WS}
 
 # Source Cleanup and Security Sanitation
-RUN sudo rm -rf src/* /usr/local/bin/fixuid /etc/fixuid
+RUN sudo rm -rf src/*
