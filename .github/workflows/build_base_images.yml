@@ -28,11 +28,13 @@ jobs:
     name: Prepare Base Image Matrix JSON
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.prep.outputs.matrix }}
+      auth_users: ${{ steps.prep.outputs.auth_users }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-      - id: set-matrix
+      - name: Setup Base Image Matrix and Auth
+        id: prep
         run: |
           MATRIX=$(jq -c . .github/include/base_image_config.json)
           AUTH_USERS=$(jq -c . .github/include/base_image_auth.json)
