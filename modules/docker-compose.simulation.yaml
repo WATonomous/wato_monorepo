@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  carla_sim:
+    build:
+      context: ..
+      dockerfile: docker/perception/carla_sim/carla_sim.Dockerfile
+      cache_from:
+        - "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_IMAGE:?}:main"
+      target: prod
+    image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
+    command: /bin/bash -c "ros2 launch carla_sim carla_sim.launch.py"
