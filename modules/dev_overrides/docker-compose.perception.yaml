@@ -12,4 +12,58 @@ services:
       service: camera_object_detection
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src:/home/bolty/ament_ws/src
+      - ${MONO_DIR}/src/perception/camera_object_detection:/home/bolty/ament_ws/src/camera_object_detection
+
+  lidar_object_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: lidar_object_detection
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/lidar_object_detection:/home/bolty/ament_ws/src/lidar_object_detection
+
+  traffic_light_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: traffic_light_detection
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/traffic_light_detection:/home/bolty/ament_ws/src/traffic_light_detection
+
+  traffic_sign_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: traffic_sign_detection
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/traffic_sign_detection:/home/bolty/ament_ws/src/traffic_sign_detection
+
+  semantic_segmentation:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: semantic_segmentation
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/semantic_segmentation:/home/bolty/ament_ws/src/semantic_segmentation
+
+  lane_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: lane_detection
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/lane_detection:/home/bolty/ament_ws/src/lane_detection
+
+  tracking:
+    <<: *fi
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: tracking
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/tracking:/home/bolty/ament_ws/src/tracking

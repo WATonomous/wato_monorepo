@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  sensor_interfacing:
+    build:
+      context: ..
+      dockerfile: docker/action/sensor_interfacing/sensor_interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_SENSOR_IMAGE}:${TAG}"
+        - "${INTERFACING_SENSOR_IMAGE}:main"
+      target: prod
+    image: "${INTERFACING_SENSOR_IMAGE}:${TAG}"
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+    command: /bin/bash -c "ros2 launch sensor_interfacing sensor_interfacing.launch.py"
+
+  can_interfacing:
+    build:
+      context: ..
+      dockerfile: docker/action/can_interfacing/can_interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_CAN_IMAGE}:${TAG}"
+        - "${INTERFACING_CAN_IMAGE}:main"
+      target: prod
+    image: "${INTERFACING_CAN_IMAGE}:${TAG}"
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+    command: /bin/bash -c "ros2 launch can_interfacing can_interfacing.launch.py"
