@@ -4,7 +4,7 @@ services:
   sensor_interfacing:
     build:
       context: ..
-      dockerfile: docker/action/sensor_interfacing/sensor_interfacing.Dockerfile
+      dockerfile: docker/interfacing/sensor_interfacing/sensor_interfacing.Dockerfile
       cache_from:
         - "${INTERFACING_SENSOR_IMAGE}:${TAG}"
         - "${INTERFACING_SENSOR_IMAGE}:main"
@@ -17,7 +17,7 @@ services:
   can_interfacing:
     build:
       context: ..
-      dockerfile: docker/action/can_interfacing/can_interfacing.Dockerfile
+      dockerfile: docker/interfacing/can_interfacing/can_interfacing.Dockerfile
       cache_from:
         - "${INTERFACING_CAN_IMAGE}:${TAG}"
         - "${INTERFACING_CAN_IMAGE}:main"

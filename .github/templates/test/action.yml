@@ -1,8 +1,8 @@
 name: Docker test
 
 inputs:
-  image:
-    description: "the image to be tested"
+  module:
+    description: "the module to be enabled"
     required: true
   service:
     description: "the service being tested"
@@ -18,5 +18,5 @@ runs:
       shell: bash
       env:
         TAG: build_${{ inputs.source_branch }}
-        IMAGE: ${{ inputs.image }}
+        ACTIVE_MODULES: ${{ inputs.module }}
         SERVICE: ${{ inputs.service }}
