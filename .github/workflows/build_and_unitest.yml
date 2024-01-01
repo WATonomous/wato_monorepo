@@ -62,7 +62,7 @@ jobs:
       - name: Construct Registry URL
         id: construct-registry-url
         run: |
-          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}_${{ matrix.service }}" \
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${{ matrix.service }}" \
           >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
