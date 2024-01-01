@@ -60,7 +60,7 @@ services:
       - ${MONO_DIR}/src/perception/lane_detection:/home/bolty/ament_ws/src/lane_detection
 
   tracking:
-    <<: *fi
+    <<: *fixuid
     extends:
       file: ../docker-compose.perception.yaml
       service: tracking
