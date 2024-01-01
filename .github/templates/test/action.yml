@@ -15,7 +15,7 @@ runs:
   using: "composite"
   steps:
     - run: ${{ github.action_path }}/test_image.sh
-      if: contains(["interfacing", "perception", "world_modeling", "action", "samples"], inputs.module)
+      if: contains(["interfacing", "perception", "world_modeling", "action", "samples"], ${{ inputs.module }})
       shell: bash
       env:
         TAG: build_${{ inputs.source_branch }}
