@@ -5,9 +5,21 @@ services:
       context: ..
       dockerfile: docker/perception/radar_object_detection/radar_object_detection.Dockerfile
       cache_from: 
-        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-        - "${RADAR_OBJECT_DETECTION_IMAGE:?}:main"
-    image: "${RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    user: ${SETUID:?}:${SETGID:?}
+        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:main"
+    image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     volumes:
       - ../src/perception/radar_object_detection:/home/docker/ament_ws/src/radar_object_detection
+
+  camera_object_detection:
+    build:
+      context: ..
+      dockerfile: docker/perception/camera_object_detection/camera_object_detection.Dockerfile
+      cache_from:
+        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:main"
+      target: prod
+    image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
+    command: /bin/bash -c "ros2 launch camera_object_detection camera_object_detection.launch.py"
