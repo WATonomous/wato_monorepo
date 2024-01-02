@@ -15,7 +15,6 @@ runs:
   using: "composite"
   steps:
     - run: ${{ github.action_path }}/test_image.sh
-      if: ${{ inputs.modules != "infrastructure" || inputs.modules != "simulation" }}
       shell: bash
       env:
         TAG: build_${{ inputs.source_branch }}
