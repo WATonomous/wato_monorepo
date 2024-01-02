@@ -1,0 +1,19 @@
+name: Generate GitHub Environment
+
+outputs:
+  source_branch:
+    description: "branch we are currently on"
+    value: ${{ steps.environment-generator.outputs.source_branch }}
+  target_branch:
+    description: "branch we are trying to merge into"
+    value: ${{ steps.environment-generator.outputs.target_branch }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: environment-generator
+      run: ${{ github.action_path }}/branch_sanitation.sh
+      shell: bash
+      env:
+        SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
+        TARGET_BRANCH: ${{ github.base_ref }}
