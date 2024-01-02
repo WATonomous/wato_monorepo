@@ -4,7 +4,7 @@ Information about the Monorepo
 
 ## About
 
-The repository is to serve as a single source of truth for all development and production code that we use in WATonomous. The main goal is to simplify remote development for WATonomous members and to provide a seamless and intuitive environment even for less experienced members. As such, if you have any suggestions or questions about this repository, please bring them up in Discord in #infrastructure-general or message @Eddy Zhou (Edwardius#5487). 
+This repository is to serve as a single source of truth for all development and production code that we use in WATonomous AV. The main goal is to simplify remote development for WATonomous members and to provide a seamless and intuitive environment even for less experienced members. As such, if you have any suggestions or questions about this repository, please bring them up in Discord in #infrastructure-general or message an ASD Lead. 
 
 The second goal is to provide a reproducable and lightweight environment that is shared for both development and production. Using this environment code developed with our simulators will reflect the behaviour of the code in the final car. See the Technical Specification FAQ for more details about how and why we have set up this repository as it is.
 
@@ -17,6 +17,8 @@ A monorepo's primary advantage is that each commit hash is a complete source of 
 Using a monorepo also allows for more collaboration between the teams. The Perception team can easily see what the Path Planning team is working on and make modifications or improvements to code outside of their specific domain. This allows for flexible code ownership. Motivating this further, changes to the API of a specific component often require changes to many other modules. Instead of having to synchronize multiple merge requests across multiple repositories, all code review can be done in one place and is visible by all teams. 
 
 Monorepos also make [Continuous Integration](https://en.wikipedia.org/wiki/Continuous_integration) easier. In a nutshell, continuous integration (CI) is the process of regularly and automatically collecting the all code in one place to run automated unit tests, integration tests, compilation tests, and continuous deployment (automatically deploying to users, CI/CD). CI ensures that work done by developers will not diverge over time. CI also ensures a baseline level of code quality through regular testing.  With a monorepo, we have a single place to implement unit testing and CI scripts instead of them being dispersed across multiple repositories. Aggregating code is also significantly easier.
+
+Some more info, monorepos are great for [Trunk Development](https://trunkbaseddevelopment.com/).
 
 ## Why Docker?, What is Docker Compose?
 
