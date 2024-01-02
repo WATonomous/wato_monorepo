@@ -8,9 +8,11 @@ services:
       cache_from: 
         - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
         - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:main"
+      target: prod
     image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    volumes:
-      - ../src/perception/radar_object_detection:/home/docker/ament_ws/src/radar_object_detection
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
+    command: /bin/bash -c "ros2 launch radar_object_detection radar_object_detection.launch.py"
 
   camera_object_detection:
     build:
