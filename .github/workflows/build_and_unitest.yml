@@ -77,6 +77,7 @@ jobs:
           password: ${{ secrets.GHCR_PWD }}
 
       - name: Prepare Image Source
+        if: ${{ ! matrix.module == infrastructure }}
         uses: docker/build-push-action@v5
         with:
           context: .
