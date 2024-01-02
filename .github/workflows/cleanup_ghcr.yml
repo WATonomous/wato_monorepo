@@ -1,0 +1,40 @@
+name: Periodically Cleanup Monorepo GHCR Images
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # everyday at midnight
+
+jobs:
+  clean-ghcr:
+    name: Delete old unused container images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete 'source' containers older than a week
+        uses: snok/container-retention-policy@v2
+        with:
+          image-names: wato_monorepo/*
+          filter-tags: "source_*"
+          cut-off: A week ago UTC
+          account-type: org
+          org-name: WATonomous
+          token: ${{ secrets.PAT }}
+
+      - name: Delete 'build' containers older than a month
+        uses: snok/container-retention-policy@v2
+        with:
+          image-names: wato_monorepo/*
+          filter-tags: "build_*"
+          cut-off: One month ago UTC
+          account-type: org
+          org-name: WATonomous
+          token: ${{ secrets.PAT }}
+
+      - name: Delete all containers older than 3 months, excluding releases
+        uses: snok/container-retention-policy@v2
+        with:
+          image-names: wato_monorepo/*
+          skip-tags: "v*.*.*"
+          cut-off: Three months ago UTC
+          account-type: org
+          org-name: WATonomous
+          token: ${{ secrets.PAT }}

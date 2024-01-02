@@ -1,0 +1,119 @@
+{ "include":
+[
+    {
+        "tag": "humble-ubuntu22.04",
+        "external_image": "ubuntu:22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+
+
+
+
+
+    {
+        "tag": "cuda11.0-foxy-ubuntu20.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.0.3-runtime-ubuntu20.04",
+        "injections": {
+            "ros2": "foxy"
+        }
+    },
+    {
+        "tag": "cuda11.2-foxy-ubuntu20.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.2.2-runtime-ubuntu20.04",
+        "injections": {
+            "ros2": "foxy"
+        }
+    },
+    {
+        "tag": "cuda11.4-foxy-ubuntu20.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.4.3-runtime-ubuntu20.04",
+        "injections": {
+            "ros2": "foxy"
+        }
+    },
+    {
+        "tag": "cuda11.7-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.7.1-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+    {
+        "tag": "cuda11.8-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.8.0-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+    {
+        "tag": "cuda12.0-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:12.0.0-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+    {
+        "tag": "cuda12.2-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:12.2.2-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+
+
+
+
+
+    {
+        "tag": "cuda11.0-cudnn8-foxy-ubuntu20.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.0.3-cudnn8-runtime-ubuntu20.04",
+        "injections": {
+            "ros2": "foxy"
+        }
+    },
+    {
+        "tag": "cuda11.2-cudnn8-foxy-ubuntu20.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.2.2-cudnn8-runtime-ubuntu20.04",
+        "injections": {
+            "ros2": "foxy"
+        }
+    },
+    {
+        "tag": "cuda11.4-cudnn8-foxy-ubuntu20.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.4.3-cudnn8-runtime-ubuntu20.04",
+        "injections": {
+            "ros2": "foxy"
+        }
+    },
+    {
+        "tag": "cuda11.7-cudnn8-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.7.1-cudnn8-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+    {
+        "tag": "cuda11.8-cudnn8-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+    {
+        "tag": "cuda12.0-cudnn8-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:12.0.0-cudnn8-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    },
+    {
+        "tag": "cuda12.2-cudnn8-humble-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04",
+        "injections": {
+            "ros2": "humble"
+        }
+    }
+]
+}

@@ -1,0 +1,19 @@
+name: Generate Docker Environment
+
+outputs:
+  docker_matrix:
+    description: "list of docker compose services"
+    value: ${{ steps.environment-generator.outputs.docker_matrix }}
+  registry:
+    description: "name of the docker registry we are using"
+    value: ${{ steps.environment-generator.outputs.registry }}
+  repository:
+    description: "name of the docker repository we are using"
+    value: ${{ steps.environment-generator.outputs.repository }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: environment-generator
+      run: ${{ github.action_path }}/docker_context.sh
+      shell: bash

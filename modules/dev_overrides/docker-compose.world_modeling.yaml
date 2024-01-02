@@ -1,0 +1,51 @@
+version: "3.8"
+
+x-fixuid: &fixuid
+  build:
+    target: build
+
+services:
+  hd_map:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.world_modeling.yaml
+      service: hd_map
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/hd_map
+
+  localization:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.world_modeling.yaml
+      service: localization
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/localization
+
+  occupancy:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.world_modeling.yaml
+      service: occupancy
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/occupancy
+
+  occupancy_segmentation:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.world_modeling.yaml
+      service: occupancy_segmentation
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/occupancy_segmentation
+
+  motion_forecasting:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.world_modeling.yaml
+      service: motion_forecasting
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/motion_forecasting
