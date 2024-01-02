@@ -122,7 +122,7 @@ SETGID=$(id -g)
 
 BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT++))}
-FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT++))}
+FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((GUI_TOOLS_VNC_PORT++))}
 
 ## -------------------- Export Environment Variables -------------------------
 
