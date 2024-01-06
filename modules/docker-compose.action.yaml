@@ -8,7 +8,7 @@ services:
       cache_from:
         - "${ACTION_GLOBAL_PLANNING_IMAGE}:${TAG}"
         - "${ACTION_GLOBAL_PLANNING_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${ACTION_GLOBAL_PLANNING_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -21,7 +21,7 @@ services:
       cache_from:
         - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:${TAG}"
         - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -34,7 +34,7 @@ services:
       cache_from:
         - "${ACTION_LOCAL_PLANNING_IMAGE}:${TAG}"
         - "${ACTION_LOCAL_PLANNING_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${ACTION_LOCAL_PLANNING_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -47,7 +47,7 @@ services:
       cache_from:
         - "${ACTION_MPC_IMAGE}:${TAG}"
         - "${ACTION_MPC_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${ACTION_MPC_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json

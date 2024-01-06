@@ -8,7 +8,7 @@ services:
       cache_from:
         - "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
         - "${SIMULATION_CARLA_IMAGE:?}:main"
-      target: prod
+      target: deploy
     image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
