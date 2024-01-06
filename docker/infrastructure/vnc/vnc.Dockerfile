@@ -33,7 +33,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as prod
+FROM build as deploy
 
 RUN apt-get update -y && apt-get install -y wget curl gdb supervisor
 EXPOSE 5900

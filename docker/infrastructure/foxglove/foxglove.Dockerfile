@@ -60,11 +60,10 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as prod
+FROM build as deploy
 
-# Switching users, giving ownership only of the ament_ws
+# Source Cleanup and Security Setup
+RUN chown -R $USER:$USER ${AMENT_WS}
+RUN rm -rf src/*
+
 USER ${USER}
-RUN sudo chown -R $USER:$USER ${AMENT_WS}
-
-# Source Cleanup and Security Sanitation
-RUN sudo rm -rf src/*
