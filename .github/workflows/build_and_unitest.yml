@@ -76,7 +76,7 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_PWD }}
 
-      - name: Prepare Image Source
+      - name: Prepare Image Dependencies
         if: ${{ matrix.module != 'infrastructure' }}
         uses: docker/build-push-action@v5
         with:
@@ -90,9 +90,9 @@ jobs:
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.TARGET_BRANCH }}
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
-          target: source
+          target: dependencies
 
-      - name: Build Image with Source
+      - name: Build Image from Source
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -108,7 +108,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           target: build
 
-      - name: Build Prod Image
+      - name: Security Sanitation for Deployment
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -122,7 +122,7 @@ jobs:
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.TARGET_BRANCH }}
           cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
-          target: prod
+          target: deploy
 
       - name: Run testing suite
         uses: "./.github/templates/test"

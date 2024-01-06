@@ -113,3 +113,4 @@ jobs:
           target: wato_base
           build-args: | 
             GENERIC_IMAGE=${{ steps.construct-registry-url.outputs.url }}_generic
+            USER_PASSWD=${{ secrets.MONOREPO_PASSWD }}

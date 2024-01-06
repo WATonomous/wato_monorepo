@@ -8,7 +8,7 @@ services:
       cache_from:
         - "${WORLD_MODELING_HD_MAP_IMAGE}:${TAG}"
         - "${WORLD_MODELING_HD_MAP_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${WORLD_MODELING_HD_MAP_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -21,7 +21,7 @@ services:
       cache_from:
         - "${WORLD_MODELING_LOCALIZATION_IMAGE}:${TAG}"
         - "${WORLD_MODELING_LOCALIZATION_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${WORLD_MODELING_LOCALIZATION_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -34,7 +34,7 @@ services:
       cache_from:
         - "${WORLD_MODELING_OCCUPANCY_IMAGE}:${TAG}"
         - "${WORLD_MODELING_OCCUPANCY_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${WORLD_MODELING_OCCUPANCY_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -47,7 +47,7 @@ services:
       cache_from:
         - "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:${TAG}"
         - "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -60,7 +60,7 @@ services:
       cache_from:
         - "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:${TAG}"
         - "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json

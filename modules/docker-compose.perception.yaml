@@ -8,7 +8,7 @@ services:
       cache_from: 
         - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
         - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
@@ -21,7 +21,7 @@ services:
       cache_from:
         - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
         - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
@@ -34,7 +34,7 @@ services:
       cache_from:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -47,7 +47,7 @@ services:
       cache_from:
         - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
         - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -60,7 +60,7 @@ services:
       cache_from:
         - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
         - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -73,7 +73,7 @@ services:
       cache_from:
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -86,7 +86,7 @@ services:
       cache_from:
         - "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
         - "${PERCEPTION_LANE_DETECTION_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
@@ -99,7 +99,7 @@ services:
       cache_from:
         - "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
         - "${PERCEPTION_TRACKING_IMAGE}:main"
-      target: prod
+      target: deploy
     image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
