@@ -31,9 +31,8 @@ ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 ################################ Prod ################################
 FROM build as prod
 
-# Switching users, giving ownership only of the ament_ws
-USER ${USER}
-RUN sudo chown -R $USER:$USER ${AMENT_WS}
+# Source Cleanup and Security Setup
+RUN chown -R $USER:$USER ${AMENT_WS}
+RUN rm -rf src/*
 
-# Source Cleanup and Security Sanitation
-RUN sudo rm -rf src/*
+USER ${USER}
