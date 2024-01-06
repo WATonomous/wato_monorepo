@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y curl sudo && \
 # Add a user so that created files in the docker container are owned by a non-root user (for prod)
 ARG USER_PASSWD
 RUN addgroup --gid 1000 ${USER} && \
-    useradd -rm -d /home/${USER} -s /bin/bash -g ${USER} -u 1000 ${USER} -p "$(openssl passwd -6 $USER_PASSWD)"
+    useradd -rm -d /home/${USER} -s /bin/bash -g ${USER} -G sudo -u 1000 ${USER} -p "$(openssl passwd -6 $USER_PASSWD)"
 
 # install apt-fast
 RUN apt-get -qq update && \
