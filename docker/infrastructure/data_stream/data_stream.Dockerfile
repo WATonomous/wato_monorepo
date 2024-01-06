@@ -29,7 +29,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as prod
+FROM build as deploy
 
 # Source Cleanup and Security Setup
 RUN chown -R $USER:$USER ${AMENT_WS}

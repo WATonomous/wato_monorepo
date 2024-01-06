@@ -89,6 +89,7 @@ if [[ $# -gt 0 ]]; then
 fi
 
 if [ ! -z $DEVEL ]; then
+    echo "DEVELOPER MODE ACTIVATED: Source files have been mounted within /home/bolty when you enter the container"
     MODULES_DIR="$MONO_DIR/modules/dev_overrides"
     export MODULES_DIR_EXP="$MODULES_DIR"
 fi
