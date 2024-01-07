@@ -4,12 +4,12 @@ x-fixuid: &fixuid
   build:
     target: build
 
-services:
-  carla_sim:
-    <<: *fixuid
-    extends:
-      file: ../docker-compose.simulation.yaml
-      service: carla_sim
-    command: tail -F anything
-    volumes:
-      - ${MONO_DIR}/src/simulation/carla_sim:/home/bolty/ament_ws/src/carla_sim
+# services:
+#   carla_sim:
+#     <<: *fixuid
+#     extends:
+#       file: ../docker-compose.simulation.yaml
+#       service: carla_sim
+#     command: tail -F anything
+#     volumes:
+#       - ${MONO_DIR}/src/simulation/carla_sim:/home/bolty/ament_ws/src/carla_sim

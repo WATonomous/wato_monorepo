@@ -4,10 +4,20 @@ services:
   carla_sim:
     build:
       context: ..
-      dockerfile: docker/perception/carla_sim/carla_sim.Dockerfile
+      dockerfile: docker/simulation/carla_sim/carla_sim.Dockerfile
       cache_from:
-        - "${SIMULATION_CARLA_IMAGE:?}:build_${TAG}"
-        - "${SIMULATION_CARLA_IMAGE:?}:build_main"
-      target: deploy
-    image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}" 
-    command: /bin/bash -c "ros2 launch carla_sim carla_sim.launch.py"
+        - "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_IMAGE:?}:main"
+      target: build
+      args:
+        - CARLA_VERSION=0.9.13
+    image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
+    environment:
+      - DISPLAY=1
+      - CUDA_VISIBLE_DEVICES=0,1,2
+      - NVIDIA_VISIBLE_DEVICES=0,1,2
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
+    runtime: nvidia
+    restart: always
+    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
