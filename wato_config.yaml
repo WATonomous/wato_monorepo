@@ -1,0 +1,51 @@
+############################ ACTIVE MODULE CONFIGURATION #############################
+#                                                                                    #
+# Dict of active modules to run, defined in docker-compose.yaml files in the modules #
+# dir.                                                                               #
+#                                                                                    #
+######################################################################################
+
+infrastructure: # for visualization tools (foxglove and/or vnc, and streaming rosbags)
+  activate: false
+  profile: default
+  devel_mode: false
+
+perception:     # for generating the car's interpretation of sensory information 
+  activate: false
+  profile: default
+  devel_mode: false
+
+world_modeling: # for building the car's inner understanding of the world
+  activate: false
+  profile: default
+  devel_mode: false
+
+action:         # for making the car's decisions and movements
+  activate: false
+  profile: default
+  devel_mode: false
+
+simulation:     # for running the car in simulation
+  activate: false
+  profile: default
+  devel_mode: false
+
+interfacing:    # for running the car in real life (connect to sensors and CAN bus)
+  activate: false
+  profile: default
+  devel_mode: false
+
+samples:        # runs sample nodes (producer, aggregator, and transformer)
+  activate: false
+  profile: default
+  devel_mode: false
+
+############################### DOCKER CONFIGURATION ################################
+#                                                                                   #
+# Dict of exposed docker configurations that you can freely change. (Optional)      #
+#                                                                                   #
+#####################################################################################
+
+compose_project_name: # prepended name to your docker container, defaults to your username
+
+docker_image_tag:     # sets image tag, defaults to the branch you are on
