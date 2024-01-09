@@ -9,7 +9,7 @@ WORKDIR ${AMENT_WS}/src
 COPY src/wato_msgs wato_msgs
 
 # Scan for rosdeps
-RUN apt-get -qq update && rosdep update --rosdistro noetic && \
+RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | grep 'apt-get install' \
         | awk '{print $3}' \
