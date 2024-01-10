@@ -8,7 +8,6 @@ services:
       cache_from:
         - "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
         - "${SIMULATION_CARLA_IMAGE:?}:main"
-      target: build
       args:
         - CARLA_VERSION=0.9.13
     image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
@@ -21,3 +20,21 @@ services:
     runtime: nvidia
     restart: always
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
+    
+  carla_ros_bridge:
+    build:
+      context: ..
+      dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
+      cache_from:
+        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:main"
+      target: deploy
+      args:
+        - CARLA_VERSION=0.9.13
+    image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
+    environment:
+      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+      - USE_ACKERMANN_CONTROL=False
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
