@@ -1,0 +1,3 @@
+traffc_light_detection_node:
+  ros__parameters:
+    version: 1
