@@ -6,9 +6,9 @@ from sensor_msgs.msg import Image, CompressedImage
 
 
 from ultralytics.nn.autobackend import AutoBackend
-from ultralytics.yolo.data.augment import LetterBox
-from ultralytics.yolo.utils.ops import non_max_suppression
-from ultralytics.yolo.utils.plotting import Annotator, colors
+from ultralytics.data.augment import LetterBox
+from ultralytics.utils.ops import non_max_suppression
+from ultralytics.utils.plotting import Annotator, colors
 
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from common_msgs.msg import Obstacle, ObstacleList
