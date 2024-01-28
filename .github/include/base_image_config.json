@@ -61,6 +61,14 @@
             "ros2": "humble"
         }
     },
+    {
+        "tag": "cuda12.2-humble-tensorrt-ubuntu22.04",
+        "external_image": "nvcr.io/nvidia/tensorrt:23.09-py3",
+        "injections": {
+            "ros2": "humble",
+            "opencv": "4.5.4"
+        }
+    },
 
 
 
