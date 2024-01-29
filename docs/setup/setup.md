@@ -45,7 +45,7 @@ WATonomous takes advantage of dev containers to do development. In a nutshell, t
 We recommend you add `~/wato_monorepo/` to your `$PATH` variable so that you can run `watod` from anywhere on your computer, not just in your `~/wato_monorepo` directory and add `watod-completion.bash` to your bashrc to enable tab autocomplete:
 ```bash
 echo "export PATH=\$PATH:\$HOME/wato_monorepo/" >> ~/.bashrc
-echo "source ~/wato_monorepo/scripts/watod-completion.bash" >> ~/.bashrc
+echo "source ~/wato_monorepo/watod_scripts/watod-completion.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 It also has the added bonus of letting you type `watod` instead of `./watod` :)
