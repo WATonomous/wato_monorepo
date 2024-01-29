@@ -10,7 +10,7 @@ COPY src/perception/radar_object_detection radar_object_detection
 COPY src/wato_msgs/radar_msgs radar_msgs
 
 # Scan for rosdeps
-RUN apt-get -qq update && rosdep update --rosdistro noetic && \
+RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | grep 'apt-get install' \
         | awk '{print $3}' \
