@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-devel-humble-ubuntu22.04
 
 ################################ Source ################################
 FROM ${BASE_IMAGE} as source
@@ -18,6 +18,23 @@ RUN apt-get -qq update && rosdep update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
+
+RUN apt-get update
+# Intall opencv
+RUN apt install -y libopencv-dev python3-opencv
+RUN export OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4/OpenCVConfig.cmake
+
+# Install TensorRT
+RUN apt install -y tensorrt
+
+RUN apt-get -y install nvidia-container-toolkit
+
+# Symlink for CUDA_TOOLKIT_ROOT_DIR
+RUN ln -s /usr/local/cuda-12.2 /usr/local/cuda
+
+ENV PATH /usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH /usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

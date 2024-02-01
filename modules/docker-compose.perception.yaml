@@ -1,85 +1,87 @@
 version: "3.8"
 
 services:
-  radar_object_detection:
-    build:
-      context: ..
-      dockerfile: docker/perception/radar_object_detection/radar_object_detection.Dockerfile
-      cache_from: 
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:main"
-      target: deploy
-    image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
-    command: /bin/bash -c "ros2 launch radar_object_detection radar_object_detection.launch.py"
+  # radar_object_detection:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/radar_object_detection/radar_object_detection.Dockerfile
+  #     cache_from: 
+  #       - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+  #       - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:main"
+  #     target: deploy
+  #   image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+  #   security_opt:
+  #     - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
+  #   command: /bin/bash -c "ros2 launch radar_object_detection radar_object_detection.launch.py"
 
-  camera_object_detection:
-    build:
-      context: ..
-      dockerfile: docker/perception/camera_object_detection/camera_object_detection.Dockerfile
-      cache_from:
-        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:main"
-      target: deploy
-    image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
-    command: /bin/bash -c "ros2 launch camera_object_detection camera_object_detection.launch.py"
+  # camera_object_detection:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/camera_object_detection/camera_object_detection.Dockerfile
+  #     cache_from:
+  #       - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+  #       - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:main"
+  #     target: deploy
+  #   image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+  #   security_opt:
+  #     - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
+  #   command: /bin/bash -c "ros2 launch camera_object_detection camera_object_detection.launch.py"
 
-  lidar_object_detection:
-    build:
-      context: ..
-      dockerfile: docker/perception/lidar_object_detection/lidar_object_detection.Dockerfile
-      cache_from:
-        - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
-      target: deploy
-    image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
-    command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
+  # lidar_object_detection:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/lidar_object_detection/lidar_object_detection.Dockerfile
+  #     cache_from:
+  #       - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
+  #       - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
+  #     target: deploy
+  #   image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
+  #   security_opt:
+  #     - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+  #   command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
 
-  traffic_light_detection:
-    build:
-      context: ..
-      dockerfile: docker/perception/traffic_light_detection/traffic_light_detection.Dockerfile
-      cache_from:
-        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
-      target: deploy
-    image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
-    command: /bin/bash -c "ros2 launch traffic_light_detection traffic_light_detection.launch.py"
+  # traffic_light_detection:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/traffic_light_detection/traffic_light_detection.Dockerfile
+  #     cache_from:
+  #       - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
+  #       - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
+  #     target: deploy
+  #   image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
+  #   security_opt:
+  #     - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+  #   command: /bin/bash -c "ros2 launch traffic_light_detection traffic_light_detection.launch.py"
 
-  traffic_sign_detection:
-    build:
-      context: ..
-      dockerfile: docker/perception/traffic_sign_detection/traffic_sign_detection.Dockerfile
-      cache_from:
-        - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:main"
-      target: deploy
-    image: "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
-    command: /bin/bash -c "ros2 launch traffic_sign_detection traffic_sign_detection.launch.py"
+  # traffic_sign_detection:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/traffic_sign_detection/traffic_sign_detection.Dockerfile
+  #     cache_from:
+  #       - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
+  #       - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:main"
+  #     target: deploy
+  #   image: "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
+  #   security_opt:
+  #     - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+  #   command: /bin/bash -c "ros2 launch traffic_sign_detection traffic_sign_detection.launch.py"
   
-  semantic_segmentation:
-    build:
-      context: ..
-      dockerfile: docker/perception/semantic_segmentation/semantic_segmentation.Dockerfile
-      cache_from:
-        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:main"
-      target: deploy
-    image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
-    command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
+  # semantic_segmentation:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/semantic_segmentation/semantic_segmentation.Dockerfile
+  #     cache_from:
+  #       - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
+  #       - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:main"
+  #     target: deploy
+  #   image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
+  #   security_opt:
+  #     - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+  #   command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
   
   lane_detection:
+    # add gpus all below
+
     build:
       context: ..
       dockerfile: docker/perception/lane_detection/lane_detection.Dockerfile
@@ -91,16 +93,24 @@ services:
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch lane_detection lane_detection.launch.py"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
   
-  tracking:
-    build:
-      context: ..
-      dockerfile: docker/perception/tracking/tracking.Dockerfile
-      cache_from:
-        - "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-        - "${PERCEPTION_TRACKING_IMAGE}:main"
-      target: deploy
-    image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
-    command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
+  # tracking:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/perception/tracking/tracking.Dockerfile
+  #     cache_from:
+  #       - "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
+  #       - "${PERCEPTION_TRACKING_IMAGE}:main"
+  #     target: deploy
+  #   image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
+  #   security_opt:
+  #     - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+  #   command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
