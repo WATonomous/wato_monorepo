@@ -20,7 +20,7 @@ public:
    * @param y same as above but for the y-coordinate
    * @param z same as above but for the z-coordinate
    */
-  explicit OccupancySegmentationCore(float x = 0, float y = 0, float z = 0);
+  // explicit OccupancySegmentationCore(float x = 0, float y = 0, float z = 0);
 
   /**
    * Modify the value of the velocity. Used by the OccupancySegmentation Node whenever
@@ -28,7 +28,7 @@ public:
    *
    * @param velocity the new value of the velocity
    */
-  void update_velocity(int velocity);
+  // void update_velocity(int velocity);
 
   /**
    * Modify the value of the starting position. This is not dynamically
@@ -38,12 +38,12 @@ public:
    * @param pos_y the starting value of the x-coordinate
    * @param pos_z the starting value of the x-coordinate
    */
-  void update_position(double pos_x, double pos_y, double pos_z);
+  // void update_position(double pos_x, double pos_y, double pos_z);
 
   /**
    * Use the velocity parameter to increment the coordinate values.
    */
-  void update_coordinates();
+  // void update_coordinates();
 
   /**
    * Converts coordinate data into a string representation of the form
@@ -51,18 +51,18 @@ public:
    *
    * @param[out] msg an unfiltered message with empty data field
    */
-  void serialize_coordinates(sample_msgs::msg::Unfiltered & msg) const;
+  // void serialize_coordinates(sample_msgs::msg::Unfiltered & msg) const;
 
 private:
   // Coordinate values
-  double pos_x_;
-  double pos_y_;
-  double pos_z_;
+  // double pos_x_;
+  // double pos_y_;
+  // double pos_z_;
 
   // Used to increment the value of coordinates on fixed time intervals.
-  double velocity_;
+  // double velocity_;
 };
 
-}  
+}
 
 #endif  // OCCUPANCY_SEGMENTATION_CORE_HPP_
