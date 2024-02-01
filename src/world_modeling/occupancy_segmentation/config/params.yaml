@@ -2,8 +2,3 @@
 # https://roboticsbackend.com/ros2-yaml-params/
 occupancy_segmentation_node:
   ros__parameters:
-    pos_x: 8.0
-    pos_y: 7.0
-    pos_z: 6.0
-
-    velocity: 5.0
