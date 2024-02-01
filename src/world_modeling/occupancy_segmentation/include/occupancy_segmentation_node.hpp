@@ -41,8 +41,8 @@ private:
    * @param parameters list of parameters (only velocity in this case) that were modified
    * @returns status message indicating whether update was successful
    */
-  rcl_interfaces::msg::SetParametersResult parameters_callback(
-    const std::vector<rclcpp::Parameter> & parameters);
+  // rcl_interfaces::msg::SetParametersResult parameters_callback(
+  //   const std::vector<rclcpp::Parameter> & parameters);
 
   // ROS2 publisher sending raw messages to the unfiltered topic.
   rclcpp::Publisher<sample_msgs::msg::Unfiltered>::SharedPtr data_pub_;
@@ -51,10 +51,10 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
 
   // Callback to dynamically modify node parameters.
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_;
+  // rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_;
 
   // occupancy_segmentation implementation containing logic for coordinate serialization and management.
-  world_modeling::OccupancySegmentationCore occupancy_segmentation_;
+  // world_modeling::OccupancySegmentationCore occupancy_segmentation_;
 };
 
 #endif  // PRODUCER_NODE_HPP_
