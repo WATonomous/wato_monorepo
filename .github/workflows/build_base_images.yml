@@ -106,5 +106,5 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           target: wato_base
           build-args: | 
-            GENERIC_IMAGE=${{ steps.construct-registry-url.outputs.url }}_generic
+            GENERIC_IMAGE=${{ matrix.injections.ros2 == '' && matrix.external_image || steps.construct-registry-url.outputs.url }}${{ matrix.injections.ros2 == '' && '' || '_generic' }}
             USER_PASSWD=${{ secrets.MONOREPO_PASSWD }}
