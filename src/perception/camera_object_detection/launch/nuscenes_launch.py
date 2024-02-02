@@ -19,7 +19,8 @@ def generate_launch_description():
         package='camera_object_detection',
         executable='camera_object_detection_node',
         name='camera_object_detection_node',
-        parameters=[config]
+        parameters=[config],
+        arguments=['--ros-args', '--log-level', 'info']
     )
 
     # finalize

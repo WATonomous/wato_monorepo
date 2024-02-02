@@ -172,7 +172,7 @@ class CameraDetectionNode(Node):
         return
 
     def listener_callback(self, msg):
-        self.get_logger().info('Received image')
+        self.get_logger().debug('Received image')
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
         for image in images:
@@ -215,7 +215,7 @@ class CameraDetectionNode(Node):
                                 "bbox": bbox,
                             }
                         )
-                        self.get_logger().info(f"{label}: {bbox}")
+                        self.get_logger().debug(f"{label}: {bbox}")
 
             annotator = Annotator(
                 processed_cv_image, line_width=self.line_thickness, example=str(
@@ -226,10 +226,9 @@ class CameraDetectionNode(Node):
 
             feed = ""  # Currently we support a single camera so we pass an empty string
             self.publish_vis(annotated_img, feed)
-            self.get_logger().info(f"Publishing detections before function call: {detections}")
             self.publish_detections(detections, msg, feed)
         # log time
-        self.get_logger().info(f"Finished in: {time.time() - startTime}")
+        self.get_logger().info(f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
 
 
 
