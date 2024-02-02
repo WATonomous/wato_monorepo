@@ -3,7 +3,7 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 from sensor_msgs.msg import Image, CompressedImage
-
+from vision_msgs.msg import ObjectHypothesisWithPose, Detection2D, Detection2DArray
 
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.data.augment import LetterBox
@@ -11,7 +11,6 @@ from ultralytics.utils.ops import non_max_suppression
 from ultralytics.utils.plotting import Annotator, colors
 
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
-from common_msgs.msg import Obstacle, ObstacleList
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -25,19 +24,19 @@ class CameraDetectionNode(Node):
     def __init__(self):
         torch.zeros(1).cuda()
 
-        super().__init__('camera_detection_node')
+        super().__init__('camera_object_detection_node')
         self.get_logger().info("Creating camera detection node...")
 
         self.declare_parameter('camera_topic', '/camera/right/image_color')
         self.declare_parameter('publish_vis_topic', '/annotated_img')
-        self.declare_parameter('publish_obstacle_topic', '/obstacles')
+        self.declare_parameter('publish_detection_topic', '/detections')
         self.declare_parameter('model_path', '/perception_models/yolov8s.pt')
         self.declare_parameter('image_size', 480)
         self.declare_parameter('compressed', False)
         
         self.camera_topic = self.get_parameter('camera_topic').value
         self.publish_vis_topic = self.get_parameter('publish_vis_topic').value
-        self.publish_obstacle_topic = self.get_parameter('publish_obstacle_topic').value
+        self.publish_detection_topic = self.get_parameter('publish_detection_topic').value
         self.model_path = self.get_parameter('model_path').value
         self.image_size = self.get_parameter('image_size').value
         self.compressed = self.get_parameter('compressed').value
@@ -83,7 +82,7 @@ class CameraDetectionNode(Node):
 
         # setup vis publishers
         self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
-        self.obstacle_publisher = self.create_publisher(ObstacleList, self.publish_obstacle_topic, 10)
+        self.detection_publisher = self.create_publisher(Detection2DArray, self.publish_detection_topic, 10)
 
         self.get_logger().info(f"Successfully created node listening on camera topic: {self.camera_topic}...")
 
@@ -127,7 +126,7 @@ class CameraDetectionNode(Node):
             processed_detections: filtered detections
             annotator_img: image with bounding boxes drawn on
         """
-        processed_detections = []
+        processed_detections = detections
 
         for det in detections:
             label = f'{det["label"]} {det["conf"]:.2f}'
@@ -144,44 +143,35 @@ class CameraDetectionNode(Node):
         imgmsg.header.frame_id = "camera_{}_link".format(feed)
         self.vis_publisher.publish(imgmsg)
 
-        # TODO: Support reading stereo (left and right images)
-        # if feed == "left":
-        #     self.left_vis_publisher.publish(imgmsg)
-        # elif feed == "right":
-        #     self.right_vis_publisher.publish(imgmsg)
-
     def publish_detections(self, detections, msg, feed):
-        # Publish detections to an ObstacleList message
+        # Publish detections to an detectionList message
+        detection2darray = Detection2DArray()
 
-        obstacle_list = ObstacleList()
-
-        # fill header for obstacle list
-        obstacle_list.header.frame_id = msg.header.frame_id
-
-        # populate obstacle list
+        # fill header for detection list
+        detection2darray.header.stamp = msg.header.stamp
+        detection2darray.header.frame_id = msg.header.frame_id
+        # populate detection list
         if detections is not None and len(detections):
             for detection in detections:
-                obstacle = Obstacle()
+                detection2d = Detection2D()
+                detection2d.header.stamp = msg.header.stamp
+                detection2d.header.frame_id = msg.header.frame_id
+                detected_object = ObjectHypothesisWithPose()
+                detected_object.hypothesis.class_id = detection["label"]
+                detected_object.hypothesis.score = detection["conf"]
+                detection2d.results.append(detected_object)
+                detection2d.bbox.center.position.x = detection["bbox"][0]
+                detection2d.bbox.center.position.y = detection["bbox"][1]
+                detection2d.bbox.size_x = detection["bbox"][2]
+                detection2d.bbox.size_y = detection["bbox"][3]
 
-                # fill header for obstacle
-                obstacle.header.frame_id = msg.header.frame_id
+                # append detection to detection list
+                detection2darray.detections.append(detection2d)
 
-                # populate obstacle
-                obstacle.confidence = detection["conf"]
-                obstacle.label = self.obstacle_dict[detection["label"]]
-                obstacle.pose.pose.position.x = detection["bbox"][0]
-                obstacle.pose.pose.position.y = detection["bbox"][1]
-                obstacle.width_along_x_axis = detection["bbox"][2]
-                obstacle.height_along_y_axis = detection["bbox"][3]
-
-                # append obstacle to obstacle list
-                obstacle_list.obstacles.append(obstacle)
-
-        self.obstacle_publisher.publish(obstacle_list)
+        self.detection_publisher.publish(detection2darray)
         return
 
     def listener_callback(self, msg):
-
         self.get_logger().info('Received image')
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
@@ -231,11 +221,12 @@ class CameraDetectionNode(Node):
                 processed_cv_image, line_width=self.line_thickness, example=str(
                     self.names)
             )
-            detections, annotated_img = self.postprocess_detections(
+            (detections, annotated_img) = self.postprocess_detections(
                 detections, annotator)
 
             feed = ""  # Currently we support a single camera so we pass an empty string
             self.publish_vis(annotated_img, feed)
+            self.get_logger().info(f"Publishing detections before function call: {detections}")
             self.publish_detections(detections, msg, feed)
         # log time
         self.get_logger().info(f"Finished in: {time.time() - startTime}")
@@ -245,13 +236,13 @@ class CameraDetectionNode(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    camera_detection_node = CameraDetectionNode()
-    rclpy.spin(camera_detection_node)
+    camera_object_detection_node = CameraDetectionNode()
+    rclpy.spin(camera_object_detection_node)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    camera_detection_node.destroy_node()
+    camera_object_detection_node.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':

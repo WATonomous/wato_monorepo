@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = 'camera_detection'
+package_name = 'camera_object_detection'
 
 setup(
     name=package_name,
@@ -17,14 +17,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='Justin',
-    maintainer_email='j89leung@watonomous.ca',
+    maintainer='Steven',
+    maintainer_email='s36gong@watonomous.ca',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'camera_detection_node = camera_detection.yolov8_detection:main'
+            'camera_object_detection_node = camera_object_detection.yolov8_detection:main'
         ],
     },
 )

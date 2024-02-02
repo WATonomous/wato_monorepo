@@ -1,6 +1,6 @@
-camera_detection_node:
+camera_object_detection_node:
   ros__parameters:
-    camera_topic: /camera/right/image_color
+    camera_topic: /camera_pkg/display_mjpeg
     publish_vis_topic: /annotated_img
     publish_obstacle_topic: /obstacles
     model_path: /perception_models/yolov8s.pt
