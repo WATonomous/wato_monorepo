@@ -12,7 +12,9 @@
 ##	 - simulation			:	starts simulation
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
-ACTIVE_MODULES="perception"
+ACTIVE_MODULES="infrastructure perception"
+
+FOXGLOVE_BRIDGE_PORT=8770
 
 ############################## OPTIONAL CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"

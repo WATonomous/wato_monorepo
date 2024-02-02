@@ -22,7 +22,6 @@ using namespace std::chrono_literals;
 #define WORK_DIR RESOURCE_DIR
 #define DEFAULT_INPUT_IMAGE RESOURCE_DIR "/dashcam_01.jpg"
 #define LOOP_NUM_FOR_TIME_MEASUREMENT 10
-// std::string input_name = "/home/docker/ament_ws/src/lane_detection/src/tensorrt_model/resource/dashcam_00.jpg";
 std::string input_name = "/home/docker/ament_ws/out0.jpg";
 
 int count = 0;
@@ -56,17 +55,7 @@ public:
       return;
     }
 
-
-
     cv::Mat image = cv_ptr->image.clone();
-    // cv::Mat image;
-    // image = cv::imread(input_name);
-    // if (cv_ptr->image.empty()) {
-    //   return;
-    // }
-
-    // cv::resize(image, image, cv::Size(320, 1600));
-
 
     if (image.empty())
     {
@@ -74,10 +63,6 @@ public:
       return;
     }
     RCLCPP_INFO(this->get_logger(), "Got Decoded image: width=%d, height=%d, type=%d", image.cols, image.rows, image.type());
-
-
-    // cv::imwrite("out" + std::to_string(count) + ".jpg", image);
-    // count++;
 
     printf("=== Start frame ===\n");
     const auto &time_all0 = std::chrono::steady_clock::now();
@@ -89,10 +74,8 @@ public:
     /* Call image processor library */
     const auto &time_image_process0 = std::chrono::steady_clock::now();
     ImageProcessor::Result result;
-    printf("  Call image processor library\n");
     ImageProcessor::Process(image, result);
     const auto &time_image_process1 = std::chrono::steady_clock::now();
-    printf("  Called image processor library\n");
 
     /* Print processing time */
     const auto &time_all1 = std::chrono::steady_clock::now();
@@ -110,8 +93,6 @@ public:
     // Convert the processed cv::Mat back to sensor_msgs::msg::Image and publish
     sensor_msgs::msg::Image::SharedPtr img_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
     image_pub_->publish(*img_msg);
-
-
   }
 
 private:
