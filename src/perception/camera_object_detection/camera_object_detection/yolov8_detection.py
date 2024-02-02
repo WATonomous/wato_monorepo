@@ -48,7 +48,7 @@ class CameraDetectionNode(Node):
         self.subscription = self.create_subscription(
             Image if not self.compressed else CompressedImage,
             self.camera_topic,
-            self.listener_callback,
+            self.image_callback,
             qos_profile=QoSProfile(
                 reliability=QoSReliabilityPolicy.RELIABLE,
                 history=QoSHistoryPolicy.KEEP_LAST,
@@ -171,7 +171,7 @@ class CameraDetectionNode(Node):
         self.detection_publisher.publish(detection2darray)
         return
 
-    def listener_callback(self, msg):
+    def image_callback(self, msg):
         self.get_logger().debug('Received image')
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
@@ -227,7 +227,7 @@ class CameraDetectionNode(Node):
             feed = ""  # Currently we support a single camera so we pass an empty string
             self.publish_vis(annotated_img, feed)
             self.publish_detections(detections, msg, feed)
-        # log time
+
         self.get_logger().info(f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
 
 
@@ -237,10 +237,6 @@ def main(args=None):
 
     camera_object_detection_node = CameraDetectionNode()
     rclpy.spin(camera_object_detection_node)
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
     camera_object_detection_node.destroy_node()
     rclpy.shutdown()
 
