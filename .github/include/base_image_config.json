@@ -61,13 +61,6 @@
             "ros2": "humble"
         }
     },
-    {
-        "tag": "cuda12.2-devel-humble-ubuntu22.04",
-        "external_image": "nvcr.io/nvidia/cuda:12.2.2-devel-ubuntu22.04",
-        "injections": {
-            "ros2": "humble"
-        }
-    },
 
 
 

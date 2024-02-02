@@ -98,24 +98,6 @@ jobs:
             GENERIC_IMAGE=${{ matrix.external_image }}
             ROS_DISTRO=${{ matrix.injections.ros2 }}
 
-      - name: Inject OpenCV into Image
-        if: ${{ matrix.injections.opencv != '' }}
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/base/inject_opencv.Dockerfile
-          push: true
-          tags: |
-            ${{ steps.construct-registry-url.outputs.url }}_generic
-          cache-from: |
-            ${{ steps.construct-registry-url.outputs.url }}_generic
-          cache-to: type=inline
-          builder: ${{ steps.buildx.outputs.name }}
-          target: wato_base
-          build-args: |
-            GENERIC_IMAGE=${{ matrix.external_image }}
-            OPENCV_VERSION=${{ matrix.injections.opencv }}
-
       - name: Prepare Generic Image as Monorepo Base Image
         uses: docker/build-push-action@v5
         with:

@@ -1,5 +1,5 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-devel-humble-ubuntu22.04
-
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-humble-ubuntu22.04-devel
+ARG RUNTIME_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-humble-ubuntu22.04
 ################################ Source ################################
 FROM ${BASE_IMAGE} as source
 
@@ -27,14 +27,8 @@ RUN export OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4/OpenCVConfig.cmake
 # Install TensorRT
 RUN apt install -y tensorrt
 
-RUN apt-get -y install nvidia-container-toolkit
-
-# Symlink for CUDA_TOOLKIT_ROOT_DIR
-RUN ln -s /usr/local/cuda-12.2 /usr/local/cuda
-
-ENV PATH /usr/local/cuda/bin:${PATH}
-ENV LD_LIBRARY_PATH /usr/local/cuda/lib64:${LD_LIBRARY_PATH}
-
+# Install cuda toolkit
+RUN apt-get install -y cuda-toolkit
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -60,13 +54,28 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
-ENTRYPOINT ["./wato_ros_entrypoint.sh"]
+# ENTRYPOINT ["./wato_ros_entrypoint.sh]
 
 ################################ Prod ################################
-FROM build as deploy
+FROM ${RUNTIME_IMAGE} as deploy
+
+# Install runtime libs
+RUN apt-get update && apt-get install -y \
+    ros-humble-cv-bridge \
+    tensorrt
+
+# Copy the compiled binary to the runtime image
+COPY --from=build ${AMENT_WS} ${AMENT_WS}
+
+WORKDIR ${AMENT_WS}
+
+# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
+COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 
 # Source Cleanup and Security Setup
 RUN chown -R $USER:$USER ${AMENT_WS}
 RUN rm -rf src/*
 
 USER ${USER}
+
+ENTRYPOINT ["./wato_ros_entrypoint.sh"]
