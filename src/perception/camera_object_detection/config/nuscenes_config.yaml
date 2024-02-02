@@ -1,7 +1,8 @@
-camera_detection_node:
+camera_object_detection_node:
   ros__parameters:
-    camera_topic: /camera_pkg/display_mjpeg
+    camera_topic: /CAM_FRONT/image_rect_compressed
     publish_vis_topic: /annotated_img
     publish_obstacle_topic: /obstacles
     model_path: /perception_models/yolov8s.pt
-    image_size: 480
+    image_size: 640
+    compressed: true

@@ -6,9 +6,7 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/perception/camera_detection camera_detection
-COPY src/wato_msgs/sample_msgs sample_msgs
-COPY src/wato_msgs/common_msgs common_msgs
+COPY src/perception/camera_object_detection camera_object_detection
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -20,23 +18,24 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-# Install Rosdep requirements
-COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast update --fix-missing && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
-
-# Copy in source code from source stage
-WORKDIR ${AMENT_WS}
-COPY --from=source ${AMENT_WS}/src src
-
 # Install pip
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg libsm6 libxext6 wget
 
+# Install Rosdep requirements
+COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+RUN apt-fast update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+# Copy in source code from source stage
+WORKDIR ${AMENT_WS}
+COPY --from=source ${AMENT_WS}/src src
+
 # Install python packages
-COPY src/perception/camera_detection/requirements.txt camera_detection/requirements.txt
-RUN python3 -m pip install -r camera_detection/requirements.txt
+COPY src/perception/camera_object_detection/requirements.txt requirements.txt
+RUN python3 -m pip install -r requirements.txt
+RUN rm requirements.txt
 
 # Dependency Cleanup
 WORKDIR /
@@ -51,11 +50,6 @@ WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
-
-
-# Download yolov8 model
-RUN sudo mkdir -m 777 -p /perception_models
-RUN wget -P /perception_models https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8s.pt
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh

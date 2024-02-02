@@ -28,7 +28,7 @@ services:
     extends:
       file: ../docker-compose.perception.yaml
       service: lidar_object_detection
-    command: tail -F anything
+    command: /bin/bash -c "ros2 launch camera_object_detection nuscenes_launch.py"
     volumes:
       - ${MONO_DIR}/src/perception/lidar_object_detection:/home/bolty/ament_ws/src/lidar_object_detection
 

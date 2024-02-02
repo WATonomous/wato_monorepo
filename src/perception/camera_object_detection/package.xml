@@ -3,16 +3,23 @@
 <package format="3">
   <name>camera_object_detection</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
+  <description>The camera object detection package</description>
+  <maintainer email="s36gong@watonomous.ca">Steven Gong</maintainer>
+  <maintainer email="j89leung@watonomous.ca">Justin Leung</maintainer>
   <license>TODO: License declaration</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>cv_bridge</depend>
+  <depend>sensor_msgs</depend>
+  <depend>vision_msgs</depend>
+  <depend>std_msgs</depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
-  <export>
-    <build_type>ament_cmake</build_type>
+ <export>
+    <build_type>ament_python</build_type>
   </export>
+
 </package>
