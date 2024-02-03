@@ -15,29 +15,6 @@
         }
     },
 
-
-
-
-
-    {
-        "tag": "ubuntu18.04",
-        "external_image": "ubuntu:18.04",
-        "injections": "wato_base"
-    },
-    {
-        "tag": "node12alpine",
-        "external_image": "node:12-alpine",
-        "injections": "wato_base"
-    },
-    {
-        "tag": "python3.8.16slim",
-        "external_image": "python:3.8.16-slim-bullseye",
-        "injections": "wato_base"
-    },
-
-
-
-
     {
         "tag": "cuda11.0-foxy-ubuntu20.04",
         "external_image": "nvcr.io/nvidia/cuda:11.0.3-runtime-ubuntu20.04",
