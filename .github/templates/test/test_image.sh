@@ -1,14 +1,17 @@
 #!/bin/bash
 set -e
 
-echo "Running $SERVICE tests..."
-CONTAINER_NAME="$SERVICE-github-actions"
+docker pull -q $IMAGE:$TAG
+docker run $IMAGE:$TAG /bin/bash -c "source /home/bolty/ament_ws/install/setup.bash; colcon test; colcon test-result --verbose"
 
-# Run docker-compose service in detached mode and prevent early exit
-bash watod -dev pull "$SERVICE"
-bash watod -dev run -d --name "$CONTAINER_NAME" "$SERVICE" tail -f /dev/null
+# echo "Running $SERVICE tests..."
+# CONTAINER_NAME="$SERVICE-github-actions"
 
-# Run tests for ros2 packages, on failure script will exit with error message
-docker exec "$CONTAINER_NAME" /bin/bash -c "source /home/bolty/ament_ws/install/setup.bash; colcon test; colcon test-result --verbose"
+# # Run docker-compose service with watod in detached mode and prevent early exit
+# bash watod -dev pull "$SERVICE"
+# bash watod -dev run -d --name "$CONTAINER_NAME" "$SERVICE" tail -f /dev/null
 
-bash watod -dev down
+# # Run tests for ros2 packages, on failure script will exit with error message
+# docker exec "$CONTAINER_NAME" /bin/bash -c "source /home/bolty/ament_ws/install/setup.bash; colcon test; colcon test-result --verbose"
+
+# bash watod -dev down
