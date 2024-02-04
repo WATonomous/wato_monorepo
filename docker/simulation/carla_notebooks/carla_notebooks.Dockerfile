@@ -1,8 +1,8 @@
-ARG CARLA_VERSION
+ARG CARLA_VERSION=0.9.13
 FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
 FROM python:3.8.16-slim-bullseye
-ARG CARLA_VERSION
+ARG CARLA_VERSION=0.9.13
 
 RUN pip3 install carla==${CARLA_VERSION} jupyter tensorflow-probability
 RUN apt-get update && apt-get install -y curl git wget unzip && apt remove python3-networkx

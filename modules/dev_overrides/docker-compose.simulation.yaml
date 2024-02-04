@@ -39,8 +39,6 @@ services:
       cache_from: 
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:main"
-      args:
-        - CARLA_VERSION=0.9.13
     image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
     ports:
       - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}

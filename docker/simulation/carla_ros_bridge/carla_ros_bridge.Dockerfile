@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:foxy-ubuntu20.04
 
-ARG CARLA_VERSION
+ARG CARLA_VERSION=0.9.13
 FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
 ################################ Source ################################

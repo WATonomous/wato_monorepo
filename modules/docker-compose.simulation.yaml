@@ -8,8 +8,6 @@ services:
       cache_from:
         - "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
         - "${SIMULATION_CARLA_IMAGE:?}:main"
-      args:
-        - CARLA_VERSION=0.9.13
     image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
     environment:
       - DISPLAY=1
@@ -29,8 +27,6 @@ services:
         - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:${TAG}"
         - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:main"
       target: deploy
-      args:
-        - CARLA_VERSION=0.9.13
     image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
     environment:
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
@@ -47,8 +43,6 @@ services:
       cache_from: 
         - "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}" 
         - "${SIMULATION_CARLAVIZ_IMAGE:?}:main"
-      args:
-        - CARLA_VERSION=0.9.13
     image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
     ports:
       - ${CARLAVIZ_PORT}:8080
