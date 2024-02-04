@@ -10,7 +10,7 @@ TEST(AggregatorTest, RawDivisionByZero)
 {
   samples::AggregatorCore aggregator(0);
   auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
-  msg->timestamp = 0;
+  msg->timestamp = 2;
 
   aggregator.add_raw_msg(msg);
   EXPECT_DOUBLE_EQ(0.0, aggregator.raw_frequency());
