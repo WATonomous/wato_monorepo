@@ -37,11 +37,11 @@ services:
       context: ../..
       dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
       cache_from: 
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG:?}"
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:develop"
+        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:main"
       args:
         - CARLA_VERSION=0.9.13
-    image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG:?}"
+    image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
     ports:
       - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
     environment:

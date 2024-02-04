@@ -45,11 +45,11 @@ services:
       context: ..
       dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
       cache_from: 
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG:?}" 
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:develop"
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}" 
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:main"
       args:
         - CARLA_VERSION=0.9.13
-    image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG:?}"
+    image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
     ports:
       - ${CARLAVIZ_PORT}:8080
       - ${CARLAVIZ_PORT_2}:8081
@@ -64,10 +64,10 @@ services:
       context: ..
       dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
       cache_from:
-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG:?}"
-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:develop"
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:main"
       target: deploy
-    image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG:?}"
+    image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py"
