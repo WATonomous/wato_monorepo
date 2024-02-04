@@ -37,8 +37,8 @@ services:
       - USE_ACKERMANN_CONTROL=False
     security_opt:
       - seccomp:${MONO_DIR}/modules/seccomp_profile.json
-    command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
-    # command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+    # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
+    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
 
   carla_viz:
     build:
@@ -58,3 +58,16 @@ services:
       - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
     entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
     restart: always
+
+  carla_sample_node:
+    build:
+      context: ..
+      dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
+      cache_from:
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG:?}"
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:develop"
+      target: deploy
+    image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG:?}"
+    security_opt:
+      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
+    command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py"
