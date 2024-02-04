@@ -1,14 +1,11 @@
 name: Docker test
 
 inputs:
-  module:
-    description: "the module to be enabled"
+  image:
+    description: "monorepo image to test"
     required: true
-  service:
-    description: "the service being tested"
-    required: true
-  source_branch:
-    description: "the source branch"
+  tag:
+    description: "monorepo image tag to test"
     required: true
 
 runs: 
@@ -17,6 +14,5 @@ runs:
     - run: ${{ github.action_path }}/test_image.sh
       shell: bash
       env:
-        TAG: build_${{ inputs.source_branch }}
-        ACTIVE_MODULES: ${{ inputs.module }}
-        SERVICE: ${{ inputs.service }}
+        IMAGE: ${{ inputs.image }}
+        TAG: ${{ inputs.tag }}
