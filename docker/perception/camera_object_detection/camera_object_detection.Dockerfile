@@ -24,6 +24,11 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     ffmpeg libsm6 libxext6 wget
 
+# Install python packages
+COPY src/perception/camera_object_detection/requirements.txt requirements.txt
+RUN python3 -m pip install -r requirements.txt
+RUN rm requirements.txt
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
@@ -31,11 +36,6 @@ RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_li
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
-
-# Install python packages
-COPY src/perception/camera_object_detection/requirements.txt requirements.txt
-RUN python3 -m pip install -r requirements.txt
-RUN rm requirements.txt
 
 # Dependency Cleanup
 WORKDIR /
