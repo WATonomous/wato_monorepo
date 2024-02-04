@@ -13,7 +13,7 @@ from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate
 from pcdet.models import build_network, load_data_to_gpu
 from pcdet.utils import common_utils
-import sensor_msgs_py.point_cloud2 as pc2
+import sensor_msgs.point_cloud2 as pc2
 
 from visual_utils import open3d_vis_utils as V
 OPEN3D_FLAG = True
