@@ -4,7 +4,7 @@ from pathlib import Path
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Header
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import PointCloud2, PointField
 import numpy as np
 import torch
 import sys
@@ -13,9 +13,7 @@ from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate
 from pcdet.models import build_network, load_data_to_gpu
 from pcdet.utils import common_utils
-import sensor_msgs.point_cloud2 as pc2
 
-from visual_utils import open3d_vis_utils as V
 OPEN3D_FLAG = True
 
 
@@ -49,18 +47,19 @@ class LidarDemoNode(Node):
 
                 # Convert and publish data
                 header = self.make_header()
-                point_cloud_msg = pc2.create_cloud_xyz32(header, data_dict['points'][:, 1:4])  # Assuming first 3 columns are x, y, z
+                points = data_dict['points'][:, 1:4]  # Extract the relevant columns (x, y, z)
+                point_cloud_msg = self.create_cloud_xyz32(header, points)  # Assuming first 3 columns are x, y, z
                 self.publisher_.publish(point_cloud_msg)
 
         self.logger.info('Demo done.')
 
     def parse_config(self):
         parser = argparse.ArgumentParser(description='arg parser')
-        parser.add_argument('--cfg_file', type=str, default='cfgs/nuscenes_models/cbgs_second_multihead.yaml',
+        parser.add_argument('--cfg_file', type=str, default='/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml',
                             help='specify the config for demo')
-        parser.add_argument('--data_path', type=str, default='demo_data',
+        parser.add_argument('--data_path', type=str, default='/home/bolty/data/velodyne/data/0000000001.bin',
                             help='specify the point cloud data file or directory')
-        parser.add_argument('--ckpt', type=str, default=None, help='specify the pretrained model')
+        parser.add_argument('--ckpt', type=str, default="/home/bolty/OpenPCDet/models/pv_rcnn8369.pth", help='specify the pretrained model')
         parser.add_argument('--ext', type=str, default='.bin', help='specify the extension of your point cloud data file')
 
         args, unknown = parser.parse_known_args()
@@ -72,6 +71,36 @@ class LidarDemoNode(Node):
         header.stamp = self.get_clock().now().to_msg()
         header.frame_id = 'lidar_frame'
         return header
+    
+    def create_cloud_xyz32(self, header, points):
+        """
+        Create a sensor_msgs/PointCloud2 message from an array of points.
+
+        :param header: std_msgs/Header, the header of the message.
+        :param points: numpy.ndarray, an Nx3 array of xyz points.
+        :return: sensor_msgs/PointCloud2, the constructed PointCloud2 message.
+        """
+        # Create fields for the PointCloud2 message
+        fields = [
+            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1)
+        ]
+        points_np = points.cpu().numpy()
+        # Create a PointCloud2 message
+        cloud = PointCloud2()
+        cloud.header = header
+        cloud.height = 1  # Unstructured point cloud
+        cloud.width = points_np.shape[0]
+        cloud.fields = fields
+        cloud.is_bigendian = False  # Assuming little endian
+        cloud.point_step = 12  # FLOAT32 (4 bytes) * 3 (x, y, z)
+        cloud.row_step = cloud.point_step * cloud.width
+        cloud.is_dense = bool(np.isfinite(points_np).all())
+        cloud.data = np.asarray(points_np, np.float32).tobytes()
+
+        return cloud
+
 
 
 class DemoDataset(DatasetTemplate):
@@ -99,7 +128,7 @@ class DemoDataset(DatasetTemplate):
 
     def __getitem__(self, index):
         if self.ext == '.bin':
-            points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 5)
+            points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 4) #change back to 5 later
         elif self.ext == '.npy':
             points = np.load(self.sample_file_list[index])
         else:
