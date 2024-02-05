@@ -23,15 +23,15 @@ jobs:
           python-version: 3.8
 
       - name: Install Python dependencies
-        run: pip install black autopep8
+        run: pip install autopep8
 
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
-          black: true
           Autopep8: true
 
   run-linters-cpp:
+    name: Run C++ linters
     runs-on: ubuntu-latest
     steps:
       - name: Check out Git repository
@@ -46,4 +46,4 @@ jobs:
         run: pip install cpplint
       
       - name: Run linters
-        run: cpplint
+        run: cpplint *
