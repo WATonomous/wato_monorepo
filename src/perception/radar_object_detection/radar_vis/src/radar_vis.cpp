@@ -1,19 +1,16 @@
-#include <algorithm>
-
-#include "rclcpp/rclcpp.hpp"
-
-#include "radar_vis_node.hpp"
 #include "radar_vis.hpp"
 
-namespace visualization
-{
+#include <algorithm>
 
-RadarVis::RadarVis()
-{}
+#include "radar_vis_node.hpp"
+#include "rclcpp/rclcpp.hpp"
+
+namespace visualization {
+
+RadarVis::RadarVis() {}
 
 sensor_msgs::msg::PointCloud2 RadarVis::convert_packet_to_pointcloud(
-  const radar_msgs::msg::RadarPacket::SharedPtr msg)
-{
+    const radar_msgs::msg::RadarPacket::SharedPtr msg) {
   std::string radar_frame = "radar_fixed";
   sensor_msgs::msg::PointCloud2 point_cloud;
   sensor_msgs::msg::PointField point_field;
@@ -50,7 +47,7 @@ sensor_msgs::msg::PointCloud2 RadarVis::convert_packet_to_pointcloud(
   point_cloud.fields.push_back(point_field);
 
   // Convert data to 4 bytes (little endian)
-  uint8_t * tmp_ptr;
+  uint8_t *tmp_ptr;
   for (uint8_t index = 0; index < msg->detections.size(); index++) {
     // Position X - Point Cloud Conversion
     tmp_ptr = reinterpret_cast<uint8_t *>(&(msg->detections[index].pos_x));

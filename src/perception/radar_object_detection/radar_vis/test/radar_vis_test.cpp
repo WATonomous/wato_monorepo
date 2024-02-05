@@ -1,15 +1,13 @@
+#include "radar_vis.hpp"
+
 #include <memory>
 #include <string>
 
 #include "gtest/gtest.h"
+#include "radar_vis_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-#include "radar_vis.hpp"
-#include "radar_vis_node.hpp"
-
-
-TEST(RadarVisNodeTest, CheckConvertPacketToPointCloud)
-{
+TEST(RadarVisNodeTest, CheckConvertPacketToPointCloud) {
   visualization::RadarVis test_vis;
   auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
   radar_msgs::msg::RadarDetection msg_detection;
@@ -46,7 +44,8 @@ TEST(RadarVisNodeTest, CheckConvertPacketToPointCloud)
   EXPECT_EQ(test_point_cloud.fields[3].name, "intensity");
   EXPECT_EQ(test_point_cloud.fields[3].offset, 12);
 
-  // Little Endian Conversion (32 bit float into 4 bytes; each 4 bytes represents one point field)
+  // Little Endian Conversion (32 bit float into 4 bytes; each 4 bytes
+  // represents one point field)
 
   // Position X
   EXPECT_EQ(test_point_cloud.data[0], 0);
