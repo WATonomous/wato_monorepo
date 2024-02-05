@@ -37,8 +37,10 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v4
 
-      - uses: reviewdog/action-cpplint@master
+      - name: Install ClangFormat
+        run: sudo apt-get install -y clang-format
+
+      - name: Run linters
+        uses: wearerequired/lint-action@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-check
-          flags: --linelength=100 # Optional
+          clang_format: true
