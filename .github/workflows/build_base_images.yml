@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Watod Environment
         run: ./watod_scripts/watod-setup-env.sh
