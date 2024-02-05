@@ -10,7 +10,8 @@ setup(
     packages=[package_name],
     data_files=[
         # Install marker file in the package index
-        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+        ('share/ament_index/resource_index/packages',
+         ['resource/' + package_name]),
         # Include our package.xml file
         (os.path.join('share', package_name), ['package.xml']),
         # Include all launch files.

@@ -36,14 +36,16 @@ class ProducerNode(Node):
         pos_x = self.get_parameter('pos_x').get_parameter_value().double_value
         pos_y = self.get_parameter('pos_y').get_parameter_value().double_value
         pos_z = self.get_parameter('pos_z').get_parameter_value().double_value
-        velocity = self.get_parameter('velocity').get_parameter_value().double_value
+        velocity = self.get_parameter(
+            'velocity').get_parameter_value().double_value
 
         # Initialize producer core logic for serialization
         self.__producer = ProducerCore(pos_x, pos_y, pos_z, velocity)
 
         # Initialize ROS2 constructs
         queue_size = 10
-        self.publisher_ = self.create_publisher(Unfiltered, '/unfiltered_topic', queue_size)
+        self.publisher_ = self.create_publisher(
+            Unfiltered, '/unfiltered_topic', queue_size)
 
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.__publish_position)
