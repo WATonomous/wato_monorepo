@@ -42,11 +42,3 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-check
           flags: --linelength=100 # Optional
-          filter: "-readability/braces\
-            ,-whitespace/braces\
-            ,-whitespace/comments\
-            ,-whitespace/indent\
-            ,-whitespace/newline\
-            ,-whitespace/operators\
-            ,-whitespace/parens\
-            " # Optional
