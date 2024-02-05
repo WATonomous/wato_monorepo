@@ -54,7 +54,8 @@ class Aggregator(Node):
                                str(self.__aggregator.num_filtered_msgs))
 
         self.get_logger().info('Producer Frequency:' + str(self.__aggregator.raw_freq))
-        self.get_logger().info('Transformer Frequency:' + str(self.__aggregator.filtered_freq))
+        self.get_logger().info('Transformer Frequency:' +
+                               str(self.__aggregator.filtered_freq))
 
 
 def main(args=None):
