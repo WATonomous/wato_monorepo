@@ -4,7 +4,6 @@
 
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
-
 #include "transformer_core.hpp"
 
 /**
@@ -13,18 +12,16 @@
  * the amount of boilerplate code in each test. For more information checkout
  * https://google.github.io/googletest/primer.html#same-data-multiple-tests
  */
-class TransformerFixtureTest : public ::testing::Test
-{
-public:
-  void SetUp(int enqueue_count)
-  {
+class TransformerFixtureTest : public ::testing::Test {
+ public:
+  void SetUp(int enqueue_count) {
     auto filtered = sample_msgs::msg::Filtered();
     for (int i = 0; i < enqueue_count; i++) {
       transformer.enqueue_message(filtered);
     }
   }
 
-protected:
+ protected:
   samples::TransformerCore transformer;
 };
 
@@ -34,14 +31,12 @@ protected:
  * https://google.github.io/googletest/advanced.html#value-parameterized-tests
  */
 class TransformerParameterizedTest
-  : public ::testing::TestWithParam<std::tuple<const char *, bool>>
-{
-protected:
+    : public ::testing::TestWithParam<std::tuple<const char *, bool>> {
+ protected:
   samples::TransformerCore transformer;
 };
 
-TEST(TransformerTest, FilterInvalidField)
-{
+TEST(TransformerTest, FilterInvalidField) {
   auto unfiltered = std::make_shared<sample_msgs::msg::Unfiltered>();
   unfiltered->valid = false;
 
@@ -50,8 +45,7 @@ TEST(TransformerTest, FilterInvalidField)
   EXPECT_FALSE(valid);
 }
 
-TEST_F(TransformerFixtureTest, BufferCapacity)
-{
+TEST_F(TransformerFixtureTest, BufferCapacity) {
   SetUp(samples::TransformerCore::BUFFER_CAPACITY - 1);
 
   // Place last message that fits in buffer
@@ -68,8 +62,7 @@ TEST_F(TransformerFixtureTest, BufferCapacity)
   EXPECT_EQ(size, 10);
 }
 
-TEST_F(TransformerFixtureTest, ClearBuffer)
-{
+TEST_F(TransformerFixtureTest, ClearBuffer) {
   // Place 3 messages in buffer
   SetUp(3);
 
@@ -81,8 +74,7 @@ TEST_F(TransformerFixtureTest, ClearBuffer)
   EXPECT_EQ(size, 0);
 }
 
-TEST_P(TransformerParameterizedTest, SerializationValidation)
-{
+TEST_P(TransformerParameterizedTest, SerializationValidation) {
   auto [serialized_field, valid] = GetParam();
   auto filtered = sample_msgs::msg::Filtered();
   auto unfiltered = std::make_shared<sample_msgs::msg::Unfiltered>();
@@ -92,12 +84,10 @@ TEST_P(TransformerParameterizedTest, SerializationValidation)
 
 // Parameterized testing lets us validate all edge cases for serialization
 // using one test case.
-INSTANTIATE_TEST_CASE_P(
-  Serialization, TransformerParameterizedTest,
-  ::testing::Values(
-    std::make_tuple("x:1;y:2;z:3", false),
-    std::make_tuple("z:1;y:2;x:3;", false),
-    std::make_tuple("x:1,y:2,z:3", false),
-    std::make_tuple("x:3;", false),
-    std::make_tuple("x:3;y:2;z:3;", true),
-    std::make_tuple("x:3;y:22; z:11;", true)));
+INSTANTIATE_TEST_CASE_P(Serialization, TransformerParameterizedTest,
+                        ::testing::Values(std::make_tuple("x:1;y:2;z:3", false),
+                                          std::make_tuple("z:1;y:2;x:3;", false),
+                                          std::make_tuple("x:1,y:2,z:3", false),
+                                          std::make_tuple("x:3;", false),
+                                          std::make_tuple("x:3;y:2;z:3;", true),
+                                          std::make_tuple("x:3;y:22; z:11;", true)));

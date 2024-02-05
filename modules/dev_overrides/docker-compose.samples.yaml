@@ -12,7 +12,7 @@ services:
       service: cpp_aggregator
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/samples/cpp/aggregator:/home/bolty/ament_ws/src/aggregator
+      - ${MONO_DIR}/src/samples/cpp:/home/bolty/ament_ws/src/
 
   # py_aggregator: # PYTHON
   #   <<: *fixuid
