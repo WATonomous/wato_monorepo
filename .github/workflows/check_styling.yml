@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v1
@@ -35,16 +35,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - uses: cpp-linter/cpp-linter-action@main
-        id: linter
-        continue-on-error: true
+      - name: Set up Python
+        uses: actions/setup-python@v1
         with:
-          style: file
-          files-changed-only: false
+          python-version: 3.8
 
-      - name: Fail fast?!
-        if: steps.linter.outputs.checks-failed != 0
-        run: |
-          echo "some linter checks failed. ${{ steps.linter.outputs.checks-failed }}"
+      - name: Install Python dependencies
+        run: pip install cpplint
+      
+      - name: Run linters
+        run: cpplint
