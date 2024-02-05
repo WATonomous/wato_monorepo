@@ -44,3 +44,4 @@ jobs:
         uses: wearerequired/lint-action@v2
         with:
           clang_format: true
+          clang_format_args: "-style=Google"
