@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "occupancy_segmentation_node.hpp"
-// #include "std_msgs/msg/int32.hpp"
 
 OccupancySegmentationNode::OccupancySegmentationNode(int delay_ms)
 : Node("occupancy_segmentation")
