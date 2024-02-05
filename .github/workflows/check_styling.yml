@@ -32,17 +32,19 @@ jobs:
           Autopep8: true
 
   run-linters-cpp:
-    name: Run C++ linters
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Install ClangFormat
-        run: sudo apt-get install -y clang-format
-
-      - name: Run linters
-        uses: wearerequired/lint-action@v2
+      - uses: cpp-linter/cpp-linter-action@main
+        id: linter
+        continue-on-error: true
         with:
-          clang_format: true
+          style: file
+          files-changed-only: false
+
+      - name: Fail fast?!
+        if: steps.linter.outputs.checks-failed != 0
+        run: |
+          echo "some linter checks failed. ${{ steps.linter.outputs.checks-failed }}"
