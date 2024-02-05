@@ -28,6 +28,7 @@ jobs:
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
+          auto_fix: true
           Autopep8: true
 
   run-linters-cpp:
@@ -48,5 +49,6 @@ jobs:
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
+          auto_fix: true
           clang_format: true
           clang_format_args: "-style=file"
