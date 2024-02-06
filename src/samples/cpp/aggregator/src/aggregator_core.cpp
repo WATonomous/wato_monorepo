@@ -20,9 +20,8 @@ double AggregatorCore::raw_frequency() const
 
 double AggregatorCore::filtered_frequency() const
 {
-
   if (latest_filtered_time_ <= start_) {
-    return 0.0;
+    return 1.0;
   }
   return static_cast<double>(filtered_msg_count_) / (latest_filtered_time_ - start_);
 }
