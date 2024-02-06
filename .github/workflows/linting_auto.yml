@@ -1,9 +1,6 @@
 name: Monorepo Code Linting - Auto Linter
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     types:
       - labeled
