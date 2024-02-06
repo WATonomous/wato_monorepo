@@ -1,8 +1,6 @@
 name: Track changes between main and new commit
 
 on:
-  releases:
-    types: [created]
   workflow_dispatch: {}
   push:
     branches:
