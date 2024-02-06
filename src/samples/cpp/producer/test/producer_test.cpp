@@ -2,8 +2,7 @@
 
 #include "producer_core.hpp"
 
-TEST(ProducerTest, ValidSerialization)
-{
+TEST(ProducerTest, ValidSerialization) {
   auto producer = samples::ProducerCore(11, -12, 0);
   auto msg = sample_msgs::msg::Unfiltered();
   producer.serialize_coordinates(msg);
@@ -12,8 +11,7 @@ TEST(ProducerTest, ValidSerialization)
   EXPECT_EQ(msg.data, "x:11.000000;y:-12.000000;z:0.000000;");
 }
 
-TEST(ProducerTest, NoCoordinateUpdate)
-{
+TEST(ProducerTest, NoCoordinateUpdate) {
   auto producer = samples::ProducerCore();
   producer.update_coordinates();
 
@@ -22,8 +20,7 @@ TEST(ProducerTest, NoCoordinateUpdate)
   EXPECT_EQ(msg.data, "x:0.000000;y:0.000000;z:0.000000;");
 }
 
-TEST(ProducerTest, MultipleCoordinateUpdate)
-{
+TEST(ProducerTest, MultipleCoordinateUpdate) {
   auto producer = samples::ProducerCore();
   auto msg = sample_msgs::msg::Unfiltered();
 

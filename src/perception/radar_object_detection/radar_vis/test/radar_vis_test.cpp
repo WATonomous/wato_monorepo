@@ -7,9 +7,7 @@
 #include "radar_vis.hpp"
 #include "radar_vis_node.hpp"
 
-
-TEST(RadarVisNodeTest, CheckConvertPacketToPointCloud)
-{
+TEST(RadarVisNodeTest, CheckConvertPacketToPointCloud) {
   visualization::RadarVis test_vis;
   auto msg = std::make_shared<radar_msgs::msg::RadarPacket>();
   radar_msgs::msg::RadarDetection msg_detection;
