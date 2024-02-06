@@ -1,0 +1,35 @@
+name: Monorepo Code Linting - Auto Linter
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+jobs:
+  run-linters:
+    name: Run C++/Python linters
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: pip install autopep8 clang-format
+
+      - name: Run linters, make changes
+        uses: WATonomous/wato-lint-action@v1
+        with:
+          git_name: WATonomousAdmin
+          git_email: admin@watonomous.ca
+          auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
+          Autopep8: true
+          Autopep8_args: "--max-line-length 100"
+          clang_format: true
+          clang_format_auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
+          clang_format_args: "-style=file"
