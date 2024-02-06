@@ -53,4 +53,4 @@ jobs:
           auto_fix: false
           commit: false
           clang_format: true
-          clang_format_args: "-style=file --Werror"
+          clang_format_args: "-style=file -Werror"
