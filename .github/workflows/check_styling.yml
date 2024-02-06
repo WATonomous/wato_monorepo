@@ -30,7 +30,7 @@ jobs:
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
-          auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
+          auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
           commit: false
           Autopep8: true
           Autopep8_args: "--max-line-length 100"
@@ -53,7 +53,7 @@ jobs:
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
-          auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
+          auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
           commit: false
           clang_format: true
           clang_format_args: "-style=file"
