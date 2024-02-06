@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     libqt5core5a libqt5xml5 libqt5gui5 libqt5widgets5 libqt5concurrent5 libqt5opengl5 libcap2 libusb-1.0-0 libatk-adaptor neovim \
     python3-pip python3-setuptools \
     && apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
-    rm -rf /var/lib/apt/lists/* /root/* /root/.ros /tmp/* /usr/share/doc/*
+    rm -rf /var/lib/apt/lists/* /root/* /root/.ros /tmp/* /usr/share/doc
 ################################# INSTALL OpenCV with CUDA Support #############
 WORKDIR /opt
 RUN git clone https://github.com/opencv/opencv.git && \
@@ -53,6 +53,7 @@ COPY wato_monorepo/src/perception/lidar_object_detection lidar_object_detection
 COPY wato_monorepo/src/wato_msgs/sample_msgs sample_msgs
 RUN apt-get update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -y
+RUN apt install -y ros-${ROS_DISTRO}-foxglove-bridge
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 # Entrypoint setup
