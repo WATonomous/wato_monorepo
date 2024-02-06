@@ -17,6 +17,13 @@ find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
+
+find_package(PCL 1.1 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -32,7 +39,7 @@ add_library(occupancy_segmentation_lib
 target_include_directories(occupancy_segmentation_lib
   PUBLIC include)
 # Add ROS2 dependencies required by package
-ament_target_dependencies(occupancy_segmentation_lib rclcpp sample_msgs std_msgs sensor_msgs image_geometry)
+ament_target_dependencies(occupancy_segmentation_lib rclcpp sample_msgs std_msgs sensor_msgs image_geometry pcl_conversions)
 
 option(BUILD_TESTING "Build tests" ON)
 if(BUILD_TESTING)

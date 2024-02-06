@@ -9,6 +9,7 @@
 #include "sample_msgs/msg/unfiltered.hpp"
 #include "std_msgs/msg/int32.hpp"
 // #include "sensor_msgs/msg/imu.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
 // #include "image_geometry/pinhole_camera_model.h"
 
 
@@ -30,20 +31,23 @@ public:
    *
    * @param delay_ms the frequency with which the node produces data.
    */
-  explicit OccupancySegmentationNode(int delay_ms);
+  explicit OccupancySegmentationNode();
 
 private:
   /**
    * ROS timer callback used to trigger data generation and publish result
    * to the "unfiltered" topic.
    */
-  void timer_callback();
+  void unfiltered_callback(
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+  void callback();
 
   // ROS2 publisher sending raw messages to the unfiltered topic.
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr data_pub_;
-
-  // ROS2 timer used to call data generation callback at fixed intervals.
-  rclcpp::TimerBase::SharedPtr timer_;
+  // rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr data_pub_;
+  // rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pt_cloud_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pt_cloud_sub_;
+  rclcpp::Subscription<sample_msgs::msg::Unfiltered>::SharedPtr raw_sub_;
 
 
 };
