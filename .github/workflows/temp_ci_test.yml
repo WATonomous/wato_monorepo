@@ -1,0 +1,53 @@
+name: Track changes between main and new commit
+
+on:
+  workflow_dispatch:
+-
+jobs:
+  changed_files:
+    # ------------------------------------------------------------------------
+    # Event `pull_request`: Compare the last commit of the main branch or last
+    # remote commit of the PR branch -> to the current commit of a PR branch.
+    # ------------------------------------------------------------------------
+  changed_files:
+    runs-on: ubuntu-latest  # windows-latest || macos-latest
+    name: Test changed-files
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v42
+        # To compare changes between the current commit and the last pushed remote commit set `since_last_remote_commit: true`. e.g
+        # with:
+        #   since_last_remote_commit: true 
+
+      - name: List all changed files
+        env:
+          ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        run: |
+          for file in ${ALL_CHANGED_FILES}; do
+            echo "$file was changed"
+          done
+
+  # setup-environment:
+  #   name: Setup environment
+  #   runs-on: ubuntu-latest
+
+  #   outputs:
+  #     registry: ${{ steps.docker-environment.outputs.registry }}
+  #     repository: ${{ steps.docker-environment.outputs.repository }}
+
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v3
+
+  #     - name: Setup Watod Environment
+  #       run: ./watod_scripts/watod-setup-env.sh
+  #       shell: bash
+
+  #     - name: Generate Docker Environment
+  #       id: docker-environment
+  #       uses: "./.github/templates/docker_context"
