@@ -13,6 +13,7 @@ from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate
 from pcdet.models import build_network, load_data_to_gpu
 from pcdet.utils import common_utils
+from visualization_msgs.msg import Marker, MarkerArray
 
 OPEN3D_FLAG = True
 
@@ -21,6 +22,7 @@ class LidarDemoNode(Node):
     def __init__(self):
         super().__init__('lidar_demo_node')
         self.publisher_ = self.create_publisher(PointCloud2, 'lidar_data', 10)
+        self.bbox_publisher = self.create_publisher(MarkerArray, '/bounding_boxes', 10)
 
         args, cfg = self.parse_config()
         self.logger = common_utils.create_logger()
@@ -38,6 +40,30 @@ class LidarDemoNode(Node):
 
         self.process_data()
 
+    def publish_bounding_boxes(self, pred_dicts, frame_id):
+        marker_array = MarkerArray()
+        for idx, box in enumerate(pred_dicts[0]['pred_boxes']):
+            marker = Marker()
+            marker.header.frame_id = frame_id
+            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.id = idx
+            marker.type = Marker.CUBE
+            marker.action = Marker.ADD
+            marker.pose.position.x = float(box[0])
+            marker.pose.position.y = float(box[1])
+            marker.pose.position.z = float(box[2])
+            marker.pose.orientation.w = 1.0  # Assuming no rotation; modify as needed
+            marker.scale.x = float(box[3])  # Size in X direction
+            marker.scale.y = float(box[4])  # Size in Y direction
+            marker.scale.z = float(box[5])  # Size in Z direction
+            marker.color.a = 0.8  # Alpha
+            marker.color.r = 1.0  # Red
+            marker.color.g = 0.0  # Green
+            marker.color.b = 0.0  # Blue
+            marker_array.markers.append(marker)
+        
+        self.bbox_publisher.publish(marker_array)
+
     def process_data(self):
         with torch.no_grad():
             for idx, data_dict in enumerate(self.demo_dataset):
@@ -50,6 +76,7 @@ class LidarDemoNode(Node):
                 points = data_dict['points'][:, 1:4]  # Extract the relevant columns (x, y, z)
                 point_cloud_msg = self.create_cloud_xyz32(header, points)  # Assuming first 3 columns are x, y, z
                 self.publisher_.publish(point_cloud_msg)
+                self.publish_bounding_boxes(pred_dicts, "lidar_frame")  # Use appropriate frame_id
 
         self.logger.info('Demo done.')
 
