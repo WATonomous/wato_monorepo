@@ -1,4 +1,4 @@
-name: Automatic Monorepo Code Linting
+name: Monorepo Code Linting - Auto Linter
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: Check Monorepo Code Styling
+name: Monorepo Code Linting - Checker
 
 on:
   push:
@@ -25,15 +25,6 @@ jobs:
       - name: Install Python dependencies
         run: pip install autopep8 clang-format
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v1
-        with:
-          node-version: 12
-
-      # Prettier must be in `package.json`
-      - name: Install Node.js dependencies
-        run: npm ci
-
       - name: Run linters
         uses: WATonomous/wato-lint-action@v1
         with:
@@ -41,5 +32,3 @@ jobs:
           Autopep8_args: "--max-line-length 100"
           clang_format: true
           clang_format_args: "-style=file"
-          prettier: true
-
