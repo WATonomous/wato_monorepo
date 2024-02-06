@@ -2,7 +2,7 @@ name: Track changes between main and new commit
 
 on:
   workflow_dispatch:
--
+
 jobs:
   changed_files:
     # ------------------------------------------------------------------------
