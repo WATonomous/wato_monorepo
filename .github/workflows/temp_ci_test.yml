@@ -26,8 +26,7 @@ jobs:
         # with:
         #   since_last_remote_commit: true 
         with:
-          files: | 
-            src/**
+          files: .github/**
 
       - name: List all changed files
         env:
