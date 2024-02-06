@@ -20,6 +20,7 @@ double AggregatorCore::raw_frequency() const
 
 double AggregatorCore::filtered_frequency() const
 {
+
   if (latest_filtered_time_ <= start_) {
     return 0.0;
   }
