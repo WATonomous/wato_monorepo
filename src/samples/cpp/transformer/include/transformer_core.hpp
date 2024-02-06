@@ -3,23 +3,21 @@
 
 #include <vector>
 
-#include "sample_msgs/msg/unfiltered.hpp"
 #include "sample_msgs/msg/filtered.hpp"
+#include "sample_msgs/msg/unfiltered.hpp"
 
-namespace samples
-{
+namespace samples {
 
 /**
  * Implementation for the internal logic for the Transformer ROS2
  * node performing data processing and validation.
  */
-class TransformerCore
-{
-public:
+class TransformerCore {
+ public:
   // Size of buffer before processed messages are published.
   static constexpr int BUFFER_CAPACITY = 10;
 
-public:
+ public:
   /**
    * Transformer constructor.
    */
@@ -45,8 +43,7 @@ public:
    * @param unfiltered a raw message
    * @returns whether message's 'valid' field is set
    */
-  bool validate_message(
-    const sample_msgs::msg::Unfiltered::SharedPtr unfiltered);
+  bool validate_message(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered);
 
   /**
    * Enqueue message into an array of processed messages to "filtered" topic.
@@ -55,7 +52,7 @@ public:
    * @param msg a processed message to be published
    * @returns whether buffer is full after adding new message
    */
-  bool enqueue_message(const sample_msgs::msg::Filtered & msg);
+  bool enqueue_message(const sample_msgs::msg::Filtered& msg);
 
   /**
    * Deserializes the data field of the unfiltered ROS2 message.
@@ -65,11 +62,10 @@ public:
    * @param[out] filtered the processed message containing deserialized data
    * @returns whether deserialization was successful
    */
-  bool deserialize_coordinate(
-    const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
-    sample_msgs::msg::Filtered & filtered);
+  bool deserialize_coordinate(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
+                              sample_msgs::msg::Filtered& filtered);
 
-private:
+ private:
   // Buffer storing processed messages until BUFFER_CAPACITY. Clear after
   // messages are published.
   std::vector<sample_msgs::msg::Filtered> buffer_;
