@@ -73,7 +73,7 @@ class LidarDemoNode(Node):
 
                 # Convert and publish data
                 header = self.make_header()
-                points = data_dict['points'][:, 1:4]  # Extract the relevant columns (x, y, z)
+                points = data_dict['points'][:, :3]  # Extract the relevant columns (x, y, z)
                 point_cloud_msg = self.create_cloud_xyz32(header, points)  # Assuming first 3 columns are x, y, z
                 self.publisher_.publish(point_cloud_msg)
                 self.publish_bounding_boxes(pred_dicts, "lidar_frame")  # Use appropriate frame_id
@@ -113,18 +113,34 @@ class LidarDemoNode(Node):
             PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
             PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1)
         ]
+
+        y_angle = np.deg2rad(90)
+        z_angle = np.deg2rad(-90)
+        rotation_matrix_y = np.array([
+        [np.cos(y_angle),  0, np.sin(y_angle)],
+        [0,                1, 0              ],
+        [-np.sin(y_angle), 0, np.cos(y_angle)]
+        ])
+        rotation_matrix_z = np.array([
+        [np.cos(z_angle), -np.sin(z_angle), 0],
+        [np.sin(z_angle),  np.cos(z_angle), 0],
+        [0,                0,               1]
+        ])
+        # Apply transformation
         points_np = points.cpu().numpy()
+        points_np_y = np.dot(points_np, rotation_matrix_y)
+        points_transformed = np.dot(points_np_y, rotation_matrix_z.T)
         # Create a PointCloud2 message
         cloud = PointCloud2()
         cloud.header = header
         cloud.height = 1  # Unstructured point cloud
-        cloud.width = points_np.shape[0]
+        cloud.width = points_transformed.shape[0]
         cloud.fields = fields
         cloud.is_bigendian = False  # Assuming little endian
         cloud.point_step = 12  # FLOAT32 (4 bytes) * 3 (x, y, z)
         cloud.row_step = cloud.point_step * cloud.width
-        cloud.is_dense = bool(np.isfinite(points_np).all())
-        cloud.data = np.asarray(points_np, np.float32).tobytes()
+        cloud.is_dense = bool(np.isfinite(points_transformed).all())
+        cloud.data = np.asarray(points_transformed, np.float32).tobytes()
 
         return cloud
 
