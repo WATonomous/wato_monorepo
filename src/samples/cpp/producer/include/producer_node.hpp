@@ -37,7 +37,8 @@ class ProducerNode : public rclcpp::Node {
   /**
    * Callback used to dynamically update velocity data at runtime.
    *
-   * @param parameters list of parameters (only velocity in this case) that were modified
+   * @param parameters list of parameters (only velocity in this case) that were
+   * modified
    * @returns status message indicating whether update was successful
    */
   rcl_interfaces::msg::SetParametersResult parameters_callback(
@@ -52,7 +53,8 @@ class ProducerNode : public rclcpp::Node {
   // Callback to dynamically modify node parameters.
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_;
 
-  // Producer implementation containing logic for coordinate serialization and management.
+  // Producer implementation containing logic for coordinate serialization and
+  // management.
   samples::ProducerCore producer_;
 };
 

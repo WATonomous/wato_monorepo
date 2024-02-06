@@ -25,8 +25,9 @@ class AggregatorNode : public rclcpp::Node {
 
  private:
   /**
-   * A ROS2 subscription node callback used to unpack raw data from the "unfiltered"
-   * topic and echo the operating frequency of the topic to the console.
+   * A ROS2 subscription node callback used to unpack raw data from the
+   * "unfiltered" topic and echo the operating frequency of the topic to the
+   * console.
    *
    * @param msg a raw message from the "unfiltered" topic
    */
@@ -34,7 +35,8 @@ class AggregatorNode : public rclcpp::Node {
 
   /**
    * A ROS2 subscription node callback used to unpack processed data from the
-   * "filtered" topic and echo the operating frequency of the topic to the console.
+   * "filtered" topic and echo the operating frequency of the topic to the
+   * console.
    *
    * @param msg a processed message from the "filtered" topic
    */
@@ -44,7 +46,8 @@ class AggregatorNode : public rclcpp::Node {
   rclcpp::Subscription<sample_msgs::msg::Unfiltered>::SharedPtr raw_sub_;
 
   // ROS2 subscriber listening to the filtered topic.
-  rclcpp::Subscription<sample_msgs::msg::FilteredArray>::SharedPtr filtered_sub_;
+  rclcpp::Subscription<sample_msgs::msg::FilteredArray>::SharedPtr
+      filtered_sub_;
 
   // Object containing methods to determine the operating frequency on topics.
   samples::AggregatorCore aggregator_;

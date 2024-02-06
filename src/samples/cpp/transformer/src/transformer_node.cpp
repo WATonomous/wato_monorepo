@@ -2,19 +2,22 @@
 
 #include "transformer_node.hpp"
 
-TransformerNode::TransformerNode() : Node("transformer"), transformer_(samples::TransformerCore()) {
+TransformerNode::TransformerNode()
+    : Node("transformer"), transformer_(samples::TransformerCore()) {
   raw_sub_ = this->create_subscription<sample_msgs::msg::Unfiltered>(
       "/unfiltered_topic", ADVERTISING_FREQ,
-      std::bind(&TransformerNode::unfiltered_callback, this, std::placeholders::_1));
-  transform_pub_ =
-      this->create_publisher<sample_msgs::msg::FilteredArray>("/filtered_topic", ADVERTISING_FREQ);
+      std::bind(&TransformerNode::unfiltered_callback, this,
+                std::placeholders::_1));
+  transform_pub_ = this->create_publisher<sample_msgs::msg::FilteredArray>(
+      "/filtered_topic", ADVERTISING_FREQ);
 
   // Define the default values for parameters if not defined in params.yaml
   this->declare_parameter("version", rclcpp::ParameterValue(0));
   this->declare_parameter("compression_method", rclcpp::ParameterValue(0));
 }
 
-void TransformerNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::SharedPtr msg) {
+void TransformerNode::unfiltered_callback(
+    const sample_msgs::msg::Unfiltered::SharedPtr msg) {
   if (!transformer_.validate_message(msg)) {
     return;
   }
@@ -26,7 +29,8 @@ void TransformerNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::Sh
 
   filtered.timestamp = msg->timestamp;
   filtered.metadata.version = this->get_parameter("version").as_int();
-  filtered.metadata.compression_method = this->get_parameter("compression_method").as_int();
+  filtered.metadata.compression_method =
+      this->get_parameter("compression_method").as_int();
 
   if (transformer_.enqueue_message(filtered)) {
     RCLCPP_INFO(this->get_logger(), "Buffer Capacity Reached. PUBLISHING...");
