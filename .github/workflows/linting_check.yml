@@ -28,6 +28,7 @@ jobs:
       - name: Run linters
         uses: WATonomous/wato-lint-action@v1
         with:
+          check_name: "Check ${linter}"
           Autopep8: true
           Autopep8_args: "--max-line-length 100"
           clang_format: true
