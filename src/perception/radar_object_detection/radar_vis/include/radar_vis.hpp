@@ -6,19 +6,17 @@
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/msg/point_field.hpp"
 
-#include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
+#include "radar_msgs/msg/radar_packet.hpp"
 
-namespace visualization
-{
+namespace visualization {
 
-class RadarVis
-{
-public:
+class RadarVis {
+ public:
   RadarVis();
 
   sensor_msgs::msg::PointCloud2 convert_packet_to_pointcloud(
-    const radar_msgs::msg::RadarPacket::SharedPtr msg);
+      const radar_msgs::msg::RadarPacket::SharedPtr msg);
 };
 
 }  // namespace visualization
