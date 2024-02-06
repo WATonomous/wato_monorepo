@@ -22,7 +22,8 @@ void ProducerCore::update_coordinates() {
   pos_z_ += velocity_ / sqrt(3);
 }
 
-void ProducerCore::serialize_coordinates(sample_msgs::msg::Unfiltered& msg) const {
+void ProducerCore::serialize_coordinates(
+    sample_msgs::msg::Unfiltered& msg) const {
   msg.data = "x:" + std::to_string(pos_x_) + ";y:" + std::to_string(pos_y_) +
              ";z:" + std::to_string(pos_z_) + ";";
   msg.valid = true;

@@ -4,12 +4,14 @@
 
 #include "producer_node.hpp"
 
-ProducerNode::ProducerNode(int delay_ms) : Node("producer"), producer_(samples::ProducerCore()) {
-  data_pub_ =
-      this->create_publisher<sample_msgs::msg::Unfiltered>("/unfiltered_topic", ADVERTISING_FREQ);
+ProducerNode::ProducerNode(int delay_ms)
+    : Node("producer"), producer_(samples::ProducerCore()) {
+  data_pub_ = this->create_publisher<sample_msgs::msg::Unfiltered>(
+      "/unfiltered_topic", ADVERTISING_FREQ);
 
-  timer_ = this->create_wall_timer(std::chrono::milliseconds(delay_ms),
-                                   std::bind(&ProducerNode::timer_callback, this));
+  timer_ =
+      this->create_wall_timer(std::chrono::milliseconds(delay_ms),
+                              std::bind(&ProducerNode::timer_callback, this));
 
   // Define the default values for parameters if not defined in params.yaml
   this->declare_parameter("pos_x", 0.0);
@@ -22,11 +24,12 @@ ProducerNode::ProducerNode(int delay_ms) : Node("producer"), producer_(samples::
   rclcpp::Parameter pos_z = this->get_parameter("pos_z");
   rclcpp::Parameter velocity = this->get_parameter("velocity");
 
-  producer_.update_position(pos_x.as_double(), pos_y.as_double(), pos_z.as_double());
+  producer_.update_position(pos_x.as_double(), pos_y.as_double(),
+                            pos_z.as_double());
   producer_.update_velocity(velocity.as_double());
 
-  param_cb_ = this->add_on_set_parameters_callback(
-      std::bind(&ProducerNode::parameters_callback, this, std::placeholders::_1));
+  param_cb_ = this->add_on_set_parameters_callback(std::bind(
+      &ProducerNode::parameters_callback, this, std::placeholders::_1));
 }
 
 void ProducerNode::timer_callback() {
@@ -52,7 +55,8 @@ rcl_interfaces::msg::SetParametersResult ProducerNode::parameters_callback(
     if (parameter.get_name() == "velocity" &&
         parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
       producer_.update_velocity(parameter.as_int());
-      RCLCPP_INFO(this->get_logger(), "Velocity successfully set to %d", parameter.as_int());
+      RCLCPP_INFO(this->get_logger(), "Velocity successfully set to %d",
+                  parameter.as_int());
       result.successful = true;
     }
   }

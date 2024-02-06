@@ -10,12 +10,13 @@
 #include "transformer_core.hpp"
 
 /**
- * Implementation of a ROS2 node that converts unfiltered messages to filtered_array
- * messages.
+ * Implementation of a ROS2 node that converts unfiltered messages to
+ * filtered_array messages.
  *
  * Listens to the "unfiltered" topic and filters out data with invalid fields
  * and odd timestamps. Once the node collects BUFFER_CAPACITY messages it packs
- * the processed messages into an array and publishes it to the "filtered" topic.
+ * the processed messages into an array and publishes it to the "filtered"
+ * topic.
  */
 class TransformerNode : public rclcpp::Node {
  public:

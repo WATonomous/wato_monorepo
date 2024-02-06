@@ -43,7 +43,8 @@ class TransformerCore {
    * @param unfiltered a raw message
    * @returns whether message's 'valid' field is set
    */
-  bool validate_message(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered);
+  bool validate_message(
+      const sample_msgs::msg::Unfiltered::SharedPtr unfiltered);
 
   /**
    * Enqueue message into an array of processed messages to "filtered" topic.
@@ -62,8 +63,9 @@ class TransformerCore {
    * @param[out] filtered the processed message containing deserialized data
    * @returns whether deserialization was successful
    */
-  bool deserialize_coordinate(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
-                              sample_msgs::msg::Filtered& filtered);
+  bool deserialize_coordinate(
+      const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
+      sample_msgs::msg::Filtered& filtered);
 
  private:
   // Buffer storing processed messages until BUFFER_CAPACITY. Clear after
