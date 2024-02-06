@@ -7,12 +7,10 @@ on:
   pull_request:
     branches:
       - main
-    types:
-      - labeled
 
 jobs:
-  run-linters-python:
-    name: Run Python linters
+  run-linters:
+    name: Run C++/Python linters
     runs-on: ubuntu-latest
 
     steps:
@@ -25,35 +23,13 @@ jobs:
           python-version: 3.8
 
       - name: Install Python dependencies
-        run: pip install autopep8
+        run: pip install autopep8 clang-format
 
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
           auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
-          commit: false
           Autopep8: true
           Autopep8_args: "--max-line-length 100"
-
-  run-linters-cpp:
-    name: Run C++ linters
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.8
-
-      - name: Install ClangFormat
-        run: pip install clang-format
-
-      - name: Run linters
-        uses: wearerequired/lint-action@v2
-        with:
-          auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
-          commit: false
           clang_format: true
           clang_format_args: "-style=file"
