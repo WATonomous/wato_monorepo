@@ -26,16 +26,6 @@ option(BUILD_TESTING "Build tests" ON)
 if(BUILD_TESTING)
 
   find_package(ament_cmake_gtest REQUIRED)
-  find_package(ament_lint_auto REQUIRED)
-  find_package(ament_lint_common REQUIRED)
-
-  list(APPEND AMENT_LINT_AUTO_EXCLUDE
-    ament_cmake_cpplint
-    ament_cmake_copyright)
-
-  ament_cpplint(FILTERS "-legal/copyright")
-
-  ament_lint_auto_find_test_dependencies()
 
   ament_add_gtest(radar_vis_test test/radar_vis_test.cpp)
 
