@@ -7,8 +7,6 @@ on:
   pull_request:
     branches:
       - main
-  pull_request_target:
-    types: [labeled, unlabeled]
 
 jobs:
   run-linters:
@@ -30,7 +28,6 @@ jobs:
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
-          auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
           Autopep8: true
           Autopep8_args: "--max-line-length 100"
           clang_format: true
