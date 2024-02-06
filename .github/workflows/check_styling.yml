@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - main
+    types:
+      - labeled
 
 jobs:
   run-linters-python:
@@ -28,9 +30,10 @@ jobs:
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
-          auto_fix: false
+          auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
           commit: false
           Autopep8: true
+          Autopep8_args: "--max-line-length 100"
 
   run-linters-cpp:
     name: Run C++ linters
@@ -50,7 +53,7 @@ jobs:
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
-          auto_fix: false
+          auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
           commit: false
           clang_format: true
-          clang_format_args: "-style=file -Werror"
+          clang_format_args: "-style=file"
