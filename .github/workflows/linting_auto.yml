@@ -33,5 +33,4 @@ jobs:
           Autopep8_args: "--max-line-length 100"
           clang_format: true
           clang_format_auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
-          commit: false
           clang_format_args: "-style=file"
