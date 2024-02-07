@@ -29,9 +29,19 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install autopep8 clang-format
-      
+
+      - name: Run linters, make changes
+        continue-on-error: true
+        uses: WATonomous/wato-lint-action@v1
+        with:
+          auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
+          Autopep8: true
+          Autopep8_args: "--max-line-length 100"
+          clang_format: true
+          clang_format_auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
+          clang_format_args: "-style=file"
+
       - name: Remove 'auto-lint' label to stop possible inf loop
-        id: auto_lint_check
         if: contains(github.event.pull_request.labels.*.name, 'auto-lint')
         uses: actions/github-script@v6
         with:
@@ -42,14 +52,3 @@ jobs:
               issue_number: context.issue.number,
               name: 'auto-lint'
             });
-            core.setOutput('autoLint', true);
-
-      - name: Run linters, make changes
-        uses: WATonomous/wato-lint-action@v1
-        with:
-          auto_fix: ${{ steps.auto_lint_check.autoLint }}
-          Autopep8: true
-          Autopep8_args: "--max-line-length 100"
-          clang_format: true
-          clang_format_auto_fix: ${{ steps.auto_lint_check.autoLint }}
-          clang_format_args: "-style=file"
