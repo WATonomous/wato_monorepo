@@ -32,7 +32,7 @@ jobs:
           files: src/action/**
         
       - name: Update CHANGED_MODULES for action
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: steps.changed-files-action.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: action
         run: 
@@ -45,7 +45,7 @@ jobs:
           files: src/interfacing/**
 
       - name: Update CHANGED_MODULES for action
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: steps.changed-files-interfacing.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: "$CHANGED_MODULES interfacing"
         run: 
