@@ -36,7 +36,7 @@ jobs:
       - name: Update CHANGED_MODULES for action
         if: steps.changed-files-action.outputs.any_changed == 'true'
         env:
-          CHANGED_MODULES: action
+          CHANGED_MODULES: "${{ env.CHANGED_MODULES }} action"
         run: |
           echo "Detected action changes"
           echo "CHANGED_MODULES: $CHANGED_MODULES"
@@ -47,7 +47,7 @@ jobs:
         with:
           files: src/interfacing/**
 
-      - name: Update CHANGED_MODULES for action
+      - name: Update CHANGED_MODULES for interfacing
         if: steps.changed-files-interfacing.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: "${{ env.CHANGED_MODULES }} interfacing"
