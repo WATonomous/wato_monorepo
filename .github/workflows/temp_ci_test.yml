@@ -25,7 +25,7 @@ jobs:
         id: changed-files-action
         uses: tj-actions/changed-files@v42
         with:
-          files: .src/action/**
+          files: src/action/**
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: action
@@ -34,7 +34,7 @@ jobs:
         id: changed-files-interfacing
         uses: tj-actions/changed-files@v42
         with:
-          files: .src/interfacing/**
+          files: src/interfacing/**
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: "$CHANGED_MODULES interfacing"
