@@ -47,9 +47,9 @@ jobs:
       - name: Run linters, make changes
         uses: WATonomous/wato-lint-action@v1
         with:
-          auto_fix: ${{ steps.auto_lint_check.auto_lint }}
+          auto_fix: ${{ steps.auto_lint_check.auto-lint }}
           Autopep8: true
           Autopep8_args: "--max-line-length 100"
           clang_format: true
-          clang_format_auto_fix: ${{ steps.auto_lint_check.auto_lint }}
+          clang_format_auto_fix: ${{ steps.auto_lint_check.auto-lint }}
           clang_format_args: "-style=file"
