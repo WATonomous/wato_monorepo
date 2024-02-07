@@ -27,14 +27,12 @@ jobs:
 
       - name: sanity check 2
         id: changed-files2
-        needs: changed-files
         run: |
           echo $MY_VARIABLE
           echo "MY_VARIABLE=$MY_VARIABLE SUS" >> $GITHUB_ENV
 
       - name: sanity check 3
         id: changed-files3
-        needs: changed-files2
         run:
           echo $MY_VARIABLE
 
