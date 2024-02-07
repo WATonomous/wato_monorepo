@@ -52,8 +52,6 @@ jobs:
 
       - name: Update CHANGED_MODULES for action
         if: steps.changed-files-action.outputs.any_changed == 'true'
-        env:
-
         run: |
           echo "Detected action changes"
 
