@@ -7,6 +7,7 @@ set -e
 
 # Find docker compose files in 'modules' directory
 modules=$(find modules -maxdepth 1 -name "docker-compose*")
+modules_modified=false
 
 # Initialize an empty array for JSON objects
 json_objects=()
@@ -21,6 +22,7 @@ while read -r module; do
     # Only work with modules that are modified
     if [[ $1 = *$module_out* ]]; then
         echo "$module_out modified"
+        modules_modified=true
     else
         echo "$module_out not changed"
         continue
