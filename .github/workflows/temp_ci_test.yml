@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - 'ci-specific-modules'
+      - 'main'
 
 jobs:
   changed_files:
@@ -24,6 +25,8 @@ jobs:
       - name: sanity check
         id: changed-files
         uses: tj-actions/changed-files@v42
+        with:
+          since_last_remote_commit: false 
 
       - name: Find changed files inside action folder
         id: changed-files-action
