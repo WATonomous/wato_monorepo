@@ -17,6 +17,7 @@ jobs:
 
     outputs: 
       modified_modules: 
+        description: 'Space deliminated list of modified modules'
         value: ${{ steps.report_changes.outputs.modified_modules }}
 
     steps:
