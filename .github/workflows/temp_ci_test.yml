@@ -11,9 +11,12 @@ jobs:
   # Event `pull_request`: Compare the last commit of the main branch or last
   # remote commit of the PR branch -> to the current commit of a PR branch.
   # ------------------------------------------------------------------------
-  get_modified_modules:
+  get_changed_modules:
     runs-on: ubuntu-latest
     name: Get changed files
+
+    outputs: ${{ CHANGED_MODULES }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -98,7 +101,10 @@ jobs:
   setup-environment:
       name: Setup environment
       runs-on: ubuntu-latest
-      needs: get_modified_modules
+      needs: get_changed_modules
+
+      env:
+        MODIFIED_MODULES: ${{ needs.get_changed_modules.outputs.CHANGED_MODULES }}
 
       outputs:
         docker_matrix: ${{ steps.docker-environment.outputs.docker_matrix }}
@@ -119,7 +125,7 @@ jobs:
           id: docker-environment
           uses: "./.github/templates/docker_context"
           with:
-            modified-modules: ${{env.CHANGED_MODULES}}
+            modified-modules: ${{env.MODIFIED_MODULES}}
         
         - name: Generate GitHub Environment
           id: github-environment
