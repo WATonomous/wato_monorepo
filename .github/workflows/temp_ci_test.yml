@@ -14,27 +14,25 @@ jobs:
     # ------------------------------------------------------------------------
     runs-on: ubuntu-latest  # windows-latest || macos-latest
     name: Test changed-files
-    env: 
-      CHANGED_MODULES: ""
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
 
-      - name: sanity check 1
-        id: changed-files
-        run: echo "MY_VARIABLE=sus" >> $GITHUB_ENV
+      # - name: sanity check 1
+      #   id: changed-files
+      #   run: echo "MY_VARIABLE=sus" >> $GITHUB_ENV
 
-      - name: sanity check 2
-        id: changed-files2
-        run: |
-          echo $MY_VARIABLE
-          echo "MY_VARIABLE=$MY_VARIABLE SUS" >> $GITHUB_ENV
+      # - name: sanity check 2
+      #   id: changed-files2
+      #   run: |
+      #     echo $MY_VARIABLE
+      #     echo "MY_VARIABLE=$MY_VARIABLE SUS" >> $GITHUB_ENV
 
-      - name: sanity check 3
-        id: changed-files3
-        run:
-          echo $MY_VARIABLE
+      # - name: sanity check 3
+      #   id: changed-files3
+      #   run:
+      #     echo $MY_VARIABLE
 
       - name: Find changed files inside action folder
         id: changed-files-action
@@ -52,11 +50,13 @@ jobs:
         if: steps.changed-files-action.outputs.any_changed == 'true'
         run: |
           echo "Detected action changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
 
       - name: Update CHANGED_MODULES for interfacing
         if: steps.changed-files-interfacing.outputs.any_changed == 'true'
         run: |
           echo "Detected interfacing changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> $GITHUB_ENV
 
       - name: List all changed files
         env:
