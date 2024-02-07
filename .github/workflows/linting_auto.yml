@@ -34,11 +34,11 @@ jobs:
         continue-on-error: true
         uses: WATonomous/wato-lint-action@v1
         with:
-          auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
+          auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
           Autopep8: true
           Autopep8_args: "--max-line-length 100"
           clang_format: true
-          clang_format_auto_fix: contains(github.event.pull_request.labels.*.name, 'auto-lint')
+          clang_format_auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
           clang_format_args: "-style=file"
 
       - name: Remove 'auto-lint' label to stop possible inf loop
