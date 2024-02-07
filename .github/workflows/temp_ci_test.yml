@@ -125,6 +125,9 @@ jobs:
           run: ./watod_scripts/watod-setup-env.sh
           shell: bash
 
+        - name: Check module changes
+          run: echo "changed is ${{ env.modified_modules }}"
+
         - name: Generate Docker Environment
           id: docker-environment
           uses: "./.github/templates/docker_context"
