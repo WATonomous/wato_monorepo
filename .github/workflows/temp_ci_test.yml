@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
 
       - name: Get changed files inside action folder
-        id: changed-files
+        id: changed-files-action
         uses: tj-actions/changed-files@v42
         with:
           files: .src/action/**
@@ -31,7 +31,7 @@ jobs:
           CHANGED_MODULES: action
       
       - name: Get changed files inside interfacing folder
-        id: changed-files
+        id: changed-files-interfacing
         uses: tj-actions/changed-files@v42
         with:
           files: .src/interfacing/**
