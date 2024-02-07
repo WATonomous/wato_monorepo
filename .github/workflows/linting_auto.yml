@@ -42,7 +42,7 @@ jobs:
               issue_number: context.issue.number,
               name: 'auto-lint'
             });
-            core.setOutput('auto-lint', True);
+            core.setOutput('auto-lint', true);
 
       - name: Run linters, make changes
         uses: WATonomous/wato-lint-action@v1
