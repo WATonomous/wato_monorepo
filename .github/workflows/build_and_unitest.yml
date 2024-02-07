@@ -32,7 +32,7 @@ jobs:
         id: docker-environment
         uses: "./.github/templates/docker_context"
         with:
-          modified-modules: {{env.CHANGED_MODULES}}
+          modified-modules: ${{env.CHANGED_MODULES}}
 
       - name: Generate GitHub Environment
         id: github-environment
