@@ -21,11 +21,22 @@ jobs:
         with:
           fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
 
-      - name: sanity check
+      - name: sanity check 1
         id: changed-files
         uses: tj-actions/changed-files@v42
+        env:
+          CHANGED_MODULES: ${{ env.CHANGED_MODULES }} 1
         with:
           since_last_remote_commit: false 
+        run:
+          echo $CHANGED_MODULES
+
+      - name: sanity check 2
+        id: changed-files2
+        env:
+          CHANGED_MODULES: ${{ env.CHANGED_MODULES }} 2
+        run:
+          echo $CHANGED_MODULES
 
       - name: Find changed files inside action folder
         id: changed-files-action
@@ -41,15 +52,15 @@ jobs:
 
       - name: Update CHANGED_MODULES for action
         if: steps.changed-files-action.outputs.any_changed == 'true'
+        env:
+
         run: |
           echo "Detected action changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES action" >> "$GITHUB_OUTPUT"
 
       - name: Update CHANGED_MODULES for interfacing
         if: steps.changed-files-interfacing.outputs.any_changed == 'true'
         run: |
           echo "Detected interfacing changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> "$GITHUB_OUTPUT"
 
       - name: List all changed files
         env:
