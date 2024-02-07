@@ -36,8 +36,7 @@ class Transformer(Node):
 
         # Initialize ROS2 Constructs
         self.publisher_ = self.create_publisher(FilteredArray, '/filtered_topic', 10)
-        self.subscription = self.create_subscription(Unfiltered, '/unfiltered_topic',
-                                                     self.unfiltered_callback, 10)
+        self.subscription = self.create_subscription(Unfiltered, '/unfiltered_topic', self.unfiltered_callback, 10)
 
         self.__filtered_array_packets = []
 
