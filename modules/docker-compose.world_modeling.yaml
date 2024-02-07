@@ -10,8 +10,6 @@ services:
         - "${WORLD_MODELING_HD_MAP_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_HD_MAP_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch hd_map hd_map.launch.py"
 
   localization:
@@ -23,8 +21,6 @@ services:
         - "${WORLD_MODELING_LOCALIZATION_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_LOCALIZATION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch localization localization.launch.py"
 
   occupancy:
@@ -36,8 +32,6 @@ services:
         - "${WORLD_MODELING_OCCUPANCY_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_OCCUPANCY_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch occupancy occupancy.launch.py"
 
   occupancy_segmentation:
@@ -49,8 +43,6 @@ services:
         - "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch occupancy_segmentation occupancy_segmentation.launch.py"
 
   motion_forecasting:
@@ -62,6 +54,4 @@ services:
         - "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch motion_forecasting motion_forecasting.launch.py"
