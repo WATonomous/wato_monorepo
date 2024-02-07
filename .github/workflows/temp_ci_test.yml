@@ -21,11 +21,13 @@ jobs:
         with:
           fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
 
-      - name: Get changed files inside action folder
+      - name: Find changed files inside action folder
         id: changed-files-action
         uses: tj-actions/changed-files@v42
         with:
           files: src/action/**
+        
+      - name: Update CHANGED_MODULES for action
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: action
@@ -35,6 +37,8 @@ jobs:
         uses: tj-actions/changed-files@v42
         with:
           files: src/interfacing/**
+
+      - name: Update CHANGED_MODULES for action
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: "$CHANGED_MODULES interfacing"
