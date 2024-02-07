@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Get changed files
 
-    outputs: ${{ CHANGED_MODULES }}
+    outputs: ${{ env.CHANGD_MODULES }}
 
     steps:
       - uses: actions/checkout@v4
