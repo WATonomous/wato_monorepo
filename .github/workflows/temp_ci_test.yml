@@ -95,32 +95,32 @@ jobs:
         run: |
           echo "CHANGED_MODULES: $CHANGED_MODULES"
 
-setup-environment:
-    name: Setup environment
-    runs-on: ubuntu-latest
-    needs: get_modified_modules
+  setup-environment:
+      name: Setup environment
+      runs-on: ubuntu-latest
+      needs: get_modified_modules
 
-    outputs:
-      docker_matrix: ${{ steps.docker-environment.outputs.docker_matrix }}
-      registry: ${{ steps.docker-environment.outputs.registry }}
-      repository: ${{ steps.docker-environment.outputs.repository }}
-      source_branch: ${{ steps.github-environment.outputs.source_branch }}
-      target_branch: ${{ steps.github-environment.outputs.target_branch }}
+      outputs:
+        docker_matrix: ${{ steps.docker-environment.outputs.docker_matrix }}
+        registry: ${{ steps.docker-environment.outputs.registry }}
+        repository: ${{ steps.docker-environment.outputs.repository }}
+        source_branch: ${{ steps.github-environment.outputs.source_branch }}
+        target_branch: ${{ steps.github-environment.outputs.target_branch }}
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      steps:
+        - name: Checkout Repository
+          uses: actions/checkout@v3
 
-      - name: Setup Watod Environment
-        run: ./watod_scripts/watod-setup-env.sh
-        shell: bash
+        - name: Setup Watod Environment
+          run: ./watod_scripts/watod-setup-env.sh
+          shell: bash
 
-      - name: Generate Docker Environment
-        id: docker-environment
-        uses: "./.github/templates/docker_context"
-        with:
-          modified-modules: {{env.CHANGED_MODULES}}
-      
-      - name: Generate GitHub Environment
-        id: github-environment
-        uses: "./.github/templates/github_context"
+        - name: Generate Docker Environment
+          id: docker-environment
+          uses: "./.github/templates/docker_context"
+          with:
+            modified-modules: {{env.CHANGED_MODULES}}
+        
+        - name: Generate GitHub Environment
+          id: github-environment
+          uses: "./.github/templates/github_context"
