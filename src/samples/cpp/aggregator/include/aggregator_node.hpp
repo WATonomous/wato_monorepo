@@ -3,8 +3,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "sample_msgs/msg/filtered_array.hpp"
 #include "sample_msgs/msg/unfiltered.hpp"
+#include "sample_msgs/msg/filtered_array.hpp"
 
 #include "aggregator_core.hpp"
 
