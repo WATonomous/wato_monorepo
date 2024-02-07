@@ -23,11 +23,11 @@ jobs:
 
       - name: sanity check 1
         id: changed-files
-        uses: tj-actions/changed-files@v42
+        # uses: tj-actions/changed-files@v42
         env:
           CHANGED_MODULES: ${{ env.CHANGED_MODULES }} 1
-        with:
-          since_last_remote_commit: false 
+        # with:
+          # since_last_remote_commit: false 
         run:
           echo $CHANGED_MODULES
 
