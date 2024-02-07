@@ -31,6 +31,8 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: action
+        run: 
+          echo "Detected action changes"
       
       - name: Get changed files inside interfacing folder
         id: changed-files-interfacing
@@ -42,6 +44,8 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         env:
           CHANGED_MODULES: "$CHANGED_MODULES interfacing"
+        run: 
+          echo "Detected interfacing changes"
 
       - name: List all changed files
         env:
