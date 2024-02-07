@@ -16,7 +16,7 @@ jobs:
     name: Get changed files
 
     outputs: 
-      modified_modules: ${{ steps.report-changes.outputs.modified_modules }}
+      modified_modules: ${{ steps.report-changes.outputs.CHANGED_MODULES }}
 
     steps:
       - uses: actions/checkout@v4
@@ -101,10 +101,11 @@ jobs:
           modified_modules: ${{ env.CHANGED_MODULES }}
         run: |
           echo "CHANGED_MODULES: ${{ env.CHANGED_MODULES }}"
+          echo "CHANGED_MODULES=$CHANGED_MODULES" >> $GITHUB_ENV
       
       - name: Sanity check
         run: |
-          echo 1 ${{ steps.report-changes.outputs.modified_modules }}
+          echo 1 ${{ steps.report-changes.outputs.CHANGED_MODULES }}
           echo 2 ${{ env.CHANGED_MODULES }}
 
   setup-environment:
