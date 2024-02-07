@@ -42,14 +42,14 @@ jobs:
               issue_number: context.issue.number,
               name: 'auto-lint'
             });
-            core.setOutput('auto-lint', true);
+            core.setOutput('autoLint', true);
 
       - name: Run linters, make changes
         uses: WATonomous/wato-lint-action@v1
         with:
-          auto_fix: ${{ steps.auto_lint_check.auto-lint }}
+          auto_fix: ${{ steps.auto_lint_check.autoLint }}
           Autopep8: true
           Autopep8_args: "--max-line-length 100"
           clang_format: true
-          clang_format_auto_fix: ${{ steps.auto_lint_check.auto-lint }}
+          clang_format_auto_fix: ${{ steps.auto_lint_check.autoLint }}
           clang_format_args: "-style=file"
