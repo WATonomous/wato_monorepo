@@ -15,7 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Get changed files
 
-    outputs: ${{ steps.report_changes.outputs.modified_modules }}
+    outputs: 
+      modified_modules: ${{ steps.report_changes.outputs.modified_modules }}
 
     steps:
       - uses: actions/checkout@v4
