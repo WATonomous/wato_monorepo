@@ -1,5 +1,11 @@
 name: Generate Docker Environment
 
+inputs:
+  modified-modules:
+    description: 'Space deliminated list of modified modules'
+    required: true
+    default: ''
+
 outputs:
   docker_matrix:
     description: "list of docker compose services"
