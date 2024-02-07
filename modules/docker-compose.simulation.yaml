@@ -9,7 +9,5 @@ services:
         - "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
         - "${SIMULATION_CARLA_IMAGE:?}:main"
       target: deploy
-    image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json 
+    image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}" 
     command: /bin/bash -c "ros2 launch carla_sim carla_sim.launch.py"
