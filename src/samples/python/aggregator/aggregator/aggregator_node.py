@@ -46,7 +46,7 @@ class Aggregator(Node):
         self.print_freqs()
 
     def print_freqs(self):
-        self.get_logger().info('Number of unfiltered messages:' + 
+        self.get_logger().info('Number of unfiltered messages:' +
                                str(self.__aggregator.num_unfiltered_msgs))
         self.get_logger().info('Number of filtered messages:' +
                                str(self.__aggregator.num_filtered_msgs))
