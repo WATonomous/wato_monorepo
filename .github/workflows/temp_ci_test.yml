@@ -50,7 +50,7 @@ jobs:
       - name: Update CHANGED_MODULES for action
         if: steps.changed-files-interfacing.outputs.any_changed == 'true'
         env:
-          CHANGED_MODULES: "$CHANGED_MODULES interfacing"
+          CHANGED_MODULES: "${{ env.CHANGED_MODULES }} interfacing"
         run: |
           echo "Detected interfacing changes"
           echo "CHANGED_MODULES: $CHANGED_MODULES"
@@ -63,7 +63,7 @@ jobs:
             echo "$file was changed!"
           done
           echo =======================
-          echo "CHANGED_MODULES: ${{ env.CHANGED_MODULES }}"
+          echo "CHANGED_MODULES: $CHANGED_MODULES"
 
   # setup-environment:
   #   name: Setup environment
