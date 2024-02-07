@@ -18,7 +18,6 @@ from rclpy.node import Node
 from sample_msgs.msg import Unfiltered, Filtered, FilteredArray
 from transformer.transformer_core import TransformerCore
 
-
 class Transformer(Node):
 
     def __init__(self):
