@@ -105,6 +105,7 @@ jobs:
       - name: Sanity check
         run: |
           echo 1 ${{ steps.report-changes.outputs.modified_modules }}
+          echo 2 ${{ env.CHANGED_MODULES }}
 
   setup-environment:
       name: Setup environment
