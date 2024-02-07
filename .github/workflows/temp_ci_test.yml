@@ -54,7 +54,7 @@ jobs:
           files: src/simulation/**
       
       - name: Get changed files inside world_modeling folder
-        id: changed-files-world_modeling
+        id: changed-files-world-modeling
         uses: tj-actions/changed-files@v42
         with:
           files: src/world_modeling/**
@@ -90,7 +90,7 @@ jobs:
           echo "CHANGED_MODULES=$CHANGED_MODULES simulations" >> $GITHUB_ENV
 
       - name: Update CHANGED_MODULES for world_modeling
-        if: steps.changed-files-world_modeling.outputs.any_changed == 'true'
+        if: steps.changed-files-world-modeling.outputs.any_changed == 'true'
         run: |
           echo "Detected world_modeling changes"
           echo "CHANGED_MODULES=$CHANGED_MODULES world_modeling" >> $GITHUB_ENV
@@ -129,7 +129,7 @@ jobs:
           id: docker-environment
           uses: "./.github/templates/docker_context"
           with:
-            modified-modules: ${{ env.modified_modules }}
+            modified_modules: ${{ env.modified_modules }}
         
         - name: Generate GitHub Environment
           id: github-environment
