@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Get changed files
 
-    outputs: ${{ env.CHANGD_MODULES }}
+    outputs: ${{ steps.report_changes.outputs.modified_modules }}
 
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +95,9 @@ jobs:
           echo "CHANGED_MODULES=$CHANGED_MODULES world_modeling" >> $GITHUB_ENV
 
       - name: List all changed files
+        id: report-changes
+        env:
+          modified_modules: ${{ env.CHANGED_MODULES }}
         run: |
           echo "CHANGED_MODULES: $CHANGED_MODULES"
 
@@ -104,7 +107,7 @@ jobs:
       needs: get_changed_modules
 
       env:
-        MODIFIED_MODULES: ${{ needs.get_changed_modules.outputs.CHANGED_MODULES }}
+        modified_modules: ${{ needs.get_changed_modules.outputs.modified_modules }}
 
       outputs:
         docker_matrix: ${{ steps.docker-environment.outputs.docker_matrix }}
@@ -125,7 +128,7 @@ jobs:
           id: docker-environment
           uses: "./.github/templates/docker_context"
           with:
-            modified-modules: ${{env.MODIFIED_MODULES}}
+            modified-modules: ${{ env.modified_modules }}
         
         - name: Generate GitHub Environment
           id: github-environment
