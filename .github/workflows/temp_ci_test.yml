@@ -39,7 +39,7 @@ jobs:
           CHANGED_MODULES: action
         run: |
           echo "Detected action changes"
-          echo "CHANGED_MODULES: $CHANGED_MODULES"
+          echo "CHANGED_MODULES: ${{ env.CHANGED_MODULES }}"
       
       - name: Get changed files inside interfacing folder
         id: changed-files-interfacing
@@ -53,7 +53,7 @@ jobs:
           CHANGED_MODULES: "$CHANGED_MODULES interfacing"
         run: |
           echo "Detected interfacing changes"
-          echo "CHANGED_MODULES: $CHANGED_MODULES"
+          echo "CHANGED_MODULES: ${{ env.CHANGED_MODULES }}"
 
       - name: List all changed files
         env:
@@ -63,7 +63,7 @@ jobs:
             echo "$file was changed!"
           done
           echo =======================
-          echo "CHANGED_MODULES: $CHANGED_MODULES"
+          echo "CHANGED_MODULES: ${{ env.CHANGED_MODULES }}"
 
   # setup-environment:
   #   name: Setup environment
