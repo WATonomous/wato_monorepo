@@ -16,9 +16,7 @@ jobs:
     name: Get changed files
 
     outputs: 
-      modified_modules: 
-        description: 'Space deliminated list of modified modules'
-        value: ${{ steps.report_changes.outputs.modified_modules }}
+      modified_modules: ${{ steps.report_changes.outputs.modified_modules }}
 
     steps:
       - uses: actions/checkout@v4
