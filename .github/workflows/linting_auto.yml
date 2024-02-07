@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GHCR_PWD }}
 
       - name: Set up Python
         uses: actions/setup-python@v1
