@@ -12,6 +12,8 @@ modules_modified=false
 # Initialize an empty array for JSON objects
 json_objects=()
 
+echo "input is $1"
+
 # Loop through each module
 while read -r module; do
 
