@@ -10,8 +10,6 @@ services:
         - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:main"
       target: deploy
     image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch radar_object_detection radar_object_detection.launch.py"
 
   camera_object_detection:
@@ -23,8 +21,6 @@ services:
         - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:main"
       target: deploy
     image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     deploy:
       resources:
         reservations:
@@ -45,8 +41,6 @@ services:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
       target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
   traffic_light_detection:
     build:
@@ -57,8 +51,6 @@ services:
         - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
       target: deploy
     image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch traffic_light_detection traffic_light_detection.launch.py"
 
   traffic_sign_detection:
@@ -70,8 +62,6 @@ services:
         - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:main"
       target: deploy
     image: "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch traffic_sign_detection traffic_sign_detection.launch.py"
 
   semantic_segmentation:
@@ -83,8 +73,6 @@ services:
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:main"
       target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
 
   lane_detection:
@@ -96,8 +84,6 @@ services:
         - "${PERCEPTION_LANE_DETECTION_IMAGE}:main"
       target: deploy
     image: "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch lane_detection lane_detection.launch.py"
 
   tracking:
@@ -109,6 +95,4 @@ services:
         - "${PERCEPTION_TRACKING_IMAGE}:main"
       target: deploy
     image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
