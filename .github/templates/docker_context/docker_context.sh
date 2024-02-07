@@ -7,6 +7,8 @@ set -e
 
 # Find docker compose files in 'modules' directory
 modules=$(find modules -maxdepth 1 -name "docker-compose*")
+echo $modules
+echo ================================
 
 # Initialize an empty array for JSON objects
 json_objects=()
@@ -29,7 +31,7 @@ done <<< "$modules"
 
 # Convert the array of JSON objects to a single JSON array
 json_services=$(jq -nc '[( $ARGS.positional[] | fromjson )]' --args -- ${json_objects[*]})
-echo "docker_matrix=$(echo $json_services | jq -c '{include: .}')" >> $GITHUB_OUTPUT
+echo "docker_matrix=$(echo $json_services | jq -c '{include: .}')" #>> #$GITHUB_OUTPUT
 
 ################# Setup Docker Registry and Repository Name #################
 # Docker Registry to pull/push images
@@ -38,5 +40,5 @@ REGISTRY_URL="ghcr.io/watonomous/wato_monorepo"
 REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
 REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
 
-echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
-echo "repository=$REPOSITORY" >> $GITHUB_OUTPUT
+echo "registry=$REGISTRY" #>> $GITHUB_OUTPUT
+echo "repository=$REPOSITORY" #>> $GITHUB_OUTPUT

@@ -14,19 +14,30 @@ jobs:
     # ------------------------------------------------------------------------
     runs-on: ubuntu-latest  # windows-latest || macos-latest
     name: Test changed-files
+    env: 
+      CHANGED_MODULES: ""
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
 
-      - name: Get changed files
+      - name: Get changed files inside action folder
         id: changed-files
         uses: tj-actions/changed-files@v42
-        # To compare changes between the current commit and the last pushed remote commit set `since_last_remote_commit: true`. e.g
-        # with:
-        #   since_last_remote_commit: true 
         with:
-          files: .github/**
+          files: .src/action/**
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        env:
+          CHANGED_MODULES: action
+      
+      - name: Get changed files inside interfacing folder
+        id: changed-files
+        uses: tj-actions/changed-files@v42
+        with:
+          files: .src/interfacing/**
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        env:
+          CHANGED_MODULES: "$CHANGED_MODULES interfacing"
 
       - name: List all changed files
         env:
@@ -35,6 +46,8 @@ jobs:
           for file in ${ALL_CHANGED_FILES}; do
             echo "$file was changed!"
           done
+          echo =======================
+          echo "CHANGED_MODULES: $CHANGED_MODULES"
 
   # setup-environment:
   #   name: Setup environment
