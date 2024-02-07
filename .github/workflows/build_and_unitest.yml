@@ -7,8 +7,6 @@ on:
   pull_request:
     branches:
       - main
-    types:
-      - synchronize
 
 jobs:
   setup-environment:
