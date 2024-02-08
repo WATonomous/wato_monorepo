@@ -22,6 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
+          since_last_remote_commit: false
 
       - name: Find changed files inside action folder
         id: changed-files-action
