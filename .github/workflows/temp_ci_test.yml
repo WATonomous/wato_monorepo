@@ -4,7 +4,10 @@ on:
   workflow_dispatch: {}
   push:
     branches:
-      - 'ci-specific-modules'
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   # ------------------------------------------------------------------------
