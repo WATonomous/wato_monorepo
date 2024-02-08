@@ -101,11 +101,11 @@ jobs:
           modified_modules: ${{ env.CHANGED_MODULES }}
         run: |
           echo "CHANGED_MODULES: ${{ env.CHANGED_MODULES }}"
-          echo "testvar=$CHANGED_MODULES" >> $GITHUB_ENV
+          echo "testvar=$CHANGED_MODULES" >> $GITHUB_OUTPUT
       
       - name: Sanity check
         run: |
-          echo 1 ${{ steps.world_modeling.outputs.CHANGED_MODULES }}
+          echo 1 ${{ steps.world_modeling.outputs.testvar }}
           echo 2 ${{ env.CHANGED_MODULES }}
 
   setup-environment:
