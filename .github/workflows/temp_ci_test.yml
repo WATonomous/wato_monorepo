@@ -140,3 +140,102 @@ jobs:
       - name: Generate GitHub Environment
         id: github-environment
         uses: "./.github/templates/github_context"
+
+  build-and-unittest:
+    name: Build Image and Run Unit Testing Suite
+    runs-on: ubuntu-latest
+    needs: setup-environment
+
+    env:
+      DOCKER_REGISTRY: ${{ needs.setup-environment.outputs.registry }}
+      DOCKER_REPOSITORY: ${{ needs.setup-environment.outputs.repository }}
+      SOURCE_BRANCH: ${{ needs.setup-environment.outputs.source_branch }}
+      TARGET_BRANCH: ${{ needs.setup-environment.outputs.target_branch }}
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup-environment.outputs.docker_matrix) }}
+
+    concurrency:
+      group: ${{ matrix.service }}-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Construct Registry URL
+        id: construct-registry-url
+        run: |
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${{ matrix.service }}" \
+          >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        id: buildx
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.GHCR_USER }}
+          password: ${{ secrets.GHCR_PWD }}
+
+      - name: Prepare Image Dependencies
+        if: ${{ matrix.module != 'infrastructure' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+          cache-from: |
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.TARGET_BRANCH }}
+          cache-to: type=inline
+          builder: ${{ steps.buildx.outputs.name }}
+          target: dependencies
+
+      - name: Build Image from Source
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
+          cache-from: |
+            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.TARGET_BRANCH }}
+          cache-to: type=inline
+          builder: ${{ steps.buildx.outputs.name }}
+          target: build
+
+      - name: Security Sanitation for Deployment
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+          cache-from: |
+            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
+            ${{ steps.construct-registry-url.outputs.url }}:${{ env.TARGET_BRANCH }}
+          cache-to: type=inline
+          builder: ${{ steps.buildx.outputs.name }}
+          target: deploy
+
+      - name: Run testing suite
+        uses: "./.github/templates/test"
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          BUILDKIT_INLINE_CACHE: 1
+        with:
+          module: ${{ matrix.module }}
+          service: ${{ matrix.service }}
+          source_branch: ${{ env.SOURCE_BRANCH }}
