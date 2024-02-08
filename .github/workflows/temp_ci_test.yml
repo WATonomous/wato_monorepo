@@ -16,7 +16,7 @@ jobs:
     name: Get changed files
 
     outputs: 
-      modified_modules: ${{ steps.report-changes.outputs.testvar }}
+      modified_modules: ${{ steps.output-changes.outputs.modified_modules }}
 
     steps:
       - uses: actions/checkout@v4
@@ -96,17 +96,14 @@ jobs:
           echo "CHANGED_MODULES=$CHANGED_MODULES world_modeling" >> $GITHUB_ENV
 
       - name: List all changed files
-        id: report-changes
-        env:
-          modified_modules: ${{ env.CHANGED_MODULES }}
+        id: output-changes
         run: |
-          echo "CHANGED_MODULES: ${{ env.CHANGED_MODULES }}"
-          echo "testvar=$CHANGED_MODULES" >> $GITHUB_OUTPUT
+          echo "The changed modules are: $env.CHANGED_MODULES"
+          echo "modified_modules=$CHANGED_MODULES" >> $GITHUB_OUTPUT
       
       - name: Sanity check
         run: |
-          echo 1 ${{ steps.world_modeling.outputs.testvar }}
-          echo 2 ${{ env.CHANGED_MODULES }}
+          echo Sanity, changes are in ${{ steps.output-changes.outputs.modified_modules }}
 
   setup-environment:
     name: Setup environment
