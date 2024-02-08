@@ -23,7 +23,7 @@ jobs:
 
       - name: Find changed files inside action folder
         id: changed-files-action
-        uses: tj-actions/changed-files@v42
+        uses: tj-actions/changed-files@v43
         with:
           files: src/action/**
         
@@ -229,11 +229,11 @@ jobs:
           service: ${{ matrix.service }}
           source_branch: ${{ env.SOURCE_BRANCH }}
     
-  confirm-build-and-unittest-complete:
-    name: Confirm that unit testing suite completed
-    runs-on: ubuntu-latest
-    needs: build-and-unittest
+  # confirm-build-and-unittest-complete:
+  #   name: Confirm that unit testing suite completed
+  #   runs-on: ubuntu-latest
+  #   needs: build-and-unittest
 
-    steps:
-      - name: Unit Testing Suite Completed
-        run: echo "::notice:: Unit Testing Suite Completed!"
+  #   steps:
+  #     - name: Unit Testing Suite Completed
+  #       run: echo "::notice:: Unit Testing Suite Completed!"
