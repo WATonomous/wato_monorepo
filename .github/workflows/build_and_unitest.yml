@@ -57,37 +57,32 @@ jobs:
         with:
           files: src/world_modeling/**
 
-      - name: Update CHANGED_MODULES for action
+      - name: Update CHANGED_MODULES for changes
         if: steps.changed-files-action.outputs.any_changed == 'true'
         run: |
           echo "Detected action changes"
           echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for interfacing
         if: steps.changed-files-interfacing.outputs.any_changed == 'true'
         run: |
           echo "Detected interfacing changes"
           echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for perception
         if: steps.changed-files-perception.outputs.any_changed == 'true'
         run: |
           echo "Detected perception changes"
           echo "CHANGED_MODULES=$CHANGED_MODULES perception" >> $GITHUB_ENV
         
-      - name: Update CHANGED_MODULES for samples
         if: steps.changed-files-samples.outputs.any_changed == 'true'
         run: |
           echo "Detected samples changes"
           echo "CHANGED_MODULES=$CHANGED_MODULES samples" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for simulation
         if: steps.changed-files-simulation.outputs.any_changed == 'true'
         run: |
           echo "Detected simulation changes"
           echo "CHANGED_MODULES=$CHANGED_MODULES simulation" >> $GITHUB_ENV
-
-      - name: Update CHANGED_MODULES for world_modeling
+      
         if: steps.changed-files-world-modeling.outputs.any_changed == 'true'
         run: |
           echo "Detected world_modeling changes"
@@ -98,7 +93,7 @@ jobs:
         run: |
           echo "The changed modules are: $CHANGED_MODULES"
           echo "modified_modules=$CHANGED_MODULES" >> $GITHUB_OUTPUT
-      
+
   setup-environment:
     name: Setup environment
     runs-on: ubuntu-latest
@@ -233,3 +228,12 @@ jobs:
           module: ${{ matrix.module }}
           service: ${{ matrix.service }}
           source_branch: ${{ env.SOURCE_BRANCH }}
+    
+  confirm-build-and-unittest-complete:
+    name: Confirm that unit testing suite completed
+    runs-on: ubuntu-latest
+    needs: build-and-unittest
+
+    steps:
+      - name: Unit Testing Suite Completed
+      - run: echo "::notice:: Unit Testing Suite Completed!"
