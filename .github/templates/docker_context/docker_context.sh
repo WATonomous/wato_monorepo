@@ -11,7 +11,7 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 # Initialize an empty array for JSON objects
 json_objects=()
 
-echo "input is $1"
+echo "Incoming modified modules are $1"
 
 # Loop through each module
 while read -r module; do
