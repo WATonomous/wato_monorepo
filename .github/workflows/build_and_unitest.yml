@@ -9,9 +9,107 @@ on:
       - main
 
 jobs:
+  get_changed_modules:
+    runs-on: ubuntu-latest
+    name: Get changed files
+
+    outputs: 
+      modified_modules: ${{ steps.output-changes.outputs.modified_modules }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
+
+      - name: Find changed files inside action folder
+        id: changed-files-action
+        uses: tj-actions/changed-files@v42
+        with:
+          files: src/action/**
+        
+      - name: Get changed files inside interfacing folder
+        id: changed-files-interfacing
+        uses: tj-actions/changed-files@v42
+        with:
+          files: src/interfacing/**
+      
+      - name: Get changed files inside perception folder
+        id: changed-files-perception
+        uses: tj-actions/changed-files@v42
+        with:
+          files: src/perception/**
+      
+      - name: Get changed files inside samples folder
+        id: changed-files-samples
+        uses: tj-actions/changed-files@v42
+        with:
+          files: src/samples/**
+      
+      - name: Get changed files inside simulation folder
+        id: changed-files-simulation
+        uses: tj-actions/changed-files@v42
+        with:
+          files: src/simulation/**
+      
+      - name: Get changed files inside world_modeling folder
+        id: changed-files-world-modeling
+        uses: tj-actions/changed-files@v42
+        with:
+          files: src/world_modeling/**
+
+      - name: Update CHANGED_MODULES for action
+        if: steps.changed-files-action.outputs.any_changed == 'true'
+        run: |
+          echo "Detected action changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
+
+      - name: Update CHANGED_MODULES for interfacing
+        if: steps.changed-files-interfacing.outputs.any_changed == 'true'
+        run: |
+          echo "Detected interfacing changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> $GITHUB_ENV
+
+      - name: Update CHANGED_MODULES for perception
+        if: steps.changed-files-perception.outputs.any_changed == 'true'
+        run: |
+          echo "Detected perception changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES perception" >> $GITHUB_ENV
+        
+      - name: Update CHANGED_MODULES for samples
+        if: steps.changed-files-samples.outputs.any_changed == 'true'
+        run: |
+          echo "Detected samples changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES samples" >> $GITHUB_ENV
+
+      - name: Update CHANGED_MODULES for simulations
+        if: steps.changed-files-simulations.outputs.any_changed == 'true'
+        run: |
+          echo "Detected simulations changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES simulations" >> $GITHUB_ENV
+
+      - name: Update CHANGED_MODULES for world_modeling
+        if: steps.changed-files-world-modeling.outputs.any_changed == 'true'
+        run: |
+          echo "Detected world_modeling changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES world_modeling" >> $GITHUB_ENV
+
+      - name: List all changed files
+        id: output-changes
+        run: |
+          echo "The changed modules are: $env.CHANGED_MODULES"
+          echo "modified_modules=$CHANGED_MODULES" >> $GITHUB_OUTPUT
+      
+      - name: Sanity check
+        run: |
+          echo Sanity, changes are in ${{ steps.output-changes.outputs.modified_modules }}
+
   setup-environment:
     name: Setup environment
     runs-on: ubuntu-latest
+    needs: get_changed_modules
+
+    env:
+      modified_modules: ${{ needs.get_changed_modules.outputs.modified_modules }}
 
     outputs:
       docker_matrix: ${{ steps.docker-environment.outputs.docker_matrix }}
@@ -28,12 +126,15 @@ jobs:
         run: ./watod_scripts/watod-setup-env.sh
         shell: bash
 
+      - name: Check module changes
+        run: echo "changed is ${{ env.modified_modules }}"
+
       - name: Generate Docker Environment
         id: docker-environment
         uses: "./.github/templates/docker_context"
         with:
-          modified-modules: ${{env.CHANGED_MODULES}}
-
+          modified_modules: ${{ env.modified_modules }}
+      
       - name: Generate GitHub Environment
         id: github-environment
         uses: "./.github/templates/github_context"
