@@ -11,7 +11,7 @@ on:
 jobs:
   get_changed_modules:
     runs-on: ubuntu-latest
-    name: Get changed files
+    name: Get changed modules
 
     outputs: 
       modified_modules: ${{ steps.output-changes.outputs.modified_modules }}
@@ -57,52 +57,48 @@ jobs:
         with:
           files: src/world_modeling/**
 
-      - name: Update CHANGED_MODULES for action
+      - name: Update changed_modules for action
         if: steps.changed-files-action.outputs.any_changed == 'true'
         run: |
           echo "Detected action changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
+          echo "changed_modules=$changed_modules action" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for interfacing
+      - name: Update changed_modules for interfacing
         if: steps.changed-files-interfacing.outputs.any_changed == 'true'
         run: |
           echo "Detected interfacing changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> $GITHUB_ENV
+          echo "changed_modules=$changed_modules interfacing" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for perception
+      - name: Update changed_modules for perception
         if: steps.changed-files-perception.outputs.any_changed == 'true'
         run: |
           echo "Detected perception changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES perception" >> $GITHUB_ENV
+          echo "changed_modules=$changed_modules perception" >> $GITHUB_ENV
         
-      - name: Update CHANGED_MODULES for samples
+      - name: Update changed_modules for samples
         if: steps.changed-files-samples.outputs.any_changed == 'true'
         run: |
           echo "Detected samples changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES samples" >> $GITHUB_ENV
+          echo "changed_modules=$changed_modules samples" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for simulations
+      - name: Update changed_modules for simulations
         if: steps.changed-files-simulations.outputs.any_changed == 'true'
         run: |
           echo "Detected simulations changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES simulations" >> $GITHUB_ENV
+          echo "changed_modules=$changed_modules simulations" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for world_modeling
+      - name: Update changed_modules for world_modeling
         if: steps.changed-files-world-modeling.outputs.any_changed == 'true'
         run: |
           echo "Detected world_modeling changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES world_modeling" >> $GITHUB_ENV
+          echo "changed_modules=$changed_modules world_modeling" >> $GITHUB_ENV
 
       - name: List all changed files
         id: output-changes
         run: |
-          echo "The changed modules are: $env.CHANGED_MODULES"
-          echo "modified_modules=$CHANGED_MODULES" >> $GITHUB_OUTPUT
+          echo "The changed modules are: ${{ steps.output-changes.outputs.modified_modules }}
+          echo "modified_modules=$changed_modules" >> $GITHUB_OUTPUT
       
-      - name: Sanity check
-        run: |
-          echo Sanity, changes are in ${{ steps.output-changes.outputs.modified_modules }}
-
   setup-environment:
     name: Setup environment
     runs-on: ubuntu-latest
