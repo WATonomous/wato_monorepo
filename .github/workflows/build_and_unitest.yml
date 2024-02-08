@@ -81,11 +81,11 @@ jobs:
           echo "Detected samples changes"
           echo "CHANGED_MODULES=$CHANGED_MODULES samples" >> $GITHUB_ENV
 
-      - name: Update CHANGED_MODULES for simulations
-        if: steps.changed-files-simulations.outputs.any_changed == 'true'
+      - name: Update CHANGED_MODULES for simulation
+        if: steps.changed-files-simulation.outputs.any_changed == 'true'
         run: |
-          echo "Detected simulations changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES simulations" >> $GITHUB_ENV
+          echo "Detected simulation changes"
+          echo "CHANGED_MODULES=$CHANGED_MODULES simulation" >> $GITHUB_ENV
 
       - name: Update CHANGED_MODULES for world_modeling
         if: steps.changed-files-world-modeling.outputs.any_changed == 'true'
