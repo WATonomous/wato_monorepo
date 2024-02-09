@@ -42,8 +42,8 @@ RUN pip3 install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu116.ht
 ENV TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0;7.5;8.0;8.6+PTX"
 RUN pip3 install spconv-cu113 pyquaternion numpy==1.23 pillow==8.4 mayavi open3d av2
 WORKDIR /home/bolty
-RUN git clone https://github.com/WATonomous/OpenPCDet.git
-# COPY /OpenPCDet /home/bolty/OpenPCDet
+# RUN git clone https://github.com/WATonomous/OpenPCDet.git
+COPY /OpenPCDet /home/bolty/OpenPCDet
 WORKDIR /home/bolty
 RUN cd OpenPCDet && pip3 install -r requirements.txt
 RUN pip3 install kornia==0.6.8
