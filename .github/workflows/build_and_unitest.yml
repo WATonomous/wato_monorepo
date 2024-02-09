@@ -60,33 +60,35 @@ jobs:
       - name: Update CHANGED_MODULES for changes
         if: steps.changed-files-action.outputs.any_changed == 'true'
         run: |
-          echo "Detected action changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
+          if [steps.changed-files-action.outputs.any_changed == 'true']; then
+            echo "Detected action changes"
+            echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
+          fi
 
-        if: steps.changed-files-interfacing.outputs.any_changed == 'true'
-        run: |
-          echo "Detected interfacing changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> $GITHUB_ENV
+          if [steps.changed-files-interfacing.outputs.any_changed == 'true']; then
+            echo "Detected interfacing changes"
+            echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> $GITHUB_ENV
+          fi
 
-        if: steps.changed-files-perception.outputs.any_changed == 'true'
-        run: |
-          echo "Detected perception changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES perception" >> $GITHUB_ENV
-        
-        if: steps.changed-files-samples.outputs.any_changed == 'true'
-        run: |
-          echo "Detected samples changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES samples" >> $GITHUB_ENV
+          if [steps.changed-files-perception.outputs.any_changed == 'true']; then
+            echo "Detected perception changes"
+            echo "CHANGED_MODULES=$CHANGED_MODULES perception" >> $GITHUB_ENV
+          fi
 
-        if: steps.changed-files-simulation.outputs.any_changed == 'true'
-        run: |
-          echo "Detected simulation changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES simulation" >> $GITHUB_ENV
-      
-        if: steps.changed-files-world-modeling.outputs.any_changed == 'true'
-        run: |
-          echo "Detected world_modeling changes"
-          echo "CHANGED_MODULES=$CHANGED_MODULES world_modeling" >> $GITHUB_ENV
+          if [steps.changed-files-samples.outputs.any_changed == 'true']; then
+            echo "Detected samples changes"
+            echo "CHANGED_MODULES=$CHANGED_MODULES samples" >> $GITHUB_ENV
+          fi
+
+          if [steps.changed-files-simulation.outputs.any_changed == 'true']; then
+            echo "Detected simulation changes"
+            echo "CHANGED_MODULES=$CHANGED_MODULES simulation" >> $GITHUB_ENV
+          fi
+
+          if [steps.changed-files-world-modeling.outputs.any_changed == 'true']; then
+            echo "Detected world_modeling changes"
+            echo "CHANGED_MODULES=$CHANGED_MODULES world_modeling" >> $GITHUB_ENV
+          fi
 
       - name: Output list of changed modules
         id: output-changes
@@ -228,12 +230,3 @@ jobs:
           module: ${{ matrix.module }}
           service: ${{ matrix.service }}
           source_branch: ${{ env.SOURCE_BRANCH }}
-    
-  # confirm-build-and-unittest-complete:
-  #   name: Confirm that unit testing suite completed
-  #   runs-on: ubuntu-latest
-  #   needs: build-and-unittest
-
-  #   steps:
-  #     - name: Unit Testing Suite Completed
-  #       run: echo "::notice:: Unit Testing Suite Completed!"
