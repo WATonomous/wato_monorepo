@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip python3-setuptools \
     && apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /var/lib/apt/lists/* /root/* /root/.ros /tmp/* /usr/share/doc
-################################# INSTALL OpenCV with CUDA Support #############
+################################ INSTALL OpenCV with CUDA Support ##############
 WORKDIR /opt
 RUN git clone https://github.com/opencv/opencv.git && \
     cd opencv && git checkout 4.5.5
@@ -40,8 +40,8 @@ ENV OpenCV_DIR=/usr/share/OpenCV
 RUN pip3 install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
 RUN pip3 install spconv-cu113 pyquaternion numpy==1.23 pillow==8.4 mayavi open3d av2
 WORKDIR /home/bolty
-# RUN git clone https://github.com/WATonomous/OpenPCDet.git
-COPY /OpenPCDet /home/bolty/OpenPCDet
+RUN git clone https://github.com/WATonomous/OpenPCDet.git
+# COPY /OpenPCDet /home/bolty/OpenPCDet
 WORKDIR /home/bolty
 RUN cd OpenPCDet && pip3 install -r requirements.txt
 RUN pip3 install kornia==0.6.8
