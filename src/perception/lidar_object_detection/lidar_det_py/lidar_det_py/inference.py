@@ -82,11 +82,11 @@ class LidarDemoNode(Node):
 
     def parse_config(self):
         parser = argparse.ArgumentParser(description='arg parser')
-        parser.add_argument('--cfg_file', type=str, default='/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml',
+        parser.add_argument('--cfg_file', type=str, default='/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml',
                             help='specify the config for demo')
-        parser.add_argument('--data_path', type=str, default='/home/bolty/data/velodyne/data/0000000001.bin',
+        parser.add_argument('--data_path', type=str, default='/home/bolty/data/n015-2018-11-21-19-38-26+0800__LIDAR_TOP__1542801000947820.pcd.bin',
                             help='specify the point cloud data file or directory')
-        parser.add_argument('--ckpt', type=str, default="/home/bolty/OpenPCDet/models/pv_rcnn8369.pth", help='specify the pretrained model')
+        parser.add_argument('--ckpt', type=str, default="/home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth", help='specify the pretrained model')
         parser.add_argument('--ext', type=str, default='.bin', help='specify the extension of your point cloud data file')
 
         args, unknown = parser.parse_known_args()
@@ -171,7 +171,7 @@ class DemoDataset(DatasetTemplate):
 
     def __getitem__(self, index):
         if self.ext == '.bin':
-            points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 4) #change back to 5 later
+            points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 5)
         elif self.ext == '.npy':
             points = np.load(self.sample_file_list[index])
         else:
