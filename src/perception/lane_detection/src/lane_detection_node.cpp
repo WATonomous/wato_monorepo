@@ -11,10 +11,12 @@
 
 #include "std_msgs/msg/string.hpp"
 
+
 #include <opencv2/opencv.hpp>
 
 #include "common_helper_cv.h"
 #include "image_processor.h"
+
 
 using namespace std::chrono_literals;
 
@@ -22,7 +24,6 @@ using namespace std::chrono_literals;
 #define WORK_DIR RESOURCE_DIR
 #define DEFAULT_INPUT_IMAGE RESOURCE_DIR "/dashcam_01.jpg"
 #define LOOP_NUM_FOR_TIME_MEASUREMENT 10
-std::string input_name = "/home/docker/ament_ws/out0.jpg";
 
 int count = 0;
 

@@ -7,11 +7,6 @@ set(COMMON_HELPER_WITH_OPENCV on CACHE BOOL "With OpenCV? [on/off]")
 
 set(SRC
     common_helper.h common_helper.cpp
-    bounding_box.h bounding_box.cpp
-    simple_matrix.h
-    hungarian_algorithm.h
-    kalman_filter.h
-    tracker.h tracker.cpp
 )
 
 if(COMMON_HELPER_WITH_OPENCV)
