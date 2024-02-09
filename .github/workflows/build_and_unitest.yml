@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Watod Environment
         run: ./watod_scripts/watod-setup-env.sh
@@ -57,7 +57,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Construct Registry URL
         id: construct-registry-url
@@ -131,6 +131,5 @@ jobs:
           COMPOSE_DOCKER_CLI_BUILD: 1
           BUILDKIT_INLINE_CACHE: 1
         with:
-          module: ${{ matrix.module }}
-          service: ${{ matrix.service }}
-          source_branch: ${{ env.SOURCE_BRANCH }}
+          image: ${{ steps.construct-registry-url.outputs.url }}
+          tag: build_${{ env.SOURCE_BRANCH }}

@@ -31,7 +31,8 @@ RUN apt-get update && \
     apt-get install -y \ 
     ros-$ROS_DISTRO-foxglove-bridge \
     ros-$ROS_DISTRO-rosbridge-server \
-    ros-$ROS_DISTRO-topic-tools
+    ros-$ROS_DISTRO-topic-tools \
+    ros-$ROS_DISTRO-vision-msgs
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

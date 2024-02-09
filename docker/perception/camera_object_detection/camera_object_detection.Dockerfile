@@ -7,7 +7,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/perception/camera_object_detection camera_object_detection
-COPY src/wato_msgs/sample_msgs sample_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -18,6 +17,17 @@ RUN apt-get -qq update && rosdep update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
+
+# Install pip
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg libsm6 libxext6 wget
+
+# Install python packages
+COPY src/perception/camera_object_detection/requirements.txt requirements.txt
+RUN python3 -m pip install -r requirements.txt
+RUN rm requirements.txt
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
