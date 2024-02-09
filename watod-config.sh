@@ -12,7 +12,7 @@
 ##	 - simulation			:	starts simulation
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
-ACTIVE_MODULES="perception"
+ACTIVE_MODULES="perception infrastructure"
 
 ############################## OPTIONAL CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
