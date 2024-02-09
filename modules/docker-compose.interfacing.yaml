@@ -10,8 +10,6 @@ services:
         - "${INTERFACING_SENSOR_IMAGE}:main"
       target: deploy
     image: "${INTERFACING_SENSOR_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch sensor_interfacing sensor_interfacing.launch.py"
 
   can_interfacing:
@@ -23,6 +21,4 @@ services:
         - "${INTERFACING_CAN_IMAGE}:main"
       target: deploy
     image: "${INTERFACING_CAN_IMAGE}:${TAG}"
-    security_opt:
-      - seccomp:${MONO_DIR}/modules/seccomp_profile.json
     command: /bin/bash -c "ros2 launch can_interfacing can_interfacing.launch.py"

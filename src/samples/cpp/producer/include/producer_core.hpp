@@ -3,16 +3,14 @@
 
 #include "sample_msgs/msg/unfiltered.hpp"
 
-namespace samples
-{
+namespace samples {
 
 /**
  * Implementation of the internal logic used by the Producer Node to
  * serialize and update coordinates.
  */
-class ProducerCore
-{
-public:
+class ProducerCore {
+ public:
   /**
    * Producer constructor.
    *
@@ -51,9 +49,9 @@ public:
    *
    * @param[out] msg an unfiltered message with empty data field
    */
-  void serialize_coordinates(sample_msgs::msg::Unfiltered & msg) const;
+  void serialize_coordinates(sample_msgs::msg::Unfiltered& msg) const;
 
-private:
+ private:
   // Coordinate values
   double pos_x_;
   double pos_y_;
