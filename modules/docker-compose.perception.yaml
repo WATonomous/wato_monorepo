@@ -97,7 +97,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    command: /bin/bash -c "ros2 launch lane_detection lane_detection.launch.py"
     
   tracking:
     build:
