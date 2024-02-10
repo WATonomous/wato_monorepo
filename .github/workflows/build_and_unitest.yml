@@ -141,3 +141,12 @@ jobs:
         with:
           image: ${{ steps.construct-registry-url.outputs.url }}
           tag: build_${{ env.SOURCE_BRANCH }}
+  
+  confirm-build-and-unittest-complete:
+    name: Confirm Build and Unit Tests Completed
+    needs: build-and-unittest
+    runs-on: ubuntu-latest
+
+    runs:
+      echo "All builds and unit tests completed!"
+
