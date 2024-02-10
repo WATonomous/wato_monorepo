@@ -146,7 +146,8 @@ jobs:
     name: Confirm Build and Unit Tests Completed
     needs: build-and-unittest
     runs-on: ubuntu-latest
-
-    runs:
-      echo "All builds and unit tests completed!"
+    steps:
+      - name: Ending
+        runs:
+          echo "All builds and unit tests completed!"
 
