@@ -51,7 +51,7 @@ runs:
     - name: Create list of changed modules
       env:
         CHANGED_MODULES: ""
-      run: check_src_changes.sh
+      run: ${{ github.action_path }}/check_src_changes.sh
       shell: bash
 
     - name: Output list of changed modules
