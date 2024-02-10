@@ -64,7 +64,7 @@ jobs:
             echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
           fi
 
-          if [ ${{ steps.changed-files-interfacing.outputs.any_changed }}]; then
+          if [ ${{ steps.changed-files-interfacing.outputs.any_changed }} ]; then
             echo "Detected interfacing changes"
             echo "CHANGED_MODULES=$CHANGED_MODULES interfacing" >> $GITHUB_ENV
           fi
