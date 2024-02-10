@@ -62,7 +62,7 @@ jobs:
           if [ ${{ steps.changed-files-action.outputs.any_changed }} ]; then
             echo "Detected action changes"
             echo "CHANGED_MODULES=$CHANGED_MODULES action" >> $GITHUB_ENV
-            echo "The changed modules are: $CHANGED_MODULES"
+            echo "The changed modules are: {{ env.CHANGED_MODULES }} "
           fi
 
           if [ ${{ steps.changed-files-interfacing.outputs.any_changed }} ]; then
