@@ -1,0 +1,14 @@
+name: Check source file changes
+
+outputs:
+  modified_modules:
+    description: "Space delimited list of changed modules"
+    value: ${{ steps.output-changes.outputs.modified_modules }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: environment-generator
+      env: MODIFIED_MODULES: ${{ inputs.modified_modules }}
+      run: ${{ github.action_path }}/docker_context.sh $MODIFIED_MODULES
+      shell: bash
