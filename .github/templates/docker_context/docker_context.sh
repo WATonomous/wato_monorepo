@@ -11,7 +11,7 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 # Initialize an empty array for JSON objects
 json_objects=()
 
-echo "Incoming modified modules are $1"
+echo "::notice:: Incoming modified modules are $1"
 
 # Loop through each module
 while read -r module; do
@@ -21,12 +21,9 @@ while read -r module; do
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
 
     # Only work with modules that are modified
-    if [[ $1 = *$module_out* ]]; then
-        echo "$module_out modified"
-    else
-        echo "$module_out not changed"
+    if [[ $1 != *$module_out* ]]; then
         if [[ "$1" = "" ||  $1 = " " ]]; then
-            echo "Nothing is modified, but probably an infra change so test all modules"
+            echo "::notice:: No source code modified, testing all modules for possible infra changes"
         else
             continue
         fi
