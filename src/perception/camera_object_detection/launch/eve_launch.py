@@ -11,7 +11,7 @@ def generate_launch_description():
     config = os.path.join(
         get_package_share_directory('camera_object_detection'),
         'config',
-        'watmobile_config.yaml'
+        'eve_config.yaml'
     )
 
     # nodes
