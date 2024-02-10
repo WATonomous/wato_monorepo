@@ -23,7 +23,7 @@ jobs:
 
       - name: Find changed files inside action folder
         id: changed-files-action
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@v42
         with:
           files: src/action/**
         
