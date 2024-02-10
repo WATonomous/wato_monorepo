@@ -6,8 +6,7 @@
 
 #include "aggregator_core.hpp"
 
-TEST(AggregatorTest, RawDivisionByZero)
-{
+TEST(AggregatorTest, RawDivisionByZero) {
   samples::AggregatorCore aggregator(0);
   auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
   msg->timestamp = 0;
@@ -16,8 +15,7 @@ TEST(AggregatorTest, RawDivisionByZero)
   EXPECT_DOUBLE_EQ(0.0, aggregator.raw_frequency());
 }
 
-TEST(AggregatorTest, FilteredDivisionByZero)
-{
+TEST(AggregatorTest, FilteredDivisionByZero) {
   samples::AggregatorCore aggregator(1);
   auto filtered_packet = std::make_shared<sample_msgs::msg::FilteredArray>();
   std::vector<sample_msgs::msg::Filtered> msgs;
@@ -30,8 +28,7 @@ TEST(AggregatorTest, FilteredDivisionByZero)
   EXPECT_DOUBLE_EQ(0.0, aggregator.filtered_frequency());
 }
 
-TEST(AggregatorTest, RawFrequencyAddSingleMessage)
-{
+TEST(AggregatorTest, RawFrequencyAddSingleMessage) {
   samples::AggregatorCore aggregator(0);
   auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
 
@@ -40,8 +37,7 @@ TEST(AggregatorTest, RawFrequencyAddSingleMessage)
   EXPECT_DOUBLE_EQ(0.5, aggregator.raw_frequency());
 }
 
-TEST(AggregatorTest, RawFrequencyAddMultipleMessages)
-{
+TEST(AggregatorTest, RawFrequencyAddMultipleMessages) {
   samples::AggregatorCore aggregator(0);
   auto msg = std::make_shared<sample_msgs::msg::Unfiltered>();
 
@@ -58,8 +54,7 @@ TEST(AggregatorTest, RawFrequencyAddMultipleMessages)
   EXPECT_DOUBLE_EQ(0.6, aggregator.raw_frequency());
 }
 
-TEST(AggregatorTest, FilteredUnorderedTimestamps)
-{
+TEST(AggregatorTest, FilteredUnorderedTimestamps) {
   samples::AggregatorCore aggregator(0);
   auto filtered_packet = std::make_shared<sample_msgs::msg::FilteredArray>();
   std::vector<sample_msgs::msg::Filtered> msgs;

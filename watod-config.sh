@@ -5,7 +5,7 @@
 ##
 ## List of active modules to run, defined in docker-compose.yaml.
 ## Possible values:
-##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc)
+##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc and/or data_stream)
 ##	 - perception			:	starts perception nodes
 ##	 - world_modeling		:	starts world modeling nodes
 ##	 - action				:	starts action nodes

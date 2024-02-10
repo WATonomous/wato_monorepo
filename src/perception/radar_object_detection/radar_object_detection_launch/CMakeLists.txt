@@ -11,12 +11,6 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 
-option(BUILD_TESTING "Build tests" ON)
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
-endif()
-
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME})

@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     ros-humble-ros2bag \
     ros-humble-rosbag2* \
-    ros-humble-foxglove-msgs
+    ros-humble-foxglove-msgs \
+    ros-humble-vision-msgs
 
 # Dependency Cleanup
 WORKDIR /
