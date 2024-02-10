@@ -62,6 +62,7 @@ jobs:
           CHANGED_MODULES: ""
         # if: ${{ steps.changed-files-action.outputs.any_changed == 'true' }} 
         run: |
+          echo "${{ steps.changed-files-action.outputs.any_changed == 'true'"
           if [ ${{ steps.changed-files-action.outputs.any_changed == 'true' }} ]; then
             echo "Detected action changes"
             CHANGED_MODULES+="action "
