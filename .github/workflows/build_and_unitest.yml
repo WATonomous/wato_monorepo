@@ -148,6 +148,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ending
-        runs:
+        run:
           echo "All builds and unit tests completed!"
 
