@@ -60,7 +60,7 @@ jobs:
       - name: Create list of changed modules
         env:
           CHANGED_MODULES: ""
-        if: ${{ steps.changed-files-action.outputs.any_changed == 'true' }} 
+        # if: ${{ steps.changed-files-action.outputs.any_changed == 'true' }} 
         run: |
           if [ ${{ steps.changed-files-action.outputs.any_changed == 'true' }} ]; then
             echo "Detected action changes"
