@@ -9,8 +9,8 @@ runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      with:
+        fetch-depth: 0
 
     - name: Find changed files inside action folder
       id: changed-files-action
