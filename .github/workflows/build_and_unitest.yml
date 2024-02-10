@@ -34,11 +34,9 @@ jobs:
 
       - name: Generate Docker Environment
         id: docker-environment
-        env: 
-          MODIFIED_MODULES: ${{ steps.get-module-changes.outputs.modified_modules }}
         uses: "./.github/templates/docker_context"
         with:
-          modified_modules: ${{ env.MODIFIED_MODULES }}
+          modified_modules: ${{ steps.get-module-changes.outputs.modified_modules }}
       
       - name: Generate GitHub Environment
         id: github-environment
