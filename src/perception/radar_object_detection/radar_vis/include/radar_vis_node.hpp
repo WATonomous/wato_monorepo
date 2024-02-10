@@ -5,30 +5,28 @@
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/msg/point_field.hpp"
 
-#include "radar_msgs/msg/radar_packet.hpp"
 #include "radar_msgs/msg/radar_detection.hpp"
+#include "radar_msgs/msg/radar_packet.hpp"
 
 #include "radar_vis.hpp"
 
 /**
-* @brief Implementation of a Radar visualization node that listens to "processed" topic
-*/
-class RadarVisNode : public rclcpp::Node
-{
-public:
+ * @brief Implementation of a Radar visualization node that listens to "processed" topic
+ */
+class RadarVisNode : public rclcpp::Node {
+ public:
   RadarVisNode();
 
   /**
-  * @brief A ROS2 subscription node callback used to unpack filtered radar data from the "processed"
-  *    topic. The callback listens to radar packets on this topic and processes them
-  *    in order to visualize them in tools like foxglove and RViz.
-  *
-  * @param msg a raw message from the "processed" topic
-  */
-  void process_radar_data_callback(
-    const radar_msgs::msg::RadarPacket::SharedPtr msg);
+   * @brief A ROS2 subscription node callback used to unpack filtered radar data from the
+   * "processed" topic. The callback listens to radar packets on this topic and processes them in
+   * order to visualize them in tools like foxglove and RViz.
+   *
+   * @param msg a raw message from the "processed" topic
+   */
+  void process_radar_data_callback(const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
-private:
+ private:
   // ROS2 Subscriber listening to "processed" topic.
   rclcpp::Subscription<radar_msgs::msg::RadarPacket>::SharedPtr raw_sub_;
 

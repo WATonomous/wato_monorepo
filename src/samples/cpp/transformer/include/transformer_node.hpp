@@ -17,9 +17,8 @@
  * and odd timestamps. Once the node collects BUFFER_CAPACITY messages it packs
  * the processed messages into an array and publishes it to the "filtered" topic.
  */
-class TransformerNode : public rclcpp::Node
-{
-public:
+class TransformerNode : public rclcpp::Node {
+ public:
   // Configure pubsub nodes to keep last 20 messages.
   // https://docs.ros.org/en/foxy/Concepts/About-Quality-of-Service-Settings.html
   static constexpr int ADVERTISING_FREQ = 20;
@@ -29,15 +28,14 @@ public:
    */
   TransformerNode();
 
-private:
+ private:
   /**
    * A ROS2 subscription node callback used to process raw data from the
    * "unfiltered" topic and publish to the "filtered" topic.
    *
    * @param msg a raw message from the "unfiltered" topic
    */
-  void unfiltered_callback(
-    const sample_msgs::msg::Unfiltered::SharedPtr msg);
+  void unfiltered_callback(const sample_msgs::msg::Unfiltered::SharedPtr msg);
 
   // ROS2 subscriber listening to the unfiltered topic.
   rclcpp::Subscription<sample_msgs::msg::Unfiltered>::SharedPtr raw_sub_;

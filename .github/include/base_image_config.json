@@ -7,6 +7,13 @@
             "ros2": "humble"
         }
     },
+    {
+        "tag": "foxy-ubuntu20.04",
+        "external_image": "ubuntu:20.04",
+        "injections": {
+            "ros2": "foxy"
+        }
+    },
 
 
 
