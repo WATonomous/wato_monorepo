@@ -42,4 +42,4 @@ if [ ${{ steps.changed-files-world-modeling.outputs.any_changed }} == 'true' ]; 
 fi
 
 # Output list
-echo "CHANGED_MODULES=$CHANGED_MODULES" >> $GITHUB_ENV
+echo "CHANGED_MODULES=$CHANGED_MODULES" >> $GITHUB_OUTPUT
