@@ -50,13 +50,12 @@ runs:
 
     - name: Create list of changed modules
       env:
-        CHANGED_MODULES: ""
-      run: ${{ github.action_path }}/check_src_changes.sh
-      shell: bash
+        ACTION_CHANGED: ${{ steps.changed-files-action.outputs.any_changed }}
+        INTERFACING_CHANGED: ${{ steps.changed-files-interfacing.outputs.any_changed }}
+        PERCEPTION_CHANGED: ${{ steps.changed-files-perception.outputs.any_changed }}
+        SAMPLES_CHANGED: ${{ steps.changed-files-samples.outputs.any_changed }}
+        SIMULATION_CHANGED: ${{ steps.changed-files-simulation.outputs.any_changed }}
+        WORLD_MODELING_CHANGED: ${{ steps.changed-files-world-modeling.outputs.any_changed }}
 
-    - name: Output list of changed modules
-      id: output-changes
-      run: |
-        echo "The changed modules are: $CHANGED_MODULES"
-        echo "modified_modules=$CHANGED_MODULES" >> $GITHUB_OUTPUT
+      run: ${{ github.action_path }}/check_src_changes.sh
       shell: bash
