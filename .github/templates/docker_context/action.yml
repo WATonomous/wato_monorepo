@@ -2,7 +2,7 @@ name: Generate Docker Environment
 
 inputs:
   modified_modules:
-    description: 'Space deliminated list of modified modules'
+    description: "Space deliminated list of modified modules"
     required: true
     default: ''
 
