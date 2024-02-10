@@ -10,7 +10,7 @@ services:
         - "${INTERFACING_SENSOR_IMAGE}:main"
       target: deploy
     image: "${INTERFACING_SENSOR_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch sensor_interfacing sensor_interfacing.launch.py"
+    command: /bin/bash -c "ros2 launch sensor_interfacing all_sensors.launch.py"
 
   can_interfacing:
     build:
