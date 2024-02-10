@@ -21,6 +21,7 @@ runs:
   using: "composite"
   steps:
     - id: environment-generator
-      env: MODIFIED_MODULES: ${{ inputs.modified_modules }}
+      env: 
+        MODIFIED_MODULES: ${{ inputs.modified_modules }}
       run: ${{ github.action_path }}/docker_context.sh $MODIFIED_MODULES
       shell: bash
