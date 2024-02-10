@@ -63,32 +63,32 @@ jobs:
         run: |
           if [ ${{ steps.changed-files-action.outputs.any_changed == 'true' }} ]; then
             echo "Detected action changes"
-            $CHANGED_MODULES += "action "
+            CHANGED_MODULES += "action "
           fi
 
           if [ ${{ steps.changed-files-interfacing.outputs.any_changed == 'true'}} ]; then
             echo "Detected interfacing changes"
-            $CHANGED_MODULES += "interfacing "
+            CHANGED_MODULES += "interfacing "
           fi
 
           if [ ${{ steps.changed-files-perception.outputs.any_changed == 'true'}} ]; then
             echo "Detected perception changes"
-            $CHANGED_MODULES += "perception "
+            CHANGED_MODULES += "perception "
           fi
 
           if [ ${{ steps.changed-files-samples.outputs.any_changed == 'true'}} ]; then
             echo "Detected samples changes"
-            $CHANGED_MODULES += "samples "
+            CHANGED_MODULES += "samples "
           fi
 
           if [ ${{ steps.changed-files-simulation.outputs.any_changed == 'true'}} ]; then
             echo "Detected simulation changes"
-            $CHANGED_MODULES += "simulation "
+            CHANGED_MODULES += "simulation "
           fi
 
           if [ ${{ steps.changed-files-world-modeling.outputs.any_changed == 'true'}} ]; then
             echo "Detected world_modeling changes"
-            $CHANGED_MODULES += "world_modeling"
+            CHANGED_MODULES += "world_modeling"
           fi
 
           echo "CHANGED_MODULES = $CHANGED_MODULES" >> $GITHUB_ENV
