@@ -49,6 +49,7 @@ runs:
         files: src/world_modeling/**
 
     - name: Create list of changed modules
+      id: output-changes
       env:
         ACTION_CHANGED: ${{ steps.changed-files-action.outputs.any_changed }}
         INTERFACING_CHANGED: ${{ steps.changed-files-interfacing.outputs.any_changed }}
@@ -61,5 +62,5 @@ runs:
       shell: bash
     
     - name: Sanity check
-      run: echo ${{ steps.output-changes.outputs.modified_modules }}
+      run: echo "sus ${{ steps.output-changes.outputs.modified_modules }}"
       shell: bash
