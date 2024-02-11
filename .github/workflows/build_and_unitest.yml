@@ -146,6 +146,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ending
-        run:
-          echo "::notice:: All builds and unit tests completed!"
+        run: echo "::notice:: All builds and unit tests completed!"
 
