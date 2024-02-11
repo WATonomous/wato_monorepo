@@ -62,3 +62,4 @@ runs:
     
     - name: Sanity check
       run: echo ${{ steps.output-changes.outputs.modified_modules }}
+      shell: bash
