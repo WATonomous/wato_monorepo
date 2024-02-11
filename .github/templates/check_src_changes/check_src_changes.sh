@@ -8,39 +8,39 @@ set -e
 # Action
 if [ $ACTION_CHANGED == 'true' ]; then
     echo "Detected action changes"
-    CHANGED_MODULES+="action "
+    MODIFIED_MODULES+="action "
 fi
 
 # Interfacing
 if [ $INTERFACING_CHANGED == 'true' ]; then
     echo "Detected interfacing changes"
-    CHANGED_MODULES+="interfacing "
+    MODIFIED_MODULES+="interfacing "
 fi
 
 # Perception
 if [ $PERCEPTION_CHANGED == 'true' ]; then
     echo "Detected perception changes"
-    CHANGED_MODULES+="perception "
+    MODIFIED_MODULES+="perception "
 fi
 
 # Samples
 if [ $SAMPLES_CHANGED == 'true' ]; then
     echo "Detected samples changes"
-    CHANGED_MODULES+="samples "
+    MODIFIED_MODULES+="samples "
 fi
 
 # Simulation
 if [ $SIMULATION_CHANGED == 'true' ]; then
     echo "Detected simulation changes"
-    CHANGED_MODULES+="simulation "
+    MODIFIED_MODULES+="simulation "
 fi
 
 # World-modeling
 if [ $WORLD_MODELING_CHANGED == 'true' ]; then
     echo "Detected world_modeling changes"
-    CHANGED_MODULES+="world_modeling"
+    MODIFIED_MODULES+="world_modeling"
 fi
 
 # Output list
-echo "::notice:: CHANGED_MODULES is $CHANGED_MODULES" 
-echo "CHANGED_MODULES=$CHANGED_MODULES" >> $GITHUB_OUTPUT
+echo "::notice:: MODIFIED_MODULES are $MODIFIED_MODULES" 
+echo "MODIFIED_MODULES=$MODIFIED_MODULES" >> $GITHUB_OUTPUT

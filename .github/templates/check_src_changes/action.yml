@@ -3,7 +3,7 @@ name: Check source file changes
 outputs:
   modified_modules:
     description: "Space deliminated list of modified modules"
-    value: ${{ steps.output-changes.outputs.modified_modules }}
+    value: ${{ steps.output-changes.outputs.MODIFIED_MODULES }}
 
 runs:
   using: "composite"
