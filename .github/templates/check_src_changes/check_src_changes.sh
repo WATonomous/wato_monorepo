@@ -42,4 +42,5 @@ if [ $WORLD_MODELING_CHANGED == 'true' ]; then
 fi
 
 # Output list
+echo "::notice:: CHANGED_MODULES is $CHANGED_MODULES" 
 echo "CHANGED_MODULES=$CHANGED_MODULES" >> $GITHUB_OUTPUT
