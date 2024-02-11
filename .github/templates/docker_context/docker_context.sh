@@ -11,7 +11,7 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 # Initialize an empty array for JSON objects
 json_objects=()
 
-# Test 
+# Check MODIFIED_MODULES list, if empty run all unit-tests
 echo "::notice:: Incoming modified modules are $MODIFIED_MODULES"
 CHANGES_DETECTED=false
 if [[ "$MODIFIED_MODULES" = "" ||  $MODIFIED_MODULES = " " ]]; then
@@ -29,8 +29,7 @@ while read -r module; do
 
     # Only work with modules that are modified
     if [[ $MODIFIED_MODULES != *$module_out* && $CHANGES_DETECTED = "true" ]]; then
-            continue
-        fi
+        continue
     fi
 
     # Loop through each service
