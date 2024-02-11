@@ -43,4 +43,4 @@ fi
 
 # Output list
 echo "::notice:: MODIFIED_MODULES are $MODIFIED_MODULES" 
-echo "MODIFIED_MODULES=$MODIFIED_MODULES" >> $GITHUB_OUTPUT
+echo "modified_modules=$MODIFIED_MODULES" >> $GITHUB_OUTPUT
