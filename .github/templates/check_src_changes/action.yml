@@ -60,7 +60,3 @@ runs:
 
       run: ${{ github.action_path }}/check_src_changes.sh
       shell: bash
-    
-    - name: Sanity check
-      run: echo "sus ${{ steps.output-changes.outputs.modified_modules }}"
-      shell: bash
