@@ -147,5 +147,5 @@ jobs:
     steps:
       - name: Ending
         run:
-          echo "All builds and unit tests completed!"
+          echo "::notice:: All builds and unit tests completed!"
 
