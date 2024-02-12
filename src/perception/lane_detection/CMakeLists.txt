@@ -73,6 +73,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(lane_detection_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(CUDA REQUIRED)
@@ -82,5 +83,5 @@ install(TARGETS
 lane_detection
   DESTINATION lib/${PROJECT_NAME})
 
-ament_target_dependencies(lane_detection rclcpp OpenCV std_msgs sensor_msgs cv_bridge image_transport)
+ament_target_dependencies(lane_detection rclcpp OpenCV std_msgs sensor_msgs cv_bridge image_transport lane_detection_msgs)
 ament_package()

@@ -109,7 +109,7 @@ int32_t ImageProcessor::Command(int32_t cmd)
     }
 }
 
-int32_t ImageProcessor::Process(cv::Mat &mat, ImageProcessor::Result &result)
+int32_t ImageProcessor::Process(cv::Mat &mat, ImageProcessor::Result &result, std::vector<std::vector<float>> &lane_list)
 {
     if (!s_engine)
     {
