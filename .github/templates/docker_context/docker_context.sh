@@ -12,7 +12,6 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 json_objects=()
 
 # Check MODIFIED_MODULES list, if empty run all unit-tests
-echo "::notice:: Incoming modified modules are $MODIFIED_MODULES"
 CHANGES_DETECTED=false
 if [[ "$MODIFIED_MODULES" = "" ||  $MODIFIED_MODULES = " " ]]; then
     echo "::notice:: No source code modified, testing all modules for possible infra changes"
