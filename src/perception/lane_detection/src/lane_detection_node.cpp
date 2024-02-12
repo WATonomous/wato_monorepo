@@ -10,6 +10,8 @@
 #include "image_transport/image_transport.hpp"
 
 #include "std_msgs/msg/string.hpp"
+#include "lane_detection_msgs/msg/lane_detection.hpp"
+#include "lane_engine.h"
 
 
 #include <opencv2/opencv.hpp>
@@ -38,8 +40,8 @@ public:
         "/CAM_FRONT/image_rect_compressed", 10,
         std::bind(&LaneDetectionNode::image_callback, this, std::placeholders::_1));
 
-    // Initialize the image publisher using rclcpp
     image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("lane_detection_image", 10);
+    lane_detection_pub_ = this->create_publisher<lane_detection_msgs::msg::LaneDetection>("lane_detection", 10);
   }
 
   void image_callback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &msg)
@@ -72,10 +74,12 @@ public:
 
     const auto &time_cap1 = std::chrono::steady_clock::now();
 
+    std::vector<std::vector<float>> raw_lane_list;
+
     /* Call image processor library */
     const auto &time_image_process0 = std::chrono::steady_clock::now();
     ImageProcessor::Result result;
-    ImageProcessor::Process(image, result);
+    ImageProcessor::Process(image, result, raw_lane_list);
     const auto &time_image_process1 = std::chrono::steady_clock::now();
 
     /* Print processing time */
@@ -94,11 +98,37 @@ public:
     // Convert the processed cv::Mat back to sensor_msgs::msg::Image and publish
     sensor_msgs::msg::Image::SharedPtr img_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
     image_pub_->publish(*img_msg);
+
+  
+
+    // Create the lane detection message
+    lane_detection_msgs::msg::LaneDetection lane_msg;
+    lane_msg.header.stamp = this->now();
+    lane_msg.header.frame_id = "lane_detection";
+    lane_msg.lines.clear();
+
+    // Load the message from the raw lane list
+    for (size_t i = 0; i < raw_lane_list.size(); i++)
+    {
+        lane_detection_msgs::msg::LaneLine line;
+        line.points.resize(raw_lane_list[i].size());
+        for (size_t j = 0; j < raw_lane_list[i].size() / 2; j++)
+        {
+            line.points[j].x = raw_lane_list[i][j * 2 + 0];
+            line.points[j].y = raw_lane_list[i][j * 2 + 1];
+            line.points[j].z = 0;
+        }
+        lane_msg.lines.push_back(line);
+    }
+
+    lane_detection_pub_->publish(lane_msg);
+  
   }
 
 private:
   rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr subscription_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_; // The image publisher
+  rclcpp::Publisher<lane_detection_msgs::msg::LaneDetection>::SharedPtr lane_detection_pub_; // The lane detection publisher
 
   size_t count_;
 };
