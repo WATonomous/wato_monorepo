@@ -39,7 +39,7 @@ services:
       cache_from:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
-      # target: deploy
+      target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
   # traffic_light_detection:
