@@ -42,24 +42,26 @@ RUN pip3 install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu116.ht
 ENV TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0;7.5;8.0;8.6+PTX"
 RUN pip3 install spconv-cu113 pyquaternion numpy==1.23 pillow==8.4 mayavi open3d av2
 WORKDIR /home/bolty
-# RUN git clone https://github.com/WATonomous/OpenPCDet.git
-COPY /OpenPCDet /home/bolty/OpenPCDet
+RUN git clone https://github.com/WATonomous/OpenPCDet.git
+# COPY /OpenPCDet /home/bolty/OpenPCDet
 WORKDIR /home/bolty
 RUN cd OpenPCDet && pip3 install -r requirements.txt
 RUN pip3 install kornia==0.6.8
 RUN pip3 install nuscenes-devkit==1.0.5
+WORKDIR /home/bolty/OpenPCDet/
+RUN python3 setup.py develop
 ################################ Source #######################################
 FROM dependencies as build
 WORKDIR ${AMENT_WS}/src
-COPY wato_monorepo/src/perception/lidar_object_detection lidar_object_detection
-COPY wato_monorepo/src/wato_msgs/sample_msgs sample_msgs
+COPY src/perception/lidar_object_detection lidar_object_detection
+COPY src/wato_msgs/sample_msgs sample_msgs
 RUN apt-get update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -y
 RUN apt install -y ros-${ROS_DISTRO}-foxglove-bridge
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 # Entrypoint setup
-COPY wato_monorepo/docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
+COPY /docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 ################################ Prod #########################################
 FROM build as deploy
