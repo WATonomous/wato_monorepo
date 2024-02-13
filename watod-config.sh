@@ -16,6 +16,7 @@
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
 # ACTIVE_MODULES=""
+ACTIVE_MODULES="perception"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -28,6 +29,7 @@
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
 # COMPOSE_PROJECT_NAME=""
+COMPOSE_PROJECT_NAME="danielrhuynh"
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = "<your_current_github_branch>"

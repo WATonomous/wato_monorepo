@@ -3,6 +3,7 @@ from setuptools import find_packages, setup
 from glob import glob
 
 package_name = 'lidar_object_detection'
+package_name = 'lidar_object_detection'
 
 setup(
     name=package_name,
@@ -24,7 +25,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'lidar_object_detection_node = lidar_object_detection.lidar_object_detection_node:main'
+            'test_node = lidar_object_detection.test_node:main',
+            'inference = lidar_object_detection.inference:main'
         ],
     },
 )
