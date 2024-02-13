@@ -44,7 +44,7 @@ if [ $WORLD_MODELING_CHANGED == 'true' ]; then
 fi
 
 # Infrastructure
-if [$INFRASTRUCTURE_CHANGED == 'true']; then
+if [ $INFRASTRUCTURE_CHANGED == 'true' ]; then
     echo "Detected infrastructure changes"
     echo "::notice:: Detected infrastructure changes, testing entire repo"
     MODIFIED_MODULES="infrastructure"
