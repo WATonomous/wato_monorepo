@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 from glob import glob
 
-package_name = 'lidar_det_py'
+package_name = 'lidar_object_detection'
 
 setup(
     name=package_name,
@@ -22,8 +22,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_node = lidar_det_py.test_node:main',
-            'inference = lidar_det_py.inference:main'
+            'test_node = lidar_object_detection.test_node:main',
+            'inference = lidar_object_detection.inference:main'
         ],
     },
 )
