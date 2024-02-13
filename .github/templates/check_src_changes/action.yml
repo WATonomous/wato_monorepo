@@ -68,7 +68,7 @@ runs:
     - name: Create list of changed modules
       id: output-changes
       env:
-        INFRASTRUCTURE_CHANGED: ${{ steps.changed-files-wato-msgs.outputs.any_changed }} || ${{ steps.changed-files-outside-src.outputs.any_changed }}
+        INFRASTRUCTURE_CHANGED: ${{ steps.changed-files-wato-msgs.outputs.any_changed == 'true' || steps.changed-files-outside-src.outputs.any_changed == 'true' }}
         ACTION_CHANGED: ${{ steps.changed-files-action.outputs.any_changed }}
         INTERFACING_CHANGED: ${{ steps.changed-files-interfacing.outputs.any_changed }}
         PERCEPTION_CHANGED: ${{ steps.changed-files-perception.outputs.any_changed }}
