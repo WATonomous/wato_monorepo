@@ -1,0 +1,3 @@
+lane_detection_node:
+  ros__parameters:
+    input_topic: "/CAM_FRONT/image_rect_compressed"
