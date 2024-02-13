@@ -34,14 +34,14 @@ services:
 
   lidar_object_detection:
     build:
-      context: ../
+      context: ..
       dockerfile: docker/perception/lidar_object_detection/lidar_object_detection.Dockerfile
       cache_from:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
       target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
+    command: /bin/bash -c "ros2 run lidar_object_detection inference"
   # traffic_light_detection:
   #   build:
   #     context: ..
