@@ -62,10 +62,10 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && colcon build --cmake-args -DCMAKE_BUILD_T
 COPY wato_monorepo/docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 ################################ Prod #########################################
-# FROM build as deploy
+FROM build as deploy
 
 # Source Cleanup and Security Setup
-# RUN chown -R $USER:$USER ${AMENT_WS}
+RUN chown -R $USER:$USER ${AMENT_WS}
 # RUN rm -rf src/*
 
-# USER ${USER}
+USER ${USER}
