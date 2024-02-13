@@ -42,6 +42,9 @@ services:
       target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 run lidar_object_detection inference"
+    volumes:
+      - /mnt/wato-drive2/perception_models/voxelnext_nuscenes_kernel1.pth:/home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth
+      - /mnt/wato-drive2/nuscenes-1.0-mini/samples/LIDAR_TOP:/home/bolty/data
   # traffic_light_detection:
   #   build:
   #     context: ..
