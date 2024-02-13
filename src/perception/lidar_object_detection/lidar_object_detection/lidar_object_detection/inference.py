@@ -76,7 +76,7 @@ class LidarDemoNode(Node):
                 points = data_dict['points'][:, :3]  # Extract the relevant columns (x, y, z)
                 point_cloud_msg = self.create_cloud_xyz32(header, points)  # Assuming first 3 columns are x, y, z
                 self.publisher_.publish(point_cloud_msg)
-                self.publish_bounding_boxes(pred_dicts, "lidar_frame")  # Use appropriate frame_id
+                self.publish_bounding_boxes(pred_dicts, "base_link")  # Use appropriate frame_id
 
         self.logger.info('Demo done.')
 
@@ -96,7 +96,7 @@ class LidarDemoNode(Node):
     def make_header(self):
         header = Header()
         header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = 'lidar_frame'
+        header.frame_id = 'base_link'
         return header
     
     def create_cloud_xyz32(self, header, points):
