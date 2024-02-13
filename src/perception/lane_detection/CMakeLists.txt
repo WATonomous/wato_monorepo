@@ -78,6 +78,17 @@ find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(CUDA REQUIRED)
 
+# Install launch files
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+# Install config files
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 install(TARGETS
 lane_detection

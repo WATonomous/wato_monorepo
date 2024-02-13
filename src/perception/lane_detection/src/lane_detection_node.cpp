@@ -24,8 +24,6 @@ using namespace std::chrono_literals;
 
 /*** Macro ***/
 #define WORK_DIR RESOURCE_DIR
-#define DEFAULT_INPUT_IMAGE RESOURCE_DIR "/dashcam_01.jpg"
-#define LOOP_NUM_FOR_TIME_MEASUREMENT 10
 
 int count = 0;
 
@@ -35,9 +33,13 @@ public:
   LaneDetectionNode()
       : Node("lane_detection"), count_(0)
   {
+    std::string input_topic;
+    this->declare_parameter<std::string>("input_topic", "/CAM_FRONT/image_rect_compressed");
+    this->get_parameter("input_topic", input_topic);
+    RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", input_topic.c_str());
 
     subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-        "/CAM_FRONT/image_rect_compressed", 10,
+        input_topic, 10,
         std::bind(&LaneDetectionNode::image_callback, this, std::placeholders::_1));
 
     image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("lane_detection_image", 10);
@@ -67,7 +69,7 @@ public:
     }
     RCLCPP_INFO(this->get_logger(), "Got Decoded image: width=%d, height=%d, type=%d", image.cols, image.rows, image.type());
 
-    printf("=== Start frame ===\n");
+    RCLCPP_INFO(this->get_logger(), "=== Start frame ===");
     const auto &time_all0 = std::chrono::steady_clock::now();
     /* Read image */
     const auto &time_cap0 = std::chrono::steady_clock::now();
@@ -87,13 +89,13 @@ public:
     double time_all = (time_all1 - time_all0).count() / 1000000.0;
     double time_cap = (time_cap1 - time_cap0).count() / 1000000.0;
     double time_image_process = (time_image_process1 - time_image_process0).count() / 1000000.0;
-    printf("Total:               %9.3lf [msec]\n", time_all);
-    printf("  Capture:           %9.3lf [msec]\n", time_cap);
-    printf("  Image processing:  %9.3lf [msec]\n", time_image_process);
-    printf("    Pre processing:  %9.3lf [msec]\n", result.time_pre_process);
-    printf("    Inference:       %9.3lf [msec]\n", result.time_inference);
-    printf("    Post processing: %9.3lf [msec]\n", result.time_post_process);
-    printf("=== Finished frame ===\n\n");
+    RCLCPP_INFO(this->get_logger(), "Total:               %9.3lf [msec]", time_all);
+    RCLCPP_INFO(this->get_logger(), "  Capture:           %9.3lf [msec]", time_cap);
+    RCLCPP_INFO(this->get_logger(), "  Image processing:  %9.3lf [msec]", time_image_process);
+    RCLCPP_INFO(this->get_logger(), "    Pre processing:  %9.3lf [msec]", result.time_pre_process);
+    RCLCPP_INFO(this->get_logger(), "    Inference:       %9.3lf [msec]", result.time_inference);
+    RCLCPP_INFO(this->get_logger(), "    Post processing: %9.3lf [msec]", result.time_post_process);
+    RCLCPP_INFO(this->get_logger(), "=== Finished frame ===");
 
     // Convert the processed cv::Mat back to sensor_msgs::msg::Image and publish
     sensor_msgs::msg::Image::SharedPtr img_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
