@@ -15,7 +15,7 @@ json_objects=()
 CHANGES_DETECTED=false
 if [[ $MODIFIED_MODULES = "" ||  $MODIFIED_MODULES = " " ]]; then
     echo "::notice:: No source code modified, testing all modules for possible infra changes"
-else if [[ $MODIFIED_MODULES = "infrastructure" ]]
+elif [[ $MODIFIED_MODULES = "infrastructure" ]]; then
     echo "::notice:: Infra changes detected, testing all modules"
 else
     CHANGES_DETECTED=true
