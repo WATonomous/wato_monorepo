@@ -62,7 +62,7 @@ runs:
     
     - name: Sanity
       run: |
-        echo: outisde: ${{ steps.changed-files-outside-src.outputs.any_changed }}
+        echo "outside: ${{ steps.changed-files-outside-src.outputs.any_changed }}"
       shell: bash
 
     - name: Create list of changed modules
