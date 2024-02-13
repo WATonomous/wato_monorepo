@@ -60,13 +60,6 @@ runs:
       with:
         files: src/world_modeling/**
 
-    - name: Sanity
-      run: |
-        echo "outside: ${{ steps.changed-files-outside-src.outputs.any_changed }}"
-        echo "wato_msgs: ${{ steps.changed-files-wato-msgs.outputs.any_changed }}"
-        echo "wato_msgs: ${{ steps.changed-files-wato-msgs.outputs.any_changed || steps.changed-files-outside-src.outputs.any_changed }}"
-      shell: bash
-
     - name: Create list of changed modules
       id: output-changes
       env:

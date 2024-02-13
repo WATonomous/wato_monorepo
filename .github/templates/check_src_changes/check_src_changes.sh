@@ -5,8 +5,6 @@ set -e
 # Outputs a list of modified modules by comparing changes between main and current commit
 # References previous GitHub workflow steps
 
-
-
 # Action
 if [ $ACTION_CHANGED == 'true' ]; then
     echo "Detected action changes"
@@ -46,7 +44,7 @@ fi
 # Infrastructure
 if [ $INFRASTRUCTURE_CHANGED == 'true' ]; then
     echo "Detected infrastructure changes"
-    echo "::notice:: Detected infrastructure changes, testing entire repo"
+    echo "::notice:: Detected infrastructure changes"
     MODIFIED_MODULES="infrastructure"
 else
     echo "::notice:: MODIFIED_MODULES are $MODIFIED_MODULES" 

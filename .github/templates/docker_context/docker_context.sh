@@ -14,9 +14,9 @@ json_objects=()
 # Check for infrastructure changes
 CHANGES_DETECTED=false
 if [[ $MODIFIED_MODULES = "" ||  $MODIFIED_MODULES = " " ]]; then
-    echo "::notice:: No source code modified, testing all modules for possible infra changes"
+    echo "::notice:: No source code modified, testing all modules for possible infrastructure changes"
 elif [[ $MODIFIED_MODULES = "infrastructure" ]]; then
-    echo "::notice:: Infra changes detected, testing all modules"
+    echo "::notice:: Infrastructure changes detected, testing all modules"
 else
     CHANGES_DETECTED=true
 fi
