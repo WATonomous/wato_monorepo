@@ -24,8 +24,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_node = lidar_det_py.test_node:main',
-            'inference = lidar_det_py.inference:main'
+            'test_node = lidar_object_detection.test_node:main',
+            'inference = lidar_object_detection.inference:main'
         ],
     },
 )
