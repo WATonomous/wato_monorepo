@@ -11,10 +11,12 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 # Initialize an empty array for JSON objects
 json_objects=()
 
-# Check MODIFIED_MODULES list, if empty run all unit-tests
+# Check for infrastructure changes
 CHANGES_DETECTED=false
-if [[ "$MODIFIED_MODULES" = "" ||  $MODIFIED_MODULES = " " ]]; then
+if [[ $MODIFIED_MODULES = "" ||  $MODIFIED_MODULES = " " ]]; then
     echo "::notice:: No source code modified, testing all modules for possible infra changes"
+else if [[ $MODIFIED_MODULES = "infrastructure" ]]
+    echo "::notice:: Infra changes detected, testing all modules"
 else
     CHANGES_DETECTED=true
 fi
