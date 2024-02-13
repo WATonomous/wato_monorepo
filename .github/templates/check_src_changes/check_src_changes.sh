@@ -50,7 +50,7 @@ if [$INFRASTRUCTURE_CHANGED == 'true']; then
     MODIFIED_MODULES="infrastructure"
 else
     echo "::notice:: MODIFIED_MODULES are $MODIFIED_MODULES" 
-if
+fi
 
 # Output list
 echo "modified_modules=$MODIFIED_MODULES" >> $GITHUB_OUTPUT

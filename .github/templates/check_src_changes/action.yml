@@ -22,7 +22,7 @@ runs:
       id: changed-files-wato-msgs
       uses: tj-actions/changed-files@v42
       with:
-        files: src/wato-msgs/**
+        files: src/wato_msgs/**
 
     - name: Find changed files inside src/action folder
       id: changed-files-action
