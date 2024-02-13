@@ -1,0 +1,15 @@
+# which go to the model you want to use
+cfg_root: "/home/bolty/workspace/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml"
+
+# which go to the .pth
+model_path: "/home/kin/workspace/OpenPCDet/tools/pv_rcnn_8369.pth"
+
+# pointcloud_topic in the bag if you are not sure
+# rosbag info xxx.bag check the topic name
+pointcloud_topic: "/velodyne_points" # default is from kitti2bag: /velodyne_points
+
+# only the predict probablity over this threshold will be draw a box
+threshold: 0.8
+
+move_lidar_center: 20
+viz_rate: 1.0
