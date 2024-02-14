@@ -17,18 +17,28 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 OPEN3D_FLAG = True
 
-
-class LidarDemoNode(Node):
+class LidarObjectDetection(Node):
     def __init__(self):
-        super().__init__('lidar_demo_node')
-        self.publisher_ = self.create_publisher(PointCloud2, 'lidar_data', 10)
+        super().__init__('lidar_object_detection')
+        self.declare_parameter("model_path", "/perception_models/voxelnext_nuscenes_kernel1.pth")
+        self.declare_parameter("lidar_topic", "/LIDAR_TOP")
+        self.model_path = self.get_parameter("model_path").value
+        self.lidar_data = self.get_parameter("lidar_topic").value
+
         self.bbox_publisher = self.create_publisher(MarkerArray, '/bounding_boxes', 10)
+
+        self.subscription = self.create_subscription(
+        PointCloud2,
+        '/LIDAR_TOP',
+        self.point_cloud_callback,
+        10)
+        self.subscription  
 
         args, cfg = self.parse_config()
         self.logger = common_utils.create_logger()
-        self.logger.info('-----------------Quick Demo of OpenPCDet-------------------------')
+        self.logger.info('-----------------Starting Lidar Object Detection-------------------------')
 
-        self.demo_dataset = DemoDataset(
+        self.demo_dataset = LidarDataset(
             dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False,
             root_path=Path(args.data_path), ext=args.ext, logger=self.logger
         )
@@ -38,7 +48,25 @@ class LidarDemoNode(Node):
         self.model.cuda()
         self.model.eval()
 
-        self.process_data()
+    def point_cloud_callback(self, msg):
+        points = self.pointcloud2_to_xyz_array(msg)
+        data_dict = {
+            'points': points,
+            'frame_id': msg.header.frame_id,
+        }
+        data_dict = self.demo_dataset.prepare_data(data_dict=data_dict)
+        data_dict = self.demo_dataset.collate_batch([data_dict])
+        load_data_to_gpu(data_dict)
+
+        with torch.no_grad():
+            pred_dicts, _ = self.model.forward(data_dict)
+
+        self.publish_bounding_boxes(pred_dicts, msg.header.frame_id)
+
+    def pointcloud2_to_xyz_array(self, cloud_msg):
+        cloud_array = np.frombuffer(cloud_msg.data, dtype=np.float32)
+        cloud_array = cloud_array.reshape(cloud_msg.height * cloud_msg.width, 5)
+        return cloud_array
 
     def publish_bounding_boxes(self, pred_dicts, frame_id):
         marker_array = MarkerArray()
@@ -52,33 +80,17 @@ class LidarDemoNode(Node):
             marker.pose.position.x = float(box[0])
             marker.pose.position.y = float(box[1])
             marker.pose.position.z = float(box[2])
-            marker.pose.orientation.w = 1.0  # Assuming no rotation; modify as needed
-            marker.scale.x = float(box[3])  # Size in X direction
-            marker.scale.y = float(box[4])  # Size in Y direction
-            marker.scale.z = float(box[5])  # Size in Z direction
-            marker.color.a = 0.8  # Alpha
-            marker.color.r = 1.0  # Red
-            marker.color.g = 0.0  # Green
-            marker.color.b = 0.0  # Blue
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = float(box[3])
+            marker.scale.y = float(box[4])
+            marker.scale.z = float(box[5])
+            marker.color.a = 0.8
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 0.0
             marker_array.markers.append(marker)
         
         self.bbox_publisher.publish(marker_array)
-
-    def process_data(self):
-        with torch.no_grad():
-            for idx, data_dict in enumerate(self.demo_dataset):
-                data_dict = self.demo_dataset.collate_batch([data_dict])
-                load_data_to_gpu(data_dict)
-                pred_dicts, _ = self.model.forward(data_dict)
-
-                # Convert and publish data
-                header = self.make_header()
-                points = data_dict['points'][:, :3]  # Extract the relevant columns (x, y, z)
-                point_cloud_msg = self.create_cloud_xyz32(header, points)  # Assuming first 3 columns are x, y, z
-                self.publisher_.publish(point_cloud_msg)
-                self.publish_bounding_boxes(pred_dicts, "base_link")  # Use appropriate frame_id
-
-        self.logger.info('Demo done.')
 
     def parse_config(self):
         parser = argparse.ArgumentParser(description='arg parser')
@@ -89,7 +101,7 @@ class LidarDemoNode(Node):
         parser.add_argument('--ckpt', type=str, default="/home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth", help='specify the pretrained model')
         parser.add_argument('--ext', type=str, default='.bin', help='specify the extension of your point cloud data file')
 
-        args, unknown = parser.parse_known_args()
+        args, _ = parser.parse_known_args()
         cfg_from_yaml_file(args.cfg_file, cfg)
         return args, cfg
 
@@ -126,27 +138,25 @@ class LidarDemoNode(Node):
         [np.sin(z_angle),  np.cos(z_angle), 0],
         [0,                0,               1]
         ])
-        # Apply transformation
+
         points_np = points.cpu().numpy()
         points_np_y = np.dot(points_np, rotation_matrix_y)
         points_transformed = np.dot(points_np_y, rotation_matrix_z.T)
-        # Create a PointCloud2 message
+
         cloud = PointCloud2()
         cloud.header = header
-        cloud.height = 1  # Unstructured point cloud
+        cloud.height = 1
         cloud.width = points_transformed.shape[0]
         cloud.fields = fields
-        cloud.is_bigendian = False  # Assuming little endian
-        cloud.point_step = 12  # FLOAT32 (4 bytes) * 3 (x, y, z)
+        cloud.is_bigendian = False
+        cloud.point_step = 12
         cloud.row_step = cloud.point_step * cloud.width
         cloud.is_dense = bool(np.isfinite(points_transformed).all())
         cloud.data = np.asarray(points_transformed, np.float32).tobytes()
 
         return cloud
 
-
-
-class DemoDataset(DatasetTemplate):
+class LidarDataset(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None, ext='.bin'):
         """
         Args:
@@ -169,30 +179,29 @@ class DemoDataset(DatasetTemplate):
     def __len__(self):
         return len(self.sample_file_list)
 
-    def __getitem__(self, index):
-        if self.ext == '.bin':
-            points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 5)
-        elif self.ext == '.npy':
-            points = np.load(self.sample_file_list[index])
-        else:
-            raise NotImplementedError
+    # def __getitem__(self, index):
+    #     if self.ext == '.bin':
+    #         points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 5)
+    #     elif self.ext == '.npy':
+    #         points = np.load(self.sample_file_list[index])
+    #     else:
+    #         raise NotImplementedError
 
-        input_dict = {
-            'points': points,
-            'frame_id': index,
-        }
+    #     input_dict = {
+    #         'points': points,
+    #         'frame_id': index,
+    #     }
 
-        data_dict = self.prepare_data(data_dict=input_dict)
-        return data_dict
+    #     data_dict = self.prepare_data(data_dict=input_dict)
+    #     return data_dict
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = LidarDemoNode()
+    node = LidarObjectDetection()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
