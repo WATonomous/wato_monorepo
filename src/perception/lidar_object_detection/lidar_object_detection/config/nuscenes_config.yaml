@@ -1,5 +1,5 @@
 camera_object_detection_node:
   ros__parameters:
-    camera_topic: /LIDAR_TOP
-    publish_vis_topic: /test
-    model_path: /perception_models/voxelnext_nuscenes_kernel1.pth
+    lidar_topic: /LIDAR_TOP
+    model_config_path: /home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml
+    model_path: /home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth

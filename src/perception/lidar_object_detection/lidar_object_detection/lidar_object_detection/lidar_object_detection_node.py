@@ -18,16 +18,18 @@ OPEN3D_FLAG = True
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
-        self.declare_parameter("model_path", "/perception_models/voxelnext_nuscenes_kernel1.pth")
+        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth")
+        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml")
         self.declare_parameter("lidar_topic", "/LIDAR_TOP")
         self.model_path = self.get_parameter("model_path").value
+        self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
 
         self.bbox_publisher = self.create_publisher(MarkerArray, '/bounding_boxes', 10)
 
         self.subscription = self.create_subscription(
         PointCloud2,
-        '/LIDAR_TOP',
+        self.lidar_data,
         self.point_cloud_callback,
         10)
         self.subscription  
@@ -90,9 +92,9 @@ class LidarObjectDetection(Node):
 
     def parse_config(self):
         parser = argparse.ArgumentParser(description='arg parser')
-        parser.add_argument('--cfg_file', type=str, default='/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml',
+        parser.add_argument('--cfg_file', type=str, default=self.model_config_path,
                             help='specify the config for demo')
-        parser.add_argument('--ckpt', type=str, default="/home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth", help='specify the pretrained model')
+        parser.add_argument('--ckpt', type=str, default=self.model_path, help='specify the pretrained model')
 
         args, _ = parser.parse_known_args()
         cfg_from_yaml_file(args.cfg_file, cfg)
