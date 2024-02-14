@@ -43,12 +43,11 @@ fi
 
 # Infrastructure
 if [ $INFRASTRUCTURE_CHANGED == 'true' ]; then
-    echo "Detected infrastructure changes"
     echo "::notice:: Detected infrastructure changes"
     MODIFIED_MODULES="infrastructure"
 else
     echo "::notice:: MODIFIED_MODULES are $MODIFIED_MODULES" 
 fi
 
-# Output list
+# Output lis
 echo "modified_modules=$MODIFIED_MODULES" >> $GITHUB_OUTPUT

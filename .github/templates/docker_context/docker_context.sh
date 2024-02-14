@@ -12,13 +12,10 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 json_objects=()
 
 # Check for infrastructure changes
-CHANGES_DETECTED=false
-if [[ $MODIFIED_MODULES = "" ||  $MODIFIED_MODULES = " " ]]; then
-    echo "::notice:: No source code modified, testing all modules for possible infrastructure changes"
-elif [[ $MODIFIED_MODULES = "infrastructure" ]]; then
+TEST_ALL=false
+if [[ $MODIFIED_MODULES = "infrastructure" ]]; then
     echo "::notice:: Infrastructure changes detected, testing all modules"
-else
-    CHANGES_DETECTED=true
+    TEST_ALL=true
 fi
 
 # Loop through each module
@@ -29,7 +26,7 @@ while read -r module; do
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
 
     # Only work with modules that are modified
-    if [[ $MODIFIED_MODULES != *$module_out* && $CHANGES_DETECTED = "true" ]]; then
+    if [[ $MODIFIED_MODULES != *$module_out* && $TEST_ALL = "false" ]]; then
         continue
     fi
 
