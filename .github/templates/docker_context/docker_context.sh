@@ -14,7 +14,6 @@ json_objects=()
 # Check for infrastructure changes
 TEST_ALL=false
 if [[ $MODIFIED_MODULES = "infrastructure" ]]; then
-    echo "::notice:: Infrastructure changes detected, testing all modules"
     TEST_ALL=true
 fi
 
