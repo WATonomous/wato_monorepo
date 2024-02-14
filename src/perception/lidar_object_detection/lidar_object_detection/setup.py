@@ -15,15 +15,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='bolty',
-    maintainer_email='bolty@todo.todo',
+    maintainer='Dan Huynh',
+    maintainer_email='danielrhuynh@watonomous.ca',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_node = lidar_object_detection.test_node:main',
-            'inference = lidar_object_detection.inference:main'
+            'lidar_object_detection_node = lidar_object_detection.lidar_object_detection_node:main'
         ],
     },
 )
