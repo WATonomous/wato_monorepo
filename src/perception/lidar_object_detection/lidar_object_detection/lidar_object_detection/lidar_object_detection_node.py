@@ -1,6 +1,4 @@
 import argparse
-import glob
-from pathlib import Path
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Header
@@ -36,12 +34,10 @@ class LidarObjectDetection(Node):
 
         args, cfg = self.parse_config()
         self.logger = common_utils.create_logger()
-        self.logger.info('-----------------Starting Lidar Object Detection-------------------------')
+        self.logger.info('-------------------------Starting Lidar Object Detection-------------------------')
 
         self.demo_dataset = LidarDataset(
-            dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False,
-            root_path=Path(args.data_path), ext=args.ext, logger=self.logger
-        )
+            dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False, logger=self.logger)
 
         self.model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.demo_dataset)
         self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
@@ -96,10 +92,7 @@ class LidarObjectDetection(Node):
         parser = argparse.ArgumentParser(description='arg parser')
         parser.add_argument('--cfg_file', type=str, default='/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml',
                             help='specify the config for demo')
-        parser.add_argument('--data_path', type=str, default='/home/bolty/data/n015-2018-11-21-19-38-26+0800__LIDAR_TOP__1542801000947820.pcd.bin',
-                            help='specify the point cloud data file or directory')
         parser.add_argument('--ckpt', type=str, default="/home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth", help='specify the pretrained model')
-        parser.add_argument('--ext', type=str, default='.bin', help='specify the extension of your point cloud data file')
 
         args, _ = parser.parse_known_args()
         cfg_from_yaml_file(args.cfg_file, cfg)
@@ -157,44 +150,10 @@ class LidarObjectDetection(Node):
         return cloud
 
 class LidarDataset(DatasetTemplate):
-    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None, ext='.bin'):
-        """
-        Args:
-            root_path:
-            dataset_cfg:
-            class_names:
-            training:
-            logger:
-        """
+    def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext='.bin'):
         super().__init__(
-            dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
+            dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger
         )
-        self.root_path = root_path
-        self.ext = ext
-        data_file_list = glob.glob(str(root_path / f'*{self.ext}')) if self.root_path.is_dir() else [self.root_path]
-
-        data_file_list.sort()
-        self.sample_file_list = data_file_list
-
-    def __len__(self):
-        return len(self.sample_file_list)
-
-    # def __getitem__(self, index):
-    #     if self.ext == '.bin':
-    #         points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 5)
-    #     elif self.ext == '.npy':
-    #         points = np.load(self.sample_file_list[index])
-    #     else:
-    #         raise NotImplementedError
-
-    #     input_dict = {
-    #         'points': points,
-    #         'frame_id': index,
-    #     }
-
-    #     data_dict = self.prepare_data(data_dict=input_dict)
-    #     return data_dict
-
 
 def main(args=None):
     rclpy.init(args=args)
