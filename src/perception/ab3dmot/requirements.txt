@@ -1,0 +1,7 @@
+ultralytics
+torch
+setuptools==58.2.0
+easydict
+huggingface
+huggingface_hub
+numpy==1.24.2
