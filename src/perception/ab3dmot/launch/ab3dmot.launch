@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<launch>
+    <param name="msg_queue_size" value="1" />
+    <!-- Publish frequency in hz -->
+    <param name="publish_frequency" value="10" />
+    <!-- Algorithm config info -->
+    <param name="config_path" value="$(find object_tracking)/config/mahalanobis.yaml"/>
+
+    <!-- Velocity prediction low-pass-filter constant. Higher = less sensitive.  -->
+    <param name="velocity_filter_constant" value="5"/>
+    <!-- Updates velocity prediction using last 'X' seconds of movement data -->
+    <param name="velocity_prediction_horizon" value="0.5"/>
+    <param name="prediction_length" value="4.0"/>
+    <param name="prediction_resolution" value="0.5"/>
+
+    <!-- Dimension filtering for unclassified boxes  -->
+    <param name="max_lidar_box_dim" value="2"/> <!-- 2.5 -->
+    <param name="min_lidar_box_dim" value="0.5"/> <!-- 0.75 -->
+    <!-- Euclidian distance threshold for box associations (in meters) -->
+    <param name="lidar_distance_threshold" value="1"/> 
+    <param name="default_distance_threshold" value="3"/> 
+
+    <!-- Maximum age in seconds  -->
+    <param name="max_age" value="5"/>
+    <!-- Minimum number of detections -->
+    <param name="min_hits" value="3"/>
+    
+    <node pkg="object_tracking" type="tracker_node.py" name="tracker_node" output="screen" required="true">
+        <rosparam command="load" file="$(find object_tracking)/config/params.yaml"/>
+    </node>
+
+    <node pkg="object_tracking" type="object_tracking_visualizer.py" name="object_tracking_visualizer" output="screen" required="true">
+    </node>
+
+</launch>
