@@ -133,7 +133,7 @@ def main(args=None):
 
     frequency = tracker_node.get_parameter("publish_frequency").value
     ros_rate = tracker_node.create_rate(frequency)
-
+    
     try:
         while rclpy.ok():
             try:
