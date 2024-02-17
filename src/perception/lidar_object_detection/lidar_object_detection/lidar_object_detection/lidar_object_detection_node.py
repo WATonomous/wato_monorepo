@@ -62,32 +62,22 @@ class LidarObjectDetection(Node):
 
         self.publish_bounding_boxes(pred_dicts, msg.header.frame_id)
 
-    # Nuscenes data loader (x, y, z, intensity, timestamp)
-    # def pointcloud2_to_xyz_array(self, cloud_msg):
-    #     cloud_array = np.frombuffer(cloud_msg.data, dtype=np.float32)
-    #     cloud_array = cloud_array.reshape(cloud_msg.height * cloud_msg.width, 5)
-    #     return cloud_array
+    def pointcloud2_to_xyz_array(self, cloud_msg):
+        dtype = np.dtype('>f4') if cloud_msg.is_bigendian else np.dtype('f4')
 
-    def pointcloud2_to_xyz_array(self, cloud_msg: PointCloud2):
-        if cloud_msg.is_bigendian:
-            dtype = np.dtype('>f4')
-        else:
-            dtype = np.dtype('f4')
+        field_offsets = {field.name: field.offset for field in cloud_msg.fields}
 
-        offset_dict = {field.name: field.offset for field in cloud_msg.fields}
-        offsets = [offset_dict[field] for field in ['x', 'y', 'z', 'intensity']]
+        cloud_array = np.empty((cloud_msg.width * cloud_msg.height, 4), dtype=dtype)
 
-        cloud_array = np.empty((cloud_msg.width * cloud_msg.height, 4), dtype=np.float32)
+        all_data = np.frombuffer(cloud_msg.data, dtype=dtype)
 
-        for i in range(cloud_msg.width * cloud_msg.height):
-            point_start_byte = i * cloud_msg.point_step
+        reshaped_data = all_data.reshape(cloud_msg.height * cloud_msg.width, -1)
 
-            for j, offset in enumerate(offsets):
-                data_bytes = cloud_msg.data[point_start_byte + offset:point_start_byte + offset + 4]
-                cloud_array[i, j] = struct.unpack('f', data_bytes)[0]
+        for i, field in enumerate(['x', 'y', 'z', 'intensity']):
+            field_idx = field_offsets[field] // 4
+            cloud_array[:, i] = reshaped_data[:, field_idx]
 
-        return cloud_array
-
+        return cloud_array.astype(np.float32)
 
     def publish_bounding_boxes(self, pred_dicts, frame_id):
         marker_array = MarkerArray()
