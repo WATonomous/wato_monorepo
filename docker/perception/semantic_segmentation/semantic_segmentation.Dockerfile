@@ -7,8 +7,6 @@ FROM ${PADDLE_INFERENCE_BUILD_URL} as PADDLE_INFERENCE_BUILD
 ################################ Source ################################
 FROM ${BASE_BUILD_IMAGE} as source
 
-# install tensorrt
-RUN apt update && apt install -y tensorrt
 
 
 WORKDIR ${AMENT_WS}/src
@@ -49,6 +47,8 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies as build
 
+# install tensorrt
+RUN apt update && apt install -y tensorrt
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
@@ -58,6 +58,10 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
+
+# Add /home/bolty/ament_ws/install/semantic_segmentation/lib/semantic_segmentation to LD_LIBRARY_PATH
+RUN export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${AMENT_WS}/install/semantic_segmentation/lib/
+# /home/bolty/ament_ws/install/semantic_segmentation/lib/semantic_segmentation/
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 # ################################ Prod ################################
