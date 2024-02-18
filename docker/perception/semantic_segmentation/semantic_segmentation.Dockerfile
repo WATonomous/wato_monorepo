@@ -31,6 +31,11 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_BUILD_IMAGE} as dependencies
 
+# install tensorrt
+RUN apt update && apt install -y tensorrt
+
+RUN apt install -y ros-humble-cv-bridge libopencv-dev
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
@@ -47,8 +52,6 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies as build
 
-# install tensorrt
-RUN apt update && apt install -y tensorrt
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}

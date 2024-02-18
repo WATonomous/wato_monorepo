@@ -32,6 +32,8 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -82,5 +84,13 @@ install(FILES ${PADDLE_LIB}/paddle/lib/libpaddle_inference.so
               ${PADDLE_LIB}/third_party/install/mklml/lib/libmklml_intel.so
         DESTINATION /usr/local/lib)
 
-ament_target_dependencies(semantic_segmentation rclcpp std_msgs sensor_msgs geometry_msgs image_transport)
+ament_target_dependencies(semantic_segmentation
+  rclcpp
+  std_msgs
+  sensor_msgs
+  cv_bridge
+  geometry_msgs
+  image_transport
+  OpenCV
+)
 ament_package()
