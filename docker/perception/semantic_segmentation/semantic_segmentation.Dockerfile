@@ -1,9 +1,23 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
+ARG BASE_BUILD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04-devel
+ARG BASE_PROD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04
+ARG PADDLE_INFERENCE_BUILD_URL=ghcr.io/watonomous/perception_paddlepaddle_inference_build_cuda-12.0
+################################ Build library ################################
+FROM ${PADDLE_INFERENCE_BUILD_URL} as PADDLE_INFERENCE_BUILD
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_BUILD_IMAGE} as source
+
+# install tensorrt
+RUN apt update && apt install -y tensorrt
+
 
 WORKDIR ${AMENT_WS}/src
+
+# Copy in the paddle inference library
+RUN mkdir -p semantic_segmentation/src
+COPY --from=PADDLE_INFERENCE_BUILD /paddle/paddle_inference_cuda120_build.tar semantic_segmentation/src/paddle_inference_cuda120_build.tar
+RUN tar -xvf semantic_segmentation/src/paddle_inference_cuda120_build.tar -C semantic_segmentation/src
+RUN rm semantic_segmentation/src/paddle_inference_cuda120_build.tar
 
 # Copy in source code 
 COPY src/perception/semantic_segmentation semantic_segmentation
@@ -17,7 +31,7 @@ RUN apt-get -qq update && rosdep update && \
         | sort  > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} as dependencies
+FROM ${BASE_BUILD_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -35,6 +49,7 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies as build
 
+
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
@@ -45,11 +60,11 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
-################################ Prod ################################
-FROM build as deploy
+# ################################ Prod ################################
+# FROM build as deploy
 
-# Source Cleanup and Security Setup
-RUN chown -R $USER:$USER ${AMENT_WS}
-RUN rm -rf src/*
+# # Source Cleanup and Security Setup
+# RUN chown -R $USER:$USER ${AMENT_WS}
+# RUN rm -rf src/*
 
-USER ${USER}
+# USER ${USER}
