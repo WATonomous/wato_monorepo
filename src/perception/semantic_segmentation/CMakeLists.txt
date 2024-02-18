@@ -24,7 +24,6 @@ include_directories("${PADDLE_LIB}/")
 set(PADDLE_LIB_THIRD_PARTY_PATH "${PADDLE_LIB}/third_party/install/")
 include_directories(${PADDLE_LIB_THIRD_PARTY_PATH}protobuf/include ${PADDLE_LIB_THIRD_PARTY_PATH}glog/include ${PADDLE_LIB_THIRD_PARTY_PATH}gflags/include ${PADDLE_LIB_THIRD_PARTY_PATH}xxhash/include ${PADDLE_LIB_THIRD_PARTY_PATH}cryptopp/include ${PADDLE_LIB_THIRD_PARTY_PATH}onnxruntime/include ${PADDLE_LIB_THIRD_PARTY_PATH}paddle2onnx/include)
 
-
 link_directories(${PADDLE_LIB_THIRD_PARTY_PATH}protobuf/lib ${PADDLE_LIB_THIRD_PARTY_PATH}glog/lib ${PADDLE_LIB_THIRD_PARTY_PATH}gflags/lib ${PADDLE_LIB_THIRD_PARTY_PATH}xxhash/lib ${PADDLE_LIB_THIRD_PARTY_PATH}cryptopp/lib ${PADDLE_LIB_THIRD_PARTY_PATH}onnxruntime/lib ${PADDLE_LIB_THIRD_PARTY_PATH}paddle2onnx/lib ${PADDLE_LIB}/paddle/lib)
 
 # Find packages
@@ -60,8 +59,11 @@ link_directories(/usr/local/lib ${YAML_CPP_LIBRARIES})
 set(EXTRA_LIBS "-lrt -ldl -lpthread")
 set(DEPS ${rclcpp_LIBRARIES} ${std_msgs_LIBRARIES} ${sensor_msgs_LIBRARIES} ${geometry_msgs_LIBRARIES} ${image_transport_LIBRARIES} ${CUDA_LIBRARIES} ${YAML_CPP_LIBRARIES} ${EXTRA_LIBS}
 ${PADDLE_LIB}/paddle/lib/libpaddle_inference.so
+${PADDLE_LIB}/paddle/lib/libphi.so
+${PADDLE_LIB}/paddle/lib/libcommon.so
 ${PADDLE_LIB}/third_party/install/mkldnn/lib/libdnnl.so.3
 ${PADDLE_LIB}/third_party/install/mklml/lib/libiomp5.so
+${PADDLE_LIB}/third_party/install/mklml/lib/libmklml_intel.so
 )
 
 # Add your executable
@@ -71,6 +73,14 @@ target_link_libraries(semantic_segmentation ${DEPS})
 # Additional installation commands
 install(DIRECTORY launch config resource DESTINATION share/${PROJECT_NAME}/)
 install(TARGETS semantic_segmentation DESTINATION lib/${PROJECT_NAME})
+# Install shared libraries
+install(FILES ${PADDLE_LIB}/paddle/lib/libpaddle_inference.so
+              ${PADDLE_LIB}/paddle/lib/libphi.so
+              ${PADDLE_LIB}/paddle/lib/libcommon.so
+              ${PADDLE_LIB}/third_party/install/mkldnn/lib/libdnnl.so.3
+              ${PADDLE_LIB}/third_party/install/mklml/lib/libiomp5.so
+              ${PADDLE_LIB}/third_party/install/mklml/lib/libmklml_intel.so
+        DESTINATION /usr/local/lib)
 
 ament_target_dependencies(semantic_segmentation rclcpp std_msgs sensor_msgs geometry_msgs image_transport)
 ament_package()
