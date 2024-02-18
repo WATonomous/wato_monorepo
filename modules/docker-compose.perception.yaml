@@ -55,17 +55,20 @@ services:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
       # target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
-  # traffic_light_detection:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/perception/traffic_light_detection/traffic_light_detection.Dockerfile
-  #     cache_from:
-  #       - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-  #       - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
-  #     target: deploy
-  #   image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-  #   command: /bin/bash -c "ros2 launch traffic_light_detection traffic_light_detection.launch.py"
+    command: /bin/bash -c "ros2 launch lidar_object_detection eve_launch.py"
+    volumes:
+      - /mnt/wato-drive2/perception_models/pv_rcnn_8369.pth:/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth
+      - /mnt/wato-drive2/nuscenes-1.0-mini/samples/LIDAR_TOP:/home/bolty/data
+  traffic_light_detection:
+    build:
+      context: ..
+      dockerfile: docker/perception/traffic_light_detection/traffic_light_detection.Dockerfile
+      cache_from:
+        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
+        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
+      target: deploy
+    image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch traffic_light_detection traffic_light_detection.launch.py"
 
   # traffic_sign_detection:
   #   build:
