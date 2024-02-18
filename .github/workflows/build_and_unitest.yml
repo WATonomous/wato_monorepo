@@ -24,6 +24,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Get Module Changes
+        id: get-module-changes
+        uses: "./.github/templates/check_src_changes"
+
       - name: Setup Watod Environment
         run: ./watod_scripts/watod-setup-env.sh
         shell: bash
@@ -31,7 +35,9 @@ jobs:
       - name: Generate Docker Environment
         id: docker-environment
         uses: "./.github/templates/docker_context"
-
+        with:
+          modified_modules: ${{ steps.get-module-changes.outputs.modified_modules }}
+      
       - name: Generate GitHub Environment
         id: github-environment
         uses: "./.github/templates/github_context"
@@ -133,3 +139,12 @@ jobs:
         with:
           image: ${{ steps.construct-registry-url.outputs.url }}
           tag: build_${{ env.SOURCE_BRANCH }}
+  
+  confirm-build-and-unittest-complete:
+    name: Confirm Build and Unit Tests Completed
+    needs: build-and-unittest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ending
+        run: |
+          echo "::notice:: All builds and unit tests completed!"
