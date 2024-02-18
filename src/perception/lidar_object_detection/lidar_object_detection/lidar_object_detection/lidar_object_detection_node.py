@@ -19,8 +19,8 @@ OPEN3D_FLAG = True
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
-        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth")
-        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml")
+        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth")
+        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml")
         self.declare_parameter("lidar_topic", "/velodyne_points")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
@@ -63,21 +63,15 @@ class LidarObjectDetection(Node):
         self.publish_bounding_boxes(pred_dicts, msg.header.frame_id)
 
     def pointcloud2_to_xyz_array(self, cloud_msg):
-        dtype = np.dtype('>f4') if cloud_msg.is_bigendian else np.dtype('f4')
+        num_points = cloud_msg.width * cloud_msg.height
+        cloud_array = np.frombuffer(cloud_msg.data, dtype=np.float32)
+        num_fields = cloud_msg.point_step // 4
+        cloud_array = cloud_array.reshape(num_points, num_fields)
 
-        field_offsets = {field.name: field.offset for field in cloud_msg.fields}
+        if cloud_array.shape[1] > 4:
+            cloud_array = cloud_array[:, :4]
 
-        cloud_array = np.empty((cloud_msg.width * cloud_msg.height, 4), dtype=dtype)
-
-        all_data = np.frombuffer(cloud_msg.data, dtype=dtype)
-
-        reshaped_data = all_data.reshape(cloud_msg.height * cloud_msg.width, -1)
-
-        for i, field in enumerate(['x', 'y', 'z', 'intensity']):
-            field_idx = field_offsets[field] // 4
-            cloud_array[:, i] = reshaped_data[:, field_idx]
-
-        return cloud_array.astype(np.float32)
+        return cloud_array
 
     def publish_bounding_boxes(self, pred_dicts, frame_id):
         marker_array = MarkerArray()
