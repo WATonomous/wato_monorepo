@@ -57,7 +57,6 @@ OccupancySegmentationNode::OccupancySegmentationNode()
 void OccupancySegmentationNode::lidar_callback(
   const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
-  // aggregator_.add_raw_msg(msg);
   RCLCPP_INFO(
     this->get_logger(), "Raw Frequency(msg/s)");
 }

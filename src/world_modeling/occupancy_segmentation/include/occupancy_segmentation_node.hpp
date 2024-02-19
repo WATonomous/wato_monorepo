@@ -35,10 +35,7 @@ public:
   explicit OccupancySegmentationNode();
 
 private:
-  /**
-   * ROS timer callback used to trigger data generation and publish result
-   * to the "unfiltered" topic.
-   */
+
   void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   void cam_back_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
   void cam_back_left_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
@@ -48,10 +45,6 @@ private:
   void cam_front_right_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
 
-
-  // ROS2 publisher sending raw messages to the unfiltered topic.
-  // rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr data_pub_;
-  // rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pt_cloud_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pt_cloud_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_back_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_back_left_sub_;
@@ -62,4 +55,4 @@ private:
 
 };
 
-#endif  // PRODUCER_NODE_HPP_
+#endif  // OCCUPANCY_SEGMENTATION_NODE_HPP_
