@@ -20,7 +20,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(path_planning_msgs REQUIRED)
 find_package(embedded_msgs REQUIRED)
-find_package(common_msgs REQUIRED)
 
 # Create ROS2 node executable from source files
 add_executable(carla_mpc_bridge src/carla_mpc_bridge.cpp)
@@ -46,7 +45,7 @@ if(BUILD_TESTING)
     src/carla_mpc_bridge.cpp)
   
   # Add ROS2 dependencies required by package
-  ament_target_dependencies(mpc_bridge_lib rclcpp path_planning_msgs embedded_msgs common_msgs)
+  ament_target_dependencies(mpc_bridge_lib rclcpp path_planning_msgs embedded_msgs)
 
   # Create test executable from source files
   ament_add_gtest(mpc_bridge_test test/mpc_bridge_test.cpp)
@@ -60,7 +59,7 @@ if(BUILD_TESTING)
 endif()
 
 # Link with dependencies
-ament_target_dependencies(carla_mpc_bridge rclcpp path_planning_msgs embedded_msgs common_msgs)
+ament_target_dependencies(carla_mpc_bridge rclcpp path_planning_msgs embedded_msgs)
 
 # Copy executable to installation location
 install(TARGETS

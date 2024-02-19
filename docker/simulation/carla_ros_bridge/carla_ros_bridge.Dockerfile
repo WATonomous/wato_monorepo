@@ -8,6 +8,21 @@ FROM ${BASE_IMAGE} as source
 
 WORKDIR ${AMENT_WS}/src
 
+# Download ROS Bridge
+RUN git clone --depth 1 --branch master --recurse-submodules https://github.com/carla-simulator/ros-bridge.git && \
+    cd ros-bridge && \
+    git checkout e9063d97ff5a724f76adbb1b852dc71da1dcfeec && \
+    cd ..
+
+# Download rviz 
+RUN git clone --depth 1 --branch foxy --recurse-submodules https://github.com/ros2/rviz.git && \
+    cd rviz && \
+    git checkout 22179fc7a2fed72cd3f38e6712c62e2228a36001 && \
+    cd ..
+
+# Fix an error in the ackermann_control node 
+RUN sed -i s/simple_pid.PID/simple_pid.pid/g ./ros-bridge/carla_ackermann_control/src/carla_ackermann_control/carla_ackermann_control_node.py
+
 # Copy in source code 
 COPY src/simulation/carla_config carla_config
 COPY src/wato_msgs/simulation ros_msgs
@@ -22,35 +37,14 @@ RUN apt-get -qq update && rosdep update --rosdistro foxy && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-# Install Rosdep requirements
-COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
-
-# Copy in source code from source stage
-WORKDIR ${AMENT_WS}
-COPY --from=source ${AMENT_WS}/src src
-
-# Dependency Cleanup
-WORKDIR /
-RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
-    rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
-
-################################ Build ################################
-FROM dependencies as build
-
-ARG CARLA_VERSION
-
 # Install dependencies
 RUN apt-get update && \
       apt-fast install -qq -y --no-install-recommends lsb-release \
       libglu1-mesa-dev xorg-dev \
       software-properties-common \
       build-essential \
-      wget \
-      curl \
       python3-rosdep \
       python3-rospkg \
-      git \
       python3-colcon-common-extensions \
       python3-pygame \
       ros-$ROS_DISTRO-tf2-geometry-msgs \
@@ -70,6 +64,24 @@ RUN apt-get update && \
       ros-$ROS_DISTRO-laser-geometry \
       ros-$ROS_DISTRO-interactive-markers
 
+# Install Rosdep requirements
+COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+# Copy in source code from source stage
+WORKDIR ${AMENT_WS}
+COPY --from=source ${AMENT_WS}/src src
+
+# Dependency Cleanup
+WORKDIR /
+RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
+    rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
+
+################################ Build ################################
+FROM dependencies as build
+
+ARG CARLA_VERSION
+
 #Install Python Carla API
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla /opt/carla/PythonAPI
 WORKDIR /opt/carla/PythonAPI
@@ -81,17 +93,6 @@ RUN python3.8 -m easy_install pip && \
       pip install networkx==3.1
 
 WORKDIR ${AMENT_WS}/src
-
-# Download ROS Bridge
-RUN git clone --depth 1 --branch master --recurse-submodules https://github.com/carla-simulator/ros-bridge.git
-
-# Download rviz 
-RUN git clone --branch foxy --recurse-submodules https://github.com/ros2/rviz.git
-
-# Fix an error in the ackermann_control node 
-RUN sed -i s/simple_pid.PID/simple_pid.pid/g ./ros-bridge/carla_ackermann_control/src/carla_ackermann_control/carla_ackermann_control_node.py
-
-
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}

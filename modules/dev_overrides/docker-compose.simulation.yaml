@@ -31,24 +31,8 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
-
+  
   carla_notebooks:
-    build:
-      context: ../..
-      dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
-      cache_from: 
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:main"
-    image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
-    ports:
-      - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
-    environment:
-      - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - SCENARIO_RUNNER_ROOT=/home/bolty/scenario_runner
-      - DISPLAY=1
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=1
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
-    volumes:
-      - ${MONO_DIR}/src/simulation/carla_notebooks:/home/bolty/carla_notebooks
-    command: jupyter notebook --allow-root --ip=0.0.0.0 --port=${CARLA_NOTEBOOKS_PORT:?} --no-browser --ServerApp.token='' --ServerApp.password=''
+    extends:
+      file: ../docker-compose.simulation.yaml
+      service: carla_notebooks

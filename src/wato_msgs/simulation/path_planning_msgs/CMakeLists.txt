@@ -14,7 +14,6 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(std_msgs REQUIRED) # ROS2 common messages
 find_package(geometry_msgs REQUIRED)
-find_package(common_msgs REQUIRED)
 
 set(msg_files
     msg/CarlaEgoVehicleStatus.msg
@@ -25,7 +24,7 @@ set(msg_files
 # Parses message files to generate ROS2 interfaces
 rosidl_generate_interfaces(path_planning_msgs
     ${msg_files}
-    DEPENDENCIES std_msgs geometry_msgs common_msgs)
+    DEPENDENCIES std_msgs geometry_msgs)
 
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()

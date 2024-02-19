@@ -30,7 +30,8 @@ void env_callback(path_planning_msgs::msg::Environment::SharedPtr env){
     }
 }
 
-void mpc_to_carla(path_planning_msgs::msg::MPCOutput::SharedPtr mpcOutput) {
+template<typename MPCOutput>
+void mpc_to_carla(MPCOutput mpcOutput) {
     auto carlaControl = path_planning_msgs::msg::AckermannDrive();
     carlaControl.steering_angle = mpcOutput->steer;
     carlaControl.speed = mpcOutput->accel > 0 ? mpcOutput->accel : 0;
@@ -71,14 +72,14 @@ int main(int argc, char ** argv)
     rclcpp::Subscription<path_planning_msgs::msg::MPCOutput>::SharedPtr mpcSub;
     mpcSub = node->create_subscription<path_planning_msgs::msg::MPCOutput>(
         "mpc_output", 2, 
-        mpc_to_carla);
+        mpc_to_carla<path_planning_msgs::msg::MPCOutput::SharedPtr>);
     
     rclcpp::Subscription<path_planning_msgs::msg::Environment>::SharedPtr envSub;
     envSub = node->create_subscription<path_planning_msgs::msg::Environment>(
         "/path_planning/environment", 2, 
         env_callback);
 
-    steeringPub = node->create_publisher<embedded_msgs::msg::SteeringAngleCAN>("steering_data", 1);
+    steeringPub = node->create_publisher<embedded_msgs::msg::SteeringAngleCAN>("/steering_data", 1);
     carlaPub = node->create_publisher<path_planning_msgs::msg::AckermannDrive>("/carla/" + role_name + "/ackermann_cmd", 1);
 
     rclcpp::spin(node);

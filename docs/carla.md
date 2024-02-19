@@ -4,7 +4,6 @@ CARLA is an open-source autonomous driving simulator based on Unreal Engine 4. T
 The goal of the  CARLA setup is to provide an easy way for WATonomous members to interact with the simulator without having to setup anything themselves. So, if you have any questions or suggestions regarding any part of the CARLA setup (or questions about CARLA in general) please bring them up in Discord in #simulation-general or contact Vishal Jayakumar (masteroooogway on Discord or at [v3jayaku@watonomous.ca](mailto:v3jayaku@watonomous.ca)).
 
 - [CARLA WATonomous Documentation](#using-carla-setup-in-monorepo)
-    - [Getting Started](#getting-started)
     - [Initial Setup](#initial-setup) 
     - [Interacting with CARLA using the Python API](#interacting-with-carla-using-the-python-api)
     - [Using a ROS Node to interact with CARLA](#using-a-ros-node-to-interact-with-carla)
@@ -12,12 +11,6 @@ The goal of the  CARLA setup is to provide an easy way for WATonomous members to
     - [CARLA Visualization using CarlaViz](#carla-visualization-using-carlaviz)
     - [FAQ](#faq)
         - [CARLA is running very slow (approx. 3 fps)](#carla-is-running-very-slow-approx-3-fps)
-
-
-## Getting Started
-**READ THIS**: [docs/setup.md](docs/setup.md)
-
-**READ THIS**: [docs/readme.md](docs/readme.md)
 
 **Make sure you are confortable with navigating the monorepo before reading**
 
@@ -41,7 +34,7 @@ Open any web browser (Chrome, Firefox, Edge etc.) and type `localhost:8888` (rep
 
 **Ensure that you have a good understanding of ROS and writing ROS nodes before proceeding**
 
-The currently recommended (and the simplest) way of using a ROS Node to interact with CARLA is to simply edit the already setup CARLA sample node (currently only in Python unfortunately). Since the package (and all required CARLA and ROS dependencies) is already fully setup the only file you need to edit is the `carla_sample_node.py` found under `wato_monorepo_v2/src/simulation/carla_sample_node/carla_sample_node/`. Since the container is setup with a volume, simply restart the containers with `watod down` followed by `watod up` (or any other method to restart the containers) and the node should be rebuilt and launched with the changes you made to `carla_sample_node.py`. The sample node currently shows how to publish a message to enable (and keep enabled) autopilot, subsribe to the GNSS sensor topic and output the data to the console.
+Currently there is a CARLA sample node setup (written in Python) shows how to publish a message to enable (and keep enabled) autopilot, subsribe to the GNSS sensor topic and output the data to the console. What is probably most helpful from the sample node is the Dockerfile located in `wato_monorepo_v2/docker/simulation/carla_sample_node/carla_sample_node.Dockerfile`, where you can find all the CARLA related messages that should be installed when building your own ROS nodes that interact with CARLA.
  
 ## CARLA Visualization using Foxglove Studio
 
@@ -71,4 +64,4 @@ In any browser go to `localhost:8081` (replace 8081 with the port specified in t
 
 ### CARLA is running very slow (approx. 3 fps)
 
-This is expected. The ROS bridge causes CARLA to render all the sensor data which slows down the simulation considerably. While this may be annoying when viewing real-time camera output or trying to control the car manual, the simulation is still running accurately.
+This is expected. The ROS bridge causes CARLA to render all the sensor data which slows down the simulation considerably. While this may be annoying when viewing real-time camera output or trying to control the car manual, the simulation is still running accurately. If you wish to replay scenes with a configurable playback speed, check out the docs on [CARLA's recorder](https://carla.readthedocs.io/en/0.9.13/adv_recorder/) functionality.

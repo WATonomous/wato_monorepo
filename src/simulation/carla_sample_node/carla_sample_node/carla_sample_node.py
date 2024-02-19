@@ -41,15 +41,14 @@ class Datalogger(Node):
 
 def main(args=None):
     # Uncomment the below lines to actually run the sample node
-
-    # rclpy.init(args=args)
+    rclpy.init(args=args)
     
-    # datalogger = Datalogger()
+    datalogger = Datalogger()
 
-    # rclpy.spin(datalogger)
+    rclpy.spin(datalogger)
 
-    # datalogger.destroy_node()
-    # rclpy.shutdown()
+    datalogger.destroy_node()
+    rclpy.shutdown()
     return
 
 if __name__ == '__main__':
