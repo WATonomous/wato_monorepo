@@ -10,6 +10,7 @@
 #include "std_msgs/msg/int32.hpp"
 // #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
 // #include "image_geometry/pinhole_camera_model.h"
 
 
@@ -38,17 +39,26 @@ private:
    * ROS timer callback used to trigger data generation and publish result
    * to the "unfiltered" topic.
    */
-  void unfiltered_callback(
-    const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void cam_back_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+  void cam_back_left_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+  void cam_back_right_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+  void cam_front_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+  void cam_front_left_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+  void cam_front_right_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
-  void callback();
+
 
   // ROS2 publisher sending raw messages to the unfiltered topic.
   // rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr data_pub_;
   // rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pt_cloud_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pt_cloud_sub_;
-  rclcpp::Subscription<sample_msgs::msg::Unfiltered>::SharedPtr raw_sub_;
-
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_back_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_back_left_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_back_right_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_front_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_front_left_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_front_right_sub_;
 
 };
 
