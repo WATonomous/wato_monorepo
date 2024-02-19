@@ -2,7 +2,11 @@ import rclpy
 from rclpy.node import Node
 
 from sensor_msgs.msg import Image, CompressedImage
-from vision_msgs.msg import ObjectHypothesisWithPose, Detection2D, Detection2DArray
+from vision_msgs.msg import (
+    ObjectHypothesisWithPose,
+    Detection2D,
+    Detection2DArray,
+)
 
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.data.augment import LetterBox
@@ -18,27 +22,29 @@ import time
 
 import torch
 
+
 class CameraDetectionNode(Node):
 
     def __init__(self):
         torch.zeros(1).cuda()
 
-        super().__init__('camera_object_detection_node')
+        super().__init__("camera_object_detection_node")
         self.get_logger().info("Creating camera detection node...")
 
-        self.declare_parameter('camera_topic', '/camera/right/image_color')
-        self.declare_parameter('publish_vis_topic', '/annotated_img')
-        self.declare_parameter('publish_detection_topic', '/detections')
-        self.declare_parameter('model_path', '/perception_models/yolov8s.pt')
-        self.declare_parameter('image_size', 480)
-        self.declare_parameter('compressed', False)
-        
-        self.camera_topic = self.get_parameter('camera_topic').value
-        self.publish_vis_topic = self.get_parameter('publish_vis_topic').value
-        self.publish_detection_topic = self.get_parameter('publish_detection_topic').value
-        self.model_path = self.get_parameter('model_path').value
-        self.image_size = self.get_parameter('image_size').value
-        self.compressed = self.get_parameter('compressed').value
+        self.declare_parameter("camera_topic", "/camera/right/image_color")
+        self.declare_parameter("publish_vis_topic", "/annotated_img")
+        self.declare_parameter("publish_detection_topic", "/detections")
+        self.declare_parameter("model_path", "/perception_models/yolov8s.pt")
+        self.declare_parameter("image_size", 480)
+        self.declare_parameter("compressed", False)
+
+        self.camera_topic = self.get_parameter("camera_topic").value
+        self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
+        self.publish_detection_topic = self.get_parameter(
+            "publish_detection_topic").value
+        self.model_path = self.get_parameter("model_path").value
+        self.image_size = self.get_parameter("image_size").value
+        self.compressed = self.get_parameter("compressed").value
 
         self.line_thickness = 1
         self.half = False
@@ -51,8 +57,8 @@ class CameraDetectionNode(Node):
             qos_profile=QoSProfile(
                 reliability=QoSReliabilityPolicy.RELIABLE,
                 history=QoSHistoryPolicy.KEEP_LAST,
-                depth=10
-            )
+                depth=10,
+            ),
         )
 
         # set device
@@ -68,28 +74,29 @@ class CameraDetectionNode(Node):
 
         # load yolov8 model
         self.model = AutoBackend(
-            self.model_path, device=self.device, dnn=False, fp16=False
-        )
+            self.model_path, device=self.device, dnn=False, fp16=False)
 
-        self.names = (
-            self.model.module.names
-            if hasattr(self.model, "module")
-            else self.model.names
-        )
+        self.names = self.model.module.names if hasattr(
+            self.model, "module") else self.model.names
 
         self.stride = int(self.model.stride)
 
         # setup vis publishers
-        self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
-        self.detection_publisher = self.create_publisher(Detection2DArray, self.publish_detection_topic, 10)
+        self.vis_publisher = self.create_publisher(
+            Image, self.publish_vis_topic, 10)
+        self.detection_publisher = self.create_publisher(
+            Detection2DArray, self.publish_detection_topic, 10)
 
-        self.get_logger().info(f"Successfully created node listening on camera topic: {self.camera_topic}...")
+        self.get_logger().info(
+            f"Successfully created node listening on camera topic: {self.camera_topic}...")
 
     def preprocess_image(self, cv_image):
         """
-        Preprocess the image by resizing, padding and rearranging the dimensions
-        Parameters: 
+        Preprocess the image by resizing, padding and rearranging the dimensions.
+
+        Parameters:
             cv_image: A numpy or cv2 image of shape (w,h,3)
+
         Returns:
             torch.Tensor image for model input of shape (1,3,w,h)
         """
@@ -110,10 +117,10 @@ class CameraDetectionNode(Node):
 
     def postprocess_detections(self, detections, annotator):
         """
-        Post-process draws bouningboxes on camera image
+        Post-process draws bouningboxes on camera image.
 
-        Parameters: 
-            detections: A list of dict with the format 
+        Parameters:
+            detections: A list of dict with the format
                 {
                     "label": str,
                     "bbox": [float],
@@ -171,7 +178,7 @@ class CameraDetectionNode(Node):
         return
 
     def image_callback(self, msg):
-        self.get_logger().debug('Received image')
+        self.get_logger().debug("Received image")
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
         for image in images:
@@ -190,7 +197,8 @@ class CameraDetectionNode(Node):
 
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
-            processed_cv_image = LetterBox(self.image_size, stride=self.stride)(image=cv_image)
+            processed_cv_image = LetterBox(
+                self.image_size, stride=self.stride)(image=cv_image)
             pred = self.model(img)
 
             # nms function used same as yolov8 detect.py
@@ -200,11 +208,14 @@ class CameraDetectionNode(Node):
                 if len(det):
                     # Write results
                     for *xyxy, conf, cls in reversed(det):
-                        c = int(cls)
                         label = self.names[int(cls)]
 
-                        bbox = [xyxy[0], xyxy[1], xyxy[2] -
-                                xyxy[0], xyxy[3] - xyxy[1]]
+                        bbox = [
+                            xyxy[0],
+                            xyxy[1],
+                            xyxy[2] - xyxy[0],
+                            xyxy[3] - xyxy[1],
+                        ]
                         bbox = [b.item() for b in bbox]
 
                         detections.append(
@@ -217,18 +228,20 @@ class CameraDetectionNode(Node):
                         self.get_logger().debug(f"{label}: {bbox}")
 
             annotator = Annotator(
-                processed_cv_image, line_width=self.line_thickness, example=str(
-                    self.names)
+                processed_cv_image,
+                line_width=self.line_thickness,
+                example=str(self.names),
             )
             (detections, annotated_img) = self.postprocess_detections(
                 detections, annotator)
 
-            feed = ""  # Currently we support a single camera so we pass an empty string
+            # Currently we support a single camera so we pass an empty string
+            feed = ""
             self.publish_vis(annotated_img, feed)
             self.publish_detections(detections, msg, feed)
 
-        self.get_logger().info(f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
-
+        self.get_logger().info(
+            f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
 
 
 def main(args=None):
@@ -239,5 +252,6 @@ def main(args=None):
     camera_object_detection_node.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
