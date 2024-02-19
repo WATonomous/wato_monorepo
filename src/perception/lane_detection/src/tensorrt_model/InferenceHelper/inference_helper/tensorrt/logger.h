@@ -21,8 +21,7 @@
 
 class SampleErrorRecorder;
 extern SampleErrorRecorder gRecorder;
-namespace sample
-{
+namespace sample {
 extern Logger gLogger;
 extern LogStreamConsumer gLogVerbose;
 extern LogStreamConsumer gLogInfo;
@@ -31,6 +30,6 @@ extern LogStreamConsumer gLogError;
 extern LogStreamConsumer gLogFatal;
 
 void setReportableSeverity(Logger::Severity severity);
-} // namespace sample
+}  // namespace sample
 
-#endif // LOGGER_H
+#endif  // LOGGER_H

@@ -16,39 +16,40 @@ limitations under the License.
 #define COMMON_HELPER_
 
 /* for general */
-#include <cstdint>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <vector>
-#include <array>
-
 
 #if defined(ANDROID) || defined(__ANDROID__)
 #define CV_COLOR_IS_RGB
 #include <android/log.h>
 #define COMMON_HELPER_NDK_TAG "MyApp_NDK"
-#define COMMON_HELPER_PRINT_(...) __android_log_print(ANDROID_LOG_INFO, COMMON_HELPER_NDK_TAG, __VA_ARGS__)
+#define COMMON_HELPER_PRINT_(...) \
+  __android_log_print(ANDROID_LOG_INFO, COMMON_HELPER_NDK_TAG, __VA_ARGS__)
 #else
 #define COMMON_HELPER_PRINT_(...) printf(__VA_ARGS__)
 #endif
 
-#define COMMON_HELPER_PRINT(COMMON_HELPER__PRINT_TAG, ...) do { \
+#define COMMON_HELPER_PRINT(COMMON_HELPER__PRINT_TAG, ...)                 \
+  do {                                                                     \
     COMMON_HELPER_PRINT_("[" COMMON_HELPER__PRINT_TAG "][%d] ", __LINE__); \
-    COMMON_HELPER_PRINT_(__VA_ARGS__); \
-} while(0);
+    COMMON_HELPER_PRINT_(__VA_ARGS__);                                     \
+  } while (0);
 
-#define COMMON_HELPER_PRINT_E(COMMON_HELPER__PRINT_TAG, ...) do { \
+#define COMMON_HELPER_PRINT_E(COMMON_HELPER__PRINT_TAG, ...)                    \
+  do {                                                                          \
     COMMON_HELPER_PRINT_("[ERR: " COMMON_HELPER__PRINT_TAG "][%d] ", __LINE__); \
-    COMMON_HELPER_PRINT_(__VA_ARGS__); \
-} while(0);
+    COMMON_HELPER_PRINT_(__VA_ARGS__);                                          \
+  } while (0);
 
-namespace CommonHelper
-{
+namespace CommonHelper {
 
 float Sigmoid(float x);
 float Logit(float x);
 float SoftMaxFast(const float* src, float* dst, int32_t length);
 
-}
+}  // namespace CommonHelper
 
 #endif
