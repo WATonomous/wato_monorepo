@@ -28,7 +28,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [ gpu ]
-    command: /bin/bash -c "ros2 launch camera_object_detection nuscenes_launch.py"
+    command: /bin/bash -c "ros2 launch camera_object_detection eve_launch.py"
     volumes:
       - /mnt/wato-drive2/perception_models/yolov8s.pt:/perception_models/yolov8s.pt
 
