@@ -45,8 +45,11 @@ add_executable(dets_2d_3d_node src/dets_2d_3d_node.cpp)
 target_include_directories(dets_2d_3d_node
   PUBLIC include)
 include(cmake/PCL.cmake)
-# include(cmake/Eigen.cmake)
-# include(cmake/OpenCV.cmake)
+
+cmake_minimum_required(VERSION 2.8)                            
+find_package( OpenCV REQUIRED )                              
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+target_link_libraries (dets_2d_3d_node ${OpenCV_LIBS})  
 
 ament_target_dependencies(dets_2d_3d_node)
 target_link_libraries(dets_2d_3d_node det_utils)

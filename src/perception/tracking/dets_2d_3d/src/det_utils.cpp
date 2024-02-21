@@ -99,8 +99,8 @@ void DetUtils::removeFloor(const Cloud::Ptr& lidarCloud, const Cloud::Ptr& cloud
     seg.setMethodType(pcl::SAC_RANSAC);
     seg.setMaxIterations(100);
     seg.setAxis(Eigen::Vector3f(0, 0, 1));
-    seg.setEpsAngle(0.5);
-    seg.setDistanceThreshold(0.4); // floor distance
+    seg.setEpsAngle(0.1);
+    seg.setDistanceThreshold(0.2); // floor distance
     seg.setOptimizeCoefficients(true);
     seg.setInputCloud(lidarCloud);
     seg.segment(*inliers, *coefficients);
@@ -259,7 +259,10 @@ ClusterPtr DetUtils::mergeClusters(
         in_out_merged_clusters[in_merge_indices[i]] = true;
     }
 
-    ColorCloud::Ptr merged_cloud_ptr(new ColorCloud(merged_cloud));
+    Cloud merged_cloud_uncoloured;
+    pcl::copyPointCloud(merged_cloud, merged_cloud_uncoloured);
+
+    Cloud::Ptr merged_cloud_ptr(new Cloud(merged_cloud_uncoloured));
 
     std::vector<int> temp;
     ClusterPtr merged_cluster = std::make_shared<Cluster>(merged_cloud_ptr, temp);

@@ -13,9 +13,9 @@ public:
         const pcl::PointCloud<pcl::PointXYZ>::Ptr& in_cloud_ptr, 
         const std::vector<int>& in_cluster_indices);
 
-    Cluster(
-        const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& in_cloud_ptr, 
-        const std::vector<int>& in_cluster_indices);
+    // Cluster(
+    //     const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& in_cloud_ptr, 
+    //     const std::vector<int>& in_cluster_indices);
 
     pcl::PointXYZ getCentroid() { return centroid_; }
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr getCloud() { return cloud_; }
