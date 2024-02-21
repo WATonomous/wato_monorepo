@@ -1,7 +1,8 @@
-camera_object_detection_node:
+traffic_light_node:
   ros__parameters:
     camera_topic: /camera/left/image_color
-    publish_vis_topic: /camera/left/annotated_traffic_lights
+    publish_vis_topic: /annotated_traffic_lights
     publish_detection_topic: /traffic_lights
-    model_path: /perception_models/traffic_light.pt
-    image_size: 480
+    model_path: /perception_models/traffic_light_v5.pt
+    crop_mode: CenterCrop
+    image_size: 1024

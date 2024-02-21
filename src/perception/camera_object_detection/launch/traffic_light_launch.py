@@ -16,7 +16,7 @@ def generate_launch_description():
     camera_object_detection_node = Node(
         package='camera_object_detection',
         executable='camera_object_detection_node',
-        name='camera_object_detection_node',
+        name='traffic_light_node',
         parameters=[config]
     )
 

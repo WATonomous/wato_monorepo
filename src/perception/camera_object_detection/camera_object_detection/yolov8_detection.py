@@ -9,7 +9,7 @@ from vision_msgs.msg import (
 )
 
 from ultralytics.nn.autobackend import AutoBackend
-from ultralytics.data.augment import LetterBox
+from ultralytics.data.augment import LetterBox, CenterCrop
 from ultralytics.utils.ops import non_max_suppression
 from ultralytics.utils.plotting import Annotator, colors
 
@@ -35,8 +35,11 @@ class CameraDetectionNode(Node):
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
         self.declare_parameter("model_path", "/perception_models/yolov8s.pt")
-        self.declare_parameter("image_size", 480)
+        self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
+        self.declare_parameter("crop_mode", "LetterBox")
+
+        self.counter = 0
 
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
@@ -45,10 +48,10 @@ class CameraDetectionNode(Node):
         self.model_path = self.get_parameter("model_path").value
         self.image_size = self.get_parameter("image_size").value
         self.compressed = self.get_parameter("compressed").value
+        self.crop_mode = self.get_parameter("crop_mode").value
 
         self.line_thickness = 1
         self.half = False
-        self.augment = False
 
         self.subscription = self.create_subscription(
             Image if not self.compressed else CompressedImage,
@@ -90,7 +93,19 @@ class CameraDetectionNode(Node):
         self.get_logger().info(
             f"Successfully created node listening on camera topic: {self.camera_topic}...")
 
-    def preprocess_image(self, cv_image):
+    def crop_image(self, cv_image):
+        if self.crop_mode == "LetterBox":
+            img = LetterBox(self.image_size, stride=self.stride)(
+                image=cv_image)
+        elif self.crop_mode == "CenterCrop":
+            img = CenterCrop(self.image_size)(cv_image)
+        else:
+            raise Exception(
+                "Invalid crop mode, please choose either 'LetterBox' or 'CenterCrop'!")
+
+        return img
+
+    def preprocess_and_convert_to_tensor(self, cv_image):
         """
         Preprocess the image by resizing, padding and rearranging the dimensions.
 
@@ -100,9 +115,7 @@ class CameraDetectionNode(Node):
         Returns:
             torch.Tensor image for model input of shape (1,3,w,h)
         """
-        # Padded resize
-        img = cv_image
-        img = LetterBox(self.image_size, stride=self.stride)(image=cv_image)
+        img = self.crop_image(cv_image)
 
         # Convert
         img = img.transpose(2, 0, 1)
@@ -196,9 +209,8 @@ class CameraDetectionNode(Node):
                     return
 
             # preprocess image and run through prediction
-            img = self.preprocess_image(cv_image)
-            processed_cv_image = LetterBox(
-                self.image_size, stride=self.stride)(image=cv_image)
+            img = self.preprocess_and_convert_to_tensor(cv_image)
+            processed_cv_image = self.crop_image(cv_image)
             pred = self.model(img)
 
             # nms function used same as yolov8 detect.py
@@ -239,6 +251,10 @@ class CameraDetectionNode(Node):
             feed = ""
             self.publish_vis(annotated_img, feed)
             self.publish_detections(detections, msg, feed)
+
+            cv2.imwrite(
+                f"traffic_light_4/src_img{self.counter}.jpg", annotated_img)
+            self.counter += 1
 
         self.get_logger().info(
             f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
