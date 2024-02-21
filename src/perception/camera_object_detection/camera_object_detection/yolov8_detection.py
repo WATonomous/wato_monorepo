@@ -34,7 +34,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("camera_topic", "/camera/right/image_color")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
-        self.declare_parameter("model_path", "/perception_models/yolov8s.pt")
+        self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
         self.declare_parameter("image_size", 480)
         self.declare_parameter("compressed", False)
 
