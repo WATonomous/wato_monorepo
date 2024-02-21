@@ -3,7 +3,7 @@ left_camera_object_detection_node:
     camera_topic: /camera/left/image_color
     publish_vis_topic: /camera/left/annotated_img
     publish_detection_topic: /camera/left/detections
-    model_path: /perception_models/yolov8s.pt
+    model_path: /perception_models/yolov8m.pt
     image_size: 480
 
 center_camera_object_detection_node:
@@ -11,7 +11,7 @@ center_camera_object_detection_node:
     camera_topic: /camera/center/image_color
     publish_vis_topic: /camera/center/annotated_img
     publish_detection_topic: /camera/center/detections
-    model_path: /perception_models/yolov8s.pt
+    model_path: /perception_models/yolov8m.pt
     image_size: 480
 
 right_camera_object_detection_node:
@@ -19,5 +19,5 @@ right_camera_object_detection_node:
     camera_topic: /camera/right/image_color
     publish_vis_topic: /camera/right/annotated_img
     publish_detection_topic: /camera/right/detections
-    model_path: /perception_models/yolov8s.pt
+    model_path: /perception_models/yolov8m.pt
     image_size: 480
