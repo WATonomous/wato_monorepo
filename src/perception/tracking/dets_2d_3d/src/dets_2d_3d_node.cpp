@@ -29,6 +29,7 @@ TrackingNode::TrackingNode() : Node("dets_2d_3d"), lidarCloud_{new pcl::PointClo
   det3d_publisher_ = this->create_publisher<vision_msgs::msg::Detection3DArray>("/detections_3d", 10);
   marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/markers_3d", 10);
   pc_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/trans_pc", 10);
+  pc_publisher2_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/trans_pc2", 10);
   
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -90,6 +91,11 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     }
   }
   
+  sensor_msgs::msg::PointCloud2 pubCloud;
+  pcl::toROSMsg(*lidarCloudNoFloor, pubCloud);
+  pubCloud.header.frame_id = "LIDAR_TOP";
+  pc_publisher_->publish(pubCloud);
+
   pcl::PointCloud<pcl::PointXYZRGB> mergedClusters;
 
   // process each detection in det array
@@ -100,7 +106,9 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     // process lidarcloud with extrinsic trans from lidar to cam frame
     pcl::PointCloud<pcl::PointXYZ>::Ptr inlierPoints(new pcl::PointCloud<pcl::PointXYZ>());
     DetUtils::pointsInBbox(inlierPoints, lidarCloudNoFloor, lidar2dProjs, bbox);
-    if (inlierPoints->size() == 0) return;
+    if (inlierPoints->size() == 0) continue;
+
+    // mergedClusters += *inlierPoints;
     
     RCLCPP_INFO(this->get_logger(), "restrict to 2d %ld vs %ld", inlierPoints->size(), lidarCloudNoFloor->size());
 
@@ -110,19 +118,16 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     RCLCPP_INFO(this->get_logger(), "get merged cloud %ld clustered bboxes  %ld", clusterAndBBoxes.first.size(), clusterAndBBoxes.second.size());
     
     std::vector<std::shared_ptr<Cluster>> clusters = clusterAndBBoxes.first; // needed? for viz purposes only
-    
-    for (const std::shared_ptr<Cluster>& cl : clusters)
-    {
-      RCLCPP_INFO(this->get_logger(), "got cluster %ld", cl->getCloud()->size());
-      mergedClusters += *(cl->getCloud());
-    }
-    
     std::vector<vision_msgs::msg::BoundingBox3D> allBBoxes = clusterAndBBoxes.second;
 
-    // [TODO] score bboxes by projecting & iou
-    vision_msgs::msg::BoundingBox3D bestBBox = highestIOUScoredBBox(allBBoxes, bbox);
+    if (clusters.size() == 0 || allBBoxes.size() == 0) continue;
 
-    RCLCPP_INFO(this->get_logger(), "score bboxes");
+    // [TODO] fix scoring bboxes by projecting & iou
+    int bestIndex = highestIOUScoredBBox(allBBoxes, bbox);
+    vision_msgs::msg::BoundingBox3D bestBBox = allBBoxes[bestIndex];
+    mergedClusters += *(clusters[bestIndex]->getCloud());
+
+    RCLCPP_INFO(this->get_logger(), "scored bboxes");
 
     // find 3d box that encloses clustered pointcloud & add to det array
     vision_msgs::msg::Detection3D det3d;
@@ -136,24 +141,22 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     marker.scale = bestBBox.size;
     marker.pose = bestBBox.center;
 
-    marker.header.frame_id = "/LIDAR_TOP";
+    marker.header = pubCloud.header;
     markerArray3d.markers.emplace_back(marker);
-
-    break;
   }
 
   det3d_publisher_->publish(detArray3d);
   marker_publisher_->publish(markerArray3d);
 
-  sensor_msgs::msg::PointCloud2 pubCloud;
-  pcl::toROSMsg(mergedClusters, pubCloud);
-  pubCloud.header.frame_id = "LIDAR_TOP";
-  pc_publisher_->publish(pubCloud);
+  sensor_msgs::msg::PointCloud2 pubCloud2;
+  pcl::toROSMsg(mergedClusters, pubCloud2);
+  pubCloud2.header = pubCloud.header;
+  pc_publisher2_->publish(pubCloud2);
 
-  RCLCPP_INFO(this->get_logger(), "published 3d detection");
+  RCLCPP_INFO(this->get_logger(), "published 3d detection %ld", markerArray3d.markers.size());
 }
 
-vision_msgs::msg::BoundingBox3D TrackingNode::highestIOUScoredBBox(
+int TrackingNode::highestIOUScoredBBox(
   const std::vector<vision_msgs::msg::BoundingBox3D> bboxes,
   const vision_msgs::msg::BoundingBox2D& detBBox)
 {
@@ -194,7 +197,7 @@ vision_msgs::msg::BoundingBox3D TrackingNode::highestIOUScoredBBox(
       bestBBox = i;
     }
   }
-  return bboxes[bestBBox];
+  return bestBBox;
 }
 
 double TrackingNode::overlapBoundingBox(const vision_msgs::msg::BoundingBox2D& boxA, const vision_msgs::msg::BoundingBox2D& boxB)

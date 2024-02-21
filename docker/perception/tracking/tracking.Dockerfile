@@ -24,6 +24,9 @@ COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
+# install opencv
+RUN apt-get install -y libopencv-dev
+
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src

@@ -40,6 +40,7 @@ private:
     rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr det3d_publisher_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_publisher_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc_publisher_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc_publisher2_;
 
     // temp
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -49,7 +50,7 @@ private:
     void receiveLidar(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void receiveDetections(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
 
-    vision_msgs::msg::BoundingBox3D highestIOUScoredBBox(
+    int highestIOUScoredBBox(
         const std::vector<vision_msgs::msg::BoundingBox3D> bboxes,
         const vision_msgs::msg::BoundingBox2D& detBBox);
     double overlapBoundingBox(
