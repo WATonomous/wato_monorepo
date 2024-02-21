@@ -39,8 +39,6 @@ class CameraDetectionNode(Node):
         self.declare_parameter("compressed", False)
         self.declare_parameter("crop_mode", "LetterBox")
 
-        self.counter = 0
-
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
         self.publish_detection_topic = self.get_parameter(
@@ -156,10 +154,11 @@ class CameraDetectionNode(Node):
         annotator_img = annotator.result()
         return (processed_detections, annotator_img)
 
-    def publish_vis(self, annotated_img, feed):
+    def publish_vis(self, annotated_img, msg, feed):
         # Publish visualizations
         imgmsg = self.cv_bridge.cv2_to_imgmsg(annotated_img, "bgr8")
-        imgmsg.header.frame_id = "camera_{}_link".format(feed)
+        imgmsg.header.stamp = msg.header.stamp
+        imgmsg.header.frame_id = msg.header.frame_id
         self.vis_publisher.publish(imgmsg)
 
     def publish_detections(self, detections, msg, feed):
@@ -249,13 +248,8 @@ class CameraDetectionNode(Node):
 
             # Currently we support a single camera so we pass an empty string
             feed = ""
-            self.publish_vis(annotated_img, feed)
+            self.publish_vis(annotated_img, msg, feed)
             self.publish_detections(detections, msg, feed)
-
-            cv2.imwrite(
-                f"traffic_light_4/src_img{self.counter}.jpg", annotated_img)
-            self.counter += 1
-
         self.get_logger().info(
             f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
 
