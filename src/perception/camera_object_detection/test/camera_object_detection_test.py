@@ -34,12 +34,21 @@ class TestCameraObjectDetectionLaunch(unittest.TestCase):
         rclpy.init()
         cls.node = CameraDetectionNode() # create a CameraDetectionNode to test
         cls.logs_received = []
+        cls.images_received = []
 
         # Subscribe to /rosout where get_logger messages are outputted
         cls.subscription = cls.node.create_subscription(
             Log,
             '/rosout',
             cls.log_callback,
+            10
+        )
+
+        # Subscribe to the /annotated_img publisher of CameraDetectionNode node
+        cls.subscription_images = cls.node.create_subscription(
+            Image,
+            '/annotated_img',
+            cls.image_callback,
             10
         )
 
@@ -52,6 +61,10 @@ class TestCameraObjectDetectionLaunch(unittest.TestCase):
     def log_callback(cls, msg: Log):
         # Append the log message to the class's list of received messages
         cls.logs_received.append(msg)
+
+    @classmethod
+    def image_callback(cls, msg):
+        cls.images_received.append(msg)
 
     def test_camera_detection_node_logging(self):
         # create a dummy image to test
@@ -79,6 +92,8 @@ class TestCameraObjectDetectionLaunch(unittest.TestCase):
                 for log in self.logs_received
             )
             self.assertTrue(message_logged, f"Expected log message '{expected_msg}' not found in the logs.")
+
+        self.assertTrue(len(self.images_received) > 0, "No visualization images were published.") # Check that given an image, the node is publishing
 
 if __name__ == '__main__':
     unittest.main()
