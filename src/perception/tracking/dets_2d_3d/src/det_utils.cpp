@@ -51,16 +51,16 @@ void DetUtils::pointsInBbox(
 
 bool DetUtils::isPointInBbox(const geometry_msgs::msg::Point& pt, const vision_msgs::msg::BoundingBox2D& bbox)
 {
-    double padding = 10;
+    double padding = 20;
 
-    // if (bbox.center.position.x - bbox.size_x/2 - padding < pt.x && pt.x < bbox.center.position.x + bbox.size_x/2 + padding
-    //    && bbox.center.position.y - bbox.size_y/2 - padding < pt.y && pt.y < bbox.center.position.y + bbox.size_y/2 + padding)
-    // {
-    //     return true;
-    // }
-
-    if (pt.x > 0 && pt.x < 1600 && pt.y > 0 && pt.y < 900)
+    if (bbox.center.position.x - bbox.size_x/2 - padding < pt.x && pt.x < bbox.center.position.x + bbox.size_x/2 + padding
+       && bbox.center.position.y - bbox.size_y/2 - padding < pt.y && pt.y < bbox.center.position.y + bbox.size_y/2 + padding)
+    {
         return true;
+    }
+
+    // if (pt.x > 0 && pt.x < 1600 && pt.y > 0 && pt.y < 900)
+    //     return true;
     return false;
 }
 
