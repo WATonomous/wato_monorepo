@@ -22,7 +22,7 @@ typedef vision_msgs::msg::BoundingBox3D BBox3D;
 
 // segment by distance (5 sections)
 // 0 => 0-15m d=0.5, 1 => 15-30 d=1, 2 => 30-45 d=1.6, 3 => 45-60 d=2.1, 4 => >60   d=2.6
-std::vector<double> DetUtils::_clustering_distances = {15, 30, 45, 60};
+std::vector<double> DetUtils::_clustering_distances = {5, 30, 45, 60};
 
 //Nearest neighbor distance threshold for each segment
 std::vector<double> DetUtils::_clustering_thresholds = {0.5, 1.1, 1.6, 2.1, 2.6}; 
@@ -51,13 +51,27 @@ void DetUtils::pointsInBbox(
 
 bool DetUtils::isPointInBbox(const geometry_msgs::msg::Point& pt, const vision_msgs::msg::BoundingBox2D& bbox)
 {
-    if (bbox.center.position.x - bbox.size_x/2 < pt.x && pt.x > bbox.center.position.x + bbox.size_x/2
-       && bbox.center.position.y - bbox.size_y/2 < pt.y && pt.y > bbox.center.position.y + bbox.size_y/2)
-    {
+    double padding = 10;
+
+    // if (bbox.center.position.x - bbox.size_x/2 - padding < pt.x && pt.x < bbox.center.position.x + bbox.size_x/2 + padding
+    //    && bbox.center.position.y - bbox.size_y/2 - padding < pt.y && pt.y < bbox.center.position.y + bbox.size_y/2 + padding)
+    // {
+    //     return true;
+    // }
+
+    if (pt.x > 0 && pt.x < 1600 && pt.y > 0 && pt.y < 900)
         return true;
-    }
     return false;
 }
+
+/*
+
+1266.417203046554       0.0                 816.2670197447984   0.0
+0.0                     1266.417203046554   491.50706579294757  0.0                 
+0.0                     0.0                 1.0                 0.0
+
+
+*/
 
 geometry_msgs::msg::Point DetUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform,
@@ -100,7 +114,7 @@ void DetUtils::removeFloor(const Cloud::Ptr& lidarCloud, const Cloud::Ptr& cloud
     seg.setMaxIterations(100);
     seg.setAxis(Eigen::Vector3f(0, 0, 1));
     seg.setEpsAngle(0.1);
-    seg.setDistanceThreshold(0.2); // floor distance
+    seg.setDistanceThreshold(0.5); // floor distance
     seg.setOptimizeCoefficients(true);
     seg.setInputCloud(lidarCloud);
     seg.segment(*inliers, *coefficients);
@@ -143,7 +157,7 @@ std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> DetUtils::getClusteredBB
 
     // get largest cluster in each shell
     std::vector<ClusterPtr> all_clusters;
-    for (unsigned int i = 0; i < cloud_segments_array.size(); i++) 
+    for (unsigned int i = 1; i < cloud_segments_array.size(); i++) 
     {
         // add clusters from each shell 
         std::vector<ClusterPtr> local_clusters = clusterAndColor(cloud_segments_array[i], _clustering_thresholds[i]);

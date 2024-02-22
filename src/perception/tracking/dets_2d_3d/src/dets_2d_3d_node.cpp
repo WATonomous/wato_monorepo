@@ -56,7 +56,7 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
   if (!transformInited_)
   {
     try {
-        transform_ = tf_buffer_ ->lookupTransform("LIDAR_TOP", "CAM_FRONT", tf2::TimePointZero);
+        transform_ = tf_buffer_ ->lookupTransform("CAM_FRONT", "LIDAR_TOP", msg->header.stamp);
         transformInited_ = true;
     } catch (const tf2::TransformException & ex) {
         RCLCPP_INFO(this->get_logger(), "Could not transform %s", ex.what());
@@ -64,17 +64,13 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     }
   }
 
-  // temporarily also publish viz markers
-  visualization_msgs::msg::MarkerArray markerArray3d;
-  vision_msgs::msg::Detection3DArray detArray3d;
-
   // remove floor from lidar cloud
   pcl::PointCloud<pcl::PointXYZ>::Ptr lidarCloudNoFloor(new pcl::PointCloud<pcl::PointXYZ>());
   {
     std::lock_guard<std::mutex> guard_lidar(lidarCloud_mutex_);
     DetUtils::removeFloor(lidarCloud_, lidarCloudNoFloor);
 
-    if (lidarCloudNoFloor->size() == 0) return; // end if there is no floor
+    if (lidarCloudNoFloor->size() == 0) return; // end if there is only a floor
     RCLCPP_INFO(this->get_logger(), "receive detection %ld vs %ld", lidarCloud_->size(), lidarCloudNoFloor->size());
   }
 
@@ -85,18 +81,21 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     geometry_msgs::msg::Point proj = DetUtils::projectLidarToCamera(transform_, camInfo_->p, pt);
     if (proj.z >= 0) 
     {
-      proj.x /= proj.z;
-      proj.y /= proj.z;
       lidar2dProjs.emplace_back(proj);
+      // RCLCPP_INFO(this->get_logger(), "transform to 2d %f , %f, %f", proj.x, proj.y, proj.z);
     }
   }
+
+  // temporarily also publish viz markers
+  visualization_msgs::msg::MarkerArray markerArray3d;
+  vision_msgs::msg::Detection3DArray detArray3d;
   
   sensor_msgs::msg::PointCloud2 pubCloud;
   pcl::toROSMsg(*lidarCloudNoFloor, pubCloud);
   pubCloud.header.frame_id = "LIDAR_TOP";
   pc_publisher_->publish(pubCloud);
 
-  pcl::PointCloud<pcl::PointXYZRGB> mergedClusters;
+  pcl::PointCloud<pcl::PointXYZ> mergedClusters;
 
   // process each detection in det array
   for (const vision_msgs::msg::Detection2D& det : msg->detections)
@@ -108,14 +107,14 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     DetUtils::pointsInBbox(inlierPoints, lidarCloudNoFloor, lidar2dProjs, bbox);
     if (inlierPoints->size() == 0) continue;
 
-    // mergedClusters += *inlierPoints;
+    mergedClusters += *inlierPoints;
     
     RCLCPP_INFO(this->get_logger(), "restrict to 2d %ld vs %ld", inlierPoints->size(), lidarCloudNoFloor->size());
 
     // clustering
     auto clusterAndBBoxes = DetUtils::getClusteredBBoxes(inlierPoints);
 
-    RCLCPP_INFO(this->get_logger(), "get merged cloud %ld clustered bboxes  %ld", clusterAndBBoxes.first.size(), clusterAndBBoxes.second.size());
+    RCLCPP_INFO(this->get_logger(), "%f, %f : get merged cloud %ld clustered bboxes  %ld", bbox.center.position.x, bbox.center.position.y, clusterAndBBoxes.first.size(), clusterAndBBoxes.second.size());
     
     std::vector<std::shared_ptr<Cluster>> clusters = clusterAndBBoxes.first; // needed? for viz purposes only
     std::vector<vision_msgs::msg::BoundingBox3D> allBBoxes = clusterAndBBoxes.second;
@@ -125,7 +124,7 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     // [TODO] fix scoring bboxes by projecting & iou
     int bestIndex = highestIOUScoredBBox(allBBoxes, bbox);
     vision_msgs::msg::BoundingBox3D bestBBox = allBBoxes[bestIndex];
-    mergedClusters += *(clusters[bestIndex]->getCloud());
+    // mergedClusters += *(clusters[bestIndex]->getCloud());
 
     RCLCPP_INFO(this->get_logger(), "scored bboxes");
 
@@ -140,9 +139,8 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     marker.type =  visualization_msgs::msg::Marker::CUBE;
     marker.scale = bestBBox.size;
     marker.pose = bestBBox.center;
-
     marker.header = pubCloud.header;
-    markerArray3d.markers.emplace_back(marker);
+    markerArray3d.markers.push_back(marker);
   }
 
   det3d_publisher_->publish(detArray3d);
