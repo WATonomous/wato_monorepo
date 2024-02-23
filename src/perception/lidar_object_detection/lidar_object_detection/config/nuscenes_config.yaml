@@ -1,5 +1,6 @@
 lidar_object_detection_node:
   ros__parameters:
-    lidar_topic: /LIDAR_TOP
-    model_config_path: /home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml
-    model_path: /home/bolty/OpenPCDet/models/voxelnext_nuscenes_kernel1.pth
+    # lidar_topic: /LIDAR_TOP
+    lidar_topic: /velodyne_points
+    model_config_path: /home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml
+    model_path: /home/bolty/OpenPCDet/models/cbgs_transfusion_lidar.pth

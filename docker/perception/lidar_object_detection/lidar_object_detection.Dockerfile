@@ -59,7 +59,7 @@ ENV OpenCV_DIR=/usr/share/OpenCV
 RUN pip3 install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
 RUN pip3 install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu116.html
 ENV TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0;7.5;8.0;8.6+PTX"
-RUN pip3 install spconv-cu113 pyquaternion numpy==1.23 pillow==8.4 mayavi open3d av2
+RUN pip3 install spconv-cu116 pyquaternion numpy==1.23 pillow==8.4 mayavi open3d av2
 WORKDIR /home/bolty
 RUN git clone https://github.com/WATonomous/OpenPCDet.git
 RUN cd OpenPCDet && pip3 install -r requirements.txt
