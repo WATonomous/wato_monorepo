@@ -33,7 +33,7 @@ jobs:
           MONO_DIR="$(dirname "$(realpath "$0")")"
           MONO_DIR=${MONO_DIR%/*}
           MODULES_DIR="$MONO_DIR/modules" 
-          ./watod_scripts/watod-setup-env.sh
+          . ./watod_scripts/watod-setup-env.sh
         shell: bash
 
       - name: Generate Docker Environment
