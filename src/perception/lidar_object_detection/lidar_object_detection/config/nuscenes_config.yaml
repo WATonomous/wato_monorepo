@@ -1,4 +1,4 @@
-camera_object_detection_node:
+lidar_object_detection_node:
   ros__parameters:
     lidar_topic: /LIDAR_TOP
     model_config_path: /home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/cbgs_voxel0075_voxelnext.yaml

@@ -1,4 +1,4 @@
-camera_object_detection_node:
+lidar_object_detection_node:
   ros__parameters:
     lidar_topic: /velodyne_points
     model_config_path: /home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml
