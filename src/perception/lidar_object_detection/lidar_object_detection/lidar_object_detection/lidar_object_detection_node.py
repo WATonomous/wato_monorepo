@@ -5,7 +5,6 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
 import numpy as np
 import torch
-import struct
 import sys
 sys.path.append('/home/bolty/OpenPCDet')
 from pcdet.config import cfg, cfg_from_yaml_file
@@ -13,8 +12,7 @@ from pcdet.datasets import DatasetTemplate
 from pcdet.models import build_network, load_data_to_gpu
 from pcdet.utils import common_utils
 from visualization_msgs.msg import Marker, MarkerArray
-
-OPEN3D_FLAG = True
+from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray 
 
 class LidarObjectDetection(Node):
     def __init__(self):
@@ -26,14 +24,14 @@ class LidarObjectDetection(Node):
         self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
 
-        self.bbox_publisher = self.create_publisher(MarkerArray, '/BOUNDING_BOXES', 2)
+        self.bbox_publisher = self.create_publisher(MarkerArray, '/BOUNDING_BOXES', 10)
+        self.detections_publisher = self.create_publisher(Detection3DArray, '/detections_3d', 10)
 
         self.subscription = self.create_subscription(
             PointCloud2,
             self.lidar_data,
             self.point_cloud_callback,
             10)
-        self.subscription  
 
         args, cfg = self.parse_config()
         self.logger = common_utils.create_logger()
@@ -60,7 +58,7 @@ class LidarObjectDetection(Node):
         with torch.no_grad():
             pred_dicts, _ = self.model.forward(data_dict)
 
-        self.publish_bounding_boxes(pred_dicts, msg.header.frame_id)
+        self.publish_bounding_boxes(msg, pred_dicts)
 
     def pointcloud2_to_xyz_array(self, cloud_msg):
         num_points = cloud_msg.width * cloud_msg.height
@@ -73,12 +71,12 @@ class LidarObjectDetection(Node):
 
         return cloud_array
 
-    def publish_bounding_boxes(self, pred_dicts, frame_id):
+    def publish_bounding_boxes(self, pointcloud_msg, pred_dicts):
         marker_array = MarkerArray()
         for idx, box in enumerate(pred_dicts[0]['pred_boxes']):
             marker = Marker()
-            marker.header.frame_id = frame_id
-            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.header.frame_id = pointcloud_msg.header.frame_id
+            marker.header.stamp = pointcloud_msg.header.stamp
             marker.id = idx
             marker.type = Marker.CUBE
             marker.action = Marker.ADD
@@ -92,10 +90,28 @@ class LidarObjectDetection(Node):
             marker.color.a = 0.8
             marker.color.r = 1.0
             marker.color.g = 0.0
-            marker.color.b = 0.0
+            marker.color.b = float(pred_dicts[0]['pred_labels'][idx]) / 3
             marker_array.markers.append(marker)
         
+        detections = Detection3DArray()
+        detections.header = pointcloud_msg.header
+        for idx, box in enumerate(pred_dicts[0]['pred_boxes']):
+            detection = Detection3D()
+            detection.header = pointcloud_msg.header
+            detection.bbox.center.position.x = float(box[0])
+            detection.bbox.center.position.y = float(box[1])
+            detection.bbox.center.position.z = float(box[2])
+            detection.bbox.size.x = float(box[3])
+            detection.bbox.size.y = float(box[4])
+            detection.bbox.size.z = float(box[5])
+            detected_object = ObjectHypothesisWithPose()
+            detected_object.hypothesis.class_id = str(pred_dicts[0]['pred_labels'][idx])
+            detected_object.hypothesis.score = float(pred_dicts[0]['pred_scores'][idx])
+            detection.results.append(detected_object)
+            detections.detections.append(detection)
+        
         self.bbox_publisher.publish(marker_array)
+        self.detections_publisher.publish(detections)
 
     def parse_config(self):
         parser = argparse.ArgumentParser(description='arg parser')
@@ -107,11 +123,6 @@ class LidarObjectDetection(Node):
         cfg_from_yaml_file(args.cfg_file, cfg)
         return args, cfg
 
-    def make_header(self):
-        header = Header()
-        header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = 'base_link'
-        return header
     
     def create_cloud_xyz32(self, header, points):
         """
