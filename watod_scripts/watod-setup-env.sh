@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # This script generates a .env file to be used with docker-compose
 # To override any of the variables in this script, create watod-config.sh 
@@ -14,17 +15,22 @@ MONO_DIR="$(dirname "$(realpath "$0")")"
 # moves us one level out to the root monorepo directory
 MONO_DIR=${MONO_DIR%/*}
 
-if [ ! -z $MODULES_DIR_EXP ]; then
-	MODULES_DIR="$MODULES_DIR_EXP"
-else
-	MODULES_DIR="$MONO_DIR/modules"
-fi
-
 # Allow for local overrides of any of the below parameters
 if [ -f "$MONO_DIR/watod-config.sh" ]; then
 	source "$MONO_DIR/watod-config.sh"
 fi
 
+# Change docker-compose override according to mode of operation
+MODE_OF_OPERATION=${MODE_OF_OPERATION:-"deploy"}
+if [ $MODE_OF_OPERATION == "deploy" ]; then
+	MODULES_DIR="$MONO_DIR/modules"
+elif [ $MODE_OF_OPERATION == "develop" ]; then
+	MODULES_DIR="$MONO_DIR/modules/dev_overrides"
+else
+	MODULES_DIR="$MONO_DIR/modules"
+fi
+
+# Retrieve git branch
 if ! [ -x "$(command -v git)" ]; then
     echo 'Error: git is not installed.' >&2
 else
@@ -40,11 +46,6 @@ COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 # replace / with -
 TAG=${TAG/\//-}
-
-# Happens during CI, we use the TAG from CI
-if [ ! -z $MODULES_DIR_EXP ]; then
-	TAG="build_$TAG"
-fi
 
 # List of active modules to run, defined in docker-compose.yaml.
 # Possible values:

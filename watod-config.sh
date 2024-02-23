@@ -2,8 +2,6 @@
 
 ############################ ACTIVE MODULE CONFIGURATION ############################
 ## List of active modules to run, defined in docker-compose.yaml.
-##
-## List of active modules to run, defined in docker-compose.yaml.
 ## Possible values:
 ##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc and/or data_stream)
 ##	 - perception			:	starts perception nodes
@@ -14,7 +12,15 @@
 
 # ACTIVE_MODULES=""
 
-############################## OPTIONAL CONFIGURATIONS ##############################
+################################# MODE OF OPERATION #################################
+## Possible modes of operation when running watod.
+## Possible values:
+##	 - deploy (default)		:	runs production-grade containers (non-editable)
+##	 - develop   		    :	runs developer containers (editable)
+
+# MODE_OF_OPERATION=""
+
+############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
 # COMPOSE_PROJECT_NAME=""
 

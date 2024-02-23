@@ -8,13 +8,8 @@ ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
 
 function usage {
     echo "Usage: $programname [OPTIONS]... [COMMAND]..."
-    echo "Executes docker compose COMMAND in the the monorepo with appropriate environment variables."
-    echo "  launch_autonomous               launch the can_interface for autonomous mode"
-    echo "  -dev --devel                    configures containers for development (allows you to edit inside a container)"
+    echo "Executes \"docker compose COMMAND\" in the the monorepo with appropriate environment variables."
     echo "  -v --verbose                    verbose mode. Currently, prints .env variables"                     
-    echo "  -lp --local-ports               displays ports exposed by applications and shows the"
-    echo "                                  ssh local port forwarding commands for each VNC Server found"
-    echo "                                  if a docker compose command is specified, it will be run in the background."
     echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo ""
     echo "Examples:" 
@@ -53,17 +48,9 @@ COMPOSE_CMD=""
 while [[ $# -gt 0 ]] ; do
     key="$1"
     case $key in
-      -dev|--devel)
-        DEVEL=1
-        shift
-        ;;
       -v|--verbose)
         VERBOSE=1
         shift # past argument
-        ;;
-      -lp|--local-ports)
-        PRINT_LOCAL_PORTS=1
-        shift
         ;;
       -t|--terminal)
         START_TERMINAL=1
@@ -88,10 +75,19 @@ if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
 fi
 
-if [ ! -z $DEVEL ]; then
-    echo "DEVELOPER MODE ACTIVATED: Source files have been mounted within /home/bolty when you enter the container"
-    MODULES_DIR="$MONO_DIR/modules/dev_overrides"
-    export MODULES_DIR_EXP="$MODULES_DIR"
+# Allow for local overrides of any of the below parameters
+if [ -f "$MONO_DIR/watod-config.sh" ]; then
+	source "$MONO_DIR/watod-config.sh"
+fi
+
+# Change docker-compose override according to mode of operation
+MODE_OF_OPERATION=${MODE_OF_OPERATION:-"deploy"}
+if [ $MODE_OF_OPERATION == "deploy" ]; then
+	MODULES_DIR="$MONO_DIR/modules"
+elif [ $MODE_OF_OPERATION == "develop" ]; then
+	MODULES_DIR="$MONO_DIR/modules/dev_overrides"
+else
+	MODULES_DIR="$MONO_DIR/modules"
 fi
 
 # generate .env file from watod_scripts/watod-setup-env.sh
@@ -99,44 +95,6 @@ if [ ! -z $VERBOSE ]; then # if we want to see all verbose coming from setting u
     cd $MONO_DIR && bash watod_scripts/watod-setup-env.sh
 else
     cd $MONO_DIR && bash watod_scripts/watod-setup-env.sh &> /dev/null
-fi
-
-if [ ! -z $PRINT_LOCAL_PORTS ]; then
-    # get list of services to traverse
-    SERVICE_LIST="$(run_compose ps --services | sort)"
-
-    # fixes hostnames for VMs so that by default $HOSTNAME is the first element
-    # in the array, which often is the domain name that can be accessed
-    # externally
-    read -ra HOSTNAME <<< $(hostname -A)
-    echo "========================================================================="
-    echo "Ports exposed by running containers:"
-    echo "========================================================================="
-    LOCAL_FORWARD_ALL=""
-
-    PORTS_STRING=""
-    for SERVICE in $SERVICE_LIST; do
-        ENV_VARS="$(run_compose exec "$SERVICE" env || true)"
-        VNC_PORT=$(echo "$ENV_VARS" | grep ^VNC_PORT= | cut -d '=' -f2)
-        VNC_PORT=${VNC_PORT:0:5} # Strip unncessary characters
-
-        if [ ! -z $VNC_PORT ]; then
-            echo "$SERVICE service exposes a VNC Server at $HOSTNAME:$VNC_PORT"
-            
-            LOCAL_FORWARD="-L ${VNC_PORT}:localhost:${VNC_PORT}"
-            LOCAL_FORWARD_ALL="${LOCAL_FORWARD_ALL} $LOCAL_FORWARD"
-            PORTS_STRING="${PORTS_STRING},${VNC_PORT}:${SERVICE}_VNC"
-            echo "	To forward it locally, run"
-            echo "		ssh$LOCAL_FORWARD $USER@$HOSTNAME"
-            echo "	on your local machine attach to VNC at localhost:${VNC_PORT}"
-            echo
-        fi
-    done
-    
-    echo "========================================================================="
-    echo "To forward all ports locally:"
-    echo "ssh $LOCAL_FORWARD_ALL $USER@$HOSTNAME"
-    echo "========================================================================="
 fi
 
 if [ ! -z "$COMPOSE_CMD" ]; then
