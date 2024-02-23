@@ -1,6 +1,6 @@
 ultralytics
 torch
-setuptools==58.2.0
+setuptools==65.5.1
 easydict
 huggingface
 huggingface_hub
