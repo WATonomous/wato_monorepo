@@ -1,46 +1,52 @@
+import sys
 import argparse
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Header
-from sensor_msgs.msg import PointCloud2, PointField
 import numpy as np
 import torch
-import sys
-sys.path.append('/home/bolty/OpenPCDet')
+from visualization_msgs.msg import Marker, MarkerArray
+from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray
+from sensor_msgs.msg import PointCloud2, PointField
+
+# pylint: disable=wrong-import-position
+sys.path.append("/home/bolty/OpenPCDet")
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate
 from pcdet.models import build_network, load_data_to_gpu
 from pcdet.utils import common_utils
-from visualization_msgs.msg import Marker, MarkerArray
-from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray 
+
 
 class LidarObjectDetection(Node):
     def __init__(self):
-        super().__init__('lidar_object_detection')
+        super().__init__("lidar_object_detection")
         self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth")
-        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml")
+        self.declare_parameter(
+            "model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml")
         self.declare_parameter("lidar_topic", "/velodyne_points")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
 
-        self.bbox_publisher = self.create_publisher(MarkerArray, '/BOUNDING_BOXES', 10)
-        self.detections_publisher = self.create_publisher(Detection3DArray, '/detections_3d', 10)
+        self.viz_publisher = self.create_publisher(MarkerArray, "/lidar_detections_viz", 10)
+        self.detections_publisher = self.create_publisher(Detection3DArray, "/lidar_detections", 10)
 
         self.subscription = self.create_subscription(
-            PointCloud2,
-            self.lidar_data,
-            self.point_cloud_callback,
-            10)
+            PointCloud2, self.lidar_data, self.point_cloud_callback, 10
+        )
 
         args, cfg = self.parse_config()
         self.logger = common_utils.create_logger()
-        self.logger.info('-------------------------Starting Lidar Object Detection-------------------------')
 
         self.demo_dataset = LidarDataset(
-            dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False, logger=self.logger)
+            dataset_cfg=cfg.DATA_CONFIG,
+            class_names=cfg.CLASS_NAMES,
+            training=False,
+            logger=self.logger,
+        )
 
-        self.model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.demo_dataset)
+        self.model = build_network(
+            model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.demo_dataset
+        )
         self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
         self.model.cuda()
         self.model.eval()
@@ -48,8 +54,8 @@ class LidarObjectDetection(Node):
     def point_cloud_callback(self, msg):
         points = self.pointcloud2_to_xyz_array(msg)
         data_dict = {
-            'points': points,
-            'frame_id': msg.header.frame_id,
+            "points": points,
+            "frame_id": msg.header.frame_id,
         }
         data_dict = self.demo_dataset.prepare_data(data_dict=data_dict)
         data_dict = self.demo_dataset.collate_batch([data_dict])
@@ -73,10 +79,9 @@ class LidarObjectDetection(Node):
 
     def publish_bounding_boxes(self, pointcloud_msg, pred_dicts):
         marker_array = MarkerArray()
-        for idx, box in enumerate(pred_dicts[0]['pred_boxes']):
+        for idx, box in enumerate(pred_dicts[0]["pred_boxes"]):
             marker = Marker()
-            marker.header.frame_id = pointcloud_msg.header.frame_id
-            marker.header.stamp = pointcloud_msg.header.stamp
+            marker.header = pointcloud_msg.header
             marker.id = idx
             marker.type = Marker.CUBE
             marker.action = Marker.ADD
@@ -90,12 +95,12 @@ class LidarObjectDetection(Node):
             marker.color.a = 0.8
             marker.color.r = 1.0
             marker.color.g = 0.0
-            marker.color.b = float(pred_dicts[0]['pred_labels'][idx]) / 3
+            marker.color.b = float(pred_dicts[0]["pred_labels"][idx]) / 3
             marker_array.markers.append(marker)
-        
+
         detections = Detection3DArray()
         detections.header = pointcloud_msg.header
-        for idx, box in enumerate(pred_dicts[0]['pred_boxes']):
+        for idx, box in enumerate(pred_dicts[0]["pred_boxes"]):
             detection = Detection3D()
             detection.header = pointcloud_msg.header
             detection.bbox.center.position.x = float(box[0])
@@ -105,25 +110,30 @@ class LidarObjectDetection(Node):
             detection.bbox.size.y = float(box[4])
             detection.bbox.size.z = float(box[5])
             detected_object = ObjectHypothesisWithPose()
-            detected_object.hypothesis.class_id = str(pred_dicts[0]['pred_labels'][idx])
-            detected_object.hypothesis.score = float(pred_dicts[0]['pred_scores'][idx])
+            detected_object.hypothesis.class_id = str(pred_dicts[0]["pred_labels"][idx])
+            detected_object.hypothesis.score = float(pred_dicts[0]["pred_scores"][idx])
             detection.results.append(detected_object)
             detections.detections.append(detection)
-        
-        self.bbox_publisher.publish(marker_array)
+
+        self.viz_publisher.publish(marker_array)
         self.detections_publisher.publish(detections)
 
     def parse_config(self):
-        parser = argparse.ArgumentParser(description='arg parser')
-        parser.add_argument('--cfg_file', type=str, default=self.model_config_path,
-                            help='specify the config for demo')
-        parser.add_argument('--ckpt', type=str, default=self.model_path, help='specify the pretrained model')
+        parser = argparse.ArgumentParser(description="arg parser")
+        parser.add_argument(
+            "--cfg_file",
+            type=str,
+            default=self.model_config_path,
+            help="specify the config for demo",
+        )
+        parser.add_argument(
+            "--ckpt", type=str, default=self.model_path, help="specify the pretrained model"
+        )
 
         args, _ = parser.parse_known_args()
         cfg_from_yaml_file(args.cfg_file, cfg)
         return args, cfg
 
-    
     def create_cloud_xyz32(self, header, points):
         """
         Create a sensor_msgs/PointCloud2 message from an array of points.
@@ -134,23 +144,27 @@ class LidarObjectDetection(Node):
         """
         # Create fields for the PointCloud2 message
         fields = [
-            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
-            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
-            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1)
+            PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
         ]
 
         y_angle = np.deg2rad(90)
         z_angle = np.deg2rad(-90)
-        rotation_matrix_y = np.array([
-        [np.cos(y_angle),  0, np.sin(y_angle)],
-        [0,                1, 0              ],
-        [-np.sin(y_angle), 0, np.cos(y_angle)]
-        ])
-        rotation_matrix_z = np.array([
-        [np.cos(z_angle), -np.sin(z_angle), 0],
-        [np.sin(z_angle),  np.cos(z_angle), 0],
-        [0,                0,               1]
-        ])
+        rotation_matrix_y = np.array(
+            [
+                [np.cos(y_angle), 0, np.sin(y_angle)],
+                [0, 1, 0],
+                [-np.sin(y_angle), 0, np.cos(y_angle)],
+            ]
+        )
+        rotation_matrix_z = np.array(
+            [
+                [np.cos(z_angle), -np.sin(z_angle), 0],
+                [np.sin(z_angle), np.cos(z_angle), 0],
+                [0, 0, 1],
+            ]
+        )
 
         points_np = points.cpu().numpy()
         points_np_y = np.dot(points_np, rotation_matrix_y)
@@ -169,11 +183,13 @@ class LidarObjectDetection(Node):
 
         return cloud
 
+
 class LidarDataset(DatasetTemplate):
-    def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext='.bin'):
+    def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext=".bin"):
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger
         )
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -182,5 +198,6 @@ def main(args=None):
     node.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
