@@ -10,7 +10,7 @@
 ##	 - simulation			:	starts simulation
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
-ACTIVE_MODULES="samples"
+# ACTIVE_MODULES=""
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -18,7 +18,7 @@ ACTIVE_MODULES="samples"
 ##	 - deploy (default)		:	runs production-grade containers (non-editable)
 ##	 - develop   		    :	runs developer containers (editable)
 
-MODE_OF_OPERATION="develop"
+# MODE_OF_OPERATION=""
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
