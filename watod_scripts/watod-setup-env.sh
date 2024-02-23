@@ -11,24 +11,7 @@ if [ -f /.dockerenv ]; then
 	exit 1
 fi
 
-MONO_DIR="$(dirname "$(realpath "$0")")"
-# moves us one level out to the root monorepo directory
-MONO_DIR=${MONO_DIR%/*}
-
-# Allow for local overrides of any of the below parameters
-if [ -f "$MONO_DIR/watod-config.sh" ]; then
-	source "$MONO_DIR/watod-config.sh"
-fi
-
-# Change docker-compose override according to mode of operation
-MODE_OF_OPERATION=${MODE_OF_OPERATION:-"deploy"}
-if [ $MODE_OF_OPERATION == "deploy" ]; then
-	MODULES_DIR="$MONO_DIR/modules"
-elif [ $MODE_OF_OPERATION == "develop" ]; then
-	MODULES_DIR="$MONO_DIR/modules/dev_overrides"
-else
-	MODULES_DIR="$MONO_DIR/modules"
-fi
+MONO_DIR=${MONO_DIR:-"$(dirname "$(realpath "$0")")"}
 
 # Retrieve git branch
 if ! [ -x "$(command -v git)" ]; then
