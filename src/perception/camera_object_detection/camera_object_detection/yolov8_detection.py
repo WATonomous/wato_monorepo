@@ -15,6 +15,7 @@ from ultralytics.utils.plotting import Annotator, colors
 
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
+import os
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
@@ -31,11 +32,11 @@ class CameraDetectionNode(Node):
         super().__init__("camera_object_detection_node")
         self.get_logger().info("Creating camera detection node...")
 
-        self.declare_parameter("camera_topic", "/camera/right/image_color")
+        self.declare_parameter("camera_topic", "/camera/left/image_rect_color")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
-        self.declare_parameter("model_path", "/perception_models/yolov8s.pt")
-        self.declare_parameter("image_size", 480)
+        self.declare_parameter("model_path", "/perception_models/traffic_signs_yolov8_v0.pt")
+        self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
 
         self.camera_topic = self.get_parameter("camera_topic").value
@@ -46,6 +47,7 @@ class CameraDetectionNode(Node):
         self.image_size = self.get_parameter("image_size").value
         self.compressed = self.get_parameter("compressed").value
 
+        self.img_count = 0
         self.line_thickness = 1
         self.half = False
         self.augment = False
@@ -143,10 +145,12 @@ class CameraDetectionNode(Node):
         annotator_img = annotator.result()
         return (processed_detections, annotator_img)
 
-    def publish_vis(self, annotated_img, feed):
+    def publish_vis(self, annotated_img, msg, feed):
         # Publish visualizations
         imgmsg = self.cv_bridge.cv2_to_imgmsg(annotated_img, "bgr8")
         imgmsg.header.frame_id = "camera_{}_link".format(feed)
+        imgmsg.header.stamp = msg.header.stamp
+        imgmsg.header.frame_id = msg.header.frame_id
         self.vis_publisher.publish(imgmsg)
 
     def publish_detections(self, detections, msg, feed):
@@ -177,6 +181,15 @@ class CameraDetectionNode(Node):
         self.detection_publisher.publish(detection2darray)
         return
 
+    def save_image(self, img):
+        if (self.img_count % 100 == 0):
+            file_path = os.path.abspath(os.path.dirname(__file__))
+            extracted_img_dir = "annotated_img"
+            img_name = f"img_{self.img_count}.png"
+            img_path = os.path.join(file_path, extracted_img_dir, img_name)
+            status = cv2.imwrite(img_path, img)
+        self.img_count += 1
+
     def image_callback(self, msg):
         self.get_logger().debug("Received image")
         images = [msg]  # msg is a single sensor image
@@ -194,6 +207,8 @@ class CameraDetectionNode(Node):
                 except CvBridgeError as e:
                     self.get_logger().error(str(e))
                     return
+
+            self.save_image(cv_image)
 
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
@@ -237,7 +252,7 @@ class CameraDetectionNode(Node):
 
             # Currently we support a single camera so we pass an empty string
             feed = ""
-            self.publish_vis(annotated_img, feed)
+            self.publish_vis(annotated_img, msg, feed)
             self.publish_detections(detections, msg, feed)
 
         self.get_logger().info(
