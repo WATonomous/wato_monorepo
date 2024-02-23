@@ -29,7 +29,7 @@ jobs:
         uses: "./.github/templates/check_src_changes"
 
       - name: Setup Watod Environment
-        run: ./watod_scripts/watod-setup-env.sh
+        run: MODULES_DIR="$(dirname "$(realpath "$0")")/modules" ./watod_scripts/watod-setup-env.sh
         shell: bash
 
       - name: Generate Docker Environment
