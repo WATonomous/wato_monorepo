@@ -12,6 +12,7 @@ if [ -f /.dockerenv ]; then
 fi
 
 MONO_DIR=${MONO_DIR:-"$(dirname "$(realpath "$0")")"}
+MONO_DIR=${MONO_DIR%/*}
 
 # Retrieve git branch
 if ! [ -x "$(command -v git)" ]; then
