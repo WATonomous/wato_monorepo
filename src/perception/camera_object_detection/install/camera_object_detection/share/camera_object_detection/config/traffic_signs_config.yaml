@@ -1,0 +1,7 @@
+traffic_signs_node:
+  ros__parameters:
+    camera_topic: /camera/left/image_color
+    publish_vis_topic: /annotated_traffic_signs
+    publish_detection_topic: /traffic_signs
+    model_path: /perception_models/traffic_signs_v0.pt
+    image_size: 1024
