@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+import os
 
 from sensor_msgs.msg import Image, CompressedImage
 from vision_msgs.msg import (
@@ -38,6 +39,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
         self.declare_parameter("crop_mode", "LetterBox")
+        self.declare_parameter("save_detections", False)
 
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
@@ -47,6 +49,11 @@ class CameraDetectionNode(Node):
         self.image_size = self.get_parameter("image_size").value
         self.compressed = self.get_parameter("compressed").value
         self.crop_mode = self.get_parameter("crop_mode").value
+        self.save_detections = bool(self.get_parameter("save_detections").value)
+        self.counter = 0 # For saving detections
+        if self.save_detections:
+            if not os.path.exists("detections"):
+                os.makedirs("detections")
 
         self.line_thickness = 1
         self.half = False
@@ -61,6 +68,9 @@ class CameraDetectionNode(Node):
                 depth=10,
             ),
         )
+        
+        self.orig_image_width = None
+        self.orig_image_height = None
 
         # set device
         self.device = torch.device(
@@ -103,7 +113,39 @@ class CameraDetectionNode(Node):
 
         return img
 
-    def preprocess_and_convert_to_tensor(self, cv_image):
+    def convert_bboxes_to_orig_frame(self, bbox):
+        """
+        Converts bounding box coordinates from the scaled image frame back to the original image frame.
+
+        This function takes into account the original image dimensions and the scaling method used 
+        (either "LetterBox" or "CenterCrop") to accurately map the bounding box coordinates back to 
+        their original positions in the original image.
+
+        Parameters:
+        bbox (list): A list containing the bounding box coordinates in the format [x1, y1, w1, h1] 
+                    in the scaled image frame.
+
+        Returns:
+        list: A list containing the bounding box coordinates in the format [x1, y1, w1, h1] 
+            in the original image frame.
+        
+        """
+        width_scale = self.orig_image_width / self.image_size
+        height_scale = self.orig_image_height / self.image_size
+        if self.crop_mode == "LetterBox":
+            translation = (self.image_size - self.orig_image_height / width_scale) / 2
+            return [bbox[0] * width_scale,
+                    (bbox[1] - translation) * width_scale,
+                    bbox[2] * width_scale,
+                    bbox[3] * width_scale]
+        elif self.crop_mode == "CenterCrop":
+            translation = (self.orig_image_width / height_scale - self.image_size) / 2
+            return [(bbox[0] + translation) * height_scale,
+                    bbox[1] * height_scale,
+                    bbox[2] * height_scale,
+                    bbox[3] * height_scale]
+
+    def crop_and_convert_to_tensor(self, cv_image):
         """
         Preprocess the image by resizing, padding and rearranging the dimensions.
 
@@ -187,10 +229,13 @@ class CameraDetectionNode(Node):
                 detection2darray.detections.append(detection2d)
 
         self.detection_publisher.publish(detection2darray)
-        return
 
     def image_callback(self, msg):
         self.get_logger().debug("Received image")
+        if (self.orig_image_width is None):
+            self.orig_image_width = msg.width
+            self.orig_image_height = msg.height
+
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
         for image in images:
@@ -208,8 +253,7 @@ class CameraDetectionNode(Node):
                     return
 
             # preprocess image and run through prediction
-            img = self.preprocess_and_convert_to_tensor(cv_image)
-            processed_cv_image = self.crop_image(cv_image)
+            img = self.crop_and_convert_to_tensor(cv_image)
             pred = self.model(img)
 
             # nms function used same as yolov8 detect.py
@@ -228,6 +272,7 @@ class CameraDetectionNode(Node):
                             xyxy[3] - xyxy[1],
                         ]
                         bbox = [b.item() for b in bbox]
+                        bbox = self.convert_bboxes_to_orig_frame(bbox)
 
                         detections.append(
                             {
@@ -239,7 +284,7 @@ class CameraDetectionNode(Node):
                         self.get_logger().debug(f"{label}: {bbox}")
 
             annotator = Annotator(
-                processed_cv_image,
+                cv_image,
                 line_width=self.line_thickness,
                 example=str(self.names),
             )
@@ -250,6 +295,11 @@ class CameraDetectionNode(Node):
             feed = ""
             self.publish_vis(annotated_img, msg, feed)
             self.publish_detections(detections, msg, feed)
+            
+            if self.save_detections:
+                cv2.imwrite(f"detections/{self.counter}.jpg", annotated_img)
+                self.counter += 1
+
         self.get_logger().info(
             f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
 
