@@ -11,9 +11,6 @@ if [ -f /.dockerenv ]; then
 	exit 1
 fi
 
-MONO_DIR=${MONO_DIR:-"$(dirname "$(realpath "$0")")"}
-MONO_DIR=${MONO_DIR%/*}
-
 # Retrieve git branch
 if ! [ -x "$(command -v git)" ]; then
     echo 'Error: git is not installed.' >&2
