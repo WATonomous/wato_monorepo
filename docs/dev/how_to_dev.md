@@ -230,3 +230,5 @@ This is for image caching, which you saw in the docker compose file of section 2
 1. Always make changes and `watod build` in your own branch. This is so that one member working on an image isn't affected by someone else randomly rebuilding it with new changes.
 2. Follow the file structure as stated above.
 3. Do not make changes in other people's branches unless they let you do so.
+
+TEST -john turco
