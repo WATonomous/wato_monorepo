@@ -11,11 +11,23 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 # Initialize an empty array for JSON objects
 json_objects=()
 
+# Check for infrastructure changes
+TEST_ALL=false
+if [[ $MODIFIED_MODULES = "infrastructure" ]]; then
+    TEST_ALL=true
+fi
+
 # Loop through each module
 while read -r module; do
+
     # Retrieve docker compose service names
     services=$(docker-compose -f "$module" config --services)
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
+
+    # Only work with modules that are modified
+    if [[ $MODIFIED_MODULES != *$module_out* && $TEST_ALL = "false" ]]; then
+        continue
+    fi
 
     # Loop through each service
     while read -r service_out; do

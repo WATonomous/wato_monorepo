@@ -1,5 +1,11 @@
 name: Generate Docker Environment
 
+inputs:
+  modified_modules:
+    description: "Space deliminated list of modified modules"
+    required: true
+    default: ''
+
 outputs:
   docker_matrix:
     description: "list of docker compose services"
@@ -15,5 +21,7 @@ runs:
   using: "composite"
   steps:
     - id: environment-generator
+      env: 
+        MODIFIED_MODULES: ${{ inputs.modified_modules }}
       run: ${{ github.action_path }}/docker_context.sh
       shell: bash
