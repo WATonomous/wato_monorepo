@@ -76,6 +76,14 @@ services:
     command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
     volumes: 
       - /mnt/wato-drive2/perception-weights/semantic_segmentation:/perception_models/semantic_segmentation
+    # add gpus all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: 1
 
   # lane_detection:
   #   build:
