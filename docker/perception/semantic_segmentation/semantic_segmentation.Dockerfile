@@ -34,7 +34,7 @@ FROM ${BASE_BUILD_IMAGE} as dependencies
 # install tensorrt
 RUN apt update && apt install -y tensorrt
 
-RUN apt install -y ros-humble-cv-bridge libopencv-dev
+RUN apt update && apt install -y ros-humble-cv-bridge libopencv-dev
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -63,7 +63,9 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 
 # Add /home/bolty/ament_ws/install/semantic_segmentation/lib/semantic_segmentation to LD_LIBRARY_PATH
-RUN export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${AMENT_WS}/install/semantic_segmentation/lib/
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${AMENT_WS}/install/semantic_segmentation/lib/
+# Add /usr/local/lib to LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 # /home/bolty/ament_ws/install/semantic_segmentation/lib/semantic_segmentation/
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
