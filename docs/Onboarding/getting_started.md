@@ -18,8 +18,8 @@ Note: These are all available on WATonomous servers by default.
     * If you have a github ssh key on your local machine, you can [forward it to the server](https://docs.github.com/en/developers/overview/using-ssh-agent-forwarding).
 3. **Github Token (classic):** This is to get access to our container registry.
     * To setup a token, refer to [here](https://docs.catalyst.zoho.com/en/tutorials/githubbot/java/generate-personal-access-token/). **IMPORTANT: add `write:packages` to your token.**
-3. **Authorized WATO user:** You have registered a user for yourself on WATO's servers through [`the server status page`](https://status.watonomous.ca/). Members should consult with their manager, tech lead, or an infrastructure member about which server to use. Log in to a server VM using the commands available on [`the server status page`](https://status.watonomous.ca/) (you can click the vm boxes, remember to use your watonomous.ca credentials).
-    * For additional information on WATO's servers and detailed instructions on accessing the server, see the [meeting notes](https://docs.google.com/document/d/1AP_DjD4oRfWWy2d3EMQheVwnTuTZH0-zBFiAqYyk7Pc/edit?usp=sharing) from a previous Server Access Onboarding meeting.
+3. **Authorized WATO user:** You have registered a user for yourself on WATO's servers through [`the server status page`](https://status.watonomous.ca/). Members should consult with their manager, tech lead, or an infrastructure member about which server to use. Log in to a server VM using the commands available on [`WATcloud page`](https://cloud.watonomous.ca/docs/compute-cluster/ssh).
+    * For additional information on WATO's servers and detailed instructions on accessing the server, see the [meeting notes](https://docs.google.com/document/d/1AP_DjD4oRfWWy2d3EMQheVwnTuTZH0-zBFiAqYyk7Pc/edit?usp=sharing) from a previous Server Access Onboarding meeting or checkout the [WATcloud website](https://cloud.watonomous.ca/docs/compute-cluster).
 4. **ROS2 Knowledge:** You know how ROS2 works and how a ROS2 workspace is structured. Otherwise this guide may be confusing. See the [ROS2 Tutorials](http://docs.ros.org.ros.informatik.uni-freiburg.de/en/foxy/Tutorials.html) for more information.
 5. **Docker:** You are familiar with Docker and Docker Compose and you have access to Docker on the host machine. Verify this by running `$ docker info`. You shouldn't see any errors.
 6. **Nvidia GPU:** The host machine has an Nvidia GPU. Preferably many to be able to run all the AI we have written. Verify this with `nvidia-smi`.
@@ -49,6 +49,34 @@ echo "source ~/wato_monorepo/watod_scripts/watod-completion.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 It also has the added bonus of letting you type `watod` instead of `./watod` :)
+
+#FAQ
+
+## Every time I make a new branch I need to rebuild all the images from scratch
+
+Whenever you make a new branch, new images need to be compiled. However, Docker will use the `main` images as a cache. You probably don't have the `main` images downloaded on your machine.
+
+Try these steps:
+```bash
+# Log into the docker registry
+$ docker login git.uwaterloo.ca:5050
+# Pull the latest develop images
+$ TAG=develop ./watod --all pull
+# Start your containers
+$ ./watod up
+```
+
+## "Invalid reference format" when using watod
+
+If you get an error such as: `ERROR: no such image: git.uwaterloo.ca:5050/watonomous/wato_monorepo/perception:debug-charles/test: invalid reference format`
+
+This is because your branch name has a slash (`/`) in it. This breaks the image naming system that docker uses. Please change your branch name to use dashes `-` instead.
+
+```bash
+git checkout -b <NEW_BRANCH_NAME>
+# VERIFY all of your changes are saved in your new branch
+git branch -d <OLD_BRANCH_NAME>
+```
 
 ## If it's your first time
 Check out our [Monorepo Samples](../../src/samples/) source code! These nodes provide a comprehensive understanding of the Monorepo's infrastructure, and they are also a great reference when coding up your own nodes in the Monorepo.
