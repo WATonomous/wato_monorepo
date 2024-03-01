@@ -68,8 +68,6 @@ class CameraDetectionNode(Node):
                 depth=10,
             ),
         )
-        
-        
         self.orig_image_width = None
         self.orig_image_height = None
 
@@ -129,8 +127,6 @@ class CameraDetectionNode(Node):
         Returns:
         list: A list containing the bounding box coordinates in the format [x1, y1, w1, h1] 
             in the original image frame.
-        
-        
         """
         width_scale = self.orig_image_width / self.image_size
         height_scale = self.orig_image_height / self.image_size
@@ -297,7 +293,6 @@ class CameraDetectionNode(Node):
             feed = ""
             self.publish_vis(annotated_img, msg, feed)
             self.publish_detections(detections, msg, feed)
-            
 
             if self.save_detections:
                 cv2.imwrite(f"detections/{self.counter}.jpg", annotated_img)
