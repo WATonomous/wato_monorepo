@@ -10,7 +10,7 @@ on:
 
 jobs:
   setup-environment:
-    name: Setup environment
+    name: Setup Environment
     runs-on: ubuntu-latest
 
     outputs:
@@ -45,7 +45,7 @@ jobs:
         uses: "./.github/templates/github_context"
 
   build-and-unittest:
-    name: Build Image and Run Unit Testing Suite
+    name: Build/Test
     runs-on: ubuntu-latest
     needs: setup-environment
 
