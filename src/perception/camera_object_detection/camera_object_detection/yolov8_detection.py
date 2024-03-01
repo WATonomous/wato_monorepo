@@ -50,7 +50,7 @@ class CameraDetectionNode(Node):
         self.compressed = self.get_parameter("compressed").value
         self.crop_mode = self.get_parameter("crop_mode").value
         self.save_detections = bool(self.get_parameter("save_detections").value)
-        self.counter = 0 # For saving detections
+        self.counter = 0  # For saving detections
         if self.save_detections:
             if not os.path.exists("detections"):
                 os.makedirs("detections")
@@ -68,6 +68,7 @@ class CameraDetectionNode(Node):
                 depth=10,
             ),
         )
+        
         
         self.orig_image_width = None
         self.orig_image_height = None
@@ -128,6 +129,7 @@ class CameraDetectionNode(Node):
         Returns:
         list: A list containing the bounding box coordinates in the format [x1, y1, w1, h1] 
             in the original image frame.
+        
         
         """
         width_scale = self.orig_image_width / self.image_size
@@ -296,6 +298,7 @@ class CameraDetectionNode(Node):
             self.publish_vis(annotated_img, msg, feed)
             self.publish_detections(detections, msg, feed)
             
+
             if self.save_detections:
                 cv2.imwrite(f"detections/{self.counter}.jpg", annotated_img)
                 self.counter += 1
