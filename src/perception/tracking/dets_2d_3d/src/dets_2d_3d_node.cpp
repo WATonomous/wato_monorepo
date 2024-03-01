@@ -89,15 +89,11 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
   // temporarily also publish viz markers
   visualization_msgs::msg::MarkerArray markerArray3d;
   vision_msgs::msg::Detection3DArray detArray3d;
-  
-  sensor_msgs::msg::PointCloud2 pubCloud;
-  pcl::toROSMsg(*lidarCloudNoFloor, pubCloud);
-  pubCloud.header.frame_id = "LIDAR_TOP";
-  pc_publisher_->publish(pubCloud);
 
   pcl::PointCloud<pcl::PointXYZ> mergedClusters;
 
   // process each detection in det array
+  int bboxId = 0;
   for (const vision_msgs::msg::Detection2D& det : msg->detections)
   {
     vision_msgs::msg::BoundingBox2D bbox = det.bbox;
@@ -114,7 +110,9 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     // clustering
     auto clusterAndBBoxes = DetUtils::getClusteredBBoxes(inlierPoints);
 
-    RCLCPP_INFO(this->get_logger(), "%f, %f : get merged cloud %ld clustered bboxes  %ld", bbox.center.position.x, bbox.center.position.y, clusterAndBBoxes.first.size(), clusterAndBBoxes.second.size());
+    RCLCPP_INFO(this->get_logger(), "(x,y) : (%f, %f) size:(%f, %f) : get merged cloud %ld clustered bboxes  %ld", 
+      bbox.center.position.x, bbox.center.position.y, bbox.size_x, bbox.size_y,
+      clusterAndBBoxes.first.size(), clusterAndBBoxes.second.size());
     
     std::vector<std::shared_ptr<Cluster>> clusters = clusterAndBBoxes.first; // needed? for viz purposes only
     std::vector<vision_msgs::msg::BoundingBox3D> allBBoxes = clusterAndBBoxes.second;
@@ -134,13 +132,20 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     det3d.results = det.results;
     detArray3d.detections.emplace_back(det3d);
 
-    // make marker & add to array (TEMP)
-    visualization_msgs::msg::Marker marker;
-    marker.type =  visualization_msgs::msg::Marker::CUBE;
-    marker.scale = bestBBox.size;
-    marker.pose = bestBBox.center;
-    marker.header = pubCloud.header;
-    markerArray3d.markers.push_back(marker);
+    // make marker & add to array (TEMP PUBLISH ALL BBOXES, NOT JUST "BEST")
+    for (const auto& maybeBbox : allBBoxes)
+    {
+      visualization_msgs::msg::Marker marker;
+      marker.type =  visualization_msgs::msg::Marker::CUBE;
+      marker.scale = maybeBbox.size;
+      marker.pose = maybeBbox.center;
+      marker.header.frame_id = "CAM_FRONT_RIGHT";
+      marker.header.stamp = msg->header.stamp;
+      marker.id = bboxId;
+
+      markerArray3d.markers.push_back(marker);
+      ++bboxId;
+    }
   }
 
   det3d_publisher_->publish(detArray3d);
@@ -148,8 +153,16 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
 
   sensor_msgs::msg::PointCloud2 pubCloud2;
   pcl::toROSMsg(mergedClusters, pubCloud2);
-  pubCloud2.header = pubCloud.header;
+  pubCloud2.header.frame_id = "LIDAR_TOP";
+  pubCloud2.header.stamp = msg->header.stamp;
+
+  sensor_msgs::msg::PointCloud2 pubCloud;
+  pcl::toROSMsg(*lidarCloudNoFloor, pubCloud);
+  pubCloud.header.frame_id = "LIDAR_TOP";
+  pubCloud.header.stamp = msg->header.stamp;
+
   pc_publisher2_->publish(pubCloud2);
+  pc_publisher_->publish(pubCloud);
 
   RCLCPP_INFO(this->get_logger(), "published 3d detection %ld", markerArray3d.markers.size());
 }
