@@ -30,7 +30,7 @@ jobs:
 
       - name: Setup Watod Environment
         run: |
-          MODULES_DIR="$(dirname "$(realpath "$0")")/wato_monorepo/wato_monorepo/modules"
+          MODULES_DIR="$GITHUB_WORKSPACE/modules"
           . ./watod_scripts/watod-setup-env.sh
         shell: bash
 

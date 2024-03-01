@@ -75,8 +75,10 @@ if [[ $# -gt 0 ]]; then
 	COMPOSE_CMD="${COMPOSE_CMD} $@"
 fi
 
-# Allow for local overrides of any of the below parameters
-if [ -f "$MONO_DIR/watod-config.sh" ]; then
+# Allow for local overrides of any of the below parameters (prioritized your local config)
+if [ -f "$MONO_DIR/watod-config.local.sh" ]; then
+	source "$MONO_DIR/watod-config.local.sh"
+elif [ -f "$MONO_DIR/watod-config.sh" ]; then
 	source "$MONO_DIR/watod-config.sh"
 fi
 
