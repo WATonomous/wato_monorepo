@@ -62,7 +62,6 @@ target_include_directories(${ProjectName} PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(${ProjectName} ${OpenCV_LIBS})
 
 # Copy resouce
-file(COPY ${CMAKE_CURRENT_LIST_DIR}/src/tensorrt_model/ultra_fast_lane_detection_v2/resource/model DESTINATION ${CMAKE_BINARY_DIR}/resource)
 add_definitions(-DRESOURCE_DIR="${CMAKE_BINARY_DIR}/resource/")
 
 

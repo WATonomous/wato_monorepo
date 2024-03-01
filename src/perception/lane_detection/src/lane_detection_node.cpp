@@ -28,13 +28,18 @@ int count = 0;
 class LaneDetectionNode : public rclcpp::Node {
  public:
   LaneDetectionNode() : Node("lane_detection"), count_(0) {
-    std::string input_topic;
-    this->declare_parameter<std::string>("input_topic", "/CAM_FRONT/image_rect_compressed");
-    this->get_parameter("input_topic", input_topic);
-    RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", input_topic.c_str());
+    std::string camera_topic;
+
+    this->declare_parameter<std::string>("camera_topic", "/CAM_FRONT/image_rect_compressed");
+    this->declare_parameter<bool>("save_images", false);
+    this->declare_parameter<std::string>("save_dir", "/tmp");
+    this->declare_parameter<bool>("publish_source_image", false);
+
+    this->get_parameter("camera_topic", camera_topic);
+    RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", camera_topic.c_str());
 
     subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-        input_topic, 10,
+        camera_topic, 10,
         std::bind(&LaneDetectionNode::image_callback, this, std::placeholders::_1));
 
     image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("lane_detection_image", 10);
@@ -111,7 +116,18 @@ class LaneDetectionNode : public rclcpp::Node {
       lane_msg.lines.push_back(line);
     }
 
+    if (publish_source_image) {
+      lane_msg.source_img = *img_msg;
+    }
+
+    if (save_images) {
+      std::string filename = save_dir + "/lane_detection_" + std::to_string(count) + ".png";
+      cv::imwrite(filename, image);
+      RCLCPP_INFO(this->get_logger(), "Saved image to %s", filename.c_str());
+    }
+
     lane_detection_pub_->publish(lane_msg);
+    count++;
   }
 
  private:
@@ -121,6 +137,9 @@ class LaneDetectionNode : public rclcpp::Node {
       lane_detection_pub_;  // The lane detection publisher
 
   size_t count_;
+  bool save_images;
+  std::string save_dir;
+  bool publish_source_image;
 };
 
 int main(int argc, char *argv[]) {
