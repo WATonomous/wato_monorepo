@@ -6,8 +6,8 @@ services:
       context: ..
       dockerfile: docker/perception/carla_sim/carla_sim.Dockerfile
       cache_from:
-        - "${SIMULATION_CARLA_IMAGE:?}:${TAG}"
-        - "${SIMULATION_CARLA_IMAGE:?}:main"
+        - "${SIMULATION_CARLA_IMAGE:?}:build_${TAG}"
+        - "${SIMULATION_CARLA_IMAGE:?}:build_main"
       target: deploy
     image: "${SIMULATION_CARLA_IMAGE:?}:${TAG}" 
     command: /bin/bash -c "ros2 launch carla_sim carla_sim.launch.py"
