@@ -1,5 +1,10 @@
 ## ----------------------- watod Configuration File Override ----------------------------
 
+##
+## HINT: You can copy the contents of this file to a watod-config.local.sh 
+##       file that is untrackable by git and readable by watod.
+##
+
 ############################ ACTIVE MODULE CONFIGURATION ############################
 ## List of active modules to run, defined in docker-compose.yaml.
 ## Possible values:
