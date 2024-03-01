@@ -1,0 +1,77 @@
+name: Check source file changes
+
+outputs:
+  modified_modules:
+    description: "Space deliminated list of modified modules"
+    value: ${{ steps.output-changes.outputs.modified_modules }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      
+    - name: Find changed files outside of src directory
+      id: changed-files-outside-src
+      uses: tj-actions/changed-files@v42
+      with:
+        files: '!src/**'
+    
+    - name: Find changed files inside src/wato_msgs folder
+      id: changed-files-wato-msgs
+      uses: tj-actions/changed-files@v42
+      with:
+        files: src/wato_msgs/**
+
+    - name: Find changed files inside src/action folder
+      id: changed-files-action
+      uses: tj-actions/changed-files@v42
+      with:
+        files: src/action/**
+      
+    - name: Get changed files inside src/interfacing folder
+      id: changed-files-interfacing
+      uses: tj-actions/changed-files@v42
+      with:
+        files: src/interfacing/**
+    
+    - name: Get changed files inside src/perception folder
+      id: changed-files-perception
+      uses: tj-actions/changed-files@v42
+      with:
+        files: src/perception/**
+    
+    - name: Get changed files inside src/samples folder
+      id: changed-files-samples
+      uses: tj-actions/changed-files@v42
+      with:
+        files: src/samples/**
+    
+    - name: Get changed files inside src/simulation folder
+      id: changed-files-simulation
+      uses: tj-actions/changed-files@v42
+      with:
+        files: src/simulation/**
+    
+    - name: Get changed files inside src/world_modeling folder
+      id: changed-files-world-modeling
+      uses: tj-actions/changed-files@v42
+      with:
+        files: src/world_modeling/**
+    
+    - name: Create list of changed modules
+      id: output-changes
+      env:
+        INFRASTRUCTURE_CHANGED: >
+          ${{ steps.changed-files-wato-msgs.outputs.any_changed == 'true' 
+          || steps.changed-files-outside-src.outputs.any_changed == 'true' }}
+        ACTION_CHANGED: ${{ steps.changed-files-action.outputs.any_changed }}
+        INTERFACING_CHANGED: ${{ steps.changed-files-interfacing.outputs.any_changed }}
+        PERCEPTION_CHANGED: ${{ steps.changed-files-perception.outputs.any_changed }}
+        SAMPLES_CHANGED: ${{ steps.changed-files-samples.outputs.any_changed }}
+        SIMULATION_CHANGED: ${{ steps.changed-files-simulation.outputs.any_changed }}
+        WORLD_MODELING_CHANGED: ${{ steps.changed-files-world-modeling.outputs.any_changed }}
+
+      run: ${{ github.action_path }}/check_src_changes.sh
+      shell: bash
