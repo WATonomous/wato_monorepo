@@ -6,8 +6,8 @@ services:
       context: ..
       dockerfile: docker/perception/radar_object_detection/radar_object_detection.Dockerfile
       cache_from:
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:main"
+        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
+        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_main"
       target: deploy
     image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch radar_object_detection radar_object_detection.launch.py"
@@ -17,8 +17,8 @@ services:
       context: ..
       dockerfile: docker/perception/camera_object_detection/camera_object_detection.Dockerfile
       cache_from:
-        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:main"
+        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
+        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_main"
       target: deploy
     image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     deploy:
@@ -37,8 +37,8 @@ services:
       context: ..
       dockerfile: docker/perception/lidar_object_detection/lidar_object_detection.Dockerfile
       cache_from:
-        - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:main"
+        - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
@@ -47,8 +47,8 @@ services:
       context: ..
       dockerfile: docker/perception/traffic_light_detection/traffic_light_detection.Dockerfile
       cache_from:
-        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
+        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch traffic_light_detection traffic_light_detection.launch.py"
@@ -58,8 +58,8 @@ services:
       context: ..
       dockerfile: docker/perception/traffic_sign_detection/traffic_sign_detection.Dockerfile
       cache_from:
-        - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:main"
+        - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch traffic_sign_detection traffic_sign_detection.launch.py"
@@ -69,8 +69,8 @@ services:
       context: ..
       dockerfile: docker/perception/semantic_segmentation/semantic_segmentation.Dockerfile
       cache_from:
-        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:main"
+        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
@@ -80,8 +80,8 @@ services:
       context: ..
       dockerfile: docker/perception/lane_detection/lane_detection.Dockerfile
       cache_from:
-        - "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_LANE_DETECTION_IMAGE}:main"
+        - "${PERCEPTION_LANE_DETECTION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_LANE_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch lane_detection lane_detection.launch.py"
@@ -91,8 +91,8 @@ services:
       context: ..
       dockerfile: docker/perception/tracking/tracking.Dockerfile
       cache_from:
-        - "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-        - "${PERCEPTION_TRACKING_IMAGE}:main"
+        - "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_TRACKING_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch tracking tracking.launch.py"

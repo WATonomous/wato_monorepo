@@ -92,7 +92,7 @@ services:
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${CACHE_FROM_TAG}"
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-develop"
     # name of the image made by the dockerfile (boilerplate, but with name change)
-    image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-${TAG}"
+    image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}-build_${TAG}"
     # deals with permission and ownership in the container (boilerplate)
     user: ${FIXUID:?}:${FIXGID:?}
     # IMPORTANT: mounts your ROS2 node into the container so that changes in the dockerfile are reflected in your 
