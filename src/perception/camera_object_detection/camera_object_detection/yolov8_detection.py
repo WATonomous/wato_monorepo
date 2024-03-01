@@ -35,7 +35,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("camera_topic", "/camera/left/image_rect_color")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
-        self.declare_parameter("model_path", "/perception_models/traffic_signs_yolov8_v0.pt")
+        self.declare_parameter("model_path", "/perception_models/traffic_signs_v1.pt")
         self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
 
@@ -182,7 +182,7 @@ class CameraDetectionNode(Node):
         return
 
     def save_image(self, img):
-        if (self.img_count % 100 == 0):
+        if (self.img_count % 1 == 0):
             file_path = os.path.abspath(os.path.dirname(__file__))
             extracted_img_dir = "annotated_img"
             img_name = f"img_{self.img_count}.png"
@@ -208,7 +208,7 @@ class CameraDetectionNode(Node):
                     self.get_logger().error(str(e))
                     return
 
-            self.save_image(cv_image)
+            # self.save_image(cv_image)
 
             # preprocess image and run through prediction
             img = self.preprocess_image(cv_image)
@@ -249,6 +249,8 @@ class CameraDetectionNode(Node):
             )
             (detections, annotated_img) = self.postprocess_detections(
                 detections, annotator)
+
+            self.save_image(annotated_img)
 
             # Currently we support a single camera so we pass an empty string
             feed = ""
