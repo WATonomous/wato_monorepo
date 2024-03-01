@@ -1,2 +1,0 @@
-[console_scripts]
-camera_object_detection_node = camera_object_detection.yolov8_detection:main
