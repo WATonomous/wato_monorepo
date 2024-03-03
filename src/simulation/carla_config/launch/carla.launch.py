@@ -30,10 +30,17 @@ def generate_launch_description():
         'config',
         'carla_settings.yaml'
     ) 
+    mpc_bridge_confile_file_path = os.path.join(
+        get_package_share_directory('carla_config'),
+        'config',
+        'mpc_bridge_config.yaml'       
+    )
 
     """ Load params from yaml file """
     with open(config_file_path, 'r') as config_file:
         params = yaml.safe_load(config_file)
+    with open(mpc_bridge_confile_file_path, 'r') as config_file:
+        mpc_bridge_config = yaml.safe_load(config_file)
 
     """ Get hostname from yaml file """
     # Checking if the hostname provided in the yaml file is referencing an env variable
@@ -83,12 +90,12 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('carla_spawn_objects'), 'carla_example_ego_vehicle.launch.py')
         ),
-        launch_arguments=[
-            ('objects_definition_file', LaunchConfiguration('objects_definition_file')),
-            ('role_name', LaunchConfiguration('role_name')),
-            ('spawn_point_ego_vehicle', LaunchConfiguration('spawn_point')),
-            ('spawn_sensors_only', LaunchConfiguration('spawn_sensors_only')),
-        ]
+        launch_arguments={
+            'objects_definition_file' : LaunchConfiguration('objects_definition_file'),
+            'role_name' : LaunchConfiguration('role_name'),
+            'spawn_point_ego_vehicle' : LaunchConfiguration('spawn_point'),
+            'spawn_sensors_only' : LaunchConfiguration('spawn_sensors_only')
+        }.items()
     )
 
     if(os.environ.get('USE_ACKERMANN_CONTROL', 'True').lower() == 'true'):
@@ -117,6 +124,10 @@ def generate_launch_description():
     carla_mpc_bridge = Node(
         package='carla_config',
         executable='carla_mpc_bridge',
+        parameters=[{
+            'mpc_moutput_topic' : mpc_bridge_config['mpc_bridge_node']['ros_parameters']['mpc_output_topic'],
+            'steering_publisher_topic' : mpc_bridge_config['mpc_bridge_node']['ros_parameters']['steering_publisher_topic']
+        }],
         output='screen'
     )
 

@@ -63,7 +63,7 @@ services:
 
   carla_notebooks:
     build:
-      context: ../..
+      context: ..
       dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
       cache_from: 
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"

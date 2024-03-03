@@ -14,12 +14,6 @@ RUN git clone --depth 1 --branch master --recurse-submodules https://github.com/
     git checkout e9063d97ff5a724f76adbb1b852dc71da1dcfeec && \
     cd ..
 
-# Download rviz 
-RUN git clone --depth 1 --branch foxy --recurse-submodules https://github.com/ros2/rviz.git && \
-    cd rviz && \
-    git checkout 22179fc7a2fed72cd3f38e6712c62e2228a36001 && \
-    cd ..
-
 # Fix an error in the ackermann_control node 
 RUN sed -i s/simple_pid.PID/simple_pid.pid/g ./ros-bridge/carla_ackermann_control/src/carla_ackermann_control/carla_ackermann_control_node.py
 
@@ -62,7 +56,8 @@ RUN apt-get update && \
       ros-$ROS_DISTRO-urdf \
       ros-$ROS_DISTRO-map-msgs \
       ros-$ROS_DISTRO-laser-geometry \
-      ros-$ROS_DISTRO-interactive-markers
+      ros-$ROS_DISTRO-interactive-markers \
+      ros-$ROS_DISTRO-rviz2
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
