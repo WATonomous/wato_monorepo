@@ -12,15 +12,9 @@ COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
 
 # Carla specific messages
 
-RUN git clone --depth 1 https://github.com/ros-drivers/ackermann_msgs.git --branch ros2 && \
-    cd ackermann_msgs && \
-    git checkout 843a4836ba942038db088e06fe626160c09249f0 && \
-    cd ..
+RUN git clone --depth 1 https://github.com/ros-drivers/ackermann_msgs.git --branch 2.0.2
 
-RUN git clone --depth 1 https://github.com/ros-perception/image_common.git --branch $ROS_DISTRO && \
-    cd image_common && \
-    git checkout e947b47a45971e3edb59d8e34bc8e7cd2a41f2e6 && \
-    cd ..
+RUN git clone --depth 1 https://github.com/ros-perception/image_common.git --branch 3.1.8
 
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
 
