@@ -1,9 +1,3 @@
-##### IMPORTANT ####
-"""
-Uncomment the code under the main function (at the bottom of this file) to have the node actually run
-"""
-
-
 import rclpy
 from rclpy.node import Node
 
@@ -18,20 +12,21 @@ import os
 class Datalogger(Node):
     def __init__(self):
         super().__init__('datalogger')
+        self.declare_parameter("publish_autopilot", False)
         self.gnssSubscription = self.create_subscription(
             NavSatFix,
             '/carla/ego_vehicle/gnss',
             self.gnss_callback,
             10
         )
-        self.gnssSubscription  # prevent unused variable warning
-        self.autopilotPublisher = self.create_publisher(
-            Bool,
-            '/carla/ego_vehicle/enable_autopilot',
-            10
-        )
-        # Publish autopilot message every 10 seconds
-        self.timer = self.create_timer(10, self.timer_callback)
+        if self.get_parameter("publish_autopilot").value:
+            self.autopilotPublisher = self.create_publisher(
+                Bool,
+                '/carla/ego_vehicle/enable_autopilot',
+                10
+            )
+            # Publish autopilot message every 10 seconds
+            self.timer = self.create_timer(10, self.timer_callback)
 
     def gnss_callback(self, msg):
         # with open("/home/docker/ament_ws/src/carla_sample_node/logs/gnss_" + self.containerId + ".txt", 'a+') as file:
@@ -46,7 +41,6 @@ class Datalogger(Node):
 
 
 def main(args=None):
-    # Uncomment the below lines to actually run the sample node
     rclpy.init(args=args)
 
     datalogger = Datalogger()

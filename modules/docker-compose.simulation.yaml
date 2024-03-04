@@ -53,7 +53,7 @@ services:
       target: deploy
     image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
     # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
-    command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py"
+    command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
 
   carla_notebooks:
     build:
