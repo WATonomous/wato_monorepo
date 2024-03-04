@@ -7,7 +7,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/simulation/carla_sample_node carla_sample_node
-COPY src/wato_msgs/simulation/common_msgs common_msgs
 COPY src/wato_msgs/simulation/embedded_msgs embedded_msgs
 COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
 
