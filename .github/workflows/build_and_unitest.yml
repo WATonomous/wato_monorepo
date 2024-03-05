@@ -85,7 +85,7 @@ jobs:
           password: ${{ secrets.GHCR_PWD }}
 
       - name: Prepare Image Dependencies
-        if: ${{ (matrix.module != 'infrastructure') &&  (matrix.module != 'simulation') }}
+        if: ${{ (matrix.module != 'infrastructure') && (matrix.module != 'simulation') }}
         uses: docker/build-push-action@v5
         with:
           context: .
