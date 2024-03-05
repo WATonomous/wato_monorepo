@@ -24,6 +24,11 @@ while read -r module; do
     services=$(docker-compose -f "$module" config --services)
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
 
+    # Skip simulation module
+    if [[ 'simulation' = $module_out ]]; then
+        continue
+    fi
+
     # Only work with modules that are modified
     if [[ $MODIFIED_MODULES != *$module_out* && $TEST_ALL = "false" ]]; then
         continue
