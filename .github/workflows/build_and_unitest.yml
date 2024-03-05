@@ -85,7 +85,7 @@ jobs:
           password: ${{ secrets.GHCR_PWD }}
 
       - name: Prepare Image Dependencies
-        if: ${{ matrix.module != 'infrastructure' }}
+        if: ${{ matrix.module != 'infrastructure' }} && ${{ matrix.module != 'simulation' }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -101,6 +101,7 @@ jobs:
           target: dependencies
 
       - name: Build Image from Source
+        if: ${{ matrix.module != 'simulation' }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -117,6 +118,7 @@ jobs:
           target: build
 
       - name: Security Sanitation for Deployment
+        if: ${{ matrix.module != 'simulation' }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -131,6 +133,7 @@ jobs:
           target: deploy
 
       - name: Run testing suite
+        if: ${{ matrix.module != 'simulation' }}
         uses: "./.github/templates/test"
         env:
           DOCKER_BUILDKIT: 1
