@@ -5,7 +5,10 @@ ARG GENERIC_IMAGE
 # for the wato_monorepo.
 FROM ${GENERIC_IMAGE} as wato_base
 
-ENV DEBIAN_FRONTEND noninteractive
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get install -y curl sudo && \
+    rm -rf /var/lib/apt/lists/*
+
 ENV USER="bolty"
 ENV AMENT_WS=/home/${USER}/ament_ws
 
