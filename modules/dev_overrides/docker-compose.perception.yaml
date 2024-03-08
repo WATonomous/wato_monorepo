@@ -10,6 +10,7 @@ services:
     extends:
       file: ../docker-compose.perception.yaml
       service: radar_object_detection
+    image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/radar_object_detection:/home/bolty/ament_ws/src/radar_object_detection
@@ -19,6 +20,7 @@ services:
     extends:
       file: ../docker-compose.perception.yaml
       service: camera_object_detection
+    image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/camera_object_detection:/home/bolty/ament_ws/src/camera_object_detection
@@ -28,6 +30,7 @@ services:
     extends:
       file: ../docker-compose.perception.yaml
       service: lidar_object_detection
+    image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/lidar_object_detection:/home/bolty/ament_ws/src/lidar_object_detection
@@ -37,6 +40,7 @@ services:
     extends:
       file: ../docker-compose.perception.yaml
       service: semantic_segmentation
+    image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/semantic_segmentation:/home/bolty/ament_ws/src/semantic_segmentation
@@ -46,6 +50,7 @@ services:
     extends:
       file: ../docker-compose.perception.yaml
       service: lane_detection
+    image: "${PERCEPTION_LANE_DETECTION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/lane_detection:/home/bolty/ament_ws/src/lane_detection
@@ -55,6 +60,7 @@ services:
     extends:
       file: ../docker-compose.perception.yaml
       service: tracking
+    image: "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/tracking:/home/bolty/ament_ws/src/tracking
