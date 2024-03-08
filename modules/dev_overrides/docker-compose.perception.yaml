@@ -32,15 +32,6 @@ services:
     volumes:
       - ${MONO_DIR}/src/perception/lidar_object_detection:/home/bolty/ament_ws/src/lidar_object_detection
 
-  traffic_light_detection:
-    <<: *fixuid
-    extends:
-      file: ../docker-compose.perception.yaml
-      service: traffic_light_detection
-    command: tail -F anything
-    volumes:
-      - ${MONO_DIR}/src/perception/traffic_light_detection:/home/bolty/ament_ws/src/traffic_light_detection
-
   semantic_segmentation:
     <<: *fixuid
     extends:
