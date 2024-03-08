@@ -29,25 +29,32 @@ class LaneDetectionNode : public rclcpp::Node {
  public:
   LaneDetectionNode() : Node("lane_detection"), count_(0) {
     std::string camera_topic;
+    std::string publish_vis_topic;
+    std::string publish_lanes_topic;
 
     this->declare_parameter<std::string>("camera_topic", "/CAM_FRONT/image_rect_compressed");
+    this->declare_parameter<std::string>("publish_vis_topic", "/CAM_FRONT/lanes_viz");
+    this->declare_parameter<std::string>("publish_lanes_topic", "/CAM_FRONT/lanes");
     this->declare_parameter<bool>("save_images", false);
     this->declare_parameter<std::string>("save_dir", "/tmp");
     this->declare_parameter<bool>("publish_source_image", false);
 
     this->get_parameter("camera_topic", camera_topic);
+    this->get_parameter("publish_vis_topic", publish_vis_topic);
+    this->get_parameter("publish_lanes_topic", publish_lanes_topic);
+
     RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", camera_topic.c_str());
 
-    subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+    subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
         camera_topic, 10,
         std::bind(&LaneDetectionNode::image_callback, this, std::placeholders::_1));
 
-    image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("lane_detection_image", 10);
+    image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(publish_vis_topic, 10);
     lane_detection_pub_ =
-        this->create_publisher<lane_detection_msgs::msg::LaneDetection>("lane_detection", 10);
+        this->create_publisher<lane_detection_msgs::msg::LaneDetection>(publish_lanes_topic, 10);
   }
 
-  void image_callback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &msg) {
+  void image_callback(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
       cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
@@ -131,7 +138,7 @@ class LaneDetectionNode : public rclcpp::Node {
   }
 
  private:
-  rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr subscription_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;  // The image publisher
   rclcpp::Publisher<lane_detection_msgs::msg::LaneDetection>::SharedPtr
       lane_detection_pub_;  // The lane detection publisher
