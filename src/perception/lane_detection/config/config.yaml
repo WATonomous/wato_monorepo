@@ -1,6 +1,0 @@
-lane_detection_node:
-  ros__parameters:
-    camera_topic: "/CAM_FRONT/image_rect_compressed"
-    save_images: false
-    save_images_path: "/tmp"
-    publish_source_image: false

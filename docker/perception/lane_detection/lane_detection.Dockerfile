@@ -20,16 +20,12 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-RUN apt-get update
-# Intall opencv
-RUN apt install -y libopencv-dev python3-opencv
+RUN apt-get update && apt-get install -y libopencv-dev \
+        python3-opencv \
+        tensorrt \
+        cuda-toolkit
+
 RUN export OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4/OpenCVConfig.cmake
-
-# Install TensorRT
-RUN apt install -y tensorrt
-
-# Install cuda toolkit
-RUN apt-get install -y cuda-toolkit
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -55,8 +51,10 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
+ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
+# Use a different runtime image for a smaller image size
 FROM ${RUNTIME_IMAGE} as deploy
 
 # Install runtime libs
@@ -69,13 +67,11 @@ COPY --from=build ${AMENT_WS} ${AMENT_WS}
 
 WORKDIR ${AMENT_WS}
 
-# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
+ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 # Source Cleanup and Security Setup
 RUN chown -R $USER:$USER ${AMENT_WS}
 RUN rm -rf src/*
 
 USER ${USER}
-
-ENTRYPOINT ["./wato_ros_entrypoint.sh"]
