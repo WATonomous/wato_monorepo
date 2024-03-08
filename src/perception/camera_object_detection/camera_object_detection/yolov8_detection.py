@@ -70,9 +70,6 @@ class CameraDetectionNode(Node):
         self.orig_image_width = None
         self.orig_image_height = None
 
-        self.orig_image_width = None
-        self.orig_image_height = None
-
         # set device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if torch.cuda.is_available():
