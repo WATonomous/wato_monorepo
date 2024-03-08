@@ -7,8 +7,6 @@ FROM ${PADDLE_INFERENCE_BUILD_URL} as PADDLE_INFERENCE_BUILD
 ################################ Source ################################
 FROM ${BASE_BUILD_IMAGE} as source
 
-
-
 WORKDIR ${AMENT_WS}/src
 
 # Copy in the paddle inference library
@@ -31,10 +29,7 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_BUILD_IMAGE} as dependencies
 
-# install tensorrt
-RUN apt update && apt install -y tensorrt
-
-RUN apt update && apt install -y ros-humble-cv-bridge libopencv-dev
+RUN apt update && apt install -y tensorrt ros-humble-cv-bridge libopencv-dev
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -52,7 +47,6 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies as build
 
-
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
@@ -62,18 +56,17 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 
-# Add /home/bolty/ament_ws/install/semantic_segmentation/lib/semantic_segmentation to LD_LIBRARY_PATH
+# Add runtime libraries to path
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${AMENT_WS}/install/semantic_segmentation/lib/
-# Add /usr/local/lib to LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-# /home/bolty/ament_ws/install/semantic_segmentation/lib/semantic_segmentation/
+
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 # ################################ Prod ################################
-# FROM build as deploy
+FROM build as deploy
 
-# # Source Cleanup and Security Setup
-# RUN chown -R $USER:$USER ${AMENT_WS}
-# RUN rm -rf src/*
+# Source Cleanup and Security Setup
+RUN chown -R $USER:$USER ${AMENT_WS}
+RUN rm -rf src/*
 
-# USER ${USER}
+USER ${USER}
