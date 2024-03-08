@@ -12,6 +12,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 set(msg_files
     msg/LaneLine.msg
@@ -19,7 +20,7 @@ set(msg_files
 
 rosidl_generate_interfaces(lane_detection_msgs
     ${msg_files}
-    DEPENDENCIES std_msgs geometry_msgs)
+    DEPENDENCIES std_msgs geometry_msgs sensor_msgs)
 
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()
