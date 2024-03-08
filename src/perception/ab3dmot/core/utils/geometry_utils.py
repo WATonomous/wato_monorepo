@@ -4,7 +4,7 @@ import copy
 import numpy as np
 import tf.transformations as tr
 
-@jit
+@jit(nopython=True)
 def poly_area(x,y):
     """ Compute area of a polygon
         x: np.array of x coordinates
@@ -15,7 +15,7 @@ def poly_area(x,y):
     main_area = np.dot(x[:-1], y[1:]) - np.dot(y[:-1], x[1:])
     return 0.5*np.abs(main_area + correction)
 
-@jit
+@jit(nopython=True)
 def box3d_vol(corners):
     """ Compute the volume of a 3d bounding box from it's corners
         corners: (8,3) no assumption on axis direction
@@ -108,7 +108,7 @@ def iou3d(corners1, corners2):
     iou = inter_vol / (vol1 + vol2 - inter_vol)
     return iou, iou_2d
 
-@jit
+@jit(nopython=True)
 def roty(t):
     ''' Rotation about the y-axis. '''
     c = np.cos(t)
@@ -117,7 +117,7 @@ def roty(t):
                      [0.0,1.0,0.0],
                      [-s, 0.0,  c]])
 
-@jit
+@jit(nopython=True)
 def rotz(t):
         ''' Rotation about the z-axis. '''
         c = np.cos(t)
