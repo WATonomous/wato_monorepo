@@ -5,22 +5,17 @@ import os
 
 
 def generate_launch_description():
-    ld = LaunchDescription()
     config = os.path.join(
         get_package_share_directory('camera_object_detection'),
         'config',
-        'deeepracer.yaml'
+        'traffic_light_config.yaml'
     )
 
-    # nodes
     camera_object_detection_node = Node(
         package='camera_object_detection',
         executable='camera_object_detection_node',
-        name='camera_object_detection_node',
+        name='traffic_light_node',
         parameters=[config]
     )
 
-    # finalize
-    ld.add_action(camera_object_detection_node)
-
-    return ld
+    return LaunchDescription([camera_object_detection_node])
