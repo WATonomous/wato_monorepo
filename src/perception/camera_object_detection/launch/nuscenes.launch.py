@@ -20,5 +20,4 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', 'info']
     )
 
-
     return LaunchDescription([camera_object_detection_node])
