@@ -41,15 +41,3 @@ jobs:
           clang_format: true
           clang_format_auto_fix: ${{ contains(github.event.pull_request.labels.*.name, 'auto-lint') }}
           clang_format_args: "-style=file"
-
-      - name: Remove 'auto-lint' label to stop possible inf loop
-        if: contains(github.event.pull_request.labels.*.name, 'auto-lint')
-        uses: actions/github-script@v6
-        with:
-          script: |
-            await github.rest.issues.removeLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              name: 'auto-lint'
-            });
