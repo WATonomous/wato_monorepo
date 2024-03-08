@@ -67,6 +67,7 @@ class CameraDetectionNode(Node):
                 depth=10,
             ),
         )
+
         self.orig_image_width = None
         self.orig_image_height = None
 
