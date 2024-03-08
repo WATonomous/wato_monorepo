@@ -6,8 +6,8 @@ services:
       context: ..
       dockerfile: docker/action/global_planning/global_planning.Dockerfile
       cache_from:
-        - "${ACTION_GLOBAL_PLANNING_IMAGE}:${TAG}"
-        - "${ACTION_GLOBAL_PLANNING_IMAGE}:main"
+        - "${ACTION_GLOBAL_PLANNING_IMAGE}:build_${TAG}"
+        - "${ACTION_GLOBAL_PLANNING_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_GLOBAL_PLANNING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch global_planning global_planning.launch.py"
@@ -17,8 +17,8 @@ services:
       context: ..
       dockerfile: docker/action/behaviour_planning/behaviour_planning.Dockerfile
       cache_from:
-        - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:${TAG}"
-        - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:main"
+        - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:build_${TAG}"
+        - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch behaviour_planning behaviour_planning.launch.py"
@@ -28,8 +28,8 @@ services:
       context: ..
       dockerfile: docker/action/local_planning/local_planning.Dockerfile
       cache_from:
-        - "${ACTION_LOCAL_PLANNING_IMAGE}:${TAG}"
-        - "${ACTION_LOCAL_PLANNING_IMAGE}:main"
+        - "${ACTION_LOCAL_PLANNING_IMAGE}:build_${TAG}"
+        - "${ACTION_LOCAL_PLANNING_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_LOCAL_PLANNING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch local_planning local_planning.launch.py"
@@ -39,8 +39,8 @@ services:
       context: ..
       dockerfile: docker/action/model_predictive_control/model_predictive_control.Dockerfile
       cache_from:
-        - "${ACTION_MPC_IMAGE}:${TAG}"
-        - "${ACTION_MPC_IMAGE}:main"
+        - "${ACTION_MPC_IMAGE}:build_${TAG}"
+        - "${ACTION_MPC_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_MPC_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch model_predictive_control model_predictive_control.launch.py"
