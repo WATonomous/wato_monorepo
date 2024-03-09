@@ -263,12 +263,13 @@ class SemanticSegmentationNode : public rclcpp::Node {
 
   SemanticSegmentationNode() : Node("semantic_segmentation_node"), count_(0) {
     // Get the image topic parameter from the launch file)
-    std::string image_topic = this->declare_parameter("input_topic", "/camera/right/image_color");
-
+    std::string image_topic = this->declare_parameter("input_topic", "/camera/center/image_color");
+    image_topic = this->get_parameter("input_topic").as_string();
     RCLCPP_INFO(this->get_logger(), "subscribing to image_topic: %s", image_topic.c_str());
 
     publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
     yaml_config_ = load_yaml(resource_path + "/deploy.yaml");
+
     // Print out the yaml config
     RCLCPP_INFO(this->get_logger(), "model_file: %s", yaml_config_.model_file.c_str());
     RCLCPP_INFO(this->get_logger(), "params_file: %s", yaml_config_.params_file.c_str());
@@ -355,12 +356,11 @@ class SemanticSegmentationNode : public rclcpp::Node {
       for (int j = 0; j < output_shape[2]; j++) {
         int label = out_data[i * output_shape[2] + j];
         if (cityscapes_labels.find(label) != cityscapes_labels.end()) {
-          auto [r,g,b] = cityscapes_label_colormap[label];
+          auto [r, g, b] = cityscapes_label_colormap[label];
           colored_img.at<cv::Vec3b>(i, j) = cv::Vec3b(b, g, r);
         }
       }
     }
-
 
     if (count_ < 1000) {
       // write the source image
