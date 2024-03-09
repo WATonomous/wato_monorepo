@@ -103,5 +103,5 @@ class SampleErrorRecorder : public IErrorRecorder {
   // The error stack that holds the errors recorded by TensorRT.
   errorStack mErrorStack;
 
-};      // class SampleErrorRecorder
+};  // class SampleErrorRecorder
 #endif  // ERROR_RECORDER_H
