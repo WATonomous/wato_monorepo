@@ -157,11 +157,8 @@ struct SimpleProfiler : public nvinfer1::IProfiler {
     // Output header
     {
       out << std::setw(maxLayerNameLength) << layerNameStr << " ";
-      out << std::setw(12) << "Runtime, "
-          << "%"
-          << " ";
-      out << std::setw(12) << "Invocations"
-          << " ";
+      out << std::setw(12) << "Runtime, " << "%" << " ";
+      out << std::setw(12) << "Invocations" << " ";
       out << std::setw(12) << "Runtime, ms" << std::endl;
     }
     for (size_t i = 0; i < value.mLayerNames.size(); i++) {
@@ -169,8 +166,7 @@ struct SimpleProfiler : public nvinfer1::IProfiler {
       auto elem = value.mProfile.at(layerName);
       out << std::setw(maxLayerNameLength) << layerName << " ";
       out << std::setw(12) << std::fixed << std::setprecision(1) << (elem.time * 100.0F / totalTime)
-          << "%"
-          << " ";
+          << "%" << " ";
       out << std::setw(12) << elem.count << " ";
       out << std::setw(12) << std::fixed << std::setprecision(2) << elem.time << std::endl;
     }
@@ -609,10 +605,7 @@ template <int C, int H, int W>
 void writePPMFileWithBBox(const std::string& filename, PPM<C, H, W>& ppm, const BBox& bbox) {
   std::ofstream outfile("./" + filename, std::ofstream::binary);
   assert(!outfile.fail());
-  outfile << "P6"
-          << "\n"
-          << ppm.w << " " << ppm.h << "\n"
-          << ppm.max << "\n";
+  outfile << "P6" << "\n" << ppm.w << " " << ppm.h << "\n" << ppm.max << "\n";
 
   auto round = [](float x) -> int { return int(std::floor(x + 0.5f)); };
   const int x1 = std::min(std::max(0, round(int(bbox.x1))), W - 1);
@@ -648,10 +641,7 @@ void writePPMFileWithBBox(const std::string& filename, PPM<C, H, W>& ppm, const 
 inline void writePPMFileWithBBox(const std::string& filename, vPPM ppm, std::vector<BBox>& dets) {
   std::ofstream outfile("./" + filename, std::ofstream::binary);
   assert(!outfile.fail());
-  outfile << "P6"
-          << "\n"
-          << ppm.w << " " << ppm.h << "\n"
-          << ppm.max << "\n";
+  outfile << "P6" << "\n" << ppm.w << " " << ppm.h << "\n" << ppm.max << "\n";
   auto round = [](float x) -> int { return int(std::floor(x + 0.5f)); };
 
   for (auto bbox : dets) {
