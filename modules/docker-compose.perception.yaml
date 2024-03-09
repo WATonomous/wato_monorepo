@@ -63,8 +63,8 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              capabilities: [gpu]
               count: 1
+              capabilities: [ gpu ]
 
   lane_detection:
     build:
