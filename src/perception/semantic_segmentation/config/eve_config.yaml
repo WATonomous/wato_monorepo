@@ -2,6 +2,7 @@ semantic_segmentation_node:
   ros__parameters:
     input_topic: /camera/left/image_color
     publish_topic: /camera/left/segmentations
+    publish_vis_topic: /camera/left/segmentations_viz
     model_path: /perception_models/semantic_segmentation/pp_liteseg_infer_model/
     save_dir: /segmented
     save_images: false
