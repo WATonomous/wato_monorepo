@@ -8,14 +8,14 @@ def generate_launch_description():
     config = os.path.join(
         get_package_share_directory('semantic_segmentation'),
         'config',
-        'config.yaml'
+        'eve_config.yaml'
     )
 
     return LaunchDescription([
         Node(
             package='semantic_segmentation',
             executable='semantic_segmentation',
-            name='semantic_segmentation',
+            name='semantic_segmentation_node',
             parameters=[config]
         )
     ])

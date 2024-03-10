@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(semantic_segmentation LANGUAGES CXX CUDA)
 
-set(PADDLE_LIB "/home/bolty/ament_ws/src/semantic_segmentation/src/paddle_inference_cuda120_build/paddle_inference_install_dir") # Set this path as per your setup
+set(PADDLE_LIB "/paddle/paddle_inference_cuda120_build/paddle_inference_install_dir") # Set this path as per your setup
 
 option(WITH_MKL "Compile demo with MKL/OpenBlas support, default use MKL." ON)
 option(WITH_GPU "Compile demo with GPU/CPU, default use CPU." ON)

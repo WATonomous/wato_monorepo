@@ -3,8 +3,9 @@
 <package format="3">
   <name>semantic_segmentation</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="bolty@todo.todo">bolty</maintainer>
+  <description>Package for semantic segmentation</description>
+  <maintainer email="j89leung@watonomous.ca">Justin Leung</maintainer>
+  <maintainer email="s36gong@uwaterloo.ca">Steven Gong</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
