@@ -1,4 +1,5 @@
 #include <chrono>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -28,10 +29,6 @@ int count = 0;
 class LaneDetectionNode : public rclcpp::Node {
  public:
   LaneDetectionNode() : Node("lane_detection"), count_(0) {
-    std::string camera_topic;
-    std::string publish_vis_topic;
-    std::string publish_lanes_topic;
-
     this->declare_parameter<std::string>("camera_topic", "/CAM_FRONT/image_rect_compressed");
     this->declare_parameter<std::string>("publish_vis_topic", "/CAM_FRONT/lanes_viz");
     this->declare_parameter<std::string>("publish_lanes_topic", "/CAM_FRONT/lanes");
@@ -42,6 +39,13 @@ class LaneDetectionNode : public rclcpp::Node {
     this->get_parameter("camera_topic", camera_topic);
     this->get_parameter("publish_vis_topic", publish_vis_topic);
     this->get_parameter("publish_lanes_topic", publish_lanes_topic);
+    this->get_parameter("save_images", save_images);
+    this->get_parameter("save_dir", save_dir);
+    this->get_parameter("publish_source_image", publish_source_image);
+
+    if (!std::filesystem::exists(save_dir)) {
+      std::filesystem::create_directories(save_dir);
+    }
 
     RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", camera_topic.c_str());
 
@@ -102,7 +106,7 @@ class LaneDetectionNode : public rclcpp::Node {
 
     // Convert the processed cv::Mat back to sensor_msgs::msg::Image and publish
     sensor_msgs::msg::Image::SharedPtr img_msg =
-        cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
+        cv_bridge::CvImage(msg->header, "bgr8", image).toImageMsg();
     image_pub_->publish(*img_msg);
 
     // Create the lane detection message
@@ -144,6 +148,11 @@ class LaneDetectionNode : public rclcpp::Node {
       lane_detection_pub_;  // The lane detection publisher
 
   size_t count_;
+
+  // ROS Parameters
+  std::string camera_topic;
+  std::string publish_vis_topic;
+  std::string publish_lanes_topic;
   bool save_images;
   std::string save_dir;
   bool publish_source_image;
