@@ -1,3 +1,0 @@
-semantic_segmentation_node:
-  ros__parameters:
-    input_topic: "/camera/center/image_color"

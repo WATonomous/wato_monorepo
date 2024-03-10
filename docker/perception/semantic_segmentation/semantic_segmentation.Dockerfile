@@ -1,7 +1,6 @@
 ARG BASE_BUILD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04-devel
 ARG BASE_PROD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04
 ARG PADDLE_INFERENCE_BUILD_URL=ghcr.io/watonomous/perception_paddlepaddle_inference_build_cuda-12.0
-ARG RUNTIME_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04
 ################################ Build library ################################
 FROM ${PADDLE_INFERENCE_BUILD_URL} as PADDLE_INFERENCE_BUILD
 
@@ -12,13 +11,12 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in the paddle inference library
 RUN mkdir -p semantic_segmentation/src
-COPY --from=PADDLE_INFERENCE_BUILD /paddle/paddle_inference_cuda120_build.tar semantic_segmentation/src/paddle_inference_cuda120_build.tar
-RUN tar -xvf semantic_segmentation/src/paddle_inference_cuda120_build.tar -C semantic_segmentation/src
-RUN rm semantic_segmentation/src/paddle_inference_cuda120_build.tar
+COPY --from=PADDLE_INFERENCE_BUILD /paddle/paddle_inference_cuda120_build.tar /paddle/paddle_inference_cuda120_build.tar
+RUN tar -xvf /paddle/paddle_inference_cuda120_build.tar -C /paddle/
+RUN rm /paddle/paddle_inference_cuda120_build.tar
 
 # Copy in source code 
 COPY src/perception/semantic_segmentation semantic_segmentation
-COPY src/wato_msgs/sample_msgs sample_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -39,6 +37,7 @@ RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_li
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
+COPY --from=source /paddle /paddle
 
 # Dependency Cleanup
 WORKDIR /
@@ -64,7 +63,7 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 # ################################ Prod ################################
-FROM ${RUNTIME_IMAGE} as deploy
+FROM ${BASE_PROD_IMAGE} as deploy
 
 
 # Install runtime libs

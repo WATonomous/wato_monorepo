@@ -18,7 +18,7 @@ using namespace std::chrono_literals;
 
 std::string resource_path =
     "/home/bolty/ament_ws/install/semantic_segmentation/share/semantic_segmentation/resource";
-std::string model_path = "/perception_models/semantic_segmentation/pp_liteseg_infer_model/";
+
 // 19 classes
 std::unordered_map<int, std::string> cityscapes_labels = {
     {0, "road"}, {1, "sidewalk"},      {2, "building"},     {3, "wall"},       {4, "fence"},
@@ -68,9 +68,6 @@ YamlConfig load_yaml(const std::string& yaml_path) {
   return yaml_config;
 }
 
-/* This example creates a subclass of Node and uses std::bind() to register a
- * member function as a callback from the timer. */
-
 class SemanticSegmentationNode : public rclcpp::Node {
  public:
   bool FLAGS_use_mkldnn = true;
@@ -78,8 +75,137 @@ class SemanticSegmentationNode : public rclcpp::Node {
   std::string FLAGS_trt_precision = "fp32";
   bool FLAGS_use_trt_dynamic_shape = true;
   std::string FLAGS_dynamic_shape_path = resource_path + "/dynamic_shape.pbtxt";
-  std::string FLAGS_img_path = resource_path + "/cityscapes_demo.png";
   std::string FLAGS_devices = "GPU";
+
+  // ROS Parameters
+  std::string image_topic;
+  std::string publish_topic;
+  std::string model_path;
+  std::string save_dir;
+  bool save_images;
+
+  SemanticSegmentationNode() : Node("semantic_segmentation_node"), count_(0) {
+    this->declare_parameter<std::string>("input_topic", "/camera/left/image_color");
+    this->declare_parameter<std::string>("publish_topic", "/camera/left/segmentations");
+    this->declare_parameter<std::string>(
+        "model_path", "/perception_models/semantic_segmentation/pp_liteseg_infer_model/");
+    this->declare_parameter<std::string>(
+        "save_dir", "/tmp");
+    this->declare_parameter<bool>("save_images", false);
+
+    this->get_parameter("input_topic", image_topic);
+    this->get_parameter("publish_topic", publish_topic);
+    this->get_parameter("model_path", model_path);
+    this->get_parameter("save_dir", save_dir);
+    this->get_parameter("save_images", save_images);
+
+    RCLCPP_INFO(this->get_logger(), "subscribing to image_topic: %s", image_topic.c_str());
+
+    yaml_config_ = load_yaml(resource_path + "/deploy.yaml");
+
+    // Print out the yaml config
+    RCLCPP_INFO(this->get_logger(), "model_file: %s", yaml_config_.model_file.c_str());
+    RCLCPP_INFO(this->get_logger(), "params_file: %s", yaml_config_.params_file.c_str());
+    RCLCPP_INFO(this->get_logger(), "is_normalize: %d", yaml_config_.is_normalize);
+    RCLCPP_INFO(this->get_logger(), "is_resize: %d", yaml_config_.is_resize);
+
+    // Create the paddle predictor
+    predictor_ = create_predictor(yaml_config_);
+
+    // Subscribe to the image topic
+    subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
+        image_topic, 10,
+        std::bind(&SemanticSegmentationNode::image_callback, this, std::placeholders::_1));
+
+    image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(publish_topic, 10);
+  }
+
+  void image_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
+    RCLCPP_INFO(this->get_logger(), "Received image");
+    cv::Mat img;
+    cv::Mat original_img;
+
+    try {
+      img = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8)->image;
+      original_img = img.clone();
+    } catch (cv_bridge::Exception& e) {
+      RCLCPP_ERROR(this->get_logger(), "Could not convert from '%s' to 'bgr8'.",
+                   msg->encoding.c_str());
+      return;
+    }
+
+    // Process the image according to yaml config
+    RCLCPP_INFO(this->get_logger(), "Image shape before process: %d, %d, %d", img.rows, img.cols,
+                img.channels());
+    process_image(img, yaml_config_);
+
+    int rows = img.rows;
+    int cols = img.cols;
+    int chs = img.channels();
+    RCLCPP_INFO(this->get_logger(), "Image shape after process: %d, %d, %d", rows, cols, chs);
+    std::vector<float> input_data(1 * chs * rows * cols, 0.0f);
+    hwc_img_2_chw_data(img, input_data.data());
+
+    // Set input
+    auto input_names = predictor_->GetInputNames();
+    auto input_t = predictor_->GetInputHandle(input_names[0]);
+    std::vector<int> input_shape = {1, chs, rows, cols};
+    input_t->Reshape(input_shape);
+    input_t->CopyFromCpu(input_data.data());
+
+    // Start timing
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // Run
+    predictor_->Run();
+
+    // Stop timing
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // Calculate elapsed time
+    std::chrono::duration<double, std::milli> elapsed = end - start;
+
+    // Get output
+    auto output_names = predictor_->GetOutputNames();
+    auto output_t = predictor_->GetOutputHandle(output_names[0]);
+    std::vector<int> output_shape = output_t->shape();
+    int out_num =
+        std::accumulate(output_shape.begin(), output_shape.end(), 1, std::multiplies<int>());
+    std::vector<int32_t> out_data(out_num);
+    output_t->CopyToCpu(out_data.data());
+
+    // Get pseudo image
+    std::vector<uint8_t> out_data_u8(out_num);
+    cv::Mat out_gray_img(output_shape[1], output_shape[2], CV_8UC1, out_data_u8.data());
+    cv::Mat colored_img;
+    // apply cityscapes_labels_colormap to img
+    cv::cvtColor(out_gray_img, colored_img, cv::COLOR_GRAY2BGR);
+    for (int i = 0; i < output_shape[1]; i++) {
+      for (int j = 0; j < output_shape[2]; j++) {
+        int label = out_data[i * output_shape[2] + j];
+        if (cityscapes_labels.find(label) != cityscapes_labels.end()) {
+          auto [r, g, b] = cityscapes_label_colormap[label];
+          colored_img.at<cv::Vec3b>(i, j) = cv::Vec3b(b, g, r);
+        }
+      }
+    }
+
+    if (save_images) {
+      std::string filename = save_dir + "/segmentation_" + std::to_string(count_) + ".jpg";
+      cv::imwrite(filename, colored_img);
+      filename = save_dir + "/orig_segmentation_" + std::to_string(count_) + ".jpg";
+      cv::imwrite(filename, original_img);
+      RCLCPP_INFO(this->get_logger(), "Saved image to %s", filename.c_str());
+    }
+    count_++;
+
+    RCLCPP_INFO(this->get_logger(), "inference took %f ms", elapsed.count());
+
+    sensor_msgs::msg::Image::SharedPtr out_img_msg =
+        cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", colored_img).toImageMsg();
+
+    image_publisher_->publish(*out_img_msg);
+  }
 
   std::shared_ptr<paddle_infer::Predictor> create_predictor(const YamlConfig& yaml_config) {
     paddle_infer::Config infer_config;
@@ -100,8 +226,6 @@ class SemanticSegmentationNode : public rclcpp::Node {
 
       // TRT config
       if (FLAGS_use_trt) {
-        //   LOG(INFO) << "Use TRT";
-        //   LOG(INFO) << "trt_precision:" << FLAGS_trt_precision;
         RCLCPP_INFO(this->get_logger(), "trt_precision: %s", FLAGS_trt_precision.c_str());
 
         // TRT precision
@@ -236,8 +360,6 @@ class SemanticSegmentationNode : public rclcpp::Node {
   }
 
   void process_image(cv::Mat& img, const YamlConfig& yaml_config) {
-    // cv::Mat img = cv::imread(FLAGS_img_path, cv::IMREAD_COLOR);
-    // img = resizeWithPadding(img, 2048, 1024);
     img = resizeFromCenter(img, 2048, 1024);
     cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
     if (yaml_config.is_resize) {
@@ -249,141 +371,7 @@ class SemanticSegmentationNode : public rclcpp::Node {
     }
   }
 
-  cv::Mat read_process_image(const YamlConfig& yaml_config) {
-    cv::Mat img = cv::imread(FLAGS_img_path, cv::IMREAD_COLOR);
-    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
-    if (yaml_config.is_resize) {
-      cv::resize(img, img, cv::Size(yaml_config.resize_width, yaml_config.resize_height));
-    }
-    if (yaml_config.is_normalize) {
-      img.convertTo(img, CV_32F, 1.0 / 255, 0);
-      img = (img - 0.5) / 0.5;
-    }
-    return img;
-  }
-
-  SemanticSegmentationNode() : Node("semantic_segmentation_node"), count_(0) {
-    // Get the image topic parameter from the launch file)
-    std::string image_topic = this->declare_parameter("input_topic", "/camera/center/image_color");
-    image_topic = this->get_parameter("input_topic").as_string();
-    RCLCPP_INFO(this->get_logger(), "subscribing to image_topic: %s", image_topic.c_str());
-
-    publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
-    yaml_config_ = load_yaml(resource_path + "/deploy.yaml");
-
-    // Print out the yaml config
-    RCLCPP_INFO(this->get_logger(), "model_file: %s", yaml_config_.model_file.c_str());
-    RCLCPP_INFO(this->get_logger(), "params_file: %s", yaml_config_.params_file.c_str());
-    RCLCPP_INFO(this->get_logger(), "is_normalize: %d", yaml_config_.is_normalize);
-    RCLCPP_INFO(this->get_logger(), "is_resize: %d", yaml_config_.is_resize);
-
-    // Create the paddle predictor
-    predictor_ = create_predictor(yaml_config_);
-
-    // Subscribe to the image topic
-    subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
-        image_topic, 10,
-        std::bind(&SemanticSegmentationNode::image_callback, this, std::placeholders::_1));
-
-    image_publisher_ =
-        this->create_publisher<sensor_msgs::msg::Image>("semantic_segmentation_image", 10);
-  }
-
  private:
-  void image_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
-    RCLCPP_INFO(this->get_logger(), "Received image");
-    cv::Mat img;
-    cv::Mat original_img;
-
-    // Convert msg to a cv mat
-
-    try {
-      img = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8)->image;
-      original_img = img.clone();
-    } catch (cv_bridge::Exception& e) {
-      RCLCPP_ERROR(this->get_logger(), "Could not convert from '%s' to 'bgr8'.",
-                   msg->encoding.c_str());
-      return;
-    }
-
-    // Process the image according to yaml config
-    RCLCPP_INFO(this->get_logger(), "Image shape before process: %d, %d, %d", img.rows, img.cols,
-                img.channels());
-    process_image(img, yaml_config_);
-    // img = read_process_image(yaml_config_);
-
-    int rows = img.rows;
-    int cols = img.cols;
-    int chs = img.channels();
-    RCLCPP_INFO(this->get_logger(), "Image shape after process: %d, %d, %d", rows, cols, chs);
-    std::vector<float> input_data(1 * chs * rows * cols, 0.0f);
-    hwc_img_2_chw_data(img, input_data.data());
-
-    // Set input
-    auto input_names = predictor_->GetInputNames();
-    auto input_t = predictor_->GetInputHandle(input_names[0]);
-    std::vector<int> input_shape = {1, chs, rows, cols};
-    input_t->Reshape(input_shape);
-    input_t->CopyFromCpu(input_data.data());
-
-    // Start timing
-    auto start = std::chrono::high_resolution_clock::now();
-
-    // Run
-    predictor_->Run();
-
-    // Stop timing
-    auto end = std::chrono::high_resolution_clock::now();
-
-    // Calculate elapsed time
-    std::chrono::duration<double, std::milli> elapsed = end - start;
-
-    // Get output
-    auto output_names = predictor_->GetOutputNames();
-    auto output_t = predictor_->GetOutputHandle(output_names[0]);
-    std::vector<int> output_shape = output_t->shape();
-    int out_num =
-        std::accumulate(output_shape.begin(), output_shape.end(), 1, std::multiplies<int>());
-    std::vector<int32_t> out_data(out_num);
-    output_t->CopyToCpu(out_data.data());
-
-    // Get pseudo image
-    std::vector<uint8_t> out_data_u8(out_num);
-    cv::Mat out_gray_img(output_shape[1], output_shape[2], CV_8UC1, out_data_u8.data());
-    cv::Mat colored_img;
-    // apply cityscapes_labels_colormap to img
-    cv::cvtColor(out_gray_img, colored_img, cv::COLOR_GRAY2BGR);
-    for (int i = 0; i < output_shape[1]; i++) {
-      for (int j = 0; j < output_shape[2]; j++) {
-        int label = out_data[i * output_shape[2] + j];
-        if (cityscapes_labels.find(label) != cityscapes_labels.end()) {
-          auto [r, g, b] = cityscapes_label_colormap[label];
-          colored_img.at<cv::Vec3b>(i, j) = cv::Vec3b(b, g, r);
-        }
-      }
-    }
-
-    if (count_ < 1000) {
-      // write the source image
-      cv::imwrite("/home/bolty/ament_ws/src/semantic_segmentation/test/src_img" +
-                      std::to_string(count_) + ".jpg",
-                  original_img);
-      // write the segmentation image
-      cv::imwrite("/home/bolty/ament_ws/src/semantic_segmentation/test/out_img" +
-                      std::to_string(count_) + ".jpg",
-                  colored_img);
-      RCLCPP_INFO(this->get_logger(), "Image written to /tmp/out_img%d.jpg, inference took %f ms",
-                  count_, elapsed.count());
-      count_++;
-    }
-
-    // Publish color image to topic
-    sensor_msgs::msg::Image::SharedPtr out_img_msg =
-        cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", colored_img).toImageMsg();
-
-    image_publisher_->publish(*out_img_msg);
-  }
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
   int count_;
