@@ -1,5 +1,6 @@
 #include <cv_bridge/cv_bridge.h>
 #include <chrono>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <opencv2/opencv.hpp>
@@ -89,8 +90,7 @@ class SemanticSegmentationNode : public rclcpp::Node {
     this->declare_parameter<std::string>("publish_topic", "/camera/left/segmentations");
     this->declare_parameter<std::string>(
         "model_path", "/perception_models/semantic_segmentation/pp_liteseg_infer_model/");
-    this->declare_parameter<std::string>(
-        "save_dir", "/tmp");
+    this->declare_parameter<std::string>("save_dir", "/tmp");
     this->declare_parameter<bool>("save_images", false);
 
     this->get_parameter("input_topic", image_topic);
@@ -98,6 +98,10 @@ class SemanticSegmentationNode : public rclcpp::Node {
     this->get_parameter("model_path", model_path);
     this->get_parameter("save_dir", save_dir);
     this->get_parameter("save_images", save_images);
+
+    if (!std::filesystem::exists(save_dir)) {
+      std::filesystem::create_directories(save_dir);
+    }
 
     RCLCPP_INFO(this->get_logger(), "subscribing to image_topic: %s", image_topic.c_str());
 
@@ -191,18 +195,18 @@ class SemanticSegmentationNode : public rclcpp::Node {
     }
 
     if (save_images) {
-      std::string filename = save_dir + "/segmentation_" + std::to_string(count_) + ".jpg";
+      std::string filename = save_dir + "/segmented_" + std::to_string(count_) + ".jpg";
       cv::imwrite(filename, colored_img);
-      filename = save_dir + "/orig_segmentation_" + std::to_string(count_) + ".jpg";
+      RCLCPP_INFO(this->get_logger(), "Saved segmented image to %s", filename.c_str());
+      filename = save_dir + "/src_" + std::to_string(count_) + ".jpg";
       cv::imwrite(filename, original_img);
-      RCLCPP_INFO(this->get_logger(), "Saved image to %s", filename.c_str());
     }
     count_++;
 
     RCLCPP_INFO(this->get_logger(), "inference took %f ms", elapsed.count());
 
     sensor_msgs::msg::Image::SharedPtr out_img_msg =
-        cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", colored_img).toImageMsg();
+        cv_bridge::CvImage(msg->header, "bgr8", colored_img).toImageMsg();
 
     image_publisher_->publish(*out_img_msg);
   }
