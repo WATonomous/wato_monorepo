@@ -3,5 +3,5 @@ semantic_segmentation_node:
     input_topic: /camera/left/image_color
     publish_topic: /camera/left/segmentations
     model_path: /perception_models/semantic_segmentation/pp_liteseg_infer_model/
-    save_dir: /tmp
+    save_dir: /segmented
     save_images: false
