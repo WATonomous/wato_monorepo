@@ -16,7 +16,8 @@
 
 using namespace std::chrono_literals;
 
-std::string resource_path = "/home/bolty/ament_ws/src/semantic_segmentation/resource";
+std::string resource_path =
+    "/home/bolty/ament_ws/install/semantic_segmentation/share/semantic_segmentation/resource";
 std::string model_path = "/perception_models/semantic_segmentation/pp_liteseg_infer_model/";
 // 19 classes
 std::unordered_map<int, std::string> cityscapes_labels = {
