@@ -81,6 +81,7 @@ class SemanticSegmentationNode : public rclcpp::Node {
   // ROS Parameters
   std::string image_topic;
   std::string publish_topic;
+  std::string publish_vis_topic;
   std::string model_path;
   std::string save_dir;
   bool save_images;
@@ -88,6 +89,7 @@ class SemanticSegmentationNode : public rclcpp::Node {
   SemanticSegmentationNode() : Node("semantic_segmentation_node"), count_(0) {
     this->declare_parameter<std::string>("input_topic", "/camera/left/image_color");
     this->declare_parameter<std::string>("publish_topic", "/camera/left/segmentations");
+    this->declare_parameter<std::string>("publish_vis_topic", "/camera/left/segmentations_viz");
     this->declare_parameter<std::string>(
         "model_path", "/perception_models/semantic_segmentation/pp_liteseg_infer_model/");
     this->declare_parameter<std::string>("save_dir", "/tmp");
@@ -95,6 +97,7 @@ class SemanticSegmentationNode : public rclcpp::Node {
 
     this->get_parameter("input_topic", image_topic);
     this->get_parameter("publish_topic", publish_topic);
+    this->get_parameter("publish_vis_topic", publish_vis_topic);
     this->get_parameter("model_path", model_path);
     this->get_parameter("save_dir", save_dir);
     this->get_parameter("save_images", save_images);
@@ -122,6 +125,7 @@ class SemanticSegmentationNode : public rclcpp::Node {
         std::bind(&SemanticSegmentationNode::image_callback, this, std::placeholders::_1));
 
     image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(publish_topic, 10);
+    image_viz_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(publish_vis_topic, 10);
   }
 
   void image_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
@@ -205,10 +209,14 @@ class SemanticSegmentationNode : public rclcpp::Node {
 
     RCLCPP_INFO(this->get_logger(), "inference took %f ms", elapsed.count());
 
+    sensor_msgs::msg::Image::SharedPtr out_gray_img_msg =
+        cv_bridge::CvImage(msg->header, "mono8", out_gray_img).toImageMsg();
+
     sensor_msgs::msg::Image::SharedPtr out_img_msg =
         cv_bridge::CvImage(msg->header, "bgr8", colored_img).toImageMsg();
 
-    image_publisher_->publish(*out_img_msg);
+    image_publisher_->publish(*out_gray_img_msg);
+    image_viz_publisher_->publish(*out_img_msg);
   }
 
   std::shared_ptr<paddle_infer::Predictor> create_predictor(const YamlConfig& yaml_config) {
@@ -378,6 +386,7 @@ class SemanticSegmentationNode : public rclcpp::Node {
  private:
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_viz_publisher_;
   int count_;
   std::shared_ptr<paddle_infer::Predictor> predictor_;
   YamlConfig yaml_config_;

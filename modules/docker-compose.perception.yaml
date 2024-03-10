@@ -55,7 +55,7 @@ services:
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch semantic_segmentation eve_semantic.launch.py"
+    command: /bin/bash -c "ros2 launch semantic_segmentation eve.launch.py"
     deploy:
       resources:
         reservations:
