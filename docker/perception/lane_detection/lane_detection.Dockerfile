@@ -7,7 +7,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/perception/lane_detection lane_detection
-COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/perception_msgs/lane_detection_msgs lane_detection_msgs
 
 # Scan for rosdeps
