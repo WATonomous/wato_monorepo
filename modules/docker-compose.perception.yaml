@@ -75,7 +75,7 @@ services:
               count: 1
               capabilities: [gpu]
     volumes:
-      - /mnt/wato-drive2/perception-weights/tensorrt_model/ultra_fast_lane_detection_v2/resource/model/ufldv2_culane_res34_320x1600.onnx:/home/bolty/ament_ws/build/lane_detection/resource/model/ufldv2_culane_res34_320x1600.onnx
+      - /mnt/wato-drive2/perception-weights/tensorrt_model/ultra_fast_lane_detection_v2/resource/model/ufldv2_culane_res34_320x1600.onnx:/models/ufldv2_culane_res34_320x1600.onnx
 
   tracking:
     build:
