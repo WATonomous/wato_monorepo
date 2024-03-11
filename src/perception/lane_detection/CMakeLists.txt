@@ -17,12 +17,12 @@ endif()
 ### TensorRT model ###
 
 # Select build system and set compile options
-include(${CMAKE_CURRENT_LIST_DIR}/src/tensorrt_model/common_helper/cmakes/build_setting.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/src/lane_detection_tensorrt/common_helper/cmakes/build_setting.cmake)
 
 add_executable(lane_detection src/lane_detection_node.cpp)
 
-add_subdirectory(./src/tensorrt_model/ultra_fast_lane_detection_v2/image_processor image_processor)
-target_include_directories(${ProjectName} PUBLIC ./src/tensorrt_model/ultra_fast_lane_detection_v2/image_processor)
+add_subdirectory(./src/lane_detection_tensorrt/ultra_fast_lane_detection_v2/image_processor image_processor)
+target_include_directories(${ProjectName} PUBLIC ./src/lane_detection_tensorrt/ultra_fast_lane_detection_v2/image_processor)
 target_link_libraries(${ProjectName} ImageProcessor)
 
 find_package(OpenCV REQUIRED)
@@ -30,7 +30,7 @@ target_include_directories(${ProjectName} PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(${ProjectName} ${OpenCV_LIBS})
 
 # Copy resouce
-add_definitions(-DRESOURCE_DIR="${CMAKE_BINARY_DIR}/resource/")
+add_definitions(-DRESOURCE_DIR="/models/")
 
 ### End of TensorRT model ###
 
