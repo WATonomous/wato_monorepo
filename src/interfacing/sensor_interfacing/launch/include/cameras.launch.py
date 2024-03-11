@@ -15,9 +15,14 @@ def generate_launch_description():
         get_package_share_directory('spinnaker_camera_driver'), 'config', 'blackfly_s.yaml'))
     parameter_file_arg = DeclareLaunchArgument('parameter_file', default_value=parameter_file,
                                                description='path to ros parameter definition file (override camera type)')
-    serial = LaunchConfiguration('serial', default="'20435008'")
+    serial = LaunchConfiguration('serial', default="'18542606'")
     serial_arg = DeclareLaunchArgument('serial', default_value=serial,
                                        description='FLIR serial number of camera (in quotes!!)')
+    
+    # extra_params = { 'debug': True,
+    #                  #'device_link_throughput_limit': 125000000,
+    #                  #'gev_scps_packet_size': 9000,
+    #                  }
 
     camera_node = Node(
         package='spinnaker_camera_driver',
@@ -25,7 +30,8 @@ def generate_launch_description():
         output='screen',
         name='flir_camera',
         parameters=[{'parameter_file': parameter_file,
-                     'serial_number': [serial]}],
+                     'serial_number': [serial],
+                    }],
         remappings=[
             ('~/control', '/exposure_control/control'),
         ])

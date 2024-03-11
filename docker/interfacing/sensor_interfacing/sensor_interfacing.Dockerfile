@@ -7,17 +7,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/interfacing/sensor_interfacing sensor_interfacing
-COPY src/wato_msgs/sample_msgs sample_msgs
-
-# Camera ROS2 Driver
-RUN git clone https://github.com/ros-drivers/flir_camera_driver.git && \
-    cd flir_camera_driver && \
-    git checkout humble-release
-
-# LiDAR ROS2 Driver
-RUN git clone https://github.com/ros-drivers/velodyne.git && \
-    cd velodyne && \
-    git checkout humble-devel
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -28,6 +17,9 @@ RUN apt-get -qq update && rosdep update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
+
+# Camera and LiDAR ROS2 Driver
+RUN apt update && apt install -y ros-$ROS_DISTRO-spinnaker-camera-driver ros-$ROS_DISTRO-velodyne
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
