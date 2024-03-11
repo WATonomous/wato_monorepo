@@ -11,6 +11,7 @@ services:
       target: deploy
     image: "${INTERFACING_SENSOR_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch sensor_interfacing all_sensors.launch.py"
+    network_mode: "host"
 
   can_interfacing:
     build:
