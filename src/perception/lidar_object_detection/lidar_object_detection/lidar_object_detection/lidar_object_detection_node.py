@@ -18,10 +18,9 @@ from pcdet.utils import common_utils
 
 class LidarObjectDetection(Node):
     def __init__(self):
-        super().__init__("lidar_object_detection")
-        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth")
-        self.declare_parameter(
-            "model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml")
+        super().__init__('lidar_object_detection')
+        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/transfusion_trained_model.pth")
+        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml")
         self.declare_parameter("lidar_topic", "/velodyne_points")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
@@ -79,41 +78,41 @@ class LidarObjectDetection(Node):
 
     def publish_bounding_boxes(self, pointcloud_msg, pred_dicts):
         marker_array = MarkerArray()
-        for idx, box in enumerate(pred_dicts[0]["pred_boxes"]):
-            marker = Marker()
-            marker.header = pointcloud_msg.header
-            marker.id = idx
-            marker.type = Marker.CUBE
-            marker.action = Marker.ADD
-            marker.pose.position.x = float(box[0])
-            marker.pose.position.y = float(box[1])
-            marker.pose.position.z = float(box[2])
-            marker.pose.orientation.w = 1.0
-            marker.scale.x = float(box[3])
-            marker.scale.y = float(box[4])
-            marker.scale.z = float(box[5])
-            marker.color.a = 0.8
-            marker.color.r = 1.0
-            marker.color.g = 0.0
-            marker.color.b = float(pred_dicts[0]["pred_labels"][idx]) / 3
-            marker_array.markers.append(marker)
-
         detections = Detection3DArray()
         detections.header = pointcloud_msg.header
-        for idx, box in enumerate(pred_dicts[0]["pred_boxes"]):
-            detection = Detection3D()
-            detection.header = pointcloud_msg.header
-            detection.bbox.center.position.x = float(box[0])
-            detection.bbox.center.position.y = float(box[1])
-            detection.bbox.center.position.z = float(box[2])
-            detection.bbox.size.x = float(box[3])
-            detection.bbox.size.y = float(box[4])
-            detection.bbox.size.z = float(box[5])
-            detected_object = ObjectHypothesisWithPose()
-            detected_object.hypothesis.class_id = str(pred_dicts[0]["pred_labels"][idx])
-            detected_object.hypothesis.score = float(pred_dicts[0]["pred_scores"][idx])
-            detection.results.append(detected_object)
-            detections.detections.append(detection)
+        for idx, (box, score) in enumerate(zip(pred_dicts[0]["pred_boxes"], pred_dicts[0]["pred_scores"])):
+            if score > 0.1:
+                marker = Marker()
+                marker.header = pointcloud_msg.header
+                marker.id = idx
+                marker.type = Marker.CUBE
+                marker.action = Marker.ADD
+                marker.pose.position.x = float(box[0])
+                marker.pose.position.y = float(box[1])
+                marker.pose.position.z = float(box[2])
+                marker.pose.orientation.w = 1.0
+                marker.scale.x = float(box[3])
+                marker.scale.y = float(box[4])
+                marker.scale.z = float(box[5])
+                marker.color.a = 0.8
+                marker.color.r = 1.0
+                marker.color.g = 0.0
+                marker.color.b = float(pred_dicts[0]["pred_labels"][idx]) / 3
+                marker_array.markers.append(marker)
+
+                detection = Detection3D()
+                detection.header = pointcloud_msg.header
+                detection.bbox.center.position.x = float(box[0])
+                detection.bbox.center.position.y = float(box[1])
+                detection.bbox.center.position.z = float(box[2])
+                detection.bbox.size.x = float(box[3])
+                detection.bbox.size.y = float(box[4])
+                detection.bbox.size.z = float(box[5])
+                detected_object = ObjectHypothesisWithPose()
+                detected_object.hypothesis.class_id = str(pred_dicts[0]["pred_labels"][idx])
+                detected_object.hypothesis.score = float(pred_dicts[0]["pred_scores"][idx])
+                detection.results.append(detected_object)
+                detections.detections.append(detection)
 
         self.viz_publisher.publish(marker_array)
         self.detections_publisher.publish(detections)
