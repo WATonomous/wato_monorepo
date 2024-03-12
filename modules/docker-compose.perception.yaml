@@ -42,9 +42,11 @@ services:
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch lidar_object_detection eve_launch.py"
     volumes:
-      - /mnt/wato-drive2/perception_models/cbgs_transfusion_lidar.pth:/home/bolty/OpenPCDet/models/cbgs_transfusion_lidar.pth
+      - /mnt/wato-drive2/perception_models/transfusion_trained_model.pth:/home/bolty/OpenPCDet/models/transfusion_trained_model.pth
       - /mnt/wato-drive2/perception_models/pv_rcnn_8369.pth:/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth
+      - /mnt/wato-drive2/perception_models/pv_rcnn_8369.pth:/home/bolty/OpenPCDet/models/nuscenes_trained_voxelNext.pth
       - /mnt/wato-drive2/nuscenes-1.0-mini:/home/bolty/OpenPCDet/data/nuscenes/v1.0-mini
+      - /mnt/wato-drive2/wato-datasets/nuscenes/full-dataset:/home/bolty/OpenPCDet/data/nuscenes/v1.0-trainval
   traffic_light_detection:
     build:
       context: ..
