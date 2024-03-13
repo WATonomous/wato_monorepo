@@ -8,6 +8,7 @@
 #include <geometry_msgs/msg/point.hpp>
 
 #include <vector>
+#include <optional>
 
 // main helper functions used by the node -- should all be static
 class DetUtils
@@ -21,7 +22,7 @@ public:
                 const vision_msgs::msg::BoundingBox2D& bbox);
 
         // P : projection matrix, pt : 3D lidar pt, transform: transform from lidar to camera frame
-        static geometry_msgs::msg::Point projectLidarToCamera(
+        static std::optional<geometry_msgs::msg::Point> projectLidarToCamera(
                 const geometry_msgs::msg::TransformStamped& transform,
                 const std::array<double, 12>& P, 
                 const pcl::PointXYZ& pt);

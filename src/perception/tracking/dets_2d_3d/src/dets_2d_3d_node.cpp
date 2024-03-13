@@ -12,8 +12,16 @@
 #include <iostream>
 #include <memory>
 
+
 TrackingNode::TrackingNode() : Node("dets_2d_3d"), lidarCloud_{new pcl::PointCloud<pcl::PointXYZ>()}, transformInited_{false} 
 {
+  {
+    std_msgs::msg::ColorRGBA r; r.r = 255; detColors["car"] = r;
+    std_msgs::msg::ColorRGBA b; b.b = 255; detColors["truck"] = b;
+    std_msgs::msg::ColorRGBA g; g.g = 255; detColors["person"] = g;
+    std_msgs::msg::ColorRGBA blk; detColors["default"] = blk;
+  }
+
   camInfo_subscriber_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
     "/CAM_FRONT/camera_info", 10, 
     std::bind(&TrackingNode::readCameraInfo, this, std::placeholders::_1));
@@ -58,6 +66,9 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     try {
         transform_ = tf_buffer_ ->lookupTransform("CAM_FRONT", "LIDAR_TOP", msg->header.stamp);
         transformInited_ = true;
+        RCLCPP_INFO(this->get_logger(), "got transform: \nquaternion: (%f, %f, %f, %f), \ntranslation: (%f, %f, %f)",
+          transform_.transform.rotation.x, transform_.transform.rotation.y, transform_.transform.rotation.z, transform_.transform.rotation.w,
+          transform_.transform.translation.x, transform_.transform.translation.y, transform_.transform.translation.z);
     } catch (const tf2::TransformException & ex) {
         RCLCPP_INFO(this->get_logger(), "Could not transform %s", ex.what());
         return;
@@ -76,16 +87,17 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
 
   // transform all lidar pts to 2d
   std::vector<geometry_msgs::msg::Point> lidar2dProjs;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr inCameraPoints(new pcl::PointCloud<pcl::PointXYZ>());
   for (const pcl::PointXYZ& pt : lidarCloudNoFloor->points)
-  {
-    geometry_msgs::msg::Point proj = DetUtils::projectLidarToCamera(transform_, camInfo_->p, pt);
-    if (proj.z >= 0) 
+  {    
+    std::optional<geometry_msgs::msg::Point> proj = DetUtils::projectLidarToCamera(transform_, camInfo_->p, pt);
+    if (proj) 
     {
-      lidar2dProjs.emplace_back(proj);
-      // RCLCPP_INFO(this->get_logger(), "transform to 2d %f , %f, %f", proj.x, proj.y, proj.z);
+      inCameraPoints->emplace_back(pt);
+      lidar2dProjs.emplace_back(*proj);
     }
   }
-
+  
   // temporarily also publish viz markers
   visualization_msgs::msg::MarkerArray markerArray3d;
   vision_msgs::msg::Detection3DArray detArray3d;
@@ -100,9 +112,12 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
 
     // process lidarcloud with extrinsic trans from lidar to cam frame
     pcl::PointCloud<pcl::PointXYZ>::Ptr inlierPoints(new pcl::PointCloud<pcl::PointXYZ>());
-    DetUtils::pointsInBbox(inlierPoints, lidarCloudNoFloor, lidar2dProjs, bbox);
-    if (inlierPoints->size() == 0) continue;
-
+    DetUtils::pointsInBbox(inlierPoints, inCameraPoints, lidar2dProjs, bbox);
+    if (inlierPoints->size() == 0) {
+      RCLCPP_INFO(this->get_logger(), "no inliers");
+      continue;
+    }
+    
     mergedClusters += *inlierPoints;
     
     RCLCPP_INFO(this->get_logger(), "restrict to 2d %ld vs %ld", inlierPoints->size(), lidarCloudNoFloor->size());
@@ -139,13 +154,21 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
       marker.type =  visualization_msgs::msg::Marker::CUBE;
       marker.scale = maybeBbox.size;
       marker.pose = maybeBbox.center;
-      marker.header.frame_id = "CAM_FRONT_RIGHT";
+      marker.header.frame_id = "LIDAR_TOP";
       marker.header.stamp = msg->header.stamp;
       marker.id = bboxId;
+
+      // marker.color.r = 1.0;
+
+      // if (const auto& it = detColors.find(det.results[0].hypothesis.class_id); it != detColors.end())
+      //   marker.color = it->second;
+      // else
+      //   marker.color = detColors["default"];
 
       markerArray3d.markers.push_back(marker);
       ++bboxId;
     }
+    break; // look at one det for debugging
   }
 
   det3d_publisher_->publish(detArray3d);
@@ -165,6 +188,7 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
   pc_publisher_->publish(pubCloud);
 
   RCLCPP_INFO(this->get_logger(), "published 3d detection %ld", markerArray3d.markers.size());
+  
 }
 
 int TrackingNode::highestIOUScoredBBox(
@@ -188,14 +212,16 @@ int TrackingNode::highestIOUScoredBBox(
     bottom_right.y = b.center.position.y + b.size.y/2;
     bottom_right.z = b.center.position.z + b.size.z/2;
 
-    geometry_msgs::msg::Point top_left2d = DetUtils::projectLidarToCamera(transform_, camInfo_->p, top_left);
-    geometry_msgs::msg::Point bottom_right2d = DetUtils::projectLidarToCamera(transform_, camInfo_->p, bottom_right);
+    std::optional<geometry_msgs::msg::Point> top_left2d = DetUtils::projectLidarToCamera(transform_, camInfo_->p, top_left);
+    std::optional<geometry_msgs::msg::Point> bottom_right2d = DetUtils::projectLidarToCamera(transform_, camInfo_->p, bottom_right);
+
+    if (!top_left2d || !bottom_right2d) return 0;
 
     vision_msgs::msg::BoundingBox2D bbox2d;
-    bbox2d.center.position.x = ((top_left2d.x/top_left2d.z) + (bottom_right2d.x/bottom_right2d.z))/2;
-    bbox2d.center.position.y = ((top_left2d.y/top_left2d.z) + (bottom_right2d.y/bottom_right2d.z))/2;
-    bbox2d.size_x = abs(top_left2d.x - bottom_right2d.x);
-    bbox2d.size_y = abs(top_left2d.y - bottom_right2d.y);
+    bbox2d.center.position.x = ((top_left2d->x/top_left2d->z) + (bottom_right2d->x/bottom_right2d->z))/2;
+    bbox2d.center.position.y = ((top_left2d->y/top_left2d->z) + (bottom_right2d->y/bottom_right2d->z))/2;
+    bbox2d.size_x = abs(top_left2d->x - bottom_right2d->x);
+    bbox2d.size_y = abs(top_left2d->y - bottom_right2d->y);
 
     double iou = iouScore(bbox2d, detBBox);
     RCLCPP_INFO(this->get_logger(), "pos: %f, %f, %f, size: %f, %f, %f : iou %f", 
