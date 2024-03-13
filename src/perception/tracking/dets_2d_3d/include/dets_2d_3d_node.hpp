@@ -11,6 +11,8 @@
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
+#include "tf2_ros/static_transform_broadcaster.h"
+
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -42,7 +44,6 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc_publisher_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc_publisher2_;
 
-    // temp
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
@@ -60,4 +61,7 @@ private:
         const vision_msgs::msg::BoundingBox2D& bboxA, 
         const vision_msgs::msg::BoundingBox2D& bboxB);
 
+    // temp add colours to markers, corresponding to 
+    std::map<std::string, std_msgs::msg::ColorRGBA> detColors;
+    std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_broadcaster_;
 };

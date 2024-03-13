@@ -39,7 +39,7 @@ void DetUtils::pointsInBbox(
 {
     for (int i=0; i<projs2d.size(); ++i)
     {
-        // P * [x y z 1]^T, P is row major; eigen is probably overkill
+        // P * [x y z 1]^T, P is row major
         // check if projected point is in the bbox
         if (isPointInBbox(projs2d[i], bbox))
         {
@@ -48,10 +48,11 @@ void DetUtils::pointsInBbox(
 
     }
 }
-
+  
 bool DetUtils::isPointInBbox(const geometry_msgs::msg::Point& pt, const vision_msgs::msg::BoundingBox2D& bbox)
 {
-    double padding = 20;
+    return true;
+    double padding = 0;
 
     if (bbox.center.position.x - bbox.size_x/2 - padding < pt.x && pt.x < bbox.center.position.x + bbox.size_x/2 + padding
        && bbox.center.position.y - bbox.size_y/2 - padding < pt.y && pt.y < bbox.center.position.y + bbox.size_y/2 + padding)
@@ -59,33 +60,34 @@ bool DetUtils::isPointInBbox(const geometry_msgs::msg::Point& pt, const vision_m
         return true;
     }
 
-    // if (pt.x > 0 && pt.x < 1600 && pt.y > 0 && pt.y < 900)
-    //     return true;
-    return false;
 }
 
-/*
-
+/* intrin
 1266.417203046554       0.0                 816.2670197447984   0.0
 0.0                     1266.417203046554   491.50706579294757  0.0                 
 0.0                     0.0                 1.0                 0.0
-
-
 */
 
-geometry_msgs::msg::Point DetUtils::projectLidarToCamera(
+std::optional<geometry_msgs::msg::Point> DetUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform,
     const std::array<double, 12>& p, 
     const pcl::PointXYZ& pt)
 {
     // lidar to camera frame
     auto trans_pt = geometry_msgs::msg::Point();
+    // rotate points extra 90 degs [TODO]  90 roll, 90 yaw
+    geometry_msgs::msg::TransformStamped t;
+    t.header = transform.header;
+    t.transform.translation = transform.transform.translation;
+
     auto orig_pt = geometry_msgs::msg::Point();
     orig_pt.x = pt.x;
     orig_pt.y = pt.y;
     orig_pt.z = pt.z;
 
     tf2::doTransform(orig_pt, trans_pt, transform);
+
+    if (trans_pt.z < 1) return std::nullopt;
 
     // camera frame to camera 2D projection
     double u = p[0] * trans_pt.x + p[1] * trans_pt.y + p[2] * trans_pt.z + p[3];
@@ -95,9 +97,10 @@ geometry_msgs::msg::Point DetUtils::projectLidarToCamera(
     auto proj_pt = geometry_msgs::msg::Point();
     proj_pt.x = u/w;
     proj_pt.y = v/w;
-    proj_pt.z = w; // needed to check if front/behind camera
 
-    return proj_pt;
+    // check if inside camera frame bounds -- earlier filtering
+    if (proj_pt.x > 0 && proj_pt.x < 1600 && proj_pt.y > 0 && proj_pt.y < 900) return proj_pt;
+    return std::nullopt;
 }
 
 // https://pointclouds.org/documentation/tutorials/progressive_morphological_filtering.html
