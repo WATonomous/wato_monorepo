@@ -3,14 +3,13 @@
 <package format="3">
   <name>lane_detection</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="perception@watonomous.ca">perception</maintainer>
+  <description>Lane Detection using ultra-fast-lane-detection_v2</description>
+  <maintainer email="j89leung@watonomous.ca">Justin Leung</maintainer>
+  <maintainer email="s36gong@uwaterloo.ca">Steven Gong</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>lane_detection_msgs</depend>
