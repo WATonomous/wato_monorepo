@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+import os
 
 from sensor_msgs.msg import Image, CompressedImage
 from vision_msgs.msg import (
@@ -9,7 +10,7 @@ from vision_msgs.msg import (
 )
 
 from ultralytics.nn.autobackend import AutoBackend
-from ultralytics.data.augment import LetterBox
+from ultralytics.data.augment import LetterBox, CenterCrop
 from ultralytics.utils.ops import non_max_suppression
 from ultralytics.utils.plotting import Annotator, colors
 
@@ -37,18 +38,24 @@ class CameraDetectionNode(Node):
         self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
         self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
+        self.declare_parameter("crop_mode", "LetterBox")
+        self.declare_parameter("save_detections", False)
 
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
-        self.publish_detection_topic = self.get_parameter(
-            "publish_detection_topic").value
+        self.publish_detection_topic = self.get_parameter("publish_detection_topic").value
         self.model_path = self.get_parameter("model_path").value
         self.image_size = self.get_parameter("image_size").value
         self.compressed = self.get_parameter("compressed").value
+        self.crop_mode = self.get_parameter("crop_mode").value
+        self.save_detections = bool(self.get_parameter("save_detections").value)
+        self.counter = 0  # For saving detections
+        if self.save_detections:
+            if not os.path.exists("detections"):
+                os.makedirs("detections")
 
         self.line_thickness = 1
         self.half = False
-        self.augment = False
 
         self.subscription = self.create_subscription(
             Image if not self.compressed else CompressedImage,
@@ -61,9 +68,11 @@ class CameraDetectionNode(Node):
             ),
         )
 
+        self.orig_image_width = None
+        self.orig_image_height = None
+
         # set device
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if torch.cuda.is_available():
             self.get_logger().info("Using GPU for inference")
         else:
@@ -73,24 +82,69 @@ class CameraDetectionNode(Node):
         self.cv_bridge = CvBridge()
 
         # load yolov8 model
-        self.model = AutoBackend(
-            self.model_path, device=self.device, dnn=False, fp16=False)
+        self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
 
-        self.names = self.model.module.names if hasattr(
-            self.model, "module") else self.model.names
+        self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
 
         self.stride = int(self.model.stride)
 
         # setup vis publishers
-        self.vis_publisher = self.create_publisher(
-            Image, self.publish_vis_topic, 10)
+        self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
         self.detection_publisher = self.create_publisher(
-            Detection2DArray, self.publish_detection_topic, 10)
+            Detection2DArray, self.publish_detection_topic, 10
+        )
 
         self.get_logger().info(
-            f"Successfully created node listening on camera topic: {self.camera_topic}...")
+            f"Successfully created node listening on camera topic: {self.camera_topic}..."
+        )
 
-    def preprocess_image(self, cv_image):
+    def crop_image(self, cv_image):
+        if self.crop_mode == "LetterBox":
+            img = LetterBox(self.image_size, stride=self.stride)(image=cv_image)
+        elif self.crop_mode == "CenterCrop":
+            img = CenterCrop(self.image_size)(cv_image)
+        else:
+            raise Exception("Invalid crop mode, please choose either 'LetterBox' or 'CenterCrop'!")
+
+        return img
+
+    def convert_bboxes_to_orig_frame(self, bbox):
+        """
+        Converts bounding box coordinates from the scaled image frame back to the original image frame.
+
+        This function takes into account the original image dimensions and the scaling method used
+        (either "LetterBox" or "CenterCrop") to accurately map the bounding box coordinates back to
+        their original positions in the original image.
+
+        Parameters:
+        bbox (list): A list containing the bounding box coordinates in the format [x1, y1, w1, h1]
+                    in the scaled image frame.
+
+        Returns:
+        list: A list containing the bounding box coordinates in the format [x1, y1, w1, h1]
+            in the original image frame.
+
+        """
+        width_scale = self.orig_image_width / self.image_size
+        height_scale = self.orig_image_height / self.image_size
+        if self.crop_mode == "LetterBox":
+            translation = (self.image_size - self.orig_image_height / width_scale) / 2
+            return [
+                bbox[0] * width_scale,
+                (bbox[1] - translation) * width_scale,
+                bbox[2] * width_scale,
+                bbox[3] * width_scale,
+            ]
+        elif self.crop_mode == "CenterCrop":
+            translation = (self.orig_image_width / height_scale - self.image_size) / 2
+            return [
+                (bbox[0] + translation) * height_scale,
+                bbox[1] * height_scale,
+                bbox[2] * height_scale,
+                bbox[3] * height_scale,
+            ]
+
+    def crop_and_convert_to_tensor(self, cv_image):
         """
         Preprocess the image by resizing, padding and rearranging the dimensions.
 
@@ -100,9 +154,7 @@ class CameraDetectionNode(Node):
         Returns:
             torch.Tensor image for model input of shape (1,3,w,h)
         """
-        # Padded resize
-        img = cv_image
-        img = LetterBox(self.image_size, stride=self.stride)(image=cv_image)
+        img = self.crop_image(cv_image)
 
         # Convert
         img = img.transpose(2, 0, 1)
@@ -143,10 +195,11 @@ class CameraDetectionNode(Node):
         annotator_img = annotator.result()
         return (processed_detections, annotator_img)
 
-    def publish_vis(self, annotated_img, feed):
+    def publish_vis(self, annotated_img, msg, feed):
         # Publish visualizations
         imgmsg = self.cv_bridge.cv2_to_imgmsg(annotated_img, "bgr8")
-        imgmsg.header.frame_id = "camera_{}_link".format(feed)
+        imgmsg.header.stamp = msg.header.stamp
+        imgmsg.header.frame_id = msg.header.frame_id
         self.vis_publisher.publish(imgmsg)
 
     def publish_detections(self, detections, msg, feed):
@@ -175,10 +228,13 @@ class CameraDetectionNode(Node):
                 detection2darray.detections.append(detection2d)
 
         self.detection_publisher.publish(detection2darray)
-        return
 
     def image_callback(self, msg):
         self.get_logger().debug("Received image")
+        if self.orig_image_width is None:
+            self.orig_image_width = msg.width
+            self.orig_image_height = msg.height
+
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
         for image in images:
@@ -189,16 +245,13 @@ class CameraDetectionNode(Node):
                 cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             else:
                 try:
-                    cv_image = self.cv_bridge.imgmsg_to_cv2(
-                        image, desired_encoding="passthrough")
+                    cv_image = self.cv_bridge.imgmsg_to_cv2(image, desired_encoding="passthrough")
                 except CvBridgeError as e:
                     self.get_logger().error(str(e))
                     return
 
             # preprocess image and run through prediction
-            img = self.preprocess_image(cv_image)
-            processed_cv_image = LetterBox(
-                self.image_size, stride=self.stride)(image=cv_image)
+            img = self.crop_and_convert_to_tensor(cv_image)
             pred = self.model(img)
 
             # nms function used same as yolov8 detect.py
@@ -217,6 +270,7 @@ class CameraDetectionNode(Node):
                             xyxy[3] - xyxy[1],
                         ]
                         bbox = [b.item() for b in bbox]
+                        bbox = self.convert_bboxes_to_orig_frame(bbox)
 
                         detections.append(
                             {
@@ -228,20 +282,24 @@ class CameraDetectionNode(Node):
                         self.get_logger().debug(f"{label}: {bbox}")
 
             annotator = Annotator(
-                processed_cv_image,
+                cv_image,
                 line_width=self.line_thickness,
                 example=str(self.names),
             )
-            (detections, annotated_img) = self.postprocess_detections(
-                detections, annotator)
+            (detections, annotated_img) = self.postprocess_detections(detections, annotator)
 
             # Currently we support a single camera so we pass an empty string
             feed = ""
-            self.publish_vis(annotated_img, feed)
+            self.publish_vis(annotated_img, msg, feed)
             self.publish_detections(detections, msg, feed)
 
+            if self.save_detections:
+                cv2.imwrite(f"detections/{self.counter}.jpg", annotated_img)
+                self.counter += 1
+
         self.get_logger().info(
-            f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz")
+            f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz"
+        )
 
 
 def main(args=None):

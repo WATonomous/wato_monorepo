@@ -10,6 +10,7 @@ services:
     extends:
       file: ../docker-compose.world_modeling.yaml
       service: hd_map
+    image: "${WORLD_MODELING_HD_MAP_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/hd_map
@@ -19,6 +20,7 @@ services:
     extends:
       file: ../docker-compose.world_modeling.yaml
       service: localization
+    image: "${WORLD_MODELING_LOCALIZATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/localization
@@ -28,6 +30,7 @@ services:
     extends:
       file: ../docker-compose.world_modeling.yaml
       service: occupancy
+    image: "${WORLD_MODELING_OCCUPANCY_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/occupancy
@@ -37,6 +40,7 @@ services:
     extends:
       file: ../docker-compose.world_modeling.yaml
       service: occupancy_segmentation
+    image: "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/occupancy_segmentation
@@ -46,6 +50,7 @@ services:
     extends:
       file: ../docker-compose.world_modeling.yaml
       service: motion_forecasting
+    image: "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/motion_forecasting
