@@ -15,7 +15,7 @@
 ##	 - simulation			:	starts simulation
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
-# ACTIVE_MODULES=""
+ACTIVE_MODULES="simulation"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -35,3 +35,7 @@
 
 # Docker Registry to pull/push images. DEFAULT = "ghcr.io/watonomous/wato_monorepo"
 # REGISTRY_URL=""
+
+CARLAVIZ_PORT=36271
+CARLAVIZ_PORT_2=36272
+CARLA_NOTEBOOKS_PORT=36273
