@@ -24,6 +24,10 @@ class LaneDetectionNode : public rclcpp::Node {
   void image_callback(const sensor_msgs::msg::Image::ConstSharedPtr &msg);
 
  private:
+  void populate_lane_msg(lane_detection_msgs::msg::LaneDetection &lane_msg,
+                         const std::vector<std::vector<float>> &raw_lane_list);
+  void save_image(const cv::Mat &image, const std::string &filename);
+
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
   rclcpp::Publisher<lane_detection_msgs::msg::LaneDetection>::SharedPtr lane_detection_pub_;
@@ -37,6 +41,8 @@ class LaneDetectionNode : public rclcpp::Node {
   bool save_images_;
   std::string save_dir_;
   bool publish_source_image_;
+  // Debug will publish the source image with lane detection overlay
+  bool debug_node_;
 };
 
 #endif  // LANE_DETECTION_NODE_HPP
