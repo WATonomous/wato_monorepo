@@ -34,15 +34,20 @@ add_definitions(-DRESOURCE_DIR="/models/")
 
 ### End of TensorRT model ###
 
-find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(lane_detection_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(image_transport REQUIRED)
-find_package(CUDA REQUIRED)
+set(REQUIRED_PACKAGES
+  rclcpp
+  std_msgs
+  sensor_msgs
+  geometry_msgs
+  lane_detection_msgs
+  cv_bridge
+  image_transport
+  CUDA
+)
+
+foreach(PKG IN LISTS REQUIRED_PACKAGES)
+  find_package(${PKG} REQUIRED)
+endforeach()
 
 # Install launch files
 install(DIRECTORY

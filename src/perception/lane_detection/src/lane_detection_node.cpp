@@ -19,13 +19,6 @@
 #include "common_helper_cv.h"
 #include "image_processor.h"
 
-using namespace std::chrono_literals;
-
-/*** Macro ***/
-#define WORK_DIR RESOURCE_DIR
-
-int count = 0;
-
 class LaneDetectionNode : public rclcpp::Node {
  public:
   LaneDetectionNode() : Node("lane_detection"), count_(0) {
@@ -120,13 +113,13 @@ class LaneDetectionNode : public rclcpp::Node {
     }
 
     if (save_images_) {
-      std::string filename = save_dir_ + "/lane_detection_" + std::to_string(count) + ".png";
+      std::string filename = save_dir_ + "/lane_detection_" + std::to_string(count_) + ".png";
       cv::imwrite(filename, image);
       RCLCPP_INFO(this->get_logger(), "Saved image to %s", filename.c_str());
     }
 
     lane_detection_pub_->publish(lane_msg);
-    count++;
+    count_++;
   }
 
  private:
@@ -148,9 +141,9 @@ class LaneDetectionNode : public rclcpp::Node {
 
 int main(int argc, char *argv[]) {
   /* Initialize image processor library */
-  ImageProcessor::InputParam input_param = {WORK_DIR, 4};
+  ImageProcessor::InputParam input_param = {RESOURCE_DIR, 4};
   if (ImageProcessor::Initialize(input_param) != 0) {
-    printf("Initialization Error\n");
+    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Initialization Error\n");
     return -1;
   }
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Initializing node");
