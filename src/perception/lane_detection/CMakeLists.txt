@@ -18,11 +18,12 @@ endif()
 
 # Select build system and set compile options
 include(${CMAKE_CURRENT_LIST_DIR}/src/lane_detection_tensorrt/common_helper/cmakes/build_setting.cmake)
-
 add_executable(lane_detection src/lane_detection_node.cpp)
 
 add_subdirectory(./src/lane_detection_tensorrt/ultra_fast_lane_detection_v2/image_processor image_processor)
-target_include_directories(${ProjectName} PUBLIC ./src/lane_detection_tensorrt/ultra_fast_lane_detection_v2/image_processor)
+target_include_directories(${ProjectName} PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include 
+    ./src/lane_detection_tensorrt/ultra_fast_lane_detection_v2/image_processor)
 target_link_libraries(${ProjectName} ImageProcessor)
 
 find_package(OpenCV REQUIRED)
