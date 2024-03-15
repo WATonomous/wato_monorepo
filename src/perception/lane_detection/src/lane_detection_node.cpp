@@ -36,26 +36,26 @@ class LaneDetectionNode : public rclcpp::Node {
     this->declare_parameter<std::string>("save_dir", "/tmp");
     this->declare_parameter<bool>("publish_source_image", false);
 
-    this->get_parameter("camera_topic", camera_topic);
-    this->get_parameter("publish_vis_topic", publish_vis_topic);
-    this->get_parameter("publish_lanes_topic", publish_lanes_topic);
-    this->get_parameter("save_images", save_images);
-    this->get_parameter("save_dir", save_dir);
-    this->get_parameter("publish_source_image", publish_source_image);
+    this->get_parameter("camera_topic", camera_topic_);
+    this->get_parameter("publish_vis_topic", publish_vis_topic_);
+    this->get_parameter("publish_lanes_topic", publish_lanes_topic_);
+    this->get_parameter("save_images", save_images_);
+    this->get_parameter("save_dir", save_dir_);
+    this->get_parameter("publish_source_image", publish_source_image_);
 
-    if (!std::filesystem::exists(save_dir)) {
-      std::filesystem::create_directories(save_dir);
+    if (!std::filesystem::exists(save_dir_)) {
+      std::filesystem::create_directories(save_dir_);
     }
 
-    RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", camera_topic.c_str());
+    RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", camera_topic_.c_str());
 
     subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
-        camera_topic, 10,
+        camera_topic_, 10,
         std::bind(&LaneDetectionNode::image_callback, this, std::placeholders::_1));
 
-    image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(publish_vis_topic, 10);
+    image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(publish_vis_topic_, 10);
     lane_detection_pub_ =
-        this->create_publisher<lane_detection_msgs::msg::LaneDetection>(publish_lanes_topic, 10);
+        this->create_publisher<lane_detection_msgs::msg::LaneDetection>(publish_lanes_topic_, 10);
   }
 
   void image_callback(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
@@ -78,27 +78,15 @@ class LaneDetectionNode : public rclcpp::Node {
 
     RCLCPP_INFO(this->get_logger(), "=== Start frame ===");
     const auto &time_all0 = std::chrono::steady_clock::now();
-    /* Read image */
-    const auto &time_cap0 = std::chrono::steady_clock::now();
-
-    const auto &time_cap1 = std::chrono::steady_clock::now();
 
     std::vector<std::vector<float>> raw_lane_list;
 
     /* Call image processor library */
-    const auto &time_image_process0 = std::chrono::steady_clock::now();
     ImageProcessor::Result result;
     ImageProcessor::Process(image, result, raw_lane_list);
-    const auto &time_image_process1 = std::chrono::steady_clock::now();
-
-    /* Print processing time */
     const auto &time_all1 = std::chrono::steady_clock::now();
     double time_all = (time_all1 - time_all0).count() / 1000000.0;
-    double time_cap = (time_cap1 - time_cap0).count() / 1000000.0;
-    double time_image_process = (time_image_process1 - time_image_process0).count() / 1000000.0;
     RCLCPP_INFO(this->get_logger(), "Total:               %9.3lf [msec]", time_all);
-    RCLCPP_INFO(this->get_logger(), "  Capture:           %9.3lf [msec]", time_cap);
-    RCLCPP_INFO(this->get_logger(), "  Image processing:  %9.3lf [msec]", time_image_process);
     RCLCPP_INFO(this->get_logger(), "    Pre processing:  %9.3lf [msec]", result.time_pre_process);
     RCLCPP_INFO(this->get_logger(), "    Inference:       %9.3lf [msec]", result.time_inference);
     RCLCPP_INFO(this->get_logger(), "    Post processing: %9.3lf [msec]", result.time_post_process);
@@ -127,12 +115,12 @@ class LaneDetectionNode : public rclcpp::Node {
       lane_msg.lines.push_back(line);
     }
 
-    if (publish_source_image) {
+    if (publish_source_image_) {
       lane_msg.source_img = *img_msg;
     }
 
-    if (save_images) {
-      std::string filename = save_dir + "/lane_detection_" + std::to_string(count) + ".png";
+    if (save_images_) {
+      std::string filename = save_dir_ + "/lane_detection_" + std::to_string(count) + ".png";
       cv::imwrite(filename, image);
       RCLCPP_INFO(this->get_logger(), "Saved image to %s", filename.c_str());
     }
@@ -150,12 +138,12 @@ class LaneDetectionNode : public rclcpp::Node {
   size_t count_;
 
   // ROS Parameters
-  std::string camera_topic;
-  std::string publish_vis_topic;
-  std::string publish_lanes_topic;
-  bool save_images;
-  std::string save_dir;
-  bool publish_source_image;
+  std::string camera_topic_;
+  std::string publish_vis_topic_;
+  std::string publish_lanes_topic_;
+  bool save_images_;
+  std::string save_dir_;
+  bool publish_source_image_;
 };
 
 int main(int argc, char *argv[]) {
