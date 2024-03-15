@@ -67,7 +67,7 @@ class LaneDetectionNode : public rclcpp::Node {
       return;
     }
 
-    cv::Mat image = cv_ptr->image.clone();
+    cv::Mat image = cv_ptr->image;
 
     if (image.empty()) {
       RCLCPP_ERROR(this->get_logger(), "Decoded image is empty!");
