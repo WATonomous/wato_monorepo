@@ -6,3 +6,4 @@ lane_detection_node:
     save_images: false
     save_images_path: /tmp
     publish_source_image: false
+    debug_node: false
