@@ -1,0 +1,9 @@
+nuscenes-devkit==1.1.10
+torch==1.13.1
+torchvision==0.14.1
+torchaudio==0.13.1
+ray==2.7.2
+psutil==5.9.8
+positional-encodings==5.0.0
+imageio==2.31.2
+tensorboard==2.11.2
