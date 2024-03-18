@@ -3,7 +3,7 @@
 #include <memory>
 
 VoxelizerNode::VoxelizerNode()
-    : Node("voxelizer"), voxel_size{declare_parameter<double>("voxel_size", 1.0)} {
+    : Node("voxelizer"), voxel_size{declare_parameter<double>("voxel_size", 0.2)} {
   RCLCPP_INFO(this->get_logger(), "Voxelizer Node\n");
 
   pointcloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
