@@ -28,5 +28,5 @@ class VoxelizerNode : public rclcpp::Node {
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr voxelgrid_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
 
-  const float voxel_size;
+  const double voxel_size;
 };
