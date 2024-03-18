@@ -1,8 +1,8 @@
-#include "det_utils.hpp"
+#include "projection_utils.hpp"
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <pcl/filters/conditional_removal.h>
 #include <pcl/filters/extract_indices.h>
@@ -20,38 +20,28 @@ typedef pcl::PointCloud<pcl::PointXYZRGB> ColorCloud;
 typedef std::shared_ptr<Cluster> ClusterPtr;
 typedef vision_msgs::msg::BoundingBox3D BBox3D;
 
-// segment by distance (5 sections)
-// 0 => 0-15m d=0.5, 1 => 15-30 d=1, 2 => 30-45 d=1.6, 3 => 45-60 d=2.1, 4 => >60   d=2.6
-std::vector<double> DetUtils::_clustering_distances = {5, 30, 45, 60};
+std::vector<double> ProjectionUtils::clustering_distances_;
+std::vector<double> ProjectionUtils::clustering_thresholds_; 
+double ProjectionUtils::cluster_size_min_;
+double ProjectionUtils::cluster_size_max_;
+double ProjectionUtils::cluster_merge_threshold_;
 
-//Nearest neighbor distance threshold for each segment
-std::vector<double> DetUtils::_clustering_thresholds = {0.5, 1.1, 1.6, 2.1, 2.6}; 
-
-double DetUtils::cluster_size_min_ = 20;
-double DetUtils::cluster_size_max_ = 100000;
-double DetUtils::cluster_merge_threshold_ = 1.5;
-
-void DetUtils::pointsInBbox(
+void ProjectionUtils::pointsInBbox(
     const Cloud::Ptr& inlierCloud,
     const Cloud::Ptr& lidarCloud, 
     const std::vector<geometry_msgs::msg::Point>& projs2d,
     const vision_msgs::msg::BoundingBox2D& bbox)
 {
-    for (int i=0; i<projs2d.size(); ++i)
+    for (size_t i=0; i<projs2d.size(); ++i)
     {
         // P * [x y z 1]^T, P is row major
-        // check if projected point is in the bbox
         if (isPointInBbox(projs2d[i], bbox))
-        {
             inlierCloud->push_back(lidarCloud->points[i]);
-        }
-
     }
 }
   
-bool DetUtils::isPointInBbox(const geometry_msgs::msg::Point& pt, const vision_msgs::msg::BoundingBox2D& bbox)
+bool ProjectionUtils::isPointInBbox(const geometry_msgs::msg::Point& pt, const vision_msgs::msg::BoundingBox2D& bbox)
 {
-    return true;
     double padding = 0;
 
     if (bbox.center.position.x - bbox.size_x/2 - padding < pt.x && pt.x < bbox.center.position.x + bbox.size_x/2 + padding
@@ -59,27 +49,17 @@ bool DetUtils::isPointInBbox(const geometry_msgs::msg::Point& pt, const vision_m
     {
         return true;
     }
+    return false;
 
 }
 
-/* intrin
-1266.417203046554       0.0                 816.2670197447984   0.0
-0.0                     1266.417203046554   491.50706579294757  0.0                 
-0.0                     0.0                 1.0                 0.0
-*/
-
-std::optional<geometry_msgs::msg::Point> DetUtils::projectLidarToCamera(
+std::optional<geometry_msgs::msg::Point> ProjectionUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform,
     const std::array<double, 12>& p, 
     const pcl::PointXYZ& pt)
 {
     // lidar to camera frame
     auto trans_pt = geometry_msgs::msg::Point();
-    // rotate points extra 90 degs [TODO]  90 roll, 90 yaw
-    geometry_msgs::msg::TransformStamped t;
-    t.header = transform.header;
-    t.transform.translation = transform.transform.translation;
-
     auto orig_pt = geometry_msgs::msg::Point();
     orig_pt.x = pt.x;
     orig_pt.y = pt.y;
@@ -98,13 +78,13 @@ std::optional<geometry_msgs::msg::Point> DetUtils::projectLidarToCamera(
     proj_pt.x = u/w;
     proj_pt.y = v/w;
 
-    // check if inside camera frame bounds -- earlier filtering
+    // check if inside camera frame bounds
     if (proj_pt.x > 0 && proj_pt.x < 1600 && proj_pt.y > 0 && proj_pt.y < 900) return proj_pt;
     return std::nullopt;
 }
 
 // https://pointclouds.org/documentation/tutorials/progressive_morphological_filtering.html
-void DetUtils::removeFloor(const Cloud::Ptr& lidarCloud, const Cloud::Ptr& cloud_filtered)
+void ProjectionUtils::removeFloor(const Cloud::Ptr& lidarCloud, const Cloud::Ptr& cloud_filtered)
 {
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
@@ -132,11 +112,10 @@ void DetUtils::removeFloor(const Cloud::Ptr& lidarCloud, const Cloud::Ptr& cloud
     extract.filter(*cloud_filtered);
 }
 
-// https://pcl.readthedocs.io/projects/tutorials/en/master/cluster_extraction.html
-std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> DetUtils::getClusteredBBoxes(const Cloud::Ptr& lidarCloud)
+std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> ProjectionUtils::getClusteredBBoxes(const Cloud::Ptr& lidarCloud)
 {
     std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_segments_array(5);
-    for (int i=0; i<cloud_segments_array.size(); ++i)
+    for (size_t i=0; i<cloud_segments_array.size(); ++i)
     {
         pcl::PointCloud<pcl::PointXYZ>::Ptr temp(new pcl::PointCloud<pcl::PointXYZ>());
         cloud_segments_array[i] = temp;
@@ -146,13 +125,13 @@ std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> DetUtils::getClusteredBB
     for (const pcl::PointXYZ& pt : lidarCloud->points) 
     {        
         float origin_distance = sqrt(pow(pt.x, 2) + pow(pt.y, 2));
-        if (origin_distance < _clustering_distances[0])
+        if (origin_distance < clustering_distances_[0])
             cloud_segments_array[0]->points.push_back(pt);
-        else if (origin_distance < _clustering_distances[1])
+        else if (origin_distance < clustering_distances_[1])
             cloud_segments_array[1]->points.push_back(pt);
-        else if (origin_distance < _clustering_distances[2])
+        else if (origin_distance < clustering_distances_[2])
             cloud_segments_array[2]->points.push_back(pt);
-        else if (origin_distance < _clustering_distances[3])
+        else if (origin_distance < clustering_distances_[3])
             cloud_segments_array[3]->points.push_back(pt);
         else
             cloud_segments_array[4]->points.push_back(pt);
@@ -163,41 +142,30 @@ std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> DetUtils::getClusteredBB
     for (unsigned int i = 1; i < cloud_segments_array.size(); i++) 
     {
         // add clusters from each shell 
-        std::vector<ClusterPtr> local_clusters = clusterAndColor(cloud_segments_array[i], _clustering_thresholds[i]);
+        std::vector<ClusterPtr> local_clusters = clusterAndColor(cloud_segments_array[i], clustering_thresholds_[i]);
         all_clusters.insert(all_clusters.end(), local_clusters.begin(), local_clusters.end());
     }
 
     // merge clusters if possible, do this twice?
     std::vector<ClusterPtr> mid_clusters = (all_clusters.size() > 0) 
-        ?   DetUtils::checkAllForMerge(all_clusters, cluster_merge_threshold_)
+        ?   ProjectionUtils::checkAllForMerge(all_clusters, cluster_merge_threshold_)
         :   all_clusters;
     std::vector<ClusterPtr> final_clusters = (mid_clusters.size() > 0)
-        ?   DetUtils::checkAllForMerge(mid_clusters, cluster_merge_threshold_)
+        ?   ProjectionUtils::checkAllForMerge(mid_clusters, cluster_merge_threshold_)
         :   mid_clusters;
-
-    // std::vector<ClusterPtr> final_clusters = all_clusters;
 
     // get boundingboxes for each & return all possible 3d bboxes (if valid)
     std::vector<BBox3D> bboxes;
     for (const ClusterPtr& cluster : final_clusters)
     {
         BBox3D b = cluster->getBoundingBox();
-        if (cluster->isValid(b))
+        if (cluster->isValid())
             bboxes.emplace_back(b);
     }
-
-
-    // TEMP - RETURN RGB CLOUD WITH ALL CLUSTERS (not just the same merged c)
-    // Cloud merged_cloud; 
-    // for (const ClusterPtr& clusterPtr : final_clusters)
-    // {
-    //     merged_cloud += *(clusterPtr->getCloud());
-    // }
-
     return std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>>{final_clusters, bboxes};
 }
 
-std::vector<ClusterPtr> DetUtils::clusterAndColor(
+std::vector<ClusterPtr> ProjectionUtils::clusterAndColor(
     const Cloud::Ptr& in_cloud_ptr, double in_max_cluster_distance) 
 {
     std::vector<ClusterPtr> clusters;
@@ -215,7 +183,7 @@ std::vector<ClusterPtr> DetUtils::clusterAndColor(
 
     std::vector<pcl::PointIndices> cluster_indices;
 
-    // perform clustering on 2d cloud
+    // perform clustering on 2d cloud : https://pcl.readthedocs.io/projects/tutorials/en/master/cluster_extraction.html
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
     ec.setClusterTolerance(in_max_cluster_distance);
     ec.setMinClusterSize(cluster_size_min_);
@@ -236,7 +204,7 @@ std::vector<ClusterPtr> DetUtils::clusterAndColor(
 }
 
 
-void DetUtils::checkClusterMerge(
+void ProjectionUtils::checkClusterMerge(
     size_t in_cluster_id, const std::vector<ClusterPtr> &in_clusters,
     std::vector<bool>& in_out_visited_clusters,
     std::vector<size_t>& out_merge_indices, double in_merge_threshold) 
@@ -262,7 +230,7 @@ void DetUtils::checkClusterMerge(
 }
 
 
-ClusterPtr DetUtils::mergeClusters(
+ClusterPtr ProjectionUtils::mergeClusters(
     const std::vector<ClusterPtr>& in_clusters,
     const std::vector<size_t>& in_merge_indices,
     std::vector<bool> &in_out_merged_clusters) 
@@ -286,7 +254,7 @@ ClusterPtr DetUtils::mergeClusters(
     return merged_cluster;
 }
 
-std::vector<ClusterPtr> DetUtils::checkAllForMerge(
+std::vector<ClusterPtr> ProjectionUtils::checkAllForMerge(
     const std::vector<ClusterPtr>& in_clusters, float in_merge_threshold) 
 {
     std::vector<ClusterPtr> out_clusters;
