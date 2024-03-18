@@ -13,6 +13,7 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 class VoxelizerNode : public rclcpp::Node {
  public:
@@ -25,8 +26,7 @@ class VoxelizerNode : public rclcpp::Node {
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
 
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr voxelgrid_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr voxelgrid_pub_;
 
   const double voxel_size;
 };
