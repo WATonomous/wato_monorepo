@@ -3,60 +3,50 @@
 #include <memory>
 
 VoxelizerNode::VoxelizerNode()
-    : Node("voxelizer"), voxel_size{declare_parameter<double>("voxel_size", 0.1)} {
+    : Node("voxelizer"), voxel_size{declare_parameter<double>("voxel_size", 1.0)} {
   RCLCPP_INFO(this->get_logger(), "Voxelizer Node\n");
 
   pointcloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "LIDAR_TOP", 10, std::bind(&VoxelizerNode::pointcloud_callback, this, std::placeholders::_1));
-  voxelgrid_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("voxel_grid_test", 10);
-  marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("voxel_grid_marker", 10);
+  voxelgrid_pub_ =
+      this->create_publisher<visualization_msgs::msg::MarkerArray>("voxel_grid_marker", 10);
 }
 
 void VoxelizerNode::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  pcl::PCLPointCloud2::Ptr cloud2(new pcl::PCLPointCloud2());
-  pcl_conversions::toPCL(*msg, *cloud2);
+  pcl::PCLPointCloud2::Ptr pcl_cloud(new pcl::PCLPointCloud2());
+  pcl_conversions::toPCL(*msg, *pcl_cloud);
 
   pcl::VoxelGrid<pcl::PCLPointCloud2> voxel_filter;
-  voxel_filter.setInputCloud(cloud2);
+  voxel_filter.setInputCloud(pcl_cloud);
   voxel_filter.setLeafSize(voxel_size, voxel_size, voxel_size);
 
-  pcl::PCLPointCloud2::Ptr cloud_filtered2(new pcl::PCLPointCloud2());
-  voxel_filter.filter(*cloud_filtered2);
+  pcl::PCLPointCloud2::Ptr pcl_voxelized_pointcloud(new pcl::PCLPointCloud2());
+  voxel_filter.filter(*pcl_voxelized_pointcloud);
 
-  auto pub_msg = sensor_msgs::msg::PointCloud2();
-  pcl_conversions::fromPCL(*cloud_filtered2, pub_msg);
+  auto ros_voxelized_pointcloud = sensor_msgs::msg::PointCloud2();
+  pcl_conversions::fromPCL(*pcl_voxelized_pointcloud, ros_voxelized_pointcloud);
 
-  this->voxel_publish(pub_msg);
-}
-
-void VoxelizerNode::voxel_publish(const sensor_msgs::msg::PointCloud2 voxel_grid) {
+  auto marker_array = visualization_msgs::msg::MarkerArray();
   auto marker = visualization_msgs::msg::Marker();
-
-  std_msgs::msg::Header header;
-  header.stamp = rclcpp::Clock().now();  // time
-  header.frame_id = "LIDAR_TOP";
-
-  marker.header = header;
-
+  marker.header = msg->header;
   marker.type = 6;  // Cube List
-
   marker.scale.x = voxel_size;
   marker.scale.y = voxel_size;
   marker.scale.z = voxel_size;
   marker.frame_locked = true;
 
-  for (sensor_msgs::PointCloud2ConstIterator<float> it(voxel_grid, "x"); it != it.end(); ++it) {
+  for (sensor_msgs::PointCloud2ConstIterator<float> it(ros_voxelized_pointcloud, "x");
+       it != it.end(); ++it) {
     auto point = geometry_msgs::msg::Point();
     // re-quantize voxel grid by rounding to nearest voxel_size grid
-    point.x = int(it[0] / voxel_size) * voxel_size;
-    point.y = int(it[1] / voxel_size) * voxel_size;
-    point.z = int(it[2] / voxel_size) * voxel_size;
+    point.x = std::round(it[0] / voxel_size) * voxel_size;
+    point.y = std::round(it[1] / voxel_size) * voxel_size;
+    point.z = std::round(it[2] / voxel_size) * voxel_size;
     marker.points.push_back(point);
   }
+  marker_array.markers.push_back(marker);
 
-  // RCLCPP_INFO(this->get_logger(), "Publishing Voxel Grid Message...\n");
-  voxelgrid_pub_->publish(voxel_grid);
-  marker_pub_->publish(marker);
+  voxelgrid_pub_->publish(marker_array);
 }
 
 int main(int argc, char** argv) {
