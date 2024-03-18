@@ -1,0 +1,4 @@
+motion_forecasting_node:
+  ros__parameters:
+    input_topic: /unfiltered_topic
+    publish_topic: /motion_forecasting
