@@ -64,7 +64,7 @@ services:
               count: 1
               capabilities: [ gpu ]
     volumes: 
-      - /mnt/wato-drive2/perception-weights/semantic_segmentation:/perception_models/semantic_segmentation
+      - /mnt/wato-drive2/perception-weights/semantic_segmentation/pp_liteseg_infer_model:/perception_models/semantic_segmentation/pp_liteseg_infer_model
 
   lane_detection:
     build:

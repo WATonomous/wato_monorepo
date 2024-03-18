@@ -1,11 +1,11 @@
-ARG BASE_BUILD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04-devel
-ARG BASE_PROD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04-devel
+ARG RUNTIME_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04
 ARG PADDLE_INFERENCE_BUILD_URL=ghcr.io/watonomous/perception_paddlepaddle_inference_build_cuda-12.0
 ################################ Build library ################################
 FROM ${PADDLE_INFERENCE_BUILD_URL} as PADDLE_INFERENCE_BUILD
 
 ################################ Source ################################
-FROM ${BASE_BUILD_IMAGE} as source
+FROM ${BASE_IMAGE} as source
 
 WORKDIR ${AMENT_WS}/src
 
@@ -17,6 +17,7 @@ RUN rm /paddle/paddle_inference_cuda120_build.tar
 
 # Copy in source code 
 COPY src/perception/semantic_segmentation semantic_segmentation
+COPY src/perception/perception_utils perception_utils
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -26,7 +27,7 @@ RUN apt-get -qq update && rosdep update && \
         | sort  > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_BUILD_IMAGE} as dependencies
+FROM ${BASE_IMAGE} as dependencies
 
 RUN apt update && apt install -y tensorrt ros-humble-cv-bridge libopencv-dev
 
@@ -36,8 +37,8 @@ RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_li
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
-COPY --from=source ${AMENT_WS}/src src
 COPY --from=source /paddle /paddle
+COPY --from=source ${AMENT_WS}/src src
 
 # Dependency Cleanup
 WORKDIR /
@@ -63,7 +64,7 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 # ################################ Prod ################################
-FROM ${BASE_PROD_IMAGE} as deploy
+FROM ${RUNTIME_IMAGE} as deploy
 
 
 # Install runtime libs
