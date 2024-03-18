@@ -3,12 +3,12 @@
 #include <memory>
 
 VoxelizerNode::VoxelizerNode()
-    : Node("voxelizer"), voxel_size{declare_parameter("voxel_size", 0.1)} {
+    : Node("voxelizer"), voxel_size{declare_parameter<double>("voxel_size", 0.1)} {
   RCLCPP_INFO(this->get_logger(), "Voxelizer Node\n");
 
   pointcloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "LIDAR_TOP", 10, std::bind(&VoxelizerNode::pointcloud_callback, this, std::placeholders::_1));
-  grid_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("voxel_grid_test", 10);
+  voxelgrid_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("voxel_grid_test", 10);
   marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("voxel_grid_marker", 10);
 }
 
