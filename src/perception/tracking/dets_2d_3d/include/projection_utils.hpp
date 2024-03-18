@@ -1,3 +1,5 @@
+#pragma once
+
 #include "cluster.hpp"
 
 #include <pcl/point_types.h>
@@ -11,9 +13,17 @@
 #include <optional>
 
 // main helper functions used by the node -- should all be static
-class DetUtils
+class ProjectionUtils
 {
 public:
+        // segment by distance
+        static std::vector<double> clustering_distances_;
+        // Nearest neighbor distance threshold for each segment
+        static std::vector<double> clustering_thresholds_;
+
+        static double cluster_size_min_;
+        static double cluster_size_max_;
+        static double cluster_merge_threshold_;
 
         static void pointsInBbox(
                 const pcl::PointCloud<pcl::PointXYZ>::Ptr& inlierCloud,
@@ -57,11 +67,4 @@ private:
         static std::vector<std::shared_ptr<Cluster>> checkAllForMerge(
                 const std::vector<std::shared_ptr<Cluster>>& in_clusters, 
                 float in_merge_threshold);
-
-        static std::vector<double> _clustering_distances;
-        static std::vector<double> _clustering_thresholds;
-
-        static double cluster_size_min_;
-        static double cluster_size_max_;
-        static double cluster_merge_threshold_;
 };

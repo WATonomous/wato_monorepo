@@ -14,32 +14,11 @@
 
 #include <iostream>
 
-
 typedef pcl::PointCloud<pcl::PointXYZRGB> ClusterCloud;
 typedef vision_msgs::msg::BoundingBox3D BBox3D;
 
 int Cluster::color_index = 0;
 std::vector<std::vector<int>> Cluster::colors = {{0,0,255}, {0,255,0}, {255,0,0}, {255,255,0}, {0,255,255}, {255,0,255}};
-
-// Cluster::Cluster(
-//     const ClusterCloud::Ptr& in_cloud_ptr,
-//     const std::vector<int>& in_cluster_indices) : cloud_ {new ClusterCloud()}
-// {
-//     bool indexesGiven = in_cluster_indices.size() > 0;
-
-//     int max_index = (indexesGiven) ? in_cluster_indices.size() : in_cloud_ptr->points.size();
-
-//     for (int i=0; i<max_index; ++i)
-//     {
-//         int idx = (indexesGiven) ? in_cluster_indices[i] : i;
-
-//         pcl::PointXYZRGB pt;
-//         pt = in_cloud_ptr->points[idx];
-//         cloud_->emplace_back(pt);
-//     }
-
-//     ++color_index;
-// }
 
 Cluster::Cluster(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& in_cloud_ptr, 
@@ -47,7 +26,7 @@ Cluster::Cluster(
 {
     bool indexesGiven = in_cluster_indices.size() > 0;
 
-    int max_index = (indexesGiven) ? in_cluster_indices.size() : in_cloud_ptr->points.size();
+    size_t max_index = (indexesGiven) ? in_cluster_indices.size() : in_cloud_ptr->points.size();
 
     min_point_.x = std::numeric_limits<double>::max();
     min_point_.y = std::numeric_limits<double>::max();
@@ -57,9 +36,9 @@ Cluster::Cluster(
     max_point_.y = -std::numeric_limits<double>::max();
     max_point_.z = -std::numeric_limits<double>::max();
 
-    for (int i=0; i<max_index; ++i)
+    for (size_t i=0; i<max_index; ++i)
     {
-        int idx = (indexesGiven) ? in_cluster_indices[i] : i;
+        size_t idx = (indexesGiven) ? in_cluster_indices[i] : i;
 
         pcl::PointXYZRGB pt;
         pt.x = in_cloud_ptr->points[idx].x;
@@ -135,8 +114,7 @@ BBox3D Cluster::getBoundingBox()
     return bounding_box_;
 }
 
-bool Cluster::isValid(const BBox3D& b)
+bool Cluster::isValid()
 {
     return cloud_->size() > 0;
-    // return (b.size.x > 0 && b.size.y > 0 && b.size.z > 0);
 }

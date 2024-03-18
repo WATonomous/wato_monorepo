@@ -11,8 +11,9 @@
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
-#include "tf2_ros/static_transform_broadcaster.h"
+#include <tf2_ros/static_transform_broadcaster.h>
 
+#include "cluster.hpp"
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -23,6 +24,9 @@ public:
     TrackingNode();
 
 private:
+    // lidar and camera frame names
+    std::string lidarFrame_;
+    std::string cameraFrame_;
 
     // synchronization utils
     std::mutex lidarCloud_mutex_;
@@ -53,15 +57,12 @@ private:
 
     int highestIOUScoredBBox(
         const std::vector<vision_msgs::msg::BoundingBox3D> bboxes,
-        const vision_msgs::msg::BoundingBox2D& detBBox);
+        const vision_msgs::msg::BoundingBox2D& detBBox,
+        const std::vector<std::shared_ptr<Cluster>>& clusters);
     double overlapBoundingBox(
         const vision_msgs::msg::BoundingBox2D& bboxA, 
         const vision_msgs::msg::BoundingBox2D& bboxB);
     double iouScore(
         const vision_msgs::msg::BoundingBox2D& bboxA, 
         const vision_msgs::msg::BoundingBox2D& bboxB);
-
-    // temp add colours to markers, corresponding to 
-    std::map<std::string, std_msgs::msg::ColorRGBA> detColors;
-    std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_broadcaster_;
 };

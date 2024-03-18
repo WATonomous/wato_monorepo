@@ -21,14 +21,15 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
-add_library(det_utils
-  src/det_utils.cpp src/cluster.cpp) # add more non-ros node files here
+add_library(projection_utils
+  src/projection_utils.cpp src/cluster.cpp) # add more non-ros node files here
 
-target_include_directories(det_utils
+target_include_directories(projection_utils
   PUBLIC include)
 
-ament_target_dependencies(det_utils 
+ament_target_dependencies(projection_utils 
   rclcpp 
   sample_msgs 
   sensor_msgs 
@@ -39,6 +40,7 @@ ament_target_dependencies(det_utils
   tf2
   tf2_ros
   tf2_geometry_msgs
+  std_msgs
   geometry_msgs)
 
 add_executable(dets_2d_3d_node src/dets_2d_3d_node.cpp)
@@ -52,7 +54,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 target_link_libraries (dets_2d_3d_node ${OpenCV_LIBS})  
 
 ament_target_dependencies(dets_2d_3d_node)
-target_link_libraries(dets_2d_3d_node det_utils)
+target_link_libraries(dets_2d_3d_node projection_utils)
 
 # Copy executable to installation location
 install(TARGETS
@@ -61,6 +63,7 @@ install(TARGETS
 
 # Copy launch files to installation location
 install(DIRECTORY
+  config
   launch
   DESTINATION share/${PROJECT_NAME})
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 
@@ -8,27 +10,22 @@
 class Cluster
 {
 public:
-    // make cloud from only pts that have in "in_cluster_indices"
+    // makes a cloud from all points `in_cloud_ptr` that are indexed by `in_cluster_indices`
     Cluster(
         const pcl::PointCloud<pcl::PointXYZ>::Ptr& in_cloud_ptr, 
         const std::vector<int>& in_cluster_indices);
-
-    // Cluster(
-    //     const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& in_cloud_ptr, 
-    //     const std::vector<int>& in_cluster_indices);
 
     pcl::PointXYZ getCentroid() { return centroid_; }
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr getCloud() { return cloud_; }
     vision_msgs::msg::BoundingBox3D getBoundingBox();
 
-    bool isValid(const vision_msgs::msg::BoundingBox3D& b);
-
+    bool isValid();
+    int size() { return cloud_->size(); }
 
 private:
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_;
     pcl::PointXYZ centroid_;
 
-    // stores the min_x, min_y, min_z
     pcl::PointXYZ max_point_;
     pcl::PointXYZ min_point_;
 

@@ -1,10 +1,9 @@
 #include "dets_2d_3d_node.hpp"
-#include "det_utils.hpp"
+#include "projection_utils.hpp"
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <tf2_ros/transform_broadcaster.h>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -13,40 +12,69 @@
 #include <memory>
 
 
-TrackingNode::TrackingNode() : Node("dets_2d_3d"), lidarCloud_{new pcl::PointCloud<pcl::PointXYZ>()}, transformInited_{false} 
+TrackingNode::TrackingNode() : Node("dets_2d_3d"), transformInited_{false} , lidarCloud_{new pcl::PointCloud<pcl::PointXYZ>()}
 {
-  {
-    std_msgs::msg::ColorRGBA r; r.r = 255; detColors["car"] = r;
-    std_msgs::msg::ColorRGBA b; b.b = 255; detColors["truck"] = b;
-    std_msgs::msg::ColorRGBA g; g.g = 255; detColors["person"] = g;
-    std_msgs::msg::ColorRGBA blk; detColors["default"] = blk;
-  }
+  // setup paramaters
+  this->declare_parameter("camera_info_topic", "/CAM_FRONT/camera_info");
+  this->declare_parameter("lidar_topic", "/LIDAR_TOP");
+  this->declare_parameter("detections_topic", "/detections");
 
+  this->declare_parameter("publish_detections_topic", "/detections_3d");
+  this->declare_parameter("publish_markers_topic", "/markers_3d");
+  this->declare_parameter("publish_clusters_topic", "/clustered_pc");
+
+  this->declare_parameter("camera_frame", "CAM_FRONT");
+  this->declare_parameter("lidar_frame", "LIDAR_TOP");
+
+  this->declare_parameter("clustering_distances", std::vector<double>{5, 30, 45, 60});
+  this->declare_parameter("clustering_thresholds", std::vector<double>{0.5, 1.1, 1.6, 2.1, 2.6});
+  this->declare_parameter("cluster_size_min", 20.);
+  this->declare_parameter("cluster_size_max", 100000.);
+  this->declare_parameter("cluster_merge_threshold", 1.5);
+
+  lidarFrame_ = this->get_parameter("camera_frame").as_string();
+  cameraFrame_ = this->get_parameter("lidar_frame").as_string();
+
+  // setup pub subs
   camInfo_subscriber_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    "/CAM_FRONT/camera_info", 10, 
+    this->get_parameter("camera_info_topic").as_string(), 10, 
     std::bind(&TrackingNode::readCameraInfo, this, std::placeholders::_1));
 
   lidar_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "/LIDAR_TOP", 10, 
+    this->get_parameter("lidar_topic").as_string(), 10, 
     std::bind(&TrackingNode::receiveLidar, this, std::placeholders::_1));
 
   det_subscriber_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
-    "/detections", 10,
+    this->get_parameter("detections_topic").as_string(), 10,
     std::bind(&TrackingNode::receiveDetections, this, std::placeholders::_1));
 
-  det3d_publisher_ = this->create_publisher<vision_msgs::msg::Detection3DArray>("/detections_3d", 10);
-  marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/markers_3d", 10);
-  pc_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/trans_pc", 10);
-  pc_publisher2_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/trans_pc2", 10);
+  det3d_publisher_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(
+    this->get_parameter("publish_detections_topic").as_string(), 10);
+  marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+    this->get_parameter("publish_markers_topic").as_string(), 10);
+  pc_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+    this->get_parameter("publish_clusters_topic").as_string(), 10);
   
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+  // initialize common params used by utils
+
+  // 0 => 0-15m d=0.5, 1 => 15-30 d=1, 2 => 30-45 d=1.6, 3 => 45-60 d=2.1, 4 => >60   d=2.6
+  ProjectionUtils::clustering_distances_ = this->get_parameter("clustering_distances").as_double_array();
+  ProjectionUtils::clustering_thresholds_ = this->get_parameter("clustering_thresholds").as_double_array(); 
+
+  ProjectionUtils::cluster_size_min_ = this->get_parameter("cluster_size_min").as_double();
+  ProjectionUtils::cluster_size_max_ = this->get_parameter("cluster_size_max").as_double();
+  ProjectionUtils::cluster_merge_threshold_ = this->get_parameter("cluster_merge_threshold").as_double();;
+
 }
 
 void TrackingNode::receiveLidar(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloud_msg)
 {
   // save latest lidar info
   std::lock_guard<std::mutex> guard_lidar(lidarCloud_mutex_);
+  
 
   sensor_msgs::msg::PointCloud2 pointCloud = *pointCloud_msg;
   pcl::fromROSMsg(pointCloud, *lidarCloud_);
@@ -64,14 +92,11 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
   if (!transformInited_)
   {
     try {
-        transform_ = tf_buffer_ ->lookupTransform("CAM_FRONT", "LIDAR_TOP", msg->header.stamp);
-        transformInited_ = true;
-        RCLCPP_INFO(this->get_logger(), "got transform: \nquaternion: (%f, %f, %f, %f), \ntranslation: (%f, %f, %f)",
-          transform_.transform.rotation.x, transform_.transform.rotation.y, transform_.transform.rotation.z, transform_.transform.rotation.w,
-          transform_.transform.translation.x, transform_.transform.translation.y, transform_.transform.translation.z);
+      transform_ = tf_buffer_ ->lookupTransform(cameraFrame_, lidarFrame_, msg->header.stamp);
+      transformInited_ = true;
     } catch (const tf2::TransformException & ex) {
-        RCLCPP_INFO(this->get_logger(), "Could not transform %s", ex.what());
-        return;
+      RCLCPP_INFO(this->get_logger(), "Could not transform %s", ex.what());
+      return;
     }
   }
 
@@ -79,18 +104,18 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
   pcl::PointCloud<pcl::PointXYZ>::Ptr lidarCloudNoFloor(new pcl::PointCloud<pcl::PointXYZ>());
   {
     std::lock_guard<std::mutex> guard_lidar(lidarCloud_mutex_);
-    DetUtils::removeFloor(lidarCloud_, lidarCloudNoFloor);
+    ProjectionUtils::removeFloor(lidarCloud_, lidarCloudNoFloor);
 
-    if (lidarCloudNoFloor->size() == 0) return; // end if there is only a floor
+    if (lidarCloudNoFloor->size() == 0) return; // do not process more, if all the points are floor points
     RCLCPP_INFO(this->get_logger(), "receive detection %ld vs %ld", lidarCloud_->size(), lidarCloudNoFloor->size());
   }
 
-  // transform all lidar pts to 2d
+  // transform all lidar pts to 2d points in the camera
   std::vector<geometry_msgs::msg::Point> lidar2dProjs;
   pcl::PointCloud<pcl::PointXYZ>::Ptr inCameraPoints(new pcl::PointCloud<pcl::PointXYZ>());
   for (const pcl::PointXYZ& pt : lidarCloudNoFloor->points)
   {    
-    std::optional<geometry_msgs::msg::Point> proj = DetUtils::projectLidarToCamera(transform_, camInfo_->p, pt);
+    std::optional<geometry_msgs::msg::Point> proj = ProjectionUtils::projectLidarToCamera(transform_, camInfo_->p, pt);
     if (proj) 
     {
       inCameraPoints->emplace_back(pt);
@@ -98,11 +123,10 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     }
   }
   
-  // temporarily also publish viz markers
+  // publish both rviz markers (for visualization) and a detection array
   visualization_msgs::msg::MarkerArray markerArray3d;
   vision_msgs::msg::Detection3DArray detArray3d;
-
-  pcl::PointCloud<pcl::PointXYZ> mergedClusters;
+  pcl::PointCloud<pcl::PointXYZRGB> mergedClusters; // coloured pc to visualize points in each cluster
 
   // process each detection in det array
   int bboxId = 0;
@@ -112,96 +136,68 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
 
     // process lidarcloud with extrinsic trans from lidar to cam frame
     pcl::PointCloud<pcl::PointXYZ>::Ptr inlierPoints(new pcl::PointCloud<pcl::PointXYZ>());
-    DetUtils::pointsInBbox(inlierPoints, inCameraPoints, lidar2dProjs, bbox);
+    ProjectionUtils::pointsInBbox(inlierPoints, inCameraPoints, lidar2dProjs, bbox);
     if (inlierPoints->size() == 0) {
-      RCLCPP_INFO(this->get_logger(), "no inliers");
+      RCLCPP_INFO(this->get_logger(), "no inliers found for detection %s", det.results[0].hypothesis.class_id.c_str());
       continue;
     }
-    
-    mergedClusters += *inlierPoints;
-    
-    RCLCPP_INFO(this->get_logger(), "restrict to 2d %ld vs %ld", inlierPoints->size(), lidarCloudNoFloor->size());
 
     // clustering
-    auto clusterAndBBoxes = DetUtils::getClusteredBBoxes(inlierPoints);
-
-    RCLCPP_INFO(this->get_logger(), "(x,y) : (%f, %f) size:(%f, %f) : get merged cloud %ld clustered bboxes  %ld", 
-      bbox.center.position.x, bbox.center.position.y, bbox.size_x, bbox.size_y,
-      clusterAndBBoxes.first.size(), clusterAndBBoxes.second.size());
-    
+    auto clusterAndBBoxes = ProjectionUtils::getClusteredBBoxes(inlierPoints);
     std::vector<std::shared_ptr<Cluster>> clusters = clusterAndBBoxes.first; // needed? for viz purposes only
     std::vector<vision_msgs::msg::BoundingBox3D> allBBoxes = clusterAndBBoxes.second;
 
     if (clusters.size() == 0 || allBBoxes.size() == 0) continue;
 
-    // [TODO] fix scoring bboxes by projecting & iou
-    int bestIndex = highestIOUScoredBBox(allBBoxes, bbox);
+    // score each 3d bbox based on iou with teh original 2d bbox & the density of points in the cluster
+    int bestIndex = highestIOUScoredBBox(allBBoxes, bbox, clusters);
     vision_msgs::msg::BoundingBox3D bestBBox = allBBoxes[bestIndex];
-    // mergedClusters += *(clusters[bestIndex]->getCloud());
 
-    RCLCPP_INFO(this->get_logger(), "scored bboxes");
+    // for visauzliation : adds detection to cluster pc visualization & the marker array & the 3d detection array
+    mergedClusters += *(clusters[bestIndex]->getCloud());
 
-    // find 3d box that encloses clustered pointcloud & add to det array
     vision_msgs::msg::Detection3D det3d;
     det3d.bbox  = bestBBox;
     det3d.results = det.results;
     detArray3d.detections.emplace_back(det3d);
 
-    // make marker & add to array (TEMP PUBLISH ALL BBOXES, NOT JUST "BEST")
-    for (const auto& maybeBbox : allBBoxes)
-    {
-      visualization_msgs::msg::Marker marker;
-      marker.type =  visualization_msgs::msg::Marker::CUBE;
-      marker.scale = maybeBbox.size;
-      marker.pose = maybeBbox.center;
-      marker.header.frame_id = "LIDAR_TOP";
-      marker.header.stamp = msg->header.stamp;
-      marker.id = bboxId;
-
-      // marker.color.r = 1.0;
-
-      // if (const auto& it = detColors.find(det.results[0].hypothesis.class_id); it != detColors.end())
-      //   marker.color = it->second;
-      // else
-      //   marker.color = detColors["default"];
-
-      markerArray3d.markers.push_back(marker);
-      ++bboxId;
-    }
-    break; // look at one det for debugging
+    visualization_msgs::msg::Marker marker;
+    marker.type =  visualization_msgs::msg::Marker::CUBE;
+    marker.scale = bestBBox.size;
+    marker.pose = bestBBox.center;
+    marker.header.frame_id = lidarFrame_;
+    marker.header.stamp = msg->header.stamp;
+    marker.id = bboxId;
+    markerArray3d.markers.push_back(marker);
+    ++bboxId;
   }
 
   det3d_publisher_->publish(detArray3d);
   marker_publisher_->publish(markerArray3d);
 
-  sensor_msgs::msg::PointCloud2 pubCloud2;
-  pcl::toROSMsg(mergedClusters, pubCloud2);
-  pubCloud2.header.frame_id = "LIDAR_TOP";
-  pubCloud2.header.stamp = msg->header.stamp;
-
   sensor_msgs::msg::PointCloud2 pubCloud;
-  pcl::toROSMsg(*lidarCloudNoFloor, pubCloud);
-  pubCloud.header.frame_id = "LIDAR_TOP";
+  pcl::toROSMsg(mergedClusters, pubCloud);
+  pubCloud.header.frame_id = lidarFrame_;
   pubCloud.header.stamp = msg->header.stamp;
 
-  pc_publisher2_->publish(pubCloud2);
   pc_publisher_->publish(pubCloud);
 
-  RCLCPP_INFO(this->get_logger(), "published 3d detection %ld", markerArray3d.markers.size());
+  RCLCPP_INFO(this->get_logger(), "published %ld 3d detections\n\n", markerArray3d.markers.size());
   
 }
 
 int TrackingNode::highestIOUScoredBBox(
   const std::vector<vision_msgs::msg::BoundingBox3D> bboxes,
-  const vision_msgs::msg::BoundingBox2D& detBBox)
+  const vision_msgs::msg::BoundingBox2D& detBBox,
+  const std::vector<std::shared_ptr<Cluster>>& clusters)
 {
   int bestScore = 0;
   int bestBBox = 0;
 
-  for (int i=0; i<bboxes.size(); ++i)
+  for (size_t i=0; i<bboxes.size(); ++i)
   {
     vision_msgs::msg::BoundingBox3D b = bboxes[i];
-    // project bbox center to 2d
+    // project the 3d corners of the bbox to 2d camera frame
     pcl::PointXYZ top_left;
     top_left.x = b.center.position.x - b.size.x/2;
     top_left.y = b.center.position.y - b.size.y/2;
@@ -212,25 +208,26 @@ int TrackingNode::highestIOUScoredBBox(
     bottom_right.y = b.center.position.y + b.size.y/2;
     bottom_right.z = b.center.position.z + b.size.z/2;
 
-    std::optional<geometry_msgs::msg::Point> top_left2d = DetUtils::projectLidarToCamera(transform_, camInfo_->p, top_left);
-    std::optional<geometry_msgs::msg::Point> bottom_right2d = DetUtils::projectLidarToCamera(transform_, camInfo_->p, bottom_right);
+    std::optional<geometry_msgs::msg::Point> top_left2d = ProjectionUtils::projectLidarToCamera(transform_, camInfo_->p, top_left);
+    std::optional<geometry_msgs::msg::Point> bottom_right2d = ProjectionUtils::projectLidarToCamera(transform_, camInfo_->p, bottom_right);
 
     if (!top_left2d || !bottom_right2d) return 0;
 
     vision_msgs::msg::BoundingBox2D bbox2d;
-    bbox2d.center.position.x = ((top_left2d->x/top_left2d->z) + (bottom_right2d->x/bottom_right2d->z))/2;
-    bbox2d.center.position.y = ((top_left2d->y/top_left2d->z) + (bottom_right2d->y/bottom_right2d->z))/2;
+    bbox2d.center.position.x = ((top_left2d->x) + (bottom_right2d->x))/2;
+    bbox2d.center.position.y = ((top_left2d->y) + (bottom_right2d->y))/2;
     bbox2d.size_x = abs(top_left2d->x - bottom_right2d->x);
     bbox2d.size_y = abs(top_left2d->y - bottom_right2d->y);
 
     double iou = iouScore(bbox2d, detBBox);
-    RCLCPP_INFO(this->get_logger(), "pos: %f, %f, %f, size: %f, %f, %f : iou %f", 
-      b.center.position.x, b.center.position.y, b.center.position.z,
-      b.size.x, b.size.y, b.size.z, iou);
 
-    if (iou > bestScore)
+    // score also includes density of points (num points/ volume) in the 3d bbox
+    double density = clusters[i]->size() / (b.size.x * b.size.y * b.size.z);
+    double score = iou + density;
+
+    if (score > bestScore)
     {
-      bestScore = iou;
+      bestScore = score;
       bestBBox = i;
     }
   }
@@ -240,19 +237,20 @@ int TrackingNode::highestIOUScoredBBox(
 double TrackingNode::overlapBoundingBox(const vision_msgs::msg::BoundingBox2D& boxA, const vision_msgs::msg::BoundingBox2D& boxB)
 {
   double overlapHeight =
-      std::min(boxA.center.position.y + boxA.size_y/2, boxB.center.position.y + boxB.size_y) -
-      std::max(boxA.center.position.y, boxB.center.position.y);
+      std::min(boxA.center.position.y + boxA.size_y/2, boxB.center.position.y + boxB.size_y/2) -
+      std::max(boxA.center.position.y - boxA.size_y/2, boxB.center.position.y - boxB.size_y/2);
   if (overlapHeight <= 0) return 0;
-  double overlapWidth = std::min(boxA.center.position.x + boxA.size_x, boxB.center.position.x + boxB.size_x) -
-                        std::max(boxA.center.position.x, boxB.center.position.x);
+  
+  double overlapWidth = std::min(boxA.center.position.x + boxA.size_x/2, boxB.center.position.x + boxB.size_x/2) -
+                        std::max(boxA.center.position.x - boxA.size_x/2, boxB.center.position.x - boxB.size_x/2);
   if (overlapWidth <= 0) return 0;
+  
   return overlapHeight * overlapWidth;
 }
 
 double TrackingNode::iouScore(const vision_msgs::msg::BoundingBox2D& bboxA, const vision_msgs::msg::BoundingBox2D& bboxB)
 {
   double overlap = overlapBoundingBox(bboxA, bboxB);
-  // If overlap is 0, it returns 0
   return (overlap /
           (bboxA.size_x * bboxA.size_y + bboxB.size_x * bboxB.size_y - overlap));
 
