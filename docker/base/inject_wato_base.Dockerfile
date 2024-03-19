@@ -13,7 +13,7 @@ ENV USER="bolty"
 ENV AMENT_WS=/home/${USER}/ament_ws
 
 # User Setup
-RUN apt-get update && apt-get install -y curl sudo && \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y curl sudo && \
     rm -rf /var/lib/apt/lists/*
 
 # Add a user so that created files in the docker container are owned by a non-root user (for prod)
