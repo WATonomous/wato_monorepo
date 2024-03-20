@@ -1,0 +1,5 @@
+transforms3d
+numba 
+filterpy==1.4.5 
+scipy 
+easydict 
