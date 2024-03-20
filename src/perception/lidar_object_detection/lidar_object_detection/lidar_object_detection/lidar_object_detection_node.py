@@ -22,9 +22,11 @@ class LidarObjectDetection(Node):
         self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/transfusion_trained_model.pth")
         self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml")
         self.declare_parameter("lidar_topic", "/velodyne_points")
+        self.declare_parameter("model_type", "nuscenes")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
+        self.model_type = self.get_parameter("model_type").value
 
         self.viz_publisher = self.create_publisher(MarkerArray, "/lidar_detections_viz", 10)
         self.detections_publisher = self.create_publisher(Detection3DArray, "/lidar_detections", 10)
@@ -70,9 +72,11 @@ class LidarObjectDetection(Node):
         cloud_array = np.frombuffer(cloud_msg.data, dtype=np.float32)
         num_fields = cloud_msg.point_step // 4
         cloud_array = cloud_array.reshape(num_points, num_fields)
-        if cloud_array.shape[1] <= 4:
+        if cloud_array.shape[1] <= 4 and self.model_type == "nuscenes":
             timestamp = np.full((num_points, 1), fill_value=0.0, dtype=np.float32)
             cloud_array = np.hstack((cloud_array, timestamp))
+        if cloud_array.shape[1] > 4 and self.model_type != "nuscenes":
+            cloud_array = cloud_array[:, :4]
         return cloud_array
 
     def publish_bounding_boxes(self, pointcloud_msg, pred_dicts):
