@@ -70,10 +70,9 @@ class LidarObjectDetection(Node):
         cloud_array = np.frombuffer(cloud_msg.data, dtype=np.float32)
         num_fields = cloud_msg.point_step // 4
         cloud_array = cloud_array.reshape(num_points, num_fields)
-
-        if cloud_array.shape[1] > 4:
-            cloud_array = cloud_array[:, :4]
-
+        if cloud_array.shape[1] <= 4:
+            timestamp = np.full((num_points, 1), fill_value=0.0, dtype=np.float32)
+            cloud_array = np.hstack((cloud_array, timestamp))
         return cloud_array
 
     def publish_bounding_boxes(self, pointcloud_msg, pred_dicts):
@@ -81,7 +80,7 @@ class LidarObjectDetection(Node):
         detections = Detection3DArray()
         detections.header = pointcloud_msg.header
         for idx, (box, score) in enumerate(zip(pred_dicts[0]["pred_boxes"], pred_dicts[0]["pred_scores"])):
-            if score > 0.1:
+            if score > 0.03:
                 marker = Marker()
                 marker.header = pointcloud_msg.header
                 marker.id = idx
