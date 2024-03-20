@@ -4,13 +4,16 @@
   <name>tracking</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
+  <maintainer email="s36gong@uwaterloo.ca">Steven Gong</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>tf_transformations</depend>
+  <depend>vision_msgs</depend>
+  <exec_depend>tracking_msgs</exec_depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>
