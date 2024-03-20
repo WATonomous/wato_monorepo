@@ -23,7 +23,7 @@ FROM ${BASE_IMAGE} as dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
-    ffmpeg libsm6 libgl1-mesa-glx libxext6 wget \
+    ffmpeg libsm6 libgl1-mesa-glx libxext6 wget
 
 # Install python packages
 COPY src/world_modeling/motion_forecasting/requirements.txt requirements.txt
