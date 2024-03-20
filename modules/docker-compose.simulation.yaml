@@ -11,20 +11,20 @@ services:
     restart: always
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
     
-  carla_ros_bridge:
-    build:
-      context: ..
-      dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
-      cache_from:
-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_${TAG}"
-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
-      target: deploy
-    image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
-    environment:
-      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - USE_ACKERMANN_CONTROL=False
-    # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
-    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+  # carla_ros_bridge:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
+  #     cache_from:
+  #       - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_${TAG}"
+  #       - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
+  #     target: deploy
+  #   image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
+  #   environment:
+  #     - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+  #     - USE_ACKERMANN_CONTROL=False
+  #   # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
+  #   command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
 
   carla_viz:
     build:
