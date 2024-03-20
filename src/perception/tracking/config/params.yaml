@@ -1,0 +1,19 @@
+obstacle_class_names:
+  - UNKNOWN
+  - PEDISTRIAN
+  - CYCLIST
+
+traffic_sign_class_names:
+  - LEFT_TURN_SIGN
+  - RIGHT_TURN_SIGN
+  - STOP_SIGN
+  - PED_CROSSING
+  - DO_NOT_ENTER
+  - 5MPH_SIGN
+  - 10MPH_SIGN
+  - 15MPH_SIGN
+  - 20MPH_SIGN
+  - 25MPH_SIGN
+  - HANDICAP_SIGN
+  - RAILROAD_CROSSING
+  - PARKING_SIGN
