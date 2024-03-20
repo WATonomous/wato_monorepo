@@ -43,13 +43,14 @@ services:
     command: /bin/bash -c "ros2 launch lidar_object_detection nuscenes_launch.py"
     volumes:
       - /mnt/wato-drive2/perception_models/transfusion_trained_model.pth:/home/bolty/OpenPCDet/models/transfusion_trained_model.pth
-      - /mnt/wato-drive2/perception_models/transfusion_trained_model.pth:/home/bolty/OpenPCDet/models/cbgs_transfusion_lidar.pth
+      - /mnt/wato-drive2/perception_models/cbgs_transfusion_lidar.pth:/home/bolty/OpenPCDet/models/cbgs_transfusion_lidar.pth
       - /mnt/wato-drive2/perception_models/pv_rcnn_8369.pth:/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth
       - /mnt/wato-drive2/perception_models/nuscenes_trained_voxelNext.pth:/home/bolty/OpenPCDet/models/nuscenes_trained_voxelNext.pth
       # New Models to Try
       - /mnt/wato-drive/perception/bevfusion_pretrain/bevfusion-det.pth:/home/bolty/OpenPCDet/models/bevfusion-det.pth
       - /mnt/wato-drive/perception/bevfusion_pretrain/lidar-only-det.pth:/home/bolty/OpenPCDet/models/lidar-only-det.pth
       - /mnt/wato-drive/perception/bevfusion_pretrain/lidar-only-seg.pth:/home/bolty/OpenPCDet/models/lidar-only-seg.pth
+      - /mnt/wato-drive/perception/bevfusion_pretrain/lidar-only-seg.pth:/home/bolty/OpenPCDet/models/swint-nuimages-pretrained.pth
       - /mnt/wato-drive/perception/pcds/pvrcnn_ros_ckpt.pth:/home/bolty/OpenPCDet/models/pvrcnn_ros_ckpt.pth
       - /mnt/wato-drive/perception/pcds/pvrcnn_base_ckpt.pth:/home/bolty/OpenPCDet/models/pvrcnn_base_ckpt.pth
       # Data sets
