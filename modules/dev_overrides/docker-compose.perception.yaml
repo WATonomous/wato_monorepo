@@ -64,3 +64,13 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/tracking:/home/bolty/ament_ws/src/tracking
+
+  depth_estimation:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: tracking
+    image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/depth_estimation:/home/bolty/ament_ws/src/depth_estimation
