@@ -87,3 +87,14 @@ services:
       target: deploy
     image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
+    
+  depth_estimation:
+    build:
+      context: ..
+      dockerfile: docker/perception/depth_estimation/depth_estimation.Dockerfile
+      cache_from:
+        - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_main"
+      target: deploy
+    image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch depth_estimation eve.launch.py"
