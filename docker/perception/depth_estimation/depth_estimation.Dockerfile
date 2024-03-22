@@ -6,8 +6,7 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/perception/traffic_sign_detection traffic_sign_detection
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/perception/depth_estimation depth_estimation
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
