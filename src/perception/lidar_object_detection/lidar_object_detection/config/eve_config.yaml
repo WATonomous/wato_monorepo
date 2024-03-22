@@ -3,4 +3,3 @@ lidar_object_detection_node:
     lidar_topic: /velodyne_points
     model_config_path: /home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml
     model_path: /home/bolty/OpenPCDet/models/transfusion_trained_model.pth
-    model_type: nuscenes
