@@ -32,10 +32,9 @@ if config.tilt_subcommand == "up":
             compose_yaml = read_yaml(module)
 
             # Test changing up the dictionary to check change compose state
-            compose_yaml["services"].pop("py_producer")
-            compose_yaml["services"].pop("py_transformer")
+            # compose_yaml["services"].pop("py_producer")
+            # compose_yaml["services"].pop("py_transformer")
 
-            # module is just a string which is path to docker-compose
             print(compose_yaml)
 
             # Up the containers
