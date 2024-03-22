@@ -1,0 +1,53 @@
+# Load env
+load('ext://dotenv', 'dotenv')
+dotenv(fn='modules/.env')
+
+# Load env variables
+modules = os.getenv("COMPOSE_MODULES", "")
+mode_of_operation = os.getenv("MODE_OF_OPERATION")
+yaml_file_path = config.main_dir
+print(yaml_file_path)
+
+if config.tilt_subcommand == "up":
+    # Tilt up
+    print("==================")
+    if not modules:
+        print("ERROR: NO MODULES FOUND")
+        exit()
+    else:
+        for module in modules.split():
+            print(module)
+    print("==================")
+
+    # Run Docker-compose
+    modules_list = [module for module in modules.split()]
+    print(modules_list)
+
+    # Work with each compose file
+    compose_yaml_files = []
+
+    if mode_of_operation == "deploy" or not mode_of_operation:
+        for module in modules_list:
+            # Modify yaml
+            compose_yaml = read_yaml(module)
+
+            # Test changing up the dictionary to check change compose state
+            compose_yaml["services"].pop("py_producer")
+            compose_yaml["services"].pop("py_transformer")
+
+            # module is just a string which is path to docker-compose
+            print(compose_yaml)
+
+            # Up the containers
+            docker_compose(encode_yaml(compose_yaml))
+
+    elif mode_of_operation == "develop":
+        print("In develop mode")
+
+# Tilt down: down ALL containers
+if config.tilt_subcommand == "down":
+    print("Downing docker-compose...")
+
+    # TODO: temp solution use project names, look for better strategy 
+    local('docker compose -p modules down -v --remove-orphans')  
+    exit()
