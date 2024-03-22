@@ -1,5 +1,5 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
-
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-humble-ubuntu22.04-devel
+ARG RUNTIME_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-humble-ubuntu22.04
 ################################ Source ################################
 FROM ${BASE_IMAGE} as source
 
@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/perception/lane_detection lane_detection
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/perception_msgs/lane_detection_msgs lane_detection_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -18,6 +18,13 @@ RUN apt-get -qq update && rosdep update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
+
+RUN apt-get update && apt-get install -y libopencv-dev \
+        python3-opencv \
+        tensorrt \
+        cuda-toolkit
+
+RUN export OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4/OpenCVConfig.cmake
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -46,7 +53,21 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as deploy
+# Use a different runtime image for a smaller image size
+FROM ${RUNTIME_IMAGE} as deploy
+
+# Install runtime libs
+RUN apt-get update && apt-get install -y \
+    ros-humble-cv-bridge \
+    tensorrt
+
+# Copy the compiled binary to the runtime image
+COPY --from=build ${AMENT_WS} ${AMENT_WS}
+
+WORKDIR ${AMENT_WS}
+
+COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
+ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 # Source Cleanup and Security Setup
 RUN chown -R $USER:$USER ${AMENT_WS}

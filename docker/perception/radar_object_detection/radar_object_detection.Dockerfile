@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/perception/radar_object_detection radar_object_detection
-COPY src/wato_msgs/radar_msgs radar_msgs
+COPY src/wato_msgs/perception_msgs/radar_msgs radar_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \

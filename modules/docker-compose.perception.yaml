@@ -66,7 +66,16 @@ services:
         - "${PERCEPTION_LANE_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch lane_detection lane_detection.launch.py"
+    command: /bin/bash -c "ros2 launch lane_detection eve.launch.py"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - /mnt/wato-drive2/perception-weights/tensorrt_model/ultra_fast_lane_detection_v2/resource/model/ufldv2_culane_res34_320x1600.onnx:/models/ufldv2_culane_res34_320x1600.onnx
 
   tracking:
     build:
