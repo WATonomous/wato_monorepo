@@ -24,14 +24,39 @@ function usage {
     exit 0
 }
 
+function tilt_up {
+    cd modules
+    echo "Runing tilt up with" $COMPOSE_MODULES
+    COMPOSE_MODULES=$COMPOSE_MODULES tilt up
+    cd ..
+}
+
+function tilt_down {
+    cd modules
+    echo "Runing tilt down"
+    COMPOSE_MODULES=$COMPOSE_MODULES tilt down
+    cd ..
+}
+
 function run_compose {
     cd $MONO_DIR
     if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
         MODULES="$(source $MODULES_DIR/.env && printf -- " -f $MODULES_DIR/docker-compose.%s.yaml" ${ACTIVE_MODULES[@]})"
     fi
-    echo "Running docker compose ${MODULES[@]} $@"
 
-    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker compose ${MODULES[@]} "$@"
+    COMPOSE_MODULES="$(printf -- "$MODULES_DIR/docker-compose.%s.yaml " ${ACTIVE_MODULES[@]})"
+    echo Active Modules are: ${ACTIVE_MODULES[@]}
+
+    echo "$@"
+
+    #DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker compose ${MODULES[@]} "$@"
+    if [ "$@" == 'up' ]; then
+        tilt_up
+    fi
+
+    if [ "$@" == 'down' ]; then
+        tilt_down
+    fi
 }
 
 # in case you need help
