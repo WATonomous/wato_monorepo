@@ -36,12 +36,6 @@ while read -r module; do
 
     # Loop through each service
     while read -r service_out; do
-        # Temporarily skip perception services that have too large image size
-        if  [[ "$service_out" == "lane_detection" ]] || \
-            [[ "$service_out" == "camera_object_detection" ]] || \
-            [[ "$service_out" == "semantic_segmentation" ]]; then
-            continue
-        fi
         # Construct JSON object for each service with module and service name
         json_object=$(jq -nc --arg module_out "$module_out" --arg service_out "$service_out" \
         '{module: $module_out, service: $service_out}')
