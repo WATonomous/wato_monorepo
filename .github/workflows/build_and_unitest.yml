@@ -96,7 +96,6 @@ jobs:
           cache-from: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.TARGET_BRANCH }}
-          cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
           target: dependencies
 
@@ -112,7 +111,6 @@ jobs:
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
             ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
             ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.TARGET_BRANCH }}
-          cache-to: type=inline
           builder: ${{ steps.buildx.outputs.name }}
           target: build
 
@@ -135,7 +133,6 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
-          BUILDKIT_INLINE_CACHE: 1
         with:
           image: ${{ steps.construct-registry-url.outputs.url }}
           tag: build_${{ env.SOURCE_BRANCH }}
