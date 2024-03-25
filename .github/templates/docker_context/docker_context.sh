@@ -24,6 +24,11 @@ while read -r module; do
     services=$(docker-compose -f "$module" config --services)
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
 
+    # Skip simulation module
+    if [[ 'simulation' = $module_out ]]; then
+        continue
+    fi
+
     # Only work with modules that are modified
     if [[ $MODIFIED_MODULES != *$module_out* && $TEST_ALL = "false" ]]; then
         continue
@@ -31,6 +36,12 @@ while read -r module; do
 
     # Loop through each service
     while read -r service_out; do
+        # Temporarily skip perception services that have too large image size
+        if  [[ "$service_out" == "lane_detection" ]] || \
+            [[ "$service_out" == "camera_object_detection" ]] || \
+            [[ "$service_out" == "semantic_segmentation" ]]; then
+            continue
+        fi
         # Construct JSON object for each service with module and service name
         json_object=$(jq -nc --arg module_out "$module_out" --arg service_out "$service_out" \
         '{module: $module_out, service: $service_out}')

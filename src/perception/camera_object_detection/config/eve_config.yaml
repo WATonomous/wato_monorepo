@@ -1,23 +1,23 @@
 left_camera_object_detection_node:
   ros__parameters:
     camera_topic: /camera/left/image_color
-    publish_vis_topic: /camera/left/annotated_img
-    publish_detection_topic: /camera/left/detections
-    model_path: /perception_models/yolov8s.pt
-    image_size: 480
+    publish_vis_topic: /camera/left/camera_detections_viz
+    publish_detection_topic: /camera/left/camera_detections
+    model_path: /perception_models/yolov8m.pt
+    image_size: 1024
 
 center_camera_object_detection_node:
   ros__parameters:
     camera_topic: /camera/center/image_color
-    publish_vis_topic: /camera/center/annotated_img
-    publish_detection_topic: /camera/center/detections
-    model_path: /perception_models/yolov8s.pt
-    image_size: 480
+    publish_vis_topic: /camera/center/camera_detections_viz
+    publish_detection_topic: /camera/center/camera_detections
+    model_path: /perception_models/yolov8m.pt
+    image_size: 1024
 
 right_camera_object_detection_node:
   ros__parameters:
     camera_topic: /camera/right/image_color
-    publish_vis_topic: /camera/right/annotated_img
-    publish_detection_topic: /camera/right/detections
-    model_path: /perception_models/yolov8s.pt
-    image_size: 480
+    publish_vis_topic: /camera/right/camera_detections_viz
+    publish_detection_topic: /camera/right/camera_detections
+    model_path: /perception_models/yolov8m.pt
+    image_size: 1024
