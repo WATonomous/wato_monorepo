@@ -62,7 +62,8 @@ class LidarObjectDetection(Node):
         with torch.no_grad():
             pred_dicts, _ = self.model.forward(data_dict)
 
-        self.publish_bounding_boxes(msg, pred_dicts)
+        original_timestamp = msg.header.stamp
+        self.publish_bounding_boxes(msg, pred_dicts, original_timestamp)
 
     def pointcloud2_to_xyz_array(self, cloud_msg):
         num_points = cloud_msg.width * cloud_msg.height
@@ -76,7 +77,7 @@ class LidarObjectDetection(Node):
             cloud_array = np.hstack((cloud_array, timestamp))
         return cloud_array
 
-    def publish_bounding_boxes(self, pointcloud_msg, pred_dicts):
+    def publish_bounding_boxes(self, pointcloud_msg, pred_dicts, original_timestamp):
         marker_array = MarkerArray()
         detections = Detection3DArray()
         detections.header = pointcloud_msg.header
@@ -84,6 +85,7 @@ class LidarObjectDetection(Node):
             if score > 0.7:
                 marker = Marker()
                 marker.header = pointcloud_msg.header
+                marker.header.stamp = original_timestamp
                 marker.id = idx
                 marker.type = Marker.CUBE
                 marker.action = Marker.ADD
@@ -91,7 +93,7 @@ class LidarObjectDetection(Node):
                 marker.pose.position.y = float(box[1])
                 marker.pose.position.z = float(box[2])
 
-                # Calculate orientation quaternion          
+                # Calculate orientation quaternion
                 yaw = float(box[6]) + 1e-10
                 marker.pose.orientation.z = np.sin(yaw / 2)
                 marker.pose.orientation.w = np.cos(yaw / 2)
