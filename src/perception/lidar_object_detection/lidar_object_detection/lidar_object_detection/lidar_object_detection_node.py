@@ -82,7 +82,7 @@ class LidarObjectDetection(Node):
         detections = Detection3DArray()
         detections.header = pointcloud_msg.header
         for idx, (box, score) in enumerate(zip(pred_dicts[0]["pred_boxes"], pred_dicts[0]["pred_scores"])):
-            if score > 0.7:
+            if score > 0.6:
                 marker = Marker()
                 marker.header = pointcloud_msg.header
                 marker.header.stamp = original_timestamp
