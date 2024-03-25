@@ -90,7 +90,12 @@ class LidarObjectDetection(Node):
                 marker.pose.position.x = float(box[0])
                 marker.pose.position.y = float(box[1])
                 marker.pose.position.z = float(box[2])
-                marker.pose.orientation.w = 1.0
+
+                # Calculate orientation quaternion          
+                yaw = float(box[6]) + 1e-10
+                marker.pose.orientation.z = np.sin(yaw / 2)
+                marker.pose.orientation.w = np.cos(yaw / 2)
+
                 marker.scale.x = float(box[3])
                 marker.scale.y = float(box[4])
                 marker.scale.z = float(box[5])
@@ -197,6 +202,5 @@ def main(args=None):
     node.destroy_node()
     rclpy.shutdown()
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
