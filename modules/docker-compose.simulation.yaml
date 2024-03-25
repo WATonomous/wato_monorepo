@@ -32,22 +32,22 @@ services:
   #   # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
   #   command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
 
-  carla_viz:
-    build:
-      context: ..
-      dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
-      cache_from: 
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}" 
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_main"
-    image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
-    ports:
-      - ${CARLAVIZ_PORT}:8080
-      - ${CARLAVIZ_PORT_2}:8081
-    environment:
-      - CARLA_SERVER_HOST=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
-    entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
-    restart: always
+  # carla_viz:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
+  #     cache_from: 
+  #       - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}" 
+  #       - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_main"
+  #   image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
+  #   ports:
+  #     - ${CARLAVIZ_PORT}:8080
+  #     - ${CARLAVIZ_PORT_2}:8081
+  #   environment:
+  #     - CARLA_SERVER_HOST=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+  #     - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
+  #   entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
+  #   restart: always
 
   # carla_sample_node:
   #   build:
@@ -61,23 +61,40 @@ services:
   #   # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
   #   command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
 
-  carla_notebooks:
+  # carla_notebooks:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
+  #     cache_from: 
+  #       - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_${TAG}"
+  #       - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_main"
+  #   image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
+  #   ports:
+  #     - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
+  #   environment:
+  #     - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+  #     - SCENARIO_RUNNER_ROOT=/home/bolty/scenario_runner
+  #     - DISPLAY=1
+  #     - CUDA_VISIBLE_DEVICES=0
+  #     - NVIDIA_VISIBLE_DEVICES=1
+  #   container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
+  #   volumes:
+  #     - ${MONO_DIR}/src/simulation/carla_notebooks:/home/bolty/carla_notebooks
+  #   command: jupyter notebook --allow-root --debug --ip=0.0.0.0 --port=${CARLA_NOTEBOOKS_PORT:?} --no-browser --ServerApp.token='' --ServerApp.password=''
+
+  carla_data_gen:
     build:
       context: ..
-      dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
+      dockerfile: docker/simulation/carla_data_gen/carla_data_gen.Dockerfile
       cache_from: 
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_${TAG}"
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_main"
-    image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
-    ports:
-      - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
+        - "${SIMULATION_CARLA_DATA_GEN_IMAGE:?}:build_${TAG}"
+        - "${SIMULATION_CARLA_DATA_GEN_IMAGE:?}:build_main"
+    image: "${SIMULATION_CARLA_DATA_GEN_IMAGE:?}:${TAG}"
     environment:
       - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - SCENARIO_RUNNER_ROOT=/home/bolty/scenario_runner
       - DISPLAY=1
       - CUDA_VISIBLE_DEVICES=0
       - NVIDIA_VISIBLE_DEVICES=1
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_data_gen
     volumes:
-      - ${MONO_DIR}/src/simulation/carla_notebooks:/home/bolty/carla_notebooks
-    command: jupyter notebook --allow-root --debug --ip=0.0.0.0 --port=${CARLA_NOTEBOOKS_PORT:?} --no-browser --ServerApp.token='' --ServerApp.password=''
+      - ${MONO_DIR}/src/simulation/carla_data_gen:/home/bolty/carla_data_gen
