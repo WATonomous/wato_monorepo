@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'motion_forecasting_node = motion_forecasting_node:main'
+            'motion_forecasting_node = motion_forecasting.motion_forecasting_node:main'
         ],
     },
 )
