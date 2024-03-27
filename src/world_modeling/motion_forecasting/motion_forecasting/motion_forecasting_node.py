@@ -3,12 +3,8 @@ from rclpy.node import Node
 from sample_msgs.msg import Unfiltered
 from std_msgs.msg import String
 
-import torch
-
 class MotionForecastingNode(Node):
     def __init__(self):
-        torch.zeros(1).cuda()
-
         super().__init__('motion_forecasting_node')
         self.get_logger().info("Creating motion forecasting node...")
 
@@ -25,10 +21,11 @@ class MotionForecastingNode(Node):
     def listener_callback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)  # Log the received message
         
-        # Extract x, y, and z positions from the received message
-        x = msg.data.pos_x
-        y = msg.data.pos_y
-        z = msg.data.pos_z
+         # Parse the x, y, and z values from the received message
+        data_parts = msg.data.split(';')
+        x = float(data_parts[0].split(':')[1])
+        y = float(data_parts[1].split(':')[1])
+        z = float(data_parts[2].split(':')[1])
         
         # Placeholder for your processing function
         future_x, future_y, future_z = self.pgp(x, y, z)
