@@ -20,12 +20,6 @@ typedef pcl::PointCloud<pcl::PointXYZRGB> ColorCloud;
 typedef std::shared_ptr<Cluster> ClusterPtr;
 typedef vision_msgs::msg::BoundingBox3D BBox3D;
 
-std::vector<double> ProjectionUtils::clustering_distances_;
-std::vector<double> ProjectionUtils::clustering_thresholds_; 
-double ProjectionUtils::cluster_size_min_;
-double ProjectionUtils::cluster_size_max_;
-double ProjectionUtils::cluster_merge_threshold_;
-
 void ProjectionUtils::pointsInBbox(
     const Cloud::Ptr& inlierCloud,
     const Cloud::Ptr& lidarCloud, 
@@ -112,7 +106,9 @@ void ProjectionUtils::removeFloor(const Cloud::Ptr& lidarCloud, const Cloud::Ptr
     extract.filter(*cloud_filtered);
 }
 
-std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> ProjectionUtils::getClusteredBBoxes(const Cloud::Ptr& lidarCloud)
+std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> ProjectionUtils::getClusteredBBoxes(
+    const Cloud::Ptr& lidarCloud, 
+    const ClusteringParams& clusteringParams)
 {
     std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_segments_array(5);
     for (size_t i=0; i<cloud_segments_array.size(); ++i)
@@ -125,13 +121,13 @@ std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> ProjectionUtils::getClus
     for (const pcl::PointXYZ& pt : lidarCloud->points) 
     {        
         float origin_distance = sqrt(pow(pt.x, 2) + pow(pt.y, 2));
-        if (origin_distance < clustering_distances_[0])
+        if (origin_distance < clusteringParams.clustering_distances[0])
             cloud_segments_array[0]->points.push_back(pt);
-        else if (origin_distance < clustering_distances_[1])
+        else if (origin_distance < clusteringParams.clustering_distances[1])
             cloud_segments_array[1]->points.push_back(pt);
-        else if (origin_distance < clustering_distances_[2])
+        else if (origin_distance < clusteringParams.clustering_distances[2])
             cloud_segments_array[2]->points.push_back(pt);
-        else if (origin_distance < clustering_distances_[3])
+        else if (origin_distance < clusteringParams.clustering_distances[3])
             cloud_segments_array[3]->points.push_back(pt);
         else
             cloud_segments_array[4]->points.push_back(pt);
@@ -142,16 +138,18 @@ std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> ProjectionUtils::getClus
     for (unsigned int i = 1; i < cloud_segments_array.size(); i++) 
     {
         // add clusters from each shell 
-        std::vector<ClusterPtr> local_clusters = clusterAndColor(cloud_segments_array[i], clustering_thresholds_[i]);
+        std::vector<ClusterPtr> local_clusters = clusterAndColor(cloud_segments_array[i], 
+            clusteringParams.clustering_thresholds[i], clusteringParams.cluster_size_min, 
+            clusteringParams.cluster_size_max);
         all_clusters.insert(all_clusters.end(), local_clusters.begin(), local_clusters.end());
     }
 
     // merge clusters if possible, do this twice?
     std::vector<ClusterPtr> mid_clusters = (all_clusters.size() > 0) 
-        ?   ProjectionUtils::checkAllForMerge(all_clusters, cluster_merge_threshold_)
+        ?   ProjectionUtils::checkAllForMerge(all_clusters, clusteringParams.cluster_merge_threshold)
         :   all_clusters;
     std::vector<ClusterPtr> final_clusters = (mid_clusters.size() > 0)
-        ?   ProjectionUtils::checkAllForMerge(mid_clusters, cluster_merge_threshold_)
+        ?   ProjectionUtils::checkAllForMerge(mid_clusters, clusteringParams.cluster_merge_threshold)
         :   mid_clusters;
 
     // get boundingboxes for each & return all possible 3d bboxes (if valid)
@@ -166,7 +164,7 @@ std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> ProjectionUtils::getClus
 }
 
 std::vector<ClusterPtr> ProjectionUtils::clusterAndColor(
-    const Cloud::Ptr& in_cloud_ptr, double in_max_cluster_distance) 
+    const Cloud::Ptr& in_cloud_ptr, double in_max_cluster_distance, double cluster_size_min, double cluster_size_max) 
 {
     std::vector<ClusterPtr> clusters;
     if(in_cloud_ptr->size() == 0) return clusters;
@@ -186,8 +184,8 @@ std::vector<ClusterPtr> ProjectionUtils::clusterAndColor(
     // perform clustering on 2d cloud : https://pcl.readthedocs.io/projects/tutorials/en/master/cluster_extraction.html
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
     ec.setClusterTolerance(in_max_cluster_distance);
-    ec.setMinClusterSize(cluster_size_min_);
-    ec.setMaxClusterSize(cluster_size_max_);
+    ec.setMinClusterSize(cluster_size_min);
+    ec.setMaxClusterSize(cluster_size_max);
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud_2d);
     ec.extract(cluster_indices);

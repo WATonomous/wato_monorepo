@@ -13,10 +13,15 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
-#include "cluster.hpp"
-
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
+
+#include "cluster.hpp"
+#include "projection_utils.hpp"
+
+#include <map>
+
+struct ClusteringParams;
 
 class TrackingNode : public rclcpp::Node
 {
@@ -24,6 +29,8 @@ public:
     TrackingNode();
 
 private:
+    std::map<std::string, ClusteringParams> clusteringParams;
+
     // lidar and camera frame names
     std::string lidarFrame_;
     std::string cameraFrame_;
@@ -65,4 +72,17 @@ private:
     double iouScore(
         const vision_msgs::msg::BoundingBox2D& bboxA, 
         const vision_msgs::msg::BoundingBox2D& bboxB);
+
+    std::map<std::string, ClusteringParams> initializeClusteringParams(
+        const std::map<std::string, rclcpp::Parameter>& clustering_params_map);
+
+    // should put somewhere else?
+    template <typename T>
+    T getDefaultOrValue(std::map<std::string, T> m, std::string key)
+    {
+        if (m.find(key) == m.end())
+            return m[key];
+        return m["default"];
+    }
+
 };
