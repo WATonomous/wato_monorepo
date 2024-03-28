@@ -1,5 +1,4 @@
 #include "dets_2d_3d_node.hpp"
-#include "projection_utils.hpp"
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -12,28 +11,23 @@
 #include <memory>
 
 
-TrackingNode::TrackingNode() : Node("dets_2d_3d"), transformInited_{false} , lidarCloud_{new pcl::PointCloud<pcl::PointXYZ>()}
+TrackingNode::TrackingNode() : Node("dets_2d_3d", rclcpp::NodeOptions().allow_undeclared_parameters(true).automatically_declare_parameters_from_overrides(true)),
+  transformInited_{false} , lidarCloud_{new pcl::PointCloud<pcl::PointXYZ>()}
 {
   // setup paramaters
-  this->declare_parameter("camera_info_topic", "/CAM_FRONT/camera_info");
-  this->declare_parameter("lidar_topic", "/LIDAR_TOP");
-  this->declare_parameter("detections_topic", "/detections");
+  // this->declare_parameter("camera_info_topic", "/CAM_FRONT/camera_info");
+  // this->declare_parameter("lidar_topic", "/LIDAR_TOP");
+  // this->declare_parameter("detections_topic", "/detections");
 
-  this->declare_parameter("publish_detections_topic", "/detections_3d");
-  this->declare_parameter("publish_markers_topic", "/markers_3d");
-  this->declare_parameter("publish_clusters_topic", "/clustered_pc");
+  // this->declare_parameter("publish_detections_topic", "/detections_3d");
+  // this->declare_parameter("publish_markers_topic", "/markers_3d");
+  // this->declare_parameter("publish_clusters_topic", "/clustered_pc");
 
-  this->declare_parameter("camera_frame", "CAM_FRONT");
-  this->declare_parameter("lidar_frame", "LIDAR_TOP");
+  // this->declare_parameter("camera_frame", "");
+  // this->declare_parameter("lidar_frame", "");
 
-  this->declare_parameter("clustering_distances", std::vector<double>{5, 30, 45, 60});
-  this->declare_parameter("clustering_thresholds", std::vector<double>{0.5, 1.1, 1.6, 2.1, 2.6});
-  this->declare_parameter("cluster_size_min", 20.);
-  this->declare_parameter("cluster_size_max", 100000.);
-  this->declare_parameter("cluster_merge_threshold", 1.5);
-
-  lidarFrame_ = this->get_parameter("camera_frame").as_string();
-  cameraFrame_ = this->get_parameter("lidar_frame").as_string();
+  lidarFrame_ = this->get_parameter("lidar_frame").as_string();
+  cameraFrame_ = this->get_parameter("camera_frame").as_string();
 
   // setup pub subs
   camInfo_subscriber_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -58,23 +52,43 @@ TrackingNode::TrackingNode() : Node("dets_2d_3d"), transformInited_{false} , lid
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  // initialize common params used by utils
+  std::map<std::string, rclcpp::Parameter> clustering_params_map;
+  this->get_parameters("clustering_params", clustering_params_map);
+  clusteringParams = initializeClusteringParams(clustering_params_map);
+}
 
-  // 0 => 0-15m d=0.5, 1 => 15-30 d=1, 2 => 30-45 d=1.6, 3 => 45-60 d=2.1, 4 => >60   d=2.6
-  ProjectionUtils::clustering_distances_ = this->get_parameter("clustering_distances").as_double_array();
-  ProjectionUtils::clustering_thresholds_ = this->get_parameter("clustering_thresholds").as_double_array(); 
+std::map<std::string, ClusteringParams> TrackingNode::initializeClusteringParams(
+  const std::map<std::string, rclcpp::Parameter>& clustering_params_map)
+{
+  std::map<std::string, ClusteringParams> clusteringParams;
+  for(auto iter = clustering_params_map.begin(); iter != clustering_params_map.end(); ++iter)
+  {
+    std::string key = iter->first;
+    size_t split_loc = key.find_first_of('.');
+    std::string det_type = key.substr(0, split_loc);
+    std::string field_type = key.substr(split_loc + 1);
 
-  ProjectionUtils::cluster_size_min_ = this->get_parameter("cluster_size_min").as_double();
-  ProjectionUtils::cluster_size_max_ = this->get_parameter("cluster_size_max").as_double();
-  ProjectionUtils::cluster_merge_threshold_ = this->get_parameter("cluster_merge_threshold").as_double();;
+    ClusteringParams params;
+    if (field_type == "clustering_distances")
+      params.clustering_distances = iter->second.as_double_array();
+    else if (field_type == "clustering_thresholds")
+      params.clustering_thresholds = iter->second.as_double_array();
+    else if (field_type == "cluster_size_min")
+      params.cluster_size_min = iter->second.as_double();
+    else if (field_type == "cluster_size_max")
+      params.cluster_size_max = iter->second.as_double();
+    else if (field_type == "cluster_merge_threshold")
+      params.cluster_merge_threshold = iter->second.as_double();
 
+    clusteringParams[det_type] = params;
+  }
+  return clusteringParams;
 }
 
 void TrackingNode::receiveLidar(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloud_msg)
 {
   // save latest lidar info
   std::lock_guard<std::mutex> guard_lidar(lidarCloud_mutex_);
-  
 
   sensor_msgs::msg::PointCloud2 pointCloud = *pointCloud_msg;
   pcl::fromROSMsg(pointCloud, *lidarCloud_);
@@ -143,7 +157,7 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     }
 
     // clustering
-    auto clusterAndBBoxes = ProjectionUtils::getClusteredBBoxes(inlierPoints);
+    auto clusterAndBBoxes = ProjectionUtils::getClusteredBBoxes(inlierPoints, getDefaultOrValue<ClusteringParams>(clusteringParams, det.results[0].hypothesis.class_id.c_str()));
     std::vector<std::shared_ptr<Cluster>> clusters = clusterAndBBoxes.first; // needed? for viz purposes only
     std::vector<vision_msgs::msg::BoundingBox3D> allBBoxes = clusterAndBBoxes.second;
 

@@ -12,19 +12,22 @@
 #include <vector>
 #include <optional>
 
+struct ClusteringParams 
+{
+    // segment by distance
+    std::vector<double> clustering_distances;
+    // Map of the nearest neighbor distance threshold for each segment, for each detection
+    std::vector<double> clustering_thresholds;
+
+    double cluster_size_min;
+    double cluster_size_max;
+    double cluster_merge_threshold;
+};
+
 // main helper functions used by the node -- should all be static
 class ProjectionUtils
 {
 public:
-        // segment by distance
-        static std::vector<double> clustering_distances_;
-        // Nearest neighbor distance threshold for each segment
-        static std::vector<double> clustering_thresholds_;
-
-        static double cluster_size_min_;
-        static double cluster_size_max_;
-        static double cluster_merge_threshold_;
-
         static void pointsInBbox(
                 const pcl::PointCloud<pcl::PointXYZ>::Ptr& inlierCloud,
                 const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidarCloud, 
@@ -46,13 +49,13 @@ public:
                 const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud_filtered);
 
         static std::pair<std::vector<std::shared_ptr<Cluster>>, std::vector<vision_msgs::msg::BoundingBox3D>> getClusteredBBoxes(
-                const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidarCloud);
+                const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidarCloud, const ClusteringParams& clusteringParams);
 
 private:
 
         static std::vector<std::shared_ptr<Cluster>> clusterAndColor(
                 const pcl::PointCloud<pcl::PointXYZ>::Ptr& in_cloud_ptr, 
-                double in_max_cluster_distance);
+                double in_max_cluster_distance, double cluster_size_min, double cluster_size_max);
 
         static void checkClusterMerge(
                 size_t in_cluster_id, const std::vector<std::shared_ptr<Cluster>> &in_clusters,
