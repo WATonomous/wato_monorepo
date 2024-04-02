@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Pose, Twist
 
 class MotionForecastingNode(Node):
@@ -13,6 +14,11 @@ class MotionForecastingNode(Node):
             Odometry,
             'odom',
             self.listener_callback,
+            10)
+        self.imu = self.create_subscription(
+            Imu,
+            'imu',
+            self.listener_callback2,
             10)
         self.publisher = self.create_publisher(
             String,  # Replace with the actual message type to publish
@@ -33,19 +39,26 @@ class MotionForecastingNode(Node):
         self.get_logger().info(f'Received velocity: {speed}, Received yaw rate: {yaw_rate}')
         
         # Placeholder for your processing function
-        future_x, future_y, future_z = self.pgp(x, y, z)
+        future_x, future_y, future_z = self.pgp(x, y, z, speed, yaw_rate)
         
         # Prepare the message for publishing
         forecasted_msg = String()  # Replace with message type
         forecasted_msg.data = f"Future positions: x={future_x}, y={future_y}, z={future_z}"  # Assign the processed data
         self.publisher.publish(forecasted_msg)
         self.get_logger().info('Publishing: "%s"' % forecasted_msg.data)
+    
+    def listener_callback2(self, msg):
+        linear_acceleration = msg.linear_acceleration.x
+
+        linear_acceleration_msg = String()
+        linear_acceleration_msg.data = f"Linear acceleration: {linear_acceleration}"
+        self.get_logger().info('Publishing: "%s"' % linear_acceleration_msg.data)
 
     def pgp(self, x, y, z, speed, yaw_rate): # Handles vehicle motion forecasting
         future_x = x + 1
         future_y = y + 1
         future_z = z + 1
-        return future_x, future_y, future_z, speed, yaw_rate
+        return future_x, future_y, future_z
 
 
 def main(args=None):
