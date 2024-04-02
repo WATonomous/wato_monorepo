@@ -1,16 +1,17 @@
 import rclpy
 from rclpy.node import Node
-from sample_msgs.msg import Unfiltered
 from std_msgs.msg import String
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Pose, Twist
 
 class MotionForecastingNode(Node):
     def __init__(self):
         super().__init__('motion_forecasting_node')
         self.get_logger().info("Creating motion forecasting node...")
 
-        self.subscription = self.create_subscription(
-            Unfiltered,  # Replace with the actual message type to be expected from 'unfiltered_topic'
-            'unfiltered_topic',
+        self.odom = self.create_subscription(
+            Odometry,
+            'odom',
             self.listener_callback,
             10)
         self.publisher = self.create_publisher(
@@ -19,13 +20,13 @@ class MotionForecastingNode(Node):
             10)
 
     def listener_callback(self, msg):
-        self.get_logger().info('Received: "%s"' % msg.data)  # Log the received message
-        
          # Parse the x, y, and z values from the received message
-        data_parts = msg.data.split(';')
-        x = float(data_parts[0].split(':')[1])
-        y = float(data_parts[1].split(':')[1])
-        z = float(data_parts[2].split(':')[1])
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        z = msg.pose.pose.position.z
+
+        # Log the received position
+        self.get_logger().info(f'Received position: x={x}, y={y}, z={z}')
         
         # Placeholder for your processing function
         future_x, future_y, future_z = self.pgp(x, y, z)
