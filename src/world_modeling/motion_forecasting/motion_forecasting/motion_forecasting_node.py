@@ -25,8 +25,12 @@ class MotionForecastingNode(Node):
         y = msg.pose.pose.position.y
         z = msg.pose.pose.position.z
 
-        # Log the received position
+        speed = abs(msg.twist.twist.linear.x)
+        yaw_rate = msg.twist.twist.angular.z
+
+        # Log the received position, velocity, and yaw rate
         self.get_logger().info(f'Received position: x={x}, y={y}, z={z}')
+        self.get_logger().info(f'Received velocity: {speed}, Received yaw rate: {yaw_rate}')
         
         # Placeholder for your processing function
         future_x, future_y, future_z = self.pgp(x, y, z)
@@ -37,11 +41,11 @@ class MotionForecastingNode(Node):
         self.publisher.publish(forecasted_msg)
         self.get_logger().info('Publishing: "%s"' % forecasted_msg.data)
 
-    def pgp(self, x, y, z): # Handles vehicle motion forecasting
+    def pgp(self, x, y, z, speed, yaw_rate): # Handles vehicle motion forecasting
         future_x = x + 1
         future_y = y + 1
         future_z = z + 1
-        return future_x, future_y, future_z
+        return future_x, future_y, future_z, speed, yaw_rate
 
 
 def main(args=None):
