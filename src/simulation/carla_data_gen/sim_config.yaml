@@ -1,0 +1,74 @@
+npcs:
+  num_vehicles: 10
+  num_walkers: 10
+sensors:
+  camera:
+    - id: front_camera
+      type: rgb
+      position:
+        x: 1.5
+        y: 0
+        z: 2.4
+      rotation:
+        pitch: 0
+        yaw: 0
+        roll: 0
+      fov: 83
+      width: 800
+      height: 600
+    - id: rear_camera
+      type: rgb
+      position:
+        x: -1.5
+        y: 0
+        z: 2.4
+      rotation:
+        pitch: 0
+        yaw: 180
+        roll: 0
+      fov: 83
+      width: 800
+      height: 600
+    - id: depth_camera
+      type: depth
+      position:
+        x: 0
+        y: 0
+        z: 2.4
+      rotation:
+        pitch: 0
+        yaw: 0
+        roll: 0
+      fov: 83
+      width: 800
+      height: 600
+    - id: semantic_camera
+      type: semantic_segmentation
+      position:
+        x: 0
+        y: 0
+        z: 2.4
+      rotation:
+        pitch: 0
+        yaw: 0
+        roll: 0
+      fov: 83
+      width: 800
+      height: 600
+  lidar:
+    - id: lidar_sensor_1
+      channels: 32
+      range: 200
+      points_per_second: 1000000
+      rotation_frequency: 60
+      upper_fov: 15
+      lower_fov: -15
+      horizontal_fov: 360
+      position:
+        x: 2.4
+        y: 0
+        z: 3.5
+      rotation:
+        pitch: 0
+        yaw: 0
+        roll: 0
