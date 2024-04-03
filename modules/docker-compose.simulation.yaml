@@ -12,10 +12,10 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [ gpu ]
     restart: always
-    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Epic"
+    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
     
   # carla_ros_bridge:
   #   build:
@@ -92,9 +92,13 @@ services:
     image: "${SIMULATION_CARLA_DATA_GEN_IMAGE:?}:${TAG}"
     environment:
       - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - DISPLAY=1
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=1
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_data_gen
     volumes:
       - ${MONO_DIR}/src/simulation/carla_data_gen:/home/bolty/carla_data_gen
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]

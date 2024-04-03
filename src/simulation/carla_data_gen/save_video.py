@@ -4,13 +4,13 @@ import os
 from glob import glob
 
 # Directory containing images
-image_folder = 'sim_images'
+image_folder = 'images'
 # Output video file
 # video_file = 'sim_video.mp4'
-video_file = 'sim_depth_video.mp4'
+video_file = 'sim_video.mp4'
 
 # images = sorted(glob(f"{image_folder}/*_camera.png"))
-images = sorted(glob(f"{image_folder}/*_depth.png"))
+images = sorted(glob(f"{image_folder}/*_bbox.png"))
 
 # Determine the width and height from the first image
 image_path = images[0]
