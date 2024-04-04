@@ -1,15 +1,17 @@
 # pylint: disable=wrong-import-position
 sys.path.append("/home/bolty/OpenPCDet")
-from pcdet.utils import common_utils
-from pcdet.models import build_network, load_data_to_gpu
-from pcdet.datasets import DatasetTemplate
-from pcdet.config import cfg, cfg_from_yaml_file
+
 import sys
 import argparse
 import rclpy
 from rclpy.node import Node
 import numpy as np
 import torch
+
+from pcdet.utils import common_utils
+from pcdet.models import build_network, load_data_to_gpu
+from pcdet.datasets import DatasetTemplate
+from pcdet.config import cfg, cfg_from_yaml_file
 from visualization_msgs.msg import Marker, MarkerArray
 from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray
 from sensor_msgs.msg import PointCloud2, PointField
