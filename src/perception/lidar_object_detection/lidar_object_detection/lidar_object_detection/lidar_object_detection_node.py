@@ -1,27 +1,27 @@
 # pylint: disable=wrong-import-position
-sys.path.append("/home/bolty/OpenPCDet")
-
-import sys
-import argparse
-import rclpy
-from rclpy.node import Node
-import numpy as np
-import torch
-
-from pcdet.utils import common_utils
-from pcdet.models import build_network, load_data_to_gpu
-from pcdet.datasets import DatasetTemplate
-from pcdet.config import cfg, cfg_from_yaml_file
-from visualization_msgs.msg import Marker, MarkerArray
-from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray
 from sensor_msgs.msg import PointCloud2, PointField
+from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray
+from visualization_msgs.msg import Marker, MarkerArray
+from pcdet.config import cfg, cfg_from_yaml_file
+from pcdet.datasets import DatasetTemplate
+from pcdet.models import build_network, load_data_to_gpu
+from pcdet.utils import common_utils
+import torch
+import numpy as np
+from rclpy.node import Node
+import rclpy
+import argparse
+import sys
+sys.path.append("/home/bolty/OpenPCDet")
 
 
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
-        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/transfusion_trained_model.pth")
-        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml")
+        self.declare_parameter(
+            "model_path", "/home/bolty/OpenPCDet/models/transfusion_trained_model.pth")
+        self.declare_parameter(
+            "model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml")
         self.declare_parameter("lidar_topic", "/velodyne_points")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
