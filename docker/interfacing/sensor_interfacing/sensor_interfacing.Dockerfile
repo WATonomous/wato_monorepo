@@ -21,6 +21,8 @@ FROM ${BASE_IMAGE} as dependencies
 # Camera and LiDAR ROS2 Driver
 RUN apt update && apt install -y ros-$ROS_DISTRO-spinnaker-camera-driver ros-$ROS_DISTRO-velodyne
 
+RUN apt install -y ros-$ROS_DISTRO-rviz2 ros-$ROS_DISTRO-image-proc
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
@@ -33,6 +35,10 @@ COPY --from=source ${AMENT_WS}/src src
 WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
+
+
+# Enable X11 Forwarding
+RUN apt-get install -qqy x11-apps
 
 ################################ Build ################################
 FROM dependencies as build

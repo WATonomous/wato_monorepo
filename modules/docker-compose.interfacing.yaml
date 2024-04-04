@@ -13,6 +13,12 @@ services:
     command: /bin/bash -c "ros2 launch sensor_interfacing all_sensors.launch.py"
     network_mode: "host"
 
+    environment:
+      DISPLAY: $DISPLAY
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/.Xauthority:/root/.Xauthority
+
   can_interfacing:
     build:
       context: ..

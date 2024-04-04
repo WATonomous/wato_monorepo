@@ -20,24 +20,41 @@ def generate_launch_description():
                                        description='FLIR serial number of camera (in quotes!!)')
     
     # extra_params = { 'debug': True,
-    #                  #'device_link_throughput_limit': 125000000,
-    #                  #'gev_scps_packet_size': 9000,
-    #                  }
+                    #  'device_link_throughput_limit': 125000000,
+                    #  'gev_scps_packet_size': 1440,
+                    #  }
 
     camera_node = Node(
         package='spinnaker_camera_driver',
         executable='camera_driver_node',
         output='screen',
         name='flir_camera',
-        parameters=[{'parameter_file': parameter_file,
-                     'serial_number': [serial],
-                    }],
+        arguments=['--ros-args', '--log-level', 'debug'],
+        parameters=[
+            # extra_params,
+            {
+                    'parameter_file': parameter_file,
+                    'serial_number': [serial],
+                    }]
+                    ,
         remappings=[
             ('~/control', '/exposure_control/control'),
         ])
 
+    debayer_node = Node(
+        package='image_proc',
+        executable='debayer_node',
+        output='screen',
+        name='debayer_node',
+        remappings=[
+            ('/image_raw', '/flir_camera/image_raw'),
+    ]
+    )
+
+
     return LaunchDescription([
         parameter_file_arg,
         serial_arg,
-        camera_node
+        camera_node,
+        debayer_node
     ])
