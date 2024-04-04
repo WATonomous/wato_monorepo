@@ -1,0 +1,5 @@
+voxelizer_node:
+  ros__parameters:
+    lidar_pcl_topic: /LIDAR_TOP
+    detection3d_topic: /detection3d
+    publish_vis_topic: /voxel_grid_marker
