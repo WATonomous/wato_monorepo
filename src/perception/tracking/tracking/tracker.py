@@ -40,7 +40,8 @@ class TrackerNode(Node):
         self.declare_parameter("reference_frame", "odom")
         self.declare_parameter("~traffic_sign_class_names")
         self.declare_parameter("~obstacle_class_names")
-        
+        self.declare_parameter("frequency", 10)
+ 
         self.declare_parameter("config_path", "/home/bolty/ament_ws/src/tracking/config/mahalanobis.yaml")
 
 
@@ -61,7 +62,9 @@ class TrackerNode(Node):
         cfg.TRAFFIC_SIGN_CLASSES = self.get_parameter("~traffic_sign_class_names").value
         cfg.OBSTACLE_CLASSES = self.get_parameter("~obstacle_class_names").value
         self.config_path = self.get_parameter("config_path").value
-        
+        self.frequency = self.get_parameter("frequency").value
+        self.dt = 1.0 / self.frequency
+
         cfg_from_yaml_file(self.config_path, cfg)
 
 
@@ -88,6 +91,8 @@ class TrackerNode(Node):
 
         self.tracked_obstacles_publisher = self.create_publisher(
                  TrackedDetection3DArray, self.tracked_detections_topic, 10)
+
+        self.tracked_obstacles_timer = self.create_timer(0.1, self.publish_tracks, 10)
 
         # tracked_signs_topic = '/tracked_signs'
         # self.tracked_signs_publisher = self.create_publisher(
@@ -218,7 +223,7 @@ class TrackerNode(Node):
 
         # self.get_logger().info("Obstacle Update Time: {}".format(time.time() - start_time))
 
-    def publish_tracks(self, dt):
+    def publish_tracks(self):
         """
         Publishes the tracks as obj_tracked. Also publishes the node status message
         dt: time since last update (in seconds)
@@ -240,7 +245,7 @@ class TrackerNode(Node):
         #         traffic_sign_list.traffic_signs.append(traffic_sign_message)
         #     else:
         #         x = kf_track.get_state()
-        #         tracked_obstacle_message = self._create_tracked_obstacle_message(kf_track, tracking_name, dt)
+        #         tracked_obstacle_message = self._create_tracked_obstacle_message(kf_track, tracking_name, self.dt)
         #         tracked_obstacle_list.tracked_obstacles.append(tracked_obstacle_message)
         # self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
         # self.tracked_signs_publisher.publish(traffic_sign_list)
