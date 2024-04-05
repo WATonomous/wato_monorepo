@@ -44,39 +44,28 @@ services:
     command: /bin/bash -c "ros2 launch lidar_object_detection eve_launch.py"
     volumes:
       - /mnt/wato-drive2/perception_models/pv_rcnn_8369.pth:/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth
-      - /mnt/wato-drive2/nuscenes-1.0-mini/samples/LIDAR_TOP:/home/bolty/data
-  traffic_light_detection:
+      - /mnt/wato-drive2/perception_models/nuscenes_trained_voxelNext.pth:/home/bolty/OpenPCDet/models/nuscenes_trained_voxelNext.pth
+      # New Models to Try
+      - /mnt/wato-drive/perception/bevfusion_pretrain/bevfusion-det.pth:/home/bolty/OpenPCDet/models/bevfusion-det.pth
+      - /mnt/wato-drive/perception/bevfusion_pretrain/lidar-only-det.pth:/home/bolty/OpenPCDet/models/lidar-only-det.pth
+      - /mnt/wato-drive/perception/bevfusion_pretrain/lidar-only-seg.pth:/home/bolty/OpenPCDet/models/lidar-only-seg.pth
+      - /mnt/wato-drive/perception/bevfusion_pretrain/lidar-only-seg.pth:/home/bolty/OpenPCDet/models/swint-nuimages-pretrained.pth
+      - /mnt/wato-drive/perception/pcds/pvrcnn_ros_ckpt.pth:/home/bolty/OpenPCDet/models/pvrcnn_ros_ckpt.pth
+      - /mnt/wato-drive/perception/pcds/pvrcnn_base_ckpt.pth:/home/bolty/OpenPCDet/models/pvrcnn_base_ckpt.pth
+      # Data sets
+      - /mnt/wato-drive2/nuscenes-1.0-mini:/home/bolty/OpenPCDet/data/nuscenes/v1.0-mini
+      - /mnt/wato-drive2/wato-datasets/nuscenes/full-dataset:/home/bolty/OpenPCDet/data/nuscenes/v1.0-trainval
+      
+  semantic_segmentation:
     build:
       context: ..
-      dockerfile: docker/perception/traffic_light_detection/traffic_light_detection.Dockerfile
+      dockerfile: docker/perception/semantic_segmentation/semantic_segmentation.Dockerfile
       cache_from:
-        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-        - "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:main"
+        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_main"
       target: deploy
-    image: "${PERCEPTION_TRAFFIC_LIGHT_DETECTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch traffic_light_detection traffic_light_detection.launch.py"
-
-  # traffic_sign_detection:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/perception/traffic_sign_detection/traffic_sign_detection.Dockerfile
-  #     cache_from:
-  #       - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
-  #       - "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:main"
-  #     target: deploy
-  #   image: "${PERCEPTION_TRAFFIC_SIGN_DETECTION_IMAGE}:${TAG}"
-  #   command: /bin/bash -c "ros2 launch traffic_sign_detection traffic_sign_detection.launch.py"
-
-  # semantic_segmentation:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/perception/semantic_segmentation/semantic_segmentation.Dockerfile
-  #     cache_from:
-  #       - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-  #       - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:main"
-  #     target: deploy
-  #   image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-  #   command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
+    image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
 
   # lane_detection:
   #   build:
@@ -89,13 +78,24 @@ services:
   #   image: "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
   #   command: /bin/bash -c "ros2 launch lane_detection lane_detection.launch.py"
 
-  # tracking:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/perception/tracking/tracking.Dockerfile
-  #     cache_from:
-  #       - "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-  #       - "${PERCEPTION_TRACKING_IMAGE}:main"
-  #     target: deploy
-  #   image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-  #   command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
+  tracking:
+    build:
+      context: ..
+      dockerfile: docker/perception/tracking/tracking.Dockerfile
+      cache_from:
+        - "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_TRACKING_IMAGE}:build_main"
+      target: deploy
+    image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
+    
+  depth_estimation:
+    build:
+      context: ..
+      dockerfile: docker/perception/depth_estimation/depth_estimation.Dockerfile
+      cache_from:
+        - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_main"
+      target: deploy
+    image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch depth_estimation eve.launch.py"
