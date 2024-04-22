@@ -16,7 +16,7 @@ ACTIVE_MODULES="infrastructure perception"
 
 ############################## OPTIONAL CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
-COMPOSE_PROJECT_NAME="j89leung"
+COMPOSE_PROJECT_NAME="lereljic"
 FOXGLOVE_BRIDGE_PORT="8771"
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.

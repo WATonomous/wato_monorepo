@@ -3,12 +3,14 @@
 <package format="3">
   <name>semantic_segmentation</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="bolty@todo.todo">bolty</maintainer>
-  <license>Apache-2.0</license>
+  <description>The semantic segmentation package</description>
+  <maintainer email="lereljic@watonomous.ca">Lucas Reljic</maintainer>
+  <license>TODO: License declaration</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <depend>sensor_msgs</depend>
@@ -18,10 +20,7 @@
   <depend>cv_bridge</depend>
   <depend>image_transport</depend>
 
-  <build_depend>rosidl_default_generators</build_depend>
-  <exec_depend>rosidl_default_runtime</exec_depend>
-  <member_of_group>rosidl_interface_packages</member_of_group>
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>
