@@ -1,6 +1,6 @@
-#include "hd_map_manager.hpp"
-
 #include <iostream>
+
+#include "hd_map_manager.hpp"
 
 HDMapManager::HDMapManager(std::shared_ptr<HDMapRouter> router) : router_(router) {}
 

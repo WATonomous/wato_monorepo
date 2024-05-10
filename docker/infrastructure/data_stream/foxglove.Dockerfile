@@ -1,7 +1,7 @@
 # ================= Dependencies ===================
 FROM ros:humble AS base
 
-RUN apt-get update && apt-get install -y curl && \
+RUN apt-get update && apt-get install -y curl ros-humble-ros2bag ros-humble-rosbag2* ros-humble-foxglove-msgs&& \
     rm -rf /var/lib/apt/lists/*
 
 # Set up apt repo
@@ -11,8 +11,9 @@ RUN apt-get update && apt-get install -y lsb-release software-properties-common 
 # Install Dependencies
 RUN apt-get update && \
     apt-get install -y \ 
-    ros-humble-lanelet2
-
+    ros-$ROS_DISTRO-foxglove-bridge \
+    ros-$ROS_DISTRO-rosbridge-server \
+    ros-$ROS_DISTRO-topic-tools
 
 # Add a docker user so that created files in the docker container are owned by a non-root user
 RUN addgroup --gid 1000 docker && \
@@ -41,24 +42,20 @@ FROM base as repo
 RUN mkdir -p ~/ament_ws/src
 WORKDIR /home/docker/ament_ws/src
 
-# Download maps
-ENV MAPS_DIR="/home/docker/ament_ws/src/maps"
-RUN git clone https://docker-image:wnYipLhHecUSW5NEKb2V@git.uwaterloo.ca/WATonomous/map_data.git $MAPS_DIR
-
-COPY src/world_modeling/hd_map hd_map
+# Add any custom messages here for foxglove to interpret them
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/common_msgs common_msgs
 COPY src/wato_msgs/world_modeling world_modeling_msgs
 
 WORKDIR /home/docker/ament_ws
+RUN sudo apt-get update && sudo apt-get upgrade -y
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \
     colcon build \
-    --cmake-args -DCMAKE_BUILD_TYPE=Release
+        --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# Entrypoint will run before any CMD on launch. Sources ~/ament_ws/install/setup.bash
+# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh /home/docker/wato_ros_entrypoint.sh
 COPY docker/.bashrc /home/docker/.bashrc
 ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/docker/wato_ros_entrypoint.sh"]
-CMD ["ros2", "launch", "hd_map", "hd_map.launch.py"]
