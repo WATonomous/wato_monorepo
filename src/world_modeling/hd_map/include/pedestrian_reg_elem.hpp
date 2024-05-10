@@ -18,9 +18,13 @@
 class PedestrianRegElem : public lanelet::RegulatoryElement{
     public:
     PedestrianRegElem();
+    static constexpr char RuleName[] = "pedestrian";
     
     private:
-
+    // The following lines are required so that the lanelet library can create the PedestrianRegElem object
+    // Refer to : https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
+    friend class lanelet::RegisterRegulatoryElement<PedestrianRegElem>;
+    explicit PedestrianRegElem(const lanelet::RegulatoryElementDataPtr& data);
 };
 
 #endif

@@ -14,10 +14,11 @@
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 #include "hd_map_router.hpp"
 
-class TrafficLightRegElem(){
+class TrafficLightRegElem{
     public:
     TrafficLightRegElem();
     
     private:
 };
+
 #endif

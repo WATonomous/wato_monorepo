@@ -17,7 +17,8 @@
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 #include "stop_sign_reg_elem.hpp"
 #include "pedestrian_reg_elem.hpp"
-#include "stop_sign_reg_elem.hpp"
+#include "traffic_light_reg_elem.hpp"
+#include <unordered_set>
 
 lanelet::GPSPoint ros_gps_msg_to_lanelet_gps_point(sensor_msgs::msg::NavSatFix::SharedPtr gps_msg);
 
@@ -36,35 +37,31 @@ class HDMapRouter {
 
     lanelet::ConstLanelet get_nearest_lanelet_to_gps(lanelet::GPSPoint gps_point);
     
-    // TODO: implementation of get nearest lanelet to Obstacle x, y, z coordinates
-    // Reference: [FINDING]
+    // Reference: NovAtel Co-ordinate System (https://docs.novatel.com/OEM7/Content/SPAN_Operation/Definition_Reference_Frames.htm)
+    lanelet::ConstLanelet get_nearest_lanelet_to_xy(float x, float y, float width_x, float height_y);
     lanelet::ConstLanelet get_nearest_lanelet_to_xyz(float x, float y, float z);
 
     lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::GPSPoint from_point, lanelet::GPSPoint to_point);
 
     lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet);
 
-
-    //void obstacle_subscriber();
-
-    // TODO: function to retrieve the data from the obstacle message + accordingly create stop sign/ped/traffic light reg elem | DONE
+    void add_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
+    void update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
+    
     // Obstacle Message : https://github.com/WATonomous/wato_monorepo/blob/32946e5cbbc1721d404aa4851d58c7425b8121bc/src/wato_msgs/common_msgs/msg/Obstacle.msg
     void process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
 
     // TODO: functions to add the three regulatory elements on the DRG
     // Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
-    void add_stop_sign_reg_elem(lanelet::ConstLanelet reg_elem_lanelet);
-
-    void add_pedestrian_reg_elem(lanelet::ConstLanelet reg_elem_lanelet);
-
-    void add_traffic_light_reg_elem(lanelet::ConstLanelet reg_elem_lanelet);
+    bool add_stop_sign_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
+    bool add_pedestrian_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
+    bool add_traffic_light_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
 
   private:
-    //rclcpp::Node::SharedPtr node_;
-    //rclcpp::Subscription<common_msgs::msg::Obstacle>::SharedPtr subscription_;
     lanelet::LaneletMapPtr lanelet_ptr_;
     lanelet::routing::RoutingGraphPtr routing_graph_;
     std::shared_ptr<lanelet::Projector> projector_;
+    std::unordered_set<uint32_t> obstacle_list;
 };
 
 #endif

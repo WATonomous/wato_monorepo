@@ -68,10 +68,23 @@ lanelet::ConstLanelet HDMapRouter::get_nearest_lanelet_to_gps(lanelet::GPSPoint 
     return nearest_lanelet;
 }
 
-// TODO: implementation of get nearest lanelet to Obstacle x, y, z coordinates
-// Reference: [FINDING]
-lanelet::ConstLanelet HDMapRouter::get_nearest_lanelet_to_xyz(float x, float y, float z){
+lanelet::ConstLanelet HDMapRouter::get_nearest_lanelet_to_xy(float x, float y, float width_x, float height_y){
+    float x_center, y_center;
 
+    x_center = (x + (0.5)*width_x);
+    y_center = (y - (0.5)*height_y);
+
+    lanelet::BasicPoint3d obstacle_center_xy(x_center, y_center, 0);
+    lanelet::GPSPoint local_coordinates_xy = projector_->reverse(obstacle_center_xy);
+
+    return get_nearest_lanelet_to_gps(local_coordinates_xy);
+}
+
+lanelet::ConstLanelet HDMapRouter::get_nearest_lanelet_to_xyz(float x_center, float y_center, float z_center){
+    lanelet::BasicPoint3d obstacle_center_xyz(x_center, y_center, z_center);
+    lanelet::GPSPoint local_coordinates_xyz = projector_->reverse(obstacle_center_xyz);
+
+    return get_nearest_lanelet_to_gps(local_coordinates_xyz);
 }
 
 lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::GPSPoint from_point, lanelet::GPSPoint to_point){
@@ -84,56 +97,57 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
     return shortest_path;
 }
 
+// Obstacle Message : https://github.com/WATonomous/wato_monorepo/blob/32946e5cbbc1721d404aa4851d58c7425b8121bc/src/wato_msgs/common_msgs/msg/Obstacle.msg
 void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
     if (!obstacle_msg_ptr){
         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle message is empty!");
         return;
     }
 
-    std::string obstacle_label = obstacle_msg_ptr->label;
-
-    geometry_msgs::msg::PoseWithCovariance obstacle_pose_covariance = obstacle_msg_ptr->pose;
-    geometry_msgs::msg::Pose obstacle_pose = obstacle_pose_covariance.pose;
-    geometry_msgs::msg::Point obstacle_point = obstacle_pose.position;
-    float x = obstacle_point.x;
-    float y = obstacle_point.y;
-    float z = obstacle_point.z;
-
-    float width_x = obstacle_msg_ptr->width_along_x_axis;
-    float height_y = obstacle_msg_ptr->height_along_y_axis;
-    float depth_z = obstacle_msg_ptr->depth_along_z_axis;
-
-    uint32_t object_id = obstacle_msg_ptr->object_id;
-
     RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle message retrieved!");
-    
-    lanelet::ConstLanelet reg_elem_lanelet = HDMapRouter::get_nearest_lanelet_to_xyz(x, y, z);
 
-    if (obstacle_label == "STOP SIGN"){
-        add_stop_sign_reg_elem(reg_elem_lanelet);
+    if (obstacle_list.find(obstacle_msg_ptr->object_id) == obstacle_list.end()){
+        RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "New Obstacle! Adding Element to the HD-Map...");
+        add_obstacle(obstacle_msg_ptr);
     }
-    else if (obstacle_label == "PEDESTRIAN"){
-        add_pedestrian_reg_elem(reg_elem_lanelet);
-    }
-    else if (obstacle_label == "TRAFFIC LIGHT"){
-        add_traffic_light_reg_elem(reg_elem_lanelet);
-    }
-    else {
-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Recieved obstacle label has no associated RegElem!");
+    else{
+        RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle Exists! Updating Obstacle Info in the HD-Map...");
+        update_obstacle(obstacle_msg_ptr);
     }
 }
 
+void HDMapRouter::add_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+    bool result = false;
+
+    if (obstacle_msg_ptr->label == "STOP SIGN"){
+        result = add_stop_sign_reg_elem(obstacle_msg_ptr);
+    }
+    else if (obstacle_msg_ptr->label == "TRAFFIC LIGHT"){
+        result = add_traffic_light_reg_elem(obstacle_msg_ptr);
+    }
+    else if (obstacle_msg_ptr->label == "PEDESTRIAN"){
+        result = add_pedestrian_reg_elem(obstacle_msg_ptr);
+    }
+    else{
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle Message %s not recognized!", obstacle_msg_ptr->label.c_str());
+    } 
+}
+
+void HDMapRouter::update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+    // TODO : 
+}
 
 // TODO: functions to add the three regulatory elements on the DRG
+
 // Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
-void HDMapRouter::add_stop_sign_reg_elem(lanelet::ConstLanelet reg_elem_lanelet){
+bool HDMapRouter::add_stop_sign_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
     // TODO : stop sign
 }
 
-void HDMapRouter::add_pedestrian_reg_elem(lanelet::ConstLanelet reg_elem_lanelet){
+bool HDMapRouter::add_pedestrian_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
     // TODO : pedestrian
 }
 
-void HDMapRouter::add_traffic_light_reg_elem(lanelet::ConstLanelet reg_elem_lanelet){
+bool HDMapRouter::add_traffic_light_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
     // TODO : traffic light
 }
