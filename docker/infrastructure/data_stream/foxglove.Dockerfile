@@ -44,8 +44,11 @@ WORKDIR /home/docker/ament_ws/src
 
 # Add any custom messages here for foxglove to interpret them
 COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/common_msgs common_msgs
+COPY src/wato_msgs/world_modeling world_modeling_msgs
 
 WORKDIR /home/docker/ament_ws
+RUN sudo apt-get update && sudo apt-get upgrade -y
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rosdep update && \
     rosdep install -i --from-path src --rosdistro $ROS_DISTRO -y && \

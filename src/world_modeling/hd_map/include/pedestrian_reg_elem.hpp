@@ -14,24 +14,16 @@
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 #include "hd_map_router.hpp"
 
-class PedestrianRegElem{
-    public: 
-    // Constructor 
-    PedestrianRegElem(lanelet::Id id, lanelet::LineString3d predictedStates);
-
-    // gets a predicted path of the pedestrian
-    lanelet::ConstLineString3d getPredictedState() const;
-
-    // there is the isTrackDead & updatePredictedStates functions but don't fully understand them/how they will transfer to this repo
-    // Think this function checks if the pedestrian is gone or not
-    bool isTrackDead() const;
-
+class PedestrianRegElem : public lanelet::RegulatoryElement{
+    public:
+    PedestrianRegElem();
+    static constexpr char RuleName[] = "pedestrian";
+    
     private:
-
-    // initialize variabe of type time 
-    ros::Time _last_seen_time;
-
-    // Rowans code has an explicit constructor here, need to understand it more
+    // The following lines are required so that the lanelet library can create the PedestrianRegElem object
+    // Refer to : https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
+    friend class lanelet::RegisterRegulatoryElement<PedestrianRegElem>;
+    explicit PedestrianRegElem(const lanelet::RegulatoryElementDataPtr& data);
 };
 
 #endif

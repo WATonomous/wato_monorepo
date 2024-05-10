@@ -18,9 +18,13 @@
 class StopSignRegElem : public lanelet::RegulatoryElement{
     public:
     StopSignRegElem();
-    
-    private:
+    static constexpr char RuleName[] = "stop_sign";
 
+    private:
+    // The following lines are required so that the lanelet library can create the StopSignRegElem object
+    // Refer to : https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
+    friend class lanelet::RegisterRegulatoryElement<StopSignRegElem>;
+    explicit StopSignRegElem(const lanelet::RegulatoryElementDataPtr& data);
 };
 
 #endif
