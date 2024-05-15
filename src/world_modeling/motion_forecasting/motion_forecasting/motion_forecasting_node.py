@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
+from nav_msgs.msg import OccupancyGrid
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Pose, Twist
 
@@ -10,15 +11,20 @@ class MotionForecastingNode(Node):
         super().__init__('motion_forecasting_node')
         self.get_logger().info("Creating motion forecasting node...")
 
-        self.odom = self.create_subscription(
-            Odometry,
-            'odom',
-            self.listener_callback,
-            10)
-        self.imu = self.create_subscription(
-            Imu,
-            'imu',
-            self.listener_callback2,
+        # self.odom = self.create_subscription(
+        #     Odometry,
+        #     'odom',
+        #     self.listener_callback,
+        #     10)
+        # self.imu = self.create_subscription(
+        #     Imu,
+        #     'imu',
+        #     self.listener_callback2,
+        #     10)
+        self.map = self.create_subscription(
+            OccupancyGrid,  # Replace with the actual message type to subscribe to
+            'map',
+            self.listener_callback3,
             10)
         self.publisher = self.create_publisher(
             String,  # Replace with the actual message type to publish
@@ -53,6 +59,18 @@ class MotionForecastingNode(Node):
         linear_acceleration_msg = String()
         linear_acceleration_msg.data = f"Linear acceleration: {linear_acceleration}"
         self.get_logger().info('Publishing: "%s"' % linear_acceleration_msg.data)
+
+    def listener_callback3(self, msg):
+        # Access the occupancy grid data
+        width = msg.info.width
+        height = msg.info.height
+        resolution = msg.info.resolution  # meters per cell
+        map_data = msg.data  # List of occupancy data [-1, 100], where -1 is unknown
+
+        # Log the map information
+        self.get_logger().info(f'Received map: width={width}, height={height}, resolution={resolution}m/cell')
+
+        # Further processing can go here
 
     def pgp(self, x, y, z, speed, yaw_rate): # Handles vehicle motion forecasting
         future_x = x + 1
