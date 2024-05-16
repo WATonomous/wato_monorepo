@@ -1,0 +1,115 @@
+#!/bin/bash
+set -e
+
+programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
+MONO_DIR="$(dirname "$(realpath "$0")")"
+MODULES_DIR="$MONO_DIR/modules"
+ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
+
+function usage {
+    echo "Usage: $programname [OPTIONS]... [COMMAND]..."
+    echo "Executes \"docker compose COMMAND\" in the the monorepo with appropriate environment variables."
+    echo "  -v --verbose                    verbose mode. Currently, prints .env variables"                     
+    echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
+    echo ""
+    echo "Examples:" 
+    echo "  watod up                       start containers (docker compose up)"
+    echo "  watod down                     stop and remove containers (docker compose down)"
+    echo "  watod ps [--services]          list containers in the current project and show their current status (docker compose ps)"
+    echo "  watod --all pull               pull all new containers from the GitLab container registry (docker compose pull)"
+    echo "  watod --all build              build all new containers using Dockerfiles in docker/ (docker compose build)"
+    echo "  watod -t perception            open a bash terminal into the perception container."
+    echo ""
+    echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
+    exit 0
+}
+
+function run_compose {
+    cd $MONO_DIR
+    if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
+        MODULES="$(source $MODULES_DIR/.env && printf -- " -f $MODULES_DIR/docker-compose.%s.yaml" ${ACTIVE_MODULES[@]})"
+    fi
+    echo "Running docker compose ${MODULES[@]} $@"
+
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} docker compose ${MODULES[@]} "$@"
+}
+
+# in case you need help
+if [ "$1" == 'help' ]; then
+    usage
+fi
+# in case you have nothing to say
+if [ $# == 0 ]; then
+    usage
+fi
+
+# run options
+COMPOSE_CMD=""
+while [[ $# -gt 0 ]] ; do
+    key="$1"
+    case $key in
+      -v|--verbose)
+        VERBOSE=1
+        shift # past argument
+        ;;
+      -t|--terminal)
+        START_TERMINAL=1
+        shift
+        SERVICE_NAME=$1
+        if [ -z "$SERVICE_NAME" ]; then
+            echo "Expected watod -t SERVICE_NAME"
+        usage
+        fi
+        shift
+        ;;
+      -h|--help) # in case you got this far, but still need help :)
+        usage
+        ;;
+      *) # unknown option
+        break
+        ;;
+    esac
+done
+
+if [[ $# -gt 0 ]]; then
+	COMPOSE_CMD="${COMPOSE_CMD} $@"
+fi
+
+# Allow for local overrides of any of the below parameters (prioritized your local config)
+if [ -f "$MONO_DIR/watod-config.local.sh" ]; then
+	source "$MONO_DIR/watod-config.local.sh"
+elif [ -f "$MONO_DIR/watod-config.sh" ]; then
+	source "$MONO_DIR/watod-config.sh"
+fi
+
+# Change docker-compose override according to mode of operation
+MODE_OF_OPERATION=${MODE_OF_OPERATION:-"deploy"}
+if [ $MODE_OF_OPERATION == "deploy" ]; then
+	MODULES_DIR="$MONO_DIR/modules"
+elif [ $MODE_OF_OPERATION == "develop" ]; then
+	MODULES_DIR="$MONO_DIR/modules/dev_overrides"
+else
+	MODULES_DIR="$MONO_DIR/modules"
+fi
+
+# generate .env file from watod_scripts/watod-setup-env.sh
+if [ ! -z $VERBOSE ]; then # if we want to see all verbose coming from setting up env
+    cd $MONO_DIR && . ./watod_scripts/watod-setup-env.sh
+else
+    cd $MONO_DIR && . ./watod_scripts/watod-setup-env.sh &> /dev/null
+fi
+
+if [ ! -z "$COMPOSE_CMD" ]; then
+    ADDITIONAL_ARGS=""
+    # If we are starting a terminal, run docker compose up with the -d argument
+    if [ ! -z "$START_TERMINAL" ] && [[ ! " ${COMPOSE_CMD[@]} " =~ " -d " ]] && [[ " ${COMPOSE_CMD[@]} " =~ " up " ]]; then
+        ADDITIONAL_ARGS="-d"
+    fi
+    
+    run_compose ${COMPOSE_CMD[@]} ${ADDITIONAL_ARGS}
+fi
+
+if [ ! -z "$START_TERMINAL" ]; then
+    echo "Starting bash shell in service $SERVICE_NAME":
+    run_compose exec $SERVICE_NAME /bin/bash
+fi

@@ -67,7 +67,7 @@ class HDMapManager {
     bool get_origin_from_filename(std::string filename, lanelet::Origin &origin);
 
     std::map<std::string, lanelet::Origin> originList = {
-        {"/home/docker/ament_ws/src/maps/osm/Town05.osm", lanelet::Origin({0, 0})}
+        {"/home/bolty/ament_ws/etc/maps/osm/Town05.osm", lanelet::Origin({0, 0})}
     };
 
     std::shared_ptr<HDMapRouter> router_;
