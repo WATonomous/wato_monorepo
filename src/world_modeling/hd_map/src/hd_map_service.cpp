@@ -8,7 +8,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
 
   // Map selection hardcoded for now
   RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town05.osm...\n");
-  if(manager_->select_osm_map("/home/docker/ament_ws/src/maps/osm/Town05.osm")){
+  if(manager_->select_osm_map("/home/bolty/ament_ws/etc/maps/osm/Town05.osm")){
     RCLCPP_INFO(this->get_logger(), "Map Selection Successful!\n");
   }
   else{

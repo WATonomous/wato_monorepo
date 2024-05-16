@@ -1,0 +1,66 @@
+version: "3.8"
+
+x-fixuid: &fixuid
+  build:
+    target: build
+
+services:
+  cpp_aggregator:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.samples.yaml
+      service: cpp_aggregator
+    image: "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:build_${TAG}" 
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/samples/cpp/aggregator:/home/bolty/ament_ws/src/aggregator
+
+  # py_aggregator: # PYTHON
+  #   <<: *fixuid
+  #   extends:
+  #     file: ../docker-compose.samples.yaml
+  #     service: py_aggregator
+  #   image: "${SAMPLES_PYTHON_AGGREGATOR_IMAGE:?}:build_${TAG}"
+  #   command: tail -F anything
+  #   volumes:
+  #     - ${MONO_DIR}/src/samples/python/aggregator:/home/bolty/ament_ws/src/aggregator
+
+  # cpp_producer: # C++
+  #   <<: *fixuid
+  #   extends:
+  #     file: ../docker-compose.samples.yaml
+  #     service: cpp_producer
+  #   image: "${SAMPLES_CPP_PRODUCER_IMAGE:?}:build_${TAG}"
+  #   command: tail -F anything
+  #   volumes:
+  #     - ${MONO_DIR}/src/samples/cpp/producer:/home/bolty/ament_ws/src/producer
+
+  py_producer: # PYTHON
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.samples.yaml
+      service: py_producer
+    image: "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:build_${TAG}" 
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/samples/python/producer:/home/bolty/ament_ws/src/producer
+
+  # cpp_transformer: # C++
+  #   <<: *fixuid
+  #   extends:
+  #     file: ../docker-compose.samples.yaml
+  #     service: cpp_transformer
+  #   image: "${SAMPLES_CPP_TRANSFORMER_IMAGE:?}:build_${TAG}"
+  #   command: tail -F anything
+  #   volumes:
+  #     - ${MONO_DIR}/src/samples/cpp/transformer:/home/bolty/ament_ws/src/transformer
+
+  py_transformer: # PYTHON
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.samples.yaml
+      service: py_transformer
+    image: "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:build_${TAG}" 
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/samples/python/transformer:/home/bolty/ament_ws/src/transformer

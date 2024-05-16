@@ -1,0 +1,46 @@
+version: "3.8"
+
+x-fixuid: &fixuid
+  build:
+    target: build
+
+services:
+  global_planning:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.action.yaml
+      service: global_planning
+    image: "${ACTION_GLOBAL_PLANNING_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/action/global_planning:/home/ament_ws/src/global_planning
+
+  behaviour_planning:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.action.yaml
+      service: behaviour_planning
+    image: "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/action/behaviour_planning:/home/ament_ws/src/behaviour_planning
+
+  local_planning:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.action.yaml
+      service: local_planning
+    image: "${ACTION_LOCAL_PLANNING_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/action/local_planning:/home/ament_ws/src/local_planning
+
+  model_predictive_control:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.action.yaml
+      service: model_predictive_control
+    image: "${ACTION_MPC_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/action/model_predictive_control:/home/ament_ws/src/model_predictive_control

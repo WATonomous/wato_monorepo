@@ -103,16 +103,17 @@ void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedP
         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle message is empty!");
         return;
     }
-
-    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle message retrieved!");
-
-    if (obstacle_list.find(obstacle_msg_ptr->object_id) == obstacle_list.end()){
-        RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "New Obstacle! Adding Element to the HD-Map...");
-        add_obstacle(obstacle_msg_ptr);
-    }
     else{
-        RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle Exists! Updating Obstacle Info in the HD-Map...");
-        update_obstacle(obstacle_msg_ptr);
+        RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle message retrieved!");
+
+        if (obstacle_list.find(obstacle_msg_ptr->object_id) == obstacle_list.end()){
+            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "New Obstacle! Adding Element to the HD-Map...");
+            add_obstacle(obstacle_msg_ptr);
+        }
+        else{
+            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle Exists in Map! Updating Obstacle info...");
+            update_obstacle(obstacle_msg_ptr);            
+        }
     }
 }
 
@@ -133,11 +134,12 @@ void HDMapRouter::add_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_ms
     } 
 }
 
-void HDMapRouter::update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    // TODO : 
+// TODO : update_obstacle_msg()
+// DESCRIPTION : 
+//          To update the properties of the obstacle message on the HD-Map
+void HDMapRouter::update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){ 
 }
 
-// TODO: functions to add the three regulatory elements on the DRG
 
 // Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
 bool HDMapRouter::add_stop_sign_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){

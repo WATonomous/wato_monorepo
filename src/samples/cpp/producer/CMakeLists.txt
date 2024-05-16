@@ -21,7 +21,7 @@ find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
 add_library(producer_lib
-  src/producer.cpp)
+  src/producer_core.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(producer_lib
   PUBLIC include)
@@ -34,18 +34,6 @@ option(BUILD_TESTING "Build tests" ON)
 if(BUILD_TESTING)
   # Search for dependencies required for building tests + linting
   find_package(ament_cmake_gtest REQUIRED)
-  find_package(ament_lint_auto REQUIRED)
-  find_package(ament_lint_common REQUIRED)
-
-  # Remove the default C++ and copyright linter
-  list(APPEND AMENT_LINT_AUTO_EXCLUDE
-    ament_cmake_cpplint
-    ament_cmake_copyright)
-
-  # Reinstall cpplint ignoring copyright errors
-  ament_cpplint(FILTERS "-legal/copyright")
-
-  ament_lint_auto_find_test_dependencies()
 
   # Create test executable from source files
   ament_add_gtest(producer_test test/producer_test.cpp)

@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  hd_map:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/hd_map/hd_map.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_HD_MAP_IMAGE}:build_${TAG}"
+        - "${WORLD_MODELING_HD_MAP_IMAGE}:build_main"
+      target: deploy
+    image: "${WORLD_MODELING_HD_MAP_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch hd_map hd_map.launch.py"
+
+  localization:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/localization/localization.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_LOCALIZATION_IMAGE}:build_${TAG}"
+        - "${WORLD_MODELING_LOCALIZATION_IMAGE}:build_main"
+      target: deploy
+    image: "${WORLD_MODELING_LOCALIZATION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch localization localization.launch.py"
+
+  occupancy:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/occupancy/occupancy.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_OCCUPANCY_IMAGE}:build_${TAG}"
+        - "${WORLD_MODELING_OCCUPANCY_IMAGE}:build_main"
+      target: deploy
+    image: "${WORLD_MODELING_OCCUPANCY_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch occupancy occupancy.launch.py"
+
+  occupancy_segmentation:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/occupancy_segmentation/occupancy_segmentation.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:build_${TAG}"
+        - "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:build_main"
+      target: deploy
+    image: "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch occupancy_segmentation occupancy_segmentation.launch.py"
+
+  motion_forecasting:
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/motion_forecasting/motion_forecasting.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:build_${TAG}"
+        - "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:build_main"
+      target: deploy
+    image: "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch motion_forecasting motion_forecasting.launch.py"
