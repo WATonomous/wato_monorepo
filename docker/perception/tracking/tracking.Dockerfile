@@ -22,7 +22,13 @@ FROM ${BASE_IMAGE} as dependencies
 # Install pip
 RUN apt-get update && apt-get install -y \
     python3 \
-    python3-pip
+    python3-pip \
+    curl \
+    ros-humble-ros2bag \
+    ros-humble-rosbag2* \
+    ros-humble-foxglove-msgs \
+    ros-humble-vision-msgs
+
 
 # Install python packages
 COPY src/perception/tracking/requirements.txt requirements.txt

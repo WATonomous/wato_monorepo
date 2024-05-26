@@ -24,7 +24,7 @@ class TrackerNode(Node):
         super().__init__("tracker_node")
         self.get_logger().info("Creating object tracker node...")
 
-        self.declare_parameter("camera_detections_topic", "/augmented_camera_detections")
+        self.declare_parameter("camera_detections_topic", "/CAM_FRONT/image_rect_compressed")
         self.declare_parameter("lidar_detections_topic", "/lidar_detections")
         self.declare_parameter("tracked_detections_topic", "/tracked_detections")
         self.declare_parameter("velocity_filter_constant", 5)
@@ -38,12 +38,13 @@ class TrackerNode(Node):
         self.declare_parameter("max_age", 5)
         self.declare_parameter("min_hits", 3)
         self.declare_parameter("reference_frame", "odom")
-        self.declare_parameter("~traffic_sign_class_names")
-        self.declare_parameter("~obstacle_class_names")
+        self.declare_parameter("traffic_sign_class_names", "stop")
+        self.declare_parameter("obstacle_class_names", "car")
         self.declare_parameter("frequency", 10)
  
         self.declare_parameter("config_path", "/home/bolty/ament_ws/src/tracking/config/mahalanobis.yaml")
 
+        self.get_logger().info("PARAMETER SETUP...")
 
         self.camera_detections_topic = self.get_parameter("camera_detections_topic").value
         self.lidar_detections_topic = self.get_parameter("lidar_detections_topic").value
@@ -59,11 +60,13 @@ class TrackerNode(Node):
         self.max_age = self.get_parameter("max_age").value
         self.min_hits = self.get_parameter("min_hits").value
         self.reference_frame = self.get_parameter("reference_frame").value
-        cfg.TRAFFIC_SIGN_CLASSES = self.get_parameter("~traffic_sign_class_names").value
-        cfg.OBSTACLE_CLASSES = self.get_parameter("~obstacle_class_names").value
+        # cfg.TRAFFIC_SIGN_CLASSES = self.get_parameter("~traffic_sign_class_names").value
+        # cfg.OBSTACLE_CLASSES = self.get_parameter("~obstacle_class_names").value
         self.config_path = self.get_parameter("config_path").value
         self.frequency = self.get_parameter("frequency").value
         self.dt = 1.0 / self.frequency
+
+        self.get_logger().info("TOPICS SETUP...")
 
         cfg_from_yaml_file(self.config_path, cfg)
 
@@ -72,6 +75,9 @@ class TrackerNode(Node):
         self.mot_tracker = AB3DMOT(max_age=self.max_age, 	# max age in seconds of a track before deletion
                                    min_hits=self.min_hits,	# min number of detections before publishing
                                    tracking_name="N/A") 	# default tracking age
+
+
+        self.get_logger().info("INIT TRACKER...")
 
         # Velocities for each track
         self.velocites = {}
@@ -82,17 +88,26 @@ class TrackerNode(Node):
         self.tf2_buffer = Buffer()
         self.tf2_listener = TransformListener(self.tf2_buffer, self)
 
+        self.get_logger().info("TRACKER PARAM SETUP...")
+
         # Subscribers / Publishers
         self.obstacles_sub = self.create_subscription(
                  Detection3DArray, self.camera_detections_topic, self.obstacle_callback, 10)
+        
+        self.get_logger().info("TRACKER SUBSCRIBER...")
 
-        self.lidar_obstacles_sub = self.create_subscription(
-                Detection3DArray, self.lidar_detections_topic, self.lidar_obstacle_callback, 10)
+
+        # self.lidar_obstacles_sub = self.create_subscription(
+        #         Detection3DArray, self.lidar_detections_topic, self.lidar_obstacle_callback, 10)
 
         self.tracked_obstacles_publisher = self.create_publisher(
                  TrackedDetection3DArray, self.tracked_detections_topic, 10)
+        
+        self.get_logger().info("TRACKER PUBISHER...")
 
-        self.tracked_obstacles_timer = self.create_timer(0.1, self.publish_tracks, 10)
+        self.tracked_obstacles_timer = self.create_timer(0.1, self.publish_tracks)
+
+        self.get_logger().info("PUBLISH TRACKER DATA...")
 
         # tracked_signs_topic = '/tracked_signs'
         # self.tracked_signs_publisher = self.create_publisher(
@@ -183,7 +198,7 @@ class TrackerNode(Node):
 
         self.track(detections, informations, frame_id, timestamp)
 
-        # self.get_logger().info("Obstacle Update Time: {}".format(time.time() - start_time))
+        self.get_logger().info("Obstacle Update Time: {}".format(time.time() - start_time))
 
     def traffic_sign_callback(self, sign_list_msg):
 
@@ -228,29 +243,31 @@ class TrackerNode(Node):
         Publishes the tracks as obj_tracked. Also publishes the node status message
         dt: time since last update (in seconds)
         """
+        self.get_logger().info("ENTER PUB TRACK FUNC...")
+        start_time = time.time()
+
         tracked_obstacle_list = TrackedDetection3DArray()
-        # tracked_obstacle_list.header.frame_id = self.reference_frame
-        # tracked_obstacle_list.header.stamp = rclpy.time.Time()
-        # tracked_obstacle_list.tracked_obstacles = []
+        tracked_obstacle_list.header.frame_id = self.reference_frame
+        tracked_obstacle_list.header.stamp = self.get_clock().now().to_msg()
+        tracked_obstacle_list.tracked_detections = []
+
+        self.get_logger().info("PUB TRACK FUNC PARAM SETUP...")
 
         # traffic_sign_list = TrafficSignListMsg()
         # traffic_sign_list.header.frame_id = self.reference_frame
         # traffic_sign_list.header.stamp = rclpy.time.Time()
         # traffic_sign_list.traffic_signs = []
 
-        # for kf_track in self.mot_tracker.trackers:
-        #     tracking_name = kf_track.tracking_name
-        #     if tracking_name in self.traffic_sign_classes:
-        #         traffic_sign_message = self._create_traffic_sign_message(kf_track, tracking_name)
-        #         traffic_sign_list.traffic_signs.append(traffic_sign_message)
-        #     else:
-        #         x = kf_track.get_state()
-        #         tracked_obstacle_message = self._create_tracked_obstacle_message(kf_track, tracking_name, self.dt)
-        #         tracked_obstacle_list.tracked_obstacles.append(tracked_obstacle_message)
-        # self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
+        for kf_track in self.mot_tracker.trackers:
+            tracking_name = kf_track.tracking_name
+            x = kf_track.get_state()
+            tracked_obstacle_message = self._create_tracked_obstacle_message(kf_track, tracking_name, self.dt)
+            self.get_logger().info("PUB TRACK FUNC CREATE MSG...")
+            tracked_obstacle_list.tracked_detections.append(tracked_obstacle_message)
+            self.get_logger().info("PUB TRACK FUNC APPEND MSG...")
+        self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
         # self.tracked_signs_publisher.publish(traffic_sign_list)
-
-#		self.get_logger().info("Pub Time: {}".format(time.time() - start_time))
+        self.get_logger().info("Pub Time: {}".format(time.time() - start_time))
 
     def _create_traffic_sign_message(self, kf_track, tracking_name):
         # [x, y, z, rot_y, l, w, h, x_dot, y_dot, z_dot, rot_y_dot]
