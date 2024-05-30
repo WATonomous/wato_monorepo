@@ -89,3 +89,14 @@ services:
       target: deploy
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch depth_estimation eve.launch.py"
+
+  sensor_fusion:
+    build:
+      context: ..
+      dockerfile: docker/perception/sensor_fusion/sensor_fusion.Dockerfile
+      cache_from:
+        - "${PERCEPTION_SENSOR_FUSION_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_SENSOR_FUSION_IMAGE}:build_main"
+      target: deploy
+    image: "${PERCEPTION_SENSOR_FUSION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch sensor_fusion eve.launch.py"

@@ -15,7 +15,7 @@
 ##	 - simulation			:	starts simulation
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
-# ACTIVE_MODULES=""
+ACTIVE_MODULES="perception"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -31,7 +31,7 @@
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = "<your_current_github_branch>"
-# TAG=""
+TAG="jusleung"
 
 # Docker Registry to pull/push images. DEFAULT = "ghcr.io/watonomous/wato_monorepo"
 # REGISTRY_URL=""
