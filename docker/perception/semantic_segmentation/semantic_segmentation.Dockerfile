@@ -1,31 +1,19 @@
-ARG BASE_BUILD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04-devel
-ARG BASE_PROD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.0-humble-ubuntu22.04
+ARG BASE_BUILD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda11.7-humble-ubuntu22.04-devel
+ARG BASE_PROD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda11.7-humble-ubuntu22.04
 ARG BASE_PYTORCH_IMAGE=pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel
 # ################################ Build library ################################
 
-FROM ${BASE_PYTORCH_IMAGE} as SEGFORMER_INFERENCE_BUILD
+FROM ${BASE_PYTORCH_IMAGE} as Segformer
 
-ENV TORCH_CUDA_ARCH_LIST="6.0 6.1 7.0+PTX"
-ENV TORCH_NVCC_FLAGS="-Xfatbin -compress-all"
-
-# To fix GPG key error when running apt-get update
 RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
 RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
+
 
 RUN apt-get update && apt-get install -y git ninja-build libglib2.0-0 libsm6 libxrender-dev libxext6 libgl1-mesa-dev  \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-#RUN conda clean --all
-RUN apt update && apt install pip -y
-# Install MMCV
-ARG PYTORCH
-ARG CUDA
-ARG MMCV
-RUN ["/bin/bash", "-c", "pip install openmim"]
-RUN ["/bin/bash", "-c", "mim install mmengine"]
-RUN ["/bin/bash", "-c", "mim install mmcv==2.0.1"]
-
+WORKDIR ${AMENT_WS}/src
 # Install MMSegmentation
 RUN git clone -b main https://github.com/open-mmlab/mmsegmentation.git /mmsegmentation
 WORKDIR /mmsegmentation
@@ -33,25 +21,30 @@ ENV FORCE_CUDA="1"
 RUN pip install -r requirements.txt
 RUN pip install mmengine
 RUN pip install --no-cache-dir -e .
-RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
-#COPY src_video_360.mp4 /mmsegmentation/
-COPY test2.mp4 /mmsegmentation/
-COPY video.py /mmsegmentation/
-ENV CV2_CUDABACKEND=0
+RUN ["/bin/bash", "-c", "pip install openmim"]
 
-# ################################ Source ################################
+# Scan for dependencies
+RUN echo "openmim\nmmengine\nmmcv==2.0.1\n" > /tmp/pip_install_list.txt
+
+RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
+
+
+
+# # ################################ Source ################################
+
+
 FROM ${BASE_BUILD_IMAGE} as source
 
+# RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
+# RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
 
+
+# RUN apt-get update && apt-get install -y git ninja-build libglib2.0-0 libsm6 libxrender-dev libxext6 libgl1-mesa-dev  \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR ${AMENT_WS}/src
-
-
-# # Copy in the paddle inference library
-# # RUN mkdir -p semantic_segmentation/src
-# # COPY --from=PADDLE_INFERENCE_BUILD /paddle/paddle_inference_cuda120_build.tar semantic_segmentation/src/paddle_inference_cuda120_build.tar
-
-
+# Install MMSegmentation
 
 
 # Set up any additional configurations or data if needed
@@ -71,13 +64,39 @@ RUN apt-get -qq update && rosdep update && \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
+RUN dir -s   
+
 ################################# Dependencies ################################
 FROM ${BASE_BUILD_IMAGE} as dependencies
 
 # # install tensorrt
 # RUN apt update && apt install -y tensorrt
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    python3-pip \
+    ninja-build \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender-dev \
+    libxext6 \
+    libgl1-mesa-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Install Python dependencies
+COPY --from=Segformer /tmp/pip_install_list.txt /tmp/pip_install_list.txt
+RUN pip install -r /tmp/pip_install_list.txt numpy==1.23.0 packaging==20.9 charset-normalizer==2.0.0 datasets
+RUN pip3 install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
+RUN pip install cython
 RUN apt update && apt install -y ros-humble-cv-bridge libopencv-dev
+
+
+
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -96,6 +115,9 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 FROM dependencies as build
 
 
+ENV FORCE_CUDA="1"
+
+
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
@@ -105,7 +127,17 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 
+WORKDIR /mmsegmentation
+RUN ["/bin/bash", "-c", "pip install https://download.openmmlab.com/mmcv/dist/cu117/torch1.13.0/mmcv-2.0.0rc4-cp310-cp310-manylinux1_x86_64.whl"]
+COPY --from=Segformer /mmsegmentation /mmsegmentation
+RUN pip install -r requirements.txt
+RUN pip install mmengine
+RUN pip install --no-cache-dir -e .
+WORKDIR ${AMENT_WS}
+RUN mkdir ${AMENT_WS}/something
 # Add runtime libraries to path
+ENV CUDNN_DIR=/mmsegmentation/cuda
+ENV CV2_CUDABACKEND=0
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${AMENT_WS}/install/semantic_segmentation/lib/
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
@@ -114,6 +146,21 @@ ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 ################################ Prod ################################
 FROM build as deploy
 
+# Install runtime libs
+RUN apt-get update && apt-get install -y \
+    ros-humble-cv-bridge
+
+
+WORKDIR ${AMENT_WS}
+
+# Copy in the paddle inference library
+RUN mkdir -p install/semantic_segmentation/lib/
+# Add runtime libraries to path
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${AMENT_WS}/install/semantic_segmentation/lib/
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
+COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
+ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 # Source Cleanup and Security Setup
 RUN chown -R $USER:$USER ${AMENT_WS}
 RUN rm -rf src/*
