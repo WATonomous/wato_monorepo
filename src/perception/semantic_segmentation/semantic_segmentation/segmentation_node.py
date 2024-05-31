@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 import os
 from transformers import AutoFeatureExtractor, SegformerForSemanticSegmentation
 import torch
@@ -12,7 +13,7 @@ from cv_bridge import CvBridge
 ALGO_VERSION = os.getenv("MODEL_NAME")
 
 if not ALGO_VERSION:
-    ALGO_VERSION = 'nvidia/segformer-b0-finetuned-ade-512-512'
+    ALGO_VERSION = 'nvidia/segformer-b2-finetuned-ade-1024-1024'
 
 
 def ade_palette():
@@ -79,7 +80,7 @@ class SemanticSegmentation(Node):
         self.declare_parameter('pub_masks', True)
         self.image_subscription = self.create_subscription(
             Image,
-            '/segformer_seg/image_raw',
+            '/camera/right/image_color',
             self.listener_callback,
             10
         )
