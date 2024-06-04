@@ -76,7 +76,6 @@ private:
     std::map<std::string, ClusteringParams> initializeClusteringParams(
         const std::map<std::string, rclcpp::Parameter>& clustering_params_map);
 
-    // should put somewhere else?
     template <typename T>
     T getDefaultOrValue(std::map<std::string, T> m, std::string key)
     {

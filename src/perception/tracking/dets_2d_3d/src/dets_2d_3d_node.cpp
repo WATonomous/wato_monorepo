@@ -14,17 +14,7 @@
 TrackingNode::TrackingNode() : Node("dets_2d_3d", rclcpp::NodeOptions().allow_undeclared_parameters(true).automatically_declare_parameters_from_overrides(true)),
   transformInited_{false} , lidarCloud_{new pcl::PointCloud<pcl::PointXYZ>()}
 {
-  // setup paramaters
-  // this->declare_parameter("camera_info_topic", "/CAM_FRONT/camera_info");
-  // this->declare_parameter("lidar_topic", "/LIDAR_TOP");
-  // this->declare_parameter("detections_topic", "/detections");
-
-  // this->declare_parameter("publish_detections_topic", "/detections_3d");
-  // this->declare_parameter("publish_markers_topic", "/markers_3d");
-  // this->declare_parameter("publish_clusters_topic", "/clustered_pc");
-
-  // this->declare_parameter("camera_frame", "");
-  // this->declare_parameter("lidar_frame", "");
+  rclcpp::NodeOptions().allow_undeclared_parameters(true).automatically_declare_parameters_from_overrides(true);
 
   lidarFrame_ = this->get_parameter("lidar_frame").as_string();
   cameraFrame_ = this->get_parameter("camera_frame").as_string();
