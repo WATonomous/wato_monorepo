@@ -1,22 +1,17 @@
-# left_combined_detection_node:
-#   ros__parameters:
-#     camera_topic: /camera/left/image_color
-#     publish_vis_topic: /camera/left/camera_detections_viz
-#     publish_detection_topic: /camera/left/camera_detections
-#     model_path: /perception_models/yolov8m.pt
-#     image_size: 1024
-
 left_combined_detection_node:
   ros__parameters:
     camera_topic: /camera/left/image_color
     publish_vis_topic: /camera/left/combined_detection_viz
     publish_detection_topic: /camera/left/combined_detection
     models:
-      - name: traffic_signs
-        model_path: /perception_models/traffic_signs_v1.pt
-      - name: traffic_lights
+      traffic_signs:
+        name: traffic_signs
+        model_path: /perception_models/traffic_signs.pt
+      traffic_lights:
+        name: traffic_lights
         model_path: /perception_models/traffic_light.pt
-      - name: pretrained_yolov8
+      pretrained_yolov8:
+        name: pretrained_yolov8
         model_path: /perception_models/yolov8m.pt
     crop_mode: CenterCrop
     image_size: 1024
@@ -28,11 +23,14 @@ center_combined_detection_node:
     publish_vis_topic: /camera/center/combined_detection_viz
     publish_detection_topic: /camera/center/combined_detection
     models:
-      - name: traffic_signs
-        model_path: /perception_models/traffic_signs_v1.pt
-      - name: traffic_lights
+      traffic_signs:
+        name: traffic_signs
+        model_path: /perception_models/traffic_signs.pt
+      traffic_lights:
+        name: traffic_lights
         model_path: /perception_models/traffic_light.pt
-      - name: pretrained_yolov8
+      pretrained_yolov8:
+        name: pretrained_yolov8
         model_path: /perception_models/yolov8m.pt
     crop_mode: CenterCrop
     image_size: 1024
@@ -44,11 +42,14 @@ right_combined_detection_node:
     publish_vis_topic: /camera/right/combined_detection_viz
     publish_detection_topic: /camera/right/combined_detection
     models:
-      - name: traffic_signs
-        model_path: /perception_models/traffic_signs_v1.pt
-      - name: traffic_lights
+      traffic_signs:
+        name: traffic_signs
+        model_path: /perception_models/traffic_signs.pt
+      traffic_lights:
+        name: traffic_lights
         model_path: /perception_models/traffic_light.pt
-      - name: pretrained_yolov8
+      pretrained_yolov8:
+        name: pretrained_yolov8
         model_path: /perception_models/yolov8m.pt
     crop_mode: CenterCrop
     image_size: 1024
