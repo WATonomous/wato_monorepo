@@ -281,16 +281,16 @@ class CameraDetectionNode(Node):
                         )
                         self.get_logger().debug(f"{label}: {bbox}")
 
-            annotator = Annotator(
-                cv_image,
-                line_width=self.line_thickness,
-                example=str(self.names),
-            )
-            (detections, annotated_img) = self.postprocess_detections(detections, annotator)
+            # annotator = Annotator(
+            #     cv_image,
+            #     line_width=self.line_thickness,
+            #     example=str(self.names),
+            # )
+            # (detections, annotated_img) = self.postprocess_detections(detections, annotator)
 
             # Currently we support a single camera so we pass an empty string
             feed = ""
-            self.publish_vis(annotated_img, msg, feed)
+            # self.publish_vis(annotated_img, msg, feed)
             self.publish_detections(detections, msg, feed)
 
             if self.save_detections:
