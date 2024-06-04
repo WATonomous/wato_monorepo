@@ -29,11 +29,11 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [ gpu ]
-    command: /bin/bash -c "ros2 launch camera_object_detection eve_launch.py"
+    command: /bin/bash -c "ros2 launch camera_object_detection eve.launch.py"
     volumes:
       - /mnt/wato-drive2/perception_models/yolov8m.pt:/perception_models/yolov8m.pt
       - /mnt/wato-drive2/perception_models/traffic_light.pt:/perception_models/traffic_light.pt
-      - /mnt/wato-drive2/perception_models/traffic_signs_v0.pt:/perception_models/traffic_signs_v1.pt
+      - /mnt/wato-drive2/perception_models/traffic_signs_v3.pt:/perception_models/traffic_signs.pt
 
   lidar_object_detection:
     build:
