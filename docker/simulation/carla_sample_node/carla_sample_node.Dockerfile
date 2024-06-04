@@ -6,8 +6,17 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/perception/traffic_sign_detection traffic_sign_detection
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/simulation/carla_sample_node carla_sample_node
+COPY src/wato_msgs/simulation/embedded_msgs embedded_msgs
+COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
+
+# Carla specific messages
+
+RUN git clone --depth 1 https://github.com/ros-drivers/ackermann_msgs.git --branch 2.0.2
+
+RUN git clone --depth 1 https://github.com/ros-perception/image_common.git --branch 3.1.8
+
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
