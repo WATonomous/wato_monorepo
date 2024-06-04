@@ -11,8 +11,10 @@ camera_object_detection_node:
     camera_frame: CAM_FRONT
     lidar_frame: LIDAR_TOP
 
-    clustering_distances: [5., 30., 45., 60.]
-    clustering_thresholds: [0.5, 1.1, 1.6, 2.1, 2.6]
-    cluster_size_min: 20.
-    cluster_size_max: 100000.
-    cluster_merge_threshold: 1.5
+    clustering_params:
+      car:
+        clustering_distances: [5., 30., 45., 60.]
+        clustering_thresholds: [0.5, 1.1, 1.6, 2.1, 2.6]
+        cluster_size_min: 20.
+        cluster_size_max: 100000.
+        cluster_merge_threshold: 1.5
