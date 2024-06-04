@@ -1,6 +1,6 @@
 # WATonomous Monorepo v2
 
-Dockerized ROS2 setup for the WATonomous Autonomous Driving Software Pipeline
+Dockerized ROS2 setup for the WATonomous Autonomous Vehicle Software Pipeline
 
 - [WATonomous Monorepo](#watonomous-monorepo)
   - [Getting Started](#getting-started)
