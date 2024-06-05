@@ -5,9 +5,9 @@ More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginne
 
 ## To Use
 
-Add `data_stream` as an `ACTIVE_PROFILE` in `watod-config.sh`. 
+Add `infrastructure` as an `ACTIVE_PROFILE` in `watod-config.sh`. 
 
-Run `watod up` (or however you want to launch the `data_stream` service). 
+Run `watod up` (or however you want to launch the `infrastructure` service). 
 
 The working directory of the `data_stream` container should have a `nuscenes` directory, which contains the NuScenes dataset converted to ros2bag format. To confirm this, run `watod run data_stream ls nuscenes` to view the available bags. Each bag has its own directory. The location of the `.mcap` file is `<name>/<name>_0.mcap`. For example, one of the bags is in `nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`. 
 
