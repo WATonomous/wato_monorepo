@@ -9,6 +9,18 @@ WORKDIR ${AMENT_WS}/src
 COPY src/world_modeling/motion_forecasting motion_forecasting
 COPY src/wato_msgs/sample_msgs sample_msgs
 
+# Clone the autoware_common and autoware_msgs repositories
+RUN git clone https://github.com/autowarefoundation/autoware_common.git
+RUN git clone https://github.com/autowarefoundation/autoware_msgs.git
+RUN git clone https://github.com/autowarefoundation/autoware_internal_msgs.git
+
+# Clone the specific tier4_autoware_utils directory from autoware.universe
+RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/autowarefoundation/autoware.universe.git && \
+    cd autoware.universe && \
+    git sparse-checkout set common/tier4_autoware_utils && \
+    mv common/tier4_autoware_utils ../tier4_autoware_utils && \
+    cd .. && rm -rf autoware.universe
+
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
@@ -21,7 +33,10 @@ FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+# Install glog
+RUN apt-get -qq update && apt-get -qq install -y libgoogle-glog-dev
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
