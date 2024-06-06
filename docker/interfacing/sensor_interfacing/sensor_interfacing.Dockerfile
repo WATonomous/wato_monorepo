@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/interfacing/sensor_interfacing sensor_interfacing
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/radar_msgs radar_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -21,6 +21,7 @@ FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+RUN apt-get update
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
