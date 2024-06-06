@@ -36,7 +36,7 @@ class CameraDetectionNode(Node):
     def __init__(self):
         torch.zeros(1).cuda()
 
-        super().__init__("camera_object_detection_node")
+        super().__init__("left_combined_detection_node")
         self.get_logger().info("Creating camera detection node...")
 
         self.declare_parameter("camera_topic", "/camera/right/image_color")
@@ -101,12 +101,26 @@ class CameraDetectionNode(Node):
         )
 
     def load_models(self):
-        model_param = self.get_parameter("models").value
-        models = {}
 
-        for key, value in model_param.items():
-            model_name = value["name"]
-            model_path = value["model_path"]
+    #     traffic_signs:
+    #     name: traffic_signs
+    #     model_path: /perception_models/traffic_signs.pt
+    #   traffic_lights:
+    #     name: traffic_lights
+    #     model_path: /perception_models/traffic_light.pt
+    #   pretrained_yolov8:
+    #     name: pretrained_yolov8
+    #     model_path: /perception_models/yolov8m.pt
+    
+        #model_param = self.get_parameter("models").value  
+        models = {}  
+        models_param = {"traffic_signs": "traffic_signs.pt",
+                   "traffic_lights": "traffic_light.pt",
+                   "pretrained_yolov8": "yolov8m.pt"}
+
+        for key, value in models_param.items():
+            model_name = key
+            model_path = value
 
             if model_name and model_path:
                 models[key] = Model(model_name, model_path, self.device)
@@ -299,8 +313,8 @@ class CameraDetectionNode(Node):
 
             annotator = Annotator(
                 cv_image,
-                line_width=self.line_thickness,
-                example=str(model.names),
+                line_width=self.line_thickness #,
+                #example=str(model.names),
             )
             (detections, annotated_img) = self.postprocess_detections(detections, annotator)
 
