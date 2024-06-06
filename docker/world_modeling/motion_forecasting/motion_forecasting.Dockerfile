@@ -14,6 +14,12 @@ RUN git clone https://github.com/autowarefoundation/autoware_common.git
 RUN git clone https://github.com/autowarefoundation/autoware_msgs.git
 RUN git clone https://github.com/autowarefoundation/autoware_internal_msgs.git
 
+# Clone the tier4_autoware_msgs repository with sparse checkout for tier4_planning_msgs
+RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/tier4/tier4_autoware_msgs.git && \
+    cd tier4_autoware_msgs && \
+    git sparse-checkout set tier4_planning_msgs tier4_debug_msgs && \
+    cd ..
+
 # Clone the specific tier4_autoware_utils directory from autoware.universe
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/autowarefoundation/autoware.universe.git && \
     cd autoware.universe && \
