@@ -17,3 +17,4 @@ float32     range
 float32     prob0
 float32     prob1
 uint8       pdh0
+uint32      obj_id
