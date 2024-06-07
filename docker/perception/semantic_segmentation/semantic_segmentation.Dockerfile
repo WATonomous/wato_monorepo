@@ -18,15 +18,15 @@ WORKDIR ${AMENT_WS}/src
 RUN git clone -b main https://github.com/open-mmlab/mmsegmentation.git /mmsegmentation
 WORKDIR /mmsegmentation
 ENV FORCE_CUDA="1"
-RUN pip install -r requirements.txt
-RUN pip install mmengine
-RUN pip install --no-cache-dir -e .
-RUN ["/bin/bash", "-c", "pip install openmim"]
+#RUN pip install -r requirements.txt
+# RUN pip install mmengine
+# RUN pip install --no-cache-dir -e .
+# RUN ["/bin/bash", "-c", "pip install openmim"]
 
 # Scan for dependencies
 RUN echo "openmim\nmmengine\nmmcv==2.0.1\n" > /tmp/pip_install_list.txt
 
-RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
+# RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
 
 
 
@@ -64,7 +64,6 @@ RUN apt-get -qq update && rosdep update && \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
-RUN dir -s   
 
 ################################# Dependencies ################################
 FROM ${BASE_BUILD_IMAGE} as dependencies
@@ -89,10 +88,13 @@ RUN apt-get update && apt-get install -y \
 
 
 # Install Python dependencies
+#COPY --from=Segformer /mmsegmentation/requirements.txt /tmp/requirements.txt
+#COPY --from=Segformer /mmsegmentation/requirements/ /tmp/requirements/
+
 COPY --from=Segformer /tmp/pip_install_list.txt /tmp/pip_install_list.txt
-RUN pip install -r /tmp/pip_install_list.txt numpy==1.23.0 packaging==20.9 charset-normalizer==2.0.0 datasets
 RUN pip3 install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
 RUN pip install cython
+RUN ["/bin/bash", "-c", "pip install https://download.openmmlab.com/mmcv/dist/cu117/torch1.13.0/mmcv-2.0.0rc4-cp310-cp310-manylinux1_x86_64.whl"]
 RUN apt update && apt install -y ros-humble-cv-bridge libopencv-dev
 
 
@@ -128,13 +130,11 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 
 WORKDIR /mmsegmentation
-RUN ["/bin/bash", "-c", "pip install https://download.openmmlab.com/mmcv/dist/cu117/torch1.13.0/mmcv-2.0.0rc4-cp310-cp310-manylinux1_x86_64.whl"]
 COPY --from=Segformer /mmsegmentation /mmsegmentation
 RUN pip install -r requirements.txt
-RUN pip install mmengine
 RUN pip install --no-cache-dir -e .
 WORKDIR ${AMENT_WS}
-RUN mkdir ${AMENT_WS}/something
+#  --from=Segformer /mmsegmentation/model /model
 # Add runtime libraries to path
 ENV CUDNN_DIR=/mmsegmentation/cuda
 ENV CV2_CUDABACKEND=0

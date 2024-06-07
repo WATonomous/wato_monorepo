@@ -9,7 +9,7 @@ def generate_launch_description():
     config = os.path.join(
         get_package_share_directory('semantic_segmentation'),
         'config',
-        'config.yaml'
+        'params.yaml'
     )
     
     semantic_segmentation_node = Node(
