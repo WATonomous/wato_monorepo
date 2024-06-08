@@ -9,20 +9,20 @@ import os
 
 def generate_launch_description():
     """Launch transformer node."""
-    transformer_pkg_prefix = get_package_share_directory('transformer')
+    transformer_pkg_prefix = get_package_share_directory('occupancy_segmentation')
     transformer_param_file = os.path.join(
         transformer_pkg_prefix, 'config', 'params.yaml')
 
     transformer_param = DeclareLaunchArgument(
-        'transformer_param_file',
+        'occupancy_segmentation_param_file',
         default_value=transformer_param_file,
-        description='Path to config file for transformer node'
+        description='Path to config file for occupancy segmentation node'
     )
 
     transformer_node = Node(
-        package='transformer',
-        executable='transformer_node',
-        parameters=[LaunchConfiguration('transformer_param_file')],
+        package='occupancy_segmentation',
+        executable='occupancy_segmentation_node',
+        parameters=[LaunchConfiguration('occupancy_segmentation_param_file')],
     )
 
     return LaunchDescription([

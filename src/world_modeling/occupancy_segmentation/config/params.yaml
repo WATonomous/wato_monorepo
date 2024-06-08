@@ -1,4 +1,4 @@
-transformer_node:
+occupancy_segmentation_node:
   ros__parameters:
     version: 1
     compression_method: 0

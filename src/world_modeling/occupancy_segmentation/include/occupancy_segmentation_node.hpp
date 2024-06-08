@@ -1,5 +1,5 @@
-#ifndef TRANSFORMER_NODE_HPP_
-#define TRANSFORMER_NODE_HPP_
+#ifndef OCCUPANCY_SEGMENTATION_NODE_HPP_
+#define OCCUPANCY_SEGMENTATION_NODE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -7,7 +7,7 @@
 #include "sample_msgs/msg/filtered_array.hpp"
 #include "sample_msgs/msg/unfiltered.hpp"
 
-#include "transformer_core.hpp"
+#include "occupancy_segmentation_core.hpp"
 
 /**
  * Implementation of a ROS2 node that converts unfiltered messages to filtered_array
@@ -17,7 +17,7 @@
  * and odd timestamps. Once the node collects BUFFER_CAPACITY messages it packs
  * the processed messages into an array and publishes it to the "filtered" topic.
  */
-class TransformerNode : public rclcpp::Node {
+class OccupancySegmentationNode : public rclcpp::Node {
  public:
   // Configure pubsub nodes to keep last 20 messages.
   // https://docs.ros.org/en/foxy/Concepts/About-Quality-of-Service-Settings.html
@@ -26,7 +26,7 @@ class TransformerNode : public rclcpp::Node {
   /**
    * Transformer node constructor.
    */
-  TransformerNode();
+  OccupancySegmentationNode();
 
  private:
   /**
@@ -44,7 +44,7 @@ class TransformerNode : public rclcpp::Node {
   rclcpp::Publisher<sample_msgs::msg::FilteredArray>::SharedPtr transform_pub_;
 
   // Object that handles data processing and validation.
-  samples::TransformerCore transformer_;
+  samples::OccupancySegmentationCore segment_;
 };
 
 #endif  // TRANSFORMER_NODE_HPP_
