@@ -1,28 +1,28 @@
 #include <string>
 #include <vector>
 
-#include "transformer_core.hpp"
+#include "occupancy_segmentation_core.hpp"
 
 namespace samples {
 
-TransformerCore::TransformerCore() {}
+OccupancySegmentationCore::OccupancySegmentationCore() {}
 
-std::vector<sample_msgs::msg::Filtered> TransformerCore::buffer_messages() const { return buffer_; }
+std::vector<sample_msgs::msg::Filtered> OccupancySegmentationCore::buffer_messages() const { return buffer_; }
 
-void TransformerCore::clear_buffer() { buffer_.clear(); }
+void OccupancySegmentationCore::clear_buffer() { buffer_.clear(); }
 
-bool TransformerCore::validate_message(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered) {
+bool OccupancySegmentationCore::validate_message(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered) {
   return unfiltered->valid;
 }
 
-bool TransformerCore::enqueue_message(const sample_msgs::msg::Filtered& msg) {
+bool OccupancySegmentationCore::enqueue_message(const sample_msgs::msg::Filtered& msg) {
   if (buffer_.size() < BUFFER_CAPACITY) {
     buffer_.push_back(msg);
   }
   return buffer_.size() == BUFFER_CAPACITY;
 }
 
-bool TransformerCore::deserialize_coordinate(
+bool OccupancySegmentationCore::deserialize_coordinate(
     const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
     sample_msgs::msg::Filtered& filtered) {
   std::string serialized_position = unfiltered->data;

@@ -1,11 +1,11 @@
 #include <memory>
 
-#include "transformer_node.hpp"
+#include "occupancy_segmentation_node.hpp"
 
-TransformerNode::TransformerNode() : Node("transformer"), transformer_(samples::TransformerCore()) {
+OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segmentation"), segment_(samples::OccupancySegmentationCore()) {
   raw_sub_ = this->create_subscription<sample_msgs::msg::Unfiltered>(
       "/unfiltered_topic", ADVERTISING_FREQ,
-      std::bind(&TransformerNode::unfiltered_callback, this, std::placeholders::_1));
+      std::bind(&OccupancySegmentationNode::unfiltered_callback, this, std::placeholders::_1));
   transform_pub_ =
       this->create_publisher<sample_msgs::msg::FilteredArray>("/filtered_topic", ADVERTISING_FREQ);
 
@@ -14,13 +14,13 @@ TransformerNode::TransformerNode() : Node("transformer"), transformer_(samples::
   this->declare_parameter("compression_method", rclcpp::ParameterValue(0));
 }
 
-void TransformerNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::SharedPtr msg) {
-  if (!transformer_.validate_message(msg)) {
+void OccupancySegmentationNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::SharedPtr msg) {
+  if (!segment_.validate_message(msg)) {
     return;
   }
 
   auto filtered = sample_msgs::msg::Filtered();
-  if (!transformer_.deserialize_coordinate(msg, filtered)) {
+  if (!segment_.deserialize_coordinate(msg, filtered)) {
     return;
   }
 
@@ -32,8 +32,8 @@ void TransformerNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::Sh
     RCLCPP_INFO(this->get_logger(), "Buffer Capacity Reached. PUBLISHING...");
     // Publish processed data when the buffer reaches its capacity
     sample_msgs::msg::FilteredArray filtered_msgs;
-    auto buffer = transformer_.buffer_messages();
-    transformer_.clear_buffer();
+    auto buffer = segment_.buffer_messages();
+    segment_.clear_buffer();
 
     // Construct FilteredArray object
     for (auto& packet : buffer) {
@@ -45,7 +45,7 @@ void TransformerNode::unfiltered_callback(const sample_msgs::msg::Unfiltered::Sh
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<TransformerNode>());
+  rclcpp::spin(std::make_shared<OccupancySegmentationNode>());
   rclcpp::shutdown();
   return 0;
 }

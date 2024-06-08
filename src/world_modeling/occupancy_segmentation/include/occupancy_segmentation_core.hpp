@@ -1,5 +1,5 @@
-#ifndef TRANSFORMER_CORE_HPP_
-#define TRANSFORMER_CORE_HPP_
+#ifndef OCCUPANCY_SEGMENTATION_CORE_HPP_
+#define OCCUPANCY_SEGMENTATION_CORE_HPP_
 
 #include <vector>
 
@@ -12,7 +12,7 @@ namespace samples {
  * Implementation for the internal logic for the Transformer ROS2
  * node performing data processing and validation.
  */
-class TransformerCore {
+class OccupancySegmentationCore {
  public:
   // Size of buffer before processed messages are published.
   static constexpr int BUFFER_CAPACITY = 10;
@@ -21,7 +21,7 @@ class TransformerCore {
   /**
    * Transformer constructor.
    */
-  TransformerCore();
+  OccupancySegmentationCore();
 
   /**
    * Retrieve enqueued messages in buffer.
