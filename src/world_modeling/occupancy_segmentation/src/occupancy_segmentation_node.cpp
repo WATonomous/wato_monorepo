@@ -28,7 +28,7 @@ void OccupancySegmentationNode::unfiltered_callback(const sample_msgs::msg::Unfi
   filtered.metadata.version = this->get_parameter("version").as_int();
   filtered.metadata.compression_method = this->get_parameter("compression_method").as_int();
 
-  if (transformer_.enqueue_message(filtered)) {
+  if (segment_.enqueue_message(filtered)) {
     RCLCPP_INFO(this->get_logger(), "Buffer Capacity Reached. PUBLISHING...");
     // Publish processed data when the buffer reaches its capacity
     sample_msgs::msg::FilteredArray filtered_msgs;
