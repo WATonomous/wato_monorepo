@@ -1,10 +1,10 @@
 #include "cluster.hpp"
 
-#include <geometry_msgs/msg/point.hpp>
 #include <pcl/common/centroid.h>
 #include <pcl/common/common.h>
 #include <pcl/common/transforms.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <geometry_msgs/msg/point.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <opencv2/core/core.hpp>
@@ -18,17 +18,15 @@ typedef pcl::PointCloud<pcl::PointXYZRGB> ClusterCloud;
 typedef vision_msgs::msg::BoundingBox3D BBox3D;
 
 int Cluster::color_index = 0;
-std::vector<std::vector<int>> Cluster::colors = {{0, 0, 255},   {0, 255, 0},
-                                                 {255, 0, 0},   {255, 255, 0},
-                                                 {0, 255, 255}, {255, 0, 255}};
+std::vector<std::vector<int>> Cluster::colors = {{0, 0, 255},   {0, 255, 0},   {255, 0, 0},
+                                                 {255, 255, 0}, {0, 255, 255}, {255, 0, 255}};
 
 Cluster::Cluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr &in_cloud_ptr,
                  const std::vector<int> &in_cluster_indices)
     : cloud_{new ClusterCloud()} {
   bool indexesGiven = in_cluster_indices.size() > 0;
 
-  size_t max_index =
-      (indexesGiven) ? in_cluster_indices.size() : in_cloud_ptr->points.size();
+  size_t max_index = (indexesGiven) ? in_cluster_indices.size() : in_cloud_ptr->points.size();
 
   min_point_.x = std::numeric_limits<double>::max();
   min_point_.y = std::numeric_limits<double>::max();
@@ -49,19 +47,13 @@ Cluster::Cluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr &in_cloud_ptr,
     pt.g = colors[color_index % colors.size()][1];
     pt.b = colors[color_index % colors.size()][2];
 
-    if (pt.x < min_point_.x)
-      min_point_.x = pt.x;
-    if (pt.y < min_point_.y)
-      min_point_.y = pt.y;
-    if (pt.z < min_point_.z)
-      min_point_.z = pt.z;
+    if (pt.x < min_point_.x) min_point_.x = pt.x;
+    if (pt.y < min_point_.y) min_point_.y = pt.y;
+    if (pt.z < min_point_.z) min_point_.z = pt.z;
 
-    if (pt.x > max_point_.x)
-      max_point_.x = pt.x;
-    if (pt.y > max_point_.y)
-      max_point_.y = pt.y;
-    if (pt.z > max_point_.z)
-      max_point_.z = pt.z;
+    if (pt.x > max_point_.x) max_point_.x = pt.x;
+    if (pt.y > max_point_.y) max_point_.y = pt.y;
+    if (pt.z > max_point_.z) max_point_.z = pt.z;
 
     cloud_->emplace_back(pt);
   }
@@ -72,8 +64,7 @@ Cluster::Cluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr &in_cloud_ptr,
 BBox3D Cluster::getBoundingBox() {
   BBox3D bounding_box_;
 
-  if (cloud_->size() == 0)
-    return bounding_box_;
+  if (cloud_->size() == 0) return bounding_box_;
 
   double length_ = max_point_.x - min_point_.x;
   double width_ = max_point_.y - min_point_.y;

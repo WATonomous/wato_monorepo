@@ -1,4 +1,4 @@
-camera_object_detection_node:
+dets_2d_3d_node:
   ros__parameters:
     camera_info_topic: /CAM_FRONT/camera_info
     lidar_topic: /LIDAR_TOP

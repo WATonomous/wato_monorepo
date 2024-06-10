@@ -8,7 +8,7 @@
 #include <vector>
 
 class Cluster {
-public:
+ public:
   // makes a cloud from all points `in_cloud_ptr` that are indexed by
   // `in_cluster_indices`
   Cluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr &in_cloud_ptr,
@@ -21,7 +21,7 @@ public:
   bool isValid();
   int size() { return cloud_->size(); }
 
-private:
+ private:
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_;
   pcl::PointXYZ centroid_;
 
