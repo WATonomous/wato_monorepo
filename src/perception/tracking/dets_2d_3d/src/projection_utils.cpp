@@ -1,8 +1,8 @@
 #include "projection_utils.hpp"
 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <pcl/ModelCoefficients.h>
 #include <pcl/filters/conditional_removal.h>
@@ -20,20 +20,17 @@ typedef pcl::PointCloud<pcl::PointXYZRGB> ColorCloud;
 typedef std::shared_ptr<Cluster> ClusterPtr;
 typedef vision_msgs::msg::BoundingBox3D BBox3D;
 
-void ProjectionUtils::pointsInBbox(
-    const Cloud::Ptr &inlierCloud, const Cloud::Ptr &lidarCloud,
-    const std::vector<geometry_msgs::msg::Point> &projs2d,
-    const vision_msgs::msg::BoundingBox2D &bbox) {
+void ProjectionUtils::pointsInBbox(const Cloud::Ptr &inlierCloud, const Cloud::Ptr &lidarCloud,
+                                   const std::vector<geometry_msgs::msg::Point> &projs2d,
+                                   const vision_msgs::msg::BoundingBox2D &bbox) {
   for (size_t i = 0; i < projs2d.size(); ++i) {
     // P * [x y z 1]^T, P is row major
-    if (isPointInBbox(projs2d[i], bbox))
-      inlierCloud->push_back(lidarCloud->points[i]);
+    if (isPointInBbox(projs2d[i], bbox)) inlierCloud->push_back(lidarCloud->points[i]);
   }
 }
 
-bool ProjectionUtils::isPointInBbox(
-    const geometry_msgs::msg::Point &pt,
-    const vision_msgs::msg::BoundingBox2D &bbox) {
+bool ProjectionUtils::isPointInBbox(const geometry_msgs::msg::Point &pt,
+                                    const vision_msgs::msg::BoundingBox2D &bbox) {
   double padding = 0;
 
   if (bbox.center.position.x - bbox.size_x / 2 - padding < pt.x &&
@@ -46,8 +43,8 @@ bool ProjectionUtils::isPointInBbox(
 }
 
 std::optional<geometry_msgs::msg::Point> ProjectionUtils::projectLidarToCamera(
-    const geometry_msgs::msg::TransformStamped &transform,
-    const std::array<double, 12> &p, const pcl::PointXYZ &pt) {
+    const geometry_msgs::msg::TransformStamped &transform, const std::array<double, 12> &p,
+    const pcl::PointXYZ &pt) {
   // lidar to camera frame
   auto trans_pt = geometry_msgs::msg::Point();
   auto orig_pt = geometry_msgs::msg::Point();
@@ -57,8 +54,7 @@ std::optional<geometry_msgs::msg::Point> ProjectionUtils::projectLidarToCamera(
 
   tf2::doTransform(orig_pt, trans_pt, transform);
 
-  if (trans_pt.z < 1)
-    return std::nullopt;
+  if (trans_pt.z < 1) return std::nullopt;
 
   // camera frame to camera 2D projection
   double u = p[0] * trans_pt.x + p[1] * trans_pt.y + p[2] * trans_pt.z + p[3];
@@ -70,14 +66,12 @@ std::optional<geometry_msgs::msg::Point> ProjectionUtils::projectLidarToCamera(
   proj_pt.y = v / w;
 
   // check if inside camera frame bounds
-  if (proj_pt.x > 0 && proj_pt.x < 1600 && proj_pt.y > 0 && proj_pt.y < 900)
-    return proj_pt;
+  if (proj_pt.x > 0 && proj_pt.x < 1600 && proj_pt.y > 0 && proj_pt.y < 900) return proj_pt;
   return std::nullopt;
 }
 
 // https://pointclouds.org/documentation/tutorials/progressive_morphological_filtering.html
-void ProjectionUtils::removeFloor(const Cloud::Ptr &lidarCloud,
-                                  const Cloud::Ptr &cloud_filtered) {
+void ProjectionUtils::removeFloor(const Cloud::Ptr &lidarCloud, const Cloud::Ptr &cloud_filtered) {
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
   pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
 
@@ -89,7 +83,7 @@ void ProjectionUtils::removeFloor(const Cloud::Ptr &lidarCloud,
   seg.setMaxIterations(100);
   seg.setAxis(Eigen::Vector3f(0, 0, 1));
   seg.setEpsAngle(0.1);
-  seg.setDistanceThreshold(0.5); // floor distance
+  seg.setDistanceThreshold(0.5);  // floor distance
   seg.setOptimizeCoefficients(true);
   seg.setInputCloud(lidarCloud);
   seg.segment(*inliers, *coefficients);
@@ -104,13 +98,11 @@ void ProjectionUtils::removeFloor(const Cloud::Ptr &lidarCloud,
   extract.filter(*cloud_filtered);
 }
 
-std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>>
-ProjectionUtils::getClusteredBBoxes(const Cloud::Ptr &lidarCloud,
-                                    const ClusteringParams &clusteringParams) {
+std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>> ProjectionUtils::getClusteredBBoxes(
+    const Cloud::Ptr &lidarCloud, const ClusteringParams &clusteringParams) {
   std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_segments_array(5);
   for (size_t i = 0; i < cloud_segments_array.size(); ++i) {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr temp(
-        new pcl::PointCloud<pcl::PointXYZ>());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr temp(new pcl::PointCloud<pcl::PointXYZ>());
     cloud_segments_array[i] = temp;
   }
 
@@ -133,51 +125,44 @@ ProjectionUtils::getClusteredBBoxes(const Cloud::Ptr &lidarCloud,
   std::vector<ClusterPtr> all_clusters;
   for (unsigned int i = 1; i < cloud_segments_array.size(); i++) {
     // add clusters from each shell
-    std::vector<ClusterPtr> local_clusters = clusterAndColor(
-        cloud_segments_array[i], clusteringParams.clustering_thresholds[i],
-        clusteringParams.cluster_size_min, clusteringParams.cluster_size_max);
-    all_clusters.insert(all_clusters.end(), local_clusters.begin(),
-                        local_clusters.end());
+    std::vector<ClusterPtr> local_clusters =
+        clusterAndColor(cloud_segments_array[i], clusteringParams.clustering_thresholds[i],
+                        clusteringParams.cluster_size_min, clusteringParams.cluster_size_max);
+    all_clusters.insert(all_clusters.end(), local_clusters.begin(), local_clusters.end());
   }
 
   // merge clusters if possible, do this twice?
   std::vector<ClusterPtr> mid_clusters =
-      (all_clusters.size() > 0)
-          ? ProjectionUtils::checkAllForMerge(
-                all_clusters, clusteringParams.cluster_merge_threshold)
-          : all_clusters;
+      (all_clusters.size() > 0) ? ProjectionUtils::checkAllForMerge(
+                                      all_clusters, clusteringParams.cluster_merge_threshold)
+                                : all_clusters;
   std::vector<ClusterPtr> final_clusters =
-      (mid_clusters.size() > 0)
-          ? ProjectionUtils::checkAllForMerge(
-                mid_clusters, clusteringParams.cluster_merge_threshold)
-          : mid_clusters;
+      (mid_clusters.size() > 0) ? ProjectionUtils::checkAllForMerge(
+                                      mid_clusters, clusteringParams.cluster_merge_threshold)
+                                : mid_clusters;
 
   // get boundingboxes for each & return all possible 3d bboxes (if valid)
   std::vector<BBox3D> bboxes;
   for (const ClusterPtr &cluster : final_clusters) {
     BBox3D b = cluster->getBoundingBox();
-    if (cluster->isValid())
-      bboxes.emplace_back(b);
+    if (cluster->isValid()) bboxes.emplace_back(b);
   }
-  return std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>>{final_clusters,
-                                                                 bboxes};
+  return std::pair<std::vector<ClusterPtr>, std::vector<BBox3D>>{final_clusters, bboxes};
 }
 
-std::vector<ClusterPtr> ProjectionUtils::clusterAndColor(
-    const Cloud::Ptr &in_cloud_ptr, double in_max_cluster_distance,
-    double cluster_size_min, double cluster_size_max) {
+std::vector<ClusterPtr> ProjectionUtils::clusterAndColor(const Cloud::Ptr &in_cloud_ptr,
+                                                         double in_max_cluster_distance,
+                                                         double cluster_size_min,
+                                                         double cluster_size_max) {
   std::vector<ClusterPtr> clusters;
-  if (in_cloud_ptr->size() == 0)
-    return clusters;
+  if (in_cloud_ptr->size() == 0) return clusters;
 
-  pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(
-      new pcl::search::KdTree<pcl::PointXYZ>());
+  pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
 
   // create 2d pc, by copying & making it flat
   Cloud::Ptr cloud_2d(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::copyPointCloud(*in_cloud_ptr, *cloud_2d);
-  for (size_t i = 0; i < cloud_2d->points.size(); i++)
-    cloud_2d->points[i].z = 0;
+  for (size_t i = 0; i < cloud_2d->points.size(); i++) cloud_2d->points[i].z = 0;
 
   tree->setInputCloud(cloud_2d);
 
@@ -195,43 +180,40 @@ std::vector<ClusterPtr> ProjectionUtils::clusterAndColor(
 
   // add pts at clustered indexes to cluster
   for (const auto &cluster : cluster_indices) {
-    ClusterPtr cloud_cluster =
-        std::make_shared<Cluster>(in_cloud_ptr, cluster.indices);
+    ClusterPtr cloud_cluster = std::make_shared<Cluster>(in_cloud_ptr, cluster.indices);
     clusters.emplace_back(cloud_cluster);
   }
 
   return clusters;
 }
 
-void ProjectionUtils::checkClusterMerge(
-    size_t in_cluster_id, const std::vector<ClusterPtr> &in_clusters,
-    std::vector<bool> &in_out_visited_clusters,
-    std::vector<size_t> &out_merge_indices, double in_merge_threshold) {
-
+void ProjectionUtils::checkClusterMerge(size_t in_cluster_id,
+                                        const std::vector<ClusterPtr> &in_clusters,
+                                        std::vector<bool> &in_out_visited_clusters,
+                                        std::vector<size_t> &out_merge_indices,
+                                        double in_merge_threshold) {
   pcl::PointXYZ point_a = in_clusters[in_cluster_id]->getCentroid();
 
   for (size_t i = 0; i < in_clusters.size(); i++) {
     if (i != in_cluster_id && !in_out_visited_clusters[i]) {
       pcl::PointXYZ point_b = in_clusters[i]->getCentroid();
-      double distance =
-          sqrt(pow(point_b.x - point_a.x, 2) + pow(point_b.y - point_a.y, 2));
+      double distance = sqrt(pow(point_b.x - point_a.x, 2) + pow(point_b.y - point_a.y, 2));
 
       if (distance <= in_merge_threshold) {
         in_out_visited_clusters[i] = true;
         out_merge_indices.push_back(i);
         // look for all other clusters that can be merged with this merge-able
         // cluster
-        checkClusterMerge(i, in_clusters, in_out_visited_clusters,
-                          out_merge_indices, in_merge_threshold);
+        checkClusterMerge(i, in_clusters, in_out_visited_clusters, out_merge_indices,
+                          in_merge_threshold);
       }
     }
   }
 }
 
-ClusterPtr
-ProjectionUtils::mergeClusters(const std::vector<ClusterPtr> &in_clusters,
-                               const std::vector<size_t> &in_merge_indices,
-                               std::vector<bool> &in_out_merged_clusters) {
+ClusterPtr ProjectionUtils::mergeClusters(const std::vector<ClusterPtr> &in_clusters,
+                                          const std::vector<size_t> &in_merge_indices,
+                                          std::vector<bool> &in_out_merged_clusters) {
   ColorCloud merged_cloud;
 
   // for each cluster in merge cloud indices, merge into larger cloud
@@ -250,9 +232,8 @@ ProjectionUtils::mergeClusters(const std::vector<ClusterPtr> &in_clusters,
   return merged_cluster;
 }
 
-std::vector<ClusterPtr>
-ProjectionUtils::checkAllForMerge(const std::vector<ClusterPtr> &in_clusters,
-                                  float in_merge_threshold) {
+std::vector<ClusterPtr> ProjectionUtils::checkAllForMerge(
+    const std::vector<ClusterPtr> &in_clusters, float in_merge_threshold) {
   std::vector<ClusterPtr> out_clusters;
 
   std::vector<bool> visited_clusters(in_clusters.size(), false);
@@ -263,10 +244,8 @@ ProjectionUtils::checkAllForMerge(const std::vector<ClusterPtr> &in_clusters,
       visited_clusters[i] = true;
 
       std::vector<size_t> merge_indices;
-      checkClusterMerge(i, in_clusters, visited_clusters, merge_indices,
-                        in_merge_threshold);
-      ClusterPtr mergedCluster =
-          mergeClusters(in_clusters, merge_indices, merged_clusters);
+      checkClusterMerge(i, in_clusters, visited_clusters, merge_indices, in_merge_threshold);
+      ClusterPtr mergedCluster = mergeClusters(in_clusters, merge_indices, merged_clusters);
 
       out_clusters.emplace_back(mergedCluster);
     }
