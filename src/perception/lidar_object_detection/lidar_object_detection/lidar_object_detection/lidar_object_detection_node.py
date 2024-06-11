@@ -24,7 +24,8 @@ class LidarObjectDetection(Node):
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
-        self.publish_detection = self.get_parameter('detection_options.enable_detection').get_parameter_value().bool_value
+        self.publish_detection = self.get_parameter(
+            'detection_options.enable_detection').get_parameter_value().bool_value
 
         self.viz_publisher = self.create_publisher(MarkerArray, "/lidar_detections_viz", 10)
         self.detections_publisher = self.create_publisher(Detection3DArray, "/lidar_detections", 10)
@@ -122,6 +123,7 @@ class LidarObjectDetection(Node):
                 detection.results.append(detected_object)
                 detections.detections.append(detection)
         
+
         if self.publish_detection:
             self.viz_publisher.publish(marker_array)
         self.detections_publisher.publish(detections)
@@ -144,9 +146,7 @@ class LidarObjectDetection(Node):
 
 class LidarDatalodaer(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext=".bin"):
-        super().__init__(
-            dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger
-        )
+        super().__init__(dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger)
 
 def main(args=None):
     rclpy.init(args=args)
