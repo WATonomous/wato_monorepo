@@ -18,10 +18,8 @@ sys.path.append("/home/bolty/OpenPCDet")
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
-        self.declare_parameter(
-            "model_path", "/home/bolty/OpenPCDet/models/transfusion_trained_model.pth")
-        self.declare_parameter(
-            "model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml")
+        self.declare_parameter("model_path")
+        self.declare_parameter("model_config_path")
         self.declare_parameter("lidar_topic", "/velodyne_points")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
@@ -37,7 +35,7 @@ class LidarObjectDetection(Node):
         args, cfg = self.parse_config()
         self.logger = common_utils.create_logger()
 
-        self.demo_dataset = LidarDataset(
+        self.lidar_dataloader = LidarDatalodaer(
             dataset_cfg=cfg.DATA_CONFIG,
             class_names=cfg.CLASS_NAMES,
             training=False,
@@ -45,7 +43,7 @@ class LidarObjectDetection(Node):
         )
 
         self.model = build_network(
-            model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.demo_dataset
+            model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.lidar_dataloader
         )
         self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
         self.model.cuda()
@@ -57,8 +55,8 @@ class LidarObjectDetection(Node):
             "points": points,
             "frame_id": msg.header.frame_id,
         }
-        data_dict = self.demo_dataset.prepare_data(data_dict=data_dict)
-        data_dict = self.demo_dataset.collate_batch([data_dict])
+        data_dict = self.lidar_dataloader.prepare_data(data_dict=data_dict)
+        data_dict = self.lidar_dataloader.collate_batch([data_dict])
         load_data_to_gpu(data_dict)
 
         with torch.no_grad():
@@ -142,57 +140,7 @@ class LidarObjectDetection(Node):
         cfg_from_yaml_file(args.cfg_file, cfg)
         return args, cfg
 
-    def create_cloud_xyz32(self, header, points):
-        """
-        Create a sensor_msgs/PointCloud2 message from an array of points.
-
-        :param header: std_msgs/Header, the header of the message.
-        :param points: numpy.ndarray, an Nx3 array of xyz points.
-        :return: sensor_msgs/PointCloud2, the constructed PointCloud2 message.
-        """
-        # Create fields for the PointCloud2 message
-        fields = [
-            PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
-            PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
-            PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
-        ]
-
-        y_angle = np.deg2rad(90)
-        z_angle = np.deg2rad(-90)
-        rotation_matrix_y = np.array(
-            [
-                [np.cos(y_angle), 0, np.sin(y_angle)],
-                [0, 1, 0],
-                [-np.sin(y_angle), 0, np.cos(y_angle)],
-            ]
-        )
-        rotation_matrix_z = np.array(
-            [
-                [np.cos(z_angle), -np.sin(z_angle), 0],
-                [np.sin(z_angle), np.cos(z_angle), 0],
-                [0, 0, 1],
-            ]
-        )
-
-        points_np = points.cpu().numpy()
-        points_np_y = np.dot(points_np, rotation_matrix_y)
-        points_transformed = np.dot(points_np_y, rotation_matrix_z.T)
-
-        cloud = PointCloud2()
-        cloud.header = header
-        cloud.height = 1
-        cloud.width = points_transformed.shape[0]
-        cloud.fields = fields
-        cloud.is_bigendian = False
-        cloud.point_step = 12
-        cloud.row_step = cloud.point_step * cloud.width
-        cloud.is_dense = bool(np.isfinite(points_transformed).all())
-        cloud.data = np.asarray(points_transformed, np.float32).tobytes()
-
-        return cloud
-
-
-class LidarDataset(DatasetTemplate):
+class LidarDatalodaer(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext=".bin"):
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger
