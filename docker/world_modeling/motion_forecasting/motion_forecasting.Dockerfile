@@ -14,16 +14,18 @@ RUN git clone https://github.com/autowarefoundation/autoware_common.git
 RUN git clone https://github.com/autowarefoundation/autoware_msgs.git
 RUN git clone https://github.com/autowarefoundation/autoware_internal_msgs.git
 
-# Clone the tier4_autoware_msgs repository with sparse checkout for tier4_planning_msgs
+# Clone the tier4_autoware_msgs repository with sparse checkout for tier4_planning_msgs and tier4_debug_msgs
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/tier4/tier4_autoware_msgs.git && \
     cd tier4_autoware_msgs && \
+    git sparse-checkout init --cone && \
     git sparse-checkout set tier4_planning_msgs tier4_debug_msgs && \
     cd ..
 
-# Clone the specific tier4_autoware_utils directory from autoware.universe
+# Clone the specific tier4_autoware_utils directory from autoware.universe including the interpolation directory
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/autowarefoundation/autoware.universe.git && \
     cd autoware.universe && \
-    git sparse-checkout set common/tier4_autoware_utils && \
+    git sparse-checkout init --cone && \
+    git sparse-checkout set common/tier4_autoware_utils common/tier4_autoware_utils/interpolation && \
     mv common/tier4_autoware_utils ../tier4_autoware_utils && \
     cd .. && rm -rf autoware.universe
 
@@ -32,7 +34,7 @@ RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | grep 'apt-get install' \
         | awk '{print $3}' \
-        | sort  > /tmp/colcon_install_list
+        | sort > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
@@ -59,8 +61,7 @@ FROM dependencies as build
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release | tee build.log
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
