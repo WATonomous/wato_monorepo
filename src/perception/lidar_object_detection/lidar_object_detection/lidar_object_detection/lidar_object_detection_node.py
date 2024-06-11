@@ -18,8 +18,8 @@ sys.path.append("/home/bolty/OpenPCDet")
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
-        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth")
-        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml")
+        self.declare_parameter("model_path")
+        self.declare_parameter("model_config_path")
         self.declare_parameter("lidar_topic", "/velodyne_points")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
@@ -38,6 +38,7 @@ class LidarObjectDetection(Node):
         self.logger = common_utils.create_logger()
 
         self.lidar_dataloader = LidarDatalodaer(
+        self.lidar_dataloader = LidarDatalodaer(
             dataset_cfg=cfg.DATA_CONFIG,
             class_names=cfg.CLASS_NAMES,
             training=False,
@@ -45,6 +46,7 @@ class LidarObjectDetection(Node):
         )
 
         self.model = build_network(
+            model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.lidar_dataloader
             model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.lidar_dataloader
         )
         self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
@@ -57,6 +59,8 @@ class LidarObjectDetection(Node):
             "points": points,
             "frame_id": msg.header.frame_id,
         }
+        data_dict = self.lidar_dataloader.prepare_data(data_dict=data_dict)
+        data_dict = self.lidar_dataloader.collate_batch([data_dict])
         data_dict = self.lidar_dataloader.prepare_data(data_dict=data_dict)
         data_dict = self.lidar_dataloader.collate_batch([data_dict])
         load_data_to_gpu(data_dict)
@@ -140,7 +144,6 @@ class LidarObjectDetection(Node):
         args, _ = parser.parse_known_args()
         cfg_from_yaml_file(args.cfg_file, cfg)
         return args, cfg
-
 
 class LidarDatalodaer(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext=".bin"):
