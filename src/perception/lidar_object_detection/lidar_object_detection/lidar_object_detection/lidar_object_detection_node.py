@@ -18,8 +18,8 @@ sys.path.append("/home/bolty/OpenPCDet")
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
-        self.declare_parameter("model_path", "/home/bolty/OpenPCDet/models/pv_rcnn_8369.pth")
-        self.declare_parameter("model_config_path", "/home/bolty/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml")
+        self.declare_parameter("model_path")
+        self.declare_parameter("model_config_path")
         self.declare_parameter("lidar_topic", "/velodyne_points")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
