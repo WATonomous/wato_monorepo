@@ -20,10 +20,11 @@ class LidarObjectDetection(Node):
         super().__init__('lidar_object_detection')
         self.declare_parameter("model_path")
         self.declare_parameter("model_config_path")
-        self.declare_parameter("lidar_topic", "/velodyne_points")
+        self.declare_parameter("lidar_topic")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
+        self.publish_detection = self.get_parameter('detection_options.enable_detection').get_parameter_value().bool_value
 
         self.viz_publisher = self.create_publisher(MarkerArray, "/lidar_detections_viz", 10)
         self.detections_publisher = self.create_publisher(Detection3DArray, "/lidar_detections", 10)
@@ -120,8 +121,9 @@ class LidarObjectDetection(Node):
                 detected_object.hypothesis.score = float(pred_dicts[0]["pred_scores"][idx])
                 detection.results.append(detected_object)
                 detections.detections.append(detection)
-
-        self.viz_publisher.publish(marker_array)
+        
+        if self.publish_detection:
+            self.viz_publisher.publish(marker_array)
         self.detections_publisher.publish(detections)
 
     def parse_config(self):
