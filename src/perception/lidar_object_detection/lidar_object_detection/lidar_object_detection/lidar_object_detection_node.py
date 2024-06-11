@@ -122,7 +122,6 @@ class LidarObjectDetection(Node):
                 detected_object.hypothesis.score = float(pred_dicts[0]["pred_scores"][idx])
                 detection.results.append(detected_object)
                 detections.detections.append(detection)
-        
         if self.publish_detection:
             self.viz_publisher.publish(marker_array)
         self.detections_publisher.publish(detections)
