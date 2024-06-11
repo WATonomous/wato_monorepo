@@ -148,7 +148,6 @@ class LidarDatalodaer(DatasetTemplate):
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger
         )
 
-
 def main(args=None):
     rclpy.init(args=args)
     node = LidarObjectDetection()
