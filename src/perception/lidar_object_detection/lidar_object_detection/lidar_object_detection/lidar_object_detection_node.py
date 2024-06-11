@@ -123,7 +123,6 @@ class LidarObjectDetection(Node):
                 detection.results.append(detected_object)
                 detections.detections.append(detection)
         
-
         if self.publish_detection:
             self.viz_publisher.publish(marker_array)
         self.detections_publisher.publish(detections)
@@ -144,9 +143,11 @@ class LidarObjectDetection(Node):
         cfg_from_yaml_file(args.cfg_file, cfg)
         return args, cfg
 
+
 class LidarDatalodaer(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext=".bin"):
         super().__init__(dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger)
+
 
 def main(args=None):
     rclpy.init(args=args)
