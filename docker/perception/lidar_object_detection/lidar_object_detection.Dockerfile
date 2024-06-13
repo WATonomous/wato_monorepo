@@ -69,11 +69,12 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 ################################ Build #######################################
 FROM dependencies as build
-WORKDIR /home/bolty/OpenPCDet/
+COPY --from=source /home/bolty/OpenPCDet /home/bolty/OpenPCDet
+WORKDIR /home/bolty/OpenPCDet
 RUN pip3 install -r requirements.txt
 RUN pip3 install kornia==0.6.8
 RUN pip3 install nuscenes-devkit==1.0.5
-WORKDIR /home/bolty/OpenPCDet/
+WORKDIR /home/bolty/OpenPCDet
 RUN python3 setup.py develop
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
