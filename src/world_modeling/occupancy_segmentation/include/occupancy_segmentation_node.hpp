@@ -3,10 +3,6 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "sample_msgs/msg/filtered.hpp"
-#include "sample_msgs/msg/filtered_array.hpp"
-#include "sample_msgs/msg/unfiltered.hpp"
-
 #include "occupancy_segmentation_core.hpp"
 
 /**
@@ -29,22 +25,11 @@ class OccupancySegmentationNode : public rclcpp::Node {
   OccupancySegmentationNode();
 
  private:
-  /**
-   * A ROS2 subscription node callback used to process raw data from the
-   * "unfiltered" topic and publish to the "filtered" topic.
-   *
-   * @param msg a raw message from the "unfiltered" topic
-   */
-  void unfiltered_callback(const sample_msgs::msg::Unfiltered::SharedPtr msg);
-
-  // ROS2 subscriber listening to the unfiltered topic.
-  rclcpp::Subscription<sample_msgs::msg::Unfiltered>::SharedPtr raw_sub_;
-
-  // ROS2 publisher sending processed messages to the filtered topic.
-  rclcpp::Publisher<sample_msgs::msg::FilteredArray>::SharedPtr transform_pub_;
 
   // Object that handles data processing and validation.
-  samples::OccupancySegmentationCore segment_;
+
+  rclcpp::TimerBase::SharedPtr timer_;
+  void timer_callback();
 };
 
 #endif  // TRANSFORMER_NODE_HPP_

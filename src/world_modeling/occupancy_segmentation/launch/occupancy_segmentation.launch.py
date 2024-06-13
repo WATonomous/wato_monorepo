@@ -8,24 +8,24 @@ import os
 
 
 def generate_launch_description():
-    """Launch transformer node."""
-    transformer_pkg_prefix = get_package_share_directory('occupancy_segmentation')
-    transformer_param_file = os.path.join(
-        transformer_pkg_prefix, 'config', 'params.yaml')
+    """Launch occupancy_seg node."""
+    occupancy_seg_pkg_prefix = get_package_share_directory('occupancy_segmentation')
+    occupancy_seg_param_file = os.path.join(
+        occupancy_seg_pkg_prefix, 'config', 'params.yaml')
 
-    transformer_param = DeclareLaunchArgument(
+    occupancy_seg_param = DeclareLaunchArgument(
         'occupancy_segmentation_param_file',
-        default_value=transformer_param_file,
+        default_value=occupancy_seg_param_file,
         description='Path to config file for occupancy segmentation node'
     )
 
-    transformer_node = Node(
+    occupancy_seg_node = Node(
         package='occupancy_segmentation',
         executable='occupancy_segmentation_node',
         parameters=[LaunchConfiguration('occupancy_segmentation_param_file')],
     )
 
     return LaunchDescription([
-        transformer_param,
-        transformer_node
+        occupancy_seg_param,
+        occupancy_seg_node
     ])
