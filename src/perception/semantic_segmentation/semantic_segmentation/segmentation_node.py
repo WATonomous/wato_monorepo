@@ -1,11 +1,8 @@
 import numpy as np
 import cv2
 import os
-import time
-from transformers import AutoFeatureExtractor, SegformerForSemanticSegmentation
 from mmseg.apis import MMSegInferencer
 import torch
-from PIL import Image as PilImage
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -78,41 +75,40 @@ class SemanticSegmentation(Node):
             qos_profile=QoSProfile(
                 reliability=QoSReliabilityPolicy.RELIABLE,
                 history=QoSHistoryPolicy.KEEP_LAST,
-                depth=5,
+                depth=0,
             ),
         )
 
         self.image_publisher = self.create_publisher(
             Image,
             '/camera/left/segmentations',
-            100
+            10
         )
-
-        self.model = MMSegInferencer(CONFIG, CHECKPOINT, device='cuda:0')
-        self.bridge = CvBridge()
         self.palette = np.array(COLOR_PALLETE, dtype=np.uint8)
+        self.model = MMSegInferencer(CONFIG, CHECKPOINT, dataset_name="cityscapes", device='cuda:0')
+        self.bridge = CvBridge()
+
         print(f'Segmentation initialized')
 
     def listener_callback(self, msg):
         images = [msg]  # msg is a single sensor image
         for image in images:
-
             # convert ros Image to cv::Mat
             if self.compressed:
                 np_arr = np.frombuffer(msg.data, np.uint8)
                 cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                image = cv2.resize(cv_image,(1024, 1024))
             else:
                 try:
                     cv_image = self.cv_bridge.imgmsg_to_cv2(image, desired_encoding="passthrough")
+                    image = cv2.resize(cv_image,(1024, 1024))
                 except CvBridgeError as e:
                     self.get_logger().error(str(e))
                     return
-        image = cv2.resize(cv_image,(1024, 1024))
-        t = time.time()
+        
         with torch.no_grad():
-            out_img = self.model(image)['predictions']
-        fps = time.time() - t
-        print(f'FPS: {1 / fps:.2f}')
+            out_img = self.model(image, show=False, )['predictions']
+    
         # logits = torch.tensor(out_img, dtype=torch.float32).unsqueeze(0).unsqueeze(0)  # Add batch and channel dimensions
         # upsampled_logits = torch.nn.functional.interpolate(logits,
         #                                                    size=(IMAGE_H, IMAGE_W),  # (height, width)
@@ -120,14 +116,11 @@ class SemanticSegmentation(Node):
         #                                                    align_corners=False)
         # upsampled_logits = upsampled_logits.squeeze().numpy().astype(np.uint8)
 
-        # Second, apply argmax on the class dimension
-        # color_seg = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        # for label, color in enumerate(self.palette):
         #     color_seg[out_img == label, :] = color
         color_seg = self.palette[out_img]
 
         # Convert to BGR
-        color_seg = color_seg[..., ::-1]
+        #color_seg = color_seg[..., ::-1]
 
         # img = np_image * 0.5 + color_seg * 0.5
         # img_output = bridge.cv2_to_imgmsg(img)
@@ -136,6 +129,7 @@ class SemanticSegmentation(Node):
         color_seg = cv2.resize(color_seg,(1600, 900))
         mask_output = self.bridge.cv2_to_imgmsg(color_seg)
         self.image_publisher.publish(mask_output)
+
 
 
 def main(args=None):
