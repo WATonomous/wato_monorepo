@@ -24,9 +24,9 @@ logging.basicConfig(level=logging.INFO, handlers=[RichHandler(level=logging.WARN
 package_name = 'semantic_segmentation'
 package_share_directory = get_package_share_directory(package_name)
 CONFIG = os.path.join(package_share_directory, 'resource', 'model',
-                    'segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py')
+                      'segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py')
 CHECKPOINT = os.path.join(package_share_directory, 'resource', 'model',
-                'segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth')
+                          'segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth')
 IMAGE_H = 900
 IMAGE_W = 1600
 
@@ -68,7 +68,7 @@ class SemanticSegmentation(Node):
         self.declare_parameter('config', "model/segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py")
         self.declare_parameter(
             'checkpoint', "model/segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth")
-        
+
         self.compressed = self.get_parameter('compressed').value
         self.image_subscription = self.create_subscription(
             Image if not self.compressed else CompressedImage,
@@ -106,7 +106,7 @@ class SemanticSegmentation(Node):
                     self.get_logger().error(str(e))
                     return
         with torch.no_grad():
-            out_img = self.model(image, show=False, )['predictions']   
+            out_img = self.model(image, show=False)['predictions']
         # logits = torch.tensor(
         # out_img, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
         # Add batch and channel dimensions
@@ -125,7 +125,6 @@ class SemanticSegmentation(Node):
         color_seg = cv2.resize(color_seg, (IMAGE_W, IMAGE_H))
         mask_output = self.bridge.cv2_to_imgmsg(color_seg)
         self.image_publisher.publish(mask_output)
-
 
 
 def main(args=None):
