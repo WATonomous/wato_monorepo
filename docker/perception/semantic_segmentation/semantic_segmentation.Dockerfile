@@ -18,7 +18,6 @@ WORKDIR ${AMENT_WS}/src
 RUN git clone -b main https://github.com/open-mmlab/mmsegmentation.git /mmsegmentation
 WORKDIR /mmsegmentation
 ENV FORCE_CUDA="1"
-#RUN pip install -r requirements.txt
 RUN pip install mmengine
 RUN pip install --no-cache-dir -e .
 RUN ["/bin/bash", "-c", "pip install openmim"]
@@ -26,6 +25,7 @@ RUN ["/bin/bash", "-c", "pip install openmim"]
 # Scan for dependencies
 RUN echo "openmim\nmmengine\nmmcv==2.0.1\n" > /tmp/pip_install_list.txt
 
+# Install segformer model
 RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
 
 # # ################################ Source ################################
@@ -50,8 +50,6 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_BUILD_IMAGE} as dependencies
 
-# # install tensorrt
-# RUN apt update && apt install -y tensorrt
 RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
 RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
 
@@ -68,7 +66,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-
+# Install Segformer dependencies 
 COPY --from=Segformer /tmp/pip_install_list.txt /tmp/pip_install_list.txt
 RUN pip3 install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
 RUN pip install cython
@@ -109,7 +107,6 @@ COPY --from=Segformer /mmsegmentation /mmsegmentation
 RUN pip install -r requirements.txt
 RUN pip install --no-cache-dir -e .
 WORKDIR ${AMENT_WS}
-#  --from=Segformer /mmsegmentation/model /model
 # Add runtime libraries to path
 ENV CUDNN_DIR=/mmsegmentation/cuda
 ENV CV2_CUDABACKEND=0
