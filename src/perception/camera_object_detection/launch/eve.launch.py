@@ -47,11 +47,18 @@ def generate_launch_description():
         condition=LaunchConfigurationEquals("launch_traffic_signs", "True"),
     )
 
+    post_synchronizer_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [camera_object_detection_launch_include_dir, "/post_synchronizer.launch.py"]
+        )
+    )
+
     return LaunchDescription(
         launch_args
         + [
             pretrained_yolov8_launch,
             traffic_light_launch,
             traffic_signs_launch,
+            post_synchronizer_launch,
         ]
     )
