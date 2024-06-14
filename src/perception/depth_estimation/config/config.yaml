@@ -1,0 +1,5 @@
+depth_estimation_node:
+  ros__parameters:
+    camera_topic: "/camera/left/image_color"
+    depth_map_topic: "/depth_map"
+    debug_node: false
