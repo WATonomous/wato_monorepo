@@ -24,10 +24,9 @@ logging.basicConfig(level=logging.INFO, handlers=[RichHandler(level=logging.WARN
 package_name = 'semantic_segmentation'
 package_share_directory = get_package_share_directory(package_name)
 CONFIG = os.path.join(package_share_directory, 'resource', 'model',
-                       'segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py')
-CHECKPOINT = os.path.join(package_share_directory, 'resource', 'model', 
-                          'segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth')
-
+                    'segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py')
+CHECKPOINT = os.path.join(package_share_directory, 'resource', 'model',
+                'segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth')
 IMAGE_H = 900
 IMAGE_W = 1600
 
@@ -106,13 +105,13 @@ class SemanticSegmentation(Node):
                 except CvBridgeError as e:
                     self.get_logger().error(str(e))
                     return
-        
         with torch.no_grad():
-            out_img = self.model(image, show=False, )['predictions']
-    
-        # logits = torch.tensor(out_img, dtype=torch.float32).unsqueeze(0).unsqueeze(0)  # Add batch and channel dimensions
+            out_img = self.model(image, show=False, )['predictions']   
+        # logits = torch.tensor(
+        # out_img, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+        # Add batch and channel dimensions
         # upsampled_logits = torch.nn.functional.interpolate(logits,
-        #                                                    size=(IMAGE_H, IMAGE_W),  # (height, width)
+        #                    size=(IMAGE_H, IMAGE_W),  # (height, width)
         #                                                    mode='bilinear',
         #                                                    align_corners=False)
         # upsampled_logits = upsampled_logits.squeeze().numpy().astype(np.uint8)

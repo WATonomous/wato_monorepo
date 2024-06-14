@@ -16,7 +16,7 @@ def generate_launch_description():
         executable='semantic_segmentation_node',
         name='semantic_segmentation_node',
         parameters=[config]
-        )
+    )
 
     # finalize
     ld.add_action(semantic_segmentation_node)
