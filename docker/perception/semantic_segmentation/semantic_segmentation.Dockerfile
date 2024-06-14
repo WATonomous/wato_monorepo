@@ -19,43 +19,25 @@ RUN git clone -b main https://github.com/open-mmlab/mmsegmentation.git /mmsegmen
 WORKDIR /mmsegmentation
 ENV FORCE_CUDA="1"
 #RUN pip install -r requirements.txt
-# RUN pip install mmengine
-# RUN pip install --no-cache-dir -e .
-# RUN ["/bin/bash", "-c", "pip install openmim"]
+RUN pip install mmengine
+RUN pip install --no-cache-dir -e .
+RUN ["/bin/bash", "-c", "pip install openmim"]
 
 # Scan for dependencies
 RUN echo "openmim\nmmengine\nmmcv==2.0.1\n" > /tmp/pip_install_list.txt
 
-# RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
-
-
+RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
 
 # # ################################ Source ################################
 
 
 FROM ${BASE_BUILD_IMAGE} as source
-
-# RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
-# RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
-
-
-# RUN apt-get update && apt-get install -y git ninja-build libglib2.0-0 libsm6 libxrender-dev libxext6 libgl1-mesa-dev  \
-#     && apt-get clean \
-#     && rm -rf /var/lib/apt/lists/*
-
 WORKDIR ${AMENT_WS}/src
-# Install MMSegmentation
-
-
-# Set up any additional configurations or data if needed
-
-# Set the entry point
-#ENTRYPOINT ["SegFormer"]
-
 
 # # Copy in source code 
 COPY src/perception/semantic_segmentation semantic_segmentation
 COPY src/wato_msgs/sample_msgs sample_msgs
+COPY --from=Segformer /mmsegmentation/model ${AMENT_WS}/src/semantic_segmentation/resource/model
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -87,18 +69,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 
-# Install Python dependencies
-#COPY --from=Segformer /mmsegmentation/requirements.txt /tmp/requirements.txt
-#COPY --from=Segformer /mmsegmentation/requirements/ /tmp/requirements/
-
 COPY --from=Segformer /tmp/pip_install_list.txt /tmp/pip_install_list.txt
 RUN pip3 install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
 RUN pip install cython
 RUN ["/bin/bash", "-c", "pip install https://download.openmmlab.com/mmcv/dist/cu117/torch1.13.0/mmcv-2.0.0rc4-cp310-cp310-manylinux1_x86_64.whl"]
 RUN apt update && apt install -y ros-humble-cv-bridge libopencv-dev
-
-
-
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -153,7 +128,6 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR ${AMENT_WS}
 
-# Copy in the paddle inference library
 RUN mkdir -p install/semantic_segmentation/lib/
 # Add runtime libraries to path
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${AMENT_WS}/install/semantic_segmentation/lib/
