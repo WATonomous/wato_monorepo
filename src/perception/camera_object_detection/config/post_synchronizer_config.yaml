@@ -1,0 +1,4 @@
+post_synchronizer_node:
+  ros__parameters:
+    camera_topic: /camera/right/image_color
+    publish_vis_topic: /annotated_img

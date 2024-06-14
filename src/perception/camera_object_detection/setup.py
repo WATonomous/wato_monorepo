@@ -25,7 +25,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'camera_object_detection_node = camera_object_detection.yolov8_detection:main'
+            'camera_object_detection_node = camera_object_detection.yolov8_detection:main',
+            'camera_sync_node = camera_object_detection.post_synchronizer:main'
         ],
     },
 )

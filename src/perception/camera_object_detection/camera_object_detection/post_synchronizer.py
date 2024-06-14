@@ -13,12 +13,13 @@ from cv_bridge import CvBridgeError
 class CameraSyncNode(Node): # synchronizes visualizations
     def __init__(self):
         super().__init__('camera_sync_node')
+        self.get_logger().info("Camera Sync Node")
 
         self.camera_img_sub = Subscriber(self, Image , '/camera/right/image_color')
  
-        self.camera1_sub = Subscriber(self, Detection2DArray, '/camera/left/camera_detections')
-        self.camera2_sub = Subscriber(self, Detection2DArray, '/camera/center/camera_detections')
-        self.camera3_sub = Subscriber(self, Detection2DArray, '/camera/right/camera_detections')
+        self.camera1_sub = Subscriber(self, Detection2DArray, '/camera/right/camera_detections')
+        self.camera2_sub = Subscriber(self, Detection2DArray, '/traffic_signs')
+        self.camera3_sub = Subscriber(self, Detection2DArray, '/traffic_lights')
  
         self.ts = ApproximateTimeSynchronizer(
             [self.camera_img_sub, self.camera1_sub, self.camera2_sub, self.camera3_sub],
@@ -28,7 +29,7 @@ class CameraSyncNode(Node): # synchronizes visualizations
         self.ts.registerCallback(self.callback)
  
         self.combined_detection_publisher = self.create_publisher(Detection2DArray, '/combined_detections', 10)
-        self.vis_publisher = self.create_publisher(Image, '/annotated_img')
+        self.vis_publisher = self.create_publisher(Image, '/annotated_img', 10)
 
     def process_img(self, image):
         try:
