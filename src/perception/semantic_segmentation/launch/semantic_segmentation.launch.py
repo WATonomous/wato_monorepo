@@ -11,12 +11,11 @@ def generate_launch_description():
         'config',
         'params.yaml'
     )
-    
     semantic_segmentation_node = Node(
-            package='semantic_segmentation',
-            executable='semantic_segmentation_node',
-            name='semantic_segmentation_node',
-            parameters=[config]
+        package='semantic_segmentation',
+        executable='semantic_segmentation_node',
+        name='semantic_segmentation_node',
+        parameters=[config]
         )
 
     # finalize

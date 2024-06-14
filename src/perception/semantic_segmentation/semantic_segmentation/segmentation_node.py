@@ -23,13 +23,15 @@ logging.basicConfig(level=logging.INFO, handlers=[RichHandler(level=logging.WARN
 
 package_name = 'semantic_segmentation'
 package_share_directory = get_package_share_directory(package_name)
-CONFIG = os.path.join(package_share_directory, 'resource', 'model', 'segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py')
-CHECKPOINT = os.path.join(package_share_directory, 'resource', 'model', 'segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth')
+CONFIG = os.path.join(package_share_directory, 'resource', 'model',
+                       'segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py')
+CHECKPOINT = os.path.join(package_share_directory, 'resource', 'model', 
+                          'segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth')
 
 IMAGE_H = 900
 IMAGE_W = 1600
 
-#Adjust logging
+# Adjust logging
 logging.getLogger('mmseg.apis').setLevel(logging.WARNING)
 logging.getLogger('mmengine').setLevel(logging.WARNING)
 
@@ -38,13 +40,13 @@ COLOR_PALLETE = [
     [128, 64, 128],  # road
     [244, 35, 232],  # sidewalk
     [70, 70, 70],    # building
-    [102, 102, 156], # wall
-    [190, 153, 153], # fence
-    [153, 153, 153], # pole
+    [102, 102, 156],  # wall
+    [190, 153, 153],  # fence
+    [153, 153, 153],  # pole
     [250, 170, 30],  # traffic light
     [220, 220, 0],   # traffic sign
     [107, 142, 35],  # vegetation
-    [152, 251, 152], # terrain
+    [152, 251, 152],  # terrain
     [0, 130, 180],   # sky
     [220, 20, 60],   # person
     [255, 0, 0],     # rider
@@ -65,7 +67,8 @@ class SemanticSegmentation(Node):
         self.declare_parameter('pub_masks', True)
         self.declare_parameter('compressed', True)
         self.declare_parameter('config', "model/segformer_mit-b2_8xb1-160k_cityscapes-1024x1024.py")
-        self.declare_parameter('checkpoint', "model/segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth")
+        self.declare_parameter(
+            'checkpoint', "model/segformer_mit-b2_8x1_1024x1024_160k_cityscapes_20211207_134205-6096669a.pth")
         
         self.compressed = self.get_parameter('compressed').value
         self.image_subscription = self.create_subscription(
@@ -88,8 +91,6 @@ class SemanticSegmentation(Node):
         self.model = MMSegInferencer(CONFIG, CHECKPOINT, dataset_name="cityscapes", device='cuda:0')
         self.bridge = CvBridge()
 
-        print(f'Segmentation initialized')
-
     def listener_callback(self, msg):
         images = [msg]  # msg is a single sensor image
         for image in images:
@@ -97,11 +98,11 @@ class SemanticSegmentation(Node):
             if self.compressed:
                 np_arr = np.frombuffer(msg.data, np.uint8)
                 cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-                image = cv2.resize(cv_image,(1024, 1024))
+                image = cv2.resize(cv_image, (1024, 1024))
             else:
                 try:
                     cv_image = self.cv_bridge.imgmsg_to_cv2(image, desired_encoding="passthrough")
-                    image = cv2.resize(cv_image,(1024, 1024))
+                    image = cv2.resize(cv_image, (1024, 1024))
                 except CvBridgeError as e:
                     self.get_logger().error(str(e))
                     return
@@ -118,15 +119,11 @@ class SemanticSegmentation(Node):
 
         #     color_seg[out_img == label, :] = color
         color_seg = self.palette[out_img]
-
-        # Convert to BGR
-        #color_seg = color_seg[..., ::-1]
-
         # img = np_image * 0.5 + color_seg * 0.5
         # img_output = bridge.cv2_to_imgmsg(img)
         # print(f'Publishing Segmentation')
         # self.image_publisher.publish(img_output)
-        color_seg = cv2.resize(color_seg,(1600, 900))
+        color_seg = cv2.resize(color_seg, (IMAGE_W, IMAGE_H))
         mask_output = self.bridge.cv2_to_imgmsg(color_seg)
         self.image_publisher.publish(mask_output)
 
@@ -135,7 +132,6 @@ class SemanticSegmentation(Node):
 def main(args=None):
 
     rclpy.init(args=args)
-    print(f'Started Segmentation')
     semantic_segmentation_node = SemanticSegmentation()
 
     rclpy.spin(semantic_segmentation_node)
