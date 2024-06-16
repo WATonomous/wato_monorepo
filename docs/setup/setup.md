@@ -27,7 +27,7 @@ Note: These are all available on WATonomous servers by default.
 ## Running Your First Program in the Monorepo
 These steps will let you run our sample nodes module. To run other modules, refer to our modules documentation.
 
-1. Clone this repo onto the host machine by using `$ git clone git@github.com:WATonomous/wato_monorepo.git`. We recommend you clone the repo into your home directory, `~`
+1. Clone this repo onto the host machine by using `$ git clone --recurse-submodules git@github.com:WATonomous/wato_monorepo.git`. The `--recurse-submodules` flag is needed to initialize submodules required by the repo - if you did not clone with this flag, run `git submodule update --init --recursive` inside the repo. We recommend you clone the repo into your home directory, `~`
 2. Login to the our container registry by using `docker login ghcr.io`. Provide your GitHub Username and GitHub Token.
 3. Configure to only run our sample nodes by uncommenting and setting `ACTIVE_MODULES="samples"` in `watod-config.sh`
 4. Run `$ ./watod pull` to pull latest docker images from our container registry.
