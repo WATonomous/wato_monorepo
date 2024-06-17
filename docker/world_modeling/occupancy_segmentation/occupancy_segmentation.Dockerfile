@@ -16,6 +16,7 @@ RUN apt-get -qq update && rosdep update && \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
+RUN sudo apt-get install libeigen3-dev
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
