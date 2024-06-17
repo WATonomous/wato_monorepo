@@ -92,7 +92,7 @@ class TrackerNode(Node):
         self.tracked_obstacles_publisher = self.create_publisher(
                  TrackedDetection3DArray, self.tracked_detections_topic, 10)
 
-        self.tracked_obstacles_timer = self.create_timer(0.1, self.publish_tracks, 10)
+        self.tracked_obstacles_timer = self.create_timer(0.1, self.publish_tracks,)
 
         # tracked_signs_topic = '/tracked_signs'
         # self.tracked_signs_publisher = self.create_publisher(
