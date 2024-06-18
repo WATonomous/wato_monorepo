@@ -24,8 +24,7 @@ import time
 import torch
 
 class Model():
-    def __init__(self, name, model_path, device):
-        self.name = name
+    def __init__(self, model_path, device):
         self.model_path = model_path
         self.model = AutoBackend(self.model_path, device=device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
@@ -42,7 +41,9 @@ class CameraDetectionNode(Node):
         self.declare_parameter("camera_topic", "/camera/right/image_color")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
-        self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
+        self.declare_parameter("models.traffic_signs.model_path", "/perception_models/traffic_signs.pt")
+        self.declare_parameter("models.traffic_light.model_path", "/perception_models/traffic_light.pt")
+        self.declare_parameter("models.pretrained_yolov8m.model_path", "/perception_models/yolov8m.pt")
         self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
         self.declare_parameter("crop_mode", "LetterBox")
@@ -51,6 +52,11 @@ class CameraDetectionNode(Node):
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
         self.publish_detection_topic = self.get_parameter("publish_detection_topic").value
+        self.model_paths = [
+            self.get_parameter("models.traffic_signs.model_path").value,
+            self.get_parameter("models.traffic_light.model_path").value,
+            self.get_parameter("models.pretrained_yolov8m.model_path").value
+        ]
         self.image_size = self.get_parameter("image_size").value
         self.compressed = self.get_parameter("compressed").value
         self.crop_mode = self.get_parameter("crop_mode").value
@@ -101,30 +107,10 @@ class CameraDetectionNode(Node):
         )
 
     def load_models(self):
-
-    #     traffic_signs:
-    #     name: traffic_signs
-    #     model_path: /perception_models/traffic_signs.pt
-    #   traffic_lights:
-    #     name: traffic_lights
-    #     model_path: /perception_models/traffic_light.pt
-    #   pretrained_yolov8:
-    #     name: pretrained_yolov8
-    #     model_path: /perception_models/yolov8m.pt
-    
-        #model_param = self.get_parameter("models").value  
-        models = {}  
-        models_param = {"traffic_signs": "traffic_signs.pt",
-                   "traffic_lights": "traffic_light.pt",
-                   "pretrained_yolov8": "yolov8m.pt"}
-
-        for key, value in models_param.items():
-            model_name = key
-            model_path = value
-
-            if model_name and model_path:
-                models[key] = Model(model_name, model_path, self.device)
-
+        models = []
+        for model_path in self.model_paths:
+            if model_path:
+                models.append(Model(model_path, self.device))
         return models
 
     def crop_image(self, cv_image, model):
