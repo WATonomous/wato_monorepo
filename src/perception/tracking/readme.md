@@ -16,6 +16,8 @@ CD into ament_ws (ROS2 Workspace in the dev container)
 
 Run following command in ament_ws directory (container): colcon build
 
+Run following command in ament_ws directory (container): ros2 launch tracking tracking.launch.py
+
 Run following command in monorepo directory: ./watod run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap --loop
 
 Foxglove Setup For Annotations:
