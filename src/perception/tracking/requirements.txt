@@ -1,4 +1,5 @@
-transforms3d
+transforms3d==0.4.1
+numpy==1.26.4
 numba 
 filterpy==1.4.5 
 scipy 
