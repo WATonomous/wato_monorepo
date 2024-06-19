@@ -43,7 +43,7 @@ services:
     image: "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/occupancy_segmentation
+      - ${MONO_DIR}/src/world_modeling/occupancy_segmentation:/home/bolty/ament_ws/src/occupancy_segmentation
 
   motion_forecasting:
     <<: *fixuid
