@@ -13,7 +13,7 @@ services:
     image: "${WORLD_MODELING_HD_MAP_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/hd_map
+      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/hd_map
 
   localization:
     <<: *fixuid
@@ -23,7 +23,7 @@ services:
     image: "${WORLD_MODELING_LOCALIZATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/localization
+      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/localization
 
   occupancy:
     <<: *fixuid
@@ -33,7 +33,7 @@ services:
     image: "${WORLD_MODELING_OCCUPANCY_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/occupancy
+      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/occupancy
 
   occupancy_segmentation:
     <<: *fixuid
@@ -43,7 +43,7 @@ services:
     image: "${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/occupancy_segmentation
+      - ${MONO_DIR}/src/world_modeling/occupancy_segmentation:/home/bolty/ament_ws/src/occupancy_segmentation
 
   motion_forecasting:
     <<: *fixuid
@@ -53,4 +53,4 @@ services:
     image: "${WORLD_MODELING_MOTION_FORECASTING_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/ament_ws/src/motion_forecasting
+      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/motion_forecasting
