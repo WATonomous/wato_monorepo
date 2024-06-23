@@ -21,12 +21,12 @@ RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/tier4/tie
     git sparse-checkout set tier4_planning_msgs tier4_debug_msgs && \
     cd ..
 
-# Clone the specific tier4_autoware_utils directory from autoware.universe including the interpolation directory
+# Clone the specific autoware_universe_utils directory from autoware.universe including the interpolation directory
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/autowarefoundation/autoware.universe.git && \
     cd autoware.universe && \
     git sparse-checkout init --cone && \
-    git sparse-checkout set common/tier4_autoware_utils common/tier4_autoware_utils/interpolation && \
-    mv common/tier4_autoware_utils ../tier4_autoware_utils && \
+    git sparse-checkout set common/autoware_universe_utils common/autoware_universe_utils/interpolation && \
+    mv common/autoware_universe_utils ../autoware_universe_utils && \
     cd .. && rm -rf autoware.universe
 
 # Scan for rosdeps
