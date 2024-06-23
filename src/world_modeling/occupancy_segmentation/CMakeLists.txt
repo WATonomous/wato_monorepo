@@ -13,7 +13,6 @@ endif()
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
-find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(pcl_ros REQUIRED)
 
 # Compiles source files into a library
@@ -30,7 +29,6 @@ target_include_directories(occupancy_segmentation_lib
 # Add ROS2 dependencies required by package
 ament_target_dependencies(occupancy_segmentation_lib
   rclcpp
-  sample_msgs
   pcl_ros)
 
 # # By default tests are built. This can be overridden by modifying the

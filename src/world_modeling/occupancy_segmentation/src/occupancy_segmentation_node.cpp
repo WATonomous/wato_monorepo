@@ -12,7 +12,6 @@ void OccupancySegmentationNode::timer_callback(){
 }
 
 int main(int argc, char** argv) {
-  std::cout << "Huh" << std::endl; 
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<OccupancySegmentationNode>());
   rclcpp::shutdown();
