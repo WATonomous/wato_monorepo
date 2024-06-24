@@ -1,32 +1,9 @@
 ARG BASE_BUILD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda11.7-humble-ubuntu22.04-devel
 ARG BASE_PROD_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda11.7-humble-ubuntu22.04
-ARG BASE_PYTORCH_IMAGE=pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel
+ARG BASE_PYTORCH_IMAGE=ghcr.io/watonomous/wato_monorepo/segformer_segmentation:latest
 # ################################ Build library ################################
 
 FROM ${BASE_PYTORCH_IMAGE} as Segformer
-
-RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
-RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
-
-
-RUN apt-get update && apt-get install -y git ninja-build libglib2.0-0 libsm6 libxrender-dev libxext6 libgl1-mesa-dev  \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR ${AMENT_WS}/src
-# Install MMSegmentation
-RUN git clone -b main https://github.com/open-mmlab/mmsegmentation.git /mmsegmentation
-WORKDIR /mmsegmentation
-ENV FORCE_CUDA="1"
-RUN pip install mmengine
-RUN pip install --no-cache-dir -e .
-RUN ["/bin/bash", "-c", "pip install openmim"]
-
-# Scan for dependencies
-RUN echo "openmim\nmmengine\nmmcv==2.0.1\n" > /tmp/pip_install_list.txt
-
-# Install segformer model
-RUN mim download mmsegmentation --config segformer_mit-b2_8xb1-160k_cityscapes-1024x1024 --dest ./model
 
 # # ################################ Source ################################
 
@@ -106,6 +83,8 @@ WORKDIR /mmsegmentation
 COPY --from=Segformer /mmsegmentation /mmsegmentation
 RUN pip install -r requirements.txt
 RUN pip install --no-cache-dir -e .
+RUN pip uninstall numpy -y 
+RUN pip install numpy==1.26.4
 WORKDIR ${AMENT_WS}
 # Add runtime libraries to path
 ENV CUDNN_DIR=/mmsegmentation/cuda
