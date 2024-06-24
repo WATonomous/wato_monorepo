@@ -1,0 +1,4 @@
+semantic_segmentation_node:
+  ros__parameters:
+    input_topic: "/CAM_FRONT/image_rect_compressed"
+    publish_topic: "/camera/left/segmentations"
