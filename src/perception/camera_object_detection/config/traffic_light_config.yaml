@@ -1,9 +1,31 @@
-traffic_light_node:
+left_traffic_light_node:
   ros__parameters:
-    camera_topic: /camera/left/image_color
+      camera_topic: /camera/left/image_color
+      publish_vis_topic: /traffic_lights_viz
+      publish_detection_topic: /traffic_lights/left
+      model_path: /perception_models/traffic_light.pt
+      crop_mode: CenterCrop
+      image_size: 1024
+      save_detections: false
+
+center_traffic_light_node:
+  ros__parameters:
+      camera_topic: /camera/center/image_color
+      publish_vis_topic: /traffic_lights_viz
+      publish_detection_topic: /traffic_lights/center
+      model_path: /perception_models/traffic_light.pt
+      crop_mode: CenterCrop
+      image_size: 1024
+      save_detections: false
+
+right_traffic_light_node:
+  ros__parameters:
+    camera_topic: /camera/right/image_color
     publish_vis_topic: /traffic_lights_viz
-    publish_detection_topic: /traffic_lights
+    publish_detection_topic: /traffic_lights/right
     model_path: /perception_models/traffic_light.pt
     crop_mode: CenterCrop
     image_size: 1024
     save_detections: false
+
+
