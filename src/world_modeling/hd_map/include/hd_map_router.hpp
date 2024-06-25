@@ -2,10 +2,13 @@
 #define WORLD_MODELING_HD_MAP_ROUTER_
 
 #include "rclcpp/rclcpp.hpp"
+
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/pose_with_covariance.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "vision_msgs/msg/detection3_d.hpp"
+
 #include <lanelet2_core/primitives/Lanelet.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
@@ -15,6 +18,7 @@
 #include <lanelet2_routing/RoutingGraph.h>
 #include <lanelet2_routing/RoutingGraphContainer.h>
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
+
 #include "stop_sign_reg_elem.hpp"
 #include "pedestrian_reg_elem.hpp"
 #include "traffic_light_reg_elem.hpp"
@@ -49,6 +53,8 @@ class HDMapRouter {
     void update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
     
     // Obstacle Message : https://github.com/WATonomous/wato_monorepo/blob/32946e5cbbc1721d404aa4851d58c7425b8121bc/src/wato_msgs/common_msgs/msg/Obstacle.msg
+    void process_traffic_light_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
+    void process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
     void process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
 
     // TODO: functions to add the three regulatory elements on the DRG
