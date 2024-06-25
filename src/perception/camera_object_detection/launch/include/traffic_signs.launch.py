@@ -11,11 +11,31 @@ def generate_launch_description():
         'traffic_signs_config.yaml'
     )
 
-    camera_object_detection_node = Node(
+    left_camera_object_detection_node = Node(
         package='camera_object_detection',
         executable='camera_object_detection_node',
-        name='traffic_signs_node',
+        name='left_traffic_signs_node',
         parameters=[config]
     )
 
-    return LaunchDescription([camera_object_detection_node])
+    center_camera_object_detection_node = Node(
+        package='camera_object_detection',
+        executable='camera_object_detection_node',
+        name='center_traffic_signs_node',
+        parameters=[config]
+    )
+
+    right_camera_object_detection_node = Node(
+        package='camera_object_detection',
+        executable='camera_object_detection_node',
+        name='right_traffic_signs_node',
+        parameters=[config]
+    )
+
+    return LaunchDescription(
+        [
+            left_camera_object_detection_node,
+            center_camera_object_detection_node,
+            right_camera_object_detection_node
+        ]
+    )

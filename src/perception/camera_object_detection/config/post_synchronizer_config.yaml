@@ -1,4 +1,26 @@
-post_synchronizer_node:
+left_post_synchronizer_node:
   ros__parameters:
-    camera_topic: /camera/right/image_color
-    publish_vis_topic: /annotated_img
+    camera_img_topic: /camera/left/image_color
+    camera_detection_topic: /camera/left/camera_detections
+    traffic_signs_topic: /traffic_signs/left
+    traffic_lights_topic: /traffic_lights/left
+    combined_detection_publisher: /camera/left/combined_detections
+    publish_vis_topic: /camera/left/annotated_img
+
+center_post_synchronizer_node:
+  ros__parameters:
+    camera_img_topic: /camera/center/image_color
+    camera_detection_topic: /camera/center/camera_detections
+    traffic_signs_topic: /traffic_signs/center
+    traffic_lights_topic: /traffic_lights/center
+    combined_detection_publisher: /camera/center/combined_detections
+    publish_vis_topic: /camera/center/annotated_img
+
+right_post_synchronizer_node:
+  ros__parameters:
+    camera_img_topic: /camera/right/image_color
+    camera_detection_topic: /camera/right/camera_detections
+    traffic_signs_topic: /traffic_signs/right
+    traffic_lights_topic: /traffic_lights/right
+    combined_detection_publisher: /camera/right/combined_detections
+    publish_vis_topic: /camera/right/annotated_img

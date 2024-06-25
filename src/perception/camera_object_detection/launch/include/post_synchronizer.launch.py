@@ -11,11 +11,31 @@ def generate_launch_description():
         'post_synchronizer_config.yaml'
     )
 
-    camera_object_detection_node = Node(
+    left_camera_object_detection_node = Node(
         package='camera_object_detection',
         executable='camera_sync_node',
-        name='post_synchronizer_node',
+        name='left_post_synchronizer_node',
         parameters=[config]
     )
 
-    return LaunchDescription([camera_object_detection_node])
+    center_camera_object_detection_node = Node(
+        package='camera_object_detection',
+        executable='camera_sync_node',
+        name='center_post_synchronizer_node',
+        parameters=[config]
+    )
+
+    right_camera_object_detection_node = Node(
+        package='camera_object_detection',
+        executable='camera_sync_node',
+        name='right_post_synchronizer_node',
+        parameters=[config]
+    )
+
+    return LaunchDescription(
+        [
+            left_camera_object_detection_node,
+            center_camera_object_detection_node,
+            right_camera_object_detection_node
+        ]
+    )
