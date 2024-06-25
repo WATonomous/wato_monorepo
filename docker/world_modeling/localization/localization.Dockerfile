@@ -9,7 +9,7 @@ WORKDIR ${AMENT_WS}/src
 COPY src/world_modeling/localization localization
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/common_msgs common_msgs
-COPY src/wato_msgs/world_modeling world_modeling_msgs
+COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \

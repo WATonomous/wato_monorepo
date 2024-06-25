@@ -6,5 +6,6 @@ code_server_config/*/start_code_server.sh
 .env
 .vscode/
 ssh_config/
+logs/
 
 watod-config.local.sh

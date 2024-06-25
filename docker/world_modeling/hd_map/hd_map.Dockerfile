@@ -9,7 +9,7 @@ WORKDIR ${AMENT_WS}/src
 COPY src/world_modeling/hd_map hd_map
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/common_msgs common_msgs
-COPY src/wato_msgs/world_modeling world_modeling_msgs
+COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -24,7 +24,7 @@ FROM ${BASE_IMAGE} as dependencies
 # Download Maps from the GitLab
 # IMPORTANT NOTE : Downloaded maps are stored in the etc/maps directory
 ENV MAPS_DIR="${AMENT_WS}/etc/maps/"
-RUN git clone https://docker-image:wnYipLhHecUSW5NEKb2V@git.uwaterloo.ca/WATonomous/map_data.git $MAPS_DIR
+RUN git clone https://github.com/WATonomous/map_data.git $MAPS_DIR
 RUN chmod -R 755 $MAPS_DIR
 
 # Install Rosdep requirements
@@ -33,7 +33,7 @@ RUN apt-get update && apt-fast install -qq -y --no-install-recommends $(cat /tmp
 
 RUN apt-get update && \
     apt-get install -y \ 
-    ros-humble-lanelet2
+    ros-humble-lanelet2 ros-humble-vision-msgs
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
