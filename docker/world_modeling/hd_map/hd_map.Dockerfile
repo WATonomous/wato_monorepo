@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/world_modeling/occupancy_segmentation occupancy_segmentation
+COPY src/world_modeling/hd_map hd_map
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/common_msgs common_msgs
 COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
@@ -21,13 +21,19 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-# Install some patchwork dependencies
-RUN sudo apt-get install libeigen3-dev
-RUN sudo apt-get -y install libtbb-dev
+# Download Maps from the GitLab
+# IMPORTANT NOTE : Downloaded maps are stored in the etc/maps directory
+ENV MAPS_DIR="${AMENT_WS}/etc/maps/"
+RUN git clone https://github.com/WATonomous/map_data.git $MAPS_DIR
+RUN chmod -R 755 $MAPS_DIR
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt-get update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+RUN apt-get update && \
+    apt-get install -y \ 
+    ros-humble-lanelet2 ros-humble-vision-msgs
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}

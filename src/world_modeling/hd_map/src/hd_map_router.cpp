@@ -98,23 +98,24 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
 }
 
 // Obstacle Message : https://github.com/WATonomous/wato_monorepo/blob/32946e5cbbc1721d404aa4851d58c7425b8121bc/src/wato_msgs/common_msgs/msg/Obstacle.msg
-void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    if (!obstacle_msg_ptr){
-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle message is empty!");
-        return;
-    }
+// void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+//     if (!obstacle_msg_ptr){
+//         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle message is empty!");
+//         return;
+//     }
+//     else{
+//         RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle message retrieved!");
 
-    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle message retrieved!");
-
-    if (obstacle_list.find(obstacle_msg_ptr->object_id) == obstacle_list.end()){
-        RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "New Obstacle! Adding Element to the HD-Map...");
-        add_obstacle(obstacle_msg_ptr);
-    }
-    else{
-        RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle Exists! Updating Obstacle Info in the HD-Map...");
-        update_obstacle(obstacle_msg_ptr);
-    }
-}
+//         if (obstacle_list.find(obstacle_msg_ptr->object_id) == obstacle_list.end()){
+//             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "New Obstacle! Adding Element to the HD-Map...");
+//             add_obstacle(obstacle_msg_ptr);
+//         }
+//         else{
+//             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Obstacle Exists in Map! Updating Obstacle info...");
+//             update_obstacle(obstacle_msg_ptr);            
+//         }
+//     }
+// }
 
 void HDMapRouter::add_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
     bool result = false;
@@ -133,8 +134,26 @@ void HDMapRouter::add_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_ms
     } 
 }
 
-void HDMapRouter::update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    // TODO : 
+// TODO : update_obstacle_msg()
+// DESCRIPTION : 
+//          To update the properties of the obstacle message on the HD-Map
+void HDMapRouter::update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){ 
+    
+}
+
+void HDMapRouter::process_traffic_light_msg(const vision_msgs::msg::Detection3D::SharedPtr trafic_light_msg_ptr){
+    // TODO
+    // assignee : 
+}
+
+void HDMapRouter::process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+    // TODO
+    // assignee : @k-kaps
+}
+
+void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+    // TODO
+    // assignee : 
 }
 
 // TODO: functions to add the three regulatory elements on the DRG

@@ -18,6 +18,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(common_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED) # Lanelet2 Core
 find_package(lanelet2_io REQUIRED) # Lanelet2 IO
@@ -38,12 +39,14 @@ add_library(hd_map_lib
 target_include_directories(hd_map_lib
   PUBLIC
   include)
+  
 # Add ROS2 dependencies required by package
 ament_target_dependencies(hd_map_lib
   rclcpp
   sample_msgs
   common_msgs
   visualization_msgs
+  vision_msgs
   geometry_msgs
   sensor_msgs
   lanelet2_core
