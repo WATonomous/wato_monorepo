@@ -10,20 +10,24 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Search for dependencies required for building this package
-find_package(ament_cmake REQUIRED) # ROS2 build tool
-find_package(rclcpp REQUIRED)      # ROS2 C++ package
-find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
+# ---- General ROS 2 Packages
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+
+# ---- Msg Packages
+find_package(sample_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(common_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(lanelet2_core REQUIRED) # Lanelet2 Core
-find_package(lanelet2_io REQUIRED) # Lanelet2 IO
-find_package(lanelet2_projection REQUIRED) # Lanelet2 Projection
-find_package(lanelet2_routing REQUIRED) # Lanelet2 Routing
+
+# ---- Lanelet Packages
+find_package(lanelet2_core REQUIRED)
+find_package(lanelet2_io REQUIRED)
+find_package(lanelet2_projection REQUIRED)
+find_package(lanelet2_routing REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
