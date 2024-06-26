@@ -19,9 +19,14 @@ find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
   msg/VoxelGrid.msg)
+
+set(srv_files
+  srv/LaneletInfo.srv)
+
 # Parses message files to generate ROS2 interfaces
 rosidl_generate_interfaces(world_modeling_msgs
     ${msg_files}
+    ${srv_files}
     DEPENDENCIES std_msgs geometry_msgs)
 
 ament_export_dependencies(rosidl_default_runtime)
