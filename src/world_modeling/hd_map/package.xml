@@ -8,6 +8,7 @@
   <license>TODO</license>
 
   <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
+  <!--ROS 2 and Message Dependencies-->>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>sample_msgs</depend>
@@ -15,6 +16,7 @@
   <depend>visualization_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>common_msgs</depend>
+  <depend>vision_msgs</depend>
 
   <!--Lanelet2 Dependencies-->
   <depend>lanelet2_core</depend>
