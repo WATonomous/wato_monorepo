@@ -55,3 +55,26 @@ void OccupancySegmentationCore::fill_czm(pcl::PointCloud<pcl::PointXYZ> &cloud_i
         }
     }
 }
+
+void OccupancySegmentationCore::estimate_plane(pcl::PointCloud<pcl::PointXYZ> &cloud, PCAFeature &feat){
+    Eigen::Matrix3f cov;
+    Eigen::Vector4f mean;
+    pcl::computeMeanAndCovarianceMatrix(cloud, cov, mean);
+
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(cov, Eigen::DecompositionOptions::ComputeFullU);
+    feat.singular_values_ = svd.singularValues();
+
+    feat.linearity_ = ( feat.singular_values_(0) - feat.singular_values_(1) ) / feat.singular_values_(0);
+    feat.planarity_ = ( feat.singular_values_(1) - feat.singular_values_(2) ) / feat.singular_values_(0);
+
+    // use the least singular vector as normal
+    feat.normal_ = (svd.matrixU().col(2));
+    if (feat.normal_(2) < 0) { // z-direction of the normal vector should be positive
+        feat.normal_ = -feat.normal_;
+    }
+    // mean ground seeds value
+    feat.mean_ = mean.head<3>();
+    // according to normal.T*[x,y,z] = -d
+    feat.d_ = -(feat.normal_.transpose() * feat.mean_)(0, 0);
+    feat.th_dist_d_ = MD - feat.d_;
+}

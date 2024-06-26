@@ -8,17 +8,30 @@
 
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
+#include <Eigen/Dense>
 
 
 #define NUM_ZONES 4
 #define L_MIN 2.7
 #define L_MAX 80.0
 
+#define N_SEED 20
+#define Z_SEED 0.5
+#define MD 0.3
+#define MH -1.1
 
-/**
- * Implementation for the internal logic for the Transformer ROS2
- * node performing data processing and validation.
- */
+
+struct PCAFeature {
+    Eigen::Vector3f principal_;
+    Eigen::Vector3f normal_;
+    Eigen::Vector3f singular_values_;
+    Eigen::Vector3f mean_;
+    float    d_;
+    float    th_dist_d_;
+    float    linearity_;
+    float    planarity_;
+};
+
 class OccupancySegmentationCore {
   public:
     typedef std::vector<pcl::PointCloud<pcl::PointXYZ>> Ring;
@@ -40,6 +53,8 @@ class OccupancySegmentationCore {
     void init_czm();
 
     void fill_czm(pcl::PointCloud<pcl::PointXYZ> &cloud_in);
+
+    void estimate_plane(pcl::PointCloud<pcl::PointXYZ> &cloud, PCAFeature &feat);
 
 
 
