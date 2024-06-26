@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/world_modeling/motion_forecasting motion_forecasting
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/autoware_interface_msgs autoware_interface_msgs
 
 # Clone the autoware_common and autoware_msgs repositories
 RUN git clone https://github.com/autowarefoundation/autoware_common.git
@@ -25,8 +25,10 @@ RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/tier4/tie
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/autowarefoundation/autoware.universe.git && \
     cd autoware.universe && \
     git sparse-checkout init --cone && \
-    git sparse-checkout set common/autoware_universe_utils common/autoware_universe_utils/interpolation && \
+    git sparse-checkout set common/autoware_universe_utils common/autoware_motion_utils common/interpolation  && \
     mv common/autoware_universe_utils ../autoware_universe_utils && \
+    mv common/autoware_motion_utils ../autoware_motion_utils && \
+    mv common/interpolation ../interpolation && \
     cd .. && rm -rf autoware.universe
 
 # Scan for rosdeps
@@ -42,6 +44,9 @@ FROM ${BASE_IMAGE} as dependencies
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+# install Boost for autoware/interpolation
+RUN apt-get install libboost-all-dev -y
 
 # Install glog
 RUN apt-get -qq update && apt-get -qq install -y libgoogle-glog-dev

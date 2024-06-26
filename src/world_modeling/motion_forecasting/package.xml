@@ -18,13 +18,13 @@
   <depend>glog</depend>
   <depend>interpolation</depend>
   <depend>lanelet2_extension</depend>
-  <depend>motion_utils</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>tf2</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>autoware_universe_utils</depend>
+  <depend>autoware_motion_utils</depend>
   <depend>tier4_debug_msgs</depend>
   <depend>unique_identifier_msgs</depend>
   <depend>visualization_msgs</depend>
