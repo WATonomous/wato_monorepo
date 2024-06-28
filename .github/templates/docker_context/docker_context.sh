@@ -39,6 +39,7 @@ while read -r module; do
         # Temporarily skip perception services that have too large image size
         if  [[ "$service_out" == "lane_detection" ]] || \
             [[ "$service_out" == "camera_object_detection" ]] || \
+            [[ "$service_out" == "lidar_object_detection" ]] || \
             [[ "$service_out" == "semantic_segmentation" ]]; then
             continue
         fi
