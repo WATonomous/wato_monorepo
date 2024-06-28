@@ -14,6 +14,7 @@ import argparse
 import sys
 sys.path.append("/home/bolty/OpenPCDet")
 
+
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
@@ -26,6 +27,7 @@ class LidarObjectDetection(Node):
         self.publish_detection = self.get_parameter(
             'enable_detection').get_parameter_value().bool_value
         
+
         self.label_mapping = {}
         self.subscription = self.create_subscription(
             VisionInfo,
@@ -55,6 +57,7 @@ class LidarObjectDetection(Node):
         self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
         self.model.cuda()
         self.model.eval()
+    
     
     def vision_info_callback(self, msg):
         self.label_mapping = msg.class_map

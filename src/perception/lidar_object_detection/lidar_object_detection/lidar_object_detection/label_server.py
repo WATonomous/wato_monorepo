@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from vision_msgs.msg import VisionInfo
 
+
 class LabelServer(Node):
     def __init__(self):
         super().__init__('label_server')
@@ -23,12 +24,14 @@ class LabelServer(Node):
             vision_info_msg.class_map[label_id] = class_name
         self.publisher_.publish(vision_info_msg)
 
+
 def main(args=None):
     rclpy.init(args=args)
     label_server = LabelServer()
     rclpy.spin(label_server)
     label_server.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
