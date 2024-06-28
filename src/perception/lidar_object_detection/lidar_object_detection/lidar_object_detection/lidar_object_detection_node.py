@@ -1,6 +1,6 @@
 # pylint: disable=wrong-import-position
-from sensor_msgs.msg import PointCloud2, PointField
-from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray
+from sensor_msgs.msg import PointCloud2
+from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray, VisionInfo
 from visualization_msgs.msg import Marker, MarkerArray
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate
@@ -14,7 +14,6 @@ import argparse
 import sys
 sys.path.append("/home/bolty/OpenPCDet")
 
-
 class LidarObjectDetection(Node):
     def __init__(self):
         super().__init__('lidar_object_detection')
@@ -25,8 +24,14 @@ class LidarObjectDetection(Node):
         self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
         self.publish_detection = self.get_parameter(
-            'detection_options.enable_detection').get_parameter_value().bool_value
-
+            'enable_detection').get_parameter_value().bool_value
+        
+        self.label_mapping = {}
+        self.subscription = self.create_subscription(
+            VisionInfo,
+            'vision_info',
+            self.vision_info_callback,
+            10)
         self.viz_publisher = self.create_publisher(MarkerArray, "/lidar_detections_viz", 10)
         self.detections_publisher = self.create_publisher(Detection3DArray, "/lidar_detections", 10)
 
@@ -50,6 +55,9 @@ class LidarObjectDetection(Node):
         self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
         self.model.cuda()
         self.model.eval()
+    
+    def vision_info_callback(self, msg):
+        self.label_mapping = msg.class_map
 
     def point_cloud_callback(self, msg):
         points = self.pointcloud2_to_xyz_array(msg)
@@ -107,6 +115,10 @@ class LidarObjectDetection(Node):
                 marker.color.r = 1.0
                 marker.color.g = 0.0
                 marker.color.b = float(pred_dicts[0]["pred_labels"][idx]) / 3
+
+                class_id = pred_dicts[0]["pred_labels"][idx]
+                class_name = self.label_mapping.get(class_id, "unknown")
+                marker.text = class_name
                 marker_array.markers.append(marker)
 
                 detection = Detection3D()
