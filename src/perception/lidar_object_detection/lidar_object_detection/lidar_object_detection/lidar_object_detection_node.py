@@ -26,7 +26,6 @@ class LidarObjectDetection(Node):
         self.lidar_data = self.get_parameter("lidar_topic").value
         self.publish_detection = self.get_parameter(
             'enable_detection').get_parameter_value().bool_value
-        
 
         self.label_mapping = {}
         self.subscription = self.create_subscription(
@@ -57,8 +56,7 @@ class LidarObjectDetection(Node):
         self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
         self.model.cuda()
         self.model.eval()
-    
-    
+
     def vision_info_callback(self, msg):
         self.label_mapping = msg.class_map
 
