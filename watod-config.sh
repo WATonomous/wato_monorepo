@@ -15,7 +15,6 @@
 ##	 - simulation			:	starts simulation
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
-# ACTIVE_MODULES=""
 ACTIVE_MODULES="perception infrastructure"
 
 ################################# MODE OF OPERATION #################################
