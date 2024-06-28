@@ -24,7 +24,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'lidar_object_detection_node = lidar_object_detection.lidar_object_detection_node:main'
+            'lidar_object_detection_node = lidar_object_detection.lidar_object_detection_node:main',
+            'label_server = lidar_object_detection.label_server:main',
         ],
     },
 )
