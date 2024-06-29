@@ -14,6 +14,16 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
+find_package(GTSAM REQUIRED)
+
+include_directories(
+  SYSTEM /usr/include/eigen3
+)
+
+# Include GTSAM and project headers
+include_directories(
+  ${GTSAM_INCLUDE_DIR}/gtsam
+)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -24,9 +34,13 @@ add_library(sample_lib
   src/sample.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(sample_lib
-  PUBLIC include)
+  PUBLIC include
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${GTSAM_INCLUDE_DIR}/gtsam
+  ${GTSAM_INCLUDE_DIR})
 # Add ROS2 dependencies required by package
-ament_target_dependencies(sample_lib rclcpp sample_msgs)
+ament_target_dependencies(sample_lib rclcpp sample_msgs GTSAM)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
