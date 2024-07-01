@@ -17,6 +17,7 @@
   <depend>geometry_msgs</depend>
   <depend>common_msgs</depend>
   <depend>vision_msgs</depend>
+  <depend>world_modeling_msgs</depend>
 
   <!--Lanelet2 Dependencies-->
   <depend>lanelet2_core</depend>

@@ -49,25 +49,35 @@ class HDMapRouter {
 
     lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet);
 
-    void add_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
-    void update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
-    
+
+    std::string get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr);
+
     // Obstacle Message : https://github.com/WATonomous/wato_monorepo/blob/32946e5cbbc1721d404aa4851d58c7425b8121bc/src/wato_msgs/common_msgs/msg/Obstacle.msg
     void process_traffic_light_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
     void process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
     void process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
 
-    // TODO: functions to add the three regulatory elements on the DRG
+    // TODO: functions to add the regulatory elements on the DRG
     // Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
-    bool add_stop_sign_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
-    bool add_pedestrian_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
-    bool add_traffic_light_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
+    void add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
+    void add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
+    void add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
+    void add_obstacle(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
+
+    // TODO: functions to update the regulatory elements on the DRG
+    void update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
+    void update_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
+    void update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
+    void update_obstacle(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr);
 
   private:
     lanelet::LaneletMapPtr lanelet_ptr_;
     lanelet::routing::RoutingGraphPtr routing_graph_;
     std::shared_ptr<lanelet::Projector> projector_;
-    std::unordered_set<uint32_t> obstacle_list;
+
+    std::unordered_set<uint64_t> traffic_sign_list_;
+    std::unordered_set<uint64_t> traffic_light_list_;
+    std::unordered_set<uint64_t> obstacle_list_;
 };
 
 #endif

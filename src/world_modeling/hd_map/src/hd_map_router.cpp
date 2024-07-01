@@ -97,54 +97,101 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
     return shortest_path;
 }
 
-void HDMapRouter::add_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    bool result = false;
-
-    if (obstacle_msg_ptr->label == "STOP SIGN"){
-        result = add_stop_sign_reg_elem(obstacle_msg_ptr);
-    }
-    else if (obstacle_msg_ptr->label == "TRAFFIC LIGHT"){
-        result = add_traffic_light_reg_elem(obstacle_msg_ptr);
-    }
-    else if (obstacle_msg_ptr->label == "PEDESTRIAN"){
-        result = add_pedestrian_reg_elem(obstacle_msg_ptr);
+void HDMapRouter::process_traffic_light_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
+    uint64_t traffic_light_id = stoi(traffic_light_msg_ptr->id);
+    if(traffic_light_list_.find(traffic_light_id) == nullptr){
+        add_traffic_light(traffic_light_msg_ptr);
+        traffic_light_list_.insert(traffic_light_id);
     }
     else{
-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Obstacle Message %s not recognized!", obstacle_msg_ptr->label.c_str());
-    } 
-}
-
-
-void HDMapRouter::update_obstacle(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){ 
-    
-}
-
-void HDMapRouter::process_traffic_light_msg(const vision_msgs::msg::Detection3D::SharedPtr trafic_light_msg_ptr){
-    // TODO
-    // assignee : 
+        update_traffic_light(traffic_light_msg_ptr);
+    }
 }
 
 void HDMapRouter::process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
-    // TODO
-    // assignee : @k-kaps
+    uint64_t traffic_sign_id = stoi(traffic_sign_msg_ptr->id);
+    if(traffic_sign_list_.find(traffic_sign_id) == nullptr){
+        add_traffic_sign(traffic_sign_msg_ptr);
+        traffic_sign_list_.insert(traffic_sign_id);
+    }
+    else{
+        update_traffic_sign(traffic_sign_msg_ptr);
+    }
 }
 
 void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    // TODO
-    // assignee : 
+    uint32_t obstacle_id = obstacle_msg_ptr->object_id;
+    if(obstacle_list_.find(obstacle_id) == nullptr){
+        add_obstacle(obstacle_msg_ptr);
+        obstacle_list_.insert(obstacle_id);
+    }
+    else{
+        update_obstacle(obstacle_msg_ptr);
+    }
 }
 
-// TODO: functions to add the three regulatory elements on the DRG
+std::string HDMapRouter::get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr){
+    std::string class_id = "";
+    float base_score = 0;
+    for (const auto result : reg_elem_msg_ptr->results){
+        if (result.hypothesis.score > base_score){
+            class_id = result.hypothesis.class_id;
+        }
+    }
+    return class_id;
+}
 
-// Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
-bool HDMapRouter::add_stop_sign_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+// Update Regulatory Element Functions:
+//      - update_traffic_light() [TODO]
+//      - update_traffic_sign() [DONE]
+//          A. update_stop_sign()  [TODO]
+//             ... (more to come later, hopefully)  
+//      - update_obstacle() [TODO]
+void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
+
+}
+
+void HDMapRouter::update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+    std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
+    if (traffic_sign_name == "STOP SIGN"){
+        update_stop_sign(traffic_sign_msg_ptr);
+    }
+    else {
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Sign Type Does Not Exist in Vocabulary!");
+    }
+}
+
+void HDMapRouter::update_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+
+}
+
+void HDMapRouter::update_obstacle(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+
+}
+
+// Add Regulatory Element Functions:
+//      - add_traffic_light() [TODO]
+//      - add_traffic_sign() [DONE]
+//          A. add_stop_sign()  [TODO]
+//             ... (more to come later, hopefully)  
+//      - add_obstacle() [TODO]
+void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+    // TODO : traffic light
+}
+
+void HDMapRouter::add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+    std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
+    if (traffic_sign_name == "STOP SIGN"){
+        add_stop_sign(traffic_sign_msg_ptr);
+    }
+    else {
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Sign Type Does Not Exist in Vocabulary!");
+    }
+}
+void HDMapRouter::add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
     // TODO : stop sign
 }
 
-bool HDMapRouter::add_pedestrian_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+void HDMapRouter::add_obstacle(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
     // TODO : pedestrian
-}
-
-bool HDMapRouter::add_traffic_light_reg_elem(common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    // TODO : traffic light
 }

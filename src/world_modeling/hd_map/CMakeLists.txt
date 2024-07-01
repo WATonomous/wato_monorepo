@@ -22,6 +22,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(world_modeling_msgs REQUIRED)
 
 # ---- Lanelet Packages
 find_package(lanelet2_core REQUIRED)
@@ -56,7 +57,9 @@ ament_target_dependencies(hd_map_lib
   lanelet2_core
   lanelet2_io
   lanelet2_projection
-  lanelet2_routing)
+  lanelet2_routing
+  world_modeling_msgs
+  )
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.

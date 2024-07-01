@@ -8,6 +8,7 @@
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
+#include "world_modeling_msgs/srv/lanelet_info.hpp"
 #include <algorithm>
 
 class HDMapService : public rclcpp::Node
