@@ -13,7 +13,7 @@ services:
     image: "${INTERFACING_SENSOR_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/sensor_interfacing:/home/bolty/ament_ws/src/sensor_interfacing
+      - ${MONO_DIR}/src/interfacing/sensor_interfacing:/home/bolty/ament_ws/src/sensor_interfacing
 
   can_interfacing:
     <<: *fixuid
