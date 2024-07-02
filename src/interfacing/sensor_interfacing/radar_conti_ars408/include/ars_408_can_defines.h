@@ -26891,5 +26891,5 @@
 
 #define Set_SensorID_In_MsgID(buf, id) { \
 	buf &= (0xF0F); \
-	buf |= (id & 0xF) << 4;\ 
+	buf |= (id & 0xF) << 4; \
 }

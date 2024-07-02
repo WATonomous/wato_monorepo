@@ -4,7 +4,7 @@
   <name>radar_conti_ars408</name>
   <version>0.0.1</version>
   <description>ROS2 driver for Continental ARS 408 Radar</description>
-  <maintainer email="alex@polymathrobotics.com">Alexander Yuen</maintainer>
+  <maintainer email="m24desai@uwaterloo.ca">Meshva Desai</maintainer>
   <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -16,12 +16,12 @@
   <build_depend>rcutils</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
-  <build_depend>ros2socketcan_bridge</build_depend>
   <build_depend>visualization_msgs</build_depend>
   <build_depend>tf2_ros</build_depend>
   <build_depend>can_msgs</build_depend>
   <build_depend>radar_msgs</build_depend>
   <build_depend>unique_identifier_msgs</build_depend>
+  <build_depend>radar_conti_ars408_msgs</build_depend>
 
   <exec_depend>boost</exec_depend>	  
   <exec_depend>example_interfaces</exec_depend>
@@ -36,9 +36,11 @@
   <exec_depend>can_msgs</exec_depend>
   <exec_depend>radar_msgs</exec_depend>
   <exec_depend>unique_identifier_msgs</exec_depend>
+  <exec_depend>radar_conti_ars408_msgs</exec_depend>
   
   <depend>bondcpp</depend>
   <depend>bond</depend>
+  <depend>ros2_socketcan</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

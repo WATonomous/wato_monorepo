@@ -1,0 +1,7 @@
+int64 type
+int64 index
+uint8 sensor_id
+int64 min_value 
+int64 max_value
+---
+bool success
