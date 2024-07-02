@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/world_modeling/motion_forecasting motion_forecasting
-COPY src/wato_msgs/autoware_interface_msgs autoware_interface_msgs
+COPY src/wato_msgs/wato_test_msgs wato_test_msgs
 
 # Clone the autoware_common and autoware_msgs repositories
 RUN git clone https://github.com/autowarefoundation/autoware_common.git
