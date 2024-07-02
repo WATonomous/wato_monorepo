@@ -11,13 +11,14 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "ros2_socketcan/socket_can_receiver.hpp"
+#include "ros2_socketcan/socket_can_sender.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
 
-namespace FHAC
+namespace watonomous
 {
 
   const std::vector<FilterType> filterTypes = {
@@ -64,10 +65,6 @@ namespace FHAC
     number_of_radars_ = 0;
     do
     {
-      // Build the string in the form of "radar_link_X", where X is the sensor ID of
-      // the rader on the CANBUS, then check if we have any parameters with that value. Users need
-      // to make sure they don't have gaps in their configs (e.g.,footprint0 and then
-      // footprint2)
       std::stringstream ss;
       ss << "radar_" << topic_ind;
       std::string radar_name = ss.str();
@@ -168,7 +165,8 @@ namespace FHAC
       }
     } while (more_params);
 
-    can_frame_subscriber_ = this->create_subscription<can_msgs::msg::Frame>("/from_can_bus", 10, std::bind(&radar_conti_ars408::can_receive_callback, this, std::placeholders::_1));    
+    can_frame_subscriber_ = this->create_subscription<can_msgs::msg::Frame>("/from_can_bus", transient_local_qos, std::bind(&radar_conti_ars408::can_receive_callback, this, std::placeholders::_1));    
+    can_frame_publisher_ = this->create_publisher<can_msgs::msg::Frame>("/to_can_bus", transient_local_qos);
     radar_packet_publisher_ = this->create_publisher<radar_msgs::msg::RadarPacket>("/radar_packet", transient_local_qos);
 
     object_count = 0.0;
@@ -212,12 +210,6 @@ namespace FHAC
       const rclcpp_lifecycle::State &)
   {
     RCUTILS_LOG_INFO_NAMED(get_name(), "on_deactivate() is called.");
-    // socketcan_adapter_->joinReceptionThread();
-    // if (!socketcan_adapter_->closeSocket())
-    // {
-    //   RCLCPP_ERROR(this->get_logger(), "Unable to close socket");
-    // }
-
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   }
 
@@ -498,7 +490,6 @@ namespace FHAC
       std::shared_ptr<radar_conti_ars408_msgs::srv::SetFilter::Response> response)
   {
     auto req = *request;
-    // Add small delay so the CAN on Orin does not fault
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     if (!setFilter(req.sensor_id,
                    FilterCfg_FilterCfg_Active_active,
@@ -513,12 +504,9 @@ namespace FHAC
 
   bool radar_conti_ars408::setFilter(const int &sensor_id, const int &active, const int &valid, const int &type, const int &index, const int &min_value, const int &max_value)
   {
-    // polymath::socketcan::CanFrame frame;
-    // frame.set_len(DLC_FilterCfg);
 
     uint32_t msg_id = ID_FilterCfg;
     Set_SensorID_In_MsgID(msg_id, sensor_id);
-    // frame.set_can_id(msg_id);
 
     std::array<unsigned char, CAN_MAX_DLC> data;
     SET_FilterCfg_FilterCfg_Active(data, active);
@@ -612,13 +600,9 @@ namespace FHAC
     RCLCPP_DEBUG(this->get_logger(), "min_value is: %i", min_value);
     RCLCPP_DEBUG(this->get_logger(), "max_value is: %i", max_value);
 
-    // frame.set_data(data);
-    // auto err = socketcan_adapter_->send(frame);
-    // if (err.has_value())
-    // {
-    //   RCLCPP_ERROR(this->get_logger(), "Error sending frame: %s", err.value().c_str());
-    //   return false;
-    // }
+    can_msgs::msg::Frame frame;
+    frame.data = data;
+    can_frame_publisher_->publish(frame);
 
     return true;
   }
@@ -737,9 +721,4 @@ namespace FHAC
 } // end namespace
 
 #include "rclcpp_components/register_node_macro.hpp"
-// Register the component with class_loader.
-// This acts as a sort of entry point, allowing the component to be discoverable when its library
-// is being loaded into a running process.
-// CLASS_LOADER_REGISTER_CLASS(FHAC::radar_conti_ars408, rclcpp_lifecycle::LifecycleNode)
-
-RCLCPP_COMPONENTS_REGISTER_NODE(FHAC::radar_conti_ars408)
+RCLCPP_COMPONENTS_REGISTER_NODE(watonomous::radar_conti_ars408)
