@@ -50,7 +50,7 @@
 #include <unordered_map>
 #include <random>
 
-#define CAN_MAX_DLC 10
+#define CAN_MAX_DLC 8
 
 // Enum class definition
 enum class FilterType {
@@ -81,7 +81,7 @@ typedef unsigned short int uword;
 using rclcpp::memory_strategies::allocator_memory_strategy::AllocatorMemoryStrategy;
 using rclcpp::strategies::message_pool_memory_strategy::MessagePoolMemoryStrategy;
 
-namespace FHAC
+namespace watonomous
 {
 
     class radar_conti_ars408 : public rclcpp_lifecycle::LifecycleNode
@@ -262,6 +262,7 @@ namespace FHAC
         std::vector<rclcpp_lifecycle::LifecyclePublisher<radar_conti_ars408_msgs::msg::FilterStateCfg>::SharedPtr> filter_config_publishers_;
         rclcpp_lifecycle::LifecyclePublisher<radar_msgs::msg::RadarPacket>::SharedPtr radar_packet_publisher_;
         rclcpp::Subscription<can_msgs::msg::Frame>::SharedPtr can_frame_subscriber_;
+        rclcpp_lifecycle::LifecyclePublisher<can_msgs::msg::Frame>::SharedPtr can_frame_publisher_;
 
         rclcpp::Service<radar_conti_ars408_msgs::srv::SetFilter>::SharedPtr set_filter_service_;
 

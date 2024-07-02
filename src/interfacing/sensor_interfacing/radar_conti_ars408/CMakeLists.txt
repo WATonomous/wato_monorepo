@@ -95,8 +95,8 @@ ament_target_dependencies(
   ros2_socketcan
 )
 
-rclcpp_components_register_nodes(radar_conti_ars408_component "FHAC::radar_conti_ars408")
-set(node_plugins "${node_plugins}FHAC::radar_conti_ars408;$<TARGET_FILE:radar_conti_ars408_component>\n")
+rclcpp_components_register_nodes(radar_conti_ars408_component "watonomous::radar_conti_ars408")
+set(node_plugins "${node_plugins}watonomous::radar_conti_ars408;$<TARGET_FILE:radar_conti_ars408_component>\n")
 
 # since the package installs libraries without exporting them
 # it needs to make sure that the library path is being exported

@@ -47,11 +47,15 @@ def generate_launch_description():
         output='screen',
         parameters=[LaunchConfiguration('params_file')])
     
-    # launch socketcan node
+    # launch socketcan receiver & publisher node
     socketcan_dir = get_package_share_directory('ros2_socketcan')
     socketcan_receiver_launch = IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                     socketcan_dir + '/launch/socket_can_receiver.launch.py'))
+
+    socketcan_sender_launch = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                    socketcan_dir + '/launch/socket_can_sender.launch.py'))
 
     ld = LaunchDescription()
     ld.add_action(params_file_arg)
@@ -60,5 +64,6 @@ def generate_launch_description():
     ld.add_action(namespace_arg)
     ld.add_action(radar_node)
     ld.add_action(socketcan_receiver_launch)
+    ld.add_action(socketcan_sender_launch)
 
     return ld
