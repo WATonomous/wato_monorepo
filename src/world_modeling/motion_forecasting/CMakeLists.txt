@@ -23,6 +23,7 @@ target_link_libraries(motion_forecasting_node glog::glog)
 
 rclcpp_components_register_node(motion_forecasting_node
   PLUGIN "motion_forecasting::MapBasedPredictionNode"
+  PLUGIN "autoware_interface::TrafficLightConverterNode"
   EXECUTABLE motion_forecasting
 )
 
