@@ -35,12 +35,13 @@ find_package(geometry_msgs REQUIRED)
 find_package(can_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
-find_package(ros2socketcan_bridge REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(radar_msgs REQUIRED)
 find_package(bondcpp REQUIRED)
 find_package(bond REQUIRED)
+find_package(radar_conti_ars408_msgs REQUIRED)
+find_package(ros2_socketcan REQUIRED)
 ##########################################################
 
 
@@ -58,7 +59,7 @@ include_directories(
   ${rmw_implementation_INCLUDE_DIRS}
   ${std_msgs_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
-  ${ros2socketcan_bridge_INCLUDE_DIRS}
+  ${ros2_socketcan_INCLUDE_DIRS}
 )
 ##########################################################
 
@@ -81,7 +82,6 @@ ament_target_dependencies(
   radar_msgs
   visualization_msgs
   tf2_ros
-  ros2socketcan_bridge
   bondcpp
   bond
   "rclcpp_lifecycle"
@@ -91,6 +91,8 @@ ament_target_dependencies(
   "rclcpp_components"
   "geometry_msgs"
   ament_index_cpp
+  radar_conti_ars408_msgs
+  ros2_socketcan
 )
 
 rclcpp_components_register_nodes(radar_conti_ars408_component "FHAC::radar_conti_ars408")
@@ -145,6 +147,7 @@ install(
 # Install launch files.
 install(DIRECTORY
   launch
+  config
   DESTINATION share/${PROJECT_NAME}
 )
 
