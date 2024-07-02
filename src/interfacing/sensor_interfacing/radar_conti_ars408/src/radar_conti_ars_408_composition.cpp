@@ -25,7 +25,7 @@ int main(int argc, char * argv[])
     rclcpp::executors::SingleThreadedExecutor exec;
 
     rclcpp::NodeOptions options;
-    auto radar_conti_ars408_node = std::make_shared<FHAC::radar_conti_ars408>(options);
+    auto radar_conti_ars408_node = std::make_shared<watonomous::radar_conti_ars408>(options);
     
     exec.add_node(radar_conti_ars408_node->get_node_base_interface());
     exec.spin();
