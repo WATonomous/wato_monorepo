@@ -10,8 +10,8 @@ import os
 
 def generate_launch_description():
     config = os.path.join(
-        get_package_share_directory("camera_object_detection"), 
-        "config", 
+        get_package_share_directory("camera_object_detection"),
+        "config",
         "combined_config.yaml"
     )
 

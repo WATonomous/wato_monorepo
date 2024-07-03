@@ -23,12 +23,14 @@ import time
 
 import torch
 
+
 class Model():
     def __init__(self, model_path, device):
         self.model_path = model_path
         self.model = AutoBackend(self.model_path, device=device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
+
 
 class CameraDetectionNode(Node):
 
@@ -41,9 +43,12 @@ class CameraDetectionNode(Node):
         self.declare_parameter("camera_topic", "/camera/right/image_color")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
-        self.declare_parameter("models.traffic_signs.model_path", "/perception_models/traffic_signs.pt")
-        self.declare_parameter("models.traffic_light.model_path", "/perception_models/traffic_light.pt")
-        self.declare_parameter("models.pretrained_yolov8m.model_path", "/perception_models/yolov8m.pt")
+        self.declare_parameter("models.traffic_signs.model_path",
+                               "/perception_models/traffic_signs.pt")
+        self.declare_parameter("models.traffic_light.model_path",
+                               "/perception_models/traffic_light.pt")
+        self.declare_parameter("models.pretrained_yolov8m.model_path",
+                               "/perception_models/yolov8m.pt")
         self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
         self.declare_parameter("crop_mode", "LetterBox")
@@ -264,7 +269,7 @@ class CameraDetectionNode(Node):
                 except CvBridgeError as e:
                     self.get_logger().error(str(e))
                     return
-            
+
             detections = []
             for model in self.models:
                 # preprocess image and run through prediction
@@ -299,8 +304,8 @@ class CameraDetectionNode(Node):
 
             annotator = Annotator(
                 cv_image,
-                line_width=self.line_thickness #,
-                #example=str(model.names),
+                line_width=self.line_thickness,
+                # example=str(model.names),
             )
             (detections, annotated_img) = self.postprocess_detections(detections, annotator)
 
