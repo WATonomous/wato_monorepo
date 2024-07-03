@@ -88,7 +88,7 @@ wato_monorepo_v2
 ### Using Foxglove
 [Foxglove](https://foxglove.dev/) is used to visualize ROS messages on a local machine.
 
-Add `data_stream` as an `ACTIVE_MODULES` and `watod up`.
+Add `infrastructure` as an `ACTIVE_MODULES` and `watod up`.
 
 It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which you will need to forward to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine.
 
