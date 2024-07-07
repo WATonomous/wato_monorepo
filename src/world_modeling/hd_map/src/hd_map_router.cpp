@@ -1,4 +1,5 @@
 #include "hd_map_router.hpp"
+#include <lanelet2_core/geometry/BoundingBox.h>
 
 HDMapRouter::HDMapRouter() {}
 
@@ -119,14 +120,26 @@ void HDMapRouter::process_traffic_sign_msg(const vision_msgs::msg::Detection3D::
     }
 }
 
-void HDMapRouter::process_obstacle_msg(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    uint32_t obstacle_id = obstacle_msg_ptr->object_id;
-    if(obstacle_list_.find(obstacle_id) == nullptr){
-        add_obstacle(obstacle_msg_ptr);
-        obstacle_list_.insert(obstacle_id);
+void HDMapRouter::process_pedestrian_msg(const common_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg_ptr){
+    for (const auto pedestrian_msg : pedestrian_msg_ptr->detections){
+        uint64_t pedestrian_id = stoi(pedestrian_msg.id);
+        if(pedestrian_list_.find(pedestrian_id) == nullptr){
+            add_pedestrian(pedestrian_msg);
+            pedestrian_list_.insert(pedestrian_id);
+        }
+        else{
+            update_pedestrian(pedestrian_msg);
+        }
     }
-    else{
-        update_obstacle(obstacle_msg_ptr);
+
+    // Handle removal of pedestrians that are no longer detected
+    for (auto it = pedestrian_list_.begin(); it != pedestrian_list_.end();) {
+        if (current_pedestrian_ids.find(*it) == current_pedestrian_ids.end()) {
+            remove_pedestrian(*it);
+            it = pedestrian_list_.erase(it); // Erase and get next iterator
+        } else {
+            ++it;
+        }
     }
 }
 
@@ -165,8 +178,48 @@ void HDMapRouter::update_stop_sign(const vision_msgs::msg::Detection3D::SharedPt
 
 }
 
-void HDMapRouter::update_obstacle(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
+void HDMapRouter::update_pedestrian(const common_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
+    // Ensure the detection is actually a pedestrian
+    std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
+    if (pedestrian_class != "PEDESTRIAN") {
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Received non-pedestrian message in update_pedestrian function!");
+        return;
+    }
 
+    // Extract the ID of the pedestrian
+    uint64_t pedestrian_id = std::stoull(pedestrian_msg_ptr->id);
+
+    // Extract the bounding box of the pedestrian
+    auto bbox = pedestrian_msg_ptr->bbox;
+
+    // Create a new bounding box for the pedestrian in the lanelet map
+    lanelet::BoundingBox3d new_pedestrian_bbox = lanelet::BoundingBox3d(
+        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2, bbox.center.position.y - bbox.size.y / 2, bbox.center.position.z - bbox.size.z / 2),
+        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2, bbox.center.position.y + bbox.size.y / 2, bbox.center.position.z + bbox.size.z / 2)
+    );
+
+    // Find the nearest lanelet to the pedestrian position using the center of the new bounding box
+    lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+
+    // Find the existing pedestrian regulatory element
+    for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
+        auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
+        if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
+            // Update the bounding box of the existing pedestrian regulatory element
+            pedestrian_elem->parameters()["pedestrian_bbox"].clear();
+            pedestrian_elem->parameters()["pedestrian_bbox"].emplace_back(new_pedestrian_bbox);
+
+            // Re-associate the updated regulatory element with the appropriate lanelet if necessary
+            lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+            mutable_lanelet.addRegulatoryElement(pedestrian_elem);
+
+            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Updated pedestrian in the lanelet map: ID = %lu, New Position = (%f, %f, %f)",
+                        pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+            return;
+        }
+    }
+
+    RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Pedestrian with ID %lu not found for update.", pedestrian_id);
 }
 
 // Add Regulatory Element Functions:
@@ -192,6 +245,61 @@ void HDMapRouter::add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr t
     // TODO : stop sign
 }
 
-void HDMapRouter::add_obstacle(const common_msgs::msg::Obstacle::SharedPtr obstacle_msg_ptr){
-    // TODO : pedestrian
+void HDMapRouter::add_pedestrian(const common_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
+    // Ensure the detection is actually a pedestrian
+    std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
+    if (pedestrian_class != "PEDESTRIAN") {
+        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Received non-pedestrian message in add_pedestrian function!");
+        return;
+    }
+
+    // Extract the ID of the pedestrian
+    uint64_t pedestrian_id = std::stoull(pedestrian_msg_ptr->id);
+
+    // Extract the bounding box of the pedestrian
+    auto bbox = pedestrian_msg_ptr->bbox;
+
+    // Create a bounding box for the pedestrian in the lanelet map
+    lanelet::BoundingBox3d new_pedestrian_bbox = lanelet::BoundingBox3d(
+        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2, bbox.center.position.y - bbox.size.y / 2, bbox.center.position.z - bbox.size.z / 2),
+        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2, bbox.center.position.y + bbox.size.y / 2, bbox.center.position.z + bbox.size.z / 2)
+    );
+
+    // Find the nearest lanelet to the pedestrian position using the center of the bounding box
+    lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+
+    // Create a regulatory element for the pedestrian
+    auto pedestrian_reg_elem = PedestrianRegElem::make(pedestrian_bbox);
+
+    // Add the regulatory element to the lanelet
+    lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+    mutable_lanelet.addRegulatoryElement(pedestrian_reg_elem);
+
+    // Add the pedestrian to the map
+    lanelet_ptr_->add(pedestrian_reg_elem);
+
+    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added pedestrian to the lanelet map: ID = %lu, Position = (%f, %f, %f)",
+                pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+}
+
+void HDMapRouter::remove_pedestrian(uint64_t pedestrian_id){
+    for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
+        auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
+        if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
+            // Remove the regulatory element from the lanelet
+            for (auto& lanelet : lanelet_ptr_->laneletLayer) {
+                if (lanelet.hasRegulatoryElement(pedestrian_elem)) {
+                    lanelet.removeRegulatoryElement(pedestrian_elem);
+                }
+            }
+
+            // Remove the regulatory element from the map
+            lanelet_ptr_->remove(pedestrian_elem);
+
+            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Removed pedestrian from the lanelet map: ID = %lu", pedestrian_id);
+            return;
+        }
+    }
+
+    RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Pedestrian with ID %lu not found for removal.", pedestrian_id);
 }

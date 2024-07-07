@@ -1,5 +1,19 @@
 #include "pedestrian_reg_elem.hpp"
 
-PedestrianRegElem:PedestrianRegElem(){}
+// Static factory method to create a new instance
+std::shared_ptr<PedestrianRegElem> PedestrianRegElem::make(const lanelet::BoundingBox3d& pedestrianBBox) {
+    lanelet::RegulatoryElementDataPtr data = std::make_shared<lanelet::RegulatoryElementData>();
+    data->attributes()[lanelet::AttributeName::Type] = RuleName;
+    data->parameters()["pedestrian_bbox"].emplace_back(pedestrianBBox);
 
-// NOTE : this is only a basic overview of the functions for the PedestrianRegElem, more functions will be needed
+    return std::shared_ptr<PedestrianRegElem>(new PedestrianRegElem(data));
+}
+
+// Constructor used by the factory method
+PedestrianRegElem::PedestrianRegElem(const lanelet::RegulatoryElementDataPtr& data) 
+    : lanelet::RegulatoryElement(data) {}
+
+// Get the pedestrian bounding box
+lanelet::BoundingBox3d PedestrianRegElem::pedestrianBBox() const {
+    return parameters()["pedestrian_bbox"].front().asBoundingBox();
+}
