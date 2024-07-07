@@ -6,6 +6,7 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
+# RUN git clone https://github.com/ros-perception/perception_pcl.git --branch 2.4.3
 COPY src/world_modeling/occupancy_segmentation occupancy_segmentation
 COPY src/wato_msgs/sample_msgs sample_msgs
 
