@@ -7,7 +7,8 @@
 #include "hd_map_manager.hpp"
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
-#include "vision_msgs/msg/detection3_d.hpp"
+#include "vision_msgs/msg/detection_3d.hpp"
+#include "vision_msgs/msg/detection_3d_array.hpp"
 #include "world_modeling_msgs/srv/lanelet_info.hpp"
 #include <algorithm>
 
@@ -17,7 +18,7 @@ class HDMapService : public rclcpp::Node
     HDMapService();
 
   private:
-    void hd_map_traffic_light_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg);
+    void hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg);
     void hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg);
     void hd_map_obstacle_callback(common_msgs::msg::Obstacle::SharedPtr obstacle_msg);
     void point_callback(geometry_msgs::msg::PointStamped::SharedPtr msg);
@@ -35,7 +36,7 @@ class HDMapService : public rclcpp::Node
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hd_map_current_lane_publisher_;
 
     rclcpp::Subscription<vision_msgs::msg::Detection3D>::SharedPtr hd_map_traffic_sign_subscriber_;
-    rclcpp::Subscription<vision_msgs::msg::Detection3D>::SharedPtr hd_map_traffic_light_subscriber_;
+    rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr hd_map_traffic_light_subscriber_;
     rclcpp::Subscription<common_msgs::msg::Obstacle>::SharedPtr hd_map_obstacle_subscriber_;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr point_subscriber_;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr query_point_subscriber_;
