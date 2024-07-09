@@ -20,7 +20,7 @@ class HDMapService : public rclcpp::Node
   private:
     void hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg);
     void hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg);
-    void hd_map_obstacle_callback(common_msgs::msg::Obstacle::SharedPtr obstacle_msg);
+    void hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg);
     void point_callback(geometry_msgs::msg::PointStamped::SharedPtr msg);
     void get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr msg);
     void publish_hd_map_marker();
@@ -37,7 +37,7 @@ class HDMapService : public rclcpp::Node
 
     rclcpp::Subscription<vision_msgs::msg::Detection3D>::SharedPtr hd_map_traffic_sign_subscriber_;
     rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr hd_map_traffic_light_subscriber_;
-    rclcpp::Subscription<common_msgs::msg::Obstacle>::SharedPtr hd_map_obstacle_subscriber_;
+    rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr hd_map_pedestrian_subscriber_;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr point_subscriber_;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr query_point_subscriber_;
 

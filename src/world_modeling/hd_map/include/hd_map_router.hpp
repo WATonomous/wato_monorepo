@@ -58,20 +58,20 @@ traffic_light_id
     // Obstacle Message : https://github.com/WATonomous/wato_monorepo/blob/32946e5cbbc1721d404aa4851d58c7425b8121bc/src/wato_msgs/common_msgs/msg/Obstacle.msg
     void process_traffic_light_msg(const vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg_ptr);
     void process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
-    void process_pedestrian_msg(const common_msgs::msg::Detection3DArray::SharedPtr obstacle_msg_ptr);
+    void process_pedestrian_msg(const vision_msgs::msg::Detection3DArray::SharedPtr obstacle_msg_ptr);
 
     // TODO: functions to add the regulatory elements on the DRG
     // Old implementation: https://github.com/WATonomous/wato_monorepo_autodrive/blob/develop/src/path_planning/env_model/src/
     void add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
     void add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
     void add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
-    void add_pedestrian(const common_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
+    void add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
 
     // TODO: functions to update the regulatory elements on the DRG
     void update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
     void update_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
     void update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
-    void update_pedestrian(const common_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
+    void update_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
 
     // TODO: functions to remove the regulatory elements on the DRG
     void remove_traffic_light(uint64_t traffic_light_id);
