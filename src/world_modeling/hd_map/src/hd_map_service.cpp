@@ -24,7 +24,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
 
   hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>("traffic_light", 20, std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
   hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>("traffic_sign", 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
-  hd_map_obstacle_subscriber_ = this->create_subscription<common_msgs::msg::Obstacle>("obstacle", 20, std::bind(&HDMapService::hd_map_obstacle_callback, this, std::placeholders::_1));
+  hd_map_pedestrian_subscriber_ = this->create_subscription<common_msgs::msg::Obstacle>("pedestrian", 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
   point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>("clicked_point", 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
   query_point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>("query_point", 20, std::bind(&HDMapService::get_desired_lane, this, std::placeholders::_1));
 
@@ -39,8 +39,8 @@ void HDMapService::hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::S
   router_->process_traffic_sign_msg(traffic_sign_msg);
 }
 
-void HDMapService::hd_map_obstacle_callback(common_msgs::msg::Obstacle::SharedPtr obstacle_msg){
-  router_->process_obstacle_msg(obstacle_msg);
+void HDMapService::hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg){
+  router_->process_pedestrian_msg(pedestrian_msg);
 }
 
 void HDMapService::publish_hd_map_marker(){
