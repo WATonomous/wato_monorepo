@@ -135,7 +135,7 @@ void HDMapRouter::process_traffic_sign_msg(const vision_msgs::msg::Detection3D::
     }
 }
 
-void HDMapRouter::process_pedestrian_msg(const common_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg_ptr){
+void HDMapRouter::process_pedestrian_msg(const vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg_ptr){
     for (const auto pedestrian_msg : pedestrian_msg_ptr->detections){
         uint64_t pedestrian_id = stoi(pedestrian_msg.id);
         if(pedestrian_list_.find(pedestrian_id) == nullptr){
@@ -224,7 +224,7 @@ void HDMapRouter::update_stop_sign(const vision_msgs::msg::Detection3D::SharedPt
 
 }
 
-void HDMapRouter::update_pedestrian(const common_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
+void HDMapRouter::update_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
     // Ensure the detection is actually a pedestrian
     std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
     if (pedestrian_class != "PEDESTRIAN") {
@@ -315,7 +315,7 @@ void HDMapRouter::add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr t
     // TODO : stop sign
 }
 
-void HDMapRouter::add_pedestrian(const common_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
+void HDMapRouter::add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
     // Ensure the detection is actually a pedestrian
     std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
     if (pedestrian_class != "PEDESTRIAN") {
