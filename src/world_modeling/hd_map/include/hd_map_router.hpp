@@ -7,9 +7,11 @@
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/pose_with_covariance.hpp"
 #include "geometry_msgs/msg/pose.hpp"
-#include "vision_msgs/msg/detection3_d.hpp"
+#include "vision_msgs/msg/detection_3d.hpp"
+#include "vision_msgs/msg/detection_3d_array.hpp"
 
 #include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_core/primitives/BoundingBox3d.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
 #include <lanelet2_routing/Exceptions.h>
@@ -23,6 +25,7 @@
 #include "pedestrian_reg_elem.hpp"
 #include "traffic_light_reg_elem.hpp"
 #include <unordered_set>
+#include <map>
 
 lanelet::GPSPoint ros_gps_msg_to_lanelet_gps_point(sensor_msgs::msg::NavSatFix::SharedPtr gps_msg);
 
@@ -51,9 +54,9 @@ class HDMapRouter {
 
 
     std::string get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr);
-
+traffic_light_id
     // Obstacle Message : https://github.com/WATonomous/wato_monorepo/blob/32946e5cbbc1721d404aa4851d58c7425b8121bc/src/wato_msgs/common_msgs/msg/Obstacle.msg
-    void process_traffic_light_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
+    void process_traffic_light_msg(const vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg_ptr);
     void process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
     void process_pedestrian_msg(const common_msgs::msg::Detection3DArray::SharedPtr obstacle_msg_ptr);
 
@@ -71,6 +74,7 @@ class HDMapRouter {
     void update_pedestrian(const common_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
 
     // TODO: functions to remove the regulatory elements on the DRG
+    void remove_traffic_light(uint64_t traffic_light_id);
     void remove_pedestrian(uint64_t pedestrian_id);
 
   private:
