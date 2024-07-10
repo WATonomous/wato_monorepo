@@ -4,11 +4,11 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     """Launch localization node."""
-    aggregator_node = Node(
+    localization_node = Node(
         package='localization',
-        executable='sample_node',
+        executable='localization_node',
     )
 
     return LaunchDescription([
-        sample_node
+        localization_node
     ])
