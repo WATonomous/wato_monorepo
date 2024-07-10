@@ -14,6 +14,8 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(GTSAM REQUIRED)
 
 include_directories(
@@ -40,7 +42,7 @@ target_include_directories(sample_lib
   ${GTSAM_INCLUDE_DIR}/gtsam
   ${GTSAM_INCLUDE_DIR})
 # Add ROS2 dependencies required by package
-ament_target_dependencies(sample_lib rclcpp sample_msgs GTSAM)
+ament_target_dependencies(sample_lib rclcpp sample_msgs sensor_msgs geometry_msgs GTSAM)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
@@ -61,14 +63,14 @@ if(BUILD_TESTING)
 endif()
 
 # Create ROS2 node executable from source files
-add_executable(sample_node src/sample_node.cpp)
+add_executable(localization_node src/localization_node.cpp)
 
 # Link to the previously built library to access Localization classes and methods
-target_link_libraries(sample_node sample_lib)
+target_link_libraries(localization_node sample_lib)
 
 # Copy executable to installation location
 install(TARGETS
-  sample_node
+  localization_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch files to installation location
