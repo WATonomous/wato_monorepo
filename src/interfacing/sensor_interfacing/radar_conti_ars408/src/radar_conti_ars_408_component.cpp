@@ -421,52 +421,12 @@ namespace watonomous
     // for each Obj_2_Quality message the existing object in the map has to be updated
     if (Get_MsgID0_From_MsgID(frame->id) == ID_Obj_2_Quality)
     {
-      /*
-      int id = GET_Obj_2_Quality_Obj_ID(frame->data);
-
-      object_map_list_[sensor_id][id].object_quality.obj_distlong_rms.data =
-          CALC_Obj_2_Quality_Obj_DistLong_rms(GET_Obj_2_Quality_Obj_DistLong_rms(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_quality.obj_distlat_rms.data =
-          CALC_Obj_2_Quality_Obj_DistLat_rms(GET_Obj_2_Quality_Obj_DistLat_rms(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_quality.obj_vrellong_rms.data =
-          CALC_Obj_2_Quality_Obj_VrelLong_rms(GET_Obj_2_Quality_Obj_VrelLong_rms(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_quality.obj_vrellat_rms.data =
-          CALC_Obj_2_Quality_Obj_VrelLat_rms(GET_Obj_2_Quality_Obj_VrelLat_rms(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_quality.obj_probofexist.data =
-          CALC_Obj_2_Quality_Obj_ProbOfExist(GET_Obj_2_Quality_Obj_ProbOfExist(frame->data), 1.0);
-      */
     }
 
     // Object Extended Information
     // for each Obj_3_ExtInfo message the existing object in the map has to be updated
     if (Get_MsgID0_From_MsgID(frame->id) == ID_Obj_3_Extended)
     {
-
-      /* int id = GET_Obj_3_Extended_Obj_ID(frame->data);
-
-      object_map_list_[sensor_id][id].object_extended.obj_arellong.data =
-          CALC_Obj_3_Extended_Obj_ArelLong(GET_Obj_3_Extended_Obj_ArelLong(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_extended.obj_arellat.data =
-          CALC_Obj_3_Extended_Obj_ArelLat(GET_Obj_3_Extended_Obj_ArelLat(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_extended.obj_class.data =
-          CALC_Obj_3_Extended_Obj_Class(GET_Obj_3_Extended_Obj_Class(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_extended.obj_orientationangle.data =
-          CALC_Obj_3_Extended_Obj_OrientationAngle(GET_Obj_3_Extended_Obj_OrientationAngle(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_extended.obj_length.data =
-          CALC_Obj_3_Extended_Obj_Length(GET_Obj_3_Extended_Obj_Length(frame->data), 1.0);
-
-      object_map_list_[sensor_id][id].object_extended.obj_width.data =
-          CALC_Obj_3_Extended_Obj_Width(GET_Obj_3_Extended_Obj_Width(frame->data), 1.0);
-
-      object_count = object_count + 1; */
     };
   } 
 
