@@ -249,7 +249,6 @@ namespace watonomous
 
     private:
         // ##############Task2################
-        // std::unique_ptr<polymath::socketcan::SocketcanAdapter> socketcan_adapter_;
         // create Publisher
         rclcpp::QoS qos{10};
         std::string radar_detection_topic_name_;
