@@ -12,7 +12,11 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED) # ROS2 package containing point cloud messages
+find_package(visualization_msgs REQUIRED)
 find_package(radar_msgs REQUIRED)  # Custom package containing ROS2 Radar messages
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 add_library(radar_vis_lib
   src/radar_vis.cpp)
@@ -20,7 +24,7 @@ add_library(radar_vis_lib
 target_include_directories(radar_vis_lib
   PUBLIC include)
 
-ament_target_dependencies(radar_vis_lib rclcpp radar_msgs sensor_msgs)
+ament_target_dependencies(radar_vis_lib rclcpp radar_msgs sensor_msgs visualization_msgs tf2 tf2_geometry_msgs geometry_msgs)
 
 option(BUILD_TESTING "Build tests" ON)
 if(BUILD_TESTING)
