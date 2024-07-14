@@ -170,6 +170,7 @@ def generate_launch_description():
         params_file_arg,
         autostart_arg,
         use_sim_time_arg,
+        timeout_sec_msg,
         
         radar_node,
         

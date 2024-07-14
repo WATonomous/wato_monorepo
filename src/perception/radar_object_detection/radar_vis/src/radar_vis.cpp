@@ -4,6 +4,8 @@
 
 #include "radar_vis.hpp"
 #include "radar_vis_node.hpp"
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 
 namespace visualization {
 
@@ -78,6 +80,53 @@ sensor_msgs::msg::PointCloud2 RadarVis::convert_packet_to_pointcloud(
 
   point_cloud.row_step = point_cloud.width * point_cloud.point_step;
   return point_cloud;
+}
+
+visualization_msgs::msg::MarkerArray RadarVis::convert_packet_to_markers(
+  const radar_msgs::msg::RadarPacket::SharedPtr msg)
+{
+  visualization_msgs::msg::MarkerArray markers;
+
+  std::string radar_frame = "radar_fixed";
+  int id = 0;
+
+  for (const radar_msgs::msg::RadarDetection& det : msg->detections)    
+  {
+    visualization_msgs::msg::Marker m;
+    m.header.frame_id = radar_frame;
+    m.id = id;
+    m.type = visualization_msgs::msg::Marker::ARROW;
+    m.action = visualization_msgs::msg::Marker::ADD;
+
+    m.pose.position.x = det.pos_x;
+    m.pose.position.y = det.pos_y;
+    m.pose.position.z = det.pos_z;
+
+    double angle_det = atan2(det.pos_y, det.pos_x); // in xy plane (yaw)
+
+    // DO EULER TO QUAT STUFF
+    tf2::Quaternion quat;
+    quat.setRPY(0, 0, angle_det);
+    quat = quat.normalize();
+
+    geometry_msgs::msg::Quaternion quat_msg;
+    quat_msg = tf2::toMsg(quat);
+
+    m.pose.orientation = quat_msg;
+
+    m.scale.x= 0.1;
+    m.scale.y= 0.1;
+    m.scale.z = 0.1;
+
+    m.color.g = 0.0f;
+    m.color.a = 1.0;
+    m.color.r = 0.0f;
+    m.color.b = 1.0f;
+
+    ++id;
+  }
+
+  return markers;
 }
 
 }  // namespace visualization
