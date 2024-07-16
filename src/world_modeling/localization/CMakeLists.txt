@@ -25,6 +25,7 @@ include_directories(
 # Include GTSAM and project headers
 include_directories(
   ${GTSAM_INCLUDE_DIR}/gtsam
+  ${GTSAM_INCLUDE_DIR}
 )
 
 # Compiles source files into a library
@@ -54,7 +55,7 @@ if(BUILD_TESTING)
   # Create test executable from source files
   ament_add_gtest(sample_test test/sample_test.cpp)
   # Link to the previously built library to access Localization classes and methods
-  target_link_libraries(sample_test sample_lib)
+  target_link_libraries(sample_test sample_lib gtsam)
 
   # Copy executable to installation location
   install(TARGETS
@@ -66,7 +67,7 @@ endif()
 add_executable(localization_node src/localization_node.cpp)
 
 # Link to the previously built library to access Localization classes and methods
-target_link_libraries(localization_node sample_lib)
+target_link_libraries(localization_node sample_lib gtsam)
 
 # Copy executable to installation location
 install(TARGETS
