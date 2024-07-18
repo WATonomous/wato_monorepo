@@ -25,6 +25,11 @@
 #define TH_SEEDS 0.5
 #define UPRIGHTNESS_THRESH 45
 
+#define NUM_RINGS_OF_INTEREST 4
+#define SENSOR_HEIGHT 0
+#define GLOBAL_EL_THRESH 0
+
+
 
 struct PCAFeature {
     Eigen::Vector3f principal_;
@@ -43,7 +48,7 @@ struct Patch_Index {
   int ring_idx;
   int sector_idx;
   int concentric_idx;
-}
+};
 
 class OccupancySegmentationCore {
   public:
@@ -54,6 +59,9 @@ class OccupancySegmentationCore {
 
     const int ZONE_RINGS [NUM_ZONES] = {2,4,4,4};
     const int ZONE_SECTORS [NUM_ZONES] = {16,32,54,32};
+    const float FLATNESS_THR [NUM_ZONES] = {0.0005, 0.000725, 0.001, 0.001};
+    const float ELEVATION_THR [NUM_ZONES] = {0.523, 0.746, 0.879, 1.125};
+
 
     int num_patches = -1;
 
@@ -61,10 +69,10 @@ class OccupancySegmentationCore {
     std::vector<pcl::PointCloud<pcl::PointXYZ>> _regionwise_ground;
     std::vector<pcl::PointCloud<pcl::PointXYZ>> _regionwise_nonground;
 
-    std::vector<Patch_Idx> _patch_indices;
+    std::vector<Patch_Index> _patch_indices;
 
     pcl::PointCloud<pcl::PointXYZ> _ground;
-    pcl::Pointcloud<pcl::PointXYZ> _non_ground;
+    pcl::PointCloud<pcl::PointXYZ> _non_ground;
 
 
     OccupancySegmentationCore();
