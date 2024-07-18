@@ -21,7 +21,7 @@ class RadarVis {
       const radar_msgs::msg::RadarPacket::SharedPtr msg);
 
   visualization_msgs::msg::MarkerArray convert_packet_to_markers(
-    const radar_msgs::msg::RadarPacket::SharedPtr msg);
+      const radar_msgs::msg::RadarPacket::SharedPtr msg);
 };
 
 }  // namespace visualization
