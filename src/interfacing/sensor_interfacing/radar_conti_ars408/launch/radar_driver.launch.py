@@ -16,6 +16,7 @@ from lifecycle_msgs.msg import Transition
 from pathlib import Path
 import os
 
+
 def generate_launch_description():
     config = os.path.join(
         get_package_share_directory('radar_conti_ars408'),
@@ -48,7 +49,8 @@ def generate_launch_description():
     filters_arg = DeclareLaunchArgument('filters', default_value='0:0')
     auto_configure_arg = DeclareLaunchArgument('auto_configure', default_value='true')
     auto_activate_arg = DeclareLaunchArgument('auto_activate', default_value='true')
-    from_can_bus_topic_arg = DeclareLaunchArgument('from_can_bus_topic', default_value='from_can_bus')
+    from_can_bus_topic_arg = DeclareLaunchArgument(
+        'from_can_bus_topic', default_value='from_can_bus')
     to_can_bus_topic_msg = DeclareLaunchArgument('to_can_bus_topic', default_value='to_can_bus')
 
     # can sender
@@ -155,7 +157,6 @@ def generate_launch_description():
         name='radar_node',
         output='screen',
         parameters=[LaunchConfiguration('params_file')])
-    
 
     ld = LaunchDescription([
         interface_arg,
@@ -171,9 +172,7 @@ def generate_launch_description():
         autostart_arg,
         use_sim_time_arg,
         timeout_sec_msg,
-        
         radar_node,
-        
         socket_can_receiver_node,
         socket_can_receiver_configure_event_handler,
         socket_can_receiver_activate_event_handler,
