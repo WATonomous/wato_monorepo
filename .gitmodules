@@ -1,0 +1,3 @@
+[submodule "src/perception/lane_detection/src/lane_detection_tensorrt"]
+    path = src/perception/lane_detection/src/lane_detection_tensorrt
+    url = git@github.com:WATonomous/lane_detection_tensorrt.git
