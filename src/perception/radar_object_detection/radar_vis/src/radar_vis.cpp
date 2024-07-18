@@ -83,15 +83,13 @@ sensor_msgs::msg::PointCloud2 RadarVis::convert_packet_to_pointcloud(
 }
 
 visualization_msgs::msg::MarkerArray RadarVis::convert_packet_to_markers(
-  const radar_msgs::msg::RadarPacket::SharedPtr msg)
-{
+    const radar_msgs::msg::RadarPacket::SharedPtr msg) {
   visualization_msgs::msg::MarkerArray markers;
 
   std::string radar_frame = "radar_fixed";
   int id = 0;
 
-  for (const radar_msgs::msg::RadarDetection& det : msg->detections)    
-  {
+  for (const radar_msgs::msg::RadarDetection &det : msg->detections) {
     visualization_msgs::msg::Marker m;
     m.header.frame_id = radar_frame;
     m.id = id;
@@ -102,7 +100,7 @@ visualization_msgs::msg::MarkerArray RadarVis::convert_packet_to_markers(
     m.pose.position.y = det.pos_y;
     m.pose.position.z = det.pos_z;
 
-    double angle_det = atan2(det.pos_y, det.pos_x); // in xy plane (yaw)
+    double angle_det = atan2(det.pos_y, det.pos_x);  // in xy plane (yaw)
 
     // DO EULER TO QUAT STUFF
     tf2::Quaternion quat;
@@ -114,8 +112,8 @@ visualization_msgs::msg::MarkerArray RadarVis::convert_packet_to_markers(
 
     m.pose.orientation = quat_msg;
 
-    m.scale.x= 0.1;
-    m.scale.y= 0.1;
+    m.scale.x = 0.1;
+    m.scale.y = 0.1;
     m.scale.z = 0.1;
 
     m.color.g = 0.0f;
