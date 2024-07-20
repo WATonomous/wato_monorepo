@@ -80,6 +80,8 @@ class OccupancySegmentationCore {
 
 
     OccupancySegmentationCore();
+
+    void segment_ground(pcl::PointCloud<pcl::PointXYZ> &unfiltered_cloud, pcl::PointCloud<pcl::PointXYZ> &ground, pcl::PointCloud<pcl::PointXYZ> &nonground);
   
   private:
 
@@ -96,8 +98,6 @@ class OccupancySegmentationCore {
     void extract_initial_seeds(pcl::PointCloud<pcl::PointXYZ> &cloud, pcl::PointCloud<pcl::PointXYZ> &seed_cloud, int zone_idx);
     
     Status ground_likelihood_est(PCAFeature &feat, int concentric_idx);
-
-    void segment_ground(pcl::PointCloud<pcl::PointXYZ> &unfiltered_cloud, pcl::PointCloud<pcl::PointXYZ> &ground, pcl::PointCloud<pcl::PointXYZ> &nonground);
 
     static bool point_z_cmp(pcl::PointXYZ a, pcl::PointXYZ b) { return a.z < b.z; };
 
