@@ -50,6 +50,8 @@ struct Patch_Index {
   int concentric_idx;
 };
 
+enum Status {TOO_TILTED, FLAT_ENOUGH, TOO_HIGH_ELEV, UPRIGHT_ENOUGH, GLOBAL_TOO_HIGH_ELEV, FEW_POINTS};
+
 class OccupancySegmentationCore {
   public:
     typedef std::vector<pcl::PointCloud<pcl::PointXYZ>> Ring;
@@ -73,6 +75,8 @@ class OccupancySegmentationCore {
 
     pcl::PointCloud<pcl::PointXYZ> _ground;
     pcl::PointCloud<pcl::PointXYZ> _non_ground;
+    
+    std::vector<Status> _statuses;
 
 
     OccupancySegmentationCore();
@@ -83,17 +87,19 @@ class OccupancySegmentationCore {
 
     void fill_czm(pcl::PointCloud<pcl::PointXYZ> &cloud_in);
 
+    void clear_czm_and_regionwise();
+
     void estimate_plane(pcl::PointCloud<pcl::PointXYZ> &cloud, PCAFeature &feat);
      
     void rgpf(pcl::PointCloud<pcl::PointXYZ> &patch, Patch_Index &p_idx, PCAFeature &feat);
     
     void extract_initial_seeds(pcl::PointCloud<pcl::PointXYZ> &cloud, pcl::PointCloud<pcl::PointXYZ> &seed_cloud, int zone_idx);
     
-    bool ground_likelihood_est(PCAFeature &feat, int concentric_idx);
+    Status ground_likelihood_est(PCAFeature &feat, int concentric_idx);
 
-    void segment_ground();
+    void segment_ground(pcl::PointCloud<pcl::PointXYZ> &unfiltered_cloud, pcl::PointCloud<pcl::PointXYZ> &ground, pcl::PointCloud<pcl::PointXYZ> &nonground);
 
-    bool point_z_cmp(pcl::PointXYZ a, pcl::PointXYZ b);
+    static bool point_z_cmp(pcl::PointXYZ a, pcl::PointXYZ b) { return a.z < b.z; };
 
 
 
