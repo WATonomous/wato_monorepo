@@ -4,6 +4,8 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "occupancy_segmentation_core.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <pcl_conversions/pcl_conversions.h>
 
 /**
  * Implementation of a ROS2 node that converts unfiltered messages to filtered_array
@@ -27,9 +29,10 @@ class OccupancySegmentationNode : public rclcpp::Node {
  private:
 
   // Object that handles data processing and validation.
+  OccupancySegmentationCore _patchwork;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr _subscriber;
 
-  rclcpp::TimerBase::SharedPtr timer_;
-  void timer_callback();
+  void subscription_callback(const  sensor_msgs::msg::PointCloud2::SharedPtr lidar_cloud);
 };
 
 #endif  // TRANSFORMER_NODE_HPP_
