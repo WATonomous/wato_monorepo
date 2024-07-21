@@ -69,8 +69,9 @@ services:
     <<: *fixuid
     extends:
       file: ../docker-compose.perception.yaml
-      service: tracking
+      service: depth_estimation
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/depth_estimation:/home/bolty/ament_ws/src/depth_estimation
+      - /mnt/wato-drive2/perception-weights/depth_estimation/depth_anything_v2_metric_vkitti_vitl.pth:/perception_models/depth_anything_v2.pth

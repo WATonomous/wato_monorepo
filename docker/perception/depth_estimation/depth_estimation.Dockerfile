@@ -18,9 +18,29 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
+# Install pip
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg libsm6 libxext6 wget
+
+RUN python3 -m pip install --upgrade pip
+
+RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+
+RUN python3 get-pip.py
+
+# Install OpenGL
+RUN sudo apt-get update && sudo apt-get install libgl1-mesa-glx
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+# Install DepthAnythingV2 metric depth
+RUN git clone https://github.com/DepthAnything/Depth-Anything-V2
+RUN cd Depth-Anything-V2/metric_depth
+RUN pip install -r requirements.txt
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -46,6 +66,7 @@ ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build as deploy
+
 
 # Source Cleanup and Security Setup
 RUN chown -R $USER:$USER ${AMENT_WS}

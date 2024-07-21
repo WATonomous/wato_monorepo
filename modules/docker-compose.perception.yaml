@@ -89,3 +89,5 @@ services:
       target: deploy
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch depth_estimation eve.launch.py"
+    volumes:
+      - /mnt/wato-drive2/perception-weights/depth_estimation/depth_anything_v2_metric_vkitti_vitl.pth:/perception_models/depth_anything_v2.pth
