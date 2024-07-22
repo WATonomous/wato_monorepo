@@ -30,9 +30,9 @@ class OccupancySegmentationNode : public rclcpp::Node {
 
   // Object that handles data processing and validation.
   OccupancySegmentationCore _patchwork;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr _subscriber;
+  // rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr _subscriber;
 
-  void subscription_callback(const  sensor_msgs::msg::PointCloud2::SharedPtr lidar_cloud);
+  // void subscription_callback(const  sensor_msgs::msg::PointCloud2::SharedPtr lidar_cloud);
 };
 
 #endif  // TRANSFORMER_NODE_HPP_
