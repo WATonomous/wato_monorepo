@@ -95,71 +95,71 @@ void OccupancySegmentationCore::clear_czm_and_regionwise(){
 void OccupancySegmentationCore::estimate_plane(pcl::PointCloud<pcl::PointXYZ> &cloud,
                                                PCAFeature &feat) {
   // Code taken directly from repo
-  Eigen::Matrix3f cov;
-  Eigen::Vector4f mean;
-  pcl::computeMeanAndCovarianceMatrix(cloud, cov, mean);
+  // Eigen::Matrix3f cov;
+  // Eigen::Vector4f mean;
+  // pcl::computeMeanAndCovarianceMatrix(cloud, cov, mean);
 
-  Eigen::JacobiSVD<Eigen::MatrixXf> svd(cov, Eigen::DecompositionOptions::ComputeFullU);
-  feat.singular_values_ = svd.singularValues();
+  // Eigen::JacobiSVD<Eigen::MatrixXf> svd(cov, Eigen::DecompositionOptions::ComputeFullU);
+  // feat.singular_values_ = svd.singularValues();
 
-  feat.linearity_ = (feat.singular_values_(0) - feat.singular_values_(1)) / feat.singular_values_(0);
-  feat.planarity_ = (feat.singular_values_(1) - feat.singular_values_(2)) / feat.singular_values_(0);
+  // feat.linearity_ = (feat.singular_values_(0) - feat.singular_values_(1)) / feat.singular_values_(0);
+  // feat.planarity_ = (feat.singular_values_(1) - feat.singular_values_(2)) / feat.singular_values_(0);
 
-  // use the least singular vector as normal
-  feat.normal_ = (svd.matrixU().col(2));
-  if (feat.normal_(2) < 0) {  // z-direction of the normal vector should be positive
-    feat.normal_ = -feat.normal_;
-  }
-  // mean ground seeds value
-  feat.mean_ = mean.head<3>();
-  // according to normal.T*[x,y,z] = -d
-  feat.d_ = -(feat.normal_.transpose() * feat.mean_)(0, 0);
-  feat.th_dist_d_ = MD - feat.d_;
+  // // use the least singular vector as normal
+  // feat.normal_ = (svd.matrixU().col(2));
+  // if (feat.normal_(2) < 0) {  // z-direction of the normal vector should be positive
+  //   feat.normal_ = -feat.normal_;
+  // }
+  // // mean ground seeds value
+  // feat.mean_ = mean.head<3>();
+  // // according to normal.T*[x,y,z] = -d
+  // feat.d_ = -(feat.normal_.transpose() * feat.mean_)(0, 0);
+  // feat.th_dist_d_ = MD - feat.d_;
 }
 
 void OccupancySegmentationCore::segment_ground(pcl::PointCloud<pcl::PointXYZ> &unfiltered_cloud, pcl::PointCloud<pcl::PointXYZ> &ground, pcl::PointCloud<pcl::PointXYZ> &nonground) {
-  clear_czm_and_regionwise();
+  // clear_czm_and_regionwise();
 
-  //TODO error point removal
+  // //TODO error point removal
 
-  fill_czm(unfiltered_cloud);
+  // fill_czm(unfiltered_cloud);
 
-  tbb::parallel_for(tbb::blocked_range<int>(0, num_patches), 
-                  [&](tbb::blocked_range<int> r) {
-    for (auto patch_num = r.begin(); patch_num != r.end(); patch_num++) {
-      Patch_Index &p_idx = _patch_indices[patch_num];
-      pcl::PointCloud<pcl::PointXYZ> &patch = _czm[p_idx.zone_idx][p_idx.ring_idx][p_idx.sector_idx];
-      pcl::PointCloud<pcl::PointXYZ> &region_ground = _regionwise_ground[p_idx.idx];
-      pcl::PointCloud<pcl::PointXYZ> &region_nonground = _regionwise_nonground[p_idx.idx];
-      PCAFeature features;
+  // tbb::parallel_for(tbb::blocked_range<int>(0, num_patches), 
+  //                 [&](tbb::blocked_range<int> r) {
+  //   for (auto patch_num = r.begin(); patch_num != r.end(); patch_num++) {
+  //     Patch_Index &p_idx = _patch_indices[patch_num];
+  //     pcl::PointCloud<pcl::PointXYZ> &patch = _czm[p_idx.zone_idx][p_idx.ring_idx][p_idx.sector_idx];
+  //     pcl::PointCloud<pcl::PointXYZ> &region_ground = _regionwise_ground[p_idx.idx];
+  //     pcl::PointCloud<pcl::PointXYZ> &region_nonground = _regionwise_nonground[p_idx.idx];
+  //     PCAFeature features;
 
-      region_ground.clear();
-      region_nonground.clear();
-      if (patch.points.size() > MIN_NUM_POINTS) {
-        std::sort(patch.points.begin(), patch.points.end(), point_z_cmp);
-        rgpf(patch, p_idx, features);
+  //     region_ground.clear();
+  //     region_nonground.clear();
+  //     if (patch.points.size() > MIN_NUM_POINTS) {
+  //       std::sort(patch.points.begin(), patch.points.end(), point_z_cmp);
+  //       rgpf(patch, p_idx, features);
 
-        Status status = ground_likelihood_est(features, p_idx.concentric_idx);
-        _statuses[p_idx.idx] = status;
-      } else {
-        region_ground = patch;
-        _statuses[p_idx.idx] = FEW_POINTS;
-      }
-    }
-  });
+  //       Status status = ground_likelihood_est(features, p_idx.concentric_idx);
+  //       _statuses[p_idx.idx] = status;
+  //     } else {
+  //       region_ground = patch;
+  //       _statuses[p_idx.idx] = FEW_POINTS;
+  //     }
+  //   }
+  // });
 
-  for (Patch_Index p_idx : _patch_indices){
-    Status status = _statuses[p_idx.idx];
+  // for (Patch_Index p_idx : _patch_indices){
+  //   Status status = _statuses[p_idx.idx];
 
-    if (status == FEW_POINTS || status == FLAT_ENOUGH || status == UPRIGHT_ENOUGH){
-      ground += _regionwise_ground[p_idx.idx];
-      nonground += _regionwise_nonground[p_idx.idx];
-    } else {
-      nonground += _regionwise_ground[p_idx.idx];
-      nonground += _regionwise_nonground[p_idx.idx];
-    }
+  //   if (status == FEW_POINTS || status == FLAT_ENOUGH || status == UPRIGHT_ENOUGH){
+  //     ground += _regionwise_ground[p_idx.idx];
+  //     nonground += _regionwise_nonground[p_idx.idx];
+  //   } else {
+  //     nonground += _regionwise_ground[p_idx.idx];
+  //     nonground += _regionwise_nonground[p_idx.idx];
+  //   }
 
-  }
+  // }
 }
 
 void OccupancySegmentationCore::rgpf(pcl::PointCloud<pcl::PointXYZ> &patch, Patch_Index &p_idx, PCAFeature &feat) {
