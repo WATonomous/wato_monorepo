@@ -5,8 +5,8 @@ services:
     image: carlasim/carla:0.9.13
     environment:
       - DISPLAY=1
-      - CUDA_VISIBLE_DEVICES=0,1,2
-      - NVIDIA_VISIBLE_DEVICES=0,1,2
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
     runtime: nvidia
     restart: always
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
