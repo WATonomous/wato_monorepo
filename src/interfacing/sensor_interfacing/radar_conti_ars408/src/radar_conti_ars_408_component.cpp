@@ -195,12 +195,12 @@ radar_conti_ars408::on_configure(const rclcpp_lifecycle::State &) {
   } while (more_params);
 
   can_frame_subscriber_ = this->create_subscription<can_msgs::msg::Frame>(
-      "/from_can_bus", transient_local_qos,
+      "/from_can_bus", 10,
       std::bind(&radar_conti_ars408::can_receive_callback, this, std::placeholders::_1));
   can_frame_publisher_ =
-      this->create_publisher<can_msgs::msg::Frame>("/to_can_bus", transient_local_qos);
+      this->create_publisher<can_msgs::msg::Frame>("/to_can_bus", 10);
   radar_packet_publisher_ =
-      this->create_publisher<radar_msgs::msg::RadarPacket>("/radar_packet", transient_local_qos);
+      this->create_publisher<radar_msgs::msg::RadarPacket>("/radar_packet", 10);
 
   object_count = 0.0;
   set_filter_service_ = create_service<radar_conti_ars408_msgs::srv::SetFilter>(
