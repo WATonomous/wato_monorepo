@@ -12,6 +12,7 @@ endif()
 
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
+find_package(sensor_msgs REQUIRED)
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(pcl_ros REQUIRED)
 
@@ -28,6 +29,7 @@ target_include_directories(occupancy_segmentation_lib
   include)
 # Add ROS2 dependencies required by package
 ament_target_dependencies(occupancy_segmentation_lib
+  sensor_msgs
   rclcpp
   pcl_ros)
 
