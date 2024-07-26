@@ -24,8 +24,10 @@ class SemanticSegmentation(Node):
         self.declare_parameter('MODEL_IMAGE_H', 1024)
         self.declare_parameter('MODEL_IMAGE_W', 1024)
 
-        self.config = os.path.join(self.get_parameter('resource_path').value, self.get_parameter('config').value)
-        self.checkpoint = os.path.join(self.get_parameter('resource_path').value, self.get_parameter('checkpoint').value)
+        self.config = os.path.join(self.get_parameter(
+            'resource_path').value, self.get_parameter('config').value)
+        self.checkpoint = os.path.join(self.get_parameter(
+            'resource_path').value, self.get_parameter('checkpoint').value)
         self.compressed = self.get_parameter('compressed').value
         self.modelH = self.get_parameter('MODEL_IMAGE_H').value
         self.modelW = self.get_parameter('MODEL_IMAGE_W').value
@@ -47,7 +49,8 @@ class SemanticSegmentation(Node):
             10
         )
         # self.palette = np.array(self.palette, dtype=np.uint8)
-        self.model = MMSegInferencer(self.config, self.checkpoint, dataset_name="cityscapes", device='cuda:0')
+        self.model = MMSegInferencer(self.config, self.checkpoint,
+                                     dataset_name="cityscapes", device='cuda:0')
         self.bridge = CvBridge()
 
     def listener_callback(self, msg):
