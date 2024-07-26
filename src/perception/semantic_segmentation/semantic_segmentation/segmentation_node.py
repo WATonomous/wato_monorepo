@@ -31,7 +31,7 @@ class SemanticSegmentation(Node):
         self.compressed = self.get_parameter('compressed').value
         self.modelH = self.get_parameter('MODEL_IMAGE_H').value
         self.modelW = self.get_parameter('MODEL_IMAGE_W').value
-        
+
         self.image_subscription = self.create_subscription(
             Image if not self.compressed else CompressedImage,
             "/CAM_FRONT/image_rect_compressed",
