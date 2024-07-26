@@ -22,7 +22,7 @@ def generate_launch_description():
         executable='semantic_segmentation_node',
         name='semantic_segmentation_node',
         parameters=[config,
-                     {'resource_path': resource_path}]
+                    {'resource_path': resource_path}]
     )
 
     # finalize
