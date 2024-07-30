@@ -9,12 +9,6 @@ services:
       - NVIDIA_VISIBLE_DEVICES=0
     restart: always
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
     
   carla_ros_bridge:
     build:
