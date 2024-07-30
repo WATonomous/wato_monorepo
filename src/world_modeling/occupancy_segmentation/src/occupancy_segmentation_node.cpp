@@ -4,7 +4,10 @@
 
 OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segmentation") {
   _subscriber =  this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "topic", 10, std::bind(&OccupancySegmentationNode::subscription_callback, this, std::placeholders::_1));
+      "/velodyne_points", 10, std::bind(&OccupancySegmentationNode::subscription_callback, this, std::placeholders::_1));
+
+  _ground_publisher = this -> create_publisher<sensor_msgs::msg::PointCloud2>("/ground_points", 10);
+  _nonground_publisher = this -> create_publisher<sensor_msgs::msg::PointCloud2>("/nonground_points", 10);
 
 }
 
@@ -18,6 +21,7 @@ void OccupancySegmentationNode::subscription_callback(const  sensor_msgs::msg::P
 
   sensor_msgs::msg::PointCloud2 ground_msg;
   sensor_msgs::msg::PointCloud2 nonground_msg;
+  
   pcl::toROSMsg(ground, ground_msg);
   pcl::toROSMsg(nonground, nonground_msg);
 

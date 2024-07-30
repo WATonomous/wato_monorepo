@@ -68,11 +68,14 @@ void OccupancySegmentationCore::fill_czm(pcl::PointCloud<pcl::PointXYZ> &cloud_i
       if (r < lmaxs[zone_idx]) {
         double ring_size = deltal / ZONE_RINGS[zone_idx];
         double sector_size = 2 * M_PI / ZONE_SECTORS[zone_idx];
-        ring_idx = (int)((r - lmins[zone_idx]) / ring_size);
+        //ring_idx = (int)((r - lmins[zone_idx]) / ring_size);
         // TODO: find out why the use min() in the paper, meantime use the top
-        // ring_idx = std::min((int) ((r - lmins[zone_idx]) / ring_size),);
-        sector_idx = (int)(theta / sector_size);
+        ring_idx = std::min((int) ((r - lmins[zone_idx]) / ring_size), ZONE_RINGS[zone_idx] - 1);
+        sector_idx = std::min((int)(theta / sector_size), ZONE_SECTORS[zone_idx] - 1);
+        std::cout << "Ring: " << ring_idx << std::endl;
+        std::cout << "Sector: " << sector_idx << std::endl;
         _czm[zone_idx][ring_idx][sector_idx].points.emplace_back(p);
+        break;
       }
     }
   }
@@ -124,42 +127,42 @@ void OccupancySegmentationCore::segment_ground(pcl::PointCloud<pcl::PointXYZ> &u
 
   fill_czm(unfiltered_cloud);
 
-  tbb::parallel_for(tbb::blocked_range<int>(0, num_patches), 
-                  [&](tbb::blocked_range<int> r) {
-    for (auto patch_num = r.begin(); patch_num != r.end(); patch_num++) {
-      Patch_Index &p_idx = _patch_indices[patch_num];
-      pcl::PointCloud<pcl::PointXYZ> &patch = _czm[p_idx.zone_idx][p_idx.ring_idx][p_idx.sector_idx];
-      pcl::PointCloud<pcl::PointXYZ> &region_ground = _regionwise_ground[p_idx.idx];
-      pcl::PointCloud<pcl::PointXYZ> &region_nonground = _regionwise_nonground[p_idx.idx];
-      PCAFeature features;
+  // tbb::parallel_for(tbb::blocked_range<int>(0, num_patches), 
+  //                 [&](tbb::blocked_range<int> r) {
+  //   for (auto patch_num = r.begin(); patch_num != r.end(); patch_num++) {
+  //     Patch_Index &p_idx = _patch_indices[patch_num];
+  //     pcl::PointCloud<pcl::PointXYZ> &patch = _czm[p_idx.zone_idx][p_idx.ring_idx][p_idx.sector_idx];
+  //     pcl::PointCloud<pcl::PointXYZ> &region_ground = _regionwise_ground[p_idx.idx];
+  //     pcl::PointCloud<pcl::PointXYZ> &region_nonground = _regionwise_nonground[p_idx.idx];
+  //     PCAFeature features;
 
-      region_ground.clear();
-      region_nonground.clear();
-      if (patch.points.size() > MIN_NUM_POINTS) {
-        std::sort(patch.points.begin(), patch.points.end(), point_z_cmp);
-        rgpf(patch, p_idx, features);
+  //     region_ground.clear();
+  //     region_nonground.clear();
+  //     if (patch.points.size() > MIN_NUM_POINTS) {
+  //       std::sort(patch.points.begin(), patch.points.end(), point_z_cmp);
+  //       rgpf(patch, p_idx, features);
 
-        Status status = ground_likelihood_est(features, p_idx.concentric_idx);
-        _statuses[p_idx.idx] = status;
-      } else {
-        region_ground = patch;
-        _statuses[p_idx.idx] = FEW_POINTS;
-      }
-    }
-  });
+  //       Status status = ground_likelihood_est(features, p_idx.concentric_idx);
+  //       _statuses[p_idx.idx] = status;
+  //     } else {
+  //       region_ground = patch;
+  //       _statuses[p_idx.idx] = FEW_POINTS;
+  //     }
+  //   }
+  // });
 
-  for (Patch_Index p_idx : _patch_indices){
-    Status status = _statuses[p_idx.idx];
+  // for (Patch_Index p_idx : _patch_indices){
+  //   Status status = _statuses[p_idx.idx];
 
-    if (status == FEW_POINTS || status == FLAT_ENOUGH || status == UPRIGHT_ENOUGH){
-      ground += _regionwise_ground[p_idx.idx];
-      nonground += _regionwise_nonground[p_idx.idx];
-    } else {
-      nonground += _regionwise_ground[p_idx.idx];
-      nonground += _regionwise_nonground[p_idx.idx];
-    }
+  //   if (status == FEW_POINTS || status == FLAT_ENOUGH || status == UPRIGHT_ENOUGH){
+  //     ground += _regionwise_ground[p_idx.idx];
+  //     nonground += _regionwise_nonground[p_idx.idx];
+  //   } else {
+  //     nonground += _regionwise_ground[p_idx.idx];
+  //     nonground += _regionwise_nonground[p_idx.idx];
+  //   }
 
-  }
+  // }
 }
 
 void OccupancySegmentationCore::rgpf(pcl::PointCloud<pcl::PointXYZ> &patch, Patch_Index &p_idx, PCAFeature &feat) {
