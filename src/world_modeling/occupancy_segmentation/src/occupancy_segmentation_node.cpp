@@ -12,12 +12,19 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
 }
 
 void OccupancySegmentationNode::subscription_callback(const  sensor_msgs::msg::PointCloud2::SharedPtr lidar_cloud){
-  pcl::PointCloud<pcl::PointXYZ> temp_cloud;
+  pcl::PointCloud<PointXYZIRT> temp_cloud;
   pcl::fromROSMsg(*lidar_cloud, temp_cloud);
 
-  pcl::PointCloud<pcl::PointXYZ> ground;
-  pcl::PointCloud<pcl::PointXYZ> nonground;
+  pcl::PointCloud<PointXYZIRT> ground;
+  pcl::PointCloud<PointXYZIRT> nonground;
+
+  ground.clear();
+  nonground.clear();
   _patchwork.segment_ground(temp_cloud, ground, nonground);
+
+  RCLCPP_INFO(this->get_logger(), "Temp_cloud points %i", static_cast<int>(temp_cloud.size()));
+  RCLCPP_INFO(this->get_logger(), "Ground points %i", static_cast<int>(ground.size()));
+  RCLCPP_INFO(this->get_logger(), "Non ground points %i", static_cast<int>(nonground.size()));
 
   sensor_msgs::msg::PointCloud2 ground_msg;
   sensor_msgs::msg::PointCloud2 nonground_msg;
