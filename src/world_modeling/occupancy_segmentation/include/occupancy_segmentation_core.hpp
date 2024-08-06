@@ -16,7 +16,6 @@
 #define L_MIN 2.7
 #define L_MAX 80.0
 
-#define N_SEED 20
 #define Z_SEED 0.5
 #define MD 0.3
 #define MH -1.1
@@ -24,10 +23,10 @@
 #define MIN_NUM_POINTS 10
 #define NUM_SEED_POINTS 20
 #define TH_SEEDS 0.5
-#define UPRIGHTNESS_THRESH 45
+#define UPRIGHTNESS_THRESH 0.5
 
 #define NUM_RINGS_OF_INTEREST 4
-#define SENSOR_HEIGHT 0
+#define SENSOR_HEIGHT 1.7
 #define GLOBAL_EL_THRESH 0
 
 
@@ -357,9 +356,17 @@ void OccupancySegmentationCore<PointT>::extract_initial_seeds(pcl::PointCloud<Po
   //adaptive seed selection for 1st zone
 
   size_t init_idx = 0;
-  // if (zone_idx == 0){
-
-  // 
+  if (zone_idx == 0){
+    double adaptive_seed_selection_margin = MH * SENSOR_HEIGHT;
+    for (size_t i = 0; i < cloud.points.size(); i++){
+      if (cloud.points[i].z < adaptive_seed_selection_margin){
+        init_idx++;
+      } else{
+        break;
+      }
+    }
+  }
+  
 
   double sum = 0;
   int cnt = 0;
@@ -368,7 +375,7 @@ void OccupancySegmentationCore<PointT>::extract_initial_seeds(pcl::PointCloud<Po
     cnt++;
   }
 
-  double mean_z = sum / cnt;
+  double mean_z = (cnt != 0) ? sum / cnt : 0;
   for (size_t i = init_idx; i < cloud.points.size(); i++) {
     if (cloud.points[i].z < mean_z + TH_SEEDS) {
       seed_cloud.points.push_back(cloud.points[i]);
