@@ -21,6 +21,8 @@ void OccupancySegmentationNode::subscription_callback(const  sensor_msgs::msg::P
 
   ground.clear();
   nonground.clear();
+  ground.header = temp_cloud.header;
+  nonground.header = temp_cloud.header;
   _patchwork.segment_ground(temp_cloud, ground, nonground);
 
   RCLCPP_INFO(this->get_logger(), "Temp_cloud points %i", static_cast<int>(temp_cloud.size()));
