@@ -64,6 +64,8 @@ class OccupancySegmentationCore {
     const int ZONE_SECTORS [NUM_ZONES] = {16,32,54,32};
     const float FLATNESS_THR [NUM_ZONES] = {0.0005, 0.000725, 0.001, 0.001};
     const float ELEVATION_THR [NUM_ZONES] = {0.523, 0.746, 0.879, 1.125};
+    const double lmins[NUM_ZONES] = {L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4, (L_MIN + L_MAX) / 2};
+    const double lmaxs[NUM_ZONES] = {lmins[1], lmins[2], lmins[3], L_MAX};
 
 
     int num_patches = -1;
@@ -153,8 +155,7 @@ void OccupancySegmentationCore<PointT>::init_czm() {
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::fill_czm(pcl::PointCloud<PointT> &cloud_in) {
-  double lmins[4] = {L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4, (L_MIN + L_MAX) / 2};
-  double lmaxs[4] = {lmins[1], lmins[2], lmins[3], L_MAX};
+  
   for (PointT &p : cloud_in.points) {
     double r = sqrt(pow(p.x, 2) + pow(p.y, 2));
 
@@ -175,12 +176,9 @@ void OccupancySegmentationCore<PointT>::fill_czm(pcl::PointCloud<PointT> &cloud_
       if (r < lmaxs[zone_idx]) {
         double ring_size = deltal / ZONE_RINGS[zone_idx];
         double sector_size = 2 * M_PI / ZONE_SECTORS[zone_idx];
-        //ring_idx = (int)((r - lmins[zone_idx]) / ring_size);
-        // TODO: find out why the use min() in the paper, meantime use the top
+
         ring_idx = std::min((int) ((r - lmins[zone_idx]) / ring_size), ZONE_RINGS[zone_idx] - 1);
         sector_idx = std::min((int)(theta / sector_size), ZONE_SECTORS[zone_idx] - 1);
-        // std::cout << "Ring: " << ring_idx << std::endl;
-        // std::cout << "Sector: " << sector_idx << std::endl;
         _czm[zone_idx][ring_idx][sector_idx].points.emplace_back(p);
         break;
       }
@@ -190,14 +188,10 @@ void OccupancySegmentationCore<PointT>::fill_czm(pcl::PointCloud<PointT> &cloud_
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::clear_czm_and_regionwise(){
-  int i = 0;
   for (Zone &zone : _czm){
     for (Ring &ring : zone){
       for (pcl::PointCloud<PointT> &patch : ring){
         patch.clear();
-        _regionwise_ground[i].clear();
-        _regionwise_nonground[i].clear();
-        i++;
       }
     }
   }
@@ -282,9 +276,6 @@ void OccupancySegmentationCore<PointT>::rgpf(pcl::PointCloud<PointT> &patch, Pat
   pcl::PointCloud<PointT> ground_temp;
   pcl::PointCloud<PointT> &region_ground = _regionwise_ground[p_idx.idx];
   pcl::PointCloud<PointT> &region_nonground = _regionwise_nonground[p_idx.idx];
-
-  if (!region_ground.empty()) region_ground.clear();
-  if (!region_nonground.empty()) region_nonground.clear();
 
   size_t N = patch.size();
 
@@ -384,4 +375,4 @@ void OccupancySegmentationCore<PointT>::extract_initial_seeds(pcl::PointCloud<Po
 }
 
 
-#endif  // TRANSFORMER_CORE_HPP_
+#endif
