@@ -40,3 +40,4 @@ services:
     volumes:
       - /mnt/wato-drive2/nuscenes_mcap/ros2bags:/home/bolty/ament_ws/nuscenes
       - /mnt/wato-drive2/rosbags2:/home/bolty/ament_ws/rosbags2
+      - /mnt/wato-drive2/sample-lanelet-rosbag/:/home/bolty/ament_ws/sample-lanelet-rosbag

@@ -23,6 +23,13 @@ FROM ${BASE_IMAGE} as dependencies
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
+# Install python & nav2 dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip python3-setuptools \
+    ros-humble-navigation2 ros-humble-nav2-msgs ros-humble-nav2-core ros-humble-nav2-common \
+    ros-humble-nav2-costmap-2d ros-humble-nav2-util ros-humble-nav2-map-server ros-humble-nav2-amcl \
+    ros-humble-nav2-lifecycle-manager
+
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src

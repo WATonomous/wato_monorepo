@@ -3,14 +3,14 @@
 <package format="3">
   <name>localization</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
+  <description>Localization package</description>
+  <maintainer email="dom-ritz@watonomous.ca">bolty</maintainer>
   <license>TODO: License declaration</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>
