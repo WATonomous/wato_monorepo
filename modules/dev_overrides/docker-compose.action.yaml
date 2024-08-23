@@ -36,11 +36,10 @@ services:
       - ${MONO_DIR}/src/action/local_planning:/home/ament_ws/src/local_planning
 
   model_predictive_control:
-    <<: *fixuid
     extends:
       file: ../docker-compose.action.yaml
       service: model_predictive_control
     image: "${ACTION_MPC_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/action/model_predictive_control:/home/ament_ws/src/model_predictive_control
+      - ${MONO_DIR}/src/action/model_predictive_control:/home/bolty/model_predictive_control
