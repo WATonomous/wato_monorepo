@@ -1,10 +1,10 @@
 import rclpy
 from rclpy.node import Node
 
-from nav_msgs.msg import Odometry  # For odometry
-from sensor_msgs.msg import NavSatFix  # For GNSS
+from carla_msgs.msg import CarlaTrafficLightInfoList, CarlaBoundingBox
+from geometry_msgs.msg import Pose, Vector3
 
-from std_msgs.msg import Bool
+from vision_msgs.msg import Detection3D, Detection3DArray, BoundingBox3D
 
 import os
 
@@ -12,32 +12,53 @@ import os
 class Datalogger(Node):
     def __init__(self):
         super().__init__('datalogger')
-        self.declare_parameter("publish_autopilot", False)
-        self.gnssSubscription = self.create_subscription(
-            NavSatFix,
-            '/carla/ego_vehicle/gnss',
-            self.gnss_callback,
+        self.get_logger().info("TRAFFIC LIGHT NODE STARTED")
+        
+        self.trafficLights = None
+        
+        self.trafficLightSubscription = self.create_subscription(
+            CarlaTrafficLightInfoList,
+            '/carla/traffic_lights/info',
+            self.trafficLightCallback,
             10
         )
-        if self.get_parameter("publish_autopilot").value:
-            self.autopilotPublisher = self.create_publisher(
-                Bool,
-                '/carla/ego_vehicle/enable_autopilot',
-                10
-            )
-            # Publish autopilot message every 10 seconds
-            self.timer = self.create_timer(10, self.timer_callback)
+        
+        self.trafficLightPublisher = self.create_publisher(
+            Detection3DArray,
+            '/carla/traffic_lights/detection3d_array',
+            10
+        )
+        
+        # Publish last traffic message every 15 seconds
+        self.timer = self.create_timer(15, self.timer_callback)
 
-    def gnss_callback(self, msg):
-        # with open("/home/docker/ament_ws/src/carla_sample_node/logs/gnss_" + self.containerId + ".txt", 'a+') as file:
-        #     file.write(str(msg.latitude) + ", " + str(msg.longitude) + "\n")
-        self.get_logger().info(str(msg.latitude) + ", " +
-                               str(msg.longitude))  # print to screen
+    def trafficLightCallback(self, msg):
+        self.get_logger().info(f"UPDATED {len(msg.traffic_lights)} LIGHTS")
+        self.trafficLights = msg.traffic_lights
+        self.timer_callback()
 
     def timer_callback(self):
-        msg = Bool()
-        msg.data = True
-        self.autopilotPublisher.publish(msg)
+        if (self.trafficLights is None):
+            self.get_logger().info("traffic light sensor not yet initiated")
+            return
+        
+        detectionsArray = Detection3DArray()
+        detectionsArray.detections = []
+        
+        self.get_logger().info(f"PUBLISHING {len(self.trafficLights)} LIGHTS")
+        for i in range(len(self.trafficLights)):
+            # light: [CarlaTrafficLightInfo]
+            light = self.trafficLights[i]
+                                    
+            detection = Detection3D()
+            detection.bbox = BoundingBox3D()
+            detection.bbox.center = light.transform
+            detection.bbox.size = light.trigger_volume.size
+            
+            # add traffic light detection3d to array
+            detectionsArray.detections.append(detection)
+        
+        self.trafficLightPublisher.publish(detectionsArray)
 
 
 def main(args=None):
