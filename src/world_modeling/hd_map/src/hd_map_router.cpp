@@ -185,8 +185,8 @@ void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::Shar
 
     lanelet::BoundingBox3d bbox = traffic_light_msg_ptr->bbox;
     lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
-        lanelet::BasicPoint3d((bbox.center.position.x - bbox.size.x) / 2, (bbox.center.position.y - bbox.size.y) / 2, bbox.center.position.z - bbox.size.z / 2),
-        lanelet::BasicPoint3d((bbox.center.position.x + bbox.size.x) / 2, (bbox.center.position.y + bbox.size.y) / 2, (bbox.center.position.z + bbox.size.z) / 2)
+        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
+        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
     );
     
     // add traffic light to current lanelet
@@ -285,8 +285,8 @@ void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedP
     // create bounding box
     lanelet::BoundingBox3d bbox = traffic_light_msg_ptr->bbox;
     lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
-        lanelet::BasicPoint3d((bbox.center.position.x - bbox.size.x) / 2, (bbox.center.position.y - bbox.size.y) / 2, bbox.center.position.z - bbox.size.z / 2),
-        lanelet::BasicPoint3d((bbox.center.position.x + bbox.size.x) / 2, (bbox.center.position.y + bbox.size.y) / 2, (bbox.center.position.z + bbox.size.z) / 2)
+        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
+        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
     );
     
     // create traffic light ptr
