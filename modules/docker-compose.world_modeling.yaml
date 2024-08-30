@@ -21,7 +21,9 @@ services:
         - "${WORLD_MODELING_LOCALIZATION_IMAGE}:build_main"
       target: deploy
     image: "${WORLD_MODELING_LOCALIZATION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ls /home/bolty/ament_ws/install/localization/share/localization/launch && ros2 launch localization localization.launch.py"
+    command: /bin/bash -c "ls /home/bolty/ament_ws/install/localization/share/localization/launch && ros2 launch localization localization.launch.py yaml_filename:=/home/bolty/ament_ws/map/map.yaml params_file:=/home/bolty/ament_ws/install/localization/share/localization/config/nav2_params.yaml"
+    volumes:
+      - /mnt/wato-drive2/dom-ritz/map/:/home/bolty/ament_ws/map/
 
   occupancy:
     build:
