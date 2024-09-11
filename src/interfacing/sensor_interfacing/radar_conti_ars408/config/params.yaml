@@ -1,0 +1,49 @@
+radar_node:
+  ros__parameters:
+    can_channel: "can0"
+    #topic name of list of objects detected
+    object_list_topic_name: "object_list"
+    #topic name of array of markers used to visualize objects detected
+    marker_array_topic_name: "marker_array"
+    #topic name of array of radar tracks detected
+    radar_tracks_topic_name: "radar_tracks"
+    #topic name of array of obstacle detected, corresponds with radar tracks
+    obstacle_array_topic_name: "obstacle_array"
+
+    radar_0:
+        #link of radar, should be relative to base_link      
+        link_name: "front_radar_link"
+        #set filter active flag on filter config index
+        active: [true, false, false, false, false, true, false, false, true, false, false, false, false, false, false]
+        #set filter valid flag on filter config index
+        valid: [true, false, false, false, false, true, false, false, true, false, false, false, false, false, false]
+        filtercfg_min_nofobj: 0
+        filtercfg_max_nofobj: 5
+        filtercfg_min_distance: 0.0
+        filtercfg_max_distance: 409.0
+        filtercfg_min_azimuth: 0.0
+        filtercfg_max_azimuth: 100.0
+        filtercfg_min_vreloncome: 0.0
+        filtercfg_max_vreloncome: 128.0
+        filtercfg_min_vreldepart: 0.0
+        filtercfg_max_vreldepart: 128.0
+        filtercfg_min_rcs: 50.0
+        filtercfg_max_rcs: 80.0
+        filtercfg_min_lifetime: 0.0
+        filtercfg_max_lifetime: 409.0
+        filtercfg_min_size: 0.0
+        filtercfg_max_size: 102.0
+        filtercfg_min_probexists: 5
+        filtercfg_max_probexists: 7
+        filtercfg_min_y: 0.0
+        filtercfg_max_y: 818.0
+        filtercfg_min_x: 0.0
+        filtercfg_max_x: 0.0
+        filtercfg_min_vyrightleft: 0.0
+        filtercfg_max_vyrightleft: 128.0
+        filtercfg_min_vxoncome: 0.0
+        filtercfg_max_vxoncome: 128.0
+        filtercfg_min_vyleftright: 0.0
+        filtercfg_max_vyleftright: 128.0
+        filtercfg_min_vxdepart: 0.0
+        filtercfg_max_vxdepart: 128.0

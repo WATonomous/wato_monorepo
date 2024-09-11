@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/interfacing/sensor_interfacing sensor_interfacing
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/perception_msgs/radar_msgs radar_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -21,6 +21,7 @@ FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+RUN apt-get update
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
@@ -31,6 +32,14 @@ COPY --from=source ${AMENT_WS}/src src
 WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
+
+RUN apt update &&\
+    apt install software-properties-common -y &&\
+    add-apt-repository ppa:lely/ppa -y &&\
+    apt update &&\
+    apt install net-tools iproute2 can-utils kmod liblely-coapp-dev liblely-co-tools python3-dcf-tools -y
+
+RUN apt install -y ros-$ROS_DISTRO-ros2-socketcan
 
 ################################ Build ################################
 FROM dependencies as build

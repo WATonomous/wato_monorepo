@@ -9,6 +9,12 @@ services:
         - "${INTERFACING_SENSOR_IMAGE}:build_${TAG}"
         - "${INTERFACING_SENSOR_IMAGE}:build_main"
       target: deploy
+    environment:
+      VCAN_TARGET_PORT: 6002
+    ports:
+      - 6001:6000/udp
+    cap_add:
+      - NET_ADMIN
     image: "${INTERFACING_SENSOR_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch sensor_interfacing sensor_interfacing.launch.py"
 
