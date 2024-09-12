@@ -1,4 +1,21 @@
-occupancy_segmentation_node:
+occupancy_segmentation:
   ros__parameters:
     version: 1
-    compression_method: 0
+    lidar_input_topic: "/velodyne_points"
+    ground_output_topic: "/ground_points"
+    nonground_output_topic: "/nonground_points"
+    l_min: 2.7
+    l_max: 80.0
+    md: 0.3
+    mh: -1.1
+    min_num_points: 10
+    num_seed_points: 20
+    th_seeds: 0.5
+    uprightness_thresh: 0.5
+    num_rings_of_interest: 4
+    sensor_height: 1.7
+    global_el_thresh: 0.0
+    zone_rings: [2, 4, 4, 4]
+    zone_sectors: [16, 32, 54, 32]
+    flatness_thr: [0.0005, 0.000725, 0.001, 0.001]
+    elevation_thr: [0.523, 0.746, 0.879, 1.125]

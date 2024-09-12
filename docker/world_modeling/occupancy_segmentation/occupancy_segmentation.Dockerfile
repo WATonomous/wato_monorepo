@@ -6,7 +6,6 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-# RUN git clone https://github.com/ros-perception/perception_pcl.git --branch 2.4.3
 COPY src/world_modeling/occupancy_segmentation occupancy_segmentation
 
 # Scan for rosdeps
@@ -16,10 +15,12 @@ RUN apt-get -qq update && rosdep update && \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
-RUN sudo apt-get install libeigen3-dev
-RUN sudo apt-get -y install libtbb-dev
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
+
+# Install some patchwork dependencies
+RUN sudo apt-get install libeigen3-dev
+RUN sudo apt-get -y install libtbb-dev
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

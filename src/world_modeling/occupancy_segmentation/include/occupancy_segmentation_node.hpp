@@ -15,14 +15,6 @@
 
 typedef std::chrono::high_resolution_clock Clock;
 
-struct PointXYZIRT {
-  PCL_ADD_POINT4D;  // preferred way of adding a XYZ+padding
-  float intensity;
-  u_int16_t ring;
-  float time;
-  PCL_MAKE_ALIGNED_OPERATOR_NEW  // make sure our new allocators are aligned
-} EIGEN_ALIGN16;
-
 POINT_CLOUD_REGISTER_POINT_STRUCT(PointXYZIRT,  // here we assume a XYZ + "test" (as fields)
                                   (float, x, x)(float, y, y)(float, z,
                                                              z)(float, intensity,
@@ -58,4 +50,4 @@ class OccupancySegmentationNode : public rclcpp::Node {
   void subscription_callback(const sensor_msgs::msg::PointCloud2::SharedPtr lidar_cloud);
 };
 
-#endif  // TRANSFORMER_NODE_HPP_
+#endif  // OCCUPANCY_SEGMENTATION_NODE_HPP_
