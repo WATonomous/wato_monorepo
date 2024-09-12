@@ -17,8 +17,10 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   this->declare_parameter<double>("global_el_thresh", 0.0);
   this->declare_parameter<std::vector<int>>("zone_rings", std::vector<int>{2, 4, 4, 4});
   this->declare_parameter<std::vector<int>>("zone_sectors", std::vector<int>{16, 32, 54, 32});
-  this->declare_parameter<std::vector<double>>("flatness_thr", std::vector<double>{0.0005, 0.000725, 0.001, 0.001});
-  this->declare_parameter<std::vector<double>>("elevation_thr", std::vector<double>{0.523, 0.746, 0.879, 1.125});
+  this->declare_parameter<std::vector<double>>("flatness_thr",
+                                               std::vector<double>{0.0005, 0.000725, 0.001, 0.001});
+  this->declare_parameter<std::vector<double>>("elevation_thr",
+                                               std::vector<double>{0.523, 0.746, 0.879, 1.125});
   this->declare_parameter<std::string>("lidar_input_topic", std::string("/velodyne_points"));
   this->declare_parameter<std::string>("ground_output_topic", std::string("/ground_points"));
   this->declare_parameter<std::string>("nonground_output_topic", std::string("/nonground_points"));
@@ -43,13 +45,17 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   std::string ground_output_topic = this->get_parameter("ground_output_topic").as_string();
   std::string nonground_output_topic = this->get_parameter("nonground_output_topic").as_string();
 
-  _patchwork = OccupancySegmentationCore<PointXYZIRT>(l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds, uprightness_thresh, num_rings_of_interest, sensor_height, global_el_thresh, zone_rings, zone_sectors, flatness_thr, elevation_thr);
+  _patchwork = OccupancySegmentationCore<PointXYZIRT>(
+      l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds, uprightness_thresh,
+      num_rings_of_interest, sensor_height, global_el_thresh, zone_rings, zone_sectors,
+      flatness_thr, elevation_thr);
 
   _subscriber = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       lidar_input_topic, 10,
       std::bind(&OccupancySegmentationNode::subscription_callback, this, std::placeholders::_1));
 
-  _ground_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>(ground_output_topic, 10);
+  _ground_publisher =
+      this->create_publisher<sensor_msgs::msg::PointCloud2>(ground_output_topic, 10);
   _nonground_publisher =
       this->create_publisher<sensor_msgs::msg::PointCloud2>(nonground_output_topic, 10);
 }

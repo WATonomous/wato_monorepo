@@ -4,8 +4,8 @@
 #include <pcl/common/centroid.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
@@ -78,7 +78,7 @@ class OccupancySegmentationCore {
   float FLATNESS_THR[NUM_ZONES];
   float ELEVATION_THR[NUM_ZONES];
   double lmins[NUM_ZONES] = {L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4,
-                                   (L_MIN + L_MAX) / 2};
+                             (L_MIN + L_MAX) / 2};
   double lmaxs[NUM_ZONES] = {lmins[1], lmins[2], lmins[3], L_MAX};
 
   int num_patches = -1;
@@ -95,23 +95,12 @@ class OccupancySegmentationCore {
   std::vector<Status> _statuses;
 
   OccupancySegmentationCore();
-  OccupancySegmentationCore(
-    float l_min, 
-    float l_max,
-    float md,
-    float mh,
-    int min_num_points,
-    int num_seed_points,
-    float th_seeds,
-    float uprightness_thresh,
-    int num_rings_of_interest,
-    float sensor_height,
-    float global_el_thresh,
-    std::vector<long int, std::allocator<long int> >& zone_rings,
-    std::vector<long int, std::allocator<long int> >& zone_sectors,
-    std::vector<double>& flatness_thr,
-    std::vector<double>& elevation_thr
-  );
+  OccupancySegmentationCore(float l_min, float l_max, float md, float mh, int min_num_points,
+                            int num_seed_points, float th_seeds, float uprightness_thresh,
+                            int num_rings_of_interest, float sensor_height, float global_el_thresh,
+                            std::vector<long int, std::allocator<long int>> &zone_rings,
+                            std::vector<long int, std::allocator<long int>> &zone_sectors,
+                            std::vector<double> &flatness_thr, std::vector<double> &elevation_thr);
 
   void segment_ground(pcl::PointCloud<PointT> &unfiltered_cloud, pcl::PointCloud<PointT> &ground,
                       pcl::PointCloud<PointT> &nonground);
