@@ -19,3 +19,4 @@ occupancy_segmentation:
     zone_sectors: [16, 32, 54, 32]
     flatness_thr: [0.0005, 0.000725, 0.001, 0.001]
     elevation_thr: [0.523, 0.746, 0.879, 1.125]
+    adaptive_selection_en: false

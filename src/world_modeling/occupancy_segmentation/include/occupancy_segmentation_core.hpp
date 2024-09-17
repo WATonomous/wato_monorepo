@@ -83,6 +83,8 @@ class OccupancySegmentationCore {
 
   int num_patches = -1;
 
+  bool ADAPTIVE_SELECTION_EN;
+
   std::vector<Zone> _czm;
   std::vector<pcl::PointCloud<PointT>> _regionwise_ground;
   std::vector<pcl::PointCloud<PointT>> _regionwise_nonground;
@@ -100,7 +102,7 @@ class OccupancySegmentationCore {
                             int num_rings_of_interest, float sensor_height, float global_el_thresh,
                             std::vector<long int, std::allocator<long int>> &zone_rings,
                             std::vector<long int, std::allocator<long int>> &zone_sectors,
-                            std::vector<double> &flatness_thr, std::vector<double> &elevation_thr);
+                            std::vector<double> &flatness_thr, std::vector<double> &elevation_thr, bool adaptive_selection_en);
 
   void segment_ground(pcl::PointCloud<PointT> &unfiltered_cloud, pcl::PointCloud<PointT> &ground,
                       pcl::PointCloud<PointT> &nonground);

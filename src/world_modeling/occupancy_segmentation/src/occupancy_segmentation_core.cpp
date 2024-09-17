@@ -9,7 +9,7 @@ OccupancySegmentationCore<PointT>::OccupancySegmentationCore(
     float th_seeds, float uprightness_thresh, int num_rings_of_interest, float sensor_height,
     float global_el_thresh, std::vector<long int, std::allocator<long int> > &zone_rings,
     std::vector<long int, std::allocator<long int> > &zone_sectors,
-    std::vector<double> &flatness_thr, std::vector<double> &elevation_thr)
+    std::vector<double> &flatness_thr, std::vector<double> &elevation_thr, bool adaptive_selection_en)
     : L_MIN{l_min},
       L_MAX{l_max},
       MD{md},
@@ -26,7 +26,7 @@ OccupancySegmentationCore<PointT>::OccupancySegmentationCore(
       FLATNESS_THR{flatness_thr[0], flatness_thr[1], flatness_thr[2], flatness_thr[3]},
       ELEVATION_THR{elevation_thr[0], elevation_thr[1], elevation_thr[2], elevation_thr[3]},
       lmins{L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4, (L_MIN + L_MAX) / 2},
-      lmaxs{lmins[1], lmins[2], lmins[3], L_MAX} {
+      lmaxs{lmins[1], lmins[2], lmins[3], L_MAX}, ADAPTIVE_SELECTION_EN{adaptive_selection_en}{
   init_czm();
 }
 
@@ -266,18 +266,17 @@ void OccupancySegmentationCore<PointT>::extract_initial_seeds(pcl::PointCloud<Po
                                                               pcl::PointCloud<PointT> &seed_cloud,
                                                               int zone_idx) {
   // adaptive seed selection for 1st zone
-
   size_t init_idx = 0;
-  // if (zone_idx == 0) {
-  //   double adaptive_seed_selection_margin = MH * SENSOR_HEIGHT;
-  //   for (size_t i = 0; i < cloud.points.size(); i++) {
-  //     if (cloud.points[i].z < adaptive_seed_selection_margin) {
-  //       init_idx++;
-  //     } else {
-  //       break;
-  //     }
-  //   }
-  // }
+  if (ADAPTIVE_SELECTION_EN && zone_idx == 0) {
+    double adaptive_seed_selection_margin = MH * SENSOR_HEIGHT;
+    for (size_t i = 0; i < cloud.points.size(); i++) {
+      if (cloud.points[i].z < adaptive_seed_selection_margin) {
+        init_idx++;
+      } else {
+        break;
+      }
+    }
+  }
 
   double sum = 0;
   int cnt = 0;

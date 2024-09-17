@@ -21,6 +21,7 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
                                                std::vector<double>{0.0005, 0.000725, 0.001, 0.001});
   this->declare_parameter<std::vector<double>>("elevation_thr",
                                                std::vector<double>{0.523, 0.746, 0.879, 1.125});
+  this->declare_parameter<bool>("adaptive_selection_en", bool(false));
   this->declare_parameter<std::string>("lidar_input_topic", std::string("/velodyne_points"));
   this->declare_parameter<std::string>("ground_output_topic", std::string("/ground_points"));
   this->declare_parameter<std::string>("nonground_output_topic", std::string("/nonground_points"));
@@ -41,6 +42,7 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   auto zone_sectors = this->get_parameter("zone_sectors").as_integer_array();
   auto flatness_thr = this->get_parameter("flatness_thr").as_double_array();
   auto elevation_thr = this->get_parameter("elevation_thr").as_double_array();
+  bool adaptive_selection_en = this->get_parameter("adaptive_selection_en").as_bool();
   std::string lidar_input_topic = this->get_parameter("lidar_input_topic").as_string();
   std::string ground_output_topic = this->get_parameter("ground_output_topic").as_string();
   std::string nonground_output_topic = this->get_parameter("nonground_output_topic").as_string();
@@ -48,7 +50,7 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   _patchwork = OccupancySegmentationCore<PointXYZIRT>(
       l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds, uprightness_thresh,
       num_rings_of_interest, sensor_height, global_el_thresh, zone_rings, zone_sectors,
-      flatness_thr, elevation_thr);
+      flatness_thr, elevation_thr, adaptive_selection_en);
 
   _subscriber = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       lidar_input_topic, 10,
