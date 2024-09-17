@@ -166,7 +166,7 @@ void OccupancySegmentationCore<PointT>::segment_ground(pcl::PointCloud<PointT> &
       if (patch.points.size() > MIN_NUM_POINTS) {
         std::sort(patch.points.begin(), patch.points.end(), point_z_cmp);
         rgpf(patch, p_idx, features);
-
+        
         Status status = ground_likelihood_est(features, p_idx.concentric_idx);
         _statuses[p_idx.idx] = status;
       } else {
@@ -268,16 +268,16 @@ void OccupancySegmentationCore<PointT>::extract_initial_seeds(pcl::PointCloud<Po
   // adaptive seed selection for 1st zone
 
   size_t init_idx = 0;
-  if (zone_idx == 0) {
-    double adaptive_seed_selection_margin = MH * SENSOR_HEIGHT;
-    for (size_t i = 0; i < cloud.points.size(); i++) {
-      if (cloud.points[i].z < adaptive_seed_selection_margin) {
-        init_idx++;
-      } else {
-        break;
-      }
-    }
-  }
+  // if (zone_idx == 0) {
+  //   double adaptive_seed_selection_margin = MH * SENSOR_HEIGHT;
+  //   for (size_t i = 0; i < cloud.points.size(); i++) {
+  //     if (cloud.points[i].z < adaptive_seed_selection_margin) {
+  //       init_idx++;
+  //     } else {
+  //       break;
+  //     }
+  //   }
+  // }
 
   double sum = 0;
   int cnt = 0;
