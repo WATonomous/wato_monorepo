@@ -4,6 +4,7 @@
 
 OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segmentation") {
   // Declare parameters
+  this->declare_parameter<int>("num_zones", 4);
   this->declare_parameter<double>("l_min", 2.7);
   this->declare_parameter<double>("l_max", 80.0);
   this->declare_parameter<double>("md", 0.3);
@@ -27,6 +28,7 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   this->declare_parameter<std::string>("nonground_output_topic", std::string("/nonground_points"));
 
   // Retrieve parameters
+  int num_zones = this->get_parameter("num_zones").as_int();
   double l_min = this->get_parameter("l_min").as_double();
   double l_max = this->get_parameter("l_max").as_double();
   double md = this->get_parameter("md").as_double();
@@ -48,7 +50,7 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   std::string nonground_output_topic = this->get_parameter("nonground_output_topic").as_string();
 
   _patchwork = OccupancySegmentationCore<PointXYZIRT>(
-      l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds, uprightness_thresh,
+      num_zones, l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds, uprightness_thresh,
       num_rings_of_interest, sensor_height, global_el_thresh, zone_rings, zone_sectors,
       flatness_thr, elevation_thr, adaptive_selection_en);
 

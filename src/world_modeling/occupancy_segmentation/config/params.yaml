@@ -4,6 +4,7 @@ occupancy_segmentation:
     lidar_input_topic: "/velodyne_points"
     ground_output_topic: "/ground_points"
     nonground_output_topic: "/nonground_points"
+    num_zones: 4
     l_min: 2.7
     l_max: 80.0
     md: 0.3

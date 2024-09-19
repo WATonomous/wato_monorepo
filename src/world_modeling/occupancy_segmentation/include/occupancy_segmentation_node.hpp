@@ -26,7 +26,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointXYZIRT,  // here we assume a XYZ + "test"
  * messages.
  *
  * Listens to the "unfiltered" topic and filters out data with invalid fields
- * and odd timestamps. Once the node collects BUFFER_CAPACITY messages it packs
+ * and odd timestamps. Once the node collects  messages it packs
  * the processed messages into an array and publishes it to the "filtered" topic.
  */
 class OccupancySegmentationNode : public rclcpp::Node {

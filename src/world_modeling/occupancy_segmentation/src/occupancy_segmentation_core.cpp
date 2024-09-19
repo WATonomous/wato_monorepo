@@ -5,12 +5,13 @@ template class OccupancySegmentationCore<PointXYZIRT>;
 
 template <typename PointT>
 OccupancySegmentationCore<PointT>::OccupancySegmentationCore(
-    float l_min, float l_max, float md, float mh, int min_num_points, int num_seed_points,
+    int num_zones, float l_min, float l_max, float md, float mh, int min_num_points, int num_seed_points,
     float th_seeds, float uprightness_thresh, int num_rings_of_interest, float sensor_height,
     float global_el_thresh, std::vector<long int, std::allocator<long int> > &zone_rings,
     std::vector<long int, std::allocator<long int> > &zone_sectors,
     std::vector<double> &flatness_thr, std::vector<double> &elevation_thr, bool adaptive_selection_en)
-    : L_MIN{l_min},
+    : NUM_ZONES{num_zones},
+      L_MIN{l_min},
       L_MAX{l_max},
       MD{md},
       MH{mh},
@@ -21,10 +22,10 @@ OccupancySegmentationCore<PointT>::OccupancySegmentationCore(
       NUM_RINGS_OF_INTEREST{num_rings_of_interest},
       SENSOR_HEIGHT{sensor_height},
       GLOBAL_EL_THRESH{global_el_thresh},
-      ZONE_RINGS{zone_rings[0], zone_rings[1], zone_rings[2], zone_rings[3]},
-      ZONE_SECTORS{zone_sectors[0], zone_sectors[1], zone_sectors[2], zone_sectors[3]},
-      FLATNESS_THR{flatness_thr[0], flatness_thr[1], flatness_thr[2], flatness_thr[3]},
-      ELEVATION_THR{elevation_thr[0], elevation_thr[1], elevation_thr[2], elevation_thr[3]},
+      ZONE_RINGS{zone_rings.begin(), zone_rings.end()},
+      ZONE_SECTORS{zone_rings.begin(), zone_sectors.end()},
+      FLATNESS_THR{flatness_thr.begin(), flatness_thr.end()},
+      ELEVATION_THR{elevation_thr.begin(), elevation_thr.end()},
       lmins{L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4, (L_MIN + L_MAX) / 2},
       lmaxs{lmins[1], lmins[2], lmins[3], L_MAX}, ADAPTIVE_SELECTION_EN{adaptive_selection_en}{
   init_czm();
@@ -152,7 +153,6 @@ void OccupancySegmentationCore<PointT>::segment_ground(pcl::PointCloud<PointT> &
   // TODO error point removal
 
   fill_czm(unfiltered_cloud);
-  std::cout << "Finished filling czm" << std::endl;
   tbb::parallel_for(tbb::blocked_range<int>(0, num_patches), [&](tbb::blocked_range<int> r) {
     for (auto patch_num = r.begin(); patch_num != r.end(); patch_num++) {
       Patch_Index &p_idx = _patch_indices[patch_num];
@@ -175,8 +175,6 @@ void OccupancySegmentationCore<PointT>::segment_ground(pcl::PointCloud<PointT> &
       }
     }
   });
-
-  std::cout << "Finished estimation" << std::endl;
 
   for (Patch_Index p_idx : _patch_indices) {
     Status status = _statuses[p_idx.idx];

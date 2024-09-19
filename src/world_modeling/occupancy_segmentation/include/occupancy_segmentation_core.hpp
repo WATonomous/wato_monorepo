@@ -11,8 +11,6 @@
 #include <tbb/parallel_for.h>
 #include <Eigen/Dense>
 
-#define NUM_ZONES 4
-
 struct PointXYZIRT {
   PCL_ADD_POINT4D;  // preferred way of adding a XYZ+padding
   float intensity;
@@ -54,8 +52,8 @@ class OccupancySegmentationCore {
  public:
   typedef std::vector<pcl::PointCloud<PointT>> Ring;
   typedef std::vector<Ring> Zone;
-  // Size of buffer before processed messages are published.
-  static constexpr int BUFFER_CAPACITY = 10;
+
+  int NUM_ZONES;
 
   float L_MIN;
   float L_MAX;
@@ -73,13 +71,13 @@ class OccupancySegmentationCore {
   float SENSOR_HEIGHT;
   float GLOBAL_EL_THRESH;
 
-  int ZONE_RINGS[NUM_ZONES];
-  int ZONE_SECTORS[NUM_ZONES];
-  float FLATNESS_THR[NUM_ZONES];
-  float ELEVATION_THR[NUM_ZONES];
-  double lmins[NUM_ZONES] = {L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4,
+  std::vector<int> ZONE_RINGS;
+  std::vector<int> ZONE_SECTORS;
+  std::vector<float> FLATNESS_THR;
+  std::vector<float> ELEVATION_THR;
+  std::vector<double> lmins = {L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4,
                              (L_MIN + L_MAX) / 2};
-  double lmaxs[NUM_ZONES] = {lmins[1], lmins[2], lmins[3], L_MAX};
+  std::vector<double> lmaxs = {lmins[1], lmins[2], lmins[3], L_MAX};
 
   int num_patches = -1;
 
@@ -97,7 +95,7 @@ class OccupancySegmentationCore {
   std::vector<Status> _statuses;
 
   OccupancySegmentationCore();
-  OccupancySegmentationCore(float l_min, float l_max, float md, float mh, int min_num_points,
+  OccupancySegmentationCore(int num_zones, float l_min, float l_max, float md, float mh, int min_num_points,
                             int num_seed_points, float th_seeds, float uprightness_thresh,
                             int num_rings_of_interest, float sensor_height, float global_el_thresh,
                             std::vector<long int, std::allocator<long int>> &zone_rings,
