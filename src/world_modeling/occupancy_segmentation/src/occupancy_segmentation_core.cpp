@@ -5,11 +5,13 @@ template class OccupancySegmentationCore<PointXYZIRT>;
 
 template <typename PointT>
 OccupancySegmentationCore<PointT>::OccupancySegmentationCore(
-    int num_zones, float l_min, float l_max, float md, float mh, int min_num_points, int num_seed_points,
-    float th_seeds, float uprightness_thresh, int num_rings_of_interest, float sensor_height,
-    float global_el_thresh, std::vector<long int, std::allocator<long int> > &zone_rings,
+    int num_zones, float l_min, float l_max, float md, float mh, int min_num_points,
+    int num_seed_points, float th_seeds, float uprightness_thresh, int num_rings_of_interest,
+    float sensor_height, float global_el_thresh,
+    std::vector<long int, std::allocator<long int> > &zone_rings,
     std::vector<long int, std::allocator<long int> > &zone_sectors,
-    std::vector<double> &flatness_thr, std::vector<double> &elevation_thr, bool adaptive_selection_en)
+    std::vector<double> &flatness_thr, std::vector<double> &elevation_thr,
+    bool adaptive_selection_en)
     : NUM_ZONES{num_zones},
       L_MIN{l_min},
       L_MAX{l_max},
@@ -27,7 +29,8 @@ OccupancySegmentationCore<PointT>::OccupancySegmentationCore(
       FLATNESS_THR{flatness_thr.begin(), flatness_thr.end()},
       ELEVATION_THR{elevation_thr.begin(), elevation_thr.end()},
       lmins{L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4, (L_MIN + L_MAX) / 2},
-      lmaxs{lmins[1], lmins[2], lmins[3], L_MAX}, ADAPTIVE_SELECTION_EN{adaptive_selection_en}{
+      lmaxs{lmins[1], lmins[2], lmins[3], L_MAX},
+      ADAPTIVE_SELECTION_EN{adaptive_selection_en} {
   init_czm();
 }
 
@@ -166,7 +169,7 @@ void OccupancySegmentationCore<PointT>::segment_ground(pcl::PointCloud<PointT> &
       if (patch.points.size() > MIN_NUM_POINTS) {
         std::sort(patch.points.begin(), patch.points.end(), point_z_cmp);
         rgpf(patch, p_idx, features);
-        
+
         Status status = ground_likelihood_est(features, p_idx.concentric_idx);
         _statuses[p_idx.idx] = status;
       } else {

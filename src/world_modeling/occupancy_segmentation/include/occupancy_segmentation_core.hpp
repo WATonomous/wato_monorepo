@@ -76,7 +76,7 @@ class OccupancySegmentationCore {
   std::vector<float> FLATNESS_THR;
   std::vector<float> ELEVATION_THR;
   std::vector<double> lmins = {L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4,
-                             (L_MIN + L_MAX) / 2};
+                               (L_MIN + L_MAX) / 2};
   std::vector<double> lmaxs = {lmins[1], lmins[2], lmins[3], L_MAX};
 
   int num_patches = -1;
@@ -95,12 +95,14 @@ class OccupancySegmentationCore {
   std::vector<Status> _statuses;
 
   OccupancySegmentationCore();
-  OccupancySegmentationCore(int num_zones, float l_min, float l_max, float md, float mh, int min_num_points,
-                            int num_seed_points, float th_seeds, float uprightness_thresh,
-                            int num_rings_of_interest, float sensor_height, float global_el_thresh,
+  OccupancySegmentationCore(int num_zones, float l_min, float l_max, float md, float mh,
+                            int min_num_points, int num_seed_points, float th_seeds,
+                            float uprightness_thresh, int num_rings_of_interest,
+                            float sensor_height, float global_el_thresh,
                             std::vector<long int, std::allocator<long int>> &zone_rings,
                             std::vector<long int, std::allocator<long int>> &zone_sectors,
-                            std::vector<double> &flatness_thr, std::vector<double> &elevation_thr, bool adaptive_selection_en);
+                            std::vector<double> &flatness_thr, std::vector<double> &elevation_thr,
+                            bool adaptive_selection_en);
 
   void segment_ground(pcl::PointCloud<PointT> &unfiltered_cloud, pcl::PointCloud<PointT> &ground,
                       pcl::PointCloud<PointT> &nonground);

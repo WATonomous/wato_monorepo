@@ -50,9 +50,9 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   std::string nonground_output_topic = this->get_parameter("nonground_output_topic").as_string();
 
   _patchwork = OccupancySegmentationCore<PointXYZIRT>(
-      num_zones, l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds, uprightness_thresh,
-      num_rings_of_interest, sensor_height, global_el_thresh, zone_rings, zone_sectors,
-      flatness_thr, elevation_thr, adaptive_selection_en);
+      num_zones, l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds,
+      uprightness_thresh, num_rings_of_interest, sensor_height, global_el_thresh, zone_rings,
+      zone_sectors, flatness_thr, elevation_thr, adaptive_selection_en);
 
   _subscriber = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       lidar_input_topic, 10,
