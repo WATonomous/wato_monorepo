@@ -7,11 +7,11 @@
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/pose_with_covariance.hpp"
 #include "geometry_msgs/msg/pose.hpp"
-#include "vision_msgs/msg/detection_3d.hpp"
-#include "vision_msgs/msg/detection_3d_array.hpp"
+#include "vision_msgs/msg/detection3_d.hpp"
+#include "vision_msgs/msg/detection3_d_array.hpp"
 
 #include <lanelet2_core/primitives/Lanelet.h>
-#include <lanelet2_core/primitives/BoundingBox3d.h>
+#include <lanelet2_core/primitives/BoundingBox.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
 #include <lanelet2_routing/Exceptions.h>
