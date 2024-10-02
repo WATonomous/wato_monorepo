@@ -4,7 +4,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include <lanelet2_core/primitives/Lanelet.h>
-#include <lanelet2_core/primitives/RegulartoryElement.h>
+#include <lanelet2_core/primitives/RegulatoryElement.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
 #include <lanelet2_routing/Exceptions.h>

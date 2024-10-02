@@ -7,8 +7,8 @@
 #include "hd_map_manager.hpp"
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
-#include "vision_msgs/msg/detection_3d.hpp"
-#include "vision_msgs/msg/detection_3d_array.hpp"
+#include "vision_msgs/msg/detection3_d.hpp"
+#include "vision_msgs/msg/detection3_d_array.hpp"
 #include "world_modeling_msgs/srv/lanelet_info.hpp"
 #include <algorithm>
 
