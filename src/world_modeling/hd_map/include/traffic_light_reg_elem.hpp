@@ -27,12 +27,8 @@ class TrafficLightRegElem : public lanelet::RegulatoryElement{
     // The following lines are required so that the lanelet library can create the PedestrianRegElem object
     // Refer to : https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
 
-    friend class lanelet::RegulatoryElement<TrafficLightRegElem>;
+    friend class lanelet::RegisterRegulatoryElement<TrafficLightRegElem>;
     explicit TrafficLightRegElem(const lanelet::RegulatoryElementDataPtr& data) : RegulatoryElement(data) {}
 };
-
-namespace {
-    lanelet::RegisterRegulatoryElement<TrafficLightRegElem> registerTrafficLightRegElem;
-}  // namespace
 
 #endif

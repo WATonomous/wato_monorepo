@@ -98,22 +98,22 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
     return shortest_path;
 }
 
-void HDMapRouter::process_traffic_light_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_array_msg_ptr){
+void HDMapRouter::process_traffic_light_msg(const vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg_ptr){
     std::map<uint64_t, bool> found_id;
-    for (const auto &traffic_light_msg : traffic_light_array_msg_ptr) {
-        uint64_t traffic_light_id = stoull(traffic_light_msg->id);
+    for (const auto &traffic_light_msg : traffic_light_array_msg_ptr->detections) {
+        uint64_t traffic_light_id = stoull(traffic_light_msg.id);
 
         found_id[traffic_light_id] = true;
         if(traffic_light_list_.find(traffic_light_id) == nullptr){
-            add_traffic_light(traffic_light_msg_ptr);
+            add_traffic_light(std::make_shared<vision_msgs::msg::Detection3D>(traffic_light_msg));
             traffic_light_list_.insert(traffic_light_id);
         }
         else{
-            update_traffic_light(traffic_light_msg_ptr);
+            update_traffic_light(std::make_shared<vision_msgs::msg::Detection3D>(traffic_light_msg));
         }
     }
 
-    for (auto it = traffic_light_list_.begin(); it!=traffic_light_list_.end()) {
+    for (auto it = traffic_light_list_.begin(); it!=traffic_light_list_.end(); it++) {
         if (found_id[*it]) {
             remove_traffic_light(*it);
             it = traffic_light_list_.erase(it);     // keep at the same "index"
@@ -176,12 +176,12 @@ std::string HDMapRouter::get_detection3d_class(const vision_msgs::msg::Detection
 //             ... (more to come later, hopefully)  
 //      - update_obstacle() [TODO]
 void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
-    std::string traffic_light_name = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
-    if (traffic_light_name == "UNKNOWN") {
+    std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
+    if (traffic_light_state == "UNKNOWN") {
         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Light Type Does Not Exist in Vocabulary!");
     }
 
-    uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id)
+    uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id);
 
     lanelet::BoundingBox3d bbox = traffic_light_msg_ptr->bbox;
     lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
@@ -197,8 +197,8 @@ void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::Shar
 
         // find traffic light in reg_elems
         if (traffic_light_elem && traffic_light_elem.id() == traffic_light_id) {
-            traffic_light_elem.parameters()["traffic_light_state"].clear();
-            traffic_light_elem.parameters()["traffic_light_state"].emplace_back(traffic_light_name);
+            traffic_light_elem.set_bbox(traffic_light_bbox);
+            traffic_light_elem.set_state(traffic_light_state);
 
             lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
             current_lanelet.addRegulatoryElement(traffic_light_elem);           // if duplicate, no addition
@@ -275,8 +275,8 @@ void HDMapRouter::update_pedestrian(const vision_msgs::msg::Detection3D::SharedP
 //             ... (more to come later, hopefully)  
 //      - add_obstacle() [TODO]
 void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
-    std::string traffic_light_name = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
-    if (traffic_light_name == "UNKOWN") {
+    std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
+    if (traffic_light_state == "UNKOWN") {
         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Light Type Does Not Exist in Vocabulary!");
     }
 
@@ -290,14 +290,14 @@ void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedP
     );
     
     // create traffic light ptr
-    auto traffic_light_elem = TrafficLightRegElem::make(traffic_light_bbox, traffic_light_name);
+    auto traffic_light_elem = TrafficLightRegElem::make(traffic_light_bbox, traffic_light_state);
 
     // add traffic light to current lanelet
     lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
     lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
     current_lanelet.addRegulatoryElement(traffic_light_elem);
 
-    lanelet_ptr_.add(traffic_light_elem);
+    lanelet_ptr_->add(traffic_light_elem);
 
     RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added traffic light to the lanelet map: ID = %lu, Position = (%f, %f, %f)", pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
 }
