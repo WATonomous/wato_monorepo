@@ -29,7 +29,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [ gpu ]
-    command: /bin/bash -c "ros2 launch camera_object_detection eve_launch.py"
+    command: /bin/bash -c "ros2 launch camera_object_detection eve.launch.py"
     volumes:
       - /mnt/wato-drive2/perception_models/yolov8m.pt:/perception_models/yolov8m.pt
       - /mnt/wato-drive2/perception_models/traffic_light.pt:/perception_models/traffic_light.pt
@@ -56,6 +56,16 @@ services:
       target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
+    volumes: 
+      - /mnt/wato-drive/perception/segformer-b2:/home/bolty/ament_ws/src/semantic_segmentation/resource/model
+          # add gpus all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: 1
 
   lane_detection:
     build:
@@ -66,7 +76,16 @@ services:
         - "${PERCEPTION_LANE_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_LANE_DETECTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch lane_detection lane_detection.launch.py"
+    command: /bin/bash -c "ros2 launch lane_detection eve.launch.py"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - /mnt/wato-drive2/perception-weights/tensorrt_model/ultra_fast_lane_detection_v2/resource/model/ufldv2_culane_res34_320x1600.onnx:/models/ufldv2_culane_res34_320x1600.onnx
 
   tracking:
     build:
