@@ -1,0 +1,7 @@
+occupancy_node:
+  ros__parameters:
+    version: 1
+    compression_method: 0
+    input_topic: /3d_points
+    publish_topic: /2d_points
+  
