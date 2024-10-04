@@ -75,7 +75,7 @@ class TrackingNode : public rclcpp::Node {
 
   template <typename T>
   T getDefaultOrValue(std::map<std::string, T> m, std::string key) {
-    if (m.find(key) == m.end()) return m[key];
+    if (auto it = m.find(key); it != m.end()) return it->second;
     return m["default"];
   }
 };
