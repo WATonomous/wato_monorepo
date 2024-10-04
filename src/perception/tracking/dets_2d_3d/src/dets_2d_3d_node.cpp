@@ -61,6 +61,10 @@ std::map<std::string, ClusteringParams> TrackingNode::initializeClusteringParams
     std::string field_type = key.substr(split_loc + 1);
 
     ClusteringParams params;
+    if (auto it = clusteringParams.find(det_type); it != clusteringParams.end()) {
+      params = it->second;
+    }
+
     if (field_type == "clustering_distances")
       params.clustering_distances = iter->second.as_double_array();
     else if (field_type == "clustering_thresholds")
@@ -94,7 +98,7 @@ void TrackingNode::readCameraInfo(const sensor_msgs::msg::CameraInfo::SharedPtr 
 void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
   if (!transformInited_) {
     try {
-      transform_ = tf_buffer_->lookupTransform(cameraFrame_, lidarFrame_, msg->header.stamp);
+      transform_ = tf_buffer_->lookupTransform(cameraFrame_, lidarFrame_, tf2::TimePointZero);
       transformInited_ = true;
     } catch (const tf2::TransformException &ex) {
       RCLCPP_INFO(this->get_logger(), "Could not transform %s", ex.what());
@@ -147,11 +151,10 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     }
 
     // clustering
-    auto clusterAndBBoxes = ProjectionUtils::getClusteredBBoxes(
-        inlierPoints, getDefaultOrValue<ClusteringParams>(
-                          clusteringParams, det.results[0].hypothesis.class_id.c_str()));
-    std::vector<std::shared_ptr<Cluster>> clusters =
-        clusterAndBBoxes.first;  // needed? for viz purposes only
+    auto params = getDefaultOrValue<ClusteringParams>(
+                  clusteringParams, det.results[0].hypothesis.class_id.c_str());
+    auto clusterAndBBoxes = ProjectionUtils::getClusteredBBoxes(inlierPoints, params);
+    std::vector<std::shared_ptr<Cluster>> clusters = clusterAndBBoxes.first;  // needed? for viz purposes only
     std::vector<vision_msgs::msg::BoundingBox3D> allBBoxes = clusterAndBBoxes.second;
 
     if (clusters.size() == 0 || allBBoxes.size() == 0) continue;
