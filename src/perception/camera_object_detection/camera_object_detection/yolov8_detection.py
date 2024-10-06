@@ -24,18 +24,31 @@ import time
 import torch
 
 
+class Model():
+    def __init__(self, model_path, device):
+        self.model_path = model_path
+        self.model = AutoBackend(self.model_path, device=device, dnn=False, fp16=False)
+        self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
+        self.stride = int(self.model.stride)
+
+
 class CameraDetectionNode(Node):
 
     def __init__(self):
         torch.zeros(1).cuda()
 
-        super().__init__("camera_object_detection_node")
+        super().__init__("left_combined_detection_node")
         self.get_logger().info("Creating camera detection node...")
 
         self.declare_parameter("camera_topic", "/camera/right/image_color")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
-        self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
+        self.declare_parameter("models.traffic_signs.model_path",
+                               "/perception_models/traffic_signs.pt")
+        self.declare_parameter("models.traffic_light.model_path",
+                               "/perception_models/traffic_light.pt")
+        self.declare_parameter("models.pretrained_yolov8m.model_path",
+                               "/perception_models/yolov8m.pt")
         self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
         self.declare_parameter("crop_mode", "LetterBox")
@@ -44,7 +57,11 @@ class CameraDetectionNode(Node):
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
         self.publish_detection_topic = self.get_parameter("publish_detection_topic").value
-        self.model_path = self.get_parameter("model_path").value
+        self.model_paths = [
+            self.get_parameter("models.traffic_signs.model_path").value,
+            self.get_parameter("models.traffic_light.model_path").value,
+            self.get_parameter("models.pretrained_yolov8m.model_path").value
+        ]
         self.image_size = self.get_parameter("image_size").value
         self.compressed = self.get_parameter("compressed").value
         self.crop_mode = self.get_parameter("crop_mode").value
@@ -82,11 +99,7 @@ class CameraDetectionNode(Node):
         self.cv_bridge = CvBridge()
 
         # load yolov8 model
-        self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
-
-        self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
-
-        self.stride = int(self.model.stride)
+        self.models = self.load_models()
 
         # setup vis publishers
         self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
@@ -98,9 +111,16 @@ class CameraDetectionNode(Node):
             f"Successfully created node listening on camera topic: {self.camera_topic}..."
         )
 
-    def crop_image(self, cv_image):
+    def load_models(self):
+        models = []
+        for model_path in self.model_paths:
+            if model_path:
+                models.append(Model(model_path, self.device))
+        return models
+
+    def crop_image(self, cv_image, model):
         if self.crop_mode == "LetterBox":
-            img = LetterBox(self.image_size, stride=self.stride)(image=cv_image)
+            img = LetterBox(self.image_size, stride=model.stride)(image=cv_image)
         elif self.crop_mode == "CenterCrop":
             img = CenterCrop(self.image_size)(cv_image)
         else:
@@ -144,7 +164,7 @@ class CameraDetectionNode(Node):
                 bbox[3] * height_scale,
             ]
 
-    def crop_and_convert_to_tensor(self, cv_image):
+    def crop_and_convert_to_tensor(self, cv_image, model):
         """
         Preprocess the image by resizing, padding and rearranging the dimensions.
 
@@ -154,7 +174,7 @@ class CameraDetectionNode(Node):
         Returns:
             torch.Tensor image for model input of shape (1,3,w,h)
         """
-        img = self.crop_image(cv_image)
+        img = self.crop_image(cv_image, model)
 
         # Convert
         img = img.transpose(2, 0, 1)
@@ -250,41 +270,42 @@ class CameraDetectionNode(Node):
                     self.get_logger().error(str(e))
                     return
 
-            # preprocess image and run through prediction
-            img = self.crop_and_convert_to_tensor(cv_image)
-            pred = self.model(img)
-
-            # nms function used same as yolov8 detect.py
-            pred = non_max_suppression(pred)
             detections = []
-            for i, det in enumerate(pred):  # per image
-                if len(det):
-                    # Write results
-                    for *xyxy, conf, cls in reversed(det):
-                        label = self.names[int(cls)]
+            for model in self.models:
+                # preprocess image and run through prediction
+                img = self.crop_and_convert_to_tensor(cv_image, model)
+                pred = model.model(img)
 
-                        bbox = [
-                            xyxy[0],
-                            xyxy[1],
-                            xyxy[2] - xyxy[0],
-                            xyxy[3] - xyxy[1],
-                        ]
-                        bbox = [b.item() for b in bbox]
-                        bbox = self.convert_bboxes_to_orig_frame(bbox)
+                # nms function used same as yolov8 detect.py
+                pred = non_max_suppression(pred)
+                for i, det in enumerate(pred):  # per image
+                    if len(det):
+                        # Write results
+                        for *xyxy, conf, cls in reversed(det):
+                            label = model.names[int(cls)]
 
-                        detections.append(
-                            {
-                                "label": label,
-                                "conf": conf.item(),
-                                "bbox": bbox,
-                            }
-                        )
-                        self.get_logger().debug(f"{label}: {bbox}")
+                            bbox = [
+                                xyxy[0],
+                                xyxy[1],
+                                xyxy[2] - xyxy[0],
+                                xyxy[3] - xyxy[1],
+                            ]
+                            bbox = [b.item() for b in bbox]
+                            bbox = self.convert_bboxes_to_orig_frame(bbox)
+
+                            detections.append(
+                                {
+                                    "label": label,
+                                    "conf": conf.item(),
+                                    "bbox": bbox,
+                                }
+                            )
+                            self.get_logger().debug(f"{label}: {bbox}")
 
             annotator = Annotator(
                 cv_image,
                 line_width=self.line_thickness,
-                example=str(self.names),
+                # example=str(model.names),
             )
             (detections, annotated_img) = self.postprocess_detections(detections, annotator)
 
