@@ -3,7 +3,7 @@
 #define PCL_NO_PRECOMPILE
 
 #include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include "occupancy_core.hpp"
 
@@ -26,7 +26,7 @@ class OccupancyNode : public rclcpp::Node {
 
  private:
   // Object that handles data processing and validation.
-  OccupancyCore<PointXYZIRT> _patchwork;
+  OccupancyCore occupancy_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr _subscriber;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _publisher;
 
