@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>occupany</name>
+  <name>occupancy</name>
   <version>0.0.0</version>
   <description>A ROS2 package remove the third dimension of points</description>
 

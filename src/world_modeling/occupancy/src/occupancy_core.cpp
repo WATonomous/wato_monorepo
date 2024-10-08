@@ -1,22 +1,12 @@
 #include <string>
+#include <cstring>
 #include <vector>
 
 #include "occupancy_core.hpp"
-#include "sensor_msgs/msg/point_cloud2_iterator.hpp"
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 // Constructor
 OccupancyCore::OccupancyCore() {}
-
-std::vector<sensor_msgs::msg::PointCloud2> OccupancyCore::buffer_messages() const { return buffer_; }
-
-void OccupancyCore::clear_buffer(){ buffer_.clear(); }
-
-bool OccupancyCore::enqueue_message(const sensor_msgs::msg::PointCloud2& msg) {
-    if (buffer_.size() < BUFFER_CAPACITY) {
-        buffer_.push_back(msg);
-    }
-    return buffer_.size() == BUFFER_CAPACITY;
-}
 
 sensor_msgs::msg::PointCloud2 OccupancyCore::remove_z_dimension(sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     sensor_msgs::msg::PointCloud2 output_cloud;
@@ -43,8 +33,8 @@ sensor_msgs::msg::PointCloud2 OccupancyCore::remove_z_dimension(sensor_msgs::msg
     sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
 
     for (int i = 0; i < msg->width; ++i) {
-        memcpy(&output_cloud.data[i * output_cloud.point_step], &(*iter_x), sizeof(float)); // Copy x
-        memcpy(&output_cloud.data[i * output_cloud.point_step + 4], &(*iter_y), sizeof(float)); // Copy y
+        std::memcpy(&output_cloud.data[i * output_cloud.point_step], &(*iter_x), sizeof(float)); // Copy x
+        std::memcpy(&output_cloud.data[i * output_cloud.point_step + 4], &(*iter_y), sizeof(float)); // Copy y
         ++iter_x;
         ++iter_y;
     }

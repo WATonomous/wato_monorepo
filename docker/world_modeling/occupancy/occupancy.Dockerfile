@@ -7,7 +7,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/world_modeling/occupancy occupancy
-COPY src/wato_msgs/sample_msgs sample_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -21,7 +20,7 @@ FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -38,7 +37,7 @@ FROM dependencies as build
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    colcon build \
+    colcon build --packages-skip occupancy \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash

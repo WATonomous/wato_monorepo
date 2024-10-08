@@ -2,9 +2,10 @@
 
 #include <memory>
 #include <string>
+#include <clock.hpp>
 
 
-Occupancy::OccupancyNode() : Node("occupancy") {
+OccupancyNode::OccupancyNode() : Node("occupancy") {
   // Declare ROS parameters
   this->declare_parameter<std::string>("subscription_topic", std::string("/nonground_points"));
   this->declare_parameter<std::string>("publish_topic", std::string("/2d_points"));
@@ -14,23 +15,20 @@ Occupancy::OccupancyNode() : Node("occupancy") {
   auto output_topic = this->get_parameter("publish_topic").as_string();
   
   _subscriber = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      intput_topic, 10,
+      input_topic, ADVERTISING_FREQ,
       std::bind(&OccupancyNode::subscription_callback, this, std::placeholders::_1));
 
   _publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic, 10);
 }
 
-void OccupancynNode::subscription_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+void OccupancyNode::subscription_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
   RCLCPP_INFO(this -> get_logger(), "Received message: %s", msg->header.frame_id.c_str());
-  // pcl::fromROSMsg(*lidar_cloud, temp_cloud);
 
-  output_cloud.header = msg->header;
+  auto start = rclcpp::Clock().now();
+  sensor_msgs::msg::PointCloud2 output_cloud = occupancy_.remove_z_dimension(msg);
+  auto end = rclcpp::Clock().now();
 
-  auto start = Clock::now();
-  sensor_msgs::msg::PointCloud2 output_cloud = remove_z_dimension(msg);
-  auto end = Clock::now();
-
-  int duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+  int duration = (end - start).to_chrono<std::chrono::milliseconds>().count();
   RCLCPP_INFO(this->get_logger(), "Runtime for dimension reduction: %i ms", duration);
   RCLCPP_INFO(this->get_logger(), "3D points: %i", static_cast<int>(msg->width));
   RCLCPP_INFO(this->get_logger(), "2D points: %i", static_cast<int>(output_cloud.width));
