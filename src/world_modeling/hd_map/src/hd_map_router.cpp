@@ -136,14 +136,16 @@ void HDMapRouter::process_traffic_sign_msg(const vision_msgs::msg::Detection3D::
 }
 
 void HDMapRouter::process_pedestrian_msg(const vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg_ptr){
-    for (const auto pedestrian_msg : pedestrian_msg_ptr->detections){
+    std::set<uint64_t> current_pedestrian_ids;
+    for (const auto &pedestrian_msg : pedestrian_msg_ptr->detections){
         uint64_t pedestrian_id = stoi(pedestrian_msg.id);
+        current_pedestrian_ids.insert(pedestrian_id);
         if(pedestrian_list_.find(pedestrian_id) == nullptr){
-            add_pedestrian(pedestrian_msg);
+            add_pedestrian(std::make_shared<vision_msgs::msg::Detection3D>(pedestrian_msg));
             pedestrian_list_.insert(pedestrian_id);
         }
         else{
-            update_pedestrian(pedestrian_msg);
+            update_pedestrian(std::make_shared<vision_msgs::msg::Detection3D>(pedestrian_msg));
         }
     }
 
@@ -161,7 +163,7 @@ void HDMapRouter::process_pedestrian_msg(const vision_msgs::msg::Detection3DArra
 std::string HDMapRouter::get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr){
     std::string class_id = "";
     float base_score = 0;                                   // BASE_SCORE 0!
-    for (const auto result : reg_elem_msg_ptr->results){
+    for (const auto &result : reg_elem_msg_ptr->results){
         if (result.hypothesis.score > base_score){
             class_id = result.hypothesis.class_id;
         }
@@ -183,8 +185,8 @@ void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::Shar
 
     uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id);
 
-    lanelet::BoundingBox3d bbox = traffic_light_msg_ptr->bbox;
-    lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
+    auto bbox = traffic_light_msg_ptr->bbox;
+    lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3d(
         lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
         lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
     );
@@ -282,8 +284,8 @@ void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedP
 
     uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id)
 
-    // create bounding box
-    lanelet::BoundingBox3d bbox = traffic_light_msg_ptr->bbox;
+    // create bounding box from Detection 3d
+    auto bbox = traffic_light_msg_ptr->bbox;
     lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
         lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
         lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
