@@ -1,37 +1,59 @@
 #include "traffic_light_reg_elem.hpp"
 
-std::shared_ptr<TrafficLightRegElem> TrafficLightRegElem::make(const lanlet::BoundingBox3d& bbox, const std::string& state) {
-    std::shared_ptr data = std::make_shared<lanelet::RegulatoryElement>();
+lanelet::Polygon3d boundingBox3dToPolygon3d(const lanelet::BoundingBox3d& bbox){
+    auto min = bbox.min();
+    auto max = bbox.max();
+
+    lanelet::Polygon3d polygon{
+        lanelet::utils::getId(),
+        {
+          lanelet::Point3d(lanelet::utils::getId(), min.x(), min.y(), min.z()),
+          lanelet::Point3d(lanelet::utils::getId(), max.x(), min.y(), min.z()),
+          lanelet::Point3d(lanelet::utils::getId(), max.x(), max.y(), min.z()),
+          lanelet::Point3d(lanelet::utils::getId(), min.x(), max.y(), min.z()),
+          lanelet::Point3d(lanelet::utils::getId(), min.x(), min.y(), max.z()),
+          lanelet::Point3d(lanelet::utils::getId(), max.x(), min.y(), max.z()),
+          lanelet::Point3d(lanelet::utils::getId(), max.x(), max.y(), max.z()),
+          lanelet::Point3d(lanelet::utils::getId(), min.x(), max.y(), max.z())
+        }
+    };
+
+    return polygon;
+}
+
+std::shared_ptr<TrafficLightRegElem> TrafficLightRegElem::make(const lanelet::BoundingBox3d& bbox, const std::string& color, uint64_t id) {
+    auto traffic_light = boundingBox3dToPolygon3d(bbox);
+    lanelet::RuleParameterMap rpm = {{lanelet::RoleNameString::Refers, {traffic_light}}};
+    lanelet::AttributeMap am = {};
+
+    std::shared_ptr data = std::make_shared<lanelet::RegulatoryElementData>(lanelet::utils::getId(), std::move(rpm), am);
 
     // add data to general RegElem
-    data->attributes()[lanelet::AttributeName::Type] = RuleName;
-    data->parameters()["traffic_light_bbox"].emplace_back(bbox);
-    data->parameters()["traffic_light_state"].emplace_back(state);
+    data->attributes[lanelet::AttributeName::Type] = lanelet::AttributeValueString::RegulatoryElement;
+    data->attributes[lanelet::AttributeName::Subtype] = RuleName;
 
-    return std::make_shared<TrafficLightRegElem>(TrafficLightRegElem(data))
+    return std::make_shared<TrafficLightRegElem>(new TrafficLightRegElem(data, color, id));
 }
 
 // constructor
-TrafficLightRegElem::TrafficLightRegElem(const lanelet::RegulatoryElementDataPtr& data)
-    : lanelet::RegulatoryElement(data) {}
+TrafficLightRegElem::TrafficLightRegElem(const lanelet::RegulatoryElementDataPtr& data, const std::string &color, uint64_t id)
+    : lanelet::RegulatoryElement(data), color{color}, id{id} {}
 
 // Getters
-lanelet::BoundingBox3d TrafficLightRegElem::bbox() const {
-    return parameters()["traffic_light_bbox"].front().asBoundingBox();
+
+uint64_t TrafficLightRegElem::getId() const {
+    return id;
 }
 
-std::string TrafficLightRegElem::state() const {
-    return parameters()["traffic_light_state"].front().asString();
+std::string TrafficLightRegElem::getColor() const {
+    return color;
 }
 
 // Setters
+void TrafficLightRegElem::updateTrafficLight(const lanelet::BoundingBox3d& bbox, const std::string& color) {
+    auto traffic_light = boundingBox3dToPolygon3d(bbox);
+    parameters()[lanelet::RoleName::Refers].clear();
+    parameters()[lanelet::RoleName::Refers].emplace_back(traffic_light);
 
-void set_bbox(const lanlet::BoundingBox3d& bbox) {
-    parameters()["traffic_light_bbox"].clear()
-    parameters()["traffic_light_bbox"].emplace_back(bbox);
-}
-
-void set_state(const std::string& state) {
-    parameters()["traffic_light_state"].clear()
-    parameters()["traffic_light_state"].emplace_back(state);
+    this->color = color;
 }
