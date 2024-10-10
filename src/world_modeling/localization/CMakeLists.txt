@@ -15,8 +15,13 @@ find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(sample_msgs REQUIRED) # Custom package containing ROS2 messages
 find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(GTSAM REQUIRED)
+
+# Geographiclib installs FindGeographicLib.cmake to this non-standard location
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/share/cmake/geographiclib/")
+find_package(GeographicLib REQUIRED)
 
 include_directories(
   SYSTEM /usr/include/eigen3
@@ -25,7 +30,7 @@ include_directories(
 # Include GTSAM and project headers
 include_directories(
   ${GTSAM_INCLUDE_DIR}/gtsam
-  ${GTSAM_INCLUDE_DIR}
+  ${GTSAM_INCLUDE_DIRS}
 )
 
 # Compiles source files into a library
@@ -43,7 +48,7 @@ target_include_directories(sample_lib
   ${GTSAM_INCLUDE_DIR}/gtsam
   ${GTSAM_INCLUDE_DIR})
 # Add ROS2 dependencies required by package
-ament_target_dependencies(sample_lib rclcpp sample_msgs sensor_msgs geometry_msgs GTSAM)
+ament_target_dependencies(sample_lib rclcpp sample_msgs sensor_msgs geometry_msgs nav_msgs GeographicLib GTSAM)
 
 # By default tests are built. This can be overridden by modifying the
 # colcon build command to include the -DBUILD_TESTING=OFF flag.
@@ -55,7 +60,7 @@ if(BUILD_TESTING)
   # Create test executable from source files
   ament_add_gtest(sample_test test/sample_test.cpp)
   # Link to the previously built library to access Localization classes and methods
-  target_link_libraries(sample_test sample_lib gtsam)
+  target_link_libraries(sample_test sample_lib ${GeographicLib_LIBRARIES} gtsam)
 
   # Copy executable to installation location
   install(TARGETS
@@ -67,7 +72,7 @@ endif()
 add_executable(localization_node src/localization_node.cpp)
 
 # Link to the previously built library to access Localization classes and methods
-target_link_libraries(localization_node sample_lib gtsam)
+target_link_libraries(localization_node sample_lib ${GeographicLib_LIBRARIES} gtsam)
 
 # Copy executable to installation location
 install(TARGETS

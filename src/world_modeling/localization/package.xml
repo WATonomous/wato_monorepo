@@ -3,7 +3,7 @@
 <package format="3">
   <name>localization</name>
   <version>0.0.0</version>
-  <description>Lanelet Localization ROS2 Node</description>
+  <description>Localization ROS2 Node</description>
 
   <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
   <license>TODO: License declaration</license>
@@ -17,7 +17,9 @@
   <depend>sample_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>gtsam</depend>
+  <depend>geographiclib</depend>
 
   <!--https://www.ros.org/reps/rep-0149.html#export-->
   <export>
