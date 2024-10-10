@@ -7,7 +7,7 @@ import shutil
 
 from boxconstraint import BoxConstraint
 
-SIM_DURATION = 500  # Simulation duration in time steps
+SIM_DURATION = 500  # Simulation duration in time steps in Carla
 
 ## SETUP ##
 # Connect to CARLA
@@ -184,6 +184,7 @@ opts = {"ipopt.acceptable_tol": acceptable_tol,
         "ipopt.print_level": 0}
 opti.solver('ipopt', opts)
 
+# Variables for main loop below
 # Array to store closed-loop trajectory states (X and Y coordinates)
 closed_loop_data = []
 open_loop_data = []
