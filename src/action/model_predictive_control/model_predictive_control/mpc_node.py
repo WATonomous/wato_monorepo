@@ -15,23 +15,45 @@
 import rclpy 
 from rclpy.node import Node
 
-import carla
-import casadi as ca
-import numpy as np
-import datetime
-import os
-import shutil
+from action_msgs import ControlCommands, VehicleState, WaypointArray 
+from model_predictive_control.mpc_core import MPCCore
 
-from action.model_predictive_control.model_predictive_control.boxconstraint import BoxConstraint
-from sample_msgs.msg import Unfilterered, Filitered, FilteredArray 
-from transformer.transformer_core import TransformerCore
 
-SIM_DURATION = 500  # Simulation duration in time steps
-
-# somehow send a message to sim container to init carla
-
-class carla_com(Node):
+class MPCNode(Node):
     def __init__(self):
-        super().__init__('python_transformer')
+        super().__init__('MPCNode')
 
-        
+        self.mpc_core = MPCCore()
+
+        # Subscribe to vehicle state
+        self.state_subscription = self.create_subscription(
+            VehicleState, '/carla/vehicle_state', self.vehicle_state_callback, 10)
+
+        # Subscribe to waypoints from CARLA
+        self.waypoints_subscription = self.create_subscription(
+            WaypointArray, '/carla/waypoints', self.waypoints_callback, 10)
+            
+        self.control_publisher = self.create_publisher(ControlCommands, '/mpc/control_commands', 10)
+
+    def vehicle_state_callback(self, msg):
+        steering_angle, throttle = self.mpc_core.compute_control(msg)
+
+        control_msg = control_msgs()
+        control_msg.steering_angle = steering_angle
+        control_msg.throttle = throttle
+        self.control_publisher.publish(control_msg)
+
+    def waypoints_callback(self, msg):
+        self.mpc_core.update_waypoints(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    mpc_node = MPCNode()
+    rclpy.spin(mpc_node)
+    mpc_node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
