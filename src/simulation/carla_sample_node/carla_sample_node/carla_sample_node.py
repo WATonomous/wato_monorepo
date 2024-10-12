@@ -54,6 +54,7 @@ class Datalogger(Node):
             detection.bbox = BoundingBox3D()
             detection.bbox.center = light.transform
             detection.bbox.size = light.trigger_volume.size
+            detection.id = str(i)
             
             # add traffic light detection3d to array
             detectionsArray.detections.append(detection)
