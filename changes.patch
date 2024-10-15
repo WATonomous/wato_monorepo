@@ -1,0 +1,741 @@
+diff --git a/modules/dev_overrides/docker-compose.simulation.yaml b/modules/dev_overrides/docker-compose.simulation.yaml
+index ac1e81e9..76f0136b 100644
+--- a/modules/dev_overrides/docker-compose.simulation.yaml
++++ b/modules/dev_overrides/docker-compose.simulation.yaml
+@@ -10,29 +10,29 @@ services:
+       file: ../docker-compose.simulation.yaml
+       service: carla_sim
+ 
+-  carla_ros_bridge:
+-    <<: *fixuid
+-    extends:
+-      file: ../docker-compose.simulation.yaml
+-      service: carla_ros_bridge
+-    # command: tail -F anything
+-    volumes:
+-      - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
+-    # command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
++  # carla_ros_bridge:
++  #   <<: *fixuid
++  #   extends:
++  #     file: ../docker-compose.simulation.yaml
++  #     service: carla_ros_bridge
++  #   # command: tail -F anything
++  #   volumes:
++  #     - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
++  #   # command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+ 
+   carla_viz:
+     extends:
+       file: ../docker-compose.simulation.yaml
+       service: carla_viz
+ 
+-  carla_sample_node:
+-    <<: *fixuid
+-    extends:
+-      file: ../docker-compose.simulation.yaml
+-      service: carla_sample_node
+-    # command: tail -F anything
+-    volumes:
+-      - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
++  # carla_sample_node:
++  #   <<: *fixuid
++  #   extends:
++  #     file: ../docker-compose.simulation.yaml
++  #     service: carla_sample_node
++  #   # command: tail -F anything
++  #   volumes:
++  #     - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
+   
+   carla_notebooks:
+     extends:
+diff --git a/modules/docker-compose.simulation.yaml b/modules/docker-compose.simulation.yaml
+index 20b7fc3b..d248e1f3 100644
+--- a/modules/docker-compose.simulation.yaml
++++ b/modules/docker-compose.simulation.yaml
+@@ -16,20 +16,20 @@ services:
+             - driver: nvidia
+               capabilities: [gpu]
+     
+-  carla_ros_bridge:
+-    build:
+-      context: ..
+-      dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
+-      cache_from:
+-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_${TAG}"
+-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
+-      target: deploy
+-    image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
+-    environment:
+-      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+-      - USE_ACKERMANN_CONTROL=False
+-    # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
+-    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
++  # carla_ros_bridge:
++  #   build:
++  #     context: ..
++  #     dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
++  #     cache_from:
++  #       - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_${TAG}"
++  #       - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
++  #     target: deploy
++  #   image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
++  #   environment:
++  #     - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
++  #     - USE_ACKERMANN_CONTROL=False
++  #   # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
++  #   command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+ 
+   carla_viz:
+     build:
+@@ -48,17 +48,17 @@ services:
+     entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
+     restart: always
+ 
+-  carla_sample_node:
+-    build:
+-      context: ..
+-      dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
+-      cache_from:
+-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_${TAG}"
+-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_main"
+-      target: deploy
+-    image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
+-    # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
+-    command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
++  # carla_sample_node:
++  #   build:
++  #     context: ..
++  #     dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
++  #     cache_from:
++  #       - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_${TAG}"
++  #       - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_main"
++  #     target: deploy
++  #   image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
++  #   # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
++  #   command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
+ 
+   carla_notebooks:
+     build:
+diff --git a/src/world_modeling/hd_map/src/hd_map_router.cpp b/src/world_modeling/hd_map/src/hd_map_router.cpp
+index 38f3c928..d62e147a 100644
+--- a/src/world_modeling/hd_map/src/hd_map_router.cpp
++++ b/src/world_modeling/hd_map/src/hd_map_router.cpp
+@@ -98,67 +98,67 @@ lanelet::Optional<lanelet::routing::LaneletPath> HDMapRouter::route(lanelet::Con
+     return shortest_path;
+ }
+ 
+-void HDMapRouter::process_traffic_light_msg(const vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg_ptr){
+-    std::map<uint64_t, bool> found_id;
+-    for (const auto &traffic_light_msg : traffic_light_array_msg_ptr->detections) {
+-        uint64_t traffic_light_id = stoull(traffic_light_msg.id);
+-
+-        found_id[traffic_light_id] = true;
+-        if(traffic_light_list_.find(traffic_light_id) == nullptr){
+-            add_traffic_light(std::make_shared<vision_msgs::msg::Detection3D>(traffic_light_msg));
+-            traffic_light_list_.insert(traffic_light_id);
+-        }
+-        else{
+-            update_traffic_light(std::make_shared<vision_msgs::msg::Detection3D>(traffic_light_msg));
+-        }
+-    }
+-
+-    for (auto it = traffic_light_list_.begin(); it!=traffic_light_list_.end(); it++) {
+-        if (found_id[*it]) {
+-            remove_traffic_light(*it);
+-            it = traffic_light_list_.erase(it);     // keep at the same "index"
+-        }
+-        else {
+-            it++;
+-        }
+-    }
+-}
+-
+-void HDMapRouter::process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+-    uint64_t traffic_sign_id = stoi(traffic_sign_msg_ptr->id);
+-    if(traffic_sign_list_.find(traffic_sign_id) == nullptr){
+-        add_traffic_sign(traffic_sign_msg_ptr);
+-        traffic_sign_list_.insert(traffic_sign_id);
+-    }
+-    else{
+-        update_traffic_sign(traffic_sign_msg_ptr);
+-    }
+-}
+-
+-void HDMapRouter::process_pedestrian_msg(const vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg_ptr){
+-    std::set<uint64_t> current_pedestrian_ids;
+-    for (const auto &pedestrian_msg : pedestrian_msg_ptr->detections){
+-        uint64_t pedestrian_id = stoi(pedestrian_msg.id);
+-        current_pedestrian_ids.insert(pedestrian_id);
+-        if(pedestrian_list_.find(pedestrian_id) == nullptr){
+-            add_pedestrian(std::make_shared<vision_msgs::msg::Detection3D>(pedestrian_msg));
+-            pedestrian_list_.insert(pedestrian_id);
+-        }
+-        else{
+-            update_pedestrian(std::make_shared<vision_msgs::msg::Detection3D>(pedestrian_msg));
+-        }
+-    }
+-
+-    // Handle removal of pedestrians that are no longer detected
+-    for (auto it = pedestrian_list_.begin(); it != pedestrian_list_.end();) {
+-        if (current_pedestrian_ids.find(*it) == current_pedestrian_ids.end()) {
+-            remove_pedestrian(*it);
+-            it = pedestrian_list_.erase(it); // Erase and get next iterator
+-        } else {
+-            ++it;
+-        }
+-    }
+-}
++// void HDMapRouter::process_traffic_light_msg(const vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg_ptr){
++//     std::map<uint64_t, bool> found_id;
++//     for (const auto &traffic_light_msg : traffic_light_array_msg_ptr->detections) {
++//         uint64_t traffic_light_id = stoull(traffic_light_msg.id);
++
++//         found_id[traffic_light_id] = true;
++//         if(traffic_light_list_.find(traffic_light_id) == nullptr){
++//             add_traffic_light(std::make_shared<vision_msgs::msg::Detection3D>(traffic_light_msg));
++//             traffic_light_list_.insert(traffic_light_id);
++//         }
++//         else{
++//             update_traffic_light(std::make_shared<vision_msgs::msg::Detection3D>(traffic_light_msg));
++//         }
++//     }
++
++//     for (auto it = traffic_light_list_.begin(); it!=traffic_light_list_.end(); it++) {
++//         if (found_id[*it]) {
++//             remove_traffic_light(*it);
++//             it = traffic_light_list_.erase(it);     // keep at the same "index"
++//         }
++//         else {
++//             it++;
++//         }
++//     }
++// }
++
++// void HDMapRouter::process_traffic_sign_msg(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
++//     uint64_t traffic_sign_id = stoi(traffic_sign_msg_ptr->id);
++//     if(traffic_sign_list_.find(traffic_sign_id) == nullptr){
++//         add_traffic_sign(traffic_sign_msg_ptr);
++//         traffic_sign_list_.insert(traffic_sign_id);
++//     }
++//     else{
++//         update_traffic_sign(traffic_sign_msg_ptr);
++//     }
++// }
++
++// void HDMapRouter::process_pedestrian_msg(const vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg_ptr){
++//     std::set<uint64_t> current_pedestrian_ids;
++//     for (const auto &pedestrian_msg : pedestrian_msg_ptr->detections){
++//         uint64_t pedestrian_id = stoi(pedestrian_msg.id);
++//         current_pedestrian_ids.insert(pedestrian_id);
++//         if(pedestrian_list_.find(pedestrian_id) == nullptr){
++//             add_pedestrian(std::make_shared<vision_msgs::msg::Detection3D>(pedestrian_msg));
++//             pedestrian_list_.insert(pedestrian_id);
++//         }
++//         else{
++//             update_pedestrian(std::make_shared<vision_msgs::msg::Detection3D>(pedestrian_msg));
++//         }
++//     }
++
++//     // Handle removal of pedestrians that are no longer detected
++//     for (auto it = pedestrian_list_.begin(); it != pedestrian_list_.end();) {
++//         if (current_pedestrian_ids.find(*it) == current_pedestrian_ids.end()) {
++//             remove_pedestrian(*it);
++//             it = pedestrian_list_.erase(it); // Erase and get next iterator
++//         } else {
++//             ++it;
++//         }
++//     }
++// }
+ 
+ std::string HDMapRouter::get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr){
+     std::string class_id = "";
+@@ -177,98 +177,98 @@ std::string HDMapRouter::get_detection3d_class(const vision_msgs::msg::Detection
+ //          A. update_stop_sign()  [TODO]
+ //             ... (more to come later, hopefully)  
+ //      - update_obstacle() [TODO]
+-void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
+-    std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
+-    if (traffic_light_state == "UNKNOWN") {
+-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Light Type Does Not Exist in Vocabulary!");
+-    }
+-
+-    uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id);
+-
+-    auto bbox = traffic_light_msg_ptr->bbox;
+-    lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3d(
+-        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
+-        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
+-    );
++// void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
++//     std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
++//     if (traffic_light_state == "UNKNOWN") {
++//         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Light Type Does Not Exist in Vocabulary!");
++//     }
++
++//     uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id);
++
++//     auto bbox = traffic_light_msg_ptr->bbox;
++//     lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3d(
++//         lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
++//         lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
++//     );
+     
+-    // add traffic light to current lanelet
+-    lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-
+-    for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
+-        auto traffic_light_elem = std::dynamic_pointer_cast<TrafficLightRegElem>(reg_elem);
+-
+-        // find traffic light in reg_elems
+-        if (traffic_light_elem && traffic_light_elem.id() == traffic_light_id) {
+-            traffic_light_elem.set_bbox(traffic_light_bbox);
+-            traffic_light_elem.set_state(traffic_light_state);
+-
+-            lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+-            current_lanelet.addRegulatoryElement(traffic_light_elem);           // if duplicate, no addition
+-
+-            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Updated traffic light in lanelet map: ID = %lu, New Position = (%f, %f, %f)", traffic_light_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-        }
+-    }
+-
+-    RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic light with ID %lu not found for update.", traffic_light_id);
+-}
+-
+-void HDMapRouter::update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+-    std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
+-    if (traffic_sign_name == "STOP SIGN"){
+-        update_stop_sign(traffic_sign_msg_ptr);
+-    }
+-    else {
+-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Sign Type Does Not Exist in Vocabulary!");
+-    }
+-}
+-
+-void HDMapRouter::update_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+-
+-}
+-
+-void HDMapRouter::update_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
+-    // Ensure the detection is actually a pedestrian
+-    std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
+-    if (pedestrian_class != "PEDESTRIAN") {
+-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Received non-pedestrian message in update_pedestrian function!");
+-        return;
+-    }
+-
+-    // Extract the ID of the pedestrian
+-    uint64_t pedestrian_id = std::stoull(pedestrian_msg_ptr->id);
+-
+-    // Extract the bounding box of the pedestrian
+-    auto bbox = pedestrian_msg_ptr->bbox;
+-
+-    // Create a new bounding box for the pedestrian in the lanelet map
+-    lanelet::BoundingBox3d new_pedestrian_bbox = lanelet::BoundingBox3d(
+-        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2, bbox.center.position.y - bbox.size.y / 2, bbox.center.position.z - bbox.size.z / 2),
+-        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2, bbox.center.position.y + bbox.size.y / 2, bbox.center.position.z + bbox.size.z / 2)
+-    );
+-
+-    // Find the nearest lanelet to the pedestrian position using the center of the new bounding box
+-    lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-
+-    // Find the existing pedestrian regulatory element
+-    for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
+-        auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
+-        if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
+-            // Update the bounding box of the existing pedestrian regulatory element
+-            pedestrian_elem->parameters()["pedestrian_bbox"].clear();
+-            pedestrian_elem->parameters()["pedestrian_bbox"].emplace_back(new_pedestrian_bbox);
+-
+-            // Re-associate the updated regulatory element with the appropriate lanelet if necessary
+-            lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+-            mutable_lanelet.addRegulatoryElement(pedestrian_elem);
+-
+-            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Updated pedestrian in the lanelet map: ID = %lu, New Position = (%f, %f, %f)",
+-                        pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-            return;
+-        }
+-    }
+-
+-    RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Pedestrian with ID %lu not found for update.", pedestrian_id);
+-}
++//     // add traffic light to current lanelet
++//     lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++
++//     for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
++//         auto traffic_light_elem = std::dynamic_pointer_cast<TrafficLightRegElem>(reg_elem);
++
++//         // find traffic light in reg_elems
++//         if (traffic_light_elem && traffic_light_elem.id() == traffic_light_id) {
++//             traffic_light_elem.set_bbox(traffic_light_bbox);
++//             traffic_light_elem.set_state(traffic_light_state);
++
++//             lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
++//             current_lanelet.addRegulatoryElement(traffic_light_elem);           // if duplicate, no addition
++
++//             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Updated traffic light in lanelet map: ID = %lu, New Position = (%f, %f, %f)", traffic_light_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++//         }
++//     }
++
++//     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic light with ID %lu not found for update.", traffic_light_id);
++// }
++
++// void HDMapRouter::update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
++//     std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
++//     if (traffic_sign_name == "STOP SIGN"){
++//         update_stop_sign(traffic_sign_msg_ptr);
++//     }
++//     else {
++//         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Sign Type Does Not Exist in Vocabulary!");
++//     }
++// }
++
++// void HDMapRouter::update_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
++
++// }
++
++// void HDMapRouter::update_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
++//     // Ensure the detection is actually a pedestrian
++//     std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
++//     if (pedestrian_class != "PEDESTRIAN") {
++//         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Received non-pedestrian message in update_pedestrian function!");
++//         return;
++//     }
++
++//     // Extract the ID of the pedestrian
++//     uint64_t pedestrian_id = std::stoull(pedestrian_msg_ptr->id);
++
++//     // Extract the bounding box of the pedestrian
++//     auto bbox = pedestrian_msg_ptr->bbox;
++
++//     // Create a new bounding box for the pedestrian in the lanelet map
++//     lanelet::BoundingBox3d new_pedestrian_bbox = lanelet::BoundingBox3d(
++//         lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2, bbox.center.position.y - bbox.size.y / 2, bbox.center.position.z - bbox.size.z / 2),
++//         lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2, bbox.center.position.y + bbox.size.y / 2, bbox.center.position.z + bbox.size.z / 2)
++//     );
++
++//     // Find the nearest lanelet to the pedestrian position using the center of the new bounding box
++//     lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++
++//     // Find the existing pedestrian regulatory element
++//     for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
++//         auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
++//         if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
++//             // Update the bounding box of the existing pedestrian regulatory element
++//             pedestrian_elem->parameters()["pedestrian_bbox"].clear();
++//             pedestrian_elem->parameters()["pedestrian_bbox"].emplace_back(new_pedestrian_bbox);
++
++//             // Re-associate the updated regulatory element with the appropriate lanelet if necessary
++//             lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
++//             mutable_lanelet.addRegulatoryElement(pedestrian_elem);
++
++//             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Updated pedestrian in the lanelet map: ID = %lu, New Position = (%f, %f, %f)",
++//                         pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++//             return;
++//         }
++//     }
++
++//     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Pedestrian with ID %lu not found for update.", pedestrian_id);
++// }
+ 
+ // Add Regulatory Element Functions:
+ //      - add_traffic_light() [TODO]
+@@ -276,125 +276,125 @@ void HDMapRouter::update_pedestrian(const vision_msgs::msg::Detection3D::SharedP
+ //          A. add_stop_sign()  [TODO]
+ //             ... (more to come later, hopefully)  
+ //      - add_obstacle() [TODO]
+-void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
+-    std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
+-    if (traffic_light_state == "UNKOWN") {
+-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Light Type Does Not Exist in Vocabulary!");
+-    }
+-
+-    uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id)
+-
+-    // create bounding box from Detection 3d
+-    auto bbox = traffic_light_msg_ptr->bbox;
+-    lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
+-        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
+-        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
+-    );
++// void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr){
++//     std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
++//     if (traffic_light_state == "UNKOWN") {
++//         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Light Type Does Not Exist in Vocabulary!");
++//     }
++
++//     uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id)
++
++//     // create bounding box from Detection 3d
++//     auto bbox = traffic_light_msg_ptr->bbox;
++//     lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
++//         lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
++//         lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
++//     );
+     
+-    // create traffic light ptr
+-    auto traffic_light_elem = TrafficLightRegElem::make(traffic_light_bbox, traffic_light_state);
+-
+-    // add traffic light to current lanelet
+-    lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-    lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+-    current_lanelet.addRegulatoryElement(traffic_light_elem);
+-
+-    lanelet_ptr_->add(traffic_light_elem);
+-
+-    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added traffic light to the lanelet map: ID = %lu, Position = (%f, %f, %f)", pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-}
+-
+-void HDMapRouter::add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+-    std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
+-    if (traffic_sign_name == "STOP SIGN"){
+-        add_stop_sign(traffic_sign_msg_ptr);
+-    }
+-    else {
+-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Sign Type Does Not Exist in Vocabulary!");
+-    }
+-}
+-void HDMapRouter::add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
+-    // TODO : stop sign
+-}
+-
+-void HDMapRouter::add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
+-    // Ensure the detection is actually a pedestrian
+-    std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
+-    if (pedestrian_class != "PEDESTRIAN") {
+-        RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Received non-pedestrian message in add_pedestrian function!");
+-        return;
+-    }
+-
+-    // Extract the ID of the pedestrian
+-    uint64_t pedestrian_id = std::stoull(pedestrian_msg_ptr->id);
+-
+-    // Extract the bounding box of the pedestrian
+-    auto bbox = pedestrian_msg_ptr->bbox;
+-
+-    // Create a bounding box for the pedestrian in the lanelet map
+-    lanelet::BoundingBox3d new_pedestrian_bbox = lanelet::BoundingBox3d(
+-        lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2, bbox.center.position.y - bbox.size.y / 2, bbox.center.position.z - bbox.size.z / 2),
+-        lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2, bbox.center.position.y + bbox.size.y / 2, bbox.center.position.z + bbox.size.z / 2)
+-    );
+-
+-    // Find the nearest lanelet to the pedestrian position using the center of the bounding box
+-    lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-
+-    // Create a regulatory element for the pedestrian
+-    auto pedestrian_reg_elem = PedestrianRegElem::make(pedestrian_bbox);
+-
+-    // Add the regulatory element to the lanelet
+-    lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+-    mutable_lanelet.addRegulatoryElement(pedestrian_reg_elem);
+-
+-    // Add the pedestrian to the map
+-    lanelet_ptr_->add(pedestrian_reg_elem);
+-
+-    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added pedestrian to the lanelet map: ID = %lu, Position = (%f, %f, %f)",
+-                pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+-}
++//     // create traffic light ptr
++//     auto traffic_light_elem = TrafficLightRegElem::make(traffic_light_bbox, traffic_light_state);
++
++//     // add traffic light to current lanelet
++//     lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++//     lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
++//     current_lanelet.addRegulatoryElement(traffic_light_elem);
++
++//     lanelet_ptr_->add(traffic_light_elem);
++
++//     RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added traffic light to the lanelet map: ID = %lu, Position = (%f, %f, %f)", pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++// }
++
++// void HDMapRouter::add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
++//     std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
++//     if (traffic_sign_name == "STOP SIGN"){
++//         add_stop_sign(traffic_sign_msg_ptr);
++//     }
++//     else {
++//         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Sign Type Does Not Exist in Vocabulary!");
++//     }
++// }
++// void HDMapRouter::add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
++//     // TODO : stop sign
++// }
++
++// void HDMapRouter::add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr){
++//     // Ensure the detection is actually a pedestrian
++//     std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
++//     if (pedestrian_class != "PEDESTRIAN") {
++//         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Received non-pedestrian message in add_pedestrian function!");
++//         return;
++//     }
++
++//     // Extract the ID of the pedestrian
++//     uint64_t pedestrian_id = std::stoull(pedestrian_msg_ptr->id);
++
++//     // Extract the bounding box of the pedestrian
++//     auto bbox = pedestrian_msg_ptr->bbox;
++
++//     // Create a bounding box for the pedestrian in the lanelet map
++//     lanelet::BoundingBox3d new_pedestrian_bbox = lanelet::BoundingBox3d(
++//         lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2, bbox.center.position.y - bbox.size.y / 2, bbox.center.position.z - bbox.size.z / 2),
++//         lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2, bbox.center.position.y + bbox.size.y / 2, bbox.center.position.z + bbox.size.z / 2)
++//     );
++
++//     // Find the nearest lanelet to the pedestrian position using the center of the bounding box
++//     lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++
++//     // Create a regulatory element for the pedestrian
++//     auto pedestrian_reg_elem = PedestrianRegElem::make(pedestrian_bbox);
++
++//     // Add the regulatory element to the lanelet
++//     lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
++//     mutable_lanelet.addRegulatoryElement(pedestrian_reg_elem);
++
++//     // Add the pedestrian to the map
++//     lanelet_ptr_->add(pedestrian_reg_elem);
++
++//     RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added pedestrian to the lanelet map: ID = %lu, Position = (%f, %f, %f)",
++//                 pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
++// }
+ 
+ 
+ // REMOVE ID
+ 
+-void HDMapRouter::remove_traffic_light(uint64_t traffic_light_id) {
+-    for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
+-        auto traffic_light_elem = std::dynamic_cast<TrafficLightElem>(reg_elem);
+-        if (traffic_light_elem && traffic_light_elem->id() == traffic_light_id) {
+-            for (auto& lanelet : lanelet_ptr_->laneletLayer) {
+-                if (lanelet.hasRegulatoryElement(traffic_light_elem)) {
+-                    lanelet.removeRegulatoryElement(traffic_light_elem);
+-                }
+-            }
+-
+-            lanelet_ptr_->remove(traffic_light_elem);
+-
+-            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Removed traffic light from the lanelet map: ID = %lu", traffic_light_id);
+-            return;
+-        }
+-    }
+-
+-    RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic light with ID %lu not found for removal.", traffic_light_id);
+-}
+-
+-void HDMapRouter::remove_pedestrian(uint64_t pedestrian_id){
+-    for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
+-        auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
+-        if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
+-            // Remove the regulatory element from the lanelet
+-            for (auto& lanelet : lanelet_ptr_->laneletLayer) {
+-                if (lanelet.hasRegulatoryElement(pedestrian_elem)) {
+-                    lanelet.removeRegulatoryElement(pedestrian_elem);
+-                }
+-            }
+-
+-            // Remove the regulatory element from the map
+-            lanelet_ptr_->remove(pedestrian_elem);
+-
+-            RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Removed pedestrian from the lanelet map: ID = %lu", pedestrian_id);
+-            return;
+-        }
+-    }
+-
+-    RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Pedestrian with ID %lu not found for removal.", pedestrian_id);
+-}
++// void HDMapRouter::remove_traffic_light(uint64_t traffic_light_id) {
++//     for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
++//         auto traffic_light_elem = std::dynamic_cast<TrafficLightElem>(reg_elem);
++//         if (traffic_light_elem && traffic_light_elem->id() == traffic_light_id) {
++//             for (auto& lanelet : lanelet_ptr_->laneletLayer) {
++//                 if (lanelet.hasRegulatoryElement(traffic_light_elem)) {
++//                     lanelet.removeRegulatoryElement(traffic_light_elem);
++//                 }
++//             }
++
++//             lanelet_ptr_->remove(traffic_light_elem);
++
++//             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Removed traffic light from the lanelet map: ID = %lu", traffic_light_id);
++//             return;
++//         }
++//     }
++
++//     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic light with ID %lu not found for removal.", traffic_light_id);
++// }
++
++// void HDMapRouter::remove_pedestrian(uint64_t pedestrian_id){
++//     for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
++//         auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
++//         if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
++//             // Remove the regulatory element from the lanelet
++//             for (auto& lanelet : lanelet_ptr_->laneletLayer) {
++//                 if (lanelet.hasRegulatoryElement(pedestrian_elem)) {
++//                     lanelet.removeRegulatoryElement(pedestrian_elem);
++//                 }
++//             }
++
++//             // Remove the regulatory element from the map
++//             lanelet_ptr_->remove(pedestrian_elem);
++
++//             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Removed pedestrian from the lanelet map: ID = %lu", pedestrian_id);
++//             return;
++//         }
++//     }
++
++//     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Pedestrian with ID %lu not found for removal.", pedestrian_id);
++// }
+diff --git a/src/world_modeling/hd_map/src/hd_map_service.cpp b/src/world_modeling/hd_map/src/hd_map_service.cpp
+index 022ca432..d0c954f8 100644
+--- a/src/world_modeling/hd_map/src/hd_map_service.cpp
++++ b/src/world_modeling/hd_map/src/hd_map_service.cpp
+@@ -22,26 +22,26 @@ HDMapService::HDMapService() : Node("hd_map_service") {
+   hd_map_desired_lane_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("hd_map_desired_lane", 20);
+   hd_map_current_lane_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("hd_map_current_lane", 20);
+ 
+-  hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>("traffic_light", 20, std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
+-  hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>("traffic_sign", 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
+-  hd_map_pedestrian_subscriber_ = this->create_subscription<common_msgs::msg::Obstacle>("pedestrian", 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
++  // hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>("traffic_light", 20, std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
++  // hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>("traffic_sign", 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
++  // hd_map_pedestrian_subscriber_ = this->create_subscription<common_msgs::msg::Obstacle>("pedestrian", 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
+   point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>("clicked_point", 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
+   query_point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>("query_point", 20, std::bind(&HDMapService::get_desired_lane, this, std::placeholders::_1));
+ 
+   hd_map_visualization_timer_ = this->create_wall_timer(std::chrono::milliseconds(5000), std::bind(&HDMapService::publish_hd_map_marker, this));
+ }
+ 
+-void HDMapService::hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg){
+-  router_->process_traffic_light_msg(traffic_light_array_msg);
+-}
++// void HDMapService::hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg){
++//   router_->process_traffic_light_msg(traffic_light_array_msg);
++// }
+ 
+-void HDMapService::hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg){
+-  router_->process_traffic_sign_msg(traffic_sign_msg);
+-}
++// void HDMapService::hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg){
++//   router_->process_traffic_sign_msg(traffic_sign_msg);
++// }
+ 
+-void HDMapService::hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg){
+-  router_->process_pedestrian_msg(pedestrian_msg);
+-}
++// void HDMapService::hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg){
++//   router_->process_pedestrian_msg(pedestrian_msg);
++// }
+ 
+ void HDMapService::publish_hd_map_marker(){
+   auto marker_array = world_modeling::hd_map::laneletMapAsMarkerArray(router_->get_lanelet());
+diff --git a/watod-config.sh b/watod-config.sh
+index 3255dd40..a6ce4c77 100755
+--- a/watod-config.sh
++++ b/watod-config.sh
+@@ -15,7 +15,7 @@
+ ##	 - simulation			:	starts simulation
+ ##   - samples             	:   starts sample ROS2 pubsub nodes
+ 
+-# ACTIVE_MODULES=""
++ACTIVE_MODULES="world_modeling simulation infrastructure"
+ 
+ ################################# MODE OF OPERATION #################################
+ ## Possible modes of operation when running watod.
