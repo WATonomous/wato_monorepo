@@ -4,7 +4,7 @@ services:
   global_planning:
     build:
       context: ..
-      dockerfile: docker/action/global_planning/global_planning.Dockerfile
+      dockerfile: docker/action/global_planning.Dockerfile
       cache_from:
         - "${ACTION_GLOBAL_PLANNING_IMAGE}:build_${TAG}"
         - "${ACTION_GLOBAL_PLANNING_IMAGE}:build_main"
@@ -15,7 +15,7 @@ services:
   behaviour_planning:
     build:
       context: ..
-      dockerfile: docker/action/behaviour_planning/behaviour_planning.Dockerfile
+      dockerfile: docker/action/behaviour_planning.Dockerfile
       cache_from:
         - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:build_${TAG}"
         - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:build_main"
@@ -26,7 +26,7 @@ services:
   local_planning:
     build:
       context: ..
-      dockerfile: docker/action/local_planning/local_planning.Dockerfile
+      dockerfile: docker/action/local_planning.Dockerfile
       cache_from:
         - "${ACTION_LOCAL_PLANNING_IMAGE}:build_${TAG}"
         - "${ACTION_LOCAL_PLANNING_IMAGE}:build_main"
@@ -37,7 +37,7 @@ services:
   model_predictive_control:
     build:
       context: ..
-      dockerfile: docker/action/model_predictive_control/model_predictive_control.Dockerfile
+      dockerfile: docker/action/model_predictive_control.Dockerfile
       cache_from:
         - "${ACTION_MPC_IMAGE}:build_${TAG}"
         - "${ACTION_MPC_IMAGE}:build_main"

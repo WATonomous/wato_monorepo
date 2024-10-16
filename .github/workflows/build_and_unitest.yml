@@ -87,7 +87,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: docker/${{ matrix.module }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
@@ -102,7 +102,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: docker/${{ matrix.module }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
@@ -118,7 +118,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: docker/${{ matrix.module }}/${{ matrix.service }}.Dockerfile
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}

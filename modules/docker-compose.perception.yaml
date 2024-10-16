@@ -4,7 +4,7 @@ services:
   radar_object_detection:
     build:
       context: ..
-      dockerfile: docker/perception/radar_object_detection/radar_object_detection.Dockerfile
+      dockerfile: docker/perception/radar_object_detection.Dockerfile
       cache_from:
         - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
         - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_main"
@@ -15,7 +15,7 @@ services:
   camera_object_detection:
     build:
       context: ..
-      dockerfile: docker/perception/camera_object_detection/camera_object_detection.Dockerfile
+      dockerfile: docker/perception/camera_object_detection.Dockerfile
       cache_from:
         - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
         - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_main"
@@ -38,7 +38,7 @@ services:
   lidar_object_detection:
     build:
       context: ..
-      dockerfile: docker/perception/lidar_object_detection/lidar_object_detection.Dockerfile
+      dockerfile: docker/perception/lidar_object_detection.Dockerfile
       cache_from:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_${TAG}"
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_main"
@@ -49,7 +49,7 @@ services:
   semantic_segmentation:
     build:
       context: ..
-      dockerfile: docker/perception/semantic_segmentation/semantic_segmentation.Dockerfile
+      dockerfile: docker/perception/semantic_segmentation.Dockerfile
       cache_from:
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_${TAG}"
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_main"
@@ -70,7 +70,7 @@ services:
   lane_detection:
     build:
       context: ..
-      dockerfile: docker/perception/lane_detection/lane_detection.Dockerfile
+      dockerfile: docker/perception/lane_detection.Dockerfile
       cache_from:
         - "${PERCEPTION_LANE_DETECTION_IMAGE}:build_${TAG}"
         - "${PERCEPTION_LANE_DETECTION_IMAGE}:build_main"
@@ -90,7 +90,7 @@ services:
   tracking:
     build:
       context: ..
-      dockerfile: docker/perception/tracking/tracking.Dockerfile
+      dockerfile: docker/perception/tracking.Dockerfile
       cache_from:
         - "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
         - "${PERCEPTION_TRACKING_IMAGE}:build_main"
@@ -101,7 +101,7 @@ services:
   depth_estimation:
     build:
       context: ..
-      dockerfile: docker/perception/depth_estimation/depth_estimation.Dockerfile
+      dockerfile: docker/perception/depth_estimation.Dockerfile
       cache_from:
         - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
         - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_main"
