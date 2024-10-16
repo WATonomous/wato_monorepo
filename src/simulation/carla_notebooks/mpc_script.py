@@ -5,7 +5,7 @@ import datetime
 import os
 import shutil
 
-from action.model_predictive_control.model_predictive_control.boxconstraint import BoxConstraint
+from boxconstraint import BoxConstraint
 
 SIM_DURATION = 500  # Simulation duration in time steps
 
