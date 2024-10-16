@@ -16,8 +16,6 @@ function usage {
     echo "  watod up                       start containers (docker compose up)"
     echo "  watod down                     stop and remove containers (docker compose down)"
     echo "  watod ps [--services]          list containers in the current project and show their current status (docker compose ps)"
-    echo "  watod --all pull               pull all new containers from the GitLab container registry (docker compose pull)"
-    echo "  watod --all build              build all new containers using Dockerfiles in docker/ (docker compose build)"
     echo "  watod -t perception            open a bash terminal into the perception container."
     echo ""
     echo " More Info on Docker Compose: https://docs.docker.com/compose/reference/overview/"
