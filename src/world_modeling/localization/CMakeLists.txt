@@ -9,6 +9,12 @@ endif()
 find_package(ament_cmake REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(robot_localization REQUIRED)
+
+# Copy launch and config files to installation location
+install(DIRECTORY
+  config
+  launch
+  DESTINATION share/${PROJECT_NAME})
 
 ament_package()
