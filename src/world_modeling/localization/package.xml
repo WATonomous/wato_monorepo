@@ -3,11 +3,12 @@
 <package format="3">
   <name>localization</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
+  <description>Localization using robot_localization package</description>
+  <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>robot_localization</depend>
 
 
   <export>
