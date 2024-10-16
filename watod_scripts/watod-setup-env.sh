@@ -29,23 +29,12 @@ TAG=$(echo ${TAG:-$BRANCH} | tr / -)
 TAG=${TAG/\//-}
 
 # List of active modules to run, defined in docker-compose.yaml.
-# Possible values:
-#   - infrastructure     	:   starts visualization tools (foxglove and/or vnc)
-#	- perception			:	starts perception nodes
-#	- world_modeling		:	starts world modeling nodes
-#	- action				:	starts action nodes
-#	- simulation			:	starts simulation
-#   - samples             	:   starts sample ROS2 pubsub nodes
 ACTIVE_MODULES=${ACTIVE_MODULES:-""}
-
-# List of modules to IGNORE when using the --all flag
-MODULE_BLACKLIST=${MODULE_BLACKLIST:-"production"}
 
 # Docker Registry to pull/push images
 REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
 
 REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
-REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
 
 ## --------------------------- Images -------------------------------
 # NOTE: ALL IMAGE NAMES MUCH BE IN THE FORMAT OF <COMPOSE_FILE>_<SERVICE>
@@ -98,11 +87,6 @@ SIMULATION_CARLA_SAMPLE_NODE_IMAGE=${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:-"$REGIS
 INTERFACING_CAN_IMAGE=${INTERFACING_CAN_IMAGE:-"$REGISTRY_URL/interfacing/can_interfacing"}
 INTERFACING_SENSOR_IMAGE=${INTERFACING_SENSOR_IMAGE:-"$REGISTRY_URL/interfacing/sensor_interfacing"}
 
-## -------------------------- User ID -----------------------------
-
-SETUID=$(id -u) 
-SETGID=$(id -g) 
-
 ## --------------------------- Ports ------------------------------
 
 BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
@@ -122,7 +106,6 @@ echo "MODULES_DIR=$MODULES_DIR" >> "$MODULES_DIR/.env"
 echo "MONO_DIR=$MONO_DIR" >> "$MODULES_DIR/.env"
 
 echo "ACTIVE_MODULES=\"$ACTIVE_MODULES\"" >> "$MODULES_DIR/.env"
-echo "MODULE_BLACKLIST=\"$MODULE_BLACKLIST\"" >> "$MODULES_DIR/.env"
 
 echo "COMPOSE_DOCKER_CLI_BUILD=1" >> "$MODULES_DIR/.env"
 echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$MODULES_DIR/.env"
@@ -132,9 +115,6 @@ echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$MODULES_DIR/.env"
 
 echo "TAG=$TAG" >> "$MODULES_DIR/.env"
 
-echo "SETUID=$SETUID" >> "$MODULES_DIR/.env"
-echo "SETGID=$SETGID" >> "$MODULES_DIR/.env"
-
 echo "BASE_PORT=$BASE_PORT" >> "$MODULES_DIR/.env"
 echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$MODULES_DIR/.env"
 echo "FOXGLOVE_BRIDGE_PORT=$FOXGLOVE_BRIDGE_PORT" >> "$MODULES_DIR/.env"
@@ -143,7 +123,6 @@ echo "CARLAVIZ_PORT_2=$CARLAVIZ_PORT_2" >> "$MODULES_DIR/.env"
 echo "CARLA_NOTEBOOKS_PORT=$CARLA_NOTEBOOKS_PORT" >> "$MODULES_DIR/.env"
 
 echo "REGISTRY=$REGISTRY" >> "$MODULES_DIR/.env"
-echo "REGISTRY=$REPOSITORY" >> "$MODULES_DIR/.env"
 
 # ROS2 C++ Samples
 echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$MODULES_DIR/.env"

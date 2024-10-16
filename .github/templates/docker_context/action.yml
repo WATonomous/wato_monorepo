@@ -13,9 +13,6 @@ outputs:
   registry:
     description: "name of the docker registry we are using"
     value: ${{ steps.environment-generator.outputs.registry }}
-  repository:
-    description: "name of the docker repository we are using"
-    value: ${{ steps.environment-generator.outputs.repository }}
 
 runs:
   using: "composite"
