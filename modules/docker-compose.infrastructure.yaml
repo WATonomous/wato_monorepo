@@ -4,7 +4,7 @@ services:
   foxglove:
     build:
       context: ..
-      dockerfile: docker/infrastructure/foxglove/foxglove.Dockerfile
+      dockerfile: docker/infrastructure/foxglove.Dockerfile
       cache_from:
         - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:build_${TAG}"
         - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:build_main"
@@ -31,7 +31,7 @@ services:
   data_stream:
     build:
       context: ..
-      dockerfile: docker/infrastructure/data_stream/data_stream.Dockerfile
+      dockerfile: docker/infrastructure/data_stream.Dockerfile
       cache_from:
         - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:build_${TAG}"
         - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:build_main"

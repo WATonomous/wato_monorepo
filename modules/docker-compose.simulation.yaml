@@ -19,7 +19,7 @@ services:
   carla_ros_bridge:
     build:
       context: ..
-      dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
+      dockerfile: docker/simulation/carla_ros_bridge.Dockerfile
       cache_from:
         - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_${TAG}"
         - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
@@ -34,7 +34,7 @@ services:
   carla_viz:
     build:
       context: ..
-      dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
+      dockerfile: docker/simulation/carla_viz.Dockerfile
       cache_from: 
         - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}" 
         - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_main"
@@ -51,7 +51,7 @@ services:
   carla_sample_node:
     build:
       context: ..
-      dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
+      dockerfile: docker/simulation/carla_sample_node.Dockerfile
       cache_from:
         - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_${TAG}"
         - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_main"
@@ -63,7 +63,7 @@ services:
   carla_notebooks:
     build:
       context: ..
-      dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
+      dockerfile: docker/simulation/carla_notebooks.Dockerfile
       cache_from: 
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_${TAG}"
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_main"

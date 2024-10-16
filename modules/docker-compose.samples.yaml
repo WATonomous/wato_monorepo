@@ -4,7 +4,7 @@ services:
   cpp_aggregator: # C++
     build:
       context: ..
-      dockerfile: docker/samples/cpp_aggregator/cpp_aggregator.Dockerfile
+      dockerfile: docker/samples/cpp_aggregator.Dockerfile
       cache_from:
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:build_${TAG}"
         - "${SAMPLES_CPP_AGGREGATOR_IMAGE:?}:build_main"
@@ -37,7 +37,7 @@ services:
   py_producer: # PYTHON
     build:
       context: ..
-      dockerfile: docker/samples/py_producer/py_producer.Dockerfile
+      dockerfile: docker/samples/py_producer.Dockerfile
       cache_from:
         - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:build_${TAG}"
         - "${SAMPLES_PYTHON_PRODUCER_IMAGE:?}:build_main"
@@ -59,7 +59,7 @@ services:
   py_transformer: # PYTHON
     build:
       context: ..
-      dockerfile: docker/samples/py_transformer/py_transformer.Dockerfile
+      dockerfile: docker/samples/py_transformer.Dockerfile
       cache_from:
         - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:build_${TAG}"
         - "${SAMPLES_PYTHON_TRANSFORMER_IMAGE:?}:build_main"
