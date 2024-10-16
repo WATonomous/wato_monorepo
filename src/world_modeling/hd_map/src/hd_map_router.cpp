@@ -198,9 +198,8 @@ void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::Shar
         auto traffic_light_elem = std::dynamic_pointer_cast<TrafficLightRegElem>(reg_elem);
 
         // find traffic light in reg_elems
-        if (traffic_light_elem && traffic_light_elem.id() == traffic_light_id) {
-            traffic_light_elem.set_bbox(traffic_light_bbox);
-            traffic_light_elem.set_state(traffic_light_state);
+        if (traffic_light_elem && traffic_light_elem->getId() == traffic_light_id) {
+            traffic_light_elem->updateTrafficLight(traffic_light_bbox, traffic_light_state);
 
             lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
             current_lanelet.addRegulatoryElement(traffic_light_elem);           // if duplicate, no addition
@@ -252,11 +251,10 @@ void HDMapRouter::update_pedestrian(const vision_msgs::msg::Detection3D::SharedP
     // Find the existing pedestrian regulatory element
     for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
         auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
-        if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
+        if (pedestrian_elem && pedestrian_elem->getId() == pedestrian_id) {
             // Update the bounding box of the existing pedestrian regulatory element
-            pedestrian_elem->parameters()["pedestrian_bbox"].clear();
-            pedestrian_elem->parameters()["pedestrian_bbox"].emplace_back(new_pedestrian_bbox);
-
+            pedestrian_elem->updatePedestrian(new_pedestrian_bbox);
+            
             // Re-associate the updated regulatory element with the appropriate lanelet if necessary
             lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
             mutable_lanelet.addRegulatoryElement(pedestrian_elem);
@@ -282,17 +280,17 @@ void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedP
         RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"), "Traffic Light Type Does Not Exist in Vocabulary!");
     }
 
-    uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id)
+    uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id);
 
     // create bounding box from Detection 3d
     auto bbox = traffic_light_msg_ptr->bbox;
-    lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3D(
+    lanelet::BoundingBox3d traffic_light_bbox = lanelet::BoundingBox3d(
         lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x/2, bbox.center.position.y - bbox.size.y/2, bbox.center.position.z - bbox.size.z / 2),
         lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x/2, bbox.center.position.y + bbox.size.y/2, bbox.center.position.z + bbox.size.z/2)
     );
     
     // create traffic light ptr
-    auto traffic_light_elem = TrafficLightRegElem::make(traffic_light_bbox, traffic_light_state);
+    auto traffic_light_elem = TrafficLightRegElem::make(traffic_light_bbox, traffic_light_state, traffic_light_id);
 
     // add traffic light to current lanelet
     lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
@@ -301,7 +299,7 @@ void HDMapRouter::add_traffic_light(const vision_msgs::msg::Detection3D::SharedP
 
     lanelet_ptr_->add(traffic_light_elem);
 
-    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added traffic light to the lanelet map: ID = %lu, Position = (%f, %f, %f)", pedestrian_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+    RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Added traffic light to the lanelet map: ID = %lu, Position = (%f, %f, %f)", traffic_light_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
 }
 
 void HDMapRouter::add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr){
@@ -341,7 +339,7 @@ void HDMapRouter::add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr 
     lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
 
     // Create a regulatory element for the pedestrian
-    auto pedestrian_reg_elem = PedestrianRegElem::make(pedestrian_bbox);
+    auto pedestrian_reg_elem = PedestrianRegElem::make(new_pedestrian_bbox, pedestrian_id);
 
     // Add the regulatory element to the lanelet
     lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
@@ -359,12 +357,10 @@ void HDMapRouter::add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr 
 
 void HDMapRouter::remove_traffic_light(uint64_t traffic_light_id) {
     for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
-        auto traffic_light_elem = std::dynamic_cast<TrafficLightElem>(reg_elem);
-        if (traffic_light_elem && traffic_light_elem->id() == traffic_light_id) {
+        auto traffic_light_elem = std::dynamic_pointer_cast<TrafficLightRegElem>(reg_elem);
+        if (traffic_light_elem && traffic_light_elem->getId() == traffic_light_id) {
             for (auto& lanelet : lanelet_ptr_->laneletLayer) {
-                if (lanelet.hasRegulatoryElement(traffic_light_elem)) {
-                    lanelet.removeRegulatoryElement(traffic_light_elem);
-                }
+                lanelet.removeRegulatoryElement(traffic_light_elem);        // true if removed, false if not in reg elems
             }
 
             lanelet_ptr_->remove(traffic_light_elem);
@@ -380,12 +376,10 @@ void HDMapRouter::remove_traffic_light(uint64_t traffic_light_id) {
 void HDMapRouter::remove_pedestrian(uint64_t pedestrian_id){
     for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
         auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
-        if (pedestrian_elem && pedestrian_elem->id() == pedestrian_id) {
+        if (pedestrian_elem && pedestrian_elem->getId() == pedestrian_id) {
             // Remove the regulatory element from the lanelet
             for (auto& lanelet : lanelet_ptr_->laneletLayer) {
-                if (lanelet.hasRegulatoryElement(pedestrian_elem)) {
-                    lanelet.removeRegulatoryElement(pedestrian_elem);
-                }
+                lanelet.removeRegulatoryElement(pedestrian_elem);
             }
 
             // Remove the regulatory element from the map
