@@ -39,7 +39,9 @@ add_library(hd_map_lib
   src/lanelet_visualization.cpp
   src/hd_map_manager.cpp
   src/hd_map_router.cpp
-  src/pedestrian_reg_elem.cpp)
+  src/pedestrian_reg_elem.cpp
+  src/traffic_light_reg_elem.cpp
+  src/utils.cpp)
 
 # Indicate to compiler where to search for header files
 target_include_directories(hd_map_lib
