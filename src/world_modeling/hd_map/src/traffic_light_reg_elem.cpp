@@ -1,28 +1,8 @@
 #include "traffic_light_reg_elem.hpp"
-
-lanelet::Polygon3d boundingBox3dToPolygon3d(const lanelet::BoundingBox3d& bbox){
-    auto min = bbox.min();
-    auto max = bbox.max();
-
-    lanelet::Polygon3d polygon{
-        lanelet::utils::getId(),
-        {
-          lanelet::Point3d(lanelet::utils::getId(), min.x(), min.y(), min.z()),
-          lanelet::Point3d(lanelet::utils::getId(), max.x(), min.y(), min.z()),
-          lanelet::Point3d(lanelet::utils::getId(), max.x(), max.y(), min.z()),
-          lanelet::Point3d(lanelet::utils::getId(), min.x(), max.y(), min.z()),
-          lanelet::Point3d(lanelet::utils::getId(), min.x(), min.y(), max.z()),
-          lanelet::Point3d(lanelet::utils::getId(), max.x(), min.y(), max.z()),
-          lanelet::Point3d(lanelet::utils::getId(), max.x(), max.y(), max.z()),
-          lanelet::Point3d(lanelet::utils::getId(), min.x(), max.y(), max.z())
-        }
-    };
-
-    return polygon;
-}
+#include "utils.hpp"
 
 std::shared_ptr<TrafficLightRegElem> TrafficLightRegElem::make(const lanelet::BoundingBox3d& bbox, const std::string& color, uint64_t id) {
-    auto traffic_light = boundingBox3dToPolygon3d(bbox);
+    auto traffic_light = utils::boundingBox3dToPolygon3d(bbox);
     lanelet::RuleParameterMap rpm = {{lanelet::RoleNameString::Refers, {traffic_light}}};
     lanelet::AttributeMap am = {};
 
@@ -32,7 +12,7 @@ std::shared_ptr<TrafficLightRegElem> TrafficLightRegElem::make(const lanelet::Bo
     data->attributes[lanelet::AttributeName::Type] = lanelet::AttributeValueString::RegulatoryElement;
     data->attributes[lanelet::AttributeName::Subtype] = RuleName;
 
-    return std::make_shared<TrafficLightRegElem>(new TrafficLightRegElem(data, color, id));
+    return std::shared_ptr<TrafficLightRegElem>(new TrafficLightRegElem(data, color, id));
 }
 
 // constructor
@@ -51,7 +31,7 @@ std::string TrafficLightRegElem::getColor() const {
 
 // Setters
 void TrafficLightRegElem::updateTrafficLight(const lanelet::BoundingBox3d& bbox, const std::string& color) {
-    auto traffic_light = boundingBox3dToPolygon3d(bbox);
+    auto traffic_light = utils::boundingBox3dToPolygon3d(bbox);
     parameters()[lanelet::RoleName::Refers].clear();
     parameters()[lanelet::RoleName::Refers].emplace_back(traffic_light);
 
