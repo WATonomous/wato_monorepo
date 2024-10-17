@@ -363,7 +363,8 @@ void HDMapRouter::remove_traffic_light(uint64_t traffic_light_id) {
                 lanelet.removeRegulatoryElement(traffic_light_elem);        // true if removed, false if not in reg elems
             }
 
-            lanelet_ptr_->remove(traffic_light_elem);
+            // TO BE FIGURED OUT
+            // lanelet_ptr_->remove(traffic_light_elem);
 
             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Removed traffic light from the lanelet map: ID = %lu", traffic_light_id);
             return;
@@ -383,7 +384,8 @@ void HDMapRouter::remove_pedestrian(uint64_t pedestrian_id){
             }
 
             // Remove the regulatory element from the map
-            lanelet_ptr_->remove(pedestrian_elem);
+            // TO BE FIGURED OUT
+            // lanelet_ptr_->remove(pedestrian_elem);
 
             RCLCPP_INFO(rclcpp::get_logger("hd_map_router"), "Removed pedestrian from the lanelet map: ID = %lu", pedestrian_id);
             return;

@@ -50,7 +50,7 @@ FROM dependencies as build
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    colcon build \
+    colcon build --packages-skip hd_map \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
