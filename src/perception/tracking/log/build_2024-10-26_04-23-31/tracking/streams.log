@@ -1,0 +1,26 @@
+[0.420s] Invoking command in '/home/bolty/ament_ws/src/tracking/tracking': PYTHONPATH=/home/bolty/ament_ws/src/tracking/build/tracking/prefix_override:/home/bolty/ament_ws/src/tracking/install/tracking/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../build/tracking build --build-base /home/bolty/ament_ws/src/tracking/build/tracking/build install --record /home/bolty/ament_ws/src/tracking/build/tracking/install.log --single-version-externally-managed install_data
+[0.559s] running egg_info
+[0.559s] creating ../build/tracking/tracking.egg-info
+[0.560s] writing ../build/tracking/tracking.egg-info/PKG-INFO
+[0.561s] writing dependency_links to ../build/tracking/tracking.egg-info/dependency_links.txt
+[0.562s] writing entry points to ../build/tracking/tracking.egg-info/entry_points.txt
+[0.562s] writing requirements to ../build/tracking/tracking.egg-info/requires.txt
+[0.562s] writing top-level names to ../build/tracking/tracking.egg-info/top_level.txt
+[0.563s] writing manifest file '../build/tracking/tracking.egg-info/SOURCES.txt'
+[0.564s] reading manifest file '../build/tracking/tracking.egg-info/SOURCES.txt'
+[0.577s] writing manifest file '../build/tracking/tracking.egg-info/SOURCES.txt'
+[0.577s] running build
+[0.577s] running install
+[0.578s] running install_data
+[0.578s] creating /home/bolty/ament_ws/src/tracking/install/tracking/share/ament_index
+[0.578s] creating /home/bolty/ament_ws/src/tracking/install/tracking/share/ament_index/resource_index
+[0.578s] creating /home/bolty/ament_ws/src/tracking/install/tracking/share/ament_index/resource_index/packages
+[0.578s] copying resource/tracking -> /home/bolty/ament_ws/src/tracking/install/tracking/share/ament_index/resource_index/packages
+[0.579s] copying package.xml -> /home/bolty/ament_ws/src/tracking/install/tracking/share/tracking
+[0.579s] running install_egg_info
+[0.581s] Copying ../build/tracking/tracking.egg-info to /home/bolty/ament_ws/src/tracking/install/tracking/lib/python3.10/site-packages/tracking-0.0.0-py3.10.egg-info
+[0.585s] running install_scripts
+[0.608s] Installing detection_publisher script to /home/bolty/ament_ws/src/tracking/install/tracking/lib/tracking
+[0.609s] Installing tracker_node script to /home/bolty/ament_ws/src/tracking/install/tracking/lib/tracking
+[0.610s] writing list of installed files to '/home/bolty/ament_ws/src/tracking/build/tracking/install.log'
+[0.629s] Invoked command in '/home/bolty/ament_ws/src/tracking/tracking' returned '0': PYTHONPATH=/home/bolty/ament_ws/src/tracking/build/tracking/prefix_override:/home/bolty/ament_ws/src/tracking/install/tracking/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../build/tracking build --build-base /home/bolty/ament_ws/src/tracking/build/tracking/build install --record /home/bolty/ament_ws/src/tracking/build/tracking/install.log --single-version-externally-managed install_data

@@ -1,0 +1,14 @@
+package.xml
+setup.cfg
+setup.py
+../build/tracking/tracking.egg-info/PKG-INFO
+../build/tracking/tracking.egg-info/SOURCES.txt
+../build/tracking/tracking.egg-info/dependency_links.txt
+../build/tracking/tracking.egg-info/entry_points.txt
+../build/tracking/tracking.egg-info/requires.txt
+../build/tracking/tracking.egg-info/top_level.txt
+../build/tracking/tracking.egg-info/zip-safe
+resource/tracking
+test/test_copyright.py
+test/test_flake8.py
+test/test_pep257.py
