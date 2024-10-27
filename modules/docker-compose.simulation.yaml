@@ -15,7 +15,7 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
-    
+
   carla_ros_bridge:
     build:
       context: ..
@@ -29,14 +29,14 @@ services:
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
       - USE_ACKERMANN_CONTROL=False
     # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
-    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+    command: /bin/bash -c "ros2 launch carla_config carla.launch.py town:=Town05"
 
   carla_viz:
     build:
       context: ..
       dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
-      cache_from: 
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}" 
+      cache_from:
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}"
         - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_main"
     image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
     ports:
@@ -64,7 +64,7 @@ services:
     build:
       context: ..
       dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
-      cache_from: 
+      cache_from:
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_${TAG}"
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_main"
     image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
