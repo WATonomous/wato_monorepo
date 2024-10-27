@@ -15,7 +15,7 @@ carla:
   # town
   # options:
   # Town05, mcity
-  town: Town05HD_Opt
+  town: Town10HD_Opt
   # town: Town12HD
   # configuration values for the ego vehicle
   ego_vehicle:
