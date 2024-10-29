@@ -1,4 +1,0 @@
-[console_scripts]
-detection_publisher = tracking.detection_publisher:main
-tracker_node = tracking.tracker:main
-
