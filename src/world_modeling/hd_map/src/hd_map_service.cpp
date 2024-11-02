@@ -87,7 +87,9 @@ void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr ms
 void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr msg) {
   auto pt = router_->project_point3d_to_gps(lanelet::BasicPoint3d{msg->point.x, msg->point.y, msg->point.z});
   auto lanelet = router_->get_nearest_lanelet_to_gps(pt);
+ 
   if(lanelet_path) {
+    RCLCPP_INFO(this->get_logger(), "checking for current and desired lane");
     auto it = std::find(lanelet_path->begin(), lanelet_path->end(), lanelet);
     if (it != lanelet_path->end()) {
       int idx = it-lanelet_path->begin();
