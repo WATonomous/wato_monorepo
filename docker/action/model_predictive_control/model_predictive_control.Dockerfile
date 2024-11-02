@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/action/local_planning local_planning
+COPY src/action/model_predictive_control model_predictive_control
 COPY src/wato_msgs/sample_msgs sample_msgs
 
 # Scan for rosdeps

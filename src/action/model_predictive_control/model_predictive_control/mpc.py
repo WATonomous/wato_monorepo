@@ -36,7 +36,6 @@ world.apply_settings(settings)
 print(client)
 print(world)
 
-
 # Function to move the spectator camera
 def move_spectator_to_vehicle(vehicle, spectator, distance=10):
     vehicle_location = vehicle.get_location()
