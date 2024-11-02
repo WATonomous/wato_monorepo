@@ -11,6 +11,7 @@
   <depend>std_msgs</depend>
   <depend>vision_msgs</depend>
   <depend>geometry_msgs</depend>
+  <exec_depend>tf_transformations</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
