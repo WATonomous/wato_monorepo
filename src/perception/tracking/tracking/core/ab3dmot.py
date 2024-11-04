@@ -325,6 +325,9 @@ class AB3DMOT(object):
         score_matrix = self.score_metric_fn(detections, trackers, **kwargs)
         matched_indices = self.match_algorithm_fn(score_matrix)
 
+        # Print when the matching algorithm is called
+        print(f"Calling matching algorithm: {self.match_algorithm_fn.__name__}")
+
         unmatched_detections = []
         for d,det in enumerate(detections):
             if(d not in matched_indices[:,0]):

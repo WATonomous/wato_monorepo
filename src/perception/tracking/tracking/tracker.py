@@ -306,7 +306,7 @@ class trackerNode(Node):
 def main (args=None):
     rclpy.init(args=args)
     node = rclpy.create_node('parameter_node')
-    node.declare_parameter("config_path", "/home/bolty/ament_ws/src/tracking/config/mahalanobis.yaml")
+    node.declare_parameter("config_path", "/home/bolty/ament_ws/src/tracking/config/mahalanobis.yaml") #Used to change type of matching algorithm to be used
     node.declare_parameter('publish_frequency', 10)
     config_path = node.get_parameter('config_path').get_parameter_value().string_value
     publish_frequency = node.get_parameter('publish_frequency').get_parameter_value().double_value
