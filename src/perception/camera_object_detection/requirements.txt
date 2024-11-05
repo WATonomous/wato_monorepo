@@ -5,3 +5,4 @@ easydict
 huggingface
 huggingface_hub
 numpy==1.24.2
+onnx
