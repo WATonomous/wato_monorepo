@@ -6,3 +6,8 @@ huggingface
 huggingface_hub
 numpy==1.24.2
 onnx
+onnxsim
+onnxruntime-gpu
+tensorrt
+tensorrt_lean
+tensorrt_dispatch
