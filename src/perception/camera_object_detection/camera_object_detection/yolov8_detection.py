@@ -8,6 +8,7 @@ from vision_msgs.msg import (
     Detection2D,
     Detection2DArray,
 )
+from pathlib import Path
 from ultralytics import YOLO
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.data.augment import LetterBox, CenterCrop
@@ -125,7 +126,7 @@ class CameraDetectionNode(Node):
         self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.back_center_camera_subscription, self.front_right_camera_subscription, self.back_right_camera_subscription, self.front_left_camera_subscription, self.back_left_camera_subscription], queue_size=10, slop=0.1)
         self.ats.registerCallback(self.batch_callback)
 
-
+        self.get_logger().info(f"TENSORT VERSION:{trt.__version__}")
 
         self.orig_image_width = None
         self.orig_image_height = None
@@ -140,15 +141,14 @@ class CameraDetectionNode(Node):
         # CV bridge
         self.cv_bridge = CvBridge()
 
-        self.logger = trt.Logger(trt.Logger.WARNING)
-        self.builder = trt.Builder(self.logger)
-        self.network = self.builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
-        self.parser = trt.OnnxParser(self.network, self.logger)
+      
     
     # #Commented this out because only run when building the tensorRT engine
         # self.build_engine()
-
-
+    
+       
+        
+        self.initialize_engine(self.tensorRT_model_path)
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
@@ -165,6 +165,10 @@ class CameraDetectionNode(Node):
        
     def build_engine(self):
     #Reading the onnx file in the perception models directory
+        self.logger = trt.Logger(trt.Logger.WARNING)
+        self.builder = trt.Builder(self.logger)
+        self.network = self.builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        self.parser = trt.OnnxParser(self.network, self.logger)
         with open(self.onnx_model_path, "rb") as model_file:
        
          if not self.parser.parse(model_file.read()):
@@ -172,6 +176,8 @@ class CameraDetectionNode(Node):
             for error in range(parser.num_errors):
                 print(self.parser.get_error(error))
             raise RuntimeError("Failed to parse the ONNX file.")
+        
+     
 
         #Building the tensorRT engine for inferencing 
         self.config = self.builder.create_builder_config()
@@ -181,13 +187,40 @@ class CameraDetectionNode(Node):
         assert self.engine_bytes is not None, "Failed to create engine"
         self.get_logger().info("BUILT THE ENGINE ")
        
+       
     #Writing to the perception models directory
     #Getting bug on these lines 
         with open(self.tensorRT_model_path, "wb") as f:
             self.get_logger().info("WRITINTG THE ENGINE ")
             f.write(self.engine_bytes)
-        self.get_logger().info("RETURNS 1")
+        
 
+    def initialize_engine(self, weight):
+        self.weight = Path(weight) if isinstance(weight, str) else weight
+        self.logger  = trt.Logger(trt.Logger.WARNING)
+        trt.init_libnvinfer_plugins(self.logger, namespace ='')
+        with trt.Runtime(self.logger) as runtime:
+            self.tensorRT_model = runtime.deserialize_cuda_engine(self.weight.read_bytes())
+        self.execution_context = self.tensorRT_model.create_execution_context()  
+            #self.names = [self.tensorRT_model.get_binding_name(i) for i in range(self.tensorRT_model.num_bindings)]
+        self.num_io_tensors = self.tensorRT_model.num_io_tensors
+        self.get_logger().info(f"BINDINGS: {self.num_io_tensors}")
+        self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
+        self.num_io_tensors = self.tensorRT_model.num_io_tensors
+        self.bindings: List[int] = [0] * self.num_io_tensors
+        self.num_inputs = 0
+        self.num_outputs  = 0
+        self.input_names = []
+        self.output_names = []
+
+        for i in range(self.num_io_tensors):
+              self.tensor_name  = self.tensorRT_model.get_tensor_name(i)
+              if self.tensorRT_model.get_tensor_mode(self.tensor_name) == trt.TensorIOMode.INPUT:
+                self.input_names.append(self.tensor_name)
+                self.num_inputs += 1
+              else:
+                self.output_names.append(self.tensor_name)
+                self.num_outputs += 1           
   
     def batch_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
@@ -199,7 +232,7 @@ class CameraDetectionNode(Node):
             resized_compressedImage = cv2.resize(compressedImage,(1920, 1080))
             preprocessedImage = self.batch_convert_to_tensor(resized_compressedImage)
             batched_list.append(preprocessedImage)
-            # self.get_logger().info(f"Resized Image Shape:{resized_compressedImage.shape}")
+            # self.get_logger().info(f"Resized Image Shape:{resized_compressedImage.shape}")a
            
         
         batch_tensor = torch.stack(batched_list)
