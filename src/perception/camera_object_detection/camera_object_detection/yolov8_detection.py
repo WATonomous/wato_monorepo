@@ -144,29 +144,10 @@ class CameraDetectionNode(Node):
         self.builder = trt.Builder(self.logger)
         self.network = self.builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
         self.parser = trt.OnnxParser(self.network, self.logger)
-    #Commented this out because only run when building the tensorRT engine
-    #     #Reading the onnx file in the perception models directory
-    #     with open(self.onnx_model_path, "rb") as model_file:
-       
-    #      if not self.parser.parse(model_file.read()):
-            
-    #         for error in range(parser.num_errors):
-    #             print(self.parser.get_error(error))
-    #         raise RuntimeError("Failed to parse the ONNX file.")
+    
+    # #Commented this out because only run when building the tensorRT engine
+        # self.build_engine()
 
-    #     #Building the tensorRT engine for inferencing 
-    #     self.config = self.builder.create_builder_config()
-    #     self.total_memory = torch.cuda.get_device_properties(self.device).total_memory
-    #     self.config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, self.total_memory)
-    #     self.engine_bytes = self.builder.build_serialized_network(self.network, self.config)
-    #     assert self.engine_bytes is not None, "Failed to create engine"
-    #     self.get_logger().info("BUILT THE ENGINE ")
-       
-    #    #Writing to the perception models directory
-    #    # Getting bug on these lines 
-    #     with open(self.tensorRT_model_path, "wb") as f:
-    #         self.get_logger().info("WRITINTG THE ENGINE ")
-    #         f.write(self.engine_bytes)
 
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
@@ -181,7 +162,33 @@ class CameraDetectionNode(Node):
         self.get_logger().info(
             f"Successfully created node listening on camera topic: {self.camera_topic}..."
         )
+       
+    def build_engine(self):
+    #Reading the onnx file in the perception models directory
+        with open(self.onnx_model_path, "rb") as model_file:
+       
+         if not self.parser.parse(model_file.read()):
+            
+            for error in range(parser.num_errors):
+                print(self.parser.get_error(error))
+            raise RuntimeError("Failed to parse the ONNX file.")
 
+        #Building the tensorRT engine for inferencing 
+        self.config = self.builder.create_builder_config()
+        self.total_memory = torch.cuda.get_device_properties(self.device).total_memory
+        self.config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, self.total_memory)
+        self.engine_bytes = self.builder.build_serialized_network(self.network, self.config)
+        assert self.engine_bytes is not None, "Failed to create engine"
+        self.get_logger().info("BUILT THE ENGINE ")
+       
+    #Writing to the perception models directory
+    #Getting bug on these lines 
+        with open(self.tensorRT_model_path, "wb") as f:
+            self.get_logger().info("WRITINTG THE ENGINE ")
+            f.write(self.engine_bytes)
+        self.get_logger().info("RETURNS 1")
+
+  
     def batch_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
