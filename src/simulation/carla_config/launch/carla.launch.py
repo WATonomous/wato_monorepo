@@ -106,6 +106,7 @@ def generate_launch_description():
             'synchronous_mode_wait_for_vehicle_control_command': LaunchConfiguration('synchronous_mode_wait_for_vehicle_control_command'),
             'fixed_delta_seconds': LaunchConfiguration('fixed_delta_seconds'),
             'town': LaunchConfiguration('town'),
+            'ego_vehicle_role_name': LaunchConfiguration('role_name')
         }],
         respawn=True
     )
@@ -120,11 +121,15 @@ def generate_launch_description():
             'objects_definition_file': LaunchConfiguration('objects_definition_file'),
             'role_name': LaunchConfiguration('role_name'),
             'spawn_point_ego_vehicle': LaunchConfiguration('spawn_point'),
-            'spawn_sensors_only': LaunchConfiguration('spawn_sensors_only')}.items())
+            'spawn_sensors_only': LaunchConfiguration('spawn_sensors_only'),
+            'host': LaunchConfiguration('host'),
+            'port': LaunchConfiguration('port'),
+            'timeout': LaunchConfiguration('timeout')}.items())
 
-    if (os.environ.get('USE_ACKERMANN_CONTROL', 'True').lower() == 'true'):
+    carla_control = []
+    if (os.environ.get('USE_ACKERMANN_CONTROL', 'False').lower() == 'True'):
         """ Launch Ackermann Control Node """
-        carla_control = Node(
+        carla_control = carla_control.append(Node(
             package='carla_ackermann_control',
             executable='carla_ackermann_control_node',
             output='screen',
@@ -132,17 +137,7 @@ def generate_launch_description():
                 'role_name': LaunchConfiguration('role_name'),
                 'control_loop_rate': LaunchConfiguration('control_loop_rate')
             }]
-        )
-    else:
-        carla_control = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(get_package_share_directory(
-                    'carla_manual_control'), 'carla_manual_control.launch.py')
-            ),
-            launch_arguments={
-                'role_name': LaunchConfiguration('role_name')
-            }.items()
-        )
+        ))
 
     """ Launch MPC Bridge Node """
     carla_mpc_bridge = Node(
@@ -170,6 +165,6 @@ def generate_launch_description():
         control_loop_rate_arg,
         carla_ros_bridge,
         carla_ego_vehicle,
-        carla_control,
-        carla_mpc_bridge,
+        *carla_control,
+        # carla_mpc_bridge, # MPC bridge needs to be reworked
     ])
