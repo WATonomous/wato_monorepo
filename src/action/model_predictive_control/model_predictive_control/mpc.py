@@ -67,6 +67,13 @@ else:
 print(vehicle)
 
 
+
+def get_waypoints_ahead(distance, map, vehicle_location):
+    current_waypoint = map.get_waypoint(vehicle_location)
+    waypoints_ahead = current_waypoint.next(distance)
+    return waypoints_ahead
+
+
 def generate_waypoint_relative_to_spawn(forward_offset=0, sideways_offset=0):
     waypoint_x = spawn_point.location.x + spawn_point.get_forward_vector().x * forward_offset + spawn_point.get_right_vector().x * sideways_offset
     waypoint_y = spawn_point.location.y + spawn_point.get_forward_vector().y * forward_offset + spawn_point.get_right_vector().y * sideways_offset
@@ -77,10 +84,92 @@ def generate_waypoint(x, y):
     return ca.vertcat(x, y)
 
 
+
+
+def get_waypoints_ahead(vehicle, distance=1.0, num_waypoints=50):
+    # Get the map
+    carla_map = vehicle.get_world().get_map()
+    
+    # Get the vehicle's current location and initial waypoint
+    current_transform = vehicle.get_transform()
+    current_location = current_transform.location
+    current_waypoint = carla_map.get_waypoint(current_location)
+    
+    # Initialize the waypoints list and add the first waypoint
+    waypoints = []
+    next_waypoint = current_waypoint
+    
+    # Generate waypoints with a 1m distance between each
+    for _ in range(num_waypoints):
+        next_waypoints = next_waypoint.next(distance)
+        if next_waypoints:
+            next_waypoint = next_waypoints[0]  # Choose the first option in the same lane
+            waypoints.append(ca.vertcat(next_waypoint.location.x, next_waypoint.location.y))
+        else:
+            break  # Stop if no further waypoints are found
+    
+    return waypoints
+
+
+def gen_spline(waypoints, order):
+    acceptable_dual_inf_tol = 1e11
+    acceptable_compl_inf_tol = 1e-3
+    acceptable_iter = 15
+    acceptable_constr_viol_tol = 1e-3
+    acceptable_tol = 1e-6
+
+    opts = {"ipopt.acceptable_tol": acceptable_tol,
+            "ipopt.acceptable_constr_viol_tol": acceptable_constr_viol_tol,
+            "ipopt.acceptable_dual_inf_tol": acceptable_dual_inf_tol,
+            "ipopt.acceptable_iter": acceptable_iter,
+            "ipopt.acceptable_compl_inf_tol": acceptable_compl_inf_tol,
+            "ipopt.hessian_approximation": "limited-memory",
+            "ipopt.print_level": 0}
+    
+    
+    opti = cas.Opti()
+    
+    a_init = np.ones(order)
+    b_init = np.ones(order)
+
+    a = opti.variable(order, 1)
+    b = opti.variable(order, 1)
+
+    opti.set_value(a, a_init)
+    opti.set_value(b, b_init)
+
+    obj = 0
+    for u, p in zip(np.linspace(0, 1, len(waypoints)), waypoints):
+            obj += (sum([a[o] * u ** o for o in range(order)]) - p.x) ** 2
+            obj += (sum([b[o] * u ** o for o in range(order)]) - p.y) ** 2
+
+    opti.minimize(obj)
+    opti.solver("ipopt", opts)
+
+    sol = opti.solve()
+
+    a_sol = sol.value(a)
+    b_sol = sol.value(b)
+
+    return a_sol, b_sol
+
+def eval_spline(a, b, u):
+    order = a.shape[0] if isinstance(a, cas.SX) else len(a)
+    xSpline = sum([a[o] * u ** o for o in range(order)])
+    ySpline = sum([b[o] * u ** o for o in range(order)])
+
+    dxSpline = sum([o * a[o] * u ** (o - 1) for o in range(1, order)])
+    dySpline = sum([o * b[o] * u ** (o - 1) for o in range(1, order)])
+    yawSpline = cas.atan2(dySpline, dxSpline)
+    return xSpline, ySpline, yawSpline  
+
+
 waypoints = []
 
-for i in range(SIM_DURATION):
-    waypoints.append(generate_waypoint_relative_to_spawn(-10, 0))
+waypoints = get_waypoints_ahead(vehicle, 1, SIM_DURATION)
+
+# for i in range(SIM_DURATION):
+#     waypoints.append(generate_waypoint_relative_to_spawn(-10, 0))
 
 # Parameters
 params = {
@@ -103,6 +192,16 @@ Q_base = ca.MX.eye(state_dim)  # Base state penalty matrix (emphasizes position 
 weight_increase_factor = 1.00  # Increase factor for each step in the prediction horizon
 R = ca.MX.eye(control_dim)  # control penalty matrix for objective function
 W = opti.parameter(2, N)  # Reference trajectory parameter
+inf = 1e11
+
+x_i = 0
+y_i = 1
+
+LS_A = opti.parameter(2, N)
+RS_A = opti.parameter(2 ,N)
+
+LS_B = opti.parameter(2, N)
+RS_B = opti.parameter(2, N)
 
 # Objective
 obj = 0
@@ -134,12 +233,47 @@ max_steering_angle_rad = max_steering_angle_deg * (ca.pi / 180)  # Maximum steer
 for k in range(N):
     steering_angle_rad = U[0, k] * max_steering_angle_rad  # Convert normalized steering angle to radians
 
+    
+
     opti.subject_to(X[:, k + 1] == X[:, k] + dt * ca.vertcat(
         X[3, k] * ca.cos(X[2, k]),
         X[3, k] * ca.sin(X[2, k]),
         (X[3, k] / params['L']) * ca.tan(steering_angle_rad),
         U[1, k]
     ))
+    pthprm = k/N
+
+    x_st = X[0,k]
+    y_st = X[1,k]
+
+    x0, y0, _ = ref_path(
+                    RS_A, LS_B, pthprm
+                )
+                x1, y1, _ = ref_path(
+                    RS_A, RS_B, pthprm
+                )
+                left_const = (
+                    (x1 - x0) * st_x
+                    - (x1 - x0) * x0
+                    + (y1 - y0) * st_y
+                    - (y1 - y0) * y0
+                )
+                x1, y1, _ = eval_spline(
+                    LS_A, LS_B, pthprm
+                )
+                x0, y0, _ = eval_spline(
+                    RS_A, RS_B, pthprm
+                )
+                right_const = (
+                    (x1 - x0) * st_x
+                    - (x1 - x0) * x0
+                    + (y1 - y0) * st_y
+                    - (y1 - y0) * y0
+                )
+
+    opti.subject_to((right_const> 0) & (right_const<inf)) 
+    opti.subject_to((left_const> 0) & (left_const<inf)) 
+
 
 # Constraints
 opti.subject_to(X[:, 0] == P)  # Initial state constraint
