@@ -69,6 +69,7 @@ class CameraDetectionNode(Node):
        #Batch inference topic 
         self.batch_inference_topic = self.get_parameter("batch_inference_topic").value
         self.onnx_model_path = self.get_parameter("onnx_model_path").value
+        
         self.tensorRT_model_path = self.get_parameter("tensorRT_model_path").value
 
         #Camera topics for eve 
@@ -140,14 +141,6 @@ class CameraDetectionNode(Node):
 
         # CV bridge
         self.cv_bridge = CvBridge()
-
-      
-    
-    # #Commented this out because only run when building the tensorRT engine
-        # self.build_engine()
-    
-       
-        
         self.initialize_engine(self.tensorRT_model_path)
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
@@ -162,38 +155,56 @@ class CameraDetectionNode(Node):
         self.get_logger().info(
             f"Successfully created node listening on camera topic: {self.camera_topic}..."
         )
-       
+ 
     def build_engine(self):
     #Reading the onnx file in the perception models directory
-        self.logger = trt.Logger(trt.Logger.WARNING)
+        self.max_batch_size = 6
+        self.channels = 3
+        self.height = 640
+        self.width = 640
+        self.shape_input_model = [self.max_batch_size, self.channels, self.height, self.width]
+        self.logger = trt.Logger(trt.Logger.VERBOSE)
         self.builder = trt.Builder(self.logger)
-        self.network = self.builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
-        self.parser = trt.OnnxParser(self.network, self.logger)
-        with open(self.onnx_model_path, "rb") as model_file:
-       
-         if not self.parser.parse(model_file.read()):
-            
-            for error in range(parser.num_errors):
-                print(self.parser.get_error(error))
-            raise RuntimeError("Failed to parse the ONNX file.")
-        
-     
-
-        #Building the tensorRT engine for inferencing 
-        self.config = self.builder.create_builder_config()
+        self.config  = self.builder.create_builder_config()
+        self.cache = self.config.create_timing_cache(b"")
+        self.config.set_timing_cache(self.cache, ignore_mismatch=False)
         self.total_memory = torch.cuda.get_device_properties(self.device).total_memory
         self.config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, self.total_memory)
+        self.flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+        self.network = self.builder.create_network(self.flag)
+        self.parser = trt.OnnxParser(self.network, self.logger)
+        with open(self.onnx_model_path, "rb") as f:
+            if not self.parser.parse(f.read()):
+                self.get_logger().info("ERROR: Cannot read ONNX FILE")
+                for error in range(self.parser.num_errors):
+                    self.get_logger().info(f"{self.parser.get_error(error)}")
+        self.inputs = [self.network.get_input(i) for i in range(self.network.num_inputs)]
+        self.outputs = [self.network.get_output(i) for i in range(self.network.num_outputs)]
+        for input in self.inputs:
+         self.get_logger().info(f"Model {input.name} shape:{input.shape} {input.dtype}")
+        for output in self.outputs:
+         self.get_logger().info(f"Model {output.name} shape: {output.shape} {output.dtype}")  
+        if self.max_batch_size > 1:
+            self.profile  = self.builder.create_optimization_profile()
+            self.min_shape = [1, self.channels, self.height, self.width]                 # Minimum batch size of 1
+            self.opt_shape = [int(self.max_batch_size / 2), self.channels, self.height, self.width]  # Optimal batch size (half of max, so 3)
+            self.max_shape = self.shape_input_model
+
+            for input in self.inputs:
+                self.profile.set_shape(input.name, self.min_shape, self.opt_shape, self.max_shape)
+            self.config.add_optimization_profile(self.profile)
+        self.half = True
+        self.int8 = False
+        if self.half:
+            self.config.set_flag(trt.BuilderFlag.FP16)
+        elif self.int8:
+            self.config.set_flag(trt.BuilderFlag.INT8)
         self.engine_bytes = self.builder.build_serialized_network(self.network, self.config)
         assert self.engine_bytes is not None, "Failed to create engine"
         self.get_logger().info("BUILT THE ENGINE ")
-       
-       
-    #Writing to the perception models directory
-    #Getting bug on these lines 
         with open(self.tensorRT_model_path, "wb") as f:
-            self.get_logger().info("WRITINTG THE ENGINE ")
             f.write(self.engine_bytes)
-        
+        self.get_logger().info("FINISHED WRITING ")
 
     def initialize_engine(self, weight):
         self.weight = Path(weight) if isinstance(weight, str) else weight
@@ -201,10 +212,15 @@ class CameraDetectionNode(Node):
         trt.init_libnvinfer_plugins(self.logger, namespace ='')
         with trt.Runtime(self.logger) as runtime:
             self.tensorRT_model = runtime.deserialize_cuda_engine(self.weight.read_bytes())
+            self.get_logger().info(f"TENSORRT Model:{self.weight}")
         self.execution_context = self.tensorRT_model.create_execution_context()  
-            #self.names = [self.tensorRT_model.get_binding_name(i) for i in range(self.tensorRT_model.num_bindings)]
+        
+          
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
-        self.get_logger().info(f"BINDINGS: {self.num_io_tensors}")
+        self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
+        self.execution_context.set_input_shape(self.input_tensor_name, [6, 3, 1080, 1920])
+        self.inputShape = self.execution_context.get_tensor_shape(self.input_tensor_name)
+        self.get_logger().info(f"INPUT SHAPE:{self.inputShape}")
         self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.bindings: List[int] = [0] * self.num_io_tensors
