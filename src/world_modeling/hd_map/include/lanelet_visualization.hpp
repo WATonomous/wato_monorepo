@@ -10,6 +10,7 @@
 #include "geometry_msgs/msg/point.hpp"
 
 #include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_core/primitives/BasicRegulatoryElements.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
 #include <lanelet2_routing/Route.h>
@@ -25,6 +26,7 @@ namespace world_modeling::hd_map{
     visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::Lanelet lanelet, int *id, bool center = false, bool lanes = true, std_msgs::msg::ColorRGBA centerColor = std_msgs::msg::ColorRGBA(), std_msgs::msg::ColorRGBA laneColor = std_msgs::msg::ColorRGBA(), float centerThickness = .2, float laneThickness = .2);
     visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(lanelet::LineStringLayer& lineStrings);
     visualization_msgs::msg::Marker lineStringAsMarker(lanelet::ConstLineString3d lineString, int *id, float thickness, int type, std_msgs::msg::ColorRGBA color);
+    visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(std::vector<lanelet::TrafficLight::Ptr> trafficLightRegElems);
 }
 
 #endif
