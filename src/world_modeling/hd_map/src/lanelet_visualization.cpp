@@ -1,10 +1,14 @@
 #include "lanelet_visualization.hpp"
 
+#include <lanelet2_core/primitives/BasicRegulatoryElements.h>
+#include <lanelet2_core/primitives/Lanelet.h>
+
 
 namespace world_modeling::hd_map
 {
     visualization_msgs::msg::MarkerArray laneletMapAsMarkerArray(lanelet::LaneletMapPtr map){
         lanelet::LaneletLayer& lanelets = map->laneletLayer;
+        // lanelet::RegulatoryElementLayer& reg_elems = map->regulatoryElementLayer;
         
         auto markerArray = visualization_msgs::msg::MarkerArray();
 
@@ -20,6 +24,70 @@ namespace world_modeling::hd_map
             }
         }
 
+        // Visualize reg elems
+
+        for (auto lanelet = lanelets.begin(); lanelet != lanelets.end(); ++lanelet){
+            std::vector<lanelet::TrafficLight::Ptr> trafficLightRegElems = lanelet->regulatoryElementsAs<lanelet::TrafficLight>();
+            // std::vector<lanelet::TrafficLight::Ptr> trafficLightRegElems = lanelet->regulatoryElementsAs<lanelet:>();
+
+            auto trafficLightMarkers = trafficLightsAsMakerArray(trafficLightRegElems);
+
+            for(auto marker : trafficLightMarkers.markers){
+                markerArray.markers.push_back(marker);
+            }
+           
+        }
+
+        return markerArray;
+    }
+
+    visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(std::vector<lanelet::TrafficLight::Ptr> trafficLightRegElems) {
+        auto markerArray = visualization_msgs::msg::MarkerArray();
+
+         if (trafficLightRegElems.empty()) { return markerArray; }
+
+        lanelet::TrafficLight::Ptr trafficLightRegElem = trafficLightRegElems.front();
+
+        auto trafficLights = trafficLightRegElem->trafficLights();
+
+        if (!trafficLights.empty()) { return markerArray; }
+
+        for (auto light = trafficLights.begin(); light != trafficLights.end(); ++ light) {
+
+            auto marker = visualization_msgs::msg::Marker();
+
+            marker.header.frame_id = "map";
+            marker.ns = "traffic_lights";
+            marker.id = light->id();
+            marker.type = visualization_msgs::msg::Marker::CYLINDER;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+
+            lanelet::LineString3d points = light->lineString().get();
+        
+            if (!points.empty()) {
+                auto point = points.front();
+                marker.pose.position.x = point.x();
+                marker.pose.position.y = point.y();
+                marker.pose.position.z = point.z();
+            }
+
+            std_msgs::msg::ColorRGBA color;
+            color.r = 1;
+            color.a = 1;
+
+            marker.color = color;
+
+            marker.scale.x = 1;
+            marker.scale.y = 1;
+            marker.scale.z = 1;
+
+            markerArray.markers.push_back(marker);  
+
+
+            RCLCPP_INFO(rclcpp::get_logger("lanelet_visualization"), "Traffic Light with ID %i visualized.", light->id());
+
+        }
+        
         return markerArray;
     }
 
@@ -40,7 +108,7 @@ namespace world_modeling::hd_map
         if(center){
             markerArray.markers.push_back(centerMarker);
         }
-
+       
         return markerArray;
     }
 
