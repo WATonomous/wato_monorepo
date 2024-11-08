@@ -21,7 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'tracker_node = tracking.tracker:main',
-            'detection_publisher = tracking.detection_publisher:main'
+            'detection_publisher = tracking.detection_publisher:main',
+            'tracker_visualization = tracking.tracker_visualization:main'
         ],
     },
 )
