@@ -8,7 +8,6 @@ namespace world_modeling::hd_map
 {
     visualization_msgs::msg::MarkerArray laneletMapAsMarkerArray(lanelet::LaneletMapPtr map){
         lanelet::LaneletLayer& lanelets = map->laneletLayer;
-        // lanelet::RegulatoryElementLayer& reg_elems = map->regulatoryElementLayer;
         
         auto markerArray = visualization_msgs::msg::MarkerArray();
 
@@ -28,7 +27,6 @@ namespace world_modeling::hd_map
 
         for (auto lanelet = lanelets.begin(); lanelet != lanelets.end(); ++lanelet){
             std::vector<lanelet::TrafficLight::Ptr> trafficLightRegElems = lanelet->regulatoryElementsAs<lanelet::TrafficLight>();
-            // std::vector<lanelet::TrafficLight::Ptr> trafficLightRegElems = lanelet->regulatoryElementsAs<lanelet:>();
 
             auto trafficLightMarkers = trafficLightsAsMakerArray(trafficLightRegElems);
 
@@ -50,7 +48,7 @@ namespace world_modeling::hd_map
 
         auto trafficLights = trafficLightRegElem->trafficLights();
 
-        if (!trafficLights.empty()) { return markerArray; }
+        if (trafficLights.empty()) { return markerArray; }
 
         for (auto light = trafficLights.begin(); light != trafficLights.end(); ++ light) {
 
