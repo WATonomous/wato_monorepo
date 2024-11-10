@@ -32,7 +32,7 @@ class CameraDetectionNode(Node):
         super().__init__("camera_object_detection_node")
         self.get_logger().info("Creating camera detection node...")
 
-        self.declare_parameter("camera_topic", "/camera/right/image_color")
+        self.declare_parameter("camera_topic", "/front_camera/image_color")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
         self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
