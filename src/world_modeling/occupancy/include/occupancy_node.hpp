@@ -4,6 +4,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 
 #include "occupancy_core.hpp"
 
@@ -28,7 +29,7 @@ class OccupancyNode : public rclcpp::Node {
   // Object that handles data processing and validation.
   OccupancyCore occupancy_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr _subscriber;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _publisher;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr _publisher;
 
   void subscription_callback(const sensor_msgs::msg::PointCloud2::SharedPtr point_cloud);
 };

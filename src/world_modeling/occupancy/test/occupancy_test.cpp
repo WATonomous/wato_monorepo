@@ -7,5 +7,5 @@
 
 TEST(OccupancyTest, HeightDimensionRemoved) {
   // TODO: Add test to check if height dimension is removed from pointcloud
-  ASSERT_EQ(3, 3)
+  ASSERT_EQ(3, 3);
 }
