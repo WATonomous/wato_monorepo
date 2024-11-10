@@ -3,5 +3,5 @@ occupancy_node:
     version: 1
     compression_method: 0
     subscription_topic: /nonground_points
-    publish_topic: /2d_points
+    publish_topic: /costmap
   

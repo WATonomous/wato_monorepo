@@ -1,42 +1,127 @@
 #include <string>
 #include <cstring>
+#include <cmath>
+#include <algorithm>
 #include <vector>
 
 #include "occupancy_core.hpp"
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
+#include <iostream>
+
 // Constructor
 OccupancyCore::OccupancyCore() {}
 
-sensor_msgs::msg::PointCloud2 OccupancyCore::remove_z_dimension(sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-    sensor_msgs::msg::PointCloud2 output_cloud;
+nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+    nav_msgs::msg::OccupancyGrid output_costmap;
 
     // Initialize the output point cloud
-    output_cloud.header = msg->header;
-    output_cloud.height = 1; // Height of point cloud is 1 for 2D points
-    output_cloud.width = msg->width;
-    // output_cloud.is_dense = true; // TODO Sophie: true or false?
+    output_costmap.header = msg->header;
+    output_costmap.info.map_load_time = msg->header.stamp; // Not completely sure about what timestamp to use here
+    int CELLS_PER_METER = 3;
+    output_costmap.info.resolution = 1.0 / CELLS_PER_METER; // meters per cell
+    // TODO: Read the denominator in the above line from parameters
 
-    // Redefine fields for a 2D point cloud
-    output_cloud.fields.resize(2);
-    output_cloud.fields[0] = sensor_msgs::msg::PointField{"x", 0, sensor_msgs::msg::PointField::FLOAT32, 1};
-    output_cloud.fields[1] = sensor_msgs::msg::PointField{"y", 4, sensor_msgs::msg::PointField::FLOAT32, 1};
+    // These offsets should always be the same but load them anyway
+    int offset_x = msg->fields[0].offset;
+    int offset_y = msg->fields[1].offset;
+    int offset_z = msg->fields[2].offset;
+    int offset_intensity = msg->fields[3].offset;
 
-    output_cloud.point_step = 8; // Each point takes 8 bytes, 4 bytes each for x and y
-    output_cloud.row_step = output_cloud.point_step * output_cloud.width;
+    std::vector<int> x_coords;
+    std::vector<int> y_coords;
+    std::vector<float> z_coords;
+    std::vector<int8_t> intensities; 
 
-    // Resize data for 2D points
-    output_cloud.data.resize(output_cloud.row_step * output_cloud.height);
-    
-    // Copy x and y values from the input cloud using the iterator
-    sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
-    sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
+    int x_low = 0;
+    int y_low = 0;
+    int x_high = 0;
+    int y_high = 0;
 
-    for (int i = 0; i < msg->width; ++i) {
-        std::memcpy(&output_cloud.data[i * output_cloud.point_step], &(*iter_x), sizeof(float)); // Copy x
-        std::memcpy(&output_cloud.data[i * output_cloud.point_step + 4], &(*iter_y), sizeof(float)); // Copy y
-        ++iter_x;
-        ++iter_y;
+    size_t num_cells = 0;
+
+    for(uint i = 0; i < msg->row_step; i += msg->point_step){
+      float x, y, z, intensity;
+      std::memcpy(&x, &msg->data[i + offset_x], sizeof(float));
+      std::memcpy(&y, &msg->data[i + offset_y], sizeof(float));
+      std::memcpy(&z, &msg->data[i + offset_z], sizeof(float));
+      std::memcpy(&intensity, &msg->data[i + offset_intensity], sizeof(float));
+      // the x and y have to be integers (so round after scaling up by resolution)
+      int x_rounded = std::round(CELLS_PER_METER*x);
+      x_coords.push_back(x_rounded);
+      int y_rounded = std::round(CELLS_PER_METER*y);
+      y_coords.push_back(y_rounded);
+      z_coords.push_back(z); // TODO: Filter out points that have too high z values
+      // TODO: Transform intensities into 0-100 range integers
+      intensities.push_back(0x32);
+      if (x_rounded >= 0){
+        x_high = std::max(x_high, x_rounded);
+      }
+      else{
+        x_low = std::min(x_low, x_rounded);
+      }
+      if (y_rounded >= 0){
+        y_high = std::max(y_high, y_rounded);
+      }
+      else{
+        y_low = std::min(y_low, y_rounded);
+      }
+      num_cells++;
     }
-    return output_cloud;
+
+    // We can now get the height and width of our costmap
+    int width = 1 + x_high - x_low; 
+    output_costmap.info.width = width;
+    int height = 1 + y_high - y_low;;
+    output_costmap.info.height = height;
+    int total_cells = width*height;
+
+    output_costmap.info.origin.position.set__x(-width / (2.0 * CELLS_PER_METER));
+    output_costmap.info.origin.position.set__y(-height / (2.0 * CELLS_PER_METER));
+
+    // Initialize data as all -1 first
+    std::vector<int8_t> data;
+    for(int i = 0; i < total_cells; i++){
+      data.push_back(-1);
+    } 
+
+    // Replace with data from point cloud
+    for(size_t i = 0; i < num_cells; i++){
+      // Shift x and y so the center is at width/2 and height/2
+      int shifted_x = x_coords[i] + width/2;
+      int shifted_y = y_coords[i] + height/2;
+      int index = std::min(total_cells - 1, shifted_y*width + shifted_x); // This is a stopgap, have to figure out why it's exceeding total_cells
+      int index2 = std::min(i, intensities.size()); // This is also a stopgap
+      data[index] = intensities[index2]; 
+    }
+
+    output_costmap.data = std::move(data);
+
+    return output_costmap;
+
+    // output_cloud.width = msg->width;
+    // // output_cloud.is_dense = true; // TODO Sophie: true or false?
+
+    // // Redefine fields for a 2D point cloud
+    // output_cloud.fields.resize(2);
+    // output_cloud.fields[0] = sensor_msgs::msg::PointField{"x", 0, sensor_msgs::msg::PointField::FLOAT32, 1};
+    // output_cloud.fields[1] = sensor_msgs::msg::PointField{"y", 4, sensor_msgs::msg::PointField::FLOAT32, 1};
+
+    // output_cloud.point_step = 8; // Each point takes 8 bytes, 4 bytes each for x and y
+    // output_cloud.row_step = output_cloud.point_step * output_cloud.width;
+
+    // // Resize data for 2D points
+    // output_cloud.data.resize(output_cloud.row_step * output_cloud.height);
+    
+    // // Copy x and y values from the input cloud using the iterator
+    // sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
+    // sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
+
+    // for (int i = 0; i < msg->width; ++i) {
+    //     std::memcpy(&output_cloud.data[i * output_cloud.point_step], &(*iter_x), sizeof(float)); // Copy x
+    //     std::memcpy(&output_cloud.data[i * output_cloud.point_step + 4], &(*iter_y), sizeof(float)); // Copy y
+    //     ++iter_x;
+    //     ++iter_y;
+    // }
+    // return output_cloud;
 }

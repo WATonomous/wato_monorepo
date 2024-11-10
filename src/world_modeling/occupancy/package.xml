@@ -10,6 +10,7 @@
   <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>rclcpp</depend>
   <depend>pcl_ros</depend>
 
