@@ -29,6 +29,7 @@ from typing import List, Optional, Tuple, Union
 from dataclasses import dataclass
 from numpy import ndarray
 # import pycuda.driver as cuda
+
 @dataclass
 class Tensor:
     name:str
@@ -276,9 +277,13 @@ class CameraDetectionNode(Node):
             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             self.get_logger().info(f"Tensor Output shape:{self.tensorRT_output_shape}")
             self.get_logger().info(f"Tensor Output Datatype:{self.outputDtype}")
-             #  self.output_host_memory = cuda.pagelocked_empty(self.tensorRT_output_shape, self.outputDtype)
+            self.output_cpu = np.empty(self.tensorRT_output_shape, self.outputDtype)
+            self.gpu = 0
+            #  self.output_host_memory = cuda.pagelocked_empty(self.tensorRT_output_shape, self.outputDtype)
             #  self.output_device_memory = cuda.mem_alloc(self.output_host_memory.nbytes)
             #  self.output_device_bindings.append(self.output_device_memory)
+            self.output_info.append(Tensor(name, self.outputDtype, self.tensorRT_output_shape, self.cpu, self.gpu))
+          
        
         for i, name in enumerate(self.input_names):
             if self.tensorRT_model.get_tensor_name(i) == name:
@@ -287,6 +292,7 @@ class CameraDetectionNode(Node):
              self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
              self.get_logger().info(f"Tensor shape:{self.tensorRT_input_shape}")
              self.get_logger().info(f"Tensor Datatype:{self.dtype}")
+             self.input_cpu  = 0
             # self.input_host_memory = cuda.pagelocked_empty(self.tensorRT_input_shape, self.dtype)
             # self.input_device_memory = cuda.mem_alloc(self.input_host_memory.nbytes)
             # self.input_device_bindings.append(self.input_device_memory)
@@ -299,7 +305,7 @@ class CameraDetectionNode(Node):
             # Need to convert to numpy array and then make it have 3 color channels 
             numpy_array = np.frombuffer(msg.data, np.uint8)
             compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-            resized_compressedImage = cv2.resize(compressedImage,(1920, 1080))
+            resized_compressedImage = cv2.resize(compressedImage,(1920, 1088))
             preprocessedImage = self.batch_convert_to_tensor(resized_compressedImage)
             batched_list.append(preprocessedImage)
 
