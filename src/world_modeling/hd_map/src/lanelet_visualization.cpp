@@ -50,7 +50,7 @@ namespace world_modeling::hd_map
 
         auto trafficLights = trafficLightRegElem->trafficLights();
 
-        if (!trafficLights.empty()) { return markerArray; }
+        if (trafficLights.empty()) { return markerArray; }
 
         for (auto light = trafficLights.begin(); light != trafficLights.end(); ++ light) {
 
