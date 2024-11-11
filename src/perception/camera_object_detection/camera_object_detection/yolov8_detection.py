@@ -62,9 +62,9 @@ class CameraDetectionNode(Node):
             self.camera_topic,
             self.image_callback,
             qos_profile=QoSProfile(
-                reliability=QoSReliabilityPolicy.RELIABLE,
+                reliability=QoSReliabilityPolicy.BEST_EFFORT,
                 history=QoSHistoryPolicy.KEEP_LAST,
-                depth=10,
+                depth=5,
             ),
         )
 
