@@ -25,7 +25,17 @@ import time
 import torch
 import onnx
 import tensorrt as trt
+from typing import List, Optional, Tuple, Union
+from dataclasses import dataclass
+from numpy import ndarray
 # import pycuda.driver as cuda
+@dataclass
+class Tensor:
+    name:str
+    dtype:np.dtype
+    shape:Tuple
+    cpu:ndarray
+    gpu:int
 
 
 class CameraDetectionNode(Node):
@@ -250,6 +260,7 @@ class CameraDetectionNode(Node):
         self.output_names = [name for name in self.output_names if name not in self.input_names]
         self.get_logger().info(f"INPUT NAMES:: {self.input_names}")
         self.get_logger().info(f"OUTPUT NAMES:: {self.output_names}")
+       
     
     def initialize_tensors(self):
         self.dynamic = True 
@@ -258,10 +269,20 @@ class CameraDetectionNode(Node):
         self.output_ptrs = []
         self.input_device_bindings = []
         self.output_device_bindings = []
-   
+       
+        for name in self.output_names:
+            self.get_logger().info(f"NAMES of outputs:{name}")
+            self.tensorRT_output_shape = tuple(self.tensorRT_model.get_tensor_shape(name))
+            self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
+            self.get_logger().info(f"Tensor Output shape:{self.tensorRT_output_shape}")
+            self.get_logger().info(f"Tensor Output Datatype:{self.outputDtype}")
+             #  self.output_host_memory = cuda.pagelocked_empty(self.tensorRT_output_shape, self.outputDtype)
+            #  self.output_device_memory = cuda.mem_alloc(self.output_host_memory.nbytes)
+            #  self.output_device_bindings.append(self.output_device_memory)
+       
         for i, name in enumerate(self.input_names):
             if self.tensorRT_model.get_tensor_name(i) == name:
-            
+             
              self.tensorRT_input_shape = tuple(self.tensorRT_model.get_tensor_shape(name)) 
              self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
              self.get_logger().info(f"Tensor shape:{self.tensorRT_input_shape}")
@@ -270,15 +291,7 @@ class CameraDetectionNode(Node):
             # self.input_device_memory = cuda.mem_alloc(self.input_host_memory.nbytes)
             # self.input_device_bindings.append(self.input_device_memory)
            
-        for i, name in enumerate(self.output_names):
-            if self.tensorRT_model.get_tensor_name(i) == name:
-             self.tensorRT_output_shape = tuple(self.tensorRT_model.get_tensor_shape(name))
-             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
-             self.get_logger().info(f"Tensor Output shape:{self.tensorRT_output_shape}")
-             self.get_logger().info(f"Tensor Output Datatype:{self.outputDtype}")
-            #  self.output_host_memory = cuda.pagelocked_empty(self.tensorRT_output_shape, self.outputDtype)
-            #  self.output_device_memory = cuda.mem_alloc(self.output_host_memory.nbytes)
-            #  self.output_device_bindings.append(self.output_device_memory)
+     
     def batch_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
@@ -289,12 +302,14 @@ class CameraDetectionNode(Node):
             resized_compressedImage = cv2.resize(compressedImage,(1920, 1080))
             preprocessedImage = self.batch_convert_to_tensor(resized_compressedImage)
             batched_list.append(preprocessedImage)
+
+        
             # self.get_logger().info(f"Resized Image Shape:{resized_compressedImage.shape}")a
            
         
         batch_tensor = torch.stack(batched_list)
         self.get_logger().info(f"batch tensor shape: {batch_tensor.shape}")
-
+   
         #Now need to pass it to yolov8 tensorRT model
         # predictions = self.model(batch_tensor)
        
