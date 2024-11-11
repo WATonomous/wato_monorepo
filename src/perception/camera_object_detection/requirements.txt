@@ -9,5 +9,3 @@ onnx
 onnxsim
 onnxruntime-gpu
 tensorrt
-tensorrt_lean
-tensorrt_dispatch

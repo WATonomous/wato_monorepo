@@ -25,6 +25,7 @@ import time
 import torch
 import onnx
 import tensorrt as trt
+# import pycuda.driver as cuda
 
 
 class CameraDetectionNode(Node):
@@ -50,8 +51,8 @@ class CameraDetectionNode(Node):
         self.declare_parameter("back_right_camera_topic", "/CAM_BACK_RIGHT/image_rect_compressed")
         self.declare_parameter("back_left_camera_topic", "/CAM_BACK_LEFT/image_rect_compressed")
 
-        self.declare_parameter("onnx_model_path", "/perception_models/yolov8m.onnx")
-        self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m.engine")
+        self.declare_parameter("onnx_model_path", "/perception_models/yolov8m_dynamic.onnx")
+        self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m_copy2.engine")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
         self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
@@ -87,7 +88,7 @@ class CameraDetectionNode(Node):
         self.back_left_camera_topic  = self.get_parameter("back_left_camera_topic").value
 
 
-        #Parameter for TensorRT Model
+    
         
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
         self.publish_detection_topic = self.get_parameter("publish_detection_topic").value
@@ -141,7 +142,9 @@ class CameraDetectionNode(Node):
 
         # CV bridge
         self.cv_bridge = CvBridge()
+        # self.stream = cuda.Stream()
         self.initialize_engine(self.tensorRT_model_path)
+        self.initialize_tensors()
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
@@ -157,6 +160,7 @@ class CameraDetectionNode(Node):
         )
  
     def build_engine(self):
+    #Only calling this function when we dont have an engine file
     #Reading the onnx file in the perception models directory
         self.max_batch_size = 6
         self.channels = 3
@@ -220,24 +224,61 @@ class CameraDetectionNode(Node):
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
         self.execution_context.set_input_shape(self.input_tensor_name, [6, 3, 1080, 1920])
         self.inputShape = self.execution_context.get_tensor_shape(self.input_tensor_name)
-        self.get_logger().info(f"INPUT SHAPE:{self.inputShape}")
         self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
-        self.bindings: List[int] = [0] * self.num_io_tensors
-        self.num_inputs = 0
-        self.num_outputs  = 0
+        self.get_logger().info(f"Number of tensors: {self.num_io_tensors}")
+        self.bindings = [0] * self.num_io_tensors
+        self.num_inputs  = 0
+        self.num_outputs = 0
         self.input_names = []
         self.output_names = []
-
         for i in range(self.num_io_tensors):
               self.tensor_name  = self.tensorRT_model.get_tensor_name(i)
               if self.tensorRT_model.get_tensor_mode(self.tensor_name) == trt.TensorIOMode.INPUT:
                 self.input_names.append(self.tensor_name)
                 self.num_inputs += 1
-              else:
+              elif self.tensorRT_model.get_tensor_mode(self.tensor_name) == trt.TensorIOMode.OUTPUT:
                 self.output_names.append(self.tensor_name)
-                self.num_outputs += 1           
-  
+                self.num_outputs += 1
+        # self.get_logger().info(f"Inputs:{self.input_names}")
+        # self.get_logger().info(f"Outputs:{self.output_names}")     
+        self.num_inputs = len(self.input_names)
+        self.num_outputs = len(self.output_names)    
+        # self.get_logger().info(f"Number of inputs:{self.num_inputs}")
+        # self.get_logger().info(f"Number of outputs:{self.num_outputs}")
+        self.input_names = self.names[:self.num_inputs]
+        self.output_names = [name for name in self.output_names if name not in self.input_names]
+        self.get_logger().info(f"INPUT NAMES:: {self.input_names}")
+        self.get_logger().info(f"OUTPUT NAMES:: {self.output_names}")
+    
+    def initialize_tensors(self):
+        self.dynamic = True 
+        self.input_info = []
+        self.output_info = []
+        self.output_ptrs = []
+        self.input_device_bindings = []
+        self.output_device_bindings = []
+   
+        for i, name in enumerate(self.input_names):
+            if self.tensorRT_model.get_tensor_name(i) == name:
+            
+             self.tensorRT_input_shape = tuple(self.tensorRT_model.get_tensor_shape(name)) 
+             self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
+             self.get_logger().info(f"Tensor shape:{self.tensorRT_input_shape}")
+             self.get_logger().info(f"Tensor Datatype:{self.dtype}")
+            # self.input_host_memory = cuda.pagelocked_empty(self.tensorRT_input_shape, self.dtype)
+            # self.input_device_memory = cuda.mem_alloc(self.input_host_memory.nbytes)
+            # self.input_device_bindings.append(self.input_device_memory)
+           
+        for i, name in enumerate(self.output_names):
+            if self.tensorRT_model.get_tensor_name(i) == name:
+             self.tensorRT_output_shape = tuple(self.tensorRT_model.get_tensor_shape(name))
+             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
+             self.get_logger().info(f"Tensor Output shape:{self.tensorRT_output_shape}")
+             self.get_logger().info(f"Tensor Output Datatype:{self.outputDtype}")
+            #  self.output_host_memory = cuda.pagelocked_empty(self.tensorRT_output_shape, self.outputDtype)
+            #  self.output_device_memory = cuda.mem_alloc(self.output_host_memory.nbytes)
+            #  self.output_device_bindings.append(self.output_device_memory)
     def batch_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
