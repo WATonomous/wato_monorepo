@@ -22,7 +22,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   hd_map_desired_lane_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("hd_map_desired_lane", 20);
   hd_map_current_lane_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("hd_map_current_lane", 20);
 
-  hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>("/carla/traffic_lights/detection3d_array", 20, std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
+  hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>("traffic_light", 20, std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
   hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>("traffic_sign", 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
   hd_map_pedestrian_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>("pedestrian", 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
   point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>("clicked_point", 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
