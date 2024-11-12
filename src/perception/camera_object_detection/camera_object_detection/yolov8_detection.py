@@ -155,7 +155,11 @@ class CameraDetectionNode(Node):
         self.cv_bridge = CvBridge()
         # self.stream = cuda.Stream()
         self.initialize_engine(self.tensorRT_model_path)
-        self.initialize_tensors()
+        self.input_info, self.output_info =  self.initialize_tensors()
+        self.engine_gpu_allocation(self.input_info)
+        self.get_logger().info(f"Input Info:{self.input_info}")
+        self.get_logger().info(f"Output Info:{self.output_info}")
+        
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
@@ -267,7 +271,6 @@ class CameraDetectionNode(Node):
         self.dynamic = True 
         self.input_info = []
         self.output_info = []
-        self.output_ptrs = []
         self.input_device_bindings = []
         self.output_device_bindings = []
        
@@ -277,13 +280,15 @@ class CameraDetectionNode(Node):
             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             self.get_logger().info(f"Tensor Output shape:{self.tensorRT_output_shape}")
             self.get_logger().info(f"Tensor Output Datatype:{self.outputDtype}")
-            self.output_cpu = np.empty(self.tensorRT_output_shape, self.outputDtype)
-            self.gpu = 0
+            self.output_cpu = np.empty(0)
+            self.output_gpu = 0
+            self.output_info.append(Tensor(name, self.outputDtype, self.tensorRT_output_shape, self.output_cpu, self.output_gpu))
             #  self.output_host_memory = cuda.pagelocked_empty(self.tensorRT_output_shape, self.outputDtype)
             #  self.output_device_memory = cuda.mem_alloc(self.output_host_memory.nbytes)
             #  self.output_device_bindings.append(self.output_device_memory)
-            self.output_info.append(Tensor(name, self.outputDtype, self.tensorRT_output_shape, self.cpu, self.gpu))
-          
+           
+            
+        self.get_logger().info(f"Output Info:{self.output_info}")
        
         for i, name in enumerate(self.input_names):
             if self.tensorRT_model.get_tensor_name(i) == name:
@@ -292,12 +297,16 @@ class CameraDetectionNode(Node):
              self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
              self.get_logger().info(f"Tensor shape:{self.tensorRT_input_shape}")
              self.get_logger().info(f"Tensor Datatype:{self.dtype}")
-             self.input_cpu  = 0
+             self.input_cpu  = np.empty(0)
+             self.input_gpu = 0
+             self.input_info.append(Tensor(name, self.dtype, self.tensorRT_input_shape, self.input_cpu, self.input_gpu))
+           
             # self.input_host_memory = cuda.pagelocked_empty(self.tensorRT_input_shape, self.dtype)
             # self.input_device_memory = cuda.mem_alloc(self.input_host_memory.nbytes)
             # self.input_device_bindings.append(self.input_device_memory)
-           
-     
+        return self.input_info, self.output_info
+    def engine_gpu_allocation(self, input_info):
+
     def batch_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
