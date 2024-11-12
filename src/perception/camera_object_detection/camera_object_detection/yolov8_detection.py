@@ -63,7 +63,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("back_left_camera_topic", "/CAM_BACK_LEFT/image_rect_compressed")
 
         self.declare_parameter("onnx_model_path", "/perception_models/yolov8m_dynamic.onnx")
-        self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m_copy2.engine")
+        self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m.engine")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
         self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
@@ -170,7 +170,7 @@ class CameraDetectionNode(Node):
         self.detection_publisher = self.create_publisher(
             Detection2DArray, self.publish_detection_topic, 10
         )
-        self.get_logger().info(
+        self.get_logger().info( 
             f"Successfully created node listening on camera topic: {self.camera_topic}..."
         )
  
@@ -273,13 +273,13 @@ class CameraDetectionNode(Node):
         self.output_info = []
         self.input_device_bindings = []
         self.output_device_bindings = []
+        batch_size = 6
        
         for name in self.output_names:
             self.get_logger().info(f"NAMES of outputs:{name}")
             self.tensorRT_output_shape = tuple(self.tensorRT_model.get_tensor_shape(name))
+            self.tensorRT_output_shape = (batch_size,) + self.tensorRT_output_shape[1:]
             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
-            self.get_logger().info(f"Tensor Output shape:{self.tensorRT_output_shape}")
-            self.get_logger().info(f"Tensor Output Datatype:{self.outputDtype}")
             self.output_cpu = np.empty(0)
             self.output_gpu = 0
             self.output_info.append(Tensor(name, self.outputDtype, self.tensorRT_output_shape, self.output_cpu, self.output_gpu))
@@ -294,6 +294,7 @@ class CameraDetectionNode(Node):
             if self.tensorRT_model.get_tensor_name(i) == name:
              
              self.tensorRT_input_shape = tuple(self.tensorRT_model.get_tensor_shape(name)) 
+             self.tensorRT_input_shape = (batch_size,) + self.tensorRT_input_shape[1:]
              self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
              self.get_logger().info(f"Tensor shape:{self.tensorRT_input_shape}")
              self.get_logger().info(f"Tensor Datatype:{self.dtype}")
@@ -305,8 +306,41 @@ class CameraDetectionNode(Node):
             # self.input_device_memory = cuda.mem_alloc(self.input_host_memory.nbytes)
             # self.input_device_bindings.append(self.input_device_memory)
         return self.input_info, self.output_info
+    
     def engine_gpu_allocation(self, input_info):
+       
 
+        for i in range(10):
+            self.inputTensors = []
+            for i in self.input_info:
+                self.inputTensors.append(i.cpu)
+              
+                assert len(self.inputTensors) == self.num_inputs, "does not match"
+                self.contiguous_inputs:List[ndarray]  = [
+                  np.ascontiguousarray(i) for i in self.inputTensors
+                ]
+            self.get_logger().info(f"contigous shape:{self.contiguous_inputs}")
+            for i in range(self.num_inputs):
+                name = self.input_info[i].name
+                shape = self.input_info[i].shape
+                self.get_logger().info(f"input names:{name} & input shape:{shape}")
+                # gpu = self.input_info[i].gpu = cuda.mem_alloc(contiguous_inputs[i])
+            
+                # cuda.memcpy_htod_async(self.inp_info[i].gpu, contiguous_inputs[i],self.stream)           
+                self.bindings[i] = int(self.inp_info[i].gpu)
+            for i in range(self.num_outputs):
+                name = self.output_info[i].name
+                shape = self.output_info[i].shape  
+                self.get_logger().info(f"output names: {name}& output SHAPES:{shape}") 
+                dtype = self.output_info[i].dtype
+                cpu = np.empty(shape, dtype=dtype)
+        #         gpu = cuda.mem_alloc(cpu.nbytes)
+        #         cuda.memcpy_htod_async(gpu,cpu, self.stream)
+        #         self.outputCpuTensor.append(cpu)
+        
+        # self.execution_context.execute_async_v2()
+        # self.stream.synchronize()
+        
     def batch_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
