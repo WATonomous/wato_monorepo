@@ -327,7 +327,7 @@ class CameraDetectionNode(Node):
                 # gpu = self.input_info[i].gpu = cuda.mem_alloc(contiguous_inputs[i])
             
                 # cuda.memcpy_htod_async(self.inp_info[i].gpu, contiguous_inputs[i],self.stream)           
-                self.bindings[i] = int(self.inp_info[i].gpu)
+                self.bindings[i] = int(self.input_info[i].gpu)
             for i in range(self.num_outputs):
                 name = self.output_info[i].name
                 shape = self.output_info[i].shape  
