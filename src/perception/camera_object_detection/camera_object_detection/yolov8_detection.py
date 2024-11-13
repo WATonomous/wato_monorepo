@@ -155,6 +155,7 @@ class CameraDetectionNode(Node):
             torch.Tensor image for model input of shape (1,3,w,h)
         """
         img = self.crop_image(cv_image)
+        # self.get_logger().info(f"croped image: {img}")
 
         # Convert
         img = img.transpose(2, 0, 1)
@@ -190,7 +191,7 @@ class CameraDetectionNode(Node):
             label = f'{det["label"]} {det["conf"]:.2f}'
             x1, y1, w1, h1 = det["bbox"]
             xyxy = [x1, y1, x1 + w1, y1 + h1]
-            annotator.box_label(xyxy, label, color=colors(1, True))
+            annotator.box_label(xyxy, label, color=colors(1, True)) 
 
         annotator_img = annotator.result()
         return (processed_detections, annotator_img)
@@ -229,23 +230,107 @@ class CameraDetectionNode(Node):
 
         self.detection_publisher.publish(detection2darray)
 
+    # def image_callback(self, msg):
+    #     self.get_logger().debug("Received image")
+    #     if self.orig_image_width is None:
+    #         self.orig_image_width = msg.width
+    #         self.orig_image_height = msg.height
+    #         self.get_logger().info(f"height: {self.orig_image_height}")
+    #         self.get_logger().info(f"width: {self.orig_image_width}")
+
+    #     images = [msg]  # msg is a single sensor image
+    #     startTime = time.time()
+    #     for image in images:
+
+    #         # convert ros Image to cv::Mat
+    #         if self.compressed:
+    #             np_arr = np.frombuffer(msg.data, np.uint8)
+    #             cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    #         else:
+    #             try:
+    #                 cv_image = self.cv_bridge.imgmsg_to_cv2(image, desired_encoding="passthrough")
+    #             except CvBridgeError as e:
+    #                 self.get_logger().error(str(e))
+    #                 return
+
+    #         # preprocess image and run through prediction
+    #         img = self.crop_and_convert_to_tensor(cv_image)
+    #         pred = self.model(img)
+
+    #         # nms function used same as yolov8 detect.py
+    #         pred = non_max_suppression(pred)
+    #         detections = []
+    #         for i, det in enumerate(pred):  # per image
+    #             if len(det):
+    #                 # Write results
+    #                 for *xyxy, conf, cls in reversed(det):
+    #                     label = self.names[int(cls)]
+
+    #                     bbox = [
+    #                         xyxy[0],
+    #                         xyxy[1],
+    #                         xyxy[2] - xyxy[0],
+    #                         xyxy[3] - xyxy[1],
+    #                     ]
+    #                     bbox = [b.item() for b in bbox]
+    #                     bbox = self.convert_bboxes_to_orig_frame(bbox)
+
+    #                     detections.append(
+    #                         {
+    #                             "label": label,
+    #                             "conf": conf.item(),
+    #                             "bbox": bbox,
+    #                         }
+    #                     )
+    #                     self.get_logger().debug(f"{label}: {bbox}")
+
+    #         annotator = Annotator(
+    #             cv_image,
+    #             line_width=self.line_thickness,
+    #             example=str(self.names),
+    #         )
+    #         (detections, annotated_img) = self.postprocess_detections(detections, annotator)
+
+    #         # Currently we support a single camera so we pass an empty string
+    #         feed = ""
+    #         self.publish_vis(annotated_img, msg, feed)
+    #         self.publish_detections(detections, msg, feed)
+
+    #         if self.save_detections:
+    #             cv2.imwrite(f"detections/{self.counter}.jpg", annotated_img)
+    #             self.counter += 1
+
+    #     self.get_logger().info(
+    #         f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz"
+    #     )
+
+
     def image_callback(self, msg):
         self.get_logger().debug("Received image")
-        if self.orig_image_width is None:
-            self.orig_image_width = msg.width
-            self.orig_image_height = msg.height
 
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
         for image in images:
 
-            # convert ros Image to cv::Mat
+            # Check if the image is compressed or not
             if self.compressed:
+                # Decode the compressed image
                 np_arr = np.frombuffer(msg.data, np.uint8)
                 cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                
+                # Set original image dimensions if not already set
+                if self.orig_image_width is None:
+                    self.orig_image_height, self.orig_image_width = cv_image.shape[:2]
+
             else:
                 try:
-                    cv_image = self.cv_bridge.imgmsg_to_cv2(image, desired_encoding="passthrough")
+                    cv_image = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+                    
+                    # Set original image dimensions if not already set
+                    if self.orig_image_width is None:
+                        self.orig_image_width = msg.width
+                        self.orig_image_height = msg.height
+
                 except CvBridgeError as e:
                     self.get_logger().error(str(e))
                     return
@@ -253,6 +338,7 @@ class CameraDetectionNode(Node):
             # preprocess image and run through prediction
             img = self.crop_and_convert_to_tensor(cv_image)
             pred = self.model(img)
+            
 
             # nms function used same as yolov8 detect.py
             pred = non_max_suppression(pred)
@@ -297,9 +383,9 @@ class CameraDetectionNode(Node):
                 cv2.imwrite(f"detections/{self.counter}.jpg", annotated_img)
                 self.counter += 1
 
-        self.get_logger().info(
-            f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz"
-        )
+            self.get_logger().info(
+                f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz"
+            )
 
 
 def main(args=None):
