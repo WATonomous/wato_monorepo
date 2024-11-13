@@ -6,6 +6,8 @@ from geometry_msgs.msg import PointStamped
 from geometry_msgs.msg import Point
 from std_msgs.msg import Header
 import math
+import numpy as np
+from local_planning.lattice_planner import PlannerConverter, PlannerCostCalculator, PlannerSampler, VehicleState, LatticePlanner, PlannerLaneInfo
 
 class LocalPlanningNode(Node):
     def __init__(self):
@@ -21,7 +23,7 @@ class LocalPlanningNode(Node):
         self.car_x = 0.0
         self.car_y = 0.0
         self.car_z = 0.0
-        self.angle = 0
+        self.angle = -np.pi
         self.vel_x = 0
         self.vel_y = 0
 
@@ -32,19 +34,37 @@ class LocalPlanningNode(Node):
         self.current_centre_lane = []
 
         #make modular
-        self.current_lane_idx = 2
-        self.num_lanes = 4 
-        self.lattice_density = 4
+        # self.current_lane_idx = 2
+        # self.num_lanes = 4 
+        # self.lattice_density = 4
+
         self.lattices = []
+        self.current_trajectory = []
+        self.traj_idx = 0
+        self.curr_marker = None
+
+        self.conv = PlannerConverter(self.lane_to_coord)
+        init_state = VehicleState(self.car_x,self.car_y,self.angle, 0)
+        traj_cost = PlannerCostCalculator()
+        sample = PlannerSampler()
+        self.planner = LatticePlanner(init_state, PlannerLaneInfo, self.conv, traj_cost, sample)
 
 
         self.lanlet_subscriber_ = self.create_subscription(
             MarkerArray,  # Message type
-            'hd_map_desired_lane',  # Topic name
+            'hd_map_current_lane',  # Topic name
             self.marker_callback,  # Callback function
             10  # QoS profile (queue size)
         )
+
+        self.global_path_subscriber_ = self.create_subscription(
+            MarkerArray,  # Message type
+            'hd_map_route',  # Topic name
+            self.path_callback,  # Callback function
+            10  # QoS profile (queue size)
+        )
         self.lattice_publisher_ = self.create_publisher(Marker, 'lattice_marker', 10)
+        self.trajectory_publisher_ = self.create_publisher(Marker, 'trajectory_marker', 10)
         self.car_publisher_ = self.create_publisher(Marker, 'car_marker', 10)
         self.query_point_publisher_ = self.create_publisher(PointStamped, 'query_point', 10)
 
@@ -53,21 +73,94 @@ class LocalPlanningNode(Node):
     
     def average_point(self, x1, x2):
         return (x1+x2)/2
+
+    def findNearestOnRoad(self):
+        minDist = float('Infinity')
+        for i in range(len(self.roads)):
+            for j in range(len(self.roads[i])):
+                vec, start, points = self.roads[i][j]
+                mid = points[len(points)//2]
+                mid_vec = np.array([mid.x,mid.y])-start
+                if np.linalg.norm(np.cross(vec, mid_vec)) / (np.linalg.norm(vec) * np.linalg.norm(mid_vec)) >= 0.1:
+                    continue
+                for k in range(len(points)):
+                    
+                    pos = np.array([self.car_x, self.car_y])
+                    point = np.array([points[k].x,points[k].y])
+
+                    dist = np.linalg.norm(pos - point)
+
+                    if dist < minDist:
+                        minDist = dist
+                        self.curr_marker = (i, j, k)
+        
+        self.create_lattices()
     
     def car_publish_marker(self):
         #to move car
         #self.car_x -= 0.5
         #to rotate car
-        self.angle += math.radians(1)
+
+        res = self.planner.run()
+        if res is not None:
+            parent = res.incomingState
+            route = [res]
+            while parent is not None:
+                route.append(parent)
+                parent = parent.incomingState
+            
+            # self.lattices = []
+            self.current_trajectory = []
+            self.traj_idx = 0
+            for node in route:
+                # self.lattices.append(node.getState())
+                traj = node.incomingTrajectory
+                count = 0
+                for x,y,t,k in traj:
+                    count += 1  
+                    if count%10 != 0:
+                        continue    
+                    
+                    self.current_trajectory.append([x,y,t,k])
+        
+        traj_marker = Marker()
+        traj_marker.header = Header()
+        traj_marker.header.frame_id = 'map'
+        traj_marker.type = Marker.POINTS  # Set marker type to POINTS
+        traj_marker.action = Marker.ADD
+
+        # Set the scale of the points (size in meters)
+        traj_marker.scale.x = 1.0  # Width of each point
+        traj_marker.scale.y = 1.0  # Height of each point
+
+        # Set the color for all points (RGBA)
+        traj_marker.color.r = 0.0
+        traj_marker.color.g = 0.0
+        traj_marker.color.b = 1.0
+        traj_marker.color.a = 1.0  # Fully opaque
+
+        # Convert your array of points to ROS Point messages
+        traj_marker.points = [Point(x=pt[0], y=pt[1], z=0.0) for pt in self.current_trajectory]
+        self.trajectory_publisher_.publish(traj_marker)
 
         #make car follow path
-        if(len(self.current_centre_lane) > 0):
-            self.car_x = self.current_centre_lane[self.scope_idx+2][0]
-            self.car_y = self.current_centre_lane[self.scope_idx+2][1]
+        
+        if(len(self.current_trajectory) > 0 and self.curr_marker):
+        
+            self.car_x = self.current_trajectory[self.traj_idx][0]
+            self.car_y = self.current_trajectory[self.traj_idx][1]
+            self.angle = self.current_trajectory[self.traj_idx][2]
+            new_state = VehicleState(self.car_x, self.car_y, self.angle, self.current_trajectory[self.traj_idx][3], (0,0))
+            self.planner.setNewState(new_state)
+            if self.traj_idx < len(self.current_trajectory)-1:
+                self.traj_idx += 1
+            self.get_logger().info(f'{self.car_x, self.car_y, self.angle}')
+
+            self.findNearestOnRoad()
             
             #not sure why i have to multiply by a negative but it just works
-            self.vel_x = -1*(self.current_centre_lane[self.scope_idx+2][0]-self.car_x) /self.query_frq
-            self.vel_y = (self.current_centre_lane[self.scope_idx+2][1]-self.car_y) /self.query_frq
+            # self.vel_x = -1*(self.current_centre_lane[self.scope_idx+2][0]-self.car_x) /self.query_frq
+            # self.vel_y = (self.current_centre_lane[self.scope_idx+2][1]-self.car_y) /self.query_frq
 
 
         marker = Marker()
@@ -99,42 +192,152 @@ class LocalPlanningNode(Node):
         self.car_publisher_.publish(marker)
         self.get_logger().info('Publishing Car Marker')
 
+    def lane_to_coord(self, s: float, l: float):
+        if self.curr_marker is None:
+            return None
+        road, lane, s_p = self.curr_marker
 
-    def marker_callback(self, msg):
+        # always use first lane as reference lane
+        
+        vec, start, points = self.roads[road][lane]
+        curr_start = np.array([points[s_p].x, points[s_p].y])
+
+        end = start + vec
+        dir_vec = vec / np.linalg.norm(vec)
+        
+        new_point = curr_start + dir_vec * s
+        prev_dist = np.linalg.norm(vec)
+        curve = False
+        path_dist_from_start = np.linalg.norm(new_point-start)
+        start = curr_start
+        while path_dist_from_start > np.linalg.norm(vec):
+            road += 1
+            if len(self.roads) != road:
+                # check that following road isnt a turn
+                next_vec, next_start, next_points = self.roads[road][0]
+                # TODO: get point along a curved path (will probably need numerical approx of first and second deriv)
+                # TODO: calculate curvature as well
+                if np.linalg.norm(np.cross(vec, next_vec)) / (np.linalg.norm(next_vec) * np.linalg.norm(next_vec)) >= 0.1 and not curve:
+                    curve = True
+                    s -= np.linalg.norm(next_vec)/2
+                    continue
+                
+                curve = False
+                s -= np.linalg.norm(end - start)
+                vec = next_vec
+                start = next_start
+                end = start + vec
+                dir_vec = vec / np.linalg.norm(vec)
+                new_point = start + dir_vec * s
+                prev_dist = np.linalg.norm(vec)
+                path_dist_from_start = np.linalg.norm(new_point - start)
+
+            else:
+                new_point = end
+                break
+
+        
+        perp_vec = np.empty_like(dir_vec)
+        perp_vec[0] = -dir_vec[1]
+        perp_vec[1] = dir_vec[0]
+
+        new_point += perp_vec * l
+
+        x = new_point[0]
+        y = new_point[1]
+        theta = np.arctan2(dir_vec[1],dir_vec[0])
+        kappa = 0 # never getting point on a curve (for now)
+        return [x, y, theta, kappa]     
+
+
+    def path_callback(self, msg):
         # Process the received message
-        min = float('Infinity')
+        minDist = float('Infinity')
         min_idx = None
 
-        for i in range(len(msg.markers[0].points)):
-            x = self.average_point(msg.markers[0].points[i].x,msg.markers[1].points[i].x)
-            y = self.average_point(msg.markers[0].points[i].y,msg.markers[1].points[i].y)
-            self.current_centre_lane.append([x,y])
-            if(min>self.euclidean_distance(x,self.car_x,y,self.car_y)):
-                min = self.euclidean_distance(x,self.car_x,y,self.car_y)
-                min_idx = i
-                #self.get_logger().info(f'closest point {self.current_centre_lane[min_idx]} from {[self.car_x,self.car_y]} with dist {min}')
-     
+        self.current_centre_lane = []
+        self.roads = []
+
+        self.curr_marker = None
+
+        prev_vec = None
+        prev_start = None
+        lane = 0
+        for i in range(len(msg.markers)):
+            start_point = np.array([msg.markers[i].points[0].x,msg.markers[i].points[0].y])
+            mid_point = np.array([msg.markers[i].points[len(msg.markers[i].points)//2].x,msg.markers[i].points[len(msg.markers[i].points)//2].y])
+            end_point = np.array([msg.markers[i].points[-1].x,msg.markers[i].points[-1].y])
+
+            curr_vec = end_point - start_point
+
+            if prev_vec is not None:
+                # Check lane is parallel
+                if np.linalg.norm(np.cross(prev_vec, curr_vec)) / (np.linalg.norm(prev_vec) * np.linalg.norm(curr_vec)) < 0.1:
+                    # Calculate perp. distance (seperatation distance between lanes)
+                    p = start_point - prev_start
+                    sep_dist = np.linalg.norm(np.cross(prev_vec/np.linalg.norm(prev_vec), p))
+
+                    # double check this is an adjacent lane
+                    # TODO: fix this
+                    if self.lane_width == 0: self.lane_width = 3.5 #temp if not set
+
+                    if (sep_dist < self.lane_width * 1.3 and sep_dist > self.lane_width * 0.7):
+                        self.roads[len(self.roads)-1].append((curr_vec, start_point, msg.markers[i].points))
+                        lane += 1
+                    else:
+                        self.roads.append([(curr_vec, start_point, msg.markers[i].points)])
+                        lane = 0
+                else:
+                    self.roads.append([(curr_vec, start_point, msg.markers[i].points)])
+                    lane = 0
+
+                prev_vec = curr_vec
+                prev_start = start_point
+
+            else:
+                self.roads.append([(curr_vec, start_point, msg.markers[i].points)])
+                prev_vec = curr_vec
+                prev_start = start_point
             
+            mid_vec = mid_point-start_point
+            if np.linalg.norm(np.cross(curr_vec, mid_vec)) / (np.linalg.norm(curr_vec) * np.linalg.norm(mid_vec)) >= 0.1:
+                continue
+            
+            for j in range(len(msg.markers[i].points)):
+                pos = np.array([self.car_x, self.car_y])
+                point = np.array([msg.markers[i].points[j].x,msg.markers[i].points[j].y])
+
+                dist = np.linalg.norm(pos - point)
+
+                if dist < minDist:
+                    minDist = dist
+                    self.curr_marker = (len(self.roads)-1, lane, j)
+
+        
+        self.get_logger().info(f'Received message with {len(msg.markers)} markers')
+        self.create_lattices()
+
+    def marker_callback(self, msg):
+    
         #estimating a constant lane width for the next x scope also assuming the largest diff is the width
-        self.lane_width = max(abs(msg.markers[0].points[min_idx].x-msg.markers[1].points[min_idx].x),abs(msg.markers[0].points[min_idx].y-msg.markers[1].points[min_idx].y))
-        self.scope_idx = min_idx
+        sqr_x_dist = (msg.markers[0].points[0].x-msg.markers[1].points[0].x) ** 2
+        sqr_y_dist = (msg.markers[0].points[0].y-msg.markers[1].points[0].y) ** 2
+        dist = (sqr_x_dist + sqr_y_dist) ** (1/2)
+        self.lane_width = dist
 
         #printing centre lane
         # if(len(self.current_centre_lane) > 0):
         #     if(self.current_centre_lane[0][0] != self.average_point(msg.markers[0].points[i].x,msg.markers[1].points[i].x)):
         #         self.get_logger().info(f'centre lane: {self.current_centre_lane}')
 
-        self.create_lattices()
-
-        self.get_logger().info(f'Received message with {min_idx} markers')
-
     def create_lattices(self):
         self.lattices = []
-        #assuming constant lane width and no curve
-        for j in range(1,self.lattice_density+1):    
-            for i in range(self.num_lanes):
-                self.lattices.append([(math.copysign(self.lane_scope*j,self.vel_x)) + self.car_x-(math.tan(self.angle)*self.lane_width*(i-self.current_lane_idx)),self.car_y+self.lane_width*(i-self.current_lane_idx),0.0])
 
+        for s in range(10, 31, 10):
+            for l in range(-1,2):
+                l *= self.lane_width
+                coord = self.lane_to_coord(s, l)
+                self.lattices.append(self.lane_to_coord(s, l))
 
 
 
@@ -157,13 +360,13 @@ class LocalPlanningNode(Node):
         marker.color.a = 1.0  # Fully opaque
 
         # Convert your array of points to ROS Point messages
-        marker.points = [Point(x=pt[0], y=pt[1], z=pt[2]) for pt in self.lattices]
+        marker.points = [Point(x=pt[0], y=pt[1], z=0.0) for pt in self.lattices]
 
         # Publish the marker
         if len(self.lattices) > 0:
             self.lattice_publisher_.publish(marker)
 
-        self.get_logger().info(f'Publishing Points Marker with {self.lattices} points')
+        # self.get_logger().info(f'Publishing Points Marker with {self.lattices} points')
 
     def publish_query_point(self):
         #use to move car    
