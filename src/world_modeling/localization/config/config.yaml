@@ -1,0 +1,31 @@
+# Frame definitions
+map_frame: map		# Fixed global frame, global navigation
+odom_frame: odom	# Local reference that tracks robot position over time based on wheel encoders
+base_link_frame: base_link  # Robot's body frame, centered on the robot and moves with it
+
+#GPS
+GPS:
+	port: /dev/ttyUSB0
+    baud: 19200
+
+ODOM:
+    odom0: /odometry_topic  # Provides information about robot's position and velocity
+	odom0_config: [true, true, false, 
+           false, false, true, 
+           true, false, false, 
+           false, false, true, 
+           false, false, false]  # 2D configuration for X, Y position, velocity, and YAW
+
+IMU:
+	imu0: /imu_topic		# Inertial measurement unit, provides info on orientation, accelerations, angular velocity
+	imu0_config: [false, false, false, 
+          false, false, true, 
+          false, false, false, 
+          false, false, true, 
+          true, false, false]  # Yaw is important for steering and orientation
+
+# Parameters
+frequency: 50
+sensor_timeout: 0.1
+two_d_mode: true
+
