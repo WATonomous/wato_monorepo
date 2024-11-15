@@ -19,6 +19,25 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
+# Install pip
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg libsm6 libxext6 wget \
+    build-essential \
+    gcc \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev
+
+# Install scipy separately
+RUN python3 -m pip install scipy
+
+# Install python packages
+COPY src/perception/tracking/requirements.txt requirements.txt
+RUN python3 -m pip install -r requirements.txt
+RUN rm requirements.txt
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update
