@@ -150,6 +150,30 @@ def generate_launch_description():
         output='screen'
     )
 
+    """ Launch CARLA Waypoint Publisher """
+    carla_waypoint_publisher = Node(
+        package='carla_waypoint_publisher',
+        executable='carla_waypoint_publisher',
+        name='carla_waypoint_publisher',
+        output='screen',
+        parameters=[{
+            'host': LaunchConfiguration('host'),
+            'port': LaunchConfiguration('port'),
+            'timeout': LaunchConfiguration('timeout'),
+            'role_name': LaunchConfiguration('role_name')
+        }]
+    )
+
+    """ Launch Waypoint Modifier Node """
+    carla_waypoint_modifier = Node(
+        package='carla_config',
+        executable='carla_waypoint_modifier',
+        parameters=[{
+            'role_name': LaunchConfiguration('role_name'),
+        }],
+        output='screen'
+    )
+
     return LaunchDescription([
         host_arg,
         port_arg,
@@ -166,5 +190,7 @@ def generate_launch_description():
         carla_ros_bridge,
         carla_ego_vehicle,
         *carla_control,
+        carla_waypoint_publisher,
+        carla_waypoint_modifier,
         # carla_mpc_bridge, # MPC bridge needs to be reworked
     ])

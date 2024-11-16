@@ -80,6 +80,7 @@ ARG CARLA_VERSION
 #Install Python Carla API
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla /opt/carla/PythonAPI
 WORKDIR /opt/carla/PythonAPI
+RUN cp -r ./agents /usr/local/lib/python3.8/dist-packages/
 RUN python3.8 -m easy_install pip && \
       pip3 install carla==${CARLA_VERSION} && \
       pip install simple-pid==2.0.0 && \
