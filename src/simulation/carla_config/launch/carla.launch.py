@@ -150,6 +150,9 @@ def generate_launch_description():
         output='screen'
     )
 
+    waypoint_topic = DeclareLaunchArgument('waypoint_topic', default_value=['/carla/', LaunchConfiguration('role_name'), '/waypoints'])
+    waypoint_topic_old = DeclareLaunchArgument('waypoint_topic_old', default_value=['/carla/', LaunchConfiguration('role_name'), '/waypointsOld'])
+
     """ Launch CARLA Waypoint Publisher """
     carla_waypoint_publisher = Node(
         package='carla_waypoint_publisher',
@@ -161,7 +164,10 @@ def generate_launch_description():
             'port': LaunchConfiguration('port'),
             'timeout': LaunchConfiguration('timeout'),
             'role_name': LaunchConfiguration('role_name')
-        }]
+        }],
+        remappings=[
+          (LaunchConfiguration('waypoint_topic'), LaunchConfiguration('waypoint_topic_old')),
+        ]
     )
 
     """ Launch Waypoint Modifier Node """
@@ -169,7 +175,8 @@ def generate_launch_description():
         package='carla_config',
         executable='carla_waypoint_modifier',
         parameters=[{
-            'role_name': LaunchConfiguration('role_name'),
+            'input_topic': LaunchConfiguration('waypoint_topic_old'),
+            'output_topic': LaunchConfiguration('waypoint_topic')
         }],
         output='screen'
     )
@@ -190,6 +197,8 @@ def generate_launch_description():
         carla_ros_bridge,
         carla_ego_vehicle,
         *carla_control,
+        waypoint_topic_old,
+        waypoint_topic,
         carla_waypoint_publisher,
         carla_waypoint_modifier,
         # carla_mpc_bridge, # MPC bridge needs to be reworked
