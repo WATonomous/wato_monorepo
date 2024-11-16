@@ -4,11 +4,10 @@ Node to add frame IDs to the waypoints being published by carla_waypoint_publish
 
 */
 
-#include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 class Waypoint_Modifier_Node : public rclcpp::Node {
-
  public:
   Waypoint_Modifier_Node() : Node("carla_waypoint_fix") {
     // Declare Parameters
@@ -26,10 +25,9 @@ class Waypoint_Modifier_Node : public rclcpp::Node {
 
     // Create Publisher
     auto qos = rclcpp::QoS(rclcpp::KeepAll())
-          .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
-          .durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
-    this->pathPub =
-        this->create_publisher<nav_msgs::msg::Path>(output_topic, qos);
+                   .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
+                   .durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
+    this->pathPub = this->create_publisher<nav_msgs::msg::Path>(output_topic, qos);
   }
 
  private:
@@ -37,7 +35,7 @@ class Waypoint_Modifier_Node : public rclcpp::Node {
     std::string frame_id = pathIn->header.frame_id;
     path.header = pathIn->header;
     path.poses = pathIn->poses;
-    for(auto &pose : path.poses){
+    for (auto &pose : path.poses) {
       pose.header.frame_id = frame_id;
     }
     pathPub->publish(path);
