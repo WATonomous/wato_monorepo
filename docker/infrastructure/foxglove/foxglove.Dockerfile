@@ -10,7 +10,8 @@ COPY src/wato_msgs wato_msgs
 
 # Copy in CARLA messages
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
-RUN rm ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
+# Update CONTRIBUTING.md to pass ament_copyright test
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
