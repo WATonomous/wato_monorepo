@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple, Union
 from dataclasses import dataclass
 from numpy import ndarray
 # import pycuda.driver as cuda
-
+from cuda import cudart
 @dataclass
 class Tensor:
     name:str
@@ -62,7 +62,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("back_right_camera_topic", "/CAM_BACK_RIGHT/image_rect_compressed")
         self.declare_parameter("back_left_camera_topic", "/CAM_BACK_LEFT/image_rect_compressed")
 
-        self.declare_parameter("onnx_model_path", "/perception_models/yolov8m_dynamic.onnx")
+        self.declare_parameter("onnx_model_path", "/perception_models/yolov8m.onnx")
         self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m.engine")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
@@ -153,13 +153,15 @@ class CameraDetectionNode(Node):
 
         # CV bridge
         self.cv_bridge = CvBridge()
-        # self.stream = cuda.Stream()
+      
+        status, self.stream = cudart.cudaStreamCreate()
+        assert status.value == 0, "IS NOT ZERO"
+       
+        #self.build_engine()
         self.initialize_engine(self.tensorRT_model_path)
         self.input_info, self.output_info =  self.initialize_tensors()
-        self.engine_gpu_allocation(self.input_info)
-      
-    
-        
+        self.tensorRT_inferencing(self.input_info)
+  
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
@@ -224,7 +226,7 @@ class CameraDetectionNode(Node):
         with open(self.tensorRT_model_path, "wb") as f:
             f.write(self.engine_bytes)
         self.get_logger().info("FINISHED WRITING ")
-
+ 
     def initialize_engine(self, weight):
         self.weight = Path(weight) if isinstance(weight, str) else weight
         self.logger  = trt.Logger(trt.Logger.WARNING)
@@ -237,11 +239,9 @@ class CameraDetectionNode(Node):
           
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
-        self.execution_context.set_input_shape(self.input_tensor_name, [6, 3, 1080, 1920])
         self.inputShape = self.execution_context.get_tensor_shape(self.input_tensor_name)
         self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
-        self.get_logger().info(f"Number of tensors: {self.num_io_tensors}")
         self.bindings = [0] * self.num_io_tensors
         self.num_inputs  = 0
         self.num_outputs = 0
@@ -268,20 +268,21 @@ class CameraDetectionNode(Node):
         self.input_info = []
         self.output_info = []
         self.output_ptrs = []
-        self.input_device_bindings = []
-        self.output_device_bindings = []
         batch_size = 6
        
         for name in self.output_names:
             self.get_logger().info(f"NAMES of outputs:{name}")
             self.tensorRT_output_shape = tuple(self.tensorRT_model.get_tensor_shape(name))
+            #Batch size changes from -1 to 6 
             self.tensorRT_output_shape = (batch_size,) + self.tensorRT_output_shape[1:]
-            self.get_logger().info(f"Tensor shape:{self.tensorRT_output_shape}")
+            # self.get_logger().info(f"Tensor shape:{self.tensorRT_output_shape}")
+
             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             self.output_cpu = np.empty(self.tensorRT_output_shape, dtype = self.outputDtype)
-            self.output_gpu = 0
-            # self.output_gpu = cuda.mem_alloc(self.output_cpu.nbytes)
-            # cyda.memcpy_htod_async(self.output_gpu, self.output_cpu, self.stream)
+            status, self.output_gpu = cudart.cudaMallocAsync(self.output_cpu.nbytes, self.stream)
+            assert status.value == 0
+            cudart.cudaMemcpyAsync(self.output_gpu, self.output_cpu.ctypes.data, self.output_cpu.nbytes,
+                cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream)
             self.output_ptrs.append(self.output_gpu)
             self.output_info.append(Tensor(name, self.outputDtype, self.tensorRT_output_shape, self.output_cpu, self.output_gpu))
         
@@ -291,64 +292,63 @@ class CameraDetectionNode(Node):
              self.tensorRT_input_shape = (batch_size,) + self.tensorRT_input_shape[1:]
              self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
              self.input_cpu  = np.empty(self.tensorRT_input_shape, self.dtype)
-             self.input_gpu = 1
-            #  self.input_gpu = cuda.mem_alloc(self.input_cpu.nbytes)
-            #  cuda.memcpy_htod_async(self.input_gpu, self.input_cpu, self.stream)
+             status, self.input_gpu = cudart.cudaMallocAsync(self.input_cpu.nbytes, self.stream)
+             assert status.value == 0, "DOES NOT MATCH"
+             cudart.cudaMemcpyAsync(
+                    self.input_gpu, self.input_cpu.ctypes.data, self.input_cpu.nbytes,
+                    cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream)
              self.input_info.append(Tensor(name, self.dtype, self.tensorRT_input_shape, self.input_cpu, self.input_gpu))
+             
         return self.input_info, self.output_info
     
-    def engine_gpu_allocation(self, input_info):
+    def tensorRT_inferencing(self, input_info):
         for i in range(10):
             self.inputTensors = []
             for i in self.input_info:
                 self.inputTensors.append(i.cpu)
-              
                 assert len(self.inputTensors) == self.num_inputs, "does not match"
                 self.contiguous_inputs:List[ndarray]  = [
                   np.ascontiguousarray(i) for i in self.inputTensors
                 ]
-           
             for i in range(self.num_inputs):
                 name = self.input_info[i].name
                 shape = self.input_info[i].shape
                 contigous_shape = self.contiguous_inputs[i].nbytes
+                cudart.cudaMemcpyAsync(self.input_info[i].gpu, self.contiguous_inputs[i].ctypes.data,
+                            self.contiguous_inputs[i].nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream)
+                self.bindings[i] = self.input_info[i].gpu
 
-                self.get_logger().info(f"input names:{name} & input shape:{shape}")
-               
-                # gpu = self.input_info[i].gpu = cuda.mem_alloc(contiguous_inputs[i].nbytes)
-            
-                # cuda.memcpy_htod_async(self.inp_info[i].gpu, contiguous_inputs[i],self.stream)           
-                self.bindings[i] = int(self.input_info[i].gpu)
-            
             self.output_gpu_ptrs:List[int] = []
             self.outputs_ndarray:List[ndarray] = []
             for i in range(self.num_outputs):
                 j = i + self.num_inputs  
-                name = self.output_info[i].name
-                shape = self.output_info[i].shape  
-                self.get_logger().info(f"output names: {name}& output SHAPES:{shape}") 
-                dtype = self.output_info[i].dtype
-                self.outputs_ndarray.append(self.output_cpu)
-                self.output_gpu_ptrs.append(self.output_gpu)
-        #         gpu = cuda.mem_alloc(cpu.nbytes)
-        #         cuda.memcpy_htod_async(gpu,cpu, self.stream)
-                self.bindings[j] = int(self.output_info[i].gpu)
-        self.get_logger().info(f"Bindings Array:{self.bindings}")
-        self.get_logger().info(f"Outputs Array after append{self.output_gpu_ptrs}")
-        
-        #this is for the inferencing part
-        # self.execution_context.execute_async_v2(self.bindings, self.stream.handle)
-        # self.stream.synchronize()
+                cpu = self.output_info[i].cpu
+                gpu = self.output_info[i].gpu
+                self.outputs_ndarray.append(cpu)
+                self.output_gpu_ptrs.append(gpu)
+                self.bindings[j] = gpu
+            self.get_logger().info(f"Binding Gpu array:{self.bindings}")
+            for i in range(self.num_io_tensors):
+                # self.get_logger().info(f"Number of tensors: {self.num_io_tensors}")
+                # self.get_logger().info(f"TENSOR NAMES: {self.tensorRT_model.get_tensor_name(i)}")
+                self.get_logger().info(f"Binding Gpu array:{self.bindings[i]}")
+                self.execution_context.set_tensor_address(self.tensorRT_model.get_tensor_name(i), self.bindings[i])
+            
+            self.execution_context.execute_async_v3(self.stream)
+            cudart.cudaStreamSynchronize(self.stream)
+        #      for i, o in enumerate(output_gpu_ptrs):
+        #     cuda.memcpy_dtoh_async(outputs[i], o, self.stream)
 
-        # for i, o in enumerate(self.output_gpu_ptrs):
-        #     cuda.memcpy_dtoh_async(self.outputs[i], o, self.stream)
-        
+        # return tuple(outputs) if len(outputs) > 1 else outputs[0]
+
         
     def batch_inference_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
+        #Taking msgs from all 6 ros2 subscribers 
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
+
+        #Preprocessing
         for msg in image_list:  
-            # Need to convert to numpy array and then make it have 3 color channels 
             numpy_array = np.frombuffer(msg.data, np.uint8)
             compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
             resized_compressedImage = cv2.resize(compressedImage,(640, 640))
@@ -360,15 +360,17 @@ class CameraDetectionNode(Node):
         height, width  = self.input_info[0].shape[-2:]
         self.get_logger().info(f"HEIGHT:{height}")
         self.get_logger().info(f"Width:{width}")
-        cuda.memcpy_htod_async(self.input_info[0].gpu, self.batch_array, self.stream)
-        self.execution_context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
-        self.stream.synchronize()  # Wait for inference to complete
-       
+
+        #We have to call inferencing function here 
+        
+
+        #Bounding Boxes & oost processing detections
+
+
         #Now need to pass it to yolov8 tensorRT model
         # predictions = self.model(batch_tensor)
        
-        
- 
+
         
     #Converting to tensor for batching
     def batch_convert_to_tensor(self, cv_image):

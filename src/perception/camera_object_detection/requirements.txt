@@ -8,4 +8,7 @@ numpy==1.24.2
 onnx
 onnxsim
 onnxruntime-gpu
-tensorrt
+tensorrt==10.6.0
+tensorrt_lean
+tensorrt_dispatch
+cuda-python
