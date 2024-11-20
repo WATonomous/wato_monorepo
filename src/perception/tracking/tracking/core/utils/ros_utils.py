@@ -7,18 +7,37 @@ from tracking_msgs.msg import TrackedDetection3D
 from tracking_msgs.msg import Obstacle as ObstacleMsg
 import tf_transformations as tr
 
+'''
+
+Function to find the rotation around the z axis from a quaternion which is a 4 component representation of orientation (x,y,z,w)
+
+Quaternions are not intuitive for humans to interpret directly so we conver them into Euler angles roll (roation around the x axis),
+
+pitch (rotation around the y axis), yaw (rotation around the z-axis)
+
+'''
 def yaw_from_quaternion_msg(quaternion):
     (r, p, y) = tr.euler_from_quaternion([quaternion.x, quaternion.y, quaternion.z, quaternion.w])
     return y
 
-def obstacle_to_bbox(obstacle):
-    x = obstacle.center.position.x
-    y = obstacle.center.position.y
-    z = obstacle.center.position.z
-    rz = yaw_from_quaternion_msg(obstacle.center.orientation)
-    w = obstacle.size.x
-    l = obstacle.size.y
-    h = obstacle.size.z
+# def obstacle_to_bbox(obstacle):
+#     x = obstacle.center.position.x
+#     y = obstacle.center.position.y
+#     z = obstacle.center.position.z
+#     rz = yaw_from_quaternion_msg(obstacle.center.orientation)
+#     w = obstacle.size.x
+#     l = obstacle.size.y
+#     h = obstacle.size.z
+#     return [x, y, z, rz, w, l, h]
+
+def obstacle_to_bbox(marker):
+    x = marker.pose.position.x
+    y = marker.pose.position.y
+    z = marker.pose.position.z
+    rz = yaw_from_quaternion_msg(marker.pose.orientation)  
+    w = marker.scale.x
+    l = marker.scale.y
+    h = marker.scale.z
     return [x, y, z, rz, w, l, h]
 
 def bbox_to_obstacle(bbox, unique_id, label, confidence_score):
