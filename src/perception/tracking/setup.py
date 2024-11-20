@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'tracker_node = tracking.tracker:main',
+            't_node = tracking.tracker_nuscenes:main',
             'detection_publisher = tracking.detection_publisher:main'
         ],
     },
