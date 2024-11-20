@@ -145,8 +145,8 @@ class trackerNode(Node):
 
         result = self.track(detections, informations, frame_id, timestamp)
 
-        if result is not None:
-            self.get_logger().info(f"Tracked Objects: {result}")
+        # if result is not None:
+        #     self.get_logger().info(f"Tracked Objects: {result}")
 
         # end_time = time.time()
         # self.get_logger().info(f"Processing time: {end_time - start_time:.4f} seconds")
@@ -167,6 +167,9 @@ class trackerNode(Node):
         # Initialize an empty list to hold tracked obstacles
         tracked_obstacle_list.tracked_obstacles = []
 
+        # Log the number of active trackers
+        self.get_logger().info(f"Number of active trackers: {len(self.mot_tracker.trackers)}")
+
         # For each tracker in the list, create a tracked obstacle message and append it to the list
         for kf_track in self.mot_tracker.trackers:
             tracking_name = kf_track.tracking_name
@@ -177,10 +180,14 @@ class trackerNode(Node):
             tracked_obstacle_message = self._create_tracked_obstacle_message(kf_track, tracking_name, track_score, dt)
             tracked_obstacle_list.tracked_obstacles.append(tracked_obstacle_message)
 
+        # Log the number of tracked obstacles prepared for publishing
+        self.get_logger().info(f"Tracked obstacles prepared for publishing: {len(tracked_obstacle_list.tracked_obstacles)}")
+
+
         #Publish entire message with multiple different trackers
         self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
 
-        self.get_logger().info(f"Published tracked obstacles: {tracked_obstacle_list}")
+        # self.get_logger().info(f"Published tracked obstacles: {tracked_obstacle_list}")
 
         # end_time = time.time()
 
