@@ -109,7 +109,7 @@ class KalmanBoxTracker(object):
         self.tracking_name = tracking_name
         self.use_angular_velocity = use_angular_velocity
 
-        print(f"Initialized KalmanBoxTracker with state: {self.kf.x.reshape(-1)}")
+        # print(f"Initialized KalmanBoxTracker with state: {self.kf.x.reshape(-1)}")
 
 
     def update(self, bbox3D, info, timestamp): 
@@ -223,6 +223,15 @@ class AB3DMOT(object):
         NOTE: The number of objects returned may differ from the number of detections provided.
         """
 
+        '''
+        Print the array of detections for debugging. Will come in the size [M,7] 
+        where M is the number of detections and 7 is for [x,y,z,rot,l,w,h]
+        '''
+
+        # print(f"Detections:\n{dets}")
+        for idx, detection in enumerate(dets):
+            print(f"Index {idx}: {detection}")
+
         self.frame_count += 1
 
         trks = np.zeros((len(self.trackers),7))         # N x 7 , #get predicted locations from existing trackers.
@@ -232,12 +241,12 @@ class AB3DMOT(object):
         # Run KF Prediction on existing tracks
         for t,trk in enumerate(trks):
             pos = self.trackers[t].predict(timestamp).reshape((-1,))
-            print(pos)
+            # print(pos)
             trk[:] = [pos[0], pos[1], pos[2], pos[3], pos[4], pos[5], pos[6]]       
             if(np.any(np.isnan(pos))):
                 to_del.append(t)
 
-            print(f"deleted: {to_del}")
+            # print(f"deleted: {to_del}")
 
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
         for t in reversed(to_del):
@@ -249,9 +258,20 @@ class AB3DMOT(object):
                 
         matched, unmatched_dets, unmatched_trks = self.associate_detections_to_trackers(dets, trks, trks_S=trks_S)
         unmatched_dets = list(unmatched_dets)
-        print(f"unmatched: {unmatched_dets}")
-        print(f"matched: {matched}")
-        print(f"unmatched tracks: {unmatched_trks}")
+
+        '''
+        Detections from the new frame that went unmatched and will show up in an [1, M] array where M is the number of
+        unmatched detections and each detection will be represented as the index of the detections of that frame
+        [1,2,5] = Detections 1,2 and 5 were unmathced with current trackers
+        '''
+
+        print(f"unmatched: {unmatched_dets}") #Detections that haven't been matched
+
+        '''
+        Array of size [M,2] where M is the number successful matches with detections and trackers and 2 is the number of indicies for each M
+        '''
+        print(f"matched: {matched}") #Detections from the current frame that have been matched with detections from the previous frame
+        print(f"unmatched tracks: {unmatched_trks}") #Trackers that did not get an update because there were no detections that met the requirement to update the tracker
 
         #update matched trackers with assigned detections
         iou_scores = None
@@ -282,16 +302,16 @@ class AB3DMOT(object):
         # The condition abs(timestamp - trk.last_update) < self.max_age checks if the number of frames since the last update is less than max_age.
         # If this condition is true, the tracker is retained; otherwise, it is removed.
 
-        print(f"Trackers before deletion: {[trk.id for trk in self.trackers]}")
-        for trk in self.trackers:
-            print(f"Tracker ID: {trk.id}, last_update: {trk.last_update}, current timestamp: {timestamp}")
+        print(f"Trackers before deletion: {[trk.id for trk in self.trackers]}") #List of active trackers
+        # for trk in self.trackers:
+            # print(f"Tracker ID: {trk.id}, last_update: {trk.last_update}, current timestamp: {timestamp}")
 
         self.trackers = [trk for trk in self.trackers if abs(timestamp - trk.last_update) < self.max_age]
-        print(f"Trackers after deletion: {[trk.id for trk in self.trackers]}")
+        print(f"Trackers after deletion: {[trk.id for trk in self.trackers]}") # List of trackers that were deleted because they hit the max age 
 
         for trk in self.trackers:
             d = trk.get_state() 
-            print(f"d shape: {d.shape}, trk.id: {trk.id}, trk.track_score: {trk.track_score}")
+            # print(f"d shape: {d.shape}, trk.id: {trk.id}, trk.track_score: {trk.track_score}")
 
             # Checks if the trackers has been observed for at least 'min_hits' frames (trk.hits >= self.min_hits) or if it is still within the initial few frames (self.frame_count <= self.min_hits).
             # If the condition is satisfied, the tracker is included in the ret list, which contains the current tracks to be returned.
