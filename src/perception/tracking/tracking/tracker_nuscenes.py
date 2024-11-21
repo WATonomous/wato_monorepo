@@ -29,13 +29,17 @@ from tracking_msgs.msg import TrackedObstacleState as TrackedObstacleStateMsg
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import tf_transformations as tr
+import logging
 
 class trackerNode(Node):
     def __init__(self, config_path, publish_frequency):
         super().__init__('tracker_node')
 
+        # Suppress TF_OLD_DATA warnings
+        logging.getLogger('tf2_ros').setLevel(logging.ERROR)
+
         # Declare parameters
-        self.declare_parameter("max_age", 6)
+        self.declare_parameter("max_age", 2)
         self.declare_parameter("min_hits", 2)
         self.declare_parameter("reference_frame", "map")
         self.declare_parameter("default_distance_threshold", 3)
@@ -127,6 +131,10 @@ class trackerNode(Node):
 
     def detection_callback(self, msg):
 
+        # Print the number of markers in the received message
+        num_markers = len(msg.markers)
+        self.get_logger().info(f"Number of markers in the received MarkerArray: {num_markers}")
+
         # Use the first marker's header as the "global" timestamp and frame ID
         if len(msg.markers) == 0:
             self.get_logger().warn("Received an empty MarkerArray.")
@@ -145,11 +153,8 @@ class trackerNode(Node):
 
         result = self.track(detections, informations, frame_id, timestamp)
 
-        # if result is not None:
-        #     self.get_logger().info(f"Tracked Objects: {result}")
-
-        # end_time = time.time()
-        # self.get_logger().info(f"Processing time: {end_time - start_time:.4f} seconds")
+        # Publish tracks immediately after processing detections
+        self.publish_tracks(dt=0.5)  # Adjust 'dt' based on expected detection message interval
 
 
     def publish_tracks(self, dt):
@@ -186,12 +191,6 @@ class trackerNode(Node):
 
         #Publish entire message with multiple different trackers
         self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
-
-        # self.get_logger().info(f"Published tracked obstacles: {tracked_obstacle_list}")
-
-        # end_time = time.time()
-
-        # self.get_logger().info(f"Publishing time: {end_time - start_time:.4f} seconds")
 
 
     def _create_tracked_obstacle_message(self, kf_track, tracking_name, track_score, dt):
@@ -323,22 +322,18 @@ def main (args=None):
     config_path = node.get_parameter('config_path').get_parameter_value().string_value
     publish_frequency = node.get_parameter('publish_frequency').get_parameter_value().double_value
 
-    # node_dir = os.path.dirname(os.path.realpath(__file__))
-    # root_dir = os.path.split(node_dir)[0]
-    # top_dir = os.path.split(root_dir)[0]
     cfg_from_yaml_file(config_path, cfg)
 
     tracker_node = trackerNode(config_path, publish_frequency)
 
     try:
         while rclpy.ok():
-            # tracker_node.publish_tracks(1 / 0.8)
+            # try:
+            #     tracker_node.publish_tracks(1 / 2) # Messages are published every 0.5 seconds (2 seconds)
+            # except Exception as e:
+            #     tracker_node.get_logger().error(f"Error: Exception caught while processing a frame: {e}")
             try:
-                tracker_node.publish_tracks(1 / 0.8) # Messages are published every 1.25 seconds
-            except Exception as e:
-                tracker_node.get_logger().error(f"Error: Exception caught while processing a frame: {e}")
-            try:
-                rclpy.spin_once(tracker_node, timeout_sec=1.0 / 0.8) # Node has 1.25 seconds to process and publish messages
+                rclpy.spin_once(tracker_node) # Node has 0.5 seconds to process and publish messages
             except ROSInterruptException:
                 tracker_node.reset()
                 pass
