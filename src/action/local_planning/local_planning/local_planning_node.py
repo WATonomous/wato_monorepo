@@ -81,8 +81,6 @@ class LocalPlanningNode(Node):
                 vec, start, points = self.roads[i][j]
                 mid = points[len(points)//2]
                 mid_vec = np.array([mid.x,mid.y])-start
-                if np.linalg.norm(np.cross(vec, mid_vec)) / (np.linalg.norm(vec) * np.linalg.norm(mid_vec)) >= 0.1:
-                    continue
                 for k in range(len(points)):
                     
                     pos = np.array([self.car_x, self.car_y])
@@ -100,8 +98,12 @@ class LocalPlanningNode(Node):
         #to move car
         #self.car_x -= 0.5
         #to rotate car
-
-        res = self.planner.run()
+        target_lane = 0
+        lane = 0
+        if self.curr_marker is not None:
+            road, lane, s_p = self.curr_marker
+            target_lane = len(self.roads[road])-1-lane
+        res = self.planner.run(target_lane)
         if res is not None:
             parent = res.incomingState
             route = [res]
@@ -112,7 +114,7 @@ class LocalPlanningNode(Node):
             # self.lattices = []
             self.current_trajectory = []
             self.traj_idx = 0
-            for node in route:
+            for node in route[::-1]:
                 # self.lattices.append(node.getState())
                 traj = node.incomingTrajectory
                 count = 0
@@ -192,10 +194,91 @@ class LocalPlanningNode(Node):
         self.car_publisher_.publish(marker)
         self.get_logger().info('Publishing Car Marker')
 
+    def interpolateRoad(self, road: tuple, s, start_index: int):
+        _, start, points = road
+
+        final_point = start
+        points = np.array([[p.x,p.y] for p in points])
+
+        dxdt = np.gradient(points[:,0])
+        dydt = np.gradient(points[:,1])
+        dvdt = np.array([[dxdt[i],dydt[i]] for i in range(dxdt.size)])
+        dsdt = np.sqrt(dxdt * dxdt + dydt * dydt)
+        tangent = np.array([1/dsdt] * 2).transpose() * dvdt
+        deriv_tangent_x = np.gradient(tangent[:,0])
+        deriv_tangent_y = np.gradient(tangent[:,1])
+        dTdt = np.array([[deriv_tangent_x[i],deriv_tangent_y[i]] for i in range(deriv_tangent_x.size)])
+        len_dTdt = np.sqrt(deriv_tangent_x * deriv_tangent_x + deriv_tangent_y * deriv_tangent_y)
+        normal = np.array([1/len_dTdt]*2).transpose() * dTdt
+        d2sdt2 = np.gradient(dsdt)
+        d2xdt2 = np.gradient(dxdt)
+        d2ydt2 = np.gradient(dydt)
+
+        curvature = np.abs(d2xdt2 * dydt - dxdt * d2ydt2) / (dxdt * dxdt + dydt * dydt)**1.5
+
+        pt_curvature = curvature[0]
+        pt_normal = normal[0]
+        pt_tangent = tangent[0]
+        for i in range(start_index, len(points)-1):
+            pt1 = points[i]
+            pt2 = points[i+1]
+
+            vec = pt2-pt1
+            dist = np.linalg.norm(vec)
+            
+            if dist > s:
+                break
+            
+            s -= dist
+            final_point = pt2
+            pt_curvature = curvature[i+1]
+            pt_normal = curvature[i+1]
+            pt_tangent = tangent[i+1]
+            
+
+        return final_point, s, pt_curvature, pt_normal, pt_tangent
+            
+
     def lane_to_coord(self, s: float, l: float):
         if self.curr_marker is None:
             return None
         road, lane, s_p = self.curr_marker
+
+        # get current road
+        # while accumulated_distance < s:
+            # interpolate along the road
+            # update s
+            # if s > 0 and current lane is the last lane
+                # switch to the lanes ahead
+            # not last lane or s <= 0:
+                # stop
+        pt = None
+        curvature = None
+        normal = None
+        tangent = None
+        while s > 0 and road + 1 <= len(self.roads):
+            curr_road = self.roads[road][lane]
+            final_pt = curr_road[2][-1]
+            final_pt = np.array([final_pt.x, final_pt.y])
+            pt, s, curvature, normal, tangent = self.interpolateRoad(curr_road, s, s_p)
+            remaining_dist = np.linalg.norm(final_pt - pt)
+            if s > remaining_dist and lane == len(self.roads[road])-1:
+                road += 1
+                lane = 0
+                s_p = 0
+            else:
+                break
+        
+        perp_vec = np.empty_like(tangent)
+        perp_vec[0] = -tangent[1]
+        perp_vec[1] = tangent[0]
+
+        pt += perp_vec * l        
+        theta = np.arctan2(tangent[1],tangent[0])
+
+        kappa = curvature
+
+        return pt[0],pt[1],theta,kappa
 
         # always use first lane as reference lane
         
@@ -207,7 +290,6 @@ class LocalPlanningNode(Node):
         
         new_point = curr_start + dir_vec * s
         prev_dist = np.linalg.norm(vec)
-        curve = False
         path_dist_from_start = np.linalg.norm(new_point-start)
         start = curr_start
         while path_dist_from_start > np.linalg.norm(vec):
@@ -229,7 +311,6 @@ class LocalPlanningNode(Node):
                 end = start + vec
                 dir_vec = vec / np.linalg.norm(vec)
                 new_point = start + dir_vec * s
-                prev_dist = np.linalg.norm(vec)
                 path_dist_from_start = np.linalg.norm(new_point - start)
 
             else:

@@ -24,13 +24,13 @@ class tempConverter(Converter):
 
 class CostCalculator(ABC):
     @abstractmethod
-    def calculateTrajectoryCost(self, trajectory, preferred_lane=0, obstacle_positions=[], 
+    def calculateTrajectoryCost(self, trajectory, sample, preferred_lane=0, obstacle_positions=[], 
                                 max_curvature_rate=0.1, comfort_weight=1.0, obstacle_weight=5.0, 
                                 curvature_weight=2.0, lane_weight=1.0):
         pass
 
 class PlannerCostCalculator(CostCalculator):
-    def calculateTrajectoryCost(self, trajectory, preferred_lane=0, obstacle_positions=[], max_curvature_rate=0.1, comfort_weight=1, obstacle_weight=5, curvature_weight=2, lane_weight=1):
+    def calculateTrajectoryCost(self, trajectory, sample, preferred_lane=0, obstacle_positions=[], max_curvature_rate=0.1, comfort_weight=1, obstacle_weight=5, curvature_weight=2, lane_weight=10):
         """
         Calculate the cost of a trajectory based on obstacle avoidance, physical limitations,
         passenger comfort, and behavioral preferences.
@@ -73,6 +73,10 @@ class PlannerCostCalculator(CostCalculator):
             # Lateral acceleration cost (passenger comfort)
             lateral_acceleration = kappa  # Assuming lateral acceleration is proportional to curvature
             total_cost += comfort_weight * abs(lateral_acceleration)
+
+            # Lane preference cost
+            lane_cost = abs(sample[1] - preferred_lane)  # Minimize distance to preferred lane
+            total_cost += lane_weight * lane_cost
             
             previous_kappa = kappa  # Update previous kappa for the next iteration
         
@@ -95,7 +99,7 @@ class PlannerCostCalculator(CostCalculator):
         return total_cost
 
 class tempCostCalculator(CostCalculator):
-    def calculateTrajectoryCost(self, trajectory, preferred_lane=0, obstacle_positions=[], 
+    def calculateTrajectoryCost(self, trajectory, sample, preferred_lane=0, obstacle_positions=[], 
                                 max_curvature_rate=0.1, comfort_weight=1.0, obstacle_weight=5.0, 
                                 curvature_weight=2.0, lane_weight=10.0):
         """
@@ -257,7 +261,7 @@ class LatticePlanner:
 
         self.converter = converter
 
-    def run(self, lane = 0, depth = 1):        
+    def run(self, lane = 0, depth = 2):        
         for i in range(depth):
             curr_lattice = copy.deepcopy(self.lattice)
             for s_ind in range(self.s_buckets):
@@ -280,7 +284,7 @@ class LatticePlanner:
                         x, y, t, k = tuple(new_state_vec)
                         new_state = VehicleState(x, y, t, k, sample)
                         new_state.setIncoming(curr_state, trajectory)
-                        cost = self.trajectoryCostCalculator.calculateTrajectoryCost(trajectory, lane * self.l_step_size + self.l_step_size/2, [(-20,-2.5)])
+                        cost = self.trajectoryCostCalculator.calculateTrajectoryCost(trajectory, sample, lane * -self.l_step_size, [(-15,0.8796)]) 
                         if cost is False:
                             continue
                         new_state.setCost(cost)
@@ -338,14 +342,23 @@ class LatticePlanner:
         Returns:
             trajectory (list): List of points along the generated trajectory [(x, y, theta, kappa), ...]
         """
+
+        def normalize_angle(angle):
+            return (angle + np.pi) % (2 * np.pi) - np.pi
+        
+        def angle_diff(target_angle, current_angle):
+            return normalize_angle(target_angle - current_angle)
         
         x0, y0, theta0, kappa0 = tuple(start)
         targetX, targetY, targetTheta, targetKappa = tuple(target)
+
+        theta0 = normalize_angle(theta0)
+        targetTheta = normalize_angle(targetTheta)
         
         # Improved initial guess for parameters
         initial_arc_length = np.sqrt((targetX - x0) ** 2 + (targetY - y0) ** 2)
-        p = np.array([kappa0, kappa0, kappa0, initial_arc_length])  # start with initial curvature and estimated arc length
-        
+        p = np.array([targetKappa, targetKappa, targetKappa, initial_arc_length])  # start with target curvature and estimated arc length
+                
         def curvature_polynomial(s, p):
             # Define the cubic polynomial for curvature
             a = kappa0
@@ -364,7 +377,7 @@ class LatticePlanner:
             
             for s in s_values:
                 kappa = curvature_polynomial(s, p)
-                theta += kappa * (s_values[1] - s_values[0])  # incremental theta change
+                theta = normalize_angle(theta + kappa * (s_values[1] - s_values[0]))  # incremental theta change
                 x += np.cos(theta) * (s_values[1] - s_values[0])
                 y += np.sin(theta) * (s_values[1] - s_values[0])
                 trajectory.append((x, y, theta, kappa))
@@ -376,7 +389,7 @@ class LatticePlanner:
             final_point, _ = integrate_trajectory(p)
             xf, yf, thetaf, kappaf = final_point
             
-            return np.array([xf - targetX, yf - targetY, thetaf - targetTheta, kappaf - targetKappa])
+            return np.array([xf - targetX, yf - targetY, angle_diff(thetaf, targetTheta), kappaf - targetKappa])
         
         # Iterate using Newton's method to adjust parameters for trajectory alignment
         for i in range(max_iterations):
