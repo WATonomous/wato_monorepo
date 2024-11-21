@@ -192,7 +192,7 @@ class KalmanBoxTracker(object):
         return self.kf.x.reshape((-1, ))
 
 class AB3DMOT(object):
-    def __init__(self, max_age=6, min_hits=2, tracking_name='car'):
+    def __init__(self, max_age=2, min_hits=2, tracking_name='car'):
         """              
         observation: 
             [x, y, z, rot_y, l, w, h]
@@ -265,10 +265,11 @@ class AB3DMOT(object):
         [1,2,5] = Detections 1,2 and 5 were unmathced with current trackers
         '''
 
-        print(f"unmatched: {unmatched_dets}") #Detections that haven't been matched
+        # print(f"unmatched: {unmatched_dets}") Detections that haven't been matched
 
         '''
         Array of size [M,2] where M is the number successful matches with detections and trackers and 2 is the number of indicies for each M
+        [detection, tracker]
         '''
         print(f"matched: {matched}") #Detections from the current frame that have been matched with detections from the previous frame
         print(f"unmatched tracks: {unmatched_trks}") #Trackers that did not get an update because there were no detections that met the requirement to update the tracker
@@ -281,17 +282,22 @@ class AB3DMOT(object):
         for t,trk in enumerate(self.trackers):
             if t not in unmatched_trks:
                 d = matched[np.where(matched[:,1]==t)[0],0]     # a list of index
+                print(f"Processing tracker {t} with matched detection {d}")
                 if len(dets[d]) > 0 and len(info[d]) > 0:
                     if distance_threshold > 0 and abs(distances[d, t]) > distance_threshold:
                         if abs(distances[d, t]) > distance_threshold * 3 and not update_only:
                             unmatched_dets = np.append(unmatched_dets, d).astype(int)
+                            print(f"Added detection {d} to unmatched_dets due to distance threshold. New unmatched_dets: {unmatched_dets}")
                         continue
                     else:
                         trk.update(dets[d,:][0], info[d,:][0], timestamp)
+                        # Log matched tracker updates
+                        print(f"Updated tracker {t} with detection {d[0]}")
 
         # Create and initialise new trackers for unmatched detections
         if not update_only:
             for i in unmatched_dets:        # a scalar of index
+                print(f"Creating new tracker for unmatched detection {i}")
                 tracking_name = info[i][0]  # class label
                 track_score = info[i][1]    # confidence
                 trk = KalmanBoxTracker(dets[i,:], track_score, tracking_name, timestamp, self.use_angular_velocity)
@@ -344,6 +350,9 @@ class AB3DMOT(object):
 
         score_matrix = self.score_metric_fn(detections, trackers, **kwargs)
         matched_indices = self.match_algorithm_fn(score_matrix)
+
+        print(f"Matched indices before filtering: {matched_indices}")
+
 
         # Print when the matching algorithm is called
         print(f"Calling matching algorithm: {self.match_algorithm_fn.__name__}")
