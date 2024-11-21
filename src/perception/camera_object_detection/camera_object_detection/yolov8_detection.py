@@ -160,7 +160,7 @@ class CameraDetectionNode(Node):
         #self.build_engine()
         self.initialize_engine(self.tensorRT_model_path)
         self.input_info, self.output_info =  self.initialize_tensors()
-        self.tensorRT_inferencing(self.input_info)
+        # self.tensorRT_inferencing(self.input_info)
   
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
@@ -239,7 +239,10 @@ class CameraDetectionNode(Node):
           
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
+      
+        self.execution_context.set_input_shape(self.input_tensor_name, (6,3,640,640))
         self.inputShape = self.execution_context.get_tensor_shape(self.input_tensor_name)
+        self.get_logger().info(f"tensor Shape:{self.inputShape}")
         self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.bindings = [0] * self.num_io_tensors
@@ -258,7 +261,8 @@ class CameraDetectionNode(Node):
         self.num_inputs = len(self.input_names)
         self.num_outputs = len(self.output_names)    
         self.input_names = self.names[:self.num_inputs]
-        self.output_names = [name for name in self.output_names if name not in self.input_names]
+        #self.output_names = self.names[:self.num_outputs] #This includes the input name in output
+        self.output_names = [name for name in self.output_names if name not in self.input_names] # This line removes it
         self.get_logger().info(f"INPUT NAMES:: {self.input_names}")
         self.get_logger().info(f"OUTPUT NAMES:: {self.output_names}")
        
@@ -272,11 +276,9 @@ class CameraDetectionNode(Node):
        
         for name in self.output_names:
             self.get_logger().info(f"NAMES of outputs:{name}")
-            self.tensorRT_output_shape = tuple(self.tensorRT_model.get_tensor_shape(name))
-            #Batch size changes from -1 to 6 
-            self.tensorRT_output_shape = (batch_size,) + self.tensorRT_output_shape[1:]
-            # self.get_logger().info(f"Tensor shape:{self.tensorRT_output_shape}")
-
+          
+            self.tensorRT_output_shape = self.execution_context.get_tensor_shape(name)
+            self.get_logger().info(f"Tensor shape:{self.tensorRT_output_shape}")
             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             self.output_cpu = np.empty(self.tensorRT_output_shape, dtype = self.outputDtype)
             status, self.output_gpu = cudart.cudaMallocAsync(self.output_cpu.nbytes, self.stream)
@@ -301,72 +303,105 @@ class CameraDetectionNode(Node):
              
         return self.input_info, self.output_info
     
-    def tensorRT_inferencing(self, input_info):
-        for i in range(10):
-            self.inputTensors = []
-            for i in self.input_info:
-                self.inputTensors.append(i.cpu)
-                assert len(self.inputTensors) == self.num_inputs, "does not match"
-                self.contiguous_inputs:List[ndarray]  = [
-                  np.ascontiguousarray(i) for i in self.inputTensors
-                ]
-            for i in range(self.num_inputs):
+    def tensorRT_inferencing(self, batch_array):
+        assert batch_array.ndim == 4
+        batch_size = batch_array.shape[0]
+        assert batch_size == self.input_info[0].shape[0]
+        #self.get_logger().info(f"Batch Array Stats: shape={batch_array.shape}, dtype={batch_array.dtype}, range=({batch_array.min()}, {batch_array.max()})")
+        #self.inputTensors = [batch_array]
+        self.contiguous_inputs = [np.ascontiguousarray(i) for i in batch_array]
+        #self.get_logger().info(f"Contiguous Inputs: dtype={self.contiguous_inputs[0].dtype}, shape={self.contiguous_inputs[0].shape}")
+        #for i, input_tensor in enumerate(self.contiguous_inputs):
+            #self.get_logger().info(f"Input {i}: shape={input_tensor.shape}, dtype={input_tensor.dtype}, range=({input_tensor.min()}, {input_tensor.max()})")
+        #for i, input_gpu in enumerate(self.input_info):
+                #self.get_logger().info(f"Input {i} GPU address: {input_gpu.gpu}")
+
+        for i in range(self.num_inputs):
                 name = self.input_info[i].name
-                shape = self.input_info[i].shape
-                contigous_shape = self.contiguous_inputs[i].nbytes
                 cudart.cudaMemcpyAsync(self.input_info[i].gpu, self.contiguous_inputs[i].ctypes.data,
                             self.contiguous_inputs[i].nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream)
-                self.bindings[i] = self.input_info[i].gpu
+                self.execution_context.set_tensor_address(name, self.input_info[i].gpu)
 
-            self.output_gpu_ptrs:List[int] = []
-            self.outputs_ndarray:List[ndarray] = []
-            for i in range(self.num_outputs):
+        self.output_gpu_ptrs:List[int] = []
+        self.outputs_ndarray:List[ndarray] = []
+        for i in range(self.num_outputs):
                 j = i + self.num_inputs  
                 cpu = self.output_info[i].cpu
                 gpu = self.output_info[i].gpu
                 self.outputs_ndarray.append(cpu)
                 self.output_gpu_ptrs.append(gpu)
-                self.bindings[j] = gpu
-            self.get_logger().info(f"Binding Gpu array:{self.bindings}")
-            for i in range(self.num_io_tensors):
-                # self.get_logger().info(f"Number of tensors: {self.num_io_tensors}")
-                # self.get_logger().info(f"TENSOR NAMES: {self.tensorRT_model.get_tensor_name(i)}")
-                self.get_logger().info(f"Binding Gpu array:{self.bindings[i]}")
-                self.execution_context.set_tensor_address(self.tensorRT_model.get_tensor_name(i), self.bindings[i])
-            
-            self.execution_context.execute_async_v3(self.stream)
-            cudart.cudaStreamSynchronize(self.stream)
-        #      for i, o in enumerate(output_gpu_ptrs):
-        #     cuda.memcpy_dtoh_async(outputs[i], o, self.stream)
-
-        # return tuple(outputs) if len(outputs) > 1 else outputs[0]
+                self.execution_context.set_tensor_address(self.output_info[i].name, self.output_info[i].gpu)
 
         
+        self.execution_context.execute_async_v3(self.stream)
+        cudart.cudaStreamSynchronize(self.stream)
+        for i, o in enumerate(self.output_gpu_ptrs):
+             cudart.cudaMemcpyAsync(
+            self.outputs_ndarray[i].ctypes.data, o, self.outputs_ndarray[i].nbytes,
+            cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost, self.stream
+                )
+        # for i, output in enumerate(self.outputs_ndarray):
+       
+        #for i, output in enumerate(self.outputs_ndarray):
+
+        return self.outputs_ndarray
     def batch_inference_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         #Taking msgs from all 6 ros2 subscribers 
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
-
         #Preprocessing
         for msg in image_list:  
             numpy_array = np.frombuffer(msg.data, np.uint8)
             compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
             resized_compressedImage = cv2.resize(compressedImage,(640, 640))
-            preprocessedImage = self.batch_convert_to_tensor(resized_compressedImage)
-            batched_list.append(preprocessedImage)
-        self.batch_tensor = torch.stack(batched_list)
-        self.batch_array = self.batch_tensor.cpu().numpy().astype(np.float32)
-        self.get_logger().info(f"batch array shape: {self.batch_array.shape}")
-        height, width  = self.input_info[0].shape[-2:]
-        self.get_logger().info(f"HEIGHT:{height}")
-        self.get_logger().info(f"Width:{width}")
-
+            rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
+            normalized_image = rgb_image / 255.0
+            chw_image = np.transpose(normalized_image, (2,0,1))
+            float_image = chw_image.astype(np.float32)
+            tensor_image = torch.from_numpy(float_image).to('cuda')
+            batched_list.append(tensor_image)
+        batched_list = [tensor.cpu().numpy() for tensor in batched_list]
+        batched_images = np.stack(batched_list, axis=0)
+    
         #We have to call inferencing function here 
-        
+        detections = self.tensorRT_inferencing(batched_images)
 
-        #Bounding Boxes & oost processing detections
+        #self.get_logger().info(f"detections[0] output:{detections[0][0]}")
+        # for i, output in enumerate(detections[0][0][:2]):
+        #     self.get_logger().info(f"Output {i}: shape={output.shape}, dtype={output.dtype}, range=({output.min()}, {output.max()})")
 
+        """ 
+            - Detection[0] represents the first output name, 'outputs' with shape(6,84,8400) -> 6 representing 6 images 
+            - Detection[0][0] represents the first image can range from 0 to 5, and the shape would be (84,8400) -> 84 representing 84 detection components  for bounding boxes, classes and confidence scores
+            - Detection[0][0][0] represnets the first detection components ranging from 0 to 83 
+            - 8400 represents 8400 anchors 
 
+        """
+        batch_size = detections[0].shape[0]
+        for image_idx in range(batch_size):
+            image_detections = detections[0][image_idx]
+
+            for anchor_idx in range(8400):
+                x_min = image_detections[0][anchor_idx]
+                y_min = image_detections[1][anchor_idx]
+                x_max = image_detections[2][anchor_idx]
+                y_max = image_detections[3][anchor_idx]
+
+                confidence = image_detections[4][anchor_idx]
+                class_probs = [image_detections[class_idx][anchor_idx] for class_idx in range(5,84)]
+                predicted_class = np.argmax(class_probs)
+                predicted_prob = class_probs[predicted_class]
+
+                if confidence > 0.5:
+                    self.get_logger().info(f"Bounding Box: ({x_min}, {y_min}, {x_max}, {y_max})")
+                    self.get_logger().info(f" Predicted Class: {predicted_class} (Probability: {predicted_prob})")
+                    self.get_logger().info(f"Confidence:{confidence}")
+        #self.get_logger().info(f"SHAPE:{detections[0].shape[0]}")
+
+        #self.get_logger().info(f"result detections shape:{results_detections[0].shape}")
+        #self.get_logger().info(f"result detections [0]:{results_detections[0]}")
+   
+                
         #Now need to pass it to yolov8 tensorRT model
         # predictions = self.model(batch_tensor)
        
