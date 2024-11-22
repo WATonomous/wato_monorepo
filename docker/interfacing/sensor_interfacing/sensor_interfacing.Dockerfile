@@ -19,9 +19,13 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
+RUN sudo apt update -y
+RUN sudo apt upgrade -y
+RUN sudo apt-get install ros-humble-novatel-oem7-driver -y
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -31,7 +35,6 @@ COPY --from=source ${AMENT_WS}/src src
 WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
-
 ################################ Build ################################
 FROM dependencies as build
 
