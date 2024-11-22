@@ -8,7 +8,7 @@
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>ros_humble_novatel_driver_oem7_driver</depend>
+  
 
 
   <export>
