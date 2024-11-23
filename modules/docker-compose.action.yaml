@@ -41,5 +41,6 @@ services:
       cache_from:
         - "${ACTION_MPC_IMAGE}:build_${TAG}"
         - "${ACTION_MPC_IMAGE}:build_main"
+        target: deploy
     image: "${ACTION_MPC_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch model_predictive_control model_predictive_control.launch.py"
