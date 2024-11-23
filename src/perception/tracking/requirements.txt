@@ -4,3 +4,4 @@ numba==0.60.0
 filterpy==1.4.5 
 scipy==1.8.0
 easydict==1.13 
+opencv-python

@@ -23,7 +23,8 @@ FROM ${BASE_IMAGE} as dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
-    ffmpeg libsm6 libxext6 wget
+    ffmpeg libsm6 libxext6 wget \
+    ros-${ROS_DISTRO}-cv-bridge
 
 # Install python packages
 COPY src/perception/tracking/requirements.txt requirements.txt
