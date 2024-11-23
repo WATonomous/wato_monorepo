@@ -9,6 +9,7 @@ from boxconstraint import BoxConstraint
 TIME_STEP = 0.05
 PREDICTION_HORIZON = 2.0 
 
+
 class MPCCore:
     def __init__(self):
         
@@ -63,6 +64,7 @@ class MPCCore:
             #     # Handle missing or invalid waypoint coordinates
             #     print(f"Invalid waypoint: {wp}")
 
+    
     def generate_waypoint(x, y): # Convert to CasADi format and add to the waypoints list
         return ca.vertcat(x, y)
 
