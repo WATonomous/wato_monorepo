@@ -36,7 +36,6 @@ services:
       - ${MONO_DIR}/src/action/local_planning:/home/bolty/ament_ws/src/local_planning
 
   model_predictive_control:
-    <<: *fixuid
     extends:
       file: ../docker-compose.action.yaml
       service: model_predictive_control
