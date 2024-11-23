@@ -8,6 +8,7 @@ from boxconstraint import BoxConstraint
 
 TIME_STEP = 0.05
 PREDICTION_HORIZON = 2.0 
+SIM_DURATION = 500
 
 
 class MPCCore:
@@ -37,6 +38,7 @@ class MPCCore:
         # Objective
         self.obj = 0
 
+        self.raw_waypoints = []
         self.waypoints = []
 
         self.closed_loop_data = []
@@ -52,19 +54,27 @@ class MPCCore:
         self.setup_constraints()
         self.setup_solver()
 
-    def update_waypoints(self, waypoints_msg):
-        raw_waypoints[] = waypoints_msg.waypoints
+        # Vehicle States
+        self.x0 = 0
+        self.y0 = 0
+        self.theta0 = 0
+        self.v0 = 0
 
-        # Process and convert each waypoint to CasADi format
-        for wp in raw_waypoints:
-            if hasattr(wp, 'x') and hasattr(wp, 'y'):  # Ensure waypoint has x and y
-                # Convert to CasADi format and add to the waypoints list
-                self.waypoints.append(generate_waypoint(wp.x, wp.y))
-            # else:
-            #     # Handle missing or invalid waypoint coordinates
-            #     print(f"Invalid waypoint: {wp}")
+    def convert_waypoints(self):
+        """
+        Convert raw waypoints (alternating x, y in a flat list) to CasADi-compatible waypoints.
+        """
+        self.waypoints = []  # Clear old waypoints
 
-    
+        if len(self.raw_waypoints) % 2 != 0: # Check if raw_waypoints is even
+            print("Error: raw_waypoints length is not even. Ignoring the last unpaired value.")
+            self.raw_waypoints = self.raw_waypoints[:-1]
+
+        for i in range(0, len(self.raw_waypoints), 2):
+            x, y = self.raw_waypoints[i], self.raw_waypoints[i + 1]
+            waypoint = self.generate_waypoint(x, y)
+            self.waypoints.append(waypoint)  
+
     def generate_waypoint(x, y): # Convert to CasADi format and add to the waypoints list
         return ca.vertcat(x, y)
 
@@ -153,19 +163,13 @@ class MPCCore:
                 "ipopt.print_level": 0}
         self.opti.solver('ipopt', opts)
 
-    def compute_control(self, vehicle_state):
+    def compute_control(self, i):
         """
         Update the vehicle state based on the incoming ROS message.
         :param vehicle_state: VehicleState message with current position, velocity, and angle.
         """
         # Update P (initial state) with the new vehicle state
-        self.opti.set_value(self.P, ca.vertcat(vehicle_state.pos_x, vehicle_state.pos_y, vehicle_state.angle, vehicle_state.velocity))
-        
-        x0 = vehicle_state.pos_x
-        y0 = vehicle_state.pos_y
-        theta0 = vehicle_state.angle
-        v0 = vehicle_state.velocity # Assumes CARLA sends a velocity scalar not a velocity vector
-        i = vehicle_state.interation
+        self.opti.set_value(self.P, ca.vertcat(x, y, theta0, v0))
 
         print("Current x: ", x0)
         print("Current y: ", y0)

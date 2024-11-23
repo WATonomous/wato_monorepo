@@ -11,4 +11,3 @@ if client_name == "DOES NOT EXIST":
 client = carla.Client(client_name, 2000)
 world = client.get_world()
 spectator = world.get_spectator()
-
