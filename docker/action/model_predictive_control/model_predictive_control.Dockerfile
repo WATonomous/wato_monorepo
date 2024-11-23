@@ -6,8 +6,12 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/action/model_predictive_control model_predictive_control
+COPY src/action/local_planning local_planning
 COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/action/model_predictive_control model_predictive_control
+
+# Copy in CARLA messages
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \

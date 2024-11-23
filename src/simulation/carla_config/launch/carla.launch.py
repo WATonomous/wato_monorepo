@@ -17,7 +17,6 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 # Use the second param (the launch argument) unless it is empty
 
-
 def CheckParam(param1, param2):
     try:
         return param2

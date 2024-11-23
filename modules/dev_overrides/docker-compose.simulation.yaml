@@ -15,10 +15,10 @@ services:
     extends:
       file: ../docker-compose.simulation.yaml
       service: carla_ros_bridge
-    command: tail -F anything
+    # command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
-    # command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
 
   carla_viz:
     extends:
