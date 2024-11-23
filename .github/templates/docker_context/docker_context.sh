@@ -21,7 +21,7 @@ fi
 while read -r module; do
 
     # Retrieve docker compose service names
-    services=$(docker-compose -f "$module" config --services)
+    services=$(docker compose -f "$module" config --services)
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
 
     # Skip simulation module

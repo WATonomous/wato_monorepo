@@ -17,7 +17,6 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 # Use the second param (the launch argument) unless it is empty
 
-
 def CheckParam(param1, param2):
     try:
         return param2
@@ -106,6 +105,7 @@ def generate_launch_description():
             'synchronous_mode_wait_for_vehicle_control_command': LaunchConfiguration('synchronous_mode_wait_for_vehicle_control_command'),
             'fixed_delta_seconds': LaunchConfiguration('fixed_delta_seconds'),
             'town': LaunchConfiguration('town'),
+            'ego_vehicle_role_name': LaunchConfiguration('role_name')
         }],
         respawn=True
     )
@@ -120,11 +120,15 @@ def generate_launch_description():
             'objects_definition_file': LaunchConfiguration('objects_definition_file'),
             'role_name': LaunchConfiguration('role_name'),
             'spawn_point_ego_vehicle': LaunchConfiguration('spawn_point'),
-            'spawn_sensors_only': LaunchConfiguration('spawn_sensors_only')}.items())
+            'spawn_sensors_only': LaunchConfiguration('spawn_sensors_only'),
+            'host': LaunchConfiguration('host'),
+            'port': LaunchConfiguration('port'),
+            'timeout': LaunchConfiguration('timeout')}.items())
 
-    if (os.environ.get('USE_ACKERMANN_CONTROL', 'True').lower() == 'true'):
+    carla_control = []
+    if (os.environ.get('USE_ACKERMANN_CONTROL', 'False').lower() == 'True'):
         """ Launch Ackermann Control Node """
-        carla_control = Node(
+        carla_control = carla_control.append(Node(
             package='carla_ackermann_control',
             executable='carla_ackermann_control_node',
             output='screen',
@@ -132,17 +136,7 @@ def generate_launch_description():
                 'role_name': LaunchConfiguration('role_name'),
                 'control_loop_rate': LaunchConfiguration('control_loop_rate')
             }]
-        )
-    else:
-        carla_control = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(get_package_share_directory(
-                    'carla_manual_control'), 'carla_manual_control.launch.py')
-            ),
-            launch_arguments={
-                'role_name': LaunchConfiguration('role_name')
-            }.items()
-        )
+        ))
 
     """ Launch MPC Bridge Node """
     carla_mpc_bridge = Node(
@@ -151,6 +145,39 @@ def generate_launch_description():
         parameters=[{
             'mpc_moutput_topic': mpc_bridge_config['mpc_bridge_node']['ros_parameters']['mpc_output_topic'],
             'steering_publisher_topic': mpc_bridge_config['mpc_bridge_node']['ros_parameters']['steering_publisher_topic']
+        }],
+        output='screen'
+    )
+
+    waypoint_topic = DeclareLaunchArgument('waypoint_topic', default_value=[
+                                           '/carla/', LaunchConfiguration('role_name'), '/waypoints'])
+    waypoint_topic_old = DeclareLaunchArgument('waypoint_topic_old', default_value=[
+                                               '/carla/', LaunchConfiguration('role_name'), '/waypointsOld'])
+
+    """ Launch CARLA Waypoint Publisher """
+    carla_waypoint_publisher = Node(
+        package='carla_waypoint_publisher',
+        executable='carla_waypoint_publisher',
+        name='carla_waypoint_publisher',
+        output='screen',
+        parameters=[{
+            'host': LaunchConfiguration('host'),
+            'port': LaunchConfiguration('port'),
+            'timeout': LaunchConfiguration('timeout'),
+            'role_name': LaunchConfiguration('role_name')
+        }],
+        remappings=[
+            (LaunchConfiguration('waypoint_topic'), LaunchConfiguration('waypoint_topic_old')),
+        ]
+    )
+
+    """ Launch Waypoint Modifier Node """
+    carla_waypoint_modifier = Node(
+        package='carla_config',
+        executable='carla_waypoint_modifier',
+        parameters=[{
+            'input_topic': LaunchConfiguration('waypoint_topic_old'),
+            'output_topic': LaunchConfiguration('waypoint_topic')
         }],
         output='screen'
     )
@@ -170,6 +197,10 @@ def generate_launch_description():
         control_loop_rate_arg,
         carla_ros_bridge,
         carla_ego_vehicle,
-        carla_control,
-        carla_mpc_bridge,
+        *carla_control,
+        waypoint_topic_old,
+        waypoint_topic,
+        carla_waypoint_publisher,
+        carla_waypoint_modifier,
+        # carla_mpc_bridge, # MPC bridge needs to be reworked
     ])

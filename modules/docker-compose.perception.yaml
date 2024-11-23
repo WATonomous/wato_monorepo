@@ -56,6 +56,16 @@ services:
       target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
+    volumes: 
+      - /mnt/wato-drive/perception/segformer-b2:/home/bolty/ament_ws/src/semantic_segmentation/resource/model
+          # add gpus all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: 1
 
   lane_detection:
     build:
