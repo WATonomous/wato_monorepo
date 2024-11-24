@@ -1,0 +1,4 @@
+odometry_node:
+  ros__parameters:
+    version: 1
+    compression_method: 0
