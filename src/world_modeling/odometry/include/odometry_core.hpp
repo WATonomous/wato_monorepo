@@ -3,74 +3,29 @@
 
 #include <vector>
 
-#include "sample_msgs/msg/filtered.hpp"
-#include "sample_msgs/msg/unfiltered.hpp"
+#include <nav_msgs/Odometry.hpp>
 
-namespace samples {
 
-/**
- * Implementation for the internal logic for the Transformer ROS2
- * node performing data processing and validation.
- */
-class TransformerCore {
+//Implementation for the internal logic for the Odometry ROS2 node.
+class OdometryCore {
  public:
-  // Size of buffer before processed messages are published.
-  static constexpr int BUFFER_CAPACITY = 10;
 
  public:
   /**
-   * Transformer constructor.
+   * Odometry constructor.
    */
-  TransformerCore();
+  OdometryCore();
 
   /**
-   * Retrieve enqueued messages in buffer.
+   * update the current position
    *
-   * @returns enqueued processed messages
+   * @param msg The input CAN msg
+   * @returns the processed point cloud
    */
-  std::vector<sample_msgs::msg::Filtered> buffer_messages() const;
-
-  /**
-   * Removes all messages in buffer. Called by the transformer
-   * node after messages have been published to aggregator.
-   */
-  void clear_buffer();
-
-  /**
-   * Validates that the 'valid' field of an unfiltered message
-   * is set to true.
-   *
-   * @param unfiltered a raw message
-   * @returns whether message's 'valid' field is set
-   */
-  bool validate_message(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered);
-
-  /**
-   * Enqueue message into an array of processed messages to "filtered" topic.
-   * Ignores messages once the buffer capacity is reached.
-   *
-   * @param msg a processed message to be published
-   * @returns whether buffer is full after adding new message
-   */
-  bool enqueue_message(const sample_msgs::msg::Filtered& msg);
-
-  /**
-   * Deserializes the data field of the unfiltered ROS2 message.
-   * The data field should be of the form "x:$num1;y:$num2;z:$num3;".
-   *
-   * @param[in] unfiltered the raw message containing serialized data
-   * @param[out] filtered the processed message containing deserialized data
-   * @returns whether deserialization was successful
-   */
-  bool deserialize_coordinate(const sample_msgs::msg::Unfiltered::SharedPtr unfiltered,
-                              sample_msgs::msg::Filtered& filtered);
+  nav_msgs::Odometry updateOdom(CAN_msgs::msg::recievedMsgs::SharedPtr msg);
 
  private:
-  // Buffer storing processed messages until BUFFER_CAPACITY. Clear after
-  // messages are published.
-  std::vector<sample_msgs::msg::Filtered> buffer_;
+
 };
 
-}  // namespace samples
-
-#endif  // TRANSFORMER_CORE_HPP_
+#endif  // ODOMETRY_CORE_HPP_
