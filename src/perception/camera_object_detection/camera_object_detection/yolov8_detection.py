@@ -65,6 +65,8 @@ class CameraDetectionNode(Node):
         self.declare_parameter("onnx_model_path", "/perception_models/tensorRT.onnx")
         self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m.engine")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
+        self.declare_parameter("batch_publish_vis_topic", "/batch_annotated_img")
+        self.declare_parameter("batch_publish_detection_topic", "/batch_detections")
         self.declare_parameter("publish_detection_topic", "/detections")
         self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
        
@@ -80,6 +82,8 @@ class CameraDetectionNode(Node):
         
        #Batch inference topic 
         self.batch_inference_topic = self.get_parameter("batch_inference_topic").value
+        self.batch_publish_detection_topic = self.get_parameter("batch_publish_detection_topic").value
+        self.batch_publish_vis_topic = self.get_parameter("batch_publish_vis_topic").value
         self.onnx_model_path = self.get_parameter("onnx_model_path").value
         
         self.tensorRT_model_path = self.get_parameter("tensorRT_model_path").value
@@ -168,6 +172,9 @@ class CameraDetectionNode(Node):
 
         # setup vis publishers
         self.batched_camera_message_publisher  = self.create_publisher(Image,self.batch_inference_topic, 10)
+        self.batch_detection_publisher = self.create_publisher(Detection2DArray, batch_publish_detection_topic, 10)
+        self.batch_vis_publisher = self.create_publisher(CompressedImage, self.batch_vis_publisher, 10)
+
         self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
         self.detection_publisher = self.create_publisher(
             Detection2DArray, self.publish_detection_topic, 10
@@ -412,20 +419,20 @@ class CameraDetectionNode(Node):
 
     def nms(self,bboxes, confidence_threshold= 0.55,iou_threshold = 0.5 ):
         #Confidence threshold
-    bboxes_thresholded = [bbox for bbox in bboxes if bbox[4] > confidence_threshold]
-    bboxes_sorted = sorted(bboxes_thresholded, key=lambda x: x[4], reverse=True)
-    bbox_list_new = []
-    while bboxes_sorted:
-        current_box = bboxes_sorted.pop(0)
-        bbox_list_new.append(current_box)
+        bboxes_thresholded = [bbox for bbox in bboxes if bbox[4] > confidence_threshold]
+        bboxes_sorted = sorted(bboxes_thresholded, key=lambda x: x[4], reverse=True)
+        bbox_list_new = []
+        while bboxes_sorted:
+            current_box = bboxes_sorted.pop(0)
+            bbox_list_new.append(current_box)
 
         # Filter boxes with IoU below the threshold
-        bboxes_sorted = [
-            box for box in bboxes_sorted if self.get_iou(current_box[:4], box[:4]) < iou_threshold
-        ]
+            bboxes_sorted = [
+                box for box in bboxes_sorted if self.get_iou(current_box[:4], box[:4]) < iou_threshold
+                ]
 
-    self.get_logger().info(f"Filtered Boxes After NMS: {bbox_list_new}")
-    return bbox_list_new
+        self.get_logger().info(f"Filtered Boxes After NMS: {bbox_list_new}")
+        return bbox_list_new
 
     def get_iou(self, box1, box2):
         x1, y1, x2, y2 = box1
