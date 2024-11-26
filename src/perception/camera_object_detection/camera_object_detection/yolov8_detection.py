@@ -62,7 +62,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("back_right_camera_topic", "/CAM_BACK_RIGHT/image_rect_compressed")
         self.declare_parameter("back_left_camera_topic", "/CAM_BACK_LEFT/image_rect_compressed")
 
-        self.declare_parameter("onnx_model_path", "/perception_models/yolov8m.onnx")
+        self.declare_parameter("onnx_model_path", "/perception_models/tensorRT.onnx")
         self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m.engine")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("publish_detection_topic", "/detections")
@@ -290,8 +290,8 @@ class CameraDetectionNode(Node):
         
         for i, name in enumerate(self.input_names):
             if self.tensorRT_model.get_tensor_name(i) == name: 
-             self.tensorRT_input_shape = tuple(self.tensorRT_model.get_tensor_shape(name)) 
-             self.tensorRT_input_shape = (batch_size,) + self.tensorRT_input_shape[1:]
+             self.tensorRT_input_shape = tuple(self.inputShape) 
+             self.get_logger().info(f"Final Input Shape:{self.tensorRT_input_shape}")
              self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
              self.input_cpu  = np.empty(self.tensorRT_input_shape, self.dtype)
              status, self.input_gpu = cudart.cudaMallocAsync(self.input_cpu.nbytes, self.stream)
@@ -340,20 +340,19 @@ class CameraDetectionNode(Node):
             self.outputs_ndarray[i].ctypes.data, o, self.outputs_ndarray[i].nbytes,
             cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost, self.stream
                 )
-        # for i, output in enumerate(self.outputs_ndarray):
-       
-        #for i, output in enumerate(self.outputs_ndarray):
-
+      
         return self.outputs_ndarray
     def batch_inference_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
-        #Taking msgs from all 6 ros2 subscribers 
+        #Taking msgs from all 6 ros2 subscribers
+        imageHeight = self.input_info[0].shape[-1]
+        imageWidth = self.input_info[0].shape[-2]
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
         #Preprocessing
         for msg in image_list:  
             numpy_array = np.frombuffer(msg.data, np.uint8)
             compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-            resized_compressedImage = cv2.resize(compressedImage,(640, 640))
+            resized_compressedImage = cv2.resize(compressedImage,(imageWidth, imageHeight))
             rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
             normalized_image = rgb_image / 255.0
             chw_image = np.transpose(normalized_image, (2,0,1))
@@ -362,14 +361,7 @@ class CameraDetectionNode(Node):
             batched_list.append(tensor_image)
         batched_list = [tensor.cpu().numpy() for tensor in batched_list]
         batched_images = np.stack(batched_list, axis=0)
-    
-        #We have to call inferencing function here 
         detections = self.tensorRT_inferencing(batched_images)
-
-        #self.get_logger().info(f"detections[0] output:{detections[0][0]}")
-        # for i, output in enumerate(detections[0][0][:2]):
-        #     self.get_logger().info(f"Output {i}: shape={output.shape}, dtype={output.dtype}, range=({output.min()}, {output.max()})")
-
         """ 
             - Detection[0] represents the first output name, 'outputs' with shape(6,84,8400) -> 6 representing 6 images 
             - Detection[0][0] represents the first image can range from 0 to 5, and the shape would be (84,8400) -> 84 representing 84 detection components  for bounding boxes, classes and confidence scores
@@ -377,36 +369,102 @@ class CameraDetectionNode(Node):
             - 8400 represents 8400 anchors 
 
         """
+        results_dict = {i: [] for i in range(6)}
         batch_size = detections[0].shape[0]
         for image_idx in range(batch_size):
+            #self.get_logger().info(f"[{time.time()}] Processing image index: {image_idx}")
             image_detections = detections[0][image_idx]
+        
+            if image_idx not in results_dict:
+                results_dict[image_idx] = []
 
             for anchor_idx in range(8400):
-                x_min = image_detections[0][anchor_idx]
-                y_min = image_detections[1][anchor_idx]
-                x_max = image_detections[2][anchor_idx]
-                y_max = image_detections[3][anchor_idx]
+                x_center = image_detections[0][anchor_idx]
+                y_center = image_detections[1][anchor_idx]
+                width = image_detections[2][anchor_idx]
+                height = image_detections[3][anchor_idx]
 
                 confidence = image_detections[4][anchor_idx]
-                class_probs = [image_detections[class_idx][anchor_idx] for class_idx in range(5,84)]
+                class_probs = [image_detections[class_idx][anchor_idx] for class_idx in range(5,18)]
                 predicted_class = np.argmax(class_probs)
                 predicted_prob = class_probs[predicted_class]
 
-                if confidence > 0.5:
-                    self.get_logger().info(f"Bounding Box: ({x_min}, {y_min}, {x_max}, {y_max})")
-                    self.get_logger().info(f" Predicted Class: {predicted_class} (Probability: {predicted_prob})")
-                    self.get_logger().info(f"Confidence:{confidence}")
-        #self.get_logger().info(f"SHAPE:{detections[0].shape[0]}")
-
-        #self.get_logger().info(f"result detections shape:{results_detections[0].shape}")
-        #self.get_logger().info(f"result detections [0]:{results_detections[0]}")
-   
+                if confidence > 0.4:
                 
-        #Now need to pass it to yolov8 tensorRT model
-        # predictions = self.model(batch_tensor)
-       
+                    #Convert from chw to tlbr  
+                    x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, imageHeight, imageWidth)
+                    results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
+            results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
 
-        
+          # To store final results after NMS
+
+
+ 
+    def convert_to_xyxy(self, x_center, y_center, width, height, imageHeight, imageWidth):
+        half_width = width /2
+        half_height = height /2 
+
+        x_min = x_center - half_width
+        y_min = y_center - half_height
+        x_max = x_center + half_width
+        y_max = y_center + half_height
+        return x_min, y_min, x_max, y_max     
+
+    def nms(self,bboxes, confidence_threshold= 0.55,iou_threshold = 0.5 ):
+        #Confidence threshold
+    bboxes_thresholded = [bbox for bbox in bboxes if bbox[4] > confidence_threshold]
+    bboxes_sorted = sorted(bboxes_thresholded, key=lambda x: x[4], reverse=True)
+    bbox_list_new = []
+    while bboxes_sorted:
+        current_box = bboxes_sorted.pop(0)
+        bbox_list_new.append(current_box)
+
+        # Filter boxes with IoU below the threshold
+        bboxes_sorted = [
+            box for box in bboxes_sorted if self.get_iou(current_box[:4], box[:4]) < iou_threshold
+        ]
+
+    self.get_logger().info(f"Filtered Boxes After NMS: {bbox_list_new}")
+    return bbox_list_new
+
+    def get_iou(self, box1, box2):
+        x1, y1, x2, y2 = box1
+        x3, y3, x4, y4 = box2
+
+    # Intersection coordinates
+        x_inter1 = max(x1, x3)
+        y_inter1 = max(y1, y3)
+        x_inter2 = min(x2, x4)
+        y_inter2 = min(y2, y4)
+
+        # Width and height of the intersection
+        width_inter = abs(x_inter2 - x_inter1)
+        height_inter = abs(y_inter2 - y_inter1)
+
+        # If there is no intersection
+        if x_inter2 < x_inter1 or y_inter2 < y_inter1:
+            return 0.0
+
+        # Area of intersection
+        area_inter = width_inter * height_inter
+
+        # Areas of the two boxes
+        width_box1 = abs(x2 - x1)
+        height_box1 = abs(y2 - y1)
+        area_box1 = width_box1 * height_box1
+
+        width_box2 = abs(x4 - x3)
+        height_box2 = abs(y4 - y3)
+        area_box2 = width_box2 * height_box2
+
+        # Union area
+        area_union = area_box1 + area_box2 - area_inter
+
+        # Intersection over Union
+        iou = area_inter / area_union
+
+        return iou
+
     #Converting to tensor for batching
     def batch_convert_to_tensor(self, cv_image):
         img  = cv_image.transpose(2,0,1)
