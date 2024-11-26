@@ -172,8 +172,8 @@ class CameraDetectionNode(Node):
 
         # setup vis publishers
         self.batched_camera_message_publisher  = self.create_publisher(Image,self.batch_inference_topic, 10)
-        self.batch_detection_publisher = self.create_publisher(Detection2DArray, batch_publish_detection_topic, 10)
-        self.batch_vis_publisher = self.create_publisher(CompressedImage, self.batch_vis_publisher, 10)
+        self.batch_detection_publisher = self.create_publisher(Detection2DArray, self.batch_publish_detection_topic, 10)
+        self.batch_vis_publisher = self.create_publisher(CompressedImage, self.batch_publish_vis_topic, 10)
 
         self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
         self.detection_publisher = self.create_publisher(
