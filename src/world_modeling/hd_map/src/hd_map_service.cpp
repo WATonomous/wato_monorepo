@@ -6,6 +6,8 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   router_ = std::make_shared<HDMapRouter>();
   manager_ = std::make_shared<HDMapManager>(this->router_);
 
+  behaviour_tree_info_service = this->create_service<wato_msgs::world_modeling_msgs::srv::BehaviourTreeInfo>("behaviour_tree_info", std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
+
   // Map selection hardcoded for now
   RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town05.osm...\n");
   if(manager_->select_osm_map("/home/docker/ament_ws/src/maps/osm/Town05.osm")){
@@ -51,6 +53,8 @@ void HDMapService::publish_hd_map_marker(){
 }
 
 void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr msg) {
+  goal_point_ = msg->point;
+
   auto pt1 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{0, 0, 0});
   auto pt2 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{msg->point.x, msg->point.y, msg->point.z});
   
@@ -85,8 +89,13 @@ void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr ms
 }
 
 void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr msg) {
+  current_point_ = msg->point;
+
   auto pt = router_->project_point3d_to_gps(lanelet::BasicPoint3d{msg->point.x, msg->point.y, msg->point.z});
   auto lanelet = router_->get_nearest_lanelet_to_gps(pt);
+
+  current_lanelet_ = lanelet;
+
   if(lanelet_path) {
     auto it = std::find(lanelet_path->begin(), lanelet_path->end(), lanelet);
     if (it != lanelet_path->end()) {
@@ -119,6 +128,61 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
     }
   }
 }
+wato_msgs::world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lanelet::ConstLanelet& lanelet){
+    wato_msgs::world_modeling_msgs::msg::Lanelet lanelet_msg;
+
+    //convert left boundary
+    for (const auto& point : lanelet.leftBound()){
+      geometry_msgs::msg::Point p;
+      p.x = point.x();
+      p.y = point.y();
+      p.z = point.z();
+      lanelet_msg.left_boundary.push_back(p);
+    }
+
+    //convert right boundary
+    for (const auto& point : lanelet.rightBound()){
+      geometry_msgs::msg::Point p;
+      p.x = point.x();
+      p.y = point.y();
+      p.z = point.z();
+      lanelet_msg.left_boundary.push_back(p);
+    }
+    //convert centerline
+    for (const auto& point : lanelet.centerline()) {
+        geometry_msgs::msg::Point p;
+        p.x = point.x();
+        p.y = point.y();
+        p.z = point.z();
+        lanelet_msg.centerline.push_back(p);
+    }
+
+    //add id
+    lanelet_msg.id = lanelet.id();
+
+    return lanelet_msg;
+}
+
+wato_msgs::world_modeling_msgs::msg::LaneletPath HDMapService::convert_laneletPath_to_msg(const lanelet::Optional<lanelet::routing::LaneletPath>& path){
+  wato_msgs::world_modeling_msgs::msg::LaneletPath path_msg;
+  
+  if (path) {
+    for (const auto& lanelet : *path) {
+      path_msg.lanelets.push_back(this->convert_lanelet_to_msg(lanelet));
+    }
+  }
+
+  return path_msg;
+}
+
+void HDMapService::behaviour_tree_info_callback(const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request, const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response){
+  response->current_point = current_point_;
+  response->goal_point = goal_point_;
+  response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
+  response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
+  response->route_list = convert_laneletPath_to_msg(lanelet_path);
+}
+
 
 int main(int argc, char ** argv)
 {

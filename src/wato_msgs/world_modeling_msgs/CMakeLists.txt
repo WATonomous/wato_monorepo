@@ -18,10 +18,15 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
-  msg/VoxelGrid.msg)
+  msg/VoxelGrid.msg
+  msg/Lanelet.msg
+  msg/LaneletPath.msg
+  )
 
 set(srv_files
-  srv/LaneletInfo.srv)
+  srv/LaneletInfo.srv
+  srv/BehaviourTreeInfo.srv
+  )
 
 # Parses message files to generate ROS2 interfaces
 rosidl_generate_interfaces(world_modeling_msgs
