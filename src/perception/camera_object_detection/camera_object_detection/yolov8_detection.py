@@ -62,8 +62,8 @@ class CameraDetectionNode(Node):
         self.declare_parameter("back_right_camera_topic", "/CAM_BACK_RIGHT/image_rect_compressed")
         self.declare_parameter("back_left_camera_topic", "/CAM_BACK_LEFT/image_rect_compressed")
 
-        self.declare_parameter("onnx_model_path", "/perception_models/tensorRT.onnx")
-        self.declare_parameter("tensorRT_model_path", "/perception_models/yolov8m.engine")
+        self.declare_parameter("onnx_model_path", "/perception_models/eve.onnx") #tensorRT. extensions
+        self.declare_parameter("tensorRT_model_path", "/perception_models/eve.engine")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("batch_publish_vis_topic", "/batch_annotated_img")
         self.declare_parameter("batch_publish_detection_topic", "/batch_detections")
@@ -75,7 +75,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("crop_mode", "LetterBox")
         self.declare_parameter("save_detections", False)
         
-        #Declare batch topic 
+        #Declare batch topic  
         self.declare_parameter("batch_inference_topic", "/batched_camera_message")
        
        
@@ -143,6 +143,14 @@ class CameraDetectionNode(Node):
         self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.back_center_camera_subscription, self.front_right_camera_subscription, self.back_right_camera_subscription, self.front_left_camera_subscription, self.back_left_camera_subscription], queue_size=10, slop=0.1)
         self.ats.registerCallback(self.batch_inference_callback)
 
+        #Subscription for Eve cameras
+        self.right_camera_subscription = Subscriber(self, Image, self.camera_topic)
+        self.left_camera_subscription = Subscriber(self, Image, self.left_camera_topic)
+        self.center_camera_subscription = Subscriber(self, Image, self.center_camera_topic)
+        self.eve_ats = ApproximateTimeSynchronizer([self.right_camera_subscription, self.left_camera_subscription,self.center_camera_subscription], queue_size=10, slop=0.1)
+        
+        #Create this callback function tomorrow
+        self.eve_ats.registerCallback(self.eve_batch_inference_callback) 
         self.get_logger().info(f"TENSORT VERSION:{trt.__version__}")
 
         self.orig_image_width = None
@@ -164,17 +172,17 @@ class CameraDetectionNode(Node):
         #self.build_engine()
         self.initialize_engine(self.tensorRT_model_path)
         self.input_info, self.output_info =  self.initialize_tensors()
-        # self.tensorRT_inferencing(self.input_info)
-  
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
 
         # setup vis publishers
+        #Batch vis publishers
         self.batched_camera_message_publisher  = self.create_publisher(Image,self.batch_inference_topic, 10)
         self.batch_detection_publisher = self.create_publisher(Detection2DArray, self.batch_publish_detection_topic, 10)
         self.batch_vis_publisher = self.create_publisher(CompressedImage, self.batch_publish_vis_topic, 10)
 
+        #vis publishers
         self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
         self.detection_publisher = self.create_publisher(
             Detection2DArray, self.publish_detection_topic, 10
@@ -186,10 +194,10 @@ class CameraDetectionNode(Node):
     def build_engine(self):
     #Only calling this function when we dont have an engine file
     #Reading the onnx file in the perception models directory
-        self.max_batch_size = 6
+        self.max_batch_size = 3
         self.channels = 3
-        self.height = 640
-        self.width = 640
+        self.height = 1024
+        self.width = 1024
         self.shape_input_model = [self.max_batch_size, self.channels, self.height, self.width]
         self.logger = trt.Logger(trt.Logger.VERBOSE)
         self.builder = trt.Builder(self.logger)
@@ -247,7 +255,7 @@ class CameraDetectionNode(Node):
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
       
-        self.execution_context.set_input_shape(self.input_tensor_name, (6,3,640,640))
+        self.execution_context.set_input_shape(self.input_tensor_name, (3,3,1024,1024))
         self.inputShape = self.execution_context.get_tensor_shape(self.input_tensor_name)
         self.get_logger().info(f"tensor Shape:{self.inputShape}")
         self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
@@ -349,6 +357,24 @@ class CameraDetectionNode(Node):
                 )
       
         return self.outputs_ndarray
+    def eve_batch_inference_callback(self, msg1,msg2,msg3):
+        imageHeight = self.input_info[0].shape[-1]
+        imageWidth = self.input_info[0].shape[-2]
+        imageList = [msg1,msg2,msg3]
+        eve_batched_list = []
+        for msg in imageList:
+            numpy_array = np.frombuffer(msg.data, np.uint8)
+            compressedImage = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
+            resized_compressedImage  = cv2.resize(compressedImage, (imageWidth, imageHeight))
+            rgb_image = cv2.color(resized_compressedImage, cv2.COLOR_BGR2RGB)
+            normalized_image = rgb_image / 255.0
+            chw_image = np.transpose(normalized_image, (2,0,1))
+            float_image = chw_image.astype(np.float32)
+            tensor_image = torch.from_numpy(float_image).to('cuda')
+            batched_list.append(tensor_image)
+        batched_list = [tensor.cpu().numpy() for tensor in batched_list]
+        batched_images = np.stack(batched_list, axis=0)
+
     def batch_inference_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         #Taking msgs from all 6 ros2 subscribers
         imageHeight = self.input_info[0].shape[-1]
@@ -405,8 +431,6 @@ class CameraDetectionNode(Node):
 
           # To store final results after NMS
 
-
- 
     def convert_to_xyxy(self, x_center, y_center, width, height, imageHeight, imageWidth):
         half_width = width /2
         half_height = height /2 
@@ -472,6 +496,26 @@ class CameraDetectionNode(Node):
 
         return iou
 
+    def publish_bounding_boxes(self, results_dict):
+        detection2darray = Detection2DArray()
+        for image_idx, bboxes in results_dict.items():
+            detection2d = Detection2D()
+            x_min, y_min, x_max, y_max, confidence, class_id = bbox
+            center_x = (x_min + x_max) / 2
+            center_y = (y_min + y_max) / 2
+            size_x = x_max - x_min
+            size_y = y_max - y_min
+            detection2d.bbox.center.position.x = center_x
+            detection2d.bbox.center.position.y = center_y
+            detection2d.bbox.size_x = size_x
+            detection2d.bbox.size_y = size_y
+            detected_object = ObjectHypothesisWithPose()
+            detected_object.hypothesis.class_id = class_id
+            detected_object.hypothesis.score = confidence
+            detection2darray.detections.append(detection2d)
+
+
+    
     #Converting to tensor for batching
     def batch_convert_to_tensor(self, cv_image):
         img  = cv_image.transpose(2,0,1)
@@ -583,7 +627,7 @@ class CameraDetectionNode(Node):
         imgmsg.header.stamp = msg.header.stamp
         imgmsg.header.frame_id = msg.header.frame_id
         self.vis_publisher.publish(imgmsg)
-
+ 
     def publish_detections(self, detections, msg, feed):
         # Publish detections to an detectionList message
         detection2darray = Detection2DArray()

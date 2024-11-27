@@ -40,8 +40,9 @@ services:
       - /mnt/wato-drive2/perception_models/traffic_signs_v0.pt:/perception_models/traffic_signs_v1.pt
       - /mnt/wato-drive2/perception_models/tensorRT.onnx:/perception_models/tensorRT.onnx
       - /mnt/wato-drive2/perception_models/tensorRT.engine:/perception_models/tensorRT.engine
+      - /mnt/wato-drive2/perception_models/eve.onnx:/perception_models/eve.onnx
       - /mnt/wato-drive2/perception_models/:/perception_models
-    
+      
   lidar_object_detection:
     build:
       context: ..
