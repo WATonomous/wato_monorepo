@@ -62,8 +62,9 @@ class CameraDetectionNode(Node):
         self.declare_parameter("back_right_camera_topic", "/CAM_BACK_RIGHT/image_rect_compressed")
         self.declare_parameter("back_left_camera_topic", "/CAM_BACK_LEFT/image_rect_compressed")
 
-        self.declare_parameter("onnx_model_path", "/perception_models/eve.onnx") #tensorRT. extensions
-        self.declare_parameter("tensorRT_model_path", "/perception_models/eve.engine")
+        self.declare_parameter("onnx_model_path", "/perception_models/tensorRT.onnx") #tensorRT. extensions
+        self.declare_parameter("tensorRT_model_path", "/perception_models/tensorRT.engine")
+        self.declare_parameter("eve_tensorRT_model_path", "/perception_models/eve.engine")
         self.declare_parameter("publish_vis_topic", "/annotated_img")
         self.declare_parameter("batch_publish_vis_topic", "/batch_annotated_img")
         self.declare_parameter("batch_publish_detection_topic", "/batch_detections")
@@ -87,7 +88,7 @@ class CameraDetectionNode(Node):
         self.onnx_model_path = self.get_parameter("onnx_model_path").value
         
         self.tensorRT_model_path = self.get_parameter("tensorRT_model_path").value
-
+        self.eve_tensorRT_model_path = self.get_parameter("eve_tensorRT_model_path").value
         #Camera topics for eve 
         self.camera_topic = self.get_parameter("camera_topic").value
         self.left_camera_topic = self.get_parameter("left_camera_topic").value
@@ -170,8 +171,8 @@ class CameraDetectionNode(Node):
         assert status.value == 0, "IS NOT ZERO"
        
         #self.build_engine()
-        self.initialize_engine(self.tensorRT_model_path)
-        self.input_info, self.output_info =  self.initialize_tensors()
+        # self.initialize_engine(self.tensorRT_model_path, 3,3,1024,1024)
+        # self.input_info, self.output_info =  self.initialize_tensors()
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
@@ -242,7 +243,7 @@ class CameraDetectionNode(Node):
             f.write(self.engine_bytes)
         self.get_logger().info("FINISHED WRITING ")
  
-    def initialize_engine(self, weight):
+    def initialize_engine(self, weight, batch_size, rgb, width, height):
         self.weight = Path(weight) if isinstance(weight, str) else weight
         self.logger  = trt.Logger(trt.Logger.WARNING)
         trt.init_libnvinfer_plugins(self.logger, namespace ='')
@@ -255,9 +256,9 @@ class CameraDetectionNode(Node):
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
       
-        self.execution_context.set_input_shape(self.input_tensor_name, (3,3,1024,1024))
+        self.execution_context.set_input_shape(self.input_tensor_name, (batch_size, rgb, width, height))
         self.inputShape = self.execution_context.get_tensor_shape(self.input_tensor_name)
-        self.get_logger().info(f"tensor Shape:{self.inputShape}")
+        #self.get_logger().info(f"tensor Shape:{self.inputShape}")
         self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.bindings = [0] * self.num_io_tensors
@@ -278,8 +279,8 @@ class CameraDetectionNode(Node):
         self.input_names = self.names[:self.num_inputs]
         #self.output_names = self.names[:self.num_outputs] #This includes the input name in output
         self.output_names = [name for name in self.output_names if name not in self.input_names] # This line removes it
-        self.get_logger().info(f"INPUT NAMES:: {self.input_names}")
-        self.get_logger().info(f"OUTPUT NAMES:: {self.output_names}")
+        #self.get_logger().info(f"INPUT NAMES:: {self.input_names}")
+        #self.get_logger().info(f"OUTPUT NAMES:: {self.output_names}")
        
     
     def initialize_tensors(self):
@@ -287,13 +288,13 @@ class CameraDetectionNode(Node):
         self.input_info = []
         self.output_info = []
         self.output_ptrs = []
-        batch_size = 6
+      
        
         for name in self.output_names:
-            self.get_logger().info(f"NAMES of outputs:{name}")
+            #self.get_logger().info(f"NAMES of outputs:{name}")
           
             self.tensorRT_output_shape = self.execution_context.get_tensor_shape(name)
-            self.get_logger().info(f"Tensor shape:{self.tensorRT_output_shape}")
+            #self.get_logger().info(f"Tensor shape:{self.tensorRT_output_shape}")
             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             self.output_cpu = np.empty(self.tensorRT_output_shape, dtype = self.outputDtype)
             status, self.output_gpu = cudart.cudaMallocAsync(self.output_cpu.nbytes, self.stream)
@@ -306,7 +307,7 @@ class CameraDetectionNode(Node):
         for i, name in enumerate(self.input_names):
             if self.tensorRT_model.get_tensor_name(i) == name: 
              self.tensorRT_input_shape = tuple(self.inputShape) 
-             self.get_logger().info(f"Final Input Shape:{self.tensorRT_input_shape}")
+             #self.get_logger().info(f"Final Input Shape:{self.tensorRT_input_shape}")
              self.dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
              self.input_cpu  = np.empty(self.tensorRT_input_shape, self.dtype)
              status, self.input_gpu = cudart.cudaMallocAsync(self.input_cpu.nbytes, self.stream)
@@ -357,15 +358,15 @@ class CameraDetectionNode(Node):
                 )
       
         return self.outputs_ndarray
+
+    # will be called with eve rosbag 
     def eve_batch_inference_callback(self, msg1,msg2,msg3):
-        imageHeight = self.input_info[0].shape[-1]
-        imageWidth = self.input_info[0].shape[-2]
         imageList = [msg1,msg2,msg3]
         eve_batched_list = []
         for msg in imageList:
             numpy_array = np.frombuffer(msg.data, np.uint8)
             compressedImage = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-            resized_compressedImage  = cv2.resize(compressedImage, (imageWidth, imageHeight))
+            resized_compressedImage  = cv2.resize(compressedImage, (1024, 1024))
             rgb_image = cv2.color(resized_compressedImage, cv2.COLOR_BGR2RGB)
             normalized_image = rgb_image / 255.0
             chw_image = np.transpose(normalized_image, (2,0,1))
@@ -374,26 +375,59 @@ class CameraDetectionNode(Node):
             batched_list.append(tensor_image)
         batched_list = [tensor.cpu().numpy() for tensor in batched_list]
         batched_images = np.stack(batched_list, axis=0)
+        self.initialize_engine(self.eve_tensorRT_model_path, 3,3,1024,1024)
+        self.input_info, self.output_info = self.initialize_tensors()
+        detections = self.tensorRT_inferencing(batched_images)
+        batch_size = detections[0].shape[0]
+        anchors = detections[0].shape[2]
+        results_dict = {i: [] for i in range(batch_size)}
+        for image_idx in range(batch_size):
+            # self.get_logger().info(f"[{time.time()}] Processing image index: {image_idx}")
+            image_detections = detections[0][image_idx]
+        
+            if image_idx not in results_dict:
+                results_dict[image_idx] = []
 
+            for anchor_idx in range(anchors):
+                x_center = image_detections[0][anchor_idx]
+                y_center = image_detections[1][anchor_idx]
+                width = image_detections[2][anchor_idx]
+                height = image_detections[3][anchor_idx]
+
+                confidence = image_detections[4][anchor_idx]
+                class_probs = [image_detections[class_idx][anchor_idx] for class_idx in range(5,18)]
+                predicted_class = np.argmax(class_probs)
+                predicted_prob = class_probs[predicted_class]
+
+                if confidence > 0.45:
+                
+                    #Convert from chw to tlbr  
+                    x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, 640, 640)
+                    self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
+                    results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
+            results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
+
+
+    # will be called with nuscenes rosbag
     def batch_inference_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
         #Taking msgs from all 6 ros2 subscribers
-        imageHeight = self.input_info[0].shape[-1]
-        imageWidth = self.input_info[0].shape[-2]
         image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
         batched_list = []
         #Preprocessing
         for msg in image_list:  
             numpy_array = np.frombuffer(msg.data, np.uint8)
             compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-            resized_compressedImage = cv2.resize(compressedImage,(imageWidth, imageHeight))
+            resized_compressedImage = cv2.resize(compressedImage,(640, 640))
             rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
             normalized_image = rgb_image / 255.0
             chw_image = np.transpose(normalized_image, (2,0,1))
             float_image = chw_image.astype(np.float32)
             tensor_image = torch.from_numpy(float_image).to('cuda')
             batched_list.append(tensor_image)
-        batched_list = [tensor.cpu().numpy() for tensor in batched_list]
+        batched_list = [tensor.cpu().numpy() for tensor in batched_list]          
         batched_images = np.stack(batched_list, axis=0)
+        self.initialize_engine(self.tensorRT_model_path, 6,3,640,640)
+        self.input_info, self.output_info =  self.initialize_tensors()
         detections = self.tensorRT_inferencing(batched_images)
         """ 
             - Detection[0] represents the first output name, 'outputs' with shape(6,84,8400) -> 6 representing 6 images 
@@ -402,10 +436,10 @@ class CameraDetectionNode(Node):
             - 8400 represents 8400 anchors 
 
         """
-        results_dict = {i: [] for i in range(6)}
         batch_size = detections[0].shape[0]
+        results_dict = {i: [] for i in range(batch_size)}
         for image_idx in range(batch_size):
-            #self.get_logger().info(f"[{time.time()}] Processing image index: {image_idx}")
+            # self.get_logger().info(f"[{time.time()}] Processing image index: {image_idx}")
             image_detections = detections[0][image_idx]
         
             if image_idx not in results_dict:
@@ -422,13 +456,14 @@ class CameraDetectionNode(Node):
                 predicted_class = np.argmax(class_probs)
                 predicted_prob = class_probs[predicted_class]
 
-                if confidence > 0.4:
+                if confidence > 0.45:
                 
                     #Convert from chw to tlbr  
-                    x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, imageHeight, imageWidth)
+                    x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, 640, 640)
+                    self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
                     results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
             results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
-
+            #self.get_logger().info(f"resultsdict: {results_dict}")
           # To store final results after NMS
 
     def convert_to_xyxy(self, x_center, y_center, width, height, imageHeight, imageWidth):
@@ -449,13 +484,10 @@ class CameraDetectionNode(Node):
         while bboxes_sorted:
             current_box = bboxes_sorted.pop(0)
             bbox_list_new.append(current_box)
-
         # Filter boxes with IoU below the threshold
             bboxes_sorted = [
                 box for box in bboxes_sorted if self.get_iou(current_box[:4], box[:4]) < iou_threshold
                 ]
-
-        self.get_logger().info(f"Filtered Boxes After NMS: {bbox_list_new}")
         return bbox_list_new
 
     def get_iou(self, box1, box2):
