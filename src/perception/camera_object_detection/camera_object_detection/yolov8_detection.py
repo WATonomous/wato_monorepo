@@ -249,7 +249,7 @@ class CameraDetectionNode(Node):
         trt.init_libnvinfer_plugins(self.logger, namespace ='')
         with trt.Runtime(self.logger) as runtime:
             self.tensorRT_model = runtime.deserialize_cuda_engine(self.weight.read_bytes())
-            self.get_logger().info(f"TENSORRT Model:{self.weight}")
+            #self.get_logger().info(f"TENSORRT Model:{self.weight}")
         self.execution_context = self.tensorRT_model.create_execution_context()  
         
           
@@ -460,16 +460,15 @@ class CameraDetectionNode(Node):
                 
                     #Convert from chw to tlbr  
                     x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, 640, 640)
-                    self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
+                    #self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
                     results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
             results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
-            #self.get_logger().info(f"resultsdict: {results_dict}")
+            
           # To store final results after NMS
 
     def convert_to_xyxy(self, x_center, y_center, width, height, imageHeight, imageWidth):
         half_width = width /2
         half_height = height /2 
-
         x_min = x_center - half_width
         y_min = y_center - half_height
         x_max = x_center + half_width
