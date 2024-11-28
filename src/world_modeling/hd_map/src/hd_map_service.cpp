@@ -51,7 +51,7 @@ void HDMapService::publish_hd_map_marker(){
 }
 
 void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr msg) {
-  auto pt1 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{0, 0, 0});
+  auto pt1 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{start_x, start_y, start_z});
   auto pt2 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{msg->point.x, msg->point.y, msg->point.z});
   
   
@@ -86,6 +86,9 @@ void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr ms
 
 void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr msg) {
   auto pt = router_->project_point3d_to_gps(lanelet::BasicPoint3d{msg->point.x, msg->point.y, msg->point.z});
+  start_x = msg->point.x;
+  start_y = msg->point.y;
+  start_z = msg->point.z;
   auto lanelet = router_->get_nearest_lanelet_to_gps(pt);
  
   if(lanelet_path) {

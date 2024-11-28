@@ -14,14 +14,6 @@ class PlannerConverter(Converter):
     def convertToState(self, vertex):
         return self.toState(vertex[0], vertex[1])
 
-class tempConverter(Converter):
-    def convertToState(self, vertex):
-        x = vertex[0]
-        y = vertex[1]
-        theta = 0
-        kappa = 0
-        return [x,y,theta,kappa]
-
 class CostCalculator(ABC):
     @abstractmethod
     def calculateTrajectoryCost(self, trajectory, sample, preferred_lane=0, obstacle_positions=[], 
@@ -48,7 +40,7 @@ class PlannerCostCalculator(CostCalculator):
         Returns:
             float: Total cost of the trajectory.
         """
-        
+        # TODO: base this on cost map as well (for collisions / obstacles)
         total_cost = 0.0
         previous_kappa = None
         
@@ -98,77 +90,6 @@ class PlannerCostCalculator(CostCalculator):
                 total_cost += comfort_weight * abs(acceleration)
         return total_cost
 
-class tempCostCalculator(CostCalculator):
-    def calculateTrajectoryCost(self, trajectory, sample, preferred_lane=0, obstacle_positions=[], 
-                                max_curvature_rate=0.1, comfort_weight=1.0, obstacle_weight=5.0, 
-                                curvature_weight=2.0, lane_weight=10.0):
-        """
-        Calculate the cost of a trajectory based on obstacle avoidance, physical limitations,
-        passenger comfort, and behavioral preferences.
-        
-        Parameters:
-            trajectory (list): List of points along the trajectory [(x, y, theta, kappa), ...]
-            preferred_lane (float): The y-coordinate representing the desired lane center.
-            obstacle_positions (list): List of obstacle positions [(x_obs, y_obs), ...].
-            max_curvature_rate (float): Maximum allowable rate of change of curvature.
-            comfort_weight (float): Weight for lateral acceleration cost.
-            obstacle_weight (float): Weight for obstacle avoidance cost.
-            curvature_weight (float): Weight for curvature rate cost.
-            lane_weight (float): Weight for lane preference cost.
-        
-        Returns:
-            float: Total cost of the trajectory.
-        """
-        
-        total_cost = 0.0
-        previous_kappa = None
-        
-        for i, (x, y, theta, kappa) in enumerate(trajectory):
-            
-            # Obstacle avoidance cost
-            obstacle_cost = 0.0
-            for (x_obs, y_obs) in obstacle_positions:
-                distance = np.hypot(x - x_obs, y - y_obs)
-                if distance > 0:  # Avoid division by zero
-                    if distance < 1:
-                        return False
-                    obstacle_cost += 1 / distance  # Higher cost for closer obstacles
-            total_cost += obstacle_weight * obstacle_cost
-            
-            # Curvature rate change cost (physical limitation)
-            if previous_kappa is not None:
-                curvature_rate = abs(kappa - previous_kappa)
-                if curvature_rate > max_curvature_rate:
-                    total_cost += curvature_weight * (curvature_rate - max_curvature_rate)
-            
-            # Lateral acceleration cost (passenger comfort)
-            lateral_acceleration = kappa  # Assuming lateral acceleration is proportional to curvature
-            total_cost += comfort_weight * abs(lateral_acceleration)
-            
-            # Lane preference cost
-            lane_cost = abs(y - preferred_lane)  # Minimize distance to preferred lane
-            total_cost += lane_weight * lane_cost
-            
-            previous_kappa = kappa  # Update previous kappa for the next iteration
-        
-        # Add trajectory-dependent costs based on vehicle performance
-        for i in range(1, len(trajectory)):
-            x_prev, y_prev, theta_prev, kappa_prev = trajectory[i - 1]
-            x, y, theta, kappa = trajectory[i]
-            
-            # Calculate instantaneous velocity and acceleration between points
-            ds = np.hypot(x - x_prev, y - y_prev)
-            dt = 1.0  # Assume time step of 1 for simplicity, can be adjusted as needed
-            velocity = ds / dt
-            acceleration = (velocity - (np.hypot(x_prev - x, y_prev - y) / dt)) / dt
-            
-            # Velocity and acceleration costs (can be adjusted with weights if needed)
-            if acceleration > 0:  # Optional: penalize positive acceleration
-                total_cost += comfort_weight * acceleration
-            elif acceleration < 0:  # Optional: penalize deceleration
-                total_cost += comfort_weight * abs(acceleration)
-        return total_cost
-
 class Sampler(ABC):
     @abstractmethod
     def generateSamples(self, lane_info):
@@ -186,20 +107,6 @@ class PlannerSampler(Sampler):
                 l = l_b * lane_info['lane'][2]
                 samples.append((s,l))
         return samples
-
-# class tempSampler(Sampler):
-#     def generateSamples(self, lane_info):
-#         samples = []
-#         s_bucket = int(s//lane_info['horizon'][2])
-#         max_s_bucket = lane_info['horizon'][1]
-
-#         max_l_bucket = lane_info['lane'][1]
-#         for s_b in range(min(s_bucket + 1, max_s_bucket-1), max_s_bucket+1):
-#             s = s_b * lane_info['horizon'][2]
-#             for l_b in range(0,max_l_bucket+1):
-#                 l = (l_b + 0.5) * lane_info['lane'][2]
-#                 samples.append((s,l))
-#         return samples
 
 class VehicleState:
     def __init__(self, x, y, theta, kappa, vertex = None):
@@ -228,12 +135,6 @@ class VehicleState:
     def getCost(self):
         return self.cost 
 
-def tempLaneInfo():
-    return 14, 4
-
-def PlannerLaneInfo():
-    return 10.5, 3
-
 class LatticePlanner:
     HORIZON_STEP_SIZE = 10 #(m)
     def __init__(self, startState: "VehicleState", getLaneInfo, converter: "Converter", trajectoryCostCalculator: "CostCalculator", sampler: "Sampler", lookAheadDist: float = 30, followingTargetState = False, targetState : "VehicleState" = None):
@@ -248,7 +149,7 @@ class LatticePlanner:
         self.s_step_size = self.s_horizon/self.s_buckets
 
         self.laneInfo = getLaneInfo
-        self.l_width, self.l_buckets = self.laneInfo()
+        self.l_width, self.l_buckets = self.laneInfo() # TODO: should call "l_width" road with
         self.l_step_size = self.l_width/self.l_buckets 
 
         self.arcinfo = {
@@ -261,7 +162,8 @@ class LatticePlanner:
 
         self.converter = converter
 
-    def run(self, lane = 0, depth = 2):        
+    def run(self, lane = 0, depth = 2):   
+        self._update_lane_info_()     
         for i in range(depth):
             curr_lattice = copy.deepcopy(self.lattice)
             for s_ind in range(self.s_buckets):
@@ -294,6 +196,15 @@ class LatticePlanner:
 
         best_path = self._get_sorted_paths_()
         return best_path
+    
+    def _update_lane_info_(self):
+        self.l_width, self.l_buckets = self.laneInfo()
+        self.l_step_size = self.l_width/self.l_buckets 
+
+        self.arcinfo = {
+            "horizon": [self.s_horizon, self.s_buckets, self.s_step_size],
+            "lane": [self.l_width, self.l_buckets, self.l_step_size]
+        }
 
     def _get_sorted_paths_(self):
         # paths = []
@@ -342,6 +253,7 @@ class LatticePlanner:
         Returns:
             trajectory (list): List of points along the generated trajectory [(x, y, theta, kappa), ...]
         """
+        # TODO: improve trajectory generation
 
         def normalize_angle(angle):
             return (angle + np.pi) % (2 * np.pi) - np.pi

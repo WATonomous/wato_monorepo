@@ -45,6 +45,8 @@ class HDMapService : public rclcpp::Node
 
     lanelet::Optional<lanelet::routing::LaneletPath> lanelet_path;
 
+    float start_x{0.0}, start_y{0.0}, start_z{0.0};
+
 };
 
 #endif
