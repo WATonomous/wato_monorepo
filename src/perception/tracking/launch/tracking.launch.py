@@ -32,6 +32,14 @@ def generate_launch_description():
         parameters=[config,
                     {'resource_path': resource_path}]
     )
+    
+    detection_publisher = Node(
+        package='tracking',
+        executable='detection_publisher',
+        name='detection_publisher',
+        parameters=[config,
+                    {'resource_path': resource_path}]
+    )
 
     # finalize
     return LaunchDescription([tracker_node, visualization_node])
