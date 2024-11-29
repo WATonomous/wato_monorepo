@@ -2,12 +2,15 @@ import rclpy
 from rclpy.node import Node
 import os
 from message_filters import Subscriber, TimeSynchronizer, ApproximateTimeSynchronizer
+from camera_object_detection_msgs.msg import BatchDetection 
 from sensor_msgs.msg import Image, CompressedImage
 from vision_msgs.msg import (
     ObjectHypothesisWithPose,
     Detection2D,
     Detection2DArray,
 )
+
+from std_msgs.msg import Header
 from pathlib import Path
 from ultralytics import YOLO
 from ultralytics.nn.autobackend import AutoBackend
@@ -179,10 +182,10 @@ class CameraDetectionNode(Node):
 
         # setup vis publishers
         #Batch vis publishers
-        self.batched_camera_message_publisher  = self.create_publisher(Image,self.batch_inference_topic, 10)
+        self.batched_camera_message_publisher  = self.create_publisher(BatchDetection,self.batch_inference_topic, 10)
         self.batch_detection_publisher = self.create_publisher(Detection2DArray, self.batch_publish_detection_topic, 10)
         self.batch_vis_publisher = self.create_publisher(CompressedImage, self.batch_publish_vis_topic, 10)
-
+    
         #vis publishers
         self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
         self.detection_publisher = self.create_publisher(
@@ -460,7 +463,7 @@ class CameraDetectionNode(Node):
                 
                     #Convert from chw to tlbr  
                     x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, 640, 640)
-                    #self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
+                    self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
                     results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
             results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
             
@@ -526,26 +529,47 @@ class CameraDetectionNode(Node):
         iou = area_inter / area_union
 
         return iou
+    def publish_batch(self, image_list, results_dict):
+        batch_msg = BatchDetection()
+        batch_msg.header = Header()
+        batch_msg.header.stamp = self.get_clock().now().to_msg()
+        batch_msg.header.frame_id = "camera_frame"
+        for image in image_list:
+            compressed_msg = CompressedImage()
+            compressed_msg.header.stamp = self.get_clock().now().to_msg()
+            compressed_msg.header.frame_id = "camera_frame"
+            compressed_msg.format = "jpeg"
+            compressed_image = cv2.imencode('.jpg', image)[1].tobytes()
+            compressed_msg.data = compressed_image
+            batch_msgs.images.append(compressed_msg)
+        for image_idx, bboxes in result_dict.items():
+            detection_array_msg = Detection2DArray()
+            for bbox in bboxes:
+                x_min, y_min, x_max, y_max, confidence, class_id = bbox
+                detection_msg = Detection2D()
+                
+                # Populate bounding box
+                detection_msg.bbox.center.x = (x_min + x_max) / 2
+                detection_msg.bbox.center.y = (y_min + y_max) / 2
+                detection_msg.bbox.size_x = x_max - x_min
+                detection_msg.bbox.size_y = y_max - y_min
 
-    def publish_bounding_boxes(self, results_dict):
-        detection2darray = Detection2DArray()
-        for image_idx, bboxes in results_dict.items():
-            detection2d = Detection2D()
-            x_min, y_min, x_max, y_max, confidence, class_id = bbox
-            center_x = (x_min + x_max) / 2
-            center_y = (y_min + y_max) / 2
-            size_x = x_max - x_min
-            size_y = y_max - y_min
-            detection2d.bbox.center.position.x = center_x
-            detection2d.bbox.center.position.y = center_y
-            detection2d.bbox.size_x = size_x
-            detection2d.bbox.size_y = size_y
-            detected_object = ObjectHypothesisWithPose()
-            detected_object.hypothesis.class_id = class_id
-            detected_object.hypothesis.score = confidence
-            detection2darray.detections.append(detection2d)
+                # Add class and confidence metadata
+                hypothesis = ObjectHypothesisWithPose()
+                hypothesis.id = int(class_id)
+                hypothesis.score = confidence
+                detection_msg.results.append(hypothesis)
+
+                detection_array_msg.detections.append(detection_msg)
+
+            batch_msg.detections.append(detection_array_msg)
+            self.batch_publisher.publish(batch_msg)
+            self.get_logger().info("Published batch message with images and detections.")
 
 
+        #we populate the compressedIMage array with the image list with raw images from nuscenes
+        #We populate the detection2d array with our results_dict 
+   
     
     #Converting to tensor for batching
     def batch_convert_to_tensor(self, cv_image):

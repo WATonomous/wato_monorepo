@@ -7,6 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/perception/camera_object_detection camera_object_detection
+COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
