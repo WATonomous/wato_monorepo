@@ -83,7 +83,7 @@ class trackerNode(Node):
         self.tf2_listener = TransformListener(self.tf2_buffer, self)
 
         # Publishers/Subscribers
-        self.detection_subscriber = self.create_subscription(Detection3DArray, 'detections', self.detection_callback, 10)
+        self.detection_subscriber = self.create_subscription(Detection3DArray, 'detections_3d', self.detection_callback, 10)
 
         self.tracked_obstacles_publisher = self.create_publisher(TrackedObstacleListMsg, 'tracked_obstacles', 10)
 

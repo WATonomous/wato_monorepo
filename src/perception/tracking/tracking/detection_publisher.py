@@ -15,7 +15,7 @@ class TrackerNode(Node):
         self.declare_parameter("test_param", 15)
 
         # Publishers/Subscribers
-        self.publisher = self.create_publisher(Detection3DArray, 'detections', 10)
+        self.publisher = self.create_publisher(Detection3DArray, 'detections_3d', 10)
         self.get_logger().info(f'Initial param: {self.get_parameter("test_param").value}')
 
         self.publish_first_detection_message()
