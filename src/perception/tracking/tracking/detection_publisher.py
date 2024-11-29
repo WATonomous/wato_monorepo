@@ -11,9 +11,12 @@ from geometry_msgs.msg import Point, Quaternion, Vector3
 class TrackerNode(Node):
     def __init__(self):
         super().__init__('tracker_node')
+        
+        self.declare_parameter("test_param", 15)
 
         # Publishers/Subscribers
         self.publisher = self.create_publisher(Detection3DArray, 'detections', 10)
+        self.get_logger().info(f'Initial param: {self.get_parameter("test_param").value}')
 
         self.publish_first_detection_message()
         self.create_timer(5, self.publish_second_detection_message)  # Publish second message after 5 seconds

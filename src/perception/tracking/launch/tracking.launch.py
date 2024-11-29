@@ -17,7 +17,7 @@ def generate_launch_description():
         'resource'
     )
 
-    tracking_node = Node(
+    tracker_node = Node(
         package='tracking',
         executable='tracker_node',
         name='tracker_node',
@@ -28,10 +28,10 @@ def generate_launch_description():
     visualization_node = Node(
         package='tracking',
         executable='tracker_visualization',
-        name='tracker_visualization_node',
+        name='tracker_viz',
         parameters=[config,
                     {'resource_path': resource_path}]
     )
 
     # finalize
-    return LaunchDescription([tracking_node, visualization_node])
+    return LaunchDescription([tracker_node, visualization_node])
