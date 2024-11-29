@@ -62,7 +62,7 @@ services:
       file: ../docker-compose.perception.yaml
       service: tracking
     image: "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
-    command: tail -F anything
+    # command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/tracking:/home/bolty/ament_ws/src/tracking
 
