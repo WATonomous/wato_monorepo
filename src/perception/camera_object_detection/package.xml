@@ -9,10 +9,12 @@
   <license>TODO: License declaration</license>
 
   <depend>cv_bridge</depend>
+  <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>vision_msgs</depend>
   <depend>std_msgs</depend>
   <depend>camera_object_detection_msgs</depend>
+  <exec_depend>python3-pytest</exec_depend>
   
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
