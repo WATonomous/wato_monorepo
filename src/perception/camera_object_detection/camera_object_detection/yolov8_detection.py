@@ -420,6 +420,8 @@ class CameraDetectionNode(Node):
         for msg in image_list:  
             numpy_array = np.frombuffer(msg.data, np.uint8)
             compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
+            original_height, original_width = compressedImage.shape[:2]
+            self.get_logger().info(f"original Height:{original_height} original width: {original_width}")
             resized_compressedImage = cv2.resize(compressedImage,(640, 640))
             rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
             normalized_image = rgb_image / 255.0
@@ -463,10 +465,10 @@ class CameraDetectionNode(Node):
                 
                     #Convert from chw to tlbr  
                     x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, 640, 640)
-                    self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
+                    #self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
                     results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
             results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
-            
+        self.publish_batch(image_list, results_dict)
           # To store final results after NMS
 
     def convert_to_xyxy(self, x_center, y_center, width, height, imageHeight, imageWidth):
@@ -529,49 +531,62 @@ class CameraDetectionNode(Node):
         iou = area_inter / area_union
 
         return iou
+    
+    
     def publish_batch(self, image_list, results_dict):
         batch_msg = BatchDetection()
-        batch_msg.header = Header()
         batch_msg.header.stamp = self.get_clock().now().to_msg()
-        batch_msg.header.frame_id = "camera_frame"
-        for image in image_list:
-            compressed_msg = CompressedImage()
-            compressed_msg.header.stamp = self.get_clock().now().to_msg()
-            compressed_msg.header.frame_id = "camera_frame"
-            compressed_msg.format = "jpeg"
-            compressed_image = cv2.imencode('.jpg', image)[1].tobytes()
-            compressed_msg.data = compressed_image
-            batch_msgs.images.append(compressed_msg)
-        for image_idx, bboxes in result_dict.items():
-            detection_array_msg = Detection2DArray()
-            for bbox in bboxes:
-                x_min, y_min, x_max, y_max, confidence, class_id = bbox
-                detection_msg = Detection2D()
+        batch_msg.header.frame_id = "batch"
+
+        for idx, img_msg in enumerate(image_list):
+            compressed_image = CompressedImage()
+            compressed_image.header = img_msg.header
+            compressed_image.format = "jpeg"
+            compressed_image.data = img_msg.data  # Original data
+            batch_msg.images.append(compressed_image)
+
+        for idx in range(len(image_list)):
+            detection_array = Detection2DArray()
+            detection_array.header.stamp = batch_msg.header.stamp
+            detection_array.header.frame_id = f"image_{idx}"
+            for bbox in results_dict[idx]:
+                detection = Detection2D()
+                x_min, y_min, x_max, y_max, confidence, predicted_class = bbox
+                detection.bbox.center.position.x = (x_min + x_max) / 2
+                detection.bbox.center.position.y = (y_min + y_max) / 2
+                detection.bbox.size_x = x_max - x_min
+                detection.bbox.size_y = y_max - y_min
+                detected_object = ObjectHypothesisWithPose()
                 
-                # Populate bounding box
-                detection_msg.bbox.center.x = (x_min + x_max) / 2
-                detection_msg.bbox.center.y = (y_min + y_max) / 2
-                detection_msg.bbox.size_x = x_max - x_min
-                detection_msg.bbox.size_y = y_max - y_min
+                detected_object.hypothesis.class_id = str(int(predicted_class))
+                # self.get_logger().info(f"Score: {confidence} (type: {type(confidence)})")
+                detected_object.hypothesis.score = float(confidence)
+              
 
-                # Add class and confidence metadata
-                hypothesis = ObjectHypothesisWithPose()
-                hypothesis.id = int(class_id)
-                hypothesis.score = confidence
-                detection_msg.results.append(hypothesis)
-
-                detection_array_msg.detections.append(detection_msg)
-
-            batch_msg.detections.append(detection_array_msg)
-            self.batch_publisher.publish(batch_msg)
-            self.get_logger().info("Published batch message with images and detections.")
-
-
-        #we populate the compressedIMage array with the image list with raw images from nuscenes
-        #We populate the detection2d array with our results_dict 
-   
-    
+                detection.results.append(detected_object)
+                detection_array.detections.append(detection)
+                
+            batch_msg.detections.append(detection_array)
+            self.batch_detection_publisher.publish(detection_array)
+            vis_image = self.draw_bounding_boxes(img_msg, results_dict[idx])
+            vis_compressed_image = CompressedImage()
+            vis_compressed_image.header.stamp = self.get_clock().now().to_msg()
+            vis_compressed_image.format = "jpeg"
+            vis_compressed_image.data = cv2.imencode('.jpg', vis_image)[1].tobytes()
+            self.batch_vis_publisher.publish(vis_compressed_image)
+        self.batched_camera_message_publisher.publish(batch_msg)
     #Converting to tensor for batching
+
+    def draw_bounding_boxes(self,img_msg, detections):
+        numpy_image = np.frombuffer(img_msg.data, np.uint8)
+        image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
+        for bbox in detections:
+            x_min, y_min, x_max, y_max, confidence, predicted_class = bbox
+            label = f"Class: {predicted_class}, Conf: {confidence:.2f}"
+            #self.get_logger().info(f"{label}")
+            cv2.rectangle(image, (int(x_min), int(y_min)), (int(x_max), int(y_max)), (0, 255, 0), 2)
+            cv2.putText(image, label, (int(x_min), int(y_min) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        return image
     def batch_convert_to_tensor(self, cv_image):
         img  = cv_image.transpose(2,0,1)
         img = torch.from_numpy(img).to(self.device)
