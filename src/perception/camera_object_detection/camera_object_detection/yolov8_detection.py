@@ -144,7 +144,8 @@ class CameraDetectionNode(Node):
         self.back_center_camera_subscription = Subscriber(self, CompressedImage, self.back_center_camera_topic)
         self.back_right_camera_subscription = Subscriber(self, CompressedImage, self.back_right_camera_topic)
         self.back_left_camera_subscription = Subscriber(self, CompressedImage, self.back_left_camera_topic)
-        self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.back_center_camera_subscription, self.front_right_camera_subscription, self.back_right_camera_subscription, self.front_left_camera_subscription, self.back_left_camera_subscription], queue_size=10, slop=0.5)
+        #self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.back_center_camera_subscription, self.front_right_camera_subscription, self.back_right_camera_subscription, self.front_left_camera_subscription, self.back_left_camera_subscription], queue_size=10, slop=0.5)
+        self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.front_right_camera_subscription,  self.front_left_camera_subscription], queue_size=10, slop=0.5)
         self.ats.registerCallback(self.batch_inference_callback)
 
         #Subscription for Eve cameras
@@ -176,6 +177,8 @@ class CameraDetectionNode(Node):
         #self.build_engine()
         # self.initialize_engine(self.tensorRT_model_path, 3,3,1024,1024)
         # self.input_info, self.output_info =  self.initialize_tensors()
+        self.last_publish_time = self.get_clock().now()
+
         self.model = AutoBackend(self.model_path, device=self.device, dnn=False, fp16=False)
         self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
         self.stride = int(self.model.stride)
@@ -412,9 +415,9 @@ class CameraDetectionNode(Node):
 
 
     # will be called with nuscenes rosbag
-    def batch_inference_callback(self,msg1,msg2,msg3, msg4,msg5,msg6):
+    def batch_inference_callback(self,msg1,msg2,msg3):
         #Taking msgs from all 6 ros2 subscribers
-        image_list =  [msg1,msg2,msg3,msg4,msg5,msg6]
+        image_list =  [msg1,msg2,msg3]
         batched_list = []
         #Preprocessing
         for msg in image_list:  
@@ -431,7 +434,7 @@ class CameraDetectionNode(Node):
             batched_list.append(float_image)
         # batched_list = [tensor.cpu().numpy() for tensor in batched_list]          
         batched_images = np.stack(batched_list, axis=0)
-        self.initialize_engine(self.tensorRT_model_path, 6,3,640,640)
+        self.initialize_engine(self.tensorRT_model_path, 3,3,640,640)
         self.input_info, self.output_info =  self.initialize_tensors()
         detections = self.tensorRT_inferencing(batched_images)
         """ 
@@ -562,6 +565,10 @@ class CameraDetectionNode(Node):
     
     
     def publish_batch(self, image_list, results_dict):
+        current_time = self.get_clock().now()
+        if (current_time - self.last_publish_time).nanoseconds < 1e9 / 2:  # Publish at 2 Hz (0.5 seconds)
+            return
+        self.last_publish_time = current_time
         batch_msg = BatchDetection()
         batch_msg.header.stamp = self.get_clock().now().to_msg()
         batch_msg.header.frame_id = "batch"
