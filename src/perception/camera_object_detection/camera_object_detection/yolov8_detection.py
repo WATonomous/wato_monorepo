@@ -145,7 +145,8 @@ class CameraDetectionNode(Node):
         self.back_right_camera_subscription = Subscriber(self, CompressedImage, self.back_right_camera_topic)
         self.back_left_camera_subscription = Subscriber(self, CompressedImage, self.back_left_camera_topic)
         #self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.back_center_camera_subscription, self.front_right_camera_subscription, self.back_right_camera_subscription, self.front_left_camera_subscription, self.back_left_camera_subscription], queue_size=10, slop=0.5)
-        self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.front_right_camera_subscription,  self.front_left_camera_subscription], queue_size=10, slop=0.5)
+        #self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.front_right_camera_subscription,  self.front_left_camera_subscription], queue_size=10, slop=0.5)
+        self.ats = ApproximateTimeSynchronizer([self.front_right_camera_subscription], queue_size=10, slop=0.3)
         self.ats.registerCallback(self.batch_inference_callback)
 
         #Subscription for Eve cameras
@@ -321,8 +322,7 @@ class CameraDetectionNode(Node):
              cudart.cudaMemcpyAsync(
                     self.input_gpu, self.input_cpu.ctypes.data, self.input_cpu.nbytes,
                     cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream)
-             self.input_info.append(Tensor(name, self.dtype, self.tensorRT_input_shape, self.input_cpu, self.input_gpu))
-             
+            self.input_info.append(Tensor(name, self.dtype, self.tensorRT_input_shape, self.input_cpu, self.input_gpu)) 
         return self.input_info, self.output_info
     
     def tensorRT_inferencing(self, batch_array):
@@ -362,62 +362,14 @@ class CameraDetectionNode(Node):
             self.outputs_ndarray[i].ctypes.data, o, self.outputs_ndarray[i].nbytes,
             cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost, self.stream
                 )
-      
-        return self.outputs_ndarray
-
-    # will be called with eve rosbag 
-    def eve_batch_inference_callback(self, msg1,msg2,msg3):
-        imageList = [msg1,msg2,msg3]
-        eve_batched_list = []
-        for msg in imageList:
-            numpy_array = np.frombuffer(msg.data, np.uint8)
-            compressedImage = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-            resized_compressedImage  = cv2.resize(compressedImage, (1024, 1024))
-            rgb_image = cv2.color(resized_compressedImage, cv2.COLOR_BGR2RGB)
-            normalized_image = rgb_image / 255.0
-            chw_image = np.transpose(normalized_image, (2,0,1))
-            float_image = chw_image.astype(np.float32)
-            tensor_image = torch.from_numpy(float_image).to('cuda')
-            batched_list.append(tensor_image)
-        batched_list = [tensor.cpu().numpy() for tensor in batched_list]
-        batched_images = np.stack(batched_list, axis=0)
-        self.initialize_engine(self.eve_tensorRT_model_path, 3,3,1024,1024)
-        self.input_info, self.output_info = self.initialize_tensors()
-        detections = self.tensorRT_inferencing(batched_images)
-        batch_size = detections[0].shape[0]
-        anchors = detections[0].shape[2]
-        results_dict = {i: [] for i in range(batch_size)}
-        for image_idx in range(batch_size):
-            # self.get_logger().info(f"[{time.time()}] Processing image index: {image_idx}")
-            image_detections = detections[0][image_idx]
         
-            if image_idx not in results_dict:
-                results_dict[image_idx] = []
-
-            for anchor_idx in range(anchors):
-                x_center = image_detections[0][anchor_idx]
-                y_center = image_detections[1][anchor_idx]
-                width = image_detections[2][anchor_idx]
-                height = image_detections[3][anchor_idx]
-
-                confidence = image_detections[4][anchor_idx]
-                class_probs = [image_detections[class_idx][anchor_idx] for class_idx in range(5,18)]
-                predicted_class = np.argmax(class_probs)
-                predicted_prob = class_probs[predicted_class]
-
-                if confidence > 0.45:
-                
-                    #Convert from chw to tlbr  
-                    x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, 640, 640)
-                    self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
-                    results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
-            results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
+        return tuple(self.outputs_ndarray) if len(self.outputs_ndarray) > 1 else self.outputs_ndarray[0]
 
 
     # will be called with nuscenes rosbag
-    def batch_inference_callback(self,msg1,msg2,msg3):
+    def batch_inference_callback(self,msg1):
         #Taking msgs from all 6 ros2 subscribers
-        image_list =  [msg1,msg2,msg3]
+        image_list =  [msg1]
         batched_list = []
         #Preprocessing
         for msg in image_list:  
@@ -434,7 +386,7 @@ class CameraDetectionNode(Node):
             batched_list.append(float_image)
         # batched_list = [tensor.cpu().numpy() for tensor in batched_list]          
         batched_images = np.stack(batched_list, axis=0)
-        self.initialize_engine(self.tensorRT_model_path, 3,3,640,640)
+        self.initialize_engine(self.tensorRT_model_path, 1,3,640,640)
         self.input_info, self.output_info =  self.initialize_tensors()
         detections = self.tensorRT_inferencing(batched_images)
         """ 
@@ -444,125 +396,104 @@ class CameraDetectionNode(Node):
             - 8400 represents 8400 anchors 
 
         """
-       
-        batch_size = detections[0].shape[0]
-        results_dict = {i: [] for i in range(batch_size)}
-        for image_idx in range(batch_size):
-           # Extract detections for the current image
-            image_detections = detections[0][image_idx]
+       # self.get_logger().info(f"Confidence Scores{detections[0][0][4][:10]}")
+        #self.get_logger().info(f"Classes{detections[0][0][5][:5]}")
+        decoded_results = self.postprocess_detections_nuscenes(detections)
 
-            # Extract individual components
-            x_centers = image_detections[0]
-            y_centers = image_detections[1]
-            widths = image_detections[2]
-            heights = image_detections[3]
-            confidences = image_detections[4]
-            class_probs = image_detections[5:18]  # Shape: (13, 8400)
 
-            # Filter by confidence threshold
-            valid_indices = confidences > 0.3
-            if not np.any(valid_indices):
-                continue  # Skip image if no detections pass confidence threshold
 
-            # Filter relevant detections
-            x_centers = x_centers[valid_indices]
-            y_centers = y_centers[valid_indices]
-            widths = widths[valid_indices]
-            heights = heights[valid_indices]
-            confidences = confidences[valid_indices]
-            class_probs = class_probs[:, valid_indices]
 
-            # Predict classes and probabilities
-            predicted_classes = np.argmax(class_probs, axis=0)
-            predicted_probs = class_probs[predicted_classes, range(class_probs.shape[1])]
+    def postprocess_detections_nuscenes(self, detections, class_labels = None ):
+        detection_tensor = detections[0]  # Assuming the first tensor corresponds to detections
+        batch_size = detection_tensor.shape[0]  # Number of images in the batch
+        num_anchors = detection_tensor.shape[2]  # Number of anchors (e.g., 8400)
+        decoded_results = []  # A list to hold decoded detections for each image
+        for batch_idx in range(batch_size):
+            image_detections = detection_tensor[batch_idx]  # Detections for the current image
+            valid_detections = []  # Store valid detections for this image
+            for anchor_idx in range(num_anchors):  # Loop through all anchors
+                detection = image_detections[:, anchor_idx]  # Get data for one anchor
+                confidence = detection[4]  # Extract confidence score
 
-            # Convert boxes to (x_min, y_min, x_max, y_max)
-            x_mins = x_centers - widths / 2
-            y_mins = y_centers - heights / 2
-            x_maxs = x_centers + widths / 2
-            y_maxs = y_centers + heights / 2
+                # Only process detections with confidence above the threshold
+                if confidence > 0.5:
+                    x_center, y_center, width, height = detection[:4]  # Bounding box info
+                    class_probs = detection[5:13]  # Class probabilities
+                    predicted_class = np.argmax(class_probs)  # Most likely class
+                    predicted_prob = class_probs[predicted_class]
 
-            # Combine detections into final format
-            filtered_detections = np.stack([x_mins, y_mins, x_maxs, y_maxs, confidences, predicted_classes], axis=-1)
-            #self.get_logger().info(f"Detections:{filtered_detections}")
-            
-            # Apply NMS
-            results_dict[image_idx] = self.nms(filtered_detections.tolist(), confidence_threshold=0.55, iou_threshold=0.5)
+                    # Convert to (x_min, y_min, x_max, y_max)
+                    x_min = x_center - width / 2
+                    y_min = y_center - height / 2
+                    x_max = x_center + width / 2
+                    y_max = y_center + height / 2
+                    valid_detections.append([
+                    x_min, y_min, x_max, y_max, confidence, predicted_class
+                        ])
+            valid_detections = torch.tensor(valid_detections)
+            if valid_detections.shape[0] == 0:
+                decoded_results.append([])  # No detections for this image
+                continue
 
-#Log final results if needed
-        for image_idx, detections in results_dict.items():
-            #self.get_logger().info(f"Image {image_idx}: {len(detections)} detections")
-            for detection in detections:
-                x_min, y_min, x_max, y_max, confidence, predicted_class = detection
+        # Apply Non-Maximum Suppression (NMS)
+            nms_results = non_max_suppression(
+                valid_detections.unsqueeze(0),  # Add batch dimension for NMS
+                conf_thres=0.5,  # Confidence threshold
+                iou_thres=0.45   # IoU threshold
+            )
+
+            final_detections = []
+            for det in nms_results[0]:  # Assuming only one set of results
+                x_min, y_min, x_max, y_max, confidence, predicted_class = det.cpu().numpy()
+                class_name = class_labels.get(int(predicted_class), "unknown") if class_labels else str(int(predicted_class))
+                final_detections.append({
+                    "bbox": [x_min, y_min, x_max, y_max],
+                    "confidence": confidence,
+                    "class": int(predicted_class),
+                    "class_name": class_name
+                })
+
+            decoded_results.append(final_detections)
+        for batch_idx, batch_detections in enumerate(decoded_results):
+            if len(batch_detections) == 0:
+                self.get_logger().info(f"Batch {batch_idx}: No detections")
+                continue
+
+            for anchor_idx, detection in enumerate(batch_detections):
+                # Extract values from the dictionary
+                bbox = detection["bbox"]
+                x_min, y_min, x_max, y_max = bbox
+                confidence = detection["confidence"]
+                predicted_class = detection["class"]
+                class_name = detection["class_name"]
+
+                # Log detection details
                 self.get_logger().info(
-                    f"  Bounding Box: [{x_min:.2f}, {y_min:.2f}, {x_max:.2f}, {y_max:.2f}], "
-                    f"Confidence: {confidence:.2f}, Class: {predicted_class}"
+                    f"Batch {batch_idx}, Anchor {anchor_idx}: "
+                    f"BBox [{x_min:.2f}, {y_min:.2f}, {x_max:.2f}, {y_max:.2f}], "
+                    f"Class {class_name} ({predicted_class}), Confidence {confidence:.2f}"
                 )
 
-        self.publish_batch(image_list, results_dict)
-          # To store final results after NMS
-   
-    def convert_to_xyxy(self, x_center, y_center, width, height, imageHeight, imageWidth):
-        half_width = width /2
-        half_height = height /2 
-        x_min = x_center - half_width
-        y_min = y_center - half_height
-        x_max = x_center + half_width
-        y_max = y_center + half_height
-        return x_min, y_min, x_max, y_max     
+            return decoded_results
+        # decoded_results.append(final_detections)
+        #             class_name = class_labels.get(predicted_class, "unknown") if class_labels else str(predicted_class)
+        #             self.get_logger().info(
+        #             f"Batch {batch_idx}, Anchor {anchor_idx}: "
+        #             f"BBox [{x_min:.2f}, {y_min:.2f}, {x_max:.2f}, {y_max:.2f}], "
+        #             f"Class {class_name} ({predicted_class}), Confidence {confidence:.2f}"
+        #         )
 
-    def nms(self,bboxes, confidence_threshold= 0.45,iou_threshold = 0.5 ):
-        #Confidence threshold
-        bboxes_thresholded = [bbox for bbox in bboxes if bbox[4] > confidence_threshold]
-        bboxes_sorted = sorted(bboxes_thresholded, key=lambda x: x[4], reverse=True)
-        bbox_list_new = []
-        while bboxes_sorted:
-            current_box = bboxes_sorted.pop(0)
-            bbox_list_new.append(current_box)
-        # Filter boxes with IoU below the threshold
-            bboxes_sorted = [
-                box for box in bboxes_sorted if self.get_iou(current_box[:4], box[:4]) < iou_threshold
-                ]
-        return bbox_list_new
+        #         # Store the detection in a structured format
+        #             valid_detections.append({
+        #             "bbox": [x_min, y_min, x_max, y_max],
+        #             "confidence": confidence,
+        #             "class": predicted_class,
+        #             "class_name": class_name
+        #              })
 
-    def get_iou(self, box1, box2):
-        x1, y1, x2, y2 = box1
-        x3, y3, x4, y4 = box2
-
-    # Intersection coordinates
-        x_inter1 = max(x1, x3)
-        y_inter1 = max(y1, y3)
-        x_inter2 = min(x2, x4)
-        y_inter2 = min(y2, y4)
-
-        # Width and height of the intersection
-        width_inter = abs(x_inter2 - x_inter1)
-        height_inter = abs(y_inter2 - y_inter1)
-
-        # If there is no intersection
-        if x_inter2 < x_inter1 or y_inter2 < y_inter1:
-            return 0.0
-
-        # Area of intersection
-        area_inter = width_inter * height_inter
-
-        # Areas of the two boxes
-        width_box1 = abs(x2 - x1)
-        height_box1 = abs(y2 - y1)
-        area_box1 = width_box1 * height_box1
-
-        width_box2 = abs(x4 - x3)
-        height_box2 = abs(y4 - y3)
-        area_box2 = width_box2 * height_box2
-
-        # Union area
-        area_union = area_box1 + area_box2 - area_inter
-
-        # Intersection over Union
-        iou = area_inter / area_union
-
-        return iou
-    
+        # # Log the number of valid detections for this image
+        # self.get_logger().info(f"Batch {batch_idx}: {len(valid_detections)} valid detections")
+          
     
     def publish_batch(self, image_list, results_dict):
         current_time = self.get_clock().now()
@@ -622,17 +553,55 @@ class CameraDetectionNode(Node):
         self.batched_camera_message_publisher.publish(batch_msg)
                 
     #Converting to tensor for batching
+    
+    # will be called with eve rosbag 
+    def eve_batch_inference_callback(self, msg1,msg2,msg3):
+        imageList = [msg1,msg2,msg3]
+        eve_batched_list = []
+        for msg in imageList:
+            numpy_array = np.frombuffer(msg.data, np.uint8)
+            compressedImage = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
+            resized_compressedImage  = cv2.resize(compressedImage, (1024, 1024))
+            rgb_image = cv2.color(resized_compressedImage, cv2.COLOR_BGR2RGB)
+            normalized_image = rgb_image / 255.0
+            chw_image = np.transpose(normalized_image, (2,0,1))
+            float_image = chw_image.astype(np.float32)
+            tensor_image = torch.from_numpy(float_image).to('cuda')
+            batched_list.append(tensor_image)
+        batched_list = [tensor.cpu().numpy() for tensor in batched_list]
+        batched_images = np.stack(batched_list, axis=0)
+        self.initialize_engine(self.eve_tensorRT_model_path, 3,3,1024,1024)
+        self.input_info, self.output_info = self.initialize_tensors()
+        detections = self.tensorRT_inferencing(batched_images)
+        batch_size = detections[0].shape[0]
+        anchors = detections[0].shape[2]
+        results_dict = {i: [] for i in range(batch_size)}
+        for image_idx in range(batch_size):
+            # self.get_logger().info(f"[{time.time()}] Processing image index: {image_idx}")
+            image_detections = detections[0][image_idx]
+        
+            if image_idx not in results_dict:
+                results_dict[image_idx] = []
 
-    def draw_bounding_boxes(self,img_msg, detections):
-        numpy_image = np.frombuffer(img_msg.data, np.uint8)
-        image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
-        for bbox in detections:
-            x_min, y_min, x_max, y_max, confidence, predicted_class = bbox
-            label = f"Class: {predicted_class}, Conf: {confidence:.2f}"
-            #self.get_logger().info(f"{label}")
-            cv2.rectangle(image, (int(x_min), int(y_min)), (int(x_max), int(y_max)), (0, 255, 0), 2)
-            cv2.putText(image, label, (int(x_min), int(y_min) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        return image
+            for anchor_idx in range(anchors):
+                x_center = image_detections[0][anchor_idx]
+                y_center = image_detections[1][anchor_idx]
+                width = image_detections[2][anchor_idx]
+                height = image_detections[3][anchor_idx]
+
+                confidence = image_detections[4][anchor_idx]
+                class_probs = [image_detections[class_idx][anchor_idx] for class_idx in range(5,18)]
+                predicted_class = np.argmax(class_probs)
+                predicted_prob = class_probs[predicted_class]
+
+                if confidence > 0.45:
+                
+                    #Convert from chw to tlbr  
+                    x_min, y_min, x_max, y_max = self.convert_to_xyxy(x_center, y_center, width, height, 640, 640)
+                    self.get_logger().info(f"Added bounding box for image {image_idx}: {x_min, y_min, x_max, y_max}, class:{predicted_class}")
+                    results_dict[image_idx].append([x_min, y_min, x_max, y_max, confidence, predicted_class]) 
+            results_dict[image_idx] = self.nms(results_dict[image_idx], confidence_threshold = 0.55, iou_threshold=0.5)
+
     def batch_convert_to_tensor(self, cv_image):
         img  = cv_image.transpose(2,0,1)
         img = torch.from_numpy(img).to(self.device)
