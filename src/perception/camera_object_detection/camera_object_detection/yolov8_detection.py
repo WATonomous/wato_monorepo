@@ -204,11 +204,11 @@ class CameraDetectionNode(Node):
         #Eve Publishers
         self.eve_camera_names = [self.left_camera_topic, self.center_camera_topic, self.camera_topic]
         self.eve_batch_vis_publishers = [
-            self.create_publisher(Image, f"{eve}/eve_viz", 10)
+            self.create_publisher(Image, f"{eve}/eve_batch_viz", 10)
             for eve in self.eve_camera_names
         ]
         self.eve_batch_detection_publishers = [
-            self.create_publisher(Detection2DArray, f"{eve}/eve_detections", 10)
+            self.create_publisher(Detection2DArray, f"{eve}/eve_batch_detections", 10)
             for eve in self.eve_camera_names
         ]
         
@@ -276,6 +276,11 @@ class CameraDetectionNode(Node):
         self.get_logger().info("FINISHED WRITING ")
  
     def initialize_engine(self, weight, batch_size, rgb, width, height):
+        """
+            Initializes engine file requirements 
+            - takes in file path for tensorRT file, batch size, # of rgb channels, width & height
+            - includes input names, output names, and setting dimensions for model input shape
+        """
         self.weight = Path(weight) if isinstance(weight, str) else weight
         self.logger  = trt.Logger(trt.Logger.WARNING)
         trt.init_libnvinfer_plugins(self.logger, namespace ='')
@@ -311,12 +316,17 @@ class CameraDetectionNode(Node):
        
     
     def initialize_tensors(self):
+        """
+            Initializes GPU from cuda to set up inferencing 
+            - Assigns input names, and shape
+            - Assigns output names, and shapes 
+        """
         self.dynamic = True 
         self.input_info = []
         self.output_info = []
         self.output_ptrs = []
       
-       
+        # Initializing output tensors 
         for name in self.output_names:          
             self.tensorRT_output_shape = self.execution_context.get_tensor_shape(name)
             self.outputDtype  = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
@@ -328,6 +338,7 @@ class CameraDetectionNode(Node):
             self.output_ptrs.append(self.output_gpu)
             self.output_info.append(Tensor(name, self.outputDtype, self.tensorRT_output_shape, self.output_cpu, self.output_gpu))
         
+        #Initializes input tensors
         for i, name in enumerate(self.input_names):
             if self.tensorRT_model.get_tensor_name(i) == name: 
              self.tensorRT_input_shape = tuple(self.inputShape) 
@@ -342,11 +353,15 @@ class CameraDetectionNode(Node):
         return self.input_info, self.output_info
     
     def tensorRT_inferencing(self, batch_array):
+        """
+            Inferences through preprocessed batch images and gives data about detections
+            - Returns a contigious array of shape (3,84,8400)
+        """
         assert batch_array.ndim == 4
         batch_size = batch_array.shape[0]
         assert batch_size == self.input_info[0].shape[0]
         
-      
+        #Intializing memory, and names
         self.contiguous_inputs = [np.ascontiguousarray(batch_array)]
         for i in range(self.num_inputs):
             name = self.input_info[i].name
@@ -396,6 +411,11 @@ class CameraDetectionNode(Node):
 
     # will be called with nuscenes rosbag
     def batch_inference_callback(self,msg1,msg2,msg3):
+        """
+        Returns final detections array for publishing to foxglove
+        - Preprocess and batch images 
+        - Call tensorRT and parse through detections and send for visualization
+        """
         #Taking msgs from all 6 ros2 subscribers
         image_list =  [msg1,msg2,msg3]
         batched_list = []
@@ -409,9 +429,7 @@ class CameraDetectionNode(Node):
             normalized_image = rgb_image / 255.0
             chw_image = np.transpose(normalized_image, (2,0,1))
             float_image = chw_image.astype(np.float32)
-            # tensor_image = torch.from_numpy(float_image).to('cuda')
-            batched_list.append(float_image)
-        # batched_list = [tensor.cpu().numpy() for tensor in batched_list]          
+            batched_list.append(float_image)     
         batched_images = np.stack(batched_list, axis=0)
         batch = batched_images.shape[0]
         self.initialize_engine(self.tensorRT_model_path, batch,3,640,640)
@@ -419,6 +437,7 @@ class CameraDetectionNode(Node):
         detections = self.tensorRT_inferencing(batched_images)
         decoded_results = self.parse_detections(detections)
         self.publish_batch_nuscenes(image_list, decoded_results)
+    
     def parse_detections(self, detections):
         detection_tensor = detections[0]  
         batch_size = detection_tensor.shape[0]  
@@ -455,10 +474,8 @@ class CameraDetectionNode(Node):
                         "confidence": confidence,
                         "class": int(predicted_class),
                     })
-                    #self.get_logger().info(f"Post-NMS Batch {batch_idx}: {len(nms_results[0])} detections")
             decoded_results.append(final_detections)
         return decoded_results
-        #self.get_logger().info(f"Length decoded results:{len(decoded_results[1])}")
 
     def publish_batch_nuscenes(self, image_list, decoded_results):
         batch_msg = BatchDetection()
@@ -485,7 +502,6 @@ class CameraDetectionNode(Node):
                     x_max = int(x_max * width / 640)
                     y_min = int(y_min * height / 640)
                     y_max = int(y_max * height / 640)
-                    #self.get_logger().info(f"Camera {idx}: bbox: {x_min, y_min, x_max, y_max}, conf: {confidence}")
                     label = f"Class: {predicted_class}, Conf: {confidence:.2f}"
                     annotator.box_label((x_min, y_min, x_max, y_max), label, color=(0, 255, 0))
                     detection = Detection2D()
