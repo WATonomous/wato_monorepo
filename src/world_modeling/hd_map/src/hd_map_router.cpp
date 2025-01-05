@@ -177,6 +177,32 @@ std::string HDMapRouter::get_detection3d_class(
   return class_id;
 }
 
+// Mock get_traffic_light_state function (Mock function [TO CHANGE OR REMOVE])
+// TODO : Populate the detection attribute in the traffic light and return state from the detection
+TrafficLightState HDMapRouter::get_traffic_light_state(
+    const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
+  if (traffic_light_msg_ptr->results.empty()) {
+    return TrafficLightState::Unknown;
+  }
+
+  TrafficLightState traffic_light_state = TrafficLightState::Unknown;
+  float base_score = 0;
+  for (const auto& result : traffic_light_msg_ptr->results){
+    if (result.hypothesis.score > base_score){
+      if (result.hypothesis.class_id == "GREEN") {
+        traffic_light_state = TrafficLightState::Green;
+      } else if (result.hypothesis.class_id == "YELLOW") {
+        traffic_light_state = TrafficLightState::Yellow;
+      } else if (result.hypothesis.class_id == "RED") {
+        traffic_light_state = TrafficLightState::Red;
+      }
+      base_score = result.hypothesis.score;
+    }
+  }
+  
+  return TrafficLightState::Green;
+}
+
 // Update Regulatory Element Functions:
 //      - update_traffic_light() [TODO]
 //      - update_traffic_sign() [DONE]
@@ -185,8 +211,15 @@ std::string HDMapRouter::get_detection3d_class(
 //      - update_obstacle() [TODO]
 void HDMapRouter::update_traffic_light(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
-  std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
-  if (traffic_light_state == "UNKNOWN") {
+  // std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
+  // if (traffic_light_state == "UNKNOWN") {
+  //   RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
+  //                "Traffic Light Type Does Not Exist in Vocabulary!");
+  // }
+
+  // Mock get_traffic_light_state function [TO CHANGE OR REMOVE] (see get_traffic_light_state function in hd_map_router.cpp)
+  TrafficLightState traffic_light_state = HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
+  if (traffic_light_state == TrafficLightState::Unknown) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Light Type Does Not Exist in Vocabulary!");
   }
@@ -301,8 +334,15 @@ void HDMapRouter::update_pedestrian(
 //      - add_obstacle() [TODO]
 void HDMapRouter::add_traffic_light(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
-  std::string traffic_light_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
-  if (traffic_light_state == "UNKOWN") {
+  // std::string traffic_light_raw_state = HDMapRouter::get_detection3d_class(traffic_light_msg_ptr);
+  // if (traffic_light_state == "UNKNOWN") {
+  //   RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
+  //                "Traffic Light Type Does Not Exist in Vocabulary!");
+  // }
+
+  // Mock get_traffic_light_state function [TO CHANGE OR REMOVE] (see get_traffic_light_state function in hd_map_router.cpp)
+  TrafficLightState traffic_light_state = HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
+  if (traffic_light_state == TrafficLightState::Unknown) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Light Type Does Not Exist in Vocabulary!");
   }
