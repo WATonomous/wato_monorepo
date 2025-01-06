@@ -7,13 +7,13 @@ import shutil
 from boxconstraint import BoxConstraint
 
 TIME_STEP = 0.05
-PREDICTION_HORIZON = 2.0 
+PREDICTION_HORIZON = 2.0
 SIM_DURATION = 500
 
 
 class MPCCore:
     def __init__(self):
-        
+
         self.params = {
             'L': 2.875  # Wheelbase of the vehicle. Source : https://www.tesla.com/ownersmanual/model3/en_us/GUID-56562137-FC31-4110-A13C-9A9FC6657BF0.html
         }
@@ -21,20 +21,27 @@ class MPCCore:
         self.N = int(T / TIME_STEP)  # Prediction horizon in time steps
         self.dt = TIME_STEP  # Time step for discretization
         self.state_dim = 4  # Dimension of the state [x, y, theta, v]
-        self.control_dim = 2  # Dimension of the control input [steering angle, acceleration]
-        
+        # Dimension of the control input [steering angle, acceleration]
+        self.control_dim = 2
+
         # Initialize Opti object
         self.opti = ca.Opti()
 
         # Declare variables
-        self.X = self.opti.variable(self.state_dim, self.N + 1)  # state trajectory variables over prediction horizon
-        self.U = self.opti.variable(self.control_dim, self.N)  # control trajectory variables over prediction horizon
+        # state trajectory variables over prediction horizon
+        self.X = self.opti.variable(self.state_dim, self.N + 1)
+        # control trajectory variables over prediction horizon
+        self.U = self.opti.variable(self.control_dim, self.N)
         self.P = self.opti.parameter(self.state_dim)  # initial state parameter
-        self.Q_base = ca.MX.eye(self.state_dim)  # Base state penalty matrix (emphasizes position states)
-        self.weight_increase_factor = 1.00  # Increase factor for each step in the prediction horizon
-        self.R = ca.MX.eye(self.control_dim)  # control penalty matrix for objective function
-        self.W = self.opti.parameter(2, self.N)  # Reference trajectory parameter
-        
+        # Base state penalty matrix (emphasizes position states)
+        self.Q_base = ca.MX.eye(self.state_dim)
+        # Increase factor for each step in the prediction horizon
+        self.weight_increase_factor = 1.00
+        # control penalty matrix for objective function
+        self.R = ca.MX.eye(self.control_dim)
+        # Reference trajectory parameter
+        self.W = self.opti.parameter(2, self.N)
+
         # Objective
         self.obj = 0
 
@@ -66,16 +73,17 @@ class MPCCore:
         """
         self.waypoints = []  # Clear old waypoints
 
-        if len(self.raw_waypoints) % 2 != 0: # Check if raw_waypoints is even
-            print("Error: raw_waypoints length is not even. Ignoring the last unpaired value.")
+        if len(self.raw_waypoints) % 2 != 0:  # Check if raw_waypoints is even
+            print(
+                "Error: raw_waypoints length is not even. Ignoring the last unpaired value.")
             self.raw_waypoints = self.raw_waypoints[:-1]
 
         for i in range(0, len(self.raw_waypoints), 2):
             x, y = self.raw_waypoints[i], self.raw_waypoints[i + 1]
             waypoint = self.generate_waypoint(x, y)
-            self.waypoints.append(waypoint)  
+            self.waypoints.append(waypoint)
 
-    def generate_waypoint(x, y): # Convert to CasADi format and add to the waypoints list
+    def generate_waypoint(x, y):  # Convert to CasADi format and add to the waypoints list
         return ca.vertcat(x, y)
 
     def setup_mpc(self):
@@ -84,50 +92,61 @@ class MPCCore:
         """
 
         for k in range(self.N):
-            Q = self.Q_base * (self.weight_increase_factor ** k)  # Increase weight for each step in the prediction horizon
+            # Increase weight for each step in the prediction horizon
+            Q = self.Q_base * (self.weight_increase_factor ** k)
 
             x_k = self.X[:, k]  # Current state
             u_k = self.U[:, k]  # Current control input
             x_next = self.X[:, k + 1]  # Next state
 
-            x_ref = ca.vertcat(self.W[:, k],
-                            ca.MX.zeros(self.state_dim - 2, 1))  # Reference state with waypoint and zero for other states
+            # Reference state with waypoint and zero for other states
+            x_ref = ca.vertcat(
+                self.W[:, k], ca.MX.zeros(self.state_dim - 2, 1))
 
             dx = x_k - x_ref  # Deviation of state from reference state
-            du = u_k  # Control input deviation (assuming a desired control input of zero)
+            # Control input deviation (assuming a desired control input of
+            # zero)
+            du = u_k
 
             # Quadratic cost with reference state and control input
-            self.obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + ca.mtimes(
-                [ca.mtimes(du.T, self.R), du])  # Minimize quadratic cost and deviation from reference state
+            # Minimize quadratic cost and deviation from reference state
+            self.obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + \
+                ca.mtimes([ca.mtimes(du.T, self.R), du])
 
         self.opti.minimize(self.obj)
 
         # Maximum steerin angle for dynamics
-        self.max_steering_angle_deg = max(wheel.max_steer_angle for wheel in
-                                    vehicle.get_physics_control().wheels)  # Maximum steering angle in degrees (from vehicle physics control
-        self.max_steering_angle_rad = max_steering_angle_deg * (ca.pi / 180)  # Maximum steering angle in radians
+        self.max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
+        ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
+        self.max_steering_angle_rad = max_steering_angle_deg * \
+            (ca.pi / 180)  # Maximum steering angle in radians
 
         # Dynamics (Euler discretization using bicycle model)
         for k in range(self.N):
-            steering_angle_rad = self.U[0, k] * self.max_steering_angle_rad  # Convert normalized steering angle to radians
+            # Convert normalized steering angle to radians
+            steering_angle_rad = self.U[0, k] * self.max_steering_angle_rad
 
-            self.opti.subject_to(self.X[:, k + 1] == self.X[:, k] + self.dt * ca.vertcat(
-                self.X[3, k] * ca.cos(self.X[2, k]),
-                self.X[3, k] * ca.sin(self.X[2, k]),
-                (self.X[3, k] / self.params['L']) * ca.tan(steering_angle_rad),
-                self.U[1, k]
-            ))
-
+            self.opti.subject_to(self.X[:, k +
+                                        1] == self.X[:, k] +
+                                 self.dt *
+                                 ca.vertcat(self.X[3, k] *
+                                            ca.cos(self.X[2, k]), self.X[3, k] *
+                                            ca.sin(self.X[2, k]), (self.X[3, k] /
+                                                                   self.params['L']) *
+                                            ca.tan(steering_angle_rad), self.U[1, k]))
 
     def setup_constraints(self):
-        
-        self.opti.subject_to(self.X[:, 0] == self.P)  # Initial state constraint
+
+        # Initial state constraint
+        self.opti.subject_to(self.X[:, 0] == self.P)
 
         # Input constraints
         steering_angle_bounds = [-1.0, 1.0]
         acceleration_bounds = [-1.0, 1.0]
-        lb = np.array([steering_angle_bounds[0], acceleration_bounds[0]]).reshape(-1, 1)
-        ub = np.array([steering_angle_bounds[1], acceleration_bounds[1]]).reshape(-1, 1)
+        lb = np.array([steering_angle_bounds[0],
+                      acceleration_bounds[0]]).reshape(-1, 1)
+        ub = np.array([steering_angle_bounds[1],
+                      acceleration_bounds[1]]).reshape(-1, 1)
         action_space = BoxConstraint(lb=lb, ub=ub)
 
         # State constraints
@@ -142,11 +161,12 @@ class MPCCore:
         # Apply constraints to optimization problem
         for i in range(self.N):
             # Input constraints
-            self.opti.subject_to(action_space.H_np @ self.U[:, i] <= action_space.b_np)
+            self.opti.subject_to(action_space.H_np @
+                                 self.U[:, i] <= action_space.b_np)
 
             # State constraints
             # opti.subject_to(state_space.H_np @ X[:, i] <= state_space.b_np)
-    
+
     def setup_solver(self):
         acceptable_dual_inf_tol = 1e11
         acceptable_compl_inf_tol = 1e-3
@@ -177,13 +197,15 @@ class MPCCore:
         print("Current velocity: ", v0)
 
         if i > 0:
-            self.closed_loop_data.append([x0, y0, theta0, v0]) # Original Code need i > 0
+            # Original Code need i > 0
+            self.closed_loop_data.append([x0, y0, theta0, v0])
 
         initial_state = ca.vertcat(x0, y0, theta0, v0)
         self.opti.set_value(self.P, initial_state)
 
         # Set the reference trajectory for the current iteration
-        self.opti.set_value(self.W, ca.horzcat(*self.waypoints[i:i + self.N]))  # Concatenate waypoints
+        self.opti.set_value(self.W, ca.horzcat(
+            *self.waypoints[i:i + self.N]))  # Concatenate waypoints
 
         if self.prev_sol_x is not None and self.prev_sol_u is not None:
             # Warm-starting the solver with the previous solution
@@ -196,10 +218,10 @@ class MPCCore:
         """
         steering_angle = 0
         throttle = 0
-        
+
         # Solve the optimization problem
         sol = self.opti.solve()
-        
+
         if sol.stats()['success']:
             # Extract control inputs (steering angle, throttle)
             u = sol.value(self.U[:, 0])
@@ -209,19 +231,25 @@ class MPCCore:
             print("Steering angle: ", u[0])
             print("Acceleration: ", u[1])
 
-            # Store open-loop trajectory data with control input applied to vehicle
+            # Store open-loop trajectory data with control input applied to
+            # vehicle
             open_loop_trajectory = sol.value(self.X)
-            open_loop_trajectory = open_loop_trajectory.T.reshape(-1, self.state_dim)
-            open_loop_trajectory = np.hstack((open_loop_trajectory, np.tile(u, (N + 1, 1))))
+            open_loop_trajectory = open_loop_trajectory.T.reshape(
+                -1, self.state_dim)
+            open_loop_trajectory = np.hstack(
+                (open_loop_trajectory, np.tile(u, (N + 1, 1))))
             self.open_loop_data.append(open_loop_trajectory)
 
             if i > 0:
-                predicted_state = self.prev_sol_x[:, 1]  # Predicted next state from the previous solution
-                actual_state = np.array([x0, y0, theta0, v0])  # Current actual state from CARLA
+                # Predicted next state from the previous solution
+                predicted_state = self.prev_sol_x[:, 1]
+                # Current actual state from CARLA
+                actual_state = np.array([x0, y0, theta0, v0])
                 residual = actual_state - predicted_state
                 self.residuals_data.append(residual)
-            
-            # Update previous solution variables for warm-starting next iteration
+
+            # Update previous solution variables for warm-starting next
+            # iteration
             self.prev_sol_x = sol.value(self.X)
             self.prev_sol_u = sol.value(self.U)
 
