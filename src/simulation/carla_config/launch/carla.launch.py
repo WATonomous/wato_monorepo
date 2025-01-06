@@ -17,6 +17,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 # Use the second param (the launch argument) unless it is empty
 
+
 def CheckParam(param1, param2):
     try:
         return param2
@@ -149,10 +150,18 @@ def generate_launch_description():
         output='screen'
     )
 
-    waypoint_topic = DeclareLaunchArgument('waypoint_topic', default_value=[
-                                           '/carla/', LaunchConfiguration('role_name'), '/waypoints'])
-    waypoint_topic_old = DeclareLaunchArgument('waypoint_topic_old', default_value=[
-                                               '/carla/', LaunchConfiguration('role_name'), '/waypointsOld'])
+    waypoint_topic = DeclareLaunchArgument(
+        'waypoint_topic',
+        default_value=[
+            '/carla/',
+            LaunchConfiguration('role_name'),
+            '/waypoints'])
+    waypoint_topic_old = DeclareLaunchArgument(
+        'waypoint_topic_old',
+        default_value=[
+            '/carla/',
+            LaunchConfiguration('role_name'),
+            '/waypointsOld'])
 
     """ Launch CARLA Waypoint Publisher """
     carla_waypoint_publisher = Node(

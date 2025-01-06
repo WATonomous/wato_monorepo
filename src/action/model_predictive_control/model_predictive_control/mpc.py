@@ -12,7 +12,8 @@ SIM_DURATION = 500  # Simulation duration in time steps
 ## SETUP ##
 # Connect to CARLA
 client = carla.Client('localhost', 2000)
-maps = [m.replace('/Game/Carla/Maps/', '') for m in client.get_available_maps()]
+maps = [m.replace('/Game/Carla/Maps/', '')
+        for m in client.get_available_maps()]
 print('Available maps: ', maps)
 world = client.get_world()
 mymap = world.get_map()
@@ -41,7 +42,13 @@ print(world)
 def move_spectator_to_vehicle(vehicle, spectator, distance=10):
     vehicle_location = vehicle.get_location()
     # Set viewing angle to slightly above the vehicle
-    spectator_transform = carla.Transform(vehicle_location + carla.Location(z=distance), carla.Rotation(pitch=-90))
+    spectator_transform = carla.Transform(
+        vehicle_location +
+        carla.Location(
+            z=distance),
+        carla.Rotation(
+            pitch=-
+            90))
     spectator.set_transform(spectator_transform)
 
 
@@ -68,8 +75,10 @@ print(vehicle)
 
 
 def generate_waypoint_relative_to_spawn(forward_offset=0, sideways_offset=0):
-    waypoint_x = spawn_point.location.x + spawn_point.get_forward_vector().x * forward_offset + spawn_point.get_right_vector().x * sideways_offset
-    waypoint_y = spawn_point.location.y + spawn_point.get_forward_vector().y * forward_offset + spawn_point.get_right_vector().y * sideways_offset
+    waypoint_x = spawn_point.location.x + spawn_point.get_forward_vector().x * \
+        forward_offset + spawn_point.get_right_vector().x * sideways_offset
+    waypoint_y = spawn_point.location.y + spawn_point.get_forward_vector().y * \
+        forward_offset + spawn_point.get_right_vector().y * sideways_offset
     return ca.vertcat(waypoint_x, waypoint_y)
 
 
@@ -90,49 +99,59 @@ T = 2.0  # Prediction horizon in seconds
 N = int(T / TIME_STEP)  # Prediction horizon in time steps
 dt = TIME_STEP  # Time step for discretization
 state_dim = 4  # Dimension of the state [x, y, theta, v]
-control_dim = 2  # Dimension of the control input [steering angle, acceleration]
+# Dimension of the control input [steering angle, acceleration]
+control_dim = 2
 
 # Initialize Opti object
 opti = ca.Opti()
 
 # Declare variables
-X = opti.variable(state_dim, N + 1)  # state trajectory variables over prediction horizon
-U = opti.variable(control_dim, N)  # control trajectory variables over prediction horizon
+# state trajectory variables over prediction horizon
+X = opti.variable(state_dim, N + 1)
+# control trajectory variables over prediction horizon
+U = opti.variable(control_dim, N)
 P = opti.parameter(state_dim)  # initial state parameter
-Q_base = ca.MX.eye(state_dim)  # Base state penalty matrix (emphasizes position states)
-weight_increase_factor = 1.00  # Increase factor for each step in the prediction horizon
+# Base state penalty matrix (emphasizes position states)
+Q_base = ca.MX.eye(state_dim)
+# Increase factor for each step in the prediction horizon
+weight_increase_factor = 1.00
 R = ca.MX.eye(control_dim)  # control penalty matrix for objective function
 W = opti.parameter(2, N)  # Reference trajectory parameter
 
 # Objective
 obj = 0
 for k in range(N):
-    Q = Q_base * (weight_increase_factor ** k)  # Increase weight for each step in the prediction horizon
+    # Increase weight for each step in the prediction horizon
+    Q = Q_base * (weight_increase_factor ** k)
 
     x_k = X[:, k]  # Current state
     u_k = U[:, k]  # Current control input
     x_next = X[:, k + 1]  # Next state
 
-    x_ref = ca.vertcat(W[:, k],
-                       ca.MX.zeros(state_dim - 2, 1))  # Reference state with waypoint and zero for other states
+    # Reference state with waypoint and zero for other states
+    x_ref = ca.vertcat(W[:, k], ca.MX.zeros(state_dim - 2, 1))
 
     dx = x_k - x_ref  # Deviation of state from reference state
-    du = u_k  # Control input deviation (assuming a desired control input of zero)
+    # Control input deviation (assuming a desired control input of zero)
+    du = u_k
 
     # Quadratic cost with reference state and control input
-    obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + ca.mtimes(
-        [ca.mtimes(du.T, R), du])  # Minimize quadratic cost and deviation from reference state
+    # Minimize quadratic cost and deviation from reference state
+    obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + \
+        ca.mtimes([ca.mtimes(du.T, R), du])
 
 opti.minimize(obj)
 
 # Maximum steerin angle for dynamics
-max_steering_angle_deg = max(wheel.max_steer_angle for wheel in
-                             vehicle.get_physics_control().wheels)  # Maximum steering angle in degrees (from vehicle physics control
-max_steering_angle_rad = max_steering_angle_deg * (ca.pi / 180)  # Maximum steering angle in radians
+max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
+).wheels)  # Maximum steering angle in degrees (from vehicle physics control
+max_steering_angle_rad = max_steering_angle_deg * \
+    (ca.pi / 180)  # Maximum steering angle in radians
 
 # Dynamics (Euler discretization using bicycle model)
 for k in range(N):
-    steering_angle_rad = U[0, k] * max_steering_angle_rad  # Convert normalized steering angle to radians
+    # Convert normalized steering angle to radians
+    steering_angle_rad = U[0, k] * max_steering_angle_rad
 
     opti.subject_to(X[:, k + 1] == X[:, k] + dt * ca.vertcat(
         X[3, k] * ca.cos(X[2, k]),
@@ -147,8 +166,10 @@ opti.subject_to(X[:, 0] == P)  # Initial state constraint
 # Input constraints
 steering_angle_bounds = [-1.0, 1.0]
 acceleration_bounds = [-1.0, 1.0]
-lb = np.array([steering_angle_bounds[0], acceleration_bounds[0]]).reshape(-1, 1)
-ub = np.array([steering_angle_bounds[1], acceleration_bounds[1]]).reshape(-1, 1)
+lb = np.array([steering_angle_bounds[0],
+              acceleration_bounds[0]]).reshape(-1, 1)
+ub = np.array([steering_angle_bounds[1],
+              acceleration_bounds[1]]).reshape(-1, 1)
 action_space = BoxConstraint(lb=lb, ub=ub)
 
 # State constraints
@@ -194,7 +215,9 @@ prev_sol_x = None
 prev_sol_u = None
 
 # Main Loop
-for i in range(SIM_DURATION - N):  # Subtract N since we need to be able to predict N steps into the future
+for i in range(
+        SIM_DURATION -
+        N):  # Subtract N since we need to be able to predict N steps into the future
     print("Iteration: ", i)
 
     move_spectator_to_vehicle(vehicle, spectator)
@@ -207,9 +230,20 @@ for i in range(SIM_DURATION - N):  # Subtract N since we need to be able to pred
         carla_waypoint = carla.Location(x=waypoint_x, y=waypoint_y, z=0.5)
 
         extent = carla.Location(x=0.5, y=0.5, z=0.5)
-        world.debug.draw_box(box=carla.BoundingBox(carla_waypoint, extent * 1e-2),
-                             rotation=carla.Rotation(pitch=0, yaw=0, roll=0), life_time=TIME_STEP * 10, thickness=0.5,
-                             color=carla.Color(255, 0, 0))
+        world.debug.draw_box(
+            box=carla.BoundingBox(
+                carla_waypoint,
+                extent * 1e-2),
+            rotation=carla.Rotation(
+                pitch=0,
+                yaw=0,
+                roll=0),
+            life_time=TIME_STEP * 10,
+            thickness=0.5,
+            color=carla.Color(
+                255,
+                0,
+                0))
 
     #  Fetch initial state from CARLA
     x0 = vehicle.get_transform().location.x
@@ -255,20 +289,30 @@ for i in range(SIM_DURATION - N):  # Subtract N since we need to be able to pred
         print("Acceleration: ", u[1])
 
         if u[1] < 0:
-            vehicle.apply_control(carla.VehicleControl(throttle=-u[1], steer=u[0], reverse=True))
+            vehicle.apply_control(
+                carla.VehicleControl(
+                    throttle=-u[1],
+                    steer=u[0],
+                    reverse=True))
         else:
-            vehicle.apply_control(carla.VehicleControl(throttle=u[1], steer=u[0]))
+            vehicle.apply_control(
+                carla.VehicleControl(
+                    throttle=u[1], steer=u[0]))
 
         # Store open-loop trajectory data with control input applied to vehicle
         open_loop_trajectory = sol.value(X)
         open_loop_trajectory = open_loop_trajectory.T.reshape(-1, state_dim)
-        open_loop_trajectory = np.hstack((open_loop_trajectory, np.tile(u, (N + 1, 1))))
+        open_loop_trajectory = np.hstack(
+            (open_loop_trajectory, np.tile(u, (N + 1, 1))))
         open_loop_data.append(open_loop_trajectory)
 
-        # Compute and store residuals if i > 0 since we need a previous state to compare
+        # Compute and store residuals if i > 0 since we need a previous state
+        # to compare
         if i > 0:
-            predicted_state = prev_sol_x[:, 1]  # Predicted next state from the previous solution
-            actual_state = np.array([x0, y0, theta0, v0])  # Current actual state from CARLA
+            # Predicted next state from the previous solution
+            predicted_state = prev_sol_x[:, 1]
+            # Current actual state from CARLA
+            actual_state = np.array([x0, y0, theta0, v0])
             residual = actual_state - predicted_state
             residuals_data.append(residual)
 

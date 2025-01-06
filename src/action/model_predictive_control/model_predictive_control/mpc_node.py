@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import rclpy 
+import rclpy
 from rclpy.node import Node
 
-from wato_msgs/simulation/path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
+from wato_msgs / simulation / path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Pose, Quaternion
 
@@ -33,32 +33,40 @@ class MPCNode(Node):
 
         # Subscribe to vehicle state (only retrieving velocity)
         self.state_subscription = self.create_subscription(
-            CarlaEgoVehicleStatus, '/carla/ego/vehicle_status', self.vehicle_state_callback, 10)
-        
+            CarlaEgoVehicleStatus,
+            '/carla/ego/vehicle_status',
+            self.vehicle_state_callback,
+            10)
+
         # Subscribe to get vehicle position/orientation (x, y, w)
         self.state_odom_subscription = self.create_subscription(
             Odometry, 'T/carla/ego/odometry', self.state_odom_callback, 10)
-            
-        self.control_publisher = self.create_publisher(CarlaEgoVehicleControl, '/carla/ego/vehicle_control_cmd', 10)
 
-        self.goal_publisher = self.create_publisher(Pose, '/carla/ego/goal', 10)
+        self.control_publisher = self.create_publisher(
+            CarlaEgoVehicleControl, '/carla/ego/vehicle_control_cmd', 10)
+
+        self.goal_publisher = self.create_publisher(
+            Pose, '/carla/ego/goal', 10)
 
         # Subscribe to waypoints from CARLA
         self.waypoints_subscription = self.create_subscription(
             Path, '/carla/ego/waypoints', self.waypoints_callback, 10)
-    
+
         self.goal_point_x = 10
         self.goal_point_y = 10
         publish_goal(self.goal_point_x, self.goal_point_y)
 
-
     def vehicle_state_callback(self, msg):
-        mpc_core.v0 =  msg.velocity
+        mpc_core.v0 = msg.velocity
 
-        # Extract theta/yaw/orientation of the car in the x-y plane from quaternion
-        quaternion = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
+        # Extract theta/yaw/orientation of the car in the x-y plane from
+        # quaternion
+        quaternion = [
+            msg.orientation.x,
+            msg.orientation.y,
+            msg.orientation.z,
+            msg.orientation.w]
         _, _, mpc_core.theta0 = euler_from_quaternion(quaternion)
-
 
     def waypoints_callback(self, msg):
         for pose_stamped in msg.poses:
@@ -79,18 +87,20 @@ class MPCNode(Node):
 
         goal_msg.position.x = x
         goal_msg.position.y = y
-        goal_msg.position.z = 0.0 
+        goal_msg.position.z = 0.0
         goal_msg.orientation.x = 0.0
         goal_msg.orientation.y = 0.0
         goal_msg.orientation.z = 0.0
-        goal_msg.orientation.w = 1.0  
+        goal_msg.orientation.w = 1.0
 
         self.goal_publisher.publish(goal_msg)
 
     def start_main_loop(self):
-        for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):  # Subtract N since we need to be able to predict N steps into the future
+        # Subtract N since we need to be able to predict N steps into the
+        # future
+        for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):
             steering_angle, throttle = self.mpc_core.compute_control(i)
-            
+
             control_msg = CarlaEgoVehicleControl()
             control_msg.steer = steering_angle
             control_msg.throttle = throttle
