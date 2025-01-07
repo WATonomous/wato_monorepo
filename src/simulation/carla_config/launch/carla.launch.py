@@ -150,10 +150,18 @@ def generate_launch_description():
         output='screen'
     )
 
-    waypoint_topic = DeclareLaunchArgument('waypoint_topic', default_value=[
-                                           '/carla/', LaunchConfiguration('role_name'), '/waypoints'])
-    waypoint_topic_old = DeclareLaunchArgument('waypoint_topic_old', default_value=[
-                                               '/carla/', LaunchConfiguration('role_name'), '/waypointsOld'])
+    waypoint_topic = DeclareLaunchArgument(
+        'waypoint_topic',
+        default_value=[
+            '/carla/',
+            LaunchConfiguration('role_name'),
+            '/waypoints'])
+    waypoint_topic_old = DeclareLaunchArgument(
+        'waypoint_topic_old',
+        default_value=[
+            '/carla/',
+            LaunchConfiguration('role_name'),
+            '/waypointsOld'])
 
     """ Launch CARLA Waypoint Publisher """
     carla_waypoint_publisher = Node(
