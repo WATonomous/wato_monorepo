@@ -8,6 +8,8 @@
 #include "std_msgs/msg/header.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
 #include "geometry_msgs/msg/point.hpp"
+#include "traffic_light_reg_elem.hpp"
+#include "pedestrian_reg_elem.hpp"
 
 #include <lanelet2_core/primitives/Lanelet.h>
 #include <lanelet2_core/primitives/BasicRegulatoryElements.h>
@@ -26,7 +28,9 @@ namespace world_modeling::hd_map{
     visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::Lanelet lanelet, int *id, bool center = false, bool lanes = true, std_msgs::msg::ColorRGBA centerColor = std_msgs::msg::ColorRGBA(), std_msgs::msg::ColorRGBA laneColor = std_msgs::msg::ColorRGBA(), float centerThickness = .2, float laneThickness = .2);
     visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(lanelet::LineStringLayer& lineStrings);
     visualization_msgs::msg::Marker lineStringAsMarker(lanelet::ConstLineString3d lineString, int *id, float thickness, int type, std_msgs::msg::ColorRGBA color);
-    visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(std::vector<lanelet::TrafficLight::Ptr> trafficLightRegElems);
+    visualization_msgs::msg::Marker polygonToMarker(lanelet::ConstPolygon3d polygon, uint64_t *id, float thickness, int type, std_msgs::msg::ColorRGBA color);
+    visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(std::vector<std::shared_ptr<TrafficLightRegElem>> trafficLightRegElems);
+    visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems);
 }
 
 #endif
