@@ -31,7 +31,6 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg:
     std::vector<int> x_coords;
     std::vector<int> y_coords;
     std::vector<float> z_coords;
-    std::vector<int8_t> intensities; 
 
     int x_low = 0;
     int y_low = 0;
@@ -53,7 +52,6 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg:
       y_coords.push_back(y_rounded);
       z_coords.push_back(z); // TODO: Filter out points that have too high z values
       // TODO: Transform intensities into 0-100 range integers
-      intensities.push_back(0x32);
       if (x_rounded >= 0){
         x_high = std::max(x_high, x_rounded);
       }
@@ -91,37 +89,10 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg:
       int shifted_x = x_coords[i] + width/2;
       int shifted_y = y_coords[i] + height/2;
       int index = std::min(total_cells - 1, shifted_y*width + shifted_x); // This is a stopgap, have to figure out why it's exceeding total_cells
-      int index2 = std::min(i, intensities.size()); // This is also a stopgap
-      data[index] = intensities[index2]; 
+      data[index] = 0x32; 
     }
 
     output_costmap.data = std::move(data);
 
     return output_costmap;
-
-    // output_cloud.width = msg->width;
-    // // output_cloud.is_dense = true; // TODO Sophie: true or false?
-
-    // // Redefine fields for a 2D point cloud
-    // output_cloud.fields.resize(2);
-    // output_cloud.fields[0] = sensor_msgs::msg::PointField{"x", 0, sensor_msgs::msg::PointField::FLOAT32, 1};
-    // output_cloud.fields[1] = sensor_msgs::msg::PointField{"y", 4, sensor_msgs::msg::PointField::FLOAT32, 1};
-
-    // output_cloud.point_step = 8; // Each point takes 8 bytes, 4 bytes each for x and y
-    // output_cloud.row_step = output_cloud.point_step * output_cloud.width;
-
-    // // Resize data for 2D points
-    // output_cloud.data.resize(output_cloud.row_step * output_cloud.height);
-    
-    // // Copy x and y values from the input cloud using the iterator
-    // sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
-    // sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
-
-    // for (int i = 0; i < msg->width; ++i) {
-    //     std::memcpy(&output_cloud.data[i * output_cloud.point_step], &(*iter_x), sizeof(float)); // Copy x
-    //     std::memcpy(&output_cloud.data[i * output_cloud.point_step + 4], &(*iter_y), sizeof(float)); // Copy y
-    //     ++iter_x;
-    //     ++iter_y;
-    // }
-    // return output_cloud;
 }
