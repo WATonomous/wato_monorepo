@@ -26,8 +26,8 @@ class TrafficLightRegElem : public lanelet::RegulatoryElement{
         void updateTrafficLight(const lanelet::BoundingBox3d& bbox, const TrafficLightState& state);
 
     private:
-        uint64_t id;
         TrafficLightState state;
+        uint64_t id;
     
     // The following lines are required so that the lanelet library can create the PedestrianRegElem object
     // Refer to : https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
