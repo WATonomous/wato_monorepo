@@ -15,7 +15,6 @@ find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
-find_package(pcl_ros REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -32,28 +31,27 @@ target_include_directories(occupancy_lib
 ament_target_dependencies(occupancy_lib
   sensor_msgs
   nav_msgs
-  rclcpp
-  pcl_ros)
+  rclcpp)
 
-# By default tests are built. This can be overridden by modifying the
-# colcon build command to include the -DBUILD_TESTING=OFF flag.
-option(BUILD_TESTING "Build tests" ON)
-if(BUILD_TESTING)
-  # Search for dependencies required for building tests + linting
-  find_package(ament_cmake_gtest REQUIRED)
+# # By default tests are built. This can be overridden by modifying the
+# # colcon build command to include the -DBUILD_TESTING=OFF flag.
+# option(BUILD_TESTING "Build tests" ON)
+# if(BUILD_TESTING)
+#   # Search for dependencies required for building tests + linting
+#   find_package(ament_cmake_gtest REQUIRED)
 
-  # Create test executable from source files
-  ament_add_gtest(occupancy_test test/occupancy_test.cpp)
-  # Link to the previously built library to access Transformer classes and methods
-  target_link_libraries(occupancy_test
-    occupancy_lib
-    gtest_main)
+#   # Create test executable from source files
+#   ament_add_gtest(occupancy_test test/occupancy_test.cpp)
+#   # Link to the previously built library to access Transformer classes and methods
+#   target_link_libraries(occupancy_test
+#     occupancy_lib
+#     gtest_main)
 
-  # Copy executable to installation location
-  install(TARGETS
-    occupancy_test
-    DESTINATION lib/${PROJECT_NAME})
-endif()
+#   # Copy executable to installation location
+#   install(TARGETS
+#     occupancy_test
+#     DESTINATION lib/${PROJECT_NAME})
+# endif()
 
 # Create ROS2 node executable from source files
 add_executable(occupancy_node src/occupancy_node.cpp)

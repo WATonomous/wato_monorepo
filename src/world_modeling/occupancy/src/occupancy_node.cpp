@@ -9,10 +9,14 @@ OccupancyNode::OccupancyNode() : Node("occupancy") {
   // Declare ROS parameters
   this->declare_parameter<std::string>("subscription_topic", std::string("/nonground_points"));
   this->declare_parameter<std::string>("publish_topic", std::string("/costmap"));
+  this->declare_parameter<int>("resolution", 3);
   
   // Fetch parameters
   auto input_topic = this->get_parameter("subscription_topic").as_string();
   auto output_topic = this->get_parameter("publish_topic").as_string();
+  auto resolution = this->get_parameter("resolution").as_int();
+
+  occupancy_ = OccupancyCore(resolution);
   
   _subscriber = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       input_topic, ADVERTISING_FREQ,

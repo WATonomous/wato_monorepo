@@ -32,7 +32,6 @@ services:
         - "${WORLD_MODELING_OCCUPANCY_IMAGE}:build_main"
       target: deploy
     image: "${WORLD_MODELING_OCCUPANCY_IMAGE}:${TAG}"
-    restart: always # this is just temporarily while we figure why it's seg faulting sometimes
     command: /bin/bash -c "ros2 launch occupancy occupancy.launch.py"
 
   occupancy_segmentation:

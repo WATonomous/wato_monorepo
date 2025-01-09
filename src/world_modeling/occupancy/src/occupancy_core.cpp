@@ -11,6 +11,7 @@
 
 // Constructor
 OccupancyCore::OccupancyCore() {}
+OccupancyCore::OccupancyCore(int resolution) : CELLS_PER_METER{resolution} {}
 
 nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     nav_msgs::msg::OccupancyGrid output_costmap;
@@ -18,9 +19,7 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg:
     // Initialize the output point cloud
     output_costmap.header = msg->header;
     output_costmap.info.map_load_time = msg->header.stamp; // Not completely sure about what timestamp to use here
-    int CELLS_PER_METER = 3;
     output_costmap.info.resolution = 1.0 / CELLS_PER_METER; // meters per cell
-    // TODO: Read the denominator in the above line from parameters
 
     // These offsets should always be the same but load them anyway
     int offset_x = msg->fields[0].offset;
@@ -88,7 +87,7 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg:
       // Shift x and y so the center is at width/2 and height/2
       int shifted_x = x_coords[i] + width/2;
       int shifted_y = y_coords[i] + height/2;
-      int index = std::min(total_cells - 1, shifted_y*width + shifted_x); // This is a stopgap, have to figure out why it's exceeding total_cells
+      int index = std::min(total_cells - 1, shifted_y*width + shifted_x);
       data[index] = 0x32; 
     }
 

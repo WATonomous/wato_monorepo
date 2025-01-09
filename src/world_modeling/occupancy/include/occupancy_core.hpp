@@ -10,10 +10,14 @@
 
 class OccupancyCore {
  public:
+  // Resolution of the costmap (in cells/m)
+  int CELLS_PER_METER;
+
   /**
    * OccupancyCore constructor.
    */
   OccupancyCore();
+  OccupancyCore(int resolution);
 
   /**
    * Removes the z-axis dimension from the given PointCloud2 message.
