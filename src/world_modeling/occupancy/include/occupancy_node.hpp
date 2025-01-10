@@ -2,14 +2,15 @@
 #define OCCUPANCY_NODE_HPP_
 #define PCL_NO_PRECOMPILE
 
-#include "rclcpp/rclcpp.hpp"
-#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include "rclcpp/rclcpp.hpp"
 
 #include "occupancy_core.hpp"
 
 /**
- * Implementation of a ROS2 node that converts 3D PointCloud2 points to 2D by stripping away the z-dimension.
+ * Implementation of a ROS2 node that converts 3D PointCloud2 points to 2D by stripping away the
+ * z-dimension.
  *
  * Listens to the "nonground_points" topic and removes the z-axis of the 3D points.
  * Once it processes the points, it publishes it to the "costmap" topic.

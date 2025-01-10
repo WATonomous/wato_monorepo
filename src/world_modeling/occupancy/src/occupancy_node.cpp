@@ -1,23 +1,22 @@
 #include "occupancy_node.hpp"
 
 #include <memory>
-#include <string>
 #include <rclcpp/clock.hpp>
-
+#include <string>
 
 OccupancyNode::OccupancyNode() : Node("occupancy") {
   // Declare ROS parameters
   this->declare_parameter<std::string>("subscription_topic", std::string("/nonground_points"));
   this->declare_parameter<std::string>("publish_topic", std::string("/costmap"));
   this->declare_parameter<int>("resolution", 3);
-  
+
   // Fetch parameters
   auto input_topic = this->get_parameter("subscription_topic").as_string();
   auto output_topic = this->get_parameter("publish_topic").as_string();
   auto resolution = this->get_parameter("resolution").as_int();
 
   occupancy_ = OccupancyCore(resolution);
-  
+
   _subscriber = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       input_topic, ADVERTISING_FREQ,
       std::bind(&OccupancyNode::subscription_callback, this, std::placeholders::_1));
@@ -35,7 +34,8 @@ void OccupancyNode::subscription_callback(const sensor_msgs::msg::PointCloud2::S
   int duration = (end - start).to_chrono<std::chrono::milliseconds>().count();
   RCLCPP_DEBUG(this->get_logger(), "Runtime for dimension reduction: %i ms", duration);
   RCLCPP_DEBUG(this->get_logger(), "3D points: %i", static_cast<int>(msg->width));
-  RCLCPP_DEBUG(this->get_logger(), "Height: %i, Width: %i", output_costmap.info.width, output_costmap.info.height);
+  RCLCPP_DEBUG(this->get_logger(), "Height: %i, Width: %i", output_costmap.info.width,
+               output_costmap.info.height);
   RCLCPP_DEBUG(this->get_logger(), "Header outgoing: %s", output_costmap.header.frame_id.c_str());
 
   _publisher->publish(output_costmap);
