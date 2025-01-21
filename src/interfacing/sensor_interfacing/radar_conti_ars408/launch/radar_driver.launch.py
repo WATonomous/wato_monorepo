@@ -43,8 +43,8 @@ def generate_launch_description():
     # config args
     interface_arg = DeclareLaunchArgument('interface', default_value='vcan0')
     enable_can_fd_arg = DeclareLaunchArgument('enable_can_fd', default_value='false')
-    interval_sec_arg = DeclareLaunchArgument('interval_sec', default_value='1.0')
-    timeout_sec_msg = DeclareLaunchArgument('timeout_sec', default_value='0.0')
+    interval_sec_arg = DeclareLaunchArgument('interval_sec', default_value='0.01')
+    timeout_sec_msg = DeclareLaunchArgument('timeout_sec', default_value='0.01')
     use_bus_time_arg = DeclareLaunchArgument('use_bus_time', default_value='false')
     filters_arg = DeclareLaunchArgument('filters', default_value='0:0')
     auto_configure_arg = DeclareLaunchArgument('auto_configure', default_value='true')

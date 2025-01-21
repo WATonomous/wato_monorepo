@@ -385,7 +385,6 @@ void radar_conti_ars408::initializeFilterConfigs() {
 }
 
 void radar_conti_ars408::can_receive_callback(const can_msgs::msg::Frame::SharedPtr frame) {
-  RCLCPP_INFO(get_logger(), "----GOT CAN MSG----");
   int sensor_id = Get_SensorID_From_MsgID(frame->id);
 
   // If the sensor_id is greater than the size of the number of object lists, break
@@ -472,8 +471,6 @@ void radar_conti_ars408::handle_object_list(const can_msgs::msg::Frame::SharedPt
 }
 
 void radar_conti_ars408::publish_object_map(int sensor_id) {
-  RCLCPP_INFO(this->get_logger(), "Will publish object list at sensor_id: %d, len %d", sensor_id, radar_link_names_.size());
-
   radar_msgs::msg::RadarPacket packet;
   packet.header.stamp = rclcpp_lifecycle::LifecycleNode::now();
   packet.header.frame_id = radar_link_names_[sensor_id];
@@ -484,7 +481,6 @@ void radar_conti_ars408::publish_object_map(int sensor_id) {
     packet.detections.emplace_back(itr->second);
   }
   radar_packet_publisher_->publish(packet);
-  RCLCPP_INFO(this->get_logger(), "Sending radar packet %d", object_map_list_[sensor_id].size());
 }
 
 void radar_conti_ars408::setFilterService(

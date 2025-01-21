@@ -15,62 +15,62 @@ services:
     volumes:
       - ${MONO_DIR}/src/perception/radar_object_detection:/home/bolty/ament_ws/src/radar_object_detection
 
-  # camera_object_detection:
-  #   <<: *fixuid
-  #   extends:
-  #     file: ../docker-compose.perception.yaml
-  #     service: camera_object_detection
-  #   image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
-  #   command: tail -F anything
-  #   volumes:
-  #     - ${MONO_DIR}/src/perception/camera_object_detection:/home/bolty/ament_ws/src/camera_object_detection
+  camera_object_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: camera_object_detection
+    image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/camera_object_detection:/home/bolty/ament_ws/src/camera_object_detection
 
-  # lidar_object_detection:
-  #   <<: *fixuid
-  #   extends:
-  #     file: ../docker-compose.perception.yaml
-  #     service: lidar_object_detection
-  #   image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_${TAG}"
-  #   command: tail -F anything
-  #   volumes:
-  #     - ${MONO_DIR}/src/perception/lidar_object_detection:/home/bolty/ament_ws/src/lidar_object_detection
+  lidar_object_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: lidar_object_detection
+    image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/lidar_object_detection:/home/bolty/ament_ws/src/lidar_object_detection
 
-  # semantic_segmentation:
-  #   <<: *fixuid
-  #   extends:
-  #     file: ../docker-compose.perception.yaml
-  #     service: semantic_segmentation
-  #   image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_${TAG}"
-  #   command: tail -F anything
-  #   volumes:
-  #     - ${MONO_DIR}/src/perception/semantic_segmentation:/home/bolty/ament_ws/src/semantic_segmentation
+  semantic_segmentation:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: semantic_segmentation
+    image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/semantic_segmentation:/home/bolty/ament_ws/src/semantic_segmentation
 
-  # lane_detection:
-  #   <<: *fixuid
-  #   extends:
-  #     file: ../docker-compose.perception.yaml
-  #     service: lane_detection
-  #   image: "${PERCEPTION_LANE_DETECTION_IMAGE}:build_${TAG}"
-  #   command: tail -F anything
-  #   volumes:
-  #     - ${MONO_DIR}/src/perception/lane_detection:/home/bolty/ament_ws/src/lane_detection
+  lane_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: lane_detection
+    image: "${PERCEPTION_LANE_DETECTION_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/lane_detection:/home/bolty/ament_ws/src/lane_detection
 
-  # tracking:
-  #   <<: *fixuid
-  #   extends:
-  #     file: ../docker-compose.perception.yaml
-  #     service: tracking
-  #   image: "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
-  #   command: tail -F anything
-  #   volumes:
-  #     - ${MONO_DIR}/src/perception/tracking:/home/bolty/ament_ws/src/tracking
+  tracking:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: tracking
+    image: "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/tracking:/home/bolty/ament_ws/src/tracking
 
-  # depth_estimation:
-  #   <<: *fixuid
-  #   extends:
-  #     file: ../docker-compose.perception.yaml
-  #     service: tracking
-  #   image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
-  #   command: tail -F anything
-  #   volumes:
-  #     - ${MONO_DIR}/src/perception/depth_estimation:/home/bolty/ament_ws/src/depth_estimation
+  depth_estimation:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: tracking
+    image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/depth_estimation:/home/bolty/ament_ws/src/depth_estimation
