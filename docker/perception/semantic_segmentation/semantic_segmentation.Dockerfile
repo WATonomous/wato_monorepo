@@ -26,6 +26,7 @@ RUN apt-get -qq update && rosdep update && \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
+
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
@@ -33,7 +34,7 @@ RUN apt update && apt install -y tensorrt ros-humble-cv-bridge libopencv-dev
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
