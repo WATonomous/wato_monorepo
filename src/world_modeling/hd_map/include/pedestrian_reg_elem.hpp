@@ -10,6 +10,7 @@
 
 class PedestrianRegElem : public lanelet::RegulatoryElement{
     public:
+        // lanelet2 looks for this string when matching the subtype of a regulatory element to the respective type
         static constexpr char RuleName[] = "pedestrian";
 
         static std::shared_ptr<PedestrianRegElem> make(const lanelet::BoundingBox3d& pedestrianBBox, uint64_t id);
