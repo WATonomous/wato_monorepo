@@ -5,11 +5,16 @@ services:
     image: carlasim/carla:0.9.13
     environment:
       - DISPLAY=1
-      - CUDA_VISIBLE_DEVICES=0,1,2
-      - NVIDIA_VISIBLE_DEVICES=0,1,2
-    runtime: nvidia
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
     restart: always
     command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
     
   carla_ros_bridge:
     build:
@@ -70,7 +75,7 @@ services:
       - SCENARIO_RUNNER_ROOT=/home/bolty/scenario_runner
       - DISPLAY=1
       - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=1
+      - NVIDIA_VISIBLE_DEVICES=0
     container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
     volumes:
       - ${MONO_DIR}/src/simulation/carla_notebooks:/home/bolty/carla_notebooks

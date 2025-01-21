@@ -21,7 +21,7 @@ fi
 while read -r module; do
 
     # Retrieve docker compose service names
-    services=$(docker-compose -f "$module" config --services)
+    services=$(docker compose -f "$module" config --services)
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
 
     # Skip simulation module
@@ -39,6 +39,7 @@ while read -r module; do
         # Temporarily skip perception services that have too large image size
         if  [[ "$service_out" == "lane_detection" ]] || \
             [[ "$service_out" == "camera_object_detection" ]] || \
+            [[ "$service_out" == "lidar_object_detection" ]] || \
             [[ "$service_out" == "semantic_segmentation" ]]; then
             continue
         fi
