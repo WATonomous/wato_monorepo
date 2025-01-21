@@ -16,7 +16,6 @@ bool HDMapManager::select_osm_map(std::string filename) {
     if (get_origin_from_filename(filename, origin)) {
         lanelet::LaneletMapPtr lanelet_ptr;
         auto projector = std::make_shared<lanelet::projection::UtmProjector>(origin);
-        
         // Project the OSM map to a Lanelet map using the origin
         if (project_osm_to_lanelet(filename, *projector, lanelet_ptr)) {
             // Set the map and return the status of the set operation

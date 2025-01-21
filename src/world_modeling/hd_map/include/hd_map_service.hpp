@@ -10,10 +10,11 @@
 #include "vision_msgs/msg/detection3_d.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
 #include "world_modeling_msgs/srv/lanelet_info.hpp"
-#include <algorithm>
 #include "world_modeling_msgs/msg/lanelet.hpp"
+#include "world_modeling_msgs/msg/lanelets.hpp"
 #include "world_modeling_msgs/msg/lanelet_path.hpp"
 #include "world_modeling_msgs/srv/behaviour_tree_info.hpp"
+#include <algorithm>
 
 
 class HDMapService : public rclcpp::Node
@@ -29,10 +30,10 @@ class HDMapService : public rclcpp::Node
     void get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr msg);
     void publish_hd_map_marker();
     void behaviour_tree_info_callback(const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request, const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response);
-    wato_msgs::world_modeling_msgs::msg::Lanelet convert_lanelet_to_msg(const lanelet::ConstLanelet& lanelet);
-    wato_msgs::world_modeling_msgs::msg::LaneletPath convert_laneletPath_to_msg(const lanelet::Optional<lanelet::routing::LaneletPath>& path);
+    world_modeling_msgs::msg::LaneletPath convert_lanelet_to_msg(const lanelet::ConstLanelet& lanelet);
+    world_modeling_msgs::msg::Lanelets convert_laneletPath_to_msg(const lanelet::Optional<lanelet::routing::LaneletPath>& path);
 
-    rclcpp::Service<wato_msgs::world_modeling_msgs::srv::BehaviourTreeInfo>::SharedPtr behaviour_tree_info_service;
+    rclcpp::Service<world_modeling_msgs::srv::BehaviourTreeInfo>::SharedPtr behaviour_tree_info_service;
 
     std::shared_ptr<HDMapRouter> router_;
     std::shared_ptr<HDMapManager> manager_;

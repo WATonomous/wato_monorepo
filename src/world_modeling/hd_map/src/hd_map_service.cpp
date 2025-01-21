@@ -12,7 +12,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   this->declare_parameter<std::string>("current_lane_output_topic", std::string("hd_map_current_lane"));
 
   this->declare_parameter<std::string>("traffic_light_input_topic", std::string("traffic_light"));
-  this->declare_parameter<std::string>("traffic_sign_inout_topic", std::string("traffic_sign"));
+  this->declare_parameter<std::string>("traffic_sign_input_topic", std::string("traffic_sign"));
   this->declare_parameter<std::string>("pedestrian_input_topic", std::string("pedestrian"));
   this->declare_parameter<std::string>("point_input_topic", std::string("clicked_point"));
   this->declare_parameter<std::string>("query_point_input_topic", std::string("query_point"));
@@ -35,7 +35,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   router_ = std::make_shared<HDMapRouter>();
   manager_ = std::make_shared<HDMapManager>(this->router_);
 
-  behaviour_tree_info_service = this->create_service<wato_msgs::world_modeling_msgs::srv::BehaviourTreeInfo>("behaviour_tree_info", std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
+  behaviour_tree_info_service = this->create_service<world_modeling_msgs::srv::BehaviourTreeInfo>("behaviour_tree_info", std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Map selection hardcoded for now
   RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town05.osm...\n");
@@ -49,7 +49,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   hd_map_visualization_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(vizualization_output_topic, 20);
   hd_map_route_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(route_output_topic, 20);
   hd_map_start_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(start_output_topic, 20);
-  hd_map_end_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(end_ouput_topic, 20);
+  hd_map_end_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(end_output_topic, 20);
   hd_map_desired_lane_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(desired_lane_output_topic, 20);
   hd_map_current_lane_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(current_lane_output_topic, 20);
 
@@ -57,7 +57,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>(traffic_sign_input_topic, 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
   hd_map_pedestrian_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(pedestrian_input_topic, 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
   point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(point_input_topic, 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
-  query_point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(query_point_topic, 20, std::bind(&HDMapService::get_desired_lane, this, std::placeholders::_1));
+  query_point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(query_point_input_topic, 20, std::bind(&HDMapService::get_desired_lane, this, std::placeholders::_1));
 
   hd_map_visualization_timer_ = this->create_wall_timer(std::chrono::milliseconds(5000), std::bind(&HDMapService::publish_hd_map_marker, this));
 }
@@ -157,8 +157,10 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
   }
 }
 
-wato_msgs::world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lanelet::ConstLanelet& lanelet){
-    wato_msgs::world_modeling_msgs::msg::Lanelet lanelet_msg;
+// TODO convert lanelet to lanelet msg
+
+world_modeling_msgs::msg::LaneletPath HDMapService::convert_lanelet_to_msg(const lanelet::ConstLanelet& lanelet){
+    world_modeling_msgs::msg::LaneletPath lanelet_msg;
 
     //convert left boundary
     for (const auto& point : lanelet.leftBound()){
@@ -192,8 +194,10 @@ wato_msgs::world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_ms
     return lanelet_msg;
 }
 
-wato_msgs::world_modeling_msgs::msg::LaneletPath HDMapService::convert_laneletPath_to_msg(const lanelet::Optional<lanelet::routing::LaneletPath>& path){
-  wato_msgs::world_modeling_msgs::msg::LaneletPath path_msg;
+// TODO convert path to lanelet path msg
+
+world_modeling_msgs::msg::Lanelets HDMapService::convert_laneletPath_to_msg(const lanelet::Optional<lanelet::routing::LaneletPath>& path){
+  world_modeling_msgs::msg::Lanelets path_msg;
   
   if (path) {
     for (const auto& lanelet : *path) {
@@ -206,10 +210,11 @@ wato_msgs::world_modeling_msgs::msg::LaneletPath HDMapService::convert_laneletPa
 
 void HDMapService::behaviour_tree_info_callback(const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request, const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response){
   response->current_point = current_point_;
-  response->goal_point = goal_point_;
-  response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
-  response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
-  response->route_list = convert_laneletPath_to_msg(lanelet_path);
+  response->goal_point = goal_point_; 
+
+  // response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
+  // response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
+  // response->route_list = convert_laneletPath_to_msg(lanelet_path);
 }
 
 
