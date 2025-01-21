@@ -10,6 +10,7 @@
 
 class StopSignRegElem : public lanelet::RegulatoryElement{
     public:
+        // lanelet2 looks for this string when matching the subtype of a regulatory element to the respective type
         static constexpr char RuleName[] = "stop_sign";
 
         static std::shared_ptr<StopSignRegElem> make(const lanelet::BoundingBox3d& stopSignBBox, uint64_t id);

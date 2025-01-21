@@ -60,6 +60,10 @@ namespace world_modeling::hd_map
                 regElemColor.r = 1;
             }
 
+            // Default color
+            regElemColor.r = 1;
+            regElemColor.g = 1;
+
             regElemColor.a = 1;
 
             // Retrieving the polygon from parameters
