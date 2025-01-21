@@ -23,8 +23,6 @@ namespace world_modeling::hd_map
                 markerArray.markers.push_back(marker);
             }
 
-            // Visualize reg elems
-
             std::vector<std::shared_ptr<TrafficLightRegElem>> trafficLightRegElems = lanelet->regulatoryElementsAs<TrafficLightRegElem>();
             std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems = lanelet->regulatoryElementsAs<PedestrianRegElem>();
 
@@ -49,16 +47,23 @@ namespace world_modeling::hd_map
 
             auto light = trafficLight->get();
             auto id = light->getId();
-
-            // TODO get Color from light->getColor()
+            TrafficLightState state = light->getState();
 
             auto regElemColor = std_msgs::msg::ColorRGBA();
 
-            regElemColor.r = 1;
+            if (state == TrafficLightState::Green) {
+                regElemColor.g = 1;
+            } else if (state == TrafficLightState::Yellow) {
+                regElemColor.r = 1;
+                regElemColor.g = 1;
+            } else if (state == TrafficLightState::Red) {
+                regElemColor.r = 1;
+            }
+
             regElemColor.a = 1;
 
-
-            lanelet::ConstPolygon3d polygon = boost::get<lanelet::ConstPolygon3d>(light->getParameters().at(lanelet::RoleName::Refers).front());
+            // Retrieving the polygon from parameters
+            lanelet::ConstPolygon3d polygon = boost::get<lanelet::ConstPolygon3d>(light->getParameters().at(lanelet::RoleName::Refers).front()); 
 
             auto marker = polygonToMarker(polygon, &id, .1, 5, regElemColor);
 
@@ -71,7 +76,7 @@ namespace world_modeling::hd_map
         return markerArray;
     }
     
-    // TODO Test Pedestrian Visualization (pedestrianAsMarkerArray)
+    // TODO: finish and test pedestrian visualization
 
     visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems) {
         auto markerArray = visualization_msgs::msg::MarkerArray();
@@ -85,14 +90,15 @@ namespace world_modeling::hd_map
             auto pedestrian = pedestrianRegElem->get();
             auto id = pedestrian->getId();
 
-            // TODO get Color from pedestrian->getColor()
+            // TODO: get pedestrian state (crosswalks, sidewalks, etc)
 
+            // Mock color (to change or remove)
             auto pedElemColor = std_msgs::msg::ColorRGBA();
 
             pedElemColor.r = 1;
             pedElemColor.a = 1;
 
-
+            // Retrieving the polygon from parameters
             lanelet::ConstPolygon3d polygon = boost::get<lanelet::ConstPolygon3d>(pedestrian->getParameters().at(lanelet::RoleName::Refers).front());
 
             auto marker = polygonToMarker(polygon, &id, .1, 5, pedElemColor);
@@ -105,7 +111,7 @@ namespace world_modeling::hd_map
         return markerArray;
     }
 
-    // TODO Add and Test Traffic Light Visualization (trafficLightsAsMarkerArray)
+    // TODO: add and test traffic signs visualization
 
     visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::ConstLanelet lanelet, int *id, bool center, bool lanes, std_msgs::msg::ColorRGBA centerColor, std_msgs::msg::ColorRGBA laneColor, float centerThickness, float laneThickness) {
         auto leftBound = lanelet.leftBound();
@@ -190,8 +196,8 @@ namespace world_modeling::hd_map
 
     visualization_msgs::msg::Marker lineStringAsMarker(lanelet::ConstLineString3d lineString, int *id, float thickness, int type, std_msgs::msg::ColorRGBA color){
         auto marker = visualization_msgs::msg::Marker(); 
-        std_msgs::msg::Header header; // empty header
-        header.stamp = rclcpp::Clock().now(); // time
+        std_msgs::msg::Header header;
+        header.stamp = rclcpp::Clock().now();
         header.frame_id = "map";
         
         marker.header = header;
@@ -223,21 +229,19 @@ namespace world_modeling::hd_map
         return marker;
     }
 
-
     visualization_msgs::msg::Marker polygonToMarker(lanelet::ConstPolygon3d polygon, uint64_t *id, float thickness, int type, std_msgs::msg::ColorRGBA color){
         auto marker = visualization_msgs::msg::Marker();
-        std_msgs::msg::Header header; // empty header
-        header.stamp = rclcpp::Clock().now(); // time
+        std_msgs::msg::Header header; 
+        header.stamp = rclcpp::Clock().now(); 
         header.frame_id = "map";
 
-        // Set basic properties
         marker.header = header;
         marker.id = *id;
 
         marker.color = color;
 
-        marker.type = type; // Represent the bounding box as lines
-        marker.scale.x = thickness; // Line width
+        marker.type = type; 
+        marker.scale.x = thickness; 
 
         // Calculate the bounding box
         double minX = std::numeric_limits<double>::max();
@@ -281,5 +285,4 @@ namespace world_modeling::hd_map
 
         return marker;
     }
-        
 }
