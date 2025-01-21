@@ -21,6 +21,7 @@ class TrafficLightRegElem : public lanelet::RegulatoryElement{
         static std::shared_ptr<TrafficLightRegElem> make(const lanelet::BoundingBox3d& bbox, const TrafficLightState& state, uint64_t id);
 
         uint64_t getId() const;
+        
         TrafficLightState getState() const;
 
         void updateTrafficLight(const lanelet::BoundingBox3d& bbox, const TrafficLightState& state);
@@ -28,12 +29,11 @@ class TrafficLightRegElem : public lanelet::RegulatoryElement{
     private:
         TrafficLightState state;
         uint64_t id;
-    
-    // The following lines are required so that the lanelet library can create the PedestrianRegElem object
-    // Refer to : https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
 
-    friend class lanelet::RegisterRegulatoryElement<TrafficLightRegElem>;
-    explicit TrafficLightRegElem(const lanelet::RegulatoryElementDataPtr& data, const TrafficLightState& state, uint64_t id = 0);
+        // The following lines are required so that the lanelet library can create the PedestrianRegElem object
+        // Refer to : https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
+        friend class lanelet::RegisterRegulatoryElement<TrafficLightRegElem>;
+        explicit TrafficLightRegElem(const lanelet::RegulatoryElementDataPtr& data, const TrafficLightState& state, uint64_t id = 0);
 };
 
 #endif

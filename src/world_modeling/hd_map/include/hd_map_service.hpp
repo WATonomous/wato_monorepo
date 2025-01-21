@@ -20,7 +20,6 @@ class HDMapService : public rclcpp::Node
 {
   public:
     HDMapService();
-    
 
   private:
     void hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg);
