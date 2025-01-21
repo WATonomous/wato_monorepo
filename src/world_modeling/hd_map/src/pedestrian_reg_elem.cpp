@@ -1,6 +1,7 @@
 #include "pedestrian_reg_elem.hpp"
 #include "utils.hpp"
 
+// Static factory method to create a new instance
 std::shared_ptr<PedestrianRegElem> PedestrianRegElem::make(const lanelet::BoundingBox3d& pedestrianBBox, uint64_t id) {
     auto pedestrian = utils::boundingBox3dToPolygon3d(pedestrianBBox);
     lanelet::RuleParameterMap rpm = {{lanelet::RoleNameString::Refers, {pedestrian}}}; // Pedestrian polygon in parameters
