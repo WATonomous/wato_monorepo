@@ -1,6 +1,7 @@
 #include "stop_sign_reg_elem.hpp"
 #include "utils.hpp"
 
+// Static factory method to create a new instance
 std::shared_ptr<StopSignRegElem> StopSignRegElem::make(const lanelet::BoundingBox3d& stopSignBBox, uint64_t id) {
     auto stop_sign = utils::boundingBox3dToPolygon3d(stopSignBBox);
     lanelet::RuleParameterMap rpm = {{lanelet::RoleNameString::Refers, {stop_sign}}}; // Stop sign polygon in parameters

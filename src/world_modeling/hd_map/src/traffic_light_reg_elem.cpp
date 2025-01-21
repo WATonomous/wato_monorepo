@@ -1,7 +1,7 @@
 #include "traffic_light_reg_elem.hpp"
 #include "utils.hpp"
 
-
+// Static factory method to create a new instance
 std::shared_ptr<TrafficLightRegElem> TrafficLightRegElem::make(const lanelet::BoundingBox3d& bbox, const TrafficLightState& state, uint64_t id) {
     auto traffic_light = utils::boundingBox3dToPolygon3d(bbox);
     lanelet::RuleParameterMap rpm = {{lanelet::RoleNameString::Refers, {traffic_light}}}; // Traffic light polygon in parameters
