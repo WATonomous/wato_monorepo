@@ -58,7 +58,6 @@ include_directories(
   ${class_loader_INCLUDE_DIRS}
   ${rmw_implementation_INCLUDE_DIRS}
   ${std_msgs_INCLUDE_DIRS}
-  ${can_msgs_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
   ${ros2_socketcan_INCLUDE_DIRS}
 )
@@ -79,6 +78,7 @@ target_link_libraries(radar_conti_ars408_component dl -lboost_system
 
 ament_target_dependencies(
   radar_conti_ars408_component
+  can_msgs
   radar_msgs
   visualization_msgs
   tf2_ros
@@ -87,7 +87,6 @@ ament_target_dependencies(
   "rclcpp_lifecycle"
   "rclcpp"
   "std_msgs"
-  "can_msgs"
   "class_loader"
   "rclcpp_components"
   "geometry_msgs"
