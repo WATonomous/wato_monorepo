@@ -6,6 +6,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
+
 def generate_launch_description():
     """Launch sample node."""
     hd_map_pkg_prefix = get_package_share_directory('hd_map')
