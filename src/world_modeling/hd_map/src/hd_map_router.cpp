@@ -124,7 +124,7 @@ void HDMapRouter::process_traffic_light_msg(
   for (auto it = traffic_light_list_.begin(); it != traffic_light_list_.end(); it++) {
     if (found_id[*it]) {
       remove_traffic_light(*it);
-      it = traffic_light_list_.erase(it); 
+      it = traffic_light_list_.erase(it);
     } else {
       it++;
     }
@@ -167,7 +167,8 @@ void HDMapRouter::process_pedestrian_msg(
   }
 }
 
-// TODO: populate the detection attribute in the reg elem and return the state/type from the detection
+// TODO: populate the detection attribute in the reg elem and return the state/type from the
+// detection
 std::string HDMapRouter::get_detection3d_class(
     const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr) {
   std::string class_id = "";
@@ -189,8 +190,8 @@ TrafficLightState HDMapRouter::get_traffic_light_state(
 
   TrafficLightState traffic_light_state = TrafficLightState::Unknown;
   float base_score = 0;
-  for (const auto& result : traffic_light_msg_ptr->results){
-    if (result.hypothesis.score > base_score){
+  for (const auto& result : traffic_light_msg_ptr->results) {
+    if (result.hypothesis.score > base_score) {
       if (result.hypothesis.class_id == "GREEN") {
         traffic_light_state = TrafficLightState::Green;
       } else if (result.hypothesis.class_id == "YELLOW") {
@@ -201,7 +202,7 @@ TrafficLightState HDMapRouter::get_traffic_light_state(
       base_score = result.hypothesis.score;
     }
   }
-  
+
   return TrafficLightState::Green;
 }
 
@@ -209,8 +210,8 @@ TrafficLightState HDMapRouter::get_traffic_light_state(
 
 void HDMapRouter::update_traffic_light(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
-
-  TrafficLightState traffic_light_state = HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
+  TrafficLightState traffic_light_state =
+      HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
   if (traffic_light_state == TrafficLightState::Unknown) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Light Type Does Not Exist in Vocabulary!");
@@ -219,7 +220,7 @@ void HDMapRouter::update_traffic_light(
   uint64_t traffic_light_id = std::stoull(traffic_light_msg_ptr->id);
 
   auto bbox = traffic_light_msg_ptr->bbox;
-  
+
   lanelet::BoundingBox3d traffic_light_bbox =
       lanelet::BoundingBox3d(lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2,
                                                    bbox.center.position.y - bbox.size.y / 2,
@@ -236,7 +237,6 @@ void HDMapRouter::update_traffic_light(
     auto traffic_light_elem = std::dynamic_pointer_cast<TrafficLightRegElem>(reg_elem);
 
     if (traffic_light_elem && traffic_light_elem->getId() == traffic_light_id) {
-
       traffic_light_elem->updateTrafficLight(traffic_light_bbox, traffic_light_state);
 
       // Re-associate the updated regulatory element with the appropriate lanelet if necessary
@@ -256,7 +256,6 @@ void HDMapRouter::update_traffic_light(
 
 void HDMapRouter::update_traffic_sign(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr) {
-      
   std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
   if (traffic_sign_name == "STOP SIGN") {
     update_stop_sign(traffic_sign_msg_ptr);
@@ -273,7 +272,6 @@ void HDMapRouter::update_stop_sign(
 
 void HDMapRouter::update_pedestrian(
     const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr) {
-
   std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
   if (pedestrian_class != "PEDESTRIAN") {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
@@ -300,7 +298,6 @@ void HDMapRouter::update_pedestrian(
   for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
     auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
     if (pedestrian_elem && pedestrian_elem->getId() == pedestrian_id) {
-
       pedestrian_elem->updatePedestrian(new_pedestrian_bbox);
 
       // Re-associate the updated regulatory element with the appropriate lanelet if necessary
@@ -323,8 +320,8 @@ void HDMapRouter::update_pedestrian(
 
 void HDMapRouter::add_traffic_light(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
-
-  TrafficLightState traffic_light_state = HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
+  TrafficLightState traffic_light_state =
+      HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
   if (traffic_light_state == TrafficLightState::Unknown) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Light Type Does Not Exist in Vocabulary!");
@@ -368,7 +365,7 @@ void HDMapRouter::add_traffic_sign(
     return;
   }
 
-    add_stop_sign(traffic_sign_msg_ptr);
+  add_stop_sign(traffic_sign_msg_ptr);
 }
 
 void HDMapRouter::add_stop_sign(
@@ -378,9 +375,8 @@ void HDMapRouter::add_stop_sign(
 
 void HDMapRouter::add_pedestrian(
     const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr) {
-
   std::string pedestrian_class = get_detection3d_class(pedestrian_msg_ptr);
-  
+
   if (pedestrian_class != "PEDESTRIAN") {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Received non-pedestrian message in add_pedestrian function!");
@@ -423,7 +419,7 @@ void HDMapRouter::remove_traffic_light(uint64_t traffic_light_id) {
     auto traffic_light_elem = std::dynamic_pointer_cast<TrafficLightRegElem>(reg_elem);
     if (traffic_light_elem && traffic_light_elem->getId() == traffic_light_id) {
       for (auto& lanelet : lanelet_ptr_->laneletLayer) {
-        lanelet.removeRegulatoryElement(traffic_light_elem); 
+        lanelet.removeRegulatoryElement(traffic_light_elem);
       }
 
       RCLCPP_INFO(rclcpp::get_logger("hd_map_router"),
