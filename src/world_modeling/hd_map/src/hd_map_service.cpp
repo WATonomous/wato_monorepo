@@ -250,9 +250,9 @@ void HDMapService::behaviour_tree_info_callback(
   response->current_point = current_point_;
   response->goal_point = goal_point_;
 
-  // response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
-  // response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
-  // response->route_list = convert_laneletPath_to_msg(lanelet_path);
+   response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
+   response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
+   response->route_list = convert_laneletPath_to_msg(lanelet_path);
 }
 
 int main(int argc, char** argv) {
