@@ -6,7 +6,6 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/world_modeling/hd_map hd_map
 COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 COPY src/world_modeling/behaviour_tree behaviour_tree
 
@@ -20,14 +19,8 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-# Download Maps from the GitLab
-# IMPORTANT NOTE : Downloaded maps are stored in the etc/maps directory
-ENV MAPS_DIR="${AMENT_WS}/etc/maps/"
-RUN apt-get update && git clone https://github.com/WATonomous/map_data.git --depth 1 $MAPS_DIR
-RUN chmod -R 755 $MAPS_DIR
-
 #Install python
-RUN apt-fast install -qq -y --no-install-recommends python3-pip
+RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends python3-pip
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
