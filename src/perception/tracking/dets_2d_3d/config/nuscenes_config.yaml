@@ -1,0 +1,33 @@
+dets_2d_3d_node:
+  ros__parameters:
+    camera_info_topic: /CAM_FRONT/camera_info
+    lidar_topic: /LIDAR_TOP
+    detections_topic: /detections
+
+    publish_detections_topic: /detections_3d
+    publish_markers_topic: /markers_3d
+    publish_clusters_topic: /clustered_pc
+    
+    camera_frame: CAM_FRONT
+    lidar_frame: LIDAR_TOP
+
+    clustering_params:
+      default:
+        clustering_distances: [5., 30., 45., 60.]
+        clustering_thresholds: [0.5, 1.1, 1.6, 2.1, 2.6]
+        cluster_size_min: 5.
+        cluster_size_max: 100000.
+        cluster_merge_threshold: 1.5
+      person:
+        clustering_distances: [5., 30., 45., 60.]
+        clustering_thresholds: [3., 3.5, 4.5, 5.0, 5.6]
+        cluster_size_min: 2.
+        cluster_size_max: 100.
+        cluster_merge_threshold: 1.5
+      traffic_light:
+        clustering_distances: [5., 30., 45., 60.]
+        clustering_thresholds: [3., 3.5, 4.5, 5.0, 5.6]
+        cluster_size_min: 2.
+        cluster_size_max: 100.
+        cluster_merge_threshold: 1.5
+      
