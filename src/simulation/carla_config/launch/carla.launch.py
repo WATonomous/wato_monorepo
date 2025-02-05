@@ -191,6 +191,13 @@ def generate_launch_description():
         output='screen'
     )
 
+    """ Launch Waypoint Modifier Node """
+    carla_image_encoding_conversion = Node(
+        package='carla_config',
+        executable='carla_image_encoding_conversion',
+        output='screen'
+    )
+
     return LaunchDescription([
         host_arg,
         port_arg,
@@ -211,5 +218,6 @@ def generate_launch_description():
         waypoint_topic,
         carla_waypoint_publisher,
         carla_waypoint_modifier,
+        carla_image_encoding_conversion
         # carla_mpc_bridge, # MPC bridge needs to be reworked
     ])
