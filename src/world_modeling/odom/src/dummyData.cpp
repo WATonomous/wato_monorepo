@@ -1,67 +1,46 @@
-#include<chrono>
-#include<memory>
-#include<string>
-#include<cstdlib>
+#include"dummyData.hpp"
 
-#include<rclcpp/rclcpp.hpp>
-#include<std_msgs/msg/int32.hpp>
+    DummyPublisher::DummyPublisher(): Node("dummy_publisher"){
+        publisher_left_wheel__ = this->create_publisher<std_msgs::msg::Float64>("left_motor_encoder", 10);
+        publisher_right_wheel_ = this->create_publisher<std_msgs::msg::Float64>("left_motor_encoder", 10);
+        publisher_steering_angle_ = this->create_publisher<std_msgs::msg::Float64>("left_motor_encoder", 10);
 
-using namespace std::chrono_literals;
+        //publisher called every 1 second in meters
+        timer_right_ = this->create_wall_timer(1000ms, std::bind(&DummyPublisher::RandomLeftValues, this));
+        timer_left_ = this->create_wall_timer(1000ms, std::bind(&DummyPublisher::RandomRightValues, this));
+        //publisher will fake turn values every 12 seconds
+        timer_steering_ = this->create_wall_timer(12000ms, std::bind(&DummyPublisher::RandomSteeringValues, this));
 
-class DummyPublisher: public rclcpp::Node{
+    }
 
-    public: 
-        DummyPublisher(): Node("dummy_publisher"){
-            publisher_left_wheel__ = this->create_publisher<std_msgs::msg::Int32>("left_motor_encoder", 10);
-            publisher_right_wheel_ = this->create_publisher<std_msgs::msg::Int32>("left_motor_encoder", 10);
-            publisher_steering_angle_ = this->create_publisher<std_msgs::msg::Int32>("left_motor_encoder", 10);
+    void DummyData::RandomLeftValues(){
+        auto message = std_msgs::msg::Float64();
+        //adding 50km/h speed in m/s to fake encoder values
+        left_motor_encoder = 8.33 + ((double)rand() / RAND_MAX)* (13.89-8.33);
+        message.data = left_wheel_encoder;
+        RCLCPP_INFO(this->get_logger(), "Publishing: '%d'", message.data);
+        this->publisher_left_wheel__->publish(message);
+    }
 
-            //publisher called every 1 second in meters
-            timer_right_ = this->create_wall_timer(1000ms, std::bind(&DummyPublisher::RandomLeftValues, this));
-            timer_left_ = this->create_wall_timer(1000ms, std::bind(&DummyPublisher::RandomRightValues, this));
-            //publisher will fake turn values every 12 seconds
-            timer_steering_ = this->create_wall_timer(12000ms, std::bind(&DummyPublisher::RandomSteeringValues, this));
+    void DummyData::RandomRightValues(){
+        auto message = std_msgs::msg::Float64();
+        //adding km/h speed in m/s to fake encoder values
+        right_motor_encoder = 8.33 + ((double)rand() / RAND_MAX)* (13.89-8.33);
+        message.data = right_wheel_encoder;
+        RCLCPP_INFO(this->get_logger(), "Publishing: '%d'", message.data);
+        this->publisher_right_wheel_->publish(message);
+    }
 
-        }
+    void DummyData::RandomSteeringValues(){
+        auto message = std_msgs::msg::Float64();
+        //Random turn values in radians
+        steering_angle = 0.39 + ((double)rand() / RAND_MAX)* (1.57-0.39);
+        message.data = steering_angle;
+        RCLCPP_INFO(this->get_logger(), "Publishing: '%d'", message.data);
+        this->publisher_steering_angle_->publish(message);
+    }
 
-        void RandomLeftValues(){
-            auto message = std_msgs::msg::Int32();
-            //adding 50km/h speed in m/s to fake encoder values
-            left_motor_encoder = 8.33 + ((double)rand() / RAND_MAX)* (13.89-8.33);
-            message.data = left_wheel_encoder;
-            RCLCPP_INFO(this->get_logger(), "Publishing: '%d'", message.data);
-            this->publisher_left_wheel__->publish(message);
-        }
-
-        void RandomRightValues(){
-            auto message = std_msgs::msg::Int32();
-            //adding km/h speed in m/s to fake encoder values
-            right_motor_encoder = 8.33 + ((double)rand() / RAND_MAX)* (13.89-8.33);
-            message.data = right_wheel_encoder;
-            RCLCPP_INFO(this->get_logger(), "Publishing: '%d'", message.data);
-            this->publisher_right_wheel_->publish(message);
-        }
-
-        void RandomSteeringValues(){
-            auto message = std_msgs::msg::Int32();
-            //Random turn values in radians
-            steering_angle = 0.39 + ((double)rand() / RAND_MAX)* (1.57-0.39);
-            message.data = steering_angle;
-            RCLCPP_INFO(this->get_logger(), "Publishing: '%d'", message.data);
-            this->publisher_steering_angle_->publish(message);
-        }
-
-    private:
-        rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_left_wheel__;
-        rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_right_wheel_;
-        rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_steering_angle_;
-
-        rclcpp::TimerBase::SharedPtr timer_left_;
-        rclcpp::TimerBase::SharedPtr timer_right_;
-        rclcpp::TimerBase::SharedPtr timer_steering_;
-        double left_wheel_encoder = 0, right_wheel_encoder = 0, steering_angle = 0;
-
-};
+        
 
 int main (int argc, char * argv[]){
     
