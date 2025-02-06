@@ -15,7 +15,7 @@
 import rclpy
 from rclpy.node import Node
 
-from wato_msgs / simulation / path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
+from wato_msgs.simulation.path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Pose, Quaternion
 
