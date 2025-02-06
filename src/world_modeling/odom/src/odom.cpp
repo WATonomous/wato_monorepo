@@ -1,84 +1,65 @@
-#include <chrono>
-#include <functional>
-#include <memory>
-#include <string>
+#include "odom.hpp"
 
-#include<rclcpp/rclcpp.hpp>
-#include<std_msgs/msg/float64.hpp>
-#include<std_msgs/msg/string.hpp>
+    WheelOdometry::WheelOdometry() : Node("sensor_subscriber"), x_(0.0), y_(0.0), theta_(0.0), previous_time_(this->now()) {
+        leftrear_wheel_motor_encoder = this->create_subscription<std_msgs::msg::Float64>(
+            "/motor_encoder_left", 10, std::bind(&WheelOdometry::defineVariables, this, std::placeholders::_1, "left_encoder")
+        );
 
-using namespace std::chrono_literals;
+        rightrear_wheel_motor_encoder = this->create_subscription<std_msgs::msg::Float64>(
+            "/motor_encoder_right", 10, std::bind(&WheelOdometry::defineVariables, this, std::placeholders::_1, "right_encoder")
+        );
 
-class OdomSubscriber : public rclcpp::Node
-{
-    public:
-        OdomSubscriber() : Node("sensor_subscriber"), x_(0.0), y_(0.0), theta_(0.0), previous_time_(this->now()) {
-            leftrear_wheel_motor_encoder = this->create_subscription<std_msgs::msg::float64>(
-                "/motor_encoder_left", 10, std::bind(&OdomSubscriber::defineVariables, this, std::placeholders::_1, "left_encoder")
-            );
+        steering_angle = this->create_subscription<std_msgs::msg::Float64>(
+            "/steering_angle", 10, std::bind(&WheelOdometry::defineVariables, this, std::placeholders::_1, "steering_angle")
+        );
 
-            rightrear_wheel_motor_encoder = this->create_subscription<std_msgs::msg::float64>(
-                "/motor_encoder_right", 10, std::bind(&OdomSubscriber::defineVariables, this, std::placeholders::_1, "right_encoder")
-            );
+        publisher_ = this->create_publisher<std_msgs::msg::Float64>("/bicycle_model_output", 10);
+    }
 
-            steering_angle = this->create_subscription<std_msgs::msg::float64>(
-                "/steering_angle", 10, std::bind(&OdomSubscriber::defineVariables, this, std::placeholders::_1, "steering_angle")
-            );
-
-            publisher_ = this->create_publisher<std_msgs::msg::String>("/bicycle_model_output", 10);
+    void WheelOdometry::defineVariables(const std_msgs::msg::Float64::SharedPtr msg, const std::string &source){
+        if (source == "left_encoder") {
+            left_wheel_speed = msg->data;
+        } else if (source == "right_encoder") {
+            right_wheel_speed = msg->data;
+        } else if (source == "steering_angle") {
+            steering_angle = msg->data;
         }
+    }
 
-        void defineVariables(const std_msg::msg::float64::SharedPtr msg, const std::string &source){
-            if (source == "left_encoder") {
-                left_wheel_speed = msg->data;
-            } else if (source == "right_encoder") {
-                right_wheel_speed = msg->data;
-            } else if (source == "steering_angle") {
-                steering_angle = msg->data;
-            }
-        }
+    void WheelOdometery::bicycleModel() {
 
-        void bicycleModel(const std_msgs::msg::String::SharedPtr msg) {
+        double linear_velocity = (left_wheel_speed + right_wheel_speed) / 2.0;
+        double angular_velocity = linear_velocity * tan(steering_angle) / WHEEL_BASE;
 
-            double linear_velocity = (left_wheel_speed + right_wheel_speed) / 2.0;
-            double angular_velocity = linear_velocity * tan(steering_angle) / WHEEL_BASE;
+        auto current_time = this->now();
+        double delta_t = (current_time - previous_time_).seconds();
+        previous_time_ = current_time;
 
-            auto current_time = this->now();
-            double delta_t = (current_time - previous_time_).seconds();
-            previous_time_ = current_time;
+        x_ += linear_velocity * cos(theta_) * delta_t;
+        y_ += linear_velocity * sin(theta_) * delta_t;
+        theta_ += angular_velocity * delta_t;
 
-            x_ += linear_velocity * cos(theta_) * delta_t;
-            y_ += linear_velocity * sin(theta_) * delta_t;
-            theta_ += angular_velocity * delta_t;
+        auto odom_message = nav_msgs::msg::Odometry();
 
-            auto message std_msgs::msg::String();
-            message.data = "x: " + std::to_string(x_) + ", y: " + std::to_string(y_) + ", theta: " + std::to_string(theta_);
-            RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
-            publisher_->publish(message);
-        }
+        odom_message.header.stamp = current_time;
+        odom_message.header.frame_id = "odom";
+        odom_message.child_frame_id = "base_link";
+        
+        odom_message.pose.pose.position.x = x_;
+        odom_message.pose.pose.position.y = y_;
+        odom_message.pose.pose.position.z = 0.0;
 
-    private:
-        //subscribers
-        rclcpp::Subscription<std_msgs::msg::String>::SharedPtr leftrear_wheel_motor_encoder;
-        rclcpp::Subscription<std_msgs::msg::String>::SharedPtr rightrear_wheel_motor_encoder;
-        rclcpp::Subscription<std_msgs::msg::String>::SharedPtr steering_angle;
+        odom_message.twist.twist.linear.x = linear_velocity;
+        odom_message.twist.twist.angular.z = angular_velocity;
 
-        //publishers
-        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+        RCLCPP_INFO(this->get_logger(), "Publishing: x=%.2f, y=%.2f, theta=%.2f", x_, y_, theta_);
+        publisher_->publish(odom_message);
+    }
 
-
-        const double WHEEL_BASE = 2.65;
-        //represents the displacement from odom
-        double x_ = 0, y_ = 0, theta_ = 0;
-        //which is the speed recieved from the topic which will be in out 
-        double left_wheel_speed = 0, right_wheel_speed = 0, steering_angle = 0;
-
-        rclcpp::Time previous_time_;
-};
-
+ 
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<OdomSubscriber>());
+    rclcpp::spin(std::make_shared<WheelOdometry>());
     rclcpp::shutdown();
     return 0;
 }
