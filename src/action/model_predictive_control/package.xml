@@ -10,6 +10,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>geometry_msgs</depend>
   <depend>rclpy</depend>
+  <depend>carla_msgs</depend>
+  <depend>tf_transformations</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
