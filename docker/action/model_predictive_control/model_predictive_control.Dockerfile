@@ -6,8 +6,6 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/action/local_planning local_planning
-COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/action/model_predictive_control model_predictive_control
 
 # Copy in CARLA messages
@@ -20,12 +18,15 @@ RUN apt-get -qq update && rosdep update && \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
+# Add pip3 as dependency
+RUN echo " python3-pip" >> /tmp/colcon_install_list
+
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -38,6 +39,9 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 
 ################################ Build ################################
 FROM dependencies as build
+
+# Install casadi (TODO: install a fixed version of casadi)
+RUN pip3 install casadi
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}

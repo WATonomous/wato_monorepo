@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright 2023 WATonomous
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +17,7 @@
 import rclpy
 from rclpy.node import Node
 
-from wato_msgs.simulation.path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
+from carla_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Pose, Quaternion
 
@@ -110,6 +112,7 @@ class MPCNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     mpc_node = MPCNode()
+    mpc_node.get_logger().info(f'Node started up')
     rclpy.spin(mpc_node)
     mpc_node.destroy_node()
     rclpy.shutdown()
