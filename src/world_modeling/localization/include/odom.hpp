@@ -9,7 +9,6 @@
 #include <std_msgs/msg/string.hpp>
 #include <string>
 
-// not sure about the one below
 #include <nav_msgs/msg/odometry.hpp>
 
 using namespace std::chrono_literals;
@@ -19,14 +18,15 @@ class WheelOdometry : public rclcpp::Node {
   WheelOdometry();
 
  private:
-  void defineVariables(const std_msgs::msg::Float64::SharedPtr msg, const std::string &source);
   void bicycleModel();
 
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr leftrear_wheel_motor_encoder;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr rightrear_wheel_motor_encoder;
-  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr steering_angle;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr steering_angle_subscription;
 
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr publisher_;
+
+  rclcpp::TimerBase::SharedPtr timer_;
 
   double left_wheel_speed;
   double right_wheel_speed;

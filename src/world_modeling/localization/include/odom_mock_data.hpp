@@ -1,5 +1,5 @@
-#ifndef DUMMY_PUBLISHER_HPP
-#define DUMMY_PUBLISHER_HPP
+#ifndef ODOM_MOCK_DATA_HPP
+#define ODOM_MOCK_DATA_HPP
 
 #include <chrono>
 #include <cstdlib>
@@ -9,9 +9,9 @@
 
 using namespace std::chrono_literals;
 
-class DummyPublisher : public rclcpp::Node {
+class OdomMockData : public rclcpp::Node {
  public:
-  DummyPublisher();
+  OdomMockData();
 
  private:
   void RandomLeftValues();
@@ -29,6 +29,6 @@ class DummyPublisher : public rclcpp::Node {
   double left_wheel_encoder;
   double right_wheel_encoder;
   double steering_angle;
-}
+};
 
 #endif
