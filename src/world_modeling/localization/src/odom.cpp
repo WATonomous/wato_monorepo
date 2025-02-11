@@ -3,25 +3,19 @@
 WheelOdometry::WheelOdometry()
     : Node("sensor_subscriber"), x_(0.0), y_(0.0), theta_(0.0), previous_time_(this->now()) {
   leftrear_wheel_motor_encoder = this->create_subscription<std_msgs::msg::Float64>(
-      "/left_motor_encoder", 10, 
-      [this](const std_msgs::msg::Float64::SharedPtr msg) {
-        left_wheel_speed = msg->data;
-      });
+      "/left_motor_encoder", 10,
+      [this](const std_msgs::msg::Float64::SharedPtr msg) { left_wheel_speed = msg->data; });
 
   rightrear_wheel_motor_encoder = this->create_subscription<std_msgs::msg::Float64>(
       "/right_motor_encoder", 10,
-      [this](const std_msgs::msg::Float64::SharedPtr msg) {
-        right_wheel_speed = msg->data;
-      });
+      [this](const std_msgs::msg::Float64::SharedPtr msg) { right_wheel_speed = msg->data; });
 
   steering_angle_subscription = this->create_subscription<std_msgs::msg::Float64>(
       "/steering_angle", 10,
-      [this](const std_msgs::msg::Float64::SharedPtr msg) {
-        steering_angle = msg->data;
-      });
+      [this](const std_msgs::msg::Float64::SharedPtr msg) { steering_angle = msg->data; });
 
   publisher_ = this->create_publisher<nav_msgs::msg::Odometry>("/bicycle_model_output", 10);
-  
+
   timer_ = this->create_wall_timer(1000ms, std::bind(&WheelOdometry::bicycleModel, this));
 }
 
