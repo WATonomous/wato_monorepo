@@ -4,22 +4,21 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <string>
-#include<rclcpp/rclcpp.hpp>
-#include<std_msgs/msg/float64.hpp>
-#include<std_msgs/msg/string.hpp>
 
-//not sure about the one below
+// not sure about the one below
 #include <nav_msgs/msg/odometry.hpp>
 
 using namespace std::chrono_literals;
 
-class WheelOdometry : public rclcpp::Node{
-
-public:
+class WheelOdometry : public rclcpp::Node {
+ public:
   WheelOdometry();
 
-private:
+ private:
   void defineVariables(const std_msgs::msg::Float64::SharedPtr msg, const std::string &source);
   void bicycleModel();
 
