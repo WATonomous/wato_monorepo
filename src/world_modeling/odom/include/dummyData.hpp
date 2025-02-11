@@ -1,20 +1,19 @@
 #ifndef DUMMY_PUBLISHER_HPP
 #define DUMMY_PUBLISHER_HPP
 
+#include <chrono>
+#include <cstdlib>
+#include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float64.hpp>
-#include <chrono>
-#include <memory>
-#include <cstdlib>
 
 using namespace std::chrono_literals;
 
-class DummyPublisher : public rclcpp::Node{
-
-public: 
+class DummyPublisher : public rclcpp::Node {
+ public:
   DummyPublisher();
 
-private:
+ private:
   void RandomLeftValues();
   void RandomRightValues();
   void RandomSteeringValues();
@@ -30,7 +29,6 @@ private:
   double left_wheel_encoder;
   double right_wheel_encoder;
   double steering_angle;
-
 }
 
 #endif
