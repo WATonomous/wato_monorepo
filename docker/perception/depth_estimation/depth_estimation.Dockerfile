@@ -39,7 +39,10 @@ RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_li
 
 # Install DepthAnythingV2 metric depth
 RUN git clone https://github.com/DepthAnything/Depth-Anything-V2
-RUN cd Depth-Anything-V2/metric_depth
+WORKDIR Depth-Anything-V2/metric_depth
+
+# pip complains about blinker partial uninstall
+RUN sudo apt remove python3-blinker -y
 RUN pip install -r requirements.txt
 
 # Copy in source code from source stage
