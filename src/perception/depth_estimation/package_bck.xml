@@ -4,16 +4,13 @@
   <name>depth_estimation</name>
   <version>0.0.0</version>
   <description>Depth estimation ROS 2 node</description>
-  <maintainer email="a53shen@watonomous.ca">andrewshen</maintainer>
+  <maintainer email="perception@watonomous.ca">TBD</maintainer>
   <license>TODO: License declaration</license>
 
-  <depend>ament_python</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>rclpy</depend>
-  <depend>std_msgs</depend>
-  <depend>sensor_msgs</depend>
 
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
