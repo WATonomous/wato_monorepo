@@ -8,6 +8,8 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code 
 COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 COPY src/world_modeling/behaviour_tree behaviour_tree
+COPY src/world_modeling/hd_map hd_map
+COPY src/wato_msgs/common_msgs common_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -34,6 +36,12 @@ COPY --from=source ${AMENT_WS}/src src
 WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
+
+# Download Maps from the GitLab
+# IMPORTANT NOTE : Downloaded maps are stored in the etc/maps directory
+ENV MAPS_DIR="${AMENT_WS}/etc/maps/"
+RUN apt-get update && git clone https://github.com/WATonomous/map_data.git --depth 1 $MAPS_DIR
+RUN chmod -R 755 $MAPS_DIR
 
 ################################ Build ################################
 FROM dependencies as build

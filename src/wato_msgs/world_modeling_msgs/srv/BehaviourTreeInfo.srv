@@ -3,4 +3,4 @@ geometry_msgs/Point current_point
 geometry_msgs/Point goal_point
 Lanelet current_lanelet
 Lanelet goal_lanelet
-Lanelet route_list
+LaneletPath route_list
