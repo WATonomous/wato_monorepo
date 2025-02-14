@@ -1,5 +1,7 @@
 depth_estimation_node:
   ros__parameters:
-    camera_topic: "/camera/left/image_color"
-    depth_map_topic: "/depth_map"
-    debug_node: false
+    version: 1
+    camera_topic: /camera/right/image_color
+    publish_depth_img_topic: /camera/right/depth_img
+    publish_depth_pcl_topic: /camera/right/depth_pcl
+    model_path: /home/bolty/ament_ws/src/depth_anything_v2_large.pth
