@@ -4,12 +4,11 @@ import datetime
 import os
 import shutil
 
-from boxconstraint import BoxConstraint
+from model_predictive_control.boxconstraint import BoxConstraint
 
 TIME_STEP = 0.05
 PREDICTION_HORIZON = 2.0
 SIM_DURATION = 500
-
 
 class MPCCore:
     def __init__(self):
@@ -18,7 +17,7 @@ class MPCCore:
             'L': 2.875  # Wheelbase of the vehicle. Source : https://www.tesla.com/ownersmanual/model3/en_us/GUID-56562137-FC31-4110-A13C-9A9FC6657BF0.html
         }
         self.T = PREDICTION_HORIZON  # Prediction horizon in seconds
-        self.N = int(T / TIME_STEP)  # Prediction horizon in time steps
+        self.N = int(self.T / TIME_STEP)  # Prediction horizon in time steps
         self.dt = TIME_STEP  # Time step for discretization
         self.state_dim = 4  # Dimension of the state [x, y, theta, v]
         # Dimension of the control input [steering angle, acceleration]
@@ -56,7 +55,7 @@ class MPCCore:
         self.prev_sol_u = None
 
         # MPC Initial Setup
-        self.get_waypoints()
+        # self.get_waypoints()
         self.setup_mpc()
         self.setup_constraints()
         self.setup_solver()
@@ -116,8 +115,10 @@ class MPCCore:
         self.opti.minimize(self.obj)
 
         # Maximum steerin angle for dynamics
-        self.max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
-        ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
+        # self.max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
+        # ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
+        self.max_steering_angle_deg = 30.0
+
         self.max_steering_angle_rad = max_steering_angle_deg * \
             (ca.pi / 180)  # Maximum steering angle in radians
 
