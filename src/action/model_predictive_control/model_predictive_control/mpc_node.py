@@ -16,7 +16,7 @@
 import rclpy
 from rclpy.node import Node
 
-# from path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
+from path_planning_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Pose, Quaternion
 
