@@ -16,10 +16,11 @@
 import rclpy
 from rclpy.node import Node
 
-from path_planning_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
+# from path_planning_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
+from carla_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Pose, Quaternion
-
+from model_predictive_control.helper import euler_from_quaternion
 from model_predictive_control.mpc_core import MPCCore
 
 # For extracting theta from w in quaternion
@@ -31,6 +32,7 @@ class MPCNode(Node):
         super().__init__('MPCNode')
 
         self.mpc_core = MPCCore()
+        print("mpc setup")
 
         # Subscribe to vehicle state (only retrieving velocity)
         self.state_subscription = self.create_subscription(
@@ -52,14 +54,19 @@ class MPCNode(Node):
         # Subscribe to waypoints from CARLA
         self.waypoints_subscription = self.create_subscription(
             Path, '/carla/ego/waypoints', self.waypoints_callback, 10)
+        
+        print("pub/sub init")
 
         self.goal_point_x = 10.0
         self.goal_point_y = 10.0
+        print("goal set")
         self.publish_goal(self.goal_point_x, self.goal_point_y)
+        print("goal pub")
 
     def vehicle_state_callback(self, msg):
+        print("veh_state")
         self.mpc_core.v0 = msg.velocity
-
+        print(self.mpc_core.v0)
         # Extract theta/yaw/orientation of the car in the x-y plane from
         # quaternion
         quaternion = [
@@ -67,21 +74,29 @@ class MPCNode(Node):
             msg.orientation.y,
             msg.orientation.z,
             msg.orientation.w]
-        _, _, mpc_core.theta0 = euler_from_quaternion(quaternion)
+        print(quaternion)
+        print(euler_from_quaternion(quaternion))
+        _, _, self.mpc_core.theta0 = euler_from_quaternion(quaternion)
 
     def waypoints_callback(self, msg):
+        print("pose length")
         for pose_stamped in msg.poses:
             x = pose_stamped.pose.position.x
             y = pose_stamped.pose.position.y
             self.mpc_core.raw_waypoints.append(x)
             self.mpc_core.raw_waypoints.append(y)
+            print("waypoints")
+            print(x)
+            print(y)
 
         self.mpc_core.convert_waypoints()
+        print("waypoints converted")
         start_main_loop()
 
     def state_odom_callback(self, msg):
         self.mpc_core.x = msg.pose.pose.position.x
         self.mpc_core.y = msg.pose.pose.position.y
+        # print("state_odom")
 
     def publish_goal(self, x, y):
         goal_msg = Pose()
@@ -99,13 +114,17 @@ class MPCNode(Node):
     def start_main_loop(self):
         # Subtract N since we need to be able to predict N steps into the
         # future
+        
         for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):
             steering_angle, throttle = self.mpc_core.compute_control(i)
-
+            print("steer and throttle")
+            print(steering_angle)
+            print(throttle)
             control_msg = CarlaEgoVehicleControl()
             control_msg.steer = steering_angle
             control_msg.throttle = throttle
             self.control_publisher.publish(control_msg)
+
 
 
 def main(args=None):
