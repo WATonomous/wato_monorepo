@@ -41,7 +41,7 @@ class MPCNode(Node):
 
         # Subscribe to get vehicle position/orientation (x, y, w)
         self.state_odom_subscription = self.create_subscription(
-            Odometry, 'T/carla/ego/odometry', self.state_odom_callback, 10)
+            Odometry, '/carla/ego/odometry', self.state_odom_callback, 10)
 
         self.control_publisher = self.create_publisher(
             CarlaEgoVehicleControl, '/carla/ego/vehicle_control_cmd', 10)
@@ -53,12 +53,12 @@ class MPCNode(Node):
         self.waypoints_subscription = self.create_subscription(
             Path, '/carla/ego/waypoints', self.waypoints_callback, 10)
 
-        self.goal_point_x = 10
-        self.goal_point_y = 10
-        publish_goal(self.goal_point_x, self.goal_point_y)
+        self.goal_point_x = 10.0
+        self.goal_point_y = 10.0
+        self.publish_goal(self.goal_point_x, self.goal_point_y)
 
     def vehicle_state_callback(self, msg):
-        mpc_core.v0 = msg.velocity
+        self.mpc_core.v0 = msg.velocity
 
         # Extract theta/yaw/orientation of the car in the x-y plane from
         # quaternion
@@ -73,19 +73,19 @@ class MPCNode(Node):
         for pose_stamped in msg.poses:
             x = pose_stamped.pose.position.x
             y = pose_stamped.pose.position.y
-            mpc_core.raw_waypoints.append(x)
-            mpc_core.raw_waypoints.append(y)
+            self.mpc_core.raw_waypoints.append(x)
+            self.mpc_core.raw_waypoints.append(y)
 
-        mpc_core.convert_waypoints()
+        self.mpc_core.convert_waypoints()
         start_main_loop()
 
     def state_odom_callback(self, msg):
-        mpc_core.x = msg.pose.pose.position.x
-        mpc_core.y = msg.pose.pose.position.y
+        self.mpc_core.x = msg.pose.pose.position.x
+        self.mpc_core.y = msg.pose.pose.position.y
 
     def publish_goal(self, x, y):
         goal_msg = Pose()
-
+        
         goal_msg.position.x = x
         goal_msg.position.y = y
         goal_msg.position.z = 0.0
