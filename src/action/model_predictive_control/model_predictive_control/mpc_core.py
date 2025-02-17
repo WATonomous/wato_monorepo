@@ -66,6 +66,7 @@ class MPCCore:
         self.theta0 = 0
         self.v0 = 0
 
+        
     def convert_waypoints(self):
         """
         Convert raw waypoints (alternating x, y in a flat list) to CasADi-compatible waypoints.
