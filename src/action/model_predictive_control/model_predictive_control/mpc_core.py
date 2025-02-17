@@ -119,8 +119,7 @@ class MPCCore:
         # ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
         self.max_steering_angle_deg = 30.0
 
-        self.max_steering_angle_rad = max_steering_angle_deg * \
-            (ca.pi / 180)  # Maximum steering angle in radians
+        self.max_steering_angle_rad = self.max_steering_angle_deg * (ca.pi / 180)  # Maximum steering angle in radians
 
         # Dynamics (Euler discretization using bicycle model)
         for k in range(self.N):
