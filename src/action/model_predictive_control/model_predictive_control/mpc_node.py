@@ -12,17 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 
-from wato_msgs / simulation / path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
+# from path_planning_msgs import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Pose, Quaternion
 
 from model_predictive_control.mpc_core import MPCCore
 
 # For extracting theta from w in quaternion
-from tf_transformations import euler_from_quaternion
+# from tf_transformations import euler_from_quaternion
 
 
 class MPCNode(Node):

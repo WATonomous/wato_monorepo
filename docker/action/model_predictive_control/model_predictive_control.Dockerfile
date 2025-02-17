@@ -7,8 +7,10 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/action/local_planning local_planning
-COPY src/wato_msgs/sample_msgs sample_msgs
+# COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/simulation sim_msgs
 COPY src/action/model_predictive_control model_predictive_control
+
 
 # Copy in CARLA messages
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
@@ -16,9 +18,9 @@ RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
-        | grep 'apt-get install' \
-        | awk '{print $3}' \
-        | sort  > /tmp/colcon_install_list
+    | grep 'apt-get install' \
+    | awk '{print $3}' \
+    | sort  > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
@@ -39,11 +41,23 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies as build
 
+# Install pip
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg libsm6 libxext6 wget
+
+# Install python packages
+COPY src/action/model_predictive_control/requirements.txt requirements.txt
+RUN python3 -m pip install -r requirements.txt
+RUN rm requirements.txt
+
+
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
