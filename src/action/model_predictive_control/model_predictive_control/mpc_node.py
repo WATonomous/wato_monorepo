@@ -55,8 +55,18 @@ class MPCNode(Node):
         self.waypoints_subscription = self.create_subscription(
             Path, '/carla/ego/waypoints', self.waypoints_callback, 10)
         
+        
+        
+        self.timer = self.create_timer(
+            0.5,  # 0.01 seconds = 10 milliseconds = 100 Hz
+            self.timer_callback,
+        )
+        
+        
         print("pub/sub init")
 
+        self.goal_set = False
+        self.i = 0
         self.goal_point_x = 10.0
         self.goal_point_y = 10.0
         print("goal set")
@@ -93,7 +103,7 @@ class MPCNode(Node):
 
         self.mpc_core.convert_waypoints()
         print("waypoints converted")
-        self.start_main_loop()
+        self.goal_set = True
 
     def state_odom_callback(self, msg):
         self.mpc_core.x0 = msg.pose.pose.position.x
@@ -118,20 +128,31 @@ class MPCNode(Node):
         self.get_logger().info(f"Published goal: x={x}, y={y}")
         
         
-    def start_main_loop(self):
-        # Subtract N since we need to be able to predict N steps into the
-        # future
         
-        # for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):
-        #     steering_angle, throttle = self.mpc_core.compute_control(i)
-        #     # print("steer and throttle")
-        #     # print(steering_angle)
-        #     # print(throttle)
-        #     control_msg = CarlaEgoVehicleControl()
-        #     control_msg.steer = steering_angle
-        #     control_msg.throttle = throttle
-        #     self.control_publisher.publish(control_msg)
-        pass
+    # def start_main_loop(self):
+    #     # Subtract N since we need to be able to predict N steps into the
+    #     # future
+        
+    #     for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):
+    #         steering_angle, throttle = self.mpc_core.compute_control(i)
+    #         # print("steer and throttle")
+    #         # print(steering_angle)
+    #         # print(throttle)
+    #         control_msg = CarlaEgoVehicleControl()
+    #         control_msg.steer = steering_angle
+    #         control_msg.throttle = throttle
+    #         self.control_publisher.publish(control_msg)
+    #     pass
+    
+    def timer_callback(self):
+        if self.goal_set == False:
+            return
+        steering_angle, throttle = self.mpc_core.compute_control(self.i)
+        control_msg = CarlaEgoVehicleControl()
+        control_msg.steer = steering_angle
+        control_msg.throttle = throttle
+        self.control_publisher.publish(control_msg)
+        self.i += 1
 
 
 
