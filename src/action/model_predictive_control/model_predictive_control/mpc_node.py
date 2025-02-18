@@ -19,7 +19,7 @@ from rclpy.node import Node
 # from path_planning_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from carla_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
-from geometry_msgs.msg import Pose, Quaternion
+from geometry_msgs.msg import PoseStamped, Quaternion
 from model_predictive_control.helper import euler_from_quaternion
 from model_predictive_control.mpc_core import MPCCore
 
@@ -49,7 +49,7 @@ class MPCNode(Node):
             CarlaEgoVehicleControl, '/carla/ego/vehicle_control_cmd', 10)
 
         self.goal_publisher = self.create_publisher(
-            Pose, '/carla/ego/goal', 10)
+            PoseStamped, '/carla/ego/goal', 10)
 
         # Subscribe to waypoints from CARLA
         self.waypoints_subscription = self.create_subscription(
@@ -66,7 +66,7 @@ class MPCNode(Node):
     def vehicle_state_callback(self, msg):
         print("veh_state")
         self.mpc_core.v0 = msg.velocity
-        print(self.mpc_core.v0)
+        # print(self.mpc_core.v0)
         # Extract theta/yaw/orientation of the car in the x-y plane from
         # quaternion
         quaternion = [
@@ -74,56 +74,64 @@ class MPCNode(Node):
             msg.orientation.y,
             msg.orientation.z,
             msg.orientation.w]
-        print(quaternion)
-        print(euler_from_quaternion(quaternion))
+        # print(quaternion)
+        # print(euler_from_quaternion(quaternion))
         _, _, self.mpc_core.theta0 = euler_from_quaternion(quaternion)
 
     def waypoints_callback(self, msg):
-        print("pose length")
+        self.get_logger().info(f"Received {len(msg.poses)} waypoints")
+        
+        
         for pose_stamped in msg.poses:
             x = pose_stamped.pose.position.x
             y = pose_stamped.pose.position.y
             self.mpc_core.raw_waypoints.append(x)
             self.mpc_core.raw_waypoints.append(y)
-            print("waypoints")
-            print(x)
-            print(y)
+            # print("waypoints")
+            # print(x)
+            # print(y)
 
         self.mpc_core.convert_waypoints()
         print("waypoints converted")
-        start_main_loop()
+        self.start_main_loop()
 
     def state_odom_callback(self, msg):
-        self.mpc_core.x = msg.pose.pose.position.x
-        self.mpc_core.y = msg.pose.pose.position.y
-        # print("state_odom")
+        self.mpc_core.x0 = msg.pose.pose.position.x
+        self.mpc_core.y0 = msg.pose.pose.position.y
+        print("state_odom")
 
     def publish_goal(self, x, y):
-        goal_msg = Pose()
+        goal_msg = PoseStamped()    
         
-        goal_msg.position.x = x
-        goal_msg.position.y = y
-        goal_msg.position.z = 0.0
-        goal_msg.orientation.x = 0.0
-        goal_msg.orientation.y = 0.0
-        goal_msg.orientation.z = 0.0
-        goal_msg.orientation.w = 1.0
+        goal_msg.header.frame_id = "map"
+        goal_msg.header.stamp = self.get_clock().now().to_msg()
+            
+        goal_msg.pose.position.x = x
+        goal_msg.pose.position.y = y
+        goal_msg.pose.position.z = 0.0
+        # goal_msg.orientation.x = 0.0
+        # goal_msg.orientation.y = 0.0
+        # goal_msg.orientation.z = 0.0
+        goal_msg.pose.orientation.w = 1.0
 
         self.goal_publisher.publish(goal_msg)
-
+        self.get_logger().info(f"Published goal: x={x}, y={y}")
+        
+        
     def start_main_loop(self):
         # Subtract N since we need to be able to predict N steps into the
         # future
         
-        for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):
-            steering_angle, throttle = self.mpc_core.compute_control(i)
-            print("steer and throttle")
-            print(steering_angle)
-            print(throttle)
-            control_msg = CarlaEgoVehicleControl()
-            control_msg.steer = steering_angle
-            control_msg.throttle = throttle
-            self.control_publisher.publish(control_msg)
+        # for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):
+        #     steering_angle, throttle = self.mpc_core.compute_control(i)
+        #     # print("steer and throttle")
+        #     # print(steering_angle)
+        #     # print(throttle)
+        #     control_msg = CarlaEgoVehicleControl()
+        #     control_msg.steer = steering_angle
+        #     control_msg.throttle = throttle
+        #     self.control_publisher.publish(control_msg)
+        pass
 
 
 
