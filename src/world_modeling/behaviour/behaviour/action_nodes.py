@@ -1,5 +1,5 @@
 import py_trees
-import question_nodes
+import behaviour.question_nodes as question_nodes
 
 # Action Node: Drive straight at the node
 class CarDriveStraightAtNode(py_trees.behaviour.Behaviour):

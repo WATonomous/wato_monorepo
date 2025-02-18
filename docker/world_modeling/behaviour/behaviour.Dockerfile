@@ -7,9 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
-COPY src/world_modeling/behaviour_tree behaviour_tree
-COPY src/world_modeling/hd_map hd_map
-COPY src/wato_msgs/common_msgs common_msgs
+COPY src/world_modeling/behaviour behaviour
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -17,6 +15,9 @@ RUN apt-get -qq update && rosdep update && \
         | grep 'apt-get install' \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
+
+# Add pip
+RUN echo " python3-pip" >> /tmp/colcon_install_list
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
@@ -37,14 +38,12 @@ WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
-# Download Maps from the GitLab
-# IMPORTANT NOTE : Downloaded maps are stored in the etc/maps directory
-ENV MAPS_DIR="${AMENT_WS}/etc/maps/"
-RUN apt-get update && git clone https://github.com/WATonomous/map_data.git --depth 1 $MAPS_DIR
-RUN chmod -R 755 $MAPS_DIR
-
 ################################ Build ################################
 FROM dependencies as build
+
+# Intall requirements.txt
+WORKDIR ${AMENT_WS}/src/behaviour
+RUN pip3 install -r requirements.txt
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}

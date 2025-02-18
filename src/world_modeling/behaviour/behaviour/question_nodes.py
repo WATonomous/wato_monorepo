@@ -1,13 +1,12 @@
 import py_trees
-import condition_nodes
-import action_nodes
-import question_nodes
+import behaviour.condition_nodes as condition_nodes
+import behaviour.action_nodes as action_nodes
 
 # Question Node: Check if the car is at the goal
 class EnsureCarAtGoal(py_trees.composites.Selector):
     def __init__(self):
         super(EnsureCarAtGoal, self).__init__(name="Ensure Car At Goal",memory=True )
-        self.add_children([condition_nodes.LastNodeInRoute(), question_nodes.EnsureCarAtNextNode()])
+        self.add_children([condition_nodes.LastNodeInRoute(), EnsureCarAtNextNode()])
 
     def update(self):
         print("Checking if the car is at the goal.")
