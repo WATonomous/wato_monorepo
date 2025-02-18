@@ -1,0 +1,37 @@
+digraph pastafarianism {
+ordering=out;
+graph [fontname="times-roman"];
+node [fontname="times-roman"];
+edge [fontname="times-roman"];
+Root [label="Ⓜ Root", shape=octagon, style=filled, fillcolor=cyan, fontsize=9, fontcolor=black];
+"At Goal Location" [label="At Goal Location", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+Root -> "At Goal Location";
+"Ensure Car At Goal" [label="Ⓜ Ensure Car At Goal", shape=octagon, style=filled, fillcolor=cyan, fontsize=9, fontcolor=black];
+Root -> "Ensure Car At Goal";
+"Last Node In Route" [label="Last Node In Route", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Ensure Car At Goal" -> "Last Node In Route";
+"Ensure Car At Next Node" [label="Ⓜ Ensure Car At Next Node", shape=octagon, style=filled, fillcolor=cyan, fontsize=9, fontcolor=black];
+"Ensure Car At Goal" -> "Ensure Car At Next Node";
+"Remove Node From Route" [label="Ⓜ Remove Node From Route", shape=box, style=filled, fillcolor=orange, fontsize=9, fontcolor=black];
+"Ensure Car At Next Node" -> "Remove Node From Route";
+"At Next Node" [label="At Next Node", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Remove Node From Route" -> "At Next Node";
+"Mark Node As Completed" [label="Mark Node As Completed", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Remove Node From Route" -> "Mark Node As Completed";
+"Make Car Go To Next Node In Route List" [label="Ⓜ Make Car Go To Next Node In Route List", shape=box, style=filled, fillcolor=orange, fontsize=9, fontcolor=black];
+"Ensure Car At Next Node" -> "Make Car Go To Next Node In Route List";
+"Ensure Car On Correct Road" [label="Ⓜ Ensure Car On Correct Road", shape=octagon, style=filled, fillcolor=cyan, fontsize=9, fontcolor=black];
+"Make Car Go To Next Node In Route List" -> "Ensure Car On Correct Road";
+"Check Car On Desired Road" [label="Check Car On Desired Road", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Ensure Car On Correct Road" -> "Check Car On Desired Road";
+"Make Turn To Reach Road" [label="Make Turn To Reach Road", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Ensure Car On Correct Road" -> "Make Turn To Reach Road";
+"Ensure Car On Correct Lane" [label="Ⓜ Ensure Car On Correct Lane", shape=octagon, style=filled, fillcolor=cyan, fontsize=9, fontcolor=black];
+"Make Car Go To Next Node In Route List" -> "Ensure Car On Correct Lane";
+"Check Car On Correct Lane" [label="Check Car On Correct Lane", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Ensure Car On Correct Lane" -> "Check Car On Correct Lane";
+"Swap To Node Lane" [label="Swap To Node Lane", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Ensure Car On Correct Lane" -> "Swap To Node Lane";
+"Car Drive Straight At Node" [label="Car Drive Straight At Node", shape=ellipse, style=filled, fillcolor=gray, fontsize=9, fontcolor=black];
+"Make Car Go To Next Node In Route List" -> "Car Drive Straight At Node";
+}

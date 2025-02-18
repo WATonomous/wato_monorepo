@@ -14,15 +14,15 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/world_modeling/hd_map:/home/bolty/ament_ws/src/hd_map
-  behaviour_tree:
+  behaviour:
     <<: *fixuid
     extends:
       file: ../docker-compose.world_modeling.yaml
-      service: behaviour_tree
-    image: "${WORLD_MODELING_BEHAVIOUR_TREE_IMAGE}:build_${TAG}"
+      service: behaviour
+    image: "${WORLD_MODELING_BEHAVIOUR_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling/behaviour_tree:/home/bolty/ament_ws/src/behaviour_tree
+      - ${MONO_DIR}/src/world_modeling/behaviour:/home/bolty/ament_ws/src/behaviour
 
   localization:
     <<: *fixuid

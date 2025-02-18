@@ -12,15 +12,15 @@ services:
     image: "${WORLD_MODELING_HD_MAP_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch hd_map hd_map.launch.py"
     
-  behaviour_tree:
+  behaviour:
     build:
       context: ..
-      dockerfile: docker/world_modeling/behaviour_tree/behaviour_tree.Dockerfile
+      dockerfile: docker/world_modeling/behaviour/behaviour.Dockerfile
       cache_from:
-        - "${WORLD_MODELING_BEHAVIOUR_TREE_IMAGE}:build_${TAG}"
-        - "${WORLD_MODELING_BEHAVIOUR_TREE_IMAGE}:build_main"
+        - "${WORLD_MODELING_BEHAVIOUR_IMAGE}:build_${TAG}"
+        - "${WORLD_MODELING_BEHAVIOUR_IMAGE}:build_main"
       target: deploy
-    image: "${WORLD_MODELING_BEHAVIOUR_TREE_IMAGE}:${TAG}"
+    image: "${WORLD_MODELING_BEHAVIOUR_IMAGE}:${TAG}"
     command: 
 
   localization:

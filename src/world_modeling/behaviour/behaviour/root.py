@@ -1,12 +1,12 @@
 import py_trees
-from condition_nodes import AtGoalLocation, LastNodeInRoute
-from question_nodes import EnsureCarAtNextNode, EnsureCarAtGoal
-from action_nodes import MakeCarGoToNextNodeInRouteList
-from node import Node
+from behaviour.condition_nodes import AtGoalLocation, LastNodeInRoute
+from behaviour.question_nodes import EnsureCarAtNextNode, EnsureCarAtGoal
+from behaviour.action_nodes import MakeCarGoToNextNodeInRouteList
+from behaviour.node import Node
 
 class Root(py_trees.composites.Selector):
     def __init__(self):
-        super(Root, self).__init__(name="Root", memory=True)
+        super().__init__(name="Root", memory=True)
         self.logger.debug("%s.__init__()" % (self.__class__.__name__))
         
         self.blackboard = py_trees.blackboard.Client(name="Global")
@@ -54,17 +54,4 @@ class Root(py_trees.composites.Selector):
         Executes the sequence of actions by ticking the behavior tree.
         """
         self.logger.debug("Root is updating.")
-        return super(Root, self).tick()
-
-# In the main execution file
-if __name__ == "__main__":
-    root = Root()
-    setup_status = root.setup()   
-    if setup_status == py_trees.common.Status.SUCCESS:
-        print("Setup completed successfully.")
-    else:
-        print("Setup failed.")        
-    py_trees.logging.level = py_trees.logging.Level.DEBUG
-    py_trees.blackboard.Blackboard.enable_activity_stream(maximum_size=100)  
-    py_trees.display.render_dot_tree(root)  
-    py_trees.trees.BehaviourTree(root).tick_tock(5000)  
+        return super().tick()
