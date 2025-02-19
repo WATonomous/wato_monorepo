@@ -48,10 +48,3 @@ class Root(py_trees.composites.Selector):
         py_trees.blackboard.Blackboard.enable_activity_stream(maximum_size=100)
         print("Blackboard setup complete")
         return py_trees.common.Status.SUCCESS
-
-    def update(self):
-        """
-        Executes the sequence of actions by ticking the behavior tree.
-        """
-        self.logger.debug("Root is updating.")
-        return super().tick()
