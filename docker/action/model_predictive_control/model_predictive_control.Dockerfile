@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/action/local_planning local_planning
+# COPY src/action/local_planning local_planning
 # COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/simulation sim_msgs
 COPY src/action/model_predictive_control model_predictive_control
@@ -56,8 +56,7 @@ RUN rm requirements.txt
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    colcon build \
-    --cmake-args -DCMAKE_BUILD_TYPE=Release
+    colcon build --symlink-install
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
