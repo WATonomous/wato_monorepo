@@ -7,7 +7,7 @@ package_name = 'behaviour'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=['behaviour', 'behaviour.behaviour_tree'],
+    packages=['behaviour'],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
