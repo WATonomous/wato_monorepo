@@ -19,7 +19,7 @@ class DepthAnything(Node):
         self.declare_parameter("camera_topic", "/camera/right/image_color")
         self.declare_parameter("publish_depth_img_topic", "/camera/right/depth_img")
         self.declare_parameter("publish_depth_pcl_topic", "/camera/right/depth_plc")
-        self.declare_parameter("model_path", "/perception_models/depth_anything_v2.pth") #FIX THIS (UPDATE PATH CHECK REST AS WELL)
+        self.declare_parameter("model_path", "/home/bolty/ament_ws/src/depth_anything_v2_large.pth")
 
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_depth_img_topic = self.get_parameter("publish_depth_img_topic").value
