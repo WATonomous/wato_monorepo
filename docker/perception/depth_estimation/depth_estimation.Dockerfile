@@ -47,6 +47,7 @@ FROM dependencies as build
 
 # Install dependencies from requirements.txt
 WORKDIR ${AMENT_WS}/src/depth_estimation
+COPY src/perception/depth_estimation/requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
 # Install dependencies from DepthAnythingV2

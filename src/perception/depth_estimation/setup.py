@@ -16,7 +16,12 @@ setup(
         (os.path.join('share', package_name, 'launch', 'include'), glob('launch/include/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'torch',
+        'open3d',
+        'opencv-python'
+    ],
     zip_safe=True,
     maintainer='Parasmai',
     maintainer_email='pconjeevaram@watonomous.ca',

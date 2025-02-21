@@ -108,4 +108,4 @@ services:
         - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch depth_estimation eve.launch.py"
+    command: /bin/bash -c "ros2 launch depth_estimation depth_estimation.launch.py"
