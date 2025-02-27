@@ -21,5 +21,6 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <optional>
 
+#include "projection_utils.hpp"
 
 #endif

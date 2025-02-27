@@ -1,7 +1,6 @@
 #include "lidar_overlay.hpp"
 
 
-
 class LidarImageOverlay : public rclcpp::Node {
 public:
     LidarImageOverlay() : Node("lidar_image_overlay") {
@@ -39,15 +38,14 @@ private:
 
     //void detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
 
-
     // PROJECTION ------------------------------------------------------------------------------------------------------
 
     std::optional<cv::Point2d> projectLidarToCamera(
         const geometry_msgs::msg::TransformStamped& transform,
         const std::array<double, 12>& p,
         const pcl::PointXYZ& pt,
-        int image_width,
-        int image_height);
+        int image_width = 1600,
+        int image_height = 900);
 
     // SUBSCRIBERS -----------------------------------------------------------------------------------------------------
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
@@ -99,12 +97,16 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
         return;
     }
 
+    // Remove the ground plane
+    ProjectionUtils::removeGroundPlane(point_cloud);
+
     // Project LiDAR points onto the image
     cv::Mat image = image_data_->image.clone();
     for (const auto& point : *point_cloud) {
         auto projected_point = projectLidarToCamera(transform, projection_matrix_, point, image.cols, image.rows);
         if (projected_point) {
-            cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1); // Draw a green circle
+            // add logic to color points based on distance
+            cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1); 
         }
     }
 

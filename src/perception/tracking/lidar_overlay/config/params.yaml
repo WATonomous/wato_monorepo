@@ -1,10 +1,8 @@
-lidar_overlay_node:
-  ros_parameters:
+ros__parameters:
+  # subscribers
+  camera_info_topic: /CAM_FRONT/camera_info
+  lidar_topic: /LIDAR_TOP
+  image_topic: /annotated_img
 
-    # subscribers
-    camera_info_topic: /CAM_FRONT/camera_info
-    lidar_topic: /LIDAR_TOP
-    image_topic: /annotated_img
-
-    # publishers
-    overlay_topic: /lidar_image_overlay
+  # publishers
+  overlay_topic: /lidar_image_overlay
