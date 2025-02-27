@@ -232,8 +232,8 @@ class CameraDetectionNode(Node):
     def image_callback(self, msg):
         self.get_logger().debug("Received image")
         if self.orig_image_width is None:
-            self.orig_image_width = msg.width
-            self.orig_image_height = msg.height
+            self.orig_image_width = 1600
+            self.orig_image_height = 900
 
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
