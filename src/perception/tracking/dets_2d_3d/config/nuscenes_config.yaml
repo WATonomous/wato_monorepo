@@ -7,6 +7,8 @@ dets_2d_3d_node:
     publish_detections_topic: /detections_3d
     publish_markers_topic: /markers_3d
     publish_clusters_topic: /clustered_pc
+
+    publish_clusters_topic: /lidar_points_in_bbox
     
     camera_frame: CAM_FRONT
     lidar_frame: LIDAR_TOP
