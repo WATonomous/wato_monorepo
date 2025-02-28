@@ -53,6 +53,7 @@ RUN pip3 install -r requirements.txt
 # Install dependencies from DepthAnythingV2
 WORKDIR ${AMENT_WS}/src/Depth-Anything-V2
 RUN pip3 install -r requirements.txt
+ENV PYTHONPATH="${PYTHONPATH}:/home/bolty/ament_ws/src/Depth-Anything-V2"
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
