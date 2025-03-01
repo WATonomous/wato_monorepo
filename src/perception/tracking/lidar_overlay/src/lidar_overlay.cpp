@@ -15,7 +15,7 @@ LidarImageOverlay::LidarImageOverlay() : Node("lidar_image_overlay") {
     // PUBLISHERS --------------------------------------------------------------------------------------------------
     image_pub_ = create_publisher<sensor_msgs::msg::Image>("/lidar_overlayed_image", 10);
 
- //   filtered_lidar_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("/filtered_lidar", 10);
+    filtered_lidar_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("/filtered_lidar", 10);
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -43,9 +43,11 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
     pcl::fromROSMsg(latest_lidar_msg_, *point_cloud);
 
     // Remove the ground plane
+    // another idea is to manually remove the points below a certain z threshold (might actually work better)
     ProjectionUtils::removeGroundPlane(point_cloud);
-
+    ProjectionUtils::removeGroundPlane(point_cloud);
     filtered_point_cloud_ = point_cloud;
+    
 }
 
 void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
@@ -117,6 +119,11 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
         }
       }
     }
+    // Publish the filtered lidar data
+    auto filtered_lidar_msg = sensor_msgs::msg::PointCloud2();
+    pcl::toROSMsg(*filtered_point_cloud_, filtered_lidar_msg);
+    filtered_lidar_msg.header = latest_lidar_msg_.header;
+    filtered_lidar_pub_->publish(filtered_lidar_msg);
 
     // Publish the overlayed image
     auto output_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
