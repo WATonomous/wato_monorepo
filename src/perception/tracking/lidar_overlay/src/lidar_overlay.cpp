@@ -75,37 +75,41 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
     // define where the bounding box is using the 2d detections
     for (const auto& detection : msg->detections) {
-      cv::Rect bbox(detection.bbox.center.position.x - detection.bbox.size_x / 2,
-                    detection.bbox.center.position.y - detection.bbox.size_y / 2,
-                    detection.bbox.size_x,
-                    detection.bbox.size_y);
+        cv::Rect bbox(detection.bbox.center.position.x - detection.bbox.size_x / 2,
+                        detection.bbox.center.position.y - detection.bbox.size_y / 2,
+                        detection.bbox.size_x,
+                        detection.bbox.size_y);
 
-      // Find closest LiDAR point within bounding box
-      pcl::PointXYZ closest_point;
-      double min_distance = std::numeric_limits<double>::max();
-      bool point_found = false;
+        // Find closest LiDAR point within bounding box
+        pcl::PointXYZ closest_point;
+        double min_distance = std::numeric_limits<double>::max();
+        bool point_found = false;
 
-      for (const auto& point : *filtered_point_cloud_) {
-        auto projected_point = ProjectionUtils::projectLidarToCamera(tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero), projection_matrix_, point, image.cols, image.rows);
-      
-        // draw the filtered lidar points
-        if (projected_point) {
-            cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1); 
-        }
+        for (const auto& point : *filtered_point_cloud_) {
+            auto projected_point = ProjectionUtils::projectLidarToCamera(tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero), projection_matrix_, point, image.cols, image.rows);
         
-        // draw and find distance of each object ---------------------------------------------------
+            // draw the filtered lidar points
+            if (projected_point) {
+                cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1); 
+            }
+            
+            // draw and find distance of each object ---------------------------------------------------
 
-        // check if the point is within the bounding box
-        if (projected_point && bbox.contains(*projected_point)) {
-          double distance = std::sqrt(std::pow(point.x, 2) + std::pow(point.y, 2) + std::pow(point.z, 2));
-          if (distance < min_distance) {
-            min_distance = distance;
-            auto closest_point = point;
-            point_found = true;
-          }
-        }
+            // check if the point is within the bounding box
+            if (projected_point && bbox.contains(*projected_point)) {
+            double distance = std::sqrt(std::pow(point.x, 2) + std::pow(point.y, 2) + std::pow(point.z, 2));
+            // draw the points within the bounding boxes
+            cv::circle(image, *projected_point, 5, cv::Scalar(0, 0, 255), -1);
+            // finds the point closest
+            if (distance < min_distance) {
+                min_distance = distance;
+                closest_point = point;
+                point_found = true;
+            }
+            }
       }
 
+/*       // draw the distance
       if (point_found){
         auto projected_point = ProjectionUtils::projectLidarToCamera(tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero), projection_matrix_, closest_point, image.cols, image.rows);
         if (projected_point){
@@ -123,7 +127,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
              // Draw distance text
              cv::putText(image, distance_str, text_position, cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
         }
-      }
+      } */
     }
     
     // Publish the filtered lidar data
