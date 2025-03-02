@@ -43,7 +43,7 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
     pcl::fromROSMsg(latest_lidar_msg_, *point_cloud);
 
     // Remove the ground plane
-    // another idea is to manually remove the points below a certain z threshold (might actually work better)
+
     ProjectionUtils::removeGroundPlane(point_cloud);
     ProjectionUtils::removeGroundPlane(point_cloud);
     filtered_point_cloud_ = point_cloud;
@@ -73,6 +73,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     // make a copy of the image
     cv::Mat image = image_data_->image.clone();
 
+    // define where the bounding box is using the 2d detections
     for (const auto& detection : msg->detections) {
       cv::Rect bbox(detection.bbox.center.position.x - detection.bbox.size_x / 2,
                     detection.bbox.center.position.y - detection.bbox.size_y / 2,
@@ -86,19 +87,24 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
       for (const auto& point : *filtered_point_cloud_) {
         auto projected_point = ProjectionUtils::projectLidarToCamera(tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero), projection_matrix_, point, image.cols, image.rows);
+      
+        // draw the filtered lidar points
         if (projected_point) {
             cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1); 
         }
+        
+        // draw and find distance of each object ---------------------------------------------------
+
+        // check if the point is within the bounding box
         if (projected_point && bbox.contains(*projected_point)) {
           double distance = std::sqrt(std::pow(point.x, 2) + std::pow(point.y, 2) + std::pow(point.z, 2));
           if (distance < min_distance) {
             min_distance = distance;
-            closest_point = point;
+            auto closest_point = point;
             point_found = true;
           }
         }
       }
-
 
       if (point_found){
         auto projected_point = ProjectionUtils::projectLidarToCamera(tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero), projection_matrix_, closest_point, image.cols, image.rows);
@@ -119,14 +125,17 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
         }
       }
     }
+    
     // Publish the filtered lidar data
-    auto filtered_lidar_msg = sensor_msgs::msg::PointCloud2();
+    sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
     pcl::toROSMsg(*filtered_point_cloud_, filtered_lidar_msg);
     filtered_lidar_msg.header = latest_lidar_msg_.header;
     filtered_lidar_pub_->publish(filtered_lidar_msg);
 
     // Publish the overlayed image
     auto output_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
+    output_msg->header = msg->header;
+    output_msg->encoding = "bgr8";
     image_pub_->publish(*output_msg);
 }
 
