@@ -19,7 +19,7 @@ void ProjectionUtils::removeGroundPlane(PointCloud::Ptr& cloud) {
     pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr model_p(new pcl::SampleConsensusModelPlane<pcl::PointXYZ>(cloud));
     pcl::RandomSampleConsensus<pcl::PointXYZ> ransac(model_p);
 
-    ransac.setDistanceThreshold(0.5);
+    ransac.setDistanceThreshold(0.3);
     ransac.setMaxIterations(2000);
     ransac.computeModel();
     ransac.getInliers(inliers);
