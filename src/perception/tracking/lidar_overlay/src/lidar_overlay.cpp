@@ -49,9 +49,8 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
     filtered_point_cloud_ = point_cloud;
     
 }
-
 void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
-    // check if data is recieved 
+    // Check if data is received
     if (!image_data_) {
         RCLCPP_WARN(this->get_logger(), "Have not received image data yet");
         return;
@@ -61,16 +60,43 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
         return;
     }
     if (!tf_buffer_->canTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero)) {
-      RCLCPP_WARN(this->get_logger(), "Transform not available");
-      return;
+        RCLCPP_WARN(this->get_logger(), "Transform not available");
+        return;
     }
     if (!filtered_point_cloud_) {
-      RCLCPP_WARN(this->get_logger(), "Lidar data not available");
-      return;
+        RCLCPP_WARN(this->get_logger(), "Lidar data not available");
+        return;
     }
+
+    // CLUSTERING -----------------------------------------------------------------------------------------------
+
+    // Step 1: Remove outliers from the LiDAR point cloud
+    int meanK = 50; // Number of neighbors to analyze for each point
+    double stddevMulThresh = 1.0; // Standard deviation multiplier threshold
+
+   ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh);
+
+    // Step 3: Cluster the point cloud using DBSCAN
+    double clusterTolerance = 0.5; // Distance tolerance for clustering
+    int minClusterSize = 50; // Minimum number of points in a cluster
+    int maxClusterSize = 1500; // Maximum number of points in a cluster
+
+    std::vector<pcl::PointIndices> cluster_indices;
+    ProjectionUtils::dbscanCluster(filtered_point_cloud_, clusterTolerance, minClusterSize, maxClusterSize, cluster_indices);
+
+    // Step 4: Assign colors to the clusters
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, colored_clustered_cloud);
+
+    // Convert the filtered and clustered point cloud to a ROS message
+    sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
+    pcl::toROSMsg(*colored_clustered_cloud, filtered_lidar_msg);
+    filtered_lidar_msg.header = latest_lidar_msg_.header;
+    filtered_lidar_pub_->publish(filtered_lidar_msg);
+
     // -----------------------------------------------------------------------------------------------
 
-    // make a copy of the image
+    // Make a copy of the image
     cv::Mat image = image_data_->image.clone();
 
     // define where the bounding box is using the 2d detections
@@ -79,64 +105,24 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
                         detection.bbox.center.position.y - detection.bbox.size_y / 2,
                         detection.bbox.size_x,
                         detection.bbox.size_y);
-
         // Find closest LiDAR point within bounding box
         pcl::PointXYZ closest_point;
-        double min_distance = std::numeric_limits<double>::max();
-        bool point_found = false;
-
+        //double min_distance = std::numeric_limits<double>::max();
         for (const auto& point : *filtered_point_cloud_) {
             auto projected_point = ProjectionUtils::projectLidarToCamera(tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero), projection_matrix_, point, image.cols, image.rows);
-        
             // draw the filtered lidar points
             if (projected_point) {
-                cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1); 
+                cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1);
             }
-            
-            // draw and find distance of each object ---------------------------------------------------
-
-            // check if the point is within the bounding box
+/*             // check if the point is within the bounding box and draw the point
             if (projected_point && bbox.contains(*projected_point)) {
-            double distance = std::sqrt(std::pow(point.x, 2) + std::pow(point.y, 2) + std::pow(point.z, 2));
-            // draw the points within the bounding boxes
+            //double distance = std::sqrt(std::pow(point.x, 2) + std::pow(point.y, 2) + std::pow(point.z, 2));
             cv::circle(image, *projected_point, 5, cv::Scalar(0, 0, 255), -1);
-            // finds the point closest
-            if (distance < min_distance) {
-                min_distance = distance;
-                closest_point = point;
-                point_found = true;
-            }
-            }
-      }
-
-/*       // draw the distance
-      if (point_found){
-        auto projected_point = ProjectionUtils::projectLidarToCamera(tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero), projection_matrix_, closest_point, image.cols, image.rows);
-        if (projected_point){
-            
-            cv::circle(image, *projected_point, 5, cv::Scalar(0, 0, 255), -1);
-            
-             // Calculate bounding box center for text placement
-             cv::Point text_position(bbox.x + bbox.width / 2, bbox.y + bbox.height / 2);
-
-             // Format distance as string
-             std::stringstream ss;
-             ss << std::fixed << std::setprecision(2) << min_distance << "m";
-             std::string distance_str = ss.str();
- 
-             // Draw distance text
-             cv::putText(image, distance_str, text_position, cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
+            } */
         }
-      } */
     }
-    
-    // Publish the filtered lidar data
-    sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
-    pcl::toROSMsg(*filtered_point_cloud_, filtered_lidar_msg);
-    filtered_lidar_msg.header = latest_lidar_msg_.header;
-    filtered_lidar_pub_->publish(filtered_lidar_msg);
 
-    // Publish the overlayed image
+    // Publish the overlaid image
     auto output_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
     output_msg->header = msg->header;
     output_msg->encoding = "bgr8";
