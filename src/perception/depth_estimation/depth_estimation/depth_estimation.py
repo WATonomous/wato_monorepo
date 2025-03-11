@@ -22,12 +22,14 @@ class DepthAnything(Node):
         self.declare_parameter("camera_topic", "/CAM_FRONT/image_rect_compressed")
         self.declare_parameter("publish_depth_img_topic", "/camera/right/depth_img")
         self.declare_parameter("publish_depth_pcl_topic", "/camera/right/depth_plc")
-        self.declare_parameter("model_path", "/home/bolty/ament_ws/src/depth_anything_v2_large.pth")
+        self.declare_parameter("small_model_path", "/perception_models/depth_anything_v2_small.pth")
+        self.declare_parameter("large_model_path", "/perception_models/depth_anything_v2_large.pth")
 
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_depth_img_topic = self.get_parameter("publish_depth_img_topic").value
         self.publish_depth_pcl_topic = self.get_parameter("publish_depth_pcl_topic").value
-        self.model = self.get_parameter("model_path").value
+        self.small_model = self.get_parameter("small_model_path").value
+        self.large_model = self.get_parameter("large_model_path").value
 
         self.encoder_choices = ['vits', 'vitb', 'vitl', 'vitg']
         self.encoder = self.encoder_choices[2]
@@ -58,7 +60,8 @@ class DepthAnything(Node):
 
         # Initialize the DepthAnythingV2 model with the specified configuration
         self.depth_anything = DepthAnythingV2(**self.model_configs[self.encoder])
-        self.depth_anything.load_state_dict(torch.load(self.model, map_location='cpu'))
+        # Default to using the small model
+        self.depth_anything.load_state_dict(torch.load(self.small_model, map_location='cpu'))
         self.depth_anything = self.depth_anything.to(self.DEVICE).eval()
 
         self.cv_bridge = CvBridge()

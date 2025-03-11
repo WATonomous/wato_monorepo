@@ -108,4 +108,16 @@ services:
         - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
     command: /bin/bash -c "ros2 launch depth_estimation depth_estimation.launch.py"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    volumes:
+      - /mnt/wato-drive2/perception_models/depth_anything_v2_large.pth:/perception_models/depth_anything_v2_large.pth
+      - /mnt/wato-drive2/perception_models/depth_anything_v2_small.pth:/perception_models/depth_anything_v2_small.pth

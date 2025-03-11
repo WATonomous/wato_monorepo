@@ -10,9 +10,6 @@ RUN git clone --depth 1 --branch main https://github.com/DepthAnything/Depth-Any
     cd Depth-Anything-V2 && \
     git checkout e5a2732d3ea2cddc081d7bfd708fc0bf09f812f1
 
-# Install DepthAnythingV2 Model (Large)
-RUN wget -O depth_anything_v2_large.pth https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth?download=true
-
 # Copy in source code 
 COPY src/perception/depth_estimation depth_estimation
 
