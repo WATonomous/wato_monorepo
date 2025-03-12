@@ -14,6 +14,7 @@ from rclpy.node import Node
 
 from depth_anything_v2.dpt import DepthAnythingV2
 
+
 class DepthAnything(Node):
 
     def __init__(self):
@@ -167,7 +168,7 @@ class DepthAnything(Node):
         normalized = cv2.normalize(depth_img_np, None, 0, 255, cv2.NORM_MINMAX)
         depth_uint8 = normalized.astype(np.uint8)
         depth_color = cv2.applyColorMap(depth_uint8, cv2.COLORMAP_JET)
-        
+
         img_msg = self.cv_bridge.cv2_to_imgmsg(depth_color, "bgr8")
         img_msg.header.stamp = msg.header.stamp
         img_msg.header.frame_id = msg.header.frame_id
