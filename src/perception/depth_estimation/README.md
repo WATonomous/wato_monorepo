@@ -1,7 +1,7 @@
 Requires Python 3.8
 
 ```
-colcon build --packages-select common_msgs camera_object_detection
+colcon build --packages-select depth_estimation
 . install/setup.bash
-ros2 run camera_object_detection camera_object_detection_node
+ros2 launch depth_estimation depth_estimation.launch.py
 ```
