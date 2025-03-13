@@ -70,6 +70,7 @@ class MPCCore:
         self.v0 = 0
 
         
+    # TODO: Adapt to local planning trajectories
     def convert_waypoints(self):
         """
         Convert raw waypoints (alternating x, y in a flat list) to CasADi-compatible waypoints.
@@ -90,9 +91,11 @@ class MPCCore:
             waypoint = self.generate_waypoint(x, y)
             self.waypoints.append(waypoint)
 
+
     def generate_waypoint(self, x, y):  # Convert to CasADi format and add to the waypoints list
         return ca.vertcat(x, y)
 
+    # TODO: Add lane constraints, obstacle avoidance using ellipses (future)
     def setup_mpc(self):
         """
         Setup the MPC problem with CasADi

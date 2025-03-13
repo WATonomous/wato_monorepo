@@ -24,7 +24,6 @@ from model_predictive_control.helper import euler_from_quaternion
 from model_predictive_control.mpc_core import MPCCore
 
 # For extracting theta from w in quaternion
-# from tf_transformations import euler_from_quaternion
 
 
 class MPCNode(Node):
@@ -91,7 +90,7 @@ class MPCNode(Node):
     def waypoints_callback(self, msg):
         self.get_logger().info(f"Received {len(msg.poses)} waypoints")
         
-        
+        print(msg.poses)
         for pose_stamped in msg.poses:
             x = pose_stamped.pose.position.x
             y = pose_stamped.pose.position.y
@@ -113,7 +112,7 @@ class MPCNode(Node):
     def publish_goal(self, x, y):
         goal_msg = PoseStamped()    
         
-        goal_msg.header.frame_id = "map"
+        goal_msg.header.frame_id = "map "
         goal_msg.header.stamp = self.get_clock().now().to_msg()
             
         goal_msg.pose.position.x = x
