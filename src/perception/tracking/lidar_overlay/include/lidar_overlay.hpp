@@ -6,6 +6,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include <pcl_conversions/pcl_conversions.h>
@@ -38,12 +39,8 @@ class LidarImageOverlay : public rclcpp::Node {
         void detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
 
         // PROJECTION ------------------------------------------------------------------------------------------------------
-        std::optional<cv::Point2d> projectLidarToCamera(
-            const geometry_msgs::msg::TransformStamped& transform,
-            const std::array<double, 12>& p,
-            const pcl::PointXYZ& pt,
-            int image_width = 1600,
-            int image_height = 900);
+        
+
 
         // SUBSCRIBERS -----------------------------------------------------------------------------------------------------
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
@@ -57,6 +54,7 @@ class LidarImageOverlay : public rclcpp::Node {
         // PUBLISHERS ------------------------------------------------------------------------------------------------------
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bounding_box_pub_;
 };
 
 #endif 
