@@ -6,3 +6,31 @@ ros__parameters:
 
   # publishers
   overlay_topic: /lidar_image_overlay
+
+
+  clustering_params:
+    car:
+      cluster_min_size: 10 
+      cluster_max_size: 1000
+      cluster_tolerance: 0.2
+    bus:
+      cluster_min_size: 10 
+      cluster_max_size: 1000
+      cluster_tolerance: 0.2
+    truck:
+      cluster_min_size: 10 
+      cluster_max_size: 1000
+      cluster_tolerance: 0.2
+    pedestrian:
+      cluster_min_size: 10 
+      cluster_max_size: 1000
+      cluster_tolerance: 0.2
+    traffic_light:
+      cluster_min_size: 10 
+      cluster_max_size: 1000
+      cluster_tolerance: 0.2
+    traffic_sign:
+      cluster_min_size: 10 
+      cluster_max_size: 1000
+      cluster_tolerance: 0.2
+    
