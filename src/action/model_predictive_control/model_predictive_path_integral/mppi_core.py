@@ -22,6 +22,7 @@ class mppi_core:
         self.v0 = 0
         self.std_dev_accel = 0
         self.std_dev_theta = 0
+        self.waypoints = []
         pass
     
     def generate_control_samples(self): # random control sequences
@@ -60,19 +61,31 @@ class mppi_core:
         V = np.zeros(self.numTimeSteps)
         T = np.zeros(self.numTimeSteps)
         cost = 0
-        for i in range(0,self.numSamples):
+
+        #must find closest way point and use that as function for x y z velocity etc
+
+
+        for i in range(0,self.numSamples): #for every sample
             self.simulate_trajectory(self.controlPaths[0,i,:],self.controlPaths[1,i,:], X,Y,V,T)
-            for i in range(1,self.numTimeSteps):
+
+            for i in range(1,self.numTimeSteps): #for every time step
+                X_ref,Y_ref,Theta_ref = self.find_closest_waypoint(X[i],Y[i],self.Waypoints)
             #state error
-                cost += (X[i] - waypointsX)**2
-                cost += (Y[i] - waypointsY)**2
+                cost += (X[i] - X_ref)**2
+                cost += (Y[i] - Y_ref)**2
+
             #Control Cost
                 cost += (self.controlPaths[0,i,:] - self.controlPaths[0,i-1,:])**2 #for acceleration
                 cost += (self.controlPaths[1,i,:] - self.controlPaths[1,i-1,:])**2 #for heading
             #terminal cost
-
+            
             #obstacle cost
             
+    def find_closest_waypoint(self,x,y,waypoints):
+        distance = np.linalg.norm(waypoints[:,:2] - np.array([x,y]),axis =1)
+        closest_point = np.argmin(distance)
+        return closest_point
+
 
 
     def integrate_solution(self):
