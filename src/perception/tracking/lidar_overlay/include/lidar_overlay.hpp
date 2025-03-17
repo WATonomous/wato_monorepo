@@ -54,6 +54,7 @@ class LidarImageOverlay : public rclcpp::Node {
         // PUBLISHERS ------------------------------------------------------------------------------------------------------
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bounding_box_pub_;
 };
 

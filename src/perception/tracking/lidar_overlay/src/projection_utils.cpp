@@ -70,8 +70,8 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
 
     // Normalize the projected coordinates
     cv::Point2d proj_pt;
-    proj_pt.x = u / w;
-    proj_pt.y = v / w;
+    proj_pt.x = (u / w) * image_width_;
+    proj_pt.y = (v / w) * image_height_;
 
     // Check if the projected point is within the image bounds
     if (proj_pt.x >= 0 && proj_pt.x < image_width_ && proj_pt.y >= 0 && proj_pt.y < image_height_) {
@@ -243,6 +243,7 @@ bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ
 }
 
 // ASSOCIATING LIDAR TO 2D OBJECT DETECTION FUNCTIONS ------------------------------------------------------------------------------------------------
+
 void ProjectionUtils::filterClusterByBoundingBox(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
     const pcl::PointIndices& cluster_indices,
@@ -251,22 +252,19 @@ void ProjectionUtils::filterClusterByBoundingBox(
     const std::array<double, 12>& projection_matrix,
     pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud) {
 
-    // Step 1: Compute the centroid of the cluster
-    pcl::PointXYZ centroid;
-    computeClusterCentroid(input_cloud, cluster_indices, centroid);
+    // Step 1: Compute the centroid using Eigen::Vector4f
+    Eigen::Vector4f centroid;
+    pcl::compute3DCentroid(*input_cloud, cluster_indices, centroid);
 
-    RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Cluster centroid: x=%f, y=%f, z=%f", centroid.x, centroid.y, centroid.z);
+    // Convert centroid to pcl::PointXYZ for projection
+    pcl::PointXYZ centroid_xyz(centroid.x(), centroid.y(), centroid.z());
 
     // Step 2: Project the centroid onto the 2D image plane
-    auto projected_centroid = projectLidarToCamera3D(transform, projection_matrix, centroid);
+    auto projected_centroid = projectLidarToCamera(transform, projection_matrix, centroid_xyz);
 
-    // If the centroid cannot be projected (e.g., it's behind the camera), return early
-    if (!projected_centroid) {
-        RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Centroid projection failed.");
-        return;
+    if (std::isnan(projected_centroid->x) || std::isnan(projected_centroid->y)) {
+        return; // Ignore this cluster if projection failed
     }
-
-    RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Projected centroid: x=%f, y=%f", projected_centroid->x, projected_centroid->y);
 
     // Step 3: Check if the projected centroid lies within any of the 2D bounding boxes
     for (const auto& detection : detections.detections) {
@@ -276,8 +274,6 @@ void ProjectionUtils::filterClusterByBoundingBox(
         double bbox_width = detection.bbox.size_x;
         double bbox_height = detection.bbox.size_y;
 
-        RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Bounding box: center=(%f, %f), width=%f, height=%f", bbox_x, bbox_y, bbox_width, bbox_height);
-
         // Define the bounding box rectangle
         cv::Rect2d bbox_rect(
             bbox_x - bbox_width / 2,  // x (top-left corner)
@@ -286,23 +282,14 @@ void ProjectionUtils::filterClusterByBoundingBox(
             bbox_height              // height
         );
 
-        RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Bounding box rect: top-left=(%f, %f), width=%f, height=%f", bbox_rect.x, bbox_rect.y, bbox_rect.width, bbox_rect.height);
-
         // Check if the projected centroid lies within the bounding box
         if (bbox_rect.contains(cv::Point2d(projected_centroid->x, projected_centroid->y))) {
             // Step 4: Copy all points in the cluster to the output cloud
-            RCLCPP_INFO(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Found matching bounding box");
             for (const auto& index : cluster_indices.indices) {
                 output_cloud->points.push_back(input_cloud->points[index]);
             }
-            RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Cluster points added to output cloud.");
             break; // Exit the loop once a matching bounding box is found
-        } else {
-            RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] Projected centroid not in this bounding box.");
         }
-    }
-    if(output_cloud->points.empty()){
-        RCLCPP_DEBUG(rclcpp::get_logger("ProjectionUtils"), "[DEBUG] No matching bounding box found for cluster.");
     }
 }
 

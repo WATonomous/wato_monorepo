@@ -6,7 +6,9 @@ ros__parameters:
 
   # publishers
   overlay_topic: /lidar_image_overlay
-
+  filtered_lidar_topic: /filtered_lidar
+  cluster_centroid_topic: /cluster_centroid
+  bbox_topic: /bbox
 
   clustering_params:
     car:
