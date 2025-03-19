@@ -11,7 +11,7 @@ def generate_launch_description():
     """Launch localization node."""
     localization_pkg_prefix = get_package_share_directory('localization')
     localization_param_file = os.path.join(
-        localization_pkg_prefix, 'config', 'config.yaml')
+        localization_pkg_prefix, 'config', 'params.yaml')
 
     localization_param = DeclareLaunchArgument(
         'localization_param_file',
