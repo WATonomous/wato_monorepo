@@ -1,19 +1,20 @@
-#ifndef ODOM_MOCK_DATA_HPP
-#define ODOM_MOCK_DATA_HPP
+#ifndef DUMMY_PUBLISHER_HPP
+#define DUMMY_PUBLISHER_HPP
 
-#include <chrono>
-#include <cstdlib>
-#include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <chrono>
+#include <memory>
+#include <cstdlib>
 
 using namespace std::chrono_literals;
 
-class OdomMockData : public rclcpp::Node {
- public:
-  OdomMockData();
+class DummyPublisher : public rclcpp::Node{
 
- private:
+public: 
+  DummyPublisher();
+
+private:
   void RandomLeftValues();
   void RandomRightValues();
   void RandomSteeringValues();
@@ -29,6 +30,12 @@ class OdomMockData : public rclcpp::Node {
   double left_wheel_encoder;
   double right_wheel_encoder;
   double steering_angle;
+
+  double min_speed_value_;
+  double max_speed_value_;
+  double min_turn_value_;
+  double max_turn_value_;
+
 };
 
 #endif
