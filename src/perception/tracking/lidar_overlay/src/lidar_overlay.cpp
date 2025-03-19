@@ -25,7 +25,8 @@ LidarImageOverlay::LidarImageOverlay() : Node("lidar_image_overlay") {
 }
 
 void LidarImageOverlay::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
-    std::copy(msg->p.begin(), msg->p.end(), projection_matrix_.begin());
+    camInfo_ = msg;
+    camera_info_sub_.reset();
 }
 
 void LidarImageOverlay::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
@@ -49,17 +50,17 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
 
     ProjectionUtils::removeGroundPlane(point_cloud);
     filtered_point_cloud_ = point_cloud;
-    
+
+    pcl::VoxelGrid<pcl::PointXYZ> voxel;
+    voxel.setInputCloud(point_cloud);
+    voxel.setLeafSize(0.1f, 0.1f, 0.1f); // adjust parameters, higher values means less detailed, but faster compute
+    voxel.filter(*filtered_point_cloud_);
 }
 
 void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
     // Check if data is received
     if (!image_data_) {
         RCLCPP_WARN(this->get_logger(), "Have not received image data yet");
-        return;
-    }
-    if (!projection_matrix_[0]) {
-        RCLCPP_WARN(this->get_logger(), "Have not received camera info yet");
         return;
     }
     if (!tf_buffer_->canTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero)) {
@@ -71,19 +72,25 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
         return;
     }
 
+    try {
+        transform = tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero);
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Transform lookup failed: %s", ex.what());
+        return;
+    }
+
     // CLUSTERING -----------------------------------------------------------------------------------------------
 
     // Remove outliers from the LiDAR point cloud
-    int meanK = 100; // Number of neighbors to analyze for each point
-    double stddevMulThresh = 2.0; // Standard deviation multiplier threshold
+/*     int meanK = 30; // Number of neighbors to analyze for each point
+    double stddevMulThresh = 1.5; // Standard deviation multiplier threshold
 
-    ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh);
+    ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
 
     // Cluster the point cloud using DBSCAN
     double clusterTolerance = 1.5; // Distance tolerance for clustering
     int minClusterSize = 100; // Minimum number of points in a cluster
     int maxClusterSize = 800; // Maximum number of points in a cluster
-
 
     // Merge clusters distance tolerance
 
@@ -92,26 +99,13 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     ProjectionUtils::dbscanCluster(filtered_point_cloud_, clusterTolerance, minClusterSize, maxClusterSize, cluster_indices);
 
     //size_t before_merge = cluster_indices.size();
-    ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, 3.0);
-
+    ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, 2.0);
 
     // Assign colors to the clusters
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, colored_clustered_cloud);
 
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr bbox_filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-    for (const auto& cluster : cluster_indices) {
-        ProjectionUtils::filterClusterByBoundingBox(
-            filtered_point_cloud_,
-            cluster,
-            *msg,
-            tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero),
-            projection_matrix_,
-            bbox_filtered_cloud
-        );
-    }
-
+    
     // Convert the filtered and clustered point cloud to a ROS message
     sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
     pcl::toROSMsg(*colored_clustered_cloud, filtered_lidar_msg);
@@ -121,31 +115,27 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     // -----------------------------------------------------------------------------------------------
 
     // Make a copy of the image
-    cv::Mat image = image_data_->image.clone();
+    cv::Mat image = image_data_->image.clone();  // Clone the image to avoid modifying the original
 
-    // draw the filtered lidar points on the image
     for (const auto& point : filtered_point_cloud_->points) {
-        // Project the LiDAR point to the camera frame
-        auto projected_point = ProjectionUtils::projectLidarToCamera(
-            tf_buffer_->lookupTransform("CAM_FRONT", "LIDAR_TOP", tf2::TimePointZero),
-            projection_matrix_,
-            point
-        );
-        // Check if the projected point is valid and within the image bounds
+        auto projected_point = ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, point);
         if (projected_point) {
-            // Draw the projected point on the image
-            cv::circle(image, *projected_point, 3, cv::Scalar(0, 255, 0), -1); // Green circle with radius 3
+            cv::circle(image, *projected_point, 2, cv::Scalar(0, 255, 0), -1);  // Draw a small green dot
         }
-    } 
+    }
+
 
     pcl::PointCloud<pcl::PointXYZ> centroid_cloud;
-
     for (const auto& cluster : cluster_indices) {
         // Step 1: Compute the centroid of the cluster
         pcl::PointXYZ centroid;
         ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, cluster, centroid);
         centroid_cloud.push_back(centroid);
-    
+
+        auto projected_centroid = ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, centroid);
+        if (projected_centroid) {
+            cv::circle(image, *projected_centroid, 6, cv::Scalar(0, 0, 255), -1);  
+        }
     }
 
     // Publish centroid cloud

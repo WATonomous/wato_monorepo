@@ -28,15 +28,19 @@ class LidarImageOverlay : public rclcpp::Node {
         cv_bridge::CvImagePtr image_data_;
         std::array<double, 12> projection_matrix_;
 
+        sensor_msgs::msg::CameraInfo::SharedPtr camInfo_;
+
         void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
         // LIDAR -----------------------------------------------------------------------------------------------------------
         void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
         sensor_msgs::msg::PointCloud2 latest_lidar_msg_;
         pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
+        std::vector<pcl::PointIndices> cluster_indices;
 
         // DETECTIONS ------------------------------------------------------------------------------------------------------
         void detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
+        geometry_msgs::msg::TransformStamped transform;
 
         // PROJECTION ------------------------------------------------------------------------------------------------------
         
@@ -54,6 +58,7 @@ class LidarImageOverlay : public rclcpp::Node {
         // PUBLISHERS ------------------------------------------------------------------------------------------------------
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr colored_cluster_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bounding_box_pub_;
 };
