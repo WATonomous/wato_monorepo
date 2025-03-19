@@ -70,8 +70,8 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
 
     // Normalize the projected coordinates
     cv::Point2d proj_pt;
-    proj_pt.x = (u / w) * image_width_;
-    proj_pt.y = (v / w) * image_height_;
+    proj_pt.x = (u / w);
+    proj_pt.y = (v / w);
 
     // Check if the projected point is within the image bounds
     if (proj_pt.x >= 0 && proj_pt.x < image_width_ && proj_pt.y >= 0 && proj_pt.y < image_height_) {
@@ -80,31 +80,6 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
 
     // Return nullopt if the point is outside the image bounds
     return std::nullopt;
-}
-
-std::optional<cv::Point3d> ProjectionUtils::projectLidarToCamera3D(
-    const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& p,
-    const pcl::PointXYZ& pt) {
-
-    geometry_msgs::msg::Point orig_pt;
-    orig_pt.x = pt.x;
-    orig_pt.y = pt.y;
-    orig_pt.z = pt.z;
-
-    geometry_msgs::msg::Point trans_pt;
-    tf2::doTransform(orig_pt, trans_pt, transform);
-
-    if (trans_pt.z < 1) {
-        return std::nullopt;
-    }
-
-    double u = p[0] * trans_pt.x + p[1] * trans_pt.y + p[2] * trans_pt.z + p[3];
-    double v = p[4] * trans_pt.x + p[5] * trans_pt.y + p[6] * trans_pt.z + p[7];
-    double w = p[8] * trans_pt.x + p[9] * trans_pt.y + p[10] * trans_pt.z + p[11];
-
-    cv::Point3d proj_pt(u / w, v / w, trans_pt.z); // Include depth
-    return proj_pt;
 }
 
 // CLUSTERING FUNCTIONS ------------------------------------------------------------------------------------------------
@@ -244,54 +219,49 @@ bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ
 
 // ASSOCIATING LIDAR TO 2D OBJECT DETECTION FUNCTIONS ------------------------------------------------------------------------------------------------
 
+bool ProjectionUtils::pointIn2DBoundingBox(
+    const pcl::PointXYZ& point, 
+    const vision_msgs::msg::Detection2DArray& detections,
+    const geometry_msgs::msg::TransformStamped& transform,
+    const std::array<double, 12>& projection_matrix) {
+
+    auto proj_pt = projectLidarToCamera(transform, projection_matrix, point);
+    if (!proj_pt.has_value()) {
+        return false;
+    }
+
+    // Check if the projected point lies within any of the bounding boxes
+    for (const auto& detection : detections.detections) {
+        const auto& bbox = detection.bbox;
+
+        // Bounding box coordinates
+        double x_min = bbox.center.position.x - bbox.size_x / 2;
+        double x_max = bbox.center.position.x + bbox.size_x / 2;
+        double y_min = bbox.center.position.y - bbox.size_y / 2;
+        double y_max = bbox.center.position.y + bbox.size_y / 2;
+
+        // Check if the projected point lies within the bounding box
+        if (proj_pt->x >= x_min && proj_pt->x <= x_max &&
+            proj_pt->y >= y_min && proj_pt->y <= y_max) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void ProjectionUtils::filterClusterByBoundingBox(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-    const pcl::PointIndices& cluster_indices,
+    const std::vector<pcl::PointIndices>& cluster_indices,
     const vision_msgs::msg::Detection2DArray& detections,
     const geometry_msgs::msg::TransformStamped& transform,
     const std::array<double, 12>& projection_matrix,
     pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud) {
 
-    // Step 1: Compute the centroid using Eigen::Vector4f
-    Eigen::Vector4f centroid;
-    pcl::compute3DCentroid(*input_cloud, cluster_indices, centroid);
-
-    // Convert centroid to pcl::PointXYZ for projection
-    pcl::PointXYZ centroid_xyz(centroid.x(), centroid.y(), centroid.z());
-
-    // Step 2: Project the centroid onto the 2D image plane
-    auto projected_centroid = projectLidarToCamera(transform, projection_matrix, centroid_xyz);
-
-    if (std::isnan(projected_centroid->x) || std::isnan(projected_centroid->y)) {
-        return; // Ignore this cluster if projection failed
-    }
-
-    // Step 3: Check if the projected centroid lies within any of the 2D bounding boxes
-    for (const auto& detection : detections.detections) {
-        // Get the bounding box coordinates
-        double bbox_x = detection.bbox.center.position.x;
-        double bbox_y = detection.bbox.center.position.y;
-        double bbox_width = detection.bbox.size_x;
-        double bbox_height = detection.bbox.size_y;
-
-        // Define the bounding box rectangle
-        cv::Rect2d bbox_rect(
-            bbox_x - bbox_width / 2,  // x (top-left corner)
-            bbox_y - bbox_height / 2, // y (top-left corner)
-            bbox_width,              // width
-            bbox_height              // height
-        );
-
-        // Check if the projected centroid lies within the bounding box
-        if (bbox_rect.contains(cv::Point2d(projected_centroid->x, projected_centroid->y))) {
-            // Step 4: Copy all points in the cluster to the output cloud
-            for (const auto& index : cluster_indices.indices) {
-                output_cloud->points.push_back(input_cloud->points[index]);
-            }
-            break; // Exit the loop once a matching bounding box is found
-        }
-    }
+    if (input_cloud->empty() || cluster_indices.empty()) return; // Handle empty input
+    output_cloud->clear(); 
+    
 }
+
 
 // BOUNDING BOX FUNCTIONS --------------------------------------------------------------------------------------------
 
@@ -299,43 +269,44 @@ void ProjectionUtils::computeBoundingBox(const pcl::PointCloud<pcl::PointXYZ>::P
     const pcl::PointIndices& cluster_indices,
     pcl::PointXYZ& min_pt,
     pcl::PointXYZ& max_pt) {
-        if (cloud->empty() || cluster_indices.indices.empty()) return; // Handle empty input
 
-        // Extract the cluster points
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cluster_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-        pcl::copyPointCloud(*cloud, cluster_indices, *cluster_cloud);
+    if (cloud->empty() || cluster_indices.indices.empty()) return; // Handle empty input
 
-        // Perform PCA on the cluster
-        pcl::PCA<pcl::PointXYZ> pca;
-        pca.setInputCloud(cluster_cloud);
-        Eigen::Matrix3f eigen_vectors = pca.getEigenVectors();
-        Eigen::Vector4f centroid = pca.getMean();
+    // Extract the cluster points
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cluster_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+    pcl::copyPointCloud(*cloud, cluster_indices, *cluster_cloud);
 
-        // Transform points into PCA-aligned space
-        Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
-        transform.block<3,3>(0,0) = eigen_vectors.transpose(); // Rotation
-        transform.block<3,1>(0,3) = -eigen_vectors.transpose() * centroid.head(3); // Translation
+    // Perform PCA on the cluster
+    pcl::PCA<pcl::PointXYZ> pca;
+    pca.setInputCloud(cluster_cloud);
+    Eigen::Matrix3f eigen_vectors = pca.getEigenVectors();
+    Eigen::Vector4f centroid = pca.getMean();
 
-        pcl::PointCloud<pcl::PointXYZ> transformed_cloud;
-        pcl::transformPointCloud(*cluster_cloud, transformed_cloud, transform);
+    // Transform points into PCA-aligned space
+    Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+    transform.block<3,3>(0,0) = eigen_vectors.transpose(); // Rotation
+    transform.block<3,1>(0,3) = -eigen_vectors.transpose() * centroid.head(3); // Translation
 
-        // Get min and max in PCA-aligned space
-        pcl::PointXYZ min_pca, max_pca;
-        pcl::getMinMax3D(transformed_cloud, min_pca, max_pca);
+    pcl::PointCloud<pcl::PointXYZ> transformed_cloud;
+    pcl::transformPointCloud(*cluster_cloud, transformed_cloud, transform);
 
-        // Transform back to original coordinate system
-        Eigen::Matrix4f inverse_transform = transform.inverse();
-        Eigen::Vector4f min_pt_transformed = inverse_transform * Eigen::Vector4f(min_pca.x, min_pca.y, min_pca.z, 1);
-        Eigen::Vector4f max_pt_transformed = inverse_transform * Eigen::Vector4f(max_pca.x, max_pca.y, max_pca.z, 1);
+    // Get min and max in PCA-aligned space
+    pcl::PointXYZ min_pca, max_pca;
+    pcl::getMinMax3D(transformed_cloud, min_pca, max_pca);
 
-        // Assign values
-        min_pt.x = min_pt_transformed.x();
-        min_pt.y = min_pt_transformed.y();
-        min_pt.z = min_pt_transformed.z();
+    // Transform back to original coordinate system
+    Eigen::Matrix4f inverse_transform = transform.inverse();
+    Eigen::Vector4f min_pt_transformed = inverse_transform * Eigen::Vector4f(min_pca.x, min_pca.y, min_pca.z, 1);
+    Eigen::Vector4f max_pt_transformed = inverse_transform * Eigen::Vector4f(max_pca.x, max_pca.y, max_pca.z, 1);
 
-        max_pt.x = max_pt_transformed.x();
-        max_pt.y = max_pt_transformed.y();
-        max_pt.z = max_pt_transformed.z();
+    // Assign values
+    min_pt.x = min_pt_transformed.x();
+    min_pt.y = min_pt_transformed.y();
+    min_pt.z = min_pt_transformed.z();
 
-    }
+    max_pt.x = max_pt_transformed.x();
+    max_pt.y = max_pt_transformed.y();
+    max_pt.z = max_pt_transformed.z();
+
+}
 

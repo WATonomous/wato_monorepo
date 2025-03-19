@@ -7,10 +7,12 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/common/pca.h>
+#include <pcl/filters/voxel_grid.h>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <opencv2/opencv.hpp>
 #include <array>
@@ -25,11 +27,6 @@ public:
     static void removeGroundPlane(PointCloud::Ptr& cloud);
 
     static std::optional<cv::Point2d> projectLidarToCamera(
-        const geometry_msgs::msg::TransformStamped& transform,
-        const std::array<double, 12>& p,
-        const pcl::PointXYZ& pt);
-    
-    static std::optional<cv::Point3d> projectLidarToCamera3D(
         const geometry_msgs::msg::TransformStamped& transform,
         const std::array<double, 12>& p,
         const pcl::PointXYZ& pt);
@@ -64,10 +61,15 @@ public:
         pcl::PointXYZ& centroid);
 
     // ROI FUNCTIONS ------------------------------------------------------------------------------------------------
+    static bool pointIn2DBoundingBox(
+        const pcl::PointXYZ& point,
+        const vision_msgs::msg::Detection2DArray& detections,
+        const geometry_msgs::msg::TransformStamped& transform,
+        const std::array<double, 12>& projection_matrix);
 
     static void filterClusterByBoundingBox(
         const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-        const pcl::PointIndices& cluster_indices,
+        const std::vector<pcl::PointIndices>& cluster_indices,
         const vision_msgs::msg::Detection2DArray& detections,
         const geometry_msgs::msg::TransformStamped& transform,
         const std::array<double, 12>& projection_matrix,
@@ -80,6 +82,7 @@ public:
         const pcl::PointIndices& cluster_indices,
         pcl::PointXYZ& min_pt,
         pcl::PointXYZ& max_pt);
+
     
 private:
     static const int image_width_ = 1600;

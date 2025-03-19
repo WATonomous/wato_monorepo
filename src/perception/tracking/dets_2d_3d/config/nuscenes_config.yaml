@@ -9,27 +9,32 @@ dets_2d_3d_node:
     publish_clusters_topic: /clustered_pc
 
     publish_clusters_topic: /lidar_points_in_bbox
-    
+
     camera_frame: CAM_FRONT
     lidar_frame: LIDAR_TOP
 
     clustering_params:
       default:
-        clustering_distances: [5., 30., 45., 60.]
-        clustering_thresholds: [0.5, 1.1, 1.6, 2.1, 2.6]
-        cluster_size_min: 5.
-        cluster_size_max: 100000.
-        cluster_merge_threshold: 1.5
+        clustering_distances: [5.0, 20.0, 40.0, 60.0] 
+        clustering_thresholds: [0.6, 1.2, 1.8, 2.4, 3.0] 
+        cluster_size_min: 50.0
+        cluster_size_max: 1000.0
+        cluster_merge_threshold: 3.0 
       person:
-        clustering_distances: [5., 30., 45., 60.]
-        clustering_thresholds: [3., 3.5, 4.5, 5.0, 5.6]
-        cluster_size_min: 2.
-        cluster_size_max: 100.
-        cluster_merge_threshold: 1.5
+        clustering_distances: [5.0, 20.0, 40.0, 60.0] 
+        clustering_thresholds: [0.4, 0.8, 1.2, 1.6, 2.0] 
+        cluster_size_min: 15.0
+        cluster_size_max: 200.0
+        cluster_merge_threshold: 1.2 
       traffic_light:
-        clustering_distances: [5., 30., 45., 60.]
-        clustering_thresholds: [3., 3.5, 4.5, 5.0, 5.6]
-        cluster_size_min: 2.
-        cluster_size_max: 100.
-        cluster_merge_threshold: 1.5
-      
+        clustering_distances: [5.0, 15.0, 30.0, 45.0] 
+        clustering_thresholds: [0.3, 0.6, 1.0, 1.4, 1.8] 
+        cluster_size_min: 5.0 
+        cluster_size_max: 80.0 
+        cluster_merge_threshold: 1.0 
+      car:
+        clustering_distances: [5.0, 25.0, 50.0, 75.0] 
+        clustering_thresholds: [0.5, 1.0, 1.5, 2.0, 2.5] 
+        cluster_size_min: 100.0 
+        cluster_size_max: 800.0 
+        cluster_merge_threshold: 1.8 
