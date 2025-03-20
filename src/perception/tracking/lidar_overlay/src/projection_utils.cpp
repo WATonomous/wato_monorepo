@@ -13,19 +13,20 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 
 #include <random>
 
-void ProjectionUtils::removeGroundPlane(PointCloud::Ptr& cloud) {
+void ProjectionUtils::removeGroundPlane(PointCloud::Ptr& cloud, float distanceThreshold, int maxIterations) {
     if (cloud->empty()) return;
 
     std::vector<int> inliers;
     pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr model_p(new pcl::SampleConsensusModelPlane<pcl::PointXYZ>(cloud));
     pcl::RandomSampleConsensus<pcl::PointXYZ> ransac(model_p);
 
-    ransac.setDistanceThreshold(0.3);
-    ransac.setMaxIterations(2000);
+    ransac.setDistanceThreshold(distanceThreshold);
+    ransac.setMaxIterations(maxIterations);
     ransac.computeModel();
     ransac.getInliers(inliers);
 
@@ -42,36 +43,42 @@ void ProjectionUtils::removeGroundPlane(PointCloud::Ptr& cloud) {
 
     cloud->swap(*cloud_filtered);
 }
-
 std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& p,
+    const std::array<double, 12>& p,  
     const pcl::PointXYZ& pt) {
 
     // Convert LiDAR point to geometry_msgs::Point
-    geometry_msgs::msg::Point orig_pt;
-    orig_pt.x = pt.x;
-    orig_pt.y = pt.y;
-    orig_pt.z = pt.z;
+    geometry_msgs::msg::PointStamped lidar_point;
+    lidar_point.point.x = pt.x;
+    lidar_point.point.y = pt.y;
+    lidar_point.point.z = pt.z;
 
-    // Transform LiDAR point to camera frame
-    geometry_msgs::msg::Point trans_pt;
-    tf2::doTransform(orig_pt, trans_pt, transform);
+    // Transform LiDAR point to camera frame using tf2::doTransform
+    geometry_msgs::msg::PointStamped camera_point;
+    tf2::doTransform(lidar_point, camera_point, transform);
 
     // Reject points behind the camera (z < 1)
-    if (trans_pt.z < 1) {
+    if (camera_point.point.z < 1) {
         return std::nullopt;
     }
 
-    // Project the point onto the image plane using the camera projection matrix
-    double u = p[0] * trans_pt.x + p[1] * trans_pt.y + p[2] * trans_pt.z + p[3];
-    double v = p[4] * trans_pt.x + p[5] * trans_pt.y + p[6] * trans_pt.z + p[7];
-    double w = p[8] * trans_pt.x + p[9] * trans_pt.y + p[10] * trans_pt.z + p[11];
+    // Convert the projection matrix (std::array) to Eigen::Matrix<double, 3, 4>
+    Eigen::Matrix<double, 3, 4> projection_matrix;
+    projection_matrix << p[0], p[1], p[2], p[3],
+                         p[4], p[5], p[6], p[7],
+                         p[8], p[9], p[10], p[11];
+
+    // Convert camera point to Eigen vector (homogeneous coordinates)
+    Eigen::Vector4d camera_point_eigen(camera_point.point.x, camera_point.point.y, camera_point.point.z, 1.0);
+
+    // Project the point onto the image plane using the projection matrix
+    Eigen::Vector3d projected_point = projection_matrix * camera_point_eigen;
 
     // Normalize the projected coordinates
     cv::Point2d proj_pt;
-    proj_pt.x = (u / w);
-    proj_pt.y = (v / w);
+    proj_pt.x = projected_point.x() / projected_point.z();
+    proj_pt.y = projected_point.y() / projected_point.z();
 
     // Check if the projected point is within the image bounds
     if (proj_pt.x >= 0 && proj_pt.x < image_width_ && proj_pt.y >= 0 && proj_pt.y < image_height_) {
@@ -259,8 +266,30 @@ void ProjectionUtils::filterClusterByBoundingBox(
 
     if (input_cloud->empty() || cluster_indices.empty()) return; // Handle empty input
     output_cloud->clear(); 
+
+    
     
 }
+
+
+void ProjectionUtils::projectAndDrawPoints(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+    const vision_msgs::msg::Detection2DArray& detections,
+    const geometry_msgs::msg::TransformStamped& transform,
+    const std::array<double, 12>& projection_matrix,
+    cv::Mat& image) {
+
+    if (cloud->empty()) return;
+
+    for (const auto& point : cloud->points) {
+        auto projected_point = projectLidarToCamera(transform, projection_matrix, point);
+        if (projected_point) {
+            cv::circle(image, *projected_point, 2, cv::Scalar(0, 255, 0), -1);
+        }
+    }
+
+}
+
 
 
 // BOUNDING BOX FUNCTIONS --------------------------------------------------------------------------------------------

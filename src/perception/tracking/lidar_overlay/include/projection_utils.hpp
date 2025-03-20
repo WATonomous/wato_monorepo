@@ -24,7 +24,7 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 class ProjectionUtils {
 public:
 
-    static void removeGroundPlane(PointCloud::Ptr& cloud);
+    static void removeGroundPlane(PointCloud::Ptr& cloud, float distanceThreshold, int maxIterations);
 
     static std::optional<cv::Point2d> projectLidarToCamera(
         const geometry_msgs::msg::TransformStamped& transform,
@@ -74,7 +74,13 @@ public:
         const geometry_msgs::msg::TransformStamped& transform,
         const std::array<double, 12>& projection_matrix,
         pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud);
-    
+
+    static void projectAndDrawPoints(
+        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+        const vision_msgs::msg::Detection2DArray& detections,
+        const geometry_msgs::msg::TransformStamped& transform,
+        const std::array<double, 12>& projection_matrix,
+        cv::Mat& image);
 
     // BOUNDING BOX FUNCTIONS ----------------------------------------------------------------------------------------
     static void computeBoundingBox(
