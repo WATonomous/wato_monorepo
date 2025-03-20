@@ -10,6 +10,7 @@ TIME_STEP = 0.05
 PREDICTION_HORIZON = 2.0
 SIM_DURATION = 500
 
+
 class MPCCore:
     def __init__(self):
 
@@ -69,8 +70,8 @@ class MPCCore:
         self.theta0 = 0
         self.v0 = 0
 
-        
     # TODO: Adapt to local planning trajectories
+
     def convert_waypoints(self):
         """
         Convert raw waypoints (alternating x, y in a flat list) to CasADi-compatible waypoints.
@@ -90,7 +91,6 @@ class MPCCore:
             # print(type(y))
             waypoint = self.generate_waypoint(x, y)
             self.waypoints.append(waypoint)
-
 
     def generate_waypoint(self, x, y):  # Convert to CasADi format and add to the waypoints list
         return ca.vertcat(x, y)
@@ -130,7 +130,8 @@ class MPCCore:
         # ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
         self.max_steering_angle_deg = 30.0
 
-        self.max_steering_angle_rad = self.max_steering_angle_deg * (ca.pi / 180)  # Maximum steering angle in radians
+        self.max_steering_angle_rad = self.max_steering_angle_deg * \
+            (ca.pi / 180)  # Maximum steering angle in radians
 
         # Dynamics (Euler discretization using bicycle model)
         for k in range(self.N):
