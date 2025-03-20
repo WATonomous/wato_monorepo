@@ -16,6 +16,8 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include <shared_mutex>
+
 #include "projection_utils.hpp" 
 
 class LidarImageOverlay : public rclcpp::Node {
@@ -25,6 +27,8 @@ class LidarImageOverlay : public rclcpp::Node {
     private:
         // IMAGE -----------------------------------------------------------------------------------------------------------
         void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+        std::shared_mutex image_mutex_;
+
         cv_bridge::CvImagePtr image_data_;
         std::array<double, 12> projection_matrix_;
 
@@ -34,6 +38,8 @@ class LidarImageOverlay : public rclcpp::Node {
 
         // LIDAR -----------------------------------------------------------------------------------------------------------
         void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+        std::shared_mutex lidar_mutex_;
+
         sensor_msgs::msg::PointCloud2 latest_lidar_msg_;
         pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
         std::vector<pcl::PointIndices> cluster_indices;

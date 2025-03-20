@@ -2,17 +2,18 @@
 
 LidarImageOverlay::LidarImageOverlay() : Node("lidar_image_overlay") {
     // SUBSCRIBERS -------------------------------------------------------------------------------------------------
+
     image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
         "/annotated_img", 10, std::bind(&LidarImageOverlay::imageCallback, this, std::placeholders::_1));
     lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/LIDAR_TOP", 10, std::bind(&LidarImageOverlay::lidarCallback, this, std::placeholders::_1));
     camera_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
         "/CAM_FRONT/camera_info", 10, std::bind(&LidarImageOverlay::cameraInfoCallback, this, std::placeholders::_1));
-
     dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
         "/detections", 10, std::bind(&LidarImageOverlay::detsCallback, this, std::placeholders::_1));
 
     // PUBLISHERS --------------------------------------------------------------------------------------------------
+
     image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/lidar_overlayed_image", 10);
 
     filtered_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/filtered_lidar", 10);
@@ -30,6 +31,8 @@ void LidarImageOverlay::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::S
 }
 
 void LidarImageOverlay::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
+
+    std::unique_lock<std::shared_mutex> image_lock(image_mutex_);
     try {
         image_data_ = cv_bridge::toCvCopy(msg, "bgr8");
     } catch (cv_bridge::Exception& e) {
@@ -39,6 +42,8 @@ void LidarImageOverlay::imageCallback(const sensor_msgs::msg::Image::SharedPtr m
 }
 
 void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+
+    std::unique_lock<std::shared_mutex> lidar_lock(lidar_mutex_);
     latest_lidar_msg_ = *msg; 
     filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -47,8 +52,9 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
     pcl::fromROSMsg(latest_lidar_msg_, *point_cloud);
 
     // Remove the ground plane
-
-    ProjectionUtils::removeGroundPlane(point_cloud);
+    float distanceThreshold = 0.5; // Distance threshold for RANSAC plane fitting
+    int maxIterations = 1200; // Maximum number of RANSAC iterations
+    ProjectionUtils::removeGroundPlane(point_cloud, distanceThreshold, maxIterations);
     filtered_point_cloud_ = point_cloud;
 
     pcl::VoxelGrid<pcl::PointXYZ> voxel;
@@ -81,6 +87,8 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
     // CLUSTERING -----------------------------------------------------------------------------------------------
 
+    std::unique_lock<std::shared_mutex> lidar_lock(lidar_mutex_);
+
     // Remove outliers from the LiDAR point cloud
 /*     int meanK = 30; // Number of neighbors to analyze for each point
     double stddevMulThresh = 1.5; // Standard deviation multiplier threshold
@@ -89,12 +97,13 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
     // Cluster the point cloud using DBSCAN
     double clusterTolerance = 1.5; // Distance tolerance for clustering
-    int minClusterSize = 100; // Minimum number of points in a cluster
+    int minClusterSize = 50; // Minimum number of points in a cluster
     int maxClusterSize = 800; // Maximum number of points in a cluster
 
     // Merge clusters distance tolerance
 
     // Perform DBSCAN clustering, populate cluster_indices
+
     std::vector<pcl::PointIndices> cluster_indices;
     ProjectionUtils::dbscanCluster(filtered_point_cloud_, clusterTolerance, minClusterSize, maxClusterSize, cluster_indices);
 
@@ -114,16 +123,17 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
     // -----------------------------------------------------------------------------------------------
 
+    std::unique_lock<std::shared_mutex> image_lock(image_mutex_);
+
     // Make a copy of the image
     cv::Mat image = image_data_->image.clone();  // Clone the image to avoid modifying the original
 
     for (const auto& point : filtered_point_cloud_->points) {
         auto projected_point = ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, point);
         if (projected_point) {
-            cv::circle(image, *projected_point, 2, cv::Scalar(0, 255, 0), -1);  // Draw a small green dot
+            cv::circle(image, *projected_point, 2, cv::Scalar(0, 255, 0), -1);  
         }
     }
-
 
     pcl::PointCloud<pcl::PointXYZ> centroid_cloud;
     for (const auto& cluster : cluster_indices) {
