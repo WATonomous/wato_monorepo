@@ -44,6 +44,8 @@ void LidarImageOverlay::imageCallback(const sensor_msgs::msg::Image::SharedPtr m
 void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
 
     std::unique_lock<std::shared_mutex> lidar_lock(lidar_mutex_);
+
+    // store the lidar msg
     latest_lidar_msg_ = *msg; 
     filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -51,16 +53,17 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
     pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(latest_lidar_msg_, *point_cloud);
 
-    // Remove the ground plane
-    float distanceThreshold = 0.5; // Distance threshold for RANSAC plane fitting
-    int maxIterations = 1200; // Maximum number of RANSAC iterations
-    ProjectionUtils::removeGroundPlane(point_cloud, distanceThreshold, maxIterations);
-    filtered_point_cloud_ = point_cloud;
-
     pcl::VoxelGrid<pcl::PointXYZ> voxel;
     voxel.setInputCloud(point_cloud);
     voxel.setLeafSize(0.1f, 0.1f, 0.1f); // adjust parameters, higher values means less detailed, but faster compute
-    voxel.filter(*filtered_point_cloud_);
+    voxel.filter(*point_cloud);
+
+    // Remove the ground plane
+    float distanceThreshold = 0.4; // Distance threshold for RANSAC plane fitting
+    int maxIterations = 1200; // Maximum number of RANSAC iterations
+    ProjectionUtils::removeGroundPlane(point_cloud, distanceThreshold, maxIterations);
+    // store the pcl point cloud after RANSAC
+    filtered_point_cloud_ = point_cloud;
 }
 
 void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
@@ -96,9 +99,9 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
 
     // Cluster the point cloud using DBSCAN
-    double clusterTolerance = 1.5; // Distance tolerance for clustering
-    int minClusterSize = 50; // Minimum number of points in a cluster
-    int maxClusterSize = 800; // Maximum number of points in a cluster
+    double clusterTolerance = 1.2; // Distance tolerance for clustering
+    int minClusterSize = 30; // Minimum number of points in a cluster
+    int maxClusterSize = 1000; // Maximum number of points in a cluster
 
     // Merge clusters distance tolerance
 
@@ -107,13 +110,25 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     std::vector<pcl::PointIndices> cluster_indices;
     ProjectionUtils::dbscanCluster(filtered_point_cloud_, clusterTolerance, minClusterSize, maxClusterSize, cluster_indices);
 
-    //size_t before_merge = cluster_indices.size();
-    ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, 2.0);
+
+    double densityWeight = 0.4;  // Density is least important
+    double sizeWeight = 0.6;     // Size is most important
+    double distanceWeight = 0.5; // Distance is moderately important
+    double scoreThreshold = 0.7; // Clusters with a score below 0.7 are kept, increase to keep more clusters
+
+    ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, densityWeight, sizeWeight, distanceWeight, scoreThreshold); 
+
+    float mergeTolerance = 1.5;
+    ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, mergeTolerance);
 
     // Assign colors to the clusters
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, colored_clustered_cloud);
 
+
+    // filter by 2d bounding boxes
+/*     pcl::PointCloud<pcl::PointXYZ>::Ptr bbox_filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    ProjectionUtils::filterClusterByBoundingBox(filtered_point_cloud_, cluster_indices, *msg, transform, camInfo_->p, bbox_filtered_cloud); */
     
     // Convert the filtered and clustered point cloud to a ROS message
     sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
@@ -142,6 +157,13 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
         ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, cluster, centroid);
         centroid_cloud.push_back(centroid);
 
+        if (ProjectionUtils::pointIn2DBoundingBox(centroid, *msg, transform, camInfo_->p)) {
+            RCLCPP_INFO(this->get_logger(), "Centroid detected in 2D bounding box");
+/*             pcl::PointXYZ min_pt, max_pt;
+            ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster, min_pt, max_pt);
+            cv::rectangle(image, cv::Point(min_pt.x, min_pt.y), cv::Point(max_pt.x, max_pt.y), cv::Scalar(255, 0, 0), 2); */
+        }
+
         auto projected_centroid = ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, centroid);
         if (projected_centroid) {
             cv::circle(image, *projected_centroid, 6, cv::Scalar(0, 0, 255), -1);  
@@ -160,6 +182,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     output_msg->encoding = "bgr8";
     image_pub_->publish(*output_msg);
 }
+
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);

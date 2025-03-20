@@ -17,6 +17,9 @@
 
 
 #include <random>
+#include <future>
+#include <thread>
+#include <mutex>
 
 void ProjectionUtils::removeGroundPlane(PointCloud::Ptr& cloud, float distanceThreshold, int maxIterations) {
     if (cloud->empty()) return;
@@ -194,6 +197,7 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
             }
         }
     }
+    
 
     // Remove merged clusters from the list
     std::vector<pcl::PointIndices> filtered_clusters;
@@ -203,6 +207,76 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
         }
     }
     cluster_indices = filtered_clusters;
+}
+
+
+void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+                                            const std::vector<pcl::PointIndices>& cluster_indices,
+                                            double densityWeight,
+                                            double sizeWeight,
+                                            double distanceWeight,
+                                            double scoreThreshold) {
+
+    if (cloud->empty() || cluster_indices.empty()) return; 
+
+    // Define maximum expected values for normalization
+    const double max_density = 700.0;   // Maximum density (points/m³)
+    const double max_size = 10.0;        // Maximum cluster size (m³)
+    const double max_distance = 60.0;   // Maximum distance (meters)
+
+    std::vector<pcl::PointIndices> filtered_clusters;
+
+    for (const auto& clusters : cluster_indices) {
+        if (clusters.indices.size() < 10) continue; // Skip small clusters
+
+        // Initialize min and max values for cluster bounds
+        double min_x = std::numeric_limits<double>::max(), max_x = std::numeric_limits<double>::lowest();
+        double min_y = std::numeric_limits<double>::max(), max_y = std::numeric_limits<double>::lowest();
+        double min_z = std::numeric_limits<double>::max(), max_z = std::numeric_limits<double>::lowest();
+        double total_distance = 0.0;
+
+        // Calculate cluster bounds and total distance from origin
+        for (const auto& index : clusters.indices) {
+            const auto& pt = cloud->points[index];
+            min_x = std::min(min_x, static_cast<double>(pt.x));
+            max_x = std::max(max_x, static_cast<double>(pt.x));
+            min_y = std::min(min_y, static_cast<double>(pt.y));
+            max_y = std::max(max_y, static_cast<double>(pt.y));
+            min_z = std::min(min_z, static_cast<double>(pt.z));
+            max_z = std::max(max_z, static_cast<double>(pt.z));
+            total_distance += std::sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z);
+        }
+
+        // Calculate cluster size (bounding box diagonal)
+        double cluster_size = std::sqrt((max_x - min_x) * (max_x - min_x) +
+                              (max_y - min_y) * (max_y - min_y) +
+                              (max_z - min_z) * (max_z - min_z));
+
+        // Calculate cluster density (points per unit volume)
+        double cluster_volume = (max_x - min_x) * (max_y - min_y) * (max_z - min_z);
+        double density = cluster_volume > 0 ? clusters.indices.size() / cluster_volume : 0;
+
+        // Calculate average distance from origin
+        double avg_distance = total_distance / clusters.indices.size();
+
+        // Normalize the factors
+        double normalized_density = density / max_density;
+        double normalized_size = cluster_size / max_size;
+        double normalized_distance = avg_distance / max_distance;
+
+        // Compute the weighted score
+        double score = (normalized_density * densityWeight) +
+                       (normalized_size * sizeWeight) +
+                       (normalized_distance * distanceWeight);
+
+        // If the score is below the threshold, keep the cluster
+        if (score < scoreThreshold) {
+            filtered_clusters.push_back(clusters);
+        }
+    }
+
+    // Replace the original cluster indices with the filtered ones
+    const_cast<std::vector<pcl::PointIndices>&>(cluster_indices) = filtered_clusters;
 }
 
 
@@ -263,14 +337,83 @@ void ProjectionUtils::filterClusterByBoundingBox(
     const geometry_msgs::msg::TransformStamped& transform,
     const std::array<double, 12>& projection_matrix,
     pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud) {
-
-    if (input_cloud->empty() || cluster_indices.empty()) return; // Handle empty input
+    
+    if (input_cloud->empty() || cluster_indices.empty()) return;  // Handle empty input
     output_cloud->clear(); 
 
-    
-    
-}
+    std::mutex mtx;  
+    double max_iou = 0.0;
+    pcl::PointIndices best_cluster;
 
+    std::vector<std::future<void>> tasks;  // Store futures for async tasks
+
+    for (const auto& cluster : cluster_indices) {
+        tasks.push_back(std::async(std::launch::async, [&]() {
+            std::vector<cv::Point2d> projected_points;
+
+            // Project each point in the cluster to the image plane
+            for (const auto& idx : cluster.indices) {
+                auto projected = projectLidarToCamera(transform, projection_matrix, input_cloud->points[idx]);
+                if (projected) {
+                    projected_points.push_back(*projected);
+                }
+            }
+
+            // Compute bounding box for projected points
+            if (projected_points.empty()) return;
+
+            double min_x = std::numeric_limits<double>::max(), max_x = 0;
+            double min_y = std::numeric_limits<double>::max(), max_y = 0;
+
+            for (const auto& pt : projected_points) {
+                min_x = std::min(min_x, pt.x);
+                max_x = std::max(max_x, pt.x);
+                min_y = std::min(min_y, pt.y);
+                max_y = std::max(max_y, pt.y);
+            }
+
+            cv::Rect cluster_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
+            double local_max_iou = 0.0;
+            pcl::PointIndices local_best_cluster;
+
+            // Find the detection with the highest IoU
+            for (const auto& detection : detections.detections) {
+                const auto& bbox = detection.bbox;
+                cv::Rect detection_bbox(bbox.center.position.x - bbox.size_x / 2,
+                    bbox.center.position.y - bbox.size_y / 2,
+                    bbox.size_x, bbox.size_y);
+
+                double intersection_area = (cluster_bbox & detection_bbox).area();
+                double union_area = cluster_bbox.area() + detection_bbox.area() - intersection_area;
+                double iou = (union_area > 0) ? (intersection_area / union_area) : 0.0;
+
+                if (iou > local_max_iou) {
+                    local_max_iou = iou;
+                    local_best_cluster = cluster;
+                }
+            }
+
+            // Safely update global best cluster
+            std::lock_guard<std::mutex> lock(mtx);
+            if (local_max_iou > max_iou) {
+                max_iou = local_max_iou;
+                best_cluster = local_best_cluster;
+            }
+        }));
+    }
+
+    // Wait for all threads to finish
+    for (auto& task : tasks) {
+        task.get();
+    }
+
+    // Copy the best cluster to the output cloud
+    if (!best_cluster.indices.empty()) {
+        for (const auto& idx : best_cluster.indices) {
+            output_cloud->push_back(input_cloud->points[idx]);
+        }
+    }
+}
 
 void ProjectionUtils::projectAndDrawPoints(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
