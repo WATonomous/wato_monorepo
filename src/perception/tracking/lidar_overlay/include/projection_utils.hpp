@@ -55,6 +55,14 @@ public:
         const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
         double mergeTolerance);
 
+    static void filterClusterbyDensity(
+        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+        const std::vector<pcl::PointIndices>& cluster_indices,
+        double densityWeight,
+        double sizeWeight,
+        double distanceWeight,
+        double scoreThreshold);
+
     static bool computeClusterCentroid(
         const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
         const pcl::PointIndices& cluster_indices,
