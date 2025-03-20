@@ -53,15 +53,12 @@ class MPCNode(Node):
         # Subscribe to waypoints from CARLA
         self.waypoints_subscription = self.create_subscription(
             Path, '/carla/ego/waypoints', self.waypoints_callback, 10)
-        
-        
-        
+
         self.timer = self.create_timer(
             0.5,  # 0.01 seconds = 10 milliseconds = 100 Hz
             self.timer_callback,
         )
-        
-        
+
         print("pub/sub init")
 
         self.goal_set = False
@@ -89,7 +86,7 @@ class MPCNode(Node):
 
     def waypoints_callback(self, msg):
         self.get_logger().info(f"Received {len(msg.poses)} waypoints")
-        
+
         print(msg.poses)
         for pose_stamped in msg.poses:
             x = pose_stamped.pose.position.x
@@ -110,11 +107,11 @@ class MPCNode(Node):
         print("state_odom")
 
     def publish_goal(self, x, y):
-        goal_msg = PoseStamped()    
-        
+        goal_msg = PoseStamped()
+
         goal_msg.header.frame_id = "map "
         goal_msg.header.stamp = self.get_clock().now().to_msg()
-            
+
         goal_msg.pose.position.x = x
         goal_msg.pose.position.y = y
         goal_msg.pose.position.z = 0.0
@@ -125,13 +122,11 @@ class MPCNode(Node):
 
         self.goal_publisher.publish(goal_msg)
         self.get_logger().info(f"Published goal: x={x}, y={y}")
-        
-        
-        
+
     # def start_main_loop(self):
     #     # Subtract N since we need to be able to predict N steps into the
     #     # future
-        
+
     #     for i in range(self.mpc_core.SIM_DURATION - self.mpc_core.N):
     #         steering_angle, throttle = self.mpc_core.compute_control(i)
     #         # print("steer and throttle")
@@ -142,7 +137,7 @@ class MPCNode(Node):
     #         control_msg.throttle = throttle
     #         self.control_publisher.publish(control_msg)
     #     pass
-    
+
     def timer_callback(self):
         if self.goal_set == False:
             return
@@ -152,7 +147,6 @@ class MPCNode(Node):
         control_msg.throttle = throttle
         self.control_publisher.publish(control_msg)
         self.i += 1
-
 
 
 def main(args=None):
