@@ -121,3 +121,14 @@ services:
     volumes:
       - /mnt/wato-drive2/perception_models/depth_anything_v2_large.pth:/perception_models/depth_anything_v2_large.pth
       - /mnt/wato-drive2/perception_models/depth_anything_v2_small.pth:/perception_models/depth_anything_v2_small.pth
+
+  anomaly_detection:
+    build:
+      context: ..
+      dockerfile: docker/perception/anomaly_detection/anomaly_detection.Dockerfile
+      cache_from:
+        - "${PERCEPTION_ANOMALY_DETECTION_IMAGE:?}:build_${TAG}"
+        - "${PERCEPTION_ANOMALY_DETECTION_IMAGE:?}:build_main"
+      target: deploy
+    image: "${PERCEPTION_ANOMALY_DETECTION_IMAGE:?}:${TAG}" 
+    command: /bin/bash -c "ros2 launch anomaly anomaly.launch.py"
