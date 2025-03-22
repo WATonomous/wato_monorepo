@@ -19,7 +19,7 @@ LidarImageOverlay::LidarImageOverlay() : Node("lidar_image_overlay") {
     filtered_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/filtered_lidar", 10);
     cluster_centroid_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/cluster_centroid", 10);
 
-    bounding_box_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("/bounding_boxes", 10);
+    bounding_box_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/bounding_boxes", 10);
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -121,20 +121,23 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     float mergeTolerance = 1.5;
     ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, mergeTolerance);
 
+     // filter by 2d bounding boxes
+     //ProjectionUtils::filterClusterByBoundingBox(filtered_point_cloud_, cluster_indices, *msg, transform, camInfo_->p);
+
     // Assign colors to the clusters
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, colored_clustered_cloud);
 
 
-    // filter by 2d bounding boxes
-/*     pcl::PointCloud<pcl::PointXYZ>::Ptr bbox_filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    ProjectionUtils::filterClusterByBoundingBox(filtered_point_cloud_, cluster_indices, *msg, transform, camInfo_->p, bbox_filtered_cloud); */
-    
     // Convert the filtered and clustered point cloud to a ROS message
     sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
     pcl::toROSMsg(*colored_clustered_cloud, filtered_lidar_msg);
     filtered_lidar_msg.header = latest_lidar_msg_.header;
     filtered_lidar_pub_->publish(filtered_lidar_msg);
+
+    visualization_msgs::msg::MarkerArray bbox_msg;
+    bbox_msg = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
+    bounding_box_pub_->publish(bbox_msg);
 
     // -----------------------------------------------------------------------------------------------
 
@@ -159,9 +162,6 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
         if (ProjectionUtils::pointIn2DBoundingBox(centroid, *msg, transform, camInfo_->p)) {
             RCLCPP_INFO(this->get_logger(), "Centroid detected in 2D bounding box");
-/*             pcl::PointXYZ min_pt, max_pt;
-            ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster, min_pt, max_pt);
-            cv::rectangle(image, cv::Point(min_pt.x, min_pt.y), cv::Point(max_pt.x, max_pt.y), cv::Scalar(255, 0, 0), 2); */
         }
 
         auto projected_centroid = ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, centroid);

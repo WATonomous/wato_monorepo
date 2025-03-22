@@ -11,6 +11,7 @@
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -77,25 +78,16 @@ public:
 
     static void filterClusterByBoundingBox(
         const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-        const std::vector<pcl::PointIndices>& cluster_indices,
+        std::vector<pcl::PointIndices>& cluster_indices,
         const vision_msgs::msg::Detection2DArray& detections,
         const geometry_msgs::msg::TransformStamped& transform,
-        const std::array<double, 12>& projection_matrix,
-        pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud);
-
-    static void projectAndDrawPoints(
-        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        const vision_msgs::msg::Detection2DArray& detections,
-        const geometry_msgs::msg::TransformStamped& transform,
-        const std::array<double, 12>& projection_matrix,
-        cv::Mat& image);
+        const std::array<double, 12>& projection_matrix);
 
     // BOUNDING BOX FUNCTIONS ----------------------------------------------------------------------------------------
-    static void computeBoundingBox(
+    static visualization_msgs::msg::MarkerArray computeBoundingBox(
         const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        const pcl::PointIndices& cluster_indices,
-        pcl::PointXYZ& min_pt,
-        pcl::PointXYZ& max_pt);
+        const std::vector<pcl::PointIndices>& cluster_indices,
+        const sensor_msgs::msg::PointCloud2& msg);
 
     
 private:
