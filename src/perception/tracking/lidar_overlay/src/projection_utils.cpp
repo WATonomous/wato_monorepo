@@ -9,6 +9,8 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/common/pca.h>
+#include <pcl/features/moment_of_inertia_estimation.h>
+
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -332,153 +334,159 @@ bool ProjectionUtils::pointIn2DBoundingBox(
 
 void ProjectionUtils::filterClusterByBoundingBox(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-    const std::vector<pcl::PointIndices>& cluster_indices,
+    std::vector<pcl::PointIndices>& cluster_indices, 
     const vision_msgs::msg::Detection2DArray& detections,
     const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& projection_matrix,
-    pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud) {
+    const std::array<double, 12>& projection_matrix) {
     
     if (input_cloud->empty() || cluster_indices.empty()) return;  // Handle empty input
-    output_cloud->clear(); 
 
-    std::mutex mtx;  
     double max_iou = 0.0;
-    pcl::PointIndices best_cluster;
+    std::vector<pcl::PointIndices> updated_clusters;  // Store clusters with good IoU
 
-    std::vector<std::future<void>> tasks;  // Store futures for async tasks
+    for (auto& cluster : cluster_indices) {
+        std::vector<cv::Point2d> projected_points;
 
-    for (const auto& cluster : cluster_indices) {
-        tasks.push_back(std::async(std::launch::async, [&]() {
-            std::vector<cv::Point2d> projected_points;
-
-            // Project each point in the cluster to the image plane
-            for (const auto& idx : cluster.indices) {
-                auto projected = projectLidarToCamera(transform, projection_matrix, input_cloud->points[idx]);
-                if (projected) {
-                    projected_points.push_back(*projected);
-                }
+        // Project each point in the cluster to the image plane
+        for (const auto& idx : cluster.indices) {
+            auto projected = projectLidarToCamera(transform, projection_matrix, input_cloud->points[idx]);
+            if (projected) {
+                projected_points.push_back(*projected);
             }
+        }
 
-            // Compute bounding box for projected points
-            if (projected_points.empty()) return;
+        // Compute bounding box for projected points
+        if (projected_points.empty()) continue;
 
-            double min_x = std::numeric_limits<double>::max(), max_x = 0;
-            double min_y = std::numeric_limits<double>::max(), max_y = 0;
+        double min_x = std::numeric_limits<double>::max(), max_x = 0;
+        double min_y = std::numeric_limits<double>::max(), max_y = 0;
 
-            for (const auto& pt : projected_points) {
-                min_x = std::min(min_x, pt.x);
-                max_x = std::max(max_x, pt.x);
-                min_y = std::min(min_y, pt.y);
-                max_y = std::max(max_y, pt.y);
+        for (const auto& pt : projected_points) {
+            min_x = std::min(min_x, pt.x);
+            max_x = std::max(max_x, pt.x);
+            min_y = std::min(min_y, pt.y);
+            max_y = std::max(max_y, pt.y);
+        }
+
+        cv::Rect cluster_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
+        
+        double local_max_iou = 0.0;
+
+        // Find the detection with the highest IoU
+        for (const auto& detection : detections.detections) {
+            const auto& bbox = detection.bbox;
+            cv::Rect detection_bbox(bbox.center.position.x - bbox.size_x / 2,
+                bbox.center.position.y - bbox.size_y / 2,
+                bbox.size_x, bbox.size_y);
+
+            double intersection_area = (cluster_bbox & detection_bbox).area();
+            double union_area = cluster_bbox.area() + detection_bbox.area() - intersection_area;
+            double iou = (union_area > 0) ? (intersection_area / union_area) : 0.0;
+
+            if (iou > local_max_iou) {
+                local_max_iou = iou;
             }
+        }
 
-            cv::Rect cluster_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
-            double local_max_iou = 0.0;
-            pcl::PointIndices local_best_cluster;
-
-            // Find the detection with the highest IoU
-            for (const auto& detection : detections.detections) {
-                const auto& bbox = detection.bbox;
-                cv::Rect detection_bbox(bbox.center.position.x - bbox.size_x / 2,
-                    bbox.center.position.y - bbox.size_y / 2,
-                    bbox.size_x, bbox.size_y);
-
-                double intersection_area = (cluster_bbox & detection_bbox).area();
-                double union_area = cluster_bbox.area() + detection_bbox.area() - intersection_area;
-                double iou = (union_area > 0) ? (intersection_area / union_area) : 0.0;
-
-                if (iou > local_max_iou) {
-                    local_max_iou = iou;
-                    local_best_cluster = cluster;
-                }
-            }
-
-            // Safely update global best cluster
-            std::lock_guard<std::mutex> lock(mtx);
-            if (local_max_iou > max_iou) {
-                max_iou = local_max_iou;
-                best_cluster = local_best_cluster;
-            }
-        }));
-    }
-
-    // Wait for all threads to finish
-    for (auto& task : tasks) {
-        task.get();
-    }
-
-    // Copy the best cluster to the output cloud
-    if (!best_cluster.indices.empty()) {
-        for (const auto& idx : best_cluster.indices) {
-            output_cloud->push_back(input_cloud->points[idx]);
+        // If the cluster has a good IoU score, keep it
+        if (local_max_iou > max_iou) {
+            max_iou = local_max_iou;
+            updated_clusters.push_back(cluster);  // Add the cluster with good IoU
         }
     }
+    cluster_indices = std::move(updated_clusters);  
 }
-
-void ProjectionUtils::projectAndDrawPoints(
-    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-    const vision_msgs::msg::Detection2DArray& detections,
-    const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& projection_matrix,
-    cv::Mat& image) {
-
-    if (cloud->empty()) return;
-
-    for (const auto& point : cloud->points) {
-        auto projected_point = projectLidarToCamera(transform, projection_matrix, point);
-        if (projected_point) {
-            cv::circle(image, *projected_point, 2, cv::Scalar(0, 255, 0), -1);
-        }
-    }
-
-}
-
-
 
 // BOUNDING BOX FUNCTIONS --------------------------------------------------------------------------------------------
 
-void ProjectionUtils::computeBoundingBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-    const pcl::PointIndices& cluster_indices,
-    pcl::PointXYZ& min_pt,
-    pcl::PointXYZ& max_pt) {
+visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+    const std::vector<pcl::PointIndices>& cluster_indices,
+    const sensor_msgs::msg::PointCloud2& msg) {
 
-    if (cloud->empty() || cluster_indices.indices.empty()) return; // Handle empty input
+    visualization_msgs::msg::MarkerArray marker_array;
 
-    // Extract the cluster points
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cluster_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-    pcl::copyPointCloud(*cloud, cluster_indices, *cluster_cloud);
+    if (cloud->empty()) return marker_array; // Handle empty input
 
-    // Perform PCA on the cluster
-    pcl::PCA<pcl::PointXYZ> pca;
-    pca.setInputCloud(cluster_cloud);
-    Eigen::Matrix3f eigen_vectors = pca.getEigenVectors();
-    Eigen::Vector4f centroid = pca.getMean();
+    int id = 0;
+    for (const auto& cluster : cluster_indices) {
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cluster_cloud(new pcl::PointCloud<pcl::PointXYZ>());
 
-    // Transform points into PCA-aligned space
-    Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
-    transform.block<3,3>(0,0) = eigen_vectors.transpose(); // Rotation
-    transform.block<3,1>(0,3) = -eigen_vectors.transpose() * centroid.head(3); // Translation
+        Eigen::Vector4f min_point = Eigen::Vector4f::Constant(std::numeric_limits<float>::max());
+        Eigen::Vector4f max_point = Eigen::Vector4f::Constant(std::numeric_limits<float>::lowest());
 
-    pcl::PointCloud<pcl::PointXYZ> transformed_cloud;
-    pcl::transformPointCloud(*cluster_cloud, transformed_cloud, transform);
+        // Compute min/max points manually
+        for (const auto& index : cluster.indices) {
+            const auto& pt = cloud->points[index];
+            min_point.x() = std::min(min_point.x(), pt.x);
+            min_point.y() = std::min(min_point.y(), pt.y);
+            min_point.z() = std::min(min_point.z(), pt.z);
 
-    // Get min and max in PCA-aligned space
-    pcl::PointXYZ min_pca, max_pca;
-    pcl::getMinMax3D(transformed_cloud, min_pca, max_pca);
+            max_point.x() = std::max(max_point.x(), pt.x);
+            max_point.y() = std::max(max_point.y(), pt.y);
+            max_point.z() = std::max(max_point.z(), pt.z);
+        }
 
-    // Transform back to original coordinate system
-    Eigen::Matrix4f inverse_transform = transform.inverse();
-    Eigen::Vector4f min_pt_transformed = inverse_transform * Eigen::Vector4f(min_pca.x, min_pca.y, min_pca.z, 1);
-    Eigen::Vector4f max_pt_transformed = inverse_transform * Eigen::Vector4f(max_pca.x, max_pca.y, max_pca.z, 1);
+        // Compute bounding box center and size
+        Eigen::Vector3f bbox_center = 0.5f * (min_point.head<3>() + max_point.head<3>());
+        Eigen::Vector3f bbox_size = max_point.head<3>() - min_point.head<3>();
 
-    // Assign values
-    min_pt.x = min_pt_transformed.x();
-    min_pt.y = min_pt_transformed.y();
-    min_pt.z = min_pt_transformed.z();
+        // Calculate orientation using minAreaRect as done in getBoundingBox
+        double rz = 0;
 
-    max_pt.x = max_pt_transformed.x();
-    max_pt.y = max_pt_transformed.y();
-    max_pt.z = max_pt_transformed.z();
+        {
+            std::vector<cv::Point2f> points;
+            for (const auto& index : cluster.indices) {
+                cv::Point2f pt;
+                pt.x = cloud->points[index].x;
+                pt.y = cloud->points[index].y;
+                points.push_back(pt);
+            }
 
+            cv::RotatedRect box = cv::minAreaRect(points);
+            rz = box.angle * 3.14 / 180;  // Convert angle to radians
+
+            // Update position and size with the rotated bounding box data
+            bbox_center.x() = box.center.x;
+            bbox_center.y() = box.center.y;
+            bbox_size.x() = box.size.width;
+            bbox_size.y() = box.size.height;
+        }
+
+        // Prepare Marker
+        visualization_msgs::msg::Marker bbox_marker;
+        bbox_marker.header = msg.header;
+        bbox_marker.ns = "bounding_boxes";
+        bbox_marker.id = id++;
+        bbox_marker.type = visualization_msgs::msg::Marker::CUBE;
+        bbox_marker.action = visualization_msgs::msg::Marker::ADD;
+
+        // Position
+        bbox_marker.pose.position.x = bbox_center.x();
+        bbox_marker.pose.position.y = bbox_center.y();
+        bbox_marker.pose.position.z = bbox_center.z();
+
+        // Set orientation using the calculated rotation
+        tf2::Quaternion quat;
+        quat.setRPY(0.0, 0.0, rz);  // Set only the Z-rotation
+        geometry_msgs::msg::Quaternion msg_quat = tf2::toMsg(quat);
+        bbox_marker.pose.orientation = msg_quat;
+
+        // Size
+        bbox_marker.scale.x = bbox_size.x();
+        bbox_marker.scale.y = bbox_size.y();
+        bbox_marker.scale.z = bbox_size.z();
+
+        // Color
+        bbox_marker.color.r = 0.0;
+        bbox_marker.color.g = 0.0;
+        bbox_marker.color.b = 0.0;
+        bbox_marker.color.a = 0.2; 
+
+        bbox_marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+
+        marker_array.markers.push_back(bbox_marker);
+    }
+
+    return marker_array;
 }
-
