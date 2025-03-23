@@ -2,37 +2,46 @@ ros__parameters:
   # subscribers
   camera_info_topic: /CAM_FRONT/camera_info
   lidar_topic: /LIDAR_TOP
-  image_topic: /annotated_img
+  detections_topic: /detections
 
   # publishers
-  overlay_topic: /lidar_image_overlay
   filtered_lidar_topic: /filtered_lidar
   cluster_centroid_topic: /cluster_centroid
-  bbox_topic: /bbox
+  bounding_box_topic: /bounding_box
 
-  clustering_params:
-    car:
-      cluster_min_size: 10 
-      cluster_max_size: 1000
-      cluster_tolerance: 0.2
-    bus:
-      cluster_min_size: 10 
-      cluster_max_size: 1000
-      cluster_tolerance: 0.2
-    truck:
-      cluster_min_size: 10 
-      cluster_max_size: 1000
-      cluster_tolerance: 0.2
-    pedestrian:
-      cluster_min_size: 10 
-      cluster_max_size: 1000
-      cluster_tolerance: 0.2
-    traffic_light:
-      cluster_min_size: 10 
-      cluster_max_size: 1000
-      cluster_tolerance: 0.2
-    traffic_sign:
-      cluster_min_size: 10 
-      cluster_max_size: 1000
-      cluster_tolerance: 0.2
+  # camera frames
+  camera_front_frame: CAM_FRONT
+  camera_front_left_frame: CAM_FRONT_LEFT
+  camera_front_right_frame: CAM_FRONT_RIGHT
+  camera_back_frame: CAM_BACK
+  camera_back_left_frame: CAM_BACK_LEFT
+  camera_back_right_frame: CAM_BACK_RIGHT
+
+  # lidar frames
+  lidar_top_frame: LIDAR_TOP
+
+  # filtering parameters
+  ransac_params:
+    distance_threshold: 0.4
+    # maximum allowed distance a point can be from the estimated plane to still be considered an inlier
+    max_iterations: 1200
+    # the number of times ransac randomly samples a point to estimate a plane, higher number means more accurate plane estimation but heavier computation
+
+  dbscan_params:
+    cluster_tolerance: 1.2
+    #This defines the maximum distance between two points for them to be considered part of the same cluster
+    min_cluster_size: 30 # small values create more noise 
+    max_cluster_size: 1000 # big values slightly slow down performance
+
+  density_filter_params:
+  # filter out clusters that are too sparse and too far away, on a scale of 0 to 1
+    density_weight: 0.4 # increase to filter out more sparse clusters, least important
+    size_weight: 0.6 # increase to filter out more large clusters, most important
+    distance_weight: 0.5 # increase to filter out more far away clusters, moderately important
+    score_threshold: 0.7 # threshold score for a cluster to be considered as a valid cluster, increase to keep more clusters
+
+  merge_threshold: 1.5
+  # the threshold distance between two clusters centroids for them to be merged into one cluster
+
+
     

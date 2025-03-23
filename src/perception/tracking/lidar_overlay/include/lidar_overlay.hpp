@@ -16,8 +16,6 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include <shared_mutex>
-#include <future>
 
 #include "projection_utils.hpp" 
 
@@ -27,19 +25,13 @@ class LidarImageOverlay : public rclcpp::Node {
 
     private:
         // IMAGE -----------------------------------------------------------------------------------------------------------
-        void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
-        std::shared_mutex image_mutex_;
-
-        cv_bridge::CvImagePtr image_data_;
         std::array<double, 12> projection_matrix_;
-
         sensor_msgs::msg::CameraInfo::SharedPtr camInfo_;
 
         void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
         // LIDAR -----------------------------------------------------------------------------------------------------------
         void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-        std::shared_mutex lidar_mutex_;
 
         sensor_msgs::msg::PointCloud2 latest_lidar_msg_;
         pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
@@ -49,14 +41,9 @@ class LidarImageOverlay : public rclcpp::Node {
         void detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
         geometry_msgs::msg::TransformStamped transform;
 
-        // PROJECTION ------------------------------------------------------------------------------------------------------
-        
-
-
         // SUBSCRIBERS -----------------------------------------------------------------------------------------------------
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
         rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
-        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
         rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr dets_sub_;
 
         std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -68,6 +55,46 @@ class LidarImageOverlay : public rclcpp::Node {
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr colored_cluster_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
+
+        // FUNCTION PARAMS -------------------------------------------------------------------------------------------------
+        
+        void initializeParams();
+
+        std::string camera_info_topic_;
+        std::string lidar_topic_;
+        std::string detections_topic_;
+
+        std::string filtered_lidar_topic_;
+        std::string cluster_centroid_topic_;
+        std::string bounding_box_topic_;
+
+        /*
+        CAM frames stored in this order in vector
+        "CAM_FRONT",
+        "CAM_FRONT_LEFT",
+        "CAM_FRONT_RIGHT",
+        "CAM_BACK", 
+        "CAM_BACK_LEFT", 
+        "CAM_BACK_RIGHT" 
+        */
+        std::vector<std::string> camera_frames_;
+
+        std::string lidar_frame_;
+
+        // Filtering parameters
+        double ransac_distance_threshold_;
+        int ransac_max_iterations_;
+        
+        double dbscan_cluster_tolerance_;
+        int dbscan_min_cluster_size_;
+        int dbscan_max_cluster_size_;
+
+        double density_weight_;
+        double size_weight_;
+        double distance_weight_;
+        double score_threshold_;
+
+        double merge_threshold_;
 };
 
 #endif 
