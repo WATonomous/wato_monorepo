@@ -1,29 +1,7 @@
 #include "projection_utils.hpp"
-#include <pcl/ModelCoefficients.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/sample_consensus/ransac.h>
-#include <pcl/sample_consensus/sac_model_plane.h>
-
-#include <pcl/search/kdtree.h>
-#include <pcl/segmentation/extract_clusters.h>
-#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/filters/statistical_outlier_removal.h>
-#include <pcl/common/pca.h>
-#include <pcl/features/moment_of_inertia_estimation.h>
 
 
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <tf2_eigen/tf2_eigen.hpp>
-
-
-#include <random>
-#include <future>
-#include <thread>
-#include <mutex>
-
-void ProjectionUtils::removeGroundPlane(PointCloud::Ptr& cloud, float distanceThreshold, int maxIterations) {
+void ProjectionUtils::removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, float distanceThreshold, int maxIterations) {
     if (cloud->empty()) return;
 
     std::vector<int> inliers;
@@ -43,11 +21,12 @@ void ProjectionUtils::removeGroundPlane(PointCloud::Ptr& cloud, float distanceTh
     extract.setIndices(inliers_ptr);
     extract.setNegative(true);
 
-    PointCloud::Ptr cloud_filtered(new PointCloud());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
     extract.filter(*cloud_filtered);
 
     cloud->swap(*cloud_filtered);
 }
+
 std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform,
     const std::array<double, 12>& p,  
@@ -112,8 +91,6 @@ void ProjectionUtils::dbscanCluster(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                     int maxClusterSize,
                                     std::vector<pcl::PointIndices>& cluster_indices) {
     
-   /*  RCLCPP_INFO(rclcpp::get_logger("ProjectionUtils"), "[DBSCAN] Cloud contains %ld points.", cloud->size());
-    if (cloud->empty()) return; // Handle empty cloud */
 
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud);
@@ -302,39 +279,9 @@ bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ
 
 // ASSOCIATING LIDAR TO 2D OBJECT DETECTION FUNCTIONS ------------------------------------------------------------------------------------------------
 
-bool ProjectionUtils::pointIn2DBoundingBox(
-    const pcl::PointXYZ& point, 
-    const vision_msgs::msg::Detection2DArray& detections,
-    const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& projection_matrix) {
-
-    auto proj_pt = projectLidarToCamera(transform, projection_matrix, point);
-    if (!proj_pt.has_value()) {
-        return false;
-    }
-
-    // Check if the projected point lies within any of the bounding boxes
-    for (const auto& detection : detections.detections) {
-        const auto& bbox = detection.bbox;
-
-        // Bounding box coordinates
-        double x_min = bbox.center.position.x - bbox.size_x / 2;
-        double x_max = bbox.center.position.x + bbox.size_x / 2;
-        double y_min = bbox.center.position.y - bbox.size_y / 2;
-        double y_max = bbox.center.position.y + bbox.size_y / 2;
-
-        // Check if the projected point lies within the bounding box
-        if (proj_pt->x >= x_min && proj_pt->x <= x_max &&
-            proj_pt->y >= y_min && proj_pt->y <= y_max) {
-            return true;
-        }
-    }
-    return false;
-}
-
 void ProjectionUtils::filterClusterByBoundingBox(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-    std::vector<pcl::PointIndices>& cluster_indices, 
+    std::vector<pcl::PointIndices>& cluster_indices,  // Pass by reference to modify directly
     const vision_msgs::msg::Detection2DArray& detections,
     const geometry_msgs::msg::TransformStamped& transform,
     const std::array<double, 12>& projection_matrix) {
@@ -369,7 +316,6 @@ void ProjectionUtils::filterClusterByBoundingBox(
         }
 
         cv::Rect cluster_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
-        
         double local_max_iou = 0.0;
 
         // Find the detection with the highest IoU
@@ -394,7 +340,9 @@ void ProjectionUtils::filterClusterByBoundingBox(
             updated_clusters.push_back(cluster);  // Add the cluster with good IoU
         }
     }
-    cluster_indices = std::move(updated_clusters);  
+
+    // Update the original cluster indices with only the clusters that have good IoU scores
+    cluster_indices = std::move(updated_clusters);  // Replace old clusters with filtered ones
 }
 
 // BOUNDING BOX FUNCTIONS --------------------------------------------------------------------------------------------
@@ -483,7 +431,7 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
         bbox_marker.color.b = 0.0;
         bbox_marker.color.a = 0.2; 
 
-        bbox_marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+        bbox_marker.lifetime = rclcpp::Duration::from_seconds(0.2);
 
         marker_array.markers.push_back(bbox_marker);
     }

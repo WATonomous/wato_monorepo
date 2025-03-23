@@ -4,10 +4,17 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/common/common.h>
+#include <pcl/common/pca.h>
+#include <pcl/search/kdtree.h>
+
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/statistical_outlier_removal.h>
-#include <pcl/common/pca.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/ModelCoefficients.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/sample_consensus/ransac.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
+#include <pcl/segmentation/sac_segmentation.h>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
@@ -15,84 +22,83 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 #include <opencv2/opencv.hpp>
 #include <array>
 #include <optional>
-#include <Eigen/Dense>
+#include <random>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 class ProjectionUtils {
-public:
+    public:
 
-    static void removeGroundPlane(PointCloud::Ptr& cloud, float distanceThreshold, int maxIterations);
+        static void removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, float distanceThreshold, int maxIterations);
 
-    static std::optional<cv::Point2d> projectLidarToCamera(
-        const geometry_msgs::msg::TransformStamped& transform,
-        const std::array<double, 12>& p,
-        const pcl::PointXYZ& pt);
+        static std::optional<cv::Point2d> projectLidarToCamera(
+            const geometry_msgs::msg::TransformStamped& transform,
+            const std::array<double, 12>& p,
+            const pcl::PointXYZ& pt);
 
-    // CLUSTERING FUNCTIONS -----------------------------------------------------------------------------------------
+        // CLUSTERING FUNCTIONS -----------------------------------------------------------------------------------------
 
-    static void removeOutliers(
-        pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        int meanK,
-        double stddevMulThresh);
+        static void removeOutliers(
+            pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+            int meanK,
+            double stddevMulThresh);
 
-    static void dbscanCluster(
-        pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        double clusterTolerance,
-        int minClusterSize,
-        int maxClusterSize,
-        std::vector<pcl::PointIndices>& cluster_indices);
+        static void dbscanCluster(
+            pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+            double clusterTolerance,
+            int minClusterSize,
+            int maxClusterSize,
+            std::vector<pcl::PointIndices>& cluster_indices);
 
-    static void assignClusterColors(
-        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        const std::vector<pcl::PointIndices>& cluster_indices,
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clustered_cloud);
+        static void assignClusterColors(
+            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+            const std::vector<pcl::PointIndices>& cluster_indices,
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clustered_cloud);
 
-    static void mergeClusters(
-        std::vector<pcl::PointIndices>& cluster_indices,
-        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        double mergeTolerance);
+        static void mergeClusters(
+            std::vector<pcl::PointIndices>& cluster_indices,
+            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+            double mergeTolerance);
 
-    static void filterClusterbyDensity(
-        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        const std::vector<pcl::PointIndices>& cluster_indices,
-        double densityWeight,
-        double sizeWeight,
-        double distanceWeight,
-        double scoreThreshold);
+        static void filterClusterbyDensity(
+            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+            const std::vector<pcl::PointIndices>& cluster_indices,
+            double densityWeight,
+            double sizeWeight,
+            double distanceWeight,
+            double scoreThreshold);
 
-    static bool computeClusterCentroid(
-        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        const pcl::PointIndices& cluster_indices,
-        pcl::PointXYZ& centroid);
+        static bool computeClusterCentroid(
+            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+            const pcl::PointIndices& cluster_indices,
+            pcl::PointXYZ& centroid);
 
-    // ROI FUNCTIONS ------------------------------------------------------------------------------------------------
-    static bool pointIn2DBoundingBox(
-        const pcl::PointXYZ& point,
-        const vision_msgs::msg::Detection2DArray& detections,
-        const geometry_msgs::msg::TransformStamped& transform,
-        const std::array<double, 12>& projection_matrix);
+        // ROI FUNCTIONS ------------------------------------------------------------------------------------------------
 
-    static void filterClusterByBoundingBox(
-        const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-        std::vector<pcl::PointIndices>& cluster_indices,
-        const vision_msgs::msg::Detection2DArray& detections,
-        const geometry_msgs::msg::TransformStamped& transform,
-        const std::array<double, 12>& projection_matrix);
+        static void filterClusterByBoundingBox(
+            const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
+            std::vector<pcl::PointIndices>& cluster_indices,
+            const vision_msgs::msg::Detection2DArray& detections,
+            const geometry_msgs::msg::TransformStamped& transform,
+            const std::array<double, 12>& projection_matrix);
 
-    // BOUNDING BOX FUNCTIONS ----------------------------------------------------------------------------------------
-    static visualization_msgs::msg::MarkerArray computeBoundingBox(
-        const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-        const std::vector<pcl::PointIndices>& cluster_indices,
-        const sensor_msgs::msg::PointCloud2& msg);
+        // BOUNDING BOX FUNCTIONS ----------------------------------------------------------------------------------------
+        
+        static visualization_msgs::msg::MarkerArray computeBoundingBox(
+            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+            const std::vector<pcl::PointIndices>& cluster_indices,
+            const sensor_msgs::msg::PointCloud2& msg);
 
-    
-private:
-    static const int image_width_ = 1600;
-    static const int image_height_ = 900;
+        
+    private:
+        static const int image_width_ = 1600;
+        static const int image_height_ = 900;
 };
 
 #endif
