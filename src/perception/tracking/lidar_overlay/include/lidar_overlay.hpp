@@ -95,6 +95,8 @@ class LidarImageOverlay : public rclcpp::Node {
         double score_threshold_;
 
         double merge_threshold_;
+
+        float object_detection_confidence_;
 };
 
 #endif 

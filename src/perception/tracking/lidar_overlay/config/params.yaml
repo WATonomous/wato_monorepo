@@ -43,5 +43,7 @@ ros__parameters:
   merge_threshold: 1.5
   # the threshold distance between two clusters centroids for them to be merged into one cluster
 
+  object_detection_confidence: 0.55
+
 
     

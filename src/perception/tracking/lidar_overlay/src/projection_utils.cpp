@@ -1,7 +1,17 @@
 #include "projection_utils.hpp"
 
 
+
+// PRE-CLUSTER FILTERING ----------------------------------------------------------------------------------------------------------------------
+
 void ProjectionUtils::removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, float distanceThreshold, int maxIterations) {
+    /*
+        Removes the ground plane using RANSAC (RANdom SAmpling Concensus)
+        Repeatedly selecting subsets of data fitted into a model (a plane in this case), identifying inliers and outliers
+        We want everything but the ground plane, so we choose the outliers in this model
+        
+        Purpose: modifies the point cloud data with the floor filtered out
+    */
     if (cloud->empty()) return;
 
     std::vector<int> inliers;
@@ -19,7 +29,7 @@ void ProjectionUtils::removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& clo
     pcl::ExtractIndices<pcl::PointXYZ> extract;
     extract.setInputCloud(cloud);
     extract.setIndices(inliers_ptr);
-    extract.setNegative(true);
+    extract.setNegative(true); // keep everything other than the ground
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
     extract.filter(*cloud_filtered);
@@ -31,18 +41,22 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform,
     const std::array<double, 12>& p,  
     const pcl::PointXYZ& pt) {
+    /*
+        Projects a 3D lidar point onto a 2d camera image using the given extrinsic transformation and camera projection matrix
 
-    // Convert LiDAR point to geometry_msgs::Point
+        Purpose: Returns 2d image coordinates as a cv::Point2d object
+    */
+
     geometry_msgs::msg::PointStamped lidar_point;
     lidar_point.point.x = pt.x;
     lidar_point.point.y = pt.y;
     lidar_point.point.z = pt.z;
 
-    // Transform LiDAR point to camera frame using tf2::doTransform
+    // Transform LiDAR point to camera frame 
     geometry_msgs::msg::PointStamped camera_point;
     tf2::doTransform(lidar_point, camera_point, transform);
 
-    // Reject points behind the camera (z < 1)
+    // ignore points behind the camera 
     if (camera_point.point.z < 1) {
         return std::nullopt;
     }
@@ -64,19 +78,18 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
     proj_pt.x = projected_point.x() / projected_point.z();
     proj_pt.y = projected_point.y() / projected_point.z();
 
-    // Check if the projected point is within the image bounds
+    // within the image bounds
     if (proj_pt.x >= 0 && proj_pt.x < image_width_ && proj_pt.y >= 0 && proj_pt.y < image_height_) {
         return proj_pt;
     }
 
-    // Return nullopt if the point is outside the image bounds
     return std::nullopt;
 }
 
 // CLUSTERING FUNCTIONS ------------------------------------------------------------------------------------------------
 
 void ProjectionUtils::removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, int meanK, double stddevMulThresh) {
-    if (cloud->empty()) return; // Handle empty cloud
+    if (cloud->empty()) return; 
 
     pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
     sor.setInputCloud(cloud);
@@ -85,12 +98,17 @@ void ProjectionUtils::removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     sor.filter(*cloud);
 }
 
-void ProjectionUtils::dbscanCluster(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+void ProjectionUtils::euclideanClusterExtraction(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                     double clusterTolerance,
                                     int minClusterSize,
                                     int maxClusterSize,
                                     std::vector<pcl::PointIndices>& cluster_indices) {
-    
+                                        
+    /*
+        Segments distinct groups of point clouds based on cluster tolerance (euclidean distance) and size constraints
+
+        Purpose: Populates a vector of cluster_indices, tells which indexes the cluster is in the original cloud
+    */
 
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud);
@@ -109,10 +127,10 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
                                             const std::vector<pcl::PointIndices>& cluster_indices,
                                             pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clustered_cloud) {
 
-    if (cloud->empty() || cluster_indices.empty()) return; // Handle empty cloud or clusters
+    if (cloud->empty() || cluster_indices.empty()) return; 
 
     clustered_cloud->clear(); // Clear previous data
-    clustered_cloud->points.reserve(cloud->size()); // Reserve memory for efficiency
+    clustered_cloud->points.reserve(cloud->size());
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -143,16 +161,20 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
 void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     double mergeTolerance) {
+    /*
+        merges two clusters based on the euclidean distance between their centroids, determined by merge tolerance
+
+        Purpose: updates cluster_indices with the merged clusters
+    */
+    
     if (cloud->empty() || cluster_indices.empty()) return;
 
-    // Vector to store whether a cluster has been merged
     std::vector<bool> merged(cluster_indices.size(), false);
 
-    // Iterate through all pairs of clusters
     for (size_t i = 0; i < cluster_indices.size(); ++i) {
-        if (merged[i]) continue; // Skip if already merged
+        if (merged[i]) continue; 
 
-        // Compute centroid of cluster i
+
         Eigen::Vector4f centroid_i;
         pcl::compute3DCentroid(*cloud, cluster_indices[i].indices, centroid_i);
 
@@ -163,20 +185,17 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
             Eigen::Vector4f centroid_j;
             pcl::compute3DCentroid(*cloud, cluster_indices[j].indices, centroid_j);
 
-            // Calculate Euclidean distance between centroids
+            // euclidean distance
                 double distance = (centroid_i - centroid_j).norm();
 
-            // Merge clusters if distance is below the threshold
             if (distance < mergeTolerance) {
-                // Merge cluster j into cluster i
                 cluster_indices[i].indices.insert(cluster_indices[i].indices.end(),
                                 cluster_indices[j].indices.begin(),
                                 cluster_indices[j].indices.end());
-                merged[j] = true; // Mark cluster j as merged
+                merged[j] = true; 
             }
         }
     }
-    
 
     // Remove merged clusters from the list
     std::vector<pcl::PointIndices> filtered_clusters;
@@ -196,12 +215,19 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
                                             double distanceWeight,
                                             double scoreThreshold) {
 
+    /*
+        Applies weighted scoring of size, density, and distance to filter out clusters, with values normalized using arbitrary expected values
+
+        Purpose: updates cluster_indices with removed clusters that are too big, too far, or too sparse
+    */
+
     if (cloud->empty() || cluster_indices.empty()) return; 
+
 
     // Define maximum expected values for normalization
     const double max_density = 700.0;   // Maximum density (points/m³)
-    const double max_size = 10.0;        // Maximum cluster size (m³)
-    const double max_distance = 60.0;   // Maximum distance (meters)
+    const double max_size = 12.0;        // Maximum cluster size; the diagonal length of its extents (meters)
+    const double max_distance = 60.0;   // Maximum distance of a cluster (meters)
 
     std::vector<pcl::PointIndices> filtered_clusters;
 
@@ -226,29 +252,28 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
             total_distance += std::sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z);
         }
 
-        // Calculate cluster size (bounding box diagonal)
+        // calculate cluster size (the diagonal length of the extents of the cluster)
         double cluster_size = std::sqrt((max_x - min_x) * (max_x - min_x) +
                               (max_y - min_y) * (max_y - min_y) +
                               (max_z - min_z) * (max_z - min_z));
 
-        // Calculate cluster density (points per unit volume)
+        // calculate cluster density (points per unit volume)
         double cluster_volume = (max_x - min_x) * (max_y - min_y) * (max_z - min_z);
         double density = cluster_volume > 0 ? clusters.indices.size() / cluster_volume : 0;
 
-        // Calculate average distance from origin
+        // calculate average distance from origin
         double avg_distance = total_distance / clusters.indices.size();
 
-        // Normalize the factors
+        // normalize the factors
         double normalized_density = density / max_density;
         double normalized_size = cluster_size / max_size;
         double normalized_distance = avg_distance / max_distance;
 
-        // Compute the weighted score
+        //  weighted score
         double score = (normalized_density * densityWeight) +
                        (normalized_size * sizeWeight) +
                        (normalized_distance * distanceWeight);
 
-        // If the score is below the threshold, keep the cluster
         if (score < scoreThreshold) {
             filtered_clusters.push_back(clusters);
         }
@@ -277,20 +302,25 @@ bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ
     return true;
 }
 
-// ASSOCIATING LIDAR TO 2D OBJECT DETECTION FUNCTIONS ------------------------------------------------------------------------------------------------
-
-void ProjectionUtils::filterClusterByBoundingBox(
+void ProjectionUtils::computeHighestIOUCluster(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-    std::vector<pcl::PointIndices>& cluster_indices,  // Pass by reference to modify directly
+    std::vector<pcl::PointIndices>& cluster_indices, 
     const vision_msgs::msg::Detection2DArray& detections,
     const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& projection_matrix) {
+    const std::array<double, 12>& projection_matrix,
+    const float object_detection_confidence) {
+
+    /*
+        Calculates the IOU (Intersection Over Union) score of the area occupied by a cluster in 2d space with the area of the 2d object detections bbox
+        Filters out object detections below the confidence threshold to reduce false positives
+
+        Purpose: updates cluster_indices with clusters associated to the objects detected
+    */
     
-    if (input_cloud->empty() || cluster_indices.empty()) return;  // Handle empty input
+    if (input_cloud->empty() || cluster_indices.empty()) return;
 
     double max_iou = 0.0;
-    std::vector<pcl::PointIndices> updated_clusters;  // Store clusters with good IoU
-
+    std::vector<pcl::PointIndices> updated_clusters;
     for (auto& cluster : cluster_indices) {
         std::vector<cv::Point2d> projected_points;
 
@@ -317,9 +347,15 @@ void ProjectionUtils::filterClusterByBoundingBox(
 
         cv::Rect cluster_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
         double local_max_iou = 0.0;
-
-        // Find the detection with the highest IoU
+        
+        // Find highest IoU
         for (const auto& detection : detections.detections) {
+            // skip low confidence detections
+            if (!detection.results.empty() && detection.results[0].hypothesis.score < object_detection_confidence)
+            {
+                RCLCPP_INFO(rclcpp::get_logger("lidar_image_overlay"), "Ignored detected object of class %s with confidence score %.2f", detection.results[0].hypothesis.class_id.c_str(), detection.results[0].hypothesis.score);
+                continue;
+            }
             const auto& bbox = detection.bbox;
             cv::Rect detection_bbox(bbox.center.position.x - bbox.size_x / 2,
                 bbox.center.position.y - bbox.size_y / 2,
@@ -334,15 +370,14 @@ void ProjectionUtils::filterClusterByBoundingBox(
             }
         }
 
-        // If the cluster has a good IoU score, keep it
         if (local_max_iou > max_iou) {
             max_iou = local_max_iou;
-            updated_clusters.push_back(cluster);  // Add the cluster with good IoU
+            updated_clusters.push_back(cluster);  
         }
     }
 
-    // Update the original cluster indices with only the clusters that have good IoU scores
-    cluster_indices = std::move(updated_clusters);  // Replace old clusters with filtered ones
+    // update cluster indices
+    cluster_indices = std::move(updated_clusters); 
 }
 
 // BOUNDING BOX FUNCTIONS --------------------------------------------------------------------------------------------
@@ -352,9 +387,16 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
     const std::vector<pcl::PointIndices>& cluster_indices,
     const sensor_msgs::msg::PointCloud2& msg) {
 
+    /*
+        calculates the bounding box enclosing a cluster using the min/max points and the orientation using minAreaRect
+        the function finds the smallest enclosing rotated rectangle for the points in the cluster
+
+        Purpose: returns the marker array of all the bounding boxes created around each cluster
+    */
+
     visualization_msgs::msg::MarkerArray marker_array;
 
-    if (cloud->empty()) return marker_array; // Handle empty input
+    if (cloud->empty()) return marker_array;
 
     int id = 0;
     for (const auto& cluster : cluster_indices) {
@@ -363,7 +405,7 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
         Eigen::Vector4f min_point = Eigen::Vector4f::Constant(std::numeric_limits<float>::max());
         Eigen::Vector4f max_point = Eigen::Vector4f::Constant(std::numeric_limits<float>::lowest());
 
-        // Compute min/max points manually
+        // get the min/max points
         for (const auto& index : cluster.indices) {
             const auto& pt = cloud->points[index];
             min_point.x() = std::min(min_point.x(), pt.x);
@@ -401,7 +443,7 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
             bbox_size.y() = box.size.height;
         }
 
-        // Prepare Marker
+        // initialize marker
         visualization_msgs::msg::Marker bbox_marker;
         bbox_marker.header = msg.header;
         bbox_marker.ns = "bounding_boxes";

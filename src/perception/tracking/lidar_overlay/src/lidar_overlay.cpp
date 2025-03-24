@@ -56,6 +56,8 @@ void LidarImageOverlay::initializeParams() {
 
     this->declare_parameter<double>("merge_threshold", 1.5);
 
+    this->declare_parameter<float>("object_detection_confidence", 0.55);
+
     // Get parameters
     camera_info_topic_ = this->get_parameter("camera_info_topic").as_string();
     lidar_topic_ = this->get_parameter("lidar_topic").as_string();
@@ -64,6 +66,8 @@ void LidarImageOverlay::initializeParams() {
     filtered_lidar_topic_ = this->get_parameter("filtered_lidar_topic").as_string();
     cluster_centroid_topic_ = this->get_parameter("cluster_centroid_topic").as_string();
     bounding_box_topic_ = this->get_parameter("bounding_box_topic").as_string();
+
+    camera_frames_ = this->get_parameter("camera_frames").as_string_array();
 
     lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
@@ -81,6 +85,7 @@ void LidarImageOverlay::initializeParams() {
 
     merge_threshold_ = this->get_parameter("merge_threshold").as_double();
 
+    object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
     RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
@@ -125,7 +130,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
         return;
     }
 
-    if (!tf_buffer_->canTransform("CAM_FRONT", lidar_frame_, tf2::TimePointZero)) {
+    if (!tf_buffer_->canTransform(camera_frames_[0], lidar_frame_, tf2::TimePointZero)) {
         RCLCPP_WARN(this->get_logger(), "Transform not available");
         return;
     }
@@ -135,7 +140,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     }
 
     try {
-        transform = tf_buffer_->lookupTransform("CAM_FRONT", lidar_frame_, tf2::TimePointZero);
+        transform = tf_buffer_->lookupTransform(camera_frames_[0], lidar_frame_, tf2::TimePointZero);
     } catch (tf2::TransformException &ex) {
         RCLCPP_WARN(this->get_logger(), "Transform lookup failed: %s", ex.what());
         return;
@@ -145,7 +150,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
     // Perform DBSCAN clustering, populate cluster_indices
     std::vector<pcl::PointIndices> cluster_indices;
-    ProjectionUtils::dbscanCluster(filtered_point_cloud_, dbscan_cluster_tolerance_, dbscan_min_cluster_size_, dbscan_max_cluster_size_, cluster_indices);
+    ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, dbscan_cluster_tolerance_, dbscan_min_cluster_size_, dbscan_max_cluster_size_, cluster_indices);
 
     // filter clusters by density, size and distance
     ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_, size_weight_, distance_weight_, score_threshold_); 
@@ -154,7 +159,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, merge_threshold_);
 
      // calculate the best fitting iou score between the x and y area of the clusters in the camera plane and the detections
-    ProjectionUtils::filterClusterByBoundingBox(filtered_point_cloud_, cluster_indices, *msg, transform, camInfo_->p);
+    ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, *msg, transform, camInfo_->p, object_detection_confidence_);
 
     // assign colors to the clusters (stricly for visualiztion)
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -165,7 +170,6 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
     pcl::toROSMsg(*colored_clustered_cloud, filtered_lidar_msg);
     filtered_lidar_msg.header = latest_lidar_msg_.header;
     filtered_lidar_pub_->publish(filtered_lidar_msg);
-
 
     visualization_msgs::msg::MarkerArray bbox_msg;
     bbox_msg = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
