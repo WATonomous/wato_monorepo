@@ -49,7 +49,7 @@ class ProjectionUtils {
             int meanK,
             double stddevMulThresh);
 
-        static void dbscanCluster(
+        static void euclideanClusterExtraction(
             pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
             double clusterTolerance,
             int minClusterSize,
@@ -81,12 +81,13 @@ class ProjectionUtils {
 
         // ROI FUNCTIONS ------------------------------------------------------------------------------------------------
 
-        static void filterClusterByBoundingBox(
+        static void computeHighestIOUCluster(
             const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
             std::vector<pcl::PointIndices>& cluster_indices,
             const vision_msgs::msg::Detection2DArray& detections,
             const geometry_msgs::msg::TransformStamped& transform,
-            const std::array<double, 12>& projection_matrix);
+            const std::array<double, 12>& projection_matrix,
+            const float object_detection_confidence);
 
         // BOUNDING BOX FUNCTIONS ----------------------------------------------------------------------------------------
         
@@ -99,6 +100,7 @@ class ProjectionUtils {
     private:
         static const int image_width_ = 1600;
         static const int image_height_ = 900;
+
 };
 
 #endif
