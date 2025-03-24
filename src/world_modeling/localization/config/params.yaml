@@ -5,10 +5,10 @@ odom:
     steering_topic: "/steering_angle"
     odom_output_topic: "/bicycle_model_output"
     wheel_base: 2.65
-    wheel_speed_min: 3
-    wheel_speed_max: 3
-    turning_angle_min: 0
-    turning_angle_max: 0
+    wheel_speed_min: 3.0
+    wheel_speed_max: 3.0
+    turning_angle_min: 0.0
+    turning_angle_max: 0.0
     wheel_publish_rate: 1000
     turn_publish_rate:  12000
     odom_publish_rate: 10
