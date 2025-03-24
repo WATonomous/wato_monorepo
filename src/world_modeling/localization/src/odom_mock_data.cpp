@@ -1,6 +1,6 @@
 #include"odom_mock_data.hpp"
 
-    DummyPublisher::DummyPublisher(): Node("dummy_publisher"){
+    DummyPublisher::DummyPublisher(): Node("odom"){
 
         this->declare_parameter<int>("wheel_publish_rate", 1000);
         this->declare_parameter<int>("turn_publish_rate", 12000);
