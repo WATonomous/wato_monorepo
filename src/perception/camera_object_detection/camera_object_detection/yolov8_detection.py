@@ -37,7 +37,7 @@ class CameraDetectionNode(Node):
     def __init__(self):
         torch.zeros(1).cuda()
 
-        super().__init__("left_combined_detection_node")
+        super().__init__("detection_node")
         self.get_logger().info("Creating camera detection node...")
 
         self.declare_parameter("camera_topic", "/camera/right/image_color")
@@ -252,8 +252,8 @@ class CameraDetectionNode(Node):
     def image_callback(self, msg):
         self.get_logger().debug("Received image")
         if self.orig_image_width is None:
-            self.orig_image_width = msg.width
-            self.orig_image_height = msg.height
+            self.orig_image_width = 1600
+            self.orig_image_height = 900
 
         images = [msg]  # msg is a single sensor image
         startTime = time.time()
