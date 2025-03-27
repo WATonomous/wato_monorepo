@@ -353,7 +353,7 @@ void ProjectionUtils::computeHighestIOUCluster(
             // skip low confidence detections
             if (!detection.results.empty() && detection.results[0].hypothesis.score < object_detection_confidence)
             {
-                RCLCPP_INFO(rclcpp::get_logger("lidar_image_overlay"), "Ignored detected object of class %s with confidence score %.2f", detection.results[0].hypothesis.class_id.c_str(), detection.results[0].hypothesis.score);
+                RCLCPP_INFO(rclcpp::get_logger("bbox_2d_3d"), "Ignored detected object of class %s with confidence score %.2f", detection.results[0].hypothesis.class_id.c_str(), detection.results[0].hypothesis.score);
                 continue;
             }
             const auto& bbox = detection.bbox;

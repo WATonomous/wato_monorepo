@@ -1,5 +1,5 @@
-#ifndef LIDAR_OVERLAY_HPP
-#define LIDAR_OVERLAY_HPP
+#ifndef BBOX_2D_3D_HPP
+#define BBOX_2D_3D_HPP
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -19,9 +19,9 @@
 
 #include "projection_utils.hpp" 
 
-class LidarImageOverlay : public rclcpp::Node {
+class bbox_2d_3d : public rclcpp::Node {
     public:
-        LidarImageOverlay();
+    bbox_2d_3d();
 
     private:
         // IMAGE -----------------------------------------------------------------------------------------------------------
@@ -85,9 +85,9 @@ class LidarImageOverlay : public rclcpp::Node {
         double ransac_distance_threshold_;
         int ransac_max_iterations_;
         
-        double dbscan_cluster_tolerance_;
-        int dbscan_min_cluster_size_;
-        int dbscan_max_cluster_size_;
+        double euclid_cluster_tolerance_;
+        int euclid_min_cluster_size_;
+        int euclid_max_cluster_size_;
 
         double density_weight_;
         double size_weight_;

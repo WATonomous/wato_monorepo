@@ -1,17 +1,17 @@
-#include "lidar_overlay.hpp"
+#include "bbox_2d_3d.hpp"
 
-LidarImageOverlay::LidarImageOverlay() : Node("lidar_image_overlay") {
+bbox_2d_3d::bbox_2d_3d() : Node("bbox_2d_3d") {
 
     initializeParams();
 
     // SUBSCRIBERS -------------------------------------------------------------------------------------------------
 
     lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        lidar_topic_, 10, std::bind(&LidarImageOverlay::lidarCallback, this, std::placeholders::_1));
+        lidar_topic_, 10, std::bind(&bbox_2d_3d::lidarCallback, this, std::placeholders::_1));
     camera_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-        camera_info_topic_, 10, std::bind(&LidarImageOverlay::cameraInfoCallback, this, std::placeholders::_1));
+        camera_info_topic_, 10, std::bind(&bbox_2d_3d::cameraInfoCallback, this, std::placeholders::_1));
     dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
-        detections_topic_, 10, std::bind(&LidarImageOverlay::detsCallback, this, std::placeholders::_1));
+        detections_topic_, 10, std::bind(&bbox_2d_3d::detsCallback, this, std::placeholders::_1));
 
     // PUBLISHERS --------------------------------------------------------------------------------------------------
 
@@ -25,12 +25,12 @@ LidarImageOverlay::LidarImageOverlay() : Node("lidar_image_overlay") {
 }
 
 
-void LidarImageOverlay::initializeParams() {
+void bbox_2d_3d::initializeParams() {
     this->declare_parameter<std::string>("camera_info_topic", "/CAM_FRONT/camera_info");
     this->declare_parameter<std::string>("lidar_topic", "/LIDAR_TOP");
     this->declare_parameter<std::string>("detections_topic", "/detections");
 
-    this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar");
+    this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar"); 
     this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
     this->declare_parameter<std::string>("bounding_box_topic", "/bounding_box");
 
@@ -40,13 +40,13 @@ void LidarImageOverlay::initializeParams() {
     this->declare_parameter<std::string>("lidar_top_frame", "LIDAR_TOP");
 
     // RANSAC Parameters
-    this->declare_parameter<double>("ransac_params.distance_threshold", 0.4);
-    this->declare_parameter<int>("ransac_params.max_iterations", 1200);
+    this->declare_parameter<double>("ransac_params.distance_threshold", 0.5);
+    this->declare_parameter<int>("ransac_params.max_iterations", 1500);
 
-    // DBSCAN Parameters
-    this->declare_parameter<double>("dbscan_params.cluster_tolerance", 1.2);
-    this->declare_parameter<int>("dbscan_params.min_cluster_size", 30);
-    this->declare_parameter<int>("dbscan_params.max_cluster_size", 1000);
+    // Euclidean Clustering Parameters
+    this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.5);
+    this->declare_parameter<int>("euclid_params.min_cluster_size", 10);
+    this->declare_parameter<int>("euclid_params.max_cluster_size", 800);
 
     // Density Filtering Parameters
     this->declare_parameter<double>("density_filter_params.density_weight", 0.4);
@@ -74,9 +74,9 @@ void LidarImageOverlay::initializeParams() {
     ransac_distance_threshold_ = this->get_parameter("ransac_params.distance_threshold").as_double();
     ransac_max_iterations_ = this->get_parameter("ransac_params.max_iterations").as_int();
 
-    dbscan_cluster_tolerance_ = this->get_parameter("dbscan_params.cluster_tolerance").as_double();
-    dbscan_min_cluster_size_ = this->get_parameter("dbscan_params.min_cluster_size").as_int();
-    dbscan_max_cluster_size_ = this->get_parameter("dbscan_params.max_cluster_size").as_int();
+    euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
+    euclid_min_cluster_size_ = this->get_parameter("euclid_params.min_cluster_size").as_int();
+    euclid_max_cluster_size_ = this->get_parameter("euclid_params.max_cluster_size").as_int();
 
     density_weight_ = this->get_parameter("density_filter_params.density_weight").as_double();
     size_weight_ = this->get_parameter("density_filter_params.size_weight").as_double();
@@ -90,12 +90,12 @@ void LidarImageOverlay::initializeParams() {
 }
 
 
-void LidarImageOverlay::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
+void bbox_2d_3d::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
     camInfo_ = msg;
     camera_info_sub_.reset();
 }
 
-void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+void bbox_2d_3d::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
 
     // store the lidar msg
     latest_lidar_msg_ = *msg; 
@@ -122,7 +122,7 @@ void LidarImageOverlay::lidarCallback(const sensor_msgs::msg::PointCloud2::Share
 }
 
 
-void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
+void bbox_2d_3d::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
     
     // checks for if pointers available, prevents accessing null pointers
     if (!camInfo_) {
@@ -148,9 +148,9 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
     // CLUSTERING -----------------------------------------------------------------------------------------------
 
-    // Perform DBSCAN clustering, populate cluster_indices
+    // Perform Euclidean clustering, populate cluster_indices
     std::vector<pcl::PointIndices> cluster_indices;
-    ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, dbscan_cluster_tolerance_, dbscan_min_cluster_size_, dbscan_max_cluster_size_, cluster_indices);
+    ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, euclid_cluster_tolerance_, euclid_min_cluster_size_, euclid_max_cluster_size_, cluster_indices);
 
     // filter clusters by density, size and distance
     ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_, size_weight_, distance_weight_, score_threshold_); 
@@ -193,7 +193,7 @@ void LidarImageOverlay::detsCallback(const vision_msgs::msg::Detection2DArray::S
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<LidarImageOverlay>());
+    rclcpp::spin(std::make_shared<bbox_2d_3d>());
     rclcpp::shutdown();
     return 0;
 }

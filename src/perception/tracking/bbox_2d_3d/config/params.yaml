@@ -22,16 +22,16 @@ ros__parameters:
 
   # filtering parameters
   ransac_params:
-    distance_threshold: 0.4
+    distance_threshold: 0.5
     # maximum allowed distance a point can be from the estimated plane to still be considered an inlier
-    max_iterations: 1200
+    max_iterations: 1000
     # the number of times ransac randomly samples a point to estimate a plane, higher number means more accurate plane estimation but heavier computation
 
-  dbscan_params:
-    cluster_tolerance: 1.2
+  euclid_params:
+    cluster_tolerance: 0.5
     #This defines the maximum distance between two points for them to be considered part of the same cluster
     min_cluster_size: 30 # small values create more noise 
-    max_cluster_size: 1000 # big values slightly slow down performance
+    max_cluster_size: 800 # big values slightly slow down performance
 
   density_filter_params:
   # filter out clusters that are too sparse and too far away, on a scale of 0 to 1
@@ -40,7 +40,7 @@ ros__parameters:
     distance_weight: 0.5 # increase to filter out more far away clusters, moderately important
     score_threshold: 0.7 # threshold score for a cluster to be considered as a valid cluster, increase to keep more clusters
 
-  merge_threshold: 1.5
+  merge_threshold: 1.2
   # the threshold distance between two clusters centroids for them to be merged into one cluster
 
   object_detection_confidence: 0.55
