@@ -80,10 +80,10 @@ void ProjectionUtils::removeFloor(const Cloud::Ptr &lidarCloud, const Cloud::Ptr
   seg.setOptimizeCoefficients(true);
   seg.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
   seg.setMethodType(pcl::SAC_RANSAC);
-  seg.setMaxIterations(100);
+  seg.setMaxIterations(5000);
   seg.setAxis(Eigen::Vector3f(0, 0, 1));
   seg.setEpsAngle(0.1);
-  seg.setDistanceThreshold(0.5);  // floor distance
+  seg.setDistanceThreshold(0.20);  // floor distance
   seg.setOptimizeCoefficients(true);
   seg.setInputCloud(lidarCloud);
   seg.segment(*inliers, *coefficients);

@@ -42,7 +42,7 @@ TrackingNode::TrackingNode()
       this->get_parameter("publish_clusters_topic").as_string(), 10);
 
   point_cloud_in_bbox_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
-    this->get_parameter("publish_clusters_topic").as_string(), 10);
+    this->get_parameter("publish_points").as_string(), 10);
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -166,17 +166,18 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     mergedClusters += *(clusters[bestIndex]->getCloud());
 
     // Debugging: Create a new point cloud for storing the lidar data used for the 3D bounding box
-    pcl::PointCloud<pcl::PointXYZ>::Ptr pointsInBBox(new pcl::PointCloud<pcl::PointXYZ>());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr pointsInBbox(new pcl::PointCloud<pcl::PointXYZ>());
 
     for (const pcl::PointXYZRGB &pt : clusters[bestIndex]->getCloud()->points) {
-      pointsInBBox->points.push_back(pcl::PointXYZ(pt.x, pt.y, pt.z));
+      pointsInBbox->points.push_back(pcl::PointXYZ(pt.x, pt.y, pt.z));
     }
 
     sensor_msgs::msg::PointCloud2 pubCloudInBBox;
-    pcl::toROSMsg(*pointsInBBox, pubCloudInBBox);
+    pcl::toROSMsg(*lidarCloudNoFloor, pubCloudInBBox);
     pubCloudInBBox.header.frame_id = lidarFrame_;  
     pubCloudInBBox.header.stamp = msg->header.stamp; 
     point_cloud_in_bbox_publisher_->publish(pubCloudInBBox);
+
 
     vision_msgs::msg::Detection3D det3d;
     det3d.bbox = bestBBox;
