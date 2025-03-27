@@ -36,17 +36,17 @@ ament_target_dependencies(odom_lib
 
 # Create ROS2 node executable from source files
 
-#odom_node is the name of the node which we can run
-add_executable(odom_node src/odom.cpp)
-add_executable(odom_mock_data_node src/odom_mock_data.cpp)
+#odom is the name of the node which we can run
+add_executable(odom src/odom.cpp)
+add_executable(odom_mock_data src/odom_mock_data.cpp)
 # Link to the previously built library to access occupancy classes and methods
-target_link_libraries(odom_node odom_lib)
-target_link_libraries(odom_mock_data_node odom_lib)
+target_link_libraries(odom odom_lib)
+target_link_libraries(odom_mock_data odom_lib)
 
 # Copy executable to installation location
 install(TARGETS
-  odom_node
-  odom_mock_data_node
+  odom
+  odom_mock_data
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location

@@ -1,9 +1,9 @@
 #include"odom_mock_data.hpp"
 
-    DummyPublisher::DummyPublisher(): Node("odom"){
+    DummyPublisher::DummyPublisher(): Node("odom_mock_data"){
 
         this->declare_parameter<int>("wheel_publish_rate", 1000);
-        this->declare_parameter<int>("turn_publish_rate", 12000);
+        this->declare_parameter<int>("turn_publish_rate", 1000);
         this->declare_parameter<std::string>("left_wheel_topic", std::string("/motor_encoder_left"));
         this->declare_parameter<std::string>("right_wheel_topic", std::string("/motor_encoder_right"));
         this->declare_parameter<std::string>("steering_topic", std::string("/steering_angle"));
@@ -41,7 +41,7 @@
         //adding 50km/h speed in m/s to fake encoder values
         left_wheel_encoder = min_speed_value_ + ((double)rand() / RAND_MAX)* (max_speed_value_- min_speed_value_);
         message.data = left_wheel_encoder;
-        RCLCPP_INFO(this->get_logger(), "Publishing: '%.2f'", message.data);
+        RCLCPP_DEBUG(this->get_logger(), "Publishing Left Encoder: '%.2f'", message.data);
         this->publisher_left_wheel__->publish(message);
     }
 
@@ -50,7 +50,7 @@
         //adding km/h speed in m/s to fake encoder values
         right_wheel_encoder = min_speed_value_ + ((double)rand() / RAND_MAX)* (max_speed_value_- min_speed_value_);
         message.data = right_wheel_encoder;
-        RCLCPP_INFO(this->get_logger(), "Publishing: '%.2f'", message.data);
+        RCLCPP_DEBUG(this->get_logger(), "Publishing Right Encoder: '%.2f'", message.data);
         this->publisher_right_wheel_->publish(message);
     }
 
@@ -59,7 +59,7 @@
         //Random turn values in radians
         steering_angle = min_turn_value_ + ((double)rand() / RAND_MAX)* (max_turn_value_ - min_turn_value_);
         message.data = steering_angle;
-        RCLCPP_INFO(this->get_logger(), "Publishing: '%.2f'", message.data);
+        RCLCPP_DEBUG(this->get_logger(), "Publishing Steering: '%.2f'", message.data);
         this->publisher_steering_angle_->publish(message);
     }
 
