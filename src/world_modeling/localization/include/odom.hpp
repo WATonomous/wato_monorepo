@@ -4,21 +4,20 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <string>
-#include<rclcpp/rclcpp.hpp>
-#include<std_msgs/msg/float64.hpp>
-#include<std_msgs/msg/string.hpp>
 
 #include <nav_msgs/msg/odometry.hpp>
 
 using namespace std::chrono_literals;
 
-class WheelOdometry : public rclcpp::Node{
-
-public:
+class WheelOdometry : public rclcpp::Node {
+ public:
   WheelOdometry();
 
-private:
+ private:
   void bicycleModel();
 
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr leftrear_wheel_motor_encoder;
