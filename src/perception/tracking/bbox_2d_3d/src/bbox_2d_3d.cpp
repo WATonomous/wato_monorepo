@@ -130,17 +130,14 @@ void bbox_2d_3d::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPt
         return;
     }
 
-    if (!tf_buffer_->canTransform(camera_frames_[0], lidar_frame_, tf2::TimePointZero)) {
-        RCLCPP_WARN(this->get_logger(), "Transform not available");
-        return;
-    }
+    
     if (!filtered_point_cloud_) {
         RCLCPP_WARN(this->get_logger(), "Lidar data not available");
         return;
     }
 
     try {
-        transform = tf_buffer_->lookupTransform(camera_frames_[0], lidar_frame_, tf2::TimePointZero);
+        transform = tf_buffer_->lookupTransform(msg->header.frame_id, lidar_frame_, tf2::TimePointZero);
     } catch (tf2::TransformException &ex) {
         RCLCPP_WARN(this->get_logger(), "Transform lookup failed: %s", ex.what());
         return;
