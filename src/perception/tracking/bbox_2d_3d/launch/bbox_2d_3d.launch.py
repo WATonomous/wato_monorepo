@@ -6,18 +6,18 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
 
     config_file = PathJoinSubstitution([
-        FindPackageShare('lidar_overlay'),
+        FindPackageShare('bbox_2d_3d'),
         'config',
         'params.yaml'
     ])
 
-    lidar_overlay_node = Node(
-        package='lidar_overlay',
-        executable='lidar_overlay_node',
-        name='lidar_overlay_node',
+    bbox_2d_3d_node = Node(
+        package='bbox_2d_3d',
+        executable='bbox_2d_3d_node',
+        name='bbox_2d_3d_node',
         parameters=[config_file]
     )
 
     return LaunchDescription([
-        lidar_overlay_node
+        bbox_2d_3d_node
     ])

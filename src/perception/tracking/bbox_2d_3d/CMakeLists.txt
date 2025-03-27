@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(lidar_overlay)
+project(bbox_2d_3d)
 
 # Set C++ standard
 if(NOT CMAKE_CXX_STANDARD)
@@ -58,11 +58,11 @@ ament_target_dependencies(projection_utils
     geometry_msgs
 )
 
-# Add the executable for the lidar_overlay node
-add_executable(lidar_overlay_node src/lidar_overlay.cpp)
+# Add the executable for the bbox_2d_3d node
+add_executable(bbox_2d_3d_node src/bbox_2d_3d.cpp)
 
 # Include directories
-target_include_directories(lidar_overlay_node
+target_include_directories(bbox_2d_3d_node
     PUBLIC
     include
     ${OpenCV_INCLUDE_DIRS}
@@ -70,7 +70,7 @@ target_include_directories(lidar_overlay_node
 )
 
 # Link libraries
-target_link_libraries(lidar_overlay_node
+target_link_libraries(bbox_2d_3d_node
     projection_utils
     ${OpenCV_LIBS}
     tf2::tf2
@@ -78,7 +78,7 @@ target_link_libraries(lidar_overlay_node
 )
 
 # Add ROS 2 dependencies
-ament_target_dependencies(lidar_overlay_node
+ament_target_dependencies(bbox_2d_3d_node
     rclcpp
     sensor_msgs
     geometry_msgs
@@ -94,7 +94,7 @@ ament_target_dependencies(lidar_overlay_node
 
 # Install the executable
 install(TARGETS
-    lidar_overlay_node
+    bbox_2d_3d_node
     DESTINATION lib/${PROJECT_NAME}
 )
 
