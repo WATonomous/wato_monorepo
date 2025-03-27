@@ -8,8 +8,13 @@ dets_2d_3d_node:
     publish_markers_topic: /markers_3d
     publish_clusters_topic: /clustered_pc
 
+<<<<<<< HEAD
     publish_clusters_topic: /lidar_points_in_bbox
 
+=======
+    publish_points: /lidar_points_in_bbox
+    
+>>>>>>> 7871674caf4bec7ddd29cd6aef960a5a71446be5
     camera_frame: CAM_FRONT
     lidar_frame: LIDAR_TOP
 
