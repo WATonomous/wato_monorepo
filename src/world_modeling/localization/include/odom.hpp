@@ -9,7 +9,6 @@
 #include<std_msgs/msg/float64.hpp>
 #include<std_msgs/msg/string.hpp>
 
-//not sure about the one below
 #include <nav_msgs/msg/odometry.hpp>
 
 using namespace std::chrono_literals;

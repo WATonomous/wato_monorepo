@@ -2,7 +2,7 @@
 
 
     WheelOdometry::WheelOdometry()
-        : Node("sensor_subscriber"), x_(0.0), y_(0.0), theta_(0.0), previous_time_(this->now()) {
+        : Node("odom"), x_(0.0), y_(0.0), theta_(0.0), previous_time_(this->now()) {
 
         this->declare_parameter<std::string>("left_wheel_topic", std::string("/motor_encoder_left"));
         this->declare_parameter<std::string>("right_wheel_topic", std::string("/motor_encoder_right"));
@@ -62,7 +62,7 @@
         odom_message.twist.twist.linear.x = linear_velocity;
         odom_message.twist.twist.angular.z = angular_velocity;
 
-        RCLCPP_INFO(this->get_logger(), "Publishing: x=%.2f, y=%.2f, theta=%.2f", x_, y_, theta_);
+        RCLCPP_DEBUG(this->get_logger(), "Publishing: x=%.2f, y=%.2f, theta=%.2f", x_, y_, theta_);
         publisher_->publish(odom_message);
     }
 

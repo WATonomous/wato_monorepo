@@ -19,20 +19,20 @@ def generate_launch_description():
         description='Path to config file for localization node'
     )
 
-    odom_node = Node(
+    odom = Node(
         package='localization',
-        executable='odom_node',
+        executable='odom',
         parameters=[LaunchConfiguration('localization_param_file')],
     )
 
-    odom_mock_data_node = Node(
+    odom_mock_data = Node(
         package='localization',
-        executable='odom_mock_data_node',
+        executable='odom_mock_data',
         parameters=[LaunchConfiguration('localization_param_file')],
     )
 
     return LaunchDescription([
         localization_param,
-        odom_node,
-        odom_mock_data_node
+        odom,
+        odom_mock_data
     ])
