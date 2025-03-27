@@ -68,17 +68,6 @@ class bbox_2d_3d : public rclcpp::Node {
         std::string cluster_centroid_topic_;
         std::string bounding_box_topic_;
 
-        /*
-        CAM frames stored in this order in vector
-        "CAM_FRONT",
-        "CAM_FRONT_LEFT",
-        "CAM_FRONT_RIGHT",
-        "CAM_BACK", 
-        "CAM_BACK_LEFT", 
-        "CAM_BACK_RIGHT" 
-        */
-        std::vector<std::string> camera_frames_;
-
         std::string lidar_frame_;
 
         // Filtering parameters

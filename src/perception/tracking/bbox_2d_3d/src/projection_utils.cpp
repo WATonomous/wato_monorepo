@@ -325,6 +325,7 @@ void ProjectionUtils::computeHighestIOUCluster(
         std::vector<cv::Point2d> projected_points;
 
         // Project each point in the cluster to the image plane
+        
         for (const auto& idx : cluster.indices) {
             auto projected = projectLidarToCamera(transform, projection_matrix, input_cloud->points[idx]);
             if (projected) {
@@ -346,14 +347,16 @@ void ProjectionUtils::computeHighestIOUCluster(
         }
 
         cv::Rect cluster_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
+
         double local_max_iou = 0.0;
+        bool centroid_in_any_bbox = false;
         
         // Find highest IoU
         for (const auto& detection : detections.detections) {
             // skip low confidence detections
             if (!detection.results.empty() && detection.results[0].hypothesis.score < object_detection_confidence)
             {
-                RCLCPP_INFO(rclcpp::get_logger("bbox_2d_3d"), "Ignored detected object of class %s with confidence score %.2f", detection.results[0].hypothesis.class_id.c_str(), detection.results[0].hypothesis.score);
+                //RCLCPP_INFO(rclcpp::get_logger("bbox_2d_3d"), "Ignored detected object of class %s with confidence score %.2f", detection.results[0].hypothesis.class_id.c_str(), detection.results[0].hypothesis.score);
                 continue;
             }
             const auto& bbox = detection.bbox;
@@ -369,6 +372,11 @@ void ProjectionUtils::computeHighestIOUCluster(
                 local_max_iou = iou;
             }
         }
+/* 
+        if (!centroid_in_any_bbox) {
+            RCLCPP_INFO(rclcpp::get_logger("bbox_2d_3d"), "centroid is not in bbox, cluster not accepted");
+            continue;
+        } */
 
         if (local_max_iou > max_iou) {
             max_iou = local_max_iou;

@@ -33,9 +33,6 @@ void bbox_2d_3d::initializeParams() {
     this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar"); 
     this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
     this->declare_parameter<std::string>("bounding_box_topic", "/bounding_box");
-
-    this->declare_parameter<std::vector<std::string>>("camera_frames", 
-        { "CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT", "CAM_BACK", "CAM_BACK_LEFT", "CAM_BACK_RIGHT" });
     
     this->declare_parameter<std::string>("lidar_top_frame", "LIDAR_TOP");
 
@@ -44,7 +41,7 @@ void bbox_2d_3d::initializeParams() {
     this->declare_parameter<int>("ransac_params.max_iterations", 1500);
 
     // Euclidean Clustering Parameters
-    this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.5);
+    this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.4);
     this->declare_parameter<int>("euclid_params.min_cluster_size", 10);
     this->declare_parameter<int>("euclid_params.max_cluster_size", 800);
 
@@ -67,7 +64,6 @@ void bbox_2d_3d::initializeParams() {
     cluster_centroid_topic_ = this->get_parameter("cluster_centroid_topic").as_string();
     bounding_box_topic_ = this->get_parameter("bounding_box_topic").as_string();
 
-    camera_frames_ = this->get_parameter("camera_frames").as_string_array();
 
     lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
