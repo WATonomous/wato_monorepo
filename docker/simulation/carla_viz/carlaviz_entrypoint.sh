@@ -1,4 +1,3 @@
-
 is_backend_up=""
 
 function wait_for_backend_up() {
@@ -35,6 +34,7 @@ fi
 echo "Backend launched."
 
 echo "Launching frontend"
+
 # enable nginx
 service nginx restart
 echo "Frontend launched. Please open your browser"
@@ -51,3 +51,4 @@ do
     fi
     sleep 5
 done
+

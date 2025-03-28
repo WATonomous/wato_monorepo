@@ -11,6 +11,8 @@
   <depend>rclcpp</depend>
   <depend>path_planning_msgs</depend>
   <depend>embedded_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

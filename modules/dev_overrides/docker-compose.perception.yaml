@@ -44,6 +44,7 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/semantic_segmentation:/home/bolty/ament_ws/src/semantic_segmentation
+      - /mnt/wato-drive/perception/segformer-b2:/home/bolty/ament_ws/src/semantic_segmentation/resource/model
 
   lane_detection:
     <<: *fixuid
@@ -69,7 +70,7 @@ services:
     <<: *fixuid
     extends:
       file: ../docker-compose.perception.yaml
-      service: tracking
+      service: depth_estimation
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:

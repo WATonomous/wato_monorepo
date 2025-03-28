@@ -1,0 +1,56 @@
+left_combined_detection_node:
+  ros__parameters:
+    camera_topic: /camera/left/image_color
+    publish_vis_topic: /camera/left/combined_detection_viz
+    publish_detection_topic: /camera/left/combined_detection
+    models:
+      pretrained_yolov8m:
+        name: yolov8m
+        model_path: /perception_models/yolov8m.pt
+      traffic_light:
+        name: traffic_light
+        model_path: /perception_models/traffic_light.pt
+      traffic_signs:
+        name: traffic_signs
+        model_path: /perception_models/traffic_signs.pt
+    crop_mode: CenterCrop
+    image_size: 1024
+    save_detections: false
+
+center_combined_detection_node:
+  ros__parameters:
+    camera_topic: /camera/center/image_color
+    publish_vis_topic: /camera/center/combined_detection_viz
+    publish_detection_topic: /camera/center/combined_detection
+    models:
+      pretrained_yolov8m:
+        name: yolov8m
+        model_path: /perception_models/yolov8m.pt
+      traffic_light:
+        name: traffic_light
+        model_path: /perception_models/traffic_light.pt
+      traffic_signs:
+        name: traffic_signs
+        model_path: /perception_models/traffic_signs.pt
+    crop_mode: CenterCrop
+    image_size: 1024
+    save_detections: false
+
+right_combined_detection_node:
+  ros__parameters:
+    camera_topic: /camera/right/image_color
+    publish_vis_topic: /camera/right/combined_detection_viz
+    publish_detection_topic: /camera/right/combined_detection
+    models:
+      pretrained_yolov8m:
+        name: yolov8m
+        model_path: /perception_models/yolov8m.pt
+      traffic_light:
+        name: traffic_light
+        model_path: /perception_models/traffic_light.pt
+      traffic_signs:
+        name: traffic_signs
+        model_path: /perception_models/traffic_signs.pt
+    crop_mode: CenterCrop
+    image_size: 1024
+    save_detections: false
