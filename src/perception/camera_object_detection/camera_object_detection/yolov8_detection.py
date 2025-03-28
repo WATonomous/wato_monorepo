@@ -42,6 +42,14 @@ class Tensor:
     gpu:int
 
 
+class Model():
+    def __init__(self, model_path, device):
+        self.model_path = model_path
+        self.model = AutoBackend(self.model_path, device=device, dnn=False, fp16=False)
+        self.names = self.model.module.names if hasattr(self.model, "module") else self.model.names
+        self.stride = int(self.model.stride)
+
+
 class CameraDetectionNode(Node):
 
     def __init__(self):
@@ -576,11 +584,11 @@ class CameraDetectionNode(Node):
 
         for idx, img_msg in enumerate(image_list):
             if self.compressed:
-                numpy_array = np.frombuffer(msg.data, np.uint8)
+                numpy_array = np.frombuffer(img_msg.data, np.uint8)
                 image = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-                original_height, original_width = cv_image.shape[:2]
+                original_height, original_width = image.shape[:2]
             else:
-                image = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+                image = self.cv_bridge.imgmsg_to_cv2(img_msg, desired_encoding="passthrough")
             height, width = image.shape[:2]
             annotator = Annotator(image, line_width=2, example="Class:0")
             detection_array = Detection2DArray()

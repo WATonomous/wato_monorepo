@@ -47,7 +47,9 @@ services:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
+    command: /bin/bash -c "ros2 launch lidar_object_detection nuscenes_launch.py"
+    volumes:
+      - /mnt/wato-drive2/perception_models/transfusion_trained_model.pth:/home/bolty/OpenPCDet/models/transfusion_trained_model.pth
 
   semantic_segmentation:
     build:
@@ -58,17 +60,16 @@ services:
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
-    volumes: 
-      - /mnt/wato-drive/perception/segformer-b2:/home/bolty/ament_ws/src/semantic_segmentation/resource/model
-          # add gpus all
+    command: /bin/bash -c "ros2 launch semantic_segmentation eve.launch.py"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              capabilities: [gpu]
               count: 1
+              capabilities: [ gpu ]
+    volumes: 
+      - /mnt/wato-drive2/perception-weights/semantic_segmentation/pp_liteseg_infer_model:/perception_models/semantic_segmentation/pp_liteseg_infer_model
 
   lane_detection:
     build:
@@ -110,4 +111,16 @@ services:
         - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch depth_estimation eve.launch.py"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+    command: /bin/bash -c "ros2 launch depth_estimation depth_estimation.launch.py"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    volumes:
+      - /mnt/wato-drive2/perception_models/depth_anything_v2_large.pth:/perception_models/depth_anything_v2_large.pth
+      - /mnt/wato-drive2/perception_models/depth_anything_v2_small.pth:/perception_models/depth_anything_v2_small.pth
