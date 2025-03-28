@@ -347,9 +347,7 @@ void ProjectionUtils::computeHighestIOUCluster(
         }
 
         cv::Rect cluster_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
-
         double local_max_iou = 0.0;
-        bool centroid_in_any_bbox = false;
         
         // Find highest IoU
         for (const auto& detection : detections.detections) {
@@ -372,11 +370,7 @@ void ProjectionUtils::computeHighestIOUCluster(
                 local_max_iou = iou;
             }
         }
-/* 
-        if (!centroid_in_any_bbox) {
-            RCLCPP_INFO(rclcpp::get_logger("bbox_2d_3d"), "centroid is not in bbox, cluster not accepted");
-            continue;
-        } */
+
 
         if (local_max_iou > max_iou) {
             max_iou = local_max_iou;

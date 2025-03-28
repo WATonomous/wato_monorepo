@@ -25,6 +25,10 @@ class bbox_2d_3d : public rclcpp::Node {
 
     private:
         // IMAGE -----------------------------------------------------------------------------------------------------------
+        void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+        
+        cv_bridge::CvImagePtr image_data_;
+
         std::array<double, 12> projection_matrix_;
         sensor_msgs::msg::CameraInfo::SharedPtr camInfo_;
 
@@ -45,6 +49,9 @@ class bbox_2d_3d : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
         rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
         rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr dets_sub_;
+
+        //for visualization
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
 
         std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
