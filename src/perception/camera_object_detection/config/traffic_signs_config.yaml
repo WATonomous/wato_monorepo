@@ -1,6 +1,6 @@
 traffic_signs_node:
   ros__parameters:
-    camera_topic: /camera/left/image_color
+    camera_topic: /front_camera/image_color
     publish_vis_topic: /traffic_signs_viz
     publish_detection_topic: /traffic_signs
     model_path: /perception_models/traffic_signs.pt
