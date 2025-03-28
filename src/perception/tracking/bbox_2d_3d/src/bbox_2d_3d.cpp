@@ -12,6 +12,9 @@ bbox_2d_3d::bbox_2d_3d() : Node("bbox_2d_3d") {
         camera_info_topic_, 10, std::bind(&bbox_2d_3d::cameraInfoCallback, this, std::placeholders::_1));
     dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
         detections_topic_, 10, std::bind(&bbox_2d_3d::detsCallback, this, std::placeholders::_1));
+    
+    image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+        "/annotated_img", 10, std::bind(&bbox_2d_3d::imageCallback, this, std::placeholders::_1));
 
     // PUBLISHERS --------------------------------------------------------------------------------------------------
 
@@ -41,19 +44,19 @@ void bbox_2d_3d::initializeParams() {
     this->declare_parameter<int>("ransac_params.max_iterations", 1500);
 
     // Euclidean Clustering Parameters
-    this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.4);
-    this->declare_parameter<int>("euclid_params.min_cluster_size", 10);
-    this->declare_parameter<int>("euclid_params.max_cluster_size", 800);
+    this->declare_parameter<double>("euclid_params.cluster_tolerance", 1.2);
+    this->declare_parameter<int>("euclid_params.min_cluster_size", 40);
+    this->declare_parameter<int>("euclid_params.max_cluster_size", 700);
 
     // Density Filtering Parameters
-    this->declare_parameter<double>("density_filter_params.density_weight", 0.4);
-    this->declare_parameter<double>("density_filter_params.size_weight", 0.6);
-    this->declare_parameter<double>("density_filter_params.distance_weight", 0.5);
-    this->declare_parameter<double>("density_filter_params.score_threshold", 0.7);
+    this->declare_parameter<double>("density_filter_params.density_weight", 0.6);
+    this->declare_parameter<double>("density_filter_params.size_weight", 0.8);
+    this->declare_parameter<double>("density_filter_params.distance_weight", 0.7);
+    this->declare_parameter<double>("density_filter_params.score_threshold", 0.6);
 
-    this->declare_parameter<double>("merge_threshold", 1.5);
+    this->declare_parameter<double>("merge_threshold", 0.5);
 
-    this->declare_parameter<float>("object_detection_confidence", 0.55);
+    this->declare_parameter<float>("object_detection_confidence", 0.45);
 
     // Get parameters
     camera_info_topic_ = this->get_parameter("camera_info_topic").as_string();
@@ -89,6 +92,16 @@ void bbox_2d_3d::initializeParams() {
 void bbox_2d_3d::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
     camInfo_ = msg;
     camera_info_sub_.reset();
+}
+
+void bbox_2d_3d::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
+ 
+    try {
+        image_data_ = cv_bridge::toCvCopy(msg, "bgr8");
+    } catch (cv_bridge::Exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
+        return;
+    }
 }
 
 void bbox_2d_3d::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
