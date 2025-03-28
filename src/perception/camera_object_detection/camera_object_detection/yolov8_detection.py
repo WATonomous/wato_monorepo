@@ -9,7 +9,7 @@ from vision_msgs.msg import (
     Detection2D,
     Detection2DArray,
 )
-
+import concurrent.futures
 from std_msgs.msg import Header
 from pathlib import Path
 from ultralytics import YOLO
@@ -57,6 +57,7 @@ class CameraDetectionNode(Node):
         self.declare_parameter("center_camera_topic", "/camera/center/image_color")
 
         #Nuscenes 
+        self.declare_parameter("nuscenes", False)
         self.declare_parameter("front_center_camera_topic", "/CAM_FRONT/image_rect_compressed")
         self.declare_parameter("front_right_camera_topic", "/CAM_FRONT_RIGHT/image_rect_compressed")
         self.declare_parameter("front_left_camera_topic", "/CAM_FRONT_LEFT/image_rect_compressed")
@@ -99,7 +100,8 @@ class CameraDetectionNode(Node):
         self.left_camera_topic = self.get_parameter("left_camera_topic").value
         self.center_camera_topic = self.get_parameter("center_camera_topic").value
 
-        #Camera topics for nuscenes 
+        #Camera topics for nuscenes
+        self.nuscenes = self.get_parameter("nuscenes").value
         self.front_center_camera_topic  = self.get_parameter("front_center_camera_topic").value
         self.front_right_camera_topic = self.get_parameter("front_right_camera_topic").value
         self.front_left_camera_topic = self.get_parameter("front_left_camera_topic").value
@@ -129,30 +131,30 @@ class CameraDetectionNode(Node):
 
         
         #Subscription for Nuscenes
-        self.front_center_camera_subscription = Subscriber(self, CompressedImage, self.front_center_camera_topic)
-        self.front_right_camera_subscription  = Subscriber(self, CompressedImage, self.front_right_camera_topic)
-        self.front_left_camera_subscription = Subscriber(self, CompressedImage, self.front_left_camera_topic)
-        self.back_center_camera_subscription = Subscriber(self, CompressedImage, self.back_center_camera_topic)
-        self.back_right_camera_subscription = Subscriber(self, CompressedImage, self.back_right_camera_topic)
-        self.back_left_camera_subscription = Subscriber(self, CompressedImage, self.back_left_camera_topic)
-        #self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.back_center_camera_subscription, self.front_right_camera_subscription, self.back_right_camera_subscription, self.front_left_camera_subscription, self.back_left_camera_subscription], queue_size=10, slop=0.5)
-        self.ats = ApproximateTimeSynchronizer([self.front_left_camera_subscription,self.front_center_camera_subscription, self.front_right_camera_subscription ], queue_size=10, slop=0.1)
-        #self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription], queue_size=10, slop=0.3)
-        self.ats.registerCallback(self.batch_inference_callback)
-
-        #Subscription for Eve cameras
-        self.right_camera_subscription = Subscriber(self, Image, self.camera_topic)
-        self.left_camera_subscription = Subscriber(self, Image, self.left_camera_topic)
-        self.center_camera_subscription = Subscriber(self, Image, self.center_camera_topic)
-        self.eve_ats = ApproximateTimeSynchronizer([self.right_camera_subscription, self.left_camera_subscription,self.center_camera_subscription], queue_size=10, slop=0.1)
-        
-        # #Create this callback function tomorrow
-        self.eve_ats.registerCallback(self.eve_batch_inference_callback) 
-        self.get_logger().info(f"TENSORT VERSION:{trt.__version__}")
+        if (self.nuscenes):
+            self.front_center_camera_subscription = Subscriber(self, CompressedImage, self.front_center_camera_topic)
+            self.front_right_camera_subscription  = Subscriber(self, CompressedImage, self.front_right_camera_topic)
+            self.front_left_camera_subscription = Subscriber(self, CompressedImage, self.front_left_camera_topic)
+            self.back_center_camera_subscription = Subscriber(self, CompressedImage, self.back_center_camera_topic)
+            self.back_right_camera_subscription = Subscriber(self, CompressedImage, self.back_right_camera_topic)
+            self.back_left_camera_subscription = Subscriber(self, CompressedImage, self.back_left_camera_topic)
+            #self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription, self.back_center_camera_subscription, self.front_right_camera_subscription, self.back_right_camera_subscription, self.front_left_camera_subscription, self.back_left_camera_subscription], queue_size=10, slop=0.5)
+            self.ats = ApproximateTimeSynchronizer([self.front_left_camera_subscription,self.front_center_camera_subscription, self.front_right_camera_subscription ], queue_size=10, slop=0.1)
+            #self.ats = ApproximateTimeSynchronizer([self.front_center_camera_subscription], queue_size=10, slop=0.3)
+            self.ats.registerCallback(self.batch_inference_callback)
+        else:
+            #Subscription for Eve cameras
+            self.right_camera_subscription = Subscriber(self, Image, self.camera_topic)
+            self.left_camera_subscription = Subscriber(self, Image, self.left_camera_topic)
+            self.center_camera_subscription = Subscriber(self, Image, self.center_camera_topic)
+            self.eve_ats = ApproximateTimeSynchronizer([self.right_camera_subscription, self.left_camera_subscription,self.center_camera_subscription], queue_size=10, slop=0.1)
+            
+            # #Create this callback function tomorrow
+            self.eve_ats.registerCallback(self.eve_batch_inference_callback) 
+            self.get_logger().info(f"TENSORT VERSION:{trt.__version__}")
 
         self.orig_image_width = None
         self.orig_image_height = None
-
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if torch.cuda.is_available():
@@ -178,39 +180,43 @@ class CameraDetectionNode(Node):
         self.num_cameras = 3  # Adjust this based on the number of cameras
        
        #Nuscenes Publishers 
-        self.nuscenes_camera_names = ["/CAM_FRONT_LEFT", "/CAM_FRONT", "/CAM_FRONT_RIGHT"]
-        self.batch_vis_publishers = [
-            self.create_publisher(CompressedImage, f"{nuscenes}/viz", 10)
-            for nuscenes in self.nuscenes_camera_names
-        ]
-        self.batch_detection_publishers = [
-            self.create_publisher(Detection2DArray, f"{nuscenes}/detections", 10)
-            for nuscenes in self.nuscenes_camera_names
-        ]
-       
-        #Eve Publishers
-        self.eve_camera_names = [self.left_camera_topic, self.center_camera_topic, self.camera_topic]
-        self.eve_batch_vis_publishers = [
-            self.create_publisher(Image, f"{eve}/eve_batch_viz", 10)
-            for eve in self.eve_camera_names
-        ]
-        self.eve_batch_detection_publishers = [
-            self.create_publisher(Detection2DArray, f"{eve}/eve_batch_detections", 10)
-            for eve in self.eve_camera_names
-        ]
-        
+        if (self.nuscenes):
+            self.nuscenes_camera_names = ["/CAM_FRONT_LEFT", "/CAM_FRONT", "/CAM_FRONT_RIGHT"]
+            self.batch_vis_publishers = [
+                self.create_publisher(CompressedImage, f"{nuscenes}/viz", 10)
+                for nuscenes in self.nuscenes_camera_names
+            ]
+            self.batch_detection_publishers = [
+                self.create_publisher(Detection2DArray, f"{nuscenes}/detections", 10)
+                for nuscenes in self.nuscenes_camera_names
+            ]
+            for nuscenes in self.nuscenes_camera_names:
+                self.get_logger().info(f"Successfully created node listening on camera topic: {nuscenes}...")
+        else:
+            #Eve Publishers
+            self.eve_camera_names = [self.left_camera_topic, self.center_camera_topic, self.camera_topic]
+            self.eve_batch_vis_publishers = [
+                self.create_publisher(Image, f"{eve}/eve_batch_viz", 10)
+                for eve in self.eve_camera_names
+            ]
+            self.eve_batch_detection_publishers = [
+                self.create_publisher(Detection2DArray, f"{eve}/eve_batch_detections", 10)
+                for eve in self.eve_camera_names
+            ]
+            for camera_names in self.eve_camera_names:
+                self.get_logger().info(f"Successfully created node listening on camera topic: {camera_names}...")
 
         # self.batch_detection_publisher = self.create_publisher(Detection2DArray, self.batch_publish_detection_topic, 10)
         # self.batch_vis_publisher = self.create_publisher(CompressedImage, self.batch_publish_vis_topic, 10)
     
         #vis publishers
-        self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
-        self.detection_publisher = self.create_publisher(
-            Detection2DArray, self.publish_detection_topic, 10
-        )
-        self.get_logger().info( 
-            f"Successfully created node listening on camera topic: {self.camera_topic}..."
-        )
+        # self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
+        # self.detection_publisher = self.create_publisher(
+        #     Detection2DArray, self.publish_detection_topic, 10
+        # )
+        # self.get_logger().info( 
+        #     f"Successfully created node listening on camera topic: {self.camera_topic}..."
+        # )
  
     def build_engine(self):
     #Only calling this function when we dont have an engine file
@@ -274,7 +280,9 @@ class CameraDetectionNode(Node):
         with trt.Runtime(self.logger) as runtime:
             self.tensorRT_model = runtime.deserialize_cuda_engine(self.weight.read_bytes())
         self.execution_context = self.tensorRT_model.create_execution_context()  
-        
+        if not self.execution_context:
+            self.get_logger().error("Failed to create execution context")
+            return 1
           
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
@@ -284,23 +292,19 @@ class CameraDetectionNode(Node):
         self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.num_io_tensors)]
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.bindings = [0] * self.num_io_tensors
-        self.num_inputs  = 0
-        self.num_outputs = 0
-        self.input_names = []
-        self.output_names = []
-        for i in range(self.num_io_tensors):
-              self.tensor_name  = self.tensorRT_model.get_tensor_name(i)
-              if self.tensorRT_model.get_tensor_mode(self.tensor_name) == trt.TensorIOMode.INPUT:
-                self.input_names.append(self.tensor_name)
-                self.num_inputs += 1
-              elif self.tensorRT_model.get_tensor_mode(self.tensor_name) == trt.TensorIOMode.OUTPUT:
-                self.output_names.append(self.tensor_name)
-                self.num_outputs += 1 
+
+        self.names = [self.tensorRT_model.get_tensor_name(i) for i in range(self.tensorRT_model.num_io_tensors)]
+
+        # Collect input and output tensor names
+        self.input_names = [name for name in self.names if self.tensorRT_model.get_tensor_mode(name) == trt.TensorIOMode.INPUT]
+        self.output_names = [name for name in self.names if self.tensorRT_model.get_tensor_mode(name) == trt.TensorIOMode.OUTPUT]
+
+        # Set number of inputs and outputs
         self.num_inputs = len(self.input_names)
-        self.num_outputs = len(self.output_names)    
+        self.num_outputs = len(self.output_names)  
         self.input_names = self.names[:self.num_inputs]
         self.output_names = [name for name in self.output_names if name not in self.input_names] # This line removes it
-       
+        return 0
     
     def initialize_tensors(self):
         """
@@ -396,6 +400,16 @@ class CameraDetectionNode(Node):
         return tuple(self.outputs_ndarray) if len(self.outputs_ndarray) > 1 else self.outputs_ndarray[0]
 
 
+    def preprocess_image(self, msg):
+        numpy_array = np.frombuffer(msg.data, np.uint8)
+        compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
+        original_height, original_width = compressedImage.shape[:2]
+        resized_compressedImage = cv2.resize(compressedImage, (640, 640), interpolation=cv2.INTER_LINEAR)
+        rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
+        normalized_image = rgb_image / 255.0
+        chw_image = np.transpose(normalized_image, (2, 0, 1))
+        return chw_image.astype(np.float32)
+    
     # will be called with nuscenes rosbag
     def batch_inference_callback(self,msg1,msg2,msg3):
         """
@@ -406,62 +420,59 @@ class CameraDetectionNode(Node):
         #Taking msgs from all 6 ros2 subscribers
         image_list =  [msg1,msg2,msg3]
         batched_list = []
-        #Preprocessing
-        for msg in image_list:  
-            numpy_array = np.frombuffer(msg.data, np.uint8)
-            compressedImage  = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-            original_height, original_width = compressedImage.shape[:2]
-            resized_compressedImage = cv2.resize(compressedImage,(640, 640))
-            rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
-            normalized_image = rgb_image / 255.0
-            chw_image = np.transpose(normalized_image, (2,0,1))
-            float_image = chw_image.astype(np.float32)
-            batched_list.append(float_image)     
+        # Use concurrent futures to parallelize the preprocessing step
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+                    batched_list = list(executor.map(lambda msg: self.preprocess_image(msg), image_list))
+        # Stack the images into a batch
         batched_images = np.stack(batched_list, axis=0)
         batch = batched_images.shape[0]
-        self.initialize_engine(self.tensorRT_model_path, batch,3,640,640)
-        self.input_info, self.output_info =  self.initialize_tensors()
+        # Initialize TensorRT engine
+        if self.initialize_engine(self.tensorRT_model_path, batch, 3, 640, 640): # init engine and return if errored
+            return
+        # Initialize tensors
+        self.input_info, self.output_info = self.initialize_tensors()
         detections = self.tensorRT_inferencing(batched_images)
         decoded_results = self.parse_detections(detections)
         self.publish_batch_nuscenes(image_list, decoded_results)
     
     def parse_detections(self, detections):
-        detection_tensor = detections[0]  
-        batch_size = detection_tensor.shape[0]  
-        num_anchors = detection_tensor.shape[2]  
-        decoded_results = [] 
-        for batch_idx in range(batch_size):
-            image_detections = detection_tensor[batch_idx] 
-            valid_detections = []  
-            for anchor_idx in range(num_anchors):  
-                detection = image_detections[:, anchor_idx]    
-                x_center, y_center, width, height = detection[:4] 
-                class_probs = detection[4:]  
-                predicted_class = np.argmax(class_probs)  
-                confidence = class_probs[predicted_class]
-                x_min = x_center - width / 2
-                y_min = y_center - height / 2
-                x_max = x_center + width / 2
-                y_max = y_center + height / 2
-               
-                valid_detections.append([
-                x_min, y_min, x_max, y_max, confidence, predicted_class
-                        ])
-            valid_detections = torch.tensor(valid_detections)
-            nms_results = non_max_suppression(
-                valid_detections.unsqueeze(0),  # Add batch dimension for NMS
-                conf_thres=0.5,  # Confidence threshold
-                iou_thres=0.45   # IoU threshold
-            )
-            final_detections = []
-            for det in nms_results[0]:  # Loop through detections in this image
-                    x_min, y_min, x_max, y_max, confidence, predicted_class = det.cpu().numpy()
-                    final_detections.append({
-                        "bbox": [x_min, y_min, x_max, y_max],
-                        "confidence": confidence,
-                        "class": int(predicted_class),
-                    })
-            decoded_results.append(final_detections)
+        detection_tensor = torch.tensor(detections[0], dtype=torch.float32)  # Convert NumPy array to PyTorch tensor
+        batch_size, _, num_anchors = detection_tensor.shape  # (batch_size = 3 for three cameras)
+
+        # Reshape: [batch, num_features, num_anchors] -> [batch, num_anchors, num_features]
+        image_detections = detection_tensor.permute(0, 2, 1)
+
+        # Extract bounding boxes & class probabilities
+        bboxes = image_detections[:, :, :4]  # [batch, anchors, 4]
+        class_probs = image_detections[:, :, 4:]  # [batch, anchors, num_classes]
+
+        # Get max confidence class per anchor
+        confidence, predicted_class = class_probs.max(dim=2)
+
+        # Compute (x_min, y_min, x_max, y_max)
+        x_center, y_center, width, height = bboxes.split(1, dim=2)
+        x_min = x_center - width / 2
+        y_min = y_center - height / 2
+        x_max = x_center + width / 2
+        y_max = y_center + height / 2
+
+        # Stack detections in the format [x_min, y_min, x_max, y_max, confidence, class]
+        valid_detections = torch.cat((x_min, y_min, x_max, y_max, confidence.unsqueeze(2), predicted_class.unsqueeze(2)), dim=2)
+
+        # Apply batched Non-Maximum Suppression if supported
+        nms_results = non_max_suppression(
+            valid_detections, conf_thres=0.5, iou_thres=0.45
+        )
+
+        # Convert detections to desired format
+        decoded_results = []
+        for camera_idx in range(batch_size):  # Process for each camera
+            camera_detections = [
+                {"bbox": det[:4].tolist(), "confidence": det[4].item(), "class": int(det[5].item())}
+                for det in nms_results[camera_idx]
+            ]
+            decoded_results.append(camera_detections)
+
         return decoded_results
 
     def publish_batch_nuscenes(self, image_list, decoded_results):
@@ -469,28 +480,37 @@ class CameraDetectionNode(Node):
         batch_msg.header.stamp = self.get_clock().now().to_msg()
         batch_msg.header.frame_id = "batch"
 
+        should_visualize = hasattr(self, "batch_vis_publishers")  # Check if visualization is enabled
+
         for idx, img_msg in enumerate(image_list):
-            #self.get_logger().info(f"{idx}")
-            numpy_image = np.frombuffer(img_msg.data, np.uint8)
-            image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
-            height, width = image.shape[:2]
-            annotator = Annotator(image, line_width=2, example="Class:0")
+            # Decode only if needed
+            if should_visualize:
+                numpy_image = np.frombuffer(img_msg.data, np.uint8)
+                image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
+                height, width = image.shape[:2]
+                annotator = Annotator(image, line_width=2, example="Class:0")
+            else:
+                height, width = 640, 640  # Assume default YOLOv8 input size
+
             detection_array = Detection2DArray()
             detection_array.header.stamp = batch_msg.header.stamp
             detection_array.header.frame_id = f"camera_{idx}"
+
             batch_detections = decoded_results[idx]
-            for anchor_idx, detection in enumerate(batch_detections):
-                # Extract values from the dictionary
-                    bbox = detection["bbox"]
-                    x_min, y_min, x_max, y_max = bbox
-                    confidence = detection["confidence"]
-                    predicted_class = detection["class"]
-                    x_min = int(x_min * width / 640)
-                    x_max = int(x_max * width / 640)
-                    y_min = int(y_min * height / 640)
-                    y_max = int(y_max * height / 640)
-                    label = f"Class: {predicted_class}, Conf: {confidence:.2f}"
-                    annotator.box_label((x_min, y_min, x_max, y_max), label, color=(0, 255, 0))
+
+            if batch_detections:
+                # Convert bounding boxes in one operation
+                bboxes = np.array([d["bbox"] for d in batch_detections])  # Shape: (N, 4)
+                bboxes[:, [0, 2]] *= width / 640  # Scale x-coordinates
+                bboxes[:, [1, 3]] *= height / 640  # Scale y-coordinates
+                bboxes = bboxes.astype(int)
+
+                confidences = [d["confidence"] for d in batch_detections]
+                class_ids = [d["class"] for d in batch_detections]
+
+                for (x_min, y_min, x_max, y_max), confidence, predicted_class in zip(bboxes, confidences, class_ids):
+                    label = "Class: %d, Conf: %.2f" % (predicted_class, confidence)
+                    
                     detection = Detection2D()
                     detection.bbox.center.position.x = (x_min + x_max) / 2
                     detection.bbox.center.position.y = (y_min + y_max) / 2
@@ -498,23 +518,31 @@ class CameraDetectionNode(Node):
                     detection.bbox.size_y = float(y_max - y_min)
 
                     detected_object = ObjectHypothesisWithPose()
-                    detected_object.hypothesis.class_id = str(int(predicted_class))
+                    detected_object.hypothesis.class_id = str(predicted_class)
                     detected_object.hypothesis.score = float(confidence)
                     detection.results.append(detected_object)
-                    detection_array.detections.append(detection)
-            batch_msg.detections.append(detection_array)
-            annotated_image = annotator.result()
-            vis_compressed_image = CompressedImage()
-            vis_compressed_image.header.stamp = self.get_clock().now().to_msg()
-            vis_compressed_image.header.frame_id = f"camera_{idx}"
-            vis_compressed_image.format = "jpeg"
-            vis_compressed_image.data = cv2.imencode('.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
-            self.batch_vis_publishers[idx].publish(vis_compressed_image)
 
-                # Publish Detection2DArray
+                    detection_array.detections.append(detection)
+
+                    if should_visualize:
+                        annotator.box_label((x_min, y_min, x_max, y_max), label, color=(0, 100, 0))
+
+            batch_msg.detections.append(detection_array)
+
+            # Publish detection message
             self.batch_detection_publishers[idx].publish(detection_array)
 
-    # Publish batch detection message
+            # Publish visualization if enabled
+            if should_visualize:
+                annotated_image = annotator.result()
+                vis_compressed_image = CompressedImage()
+                vis_compressed_image.header.stamp = self.get_clock().now().to_msg()
+                vis_compressed_image.header.frame_id = f"camera_{idx}"
+                vis_compressed_image.format = "jpeg"
+                vis_compressed_image.data = cv2.imencode('.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
+                self.batch_vis_publishers[idx].publish(vis_compressed_image)
+
+        # Publish batch detection message
         self.batched_camera_message_publisher.publish(batch_msg)
     
     def eve_batch_inference_callback(self, msg1,msg2,msg3):

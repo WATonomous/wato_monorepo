@@ -9,31 +9,11 @@ def generate_launch_description():
         get_package_share_directory("camera_object_detection"), "config", "eve_config.yaml"
     )
 
-    left_camera_object_detection_node = Node(
+    camera_object_detection_node = Node(
         package="camera_object_detection",
         executable="camera_object_detection_node",
-        name="left_camera_object_detection_node",
+        name="eve_camera_object_detection",
         parameters=[config],
     )
 
-    center_camera_object_detection_node = Node(
-        package="camera_object_detection",
-        executable="camera_object_detection_node",
-        name="center_camera_object_detection_node",
-        parameters=[config],
-    )
-
-    right_camera_object_detection_node = Node(
-        package="camera_object_detection",
-        executable="camera_object_detection_node",
-        name="right_camera_object_detection_node",
-        parameters=[config],
-    )
-
-    return LaunchDescription(
-        [
-            left_camera_object_detection_node,
-            center_camera_object_detection_node,
-            right_camera_object_detection_node,
-        ]
-    )
+    return LaunchDescription([camera_object_detection_node])
