@@ -214,17 +214,7 @@ class CameraDetectionNode(Node):
             for camera_names in self.eve_camera_names:
                 self.get_logger().info(f"Successfully created node listening on camera topic: {camera_names}...")
 
-        # self.batch_detection_publisher = self.create_publisher(Detection2DArray, self.batch_publish_detection_topic, 10)
-        # self.batch_vis_publisher = self.create_publisher(CompressedImage, self.batch_publish_vis_topic, 10)
-    
-        #vis publishers
-        # self.vis_publisher = self.create_publisher(Image, self.publish_vis_topic, 10)
-        # self.detection_publisher = self.create_publisher(
-        #     Detection2DArray, self.publish_detection_topic, 10
-        # )
-        # self.get_logger().info( 
-        #     f"Successfully created node listening on camera topic: {self.camera_topic}..."
-        # )
+
  
     def build_engine(self):
     #Only calling this function when we dont have an engine file
