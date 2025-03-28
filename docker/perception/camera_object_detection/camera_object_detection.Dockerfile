@@ -7,6 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/perception/camera_object_detection camera_object_detection
+COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -32,7 +33,7 @@ RUN rm requirements.txt
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
-
+RUN apt install ros-$ROS_DISTRO-tf-transformations -y
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src

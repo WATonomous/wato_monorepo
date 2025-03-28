@@ -16,7 +16,7 @@ The goal of the  CARLA setup is to provide an easy way for WATonomous members to
 
 ## Initial Setup
 
-To run CARLA and all associated containers first add `simulation` as an `ACTIVE_MODULE` in `watod-config.sh`. This will cause the following containers to launch when `watod up` is run: `carla_server`, `carla_viz`, `carla_ros_bridge`, `carla_notebooks`, `carla_sample_node`.
+To run CARLA and all associated containers first add `simulation` as an `ACTIVE_MODULE` in `watod-config.sh`. This will cause the following containers to launch when `watod up` is run: `carla_sim`, `carla_viz`, `carla_ros_bridge`, `carla_notebooks`, `carla_sample_node`.
 
 ## Interacting with CARLA using the Python API
 
@@ -42,9 +42,9 @@ Foxglove Studio is a tool to visualize and interact with ROS messages. Using Fox
 
 **On the WATOnomous Server**
 
-Add `vis_tools` as an `ACTIVE_PROFILE`. This will launch the `foxglove.Dockerfile` container with an open port when `watod up` is ran. 
+Add `infrastructure` as an `ACTIVE_PROFILE`. This will launch the `foxglove` container with an open port when `watod up` is ran. 
 
-It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which will be defined in the `.env` file in the `profiles` folder (the `.env` file is populated after `watod up` is run). This port may be auto-forwarded by VS Code automatically but if not the port will need to be forwarded manually to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine (replace 8765 with the port specified in the `FOXGLOVE_BRIDGE_PORT` variable).
+It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which will be defined in the `.env` file in the `modules` folder (the `.env` file is populated after `watod up` is run). This port may be auto-forwarded by VS Code automatically but if not the port will need to be forwarded manually to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine (replace 8765 with the port specified in the `FOXGLOVE_BRIDGE_PORT` variable).
 
 **On your local machine (your personal laptop/pc)**
 
@@ -54,7 +54,7 @@ Open Foxglove Studio on your local machine using either the desktop app ([Downlo
 
 **On the WATOnomous Server**
 
-CarlaViz is a visualization tool that is useful when you are only using the CARLA Python API through a Jupyter Notebook and you don't want the overhead that comes with the ROS Bridge + Foxglove method of visualization. To use CarlaViz forward the ports specified by the variables `CARLAVIZ_PORT` and `CARLAVIZ_PORT_2` defined in the `.env` file in the `profiles` folder (make sure you forward **both** ports). If you want to stop the ROS Bridge from running (for the reasons I mentioned in the previous sentences) then make sure to comment out the `carla_ros_bridge` service in the `docker-compose.carla.yaml` file in the `profiles` folder.
+CarlaViz is a visualization tool that is useful when you are only using the CARLA Python API through a Jupyter Notebook and you don't want the overhead that comes with the ROS Bridge + Foxglove method of visualization. To use CarlaViz forward the ports specified by the variables `CARLAVIZ_PORT` and `CARLAVIZ_PORT_2` defined in the `.env` file in the `modules` folder (make sure you forward **both** ports). If you want to stop the ROS Bridge from running (for the reasons I mentioned in the previous sentences) then make sure to comment out the `carla_ros_bridge` service in the `docker-compose.carla.yaml` file in the `modules` folder.
 
 **On your local machine (your personal laptop/pc)**
 
