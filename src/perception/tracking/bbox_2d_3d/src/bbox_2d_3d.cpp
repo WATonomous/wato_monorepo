@@ -67,7 +67,6 @@ void bbox_2d_3d::initializeParams() {
     cluster_centroid_topic_ = this->get_parameter("cluster_centroid_topic").as_string();
     bounding_box_topic_ = this->get_parameter("bounding_box_topic").as_string();
 
-
     lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
     ransac_distance_threshold_ = this->get_parameter("ransac_params.distance_threshold").as_double();
@@ -88,6 +87,15 @@ void bbox_2d_3d::initializeParams() {
     RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
+void bbox_2d_3d::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
+ 
+    try {
+        image_data_ = cv_bridge::toCvCopy(msg, "bgr8");
+    } catch (cv_bridge::Exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
+        return;
+    }
+}
 
 void bbox_2d_3d::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
     camInfo_ = msg;
@@ -138,7 +146,6 @@ void bbox_2d_3d::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPt
         RCLCPP_WARN(this->get_logger(), "Camera info not received yet");
         return;
     }
-
     
     if (!filtered_point_cloud_) {
         RCLCPP_WARN(this->get_logger(), "Lidar data not available");
@@ -167,7 +174,7 @@ void bbox_2d_3d::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPt
      // calculate the best fitting iou score between the x and y area of the clusters in the camera plane and the detections
     ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, *msg, transform, camInfo_->p, object_detection_confidence_);
 
-    // assign colors to the clusters (stricly for visualiztion)
+    // assign colors to the clusters (strictly for visualiztion)
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, colored_clustered_cloud);
 
@@ -195,6 +202,21 @@ void bbox_2d_3d::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPt
     pcl::toROSMsg(centroid_cloud, centroid_msg);
     centroid_msg.header = latest_lidar_msg_.header;
     cluster_centroid_pub_->publish(centroid_msg);
+
+
+    // IMAGE PROJECTION (FOR DEBUGGING) ---------------------------------------------------------------------------
+
+    for (const auto& point : filtered_point_cloud_->points) {
+        auto projected_point= ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, point);
+        if (projected_point) {
+            cv::circle(image, *projected_point, 2, cv::Scalar(0, 255, 0), -1);  
+        }
+    }
+
+    auto output_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
+    output_msg->header = msg->header;
+    output_msg->encoding = "bgr8";
+    image_pub_->publish(*output_msg);
 }
 
 int main(int argc, char** argv) {
