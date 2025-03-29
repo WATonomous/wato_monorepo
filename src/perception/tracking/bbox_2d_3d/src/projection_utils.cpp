@@ -89,6 +89,10 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
 // CLUSTERING FUNCTIONS ------------------------------------------------------------------------------------------------
 
 void ProjectionUtils::removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, int meanK, double stddevMulThresh) {
+    /*
+        helps to reduce noise and cut outliers
+        currently not in use due to computation cost
+    */
     if (cloud->empty()) return; 
 
     pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;

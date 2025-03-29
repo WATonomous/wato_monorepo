@@ -9,14 +9,6 @@ ros__parameters:
   cluster_centroid_topic: /cluster_centroid
   bounding_box_topic: /bounding_box
 
-  # camera frames
-  camera_front_frame: CAM_FRONT
-  camera_front_left_frame: CAM_FRONT_LEFT
-  camera_front_right_frame: CAM_FRONT_RIGHT
-  camera_back_frame: CAM_BACK
-  camera_back_left_frame: CAM_BACK_LEFT
-  camera_back_right_frame: CAM_BACK_RIGHT
-
   # lidar frames
   lidar_top_frame: LIDAR_TOP
 
