@@ -12,6 +12,9 @@ ros__parameters:
   # lidar frames
   lidar_top_frame: LIDAR_TOP
 
+  #camera detections
+  
+
   # filtering parameters
   ransac_params:
     distance_threshold: 0.5
