@@ -87,15 +87,6 @@ void bbox_2d_3d::initializeParams() {
     RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
-void bbox_2d_3d::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
- 
-    try {
-        image_data_ = cv_bridge::toCvCopy(msg, "bgr8");
-    } catch (cv_bridge::Exception& e) {
-        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
-        return;
-    }
-}
 
 void bbox_2d_3d::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
     camInfo_ = msg;
@@ -205,6 +196,8 @@ void bbox_2d_3d::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPt
 
 
     // IMAGE PROJECTION (FOR DEBUGGING) ---------------------------------------------------------------------------
+
+    cv::Mat image = image_data_->image.clone();
 
     for (const auto& point : filtered_point_cloud_->points) {
         auto projected_point= ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, point);
