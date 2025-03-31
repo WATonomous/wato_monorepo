@@ -33,7 +33,7 @@ class mppi_core:
     def generate_control_samples(self): # random control sequences
         
         if self.initialRun: #use previous control sequence
-            self.PrevControlSequence[1:] = self.theta0
+            self.prevControlSequence[1,:] = self.theta0
             self.initialRun = False
 
         ThetaNoise = np.zeros((self.numSamples, self.numTimeSteps))
@@ -43,9 +43,10 @@ class mppi_core:
             ThetaNoise[i, :] = np.random.normal(self.theta0, self.std_dev_theta, size=(self.numTimeSteps, self.numPaths))
             AccelNoise[i, :] = np.random.normal(0, self.std_dev_accel, size=(self.numTimeSteps, self.numPaths))
 
-            self.controlPaths[0, i, :] = self.PrevControlSequence[0,: self.numTimeSteps] + ThetaNoise
-            self.controlPaths[1,i , :] = self.PrevControlSequence[1,: self.numTimeSteps] + AccelNoise
+            self.controlPaths[0, i, :] = self.prevControlSequence[0,: self.numTimeSteps] + ThetaNoise
+            self.controlPaths[1,i , :] = self.prevControlSequence[1,: self.numTimeSteps] + AccelNoise
 
+    
     def simulate_trajectory(self,accel, heading,X,Y,V,T): #write x,y,V,T arrays for simulataed trajectories
         X[0] =self.x0
         Y[0] = self.y0
