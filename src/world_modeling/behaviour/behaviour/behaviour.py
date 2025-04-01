@@ -1,9 +1,9 @@
 import rclpy
 from rclpy.node import Node 
 from world_modeling_msgs.srv import BehaviourTreeInfo
-
 from behaviour.root import Root
 import py_trees
+import time
 
 class BehaviourNode(Node):
     def __init__ (self):
@@ -49,7 +49,7 @@ def main(args=None):
     rclpy.init(args=args)
     behaviour_node = BehaviourNode()
     print("Check 1")
-    index = 0;
+    index = 0
     rate = behaviour_node.create_rate(1)
     # This is blocking so always keep it 
     try: 
@@ -59,7 +59,7 @@ def main(args=None):
             print("Check 3")
             behaviour_node.root.tick() 
             print("Ticked")
-            rate.sleep()
+            time.sleep(1)
     except KeyboardInterrupt:
         pass   
     finally:
