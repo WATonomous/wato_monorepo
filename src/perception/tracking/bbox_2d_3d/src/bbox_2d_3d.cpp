@@ -27,7 +27,6 @@ bbox_2d_3d::bbox_2d_3d() : Node("bbox_2d_3d") {
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
-
 void bbox_2d_3d::initializeParams() {
     this->declare_parameter<std::string>("camera_info_topic", "/CAM_FRONT/camera_info");
     this->declare_parameter<std::string>("lidar_topic", "/LIDAR_TOP");
