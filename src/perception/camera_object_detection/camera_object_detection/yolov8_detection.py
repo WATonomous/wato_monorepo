@@ -223,6 +223,18 @@ class CameraDetectionNode(Node):
             EveBatchDetection, self.eve_batch_inference_topic, 10)
         self.num_cameras = 3  # Adjust this based on the number of cameras
 
+        self.logger = trt.Logger(trt.Logger.WARNING)
+        trt.init_libnvinfer_plugins(self.logger, namespace='')
+        self.weight = Path(self.tensorRT_model_path) if isinstance(
+            self.tensorRT_model_path, str) else self.tensorRT_model_path
+        with trt.Runtime(self.logger) as runtime:
+            self.tensorRT_model = runtime.deserialize_cuda_engine(
+                self.weight.read_bytes())
+        self.execution_context = self.tensorRT_model.create_execution_context()
+        if not self.execution_context:
+            self.get_logger().error("Failed to create execution context")
+            return 1
+        
        # Nuscenes Publishers
         if (self.nuscenes):
             self.nuscenes_camera_names = [
@@ -321,17 +333,7 @@ class CameraDetectionNode(Node):
             - takes in file path for tensorRT file, batch size, # of rgb channels, width & height
             - includes input names, output names, and setting dimensions for model input shape
         """
-        self.weight = Path(weight) if isinstance(weight, str) else weight
-        self.logger = trt.Logger(trt.Logger.WARNING)
-        trt.init_libnvinfer_plugins(self.logger, namespace='')
-        with trt.Runtime(self.logger) as runtime:
-            self.tensorRT_model = runtime.deserialize_cuda_engine(
-                self.weight.read_bytes())
-        self.execution_context = self.tensorRT_model.create_execution_context()
-        if not self.execution_context:
-            self.get_logger().error("Failed to create execution context")
-            return 1
-
+        
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
 

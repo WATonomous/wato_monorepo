@@ -1,5 +1,6 @@
 ros__parameters:
   # subscribers
+
   camera_info_topic: /CAM_FRONT/camera_info
   lidar_topic: /LIDAR_TOP
   detections_topic: /detections
@@ -13,7 +14,9 @@ ros__parameters:
   lidar_top_frame: LIDAR_TOP
 
   #camera detections
-  
+  cam_front_detections: /CAM_FRONT/detections
+  cam_front_right_detections: /CAM_FRONT_RIGHT/detections
+  cam_front_left_detections: /CAM_FRONT_LEFT/detections
 
   # filtering parameters
   ransac_params:
