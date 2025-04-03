@@ -25,6 +25,7 @@ from random import randint
 
 mutex = Lock()
 
+
 class DrawBasicDetections(Node):
     def __init__(self):
         super().__init__("tracking_viz_node")
@@ -123,7 +124,7 @@ class DrawBasicDetections(Node):
     def try_draw(self):
         if not self.unprocessed_images or not self.unprocessed_dets or self.transform is None or self.camera_info is None:
             return
-        
+
         with mutex:
             image_msg = self.unprocessed_images.popleft()
             det_3d_msg = self.unprocessed_dets.popleft()
@@ -139,20 +140,22 @@ class DrawBasicDetections(Node):
         for det_msg in det_3d_msg.detections:
             bbox = det_msg.bbox
 
-            center = np.array([bbox.center.position.x, bbox.center.position.y, bbox.center.position.z])
-            rot = Rotation.from_quat([bbox.center.orientation.x, bbox.center.orientation.y, bbox.center.orientation.z, bbox.center.orientation.w])
+            center = np.array(
+                [bbox.center.position.x, bbox.center.position.y, bbox.center.position.z])
+            rot = Rotation.from_quat([bbox.center.orientation.x, bbox.center.orientation.y,
+                                     bbox.center.orientation.z, bbox.center.orientation.w])
             size = np.array([bbox.size.x, bbox.size.y, bbox.size.z])
 
             # get all 8 corners
-            vert = [ center + rot.apply(np.multiply(size , np.array([-1, 1, 1]))),
-                     center + rot.apply(np.multiply(size , np.array([-1, -1, 1]))),
-                     center + rot.apply(np.multiply(size , np.array([-1, -1, -1]))),
-                     center + rot.apply(np.multiply(size , np.array([-1, 1, -1]))),
-                     center + rot.apply(np.multiply(size , np.array([1, 1, 1]))),
-                     center + rot.apply(np.multiply(size , np.array([1, -1, 1]))),
-                     center + rot.apply(np.multiply(size , np.array([1, -1, -1]))),
-                     center + rot.apply(np.multiply(size , np.array([1, 1, -1]))),
-            ]
+            vert = [center + rot.apply(np.multiply(size, np.array([-1, 1, 1]))),
+                    center + rot.apply(np.multiply(size, np.array([-1, -1, 1]))),
+                    center + rot.apply(np.multiply(size, np.array([-1, -1, -1]))),
+                    center + rot.apply(np.multiply(size, np.array([-1, 1, -1]))),
+                    center + rot.apply(np.multiply(size, np.array([1, 1, 1]))),
+                    center + rot.apply(np.multiply(size, np.array([1, -1, 1]))),
+                    center + rot.apply(np.multiply(size, np.array([1, -1, -1]))),
+                    center + rot.apply(np.multiply(size, np.array([1, 1, -1]))),
+                    ]
 
             color = (randint(0, 255), randint(0, 255), randint(0, 255))
             verts_2d = []
@@ -179,17 +182,18 @@ class DrawBasicDetections(Node):
 
             # draw edges
             for i in range(4):
-                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, 10) # face 1
-                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, 10) # face 2
-                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, 10) # connect faces
+                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, 10)  # face 1
+                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, 10)  # face 2
+                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, 10)  # connect faces
 
         self.publish_viz(image, image_msg)
-            
+
     def publish_viz(self, cv_img, msg):
         imgmsg = self.cv_bridge.cv2_to_imgmsg(cv_img, "bgr8")
         imgmsg.header.stamp = msg.header.stamp
         imgmsg.header.frame_id = msg.header.frame_id
         self.viz_publisher.publish(imgmsg)
+
 
 def main(args=None):
     rclpy.init(args=args)

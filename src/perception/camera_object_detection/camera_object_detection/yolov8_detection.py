@@ -234,7 +234,7 @@ class CameraDetectionNode(Node):
         if not self.execution_context:
             self.get_logger().error("Failed to create execution context")
             return 1
-        
+
        # Nuscenes Publishers
         if (self.nuscenes):
             self.nuscenes_camera_names = [
@@ -333,7 +333,7 @@ class CameraDetectionNode(Node):
             - takes in file path for tensorRT file, batch size, # of rgb channels, width & height
             - includes input names, output names, and setting dimensions for model input shape
         """
-        
+
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
 
