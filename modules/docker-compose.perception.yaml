@@ -29,7 +29,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [ gpu ]
-    command: /bin/bash -c "ros2 launch camera_object_detection eve.launch.py"
+    command: /bin/bash -c "ros2 launch camera_object_detection nuscenes_launch.py"
     volumes:
       - /mnt/wato-drive2/perception_models/yolov8m.pt:/perception_models/yolov8m.pt
       - /mnt/wato-drive2/perception_models/traffic_light.pt:/perception_models/traffic_light.pt
@@ -100,7 +100,7 @@ services:
         - "${PERCEPTION_TRACKING_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
+    command: /bin/bash -c "ros2 launch dets_2d_3d dets_2d_3d.launch.py"
     
   depth_estimation:
     build:
