@@ -16,8 +16,6 @@ TrackingNode::TrackingNode()
                              .automatically_declare_parameters_from_overrides(true)),
       transformInited_{false},
       lidarCloud_{new pcl::PointCloud<pcl::PointXYZ>()} {
-
-
   lidarFrame_ = this->get_parameter("lidar_frame").as_string();
   cameraFrame_ = this->get_parameter("camera_frame").as_string();
 
@@ -42,7 +40,7 @@ TrackingNode::TrackingNode()
       this->get_parameter("publish_clusters_topic").as_string(), 10);
 
   point_cloud_in_bbox_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
-    this->get_parameter("publish_points").as_string(), 10);
+      this->get_parameter("publish_points").as_string(), 10);
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -151,18 +149,22 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
     }
 
     // clustering
-    auto params = getDefaultOrValue<ClusteringParams>(clusteringParams, det.results[0].hypothesis.class_id.c_str());
+    auto params = getDefaultOrValue<ClusteringParams>(clusteringParams,
+                                                      det.results[0].hypothesis.class_id.c_str());
     auto clusterAndBBoxes = ProjectionUtils::getClusteredBBoxes(inlierPoints, params);
-    std::vector<std::shared_ptr<Cluster>> clusters = clusterAndBBoxes.first;  // needed? for viz purposes only
+    std::vector<std::shared_ptr<Cluster>> clusters =
+        clusterAndBBoxes.first;  // needed? for viz purposes only
     std::vector<vision_msgs::msg::BoundingBox3D> allBBoxes = clusterAndBBoxes.second;
 
     if (clusters.size() == 0 || allBBoxes.size() == 0) continue;
 
-    // score each 3d bbox based on iou with the original 2d bbox & the density of points in the cluster
+    // score each 3d bbox based on iou with the original 2d bbox & the density of points in the
+    // cluster
     int bestIndex = highestIOUScoredBBox(allBBoxes, bbox, clusters);
     vision_msgs::msg::BoundingBox3D bestBBox = allBBoxes[bestIndex];
 
-    // for visualization: adds detection to cluster pc visualization & the marker array & the 3d detection array
+    // for visualization: adds detection to cluster pc visualization & the marker array & the 3d
+    // detection array
     mergedClusters += *(clusters[bestIndex]->getCloud());
 
     // Debugging: Create a new point cloud for storing the lidar data used for the 3D bounding box
@@ -174,10 +176,9 @@ void TrackingNode::receiveDetections(const vision_msgs::msg::Detection2DArray::S
 
     sensor_msgs::msg::PointCloud2 pubCloudInBBox;
     pcl::toROSMsg(*lidarCloudNoFloor, pubCloudInBBox);
-    pubCloudInBBox.header.frame_id = lidarFrame_;  
-    pubCloudInBBox.header.stamp = msg->header.stamp; 
+    pubCloudInBBox.header.frame_id = lidarFrame_;
+    pubCloudInBBox.header.stamp = msg->header.stamp;
     point_cloud_in_bbox_publisher_->publish(pubCloudInBBox);
-
 
     vision_msgs::msg::Detection3D det3d;
     det3d.bbox = bestBBox;
