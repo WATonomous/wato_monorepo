@@ -14,6 +14,9 @@ endif()
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(std_msgs REQUIRED) # ROS2 common messages
 find_package(geometry_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
 
 set(msg_files
     msg/CarlaEgoVehicleStatus.msg
