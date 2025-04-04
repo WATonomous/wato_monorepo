@@ -11,7 +11,7 @@ SIM_DURATION = 500  # Simulation duration in time steps
 
 ## SETUP ##
 # Connect to CARLA
-client = carla.Client('localhost', 2000)
+client = carla.Client('localhost', 34041)
 maps = [m.replace('/Game/Carla/Maps/', '')
         for m in client.get_available_maps()]
 print('Available maps: ', maps)
@@ -143,8 +143,9 @@ for k in range(N):
 opti.minimize(obj)
 
 # Maximum steerin angle for dynamics
-max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
-).wheels)  # Maximum steering angle in degrees (from vehicle physics control
+# max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
+# ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
+max_steering_angle_deg = 30.0
 max_steering_angle_rad = max_steering_angle_deg * \
     (ca.pi / 180)  # Maximum steering angle in radians
 
