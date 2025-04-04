@@ -12,7 +12,7 @@ from PIL import Image as PILImage
 from sensor_msgs.msg import CompressedImage, Image, PointCloud2, PointField
 from rclpy.node import Node
 
-from depth_anything_v2.dpt import DepthAnythingV2
+from metric_depth.depth_anything_v2.dpt import DepthAnythingV2
 
 
 class DepthAnything(Node):
@@ -33,7 +33,7 @@ class DepthAnything(Node):
         self.large_model = self.get_parameter("large_model_path").value
 
         self.encoder_choices = ['vits', 'vitb', 'vitl', 'vitg']
-        self.encoder = self.encoder_choices[2]
+        self.encoder = self.encoder_choices[0]
         self.max_depth = 80  # in meters, I believe
         self.focal_length_x = 470.4
         self.focal_length_y = 470.4
@@ -60,7 +60,7 @@ class DepthAnything(Node):
         }
 
         # Initialize the DepthAnythingV2 model with the specified configuration
-        self.depth_anything = DepthAnythingV2(**self.model_configs[self.encoder])
+        self.depth_anything = DepthAnythingV2(**{**self.model_configs[self.encoder], 'max_depth': self.max_depth})
         # Default to using the small model
         self.depth_anything.load_state_dict(torch.load(self.small_model, map_location='cpu'))
         self.depth_anything = self.depth_anything.to(self.DEVICE).eval()
@@ -71,7 +71,7 @@ class DepthAnything(Node):
             CompressedImage,
             self.camera_topic,
             self.image_callback,
-            10
+            60
         )
 
         self.depth_img_publisher = self.create_publisher(
@@ -84,25 +84,39 @@ class DepthAnything(Node):
             self.publish_depth_pcl_topic,
             10
         )
+        
+        # Create the output directory if it doesn't exist
+        os.makedirs(self.outdir, exist_ok=True)
+        
+        # test throughput by spamming publishes
+        # for i in range(20):
+        #     self.test_image_once()
+                
+    def test_image_once(self):
+        self.test_image_publisher = self.create_publisher(
+            CompressedImage,
+            self.camera_topic,
+            100
+        )
+        test_img = "/home/bolty/ament_ws/src/Depth-Anything-V2/assets/examples/demo01.jpg"
+        cv_image = cv2.imread(test_img)
+        cv_image = cv2.resize(cv_image, (1080, 720))
+        if cv_image is None:
+            self.get_logger().error(f"no image at {test_img}")
+            return
 
-    def create_cloud(self, header, fields, points):
-        """
-        Create a sensor_msgs/PointCloud2 message.
-        """
-        cloud_msg = PointCloud2()
-        cloud_msg.header = header
-        # Unorganized point cloud: height is 1, width is the number of points.
-        cloud_msg.height = 1
-        cloud_msg.width = points.shape[0]
-        cloud_msg.fields = fields
-        cloud_msg.is_bigendian = False
-        # Each point has 3 float32 values, so each point is 12 bytes.
-        cloud_msg.point_step = 12
-        cloud_msg.row_step = cloud_msg.point_step * points.shape[0]
-        cloud_msg.is_dense = True
-        # Convert the points array to a bytes object.
-        cloud_msg.data = points.astype(np.float32).tobytes()
-        return cloud_msg
+        # cv2 to ros msg
+        try:
+            compressed_msg = CompressedImage()
+            params = [cv2.IMWRITE_JPEG_QUALITY, 80]
+            _, encoded_image = cv2.imencode('.jpg', cv_image, params)
+            compressed_msg.data = encoded_image.tobytes()
+            
+            self.get_logger().info("publishing test image")
+            self.test_image_publisher.publish(compressed_msg)
+        except Exception as e:
+            self.get_logger().error(f"error converting image: {e}")
+        
 
     def image_callback(self, msg):
         t_start = time.time()
@@ -115,11 +129,6 @@ class DepthAnything(Node):
         except CvBridgeError as e:
             self.get_logger().error(str(e))
             return
-        t_decode = time.time()
-        self.get_logger().debug(f"Image decoding time: {t_decode - t_start:.4f} sec")
-
-        # Create the output directory if it doesn't exist
-        os.makedirs(self.outdir, exist_ok=True)
 
         # === generate depth img ===
         color_image = PILImage.fromarray(cv_image).convert('RGB')
@@ -127,34 +136,39 @@ class DepthAnything(Node):
 
         # Inference (depth estimation)
         t_infer_start = time.time()
-        pred = self.depth_anything.infer_image(cv_image, height)
+        # resize inference input to 518 for speed
+        cv_image = cv2.resize(cv_image, (518, 518))
+        # cv2.imwrite(os.path.join(self.outdir, f"original_{self.img_id}.png"), cv_image)
+        pred = self.depth_anything.infer_image(cv_image, 518)
         t_infer_end = time.time()
         self.get_logger().debug(f"Inference time: {t_infer_end - t_infer_start:.4f} sec")
 
         # Resize depth prediction to match the original image size
         resized_pred = PILImage.fromarray(pred).resize((width, height), PILImage.NEAREST)
-        self.publish_depth_img(resized_pred, msg)
+        # self.publish_depth_img(resized_pred, msg)
 
+        metric_pred = 80 - np.array(resized_pred)        # smaller is closer
         # Optionally, disable disk writes during timing tests:
-        cv2.imwrite(os.path.join(self.outdir, f"depth_{self.img_id}.png"), np.array(resized_pred))
+        # cv2.imwrite(os.path.join(self.outdir, f"depth_{self.img_id}.png"), metric_pred)
 
         # === generate point cloud ===
-        t_pcl_start = time.time()
+        t_pcl_numpy_start = time.time()
         x, y = np.meshgrid(np.arange(width), np.arange(height))
         x = (x - width / 2) / self.focal_length_x
         y = (y - height / 2) / self.focal_length_y
-        z = np.array(resized_pred)
+        z = metric_pred + 0        # constant should be adjusted to fit ground truth
+        
         points = np.stack((np.multiply(x, z), np.multiply(y, z), z), axis=-1).reshape(-1, 3)
-        colors = np.array(color_image).reshape(-1, 3) / 255.0
+        filtered_points = points[points[:, 2] <= 79]        # remove sky detections
+        t_pcl_numpy_end = time.time()
+        self.get_logger().debug(f"Point cloud generation time: {t_pcl_numpy_end - t_pcl_numpy_start:.4f} sec")
 
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        pcd.colors = o3d.utility.Vector3dVector(colors)
-        pcl_msg = self.convert_open3d_to_pointcloud2(pcd, msg)
-        o3d.io.write_point_cloud(os.path.join(self.outdir, f"depth_{self.img_id}.ply"), pcd)
-        t_pcl_end = time.time()
-        self.get_logger().debug(f"Point cloud generation time: {t_pcl_end - t_pcl_start:.4f} sec")
-
+        # === serialize pcl message ===
+        t_serialize_start = time.time()
+        pcl_msg = self.convert_points_to_pointcloud2(filtered_points, msg)
+        t_serialize_end = time.time()
+        self.get_logger().debug(f"Serialization time: {t_serialize_end - t_serialize_start:.4f} sec")
+        
         # Publish point cloud
         self.depth_pcl_publisher.publish(pcl_msg)
         self.img_id += 1
@@ -174,33 +188,34 @@ class DepthAnything(Node):
         img_msg.header.frame_id = msg.header.frame_id
         self.depth_img_publisher.publish(img_msg)
 
-    def convert_open3d_to_pointcloud2(self, o3d_pc, msg, frame_id="map"):
-        points = np.asarray(o3d_pc.points)
-        header = std_msgs.msg.Header()
-        header.stamp = msg.header.stamp
-        header.frame_id = msg.header.frame_id
+    def convert_points_to_pointcloud2(self, points, msg, frame_id="map"):
+        header = std_msgs.msg.Header (
+            stamp = msg.header.stamp,
+            frame_id = msg.header.frame_id
+        )
 
-        pf_x = PointField()
-        pf_x.name = 'x'
-        pf_x.offset = 0
-        pf_x.datatype = PointField.FLOAT32
-        pf_x.count = 1
-
-        pf_y = PointField()
-        pf_y.name = 'y'
-        pf_y.offset = 4
-        pf_y.datatype = PointField.FLOAT32
-        pf_y.count = 1
-
-        pf_z = PointField()
-        pf_z.name = 'z'
-        pf_z.offset = 8
-        pf_z.datatype = PointField.FLOAT32
-        pf_z.count = 1
-
-        fields = [pf_x, pf_y, pf_z]
-        point_cloud_msg = self.create_cloud(header, fields, points)
-        return point_cloud_msg
+        fields = [
+            PointField(name = 'x', offset = 0, datatype = PointField.FLOAT32, count = 1),
+            PointField(name = 'y', offset = 0, datatype = PointField.FLOAT32, count = 1),
+            PointField(name = 'z', offset = 0, datatype = PointField.FLOAT32, count = 1)
+        ]
+        
+        cloud_msg = PointCloud2(
+            header = header,
+            # Unorganized point cloud: height is 1, width is the number of points.
+            height = 1,
+            width = points.shape[0],
+            fields = fields,
+            is_bigendian = False,
+            # Each point has 3 float32 values, so each point is 12 bytes.
+            point_step = 12,
+            # row_step = cloud_msg.point_step * points.shape[0],
+            row_step = 12 * points.shape[0],
+            is_dense = True,
+            # Convert the points array to a bytes object.
+            data = points.astype(np.float32).tobytes()
+        )
+        return cloud_msg
 
 
 def main(args=None):
