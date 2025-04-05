@@ -30,6 +30,20 @@ FROM ${BASE_IMAGE} as dependencies
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
+# pip complains about blinker partial uninstall
+RUN sudo apt remove python3-blinker -y
+
+# Install dependencies from requirements.txt
+WORKDIR ${AMENT_WS}/src/depth_estimation
+COPY src/perception/depth_estimation/requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
+#! faster build: required packages already included in depth_estimation/requirements.txt
+# Install dependencies from DepthAnythingV2
+#WORKDIR ${AMENT_WS}/src/Depth-Anything-V2
+#RUN pip3 install -r requirements.txt
+ENV PYTHONPATH="${PYTHONPATH}:/home/bolty/ament_ws/src/Depth-Anything-V2"
+
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
@@ -41,16 +55,6 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 
 ################################ Build ################################
 FROM dependencies as build
-
-# Install dependencies from requirements.txt
-WORKDIR ${AMENT_WS}/src/depth_estimation
-COPY src/perception/depth_estimation/requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
-
-# Install dependencies from DepthAnythingV2
-WORKDIR ${AMENT_WS}/src/Depth-Anything-V2
-RUN pip3 install -r requirements.txt
-ENV PYTHONPATH="${PYTHONPATH}:/home/bolty/ament_ws/src/Depth-Anything-V2"
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
