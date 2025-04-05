@@ -70,7 +70,7 @@ services:
     <<: *fixuid
     extends:
       file: ../docker-compose.perception.yaml
-      service: tracking
+      service: depth_estimation
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
