@@ -25,18 +25,24 @@ class DepthAnything(Node):
         self.declare_parameter("publish_depth_pcl_topic", "/camera/right/depth_plc")
         self.declare_parameter("small_model_path", "/perception_models/depth_anything_v2_small.pth")
         self.declare_parameter("large_model_path", "/perception_models/depth_anything_v2_large.pth")
+        self.declare_parameter("focal_length_x", 470.4)
+        self.declare_parameter("focal_length_y", 470.4)
+        self.declare_parameter("min_depth_offset", 0)
+        self.declare_parameter("max_depth_cuttoff", 79)
 
         self.camera_topic = self.get_parameter("camera_topic").value
         self.publish_depth_img_topic = self.get_parameter("publish_depth_img_topic").value
         self.publish_depth_pcl_topic = self.get_parameter("publish_depth_pcl_topic").value
         self.small_model = self.get_parameter("small_model_path").value
         self.large_model = self.get_parameter("large_model_path").value
+        self.focal_length_x = self.get_parameter("focal_length_x").value
+        self.focal_length_y = self.get_parameter("focal_length_y").value
+        self.min_depth_offset = self.get_parameter("min_depth_offset").value
+        self.max_depth_cuttoff = self.get_parameter("max_depth_cuttoff").value
 
         self.encoder_choices = ['vits', 'vitb', 'vitl', 'vitg']
         self.encoder = self.encoder_choices[0]
         self.max_depth = 80  # in meters, I believe
-        self.focal_length_x = 470.4
-        self.focal_length_y = 470.4
         self.outdir = "/runs/"
         self.img_id = 0
 
@@ -127,10 +133,11 @@ class DepthAnything(Node):
         x, y = np.meshgrid(np.arange(width), np.arange(height))
         x = (x - width / 2) / self.focal_length_x
         y = (y - height / 2) / self.focal_length_y
-        z = metric_pred + 0        # constant should be adjusted to fit ground truth
+        z = metric_pred + self.min_depth_offset    # cutoff adjusted to fit ground truth
 
         points = np.stack((np.multiply(x, z), np.multiply(y, z), z), axis=-1).reshape(-1, 3)
-        filtered_points = points[points[:, 2] <= 79]        # remove sky detections
+        # remove sky detections
+        filtered_points = points[points[:, 2] <= self.max_depth_cuttoff]
         t_pcl_numpy_end = time.time()
         self.get_logger().debug(
             f"Point cloud generation time: {t_pcl_numpy_end - t_pcl_numpy_start:.4f} sec")
