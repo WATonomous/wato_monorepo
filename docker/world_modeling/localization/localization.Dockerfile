@@ -7,7 +7,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/world_modeling/localization localization
-COPY src/wato_msgs/sample_msgs sample_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
