@@ -71,7 +71,7 @@ class DepthAnything(Node):
             CompressedImage,
             self.camera_topic,
             self.image_callback,
-            60
+            10
         )
 
         self.depth_img_publisher = self.create_publisher(
