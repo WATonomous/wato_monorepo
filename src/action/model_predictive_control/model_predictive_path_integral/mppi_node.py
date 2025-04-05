@@ -48,6 +48,7 @@ class MPPINode(Node):
             self.timer_callback)
         
         print("pub/sub init")
+        
     def vehicle_state_callback(self,msg):
         self.mppi_core.v0 = msg.Velocity
         Quaternion = [
@@ -61,7 +62,13 @@ class MPPINode(Node):
         self.mppi_core.y0 = msg.pose.pose.position.y
 
     def waypoints_callback(self,msg):
-        pass
+        for pose_stamped in msg.poses:
+            x = pose_stamped.pose.position.x
+            y = pose_stamped.pose.position.y
+            time = pose_stamped.header.stamp
+            self.mppi_core.waypoints.append([x,y,time])
+
+        self.goal_set = True
     def goal_publisher(self,x,y):
         goal_msg = PoseStamped()
         goal_msg.header.frame_id = "map"
@@ -71,7 +78,15 @@ class MPPINode(Node):
         goal_msg.pose.position.z = 0.0
         goal_msg.pose.orientation.w = 1.0
         self.goal_publisher.publish(goal_msg)
-        
+    def timer_callback(self):
+        if self.goal_set == False:
+            return
+        steering_angle, throttle = self.mppi_core.compute_control(self.i)
+        control_msg = CarlaEgoVehicleControl()
+        control_msg.steer = steering_angle
+        control_msg.throttle = throttle
+        self.control_publisher.publish(control_msg)
+        self.i += 1
 
 
 
