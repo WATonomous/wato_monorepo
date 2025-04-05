@@ -87,36 +87,7 @@ class DepthAnything(Node):
         )
 
         # Create the output directory if it doesn't exist
-        os.makedirs(self.outdir, exist_ok=True)
-
-        # test throughput by spamming publishes
-        # for i in range(20):
-        #     self.test_image_once()
-
-    def test_image_once(self):
-        self.test_image_publisher = self.create_publisher(
-            CompressedImage,
-            self.camera_topic,
-            100
-        )
-        test_img = "/home/bolty/ament_ws/src/Depth-Anything-V2/assets/examples/demo01.jpg"
-        cv_image = cv2.imread(test_img)
-        cv_image = cv2.resize(cv_image, (1080, 720))
-        if cv_image is None:
-            self.get_logger().error(f"no image at {test_img}")
-            return
-
-        # cv2 to ros msg
-        try:
-            compressed_msg = CompressedImage()
-            params = [cv2.IMWRITE_JPEG_QUALITY, 80]
-            _, encoded_image = cv2.imencode('.jpg', cv_image, params)
-            compressed_msg.data = encoded_image.tobytes()
-
-            self.get_logger().info("publishing test image")
-            self.test_image_publisher.publish(compressed_msg)
-        except Exception as e:
-            self.get_logger().error(f"error converting image: {e}")
+        # os.makedirs(self.outdir, exist_ok=True)
 
     def image_callback(self, msg):
         t_start = time.time()
