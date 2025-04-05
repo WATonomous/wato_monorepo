@@ -60,7 +60,8 @@ class DepthAnything(Node):
         }
 
         # Initialize the DepthAnythingV2 model with the specified configuration
-        self.depth_anything = DepthAnythingV2(**{**self.model_configs[self.encoder], 'max_depth': self.max_depth})
+        self.depth_anything = DepthAnythingV2(
+            **{**self.model_configs[self.encoder], 'max_depth': self.max_depth})
         # Default to using the small model
         self.depth_anything.load_state_dict(torch.load(self.small_model, map_location='cpu'))
         self.depth_anything = self.depth_anything.to(self.DEVICE).eval()
@@ -84,14 +85,14 @@ class DepthAnything(Node):
             self.publish_depth_pcl_topic,
             10
         )
-        
+
         # Create the output directory if it doesn't exist
         os.makedirs(self.outdir, exist_ok=True)
-        
+
         # test throughput by spamming publishes
         # for i in range(20):
         #     self.test_image_once()
-                
+
     def test_image_once(self):
         self.test_image_publisher = self.create_publisher(
             CompressedImage,
@@ -111,12 +112,11 @@ class DepthAnything(Node):
             params = [cv2.IMWRITE_JPEG_QUALITY, 80]
             _, encoded_image = cv2.imencode('.jpg', cv_image, params)
             compressed_msg.data = encoded_image.tobytes()
-            
+
             self.get_logger().info("publishing test image")
             self.test_image_publisher.publish(compressed_msg)
         except Exception as e:
             self.get_logger().error(f"error converting image: {e}")
-        
 
     def image_callback(self, msg):
         t_start = time.time()
@@ -157,18 +157,20 @@ class DepthAnything(Node):
         x = (x - width / 2) / self.focal_length_x
         y = (y - height / 2) / self.focal_length_y
         z = metric_pred + 0        # constant should be adjusted to fit ground truth
-        
+
         points = np.stack((np.multiply(x, z), np.multiply(y, z), z), axis=-1).reshape(-1, 3)
         filtered_points = points[points[:, 2] <= 79]        # remove sky detections
         t_pcl_numpy_end = time.time()
-        self.get_logger().debug(f"Point cloud generation time: {t_pcl_numpy_end - t_pcl_numpy_start:.4f} sec")
+        self.get_logger().debug(
+            f"Point cloud generation time: {t_pcl_numpy_end - t_pcl_numpy_start:.4f} sec")
 
         # === serialize pcl message ===
         t_serialize_start = time.time()
         pcl_msg = self.convert_points_to_pointcloud2(filtered_points, msg)
         t_serialize_end = time.time()
-        self.get_logger().debug(f"Serialization time: {t_serialize_end - t_serialize_start:.4f} sec")
-        
+        self.get_logger().debug(
+            f"Serialization time: {t_serialize_end - t_serialize_start:.4f} sec")
+
         # Publish point cloud
         self.depth_pcl_publisher.publish(pcl_msg)
         self.img_id += 1
@@ -189,31 +191,31 @@ class DepthAnything(Node):
         self.depth_img_publisher.publish(img_msg)
 
     def convert_points_to_pointcloud2(self, points, msg, frame_id="map"):
-        header = std_msgs.msg.Header (
-            stamp = msg.header.stamp,
-            frame_id = msg.header.frame_id
+        header = std_msgs.msg.Header(
+            stamp=msg.header.stamp,
+            frame_id=msg.header.frame_id
         )
 
         fields = [
-            PointField(name = 'x', offset = 0, datatype = PointField.FLOAT32, count = 1),
-            PointField(name = 'y', offset = 0, datatype = PointField.FLOAT32, count = 1),
-            PointField(name = 'z', offset = 0, datatype = PointField.FLOAT32, count = 1)
+            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name='y', offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name='z', offset=0, datatype=PointField.FLOAT32, count=1)
         ]
-        
+
         cloud_msg = PointCloud2(
-            header = header,
+            header=header,
             # Unorganized point cloud: height is 1, width is the number of points.
-            height = 1,
-            width = points.shape[0],
-            fields = fields,
-            is_bigendian = False,
+            height=1,
+            width=points.shape[0],
+            fields=fields,
+            is_bigendian=False,
             # Each point has 3 float32 values, so each point is 12 bytes.
-            point_step = 12,
+            point_step=12,
             # row_step = cloud_msg.point_step * points.shape[0],
-            row_step = 12 * points.shape[0],
-            is_dense = True,
+            row_step=12 * points.shape[0],
+            is_dense=True,
             # Convert the points array to a bytes object.
-            data = points.astype(np.float32).tobytes()
+            data=points.astype(np.float32).tobytes()
         )
         return cloud_msg
 
