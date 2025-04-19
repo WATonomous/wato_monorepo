@@ -1,4 +1,5 @@
 #include "hd_map_router.hpp"
+#include "utils.hpp"
 #include <lanelet2_core/geometry/BoundingBox.h>
 
 HDMapRouter::HDMapRouter() {}
@@ -185,10 +186,10 @@ std::string HDMapRouter::get_detection3d_class(
 TrafficLightState HDMapRouter::get_traffic_light_state(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
   if (traffic_light_msg_ptr->results.empty()) {
-    return TrafficLightState::Unknown;
+    return TrafficLightState::UnknownLight;
   }
 
-  TrafficLightState traffic_light_state = TrafficLightState::Unknown;
+  TrafficLightState traffic_light_state = TrafficLightState::UnknownLight;
   float base_score = 0;
   for (const auto& result : traffic_light_msg_ptr->results) {
     if (result.hypothesis.score > base_score) {
@@ -203,7 +204,7 @@ TrafficLightState HDMapRouter::get_traffic_light_state(
     }
   }
 
-  return TrafficLightState::Green;
+  return traffic_light_state;
 }
 
 // Updating Reg Elements in HD Map
@@ -212,7 +213,7 @@ void HDMapRouter::update_traffic_light(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
   TrafficLightState traffic_light_state =
       HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
-  if (traffic_light_state == TrafficLightState::Unknown) {
+  if (traffic_light_state == TrafficLightState::UnknownLight) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Light Type Does Not Exist in Vocabulary!");
   }
@@ -221,13 +222,7 @@ void HDMapRouter::update_traffic_light(
 
   auto bbox = traffic_light_msg_ptr->bbox;
 
-  lanelet::BoundingBox3d traffic_light_bbox =
-      lanelet::BoundingBox3d(lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2,
-                                                   bbox.center.position.y - bbox.size.y / 2,
-                                                   bbox.center.position.z - bbox.size.z / 2),
-                             lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2,
-                                                   bbox.center.position.y + bbox.size.y / 2,
-                                                   bbox.center.position.z + bbox.size.z / 2));
+  lanelet::BoundingBox3d traffic_light_bbox = utils::detection3dToLaneletBBox(bbox);
 
   lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(
       bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
@@ -254,21 +249,61 @@ void HDMapRouter::update_traffic_light(
                "Traffic light with ID %lu not found for update.", traffic_light_id);
 }
 
+// TODO: implement updating traffic sign in the HD Map
+
 void HDMapRouter::update_traffic_sign(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr) {
-  std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
-  if (traffic_sign_name == "STOP SIGN") {
-    update_stop_sign(traffic_sign_msg_ptr);
-  } else {
+  
+  std::string traffic_sign_class_id = get_detection3d_class(traffic_sign_msg_ptr);
+  TrafficSignSubtype traffic_sign_subtype = TrafficSignRegElem::getSubtypeFromClassId(traffic_sign_class_id);
+  // TrafficSignSubtype traffic_sign_subtype = TrafficSignSubtype::UnknownSign;
+  
+  if (traffic_sign_subtype == TrafficSignSubtype::UnknownSign) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Sign Type Does Not Exist in Vocabulary!");
   }
 
-  // TODO: implement updating traffic sign in the HD Map
-}
+  uint64_t traffic_sign_id = std::stoull(traffic_sign_msg_ptr->id);
 
-void HDMapRouter::update_stop_sign(
-    const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr) {}
+  // auto pose = traffic_sign_msg_ptr->results.front().pose.pose;
+
+  // transform pose to Point3d
+  // lanelet::Point3d traffic_sign_position = lanelet::Point3d(pose.position.x, pose.position.y, pose.position.z);
+
+  auto bbox = traffic_sign_msg_ptr->bbox;
+
+  lanelet::BoundingBox3d traffic_sign_bbox = utils::detection3dToLaneletBBox(bbox);
+
+  // use bbox center for the pose? or pose, since pose is pose with converiance
+
+  // bbox implementation
+  lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(
+      bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+
+  // pose implementation
+  // lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(
+  //     pose.position.x, pose.position.y, pose.position.z);
+
+  // Find the existing traffic light regulatory element
+  for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
+    auto traffic_sign_elem = std::dynamic_pointer_cast<TrafficSignRegElem>(reg_elem);
+
+    if (traffic_sign_elem && traffic_sign_elem->getId() == traffic_sign_id) {
+      traffic_sign_elem->updateTrafficSign(traffic_sign_bbox, traffic_sign_subtype);
+
+      // Re-associate the updated regulatory element with the appropriate lanelet if necessary
+      lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+      current_lanelet.addRegulatoryElement(traffic_sign_elem);  // if duplicate, no addition
+
+      RCLCPP_INFO(rclcpp::get_logger("hd_map_router"),
+                  "Updated Traffic Sign in lanelet map: ID = %lu, New Position = (%f, %f, %f)",
+                  traffic_sign_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+    }
+  }
+
+  RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
+               "Traffic Sign with ID %lu not found for update.", traffic_sign_class_id);
+}
 
 void HDMapRouter::update_pedestrian(
     const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr) {
@@ -322,7 +357,7 @@ void HDMapRouter::add_traffic_light(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr) {
   TrafficLightState traffic_light_state =
       HDMapRouter::get_traffic_light_state(traffic_light_msg_ptr);
-  if (traffic_light_state == TrafficLightState::Unknown) {
+  if (traffic_light_state == TrafficLightState::UnknownLight) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Light Type Does Not Exist in Vocabulary!");
   }
@@ -331,13 +366,7 @@ void HDMapRouter::add_traffic_light(
 
   auto bbox = traffic_light_msg_ptr->bbox;
 
-  lanelet::BoundingBox3d traffic_light_bbox =
-      lanelet::BoundingBox3d(lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2,
-                                                   bbox.center.position.y - bbox.size.y / 2,
-                                                   bbox.center.position.z - bbox.size.z / 2),
-                             lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2,
-                                                   bbox.center.position.y + bbox.size.y / 2,
-                                                   bbox.center.position.z + bbox.size.z / 2));
+  lanelet::BoundingBox3d traffic_light_bbox = utils::detection3dToLaneletBBox(bbox);
 
   auto traffic_light_elem =
       TrafficLightRegElem::make(traffic_light_bbox, traffic_light_state, traffic_light_id);
@@ -355,22 +384,37 @@ void HDMapRouter::add_traffic_light(
               bbox.center.position.z);
 }
 
+
+// TODD: Implement adding traffic sign to the HD Map
 void HDMapRouter::add_traffic_sign(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr) {
-  std::string traffic_sign_name = HDMapRouter::get_detection3d_class(traffic_sign_msg_ptr);
-  if (traffic_sign_name != "STOP SIGN") {
+  std::string traffic_sign_class_id = get_detection3d_class(traffic_sign_msg_ptr);
+  TrafficSignSubtype traffic_sign_subtype = TrafficSignRegElem::getSubtypeFromClassId(traffic_sign_class_id);
+
+  if (traffic_sign_subtype == TrafficSignSubtype::UnknownSign) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Sign Type Does Not Exist in Vocabulary!");
-
-    return;
   }
 
-  add_stop_sign(traffic_sign_msg_ptr);
-}
+  uint64_t traffic_sign_id = std::stoull(traffic_sign_msg_ptr->id);
 
-void HDMapRouter::add_stop_sign(
-    const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr) {
-  // TODO: implement adding stop sign to the HD Map
+  auto bbox = traffic_sign_msg_ptr->bbox;
+
+  lanelet::BoundingBox3d traffic_sign_bbox = utils::detection3dToLaneletBBox(bbox);
+
+  auto traffic_sign_elem = TrafficSignRegElem::make(traffic_sign_bbox, traffic_sign_subtype, traffic_sign_id);
+
+  lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(
+    bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+
+  lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
+  current_lanelet.addRegulatoryElement(traffic_sign_elem);
+
+  lanelet_ptr_->add(traffic_sign_elem);
+
+  RCLCPP_INFO(rclcpp::get_logger("hd_map_router"),
+              "Added traffic sign to the lanelet map: ID = %lu, Position = (%f, %f, %f)",
+              traffic_sign_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
 }
 
 void HDMapRouter::add_pedestrian(

@@ -3,7 +3,7 @@ traffic_signs_node:
     camera_topic: /front_camera/image_color
     publish_vis_topic: /traffic_signs_viz
     publish_detection_topic: /traffic_signs
-    model_path: /perception_models/traffic_signs.pt
+    model_path: /perception_models/traffic_signs_v1.pt
     crop_mode: CenterCrop
     image_size: 1024
     save_detections: false

@@ -4,10 +4,11 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "geometry_msgs/msg/point.hpp"
-#include "pedestrian_reg_elem.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "traffic_light_reg_elem.hpp"
+#include "traffic_sign_reg_elem.hpp"
+#include "pedestrian_reg_elem.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
@@ -45,6 +46,8 @@ visualization_msgs::msg::Marker polygonToMarker(lanelet::ConstPolygon3d polygon,
                                                 std_msgs::msg::ColorRGBA color);
 visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(
     std::vector<std::shared_ptr<TrafficLightRegElem>> trafficLightRegElems);
+visualization_msgs::msg::MarkerArray trafficSignsAsMakerArray(
+    std::vector<std::shared_ptr<TrafficSignRegElem>> trafficSignRegElems);
 visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
     std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems);
 }  // namespace world_modeling::hd_map

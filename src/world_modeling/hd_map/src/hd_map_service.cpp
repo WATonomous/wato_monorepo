@@ -3,8 +3,9 @@
 #include "hd_map_service.hpp"
 
 HDMapService::HDMapService() : Node("hd_map_service") {
+
   // Declare parameters
-  this->declare_parameter<std::string>("vizualization_output_topic", std::string("hd_map"));
+  this->declare_parameter<std::string>("visualization_output_topic", std::string("hd_map_viz"));
   this->declare_parameter<std::string>("route_output_topic", std::string("hd_map_route"));
   this->declare_parameter<std::string>("start_output_topic", std::string("hd_map_start_lanelet"));
   this->declare_parameter<std::string>("end_output_topic", std::string("hd_map_end_lanelet"));
@@ -20,8 +21,8 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   this->declare_parameter<std::string>("query_point_input_topic", std::string("query_point"));
 
   // Get parameters
-  std::string vizualization_output_topic =
-      this->get_parameter("vizualization_output_topic").as_string();
+  std::string visualization_output_topic =
+      this->get_parameter("visualization_output_topic").as_string();
   std::string route_output_topic = this->get_parameter("route_output_topic").as_string();
   std::string start_output_topic = this->get_parameter("start_output_topic").as_string();
   std::string end_output_topic = this->get_parameter("end_output_topic").as_string();
@@ -54,7 +55,7 @@ HDMapService::HDMapService() : Node("hd_map_service") {
   }
 
   hd_map_visualization_publisher_ =
-      this->create_publisher<visualization_msgs::msg::MarkerArray>(vizualization_output_topic, 20);
+      this->create_publisher<visualization_msgs::msg::MarkerArray>(visualization_output_topic, 20);
   hd_map_route_publisher_ =
       this->create_publisher<visualization_msgs::msg::MarkerArray>(route_output_topic, 20);
   hd_map_start_publisher_ =
@@ -205,6 +206,7 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(
     p.z = point.z();
     lanelet_msg.left_boundary.push_back(p);
   }
+
 
   // convert right boundary
   for (const auto& point : lanelet.rightBound()) {

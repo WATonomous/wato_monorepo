@@ -24,7 +24,7 @@
 #include <map>
 #include <unordered_set>
 #include "pedestrian_reg_elem.hpp"
-#include "stop_sign_reg_elem.hpp"
+#include "traffic_sign_reg_elem.hpp"
 #include "traffic_light_reg_elem.hpp"
 
 lanelet::GPSPoint ros_gps_msg_to_lanelet_gps_point(sensor_msgs::msg::NavSatFix::SharedPtr gps_msg);
@@ -56,7 +56,7 @@ class HDMapRouter {
   std::string get_detection3d_class(
       const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr);
 
-  // Mock function to get traffic light state
+  // Mock functions to get reg elem state/subtype
   TrafficLightState get_traffic_light_state(
       const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
 
@@ -67,12 +67,10 @@ class HDMapRouter {
   void process_pedestrian_msg(const vision_msgs::msg::Detection3DArray::SharedPtr obstacle_msg_ptr);
 
   void add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
-  void add_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
   void add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
   void add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
 
   void update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
-  void update_stop_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
   void update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
   void update_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
 

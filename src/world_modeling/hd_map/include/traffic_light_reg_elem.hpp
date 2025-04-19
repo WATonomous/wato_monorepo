@@ -10,7 +10,7 @@ enum TrafficLightState {
   Red,
   Yellow,
   Green,
-  Unknown,
+  UnknownLight
 };
 
 class TrafficLightRegElem : public lanelet::RegulatoryElement {
