@@ -3,7 +3,7 @@ ros__parameters:
 
   camera_info_topic: /CAM_FRONT/camera_info
   lidar_topic: /LIDAR_TOP
-  detections_topic: /detections
+  detections_topic: /CAM_FRONT/detections
 
   # publishers
   filtered_lidar_topic: /filtered_lidar

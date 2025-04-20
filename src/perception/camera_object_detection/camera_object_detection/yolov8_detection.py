@@ -18,6 +18,7 @@ from ultralytics.data.augment import LetterBox, CenterCrop
 from ultralytics.utils.ops import non_max_suppression
 from ultralytics.utils.plotting import Annotator, colors
 
+
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 import cv2
@@ -221,7 +222,6 @@ class CameraDetectionNode(Node):
             BatchDetection, self.batch_inference_topic, 10)
         self.eve_batched_camera_message_publisher = self.create_publisher(
             EveBatchDetection, self.eve_batch_inference_topic, 10)
-        self.num_cameras = 3  # Adjust this based on the number of cameras
 
         self.logger = trt.Logger(trt.Logger.WARNING)
         trt.init_libnvinfer_plugins(self.logger, namespace='')
@@ -234,7 +234,14 @@ class CameraDetectionNode(Node):
         if not self.execution_context:
             self.get_logger().error("Failed to create execution context")
             return 1
-        
+
+        self.num_cameras = 3  # Adjust this based on the number of cameras
+        self.initialize_engine(self.tensorRT_model_path,
+                       batch_size=self.num_cameras,
+                       rgb=3, width=640, height=640)
+        self.input_info, self.output_info = self.initialize_tensors()
+    
+
        # Nuscenes Publishers
         if (self.nuscenes):
             self.nuscenes_camera_names = [
@@ -497,15 +504,13 @@ class CameraDetectionNode(Node):
         batched_images = np.stack(batched_list, axis=0)
         batch = batched_images.shape[0]
         # Initialize TensorRT engine
-        # init engine and return if errored
-        if self.initialize_engine(self.tensorRT_model_path, batch, 3, 640, 640):
-            return
-        # Initialize tensors
-        self.input_info, self.output_info = self.initialize_tensors()
-        detections = self.tensorRT_inferencing(batched_images)
-        decoded_results = self.parse_detections(detections)
-        self.publish_batch_nuscenes(image_list, decoded_results)
 
+        detections = self.tensorRT_inferencing(batched_images)
+        decoded = self.parse_detections(detections)
+        self.publish_batch_nuscenes([msg1,msg2,msg3], decoded)
+        
+
+    @torch.no_grad()
     def parse_detections(self, detections):
         # Convert NumPy array to PyTorch tensor
         detection_tensor = torch.tensor(detections[0], dtype=torch.float32)
@@ -710,6 +715,13 @@ class CameraDetectionNode(Node):
 
     # Publish batch detection message
         self.batched_camera_message_publisher.publish(batch_msg)
+
+    def destroy_node(self):
+        for tensor in self.input_info + self.output_info:
+            status = cudart.cudaFreeAsync(tensor.gpu, self.stream)
+            assert status.value == 0
+        cudart.cudaStreamDestroy(self.stream)
+        super().destroy_node()
 
 
 def main(args=None):
