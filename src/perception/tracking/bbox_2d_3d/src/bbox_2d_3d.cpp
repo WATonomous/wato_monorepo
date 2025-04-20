@@ -30,7 +30,7 @@ bbox_2d_3d::bbox_2d_3d() : Node("bbox_2d_3d") {
 void bbox_2d_3d::initializeParams() {
     this->declare_parameter<std::string>("camera_info_topic", "/CAM_FRONT/camera_info");
     this->declare_parameter<std::string>("lidar_topic", "/LIDAR_TOP");
-    this->declare_parameter<std::string>("detections_topic", "/detections");
+    this->declare_parameter<std::string>("detections_topic", "/CAM_FRONT/detections");
 
     this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar"); 
     this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
@@ -143,7 +143,7 @@ void bbox_2d_3d::detsCallback(const vision_msgs::msg::Detection2DArray::SharedPt
     }
 
     try {
-        transform = tf_buffer_->lookupTransform(msg->header.frame_id, lidar_frame_, tf2::TimePointZero);
+        transform = tf_buffer_->lookupTransform(msg->header.frame_id    , lidar_frame_, tf2::TimePointZero);
     } catch (tf2::TransformException &ex) {
         RCLCPP_WARN(this->get_logger(), "Transform lookup failed: %s", ex.what());
         return;
