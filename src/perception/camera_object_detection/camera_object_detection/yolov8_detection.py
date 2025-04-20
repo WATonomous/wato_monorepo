@@ -340,7 +340,7 @@ class CameraDetectionNode(Node):
             - takes in file path for tensorRT file, batch size, # of rgb channels, width & height
             - includes input names, output names, and setting dimensions for model input shape
         """
-        
+
         self.num_io_tensors = self.tensorRT_model.num_io_tensors
         self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
 
