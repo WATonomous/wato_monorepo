@@ -208,13 +208,7 @@ class CameraDetectionNode(Node):
         else:
             self.get_logger().info("Using CPU for inference")
 
-        # CV bridge
-        self.cv_bridge = CvBridge()
-
-        status, self.stream = cudart.cudaStreamCreate()
-        assert status.value == 0, "IS NOT ZERO"
-
-        # self.build_engine()
+ 
         self.last_publish_time = self.get_clock().now()
 
         # Batch vis publishers
@@ -234,14 +228,23 @@ class CameraDetectionNode(Node):
         if not self.execution_context:
             self.get_logger().error("Failed to create execution context")
             return 1
-
-        self.num_cameras = 3  # Adjust this based on the number of cameras
-        self.initialize_engine(self.tensorRT_model_path,
-                       batch_size=self.num_cameras,
-                       rgb=3, width=640, height=640)
-        self.input_info, self.output_info = self.initialize_tensors()
     
+        self.batch_size = getattr(self, "num_cameras", 3)
+        self.input_c = 3
+        self.input_h = 640
+        self.input_w = 640
 
+        input_name = self.tensorRT_model.get_tensor_name(0)  # usually the first I/O is your input
+        self.execution_context.set_input_shape(
+                    input_name,
+                    (self.batch_size, self.input_c, self.input_h, self.input_w)
+                )
+        
+        
+        self._collect_io_names()
+        self._alloc_cuda_buffers()
+    
+    
        # Nuscenes Publishers
         if (self.nuscenes):
             self.nuscenes_camera_names = [
@@ -274,6 +277,49 @@ class CameraDetectionNode(Node):
             for camera_names in self.eve_camera_names:
                 self.get_logger().info(
                     f"Successfully created node listening on camera topic: {camera_names}...")
+                
+    def _collect_io_names(self):
+        # figure out which TRT tensors are inputs vs outputs
+        all_names = [self.tensorRT_model.get_tensor_name(i)
+                     for i in range(self.tensorRT_model.num_io_tensors)]
+        modes = [self.tensorRT_model.get_tensor_mode(n)
+                 for n in all_names]
+
+        # split into input_names / output_names
+        self.input_names = [n for n, m in zip(all_names, modes)
+                            if m == trt.TensorIOMode.INPUT]
+        self.output_names = [n for n, m in zip(all_names, modes)
+                             if m == trt.TensorIOMode.OUTPUT]
+
+    def _alloc_cuda_buffers(self):
+        # create a cudaStream once
+        status, self.stream = cudart.cudaStreamCreate()
+        assert status.value == 0, "cudaStreamCreate failed"
+
+        # host+device for inputs
+        self.input_info = []
+        for name in self.input_names:
+            shape = tuple(self.execution_context.get_tensor_shape(name))
+            dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
+            host_mem = np.empty(shape, dtype=dtype)
+
+            status, dev_mem = cudart.cudaMallocAsync(host_mem.nbytes, self.stream)
+            assert status.value == 0, f"cudaMallocAsync failed for input {name}"
+
+            self.input_info.append(Tensor(name, dtype, shape, host_mem, dev_mem))
+
+        # host+device for outputs
+        self.output_info = []
+        for name in self.output_names:
+            shape = tuple(self.execution_context.get_tensor_shape(name))
+            dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
+            host_mem = np.empty(shape, dtype=dtype)
+
+            status, dev_mem = cudart.cudaMallocAsync(host_mem.nbytes, self.stream)
+            assert status.value == 0, f"cudaMallocAsync failed for output {name}"
+
+            self.output_info.append(Tensor(name, dtype, shape, host_mem, dev_mem))
+
 
     def build_engine(self):
         # Only calling this function when we dont have an engine file
@@ -417,63 +463,58 @@ class CameraDetectionNode(Node):
                 name, self.dtype, self.tensorRT_input_shape, self.input_cpu, self.input_gpu))
         return self.input_info, self.output_info
 
-    def tensorRT_inferencing(self, batch_array):
+    def tensorRT_inferencing(self, batch_array: np.ndarray):
         """
-            Inferences through preprocessed batch images and gives data about detections
-            - Returns a contigious array of shape (3,84,8400)
+        batch_array: (B,C,H,W) float32
         """
-        assert batch_array.ndim == 4
-        batch_size = batch_array.shape[0]
-        assert batch_size == self.input_info[0].shape[0]
 
-        # Intializing memory, and names
-        self.contiguous_inputs = [np.ascontiguousarray(batch_array)]
-        for i in range(self.num_inputs):
-            name = self.input_info[i].name
-            cudart.cudaMemcpyAsync(
-                self.input_info[i].gpu,
-                self.contiguous_inputs[i].ctypes.data,
-                self.contiguous_inputs[i].nbytes,
-                cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
-                self.stream
-            )
-            self.execution_context.set_tensor_address(
-                name, self.input_info[i].gpu)
+        # 1) Copy batch into the single input host buffer
+        inp = self.input_info[0]
+        assert batch_array.nbytes == inp.cpu.nbytes, "Batch size mismatch"
+        np.copyto(inp.cpu, batch_array)
 
-        self.output_gpu_ptrs = []
-        self.outputs_ndarray = []
-        for i in range(self.num_outputs):
-            output_shape = self.execution_context.get_tensor_shape(
-                self.output_info[i].name)
-            # Reallocate output buffer if shape changed
-            if self.output_info[i].cpu.shape != tuple(output_shape):
-                self.output_info[i].cpu = np.empty(
-                    output_shape, dtype=self.output_info[i].cpu.dtype)
+        # 2) Host → Device
+        ret = cudart.cudaMemcpyAsync(
+            inp.gpu,
+            inp.cpu.ctypes.data,
+            inp.cpu.nbytes,
+            cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
+            self.stream
+        )
+        # unpack tuple if needed
+        status = ret[0] if isinstance(ret, tuple) else ret
+        # some bindings wrap it in an object with .value
+        code = status.value if hasattr(status, "value") else status
+        assert code == 0, f"H2D memcpy failed (code={code})"
 
-            self.outputs_ndarray.append(self.output_info[i].cpu)
-            self.output_gpu_ptrs.append(self.output_info[i].gpu)
-            self.execution_context.set_tensor_address(
-                self.output_info[i].name,
-                self.output_info[i].gpu
-            )
+        # 3) bind and run
+        self.execution_context.set_tensor_address(inp.name, inp.gpu)
+        for out in self.output_info:
+            self.execution_context.set_tensor_address(out.name, out.gpu)
 
-        # Execute inference
-        status = self.execution_context.execute_async_v3(self.stream)
-        assert status, "Inference execution failed"
+        success = self.execution_context.execute_async_v3(self.stream)
+        assert success, "Inference execution failed"
 
-        # Synchronize and copy results
-        cudart.cudaStreamSynchronize(self.stream)
-        for i, gpu_ptr in enumerate(self.output_gpu_ptrs):
-            cudart.cudaMemcpyAsync(
-                self.outputs_ndarray[i].ctypes.data,
-                gpu_ptr,
-                self.outputs_ndarray[i].nbytes,
+        # 4) Device → Host for each output
+        for out in self.output_info:
+            ret = cudart.cudaMemcpyAsync(
+                out.cpu.ctypes.data,
+                out.gpu,
+                out.cpu.nbytes,
                 cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost,
                 self.stream
             )
-            cudart.cudaStreamSynchronize(self.stream)
+            status = ret[0] if isinstance(ret, tuple) else ret
+            code = status.value if hasattr(status, "value") else status
+            assert code == 0, f"D2H memcpy failed (code={code})"
 
-        return tuple(self.outputs_ndarray) if len(self.outputs_ndarray) > 1 else self.outputs_ndarray[0]
+        # 5) synchronize once
+        cudart.cudaStreamSynchronize(self.stream)
+
+        # 6) return outputs as NumPy arrays
+        return tuple(out.cpu for out in self.output_info)
+
+
 
     def preprocess_image(self, msg):
         numpy_array = np.frombuffer(msg.data, np.uint8)
@@ -651,8 +692,8 @@ class CameraDetectionNode(Node):
             batched_list.append(float_image)
         batched_images = np.stack(batched_list, axis=0)
         self.get_logger().info(f"batched image shape:{batched_images.shape}")
-        self.initialize_engine(self.tensorRT_model_path, 3, 3, 640, 640)
-        self.input_info, self.output_info = self.initialize_tensors()
+        #self.initialize_engine(self.tensorRT_model_path, 3, 3, 640, 640)
+        #self.input_info, self.output_info = self.initialize_tensors()
         detections = self.tensorRT_inferencing(batched_images)
         decoded_results = self.parse_detections(detections)
 
