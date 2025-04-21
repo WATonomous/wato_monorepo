@@ -38,7 +38,11 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 
 
 # Enable X11 Forwarding
-RUN apt-get install -qqy x11-apps
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository universe && \
+    apt-get update && \
+    apt-get install -qqy x11-apps
 
 ################################ Build ################################
 FROM dependencies as build

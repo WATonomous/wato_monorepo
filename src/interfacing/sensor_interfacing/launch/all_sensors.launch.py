@@ -12,7 +12,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
     launch_cameras = LaunchConfiguration('launch_cameras', default=True)
     launch_cameras_arg = DeclareLaunchArgument('launch_cameras', default_value=launch_cameras,
-                                               description='Launch Flir Blackfly S Cameras')
+                                               description='Launch Flir Blackfly Cameras')
     launch_lidars = LaunchConfiguration('launch_lidars', default=True)
     launch_lidars_arg = DeclareLaunchArgument('launch_lidars', default_value=launch_lidars,
                                               description='Launch Velodyne LiDAR')
