@@ -1,0 +1,9 @@
+traffic_light_node:
+  ros__parameters:
+    camera_topic: /front_camera/image_color
+    publish_vis_topic: /traffic_lights_viz
+    publish_detection_topic: /traffic_lights
+    model_path: /perception_models/traffic_light.pt
+    crop_mode: CenterCrop
+    image_size: 1024
+    save_detections: false

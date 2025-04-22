@@ -1,15 +1,21 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>occupancy_segmentation</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
-  <license>TODO: License declaration</license>
+  <description>A ROS2 package to handle LiDAR ground segmentation using Patchworks</description>
 
+  <maintainer email="akilpath@watonomous.ca">Akil Pathiranage</maintainer>
+  <license>TODO</license>
+
+  <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>sensor_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>pcl_ros</depend>
 
+  <test_depend>ament_cmake_gtest</test_depend>
 
+  <!--https://www.ros.org/reps/rep-0149.html#export-->
   <export>
     <build_type>ament_cmake</build_type>
   </export>

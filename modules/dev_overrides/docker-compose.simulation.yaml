@@ -6,10 +6,35 @@ x-fixuid: &fixuid
 
 services:
   carla_sim:
-    <<: *fixuid
     extends:
       file: ../docker-compose.simulation.yaml
       service: carla_sim
+
+  carla_ros_bridge:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.simulation.yaml
+      service: carla_ros_bridge
+    # command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
+    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+
+  carla_viz:
+    extends:
+      file: ../docker-compose.simulation.yaml
+      service: carla_viz
+
+  carla_sample_node:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.simulation.yaml
+      service: carla_sample_node
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/simulation/carla_sim:/home/bolty/ament_ws/src/carla_sim
+      - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
+  
+  carla_notebooks:
+    extends:
+      file: ../docker-compose.simulation.yaml
+      service: carla_notebooks

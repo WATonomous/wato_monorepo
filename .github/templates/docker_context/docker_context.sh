@@ -11,14 +11,38 @@ modules=$(find modules -maxdepth 1 -name "docker-compose*")
 # Initialize an empty array for JSON objects
 json_objects=()
 
+# Check for infrastructure changes
+TEST_ALL=false
+if [[ $MODIFIED_MODULES = "infrastructure" ]]; then
+    TEST_ALL=true
+fi
+
 # Loop through each module
 while read -r module; do
+
     # Retrieve docker compose service names
-    services=$(docker-compose -f "$module" config --services)
+    services=$(docker compose -f "$module" config --services)
     module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
+
+    # Skip simulation module
+    if [[ 'simulation' = $module_out ]]; then
+        continue
+    fi
+
+    # Only work with modules that are modified
+    if [[ $MODIFIED_MODULES != *$module_out* && $TEST_ALL = "false" ]]; then
+        continue
+    fi
 
     # Loop through each service
     while read -r service_out; do
+        # Temporarily skip perception services that have too large image size
+        if  [[ "$service_out" == "lane_detection" ]] || \
+            [[ "$service_out" == "camera_object_detection" ]] || \
+            [[ "$service_out" == "lidar_object_detection" ]] || \
+            [[ "$service_out" == "semantic_segmentation" ]]; then
+            continue
+        fi
         # Construct JSON object for each service with module and service name
         json_object=$(jq -nc --arg module_out "$module_out" --arg service_out "$service_out" \
         '{module: $module_out, service: $service_out}')
