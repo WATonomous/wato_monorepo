@@ -617,7 +617,7 @@ class CameraDetectionNode(Node):
 
             detection_array = Detection2DArray()
             detection_array.header.stamp = batch_msg.header.stamp
-            detection_array.header.frame_id = f"camera_{idx}"
+            detection_array.header.frame_id = img_msg.header.frame_id
 
             batch_detections = decoded_results[idx]
 
@@ -663,7 +663,7 @@ class CameraDetectionNode(Node):
                 annotated_image = annotator.result()
                 vis_compressed_image = CompressedImage()
                 vis_compressed_image.header.stamp = self.get_clock().now().to_msg()
-                vis_compressed_image.header.frame_id = f"camera_{idx}"
+                vis_compressed_image.header.frame_id = img_msg.header.frame_id
                 vis_compressed_image.format = "jpeg"
                 vis_compressed_image.data = cv2.imencode(
                     '.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()

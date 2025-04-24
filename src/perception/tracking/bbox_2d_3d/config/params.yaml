@@ -1,9 +1,12 @@
 ros__parameters:
   # subscribers
 
-  camera_info_topic: /CAM_FRONT/camera_info
+  camera_info_topic_front_: /CAM_FRONT/camera_info
+  camera_info_topic_right_: /CAM_FRONT_RIGHT/camera_info
+  camera_info_topic_left_: /CAM_FRONT_LEFT/camera_info
+
   lidar_topic: /LIDAR_TOP
-  detections_topic: /CAM_FRONT/detections
+  detections_topic: /batched_camera_message
 
   # publishers
   filtered_lidar_topic: /filtered_lidar
