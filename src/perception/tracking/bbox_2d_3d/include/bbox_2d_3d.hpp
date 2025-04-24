@@ -12,11 +12,14 @@
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
 #include "projection_utils.hpp"
+
+#include <unordered_map>
 
 class bbox_2d_3d : public rclcpp::Node {
  public:
@@ -25,14 +28,13 @@ class bbox_2d_3d : public rclcpp::Node {
  private:
   // IMAGE
   // -----------------------------------------------------------------------------------------------------------
-  void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+  //void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
 
   cv_bridge::CvImagePtr image_data_;
 
   std::array<double, 12> projection_matrix_;
-  sensor_msgs::msg::CameraInfo::SharedPtr camInfo_;
-
-  void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+  std::unordered_map<std::string, sensor_msgs::msg::CameraInfo::SharedPtr> camInfoMap_;
+  void multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
   // LIDAR
   // -----------------------------------------------------------------------------------------------------------
@@ -44,14 +46,20 @@ class bbox_2d_3d : public rclcpp::Node {
 
   // DETECTIONS
   // ------------------------------------------------------------------------------------------------------
-  void detsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
+  void multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg);
+
+  void processDetections(
+      const vision_msgs::msg::Detection2DArray& detections,
+      const geometry_msgs::msg::TransformStamped& transform,
+      const std::array<double, 12>& projection_matrix);
+
   geometry_msgs::msg::TransformStamped transform;
 
   // SUBSCRIBERS
   // -----------------------------------------------------------------------------------------------------
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
-  rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr dets_sub_;
+  rclcpp::Subscription<camera_object_detection_msgs::msg::BatchDetection>::SharedPtr batch_dets_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_front_,camera_info_sub_left_, camera_info_sub_right_;
 
   // for visualization
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
@@ -72,7 +80,10 @@ class bbox_2d_3d : public rclcpp::Node {
 
   void initializeParams();
 
-  std::string camera_info_topic_;
+  std::string camera_info_topic_front_;
+  std::string camera_info_topic_left_;
+  std::string camera_info_topic_right_;
+
   std::string lidar_topic_;
   std::string detections_topic_;
 

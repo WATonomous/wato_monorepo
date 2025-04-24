@@ -17,6 +17,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sample_msgs REQUIRED)
+find_package(camera_object_detection_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -48,6 +49,7 @@ ament_target_dependencies(projection_utils
     sensor_msgs
     vision_msgs
     visualization_msgs
+    camera_object_detection_msgs
     pcl_conversions
     pcl_ros
     tf2
