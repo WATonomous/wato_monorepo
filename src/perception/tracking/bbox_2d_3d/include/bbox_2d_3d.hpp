@@ -21,6 +21,12 @@
 
 #include <unordered_map>
 
+struct DetectionOutputs {
+  visualization_msgs::msg::MarkerArray bbox_msg;
+  sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
+  setnsor_msgs::msg::PointCloud2 centroid_msg;
+};
+
 class bbox_2d_3d : public rclcpp::Node {
  public:
   bbox_2d_3d();
@@ -48,7 +54,7 @@ class bbox_2d_3d : public rclcpp::Node {
   // ------------------------------------------------------------------------------------------------------
   void multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg);
 
-  void processDetections(
+  DetectionOutputs processDetections(
       const vision_msgs::msg::Detection2DArray& detections,
       const geometry_msgs::msg::TransformStamped& transform,
       const std::array<double, 12>& projection_matrix);

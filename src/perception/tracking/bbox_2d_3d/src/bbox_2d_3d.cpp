@@ -151,7 +151,7 @@ void bbox_2d_3d::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
       ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
 }
 
-void bbox_2d_3d::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
+visualization_msgs::msg::MarkerArray bbox_2d_3d::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
                                   const geometry_msgs::msg::TransformStamped &transform,
                                   const std::array<double, 12> &projection_matrix) {
 
@@ -159,7 +159,7 @@ void bbox_2d_3d::processDetections(const vision_msgs::msg::Detection2DArray &det
 
   if (!filtered_point_cloud_) {
     RCLCPP_WARN(this->get_logger(), "Lidar data not available");
-    return;
+    return visualization_msgs::msg::MarkerArray{};
   }
 
   // CLUSTERING-----------------------------------------------------------------------------------------------
@@ -183,38 +183,39 @@ void bbox_2d_3d::processDetections(const vision_msgs::msg::Detection2DArray &det
   ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
 
-  // assign colors to the clusters (strictly for visualiztion)
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(
-      new pcl::PointCloud<pcl::PointXYZRGB>);
+  // // assign colors to the clusters (strictly for visualiztion)
+  // pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_clustered_cloud(
+  //     new pcl::PointCloud<pcl::PointXYZRGB>);
 
-  ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices,
-                                       colored_clustered_cloud);
+  // ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices,
+  //                                      colored_clustered_cloud);
 
-  // publish the messages
-  sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
-  pcl::toROSMsg(*colored_clustered_cloud, filtered_lidar_msg);
-  filtered_lidar_msg.header = latest_lidar_msg_.header;
-  filtered_lidar_pub_->publish(filtered_lidar_msg);
+  // // publish the messages
+  // sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
+  // pcl::toROSMsg(*colored_clustered_cloud, filtered_lidar_msg);
+  // filtered_lidar_msg.header = latest_lidar_msg_.header;
+  // filtered_lidar_pub_->publish(filtered_lidar_msg);
 
   visualization_msgs::msg::MarkerArray bbox_msg;
   bbox_msg = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices,
                                                  latest_lidar_msg_);
-  bounding_box_pub_->publish(bbox_msg);
+  //bounding_box_pub_->publish(bbox_msg);
+  return bbox_msg;
 
   // CENTROIDS (FOR VISUALIZATIONS)
   // ----------------------------------------------------------------------------
 
-  pcl::PointCloud<pcl::PointXYZ> centroid_cloud;
-  for (const auto& cluster : cluster_indices) {
-    pcl::PointXYZ centroid;
-    ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, cluster, centroid);
-    centroid_cloud.push_back(centroid);
-  }
+  // pcl::PointCloud<pcl::PointXYZ> centroid_cloud;
+  // for (const auto& cluster : cluster_indices) {
+  //   pcl::PointXYZ centroid;
+  //   ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, cluster, centroid);
+  //   centroid_cloud.push_back(centroid);
+  // }
 
-  sensor_msgs::msg::PointCloud2 centroid_msg;
-  pcl::toROSMsg(centroid_cloud, centroid_msg);
-  centroid_msg.header = latest_lidar_msg_.header;
-  cluster_centroid_pub_->publish(centroid_msg);
+  // sensor_msgs::msg::PointCloud2 centroid_msg;
+  // pcl::toROSMsg(centroid_cloud, centroid_msg);
+  // centroid_msg.header = latest_lidar_msg_.header;
+  // cluster_centroid_pub_->publish(centroid_msg);
 
   // IMAGE PROJECTION (FOR DEBUGGING)
   // ---------------------------------------------------------------------------
@@ -247,6 +248,9 @@ void bbox_2d_3d::multiDetectionsCallback(
     return;
   }
 
+  visualization_msgs::msg::MarkerArray combined;
+  int id_offset = 0;
+
   for (auto &dets : msg->detections) {
 
     const auto &cam_frame = dets.header.frame_id;
@@ -278,12 +282,16 @@ void bbox_2d_3d::multiDetectionsCallback(
     }
 
     // run your existing pipeline
-    processDetections(
-      dets,         
-      transform,            
-      cam_info->p 
-    );
+    auto cam_boxes = processDetections(dets, transform, cam_info->p);
+    for (auto &m : cam_boxes.markers) {
+      m.ns = cam_frame;        
+      m.id += id_offset;       
+      combined.markers.push_back(m);
+    }
+    id_offset += cam_boxes.markers.size();
   }
+
+  bounding_box_pub_->publish(combined);
 }
 
 int main(int argc, char** argv) {
