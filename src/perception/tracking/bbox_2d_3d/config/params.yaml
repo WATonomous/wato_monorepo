@@ -46,5 +46,6 @@ ros__parameters:
 
   object_detection_confidence: 0.55
 
+  publish_visualization: true
 
     

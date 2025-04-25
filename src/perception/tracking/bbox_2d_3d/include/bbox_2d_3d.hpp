@@ -22,14 +22,14 @@
 #include <unordered_map>
 
 struct DetectionOutputs {
-  visualization_msgs::msg::MarkerArray bbox_msg;
-  sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
-  setnsor_msgs::msg::PointCloud2 centroid_msg;
+  visualization_msgs::msg::MarkerArray bboxes;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cluster;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr centroid_cloud;
 };
 
 class bbox_2d_3d : public rclcpp::Node {
  public:
-  bbox_2d_3d();
+  explicit bbox_2d_3d();
 
  private:
   // IMAGE
@@ -115,6 +115,7 @@ class bbox_2d_3d : public rclcpp::Node {
   double merge_threshold_;
 
   float object_detection_confidence_;
+
 };
 
 #endif
