@@ -29,21 +29,17 @@ struct DetectionOutputs {
 
 class bbox_2d_3d : public rclcpp::Node {
  public:
-  explicit bbox_2d_3d();
+  bbox_2d_3d();
 
  private:
-  // IMAGE
-  // -----------------------------------------------------------------------------------------------------------
-  //void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+  // CAMERA
+  // ------------------------------------------------------------------------------------------------------
 
-  cv_bridge::CvImagePtr image_data_;
-
-  std::array<double, 12> projection_matrix_;
   std::unordered_map<std::string, sensor_msgs::msg::CameraInfo::SharedPtr> camInfoMap_;
   void multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
   // LIDAR
-  // -----------------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   sensor_msgs::msg::PointCloud2 latest_lidar_msg_;
