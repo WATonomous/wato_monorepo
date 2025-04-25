@@ -32,6 +32,9 @@ class bbox_2d_3d : public rclcpp::Node {
   bbox_2d_3d();
 
  private:
+  // CONFIG/VISUALIZATION
+  bool publish_visualization_;
+
   // CAMERA
   // ------------------------------------------------------------------------------------------------------
 

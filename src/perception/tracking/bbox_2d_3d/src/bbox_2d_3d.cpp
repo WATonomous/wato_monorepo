@@ -55,6 +55,8 @@ void bbox_2d_3d::initializeParams() {
 
   this->declare_parameter<std::string>("lidar_top_frame", "LIDAR_TOP");
 
+  this->declare_parameter<bool>("publish_visualization", true);
+
   // RANSAC Parameters
   this->declare_parameter<double>("ransac_params.distance_threshold", 0.5);
   this->declare_parameter<int>("ransac_params.max_iterations", 1500);
@@ -75,6 +77,8 @@ void bbox_2d_3d::initializeParams() {
   this->declare_parameter<float>("object_detection_confidence", 0.3);
 
   // Get parameters
+  publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
+
   camera_info_topic_front_ = this->get_parameter("camera_info_topic_front_").as_string();
   camera_info_topic_right_ = this->get_parameter("camera_info_topic_right_").as_string();
   camera_info_topic_left_ = this->get_parameter("camera_info_topic_left_").as_string();
@@ -167,23 +171,23 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
   ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
 
-  // assign colors to the clusters 
-  detection_outputs.colored_cluster.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
-  ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
-
-
   detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
 
-  // CENTROIDS (FOR VISUALIZATIONS)
+  // VISUALIZATIONS
   // ----------------------------------------------------------------------------
+  
+  // assign colors to the clusters 
+  if (publish_visualization_) {
+    detection_outputs.colored_cluster.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+    ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
 
-  detection_outputs.centroid_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  for (auto &ci : cluster_indices) {
-    pcl::PointXYZ c;
-    ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, ci, c);
-    detection_outputs.centroid_cloud->points.push_back(c);
+    detection_outputs.centroid_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
+    for (auto &ci : cluster_indices) {
+      pcl::PointXYZ c;
+      ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, ci, c);
+      detection_outputs.centroid_cloud->points.push_back(c);
+    }
   }
-
   return detection_outputs;
 }
 
@@ -235,23 +239,27 @@ void bbox_2d_3d::multiDetectionsCallback(
     }
     marker_id_offset += detection_results.bboxes.markers.size();
 
-    merged_cluster_cloud += *detection_results.colored_cluster;
-    merged_centroid_cloud += *detection_results.centroid_cloud;
+    if (publish_visualization_) {
+      merged_cluster_cloud += *detection_results.colored_cluster;
+      merged_centroid_cloud += *detection_results.centroid_cloud;
+    }
   }
 
   // publish combined bounding boxes
   bounding_box_pub_->publish(combined_bboxes);
 
-  // publish merged colored clusters
-  sensor_msgs::msg::PointCloud2 pcl2_msg;
-  pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
-  pcl2_msg.header = latest_lidar_msg_.header;
-  filtered_lidar_pub_->publish(pcl2_msg);
+  if (publish_visualization_) {
+    // publish merged colored clusters
+    sensor_msgs::msg::PointCloud2 pcl2_msg;
+    pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
+    pcl2_msg.header = latest_lidar_msg_.header;
+    filtered_lidar_pub_->publish(pcl2_msg);
 
-  // publish merged centroids
-  pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
-  pcl2_msg.header = latest_lidar_msg_.header;
-  cluster_centroid_pub_->publish(pcl2_msg);
+    // publish merged centroids
+    pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
+    pcl2_msg.header = latest_lidar_msg_.header;
+    cluster_centroid_pub_->publish(pcl2_msg);
+  }
 }
 
 int main(int argc, char** argv) {

@@ -81,7 +81,7 @@ class ProjectionUtils {
   // BOUNDING BOX FUNCTIONS
   // ----------------------------------------------------------------------------------------
 
-  static visualization_msgs::msg::MarkerArray computeBoundingBox(
+    static visualization_msgs::msg::MarkerArray computeBoundingBox(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
       const std::vector<pcl::PointIndices>& cluster_indices,
       const sensor_msgs::msg::PointCloud2& msg);
