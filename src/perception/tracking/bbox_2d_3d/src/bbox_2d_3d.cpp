@@ -12,9 +12,6 @@ bbox_2d_3d::bbox_2d_3d() : Node("bbox_2d_3d") {
   batch_dets_sub_ = this->create_subscription<camera_object_detection_msgs::msg::BatchDetection>(
       detections_topic_, 10, std::bind(&bbox_2d_3d::multiDetectionsCallback, this, std::placeholders::_1));
 
-  // image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
-  //     "/annotated_img", 10, std::bind(&bbox_2d_3d::imageCallback, this, std::placeholders::_1));
-
   auto info_qos = rclcpp::SensorDataQoS();
 
   camera_info_sub_front_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -45,12 +42,12 @@ bbox_2d_3d::bbox_2d_3d() : Node("bbox_2d_3d") {
 
 void bbox_2d_3d::initializeParams() {
 
-    this->declare_parameter<std::string>("camera_info_topic_front_", "/CAM_FRONT/camera_info");
-    this->declare_parameter<std::string>("camera_info_topic_left_", "/CAM_FRONT_LEFT/camera_info");
-    this->declare_parameter<std::string>("camera_info_topic_right_", "/CAM_FRONT_RIGHT/camera_info");
+  this->declare_parameter<std::string>("camera_info_topic_front_", "/CAM_FRONT/camera_info");
+  this->declare_parameter<std::string>("camera_info_topic_left_", "/CAM_FRONT_LEFT/camera_info");
+  this->declare_parameter<std::string>("camera_info_topic_right_", "/CAM_FRONT_RIGHT/camera_info");
 
-    this->declare_parameter<std::string>("lidar_topic", "/LIDAR_TOP");
-    this->declare_parameter<std::string>("detections_topic", "/batched_camera_message");
+  this->declare_parameter<std::string>("lidar_topic", "/LIDAR_TOP");
+  this->declare_parameter<std::string>("detections_topic", "/batched_camera_message");
 
   this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar");
   this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
@@ -73,7 +70,7 @@ void bbox_2d_3d::initializeParams() {
   this->declare_parameter<double>("density_filter_params.distance_weight", 0.7);
   this->declare_parameter<double>("density_filter_params.score_threshold", 0.5);
 
-  this->declare_parameter<double>("merge_threshold", 0.4);
+  this->declare_parameter<double>("merge_threshold", 0.3);
 
   this->declare_parameter<float>("object_detection_confidence", 0.3);
 
@@ -112,19 +109,7 @@ void bbox_2d_3d::initializeParams() {
 void bbox_2d_3d::multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
   const auto frame = msg->header.frame_id;
   camInfoMap_[frame] = msg;
-  // RCLCPP_INFO(get_logger(),
-  //   "cached CameraInfo for '%s'  (now have %zu cameras)",
-  //   frame.c_str(), camInfoMap_.size());
 }
-
-// void bbox_2d_3d::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
-//   try {
-//     image_data_ = cv_bridge::toCvCopy(msg, "bgr8");
-//   } catch (cv_bridge::Exception& e) {
-//     RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
-//     return;
-//   }
-// }
 
 void bbox_2d_3d::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
   // store the lidar msg
@@ -147,7 +132,6 @@ void bbox_2d_3d::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   // Remove outliers from the LiDAR point cloud
   /*  int meanK = 30; // Number of neighbors to analyze for each point
       double stddevMulThresh = 1.5; // Standard deviation multiplier threshold
-
       ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
 }
 
@@ -157,17 +141,16 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
 
   // checks for if pointers available, prevents accessing null pointers
 
-  if (!filtered_point_cloud_) {
-    RCLCPP_WARN(this->get_logger(), "Lidar data not available");
-    DetectionOutputs empty;
-    return empty;
-  }
-
   DetectionOutputs detection_outputs;
 
-  // CLUSTERING-----------------------------------------------------------------------------------------------
+  if (!filtered_point_cloud_) {
+    RCLCPP_WARN(this->get_logger(), "Lidar data not available");
+    return detection_outputs;
+  }
 
+  // CLUSTERING-----------------------------------------------------------------------------------------------
   // Perform Euclidean clustering, populate cluster_indices
+
   std::vector<pcl::PointIndices> cluster_indices;
   ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, euclid_cluster_tolerance_,
                                               euclid_min_cluster_size_, euclid_max_cluster_size_,
@@ -180,24 +163,16 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
   // merge clusters that are close to each other, determined through distance between their
   ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, merge_threshold_);
 
-  // calculate the best fitting iou score between the x and y area of the clusters in the camera
-  // plane and the detections
+  // iou score between x and y area of clusters in camera plane and detections
   ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
 
-  // assign colors to the clusters (strictly for visualiztion)
+  // assign colors to the clusters 
   detection_outputs.colored_cluster.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
   ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
 
-  // publish the messages
-
-  // sensor_msgs::msg::PointCloud2 filtered_lidar_msg;
-  // pcl::toROSMsg(*colored_clustered_cloud, filtered_lidar_msg);
-  // filtered_lidar_msg.header = latest_lidar_msg_.header;
-  //filtered_lidar_pub_->publish(filtered_lidar_msg);
 
   detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
-  //bounding_box_pub_->publish(bbox_msg);
 
   // CENTROIDS (FOR VISUALIZATIONS)
   // ----------------------------------------------------------------------------
@@ -209,96 +184,75 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
     detection_outputs.centroid_cloud->points.push_back(c);
   }
 
-  // sensor_msgs::msg::PointCloud2 centroid_msg;
-  // pcl::toROSMsg(centroid_cloud, centroid_msg);
-  // centroid_msg.header = latest_lidar_msg_.header;
-  //cluster_centroid_pub_->publish(centroid_msg);
-
   return detection_outputs;
-
-  // IMAGE PROJECTION (FOR DEBUGGING)
-  // ---------------------------------------------------------------------------
-
-  // cv::Mat image = image_data_->image.clone();
-
-  // for (const auto& point : filtered_point_cloud_->points) {
-  //   auto projected_point = ProjectionUtils::projectLidarToCamera(transform, camInfo_->p, point);
-  //   if (projected_point) {
-  //     cv::circle(image, *projected_point, 2, cv::Scalar(0, 255, 0), -1);
-  //   }
-  // }
-
-  //   try {
-  //       transform = tf_buffer_->lookupTransform(msg->header.frame_id, lidar_frame_, tf2::TimePointZero);
-  //   } catch (tf2::TransformException &ex) {
-  //       RCLCPP_WARN(this->get_logger(), "Transform lookup failed: %s", ex.what());
-  //       return;
-  //   }
-
 }
 
 void bbox_2d_3d::multiDetectionsCallback(
-  camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg
-) {
+  camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg) {
 
   if (camInfoMap_.size() < 3) {
     RCLCPP_WARN(get_logger(),
-      "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size()
-    );
+      "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size());
     return;
   }
 
-  // accumulate across cameras
-  visualization_msgs::msg::MarkerArray combined_bbox;
-  pcl::PointCloud<pcl::PointXYZRGB> merged_colors;
-  pcl::PointCloud<pcl::PointXYZ> merged_cents;
-  int id_off = 0;
+  // Accumulate results from all cameras
+  visualization_msgs::msg::MarkerArray combined_bboxes;
+  pcl::PointCloud<pcl::PointXYZRGB> merged_cluster_cloud;
+  pcl::PointCloud<pcl::PointXYZ> merged_centroid_cloud;
 
-  for (auto &batch : msg->detections) {
-    auto it = camInfoMap_.find(batch.header.frame_id);
-    if (it == camInfoMap_.end()) continue;
+  int marker_id_offset = 0;
 
-    // lookup TF
-    geometry_msgs::msg::TransformStamped xf;
-    try {
-      xf = tf_buffer_->lookupTransform(
-        batch.header.frame_id, lidar_frame_, tf2::TimePointZero
-      );
-    } catch (tf2::TransformException &e) {
-      RCLCPP_WARN(get_logger(),
-        "TF %s→%s failed: %s",
-        lidar_frame_.c_str(), batch.header.frame_id.c_str(), e.what()
-      );
+  for (const auto & camera_batch : msg->detections) {
+    // find intrinsics for this camera
+    auto it = camInfoMap_.find(camera_batch.header.frame_id);
+    if (it == camInfoMap_.end()) {
+      RCLCPP_WARN(get_logger(), "No CameraInfo for '%s', skipping", camera_batch.header.frame_id.c_str());
       continue;
     }
 
-    // process
-    auto outs = processDetections(batch, xf, it->second->p);
-
-    // shift & append boxes
-    for (auto &m : outs.bboxes.markers) {
-      m.ns = batch.header.frame_id;
-      m.id += id_off;
-      combined_bbox.markers.push_back(m);
+    // lookup transform from LiDAR to this camera
+    geometry_msgs::msg::TransformStamped tf_cam_to_lidar;
+    try {
+      tf_cam_to_lidar = tf_buffer_->lookupTransform(
+        camera_batch.header.frame_id,
+        lidar_frame_,
+        tf2::TimePointZero
+      );
+    } catch (tf2::TransformException &e) {
+      RCLCPP_WARN(get_logger(), "TF %s→%s failed: %s", lidar_frame_.c_str(),camera_batch.header.frame_id.c_str(), e.what());
+      continue;
     }
-    id_off += outs.bboxes.markers.size();
-    merged_colors += *outs.colored_cluster;
-    merged_cents += *outs.centroid_cloud;
+
+    // run the per‐camera pipeline
+    auto detection_results = processDetections(camera_batch, tf_cam_to_lidar, it->second->p);
+
+    // append and re‐index all bounding boxes
+    for (auto &marker : detection_results.bboxes.markers) {
+      marker.ns = camera_batch.header.frame_id;
+      marker.id += marker_id_offset;
+      combined_bboxes.markers.push_back(marker);
+    }
+    marker_id_offset += detection_results.bboxes.markers.size();
+
+    merged_cluster_cloud += *detection_results.colored_cluster;
+    merged_centroid_cloud += *detection_results.centroid_cloud;
   }
 
-  // publish all three together
-  bounding_box_pub_->publish(combined_bbox);
+  // publish combined bounding boxes
+  bounding_box_pub_->publish(combined_bboxes);
 
-  sensor_msgs::msg::PointCloud2 ros_pc;
-  pcl::toROSMsg(merged_colors, ros_pc);
-  ros_pc.header = latest_lidar_msg_.header;
-  filtered_lidar_pub_->publish(ros_pc);
+  // publish merged colored clusters
+  sensor_msgs::msg::PointCloud2 pcl2_msg;
+  pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
+  pcl2_msg.header = latest_lidar_msg_.header;
+  filtered_lidar_pub_->publish(pcl2_msg);
 
-  pcl::toROSMsg(merged_cents, ros_pc);
-  ros_pc.header = latest_lidar_msg_.header;
-  cluster_centroid_pub_->publish(ros_pc);
+  // publish merged centroids
+  pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
+  pcl2_msg.header = latest_lidar_msg_.header;
+  cluster_centroid_pub_->publish(pcl2_msg);
 }
-
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
