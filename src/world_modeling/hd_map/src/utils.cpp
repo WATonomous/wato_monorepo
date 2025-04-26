@@ -17,3 +17,13 @@ lanelet::Polygon3d utils::boundingBox3dToPolygon3d(const lanelet::BoundingBox3d&
 
   return polygon;
 }
+
+lanelet::BoundingBox3d utils::detection3dToLaneletBBox(
+    const vision_msgs::msg::BoundingBox3D& bbox) {
+  return lanelet::BoundingBox3d(lanelet::BasicPoint3d(bbox.center.position.x - bbox.size.x / 2,
+                                                      bbox.center.position.y - bbox.size.y / 2,
+                                                      bbox.center.position.z - bbox.size.z / 2),
+                                lanelet::BasicPoint3d(bbox.center.position.x + bbox.size.x / 2,
+                                                      bbox.center.position.y + bbox.size.y / 2,
+                                                      bbox.center.position.z + bbox.size.z / 2));
+}
