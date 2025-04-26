@@ -62,19 +62,19 @@ void bbox_2d_3d::initializeParams() {
   this->declare_parameter<int>("ransac_params.max_iterations", 1500);
 
   // Euclidean Clustering Parameters
-  this->declare_parameter<double>("euclid_params.cluster_tolerance", 1.2);
-  this->declare_parameter<int>("euclid_params.min_cluster_size", 30);
+  this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.5);
+  this->declare_parameter<int>("euclid_params.min_cluster_size", 50);
   this->declare_parameter<int>("euclid_params.max_cluster_size", 700);
 
   // Density Filtering Parameters
   this->declare_parameter<double>("density_filter_params.density_weight", 0.6);
   this->declare_parameter<double>("density_filter_params.size_weight", 0.8);
   this->declare_parameter<double>("density_filter_params.distance_weight", 0.7);
-  this->declare_parameter<double>("density_filter_params.score_threshold", 0.5);
+  this->declare_parameter<double>("density_filter_params.score_threshold", 0.6);
 
   this->declare_parameter<double>("merge_threshold", 0.3);
 
-  this->declare_parameter<float>("object_detection_confidence", 0.3);
+  this->declare_parameter<float>("object_detection_confidence", 0.4);
 
   // Get parameters
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
