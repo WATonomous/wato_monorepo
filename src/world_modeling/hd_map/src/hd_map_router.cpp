@@ -1,6 +1,6 @@
 #include "hd_map_router.hpp"
-#include "utils.hpp"
 #include <lanelet2_core/geometry/BoundingBox.h>
+#include "utils.hpp"
 
 HDMapRouter::HDMapRouter() {}
 
@@ -253,11 +253,11 @@ void HDMapRouter::update_traffic_light(
 
 void HDMapRouter::update_traffic_sign(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr) {
-  
   std::string traffic_sign_class_id = get_detection3d_class(traffic_sign_msg_ptr);
-  TrafficSignSubtype traffic_sign_subtype = TrafficSignRegElem::getSubtypeFromClassId(traffic_sign_class_id);
+  TrafficSignSubtype traffic_sign_subtype =
+      TrafficSignRegElem::getSubtypeFromClassId(traffic_sign_class_id);
   // TrafficSignSubtype traffic_sign_subtype = TrafficSignSubtype::UnknownSign;
-  
+
   if (traffic_sign_subtype == TrafficSignSubtype::UnknownSign) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
                  "Traffic Sign Type Does Not Exist in Vocabulary!");
@@ -268,7 +268,8 @@ void HDMapRouter::update_traffic_sign(
   // auto pose = traffic_sign_msg_ptr->results.front().pose.pose;
 
   // transform pose to Point3d
-  // lanelet::Point3d traffic_sign_position = lanelet::Point3d(pose.position.x, pose.position.y, pose.position.z);
+  // lanelet::Point3d traffic_sign_position = lanelet::Point3d(pose.position.x, pose.position.y,
+  // pose.position.z);
 
   auto bbox = traffic_sign_msg_ptr->bbox;
 
@@ -297,7 +298,8 @@ void HDMapRouter::update_traffic_sign(
 
       RCLCPP_INFO(rclcpp::get_logger("hd_map_router"),
                   "Updated Traffic Sign in lanelet map: ID = %lu, New Position = (%f, %f, %f)",
-                  traffic_sign_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+                  traffic_sign_id, bbox.center.position.x, bbox.center.position.y,
+                  bbox.center.position.z);
     }
   }
 
@@ -384,12 +386,12 @@ void HDMapRouter::add_traffic_light(
               bbox.center.position.z);
 }
 
-
 // TODD: Implement adding traffic sign to the HD Map
 void HDMapRouter::add_traffic_sign(
     const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr) {
   std::string traffic_sign_class_id = get_detection3d_class(traffic_sign_msg_ptr);
-  TrafficSignSubtype traffic_sign_subtype = TrafficSignRegElem::getSubtypeFromClassId(traffic_sign_class_id);
+  TrafficSignSubtype traffic_sign_subtype =
+      TrafficSignRegElem::getSubtypeFromClassId(traffic_sign_class_id);
 
   if (traffic_sign_subtype == TrafficSignSubtype::UnknownSign) {
     RCLCPP_ERROR(rclcpp::get_logger("hd_map_router"),
@@ -402,10 +404,11 @@ void HDMapRouter::add_traffic_sign(
 
   lanelet::BoundingBox3d traffic_sign_bbox = utils::detection3dToLaneletBBox(bbox);
 
-  auto traffic_sign_elem = TrafficSignRegElem::make(traffic_sign_bbox, traffic_sign_subtype, traffic_sign_id);
+  auto traffic_sign_elem =
+      TrafficSignRegElem::make(traffic_sign_bbox, traffic_sign_subtype, traffic_sign_id);
 
   lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(
-    bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+      bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
 
   lanelet::Lanelet current_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
   current_lanelet.addRegulatoryElement(traffic_sign_elem);
@@ -414,7 +417,8 @@ void HDMapRouter::add_traffic_sign(
 
   RCLCPP_INFO(rclcpp::get_logger("hd_map_router"),
               "Added traffic sign to the lanelet map: ID = %lu, Position = (%f, %f, %f)",
-              traffic_sign_id, bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
+              traffic_sign_id, bbox.center.position.x, bbox.center.position.y,
+              bbox.center.position.z);
 }
 
 void HDMapRouter::add_pedestrian(

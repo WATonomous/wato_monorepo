@@ -4,11 +4,11 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "geometry_msgs/msg/point.hpp"
+#include "pedestrian_reg_elem.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "traffic_light_reg_elem.hpp"
 #include "traffic_sign_reg_elem.hpp"
-#include "pedestrian_reg_elem.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 

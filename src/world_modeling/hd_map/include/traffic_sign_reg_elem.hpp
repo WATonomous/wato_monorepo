@@ -23,12 +23,13 @@ class TrafficSignRegElem : public lanelet::RegulatoryElement {
   // respective type
   static constexpr const char RuleName[] = "traffic_sign";
 
-  static std::shared_ptr<TrafficSignRegElem> make(const lanelet::BoundingBox3d& bbox, const TrafficSignSubtype& subtype, uint64_t id);
+  static std::shared_ptr<TrafficSignRegElem> make(const lanelet::BoundingBox3d& bbox,
+                                                  const TrafficSignSubtype& subtype, uint64_t id);
 
   uint64_t getId() const;
-  
+
   TrafficSignSubtype getSubtype() const;
-  static TrafficSignSubtype getSubtypeFromClassId(const std::string &class_id);
+  static TrafficSignSubtype getSubtypeFromClassId(const std::string& class_id);
 
   void updateTrafficSign(const lanelet::BoundingBox3d& bbox, const TrafficSignSubtype& subtype);
 
@@ -42,7 +43,7 @@ class TrafficSignRegElem : public lanelet::RegulatoryElement {
   // object Refer to :
   // https://github.com/fzi-forschungszentrum-informatik/Lanelet2/blob/master/lanelet2_examples/src/02_regulatory_elements/main.cpp
   friend class lanelet::RegisterRegulatoryElement<TrafficSignRegElem>;
-  explicit TrafficSignRegElem(const lanelet::RegulatoryElementDataPtr& data, 
+  explicit TrafficSignRegElem(const lanelet::RegulatoryElementDataPtr& data,
                               const TrafficSignSubtype& subtype, uint64_t id = 0);
 };
 

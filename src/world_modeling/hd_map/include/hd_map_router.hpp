@@ -24,8 +24,8 @@
 #include <map>
 #include <unordered_set>
 #include "pedestrian_reg_elem.hpp"
-#include "traffic_sign_reg_elem.hpp"
 #include "traffic_light_reg_elem.hpp"
+#include "traffic_sign_reg_elem.hpp"
 
 lanelet::GPSPoint ros_gps_msg_to_lanelet_gps_point(sensor_msgs::msg::NavSatFix::SharedPtr gps_msg);
 

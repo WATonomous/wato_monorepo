@@ -3,7 +3,6 @@
 #include "hd_map_service.hpp"
 
 HDMapService::HDMapService() : Node("hd_map_service") {
-
   // Declare parameters
   this->declare_parameter<std::string>("visualization_output_topic", std::string("hd_map_viz"));
   this->declare_parameter<std::string>("route_output_topic", std::string("hd_map_route"));
@@ -206,7 +205,6 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(
     p.z = point.z();
     lanelet_msg.left_boundary.push_back(p);
   }
-
 
   // convert right boundary
   for (const auto& point : lanelet.rightBound()) {
