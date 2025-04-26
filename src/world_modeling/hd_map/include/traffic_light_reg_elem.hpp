@@ -6,12 +6,7 @@
 #include <lanelet2_core/primitives/Lanelet.h>
 #include "rclcpp/rclcpp.hpp"
 
-enum TrafficLightState {
-  Red,
-  Yellow,
-  Green,
-  Unknown,
-};
+enum TrafficLightState { Red, Yellow, Green, UnknownLight };
 
 class TrafficLightRegElem : public lanelet::RegulatoryElement {
  public:
