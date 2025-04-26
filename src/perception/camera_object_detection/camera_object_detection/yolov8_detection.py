@@ -614,13 +614,11 @@ class CameraDetectionNode(Node):
 
         for idx, img_msg in enumerate(image_list):
             # Decode only if needed
+            numpy_image = np.frombuffer(img_msg.data, np.uint8)
+            image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
+            height, width = image.shape[:2]
             if self.publish_vis_topic:
-                numpy_image = np.frombuffer(img_msg.data, np.uint8)
-                image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
-                height, width = image.shape[:2]
                 annotator = Annotator(image, line_width=2, example="Class:0")
-            else:
-                height, width = self.input_h, self.input_w  # Assume default YOLOv8 input size
 
             detection_array = Detection2DArray()
             detection_array.header.stamp = batch_msg.header.stamp
