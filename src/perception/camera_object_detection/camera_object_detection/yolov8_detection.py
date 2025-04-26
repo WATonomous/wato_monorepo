@@ -92,12 +92,11 @@ class CameraDetectionNode(Node):
                                "/perception_models/tensorRT.engine")
         self.declare_parameter("eve_tensorRT_model_path",
                                "/perception_models/eve.engine")
-        self.declare_parameter("publish_vis_topic", "/annotated_img")
+        self.declare_parameter("publish_vis_topic", False)
         self.declare_parameter("batch_publish_vis_topic",
                                "/batch_annotated_img")
         self.declare_parameter(
             "batch_publish_detection_topic", "/batch_detections")
-        self.declare_parameter("publish_detection_topic", "/detections")
         self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
         self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
@@ -146,10 +145,8 @@ class CameraDetectionNode(Node):
         self.back_left_camera_topic = self.get_parameter(
             "back_left_camera_topic").value
 
-        # Publish topics
+        # Bool publish vis topic
         self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
-        self.publish_detection_topic = self.get_parameter(
-            "publish_detection_topic").value
 
         # Model Path and configs
         self.model_path = self.get_parameter("model_path").value
@@ -208,7 +205,6 @@ class CameraDetectionNode(Node):
         else:
             self.get_logger().info("Using CPU for inference")
 
- 
         self.last_publish_time = self.get_clock().now()
 
         # Batch vis publishers
@@ -228,23 +224,23 @@ class CameraDetectionNode(Node):
         if not self.execution_context:
             self.get_logger().error("Failed to create execution context")
             return 1
-    
+
         self.batch_size = getattr(self, "num_cameras", 3)
         self.input_c = 3
         self.input_h = 640
         self.input_w = 640
+        self.batched_images_buffer = None
 
-        input_name = self.tensorRT_model.get_tensor_name(0)  # usually the first I/O is your input
+        input_name = self.tensorRT_model.get_tensor_name(
+            0)  # usually the first I/O is your input
         self.execution_context.set_input_shape(
-                    input_name,
-                    (self.batch_size, self.input_c, self.input_h, self.input_w)
-                )
-        
-        
+            input_name,
+            (self.batch_size, self.input_c, self.input_h, self.input_w)
+        )
+
         self._collect_io_names()
         self._alloc_cuda_buffers()
-    
-    
+
        # Nuscenes Publishers
         if (self.nuscenes):
             self.nuscenes_camera_names = [
@@ -277,7 +273,7 @@ class CameraDetectionNode(Node):
             for camera_names in self.eve_camera_names:
                 self.get_logger().info(
                     f"Successfully created node listening on camera topic: {camera_names}...")
-                
+
     def _collect_io_names(self):
         # figure out which TRT tensors are inputs vs outputs
         all_names = [self.tensorRT_model.get_tensor_name(i)
@@ -303,10 +299,12 @@ class CameraDetectionNode(Node):
             dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             host_mem = np.empty(shape, dtype=dtype)
 
-            status, dev_mem = cudart.cudaMallocAsync(host_mem.nbytes, self.stream)
+            status, dev_mem = cudart.cudaMallocAsync(
+                host_mem.nbytes, self.stream)
             assert status.value == 0, f"cudaMallocAsync failed for input {name}"
 
-            self.input_info.append(Tensor(name, dtype, shape, host_mem, dev_mem))
+            self.input_info.append(
+                Tensor(name, dtype, shape, host_mem, dev_mem))
 
         # host+device for outputs
         self.output_info = []
@@ -315,11 +313,12 @@ class CameraDetectionNode(Node):
             dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             host_mem = np.empty(shape, dtype=dtype)
 
-            status, dev_mem = cudart.cudaMallocAsync(host_mem.nbytes, self.stream)
+            status, dev_mem = cudart.cudaMallocAsync(
+                host_mem.nbytes, self.stream)
             assert status.value == 0, f"cudaMallocAsync failed for output {name}"
 
-            self.output_info.append(Tensor(name, dtype, shape, host_mem, dev_mem))
-
+            self.output_info.append(
+                Tensor(name, dtype, shape, host_mem, dev_mem))
 
     def build_engine(self):
         # Only calling this function when we dont have an engine file
@@ -514,18 +513,21 @@ class CameraDetectionNode(Node):
         # 6) return outputs as NumPy arrays
         return tuple(out.cpu for out in self.output_info)
 
-
-
-    def preprocess_image(self, msg):
+    def preprocess_image(self, msg, dest_buffer):
         numpy_array = np.frombuffer(msg.data, np.uint8)
         compressedImage = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-        original_height, original_width = compressedImage.shape[:2]
+
         resized_compressedImage = cv2.resize(
-            compressedImage, (640, 640), interpolation=cv2.INTER_LINEAR)
+            compressedImage, (self.input_h, self.input_w), interpolation=cv2.INTER_LINEAR)
         rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
-        normalized_image = rgb_image / 255.0
-        chw_image = np.transpose(normalized_image, (2, 0, 1))
-        return chw_image.astype(np.float32)
+
+        # normalize to 0-1
+        normalized_image = rgb_image.astype(np.float32) / 255.0
+
+        # transpose directly into dest_buffer
+        dest_buffer[0, :, :] = normalized_image[:, :, 0]
+        dest_buffer[1, :, :] = normalized_image[:, :, 1]
+        dest_buffer[2, :, :] = normalized_image[:, :, 2]
 
     # will be called with nuscenes rosbag
     def batch_inference_callback(self, msg1, msg2, msg3):
@@ -534,22 +536,30 @@ class CameraDetectionNode(Node):
         - Preprocess and batch images 
         - Call tensorRT and parse through detections and send for visualization
         """
+        now = self.get_clock().now()
+        self.get_logger().info(
+            f"Time since last publish: {((now - self.last_publish_time).nanoseconds / 1e6)} ms")
         # Taking msgs from all 6 ros2 subscribers
         image_list = [msg1, msg2, msg3]
-        batched_list = []
+        # First time setup
+        if self.batched_images_buffer is None:
+            self.batched_images_buffer = np.empty(
+                (len(image_list), self.input_c, self.input_h, self.input_w),
+                dtype=np.float32
+            )
         # Use concurrent futures to parallelize the preprocessing step
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            batched_list = list(executor.map(
-                lambda msg: self.preprocess_image(msg), image_list))
-        # Stack the images into a batch
-        batched_images = np.stack(batched_list, axis=0)
-        batch = batched_images.shape[0]
-        # Initialize TensorRT engine
+            futures = []
+            for i, msg in enumerate(image_list):
+                futures.append(executor.submit(
+                    self.preprocess_image, msg, self.batched_images_buffer[i]))
 
-        detections = self.tensorRT_inferencing(batched_images)
+            concurrent.futures.wait(futures)
+
+        detections = self.tensorRT_inferencing(self.batched_images_buffer)
         decoded = self.parse_detections(detections)
-        self.publish_batch_nuscenes([msg1,msg2,msg3], decoded)
-        
+        self.last_publish_time = self.get_clock().now()
+        self.publish_batch_nuscenes([msg1, msg2, msg3], decoded)
 
     @torch.no_grad()
     def parse_detections(self, detections):
@@ -602,18 +612,15 @@ class CameraDetectionNode(Node):
         batch_msg.header.stamp = self.get_clock().now().to_msg()
         batch_msg.header.frame_id = "batch"
 
-        # Check if visualization is enabled
-        should_visualize = hasattr(self, "batch_vis_publishers")
-
         for idx, img_msg in enumerate(image_list):
             # Decode only if needed
-            if should_visualize:
+            if self.publish_vis_topic:
                 numpy_image = np.frombuffer(img_msg.data, np.uint8)
                 image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
                 height, width = image.shape[:2]
                 annotator = Annotator(image, line_width=2, example="Class:0")
             else:
-                height, width = 640, 640  # Assume default YOLOv8 input size
+                height, width = self.input_h, self.input_w  # Assume default YOLOv8 input size
 
             detection_array = Detection2DArray()
             detection_array.header.stamp = batch_msg.header.stamp
@@ -625,8 +632,10 @@ class CameraDetectionNode(Node):
                 # Convert bounding boxes in one operation
                 bboxes = np.array([d["bbox"]
                                   for d in batch_detections])  # Shape: (N, 4)
-                bboxes[:, [0, 2]] *= width / 640  # Scale x-coordinates
-                bboxes[:, [1, 3]] *= height / 640  # Scale y-coordinates
+                bboxes[:, [0, 2]] *= width / \
+                    self.input_w  # Scale x-coordinates
+                bboxes[:, [1, 3]] *= height / \
+                    self.input_h  # Scale y-coordinates
                 bboxes = bboxes.astype(int)
 
                 confidences = [d["confidence"] for d in batch_detections]
@@ -649,17 +658,17 @@ class CameraDetectionNode(Node):
 
                     detection_array.detections.append(detection)
 
-                    if should_visualize:
+                    if self.publish_vis_topic:
                         annotator.box_label(
                             (x_min, y_min, x_max, y_max), label, color=(0, 100, 0))
 
             batch_msg.detections.append(detection_array)
 
-            # Publish detection message
+            # Publish individual detection message
             self.batch_detection_publishers[idx].publish(detection_array)
 
             # Publish visualization if enabled
-            if should_visualize:
+            if self.publish_vis_topic:
                 annotated_image = annotator.result()
                 vis_compressed_image = CompressedImage()
                 vis_compressed_image.header.stamp = self.get_clock().now().to_msg()
@@ -692,8 +701,8 @@ class CameraDetectionNode(Node):
             batched_list.append(float_image)
         batched_images = np.stack(batched_list, axis=0)
         self.get_logger().info(f"batched image shape:{batched_images.shape}")
-        #self.initialize_engine(self.tensorRT_model_path, 3, 3, 640, 640)
-        #self.input_info, self.output_info = self.initialize_tensors()
+        # self.initialize_engine(self.tensorRT_model_path, 3, 3, 640, 640)
+        # self.input_info, self.output_info = self.initialize_tensors()
         detections = self.tensorRT_inferencing(batched_images)
         decoded_results = self.parse_detections(detections)
 
