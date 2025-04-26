@@ -12,7 +12,7 @@ left_combined_detection_node:
         model_path: /perception_models/traffic_light.pt
       traffic_signs:
         name: traffic_signs
-        model_path: /perception_models/traffic_signs.pt
+        model_path: /perception_models/traffic_signs_v1.pt
     crop_mode: CenterCrop
     image_size: 1024
     save_detections: false
@@ -31,7 +31,7 @@ center_combined_detection_node:
         model_path: /perception_models/traffic_light.pt
       traffic_signs:
         name: traffic_signs
-        model_path: /perception_models/traffic_signs.pt
+        model_path: /perception_models/traffic_signs_v1.pt
     crop_mode: CenterCrop
     image_size: 1024
     save_detections: false
@@ -50,7 +50,7 @@ right_combined_detection_node:
         model_path: /perception_models/traffic_light.pt
       traffic_signs:
         name: traffic_signs
-        model_path: /perception_models/traffic_signs.pt
+        model_path: /perception_models/traffic_signs_v1.pt
     crop_mode: CenterCrop
     image_size: 1024
     save_detections: false

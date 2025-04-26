@@ -23,13 +23,26 @@ visualization_msgs::msg::MarkerArray laneletMapAsMarkerArray(lanelet::LaneletMap
 
     std::vector<std::shared_ptr<TrafficLightRegElem>> trafficLightRegElems =
         lanelet->regulatoryElementsAs<TrafficLightRegElem>();
+
+    std::vector<std::shared_ptr<TrafficSignRegElem>> trafficSignRegElems =
+        lanelet->regulatoryElementsAs<TrafficSignRegElem>();
+
     std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems =
         lanelet->regulatoryElementsAs<PedestrianRegElem>();
 
     auto trafficLightMarkers = trafficLightsAsMakerArray(trafficLightRegElems);
+    auto trafficSignMarkers = trafficSignsAsMakerArray(trafficSignRegElems);
     auto pedestrianMarkers = pedestrianAsMarkerArray(pedestrianRegElems);
 
     for (auto marker : trafficLightMarkers.markers) {
+      markerArray.markers.push_back(marker);
+    }
+
+    for (auto marker : trafficSignMarkers.markers) {
+      markerArray.markers.push_back(marker);
+    }
+
+    for (auto marker : pedestrianMarkers.markers) {
       markerArray.markers.push_back(marker);
     }
   }
@@ -60,11 +73,12 @@ visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(
       regElemColor.g = 1;
     } else if (state == TrafficLightState::Red) {
       regElemColor.r = 1;
+    } else {
+      // Default color
+      regElemColor.r = 1;
+      regElemColor.g = 1;
+      regElemColor.b = 1;
     }
-
-    // Default color
-    regElemColor.r = 1;
-    regElemColor.g = 1;
 
     regElemColor.a = 1;
 
@@ -77,7 +91,44 @@ visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(
     markerArray.markers.push_back(marker);
 
     RCLCPP_INFO(rclcpp::get_logger("lanelet_visualization"),
-                "Visualized traffic light on hd map: ID = %i", id);
+                "Visualized traffic light on hd map: ID = %lu", id);
+  }
+
+  return markerArray;
+}
+
+visualization_msgs::msg::MarkerArray trafficSignsAsMakerArray(
+    std::vector<std::shared_ptr<TrafficSignRegElem>> trafficSignRegElems) {
+  auto markerArray = visualization_msgs::msg::MarkerArray();
+
+  if (trafficSignRegElems.empty()) {
+    return markerArray;
+  }
+  // TODO: add and test traffic signs visualization
+
+  for (auto trafficSign = trafficSignRegElems.begin(); trafficSign != trafficSignRegElems.end();
+       ++trafficSign) {
+    auto sign = trafficSign->get();
+    auto id = sign->getId();
+
+    TrafficSignSubtype subtype = sign->getSubtype();
+
+    auto regElemColor = std_msgs::msg::ColorRGBA();
+
+    // set color based on subtype...
+
+    regElemColor.r = 1;
+    regElemColor.a = 1;
+
+    lanelet::ConstPolygon3d polygon = boost::get<lanelet::ConstPolygon3d>(
+        sign->getParameters().at(lanelet::RoleName::Refers).front());
+
+    auto marker = polygonToMarker(polygon, &id, .1, 5, regElemColor);
+
+    markerArray.markers.push_back(marker);
+
+    RCLCPP_INFO(rclcpp::get_logger("lanelet_visualization"),
+                "Visualized traffic sign on hd map: ID = %lu", id);
   }
 
   return markerArray;
@@ -92,8 +143,6 @@ visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
   if (pedestrianRegElems.empty()) {
     return markerArray;
   }
-
-  std::shared_ptr<PedestrianRegElem> pedestrianRegElem = pedestrianRegElems.front();
 
   for (auto pedestrianRegElem = pedestrianRegElems.begin();
        pedestrianRegElem != pedestrianRegElems.end(); ++pedestrianRegElem) {
@@ -122,8 +171,6 @@ visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
 
   return markerArray;
 }
-
-// TODO: add and test traffic signs visualization
 
 visualization_msgs::msg::MarkerArray laneletAsMarkerArray(lanelet::ConstLanelet lanelet, int *id,
                                                           bool center, bool lanes,
