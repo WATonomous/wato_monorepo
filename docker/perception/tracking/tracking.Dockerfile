@@ -10,6 +10,7 @@ COPY src/perception/tracking tracking
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
 
+COPY src/wato_msgs/perception_msgs/tracking_msgs tracking_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -30,10 +31,9 @@ RUN apt-get update && apt-get install -y \
     gcc \
     gfortran \
     libopenblas-dev \
-    liblapack-dev
+    liblapack-dev \
+    ros-${ROS_DISTRO}-cv-bridge
 
-# Install scipy separately
-RUN python3 -m pip install scipy
 
 # Install python packages
 COPY src/perception/tracking/requirements.txt requirements.txt
@@ -44,6 +44,7 @@ RUN rm requirements.txt
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt install ros-$ROS_DISTRO-tf-transformations -y
 
 # install opencv
 RUN apt-get install -y libopencv-dev
