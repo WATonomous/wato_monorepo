@@ -7,12 +7,12 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
+#include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <opencv2/opencv.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
@@ -53,18 +53,19 @@ class bbox_2d_3d : public rclcpp::Node {
   // ------------------------------------------------------------------------------------------------------
   void multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg);
 
-  DetectionOutputs processDetections(
-      const vision_msgs::msg::Detection2DArray& detections,
-      const geometry_msgs::msg::TransformStamped& transform,
-      const std::array<double, 12>& projection_matrix);
+  DetectionOutputs processDetections(const vision_msgs::msg::Detection2DArray& detections,
+                                     const geometry_msgs::msg::TransformStamped& transform,
+                                     const std::array<double, 12>& projection_matrix);
 
   geometry_msgs::msg::TransformStamped transform;
 
   // SUBSCRIBERS
   // -----------------------------------------------------------------------------------------------------
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
-  rclcpp::Subscription<camera_object_detection_msgs::msg::BatchDetection>::SharedPtr batch_dets_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_front_,camera_info_sub_left_, camera_info_sub_right_;
+  rclcpp::Subscription<camera_object_detection_msgs::msg::BatchDetection>::SharedPtr
+      batch_dets_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_front_,
+      camera_info_sub_left_, camera_info_sub_right_;
 
   // for visualization
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
@@ -114,7 +115,6 @@ class bbox_2d_3d : public rclcpp::Node {
   double merge_threshold_;
 
   float object_detection_confidence_;
-
 };
 
 #endif
