@@ -70,7 +70,7 @@ class ProjectionUtils {
 
   // ROI FUNCTIONS
   // ------------------------------------------------------------------------------------------------
-  static double computeMaxIOU4Corners(
+  static double computeMaxIOU8Corners(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr&  input_cloud,
     const pcl::PointIndices&                    cluster_indices,
     const geometry_msgs::msg::TransformStamped& transform,

@@ -15,6 +15,7 @@
 #include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
+#include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
 #include "projection_utils.hpp"
@@ -79,6 +80,7 @@ class bbox_2d_3d : public rclcpp::Node {
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr colored_cluster_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
+  rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
 
   // FUNCTION PARAMS
   // -------------------------------------------------------------------------------------------------

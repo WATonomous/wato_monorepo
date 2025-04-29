@@ -35,6 +35,9 @@ bbox_2d_3d::bbox_2d_3d() : Node("bbox_2d_3d") {
       this->create_publisher<sensor_msgs::msg::PointCloud2>(cluster_centroid_topic_, 10);
   bounding_box_pub_ =
       this->create_publisher<visualization_msgs::msg::MarkerArray>(bounding_box_topic_, 10);
+  detection_3d_pub_ = 
+      this->create_publisher<vision_msgs::msg::Detection3DArray>("/detection_3d", 10);
+  
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);

@@ -305,7 +305,7 @@ bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ
 }
 
 
-double ProjectionUtils::computeMaxIOU4Corners(
+double ProjectionUtils::computeMaxIOU8Corners(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr&  input_cloud,
   const pcl::PointIndices&                    cluster_indices,
   const geometry_msgs::msg::TransformStamped& transform,
@@ -397,8 +397,8 @@ double best_overall_iou = 0.0;
 std::vector<pcl::PointIndices> kept_clusters;
 
 for (auto &cluster : cluster_indices) {
-  // computeMaxIOU4Corners projects only the 4 AABB corners and returns the best IoU
-  double iou = computeMaxIOU4Corners(
+  // computeMaxIOU8Corners projects the 8 AABB corners and returns the best IoU
+  double iou = computeMaxIOU8Corners(
     input_cloud,
     cluster,
     transform,
