@@ -304,48 +304,48 @@ bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ
   return true;
 }
 
-
 double ProjectionUtils::computeMaxIOU4Corners(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr&  input_cloud,
-  const pcl::PointIndices&                    cluster_indices,
-  const geometry_msgs::msg::TransformStamped& transform,
-  const std::array<double, 12>&               projection_matrix,
-  const vision_msgs::msg::Detection2DArray&   detections,
-  const float                                 object_detection_confidence)
-{
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
+    const pcl::PointIndices& cluster_indices, const geometry_msgs::msg::TransformStamped& transform,
+    const std::array<double, 12>& projection_matrix,
+    const vision_msgs::msg::Detection2DArray& detections, const float object_detection_confidence) {
   // 1) compute 3D axis-aligned min/max
-  float min_x =  std::numeric_limits<float>::infinity(),
+  float min_x = std::numeric_limits<float>::infinity(),
         max_x = -std::numeric_limits<float>::infinity();
-  float min_y =  std::numeric_limits<float>::infinity(),
+  float min_y = std::numeric_limits<float>::infinity(),
         max_y = -std::numeric_limits<float>::infinity();
-  float min_z =  std::numeric_limits<float>::infinity(),
+  float min_z = std::numeric_limits<float>::infinity(),
         max_z = -std::numeric_limits<float>::infinity();
 
   for (auto idx : cluster_indices.indices) {
-    const auto &P = input_cloud->points[idx];
-    min_x = std::min(min_x, P.x);  max_x = std::max(max_x, P.x);
-    min_y = std::min(min_y, P.y);  max_y = std::max(max_y, P.y);
-    min_z = std::min(min_z, P.z);  max_z = std::max(max_z, P.z);
+    const auto& P = input_cloud->points[idx];
+    min_x = std::min(min_x, P.x);
+    max_x = std::max(max_x, P.x);
+    min_y = std::min(min_y, P.y);
+    max_y = std::max(max_y, P.y);
+    min_z = std::min(min_z, P.z);
+    max_z = std::max(max_z, P.z);
   }
   if (cluster_indices.indices.empty()) {
     return 0.0;
   }
 
   // 2) build all eight corners of the AABB
-  std::array<pcl::PointXYZ,8> corners = {{
-    {min_x, min_y, min_z}, {min_x, min_y, max_z},
-    {min_x, max_y, min_z}, {min_x, max_y, max_z},
-    {max_x, min_y, min_z}, {max_x, min_y, max_z},
-    {max_x, max_y, min_z}, {max_x, max_y, max_z}
-  }};
+  std::array<pcl::PointXYZ, 8> corners = {{{min_x, min_y, min_z},
+                                           {min_x, min_y, max_z},
+                                           {min_x, max_y, min_z},
+                                           {min_x, max_y, max_z},
+                                           {max_x, min_y, min_z},
+                                           {max_x, min_y, max_z},
+                                           {max_x, max_y, min_z},
+                                           {max_x, max_y, max_z}}};
 
   // 3) project each corner & form a tight 2D rect
-  double u0 =  std::numeric_limits<double>::infinity(),
-         v0 =  std::numeric_limits<double>::infinity();
+  double u0 = std::numeric_limits<double>::infinity(), v0 = std::numeric_limits<double>::infinity();
   double u1 = -std::numeric_limits<double>::infinity(),
          v1 = -std::numeric_limits<double>::infinity();
 
-  for (auto &C : corners) {
+  for (auto& C : corners) {
     auto uv = projectLidarToCamera(transform, projection_matrix, C);
     if (!uv) continue;
     u0 = std::min(u0, uv->x);
@@ -360,61 +360,48 @@ double ProjectionUtils::computeMaxIOU4Corners(
 
   // 4) compare to each detection bbox, return the best IoU
   double best_iou = 0.0;
-  for (auto &det : detections.detections) {
-    if (!det.results.empty() &&
-        det.results[0].hypothesis.score < object_detection_confidence)
-    {
+  for (auto& det : detections.detections) {
+    if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
       continue;
     }
-    const auto &b = det.bbox;
-    cv::Rect det_rect(
-      b.center.position.x - b.size_x/2,
-      b.center.position.y - b.size_y/2,
-      b.size_x, b.size_y
-    );
+    const auto& b = det.bbox;
+    cv::Rect det_rect(b.center.position.x - b.size_x / 2, b.center.position.y - b.size_y / 2,
+                      b.size_x, b.size_y);
     double inter = (cluster_rect & det_rect).area();
-    double uni   = cluster_rect.area() + det_rect.area() - inter;
+    double uni = cluster_rect.area() + det_rect.area() - inter;
     if (uni > 0.0) {
-      best_iou = std::max(best_iou, inter/uni);
+      best_iou = std::max(best_iou, inter / uni);
     }
   }
   return best_iou;
 }
 
 void ProjectionUtils::computeHighestIOUCluster(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-  std::vector<pcl::PointIndices>& cluster_indices,
-  const vision_msgs::msg::Detection2DArray& detections,
-  const geometry_msgs::msg::TransformStamped& transform,
-  const std::array<double, 12>& projection_matrix,
-  const float object_detection_confidence)
-{
-if (input_cloud->empty() || cluster_indices.empty()) {
-  return;
-}
-
-double best_overall_iou = 0.0;
-std::vector<pcl::PointIndices> kept_clusters;
-
-for (auto &cluster : cluster_indices) {
-  // computeMaxIOU4Corners projects only the 4 AABB corners and returns the best IoU
-  double iou = computeMaxIOU4Corners(
-    input_cloud,
-    cluster,
-    transform,
-    projection_matrix,
-    detections,
-    object_detection_confidence
-  );
-
-  if (iou > best_overall_iou) {
-    best_overall_iou = iou;
-    kept_clusters.push_back(cluster);
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
+    std::vector<pcl::PointIndices>& cluster_indices,
+    const vision_msgs::msg::Detection2DArray& detections,
+    const geometry_msgs::msg::TransformStamped& transform,
+    const std::array<double, 12>& projection_matrix, const float object_detection_confidence) {
+  if (input_cloud->empty() || cluster_indices.empty()) {
+    return;
   }
-}
 
-// only keep the cluster(s) with highest IoU
-cluster_indices = std::move(kept_clusters);
+  double best_overall_iou = 0.0;
+  std::vector<pcl::PointIndices> kept_clusters;
+
+  for (auto& cluster : cluster_indices) {
+    // computeMaxIOU4Corners projects only the 4 AABB corners and returns the best IoU
+    double iou = computeMaxIOU4Corners(input_cloud, cluster, transform, projection_matrix,
+                                       detections, object_detection_confidence);
+
+    if (iou > best_overall_iou) {
+      best_overall_iou = iou;
+      kept_clusters.push_back(cluster);
+    }
+  }
+
+  // only keep the cluster(s) with highest IoU
+  cluster_indices = std::move(kept_clusters);
 }
 
 // BOUNDING BOX FUNCTIONS

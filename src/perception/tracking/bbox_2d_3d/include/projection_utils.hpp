@@ -70,13 +70,12 @@ class ProjectionUtils {
 
   // ROI FUNCTIONS
   // ------------------------------------------------------------------------------------------------
-  static double computeMaxIOU4Corners(
-    const pcl::PointCloud<pcl::PointXYZ>::Ptr&  input_cloud,
-    const pcl::PointIndices&                    cluster_indices,
-    const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>&               projection_matrix,
-    const vision_msgs::msg::Detection2DArray&   detections,
-    const float                                 object_detection_confidence);
+  static double computeMaxIOU4Corners(const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
+                                      const pcl::PointIndices& cluster_indices,
+                                      const geometry_msgs::msg::TransformStamped& transform,
+                                      const std::array<double, 12>& projection_matrix,
+                                      const vision_msgs::msg::Detection2DArray& detections,
+                                      const float object_detection_confidence);
 
   static void computeHighestIOUCluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
                                        std::vector<pcl::PointIndices>& cluster_indices,
@@ -88,7 +87,7 @@ class ProjectionUtils {
   // BOUNDING BOX FUNCTIONS
   // ----------------------------------------------------------------------------------------
 
-    static visualization_msgs::msg::MarkerArray computeBoundingBox(
+  static visualization_msgs::msg::MarkerArray computeBoundingBox(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
       const std::vector<pcl::PointIndices>& cluster_indices,
       const sensor_msgs::msg::PointCloud2& msg);
