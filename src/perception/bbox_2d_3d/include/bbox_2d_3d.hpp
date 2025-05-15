@@ -26,6 +26,7 @@ struct DetectionOutputs {
   visualization_msgs::msg::MarkerArray bboxes;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cluster;
   pcl::PointCloud<pcl::PointXYZ>::Ptr centroid_cloud;
+  vision_msgs::msg::Detection3DArray detections3d;
 };
 
 class bbox_2d_3d : public rclcpp::Node {

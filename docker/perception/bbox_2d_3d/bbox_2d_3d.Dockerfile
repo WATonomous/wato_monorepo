@@ -6,11 +6,10 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/perception/tracking tracking
+COPY src/perception/bbox_2d_3d bbox_2d_3d
 COPY src/wato_msgs/sample_msgs sample_msgs
 COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
 
-COPY src/wato_msgs/perception_msgs/tracking_msgs tracking_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -33,15 +32,9 @@ RUN apt-get update && apt-get install -y \
     libopenblas-dev \
     liblapack-dev \
     ros-${ROS_DISTRO}-cv-bridge \
-    ros-${ROS_DISTRO}-pcl-ros \
-    ros-${ROS_DISTRO}-pcl-conversions \
     ros-${ROS_DISTRO}-tf-transformations \
-    ros-${ROS_DISTRO}-tf2-ros
+    ros-${ROS_DISTRO}-pcl-conversions
 
-# Install python packages
-COPY src/perception/tracking/requirements.txt requirements.txt
-RUN python3 -m pip install -r requirements.txt
-RUN rm requirements.txt
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

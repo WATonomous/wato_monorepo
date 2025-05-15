@@ -41,6 +41,7 @@ target_include_directories(projection_utils
     projection_utils
     ${OpenCV_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS} # Corrected PCL includes
+    ${pcl_conversions_INCLUDE_DIRS}
 )
 
 ament_target_dependencies(projection_utils
@@ -69,6 +70,7 @@ target_include_directories(bbox_2d_3d_node
     include
     ${OpenCV_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS} # Corrected PCL includes
+    ${pcl_conversions_LIBRARIES}
 )
 
 # Link libraries
