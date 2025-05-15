@@ -19,6 +19,9 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
+#include <vision_msgs/msg/detection3_d_array.hpp>
+#include <vision_msgs/msg/detection3_d.hpp>
+#include <vision_msgs/msg/object_hypothesis_with_pose.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -89,6 +92,11 @@ class ProjectionUtils {
   // ----------------------------------------------------------------------------------------
 
     static visualization_msgs::msg::MarkerArray computeBoundingBox(
+      const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+      const std::vector<pcl::PointIndices>& cluster_indices,
+      const sensor_msgs::msg::PointCloud2& msg);
+
+    static vision_msgs::msg::Detection3DArray compute3DDetection(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
       const std::vector<pcl::PointIndices>& cluster_indices,
       const sensor_msgs::msg::PointCloud2& msg);

@@ -36,7 +36,7 @@ class trackerNode(Node):
         # Declare parameters
         self.declare_parameter("max_age", 6)
         self.declare_parameter("min_hits", 2)
-        self.declare_parameter("reference_frame", "camera_frame")
+        self.declare_parameter("reference_frame", "camera_frame") #update the reference frame 
         self.declare_parameter("default_distance_threshold", 3)
         self.declare_parameter("velocity_filter_constant", 5.0)
         self.declare_parameter("velocity_prediction_horizon", 0.5)
@@ -83,7 +83,7 @@ class trackerNode(Node):
         self.tf2_listener = TransformListener(self.tf2_buffer, self)
 
         # Publishers/Subscribers
-        self.detection_subscriber = self.create_subscription(Detection3DArray, 'detections', self.detection_callback, 10)
+        self.detection_subscriber = self.create_subscription(Detection3DArray, '/detection_3d', self.detection_callback, 10)
 
         self.tracked_obstacles_publisher = self.create_publisher(TrackedObstacleListMsg, 'tracked_obstacles', 10)
 

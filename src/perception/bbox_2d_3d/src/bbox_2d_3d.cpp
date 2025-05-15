@@ -174,7 +174,11 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
   ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
 
-  detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
+  if (publish_visualization_) {
+    detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
+  }
+
+  detection_outputs.detections3d = ProjectionUtils::compute3DDetection(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
 
   // VISUALIZATIONS
   // ----------------------------------------------------------------------------
@@ -194,76 +198,97 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
   return detection_outputs;
 }
 
-void bbox_2d_3d::multiDetectionsCallback(
-  camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg) {
 
+void bbox_2d_3d::multiDetectionsCallback(
+    camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg)
+{
   if (camInfoMap_.size() < 3) {
     RCLCPP_WARN(get_logger(),
-      "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size());
+                "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size());
     return;
   }
 
-  // Accumulate results from all cameras
+  // Prepare accumulators
   visualization_msgs::msg::MarkerArray combined_bboxes;
+  vision_msgs::msg::Detection3DArray combined_detections3d;
+  combined_detections3d.header = latest_lidar_msg_.header;
+
   pcl::PointCloud<pcl::PointXYZRGB> merged_cluster_cloud;
   pcl::PointCloud<pcl::PointXYZ> merged_centroid_cloud;
-
   int marker_id_offset = 0;
 
-  for (const auto & camera_batch : msg->detections) {
-    // find intrinsics for this camera
+  // Loop over each camera's batch
+  for (const auto &camera_batch : msg->detections) {
+    // 1) Find camera info
     auto it = camInfoMap_.find(camera_batch.header.frame_id);
     if (it == camInfoMap_.end()) {
-      RCLCPP_WARN(get_logger(), "No CameraInfo for '%s', skipping", camera_batch.header.frame_id.c_str());
+      RCLCPP_WARN(get_logger(),
+                  "No CameraInfo for '%s', skipping",
+                  camera_batch.header.frame_id.c_str());
       continue;
     }
 
-    // lookup transform from LiDAR to this camera
+    // 2) Lookup TF from LiDAR → this camera
     geometry_msgs::msg::TransformStamped tf_cam_to_lidar;
     try {
       tf_cam_to_lidar = tf_buffer_->lookupTransform(
-        camera_batch.header.frame_id,
-        lidar_frame_,
-        tf2::TimePointZero
-      );
+          camera_batch.header.frame_id,
+          lidar_frame_,
+          tf2::TimePointZero);
     } catch (tf2::TransformException &e) {
-      RCLCPP_WARN(get_logger(), "TF %s→%s failed: %s", lidar_frame_.c_str(),camera_batch.header.frame_id.c_str(), e.what());
+      RCLCPP_WARN(get_logger(),
+                  "TF %s→%s failed: %s",
+                  lidar_frame_.c_str(),
+                  camera_batch.header.frame_id.c_str(),
+                  e.what());
       continue;
     }
 
-    // run the per‐camera pipeline
-    auto detection_results = processDetections(camera_batch, tf_cam_to_lidar, it->second->p);
+    // 3) Run your clustering + 3D detection pipeline
+    auto detection_results = processDetections(
+        camera_batch,
+        tf_cam_to_lidar,
+        it->second->p);
 
-    // append and re‐index all bounding boxes
+    // 4) Collect MarkerArray
     for (auto &marker : detection_results.bboxes.markers) {
       marker.ns = camera_batch.header.frame_id;
       marker.id += marker_id_offset;
       combined_bboxes.markers.push_back(marker);
     }
-    marker_id_offset += detection_results.bboxes.markers.size();
+    marker_id_offset += static_cast<int>(detection_results.bboxes.markers.size());
 
+    // 5) Collect Detection3DArray
+    for (auto &det : detection_results.detections3d.detections) {
+      combined_detections3d.detections.push_back(det);
+    }
+
+    // 6) Merge cluster-cloud visuals if requested
     if (publish_visualization_) {
       merged_cluster_cloud += *detection_results.colored_cluster;
       merged_centroid_cloud += *detection_results.centroid_cloud;
     }
   }
 
-  // publish combined bounding boxes
-  bounding_box_pub_->publish(combined_bboxes);
-
+  // 7) Publish MarkerArray only if visualization is enabled
   if (publish_visualization_) {
-    // publish merged colored clusters
+    bounding_box_pub_->publish(combined_bboxes);
+
     sensor_msgs::msg::PointCloud2 pcl2_msg;
     pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
     pcl2_msg.header = latest_lidar_msg_.header;
     filtered_lidar_pub_->publish(pcl2_msg);
 
-    // publish merged centroids
     pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
     pcl2_msg.header = latest_lidar_msg_.header;
     cluster_centroid_pub_->publish(pcl2_msg);
   }
+
+  // 8) Always publish the fused Detection3DArray
+  combined_detections3d.header.stamp = this->get_clock()->now();
+  detection_3d_pub_->publish(combined_detections3d);
 }
+
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
