@@ -92,7 +92,40 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(
     data[index] = 0x32;
   }
 
-  output_costmap.data = std::move(data);
+  // Fill in surrounding cells
+  std::vector<int8_t> filled_data = data;
+  for (int y = 1; y < height - 1; y++) {
+    for (int x = 1; x < width - 1; x++) {
+      int current_index = y * width + x;
+
+      // Skip if current cell is already occupied
+      if (data[current_index] != -1) {
+        continue;
+      }
+
+      // Check all 8 surrounding cells
+      bool all_occupied = true;
+      for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+          if (dx == 0 && dy == 0) continue;
+
+          int neighbor_index = (y + dy) * width + (x + dx);
+          if (data[neighbor_index] == -1) {
+            all_occupied = false;
+            break;
+          }
+        }
+        if (!all_occupied) break;
+      }
+
+      // If all surrounding cells are occupied, fill in this cell
+      if (all_occupied) {
+        filled_data[current_index] = 0x32;
+      }
+    }
+  }
+
+  output_costmap.data = std::move(filled_data);
 
   return output_costmap;
 }
