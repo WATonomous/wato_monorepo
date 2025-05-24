@@ -3,10 +3,10 @@ import os
 from builtin_interfaces.msg import Time as TimeMsg
 import numpy as np
 
-from .core.ab3dmot import AB3DMOT
-from .core.utils import ros_utils
-from .core.utils import geometry_utils
-from .core.utils.config import cfg, cfg_from_yaml_file, log_config_to_file
+from core.ab3dmot import AB3DMOT
+from core.utils import ros_utils
+from core.utils import geometry_utils
+from core.utils.config import cfg, cfg_from_yaml_file, log_config_to_file
 
 import rclpy
 from rclpy.node import Node
@@ -28,6 +28,8 @@ from tracking_msgs.msg import TrackedObstacleState as TrackedObstacleStateMsg
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import tf_transformations as tr
+
+PUB_ORDERED = False
 
 class trackerNode(Node):
     def __init__(self, config_path, publish_frequency):
@@ -122,7 +124,7 @@ class trackerNode(Node):
 
         timestamp_sec = timestamp.sec + timestamp.nanosec * 1e-9
         # self.mot_tracker.update(detections, infos, timestamp_sec, update_only, distance_threshold)
-        return self.mot_tracker.update(detections, infos, timestamp_sec, update_only, distance_threshold)
+        return self.mot_tracker.update(detections, infos, timestamp_sec, update_only, 300)
 
     def detection_callback(self, msg):
         # start_time = time.time()
@@ -163,7 +165,17 @@ class trackerNode(Node):
         tracked_obstacle_list.tracked_obstacles = []
 
         # For each tracker in the list, create a tracked obstacle message and append it to the list
-        for kf_track in self.mot_tracker.trackers:
+        if PUB_ORDERED:
+            trks = self.mot_tracker.trackers_ordered
+        else:
+            trks = self.mot_tracker.trackers
+        for kf_track in trks:
+            if kf_track == None:
+                filler = TrackedObstacleMsg()
+                filler.obstacle.label = "filler"
+                tracked_obstacle_list.tracked_obstacles.append(filler)
+                continue
+
             tracking_name = kf_track.tracking_name
             track_score = kf_track.track_score
             x = kf_track.get_state()
@@ -172,10 +184,13 @@ class trackerNode(Node):
             tracked_obstacle_message = self._create_tracked_obstacle_message(kf_track, tracking_name, track_score, dt)
             tracked_obstacle_list.tracked_obstacles.append(tracked_obstacle_message)
 
+        # print("BBBB:")
+        # print([x.obstacle.pose.pose.position.x for x in tracked_obstacle_list.tracked_obstacles if x != None])
         #Publish entire message with multiple different trackers
         self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
 
-        self.get_logger().info(f"Published tracked obstacles: {tracked_obstacle_list}")
+        if len(tracked_obstacle_list.tracked_obstacles) > 0:
+            self.get_logger().info(f"Published tracked obstacles: ||| {len(tracked_obstacle_list.tracked_obstacles)}; {tracked_obstacle_list.tracked_obstacles[0].obstacle.twist.twist.linear.x}, {tracked_obstacle_list.tracked_obstacles[0].obstacle.twist.twist.linear.y}; {tracked_obstacle_list.tracked_obstacles[0].obstacle.pose.pose.position.x}, {tracked_obstacle_list.tracked_obstacles[0].obstacle.pose.pose.position.y}")
 
         # end_time = time.time()
 
@@ -306,7 +321,7 @@ class trackerNode(Node):
 def main (args=None):
     rclpy.init(args=args)
     node = rclpy.create_node('parameter_node')
-    node.declare_parameter("config_path", "/home/bolty/ament_ws/src/tracking/config/mahalanobis.yaml") #Used to change type of matching algorithm to be used
+    node.declare_parameter("config_path", os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "mahalanobis.yaml"))) #Used to change type of matching algorithm to be used
     node.declare_parameter('publish_frequency', 10)
     config_path = node.get_parameter('config_path').get_parameter_value().string_value
     publish_frequency = node.get_parameter('publish_frequency').get_parameter_value().double_value
@@ -338,3 +353,8 @@ def main (args=None):
 
 if __name__ == '__main__':
     main()
+
+# changes
+# line 6-9, imports, .core to core
+# line 179, publish_tracks, print more info
+# line 310, declare config_path, /home/bolty/... to current
