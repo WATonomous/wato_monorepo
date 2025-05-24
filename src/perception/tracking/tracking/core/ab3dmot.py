@@ -90,8 +90,14 @@ class KalmanBoxTracker(object):
         # Initialize the covariance matrix, see covariance.py for more details
         cov = getattr(covariance, cfg.TRACKER.COVARIANCE)(tracking_name=tracking_name)
         self.kf.P = cov.P
+        # for i in range(7):
+        #     cov.Q[i, i] = 0.1
         self.kf.Q = cov.Q
         self.kf.R = cov.R
+        print("Q:")
+        print(cov.Q)
+        print("R:")
+        print(cov.R)
 
         self.kf.x[:7] = bbox3D.reshape((7, 1))
         # self.kf.x[7:] = np.array([0.1, 0.1, 0.1]).reshape((3, 1))  # Assuming linear velocity of 0.1
@@ -202,6 +208,7 @@ class AB3DMOT(object):
         self.max_age = max_age
         self.min_hits = min_hits
         self.trackers = []
+        self.trackers_ordered = []
         self.frame_count = 0
         self.tracking_name = tracking_name
         self.use_angular_velocity = cfg.TRACKER.USE_ANGULAR_VELOCITY
@@ -279,21 +286,76 @@ class AB3DMOT(object):
         if distance_threshold > 0:
             distances = algorithms.euclidian_distance(dets, trks)
 
-        for t,trk in enumerate(self.trackers):
-            if t not in unmatched_trks:
-                d = matched[np.where(matched[:,1]==t)[0],0]     # a list of index
-                print(f"Processing tracker {t} with matched detection {d}")
+        self.trackers_ordered = []
+        for trk in self.trackers:
+            self.trackers_ordered.append(trk)
+        while len(self.trackers_ordered) < len(dets):
+            self.trackers_ordered.append(None)
+
+        orig_inds = [i for i in range(len(self.trackers_ordered))]
+        unmatched_trk_index = len(dets)
+        t = 0
+        while t < len(self.trackers_ordered):
+            trk = self.trackers_ordered[t]
+
+            if trk == None:
+                t += 1
+                continue
+
+            orig_ind = orig_inds[t]
+            if orig_ind not in unmatched_trks:
+                d = matched[np.where(matched[:,1]==orig_ind)[0],0]     # a list of index
                 if len(dets[d]) > 0 and len(info[d]) > 0:
-                    if distance_threshold > 0 and abs(distances[d, t]) > distance_threshold:
-                        if abs(distances[d, t]) > distance_threshold * 3 and not update_only:
+                    if distance_threshold > 0 and abs(distances[d, orig_ind]) > distance_threshold:
+                        if abs(distances[d, orig_ind]) > distance_threshold * 3 and not update_only:
                             unmatched_dets = np.append(unmatched_dets, d).astype(int)
+                            unmatched_trks = np.append(unmatched_trks, orig_ind).astype(int)
+                            if t >= len(dets):
+                                t += 1
+                            elif unmatched_trk_index == len(self.trackers_ordered):
+                                self.trackers_ordered.append(trk)
+                                self.trackers_ordered[t] = None
+                                orig_inds.append(t)
+                                orig_inds[t] = unmatched_trk_index
+                                t += 1
+                                unmatched_trk_index += 1
+                            else:
+                                self.trackers_ordered[t] = self.trackers_ordered[unmatched_trk_index]
+                                self.trackers_ordered[unmatched_trk_index] = trk
+                                orig_inds[t] = orig_inds[unmatched_trk_index]
+                                orig_inds[unmatched_trk_index] = orig_ind
+                                unmatched_trk_index += 1
                             print(f"Added detection {d} to unmatched_dets due to distance threshold. New unmatched_dets: {unmatched_dets}")
-                        continue
+                            continue
                     else:
                         trk.update(dets[d,:][0], info[d,:][0], timestamp)
                         # Log matched tracker updates
                         print(f"Updated tracker {t} with detection {d[0]}")
+                if t == d[0]:
+                    t += 1
+                else:
+                    self.trackers_ordered[t] = self.trackers_ordered[d[0]]
+                    self.trackers_ordered[d[0]] = trk
+                    orig_inds[t] = orig_inds[d[0]]
+                    orig_inds[d[0]] = orig_ind
+            elif t >= len(dets):
+                t += 1
+            elif unmatched_trk_index == len(self.trackers_ordered):
+                self.trackers_ordered.append(trk)
+                self.trackers_ordered[t] = None
+                orig_inds.append(orig_ind)
+                orig_inds[t] = unmatched_trk_index
+                t += 1
+                unmatched_trk_index += 1
+            else:
+                self.trackers_ordered[t] = self.trackers_ordered[unmatched_trk_index]
+                self.trackers_ordered[unmatched_trk_index] = trk
+                orig_inds[t] = orig_inds[unmatched_trk_index]
+                orig_inds[unmatched_trk_index] = orig_ind
+                unmatched_trk_index += 1
 
+        while len(self.trackers_ordered) > len(dets) and self.trackers_ordered[-1] == None:
+            self.trackers_ordered.pop(-1)
         # Create and initialise new trackers for unmatched detections
         if not update_only:
             for i in unmatched_dets:        # a scalar of index
@@ -302,6 +364,7 @@ class AB3DMOT(object):
                 track_score = info[i][1]    # confidence
                 trk = KalmanBoxTracker(dets[i,:], track_score, tracking_name, timestamp, self.use_angular_velocity)
                 self.trackers.append(trk)
+                self.trackers_ordered[i] = trk
         
         # Detect and delete old tracks
         # For each tracker, abs(timestamp - trk.last_update) calculates the number of frames since the track was last updated.
@@ -313,6 +376,7 @@ class AB3DMOT(object):
             # print(f"Tracker ID: {trk.id}, last_update: {trk.last_update}, current timestamp: {timestamp}")
 
         self.trackers = [trk for trk in self.trackers if abs(timestamp - trk.last_update) < self.max_age]
+        self.trackers_ordered = [trk for trk in self.trackers_ordered if trk == None or abs(timestamp - trk.last_update) < self.max_age]
         print(f"Trackers after deletion: {[trk.id for trk in self.trackers]}") # List of trackers that were deleted because they hit the max age 
 
         for trk in self.trackers:
@@ -361,6 +425,7 @@ class AB3DMOT(object):
         for d,det in enumerate(detections):
             if(d not in matched_indices[:,0]):
                 unmatched_detections.append(d)
+                # 2+"abc"
         unmatched_trackers = []
         for t,trk in enumerate(trackers):
             if len(matched_indices) == 0 or (t not in matched_indices[:,1]):
@@ -372,6 +437,9 @@ class AB3DMOT(object):
             match = score_matrix[m[0],m[1]] < self.match_threshold
             if not match:
                 unmatched_detections.append(m[0])
+                # print("ZZZZ:")
+                # print(matched_indices)
+                # [][0]
                 unmatched_trackers.append(m[1])
             else:
                 matches.append(m.reshape(1,2))
