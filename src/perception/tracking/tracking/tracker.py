@@ -65,7 +65,7 @@ class trackerNode(Node):
         self.publish_frequency = self.get_parameter("publish_frequency").value
         # self.dt = 1.0 / self.frequency
 
-
+        self.received = 0
 
         cfg_from_yaml_file(self.config_path, cfg)
 
@@ -127,6 +127,8 @@ class trackerNode(Node):
         return self.mot_tracker.update(detections, infos, timestamp_sec, update_only, 300)
 
     def detection_callback(self, msg):
+        self.received += 1
+        
         # start_time = time.time()
         timestamp = msg.header.stamp
         frame_id = msg.header.frame_id
@@ -143,6 +145,7 @@ class trackerNode(Node):
 
         if result is not None:
             self.get_logger().info(f"Tracked Objects: {result}")
+        self.publish_tracks(1/0.8)
 
         # end_time = time.time()
         # self.get_logger().info(f"Processing time: {end_time - start_time:.4f} seconds")
@@ -162,7 +165,9 @@ class trackerNode(Node):
         tracked_obstacle_list.header.stamp = self.get_clock().now().to_msg()
 
         # Initialize an empty list to hold tracked obstacles
-        tracked_obstacle_list.tracked_obstacles = []
+        tracked_obstacle_list.tracked_obstacles = [TrackedObstacleMsg()]
+        tracked_obstacle_list.tracked_obstacles[0].obstacle.object_id = self.received
+        tracked_obstacle_list.tracked_obstacles[0].obstacle.label = "filler"
 
         # For each tracker in the list, create a tracked obstacle message and append it to the list
         if PUB_ORDERED:
@@ -189,7 +194,7 @@ class trackerNode(Node):
         #Publish entire message with multiple different trackers
         self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
 
-        if len(tracked_obstacle_list.tracked_obstacles) > 0:
+        if len(tracked_obstacle_list.tracked_obstacles) > 1:
             self.get_logger().info(f"Published tracked obstacles: ||| {len(tracked_obstacle_list.tracked_obstacles)}; {tracked_obstacle_list.tracked_obstacles[0].obstacle.twist.twist.linear.x}, {tracked_obstacle_list.tracked_obstacles[0].obstacle.twist.twist.linear.y}; {tracked_obstacle_list.tracked_obstacles[0].obstacle.pose.pose.position.x}, {tracked_obstacle_list.tracked_obstacles[0].obstacle.pose.pose.position.y}")
 
         # end_time = time.time()
@@ -336,10 +341,10 @@ def main (args=None):
     try:
         while rclpy.ok():
             # tracker_node.publish_tracks(1 / 0.8)
-            try:
-                tracker_node.publish_tracks(1 / 0.8) # Messages are published every 1.25 seconds
-            except Exception as e:
-                tracker_node.get_logger().error(f"Error: Exception caught while processing a frame: {e}")
+            # try:
+            #     tracker_node.publish_tracks(1 / 0.8) # Messages are published every 1.25 seconds
+            # except Exception as e:
+            #     tracker_node.get_logger().error(f"Error: Exception caught while processing a frame: {e}")
             try:
                 rclpy.spin_once(tracker_node, timeout_sec=1.0 / 0.8) # Node has 1.25 seconds to process and publish messages
             except ROSInterruptException:

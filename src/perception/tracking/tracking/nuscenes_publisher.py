@@ -9,6 +9,8 @@ from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import transform_matrix
 from pyquaternion import Quaternion
 
+from nusc_viz import NuscViz
+
 import numpy as np
 import time
 import os
@@ -28,12 +30,14 @@ class NuScenesPublisher(Node):
 
         # Load nuScenes
         self.nusc = NuScenes(version='v1.0-mini', dataroot=os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes"), verbose=True)
-
+        self.viz = NuscViz(self.nusc)
         # Get the first scene
         self.scene_index = 0
         self.scene = self.nusc.scene[self.scene_index]
+        self.scene_name = self.scene['name']
         self.scene_token = self.scene['token']
         self.sample_token = self.scene['first_sample_token']
+        self.samples = []
         self.timer_period = 0.5  # seconds
 
         self.timer = self.create_timer(self.timer_period, self.publish_next_sample)
@@ -83,28 +87,30 @@ class NuScenesPublisher(Node):
         self.latest_gts = []
 
         if self.sample_token == "":
-            if self.scene_index < len(self.nusc.scene) - 1:
-                self.scene_index += 1
-                self.init_scene()
-                print(f"Scene {self.scene_index + 1} loaded")
-                return
+            # if self.scene_index < len(self.nusc.scene) - 1:
+            #     self.scene_index += 1
+            #     self.init_scene()
+            #     print(f"Scene {self.scene_index + 1} loaded")
+            #     return
             
             if self.received < self.sent:
                 return
                 
             self.get_logger().info("No more samples.")
             print((self.acc_error/self.num_data_pts)**0.5)
+            self.viz.save_frames_to_video()
 
-            res_dest = os.path.join(os.path.dirname(os.path.abspath(__file__)), "track_results")
-            self.get_logger().info(f"Results saved to {res_dest}")
-            res_file = f"results{len(os.listdir(res_dest))}.json"
-            with open(os.path.join(res_dest, res_file), 'w') as rj:
-                json.dump(self.results, rj)
+            # res_dest = os.path.join(os.path.dirname(os.path.abspath(__file__)), "track_results")
+            # self.get_logger().info(f"Results saved to {res_dest}")
+            # res_file = f"results{len(os.listdir(res_dest))}.json"
+            # with open(os.path.join(res_dest, res_file), 'w') as rj:
+            #     json.dump(self.results, rj)
 
             self.destroy_timer(self.timer)
             return
 
         sample = self.nusc.get('sample', self.sample_token)
+        self.samples.append(sample)
         msg = Detection3DArray()
         msg.header = Header()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -143,16 +149,22 @@ class NuScenesPublisher(Node):
             det.bbox = bbox
             msg.detections.append(det)
 
+        self.sent += 1
+        self.sample_token = sample['next']
+
         self.get_logger().info(f"Published sample {self.sample_token} from scene {self.scene_index + 1}")
         self.publisher.publish(msg)
-        self.sent += 1
-
-        self.sample_token = sample['next']
+        
 
     def tracked_obstacles_callback(self, msg: TrackedObstacleList):
         # print(self.acc_error)
-        self.received += 1
+        # viz
+        self.received = msg.tracked_obstacles[0].obstacle.object_id
         print(f"Sent: {self.sent}; Received: {self.received}")
+
+        if self.received - 1 >= 0:
+            self.viz.process_sample(sample=self.samples[self.received-1], tracks=msg, frame_index=self.received-1, scene_name=self.scene_name)
+        
         self.results["results"][self.scene_token] = []
         for trk_ob in msg.tracked_obstacles:
             ob = trk_ob.obstacle

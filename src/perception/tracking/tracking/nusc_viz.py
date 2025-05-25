@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.data_classes import LidarPointCloud
+from nuscenes.utils.data_classes import LidarPointCloud, Box
 from nuscenes.utils.geometry_utils import view_points, transform_matrix
 from pyquaternion import Quaternion
 import cv2
@@ -78,10 +78,13 @@ class NuscViz:
         #     color = (127, 127, 127) # LIGHT GREY
         # else:
         #     color = (255, 255, 255) # WHITE
-        try:
-            color = COLORS[BBOX_COLORS[category_name]]
-        except KeyError:
-            color = COLORS['WHITE']
+        if category_name[0] == '_':
+            color = COLORS['RED']
+        else:
+            try:
+                color = COLORS[BBOX_COLORS[category_name]]
+            except KeyError:
+                color = COLORS['WHITE']
 
         if returnBGR:
             color = (color[2], color[1], color[0])
@@ -146,21 +149,38 @@ class NuscViz:
         # Process samples in scene
         while sample_token != "":
             sample = self.nusc.get('sample', sample_token)
-            self.process_sample(frame_index=relative_index, sample=sample, scene_name=scene_name)
+            self.process_sample(sample=sample, frame_index=relative_index, scene_name=scene_name)
             sample_token = sample['next']
             relative_index += 1
 
         return
 
 
-    def process_sample(self, frame_index=0, sample=None, scene_name="NA", show_pc_on_cam=False):
+    def process_sample(self, sample=None, tracks=None, frame_index=-1, sample_token="", scene_name="NA", show_pc_on_cam=False):
         if sample is None:
-            sample = self.nusc.sample[frame_index]
+            if frame_index >= 0:
+                sample = self.nusc.sample[frame_index]
+            else:
+                sample = self.nusc.get('sample', sample_token)
 
         # Get ground truth bboxes (global frame)
-        boxes = []
+        gt_boxes = []
         for ann_token in sample['anns']:
-            boxes.append(self.nusc.get_box(ann_token))
+            gt_boxes.append(self.nusc.get_box(ann_token))
+
+        tracked_boxes = []
+        if tracks is not None:
+            for tr in tracks.tracked_obstacles:
+                ob = tr.obstacle
+                ps = ob.pose.pose.position
+                ot = ob.pose.pose.orientation
+                b = Box(
+                    np.array([ps.x, ps.y, ps.z]),
+                    np.array([ob.width_along_x_axis, ob.height_along_y_axis, ob.depth_along_z_axis]),
+                    Quaternion(ot.w, ot.x, ot.y, ot.z),
+                    name=f"_{ob.label}"
+                )
+                tracked_boxes.append(b)
 
         # --- Get camera and lidar info ---
         cam_token = sample['data'][self.camera_name]
@@ -215,63 +235,67 @@ class NuscViz:
                 cv2.circle(image, (x, y), 2, (0, 255, 0), -1)
 
         # --- Draw bboxes on lidar image ---
-        for box in boxes:
-            # Transform box to lidar frame
-            lidar_box = self.box_transform(box, global_to_lidar)
+        for boxes in [gt_boxes, tracked_boxes]:
+            for box in boxes:
+                # Transform box to lidar frame
+                lidar_box = self.box_transform(box, global_to_lidar)
 
-            # Get bottom corners of box to represent bev
-            corners = lidar_box.bottom_corners()[:2, :]  # shape (2,4)
+                # Get bottom corners of box to represent bev
+                corners = lidar_box.bottom_corners()[:2, :]  # shape (2,4)
 
-            # Convert to pixel coordinates
-            x_pix = np.int32(np.clip((corners[0] + self.bev_range) * scale, 0, self.bev_img_size - 1))
-            y_pix = np.int32(np.clip((corners[1] + self.bev_range) * scale, 0, self.bev_img_size - 1))
-            y_pix = self.bev_img_size - y_pix  # flip y for image display
+                # Convert to pixel coordinates
+                x_pix = np.int32(np.clip((corners[0] + self.bev_range) * scale, 0, self.bev_img_size - 1))
+                y_pix = np.int32(np.clip((corners[1] + self.bev_range) * scale, 0, self.bev_img_size - 1))
+                y_pix = self.bev_img_size - y_pix  # flip y for image display
 
-            # Draw bounding box edges
-            for i in range(4):
-                pt1 = (x_pix[i], y_pix[i])
-                pt2 = (x_pix[(i + 1) % 4], y_pix[(i + 1) % 4])
-                cv2.line(bev, pt1, pt2, (0, 0, 255), 2)  # red lines
+                # Draw bounding box edges
+                color = self.get_cv2_color(box.name)
+                for i in range(4):
+                    pt1 = (x_pix[i], y_pix[i])
+                    pt2 = (x_pix[(i + 1) % 4], y_pix[(i + 1) % 4])
+                    cv2.line(bev, pt1, pt2, color, 2)  # red lines
 
-            # Draw front direction line
-            center = np.mean(np.column_stack((x_pix, y_pix)), axis=0).astype(int)
-            front_center = np.mean(np.column_stack((x_pix[0:2], y_pix[0:2])), axis=0).astype(int)
-            cv2.line(bev, tuple(center), tuple(front_center), (255, 255, 0), 2)
+                # Draw front direction line
+                center = np.mean(np.column_stack((x_pix, y_pix)), axis=0).astype(int)
+                front_center = np.mean(np.column_stack((x_pix[0:2], y_pix[0:2])), axis=0).astype(int)
+                cv2.line(bev, tuple(center), tuple(front_center), (255, 255, 0), 2)
 
         # --- Draw bboxes on camera image ---
-        box_entries = [] # List of (box, projected_corners_2d, area)
-        for box in boxes:
-            # Transform box to camera frame
-            cam_box = self.box_transform(box, global_to_cam)
-            
-            # Ignore boxes behind camera
-            if cam_box.center[2] <= 0:
-                continue
+        top_boxes = []
+        for boxes in [gt_boxes, tracked_boxes]:
+            box_entries = [] # List of (box, projected_corners_2d, area)
+            for box in boxes:
+                # Transform box to camera frame
+                cam_box = self.box_transform(box, global_to_cam)
+                
+                # Ignore boxes behind camera
+                if cam_box.center[2] <= 0:
+                    continue
 
-            # Project 3D to 2D
-            corners_3d = cam_box.corners()
-            corners_2d = view_points(corners_3d, camera_intrinsic, normalize=True)
+                # Project 3D to 2D
+                corners_3d = cam_box.corners()
+                corners_2d = view_points(corners_3d, camera_intrinsic, normalize=True)
 
-            # Correct x and y flipping when z negative
-            for pp in range(8):
-                if corners_3d[2, pp] < 0:
-                    corners_2d[0, pp] = w - corners_2d[0, pp]
-                    corners_2d[1, pp] = h - corners_2d[1, pp]
+                # Correct x and y flipping when z negative
+                for pp in range(8):
+                    if corners_3d[2, pp] < 0:
+                        corners_2d[0, pp] = w - corners_2d[0, pp]
+                        corners_2d[1, pp] = h - corners_2d[1, pp]
 
-            # Filter out objects completely out of frame
-            if not ((corners_2d[0] >= 0) & (corners_2d[0] < w) & 
-                    (corners_2d[1] >= 0) & (corners_2d[1] < h)).any():
-                continue
+                # Filter out objects completely out of frame
+                if not ((corners_2d[0] >= 0) & (corners_2d[0] < w) & 
+                        (corners_2d[1] >= 0) & (corners_2d[1] < h)).any():
+                    continue
 
-            # Compute area in pixels
-            min_x, max_x = corners_2d[0].min(), corners_2d[0].max()
-            min_y, max_y = corners_2d[1].min(), corners_2d[1].max()
-            area = (max_x - min_x) * (max_y - min_y)
+                # Compute area in pixels
+                min_x, max_x = corners_2d[0].min(), corners_2d[0].max()
+                min_y, max_y = corners_2d[1].min(), corners_2d[1].max()
+                area = (max_x - min_x) * (max_y - min_y)
 
-            box_entries.append((box, corners_2d, area))
+                box_entries.append((box, corners_2d, area))
 
-        # Get bboxes with largest area
-        top = sorted(box_entries, key=lambda x: x[2], reverse=True)[:20]
+            # Get bboxes with largest area
+            top_boxes.append(sorted(box_entries, key=lambda x: x[2], reverse=True)[:20])
 
         # Vertices of each edge
         edge_idx = [
@@ -280,19 +304,20 @@ class NuscViz:
             (0,4),(1,5),(2,6),(3,7)
         ]
 
-        for box, corners_2d, area in top:
-            color = self.get_cv2_color(box.name)
-            if box.name in SELECTED_BOX_NAMES:
-                # Draw label
-                cx = int(corners_2d[0].mean())
-                cy = int(corners_2d[1].mean())
-                cv2.putText(image, box.name.split('.')[-1], (cx, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        for top in top_boxes:
+            for box, corners_2d, area in top:
+                color = self.get_cv2_color(box.name)
+                if box.name in SELECTED_BOX_NAMES or box.name[1:] in SELECTED_BOX_NAMES:
+                    # Draw label
+                    cx = int(corners_2d[0].mean())
+                    cy = int(corners_2d[1].mean())
+                    cv2.putText(image, box.name.split('.')[-1], (cx, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-                # Draw edges
-                for i, j in edge_idx:
-                    pt1 = (int(corners_2d[0, i]), int(corners_2d[1, i]))
-                    pt2 = (int(corners_2d[0, j]), int(corners_2d[1, j]))
-                    cv2.line(image, pt1, pt2, color=color, thickness=2)
+                    # Draw edges
+                    for i, j in edge_idx:
+                        pt1 = (int(corners_2d[0, i]), int(corners_2d[1, i]))
+                        pt2 = (int(corners_2d[0, j]), int(corners_2d[1, j]))
+                        cv2.line(image, pt1, pt2, color=color, thickness=2)
 
         # Combine horizontally
         if bev.shape[0] != h:
@@ -318,8 +343,3 @@ class NuscViz:
     def save_frames_to_video(self):
         self.video_writer.release()
         print(f"Video saved as {self.video_name}")
-
-
-viz = NuscViz()
-viz.process_scene(0)
-viz.save_frames_to_video()
