@@ -50,6 +50,7 @@ class NuScenesPublisher(Node):
                                                 "use_lidar": True,
                                                 "use_radar": False,}}
 
+        # surjective
         self.name_convert = {
             'human.pedestrian.adult': 'pedestrian',
             'human.pedestrian.child': 'pedestrian',
@@ -91,6 +92,7 @@ class NuScenesPublisher(Node):
         self.latest_gts = []
 
         if self.sample_token == "":
+            # todo: uncomment if iterating through all scenes instead of just one
             # if self.scene_index < len(self.nusc.scene) - 1:
             #     self.scene_index += 1
             #     self.init_scene()
@@ -104,6 +106,7 @@ class NuScenesPublisher(Node):
             # print((self.acc_error/self.num_data_pts)**0.5)
             self.viz.save_frames_to_video()
 
+            # todo: uncomment when get actual test data
             # res_dest = os.path.join(os.path.dirname(os.path.abspath(__file__)), "track_results")
             # self.get_logger().info(f"Results saved to {res_dest}")
             # res_file = f"results{len(os.listdir(res_dest))}.json"
@@ -120,6 +123,7 @@ class NuScenesPublisher(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = 'camera_frame'
 
+        # todo: make publisher not publish ground truth
         for ann_token in sample['anns']:
             ann = self.nusc.get('sample_annotation', ann_token)
             self.latest_gts.append([float(p) for p in ann['translation'][:3]])
@@ -166,10 +170,14 @@ class NuScenesPublisher(Node):
         print(f"Sent: {self.sent}; Received: {self.received}")
 
         if self.received - 1 >= 0:
+            # Append frame to video and also save as png
             cv_img = self.viz.process_sample(sample=self.samples[self.received-1], tracks=msg, frame_index=self.received-1, scene_name=self.scene_name)
+            # Pub image for goxglove
             img_msg = self.bridge.cv2_to_imgmsg(cv_img, encoding="bgr8")
+            self.get_logger().info("Published image")
             self.img_pub.publish(img_msg)
         
+        # Update results dict
         self.results["results"][self.scene_token] = []
         for trk_ob in msg.tracked_obstacles:
             ob = trk_ob.obstacle
@@ -198,7 +206,7 @@ class NuScenesPublisher(Node):
                                                               "velocity": [ob.twist.twist.linear.x,
                                                                            ob.twist.twist.linear.z],
                                                               "tracking_id": ob.object_id,
-                                                              "tracking_name": self.name_convert[ob.label],
+                                                              "tracking_name": trk_name,
                                                               "tracking_score": ob.confidence})
             
         # for i in range(len(self.latest_trks)):
