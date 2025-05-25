@@ -7,7 +7,7 @@ from pyquaternion import Quaternion
 import cv2
 import os
 
-FRAME_INDEXES = range(0, 50)
+FRAME_INDEXES = range(0, 10)
 CAMERA_NAME = 'CAM_FRONT'
 SELECTED_BOX_NAMES = [
     #'vehicle.motorcycle',
@@ -186,19 +186,28 @@ for frame_index in FRAME_INDEXES:
     t_c = np.array(cs['translation'])
     t_v = np.array(pose['translation'])
 
+    # Get transform matrices
+    global_to_ego = transform_matrix(pose['translation'], pose_q, inverse=True)
+    ego_to_sensor = transform_matrix(cs_record['translation'], cs_q, inverse=True)
+    global_to_sensor = ego_to_sensor @ global_to_ego
+
     boxes = nusc.get_boxes(cam_data['token'])
     # List of (box, projected_corners_2d, area)
     box_entries = []
     for box in boxes:
-        # ignore boxes behind camera
-        if box.center[2] <= 0:
-            continue
-
         # transform & project
         box_cam = to_camera_frame(box.copy())        # work on a copy
+        # ignore boxes behind camera
+        if box_cam.center[2] <= 0:
+            continue
         corners_3d = box_cam.corners()               # 3×8
         corners_2d = view_points(corners_3d, camera_intrinsic, normalize=True)
 
+        for pp in range(8):
+            if corners_3d[2, pp] < 0:
+                corners_2d[0, pp] = w - corners_2d[0, pp]
+                corners_2d[1, pp] = h - corners_2d[1, pp]
+                
         # filter out-of-image entirely
         if not ((corners_2d[0] >= 0) & (corners_2d[0] < w) & 
                 (corners_2d[1] >= 0) & (corners_2d[1] < h)).any():
@@ -211,8 +220,8 @@ for frame_index in FRAME_INDEXES:
 
         box_entries.append((box, corners_2d, area))
 
-    # pick top 10 by area
-    top10 = sorted(box_entries, key=lambda x: x[2], reverse=True)[:100]
+    # pick top 20 by area
+    top10 = sorted(box_entries, key=lambda x: x[2], reverse=True)[:20]
 
     # draw them
     out = image.copy()
@@ -236,8 +245,6 @@ for frame_index in FRAME_INDEXES:
             continue
 
         # draw edges
-        if box.name == "vehicle.truck":
-            print(corners_3d)
         for i, j in edge_idx:
             pt1 = (int(corners_2d[0, i]), int(corners_2d[1, i]))
             pt2 = (int(corners_2d[0, j]), int(corners_2d[1, j]))
