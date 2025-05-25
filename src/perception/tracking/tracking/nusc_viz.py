@@ -21,24 +21,49 @@ SELECTED_BOX_NAMES = [
     #'vehicle.bus.rigid',
     #'vehicle.construction',
 ]
+COLORS = {
+    'RED' : (255, 0, 0),
+    'GREEN' : (0, 255, 0),
+    'BLUE' : (0, 0, 255),
+    'YELLOW' : (255, 255, 0),
+    'LIGHT_GRAY' : (127, 127, 127),
+    'WHITE' : (255, 255, 255),
+}
+BBOX_COLORS = {
+    #'vehicle.motorcycle' : ,
+    'movable_object.barrier' : 'LIGHT_GRAY',
+    'movable_object.pushable_pullable' : 'LIGHT_GRAY',
+    'human.pedestrian.adult' : 'RED',
+    'movable_object.trafficcone' : 'LIGHT_GRAY',
+    #'vehicle.bicycle',
+    'vehicle.truck' : 'GREEN',
+    'vehicle.car' : 'BLUE',
+    #'vehicle.bus.rigid',
+    'vehicle.construction' : 'YELLOW',
+}
 
 VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS = 1600, 900, 2
 
 
 def get_cv2_color(category_name, returnBGR = True):
-    color = (255, 255, 255)
-    if 'pedestrian' in category_name:
-        color = (255, 0, 0)  # RED
-    elif 'truck' in category_name:
-        color = (0, 255, 0) # GREEN
-    elif 'car' in category_name:
-        color = (0, 0, 255) # BLUE
-    elif 'contruction' in category_name:
-        color = (255, 255, 0)  # YELLOW
-    elif 'movable_object' in category_name:
-        color = (127, 127, 127)  # LIGHT GREY
-    else:
-        color = (255, 255, 255)  # WHITE
+    # color = (255, 255, 255)
+    # if 'pedestrian' in category_name:
+    #     color = (255, 0, 0) # RED
+    # elif 'truck' in category_name:
+    #     color = (0, 255, 0) # GREEN
+    # elif 'car' in category_name:
+    #     color = (0, 0, 255) # BLUE
+    # elif 'construction' in category_name:
+    #     color = (255, 255, 0) # YELLOW
+    # elif 'movable_object' in category_name:
+    #     color = (127, 127, 127) # LIGHT GREY
+    # else:
+    #     color = (255, 255, 255) # WHITE
+
+    try:
+        color = COLORS[BBOX_COLORS[category_name]]
+    except KeyError:
+        color = COLORS['WHITE']
 
     if returnBGR:
         color = (color[2], color[1], color[0])
