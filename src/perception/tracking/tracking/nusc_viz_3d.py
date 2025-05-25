@@ -337,7 +337,7 @@ class NuscViz:
         #plt.title("LiDAR points projected to camera image")
         #plt.axis("off")
         #plt.savefig(f'frame_{frame_index}_{CAMERA_NAME}.png')
-        return frame
+        return combined
 
     def save_frames_to_video(self):
         self.video_writer.release()
