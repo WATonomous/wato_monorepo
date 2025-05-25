@@ -9,7 +9,7 @@ from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import transform_matrix
 from pyquaternion import Quaternion
 
-from nusc_viz import NuscViz
+from nusc_viz_3d import NuscViz
 
 import numpy as np
 import time
