@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.data_classes import LidarPointCloud, Box
 from nuscenes.utils.geometry_utils import view_points, transform_matrix
@@ -10,37 +10,41 @@ import os
 
 class NuscViz:
     SELECTED_BOX_NAMES = [
-        #'vehicle.motorcycle',
-        #'movable_object.barrier',
+        'vehicle.motorcycle',
+        'movable_object.barrier',
         'movable_object.pushable_pullable',
-        #'human.pedestrian.adult',
-        #'movable_object.trafficcone',
-        #'vehicle.bicycle',
+        'human.pedestrian.adult',
+        'movable_object.trafficcone',
+        'vehicle.bicycle',
         'vehicle.truck',
         'vehicle.car',
-        #'vehicle.bus.rigid',
-        #'vehicle.construction',
+        'vehicle.bus.rigid',
+        'vehicle.construction',
     ]
 
     COLORS = {
         'RED' : (255, 0, 0),
         'GREEN' : (0, 255, 0),
         'BLUE' : (0, 0, 255),
+        'CYAN' : (0, 255, 255),
         'YELLOW' : (255, 255, 0),
+        'PURPLE' : (148, 0, 211),
+        'PINK' : (255, 192, 203),
         'LIGHT_GRAY' : (127, 127, 127),
         'WHITE' : (255, 255, 255),
+        'BLACK' : (0, 0, 0),
     }
 
     BBOX_COLORS = {
-        #'vehicle.motorcycle' : ,
+        'vehicle.motorcycle' : 'BLACK',
         'movable_object.barrier' : 'LIGHT_GRAY',
         'movable_object.pushable_pullable' : 'LIGHT_GRAY',
-        'human.pedestrian.adult' : 'RED',
+        'human.pedestrian.adult' : 'CYAN',
         'movable_object.trafficcone' : 'LIGHT_GRAY',
-        #'vehicle.bicycle',
+        'vehicle.bicycle' : 'PURPLE',
         'vehicle.truck' : 'GREEN',
         'vehicle.car' : 'BLUE',
-        #'vehicle.bus.rigid',
+        'vehicle.bus.rigid' : 'PINK',
         'vehicle.construction' : 'YELLOW',
     }
 
@@ -160,11 +164,10 @@ class NuscViz:
             else:
                 sample = self.nusc.get('sample', sample_token)
 
-        # Get ground truth bboxes (global frame)
-        gt_boxes = []
-        for ann_token in sample['anns']:
-            gt_boxes.append(self.nusc.get_box(ann_token))
-
+        # gt_boxes = []
+        # for ann_token in sample['anns']:
+        #     gt_boxes.append(self.nusc.get_box(ann_token))
+        
         tracked_boxes = []
         if tracks is not None:
             for tr in tracks.tracked_obstacles:
@@ -187,11 +190,15 @@ class NuscViz:
         
         cam_data = self.nusc.get('sample_data', cam_token)
         lidar_data = self.nusc.get('sample_data', lidar_token)
-
+        
         cam_cs = self.nusc.get('calibrated_sensor', cam_data['calibrated_sensor_token'])
         camera_intrinsic = np.array(cam_cs['camera_intrinsic'])
 
         global_to_cam, global_to_lidar, lidar_to_cam = self.get_transforms(cam_data, lidar_data)
+
+        # Get ground truth bboxes (global frame)
+        cam_gt_boxes = self.nusc.get_boxes(cam_data['token'])
+        lidar_gt_boxes = self.nusc.get_boxes(lidar_data['token'])
 
         # --- Get underlying lidar image ---
         # Load point cloud
@@ -232,9 +239,9 @@ class NuscViz:
             for i in range(valid_points.shape[1]):
                 x, y = int(valid_points[0, i]), int(valid_points[1, i])
                 cv2.circle(image, (x, y), 2, (0, 255, 0), -1)
-
+        
         # --- Draw bboxes on lidar image ---
-        for boxes in [gt_boxes, tracked_boxes]:
+        for boxes in [lidar_gt_boxes, tracked_boxes]:
             for box in boxes:
                 # Transform box to lidar frame
                 lidar_box = self.box_transform(box, global_to_lidar)
@@ -261,7 +268,7 @@ class NuscViz:
 
         # --- Draw bboxes on camera image ---
         top_boxes = []
-        for boxes in [gt_boxes, tracked_boxes]:
+        for boxes in [cam_gt_boxes, tracked_boxes]:
             box_entries = [] # List of (box, projected_corners_2d, area)
             for box in boxes:
                 # Transform box to camera frame
