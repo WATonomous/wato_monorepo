@@ -169,6 +169,8 @@ class NuscViz:
         if tracks is not None:
             for tr in tracks.tracked_obstacles:
                 ob = tr.obstacle
+                if ob.label == "filler":
+                    continue
                 ps = ob.pose.pose.position
                 ot = ob.pose.pose.orientation
                 b = Box(
