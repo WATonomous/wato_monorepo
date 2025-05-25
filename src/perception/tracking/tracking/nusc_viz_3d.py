@@ -136,7 +136,6 @@ class NuscViz:
 
         return global_to_cam, global_to_lidar, lidar_to_cam
 
-
     
     def process_scene(self, scene_index):
         # Get first sample
@@ -152,8 +151,6 @@ class NuscViz:
             self.process_sample(sample=sample, frame_index=relative_index, scene_name=scene_name)
             sample_token = sample['next']
             relative_index += 1
-
-        return
 
 
     def process_sample(self, sample=None, tracks=None, frame_index=-1, sample_token="", scene_name="NA", show_pc_on_cam=False):
