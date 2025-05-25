@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection3DArray, Detection3D, ObjectHypothesisWithPose, BoundingBox3D
 from geometry_msgs.msg import PoseWithCovariance
 from tracking_msgs.msg import TrackedObstacleList
@@ -10,6 +11,7 @@ from nuscenes.utils.geometry_utils import transform_matrix
 from pyquaternion import Quaternion
 
 from nusc_viz_3d import NuscViz
+from cv_bridge import CvBridge
 
 import numpy as np
 import time
@@ -19,8 +21,10 @@ import json
 class NuScenesPublisher(Node):
     def __init__(self):
         super().__init__('nuscenes_publisher')
-        self.publisher = self.create_publisher(Detection3DArray, 'detections', 10)
 
+        self.bridge = CvBridge()
+        self.nusc_pub = self.create_publisher(Detection3DArray, 'detections', 10)
+        self.img_pub = self.create_publisher(Image, '/annotated_image', 10)
         self.tracked_obstacles_sub = self.create_subscription(
             TrackedObstacleList,  # Message type of the tracked obstacles
             "tracked_obstacles",  # Topic name
@@ -97,7 +101,7 @@ class NuScenesPublisher(Node):
                 return
                 
             self.get_logger().info("No more samples.")
-            print((self.acc_error/self.num_data_pts)**0.5)
+            # print((self.acc_error/self.num_data_pts)**0.5)
             self.viz.save_frames_to_video()
 
             # res_dest = os.path.join(os.path.dirname(os.path.abspath(__file__)), "track_results")
@@ -153,17 +157,18 @@ class NuScenesPublisher(Node):
         self.sample_token = sample['next']
 
         self.get_logger().info(f"Published sample {self.sample_token} from scene {self.scene_index + 1}")
-        self.publisher.publish(msg)
+        self.nusc_pub.publish(msg)
         
 
     def tracked_obstacles_callback(self, msg: TrackedObstacleList):
-        # print(self.acc_error)
         # viz
         self.received = msg.tracked_obstacles[0].obstacle.object_id
         print(f"Sent: {self.sent}; Received: {self.received}")
 
         if self.received - 1 >= 0:
-            self.viz.process_sample(sample=self.samples[self.received-1], tracks=msg, frame_index=self.received-1, scene_name=self.scene_name)
+            cv_img = self.viz.process_sample(sample=self.samples[self.received-1], tracks=msg, frame_index=self.received-1, scene_name=self.scene_name)
+            img_msg = self.bridge.cv2_to_imgmsg(cv_img, encoding="bgr8")
+            self.img_pub.publish(img_msg)
         
         self.results["results"][self.scene_token] = []
         for trk_ob in msg.tracked_obstacles:
@@ -196,11 +201,11 @@ class NuScenesPublisher(Node):
                                                               "tracking_name": self.name_convert[ob.label],
                                                               "tracking_score": ob.confidence})
             
-        for i in range(len(self.latest_trks)):
-            if i < len(self.latest_gts) and self.latest_trks[i] != None:
-                for j in range(3):
-                    self.acc_error += (self.latest_gts[i][j] - self.latest_trks[i][j])**2
-                self.num_data_pts += 1
+        # for i in range(len(self.latest_trks)):
+        #     if i < len(self.latest_gts) and self.latest_trks[i] != None:
+        #         for j in range(3):
+        #             self.acc_error += (self.latest_gts[i][j] - self.latest_trks[i][j])**2
+        #         self.num_data_pts += 1
 
 
 def main(args=None):
