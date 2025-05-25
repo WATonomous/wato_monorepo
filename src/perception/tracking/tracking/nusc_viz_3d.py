@@ -8,43 +8,43 @@ import cv2
 import os
 
 
-SELECTED_BOX_NAMES = [
-    #'vehicle.motorcycle',
-    #'movable_object.barrier',
-    'movable_object.pushable_pullable',
-    #'human.pedestrian.adult',
-    #'movable_object.trafficcone',
-    #'vehicle.bicycle',
-    'vehicle.truck',
-    'vehicle.car',
-    #'vehicle.bus.rigid',
-    #'vehicle.construction',
-]
-
-COLORS = {
-    'RED' : (255, 0, 0),
-    'GREEN' : (0, 255, 0),
-    'BLUE' : (0, 0, 255),
-    'YELLOW' : (255, 255, 0),
-    'LIGHT_GRAY' : (127, 127, 127),
-    'WHITE' : (255, 255, 255),
-}
-
-BBOX_COLORS = {
-    #'vehicle.motorcycle' : ,
-    'movable_object.barrier' : 'LIGHT_GRAY',
-    'movable_object.pushable_pullable' : 'LIGHT_GRAY',
-    'human.pedestrian.adult' : 'RED',
-    'movable_object.trafficcone' : 'LIGHT_GRAY',
-    #'vehicle.bicycle',
-    'vehicle.truck' : 'GREEN',
-    'vehicle.car' : 'BLUE',
-    #'vehicle.bus.rigid',
-    'vehicle.construction' : 'YELLOW',
-}
-
-
 class NuscViz:
+    SELECTED_BOX_NAMES = [
+        #'vehicle.motorcycle',
+        #'movable_object.barrier',
+        'movable_object.pushable_pullable',
+        #'human.pedestrian.adult',
+        #'movable_object.trafficcone',
+        #'vehicle.bicycle',
+        'vehicle.truck',
+        'vehicle.car',
+        #'vehicle.bus.rigid',
+        #'vehicle.construction',
+    ]
+
+    COLORS = {
+        'RED' : (255, 0, 0),
+        'GREEN' : (0, 255, 0),
+        'BLUE' : (0, 0, 255),
+        'YELLOW' : (255, 255, 0),
+        'LIGHT_GRAY' : (127, 127, 127),
+        'WHITE' : (255, 255, 255),
+    }
+
+    BBOX_COLORS = {
+        #'vehicle.motorcycle' : ,
+        'movable_object.barrier' : 'LIGHT_GRAY',
+        'movable_object.pushable_pullable' : 'LIGHT_GRAY',
+        'human.pedestrian.adult' : 'RED',
+        'movable_object.trafficcone' : 'LIGHT_GRAY',
+        #'vehicle.bicycle',
+        'vehicle.truck' : 'GREEN',
+        'vehicle.car' : 'BLUE',
+        #'vehicle.bus.rigid',
+        'vehicle.construction' : 'YELLOW',
+    }
+
+
     def __init__(self, nu=None, cam_name="CAM_FRONT", w=1600, h=900, fps=2, bev_sz=800, bev_rg=40, vfmt="mp4", codec="mp4v"):
         # Video settings
         self.camera_name = cam_name
@@ -79,12 +79,12 @@ class NuscViz:
         # else:
         #     color = (255, 255, 255) # WHITE
         if category_name[0] == '_':
-            color = COLORS['RED']
+            color = self.COLORS['RED']
         else:
             try:
-                color = COLORS[BBOX_COLORS[category_name]]
+                color = self.COLORS[self.BBOX_COLORS[category_name]]
             except KeyError:
-                color = COLORS['WHITE']
+                color = self.COLORS['WHITE']
 
         if returnBGR:
             color = (color[2], color[1], color[0])
@@ -307,7 +307,7 @@ class NuscViz:
         for top in top_boxes:
             for box, corners_2d, area in top:
                 color = self.get_cv2_color(box.name)
-                if box.name in SELECTED_BOX_NAMES or box.name[1:] in SELECTED_BOX_NAMES:
+                if box.name in self.SELECTED_BOX_NAMES or box.name[1:] in self.SELECTED_BOX_NAMES:
                     # Draw label
                     cx = int(corners_2d[0].mean())
                     cy = int(corners_2d[1].mean())
