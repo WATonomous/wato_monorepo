@@ -30,17 +30,17 @@ class NuscViz:
         'YELLOW' : (255, 255, 0),
         'PURPLE' : (148, 0, 211),
         'PINK' : (255, 192, 203),
-        'LIGHT_GRAY' : (127, 127, 127),
+        'GRAY' : (110, 110, 110),
         'WHITE' : (255, 255, 255),
         'BLACK' : (0, 0, 0),
     }
 
     BBOX_COLORS = {
         'vehicle.motorcycle' : 'BLACK',
-        'movable_object.barrier' : 'LIGHT_GRAY',
-        'movable_object.pushable_pullable' : 'LIGHT_GRAY',
+        'movable_object.barrier' : 'GRAY',
+        'movable_object.pushable_pullable' : 'GRAY',
         'human.pedestrian.adult' : 'CYAN',
-        'movable_object.trafficcone' : 'LIGHT_GRAY',
+        'movable_object.trafficcone' : 'GRAY',
         'vehicle.bicycle' : 'PURPLE',
         'vehicle.truck' : 'GREEN',
         'vehicle.car' : 'BLUE',
@@ -49,7 +49,7 @@ class NuscViz:
     }
 
 
-    def __init__(self, nu=None, cam_name="CAM_FRONT", w=1600, h=900, fps=2, bev_sz=800, bev_rg=40, vfmt="mp4", codec="mp4v"):
+    def __init__(self, nu=None, cam_name="CAM_FRONT", w=1600, h=900, fps=5, bev_sz=800, bev_rg=40, vfmt="mp4", codec="mp4v"):
         # Video settings
         self.camera_name = cam_name
         self.video_width = w
@@ -66,7 +66,14 @@ class NuscViz:
             self.nusc = NuScenes(version='v1.0-mini', dataroot=os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes"), verbose=True)
         else:
             self.nusc = nu
+
+        self.LIGHT_COLORS = {c : self.lighten_color(self.COLORS[c]) for c in self.COLORS}
         
+    def lighten_color(self, col, amt=0.6):
+        new_col = []
+        for c in col:
+            new_col.append(c + (255 - c)*amt)
+        return tuple(new_col)
         
     def get_cv2_color(self, category_name, returnBGR = True):
         # color = (255, 255, 255)
@@ -82,13 +89,14 @@ class NuscViz:
         #     color = (127, 127, 127) # LIGHT GREY
         # else:
         #     color = (255, 255, 255) # WHITE
-        if category_name[0] == '_':
-            color = self.COLORS['RED']
-        else:
-            try:
+        try:
+            if category_name[0] == '_':
+                color = self.LIGHT_COLORS[self.BBOX_COLORS[category_name[1:]]]
+                color = self.COLORS['RED']
+            else:
                 color = self.COLORS[self.BBOX_COLORS[category_name]]
-            except KeyError:
-                color = self.COLORS['WHITE']
+        except KeyError:
+            color = self.COLORS['WHITE']
 
         if returnBGR:
             color = (color[2], color[1], color[0])
