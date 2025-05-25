@@ -189,8 +189,6 @@ class trackerNode(Node):
             tracked_obstacle_message = self._create_tracked_obstacle_message(kf_track, tracking_name, track_score, dt)
             tracked_obstacle_list.tracked_obstacles.append(tracked_obstacle_message)
 
-        # print("BBBB:")
-        # print([x.obstacle.pose.pose.position.x for x in tracked_obstacle_list.tracked_obstacles if x != None])
         #Publish entire message with multiple different trackers
         self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
 
@@ -358,8 +356,3 @@ def main (args=None):
 
 if __name__ == '__main__':
     main()
-
-# changes
-# line 6-9, imports, .core to core
-# line 179, publish_tracks, print more info
-# line 310, declare config_path, /home/bolty/... to current
