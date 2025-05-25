@@ -17,6 +17,7 @@ import numpy as np
 import time
 import os
 import json
+from random import gauss, uniform
 
 class NuScenesPublisher(Node):
     def __init__(self):
@@ -42,7 +43,7 @@ class NuScenesPublisher(Node):
         self.scene_token = self.scene['token']
         self.sample_token = self.scene['first_sample_token']
         self.samples = []
-        self.timer_period = 0.5  # seconds
+        self.timer_period = 1  # seconds
 
         self.timer = self.create_timer(self.timer_period, self.publish_next_sample)
 
@@ -82,6 +83,8 @@ class NuScenesPublisher(Node):
 
         self.sent = 0
         self.received = 0
+
+        self.pub_noise = True
 
     def init_scene(self):
         self.scene = self.nusc.scene[self.scene_index]
@@ -128,6 +131,27 @@ class NuScenesPublisher(Node):
             ann = self.nusc.get('sample_annotation', ann_token)
             self.latest_gts.append([float(p) for p in ann['translation'][:3]])
 
+            if self.pub_noise:
+                vol = ann['size'][0] * ann['size'][1] * ann['size'][2]
+                miss_chance = (1 - min(0.995, vol**(0.1)*0.72))/2
+                d_std = 0.2
+                s_std = 0.02
+            else:
+                miss_chance = 0
+                d_std = 0
+                s_std = 0
+
+            if uniform(0, 1) < miss_chance:
+                # print(vol, miss_chance, "MISS")
+                continue
+
+            xd = gauss(0, d_std)
+            yd = gauss(0, d_std)
+            zd = gauss(0, d_std)
+            xs = gauss(1, s_std)
+            ys = gauss(1, s_std)
+            zs = gauss(1, s_std)
+
             det = Detection3D()
             det.header = msg.header
 
@@ -135,9 +159,9 @@ class NuScenesPublisher(Node):
             hypo = ObjectHypothesisWithPose()
             hypo.hypothesis.class_id = ann['category_name']
             hypo.hypothesis.score = 1.0  # nuScenes doesn't have scores
-            hypo.pose.pose.position.x = float(ann['translation'][0])
-            hypo.pose.pose.position.y = float(ann['translation'][1])
-            hypo.pose.pose.position.z = float(ann['translation'][2])
+            hypo.pose.pose.position.x = float(ann['translation'][0]) + xd
+            hypo.pose.pose.position.y = float(ann['translation'][1]) + yd
+            hypo.pose.pose.position.z = float(ann['translation'][2]) + zd
             q = Quaternion(ann['rotation'])
             hypo.pose.pose.orientation.x = q.x
             hypo.pose.pose.orientation.y = q.y
@@ -150,16 +174,16 @@ class NuScenesPublisher(Node):
             bbox = BoundingBox3D()
             bbox.center.position = hypo.pose.pose.position
             bbox.center.orientation = hypo.pose.pose.orientation
-            bbox.size.x = float(ann['size'][0])
-            bbox.size.y = float(ann['size'][1])
-            bbox.size.z = float(ann['size'][2])
+            bbox.size.x = float(ann['size'][0]) * xs
+            bbox.size.y = float(ann['size'][1]) * ys
+            bbox.size.z = float(ann['size'][2]) * zs
 
             det.bbox = bbox
             msg.detections.append(det)
-
+        # print(len(msg.detections))
         self.sent += 1
         self.sample_token = sample['next']
-
+        
         self.get_logger().info(f"Published sample {self.sample_token} from scene {self.scene_index + 1}")
         self.nusc_pub.publish(msg)
         
