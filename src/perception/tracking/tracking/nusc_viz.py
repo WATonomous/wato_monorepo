@@ -62,11 +62,6 @@ class NuscViz:
             self.nusc = NuScenes(version='v1.0-mini', dataroot=os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes"), verbose=True)
         else:
             self.nusc = nu
-
-        # Transforms
-        self.global_to_lidar = None
-        self.global_to_cam = None
-        self.lidar_to_cam = None
         
         
     def get_cv2_color(self, category_name, returnBGR = True):
@@ -139,6 +134,24 @@ class NuscViz:
         return global_to_cam, global_to_lidar, lidar_to_cam
 
 
+    
+    def process_scene(self, scene_index):
+        # Get first sample
+        scene = self.nusc.scene[scene_index]
+        scene_name = scene['name']
+        relative_index = 0
+        sample_token = scene['first_sample_token']
+        sample = self.nusc.get('sample', sample_token)
+
+        # Process samples in scene
+        while sample_token != "":
+            sample = self.nusc.get('sample', sample_token)
+            self.process_sample(frame_index=relative_index, sample=sample, scene_name=scene_name)
+            sample_token = sample['next']
+            relative_index += 1
+
+        return
+
 
     def process_sample(self, frame_index=0, sample=None, scene_name="NA", show_pc_on_cam=False):
         if sample is None:
@@ -159,10 +172,8 @@ class NuscViz:
         cam_cs = self.nusc.get('calibrated_sensor', cam_data['calibrated_sensor_token'])
         camera_intrinsic = np.array(cam_cs['camera_intrinsic'])
 
-        if self.global_to_cam is None:
-            global_to_cam, global_to_lidar, lidar_to_cam = self.get_transforms(cam_data, lidar_data)
+        global_to_cam, global_to_lidar, lidar_to_cam = self.get_transforms(cam_data, lidar_data)
 
-        
         # --- Get underlying lidar image ---
         # Load point cloud
         pc = LidarPointCloud.from_file(self.nusc.get_sample_data_path(lidar_token))
@@ -296,13 +307,13 @@ class NuscViz:
         # video_writer.write(frame)
         print(f"Processed frame {frame_index} of scene {scene_name} for {self.camera_name}.")
         self.video_writer.write(frame)
-        return frame
         # --- Show the image ---
         #plt.figure(figsize=(16, 9))
         #plt.imshow(image)
         #plt.title("LiDAR points projected to camera image")
         #plt.axis("off")
         #plt.savefig(f'frame_{frame_index}_{CAMERA_NAME}.png')
+        return frame
 
     def save_frames_to_video(self):
         self.video_writer.release()
@@ -310,6 +321,5 @@ class NuscViz:
 
 
 viz = NuscViz()
-for f in range(40, 50):
-    viz.process_sample(f)
+viz.process_scene(0)
 viz.save_frames_to_video()
