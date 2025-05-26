@@ -33,8 +33,12 @@ class NuScenesPublisher(Node):
             10  # Queue size
         )
 
+        data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
+        with open(os.path.join(data_path, "dataset_name.txt"), 'r') as f:
+            self.dataset_name = f.readline().rstrip('\n')
+
         # Load nuScenes
-        self.nusc = NuScenes(version='v1.0-mini', dataroot=os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes"), verbose=True)
+        self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
         self.viz = NuscViz(self.nusc)
         # Get the first scene
         self.scene_index = 0
@@ -84,7 +88,7 @@ class NuScenesPublisher(Node):
         self.sent = 0
         self.received = 0
 
-        self.pub_noise = False
+        self.pub_noise = True
         self.simulate_occlusion = True
         self.occ_threshold = 0.97
 
@@ -150,7 +154,7 @@ class NuScenesPublisher(Node):
                 b[1] = box_transform(b[0], global_to_cam)
             boxes = sorted(boxes, key=lambda x: abs(x[1].center[2] - x[1].wlh[1]/2))
 
-        # todo: make publisher not publish ground truth
+        # todo: make publisher not publish ground truth (get real data)
         for box_tuple in boxes:
             box = box_tuple[0]
             box_rel = box_tuple[1]
@@ -183,26 +187,6 @@ class NuScenesPublisher(Node):
                     continue
                 else:
                     using.append([x1, x2, y1, y2])
-                
-                # tot_pts = 0
-                # occ_pts = 0
-                # cnrs = view_points(box_rel.corners(), cam_info['intrinsic'], normalize=True)
-                # x1 = round(min(cnrs[0]))
-                # y1 = round(min(cnrs[1]))
-                # x2 = round(max(cnrs[0]))
-                # y2 = round(max(cnrs[1]))
-                # for x in range(x1, x2 + 1):
-                #     for y in range(y1, y2 + 1):
-                #         print(x, y)
-                #         tot_pts += 1
-                #         if (x, y) in front:
-                #             occ_pts += 1
-                #         else:
-                #             front[(x, y)] = 1
-                # percent_occ = pcc/area
-                # if percent_occ > self.occ_threshold:
-                #     continue
-
 
 
             self.latest_gts.append([float(p) for p in box.center])

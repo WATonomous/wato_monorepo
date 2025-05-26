@@ -111,7 +111,10 @@ class NuscViz:
 
         # Nusc stuff
         if nu is None:
-            self.nusc = NuScenes(version='v1.0-mini', dataroot=os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes"), verbose=True)
+            data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
+            with open(os.path.join(data_path, "dataset_name.txt"), 'r') as f:
+                self.dataset_name = f.readline().rstrip('\n')
+            self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
         else:
             self.nusc = nu
         
