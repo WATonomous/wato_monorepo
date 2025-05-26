@@ -23,7 +23,8 @@ setup(
             'tracker_node = tracking.tracker:main',
             't_node = tracking.tracker_nuscenes:main',
             'tracking_viz = tracking.tracking_visualizer:main',
-            'detection_publisher = tracking.detection_publisher:main'
+            'detection_publisher = tracking.detection_publisher:main',
+            'nusc_publisher = tracking.nuscenes_publisher:main'
         ],
     },
 )
