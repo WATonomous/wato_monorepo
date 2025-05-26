@@ -8,47 +8,95 @@ import cv2
 import os
 
 
+SELECTED_BOX_NAMES = [
+    'vehicle.motorcycle',
+    'movable_object.barrier',
+    'movable_object.pushable_pullable',
+    'human.pedestrian.adult',
+    'movable_object.trafficcone',
+    'vehicle.bicycle',
+    'vehicle.truck',
+    'vehicle.car',
+    'vehicle.bus.rigid',
+    'vehicle.construction',
+]
+
+COLORS = {
+    'RED' : (255, 0, 0),
+    'GREEN' : (0, 255, 0),
+    'BLUE' : (0, 0, 255),
+    'CYAN' : (0, 255, 255),
+    'YELLOW' : (255, 255, 0),
+    'PURPLE' : (148, 0, 211),
+    'PINK' : (255, 192, 203),
+    'GRAY' : (110, 110, 110),
+    'WHITE' : (255, 255, 255),
+    'BLACK' : (0, 0, 0),
+}
+
+BBOX_COLORS = {
+    'vehicle.motorcycle' : 'BLACK',
+    'movable_object.barrier' : 'GRAY',
+    'movable_object.pushable_pullable' : 'GRAY',
+    'human.pedestrian.adult' : 'CYAN',
+    'movable_object.trafficcone' : 'GRAY',
+    'vehicle.bicycle' : 'PURPLE',
+    'vehicle.truck' : 'GREEN',
+    'vehicle.car' : 'BLUE',
+    'vehicle.bus.rigid' : 'PINK',
+    'vehicle.construction' : 'YELLOW',
+}
+
+def lighten_color(col, amt=0.6):
+        new_col = []
+        for c in col:
+            new_col.append(c + (255 - c)*amt)
+        return tuple(new_col)
+        
+LIGHT_COLORS = {c : lighten_color(COLORS[c]) for c in COLORS}
+
+def get_cv2_color(category_name, returnBGR = True):
+    try:
+        if category_name[0] == '_':
+            color = LIGHT_COLORS[BBOX_COLORS[category_name[1:]]]
+            color = COLORS['RED']
+        else:
+            color = COLORS[BBOX_COLORS[category_name]]
+    except KeyError:
+        color = COLORS['WHITE']
+
+    if returnBGR:
+        color = (color[2], color[1], color[0])
+    return color
+
+def get_sensor_info(nusc, sample, sensor_name):
+    info = {}
+    
+    info['token'] = sample['data'][sensor_name]
+    info['data'] = nusc.get('sample_data', info['token'])
+    info['ego'] = nusc.get('ego_pose', info['data']['ego_pose_token'])
+    info['cs'] = nusc.get('calibrated_sensor', info['data']['calibrated_sensor_token'])
+    if 'CAM' in sensor_name:
+        info['intrinsic'] = np.array(info['cs'][f'camera_intrinsic'])
+    return info
+
+# Helper function to apply 4x4 transform matrix to a Box
+def box_transform(box, transform):
+    """
+    Apply a 4x4 transform matrix to a Box.
+    Returns a new transformed Box.
+    """
+    translation = transform[:3, 3]
+    rotation = Quaternion(matrix=transform[:3, :3])
+    
+    new_box = box.copy()
+
+    new_box.rotate(rotation)
+    new_box.translate(translation)
+    return new_box
+
+
 class NuscViz:
-    SELECTED_BOX_NAMES = [
-        'vehicle.motorcycle',
-        'movable_object.barrier',
-        'movable_object.pushable_pullable',
-        'human.pedestrian.adult',
-        'movable_object.trafficcone',
-        'vehicle.bicycle',
-        'vehicle.truck',
-        'vehicle.car',
-        'vehicle.bus.rigid',
-        'vehicle.construction',
-    ]
-
-    COLORS = {
-        'RED' : (255, 0, 0),
-        'GREEN' : (0, 255, 0),
-        'BLUE' : (0, 0, 255),
-        'CYAN' : (0, 255, 255),
-        'YELLOW' : (255, 255, 0),
-        'PURPLE' : (148, 0, 211),
-        'PINK' : (255, 192, 203),
-        'GRAY' : (110, 110, 110),
-        'WHITE' : (255, 255, 255),
-        'BLACK' : (0, 0, 0),
-    }
-
-    BBOX_COLORS = {
-        'vehicle.motorcycle' : 'BLACK',
-        'movable_object.barrier' : 'GRAY',
-        'movable_object.pushable_pullable' : 'GRAY',
-        'human.pedestrian.adult' : 'CYAN',
-        'movable_object.trafficcone' : 'GRAY',
-        'vehicle.bicycle' : 'PURPLE',
-        'vehicle.truck' : 'GREEN',
-        'vehicle.car' : 'BLUE',
-        'vehicle.bus.rigid' : 'PINK',
-        'vehicle.construction' : 'YELLOW',
-    }
-
-
     def __init__(self, nu=None, cam_name="CAM_FRONT", w=1600, h=900, fps=5, bev_sz=800, bev_rg=40, vfmt="mp4", codec="mp4v"):
         # Video settings
         self.camera_name = cam_name
@@ -66,72 +114,20 @@ class NuscViz:
             self.nusc = NuScenes(version='v1.0-mini', dataroot=os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes"), verbose=True)
         else:
             self.nusc = nu
-
-        self.LIGHT_COLORS = {c : self.lighten_color(self.COLORS[c]) for c in self.COLORS}
         
-    def lighten_color(self, col, amt=0.6):
-        new_col = []
-        for c in col:
-            new_col.append(c + (255 - c)*amt)
-        return tuple(new_col)
-        
-    def get_cv2_color(self, category_name, returnBGR = True):
-        # color = (255, 255, 255)
-        # if 'pedestrian' in category_name:
-        #     color = (255, 0, 0) # RED
-        # elif 'truck' in category_name:
-        #     color = (0, 255, 0) # GREEN
-        # elif 'car' in category_name:
-        #     color = (0, 0, 255) # BLUE
-        # elif 'construction' in category_name:
-        #     color = (255, 255, 0) # YELLOW
-        # elif 'movable_object' in category_name:
-        #     color = (127, 127, 127) # LIGHT GREY
-        # else:
-        #     color = (255, 255, 255) # WHITE
-        try:
-            if category_name[0] == '_':
-                color = self.LIGHT_COLORS[self.BBOX_COLORS[category_name[1:]]]
-                color = self.COLORS['RED']
-            else:
-                color = self.COLORS[self.BBOX_COLORS[category_name]]
-        except KeyError:
-            color = self.COLORS['WHITE']
-
-        if returnBGR:
-            color = (color[2], color[1], color[0])
-        return color
-
-
-    # Helper function to apply 4x4 transform matrix to a Box
-    def box_transform(self, box, transform):
-        """
-        Apply a 4x4 transform matrix to a Box.
-        Returns a new transformed Box.
-        """
-        translation = transform[:3, 3]
-        rotation = Quaternion(matrix=transform[:3, :3])
-        
-        new_box = box.copy()
-
-        new_box.rotate(rotation)
-        new_box.translate(translation)
-        return new_box
+        self.sample = None
     
-    def get_transforms(self, cam_data, lidar_data):
+    def get_transforms(self, cam_info, lidar_info):
         # Extract data
-        cam_cs = self.nusc.get('calibrated_sensor', cam_data['calibrated_sensor_token'])
-        lidar_cs = self.nusc.get('calibrated_sensor', lidar_data['calibrated_sensor_token'])
-        
-        cam_pose = self.nusc.get('ego_pose', cam_data['ego_pose_token'])
-        lidar_pose = self.nusc.get('ego_pose', lidar_data['ego_pose_token'])
+        cam_pose = cam_info['ego']
+        lidar_pose = lidar_info['ego']
 
         # Camera transform matrices
         cam_global_to_ego = transform_matrix(cam_pose['translation'],
                                              Quaternion(cam_pose['rotation']),
                                              inverse=True)
-        ego_to_cam = transform_matrix(cam_cs['translation'],
-                                      Quaternion(cam_cs['rotation']),
+        ego_to_cam = transform_matrix(cam_info['cs']['translation'],
+                                      Quaternion(cam_info['cs']['rotation']),
                                       inverse=True)
         global_to_cam = ego_to_cam @ cam_global_to_ego
 
@@ -139,8 +135,8 @@ class NuscViz:
         lidar_global_to_ego = transform_matrix(lidar_pose['translation'],
                                                Quaternion(lidar_pose['rotation']),
                                                inverse=True)
-        ego_to_lidar = transform_matrix(lidar_cs['translation'],
-                                        Quaternion(lidar_cs['rotation']),
+        ego_to_lidar = transform_matrix(lidar_info['cs']['translation'],
+                                        Quaternion(lidar_info['cs']['rotation']),
                                         inverse=True)
         global_to_lidar = ego_to_lidar @ lidar_global_to_ego
 
@@ -155,22 +151,24 @@ class NuscViz:
         scene_name = scene['name']
         relative_index = 0
         sample_token = scene['first_sample_token']
-        sample = self.nusc.get('sample', sample_token)
+        self.sample = self.nusc.get('sample', sample_token)
 
         # Process samples in scene
         while sample_token != "":
-            sample = self.nusc.get('sample', sample_token)
-            self.process_sample(sample=sample, frame_index=relative_index, scene_name=scene_name)
-            sample_token = sample['next']
+            self.sample = self.nusc.get('sample', sample_token)
+            self.process_sample(sample=self.sample, frame_index=relative_index, scene_name=scene_name)
+            sample_token = self.sample['next']
             relative_index += 1
 
 
     def process_sample(self, sample=None, tracks=None, frame_index=-1, sample_token="", scene_name="NA", show_pc_on_cam=False):
         if sample is None:
             if frame_index >= 0:
-                sample = self.nusc.sample[frame_index]
+                self.sample = self.nusc.sample[frame_index]
             else:
-                sample = self.nusc.get('sample', sample_token)
+                self.sample = self.nusc.get('sample', sample_token)
+        else:
+            self.sample = sample
 
         # gt_boxes = []
         # for ann_token in sample['anns']:
@@ -193,16 +191,14 @@ class NuscViz:
                 tracked_boxes.append(b)
 
         # --- Get camera and lidar info ---
-        cam_token = sample['data'][self.camera_name]
-        lidar_token = sample['data']['LIDAR_TOP']
+        cam_info = get_sensor_info(self.nusc, self.sample, self.camera_name)
+        lidar_info = get_sensor_info(self.nusc, self.sample, 'LIDAR_TOP')
         
-        cam_data = self.nusc.get('sample_data', cam_token)
-        lidar_data = self.nusc.get('sample_data', lidar_token)
-        
-        cam_cs = self.nusc.get('calibrated_sensor', cam_data['calibrated_sensor_token'])
-        camera_intrinsic = np.array(cam_cs['camera_intrinsic'])
+        camera_intrinsic = cam_info['intrinsic']
 
-        global_to_cam, global_to_lidar, lidar_to_cam = self.get_transforms(cam_data, lidar_data)
+        cam_data = cam_info['data']
+        lidar_data = lidar_info['data']
+        global_to_cam, global_to_lidar, lidar_to_cam = self.get_transforms(cam_info, lidar_info)
 
         # Get ground truth bboxes (global frame)
         cam_gt_boxes = self.nusc.get_boxes(cam_data['token'])
@@ -210,7 +206,7 @@ class NuscViz:
 
         # --- Get underlying lidar image ---
         # Load point cloud
-        pc = LidarPointCloud.from_file(self.nusc.get_sample_data_path(lidar_token))
+        pc = LidarPointCloud.from_file(self.nusc.get_sample_data_path(lidar_info['token']))
 
         lidar_points = pc.points[:2, :]
         # Scale and shift lidar_points to image coordinates
@@ -223,7 +219,7 @@ class NuscViz:
             
         # --- Get underlying camera image ---
         # Load camera image
-        image_path = self.nusc.get_sample_data_path(cam_token)
+        image_path = self.nusc.get_sample_data_path(cam_info['token'])
         image = cv2.imread(image_path)
         #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         h, w, _ = image.shape
@@ -252,7 +248,7 @@ class NuscViz:
         for boxes in [lidar_gt_boxes, tracked_boxes]:
             for box in boxes:
                 # Transform box to lidar frame
-                lidar_box = self.box_transform(box, global_to_lidar)
+                lidar_box = box_transform(box, global_to_lidar)
 
                 # Get bottom corners of box to represent bev
                 corners = lidar_box.bottom_corners()[:2, :]  # shape (2,4)
@@ -263,7 +259,7 @@ class NuscViz:
                 y_pix = self.bev_img_size - y_pix  # flip y for image display
 
                 # Draw bounding box edges
-                color = self.get_cv2_color(box.name)
+                color = get_cv2_color(box.name)
                 for i in range(4):
                     pt1 = (x_pix[i], y_pix[i])
                     pt2 = (x_pix[(i + 1) % 4], y_pix[(i + 1) % 4])
@@ -280,7 +276,7 @@ class NuscViz:
             box_entries = [] # List of (box, projected_corners_2d, area)
             for box in boxes:
                 # Transform box to camera frame
-                cam_box = self.box_transform(box, global_to_cam)
+                cam_box = box_transform(box, global_to_cam)
                 
                 # Ignore boxes behind camera
                 if cam_box.center[2] <= 0:
@@ -320,8 +316,8 @@ class NuscViz:
 
         for top in top_boxes:
             for box, corners_2d, area in top:
-                color = self.get_cv2_color(box.name)
-                if box.name in self.SELECTED_BOX_NAMES or box.name[1:] in self.SELECTED_BOX_NAMES:
+                color = get_cv2_color(box.name)
+                if box.name in SELECTED_BOX_NAMES or box.name[1:] in SELECTED_BOX_NAMES:
                     # Draw label
                     cx = int(corners_2d[0].mean())
                     cy = int(corners_2d[1].mean())
