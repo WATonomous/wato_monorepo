@@ -7,10 +7,10 @@ from tracking_msgs.msg import TrackedObstacleList
 from std_msgs.msg import Header
 
 from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.geometry_utils import transform_matrix
+from nuscenes.utils.geometry_utils import view_points, transform_matrix
 from pyquaternion import Quaternion
 
-from nusc_viz_3d import NuscViz
+from nusc_viz_3d import NuscViz, box_transform, get_sensor_info
 from cv_bridge import CvBridge
 
 import numpy as np
@@ -84,7 +84,9 @@ class NuScenesPublisher(Node):
         self.sent = 0
         self.received = 0
 
-        self.pub_noise = True
+        self.pub_noise = False
+        self.simulate_occlusion = True
+        self.occ_threshold = 0.97
 
     def init_scene(self):
         self.scene = self.nusc.scene[self.scene_index]
@@ -126,13 +128,87 @@ class NuScenesPublisher(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = 'camera_frame'
 
+        cam_info = get_sensor_info(self.nusc, sample, 'CAM_FRONT')
+        boxes = [[box, None] for box in self.nusc.get_boxes(cam_info['data']['token'])]
+
+        if self.simulate_occlusion:
+            # front = {}
+            using = []
+
+            # Sort by absolute z diff from sensor
+            ego = cam_info['ego']
+            cs = cam_info['cs']
+            global_to_ego = transform_matrix(ego['translation'],
+                                               Quaternion(ego['rotation']),
+                                               inverse=True)
+            ego_to_cam = transform_matrix(cs['translation'],
+                                      Quaternion(cs['rotation']),
+                                      inverse=True)
+            global_to_cam = ego_to_cam @ global_to_ego
+
+            for b in boxes:
+                b[1] = box_transform(b[0], global_to_cam)
+            boxes = sorted(boxes, key=lambda x: abs(x[1].center[2] - x[1].wlh[1]/2))
+
         # todo: make publisher not publish ground truth
-        for ann_token in sample['anns']:
-            ann = self.nusc.get('sample_annotation', ann_token)
-            self.latest_gts.append([float(p) for p in ann['translation'][:3]])
+        for box_tuple in boxes:
+            box = box_tuple[0]
+            box_rel = box_tuple[1]
+
+            if self.simulate_occlusion:
+                cnrs = view_points(box_rel.corners(), cam_info['intrinsic'], normalize=True)
+                x1 = min(cnrs[0, 4:])
+                x2 = max(cnrs[0, 4:])
+                y1 = min(cnrs[1, 4:])
+                y2 = max(cnrs[1, 4:])
+
+                if box_rel.center[2] < 0 or not 0 <= (y1+y2)/2 < 900 or not 0 <= (x1+x2)/2 < 1600:
+                    continue
+
+                occed = False
+                for u in using:
+                    x3 = u[0]
+                    x4 = u[1]
+                    y3 = u[2]
+                    y4 = u[3]
+                    overlap = max(0, min(x2, x4) - max(x1, x3)) * max(0, min(y2, y4) - max(y1, y3))
+                    area = (x2 - x1) * (y2 - y1)
+
+                    percent_occ = overlap/area
+                    if percent_occ > self.occ_threshold:
+                        occed = True
+                        break
+                
+                if occed:
+                    continue
+                else:
+                    using.append([x1, x2, y1, y2])
+                
+                # tot_pts = 0
+                # occ_pts = 0
+                # cnrs = view_points(box_rel.corners(), cam_info['intrinsic'], normalize=True)
+                # x1 = round(min(cnrs[0]))
+                # y1 = round(min(cnrs[1]))
+                # x2 = round(max(cnrs[0]))
+                # y2 = round(max(cnrs[1]))
+                # for x in range(x1, x2 + 1):
+                #     for y in range(y1, y2 + 1):
+                #         print(x, y)
+                #         tot_pts += 1
+                #         if (x, y) in front:
+                #             occ_pts += 1
+                #         else:
+                #             front[(x, y)] = 1
+                # percent_occ = pcc/area
+                # if percent_occ > self.occ_threshold:
+                #     continue
+
+
+
+            self.latest_gts.append([float(p) for p in box.center])
 
             if self.pub_noise:
-                vol = ann['size'][0] * ann['size'][1] * ann['size'][2]
+                vol = box.wlh[0] * box.wlh[1] * box.wlh[2]
                 miss_chance = (1 - min(0.995, vol**(0.1)*0.72))/2
                 d_std = 0.2
                 s_std = 0.02
@@ -157,12 +233,12 @@ class NuScenesPublisher(Node):
 
             # Label and confidence
             hypo = ObjectHypothesisWithPose()
-            hypo.hypothesis.class_id = ann['category_name']
+            hypo.hypothesis.class_id = box.name
             hypo.hypothesis.score = 1.0  # nuScenes doesn't have scores
-            hypo.pose.pose.position.x = float(ann['translation'][0]) + xd
-            hypo.pose.pose.position.y = float(ann['translation'][1]) + yd
-            hypo.pose.pose.position.z = float(ann['translation'][2]) + zd
-            q = Quaternion(ann['rotation'])
+            hypo.pose.pose.position.x = float(box.center[0]) + xd
+            hypo.pose.pose.position.y = float(box.center[1]) + yd
+            hypo.pose.pose.position.z = float(box.center[2]) + zd
+            q = box.orientation
             hypo.pose.pose.orientation.x = q.x
             hypo.pose.pose.orientation.y = q.y
             hypo.pose.pose.orientation.z = q.z
@@ -174,9 +250,9 @@ class NuScenesPublisher(Node):
             bbox = BoundingBox3D()
             bbox.center.position = hypo.pose.pose.position
             bbox.center.orientation = hypo.pose.pose.orientation
-            bbox.size.x = float(ann['size'][0]) * xs
-            bbox.size.y = float(ann['size'][1]) * ys
-            bbox.size.z = float(ann['size'][2]) * zs
+            bbox.size.x = float(box.wlh[0]) * xs
+            bbox.size.y = float(box.wlh[1]) * ys
+            bbox.size.z = float(box.wlh[2]) * zs
 
             det.bbox = bbox
             msg.detections.append(det)
