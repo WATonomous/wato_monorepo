@@ -23,19 +23,30 @@ class NuScenesPublisher(Node):
     def __init__(self):
         super().__init__('nuscenes_publisher')
 
+        self.declare_parameter('det_topic', "detections")
+        self.declare_parameter('img_topic', '/annotated_image')
+        self.declare_parameter('track_topic', "tracked_obstacles")
+        
+        self.det_topic = self.get_parameter('det_topic').value
+        self.img_topic = self.get_parameter('img_topic').value
+        self.track_topic = self.get_parameter('track_topic').value
+
         self.bridge = CvBridge()
-        self.nusc_pub = self.create_publisher(Detection3DArray, 'detections', 10)
-        self.img_pub = self.create_publisher(Image, '/annotated_image', 10)
+        self.nusc_pub = self.create_publisher(Detection3DArray, self.det_topic, 10)
+        self.img_pub = self.create_publisher(Image, self.img_topic, 10)
         self.tracked_obstacles_sub = self.create_subscription(
-            TrackedObstacleList,  # Message type of the tracked obstacles
-            "tracked_obstacles",  # Topic name
+            TrackedObstacleList,
+            self.track_topic,
             self.tracked_obstacles_callback,
-            10  # Queue size
+            10
         )
 
         data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
         with open(os.path.join(data_path, "dataset_name.txt"), 'r') as f:
-            self.dataset_name = f.readline().rstrip('\n')
+            default_set = f.readline().rstrip('\n')
+        
+        self.declare_parameter('dataset_name', default_set)
+        self.dataset_name = self.get_parameter('dataset_name').value
 
         # Load nuScenes
         self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
@@ -47,7 +58,9 @@ class NuScenesPublisher(Node):
         self.scene_token = self.scene['token']
         self.sample_token = self.scene['first_sample_token']
         self.samples = []
-        self.timer_period = 1  # seconds
+
+        self.declare_parameter('timer_period', 1) # seconds
+        self.timer_period = self.get_parameter('timer_period').value
 
         self.timer = self.create_timer(self.timer_period, self.publish_next_sample)
 
@@ -88,9 +101,13 @@ class NuScenesPublisher(Node):
         self.sent = 0
         self.received = 0
 
-        self.pub_noise = True
-        self.simulate_occlusion = True
-        self.occ_threshold = 0.97
+        self.declare_parameter('pub_noise', True)
+        self.declare_parameter('simulate_occlusion', True)
+        self.declare_parameter('occ_threshold', 0.97)
+        
+        self.pub_noise = self.get_parameter('pub_noise').value
+        self.simulate_occlusion = self.get_parameter('simulate_occlusion').value
+        self.occ_threshold = self.get_parameter('occ_threshold').value
 
     def init_scene(self):
         self.scene = self.nusc.scene[self.scene_index]
