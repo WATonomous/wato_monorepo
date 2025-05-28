@@ -10,7 +10,7 @@ from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import view_points, transform_matrix
 from pyquaternion import Quaternion
 
-from nusc_viz_3d import NuscViz, box_transform, get_sensor_info
+from tracking.nusc_viz_3d import NuscViz, box_transform, get_sensor_info
 from cv_bridge import CvBridge
 
 import numpy as np
@@ -102,7 +102,7 @@ class NuScenesPublisher(Node):
         self.received = 0
 
         self.declare_parameter('pub_noise', False)
-        self.declare_parameter('simulate_occlusion', True)
+        self.declare_parameter('simulate_occlusion', False)
         self.declare_parameter('occ_threshold', 0.97)
         
         self.pub_noise = self.get_parameter('pub_noise').value
