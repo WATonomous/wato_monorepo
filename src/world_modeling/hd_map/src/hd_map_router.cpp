@@ -207,6 +207,20 @@ TrafficLightState HDMapRouter::get_traffic_light_state(
   return traffic_light_state;
 }
 
+// Helper function to determine pedestrian state based on lanelet
+PedestrianState HDMapRouter::determine_pedestrian_state(const lanelet::ConstLanelet& lanelet) {
+  PedestrianState state = PedestrianState::Unknown;
+  if (lanelet.hasAttribute("subtype")) {
+    std::string subtype = lanelet.attribute("subtype").value();
+    if (subtype == "crosswalk") {
+      state = PedestrianState::Crosswalk;
+    } else if (subtype == "sidewalk") {
+      state = PedestrianState::Sidewalk;
+    }
+  }
+  return state;
+}
+
 // Updating Reg Elements in HD Map
 
 void HDMapRouter::update_traffic_light(
@@ -331,20 +345,22 @@ void HDMapRouter::update_pedestrian(
   lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(
       bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
 
+  PedestrianState state = determine_pedestrian_state(nearest_lanelet);
+
   // Find the existing pedestrian regulatory element
   for (const auto& reg_elem : lanelet_ptr_->regulatoryElementLayer) {
     auto pedestrian_elem = std::dynamic_pointer_cast<PedestrianRegElem>(reg_elem);
     if (pedestrian_elem && pedestrian_elem->getId() == pedestrian_id) {
-      pedestrian_elem->updatePedestrian(new_pedestrian_bbox);
+      pedestrian_elem->updatePedestrian(new_pedestrian_bbox, state);
 
       // Re-associate the updated regulatory element with the appropriate lanelet if necessary
       lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
       mutable_lanelet.addRegulatoryElement(pedestrian_elem);
 
       RCLCPP_INFO(rclcpp::get_logger("hd_map_router"),
-                  "Updated pedestrian in the lanelet map: ID = %lu, New Position = (%f, %f, %f)",
+                  "Updated pedestrian in the lanelet map: ID = %lu, New Position = (%f, %f, %f), State = %d",
                   pedestrian_id, bbox.center.position.x, bbox.center.position.y,
-                  bbox.center.position.z);
+                  bbox.center.position.z, static_cast<int>(state));
       return;
     }
   }
@@ -445,7 +461,9 @@ void HDMapRouter::add_pedestrian(
   lanelet::ConstLanelet nearest_lanelet = get_nearest_lanelet_to_xyz(
       bbox.center.position.x, bbox.center.position.y, bbox.center.position.z);
 
-  auto pedestrian_reg_elem = PedestrianRegElem::make(new_pedestrian_bbox, pedestrian_id);
+  PedestrianState state = determine_pedestrian_state(nearest_lanelet);
+
+  auto pedestrian_reg_elem = PedestrianRegElem::make(new_pedestrian_bbox, state, pedestrian_id);
 
   // Add the regulatory element to the lanelet
   lanelet::Lanelet mutable_lanelet = lanelet_ptr_->laneletLayer.get(nearest_lanelet.id());
@@ -455,9 +473,9 @@ void HDMapRouter::add_pedestrian(
   lanelet_ptr_->add(pedestrian_reg_elem);
 
   RCLCPP_INFO(rclcpp::get_logger("hd_map_router"),
-              "Added pedestrian to the lanelet map: ID = %lu, Position = (%f, %f, %f)",
+              "Added pedestrian to the lanelet map: ID = %lu, Position = (%f, %f, %f), State = %d",
               pedestrian_id, bbox.center.position.x, bbox.center.position.y,
-              bbox.center.position.z);
+              bbox.center.position.z, static_cast<int>(state));
 }
 
 // Removing Reg Elements from HD Map

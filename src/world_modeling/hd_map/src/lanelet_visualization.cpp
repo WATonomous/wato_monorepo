@@ -136,6 +136,7 @@ visualization_msgs::msg::MarkerArray trafficSignsAsMakerArray(
 
 // TODO: finish and test pedestrian visualization
 
+
 visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
     std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems) {
   auto markerArray = visualization_msgs::msg::MarkerArray();
@@ -148,14 +149,36 @@ visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
        pedestrianRegElem != pedestrianRegElems.end(); ++pedestrianRegElem) {
     auto pedestrian = pedestrianRegElem->get();
     auto id = pedestrian->getId();
+    auto state = pedestrian->getState();
 
-    // TODO: get pedestrian state (crosswalks, sidewalks, etc)
-
+    // TODO: get pedestrian state (crosswalks, sidewalks, etc) (DONE)
+    
     // Mock color (to change or remove)
     auto pedElemColor = std_msgs::msg::ColorRGBA();
+    pedElemColor.a = 1.0;  // Full opacity
 
-    pedElemColor.r = 1;
-    pedElemColor.a = 1;
+    // Set color based on pedestrian state
+    switch (state) {
+      case PedestrianState::Crosswalk:
+        // Yellow for crosswalks
+        pedElemColor.r = 1.0;
+        pedElemColor.g = 1.0;
+        pedElemColor.b = 0.0;
+        break;
+      case PedestrianState::Sidewalk:
+        // Green for sidewalks
+        pedElemColor.r = 0.0;
+        pedElemColor.g = 1.0;
+        pedElemColor.b = 0.0;
+        break;
+      case PedestrianState::Unknown:
+      default:
+        // Gray for unknown states
+        pedElemColor.r = 0.5;
+        pedElemColor.g = 0.5;
+        pedElemColor.b = 0.5;
+        break;
+    }
 
     // Retrieving the polygon from parameters
     lanelet::ConstPolygon3d polygon = boost::get<lanelet::ConstPolygon3d>(
@@ -166,7 +189,8 @@ visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
     markerArray.markers.push_back(marker);
 
     RCLCPP_INFO(rclcpp::get_logger("lanelet_visualization"),
-                "Visualized pedestrian on hd map: ID = %i", id);
+                "Visualized pedestrian element on hd map: ID = %lu, State = %d", 
+                id, static_cast<int>(state));
   }
 
   return markerArray;
