@@ -3,10 +3,10 @@ import os
 from builtin_interfaces.msg import Time as TimeMsg
 import numpy as np
 
-from core.ab3dmot import AB3DMOT
-from core.utils import ros_utils
-from core.utils import geometry_utils
-from core.utils.config import cfg, cfg_from_yaml_file, log_config_to_file
+from tracking.core.ab3dmot import AB3DMOT
+from tracking.core.utils import ros_utils
+from tracking.core.utils import geometry_utils
+from tracking.core.utils.config import cfg, cfg_from_yaml_file, log_config_to_file
 
 import rclpy
 from rclpy.node import Node
@@ -88,7 +88,7 @@ class trackerNode(Node):
         self.detection_subscriber = self.create_subscription(Detection3DArray, 'detections', self.detection_callback, 10)
 
         self.tracked_obstacles_publisher = self.create_publisher(TrackedObstacleListMsg, 'tracked_obstacles', 10)
-
+        self.get_logger().info("Ready")
         # self.tracked_obstacles_timer = self.create_timer(1, self.publish_tracks)
 
     def reset(self):
@@ -143,8 +143,8 @@ class trackerNode(Node):
 
         result = self.track(detections, informations, frame_id, timestamp)
 
-        if result is not None:
-            self.get_logger().info(f"Tracked Objects: {result}")
+        # if result is not None:
+        #     self.get_logger().info(f"Tracked Objects: {result}")
         self.publish_tracks(1/0.8)
 
         # end_time = time.time()
