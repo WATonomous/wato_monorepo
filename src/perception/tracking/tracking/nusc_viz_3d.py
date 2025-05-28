@@ -7,6 +7,10 @@ from pyquaternion import Quaternion
 import cv2
 import os
 
+from ament_index_python.packages import get_package_share_directory
+
+#from tracking.dataset_name.nuscenes.dataset_name import dataset_name
+
 
 SELECTED_BOX_NAMES = [
     'vehicle.motorcycle',
@@ -119,9 +123,12 @@ class NuscViz:
 
         # Nusc stuff
         if nu is None:
-            data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
-            with open(os.path.join(data_path, "dataset_name.txt"), 'r') as f:
-                self.dataset_name = f.readline().rstrip('\n')
+            self.dataset_name = 'v1.0-mini' # default dataset
+            try:
+                with open(os.path.join(get_package_share_directory('tracking'), 'nusc_info', 'nuscenes_data_path.txt'), 'r') as f:
+                    data_path = f.readline().rstrip('\n')
+            except FileNotFoundError:
+                data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
             self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
         else:
             self.nusc = nu
@@ -349,9 +356,11 @@ class NuscViz:
         cv2.putText(bev, f"BEV: LIDAR_TOP + GT_BOX", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
         combined = np.hstack((image, bev))
-        cv2.imwrite(os.path.join(os.path.dirname(os.path.abspath(__file__)), "viz_frames", f"scene_{scene_name}_frame_{frame_index}_{self.camera_name}.png"), combined)
+        #todo: save to local from share dir
+        #cv2.imwrite(os.path.join(os.path.dirname(os.path.abspath(__file__)), "viz_frames", f"scene_{scene_name}_frame_{frame_index}_{self.camera_name}.png"), combined)
         frame = cv2.resize(combined, (self.video_width, self.video_height))
         # video_writer.write(frame)
+        #todo: get_logger
         print(f"Processed frame {frame_index} of scene {scene_name} for {self.camera_name}.")
         self.video_writer.write(frame)
         # --- Show the image ---
@@ -363,5 +372,6 @@ class NuscViz:
         return combined
 
     def save_frames_to_video(self):
-        self.video_writer.release()
+        #todo: save to local from share dir
+        #self.video_writer.release()
         print(f"Video saved as {self.video_name}")
