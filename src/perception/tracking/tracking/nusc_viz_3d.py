@@ -48,18 +48,26 @@ BBOX_COLORS = {
 }
 
 def lighten_color(col, amt=0.6):
-        new_col = []
-        for c in col:
-            new_col.append(c + (255 - c)*amt)
-        return tuple(new_col)
+    new_col = []
+    for c in col:
+        new_col.append(c + (255 - c)*amt)
+    return tuple(new_col)
+
+def opp_color(col):
+    new_col = []
+    for c in col:
+        new_col.append(255 - c)
+    return tuple(new_col)
         
 LIGHT_COLORS = {c : lighten_color(COLORS[c]) for c in COLORS}
+OPP_COLORS = {c : opp_color(COLORS[c]) for c in COLORS}
 
 def get_cv2_color(category_name, returnBGR = True):
     try:
         if category_name[0] == '_':
             color = LIGHT_COLORS[BBOX_COLORS[category_name[1:]]]
-            color = COLORS['RED']
+            color = OPP_COLORS[BBOX_COLORS[category_name[1:]]]
+            #color = COLORS['RED']
         else:
             color = COLORS[BBOX_COLORS[category_name]]
     except KeyError:
@@ -164,7 +172,7 @@ class NuscViz:
             relative_index += 1
 
 
-    def process_sample(self, sample=None, tracks=None, frame_index=-1, sample_token="", scene_name="NA", show_pc_on_cam=False):
+    def process_sample(self, boxes=None, sample=None, tracks=None, frame_index=-1, sample_token="", scene_name="NA", show_pc_on_cam=False):
         if sample is None:
             if frame_index >= 0:
                 self.sample = self.nusc.sample[frame_index]
@@ -206,7 +214,8 @@ class NuscViz:
         # Get ground truth bboxes (global frame)
         cam_gt_boxes = self.nusc.get_boxes(cam_data['token'])
         lidar_gt_boxes = self.nusc.get_boxes(lidar_data['token'])
-
+        # if boxes is not None:
+        #     lidar_gt_boxes = boxes
         # --- Get underlying lidar image ---
         # Load point cloud
         pc = LidarPointCloud.from_file(self.nusc.get_sample_data_path(lidar_info['token']))
@@ -308,7 +317,7 @@ class NuscViz:
                 box_entries.append((box, corners_2d, area))
 
             # Get bboxes with largest area
-            top_boxes.append(sorted(box_entries, key=lambda x: x[2], reverse=True)[:20])
+            top_boxes.append(sorted(box_entries, key=lambda x: x[2], reverse=True)[:10])
 
         # Vertices of each edge
         edge_idx = [
