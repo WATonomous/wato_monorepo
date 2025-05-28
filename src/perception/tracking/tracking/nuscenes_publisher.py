@@ -101,7 +101,7 @@ class NuScenesPublisher(Node):
         self.sent = 0
         self.received = 0
 
-        self.declare_parameter('pub_noise', True)
+        self.declare_parameter('pub_noise', False)
         self.declare_parameter('simulate_occlusion', True)
         self.declare_parameter('occ_threshold', 0.97)
         
@@ -151,13 +151,13 @@ class NuScenesPublisher(Node):
 
         cam_info = get_sensor_info(self.nusc, sample, 'CAM_FRONT')
         boxes = [[box, None] for box in self.nusc.get_boxes(cam_info['data']['token'])]
-
+        ego = cam_info['ego']
         if self.simulate_occlusion:
             # front = {}
             using = []
 
             # Sort by absolute z diff from sensor
-            ego = cam_info['ego']
+            
             cs = cam_info['cs']
             global_to_ego = transform_matrix(ego['translation'],
                                                Quaternion(ego['rotation']),
@@ -169,21 +169,23 @@ class NuScenesPublisher(Node):
 
             for b in boxes:
                 b[1] = box_transform(b[0], global_to_cam)
-            boxes = sorted(boxes, key=lambda x: abs(x[1].center[2] - x[1].wlh[1]/2))
+            boxes = sorted(boxes, key=lambda x: abs(x[1].center[2]))
 
         # todo: make publisher not publish ground truth (get real data)
+        # newb = []
         for box_tuple in boxes:
             box = box_tuple[0]
             box_rel = box_tuple[1]
 
             if self.simulate_occlusion:
-                cnrs = view_points(box_rel.corners(), cam_info['intrinsic'], normalize=True)
-                x1 = min(cnrs[0, 4:])
-                x2 = max(cnrs[0, 4:])
-                y1 = min(cnrs[1, 4:])
-                y2 = max(cnrs[1, 4:])
-
-                if box_rel.center[2] < 0 or not 0 <= (y1+y2)/2 < 900 or not 0 <= (x1+x2)/2 < 1600:
+                cnrs_3d = box_rel.corners()
+                cnrs = view_points(cnrs_3d, cam_info['intrinsic'], normalize=True)
+                x1 = min(cnrs[0])
+                x2 = max(cnrs[0])
+                y1 = min(cnrs[1])
+                y2 = max(cnrs[1])
+                
+                if box_rel.center[2] <= 0:
                     continue
 
                 occed = False
@@ -202,8 +204,8 @@ class NuScenesPublisher(Node):
                 
                 if occed:
                     continue
-                else:
-                    using.append([x1, x2, y1, y2])
+                elif min(cnrs_3d[2]) > 0:
+                    using.append([x1, x2, y1, y2, box.name])
 
 
             self.latest_gts.append([float(p) for p in box.center])
@@ -254,12 +256,21 @@ class NuScenesPublisher(Node):
             bbox.size.x = float(box.wlh[0]) * xs
             bbox.size.y = float(box.wlh[1]) * ys
             bbox.size.z = float(box.wlh[2]) * zs
-
+            # bx = box.copy()
+            # bx.center[0] = hypo.pose.pose.position.x
+            # bx.center[1] = hypo.pose.pose.position.y
+            # bx.center[2] = hypo.pose.pose.position.z
+            # bx.wlh[0] = bbox.size.x
+            # bx.wlh[1] = bbox.size.y
+            # bx.wlh[2] = bbox.size.z
+            # newb.append(bx)
             det.bbox = bbox
             msg.detections.append(det)
         # print(len(msg.detections))
         self.sent += 1
         self.sample_token = sample['next']
+
+        # self.viz.process_sample(sample=sample, boxes=newb, frame_index=self.received-1, scene_name=self.scene_name)
         
         self.get_logger().info(f"Published sample {self.sample_token} from scene {self.scene_index + 1}")
         self.nusc_pub.publish(msg)
