@@ -10,8 +10,8 @@ from launch_ros.actions import Node
 def generate_launch_description():
     """Launch tracking node."""
     tracking_pkg_prefix = get_package_share_directory('tracking')
-    tracking_param_file = os.path.join(tracking_pkg_prefix, 'config', 'mahalanobis.yaml')
-
+    tracking_param_file = os.path.join(tracking_pkg_prefix, 'config', 'tracking_params.yaml')
+    
     tracking_param = DeclareLaunchArgument(
         'tracking_param_file',
         default_value=tracking_param_file,
@@ -20,12 +20,14 @@ def generate_launch_description():
 
     tracking_node = Node(
         package='tracking',
+        name='tracker_node',
         executable='tracker_node',
         parameters=[LaunchConfiguration('tracking_param_file')]
     )
 
     nusc_node = Node(
         package='tracking',
+        name='nusc_publisher',
         executable='nusc_publisher',
         parameters=[LaunchConfiguration('tracking_param_file')]
     )
