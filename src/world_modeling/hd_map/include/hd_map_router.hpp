@@ -45,7 +45,7 @@ class HDMapRouter {
   lanelet::ConstLanelet get_nearest_lanelet_to_gps(lanelet::GPSPoint gps_point);
 
   lanelet::ConstLanelet get_nearest_lanelet_to_xy(float x, float y, float width_x, float height_y);
-  lanelet::ConstLanelet get_nearest_lanelet_to_xyz(float x, float y, float z);
+  lanelet::ConstLanelet get_nearest_lanelet_to_xyz(float x_center, float y_center, float z_center);
 
   lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::GPSPoint from_point,
                                                          lanelet::GPSPoint to_point);
@@ -64,15 +64,16 @@ class HDMapRouter {
       const vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg_ptr);
   void process_traffic_sign_msg(
       const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
-  void process_pedestrian_msg(const vision_msgs::msg::Detection3DArray::SharedPtr obstacle_msg_ptr);
+  void process_pedestrian_msg(
+      const vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg_ptr);
 
   void add_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
   void add_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
-  void add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
+  void add_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr);
 
   void update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr);
   void update_traffic_light(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
-  void update_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr obstacle_msg_ptr);
+  void update_pedestrian(const vision_msgs::msg::Detection3D::SharedPtr pedestrian_msg_ptr);
 
   void remove_traffic_light(uint64_t traffic_light_id);
   void remove_pedestrian(uint64_t pedestrian_id);
@@ -85,6 +86,8 @@ class HDMapRouter {
   std::unordered_set<uint64_t> traffic_sign_list_;
   std::unordered_set<uint64_t> traffic_light_list_;
   std::unordered_set<uint64_t> pedestrian_list_;
+
+  PedestrianState determine_pedestrian_state(const lanelet::ConstLanelet& lanelet);
 };
 
 #endif
