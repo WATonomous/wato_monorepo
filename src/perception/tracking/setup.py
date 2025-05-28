@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'nuscenes-devkit'],
     zip_safe=True,
     maintainer='kishoreyogaraj',
     maintainer_email='kishore.yogaraj@gmail.com',

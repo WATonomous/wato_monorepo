@@ -12,7 +12,11 @@
   <depend>vision_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tracking_msgs</depend>
+  <depend>cv-bridge</depend>
   <exec_depend>tf_transformations</exec_depend>
+  <exec_depend>nuscenes-devkit</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
