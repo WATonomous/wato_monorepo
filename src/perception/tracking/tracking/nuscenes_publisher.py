@@ -5,12 +5,14 @@ from vision_msgs.msg import Detection3DArray, Detection3D, ObjectHypothesisWithP
 from geometry_msgs.msg import PoseWithCovariance
 from tracking_msgs.msg import TrackedObstacleList
 from std_msgs.msg import Header
+from ament_index_python.packages import get_package_share_directory
 
 from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import view_points, transform_matrix
 from pyquaternion import Quaternion
 
 from tracking.nusc_viz_3d import NuscViz, box_transform, get_sensor_info
+#from tracking.dataset_tracking.nuscenes.dataset_name import dataset_name
 from cv_bridge import CvBridge
 
 import numpy as np
@@ -41,13 +43,14 @@ class NuScenesPublisher(Node):
             10
         )
 
-        data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
-        with open(os.path.join(data_path, "dataset_name.txt"), 'r') as f:
-            default_set = f.readline().rstrip('\n')
-        
-        self.declare_parameter('dataset_name', default_set)
+        self.declare_parameter('dataset_name', 'v1.0-mini')
         self.dataset_name = self.get_parameter('dataset_name').value
 
+        try:
+            with open(os.path.join(get_package_share_directory('tracking'), 'nusc_info', 'nuscenes_data_path.txt'), 'r') as f:
+                data_path = f.readline().rstrip('\n')
+        except FileNotFoundError:
+            data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
         # Load nuScenes
         self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
         self.viz = NuscViz(self.nusc)

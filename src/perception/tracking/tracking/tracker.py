@@ -13,6 +13,7 @@ from rclpy.node import Node
 from rclpy.time import Time
 from rclpy.duration import Duration
 from rclpy.exceptions import ROSInterruptException
+from ament_index_python.packages import get_package_share_directory
 
 from std_msgs.msg import Header, Bool
 from vision_msgs.msg import Detection3DArray, Detection3D, ObjectHypothesisWithPose, BoundingBox3D
@@ -324,7 +325,13 @@ class trackerNode(Node):
 def main (args=None):
     rclpy.init(args=args)
     node = rclpy.create_node('parameter_node')
-    node.declare_parameter("config_path", os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "mahalanobis.yaml"))) #Used to change type of matching algorithm to be used
+    try:
+        with open(os.path.join(get_package_share_directory('tracking'), "config", "mahalanobis.yaml"), 'r') as nobihs:
+            pass
+    except FileNotFoundError:
+        node.declare_parameter("config_path", os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "mahalanobis.yaml")))
+    else:
+        node.declare_parameter("config_path", os.path.join(get_package_share_directory('tracking'), "config", "mahalanobis.yaml")) #Used to change type of matching algorithm to be used
     node.declare_parameter('publish_frequency', 10)
     config_path = node.get_parameter('config_path').get_parameter_value().string_value
     publish_frequency = node.get_parameter('publish_frequency').get_parameter_value().double_value
