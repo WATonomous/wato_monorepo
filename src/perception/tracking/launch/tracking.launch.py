@@ -20,11 +20,18 @@ def generate_launch_description():
 
     tracking_node = Node(
         package='tracking',
-        executable='tracking_node',
-        parameters=[LaunchConfiguration('tracking_param_file')],
+        executable='tracker_node',
+        parameters=[LaunchConfiguration('tracking_param_file')]
+    )
+
+    nusc_node = Node(
+        package='tracking',
+        executable='nusc_publisher',
+        parameters=[LaunchConfiguration('tracking_param_file')]
     )
 
     return LaunchDescription([
         tracking_param,
-        tracking_node
+        tracking_node,
+        nusc_node
     ])
