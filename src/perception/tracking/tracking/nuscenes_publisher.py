@@ -11,7 +11,7 @@ from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import view_points, transform_matrix
 from pyquaternion import Quaternion
 
-from tracking.nusc_viz_3d import NuscViz, box_transform, get_sensor_info
+from tracking.core.nusc_viz_3d import NuscViz, box_transform, get_sensor_info
 #from tracking.dataset_tracking.nuscenes.dataset_name import dataset_name
 from cv_bridge import CvBridge
 
