@@ -23,7 +23,7 @@
 ##	 - deploy (default)		:	runs production-grade containers (non-editable)
 ##	 - develop   		    :	runs developer containers (editable)
 
-MODE_OF_OPERATION="develop"
+# MODE_OF_OPERATION=""
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
