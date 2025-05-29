@@ -117,9 +117,16 @@ class NuscViz:
         self.bev_img_size = bev_sz
         self.bev_range = bev_rg # meters in each direction
 
+        # Video stuff
+        try:
+            with open(os.path.join(get_package_share_directory('tracking'), 'nusc_info', 'nuscenes_data_path.txt'), 'r') as f:
+                self.save_dir = os.path.abspath(os.path.join(f.readline().rstrip('\n'), '..', '..'))
+        except FileNotFoundError:
+            self.save_dir = os.path.dirname(os.path.abspath(__file__))
+
         fourcc = cv2.VideoWriter_fourcc(*codec)
         self.video_name = f"video_{self.camera_name}.{vfmt}"
-        self.video_writer = cv2.VideoWriter(self.video_name, fourcc, fps, (self.video_width, self.video_height))
+        self.video_writer = cv2.VideoWriter(os.path.join(self.save_dir, self.video_name), fourcc, fps, (self.video_width, self.video_height))
 
         # Nusc stuff
         if nu is None:
@@ -134,6 +141,7 @@ class NuscViz:
             self.nusc = nu
         
         self.sample = None
+
     
     def get_transforms(self, cam_info, lidar_info):
         # Extract data
@@ -356,8 +364,7 @@ class NuscViz:
         cv2.putText(bev, f"BEV: LIDAR_TOP + GT_BOX", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
         combined = np.hstack((image, bev))
-        #todo: save to local from share dir
-        #cv2.imwrite(os.path.join(os.path.dirname(os.path.abspath(__file__)), "viz_frames", f"scene_{scene_name}_frame_{frame_index}_{self.camera_name}.png"), combined)
+        cv2.imwrite(os.path.join(self.save_dir, "viz_frames", f"scene_{scene_name}_frame_{frame_index}_{self.camera_name}.png"), combined)
         frame = cv2.resize(combined, (self.video_width, self.video_height))
         # video_writer.write(frame)
         #todo: get_logger
@@ -372,6 +379,5 @@ class NuscViz:
         return combined
 
     def save_frames_to_video(self):
-        #todo: save to local from share dir
-        #self.video_writer.release()
+        self.video_writer.release()
         print(f"Video saved as {self.video_name}")
