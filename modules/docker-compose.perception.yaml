@@ -29,12 +29,15 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [ gpu ]
-    command: /bin/bash -c "ros2 launch camera_object_detection eve.launch.py"
+    command: /bin/bash -c "ros2 launch camera_object_detection nuscenes_launch.py"
     volumes:
       - /mnt/wato-drive2/perception_models/yolov8m.pt:/perception_models/yolov8m.pt
       - /mnt/wato-drive2/perception_models/traffic_light.pt:/perception_models/traffic_light.pt
       - /mnt/wato-drive2/perception_models/traffic_signs_v0.pt:/perception_models/traffic_signs_v1.pt
-
+      - /mnt/wato-drive2/perception_models/tensorRT.onnx:/perception_models/tensorRT.onnx
+      - /mnt/wato-drive2/perception_models/tensorRT.engine:/perception_models/tensorRT.engine
+      - /mnt/wato-drive2/perception_models/eve.onnx:/perception_models/eve.onnx
+      
   lidar_object_detection:
     build:
       context: ..
@@ -44,7 +47,9 @@ services:
         - "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch lidar_object_detection lidar_object_detection.launch.py"
+    command: /bin/bash -c "ros2 launch lidar_object_detection nuscenes_launch.py"
+    volumes:
+      - /mnt/wato-drive2/perception_models/transfusion_trained_model.pth:/home/bolty/OpenPCDet/models/transfusion_trained_model.pth
 
   semantic_segmentation:
     build:
@@ -55,17 +60,16 @@ services:
         - "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch semantic_segmentation semantic_segmentation.launch.py"
-    volumes: 
-      - /mnt/wato-drive/perception/segformer-b2:/home/bolty/ament_ws/src/semantic_segmentation/resource/model
-          # add gpus all
+    command: /bin/bash -c "ros2 launch semantic_segmentation eve.launch.py"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              capabilities: [gpu]
               count: 1
+              capabilities: [ gpu ]
+    volumes: 
+      - /mnt/wato-drive2/perception-weights/semantic_segmentation/pp_liteseg_infer_model:/perception_models/semantic_segmentation/pp_liteseg_infer_model
 
   lane_detection:
     build:
@@ -96,7 +100,7 @@ services:
         - "${PERCEPTION_TRACKING_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch tracking tracking.launch.py"
+    command: /bin/bash -c "ros2 launch dets_2d_3d dets_2d_3d.launch.py"
     
   depth_estimation:
     build:
@@ -107,4 +111,16 @@ services:
         - "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:build_main"
       target: deploy
     image: "${PERCEPTION_DEPTH_ESTIMATION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch depth_estimation eve.launch.py"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+    command: /bin/bash -c "ros2 launch depth_estimation depth_estimation.launch.py"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    volumes:
+      - /mnt/wato-drive2/perception_models/depth_anything_v2_large.pth:/perception_models/depth_anything_v2_large.pth
+      - /mnt/wato-drive2/perception_models/depth_anything_v2_small.pth:/perception_models/depth_anything_v2_small.pth
