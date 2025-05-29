@@ -1,23 +1,12 @@
-left_camera_object_detection_node:
+eve_camera_object_detection:
   ros__parameters:
-    camera_topic: /camera/left/image_color
+    camera_topic: /right_camera/image_color
+    center_camera_topic: /front_camera/image_color
+    left_camera_topic: /left_camera/image_color
     publish_vis_topic: /camera/left/camera_detections_viz
     publish_detection_topic: /camera/left/camera_detections
     model_path: /perception_models/yolov8m.pt
     image_size: 1024
+    compressed: true
+    nuscenes: false
 
-center_camera_object_detection_node:
-  ros__parameters:
-    camera_topic: /camera/center/image_color
-    publish_vis_topic: /camera/center/camera_detections_viz
-    publish_detection_topic: /camera/center/camera_detections
-    model_path: /perception_models/yolov8m.pt
-    image_size: 1024
-
-right_camera_object_detection_node:
-  ros__parameters:
-    camera_topic: /camera/right/image_color
-    publish_vis_topic: /camera/right/camera_detections_viz
-    publish_detection_topic: /camera/right/camera_detections
-    model_path: /perception_models/yolov8m.pt
-    image_size: 1024

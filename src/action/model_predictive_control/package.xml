@@ -7,10 +7,15 @@
   <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
   <license>TODO: License declaration</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_python</buildtool_depend>
+  
+  <depend>rclpy</depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>path_planning_msgs</exec_depend>
 
-
+  <exec_depend>python3-yaml</exec_depend>
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>

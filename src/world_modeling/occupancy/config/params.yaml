@@ -1,0 +1,7 @@
+occupancy_node:
+  ros__parameters:
+    version: 1
+    subscription_topic: /nonground_points
+    publish_topic: /costmap
+    resolution: 3 # resolution in cells/m
+  

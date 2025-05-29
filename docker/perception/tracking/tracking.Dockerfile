@@ -8,6 +8,9 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code 
 COPY src/perception/tracking tracking
 COPY src/wato_msgs/perception_msgs/tracking_msgs tracking_msgs
+COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
+
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -24,7 +27,15 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg libsm6 libxext6 wget \
-    ros-${ROS_DISTRO}-cv-bridge
+    ros-${ROS_DISTRO}-cv-bridge \
+    build-essential \
+    gcc \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev
+
+# Install scipy separately
+RUN python3 -m pip install scipy
 
 # Install python packages
 COPY src/perception/tracking/requirements.txt requirements.txt
@@ -33,8 +44,12 @@ RUN rm requirements.txt
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+RUN apt-get update
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 RUN apt install ros-$ROS_DISTRO-tf-transformations -y
+
+# install opencv
+RUN apt-get install -y libopencv-dev
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
