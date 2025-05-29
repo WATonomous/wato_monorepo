@@ -33,6 +33,22 @@ class NuScenesPublisher(Node):
         self.img_topic = self.get_parameter('img_topic').value
         self.track_topic = self.get_parameter('track_topic').value
 
+        self.declare_parameter('dataset_name', 'v1.0-mini')
+        self.dataset_name = self.get_parameter('dataset_name').value
+
+        try:
+            with open(os.path.join(get_package_share_directory('tracking'), 'nusc_info', 'nuscenes_data_path.txt'), 'r') as f:
+                data_path = f.readline().rstrip('\n')
+        except FileNotFoundError:
+            data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
+        # Load nuScenes
+        try:
+            self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
+        except Exception:
+            self.get_logger().info(f"Error: dataset {self.dataset_name} not found / could not be loaded, stopping nuscenes node")
+            return
+        self.viz = NuscViz(self.nusc)
+
         self.bridge = CvBridge()
         self.nusc_pub = self.create_publisher(Detection3DArray, self.det_topic, 10)
         self.img_pub = self.create_publisher(Image, self.img_topic, 10)
@@ -43,17 +59,6 @@ class NuScenesPublisher(Node):
             10
         )
 
-        self.declare_parameter('dataset_name', 'v1.0-mini')
-        self.dataset_name = self.get_parameter('dataset_name').value
-
-        try:
-            with open(os.path.join(get_package_share_directory('tracking'), 'nusc_info', 'nuscenes_data_path.txt'), 'r') as f:
-                data_path = f.readline().rstrip('\n')
-        except FileNotFoundError:
-            data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
-        # Load nuScenes
-        self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
-        self.viz = NuscViz(self.nusc)
         # Get the first scene
         self.scene_index = 0
         self.scene = self.nusc.scene[self.scene_index]
