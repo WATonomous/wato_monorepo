@@ -20,6 +20,7 @@ RUN apt-get -qq update && rosdep update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirror.math.princeton.edu/pub/ubuntu|g' /etc/apt/sources.list
 
 # Install pip
 RUN apt-get update && apt-get install -y \
@@ -34,7 +35,6 @@ RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-cv-bridge \
     ros-${ROS_DISTRO}-tf-transformations \
     ros-${ROS_DISTRO}-pcl-conversions
-
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

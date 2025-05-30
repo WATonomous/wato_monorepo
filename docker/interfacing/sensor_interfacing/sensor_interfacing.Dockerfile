@@ -23,6 +23,9 @@ RUN sudo apt update -y
 RUN sudo apt upgrade -y
 RUN sudo apt-get install ros-humble-novatel-oem7-driver -y
 
+# Camera and LiDAR ROS Driver
+
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
