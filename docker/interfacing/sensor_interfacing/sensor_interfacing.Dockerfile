@@ -21,7 +21,13 @@ FROM ${BASE_IMAGE} as dependencies
 
 RUN sudo apt update -y
 RUN sudo apt upgrade -y
+
+# GPS Driver
 RUN sudo apt-get install ros-humble-novatel-oem7-driver -y
+
+# Camera and LiDAR ROS2 Driver
+RUN apt update && apt install -y ros-$ROS_DISTRO-spinnaker-camera-driver ros-$ROS_DISTRO-velodyne
+RUN apt install -y ros-$ROS_DISTRO-rviz2 ros-$ROS_DISTRO-image-proc
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -35,6 +41,14 @@ COPY --from=source ${AMENT_WS}/src src
 WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
+
+# Enable X11 Forwarding
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository universe && \
+    apt-get update && \
+    apt-get install -qqy x11-apps
+
 ################################ Build ################################
 FROM dependencies as build
 
