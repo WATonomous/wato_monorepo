@@ -14,6 +14,7 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            publish_autopilot_arg,
             launch_ros.actions.Node(
                 namespace="carla_sample_node",
                 package='carla_sample_node',
