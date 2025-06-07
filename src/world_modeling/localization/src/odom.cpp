@@ -6,7 +6,10 @@ WheelOdometry::WheelOdometry()
   this->declare_parameter<std::string>("right_wheel_topic", std::string("/motor_encoder_right"));
   this->declare_parameter<std::string>("steering_topic", std::string("/steering_angle"));
   this->declare_parameter<std::string>("odom_output_topic", std::string("/bicycle_model_output"));
+
+  this->declare_parameter<std::string>("ego_output_topic", std::string("/carla/ego/vehicle_status"));
   this->declare_parameter<double>("wheel_base", 2.65);
+  this->declare_parameter<double>("max_steer_angle", 1.221730351448059); // in degrees
   this->declare_parameter<int>("odom_publish_rate", 10);
 
   auto left_motor_topic_ = this->get_parameter("left_wheel_topic").as_string();
@@ -14,7 +17,12 @@ WheelOdometry::WheelOdometry()
   auto steering_topic_ = this->get_parameter("steering_topic").as_string();
   auto calculated_odom_ = this->get_parameter("odom_output_topic").as_string();
   auto odom_publish_rate = this->get_parameter("odom_publish_rate").as_int();
+
+  auto ego_output_topic = this->get_parameter("ego_output_topic").as_string();
+  
+
   wheel_base_ = this->get_parameter("wheel_base").as_double();
+  max_steer_angle_ = this->get_parameter("max_steer_angle").as_double();
 
   leftrear_wheel_motor_encoder = this->create_subscription<std_msgs::msg::Float64>(
       left_motor_topic_, 10,
@@ -26,7 +34,11 @@ WheelOdometry::WheelOdometry()
 
   steering_angle_sub = this->create_subscription<std_msgs::msg::Float64>(
       steering_topic_, 10,
-      [this](const std_msgs::msg::Float64::SharedPtr msg) { steering_angle = msg->data; });
+      [this](const std_msgs::msg::Float64::SharedPtr msg) { steering_angle_ = msg->data; });
+
+  // Carla sim test 
+  vehicle_status_sub_ = this->create_subscription<carla_msgs::msg::CarlaEgoVehicleStatus>(
+    ego_output_topic, 10, std::bind(&WheelOdometry::vehicleStatusCallback, this, std::placeholders::_1));
 
   publisher_ = this->create_publisher<nav_msgs::msg::Odometry>(calculated_odom_, 10);
 
@@ -34,16 +46,38 @@ WheelOdometry::WheelOdometry()
                                    std::bind(&WheelOdometry::bicycleModel, this));
 }
 
+void WheelOdometry::vehicleStatusCallback(const carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg) {
+  RCLCPP_INFO(this->get_logger(), "Received vehicle status!");
+  velocity_ = msg->velocity;
+  steering_angle_ = msg->control.steer * max_steer_angle_; // 1.221730351448059 from carla vehicle wheel status
+}
+
+// left and right wheel speed not available
+
 void WheelOdometry::bicycleModel() {
-  double linear_velocity = (left_wheel_speed + right_wheel_speed) / 2.0;
-  double angular_velocity = linear_velocity * tan(steering_angle) / wheel_base_;
+  // double linear_velocity = (left_wheel_speed + right_wheel_speed) / 2.0;
+  // double angular_velocity = linear_velocity * tan(steering_angle) / wheel_base_;
+
+  // auto current_time = this->now();
+  // double delta_t = (current_time - previous_time_).seconds();
+  // previous_time_ = current_time;
+
+  // x_ += linear_velocity * cos(theta_) * delta_t;
+  // y_ += linear_velocity * sin(theta_) * delta_t;
+  // theta_ += angular_velocity * delta_t;
+
+  // Carla sim data
+
+  // RCLCPP_INFO(this->get_logger(), "Publishing: velocity=%.2f, steering_angle=%.2f", velocity_, steering_angle_);
+
+  double angular_velocity = velocity_ * tan(steering_angle_) / wheel_base_;
 
   auto current_time = this->now();
   double delta_t = (current_time - previous_time_).seconds();
   previous_time_ = current_time;
 
-  x_ += linear_velocity * cos(theta_) * delta_t;
-  y_ += linear_velocity * sin(theta_) * delta_t;
+  x_ += velocity_ * cos(theta_) * delta_t;
+  y_ += velocity_ * sin(theta_) * delta_t;
   theta_ += angular_velocity * delta_t;
 
   auto odom_message = nav_msgs::msg::Odometry();
@@ -56,7 +90,7 @@ void WheelOdometry::bicycleModel() {
   odom_message.pose.pose.position.y = y_;
   odom_message.pose.pose.position.z = 0.0;
 
-  odom_message.twist.twist.linear.x = linear_velocity;
+  odom_message.twist.twist.linear.x = velocity_;
   odom_message.twist.twist.angular.z = angular_velocity;
 
   RCLCPP_DEBUG(this->get_logger(), "Publishing: x=%.2f, y=%.2f, theta=%.2f", x_, y_, theta_);

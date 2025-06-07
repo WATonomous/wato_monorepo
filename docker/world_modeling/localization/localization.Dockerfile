@@ -7,6 +7,10 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/world_modeling/localization localization
+COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
+
+# Carla specific messages
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
