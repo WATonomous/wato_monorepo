@@ -15,19 +15,6 @@ services:
     ports:
       - "${FOXGLOVE_BRIDGE_PORT:?}:${FOXGLOVE_BRIDGE_PORT:?}"
 
-  # vnc:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/infrastructure/vnc/vnc.Dockerfile
-  #     cache_from:
-  #       - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}:build_${TAG}"
-  #       - "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}:build_main"
-  #   image: "${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:?}:${TAG}"
-  #   ports:
-  #     - "${GUI_TOOLS_VNC_PORT:?}:5900"
-  #   environment:
-  #     - VNC_PORT=${GUI_TOOLS_VNC_PORT:?}
-
   data_stream:
     build:
       context: ..
