@@ -13,10 +13,11 @@
 # limitations under the License.
 
 import rclpy
+import cv2
 from rclpy.node import Node
 
-from sample_msgs.msg import Unfiltered, Filtered, FilteredArray
-from anomaly_detection.anomaly_core import AnomalyCore
+from sensor_msgs.msg import Image, CompressedImage, PointCloud2
+#from anomaly_detection_msgs.msg import Anomaly
 
 
 class Anomaly(Node):
@@ -24,60 +25,31 @@ class Anomaly(Node):
     def __init__(self):
         super().__init__('Anomaly_Node_Init')
         # Declare and get the parameters
-        self.declare_parameter('version', 1)
-        self.declare_parameter('compression_method', 0)
-        self.declare_parameter('buffer_capacity', 5)
+        self.declare_parameter("model_path")
+        #self.declare_parameter("model_config_path")
+        self.declare_parameter("camera_topic", "/camera/right/image_color")
+        self.declare_parameter("lidar_topic", "/velodyne_points")
+        self.model_path = self.get_parameter("model_path").value
+        #self.model_config_path = self.get_parameter("model_config_path").value
+        self.lidar_data = self.get_parameter("lidar_topic").value
+        self.camera_data = self.get_parameter("camera_topic").value
 
-        self.__buffer_capacity = self.get_parameter('buffer_capacity') \
-            .get_parameter_value().integer_value
-
+        # self.__buffer_capacity = self.get_parameter('buffer_capacity') \
+        #     .get_parameter_value().integer_value
         # Initialize Anomaly Core Logic for Deserialization
-        self.__anomaly = AnomalyCore()
+        # self.__anomaly = AnomalyCore()
 
-        # Initialize ROS2 Constructs
-        self.publisher_ = self.create_publisher(FilteredArray, '/filtered_topic', 10)
+        # Pubs and Subs
+        #self.publisher_ = self.create_publisher(Anomaly, '/anomaly', 10)
         self.subscription = self.create_subscription(
-            Unfiltered, '/unfiltered_topic', self.unfiltered_callback, 10)
+            Image, self.camera_data, self.camera_callback, 10)
+        self.subscription = self.create_subscription(
+            PointCloud2, self.lidar_data, self.lidar_callback, 10)
 
-        self.__filtered_array_packets = []
-
-    def unfiltered_callback(self, msg):
-        if not self.check_msg_validity(msg):
-            self.get_logger().info('INVALID MSG')
-            return
-
-        # Init message object
-        filtered_msg = Filtered()
-
-        # Populate message object
-        filtered_msg.pos_x, filtered_msg.pos_y, filtered_msg.pos_z = self.__anomaly \
-            .deserialize_data(msg.data)
-        filtered_msg.timestamp = msg.timestamp
-        filtered_msg.metadata.version = self.get_parameter('version') \
-            .get_parameter_value().integer_value
-        filtered_msg.metadata.compression_method = self.get_parameter('compression_method') \
-            .get_parameter_value().integer_value
-
-        # We send off a list of Filtered Messages (a message made of messages!)
-        if self.populate_packet(filtered_msg):
-            return
-
-        # If we reach the buffer capacity, publish the filtered packets
-        filtered_array_msg = FilteredArray()
-        filtered_array_msg.packets = self.__filtered_array_packets
-
-        self.get_logger().info('Buffer Capacity Reached. PUBLISHING...')
-        self.publisher_.publish(filtered_array_msg)
-
-        # clear packets for next round of messages
-        self.__filtered_array_packets.clear()
-
-    def populate_packet(self, filtered_msg):
-        self.__filtered_array_packets.append(filtered_msg)
-        return len(self.__filtered_array_packets) <= self.__buffer_capacity
-
-    def check_msg_validity(self, msg):
-        return msg.valid
+    def lidar_callback(self, msg):
+        pass
+    def camera_callback(self, msg):
+        pass
 
 
 def main(args=None):

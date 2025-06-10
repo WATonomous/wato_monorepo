@@ -1,6 +1,6 @@
-transformer_node:
+Anomaly_Node_Init:
   ros__parameters:
-    buffer_capacity: 6
-    
-    version: 1
-    compression_method: 0
+    lidar_topic: /velodyne_points
+    camera_topic: /camera/right/image_color
+    # model_config_path: /home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml
+    model_path: /mnt/wato-drive2/perception-weights/anomaly_detection/anomaly_vae.pth

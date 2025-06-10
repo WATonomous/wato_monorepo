@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/perception/anomaly_detection anomaly_detection
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/perception_msgs/anomaly_detection_msgs anomaly_detection_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -15,6 +15,9 @@ RUN apt-get -qq update && rosdep update && \
         | grep 'apt-get install' \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
+
+# Add pip
+RUN echo " python3-pip" >> /tmp/colcon_install_list
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
@@ -35,6 +38,11 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies as build
 
+# Install Python dependencies
+WORKDIR ${AMENT_WS}/src/depth_estimation
+COPY src/perception/depth_estimation/requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \

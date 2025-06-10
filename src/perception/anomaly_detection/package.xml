@@ -7,6 +7,9 @@
   <maintainer email="lereljic@watonomous.ca">lereljic</maintainer>
   <license>TODO: License declaration</license>
 
+  <depend>sensor_msgs</depend>
+  <depend>anomaly_detection_msgs</depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
