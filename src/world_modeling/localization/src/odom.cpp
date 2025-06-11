@@ -1,7 +1,7 @@
 #include "odom.hpp"
 
 WheelOdometry::WheelOdometry()
-    : Node("odom"), x_(0.0), y_(0.0), theta_(0.0), previous_time_(this->now()) {
+    : Node("odom"), x_(0.0), y_(0.0), theta_(0.0) {
   this->declare_parameter<std::string>("left_wheel_topic", std::string("/motor_encoder_left"));
   this->declare_parameter<std::string>("right_wheel_topic", std::string("/motor_encoder_right"));
   this->declare_parameter<std::string>("steering_topic", std::string("/steering_angle"));
@@ -9,7 +9,7 @@ WheelOdometry::WheelOdometry()
 
   this->declare_parameter<std::string>("ego_output_topic", std::string("/carla/ego/vehicle_status"));
   this->declare_parameter<double>("wheel_base", 2.65);
-  this->declare_parameter<double>("max_steer_angle", 1.221730351448059); // in degrees
+  this->declare_parameter<double>("max_steer_angle", 35); // apparently 1.221730351448059 degrees (not radians from docs) from carla, i don't think it is right
   this->declare_parameter<int>("odom_publish_rate", 10);
 
   auto left_motor_topic_ = this->get_parameter("left_wheel_topic").as_string();
@@ -47,9 +47,9 @@ WheelOdometry::WheelOdometry()
 }
 
 void WheelOdometry::vehicleStatusCallback(const carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg) {
-  RCLCPP_INFO(this->get_logger(), "Received vehicle status!");
+  // RCLCPP_INFO(this->get_logger(), "Received vehicle status!");
   velocity_ = msg->velocity;
-  steering_angle_ = msg->control.steer * max_steer_angle_; // 1.221730351448059 from carla vehicle wheel status
+  steering_angle_ = msg->control.steer * max_steer_angle_ * M_PI / 180;
 }
 
 // left and right wheel speed not available
@@ -72,17 +72,33 @@ void WheelOdometry::bicycleModel() {
 
   double angular_velocity = velocity_ * tan(steering_angle_) / wheel_base_;
 
-  auto current_time = this->now();
-  double delta_t = (current_time - previous_time_).seconds();
-  previous_time_ = current_time;
+  double velocity_x = velocity_ * cos(theta_);
+  double velocity_y = velocity_ * sin(theta_);
 
-  x_ += velocity_ * cos(theta_) * delta_t;
-  y_ += velocity_ * sin(theta_) * delta_t;
-  theta_ += angular_velocity * delta_t;
+  // auto current_time = this->now();
+  // double delta_t = (current_time - previous_time_).seconds();
+  // previous_time_ = current_time;
+
+  if (last_stamp_ == rclcpp::Time(0, 0, RCL_ROS_TIME)) {
+    return;                                 // haven’t received a status yet
+  }
+
+  double delta_t = (last_stamp_ - prev_stamp_).seconds();
+  if (delta_t <= 0.0) {
+    return;                                 // ignore duplicate or out-of-order stamps
+  }
+  prev_stamp_ = last_stamp_;
+
+  x_ += velocity_x * delta_t;
+  y_ += velocity_y * delta_t;
+  theta_ += angular_velocity * delta_t; // in rads
+
+  auto quaternion = tf2::Quaternion();
+  quaternion.setRPY(0.0, 0.0, theta_);
 
   auto odom_message = nav_msgs::msg::Odometry();
 
-  odom_message.header.stamp = current_time;
+  odom_message.header.stamp = last_stamp_;
   odom_message.header.frame_id = "odom";
   odom_message.child_frame_id = "base_link";
 
@@ -90,10 +106,17 @@ void WheelOdometry::bicycleModel() {
   odom_message.pose.pose.position.y = y_;
   odom_message.pose.pose.position.z = 0.0;
 
-  odom_message.twist.twist.linear.x = velocity_;
+  odom_message.pose.pose.orientation.x = quaternion.x();
+  odom_message.pose.pose.orientation.y = quaternion.y();
+  odom_message.pose.pose.orientation.z = quaternion.z();
+
+  odom_message.twist.twist.linear.x = velocity_x;
+  odom_message.twist.twist.linear.y = velocity_y;
   odom_message.twist.twist.angular.z = angular_velocity;
 
-  RCLCPP_DEBUG(this->get_logger(), "Publishing: x=%.2f, y=%.2f, theta=%.2f", x_, y_, theta_);
+  RCLCPP_INFO(this->get_logger(),  "Publishing: x=%.2f, y=%.2f, θ=%.2f (Δt=%.3f s)",
+              x_, y_, theta_, delta_t);
+              
   publisher_->publish(odom_message);
 }
 

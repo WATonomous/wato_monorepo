@@ -17,6 +17,7 @@ find_package(std_msgs REQUIRED)      # ROS2 Messages
 find_package(nav_msgs REQUIRED)
 find_package(path_planning_msgs REQUIRED)
 find_package(carla_msgs REQUIRED)
+find_package(tf2 REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -36,7 +37,8 @@ ament_target_dependencies(odom_lib
   nav_msgs
   rclcpp
   path_planning_msgs
-  carla_msgs)
+  carla_msgs
+  tf2)
 
 # Create ROS2 node executable from source files
 
