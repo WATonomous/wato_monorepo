@@ -39,17 +39,30 @@ WheelOdometry::WheelOdometry()
   // Carla sim test 
   vehicle_status_sub_ = this->create_subscription<carla_msgs::msg::CarlaEgoVehicleStatus>(
     ego_output_topic, 10, std::bind(&WheelOdometry::vehicleStatusCallback, this, std::placeholders::_1));
+  
+  ground_truth_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+    "/carla/ego/odometry", 10, [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+      if (!ground_truth_initialized_) {
+        x_ = msg->pose.pose.position.x;
+        y_ = msg->pose.pose.position.y;
+        theta_ = msg->pose.pose.orientation.z;
+        ground_truth_initialized_ = true;
+      }
+    });
 
   publisher_ = this->create_publisher<nav_msgs::msg::Odometry>(calculated_odom_, 10);
 
   timer_ = this->create_wall_timer(std::chrono::milliseconds(odom_publish_rate),
                                    std::bind(&WheelOdometry::bicycleModel, this));
+
+  ground_truth_initialized_ = false;
 }
 
 void WheelOdometry::vehicleStatusCallback(const carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg) {
   // RCLCPP_INFO(this->get_logger(), "Received vehicle status!");
   velocity_ = msg->velocity;
   steering_angle_ = msg->control.steer * max_steer_angle_ * M_PI / 180;
+  last_stamp_ = msg->header.stamp;
 }
 
 // left and right wheel speed not available

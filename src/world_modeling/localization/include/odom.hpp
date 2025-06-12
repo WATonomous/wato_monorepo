@@ -32,6 +32,8 @@ class WheelOdometry : public rclcpp::Node {
 
   // Carla sim data
   rclcpp::Subscription<carla_msgs::msg::CarlaEgoVehicleStatus>::SharedPtr vehicle_status_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ground_truth_sub_;
+
   rclcpp::Time last_stamp_{0, 0, RCL_ROS_TIME};
   rclcpp::Time prev_stamp_{0, 0, RCL_ROS_TIME};
 
@@ -50,6 +52,8 @@ class WheelOdometry : public rclcpp::Node {
   double x_;
   double y_;
   double theta_;
+
+  bool ground_truth_initialized_;
 
   // rclcpp::Time previous_time_;
 };
