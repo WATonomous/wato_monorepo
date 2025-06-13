@@ -1,0 +1,6 @@
+pure_pursuit_controller:
+  ros__parameters:
+    buffer_capacity: 6
+    
+    version: 1
+    compression_method: 0

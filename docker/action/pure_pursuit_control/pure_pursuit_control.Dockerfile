@@ -5,14 +5,11 @@ FROM ${BASE_IMAGE} as source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code 
-# COPY src/action/local_planning local_planning
-# COPY src/wato_msgs/sample_msgs sample_msgs
+# Copy in source code
+COPY src/action/pure_pursuit_control pure_pursuit_control
 COPY src/wato_msgs/simulation sim_msgs
-COPY src/action/model_predictive_control model_predictive_control
 
-
-# Copy in CARLA messages
+# Clone CARLA message definitions
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
 
 # Scan for rosdeps
@@ -20,20 +17,20 @@ RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
     | grep 'apt-get install' \
     | awk '{print $3}' \
-    | sort  > /tmp/colcon_install_list
+    | sort > /tmp/colcon_install_list
 
-################################# Dependencies ################################
+################################ Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-# Install Rosdep requirements
+# Install rosdep dependencies
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
-# Copy in source code from source stage
+# Copy in source code
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
 
-# Dependency Cleanup
+# Clean up unnecessary cache
 WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
@@ -41,32 +38,19 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies as build
 
-# Install pip
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    ffmpeg libsm6 libxext6 wget
-
-# Install python packages
-COPY src/action/model_predictive_control/requirements.txt requirements.txt
-RUN python3 -m pip install -r requirements.txt
-RUN rm requirements.txt
-
-
-# Build ROS2 packages
+# Build C++ ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    colcon build 
-    # --symlink-install
+    colcon build
 
-# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
+# Set up entrypoint
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build as deploy
 
-# Source Cleanup and Security Setup
+# Clean source files for final image
 RUN chown -R $USER:$USER ${AMENT_WS}
 RUN rm -rf src/*
 

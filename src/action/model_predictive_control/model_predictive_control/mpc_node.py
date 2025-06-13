@@ -25,7 +25,6 @@ from model_predictive_control.mpc_core import MPCCore
 
 # For extracting theta from w in quaternion
 
-
 class MPCNode(Node):
     def __init__(self):
         super().__init__('MPCNode')
