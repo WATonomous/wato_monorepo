@@ -4,12 +4,12 @@ services:
   foxglove:
     build:
       context: ..
-      dockerfile: docker/infrastructure/foxglove/foxglove.Dockerfile
+      dockerfile: docker/infrastructure/infrastructure.Dockerfile
       cache_from:
-        - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:build_${TAG}"
-        - "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:build_main"
+        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
       target: deploy
-    image: "${INFRASTRUCTURE_FOXGLOVE_IMAGE:?}:${TAG}"
+    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     # command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=${FOXGLOVE_BRIDGE_PORT:?}"]
     command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} && fg"
     ports:
@@ -18,12 +18,12 @@ services:
   data_stream:
     build:
       context: ..
-      dockerfile: docker/infrastructure/data_stream/data_stream.Dockerfile
+      dockerfile: docker/infrastructure/infrastructure.Dockerfile
       cache_from:
-        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:build_${TAG}"
-        - "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:build_main"
+        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
       target: deploy
-    image: "${INFRASTRUCTURE_DATA_STREAM_IMAGE:?}:${TAG}"
+    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     volumes:
       - /mnt/wato-drive2/nuscenes_mcap/ros2bags:/home/bolty/ament_ws/nuscenes
       - /mnt/wato-drive2/rosbags2:/home/bolty/ament_ws/rosbags2

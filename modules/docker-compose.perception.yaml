@@ -1,16 +1,16 @@
 version: "3.8"
 
 services:
-  radar_object_detection:
+  perception_bringup:
     build:
       context: ..
-      dockerfile: docker/perception/radar_object_detection/radar_object_detection.Dockerfile
+      dockerfile: docker/perception/perception.Dockerfile
       cache_from:
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_main"
+        - "${PERCEPTION_IMAGE:?}:build_${TAG}"
+        - "${PERCEPTION_IMAGE:?}:build_main"
       target: deploy
-    image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    command: /bin/bash -c "ros2 launch radar_object_detection radar_object_detection.launch.py"
+    image: "${PERCEPTION_IMAGE:?}:${TAG}"
+    command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
 
   camera_object_detection:
     build:

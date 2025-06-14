@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/interfacing/can_interfacing can_interfacing
-COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/interfacing/sensor_interfacing sensor_interfacing
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
