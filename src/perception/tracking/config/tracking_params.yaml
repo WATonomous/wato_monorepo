@@ -1,0 +1,22 @@
+tracker_node:
+  ros__parameters:
+    max_age: 6
+    min_hits: 2
+    reference_frame: camera_frame
+    default_distance_threshold: 3
+    velocity_filter_constant: 5.0
+    velocity_prediction_horizon: 0.5
+    prediction_resolution: 0.5
+    prediction_length: 4.0
+
+nusc_publisher:
+  ros__parameters:
+    det_topic: detections
+    img_topic: /annotated_image
+    track_topic: tracked_obstacles
+    dataset_name: v1.0-mini
+    timer_period: 1
+    pub_noise: False
+    simulate_occlusion: False
+    occ_threshold: 0.97
+    
