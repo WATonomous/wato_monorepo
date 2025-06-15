@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection3DArray, Detection3D, ObjectHypothesisWithPose, BoundingBox3D
-from geometry_msgs.msg import PoseWithCovariance
+# from geometry_msgs.msg import PoseWithCovariance
 from tracking_msgs.msg import TrackedObstacleList
 from std_msgs.msg import Header
 from ament_index_python.packages import get_package_share_directory
@@ -12,14 +12,15 @@ from nuscenes.utils.geometry_utils import view_points, transform_matrix
 from pyquaternion import Quaternion
 
 from tracking.core.nusc_viz_3d import NuscViz, box_transform, get_sensor_info
-#from tracking.dataset_tracking.nuscenes.dataset_name import dataset_name
+# from tracking.dataset_tracking.nuscenes.dataset_name import dataset_name
 from cv_bridge import CvBridge
 
-import numpy as np
-import time
+# import numpy as np
+# import time
 import os
-import json
+# import json
 from random import gauss, uniform
+
 
 class NuScenesPublisher(Node):
     def __init__(self):
@@ -28,7 +29,7 @@ class NuScenesPublisher(Node):
         self.declare_parameter('det_topic', "detections")
         self.declare_parameter('img_topic', '/annotated_image')
         self.declare_parameter('track_topic', "tracked_obstacles")
-        
+
         self.det_topic = self.get_parameter('det_topic').value
         self.img_topic = self.get_parameter('img_topic').value
         self.track_topic = self.get_parameter('track_topic').value
@@ -37,15 +38,32 @@ class NuScenesPublisher(Node):
         self.dataset_name = self.get_parameter('dataset_name').value
 
         try:
-            with open(os.path.join(get_package_share_directory('tracking'), 'nusc_info', 'nuscenes_data_path.txt'), 'r') as f:
-                data_path = f.readline().rstrip('\n')
+            with open(
+                os.path.join(
+                    get_package_share_directory("tracking"),
+                    "nusc_info",
+                    "nuscenes_data_path.txt",
+                ),
+                "r",
+            ) as f:
+                data_path = f.readline().rstrip("\n")
         except FileNotFoundError:
-            data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset_tracking", "nuscenes")
+            data_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "dataset_tracking",
+                "nuscenes",
+            )
         # Load nuScenes
         try:
-            self.nusc = NuScenes(version=self.dataset_name, dataroot=os.path.join(data_path, f"{self.dataset_name}_data"), verbose=True)
+            self.nusc = NuScenes(
+                version=self.dataset_name,
+                dataroot=os.path.join(data_path, f"{self.dataset_name}_data"),
+                verbose=True,
+            )
         except Exception:
-            self.get_logger().info(f"Error: dataset {self.dataset_name} not found / could not be loaded, stopping nuscenes node")
+            self.get_logger().info(
+                f"Error: dataset {self.dataset_name} not found / could not be loaded, stopping nuscenes node"  # noqa: E501
+            )
             return
         self.viz = NuscViz(self.nusc)
 
@@ -67,14 +85,19 @@ class NuScenesPublisher(Node):
         self.sample_token = self.scene['first_sample_token']
         self.samples = []
 
-        self.declare_parameter('timer_period', 1) # seconds
+        self.declare_parameter('timer_period', 1)  # seconds
         self.timer_period = self.get_parameter('timer_period').value
 
         self.timer = self.create_timer(self.timer_period, self.publish_next_sample)
 
-        self.results = {"results": {}, "meta": {"use_camera": True,
-                                                "use_lidar": True,
-                                                "use_radar": False,}}
+        self.results = {
+            "results": {},
+            "meta": {
+                "use_camera": True,
+                "use_lidar": True,
+                "use_radar": False,
+            },
+        }
 
         # surjective
         self.name_convert = {
@@ -112,7 +135,7 @@ class NuScenesPublisher(Node):
         self.declare_parameter('pub_noise', False)
         self.declare_parameter('simulate_occlusion', False)
         self.declare_parameter('occ_threshold', 0.97)
-        
+
         self.pub_noise = self.get_parameter('pub_noise').value
         self.simulate_occlusion = self.get_parameter('simulate_occlusion').value
         self.occ_threshold = self.get_parameter('occ_threshold').value
@@ -132,10 +155,10 @@ class NuScenesPublisher(Node):
             #     self.init_scene()
             #     print(f"Scene {self.scene_index + 1} loaded")
             #     return
-            
+
             if self.received < self.sent:
                 return
-                
+
             self.get_logger().info("No more samples.")
             # print((self.acc_error/self.num_data_pts)**0.5)
             self.viz.save_frames_to_video()
@@ -165,14 +188,14 @@ class NuScenesPublisher(Node):
             using = []
 
             # Sort by absolute z diff from sensor
-            
+
             cs = cam_info['cs']
-            global_to_ego = transform_matrix(ego['translation'],
-                                               Quaternion(ego['rotation']),
-                                               inverse=True)
-            ego_to_cam = transform_matrix(cs['translation'],
-                                      Quaternion(cs['rotation']),
-                                      inverse=True)
+            global_to_ego = transform_matrix(
+                ego["translation"], Quaternion(ego["rotation"]), inverse=True
+            )
+            ego_to_cam = transform_matrix(
+                cs["translation"], Quaternion(cs["rotation"]), inverse=True
+            )
             global_to_cam = ego_to_cam @ global_to_ego
 
             for b in boxes:
@@ -192,7 +215,7 @@ class NuScenesPublisher(Node):
                 x2 = max(cnrs[0])
                 y1 = min(cnrs[1])
                 y2 = max(cnrs[1])
-                
+
                 if box_rel.center[2] <= 0:
                     continue
 
@@ -202,19 +225,20 @@ class NuScenesPublisher(Node):
                     x4 = u[1]
                     y3 = u[2]
                     y4 = u[3]
-                    overlap = max(0, min(x2, x4) - max(x1, x3)) * max(0, min(y2, y4) - max(y1, y3))
+                    overlap = max(0, min(x2, x4) - max(x1, x3)) * max(
+                        0, min(y2, y4) - max(y1, y3)
+                    )
                     area = (x2 - x1) * (y2 - y1)
 
                     percent_occ = overlap/area
                     if percent_occ > self.occ_threshold:
                         occed = True
                         break
-                
+
                 if occed:
                     continue
                 elif min(cnrs_3d[2]) > 0:
                     using.append([x1, x2, y1, y2, box.name])
-
 
             self.latest_gts.append([float(p) for p in box.center])
 
@@ -278,11 +302,12 @@ class NuScenesPublisher(Node):
         self.sent += 1
         self.sample_token = sample['next']
 
-        # self.viz.process_sample(sample=sample, boxes=newb, frame_index=self.received-1, scene_name=self.scene_name)
-        
-        self.get_logger().info(f"Published sample {self.sample_token} from scene {self.scene_index + 1}")
+        # self.viz.process_sample(sample=sample, boxes=newb, frame_index=self.received-1, scene_name=self.scene_name)  # noqa: E501
+
+        self.get_logger().info(
+            f"Published sample {self.sample_token} from scene {self.scene_index + 1}"
+        )
         self.nusc_pub.publish(msg)
-        
 
     def tracked_obstacles_callback(self, msg: TrackedObstacleList):
         # viz
@@ -291,44 +316,69 @@ class NuScenesPublisher(Node):
 
         if self.received - 1 >= 0:
             # Append frame to video and also save as png
-            cv_img = self.viz.process_sample(sample=self.samples[self.received-1], tracks=msg, frame_index=self.received-1, scene_name=self.scene_name)
+            cv_img = self.viz.process_sample(
+                sample=self.samples[self.received - 1],
+                tracks=msg,
+                frame_index=self.received - 1,
+                scene_name=self.scene_name,
+            )
             # Pub image for goxglove
             img_msg = self.bridge.cv2_to_imgmsg(cv_img, encoding="bgr8")
             self.get_logger().info("Published image")
             self.img_pub.publish(img_msg)
-        
+
         # Update results dict
         self.results["results"][self.scene_token] = []
         for trk_ob in msg.tracked_obstacles:
             ob = trk_ob.obstacle
-            self.latest_trks.append([ob.pose.pose.position.x, ob.pose.pose.position.y, ob.pose.pose.position.z])
+            self.latest_trks.append(
+                [
+                    ob.pose.pose.position.x,
+                    ob.pose.pose.position.y,
+                    ob.pose.pose.position.z,
+                ]
+            )
             if ob.label == "filler":
                 self.latest_trks[-1] = None
                 continue
             try:
                 trk_name = self.name_convert[ob.label]
             except KeyError:
-                with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), "keys.txt"), 'a') as f:
+                with open(
+                    os.path.join(
+                        os.path.abspath(os.path.dirname(__file__)), "keys.txt"
+                    ),
+                    "a",
+                ) as f:
                     f.write(ob.label + "\n")
                 trk_name = "bicycle"
 
-            self.results["results"][self.scene_token].append({"sample_token": self.sample_token,
-                                                              "translation": [ob.pose.pose.position.x,
-                                                                              ob.pose.pose.position.y,
-                                                                              ob.pose.pose.position.z],
-                                                              "size": [ob.width_along_x_axis,
-                                                                       ob.depth_along_z_axis,
-                                                                       ob.height_along_y_axis],
-                                                              "rotation": [ob.pose.pose.orientation.w,
-                                                                           ob.pose.pose.orientation.x,
-                                                                           ob.pose.pose.orientation.y,
-                                                                           ob.pose.pose.orientation.z],
-                                                              "velocity": [ob.twist.twist.linear.x,
-                                                                           ob.twist.twist.linear.z],
-                                                              "tracking_id": ob.object_id,
-                                                              "tracking_name": trk_name,
-                                                              "tracking_score": ob.confidence})
-            
+            self.results["results"][self.scene_token].append(
+                {
+                    "sample_token": self.sample_token,
+                    "translation": [
+                        ob.pose.pose.position.x,
+                        ob.pose.pose.position.y,
+                        ob.pose.pose.position.z,
+                    ],
+                    "size": [
+                        ob.width_along_x_axis,
+                        ob.depth_along_z_axis,
+                        ob.height_along_y_axis,
+                    ],
+                    "rotation": [
+                        ob.pose.pose.orientation.w,
+                        ob.pose.pose.orientation.x,
+                        ob.pose.pose.orientation.y,
+                        ob.pose.pose.orientation.z,
+                    ],
+                    "velocity": [ob.twist.twist.linear.x, ob.twist.twist.linear.z],
+                    "tracking_id": ob.object_id,
+                    "tracking_name": trk_name,
+                    "tracking_score": ob.confidence,
+                }
+            )
+
         # for i in range(len(self.latest_trks)):
         #     if i < len(self.latest_gts) and self.latest_trks[i] != None:
         #         for j in range(3):
@@ -343,6 +393,7 @@ def main(args=None):
 
     node.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

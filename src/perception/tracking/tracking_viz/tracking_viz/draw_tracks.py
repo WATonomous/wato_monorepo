@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-import os
+# import os
 
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import Image, CameraInfo
@@ -17,7 +17,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 
-import time
+# import time
 from collections import deque
 from multiprocessing import Lock
 from scipy.spatial.transform import Rotation
@@ -122,7 +122,12 @@ class DrawBasicDetections(Node):
         self.destroy_subscription(self.camera_info_subscription)
 
     def try_draw(self):
-        if not self.unprocessed_images or not self.unprocessed_dets or self.transform is None or self.camera_info is None:
+        if (
+            not self.unprocessed_images
+            or not self.unprocessed_dets
+            or self.transform is None
+            or self.camera_info is None
+        ):
             return
 
         with mutex:
@@ -135,7 +140,7 @@ class DrawBasicDetections(Node):
             self.get_logger().error(str(e))
             return
 
-        self.get_logger().info(f"PROCESSING IMAGE + DET3D...")
+        self.get_logger().info("PROCESSING IMAGE + DET3D...")
 
         for det_msg in det_3d_msg.detections:
             bbox = det_msg.bbox
@@ -182,9 +187,12 @@ class DrawBasicDetections(Node):
 
             # draw edges
             for i in range(4):
-                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, 10)  # face 1
-                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, 10)  # face 2
-                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, 10)  # connect faces
+                # face 1
+                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, 10)
+                # face 2
+                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, 10)
+                # connect faces
+                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, 10)
 
         self.publish_viz(image, image_msg)
 

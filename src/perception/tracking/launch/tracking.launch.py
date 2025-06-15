@@ -11,7 +11,7 @@ def generate_launch_description():
     """Launch tracking node."""
     tracking_pkg_prefix = get_package_share_directory('tracking')
     tracking_param_file = os.path.join(tracking_pkg_prefix, 'config', 'tracking_params.yaml')
-    
+
     tracking_param = DeclareLaunchArgument(
         'tracking_param_file',
         default_value=tracking_param_file,

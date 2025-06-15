@@ -11,7 +11,7 @@ def generate_launch_description():
     """Launch nuscenes publisher node."""
     nusc_pkg_prefix = get_package_share_directory('tracking')
     nusc_param_file = os.path.join(nusc_pkg_prefix, 'config', 'tracking_params.yaml')
-    
+
     nusc_param = DeclareLaunchArgument(
         'nusc_param_file',
         default_value=nusc_param_file,

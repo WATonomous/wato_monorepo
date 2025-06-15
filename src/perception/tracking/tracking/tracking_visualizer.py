@@ -1,11 +1,14 @@
 import rclpy
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
-from tracking_msgs.msg import TrackedObstacleList  # Update this if your custom message name differs
+# Update this if your custom message name differs
+from tracking_msgs.msg import TrackedObstacleList
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge
 import numpy as np
 import cv2
+
+
 class ObjectTrackingVisualizer(Node):
     def __init__(self):
         super().__init__("object_tracking_visualizer")
@@ -30,6 +33,7 @@ class ObjectTrackingVisualizer(Node):
         self.bridge = CvBridge()
         self.latest_image = None
         self.latest_tracked_obstacles = None
+
     def image_callback(self, msg: CompressedImage):
         """Store and convert the latest compressed image frame."""
         try:
@@ -40,6 +44,7 @@ class ObjectTrackingVisualizer(Node):
             self.latest_image = self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
         except Exception as e:
             self.get_logger().error(f"Failed to decode compressed image: {e}")
+
     def tracked_obstacles_callback(self, msg: TrackedObstacleList):
         """Process the tracked obstacles to generate markers and update the image."""
         self.latest_tracked_obstacles = msg
@@ -47,6 +52,7 @@ class ObjectTrackingVisualizer(Node):
         self.generate_markers(msg)
         # Annotate the camera image with bounding boxes and IDs
         self.annotate_image_with_bounding_boxes()
+
     def generate_markers(self, msg: TrackedObstacleList):
         """Generate markers for visualizing bounding boxes in 3D."""
         marker_array = MarkerArray()
@@ -82,7 +88,8 @@ class ObjectTrackingVisualizer(Node):
             text_marker.type = Marker.TEXT_VIEW_FACING
             text_marker.action = Marker.ADD
             text_marker.pose = pose
-            text_marker.pose.position.z += dimensions.depth_along_z_axis + 0.5  # Position text above the box
+            # Position text above the box
+            text_marker.pose.position.z += dimensions.depth_along_z_axis + 0.5
             text_marker.scale.z = 0.5  # Text height
             text_marker.color.r = 1.0
             text_marker.color.g = 0.0
@@ -94,6 +101,7 @@ class ObjectTrackingVisualizer(Node):
             marker_array.markers.append(text_marker)
         # Publish the MarkerArray
         self.marker_pub.publish(marker_array)
+
     def annotate_image_with_bounding_boxes(self):
         """Annotate the latest image with bounding boxes and IDs."""
         if self.latest_image is None or self.latest_tracked_obstacles is None:
@@ -107,7 +115,8 @@ class ObjectTrackingVisualizer(Node):
             # self.get_logger().info(
             #     f"Obstacle ID {tracked_obstacle.obstacle.object_id}: "
             #     f"Pose ({pose.position.x}, {pose.position.y}, {pose.position.z}), "
-            #     f"Dimensions (WxH: {dimensions.width_along_x_axis}x{dimensions.height_along_y_axis})"
+            #     f"Dimensions (WxH: {dimensions.width_along_x_axis}x"
+            #     f"{dimensions.height_along_y_axis})"
             # )
             # Assuming you have projection logic for 3D to 2D (replace this with actual projection)
             # Placeholder coordinates for now:
@@ -116,7 +125,9 @@ class ObjectTrackingVisualizer(Node):
                 int(pose.position.x + dimensions.width_along_x_axis),
                 int(pose.position.y + dimensions.height_along_y_axis),
             )
-            self.get_logger().info(f"Bounding box: Top-left {top_left}, Bottom-right {bottom_right}")
+            self.get_logger().info(
+                f"Bounding box: Top-left {top_left}, Bottom-right {bottom_right}"
+            )
             # Draw the bounding box
             cv2.rectangle(cv_image, top_left, bottom_right, (0, 255, 0), 2)
             # Annotate with the ID
@@ -127,11 +138,15 @@ class ObjectTrackingVisualizer(Node):
         annotated_image_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
         # Publish the annotated image
         self.image_pub.publish(annotated_image_msg)
+
+
 def main(args=None):
     rclpy.init(args=args)
     visualizer = ObjectTrackingVisualizer()
     rclpy.spin(visualizer)
     visualizer.destroy_node()
     rclpy.shutdown()
+
+
 if __name__ == "__main__":
     main()

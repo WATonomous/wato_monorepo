@@ -1,9 +1,11 @@
 from typing import Optional
 
+
 class Bbox3d:
-    def __init__(self, x, y, z, rz, w, l, h, cls="UNKNOWN"):
+    def __init__(self, x, y, z, rz, w, l, h, cls="UNKNOWN"):  # noqa: E741
         """
         Dimensions are in the odom frame.
+
         The relationships between these measurements are:
         x, w <-> east, y, l <-> north, z, h <-> up
 
@@ -21,13 +23,13 @@ class Bbox3d:
         self.z = z
         self.rz = rz
         self.w = w
-        self.l = l
+        self.l = l  # noqa: E741
         self.h = h
         self.cls = cls
 
 
 class Bbox2d:
-    def __init__(self, x, y, w, l, cls="UNKNOWN"):
+    def __init__(self, x, y, w, l, cls="UNKNOWN"):  # noqa: E741
         """
         x, y are in the camera frame, with (x, y) = (0, 0) representing the top-left of the frame.
 
@@ -40,14 +42,15 @@ class Bbox2d:
         self.x = x
         self.y = y
         self.w = w
-        self.l = l
+        self.l = l  # noqa: E741
         self.cls = cls
 
 
 class BboxRadar:
-    def __init__(self, x, y, rz, w, l, vel_x, vel_y):
+    def __init__(self, x, y, rz, w, l, vel_x, vel_y):  # noqa: E741
         """
         Dimensions are in the odom frame.
+
         The relationships between these measurements are:
         x, w, vel_x <-> east, y, l, vel_y <-> north
 
@@ -61,17 +64,22 @@ class BboxRadar:
         self.y = y
         self.rz = rz
         self.w = w
-        self.l = l
+        self.l = l  # noqa: E741
         self.vel_x = vel_x
-        self.vel_y = vel_y 
+        self.vel_y = vel_y
 
 
 class FusedBbox:
-    def __init__(self,
-            bbox_3d: Optional[Bbox3d] = None,
-            bbox_2d: Optional[Bbox2d] = None,
-            bbox_radar: Optional[BboxRadar] = None):
+
+    def __init__(
+        self,
+        bbox_3d: Optional[Bbox3d] = None,
+        bbox_2d: Optional[Bbox2d] = None,
+        bbox_radar: Optional[BboxRadar] = None,
+    ):
         """
+        Init.
+
         bbox_3d: Optional 3d bounding box
         bbox_2d: Optional 2d bounding box
         bbox_radar: Optional bounding box from radar detections

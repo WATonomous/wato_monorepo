@@ -1,24 +1,28 @@
 #! /usr/bin/env python
-import numpy as np
+# import numpy as np
 import tf_transformations as tr
-import copy
+# import copy
 
-from tracking_msgs.msg import TrackedDetection3D
+# from tracking_msgs.msg import TrackedDetection3D
 from tracking_msgs.msg import Obstacle as ObstacleMsg
-import tf_transformations as tr
 
 '''
 
-Function to find the rotation around the z axis from a quaternion which is a 4 component representation of orientation (x,y,z,w)
+Function to find the rotation around the z axis from a quaternion which is a 4 component
+representation of orientation (x,y,z,w)
 
-Quaternions are not intuitive for humans to interpret directly so we conver them into Euler angles roll (roation around the x axis),
+Quaternions are not intuitive for humans to interpret directly so we conver them into Euler
+angles roll (roation around the x axis),
 
 pitch (rotation around the y axis), yaw (rotation around the z-axis)
 
 '''
+
+
 def yaw_from_quaternion_msg(quaternion):
     (r, p, y) = tr.euler_from_quaternion([quaternion.x, quaternion.y, quaternion.z, quaternion.w])
     return y
+
 
 def obstacle_to_bbox(obstacle):
     # obstacle is a BoundingBox3D
@@ -27,19 +31,21 @@ def obstacle_to_bbox(obstacle):
     z = obstacle.center.position.z
     rz = yaw_from_quaternion_msg(obstacle.center.orientation)
     w = obstacle.size.x
-    l = obstacle.size.y
+    l = obstacle.size.y  # noqa: E741
     h = obstacle.size.z
     return [x, y, z, rz, w, l, h]
+
 
 def marker_to_bbox(marker):
     x = marker.center.position.x
     y = marker.center.position.y
     z = marker.center.position.z
-    rz = yaw_from_quaternion_msg(marker.center.orientation)  
+    rz = yaw_from_quaternion_msg(marker.center.orientation)
     w = marker.size.x
-    l = marker.size.y
+    l = marker.size.y  # noqa: E741
     h = marker.size.z
     return [x, y, z, rz, w, l, h]
+
 
 def bbox_to_obstacle(bbox, unique_id, label, confidence_score):
     # bbox: [x, y, z, rot_y, l, w, h, x_dot, y_dot, z_dot, rot_y_dot?] rot_y_dot is optional
@@ -77,12 +83,13 @@ def bbox_to_traffic_sign(bbox, unique_id, label):
     # Placeholder for traffic sign conversion
     return
 
+
 def traffic_sign_to_bbox(msg):
     x = msg.pose.position.x
     y = msg.pose.position.y
     z = msg.pose.position.z
     rz = yaw_from_quaternion_msg(msg.pose.orientation)
     w = msg.dimensions.x
-    l = msg.dimensions.y
+    l = msg.dimensions.y  # noqa: E741
     h = msg.dimensions.z
     return [x, y, z, rz, w, l, h]
