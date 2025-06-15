@@ -186,7 +186,7 @@ class KalmanBoxTracker(object):
         self.kf.x[3] = normalize_angle(self.kf.x[3])
 
         self.age += 1
-        if(timestamp - self.last_update > 0):
+        if timestamp - self.last_update > 0:
             self.hit_streak = 0
             self.still_first = False
         self.history.append((timestamp, self.kf.x.reshape((-1, ))))
@@ -252,7 +252,7 @@ class AB3DMOT(object):
             pos = self.trackers[t].predict(timestamp).reshape((-1, ))
             # print(pos)
             trk[:] = [pos[0], pos[1], pos[2], pos[3], pos[4], pos[5], pos[6]]
-            if(np.any(np.isnan(pos))):
+            if np.any(np.isnan(pos)):
                 to_del.append(t)
 
             # print(f"deleted: {to_del}")
@@ -352,7 +352,7 @@ class AB3DMOT(object):
             if trk.hits >= self.min_hits or self.frame_count <= self.min_hits:
                 ret.append(np.concatenate([d, [trk.id+1, trk.track_score]]))  # Concatenate d with the additional values  # noqa: E501
 
-        if(len(ret) > 0):
+        if len(ret) > 0:
             return ret      # x, y, z, theta, l, w, h, ID, other info, confidence
 
         return np.empty((0, 15 + 7))
@@ -389,7 +389,7 @@ class AB3DMOT(object):
 
         unmatched_detections = []
         for d, det in enumerate(detections):
-            if(d not in matched_indices[:, 0]):
+            if d not in matched_indices[:, 0]:
                 unmatched_detections.append(d)
                 # 2+"abc"
         unmatched_trackers = []
@@ -409,7 +409,7 @@ class AB3DMOT(object):
                 unmatched_trackers.append(m[1])
             else:
                 matches.append(m.reshape(1, 2))
-        if(len(matches) == 0):
+        if len(matches) == 0:
             matches = np.empty((0, 2), dtype=int)
         else:
             matches = np.concatenate(matches, axis=0)

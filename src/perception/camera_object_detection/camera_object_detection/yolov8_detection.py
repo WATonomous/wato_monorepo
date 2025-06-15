@@ -1022,7 +1022,8 @@ class CameraDetectionNode(Node):
                 f"Finished in: {time.time() - startTime}, {1/(time.time() - startTime)} Hz"
             )
     '''
-    
+
+
 def main(args=None):
     rclpy.init(args=args)
 
