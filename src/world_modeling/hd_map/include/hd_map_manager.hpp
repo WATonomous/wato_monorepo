@@ -67,8 +67,8 @@ class HDMapManager {
    * @param lanelet_ptr the LaneletMapPtr where the result is stored
    * @return whether the projection was successful
    */
-  bool HDMapManager::project_osm_to_lanelet(std::string filename, lanelet::Origin origin,
-                        lanelet::LaneletMapPtr &lanelet_ptr)
+  bool project_osm_to_lanelet(std::string filename, lanelet::Origin origin,
+                        lanelet::LaneletMapPtr &lanelet_ptr);
 
   /**
    * Project the OSM map to Lanelet format using the specified projector.

@@ -15,7 +15,7 @@
 ##	 - simulation			:	starts simulation
 ##   - samples             	:   starts sample ROS2 pubsub nodes
 
-ACTIVE_MODULES="infrastructure world_modeling simulation"
+ACTIVE_MODULES="infrastructure world_modeling action simulation"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.

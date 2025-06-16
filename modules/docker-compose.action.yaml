@@ -45,7 +45,7 @@ services:
     image: "${ACTION_MPC_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch model_predictive_control model_predictive_control.launch.py"
 
-  pure_pursuit_controller:
+  pure_pursuit_control:
     build:
       context: ..
       dockerfile: docker/action/pure_pursuit_control/pure_pursuit_control.Dockerfile
@@ -54,5 +54,5 @@ services:
         - "${ACTION_PURE_PURSUIT_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_PURE_PURSUIT_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch pure_pursuit_controller pure_pursuit_controller.launch.py"
+    command: /bin/bash -c "ros2 launch pure_pursuit_control pure_pursuit_control.launch.py"
 

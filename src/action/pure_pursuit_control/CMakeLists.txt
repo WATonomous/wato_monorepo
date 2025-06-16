@@ -18,6 +18,7 @@ find_package(std_msgs REQUIRED)
 find_package(carla_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(world_modeling_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 # Add the library containing the PurePursuitController class
 add_library(pure_pursuit_control_lib
@@ -37,6 +38,7 @@ ament_target_dependencies(
   geometry_msgs
   carla_msgs
   world_modeling_msgs
+  tf2_geometry_msgs
 )
 
 # Add the main node executable

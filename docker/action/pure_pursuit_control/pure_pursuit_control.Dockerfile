@@ -7,7 +7,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
 COPY src/action/pure_pursuit_control pure_pursuit_control
-COPY src/wato_msgs/simulation sim_msgs
+COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 
 # Clone CARLA message definitions
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0

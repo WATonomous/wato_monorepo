@@ -144,7 +144,7 @@ class MPCNode(Node):
         control_msg = CarlaEgoVehicleControl()
         control_msg.steer = steering_angle
         control_msg.throttle = throttle
-        self.control_publisher.publish(control_msg)
+        # self.control_publisher.publish(control_msg)
         self.i += 1
 
 
