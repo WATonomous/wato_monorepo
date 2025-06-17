@@ -17,7 +17,7 @@ import cv2
 from rclpy.node import Node
 
 from sensor_msgs.msg import Image, CompressedImage, PointCloud2
-#from anomaly_detection_msgs.msg import Anomaly
+from anomaly_detection_msgs.msg import Anomaly
 
 
 class Anomaly(Node):
@@ -40,7 +40,7 @@ class Anomaly(Node):
         # self.__anomaly = AnomalyCore()
 
         # Pubs and Subs
-        #self.publisher_ = self.create_publisher(Anomaly, '/anomaly', 10)
+        self.publisher_ = self.create_publisher(Anomaly, '/anomaly', 10)
         self.subscription = self.create_subscription(
             Image, self.camera_data, self.camera_callback, 10)
         self.subscription = self.create_subscription(
