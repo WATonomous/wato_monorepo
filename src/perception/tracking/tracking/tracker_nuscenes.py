@@ -168,7 +168,7 @@ class trackerNode(Node):
         informations = []		# [class label, confidence score] empty list to store the classifcation information for each detected obstacels  # noqa: E501
 
         for marker in msg.markers:  # Iterates through each detection
-            detections.append(ros_utils.obstacle_to_bbox(marker))  # Converts the bonding box information from the Detection3D message into the required format mentioned above for detections  # noqa: E501
+            detections.append(ros_utils.marker_to_bbox(marker))  # Converts the bonding box information from the Detection3D message into the required format mentioned above for detections  # noqa: E501
             informations.append(["car", 1.0])  # Extracts the calss lable of the first hypothesis from the detection results then extracts the confidence score and appends a list containg the class lale and confidece score to infromations list  # noqa: E501
 
         # result = self.track(detections, informations, frame_id, timestamp)
@@ -209,7 +209,7 @@ class trackerNode(Node):
 
         # Log the number of tracked obstacles prepared for publishing
         self.get_logger().info(
-            "Tracked obstacles prepared for publishing:",
+            "Tracked obstacles prepared for publishing: " +
             f"{len(tracked_obstacle_list.tracked_obstacles)}"
         )
 

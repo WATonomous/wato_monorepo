@@ -37,13 +37,13 @@ def obstacle_to_bbox(obstacle):
 
 
 def marker_to_bbox(marker):
-    x = marker.center.position.x
-    y = marker.center.position.y
-    z = marker.center.position.z
-    rz = yaw_from_quaternion_msg(marker.center.orientation)
-    w = marker.size.x
-    l = marker.size.y  # noqa: E741
-    h = marker.size.z
+    x = marker.pose.position.x
+    y = marker.pose.position.y
+    z = marker.pose.position.z
+    rz = yaw_from_quaternion_msg(marker.pose.orientation)
+    w = marker.scale.x
+    l = marker.scale.y  # noqa: E741
+    h = marker.scale.z
     return [x, y, z, rz, w, l, h]
 
 
