@@ -5,22 +5,12 @@ x-fixuid: &fixuid
     target: build
 
 services:
-  sensor_interfacing:
+  interfacing_bringup:
     <<: *fixuid
     extends:
       file: ../docker-compose.interfacing.yaml
-      service: sensor_interfacing
-    image: "${INTERFACING_SENSOR_IMAGE}:build_${TAG}"
+      service: interfacing_bringup
+    image: "${INTERFACING_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/sensor_interfacing:/home/bolty/ament_ws/src/sensor_interfacing
-
-  can_interfacing:
-    <<: *fixuid
-    extends:
-      file: ../docker-compose.interfacing.yaml
-      service: can_interfacing
-    image: "${INTERFACING_CAN_IMAGE}:build_${TAG}"
-    command: tail -F anything
-    volumes:
-      - ${MONO_DIR}/src/can_interfacing:/home/bolty/ament_ws/src/can_interfacing
+      - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing
