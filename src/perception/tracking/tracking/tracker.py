@@ -17,6 +17,7 @@ from ament_index_python.packages import get_package_share_directory
 
 # from std_msgs.msg import Header, Bool
 from vision_msgs.msg import Detection3DArray  # , Detection3D, ObjectHypothesisWithPose, BoundingBox3D  # noqa: E501
+from visualization_msgs.msg import MarkerArray
 # from geometry_msgs.msg import Point, Quaternion, Vector3, Pose, Twist
 # from tracking_msgs.msg import Obstacle as ObstacleMsg
 # from tracking_msgs.msg import ObstacleList as ObstaclelistMsg
@@ -24,15 +25,18 @@ from tracking_msgs.msg import TrackedObstacle as TrackedObstacleMsg
 from tracking_msgs.msg import TrackedObstacleList as TrackedObstacleListMsg
 from tracking_msgs.msg import TrackedObstacleState as TrackedObstacleStateMsg
 
-
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import tf_transformations as tr
+import logging
 
 
 class trackerNode(Node):
     def __init__(self, config_path, publish_frequency):
         super().__init__('tracker_node')
+
+        # Suppress TF_OLD_DATA warnings
+        logging.getLogger('tf2_ros').setLevel(logging.ERROR)
 
         # Declare parameters
         self.declare_parameter("max_age", 6)
@@ -46,6 +50,7 @@ class trackerNode(Node):
         # self.declare_parameter("frequency", 10)
         self.declare_parameter('config_path', config_path)
         self.declare_parameter('publish_frequency', publish_frequency)
+        self.declare_parameter("sub_det3d", True)
 
         # self.declare_parameter("config_path", "/home/kishoreyogaraj/tracking_ws/src/config/mahalanobis.yaml")  # noqa: E501
 
@@ -63,6 +68,7 @@ class trackerNode(Node):
         self.config_path = self.get_parameter("config_path").value
         self.publish_frequency = self.get_parameter("publish_frequency").value
         # self.dt = 1.0 / self.frequency
+        self.sub_det3d = self.get_parameter("sub_det3d").value
 
         self.received = 0
 
@@ -83,9 +89,15 @@ class trackerNode(Node):
         self.tf2_listener = TransformListener(self.tf2_buffer, self)
 
         # Publishers/Subscribers
-        self.detection_subscriber = self.create_subscription(
-            Detection3DArray, "detections", self.detection_callback, 10
-        )
+        if self.sub_det3d:
+            self.detection_subscriber = self.create_subscription(
+                Detection3DArray, "detections", self.detection_callback, 10
+            )
+        else:
+            self.detection_subscriber = self.create_subscription(
+                MarkerArray, "/markers/annotations", self.detection_callback, 10
+            )
+
 
         self.tracked_obstacles_publisher = self.create_publisher(
             TrackedObstacleListMsg, "tracked_obstacles", 10
@@ -143,32 +155,67 @@ class trackerNode(Node):
             detections = geometry_utils.transform_boxes(detections, bbox_to_reference_transform)
 
         timestamp_sec = timestamp.sec + timestamp.nanosec * 1e-9
-        # self.mot_tracker.update(detections, infos, timestamp_sec, update_only, distance_threshold)  # noqa: E501
-        return self.mot_tracker.update(detections, infos, timestamp_sec, update_only, 300)
+        self.get_logger().info(f"Detections to update: {len(detections)}, {len(infos)}")
+        return self.mot_tracker.update(
+            detections, infos, timestamp_sec, update_only, distance_threshold
+        )
+        # return self.mot_tracker.update(detections, infos, timestamp_sec, update_only, 300)
 
     def detection_callback(self, msg):
         self.received += 1
 
         # start_time = time.time()
-        timestamp = msg.header.stamp
-        frame_id = msg.header.frame_id
+        if self.sub_det3d:
+            msg_header = msg.header
+        else:
+            msg_header = msg.markers[0].header
+
+        timestamp = msg_header.stamp
+        frame_id = msg_header.frame_id if self.sub_det3d else "camera_frame"
+
+        if self.sub_det3d:
+            msg_array = msg.detections
+            msg_type = "Detection3DArray"
+            msg_contents = "Detection3D"
+            convert_fn = ros_utils.obstacle_to_bbox
+        else:
+            msg_array = msg.markers
+            msg_type = "MarkerArray"
+            msg_contents = "Marker"
+            convert_fn = ros_utils.marker_to_bbox
+
+        # Print the number of detections in the received message
+        num_markers = len(msg_array)
+        self.get_logger().info(f"Number of {msg_contents}s in the received {msg_type}: {num_markers}")
+
+        if len(msg.markers) == 0:
+            self.get_logger().warn(f"Received an empty {msg_type}.")
+            return
 
         detections = [] 		# [x, y, z, rot_y, l, w, h] empty list to store 3d bouding box infroation for ecah detected obstacle  # noqa: E501
         informations = []		# [class label, confidence score] empty list to store the classifcation informatio for each detected obstacels  # noqa: E501
 
-        for detection in msg.detections:  # Iterates through each detection
-            detections.append(ros_utils.obstacle_to_bbox(detection.bbox))  # Converts the bonding box information from teh Detection3D message into the required format mentioned above for detections  # noqa: E501
-            informations.append(
-                [
-                    detection.results[0].hypothesis.class_id,
-                    detection.results[0].hypothesis.score,
-                ]
-            )  # Extracts the calss lable of the first hypothesis from the detection results then extracts the confidence score and appends a list containg the class lale and confidece score to infromations list  # noqa: E501
+        for detection in msg_array:  # Iterates through each detection
+            if self.sub_det3d:
+                detection = detection.bbox
+
+            detections.append(convert_fn(detection))  # Converts the bounding box information from the message into the required format mentioned above for detections  # noqa: E501
+            
+            if self.sub_det3d:
+                informations.append(
+                    [
+                        detection.results[0].hypothesis.class_id,
+                        detection.results[0].hypothesis.score,
+                    ]
+                )  # Extracts the calss lable of the first hypothesis from the detection results then extracts the confidence score and appends a list containg the class lale and confidece score to infromations list  # noqa: E501
+            else:
+                informations.append(["car", 1.0])  # todo: append based on marker color
 
         result = self.track(detections, informations, frame_id, timestamp)
 
         if result is not None:
             self.get_logger().info(f"Tracked Objects: {result}")
+
         self.publish_tracks(1/0.8)
 
         # end_time = time.time()
@@ -192,6 +239,9 @@ class trackerNode(Node):
         tracked_obstacle_list.tracked_obstacles[0].obstacle.object_id = self.received
         tracked_obstacle_list.tracked_obstacles[0].obstacle.label = "filler"
 
+        # Log the number of active trackers
+        self.get_logger().info(f"Number of active trackers: {len(self.mot_tracker.trackers)}")
+
         # For each tracker in the list, create a tracked obstacle message and append it to the list  # noqa: E501
         trks = self.mot_tracker.trackers
         for kf_track in trks:
@@ -204,6 +254,12 @@ class trackerNode(Node):
                 kf_track, tracking_name, track_score, dt
             )
             tracked_obstacle_list.tracked_obstacles.append(tracked_obstacle_message)
+
+        # Log the number of tracked obstacles prepared for publishing
+        self.get_logger().info(
+            "Tracked obstacles prepared for publishing: " +
+            f"{len(tracked_obstacle_list.tracked_obstacles) - 1}"
+        )
 
         # Publish entire message with multiple different trackers
         self.tracked_obstacles_publisher.publish(tracked_obstacle_list)

@@ -8,6 +8,7 @@ tracker_node:
     velocity_prediction_horizon: 0.5
     prediction_resolution: 0.5
     prediction_length: 4.0
+    sub_det3d: False
 
 nusc_publisher:
   ros__parameters:
