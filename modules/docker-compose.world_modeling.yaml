@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   world_modeling_bringup:
     build:

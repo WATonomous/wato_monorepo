@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   carla_sim:
     image: carlasim/carla:0.9.13

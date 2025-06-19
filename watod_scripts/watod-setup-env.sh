@@ -1,54 +1,77 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-# This script generates a .env file to be used with docker-compose
-# To override any of the variables in this script, create watod-config.sh 
-#   in the same directory and populate it with variables
-#   e.g. `COMPOSE_PROJECT_NAME=<NAME>`.
+# ------------------------------------------------------------------------------------
+# watod-setup-env.sh
+# -------------------
+# Generates a .env file for docker‑compose based on project & host settings.
+#
+# Usage (source so variables propagate):
+#   . ./watod-setup-env.sh                   # normal local run
+#   . ./watod-setup-env.sh --is-ci           # CI run (forces MODULES_DIR layout & skips UID/GID)
+#
+# Flags
+#   --is-ci        Explicitly signal that we are running inside a CI agent.  *No autodetection*
+#                  · Forces MODULES_DIR="$MONO_DIR/modules"
+#                  · Omits SETUID / SETGID entries from the generated .env
+#
+# To override any variable, create a sibling script named `watod-config.sh` and define
+# the desired env‑vars, e.g.  COMPOSE_PROJECT_NAME=<name>
+# ------------------------------------------------------------------------------------
 
+################################  Flag parsing  ######################################
+IS_CI=false
+for arg in "$@"; do
+  case "$arg" in
+    --is-ci) IS_CI=true ;;
+  esac
+done
+
+################################  Safety checks  #####################################
 if [ -f /.dockerenv ]; then
-	echo "Please run this in the host machine (not in the Docker container)"
-	exit 1
+  echo "Please run this in the host machine (not in the Docker container)" >&2
+  exit 1
 fi
 
-# Retrieve git branch
-if ! [ -x "$(command -v git)" ]; then
-    echo 'Error: git is not installed.' >&2
+################################  Git branch  ########################################
+if command -v git >/dev/null 2>&1; then
+  BRANCH=${BRANCH:-$(git branch --show-current)}
 else
-    BRANCH=${BRANCH:-$(git branch --show-current)}
+  echo 'Error: git is not installed.' >&2
 fi
 
-## ----------------------- Configuration (Subject to Override) ----------------------------
+################################  Overrides hook  ####################################
+# shellcheck source=./watod-config.sh
+if [ -f "$(dirname "$0")/watod-config.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/watod-config.sh"
+fi
+
+################################  Paths & Layout  ####################################
+# Force MODULES_DIR and MONO_DIR layout when running in CI
+if $IS_CI; then
+  git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+  MONO_DIR="$git_root"
+  MODULES_DIR="$MONO_DIR/modules"
+  echo "[setup-env] CI mode: forcing MODULES_DIR → $MODULES_DIR"
+fi
+
+################################  Configuration  #####################################
 
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
-# Tag to use. Images as formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced
-# with dashes
-TAG=$(echo ${TAG:-$BRANCH} | tr / -)
-# replace / with -
-TAG=${TAG/\//-}
+# Tag for docker images – convert slashes to dashes
+TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 
-# List of active modules to run, defined in docker-compose.yaml.
-# Possible values:
-#   - infrastructure     	:   starts visualization tools (foxglove and/or vnc)
-#	- perception			:	starts perception nodes
-#	- world_modeling		:	starts world modeling nodes
-#	- action				:	starts action nodes
-#	- simulation			:	starts simulation
-#   - samples             	:   starts sample ROS2 pubsub nodes
+# Active/black‑listed modules & registry
 ACTIVE_MODULES=${ACTIVE_MODULES:-""}
-
-# List of modules to IGNORE when using the --all flag
 MODULE_BLACKLIST=${MODULE_BLACKLIST:-"production"}
-
-# Docker Registry to pull/push images
 REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
-
 REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
 REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
 
-## --------------------------- Images -------------------------------
-# NOTE: ALL IMAGE NAMES MUCH BE IN THE FORMAT OF <COMPOSE_FILE>_<SERVICE>
+################################  Image names  #######################################
+# NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
 
 # Infrastructure
 INFRASTRUCTURE_IMAGE=${INFRASTRUCTURE_IMAGE:-"$REGISTRY_URL/infrastructure/infrastructure"}
@@ -63,7 +86,7 @@ PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE=${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE:
 PERCEPTION_TRACKING_IMAGE=${PERCEPTION_TRACKING_IMAGE:-"$REGISTRY_URL/perception/tracking"}
 PERCEPTION_DEPTH_ESTIMATION_IMAGE=${PERCEPTION_DEPTH_ESTIMATION_IMAGE:-"$REGISTRY_URL/perception/depth_estimation"}
 
-# World Modeling
+# World Modeling
 WORLD_MODELING_IMAGE=${WORLD_MODELING_IMAGE:-"$REGISTRY_URL/world_modeling/world_modeling"}
 
 # Action
@@ -79,78 +102,75 @@ SIMULATION_CARLA_SAMPLE_NODE_IMAGE=${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:-"$REGIS
 # Interfacing
 INTERFACING_IMAGE=${INTERFACING_IMAGE:-"$REGISTRY_URL/interfacing/interfacing"}
 
-## -------------------------- User ID -----------------------------
+################################  UID / GID  #########################################
+SETUID=$(id -u)
+SETGID=$(id -g)
 
-SETUID=$(id -u) 
-SETGID=$(id -g) 
-
-## --------------------------- Ports ------------------------------
-
-BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
+################################  Ports  #############################################
+BASE_PORT=${BASE_PORT:-$((SETUID*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT+1))}
 FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT+2))}
 CARLAVIZ_PORT=${CARLAVIZ_PORT:-$((BASE_PORT+3))}
 CARLAVIZ_PORT_2=${CARLAVIZ_PORT_2:-$((BASE_PORT+4))}
 CARLA_NOTEBOOKS_PORT=${CARLA_NOTEBOOKS_PORT:-$((BASE_PORT+5))}
 
-## -------------------- Export Environment Variables -------------------------
+################################  Write .env  ########################################
 
-# General
-echo "$MODULES_DIR"
-echo "# Auto-generated by ${BASH_SOURCE[0]}. Edit at own risk." > "$MODULES_DIR/.env"
+mkdir -p "$MODULES_DIR"
+ENV_FILE="$MODULES_DIR/.env"
+echo "# Auto-generated by ${BASH_SOURCE[0]}. Edit at own risk." > "$ENV_FILE"
 
-echo "MODULES_DIR=$MODULES_DIR" >> "$MODULES_DIR/.env"
-echo "MONO_DIR=$MONO_DIR" >> "$MODULES_DIR/.env"
+# Helper for clean appends
+append() { echo "$1=$2" >> "$ENV_FILE"; }
 
-echo "ACTIVE_MODULES=\"$ACTIVE_MODULES\"" >> "$MODULES_DIR/.env"
-echo "MODULE_BLACKLIST=\"$MODULE_BLACKLIST\"" >> "$MODULES_DIR/.env"
+# General paths
+append "MODULES_DIR" "$MODULES_DIR"
+append "MONO_DIR" "$MONO_DIR"
 
-echo "COMPOSE_DOCKER_CLI_BUILD=1" >> "$MODULES_DIR/.env"
-echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$MODULES_DIR/.env"
+append "ACTIVE_MODULES" "$ACTIVE_MODULES"
+append "MODULE_BLACKLIST" "$MODULE_BLACKLIST"
 
-echo "ROS_IP=$ROS_IP" >> "$MODULES_DIR/.env"
-echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$MODULES_DIR/.env"
+append "COMPOSE_DOCKER_CLI_BUILD" "1"
+append "COMPOSE_PROJECT_NAME" "$COMPOSE_PROJECT_NAME"
 
-echo "TAG=$TAG" >> "$MODULES_DIR/.env"
+append "TAG" "$TAG"
 
-echo "SETUID=$SETUID" >> "$MODULES_DIR/.env"
-echo "SETGID=$SETGID" >> "$MODULES_DIR/.env"
+if ! $IS_CI; then
+  append "SETUID" "$SETUID"
+  append "SETGID" "$SETGID"
+fi
 
-echo "BASE_PORT=$BASE_PORT" >> "$MODULES_DIR/.env"
-echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$MODULES_DIR/.env"
-echo "FOXGLOVE_BRIDGE_PORT=$FOXGLOVE_BRIDGE_PORT" >> "$MODULES_DIR/.env"
-echo "CARLAVIZ_PORT=$CARLAVIZ_PORT" >> "$MODULES_DIR/.env"
-echo "CARLAVIZ_PORT_2=$CARLAVIZ_PORT_2" >> "$MODULES_DIR/.env"
-echo "CARLA_NOTEBOOKS_PORT=$CARLA_NOTEBOOKS_PORT" >> "$MODULES_DIR/.env"
+append "BASE_PORT" "$BASE_PORT"
+append "GUI_TOOLS_VNC_PORT" "$GUI_TOOLS_VNC_PORT"
+append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
+append "CARLAVIZ_PORT" "$CARLAVIZ_PORT"
+append "CARLAVIZ_PORT_2" "$CARLAVIZ_PORT_2"
+append "CARLA_NOTEBOOKS_PORT" "$CARLA_NOTEBOOKS_PORT"
 
-echo "REGISTRY=$REGISTRY" >> "$MODULES_DIR/.env"
-echo "REGISTRY=$REPOSITORY" >> "$MODULES_DIR/.env"
+append "REGISTRY" "$REGISTRY"
+append "REPOSITORY" "$REPOSITORY"
 
-# Infrastructure
-echo "INFRASTRUCTURE_IMAGE=$INFRASTRUCTURE_IMAGE" >> "$MODULES_DIR/.env"
+# Image variables
+append "INFRASTRUCTURE_IMAGE" "$INFRASTRUCTURE_IMAGE"
 
-# Perception
-echo "PERCEPTION_IMAGE=$PERCEPTION_IMAGE" >> "$MODULES_DIR/.env"
-echo "PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE=$PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE" >> "$MODULES_DIR/.env"
-echo "PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE=$PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE" >> "$MODULES_DIR/.env"
-echo "PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE=$PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE" >> "$MODULES_DIR/.env"
-echo "PERCEPTION_LANE_DETECTION_IMAGE=$PERCEPTION_LANE_DETECTION_IMAGE" >> "$MODULES_DIR/.env"
-echo "PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE=$PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE" >> "$MODULES_DIR/.env"
-echo "PERCEPTION_TRACKING_IMAGE=$PERCEPTION_TRACKING_IMAGE" >> "$MODULES_DIR/.env"
-echo "PERCEPTION_DEPTH_ESTIMATION_IMAGE=$PERCEPTION_DEPTH_ESTIMATION_IMAGE" >> "$MODULES_DIR/.env"
+append "PERCEPTION_IMAGE" "$PERCEPTION_IMAGE"
+append "PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE" "$PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE"
+append "PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE" "$PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE"
+append "PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE" "$PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE"
+append "PERCEPTION_LANE_DETECTION_IMAGE" "$PERCEPTION_LANE_DETECTION_IMAGE"
+append "PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE" "$PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE"
+append "PERCEPTION_TRACKING_IMAGE" "$PERCEPTION_TRACKING_IMAGE"
+append "PERCEPTION_DEPTH_ESTIMATION_IMAGE" "$PERCEPTION_DEPTH_ESTIMATION_IMAGE"
 
-# World Modeling
-echo "WORLD_MODELING_IMAGE=$WORLD_MODELING_IMAGE" >> "$MODULES_DIR/.env"
+append "WORLD_MODELING_IMAGE" "$WORLD_MODELING_IMAGE"
+append "ACTION_IMAGE" "$ACTION_IMAGE"
 
-# Action
-echo "ACTION_IMAGE=$ACTION_IMAGE" >> "$MODULES_DIR/.env"
+append "SIMULATION_CARLA_IMAGE" "$SIMULATION_CARLA_IMAGE"
+append "SIMULATION_CARLA_ROS_BRIDGE_IMAGE" "$SIMULATION_CARLA_ROS_BRIDGE_IMAGE"
+append "SIMULATION_CARLAVIZ_IMAGE" "$SIMULATION_CARLAVIZ_IMAGE"
+append "SIMULATION_CARLA_NOTEBOOKS_IMAGE" "$SIMULATION_CARLA_NOTEBOOKS_IMAGE"
+append "SIMULATION_CARLA_SAMPLE_NODE_IMAGE" "$SIMULATION_CARLA_SAMPLE_NODE_IMAGE"
 
-# Simulation
-echo "SIMULATION_CARLA_IMAGE=$SIMULATION_CARLA_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLA_ROS_BRIDGE_IMAGE=$SIMULATION_CARLA_ROS_BRIDGE_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLAVIZ_IMAGE=$SIMULATION_CARLAVIZ_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLA_NOTEBOOKS_IMAGE=$SIMULATION_CARLA_NOTEBOOKS_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLA_SAMPLE_NODE_IMAGE=$SIMULATION_CARLA_SAMPLE_NODE_IMAGE" >> "$MODULES_DIR/.env"
+append "INTERFACING_IMAGE" "$INTERFACING_IMAGE"
 
-# Interfacing
-echo "INTERFACING_IMAGE=$INTERFACING_IMAGE" >> "$MODULES_DIR/.env"
+echo "[setup-env] .env generated at $ENV_FILE"
