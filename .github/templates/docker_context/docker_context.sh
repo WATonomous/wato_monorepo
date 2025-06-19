@@ -24,9 +24,8 @@ done
 
 ############################# helper for outputs ###############################
 emit() {
-  if [[ -z ${GITHUB_OUTPUT:-} || $DEBUG == true ]]; then
-    echo "$1"
-  else
+  echo "$1"
+  if [[ -n ${GITHUB_OUTPUT:-} ]]; then
     echo "$1" >> "$GITHUB_OUTPUT"
   fi
 }
