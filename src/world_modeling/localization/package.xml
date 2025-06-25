@@ -12,6 +12,8 @@
   <depend>std_msgs</depend>
   <depend>rclcpp</depend>
   <depend>nav_msgs</depend>
+  <depend>path_planning_msgs</depend>
+  <depend>carla_msgs</depend>
 
 
   <test_depend>ament_cmake_gtest</test_depend>
