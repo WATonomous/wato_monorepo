@@ -27,7 +27,6 @@ class WheelOdometry : public rclcpp::Node {
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr steering_angle_sub;
 
   // Carla sim data
-  // rclcpp::Subscription<path_planning_msgs::msg::CarlaEgoVehicleStatus>::SharedPtr vehicle_status_sub_;
   rclcpp::Subscription<carla_msgs::msg::CarlaEgoVehicleStatus>::SharedPtr vehicle_status_sub_;
 
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr publisher_;

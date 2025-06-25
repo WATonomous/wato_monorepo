@@ -15,7 +15,6 @@ find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(std_msgs REQUIRED)      # ROS2 Messages
 find_package(nav_msgs REQUIRED)
-find_package(path_planning_msgs REQUIRED)
 find_package(carla_msgs REQUIRED)
 
 # Compiles source files into a library
@@ -36,7 +35,6 @@ ament_target_dependencies(localization_lib
   std_msgs
   nav_msgs
   rclcpp
-  path_planning_msgs
   carla_msgs)
 
 # Create ROS2 node executable from source files
