@@ -21,15 +21,16 @@ find_package(nav_msgs REQUIRED)
 # against it to access defined methods and classes.
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
-add_library(odom_lib
+add_library(localization_lib
+  src/localization_node.cpp
   src/odom.cpp
   src/odom_mock_data.cpp)
 # Indicate to compiler where to search for header files
-target_include_directories(odom_lib
+target_include_directories(localization_lib
   PUBLIC
   include)
 # Add ROS2 dependencies required by package
-ament_target_dependencies(odom_lib
+ament_target_dependencies(localization_lib
   std_msgs
   nav_msgs
   rclcpp)
@@ -37,16 +38,21 @@ ament_target_dependencies(odom_lib
 # Create ROS2 node executable from source files
 
 #odom is the name of the node which we can run
+add_executable(localization_node src/localization_node.cpp)
 add_executable(odom src/odom.cpp)
-add_executable(odom_mock_data src/odom_mock_data.cpp)
+
+# add_executable(odom_mock_data src/odom_mock_data.cpp)
 # Link to the previously built library to access occupancy classes and methods
-target_link_libraries(odom odom_lib)
-target_link_libraries(odom_mock_data odom_lib)
+target_link_libraries(localization_node localization_lib)
+target_link_libraries(odom localization_lib)
+
+# target_link_libraries(odom_mock_data odom_lib)
 
 # Copy executable to installation location
 install(TARGETS
+  localization
   odom
-  odom_mock_data
+  # odom_mock_data
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location

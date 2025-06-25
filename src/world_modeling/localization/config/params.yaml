@@ -1,10 +1,18 @@
+localization:
+  ros__parameters:
+    gps_topic: "/carla/gnss"
+    imu_topic: "/carla/imu"
+    wheel_odom_topic: "/odom"
+    gps_output_topic: "/localization/gps"
+    imu_output_topic: "/localization/imu"
+    wheel_odom_output_topic: "/localization/odom"
 odom:
-  ros__parameters: 
+  ros__parameters:
     odom_output_topic: "/bicycle_model_output"
     wheel_base: 2.65
     odom_publish_rate: 10
 odom_mock_data:
-  ros__parameters: 
+  ros__parameters:
     right_wheel_topic: "/motor_encoder_right"
     left_wheel_topic: "/motor_encoder_left"
     steering_topic: "/steering_angle"
@@ -14,4 +22,3 @@ odom_mock_data:
     turning_angle_max: 0.0
     wheel_publish_rate: 1000
     turn_publish_rate: 1000
-
