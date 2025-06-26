@@ -1,2 +1,4 @@
 opencv-python
 torch
+rclpy
+anomalib

@@ -8,6 +8,7 @@
   <license>TODO: License declaration</license>
 
   <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
   <depend>anomaly_detection_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
