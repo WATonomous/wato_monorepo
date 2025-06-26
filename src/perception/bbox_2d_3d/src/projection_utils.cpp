@@ -310,8 +310,7 @@ double ProjectionUtils::computeMaxIOU8Corners(
   const pcl::PointIndices&                    cluster_indices,
   const geometry_msgs::msg::TransformStamped& transform,
   const std::array<double, 12>&               projection_matrix,
-  const vision_msgs::msg::Detection2DArray&   detections,
-  const float                                 object_detection_confidence)
+  const vision_msgs::msg::Detection2D&        det)
 {
   // 1) compute 3D axis-aligned min/max
   float min_x =  std::numeric_limits<float>::infinity(),
@@ -357,28 +356,15 @@ double ProjectionUtils::computeMaxIOU8Corners(
     return 0.0;
   }
   cv::Rect cluster_rect(u0, v0, u1 - u0, v1 - v0);
-
-  // 4) compare to each detection bbox, return the best IoU
-  double best_iou = 0.0;
-  for (auto &det : detections.detections) {
-    if (!det.results.empty() &&
-        det.results[0].hypothesis.score < object_detection_confidence)
-    {
-      continue;
-    }
-    const auto &b = det.bbox;
-    cv::Rect det_rect(
-      b.center.position.x - b.size_x/2,
-      b.center.position.y - b.size_y/2,
-      b.size_x, b.size_y
-    );
-    double inter = (cluster_rect & det_rect).area();
-    double uni   = cluster_rect.area() + det_rect.area() - inter;
-    if (uni > 0.0) {
-      best_iou = std::max(best_iou, inter/uni);
-    }
-  }
-  return best_iou;
+  const auto &b = det.bbox;
+  cv::Rect det_rect(
+    b.center.position.x - b.size_x/2,
+    b.center.position.y - b.size_y/2,
+    b.size_x, b.size_y
+  );
+  double inter = (cluster_rect & det_rect).area();
+  double uni   = cluster_rect.area() + det_rect.area() - inter;
+  return uni == 0.0? 0.0: inter/uni;
 }
 
 void ProjectionUtils::computeHighestIOUCluster(
@@ -389,32 +375,51 @@ void ProjectionUtils::computeHighestIOUCluster(
   const std::array<double, 12>& projection_matrix,
   const float object_detection_confidence)
 {
-if (input_cloud->empty() || cluster_indices.empty()) {
-  return;
-}
-
-double best_overall_iou = 0.0;
-std::vector<pcl::PointIndices> kept_clusters;
-
-for (auto &cluster : cluster_indices) {
-  // computeMaxIOU8Corners projects the 8 AABB corners and returns the best IoU
-  double iou = computeMaxIOU8Corners(
-    input_cloud,
-    cluster,
-    transform,
-    projection_matrix,
-    detections,
-    object_detection_confidence
-  );
-
-  if (iou > best_overall_iou) {
-    best_overall_iou = iou;
-    kept_clusters.push_back(cluster);
+  if (input_cloud->empty() || cluster_indices.empty() || detections.detections.empty()) {
+    return;
   }
-}
 
-// only keep the cluster(s) with highest IoU
-cluster_indices = std::move(kept_clusters);
+  // For each detection, find the cluster with the highest IoU
+  std::vector<int> best_cluster_indices;
+  for (auto& det: detections.detections) {
+    if (det.results.empty() ||
+        det.results[0].hypothesis.score < object_detection_confidence)
+    {
+      continue;
+    }
+    double best_iou = 0.0;
+    int best_cluster = -1;
+    for (size_t cl_idx = 0; cl_idx < cluster_indices.size(); ++cl_idx) {
+      double iou = computeMaxIOU8Corners(
+        input_cloud,
+        cluster_indices[cl_idx],
+        transform,
+        projection_matrix,
+        det // single detection
+      );
+      if (iou > best_iou) {
+        best_iou = iou;
+        best_cluster = cl_idx;
+      }
+    }
+    if (best_cluster != -1 && best_iou > 0.30) {
+      std::cout << "Detection " << det.results[0].hypothesis.class_id
+                << ": Best cluster " << best_cluster
+                << " with IoU " << std::fixed << std::setprecision(2) << best_iou << std::endl;
+      best_cluster_indices.push_back(best_cluster);
+    }
+  }
+
+  // Remove duplicates (since multiple detections could map to the same cluster)
+  std::sort(best_cluster_indices.begin(), best_cluster_indices.end());
+  best_cluster_indices.erase(std::unique(best_cluster_indices.begin(), best_cluster_indices.end()), best_cluster_indices.end());
+
+  // Keep only the best clusters
+  std::vector<pcl::PointIndices> kept_clusters;
+  for (int idx : best_cluster_indices) {
+    kept_clusters.push_back(cluster_indices[idx]);
+  }
+  cluster_indices = std::move(kept_clusters);
 }
 
 // BOUNDING BOX FUNCTIONS
