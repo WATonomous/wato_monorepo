@@ -39,8 +39,8 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 FROM dependencies as build
 
 # Install Python dependencies
-WORKDIR ${AMENT_WS}/src/depth_estimation
-COPY src/perception/depth_estimation/requirements.txt requirements.txt
+WORKDIR ${AMENT_WS}/src/anomaly_detection 
+COPY src/perception/anomaly_detection/requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 # Build ROS2 packages
