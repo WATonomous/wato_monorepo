@@ -30,7 +30,7 @@ private:
 
   // Publishers
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gps_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+  rclcpp::Publishe`r<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 };
 

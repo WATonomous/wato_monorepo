@@ -14,6 +14,7 @@
   <depend>nav_msgs</depend>
   <depend>path_planning_msgs</depend>
   <depend>carla_msgs</depend>
+  <depend>robot_localization</depend>
 
 
   <test_depend>ament_cmake_gtest</test_depend>

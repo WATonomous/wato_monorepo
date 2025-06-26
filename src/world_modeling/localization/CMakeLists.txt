@@ -16,6 +16,7 @@ find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(std_msgs REQUIRED)      # ROS2 Messages
 find_package(nav_msgs REQUIRED)
 find_package(carla_msgs REQUIRED)
+find_package(robot_localization REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -35,24 +36,19 @@ ament_target_dependencies(localization_lib
   std_msgs
   nav_msgs
   rclcpp
-  carla_msgs)
+  carla_msgs
+  robot_localization)
 
 # Create ROS2 node executable from source files
 
 #odom is the name of the node which we can run
-add_executable(localization_node src/localization_node.cpp)
 add_executable(odom src/odom.cpp)
 
-# add_executable(odom_mock_data src/odom_mock_data.cpp)
 # Link to the previously built library to access occupancy classes and methods
-target_link_libraries(localization_node localization_lib)
 target_link_libraries(odom localization_lib)
-
-# target_link_libraries(odom_mock_data odom_lib)
 
 # Copy executable to installation location
 install(TARGETS
-  localization
   odom
   # odom_mock_data
   DESTINATION lib/${PROJECT_NAME})

@@ -33,6 +33,9 @@ class WheelOdometry : public rclcpp::Node {
 
   rclcpp::TimerBase::SharedPtr timer_;
 
+  rclcpp::Time last_stamp_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time prev_stamp_{0, 0, RCL_ROS_TIME};
+
   double wheel_base_;
   double max_steer_angle_;
 
@@ -44,9 +47,6 @@ class WheelOdometry : public rclcpp::Node {
   double x_;
   double y_;
   double theta_;
-
-
-  rclcpp::Time previous_time_;
 };
 
 #endif
