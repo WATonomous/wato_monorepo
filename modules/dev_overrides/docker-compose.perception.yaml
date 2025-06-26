@@ -75,3 +75,13 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/depth_estimation:/home/bolty/ament_ws/src/depth_estimation
+
+  anomaly_detection:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: anomaly_detection
+    image: "${PERCEPTION_ANOMALY_DETECTION_IMAGE:?}:build_${TAG}" 
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/anomaly_detection:/home/bolty/ament_ws/src/anomaly_detection
