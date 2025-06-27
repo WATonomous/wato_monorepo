@@ -24,7 +24,12 @@ FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+# RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+RUN rm -rf /var/lib/apt/lists/* && \
+    apt-get -qq update && \
+    apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}

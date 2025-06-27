@@ -25,7 +25,7 @@ Localization::Localization() : Node("localization") {
 
   // Create subscribers
   gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
-    gps_input_topic, std::bind(&Localization::gps_callback, this, std::placeholders::_1));
+    gps_input_topic, qos, std::bind(&Localization::gps_callback, this, std::placeholders::_1));
 
   imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
     imu_input_topic, qos, std::bind(&Localization::imu_callback, this, std::placeholders::_1));

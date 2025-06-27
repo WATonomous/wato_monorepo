@@ -1,7 +1,6 @@
 #ifndef WORLD_MODELING_LOCALIZATION
 #define WORLD_MODELING_LOCALIZATION
 
-
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -30,7 +29,7 @@ private:
 
   // Publishers
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gps_pub_;
-  rclcpp::Publishe`r<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 };
 

@@ -9,8 +9,8 @@ localization:
 odom:
   ros__parameters:
     odom_output_topic: "/bicycle_model_output"
-    wheel_base: 2.65
-    max_steer_angle: 35
+    wheel_base: 2.875
+    max_steer_angle: 35.0
     odom_publish_rate: 10
 odom_mock_data:
   ros__parameters:

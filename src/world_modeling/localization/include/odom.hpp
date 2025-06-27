@@ -4,13 +4,17 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <string>
+
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/string.hpp>
-#include "carla_msgs/msg/carla_ego_vehicle_status.hpp"
-#include <string>
-
 #include <nav_msgs/msg/odometry.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/utils.h> 
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp> 
+
+#include "carla_msgs/msg/carla_ego_vehicle_status.hpp"
 
 using namespace std::chrono_literals;
 
@@ -29,6 +33,11 @@ class WheelOdometry : public rclcpp::Node {
   // Carla sim data
   rclcpp::Subscription<carla_msgs::msg::CarlaEgoVehicleStatus>::SharedPtr vehicle_status_sub_;
 
+  // To initialize with Carla starting pose and theta
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr init_sub_;
+  void initializeOdomFromCarla(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr publisher_;
 
   rclcpp::TimerBase::SharedPtr timer_;
@@ -44,9 +53,7 @@ class WheelOdometry : public rclcpp::Node {
 
   double velocity_;
   double steering_angle_;
-  double x_;
-  double y_;
-  double theta_;
+  double x_{0.0}, y_{0.0}, theta_{0.0};
 };
 
 #endif

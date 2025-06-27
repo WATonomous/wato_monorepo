@@ -15,7 +15,10 @@ find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(std_msgs REQUIRED)      # ROS2 Messages
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(carla_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(robot_localization REQUIRED)
 
 # Compiles source files into a library
@@ -35,16 +38,21 @@ target_include_directories(localization_lib
 ament_target_dependencies(localization_lib
   std_msgs
   nav_msgs
-  rclcpp
+  sensor_msgs
   carla_msgs
+  rclcpp
+  tf2
+  tf2_geometry_msgs 
   robot_localization)
 
 # Create ROS2 node executable from source files
 
 #odom is the name of the node which we can run
+add_executable(localization_node src/odom.cpp)
 add_executable(odom src/odom.cpp)
 
 # Link to the previously built library to access occupancy classes and methods
+target_link_libraries(localization_node localization_lib)
 target_link_libraries(odom localization_lib)
 
 # Copy executable to installation location
