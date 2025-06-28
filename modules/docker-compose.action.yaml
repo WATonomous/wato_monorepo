@@ -10,7 +10,7 @@ services:
         - "${ACTION_GLOBAL_PLANNING_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_GLOBAL_PLANNING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch global_planning global_planning.launch.py"
+    command: echo 'use this command when files are ready   /bin/bash -c "ros2 launch global_planning global_planning.launch.py"'
 
   behaviour_planning:
     build:
@@ -21,7 +21,7 @@ services:
         - "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_BEHAVIOUR_PLANNING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch behaviour_planning behaviour_planning.launch.py"
+    command: echo 'use this command when files are ready   /bin/bash -c "ros2 launch behaviour_planning behaviour_planning.launch.py"'
 
   local_planning:
     build:
@@ -32,7 +32,7 @@ services:
         - "${ACTION_LOCAL_PLANNING_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_LOCAL_PLANNING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch local_planning local_planning.launch.py"
+    command: ros2 launch local_planning local_planning.launch.py
 
   model_predictive_control:
     build:
@@ -43,4 +43,4 @@ services:
         - "${ACTION_MPC_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_MPC_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch model_predictive_control model_predictive_control.launch.py"
+    command: echo 'use this command when files are ready   /bin/bash -c "ros2 launch model_predictive_control model_predictive_control.launch.py"'

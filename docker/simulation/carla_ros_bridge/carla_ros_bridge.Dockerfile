@@ -81,12 +81,14 @@ ARG CARLA_VERSION
 COPY --from=wato_carla_api --chown=root /home/carla/PythonAPI/carla /opt/carla/PythonAPI
 WORKDIR /opt/carla/PythonAPI
 RUN cp -r ./agents /usr/local/lib/python3.8/dist-packages/
-RUN python3.8 -m easy_install pip && \
+RUN curl -O https://bootstrap.pypa.io/pip/3.8/get-pip.py && \
+      python3.8 get-pip.py "pip<24" && \
+      rm get-pip.py && \
       pip3 install carla==${CARLA_VERSION} && \
-      pip install simple-pid==2.0.0 && \
-      pip install transforms3d==0.4.1 && \
-      pip install pexpect==4.9.0 && \
-      pip install networkx==3.1
+      pip3 install simple-pid==2.0.0 && \
+      pip3 install transforms3d==0.4.1 && \
+      pip3 install pexpect==4.9.0 && \
+      pip3 install networkx==3.1
 
 WORKDIR ${AMENT_WS}/src
 
