@@ -1,39 +1,32 @@
 #include <pure_pursuit_control.hpp>
 
-constexpr int k = 2;
-using Point2D = std::array<double, k>;
-
-struct KDNode {
-    Point2D point;
-    KDNode* left;
-    KDNode* right;
-};
-
-KDNode* newNode(const Point2D& arr) {
+KDNode* newNode(const Point2D& arr, int index) {
     KDNode* temp = new KDNode;
     temp->point = arr;
     temp->left = temp->right = nullptr;
+    temp->index = index;
     return temp;
 }
 
-KDNode* insert(KDNode* root, const Point2D& arr, unsigned depth) {
+KDNode* insert(KDNode* root, const Point2D& arr, int index, unsigned depth) {
+
     if (root == nullptr) {
-        return newNode(arr);
+        return newNode(arr, index);
     }
 
     unsigned cd = depth % k;
 
     if (arr[cd] < root->point[cd]) {
-        root->left = insert(root->left, arr, depth + 1);
+        root->left = insert(root->left, arr, index, depth + 1);
     } else {
-        root->right = insert(root->right, arr, depth + 1);
+        root->right = insert(root->right, arr, index, depth + 1);
     }
 
     return root;
 }
 
-KDNode* insert(KDNode* root, const Point2D& arr) {
-    return insert(root, arr, 0);
+KDNode* insert(KDNode* root, const Point2D& arr, int index) {
+    return insert(root, arr, index, 0);
 }
 
 KDNode* closest(const Point2D& target, KDNode* n1, KDNode* n2) {
@@ -43,10 +36,17 @@ KDNode* closest(const Point2D& target, KDNode* n1, KDNode* n2) {
     double dist1 = std::hypot(target[0] - n1->point[0], target[1] - n1->point[1]);
     double dist2 = std::hypot(target[0] - n2->point[0], target[1] - n2->point[1]);
 
+    const double EPSILON = 0.5;  // Small threshold for "nearly equal"
+
+    if (std::abs(dist1 - dist2) < EPSILON) {
+        // Prefer lower index when distances are very close
+        return (n1->index < n2->index) ? n1 : n2;
+    }
+
     return (dist1 < dist2) ? n1 : n2;
 }
 
-KDNode* nearestNeighbour(KDNode* root, const Point2D& target, int depth = 0) {
+KDNode* nearestNeighbour(KDNode* root, const Point2D& target, int depth) {
     if (!root) return nullptr;
 
     unsigned cd = depth % k;
@@ -75,11 +75,12 @@ KDNode* nearestNeighbour(KDNode* root, const Point2D& target, int depth = 0) {
     return best;
 }
 
-PurePursuitController::PurePursuitController() : Node("pure_pursuit_control") {
+PurePursuitController::PurePursuitController(const std::vector<geometry_msgs::msg::Point>& current_path) 
+    : Node("pure_pursuit_control"), current_path_(current_path) {
 
-    this->declare_parameter<double>("lookahead_distance", 2.0);
-    this->declare_parameter<double>("control_frequency", 500);
-    this->declare_parameter<double>("max_steering_angle", 0.6);  // radians
+    this->declare_parameter<double>("lookahead_distance", 4);
+    this->declare_parameter<double>("control_frequency", 20);
+    this->declare_parameter<double>("max_steering_angle", 1.2);  // radians
 
     lookahead_distance_ = this->get_parameter("lookahead_distance").as_double();
     control_frequency_ = this->get_parameter("control_frequency").as_double();
@@ -89,113 +90,85 @@ PurePursuitController::PurePursuitController() : Node("pure_pursuit_control") {
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "/carla/ego/odometry", 10, std::bind(&PurePursuitController::odomCallback, this, std::placeholders::_1));
 
-    bt_info_client_ = this->create_client<world_modeling_msgs::srv::BehaviourTreeInfo>("behaviour_tree_info");
+    waypoints_sub_ = this->create_subscription<nav_msgs::msg::Path>(
+        "/carla/ego/waypoints", 10,
+        std::bind(&PurePursuitController::waypointsCallback, this, std::placeholders::_1));
 
-    while (!bt_info_client_->wait_for_service(std::chrono::seconds(1))) {
-        RCLCPP_INFO(this->get_logger(), "Waiting for Behaviour Tree Info service...");
-    }
-    
     // Timer for control loop
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(static_cast<int>(control_frequency_)),
         std::bind(&PurePursuitController::controlLoop, this));
 
     // Publisher for steering or velocity commands
-    cmd_pub_ = this->create_publisher<carla_msgs::msg::CarlaEgoVehicleControl>("/cmd_lateral", 10);
+    cmd_pub_ = this->create_publisher<carla_msgs::msg::CarlaEgoVehicleControl>("/carla/ego/vehicle_control_cmd", 10);
 
     RCLCPP_INFO(this->get_logger(), "Pure Pursuit Controller Initialized");
-}
-
-std::vector<geometry_msgs::msg::Point> PurePursuitController::callBTInfoService() {
-    std::vector<geometry_msgs::msg::Point> points;
-
-    auto request = std::make_shared<world_modeling_msgs::srv::BehaviourTreeInfo::Request>();
-    auto future = bt_info_client_->async_send_request(request);
-
-    if (rclcpp::spin_until_future_complete(shared_from_this(), future) == rclcpp::FutureReturnCode::SUCCESS) {
-        auto response = future.get();
-
-        const auto& route_list = response->route_list;
-        if (!route_list.centerline.empty()) {
-            for (const auto& point : route_list.centerline) {
-                geometry_msgs::msg::Point p;
-                p.x = point.x;
-                p.y = point.y;
-                p.z = point.z;  // Assuming z is part of the point structure
-                points.push_back(p);
-                std::cout << " Point: (" << p.x << ", " << p.y << ", " << p.z << ")" << std::endl;
-            }
-        }
-    } else {
-        RCLCPP_ERROR(this->get_logger(), "Service call failed");
-    }
-
-    return points;
 }
 
 void PurePursuitController::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     current_odom_ = msg;
 }
 
+void PurePursuitController::waypointsCallback(const nav_msgs::msg::Path::SharedPtr msg) {
+    current_path_.clear();
+    for (const auto& pose_stamped : msg->poses) {
+        current_path_.push_back(pose_stamped.pose.position);
+    }
+    
+    buildKDTree();
+    RCLCPP_INFO(this->get_logger(), "Received %zu waypoints.", current_path_.size());
+}
+
 void PurePursuitController::controlLoop() {
     if (!current_odom_) return;
-
-    RCLCPP_INFO(this->get_logger(), "control_loop");
 
     geometry_msgs::msg::Pose current_pose = current_odom_->pose.pose;
 
     RCLCPP_INFO(this->get_logger(), "current pose: x=%.2f, y=%.2f, z=%.2f",
                 current_pose.position.x, current_pose.position.y, current_pose.position.z);
 
-    std::vector<geometry_msgs::msg::Point> current_path = callBTInfoService();
-    if (current_path.empty()) {
+    if (current_path_.empty()) {
         RCLCPP_WARN(this->get_logger(), "Received empty path from Behaviour Tree Info service.");
         return;
     }
 
-    int closest_idx = findClosestWaypointAhead(current_pose, current_path);
+    int closest_idx = findClosestWaypointAhead(current_pose);
 
     if (closest_idx == -1) {
         RCLCPP_WARN(this->get_logger(), "No valid waypoint found.");
         return;
     }
 
+    RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d", closest_idx);
+
     geometry_msgs::msg::PoseStamped target_wp;
-    bool success = findTargetWaypoint(closest_idx, current_pose, current_path, target_wp);
+    bool success = findTargetWaypoint(closest_idx, current_pose, current_path_, target_wp);
 
     if (!success) {
         RCLCPP_WARN(this->get_logger(), "Failed to find target waypoint.");
         return;
     }
 
-    double steering_angle = computeSteeringAngle(current_pose, target_wp.pose);
+    double steering_angle = -computeSteeringAngle(current_pose, target_wp.pose);
 
-    steering_angle = std::clamp(steering_angle, -max_steering_angle_, max_steering_angle_);
+    RCLCPP_INFO(this->get_logger(), "Steering angle: %.2f radians", steering_angle);
 
     carla_msgs::msg::CarlaEgoVehicleControl cmd;
     cmd.header.stamp = this->now();
-    cmd.steer = steering_angle;
-    cmd.throttle = 0.5;
+    cmd.steer = std::clamp(steering_angle / max_steering_angle_, -1.0, 1.0);
+    cmd.throttle = 0.3;
     cmd_pub_->publish(cmd);
 }
 
-int PurePursuitController::findClosestWaypointAhead(const geometry_msgs::msg::Pose& pose, const std::vector<geometry_msgs::msg::Point>& path) {
-    if (path.empty()) return -1;
-
-    KDNode* root = nullptr;
-    std::vector<std::array<double, 2>> points;
-    for (const auto& p : path) {
-        Point2D arr = { p.x, p.y };
-        root = ::insert(root, arr);
-        points.push_back({arr[0], arr[1]});
-    }
+int PurePursuitController::findClosestWaypointAhead(const geometry_msgs::msg::Pose& pose) {
+    if (!root) return -1;
 
     Point2D query = { pose.position.x, pose.position.y };
     KDNode* nearest = nearestNeighbour(root, query);
 
-    for (size_t i = 0; i < points.size(); ++i) {
-        if (points[i][0] == nearest->point[0] && points[i][1] == nearest->point[1])
-            return static_cast<int>(i);
+    if (nearest) {
+        RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d (%f, %f)", nearest->index, nearest->point[0], nearest->point[1]);
+        return nearest->index;
     }
 
     return -1;
@@ -249,16 +222,13 @@ bool PurePursuitController::findTargetWaypoint(int start_idx, const geometry_msg
 
 double PurePursuitController::computeSteeringAngle(const geometry_msgs::msg::Pose& pose, const geometry_msgs::msg::Pose& target) {
     // Transform target to vehicle frame
-
-    double siny_cosp = 2.0 * (pose.orientation.w * pose.orientation.z + pose.orientation.x * pose.orientation.y);
-    double cosy_cosp = 1.0 - 2.0 * (pose.orientation.y * pose.orientation.y + pose.orientation.z * pose.orientation.z);
-    double yaw = std::atan2(siny_cosp, cosy_cosp);
+    double yaw = tf2::getYaw(pose.orientation);
 
     double dx = target.position.x - pose.position.x;
     double dy = target.position.y - pose.position.y;
 
-    double x_veh =  std::cos(-yaw) * dx - std::sin(-yaw) * dy;
-    double y_veh =  std::sin(-yaw) * dx + std::cos(-yaw) * dy;
+    double x_veh =   std::cos(yaw) * dx + std::sin(yaw) * dy;
+    double y_veh =  -std::sin(yaw) * dx + std::cos(yaw) * dy;
 
     if (x_veh == 0.0) return 0.0;
 
@@ -272,10 +242,49 @@ double PurePursuitController::wrapAngle(double angle) {
     return angle;
 }
 
+void PurePursuitController::buildKDTree() {
+    root = nullptr;
+    for (size_t i = 0; i < current_path_.size(); ++i) {
+        Point2D pt = {current_path_[i].x, current_path_[i].y};
+        root = ::insert(root, pt, static_cast<int>(i));
+    }
+}
+
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<PurePursuitController>();
-    rclcpp::spin(node);
+    // auto node = rclcpp::Node::make_shared("bt_info_client");
+
+    // auto client = node->create_client<world_modeling_msgs::srv::BehaviourTreeInfo>("behaviour_tree_info");
+
+    // while (!client->wait_for_service(std::chrono::seconds(1))) {
+    //     RCLCPP_INFO(node->get_logger(), "Waiting for service...");
+    // }
+
+    // auto request = std::make_shared<world_modeling_msgs::srv::BehaviourTreeInfo::Request>();
+    // auto future = client->async_send_request(request);
+
+    std::vector<geometry_msgs::msg::Point> extracted_path;
+
+    // if (rclcpp::spin_until_future_complete(node, future) == rclcpp::FutureReturnCode::SUCCESS) {
+    //     auto response = future.get();
+    //     for (const auto& pt : response->route_list.centerline) {
+    //         geometry_msgs::msg::Point p;
+    //         p.x = pt.x;
+    //         p.y = pt.y;
+    //         p.z = pt.z;
+    //         extracted_path.push_back(p);
+    //     }
+    // } else {
+    //     RCLCPP_ERROR(node->get_logger(), "Service call failed");
+    //     rclcpp::shutdown();
+    //     return 1;
+    // }
+
+    // Now start the controller node and pass the path
+    auto controller_node = std::make_shared<PurePursuitController>(extracted_path);
+    rclcpp::spin(controller_node);
+
     rclcpp::shutdown();
     return 0;
 }
+

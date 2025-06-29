@@ -39,6 +39,7 @@ ament_target_dependencies(
   carla_msgs
   world_modeling_msgs
   tf2_geometry_msgs
+  tf2
 )
 
 # Add the main node executable
