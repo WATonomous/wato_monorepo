@@ -90,10 +90,6 @@ PurePursuitController::PurePursuitController(const std::vector<geometry_msgs::ms
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "/carla/ego/odometry", 10, std::bind(&PurePursuitController::odomCallback, this, std::placeholders::_1));
 
-    waypoints_sub_ = this->create_subscription<nav_msgs::msg::Path>(
-        "/carla/ego/waypoints", 10,
-        std::bind(&PurePursuitController::waypointsCallback, this, std::placeholders::_1));
-
     // Timer for control loop
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(static_cast<int>(control_frequency_)),
@@ -102,6 +98,8 @@ PurePursuitController::PurePursuitController(const std::vector<geometry_msgs::ms
     // Publisher for steering or velocity commands
     cmd_pub_ = this->create_publisher<carla_msgs::msg::CarlaEgoVehicleControl>("/carla/ego/vehicle_control_cmd", 10);
 
+    buildKDTree();
+
     RCLCPP_INFO(this->get_logger(), "Pure Pursuit Controller Initialized");
 }
 
@@ -109,26 +107,16 @@ void PurePursuitController::odomCallback(const nav_msgs::msg::Odometry::SharedPt
     current_odom_ = msg;
 }
 
-void PurePursuitController::waypointsCallback(const nav_msgs::msg::Path::SharedPtr msg) {
-    current_path_.clear();
-    for (const auto& pose_stamped : msg->poses) {
-        current_path_.push_back(pose_stamped.pose.position);
-    }
-    
-    buildKDTree();
-    RCLCPP_INFO(this->get_logger(), "Received %zu waypoints.", current_path_.size());
-}
-
 void PurePursuitController::controlLoop() {
     if (!current_odom_) return;
 
     geometry_msgs::msg::Pose current_pose = current_odom_->pose.pose;
 
-    RCLCPP_INFO(this->get_logger(), "current pose: x=%.2f, y=%.2f, z=%.2f",
-                current_pose.position.x, current_pose.position.y, current_pose.position.z);
+    // RCLCPP_INFO(this->get_logger(), "current pose: x=%.2f, y=%.2f, z=%.2f",
+                // current_pose.position.x, current_pose.position.y, current_pose.position.z);
 
     if (current_path_.empty()) {
-        RCLCPP_WARN(this->get_logger(), "Received empty path from Behaviour Tree Info service.");
+        // RCLCPP_WARN(this->get_logger(), "Received empty path from Behaviour Tree Info service.");
         return;
     }
 
@@ -139,7 +127,7 @@ void PurePursuitController::controlLoop() {
         return;
     }
 
-    RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d", closest_idx);
+    // RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d", closest_idx);
 
     geometry_msgs::msg::PoseStamped target_wp;
     bool success = findTargetWaypoint(closest_idx, current_pose, current_path_, target_wp);
@@ -151,7 +139,7 @@ void PurePursuitController::controlLoop() {
 
     double steering_angle = -computeSteeringAngle(current_pose, target_wp.pose);
 
-    RCLCPP_INFO(this->get_logger(), "Steering angle: %.2f radians", steering_angle);
+    // RCLCPP_INFO(this->get_logger(), "Steering angle: %.2f radians", steering_angle);
 
     carla_msgs::msg::CarlaEgoVehicleControl cmd;
     cmd.header.stamp = this->now();
@@ -167,7 +155,7 @@ int PurePursuitController::findClosestWaypointAhead(const geometry_msgs::msg::Po
     KDNode* nearest = nearestNeighbour(root, query);
 
     if (nearest) {
-        RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d (%f, %f)", nearest->index, nearest->point[0], nearest->point[1]);
+        // RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d (%f, %f)", nearest->index, nearest->point[0], nearest->point[1]);
         return nearest->index;
     }
 
@@ -267,12 +255,21 @@ int main(int argc, char** argv) {
 
     if (rclcpp::spin_until_future_complete(node, future) == rclcpp::FutureReturnCode::SUCCESS) {
         auto response = future.get();
-        for (const auto& pt : response->route_list.centerline) {
-            geometry_msgs::msg::Point p;
-            p.x = pt.x;
-            p.y = pt.y;
-            p.z = pt.z;
-            extracted_path.push_back(p);
+        const auto& route_list = response->route_list;
+
+        for (const auto& lanelet : route_list.lanelets) {
+            if (!lanelet.centerline.empty()) {
+                for (const auto& pt : lanelet.centerline) {
+                    geometry_msgs::msg::Point p;
+                    p.x = pt.x;
+                    p.y = pt.y;
+                    p.z = pt.z;
+                    RCLCPP_INFO(node->get_logger(), "Extracted waypoint: x=%.2f, y=%.2f, z=%.2f", p.x, p.y, p.z);
+                    extracted_path.push_back(p);
+                }
+            } else {
+                RCLCPP_WARN(node->get_logger(), "Lanelet centerline is empty for lanelet ID %d", lanelet.id);
+            }
         }
     } else {
         RCLCPP_ERROR(node->get_logger(), "Service call failed");

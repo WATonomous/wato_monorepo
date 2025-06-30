@@ -250,9 +250,26 @@ void HDMapService::behaviour_tree_info_callback(
   response->current_point = current_point_;
   response->goal_point = goal_point_;
 
-  // response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
-  // response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
-  // response->route_list = convert_laneletPath_to_msg(lanelet_path);
+  RCLCPP_INFO(this->get_logger(), "Unconverted Current Point: x=%f, y=%f, z=%f", response->current_point.x, response->current_point.y, response->current_point.z);
+  RCLCPP_INFO(this->get_logger(), "Unconverted Goal Point: x=%f, y=%f, z=%f", response->goal_point.x, response->goal_point.y, response->goal_point.z);
+
+  if (lanelet_path) {
+    RCLCPP_INFO(this->get_logger(), "Unconverted Route List:");
+    for (const auto& lanelet : *lanelet_path) {
+      RCLCPP_INFO(this->get_logger(), "Lanelet ID: %d", lanelet.id());
+    }
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Unconverted Route List is empty");
+  }
+  // Print unconverted current lanelet
+  RCLCPP_INFO(this->get_logger(), "Unconverted Current Lanelet ID: %d", current_lanelet_.id());
+
+  // Print unconverted goal lanelet
+  RCLCPP_INFO(this->get_logger(), "Unconverted Goal Lanelet ID: %d", goal_lanelet_.id());
+
+  response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
+  response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
+  response->route_list = convert_laneletPath_to_msg(lanelet_path);
 }
 
 int main(int argc, char** argv) {

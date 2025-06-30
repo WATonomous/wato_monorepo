@@ -48,8 +48,6 @@ class PurePursuitController : public rclcpp::Node {
         rclcpp::Client<world_modeling_msgs::srv::BehaviourTreeInfo>::SharedPtr bt_info_client_;
         rclcpp::TimerBase::SharedPtr timer_;
 
-        rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr waypoints_sub_;
-
         rclcpp::Publisher<carla_msgs::msg::CarlaEgoVehicleControl>::SharedPtr cmd_pub_;
 
         rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_wp_pub_;
@@ -68,7 +66,6 @@ class PurePursuitController : public rclcpp::Node {
 
         KDNode* root = nullptr;
 
-        void waypointsCallback(const nav_msgs::msg::Path::SharedPtr msg);
         void buildKDTree();
 };
 
