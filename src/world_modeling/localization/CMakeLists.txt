@@ -26,10 +26,7 @@ find_package(robot_localization REQUIRED)
 # against it to access defined methods and classes.
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
-add_library(localization_lib
-  src/localization_node.cpp
-  src/odom.cpp
-  src/odom_mock_data.cpp)
+add_library(localization_lib src/odom.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(localization_lib
   PUBLIC
@@ -48,11 +45,9 @@ ament_target_dependencies(localization_lib
 # Create ROS2 node executable from source files
 
 #odom is the name of the node which we can run
-add_executable(localization_node src/odom.cpp)
 add_executable(odom src/odom.cpp)
 
 # Link to the previously built library to access occupancy classes and methods
-target_link_libraries(localization_node localization_lib)
 target_link_libraries(odom localization_lib)
 
 # Copy executable to installation location

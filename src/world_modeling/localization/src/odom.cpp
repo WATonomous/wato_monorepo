@@ -8,8 +8,8 @@ WheelOdometry::WheelOdometry()
   this->declare_parameter<std::string>("odom_output_topic", std::string("/bicycle_model_output"));
 
   this->declare_parameter<std::string>("ego_output_topic", std::string("/carla/ego/vehicle_status"));
-  this->declare_parameter<double>("wheel_base", 2.875);
-  this->declare_parameter<double>("max_steer_angle", 35.0); // in degrees
+  this->declare_parameter<double>("wheel_base", 2.875); // TODO: find the acutal value for the kia
+  this->declare_parameter<double>("max_steer_angle", 45.0); // in degrees TODO: remove assuming we get the steering angle of the wheels of the actual car
   this->declare_parameter<int>("odom_publish_rate", 10);
 
   auto left_motor_topic_ = this->get_parameter("left_wheel_topic").as_string();
@@ -39,9 +39,11 @@ WheelOdometry::WheelOdometry()
       [this](const std_msgs::msg::Float64::SharedPtr msg) { steering_angle_ = msg->data; });
 
   // Carla sim test 
+  // TODO: tailor to actual car
   vehicle_status_sub_ = this->create_subscription<carla_msgs::msg::CarlaEgoVehicleStatus>(
     ego_output_topic, qos, std::bind(&WheelOdometry::vehicleStatusCallback, this, std::placeholders::_1));
-
+  
+  // TODO: init the with actual car odom
   init_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
       "/carla/ego/odometry",   // CARLA ground-truth topic
       1,
@@ -55,15 +57,9 @@ WheelOdometry::WheelOdometry()
 void WheelOdometry::vehicleStatusCallback(
     const carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg)
 {
+  // TODO: Remove and replace with callback that subscribes to velocity of car and steering angle of wheels of the actual car
   velocity_       = msg->velocity;
   steering_angle_ = msg->control.steer * max_steer_angle_ * M_PI / 180.0;
-
-  RCLCPP_INFO(this->get_logger(), "Publishing: steering_angle=%.2f", steering_angle_);
-  RCLCPP_INFO(get_logger(),
-            "steer cmd = %.3f   --> %.2f° (%.3f rad)",
-            msg->control.steer,
-            steering_angle_ * 180.0 / M_PI,
-            steering_angle_);
 
   last_stamp_ = msg->header.stamp;
 }
@@ -77,6 +73,7 @@ void WheelOdometry::initializeOdomFromCarla(const nav_msgs::msg::Odometry::Share
 }
 
 void WheelOdometry::bicycleModel() {
+  // Previous odom
   // double linear_velocity = (left_wheel_speed + right_wheel_speed) / 2.0;
   // double angular_velocity = linear_velocity * tan(steering_angle) / wheel_base_;
 
@@ -88,14 +85,10 @@ void WheelOdometry::bicycleModel() {
   // y_ += linear_velocity * sin(theta_) * delta_t;
   // theta_ += angular_velocity * delta_t;
 
-  // Carla sim data
-
-  // RCLCPP_INFO(this->get_logger(), "Publishing: velocity=%.2f, steering_angle=%.2f", velocity_, steering_angle_);
-
-
-
+  // the delta_t was based on carla's msg time stamp that way we could see if our predicted odom matched CARLA's odom
+  // TODO: find an apppropriate delta_t for the actual car
   if (last_stamp_ == rclcpp::Time(0, 0, RCL_ROS_TIME)) {
-    return;                                 // haven’t received a status yet
+    return;
   }
 
   double delta_t = (last_stamp_ - prev_stamp_).seconds();
@@ -103,10 +96,9 @@ void WheelOdometry::bicycleModel() {
     return;
   }
 
-
   double angular_velocity = velocity_ * tan(steering_angle_) / wheel_base_;
 
-  theta_ -= angular_velocity * delta_t; // -= apparently for carla, steering sign inverted...
+  theta_ -= angular_velocity * delta_t; // apparently sign of steer is reversed in CARLA, TODO: Test w/ the acutal car and determine sign
 
   double velocity_x = velocity_ * cos(theta_);
   double velocity_y = velocity_ * sin(theta_);
