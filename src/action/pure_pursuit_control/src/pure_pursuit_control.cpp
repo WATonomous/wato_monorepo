@@ -252,33 +252,33 @@ void PurePursuitController::buildKDTree() {
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    // auto node = rclcpp::Node::make_shared("bt_info_client");
+    auto node = rclcpp::Node::make_shared("bt_info_client");
 
-    // auto client = node->create_client<world_modeling_msgs::srv::BehaviourTreeInfo>("behaviour_tree_info");
+    auto client = node->create_client<world_modeling_msgs::srv::BehaviourTreeInfo>("behaviour_tree_info");
 
-    // while (!client->wait_for_service(std::chrono::seconds(1))) {
-    //     RCLCPP_INFO(node->get_logger(), "Waiting for service...");
-    // }
+    while (!client->wait_for_service(std::chrono::seconds(1))) {
+        RCLCPP_INFO(node->get_logger(), "Waiting for service...");
+    }
 
-    // auto request = std::make_shared<world_modeling_msgs::srv::BehaviourTreeInfo::Request>();
-    // auto future = client->async_send_request(request);
+    auto request = std::make_shared<world_modeling_msgs::srv::BehaviourTreeInfo::Request>();
+    auto future = client->async_send_request(request);
 
     std::vector<geometry_msgs::msg::Point> extracted_path;
 
-    // if (rclcpp::spin_until_future_complete(node, future) == rclcpp::FutureReturnCode::SUCCESS) {
-    //     auto response = future.get();
-    //     for (const auto& pt : response->route_list.centerline) {
-    //         geometry_msgs::msg::Point p;
-    //         p.x = pt.x;
-    //         p.y = pt.y;
-    //         p.z = pt.z;
-    //         extracted_path.push_back(p);
-    //     }
-    // } else {
-    //     RCLCPP_ERROR(node->get_logger(), "Service call failed");
-    //     rclcpp::shutdown();
-    //     return 1;
-    // }
+    if (rclcpp::spin_until_future_complete(node, future) == rclcpp::FutureReturnCode::SUCCESS) {
+        auto response = future.get();
+        for (const auto& pt : response->route_list.centerline) {
+            geometry_msgs::msg::Point p;
+            p.x = pt.x;
+            p.y = pt.y;
+            p.z = pt.z;
+            extracted_path.push_back(p);
+        }
+    } else {
+        RCLCPP_ERROR(node->get_logger(), "Service call failed");
+        rclcpp::shutdown();
+        return 1;
+    }
 
     // Now start the controller node and pass the path
     auto controller_node = std::make_shared<PurePursuitController>(extracted_path);
