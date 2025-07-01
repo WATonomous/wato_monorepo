@@ -7,6 +7,13 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
 COPY src/world_modeling/localization localization
+COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
+
+# Carla specific messages
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
+
+# Update CONTRIBUTING.md to pass ament_copyright test
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CONTRIBUTING.md
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
@@ -20,7 +27,12 @@ FROM ${BASE_IMAGE} as dependencies
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+# RUN apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+RUN rm -rf /var/lib/apt/lists/* && \
+    apt-get -qq update && \
+    apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
