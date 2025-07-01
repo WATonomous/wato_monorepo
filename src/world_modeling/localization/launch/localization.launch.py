@@ -51,12 +51,6 @@ def generate_launch_description():
         ],
     )
 
-    # odom_mock_data = Node(
-    #     package='localization',
-    #     executable='odom_mock_data',
-    #     parameters=[LaunchConfiguration('localization_param_file')],
-    # )
-
     return LaunchDescription([
         localization_param,
         odom,
