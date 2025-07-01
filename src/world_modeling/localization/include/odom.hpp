@@ -6,13 +6,13 @@
 #include <memory>
 #include <string>
 
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/utils.h>
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/string.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2/utils.h> 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp> 
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "carla_msgs/msg/carla_ego_vehicle_status.hpp"
 
@@ -36,7 +36,6 @@ class WheelOdometry : public rclcpp::Node {
   // To initialize with Carla starting pose and theta
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr init_sub_;
   void initializeOdomFromCarla(const nav_msgs::msg::Odometry::SharedPtr msg);
-
 
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr publisher_;
 
