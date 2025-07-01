@@ -12,6 +12,9 @@ COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
 # Carla specific messages
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
 
+# Update CONTRIBUTING.md to pass ament_copyright test
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
+
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
