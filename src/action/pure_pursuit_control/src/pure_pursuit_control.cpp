@@ -116,7 +116,7 @@ void PurePursuitController::controlLoop() {
                 // current_pose.position.x, current_pose.position.y, current_pose.position.z);
 
     if (current_path_.empty()) {
-        // RCLCPP_WARN(this->get_logger(), "Received empty path from Behaviour Tree Info service.");
+        RCLCPP_WARN(this->get_logger(), "Received empty path from Behaviour Tree Info service.");
         return;
     }
 
