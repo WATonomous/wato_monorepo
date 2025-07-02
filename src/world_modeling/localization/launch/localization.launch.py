@@ -34,7 +34,7 @@ def generate_launch_description():
         parameters=[config_file],
         remappings=[("odometry/filtered", "odometry/filtered")],
         output='screen'
-    ),
+    )
 
     navsat_transform = Node(
         package='robot_localization',
@@ -54,4 +54,6 @@ def generate_launch_description():
     return LaunchDescription([
         localization_param,
         odom,
+        ekf_node,
+        navsat_transform,
     ])

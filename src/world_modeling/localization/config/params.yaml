@@ -1,39 +1,20 @@
-localization:
-  ros__parameters:
-    gps_topic: "/carla/gnss"
-    imu_topic: "/carla/imu"
-    wheel_odom_topic: "/odom"
-    gps_output_topic: "/localization/gps"
-    imu_output_topic: "/localization/imu"
-    wheel_odom_output_topic: "/localization/odom"
 odom:
   ros__parameters:
-    odom_output_topic: "/bicycle_model_output"
+    odom_output_topic: "/localization/wheel/odometry"
     wheel_base: 2.875
     max_steer_angle: 55.0
     odom_publish_rate: 10
-odom_mock_data:
-  ros__parameters:
-    right_wheel_topic: "/motor_encoder_right"
-    left_wheel_topic: "/motor_encoder_left"
-    steering_topic: "/steering_angle"
-    wheel_speed_min: 3.0
-    wheel_speed_max: 3.0
-    turning_angle_min: 0.0
-    turning_angle_max: 0.0
-    wheel_publish_rate: 1000
-    turn_publish_rate: 1000
 
 ekf_filter_node_global:
   ros__parameters:
     # Frame definitions
-    # map_frame: map # Fixed global frame, global navigation
+    map_frame: map # Fixed global frame, global navigation
     odom_frame: map # Local reference that tracks robot position over time based on wheel encoders
     base_link_frame: ego # Robot's body frame, centered on the robot and moves with it
     world_frame: map
     debug: true
 
-    odom0: /carla/ego/odometry  # Provides information about robot's position and velocity
+    odom0: /localization/wheel/odometry  # Provides information about robot's position and velocity
     odom0_config: [true, true, false, 
             false, false, false, 
             false, false, false, 
@@ -48,19 +29,19 @@ ekf_filter_node_global:
             false, false, false]  # Yaw is important for steering and orientation
 
     # Parameters
-    frequency: 30.0
+    frequency: 10.0
     sensor_timeout: 0.1
     two_d_mode: true
     publish_tf: false
   
 navsat_transform:
   ros__parameters:
-    frequency: 30.0
+    frequency: 10.0
     delay: 3.0
     magnetic_declination_radians: 0.0
     yaw_offset: 0.0
     zero_altitude: true
-    broadcast_utm_transform: true
+    broadcast_cartesian_transform: true
     publish_filtered_gps: true
     use_odometry_yaw: true
     wait_for_datum: false 

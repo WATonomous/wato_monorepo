@@ -116,8 +116,8 @@ void WheelOdometry::bicycleModel() {
   auto odom = nav_msgs::msg::Odometry();
 
   odom.header.stamp = prev_stamp_;
-  odom.header.frame_id = "odom";
-  odom.child_frame_id = "base_link";
+  odom.header.frame_id = "map";
+  odom.child_frame_id = "ego";
 
   odom.pose.pose.position.x = x_;
   odom.pose.pose.position.y = y_;
@@ -131,7 +131,7 @@ void WheelOdometry::bicycleModel() {
   odom.twist.twist.linear.y = velocity_y;
   odom.twist.twist.angular.z = angular_velocity;
 
-  RCLCPP_INFO(this->get_logger(), "Publishing: x=%.2f, y=%.2f, theta=%.2f", x_, y_, theta_);
+  // RCLCPP_INFO(this->get_logger(), "Publishing: x=%.2f, y=%.2f, theta=%.2f", x_, y_, theta_);
   publisher_->publish(odom);
 }
 
