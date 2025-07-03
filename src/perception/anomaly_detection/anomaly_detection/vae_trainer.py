@@ -8,7 +8,7 @@ from PIL import Image as PILImage
 import numpy as np
 from vae_scratch import VAE, vae_loss_function
 
-# --- Configuration ---
+# ---- Configuration ----
 IMG_SIZE = 256 #model expects 256x256 images
 LATENT_DIM = 64
 HIDDEN_DIMS = [32, 64, 128, 256, 512]
