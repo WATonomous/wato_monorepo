@@ -722,6 +722,14 @@ def main(args=None):
     rclpy.init(args=args)
 
     camera_object_detection_node = CameraDetectionNode()
+
+    # Running this node without a detected TensorRT engine builds the engine and then exits
+    if not os.path.exists(node.tensorRT_model_path):
+        node.get_logger().info("TensorRT engine file not found, building engine and then exiting...")
+        node.build_engine()
+        camera_object_detection_node.destroy_node()
+        rclpy.shutdown()
+        return
     rclpy.spin(camera_object_detection_node)
     camera_object_detection_node.destroy_node()
     rclpy.shutdown()
