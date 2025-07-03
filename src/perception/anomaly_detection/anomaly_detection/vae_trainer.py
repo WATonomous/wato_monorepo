@@ -9,7 +9,7 @@ import numpy as np
 from vae_scratch import VAE, vae_loss_function
 
 # ---- Configuration ----
-IMG_SIZE = 256 #model expects 256x256 images
+IMG_SIZE = 256 #model expects 256x256 image
 LATENT_DIM = 64
 HIDDEN_DIMS = [32, 64, 128, 256, 512]
 DATA_ROOT_DIR = 'data/train/normal' # Path to training images

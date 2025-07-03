@@ -12,7 +12,7 @@ from torchvision import transforms
 from PIL import Image as PILImage
 import torch.nn.functional as F
 
-#1.------- model definition ------
+#1. ------ model definition ------
 class VAE(nn.Module):
     def __init__(self, 
     in_channels: int = 3, 
