@@ -9,8 +9,8 @@ from cv_bridge import CvBridge
 from torch import nn, Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from PIL import Image as PILImage
 import torch.nn.functional as F
+from PIL import Image as PILImage
 
 #1. ------ model definition ------
 class VAE(nn.Module):
