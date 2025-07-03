@@ -4,9 +4,9 @@ import torch
 from torch import nn, optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from PIL import Image as PILImage # Renamed to avoid conflict with sensor_msgs.msg.Image
+from PIL import Image as PILImage
 import numpy as np
-from vae_scratch import VAE, vae_loss_function # Import your VAE model and loss function
+from vae_scratch import VAE, vae_loss_function
 
 # --- Configuration ---
 IMG_SIZE = 256 #model expects 256x256 images

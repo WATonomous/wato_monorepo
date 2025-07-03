@@ -28,7 +28,7 @@ class VAE(nn.Module):
         self.latent_dim = latent_dim
         self.img_size = img_size
 
-        # --- Encoder ---
+        # ---- Encoder ----
         modules = []
         for h_dim in hidden_dims:
             modules.append(nn.Sequential(
