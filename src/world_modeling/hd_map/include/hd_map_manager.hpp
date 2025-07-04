@@ -100,7 +100,9 @@ class HDMapManager {
 
   // List of origins associated with map files
   std::map<std::string, lanelet::Origin> originList = {
-      {"/home/bolty/ament_ws/etc/maps/osm/Town05.osm", lanelet::Origin({0, 0})}};
+      {"/home/bolty/ament_ws/etc/maps/osm/Town05.osm", lanelet::Origin({0, 0})},
+      {"/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm", lanelet::Origin({0, 0})},
+  };
 
   // Shared pointer to the HDMapRouter object
   std::shared_ptr<HDMapRouter> router_;
