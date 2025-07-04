@@ -46,8 +46,8 @@ HDMapService::HDMapService() : Node("hd_map_service") {
                                        std::placeholders::_1, std::placeholders::_2));
 
   // Map selection hardcoded for now
-  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map fire_tower_exp_may16.osm...\n");
-  if (manager_->select_osm_map("/home/bolty/ament_ws/etc/maps/osm/fire_tower_exp_may16.osm")) {
+  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town10HD.osm...\n");
+  if (manager_->select_osm_map("/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm")) {
     RCLCPP_INFO(this->get_logger(), "Map Selection Successful!\n");
   } else {
     RCLCPP_INFO(this->get_logger(), "Map Selection Failed.\n");
