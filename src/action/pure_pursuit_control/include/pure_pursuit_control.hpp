@@ -37,36 +37,37 @@ KDNode* nearestNeighbour(KDNode* root, const Point2D& target, int depth = 0);
 
 class PurePursuitController : public rclcpp::Node {
     public:
-        PurePursuitController(const std::vector<geometry_msgs::msg::Point>& current_path);
+        PurePursuitController();
 
     private:
+        KDNode* root = nullptr;
+
         double lookahead_distance_;
         double control_frequency_;
         double max_steering_angle_;
 
         rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+        rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
+
         rclcpp::Client<world_modeling_msgs::srv::BehaviourTreeInfo>::SharedPtr bt_info_client_;
         rclcpp::TimerBase::SharedPtr timer_;
 
         rclcpp::Publisher<carla_msgs::msg::CarlaEgoVehicleControl>::SharedPtr cmd_pub_;
-
-        rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_wp_pub_;
-        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
         nav_msgs::msg::Odometry::SharedPtr current_odom_;
 
         std::vector<geometry_msgs::msg::Point> current_path_;
 
         void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+        void pathCallback(const nav_msgs::msg::Path::SharedPtr msg);
         void controlLoop();
         int findClosestWaypointAhead(const geometry_msgs::msg::Pose& pose);
         bool findTargetWaypoint(int start_idx, const geometry_msgs::msg::Pose& pose, const std::vector<geometry_msgs::msg::Point>& current_path, geometry_msgs::msg::PoseStamped& target_wp);
         double wrapAngle(double angle);
         double computeSteeringAngle(const geometry_msgs::msg::Pose& pose, const geometry_msgs::msg::Pose& target);
-
-        KDNode* root = nullptr;
-
         void buildKDTree();
+
+        bool isSamePath(const std::vector<geometry_msgs::msg::Point>& new_path);
 };
 
 #endif  // PURE_PURSUIT_CONTROL_HPP_

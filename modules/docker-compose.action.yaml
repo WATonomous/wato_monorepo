@@ -56,3 +56,15 @@ services:
     image: "${ACTION_PURE_PURSUIT_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch pure_pursuit_control pure_pursuit_control.launch.py"
 
+  behaviour_tree:
+    build:
+      context: ..
+      dockerfile: docker/action/behaviour_tree/behaviour_tree.Dockerfile
+      cache_from:
+        - "${ACTION_BEHAVIOUR_TREE_IMAGE}:build_${TAG}"
+        - "${ACTION_BEHAVIOUR_TREE_IMAGE}:build_main"
+        - "${ACTION_PURE_PURSUIT_IMAGE}:build_main"
+      target: deploy
+    image: "${ACTION_BEHAVIOUR_TREE_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch behaviour_tree behaviour_tree.launch.py"
+

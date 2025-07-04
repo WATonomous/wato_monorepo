@@ -1,4 +1,4 @@
-pure_pursuit_control:
+behaviour_tree:
   ros__parameters:
     buffer_capacity: 6
     

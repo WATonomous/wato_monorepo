@@ -45,10 +45,19 @@ services:
       - ${MONO_DIR}/src/action/model_predictive_control:/home/bolty/ament_ws/src/model_predictive_control
 
   pure_pursuit_control:
-  extends:
-    file: ../docker-compose.action.yaml
-    service: pure_pursuit_control
-  image: "${ACTION_PURE_PURSUIT_IMAGE}:build_${TAG}"
-  command: tail -F anything
-  volumes:
-    - ${MONO_DIR}/src/action/pure_pursuit_control:/home/bolty/ament_ws/src/pure_pursuit_control
+    extends:
+      file: ../docker-compose.action.yaml
+      service: pure_pursuit_control
+    image: "${ACTION_PURE_PURSUIT_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/action/pure_pursuit_control:/home/bolty/ament_ws/src/pure_pursuit_control
+
+  behaviour_tree:
+    extends:
+      file: ../docker-compose.action.yaml
+      service: behaviour_tree
+    image: "${ACTION_BEHAVIOUR_TREE_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/action/behaviour_tree:/home/bolty/ament_ws/src/behaviour_tree
