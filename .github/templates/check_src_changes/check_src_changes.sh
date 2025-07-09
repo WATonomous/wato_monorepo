@@ -44,10 +44,14 @@ fi
 # Infrastructure
 if [ $INFRASTRUCTURE_CHANGED == 'true' ]; then
     echo "::notice:: Detected infrastructure changes"
-    MODIFIED_MODULES="infrastructure"
+    MODIFIED_MODULES+="infrastructure"
 else
     echo "::notice:: MODIFIED_MODULES are $MODIFIED_MODULES" 
 fi
+
+if [ $ALL_CHANGED == 'true' ]; then
+    echo "::notice:: Detected a change that constitutes testing all modules. This is caused by any changes outside src."
+    MODIFIED_MODULES=
 
 # Output lis
 echo "modified_modules=$MODIFIED_MODULES" >> $GITHUB_OUTPUT
