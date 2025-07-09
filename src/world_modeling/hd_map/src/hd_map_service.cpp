@@ -46,8 +46,8 @@ HDMapService::HDMapService() : Node("hd_map_service") {
                                        std::placeholders::_1, std::placeholders::_2));
 
   // Map selection hardcoded for now
-  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town05.osm...\n");
-  if (manager_->select_osm_map("/home/bolty/ament_ws/etc/maps/osm/Town05.osm")) {
+  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town10HD.osm...\n");
+  if (manager_->select_osm_map("/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm")) {
     RCLCPP_INFO(this->get_logger(), "Map Selection Successful!\n");
   } else {
     RCLCPP_INFO(this->get_logger(), "Map Selection Failed.\n");
@@ -110,7 +110,10 @@ void HDMapService::publish_hd_map_marker() {
 void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr msg) {
   goal_point_ = msg->point;
 
-  auto pt1 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{0, 0, 0});
+  // auto pt1 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{0, 0, 0});
+  auto pt1 = router_->project_point3d_to_gps(lanelet::BasicPoint3d{current_point_.x,
+                                                                  current_point_.y,
+                                                                  current_point_.z});
   auto pt2 = router_->project_point3d_to_gps(
       lanelet::BasicPoint3d{msg->point.x, msg->point.y, msg->point.z});
 
