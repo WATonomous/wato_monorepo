@@ -4,8 +4,37 @@ camera_object_detection_node:
     front_right_camera_topic: /CAM_FRONT_RIGHT/image_rect_compressed
     front_left_camera_topic: /CAM_FRONT_LEFT/image_rect_compressed
     publish_vis_topic: false
-    publish_obstacle_topic: /obstacles
+    batch_inference_topic: /obstacles
     model_path: /perception_models/yolov8m.pt
     image_size: 640
     nuscenes: true
     compressed: true
+
+
+traffic_light_node:
+  ros__parameters:
+    front_center_camera_topic: /CAM_FRONT/image_rect_compressed
+    publish_vis_topic: true
+    batch_inference_topic: /traffic_lights
+    onnx_model_path: /perception_models/traffic_light.onnx
+    tensorRT_model_path: /perception_models/traffic_light.engine
+    model_path: /perception_models/traffic_light.pt
+    crop_mode: CenterCrop
+    image_size: 1024
+    nuscenes: true
+    compressed: true
+    save_detections: false
+
+
+traffic_signs_node:
+  ros__parameters:
+    front_center_camera_topic: /CAM_FRONT/image_rect_compressed
+    publish_vis_topic: false
+    batch_inference_topic: /traffic_signs
+    # tensorRT_model_path: /perception_models/traffic_signs.engine
+    model_path: /perception_models/traffic_signs_v1.pt
+    crop_mode: CenterCrop
+    image_size: 1024
+    nuscenes: true
+    compressed: true
+    save_detections: false

@@ -24,6 +24,13 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/camera_object_detection:/home/bolty/ament_ws/src/camera_object_detection
+      - /mnt/wato-drive2/perception_models/yolov8m.pt:/perception_models/yolov8m.pt
+      - /mnt/wato-drive2/perception_models/traffic_light.pt:/perception_models/traffic_light.pt
+      - /mnt/wato-drive2/perception_models/traffic_signs_v3.pt:/perception_models/traffic_signs_v1.pt
+      - /mnt/wato-drive2/perception_models/tensorRT.onnx:/perception_models/tensorRT.onnx
+      - /mnt/wato-drive2/perception_models/tensorRT.engine:/perception_models/tensorRT.engine
+      - /mnt/wato-drive2/perception_models/traffic_light.onnx:/perception_models/traffic_light.onnx
+      - /mnt/wato-drive2/perception_models/eve.onnx:/perception_models/eve.onnx
 
   lidar_object_detection:
     <<: *fixuid

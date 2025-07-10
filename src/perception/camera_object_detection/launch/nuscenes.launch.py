@@ -19,4 +19,23 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', 'info']
     )
 
-    return LaunchDescription([camera_object_detection_node])
+    traffic_light_node = Node(
+        package='camera_object_detection',
+        executable='camera_object_detection_node',
+        name='traffic_light_node',
+        parameters=[config],
+        arguments=['--ros-args', '--log-level', 'info']
+    )
+
+    traffic_signs_node = Node(
+        package='camera_object_detection',
+        executable='camera_object_detection_node',
+        name='traffic_signs_node',
+        parameters=[config],
+        arguments=['--ros-args', '--log-level', 'info']
+    )
+    return LaunchDescription([
+        # camera_object_detection_node,
+        traffic_light_node,
+        traffic_signs_node
+    ])

@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 import os
+import sys
 from message_filters import Subscriber, TimeSynchronizer, ApproximateTimeSynchronizer
 from camera_object_detection_msgs.msg import BatchDetection, EveBatchDetection
 from sensor_msgs.msg import Image, CompressedImage
@@ -57,8 +58,8 @@ class Model():
 
 class CameraDetectionNode(Node):
 
-    def __init__(self):
-        super().__init__("camera_object_detection_node")
+    def __init__(self, node_name):
+        super().__init__(node_name=node_name)
         self.get_logger().info("Creating batched camera detection node...")
 
         # Eve config params
@@ -170,8 +171,28 @@ class CameraDetectionNode(Node):
         self.logger = trt.Logger(trt.Logger.WARNING)
         trt.init_libnvinfer_plugins(self.logger, namespace='')
 
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+            self.get_logger().info("Using GPU for inference")
+        else:
+            self.get_logger().info("Using CPU for inference")
+
         # Initialize TensorRT model
+        if not os.path.exists(self.tensorRT_model_path):
+            self.get_logger().info(
+                f"TensorRT model not found at {self.tensorRT_model_path}, building the engine...")
+            self.build_engine()
         self.weight = Path(self.tensorRT_model_path) if isinstance(
+            self.tensorRT_model_path, str) else self.tensorRT_model_path
+        with trt.Runtime(self.logger) as runtime:
+            self.tensorRT_model = runtime.deserialize_cuda_engine(
+                self.weight.read_bytes())
+        if not self.tensorRT_model:
+            self.get_logger().error(
+                f"Failed to load TensorRT model from {self.tensorRT_model_path}")
+            self.build_engine()
+            self.weight = Path(self.tensorRT_model_path) if isinstance(
             self.tensorRT_model_path, str) else self.tensorRT_model_path
         with trt.Runtime(self.logger) as runtime:
             self.tensorRT_model = runtime.deserialize_cuda_engine(
@@ -179,7 +200,7 @@ class CameraDetectionNode(Node):
         self.execution_context = self.tensorRT_model.create_execution_context()
         if not self.execution_context:
             self.get_logger().error("Failed to create execution context")
-            return 1
+            return
 
         input_name = self.tensorRT_model.get_tensor_name(
             0)  # usually the first I/O is your input
@@ -224,12 +245,6 @@ class CameraDetectionNode(Node):
             self.eve_ats.registerCallback(self.eve_batch_inference_callback)
             self.get_logger().info(f"TENSORT VERSION:{trt.__version__}")
 
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
-        if torch.cuda.is_available():
-            self.get_logger().info("Using GPU for inference")
-        else:
-            self.get_logger().info("Using CPU for inference")
 
         self.last_publish_time = self.get_clock().now()
 
@@ -721,7 +736,15 @@ class CameraDetectionNode(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    camera_object_detection_node = CameraDetectionNode()
+    # Default name fallback
+    node_name = 'camera_object_detection_node'
+
+    # Parse name override from launch
+    for arg in sys.argv:
+        print(arg)
+        if arg.startswith('__node:='):
+            node_name = arg.split(':=')[1]
+    camera_object_detection_node = CameraDetectionNode(node_name)
     rclpy.spin(camera_object_detection_node)
     camera_object_detection_node.destroy_node()
     rclpy.shutdown()
