@@ -72,7 +72,7 @@ void bbox_2d_3d::initializeParams() {
   // Density Filtering Parameters
   this->declare_parameter<double>("density_filter_params.density_weight", 0.6);
   this->declare_parameter<double>("density_filter_params.size_weight", 0.8);
-  this->declare_parameter<double>("density_filter_params.distance_weight", 0.7);
+  this->declare_parameter<double>("density_filter_params.distance_weight", 0.3);
   this->declare_parameter<double>("density_filter_params.score_threshold", 0.6);
 
   this->declare_parameter<double>("merge_threshold", 0.3);
@@ -164,16 +164,15 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
                                               cluster_indices);
 
   // filter clusters by density, size and distance
-  ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_,
-                                          size_weight_, distance_weight_, score_threshold_);
+  // ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_,
+  //                                        size_weight_, distance_weight_, score_threshold_);
 
   // merge clusters that are close to each other, determined through distance between their
-  ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, merge_threshold_);
+  // ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, merge_threshold_);
 
   // iou score between x and y area of clusters in camera plane and detections
   ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
-
   if (publish_visualization_) {
     detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
   }

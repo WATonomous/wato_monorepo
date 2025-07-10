@@ -1,4 +1,2 @@
 watod up bbox_2d_3d foxglove data_stream camera_object_detection
-watod run camera_object_detection ros2 run camera_object_detection camera_object_detection_node --ros-args --params-file src/camera_object_detection/config/nuscenes_config.yaml
-watod run bbox_2d_3d ros2 run bbox_2d_3d bbox_2d_3d_node --ros-args --params-file ./src/bbox_2d_3d/config/params.yaml
-watod run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap
+watod run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap -r 0.3

@@ -155,6 +155,8 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
       point.b = b;
       clustered_cloud->points.push_back(point);
     }
+    RCLCPP_INFO(rclcpp::get_logger("ProjectionUtils"), "%zu points in cluster with color (%d, %d, %d)", 
+            indices.indices.size(), r, g, b);
   }
   clustered_cloud->width = clustered_cloud->points.size();
   clustered_cloud->height = 1;
@@ -375,9 +377,6 @@ void ProjectionUtils::computeHighestIOUCluster(
   const std::array<double, 12>& projection_matrix,
   const float object_detection_confidence)
 {
-  if (input_cloud->empty() || cluster_indices.empty() || detections.detections.empty()) {
-    return;
-  }
 
   // For each detection, find the cluster with the highest IoU
   std::vector<int> best_cluster_indices;
@@ -402,11 +401,10 @@ void ProjectionUtils::computeHighestIOUCluster(
         best_cluster = cl_idx;
       }
     }
-    if (best_cluster != -1 && best_iou > 0.30) {
-      std::cout << "Detection " << det.results[0].hypothesis.class_id
-                << ": Best cluster " << best_cluster
-                << " with IoU " << std::fixed << std::setprecision(2) << best_iou << std::endl;
+    if (best_cluster != -1 && best_iou > 0.40) {
       best_cluster_indices.push_back(best_cluster);
+      RCLCPP_INFO(rclcpp::get_logger("ProjectionUtils"), "Detection: %s, Best Cluster Index: %d, IoU: %.6f", 
+            det.results[0].hypothesis.class_id.c_str(), best_cluster, best_iou);
     }
   }
 

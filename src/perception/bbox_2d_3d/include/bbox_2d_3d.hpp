@@ -21,6 +21,7 @@
 #include "projection_utils.hpp"
 
 #include <unordered_map>
+#include <iostream>
 
 struct DetectionOutputs {
   visualization_msgs::msg::MarkerArray bboxes;
