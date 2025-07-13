@@ -9,7 +9,7 @@ ekf_filter_node_global:
   ros__parameters:
     # Frame definitions
     map_frame: map # Fixed global frame, global navigation
-    odom_frame: map # Local reference that tracks robot position over time based on wheel encoders
+    odom_frame: odom # Local reference that tracks robot position over time based on wheel encoders
     base_link_frame: ego # Robot's body frame, centered on the robot and moves with it
     world_frame: map
     debug: true

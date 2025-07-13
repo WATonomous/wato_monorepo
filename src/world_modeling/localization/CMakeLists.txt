@@ -56,6 +56,11 @@ install(TARGETS
   # odom_mock_data
   DESTINATION lib/${PROJECT_NAME})
 
+install(PROGRAMS
+  src/gps_to_xy.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME gps_to_xy
+)
 # Copy launch and config files to installation location
 install(DIRECTORY
   config

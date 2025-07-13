@@ -51,9 +51,17 @@ def generate_launch_description():
         ],
     )
 
+    gps_to_xy = Node(
+        package='localization',
+        executable='gps_to_xy',
+        output='screen'
+
+    )
+
     return LaunchDescription([
         localization_param,
         odom,
         ekf_node,
         navsat_transform,
+        gps_to_xy,
     ])
