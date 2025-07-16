@@ -39,7 +39,7 @@ REPOSITORY="${REGISTRY_URL#*/}"
 shopt -s lastpipe
 modules=$(find modules -maxdepth 1 -name 'docker-compose.*.ya*ml' | sort)
 
-$DEBUG && { echo "[docker_context] ▶ Compose files found:"; printf '  %s\n' $modules; }
+$DEBUG && { echo "▶ Compose files found:"; printf '  %s\n' $modules; }
 
 declare -A seen
 declare -a json_rows
@@ -65,7 +65,7 @@ for compose in $modules; do
       [[ $df_rel = /* ]] && df_abs="$df_rel" || df_abs="$(realpath -m "$ctx_abs/$df_rel")"
       df_repo_rel="$(realpath --relative-to=. "$df_abs")"
 
-      $DEBUG && echo "[docker_context] ↳   $svc → $df_repo_rel" >&2
+      $DEBUG && echo "↳   $svc → $df_repo_rel" >&2
 
       [[ -n ${seen[$df_repo_rel]:-} ]] && continue
       seen[$df_repo_rel]=1
@@ -78,21 +78,21 @@ done
 matrix=$(printf '%s
 ' "${json_rows[@]}" | jq -s '{include: .}' | jq -c .)
 # --------------------------- emit outputs ---------------------------
-echo "[docker_context] ================ EMITTING OUTPUTS ================"
-emit "[docker_context] docker_matrix=$matrix"
-emit "[docker_context] registry=$REGISTRY"
-emit "[docker_context] repository=$REPOSITORY"
+echo "================ EMITTING OUTPUTS ================"
+emit "docker_matrix=$matrix"
+emit "registry=$REGISTRY"
+emit "repository=$REPOSITORY"
 
 # --------------------------- debug report ---------------------------
 if $DEBUG; then
   echo -e "
-[docker_context] ================ DEBUG REPORT ================
+================ DEBUG REPORT ================
 "
   jq <<<"$matrix"
   echo -e "
-[docker_context] Unique Dockerfiles scheduled: ${#json_rows[@]}"
-  echo   "[docker_context] ----------------------------------------------"
-  printf '[docker_context] %s
+Unique Dockerfiles scheduled: ${#json_rows[@]}"
+  echo   "----------------------------------------------"
+  printf '%s
 ' "${!seen[@]}" | sort
-  echo "[docker_context] =============================================="
+  echo "=============================================="
 fi
