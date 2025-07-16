@@ -1,24 +1,11 @@
-version: "3.8"
-
 services:
-  sensor_interfacing:
+  interfacing_bringup:
     build:
       context: ..
-      dockerfile: docker/interfacing/sensor_interfacing/sensor_interfacing.Dockerfile
+      dockerfile: docker/interfacing/interfacing.Dockerfile
       cache_from:
-        - "${INTERFACING_SENSOR_IMAGE}:build_${TAG}"
-        - "${INTERFACING_SENSOR_IMAGE}:build_main"
+        - "${INTERFACING_IMAGE}:build_${TAG}"
+        - "${INTERFACING_IMAGE}:build_main"
       target: deploy
-    image: "${INTERFACING_SENSOR_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch sensor_interfacing sensor_interfacing.launch.py && ros2 launch novatel_oem7_driver oem7_net.launch.py oem7_ip_addr:=169.254.0.10"
-
-  can_interfacing:
-    build:
-      context: ..
-      dockerfile: docker/interfacing/can_interfacing/can_interfacing.Dockerfile
-      cache_from:
-        - "${INTERFACING_CAN_IMAGE}:build_${TAG}"
-        - "${INTERFACING_CAN_IMAGE}:build_main"
-      target: deploy
-    image: "${INTERFACING_CAN_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch can_interfacing can_interfacing.launch.py"
+    image: "${INTERFACING_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch interfacing_bringup interfacing.launch.py && ros2 launch novatel_oem7_driver oem7_net.launch.py oem7_ip_addr:=169.254.0.10"

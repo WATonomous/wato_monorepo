@@ -6,48 +6,52 @@ set -e
 # References previous GitHub workflow steps
 
 # Action
-if [ $ACTION_CHANGED == 'true' ]; then
+if [ $ACTION_CHANGED == 'true' || $ALL_CHANGED == 'true' ]; then
     echo "Detected action changes"
     MODIFIED_MODULES+="action "
 fi
 
 # Interfacing
-if [ $INTERFACING_CHANGED == 'true' ]; then
+if [ $INTERFACING_CHANGED == 'true' || $ALL_CHANGED == 'true' ]; then
     echo "Detected interfacing changes"
     MODIFIED_MODULES+="interfacing "
 fi
 
 # Perception
-if [ $PERCEPTION_CHANGED == 'true' ]; then
+if [ $PERCEPTION_CHANGED == 'true' || $ALL_CHANGED == 'true' ]; then
     echo "Detected perception changes"
     MODIFIED_MODULES+="perception "
 fi
 
 # Samples
-if [ $SAMPLES_CHANGED == 'true' ]; then
+if [ $SAMPLES_CHANGED == 'true' || $ALL_CHANGED == 'true' ]; then
     echo "Detected samples changes"
     MODIFIED_MODULES+="samples "
 fi
 
 # Simulation
-if [ $SIMULATION_CHANGED == 'true' ]; then
+if [ $SIMULATION_CHANGED == 'true' || $ALL_CHANGED == 'true' ]; then
     echo "Detected simulation changes"
     MODIFIED_MODULES+="simulation "
 fi
 
 # World-modeling
-if [ $WORLD_MODELING_CHANGED == 'true' ]; then
+if [ $WORLD_MODELING_CHANGED == 'true' || $ALL_CHANGED == 'true' ]; then
     echo "Detected world_modeling changes"
-    MODIFIED_MODULES+="world_modeling"
+    MODIFIED_MODULES+="world_modeling "
 fi
 
 # Infrastructure
-if [ $INFRASTRUCTURE_CHANGED == 'true' ]; then
+if [ $INFRASTRUCTURE_CHANGED == 'true' || $ALL_CHANGED == 'true' ]; then
     echo "::notice:: Detected infrastructure changes"
-    MODIFIED_MODULES="infrastructure"
+    MODIFIED_MODULES+="infrastructure "
 else
     echo "::notice:: MODIFIED_MODULES are $MODIFIED_MODULES" 
 fi
 
-# Output lis
+if [ $ALL_CHANGED == 'true' ]; then
+    echo "::notice:: Detected a change that constitutes testing all modules. This is caused by any changes outside src."
+fi
+
+# Output list
 echo "modified_modules=$MODIFIED_MODULES" >> $GITHUB_OUTPUT
