@@ -25,7 +25,7 @@ FROM ${BASE_IMAGE} as dependencies
 # Install pip
 RUN apt-get update && apt-get install -y \
     python3 \
-    python3-pip \
+    python3-pip
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
