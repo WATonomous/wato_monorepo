@@ -3,7 +3,7 @@
 
 # See https://pre-commit.com for more information on these settings
 repos:
-  # Generally useful checks provided by pre-commit
+  # General-purpose sanity checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -19,60 +19,50 @@ repos:
       - id: forbid-submodules
       - id: mixed-line-ending
       - id: trailing-whitespace
-  # JSON (This one supports comments, vs the one in pre-commit-hooks repo does not)
+
+  # JSON (supports comments)
   - repo: https://gitlab.com/bmares/check-json5
     rev: v1.0.0
     hooks:
       - id: check-json5
-  # Python
+
+  # Python (formatting + linting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.5
     hooks:
       - id: ruff-format
       - id: ruff
         args: [--fix]
+
   # C++ formatting
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v19.1.7
     hooks:
       - id: clang-format
         args: ["--style=file:.config/clang-format"]
+
   # C++ linting
   - repo: https://github.com/cpplint/cpplint
     rev: 2.0.0
     hooks:
       - id: cpplint
         args: ["--config=.cpplint.cfg", --quiet, --output=sed]
-  # Markdown
-  - repo: https://github.com/jackdewinter/pymarkdown
-    rev: v0.9.28
-    hooks:
-      - id: pymarkdown
-        args: [-d, MD013, fix]
-  # XML
-  - repo: https://github.com/emersonknapp/ament_xmllint
-    rev: v0.1
-    hooks:
-      - id: ament_xmllint
-  # YAML
-  - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.29.0
-    hooks:
-      - id: yamllint
-        args: [-d, "{extends: default, rules: {line-length: {max: 256}, commas: false}}"]
-  # CMake
+
+  # CMake linting
   - repo: https://github.com/cmake-lint/cmake-lint
     rev: 1.4.3
     hooks:
       - id: cmakelint
         args: [--linelength=140]
+
   # Bash / Shell scripts
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
         args: [-e, SC1091]
-  # Docker/Container files
+
+  # Dockerfile linting
   - repo: https://github.com/AleksaC/hadolint-py
     rev: v2.12.1b3
     hooks:
@@ -82,6 +72,28 @@ repos:
           --ignore, DL3006,
           --ignore, DL3008,
         ]
+
+  # Markdown linting
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: v0.9.28
+    hooks:
+      - id: pymarkdown
+        args: [-d, MD013, fix]
+
+  # XML (ROS-specific)
+  - repo: https://github.com/emersonknapp/ament_xmllint
+    rev: v0.1
+    hooks:
+      - id: ament_xmllint
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.29.0
+    hooks:
+      - id: yamllint
+        args: [-d, "{extends: default, rules: {line-length: {max: 256}, commas: false}}"]
+
+  # License headers
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.5
     hooks:
