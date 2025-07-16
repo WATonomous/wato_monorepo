@@ -9,6 +9,9 @@ WORKDIR ${AMENT_WS}/src
 COPY src/perception/camera_object_detection camera_object_detection
 COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
 
+# Update CONTRIBUTING.md to pass ament_copyright test
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
+
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
