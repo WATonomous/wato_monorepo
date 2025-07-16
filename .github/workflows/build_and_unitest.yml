@@ -75,7 +75,7 @@ jobs:
           name=$(basename "${{ matrix.dockerfile }}")
           name="${name%.Dockerfile}"
 
-          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${ name }" \
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${name}" \
           >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
