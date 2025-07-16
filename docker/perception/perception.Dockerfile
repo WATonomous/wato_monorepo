@@ -6,8 +6,8 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/perception/camera_object_detection camera_object_detection
-COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
+COPY src/perception perception
+COPY src/wato_msgs wato_msgs
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -26,17 +26,11 @@ FROM ${BASE_IMAGE} as dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
-    ffmpeg libsm6 libxext6 wget
-
-# Install python packages
-COPY src/perception/camera_object_detection/requirements.txt requirements.txt
-RUN python3 -m pip install -r requirements.txt
-RUN rm requirements.txt
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
-RUN apt install ros-$ROS_DISTRO-tf-transformations -y
+
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src

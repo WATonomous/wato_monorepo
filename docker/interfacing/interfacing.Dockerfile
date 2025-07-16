@@ -6,8 +6,8 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code 
-COPY src/interfacing/can_interfacing can_interfacing
-COPY src/interfacing/sensor_interfacing sensor_interfacing
+COPY src/interfacing interfacing
+COPY src/wato_msgs wato_msgs
 
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
