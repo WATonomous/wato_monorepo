@@ -1,5 +1,16 @@
-#!/usr/bin/env python
-
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import rclpy
 from rclpy.node import Node
 from vision_msgs.msg import VisionInfo
@@ -7,8 +18,8 @@ from vision_msgs.msg import VisionInfo
 
 class LabelServer(Node):
     def __init__(self):
-        super().__init__('label_server')
-        self.publisher_ = self.create_publisher(VisionInfo, 'vision_info', 10)
+        super().__init__("label_server")
+        self.publisher_ = self.create_publisher(VisionInfo, "vision_info", 10)
         self.label_mapping = {
             1: "car",
             2: "pedestrian",
@@ -33,5 +44,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

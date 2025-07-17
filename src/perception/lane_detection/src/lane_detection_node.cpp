@@ -1,26 +1,43 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "lane_detection_node.hpp"
+
+#include <cv_bridge/cv_bridge.h>
+
 #include <chrono>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
 
-#include <cv_bridge/cv_bridge.h>
+#include <opencv2/opencv.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include "image_transport/image_transport.hpp"
-#include "rclcpp/rclcpp.hpp"
-
-#include "lane_detection_msgs/msg/lane_detection.hpp"
-#include "lane_detection_node.hpp"
-#include "lane_engine.h"
-#include "std_msgs/msg/string.hpp"
-
-#include <opencv2/opencv.hpp>
 
 #include "common_helper_cv.h"
 #include "image_processor.h"
+#include "image_transport/image_transport.hpp"
+#include "lane_detection_msgs/msg/lane_detection.hpp"
+#include "lane_engine.h"
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
 
-LaneDetectionNode::LaneDetectionNode() : Node("lane_detection"), count_(0) {
+LaneDetectionNode::LaneDetectionNode()
+: Node("lane_detection")
+, count_(0)
+{
   this->declare_parameter<std::string>("camera_topic", "/CAM_FRONT/image_rect_compressed");
   this->declare_parameter<std::string>("publish_vis_topic", "/CAM_FRONT/lanes_viz");
   this->declare_parameter<std::string>("publish_lanes_topic", "/CAM_FRONT/lanes");
@@ -44,26 +61,25 @@ LaneDetectionNode::LaneDetectionNode() : Node("lane_detection"), count_(0) {
   RCLCPP_INFO(this->get_logger(), "Subscribing to camera topic: %s", camera_topic_.c_str());
 
   subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
-      camera_topic_, 10,
-      std::bind(&LaneDetectionNode::image_callback, this, std::placeholders::_1));
+    camera_topic_, 10, std::bind(&LaneDetectionNode::image_callback, this, std::placeholders::_1));
 
-  lane_detection_pub_ =
-      this->create_publisher<lane_detection_msgs::msg::LaneDetection>(publish_lanes_topic_, 10);
+  lane_detection_pub_ = this->create_publisher<lane_detection_msgs::msg::LaneDetection>(publish_lanes_topic_, 10);
 
   if (debug_node_) {
-    RCLCPP_INFO(this->get_logger(), "Creating debug publisher topic: %s",
-                publish_vis_topic_.c_str());
+    RCLCPP_INFO(this->get_logger(), "Creating debug publisher topic: %s", publish_vis_topic_.c_str());
     image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(publish_vis_topic_, 10);
   }
 }
 
-void LaneDetectionNode::save_image(const cv::Mat &image, const std::string &filename) {
+void LaneDetectionNode::save_image(const cv::Mat & image, const std::string & filename)
+{
   cv::imwrite(filename, image);
   RCLCPP_INFO(this->get_logger(), "Saved image to %s", filename.c_str());
 }
 
-void LaneDetectionNode::populate_lane_msg(lane_detection_msgs::msg::LaneDetection &lane_msg,
-                                          const std::vector<std::vector<float>> &raw_lane_list) {
+void LaneDetectionNode::populate_lane_msg(
+  lane_detection_msgs::msg::LaneDetection & lane_msg, const std::vector<std::vector<float>> & raw_lane_list)
+{
   lane_msg.header.stamp = this->now();
   lane_msg.header.frame_id = "lane_detection";
   lane_msg.lines.clear();
@@ -81,11 +97,12 @@ void LaneDetectionNode::populate_lane_msg(lane_detection_msgs::msg::LaneDetectio
   }
 }
 
-void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
+void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstSharedPtr & msg)
+{
   cv_bridge::CvImagePtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-  } catch (cv_bridge::Exception &e) {
+  } catch (cv_bridge::Exception & e) {
     RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
     return;
   }
@@ -96,18 +113,18 @@ void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstShare
     RCLCPP_ERROR(this->get_logger(), "Decoded image is empty!");
     return;
   }
-  RCLCPP_INFO(this->get_logger(), "Got Decoded image: width=%d, height=%d, type=%d", image.cols,
-              image.rows, image.type());
+  RCLCPP_INFO(
+    this->get_logger(), "Got Decoded image: width=%d, height=%d, type=%d", image.cols, image.rows, image.type());
 
   RCLCPP_INFO(this->get_logger(), "=== Start frame ===");
-  const auto &time_all0 = std::chrono::steady_clock::now();
+  const auto & time_all0 = std::chrono::steady_clock::now();
 
   std::vector<std::vector<float>> raw_lane_list;
 
   /* Call image processor library */
   ImageProcessor::Result result;
   ImageProcessor::Process(image, result, raw_lane_list);
-  const auto &time_all1 = std::chrono::steady_clock::now();
+  const auto & time_all1 = std::chrono::steady_clock::now();
   double time_all = (time_all1 - time_all0).count() / 1000000.0;
   RCLCPP_INFO(this->get_logger(), "Total:               %9.3lf [msec]", time_all);
   RCLCPP_INFO(this->get_logger(), "    Pre processing:  %9.3lf [msec]", result.time_pre_process);
@@ -116,8 +133,7 @@ void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstShare
   RCLCPP_INFO(this->get_logger(), "=== Finished frame ===");
 
   // Convert the processed cv::Mat back to sensor_msgs::msg::Image and publish
-  sensor_msgs::msg::Image::SharedPtr img_msg =
-      cv_bridge::CvImage(msg->header, "bgr8", image).toImageMsg();
+  sensor_msgs::msg::Image::SharedPtr img_msg = cv_bridge::CvImage(msg->header, "bgr8", image).toImageMsg();
 
   if (debug_node_) {
     image_pub_->publish(*img_msg);
@@ -140,7 +156,8 @@ void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstShare
   count_++;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char * argv[])
+{
   /* Initialize image processor library */
   ImageProcessor::InputParam input_param = {RESOURCE_DIR, 4};
   if (ImageProcessor::Initialize(input_param) != 0) {

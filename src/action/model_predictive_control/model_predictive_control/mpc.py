@@ -1,9 +1,19 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import carla
 import casadi as ca
 import numpy as np
-import datetime
-import os
-import shutil
 
 from boxconstraint import BoxConstraint
 
@@ -11,13 +21,12 @@ SIM_DURATION = 500  # Simulation duration in time steps
 
 ## SETUP ##
 # Connect to CARLA
-client = carla.Client('localhost', 34041)
-maps = [m.replace('/Game/Carla/Maps/', '')
-        for m in client.get_available_maps()]
-print('Available maps: ', maps)
+client = carla.Client("localhost", 34041)
+maps = [m.replace("/Game/Carla/Maps/", "") for m in client.get_available_maps()]
+print("Available maps: ", maps)
 world = client.get_world()
 mymap = world.get_map()
-print('Using map: ', mymap.name)
+print("Using map: ", mymap.name)
 spectator = world.get_spectator()
 
 # CARLA Settings
@@ -43,12 +52,8 @@ def move_spectator_to_vehicle(vehicle, spectator, distance=10):
     vehicle_location = vehicle.get_location()
     # Set viewing angle to slightly above the vehicle
     spectator_transform = carla.Transform(
-        vehicle_location +
-        carla.Location(
-            z=distance),
-        carla.Rotation(
-            pitch=-
-            90))
+        vehicle_location + carla.Location(z=distance), carla.Rotation(pitch=-90)
+    )
     spectator.set_transform(spectator_transform)
 
 
@@ -57,12 +62,12 @@ spawn_points = mymap.get_spawn_points()
 spawn_point = spawn_points[0]
 
 # Spawn vehicle
-vehicles = world.get_actors().filter('vehicle.*')
+vehicles = world.get_actors().filter("vehicle.*")
 blueprint_library = world.get_blueprint_library()
-vehicle_bp = blueprint_library.filter('model3')[0]
+vehicle_bp = blueprint_library.filter("model3")[0]
 print("Vehicle blueprint attributes:")
 for attr in vehicle_bp:
-    print('  - {}'.format(attr))
+    print("  - {}".format(attr))
 
 if len(vehicles) == 0:
     vehicle = world.spawn_actor(vehicle_bp, spawn_point)
@@ -75,10 +80,16 @@ print(vehicle)
 
 
 def generate_waypoint_relative_to_spawn(forward_offset=0, sideways_offset=0):
-    waypoint_x = spawn_point.location.x + spawn_point.get_forward_vector().x * \
-        forward_offset + spawn_point.get_right_vector().x * sideways_offset
-    waypoint_y = spawn_point.location.y + spawn_point.get_forward_vector().y * \
-        forward_offset + spawn_point.get_right_vector().y * sideways_offset
+    waypoint_x = (
+        spawn_point.location.x
+        + spawn_point.get_forward_vector().x * forward_offset
+        + spawn_point.get_right_vector().x * sideways_offset
+    )
+    waypoint_y = (
+        spawn_point.location.y
+        + spawn_point.get_forward_vector().y * forward_offset
+        + spawn_point.get_right_vector().y * sideways_offset
+    )
     return ca.vertcat(waypoint_x, waypoint_y)
 
 
@@ -93,7 +104,7 @@ for i in range(SIM_DURATION):
 
 # Parameters
 params = {
-    'L': 2.875  # Wheelbase of the vehicle. Source : https://www.tesla.com/ownersmanual/model3/en_us/GUID-56562137-FC31-4110-A13C-9A9FC6657BF0.html
+    "L": 2.875  # Wheelbase of the vehicle. Source : https://www.tesla.com/ownersmanual/model3/en_us/GUID-56562137-FC31-4110-A13C-9A9FC6657BF0.html
 }
 T = 2.0  # Prediction horizon in seconds
 N = int(T / TIME_STEP)  # Prediction horizon in time steps
@@ -122,7 +133,7 @@ W = opti.parameter(2, N)  # Reference trajectory parameter
 obj = 0
 for k in range(N):
     # Increase weight for each step in the prediction horizon
-    Q = Q_base * (weight_increase_factor ** k)
+    Q = Q_base * (weight_increase_factor**k)
 
     x_k = X[:, k]  # Current state
     u_k = U[:, k]  # Current control input
@@ -137,8 +148,7 @@ for k in range(N):
 
     # Quadratic cost with reference state and control input
     # Minimize quadratic cost and deviation from reference state
-    obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + \
-        ca.mtimes([ca.mtimes(du.T, R), du])
+    obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + ca.mtimes([ca.mtimes(du.T, R), du])
 
 opti.minimize(obj)
 
@@ -146,20 +156,26 @@ opti.minimize(obj)
 # max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
 # ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
 max_steering_angle_deg = 30.0
-max_steering_angle_rad = max_steering_angle_deg * \
-    (ca.pi / 180)  # Maximum steering angle in radians
+max_steering_angle_rad = max_steering_angle_deg * (
+    ca.pi / 180
+)  # Maximum steering angle in radians
 
 # Dynamics (Euler discretization using bicycle model)
 for k in range(N):
     # Convert normalized steering angle to radians
     steering_angle_rad = U[0, k] * max_steering_angle_rad
 
-    opti.subject_to(X[:, k + 1] == X[:, k] + dt * ca.vertcat(
-        X[3, k] * ca.cos(X[2, k]),
-        X[3, k] * ca.sin(X[2, k]),
-        (X[3, k] / params['L']) * ca.tan(steering_angle_rad),
-        U[1, k]
-    ))
+    opti.subject_to(
+        X[:, k + 1]
+        == X[:, k]
+        + dt
+        * ca.vertcat(
+            X[3, k] * ca.cos(X[2, k]),
+            X[3, k] * ca.sin(X[2, k]),
+            (X[3, k] / params["L"]) * ca.tan(steering_angle_rad),
+            U[1, k],
+        )
+    )
 
 # Constraints
 opti.subject_to(X[:, 0] == P)  # Initial state constraint
@@ -167,10 +183,8 @@ opti.subject_to(X[:, 0] == P)  # Initial state constraint
 # Input constraints
 steering_angle_bounds = [-1.0, 1.0]
 acceleration_bounds = [-1.0, 1.0]
-lb = np.array([steering_angle_bounds[0],
-              acceleration_bounds[0]]).reshape(-1, 1)
-ub = np.array([steering_angle_bounds[1],
-              acceleration_bounds[1]]).reshape(-1, 1)
+lb = np.array([steering_angle_bounds[0], acceleration_bounds[0]]).reshape(-1, 1)
+ub = np.array([steering_angle_bounds[1], acceleration_bounds[1]]).reshape(-1, 1)
 action_space = BoxConstraint(lb=lb, ub=ub)
 
 # State constraints
@@ -197,14 +211,16 @@ acceptable_iter = 15
 acceptable_constr_viol_tol = 1e-3
 acceptable_tol = 1e-6
 
-opts = {"ipopt.acceptable_tol": acceptable_tol,
-        "ipopt.acceptable_constr_viol_tol": acceptable_constr_viol_tol,
-        "ipopt.acceptable_dual_inf_tol": acceptable_dual_inf_tol,
-        "ipopt.acceptable_iter": acceptable_iter,
-        "ipopt.acceptable_compl_inf_tol": acceptable_compl_inf_tol,
-        "ipopt.hessian_approximation": "limited-memory",
-        "ipopt.print_level": 0}
-opti.solver('ipopt', opts)
+opts = {
+    "ipopt.acceptable_tol": acceptable_tol,
+    "ipopt.acceptable_constr_viol_tol": acceptable_constr_viol_tol,
+    "ipopt.acceptable_dual_inf_tol": acceptable_dual_inf_tol,
+    "ipopt.acceptable_iter": acceptable_iter,
+    "ipopt.acceptable_compl_inf_tol": acceptable_compl_inf_tol,
+    "ipopt.hessian_approximation": "limited-memory",
+    "ipopt.print_level": 0,
+}
+opti.solver("ipopt", opts)
 
 # Array to store closed-loop trajectory states (X and Y coordinates)
 closed_loop_data = []
@@ -217,14 +233,14 @@ prev_sol_u = None
 
 # Main Loop
 for i in range(
-        SIM_DURATION -
-        N):  # Subtract N since we need to be able to predict N steps into the future
+    SIM_DURATION - N
+):  # Subtract N since we need to be able to predict N steps into the future
     print("Iteration: ", i)
 
     move_spectator_to_vehicle(vehicle, spectator)
 
     # Draw current waypoints in CARLA
-    for waypoint in waypoints[i:i + N]:
+    for waypoint in waypoints[i : i + N]:
         waypoint_x = float(np.array(waypoint[0]))
         waypoint_y = float(np.array(waypoint[1]))
 
@@ -232,26 +248,19 @@ for i in range(
 
         extent = carla.Location(x=0.5, y=0.5, z=0.5)
         world.debug.draw_box(
-            box=carla.BoundingBox(
-                carla_waypoint,
-                extent * 1e-2),
-            rotation=carla.Rotation(
-                pitch=0,
-                yaw=0,
-                roll=0),
+            box=carla.BoundingBox(carla_waypoint, extent * 1e-2),
+            rotation=carla.Rotation(pitch=0, yaw=0, roll=0),
             life_time=TIME_STEP * 10,
             thickness=0.5,
-            color=carla.Color(
-                255,
-                0,
-                0))
+            color=carla.Color(255, 0, 0),
+        )
 
     #  Fetch initial state from CARLA
     x0 = vehicle.get_transform().location.x
     y0 = vehicle.get_transform().location.y
     theta0 = vehicle.get_transform().rotation.yaw / 180 * ca.pi
     velocity_vector = vehicle.get_velocity()
-    v0 = ca.sqrt(velocity_vector.x ** 2 + velocity_vector.y ** 2)
+    v0 = ca.sqrt(velocity_vector.x**2 + velocity_vector.y**2)
 
     print("Current x: ", x0)
     print("Current y: ", y0)
@@ -268,7 +277,7 @@ for i in range(
     opti.set_value(P, initial_state)
 
     # Set the reference trajectory for the current iteration
-    opti.set_value(W, ca.horzcat(*waypoints[i:i + N]))  # Concatenate waypoints
+    opti.set_value(W, ca.horzcat(*waypoints[i : i + N]))  # Concatenate waypoints
 
     if prev_sol_x is not None and prev_sol_u is not None:
         # Warm-starting the solver with the previous solution
@@ -279,7 +288,7 @@ for i in range(
     sol = opti.solve()
 
     # If the solver is successful, apply the first control input to the vehicle
-    if sol.stats()['success']:
+    if sol.stats()["success"]:
         u = sol.value(U[:, 0])
 
         # Bound acceleration and steering angle to [-1, 1]
@@ -291,20 +300,15 @@ for i in range(
 
         if u[1] < 0:
             vehicle.apply_control(
-                carla.VehicleControl(
-                    throttle=-u[1],
-                    steer=u[0],
-                    reverse=True))
+                carla.VehicleControl(throttle=-u[1], steer=u[0], reverse=True)
+            )
         else:
-            vehicle.apply_control(
-                carla.VehicleControl(
-                    throttle=u[1], steer=u[0]))
+            vehicle.apply_control(carla.VehicleControl(throttle=u[1], steer=u[0]))
 
         # Store open-loop trajectory data with control input applied to vehicle
         open_loop_trajectory = sol.value(X)
         open_loop_trajectory = open_loop_trajectory.T.reshape(-1, state_dim)
-        open_loop_trajectory = np.hstack(
-            (open_loop_trajectory, np.tile(u, (N + 1, 1))))
+        open_loop_trajectory = np.hstack((open_loop_trajectory, np.tile(u, (N + 1, 1))))
         open_loop_data.append(open_loop_trajectory)
 
         # Compute and store residuals if i > 0 since we need a previous state

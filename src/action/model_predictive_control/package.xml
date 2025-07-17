@@ -8,7 +8,7 @@
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
-  
+
   <depend>rclpy</depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>

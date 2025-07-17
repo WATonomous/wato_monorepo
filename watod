@@ -1,4 +1,17 @@
 #!/bin/bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 set -e
 
 programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
@@ -9,10 +22,10 @@ ANSIBLE_TMP_DIR=/tmp/ansible-tmp-$USER
 function usage {
     echo "Usage: $programname [OPTIONS]... [COMMAND]..."
     echo "Executes \"docker compose COMMAND\" in the the monorepo with appropriate environment variables."
-    echo "  -v --verbose                    verbose mode. Currently, prints .env variables"                     
+    echo "  -v --verbose                    verbose mode. Currently, prints .env variables"
     echo "  -t --terminal [service_name]    open a bash terminal into the desired service (eg: perception)."
     echo ""
-    echo "Examples:" 
+    echo "Examples:"
     echo "  watod up                       start containers (docker compose up)"
     echo "  watod down                     stop and remove containers (docker compose down)"
     echo "  watod ps [--services]          list containers in the current project and show their current status (docker compose ps)"
@@ -26,7 +39,7 @@ function usage {
 
 function run_compose {
     cd $MONO_DIR
-    if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then 
+    if [ ! -z "$(source $MODULES_DIR/.env && echo $ACTIVE_MODULES)" ] && [ -z "$MODULES" ]; then
         MODULES="$(source $MODULES_DIR/.env && printf -- " -f $MODULES_DIR/docker-compose.%s.yaml" ${ACTIVE_MODULES[@]})"
     fi
     echo "Running docker compose ${MODULES[@]} $@"
@@ -105,7 +118,7 @@ if [ ! -z "$COMPOSE_CMD" ]; then
     if [ ! -z "$START_TERMINAL" ] && [[ ! " ${COMPOSE_CMD[@]} " =~ " -d " ]] && [[ " ${COMPOSE_CMD[@]} " =~ " up " ]]; then
         ADDITIONAL_ARGS="-d"
     fi
-    
+
     run_compose ${COMPOSE_CMD[@]} ${ADDITIONAL_ARGS}
 fi
 

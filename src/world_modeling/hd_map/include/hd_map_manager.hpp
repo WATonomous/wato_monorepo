@@ -1,17 +1,31 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef WORLD_MODELING_MAP_MANAGER_
 #define WORLD_MODELING_MAP_MANAGER_
-
-#include "rclcpp/rclcpp.hpp"
 
 #include <lanelet2_core/primitives/Lanelet.h>
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
-#include "sensor_msgs/msg/nav_sat_fix.hpp"
 
 #include "hd_map_router.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
 
-class HDMapManager {
- public:
+class HDMapManager
+{
+public:
   HDMapManager(std::shared_ptr<HDMapRouter> router);
 
   /**
@@ -58,7 +72,7 @@ class HDMapManager {
    */
   std::string get_osm_map_from_coordinates(lanelet::GPSPoint gps_point);
 
- private:
+private:
   /**
    * Project the OSM map to Lanelet format using the specified origin.
    *
@@ -67,8 +81,7 @@ class HDMapManager {
    * @param lanelet_ptr the LaneletMapPtr where the result is stored
    * @return whether the projection was successful
    */
-  bool project_osm_to_lanelet(std::string filename, lanelet::Origin origin,
-                              lanelet::LaneletMapPtr &lanelet_ptr);
+  bool project_osm_to_lanelet(std::string filename, lanelet::Origin origin, lanelet::LaneletMapPtr & lanelet_ptr);
 
   /**
    * Project the OSM map to Lanelet format using the specified projector.
@@ -78,8 +91,8 @@ class HDMapManager {
    * @param lanelet_ptr the LaneletMapPtr where the result is stored
    * @return whether the projection was successful
    */
-  bool project_osm_to_lanelet(std::string filename, const lanelet::Projector &projector,
-                              lanelet::LaneletMapPtr &lanelet_ptr);
+  bool project_osm_to_lanelet(
+    std::string filename, const lanelet::Projector & projector, lanelet::LaneletMapPtr & lanelet_ptr);
 
   /**
    * Set the Lanelet map in the router.
@@ -87,7 +100,7 @@ class HDMapManager {
    * @param lanelet_ptr the Lanelet map to set
    * @return whether the map was successfully set
    */
-  bool set_map_router_lanelet(const lanelet::LaneletMapPtr &lanelet_ptr);
+  bool set_map_router_lanelet(const lanelet::LaneletMapPtr & lanelet_ptr);
 
   /**
    * Retrieve the origin for a specific map file.
@@ -96,12 +109,12 @@ class HDMapManager {
    * @param origin the origin for the map
    * @return whether the origin was successfully retrieved
    */
-  bool get_origin_from_filename(std::string filename, lanelet::Origin &origin);
+  bool get_origin_from_filename(std::string filename, lanelet::Origin & origin);
 
   // List of origins associated with map files
   std::map<std::string, lanelet::Origin> originList = {
-      {"/home/bolty/ament_ws/etc/maps/osm/Town05.osm", lanelet::Origin({0, 0})},
-      {"/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm", lanelet::Origin({0, 0})},
+    {"/home/bolty/ament_ws/etc/maps/osm/Town05.osm", lanelet::Origin({0, 0})},
+    {"/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm", lanelet::Origin({0, 0})},
   };
 
   // Shared pointer to the HDMapRouter object

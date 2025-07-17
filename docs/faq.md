@@ -4,6 +4,7 @@
 Whenever you make a new branch, new images need to be compiled. However, Docker will use the `main` images as a cache. You probably don't have the `main` images downloaded on your machine.
 
 Try these steps:
+
 ```bash
 # Log into the docker registry
 $ docker login git.uwaterloo.ca:5050

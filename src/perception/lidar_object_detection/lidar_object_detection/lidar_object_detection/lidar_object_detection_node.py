@@ -1,6 +1,24 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # pylint: disable=wrong-import-position
 from sensor_msgs.msg import PointCloud2
-from vision_msgs.msg import ObjectHypothesisWithPose, Detection3D, Detection3DArray, VisionInfo
+from vision_msgs.msg import (
+    ObjectHypothesisWithPose,
+    Detection3D,
+    Detection3DArray,
+    VisionInfo,
+)
 from visualization_msgs.msg import Marker, MarkerArray
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate
@@ -12,29 +30,33 @@ from rclpy.node import Node
 import rclpy
 import argparse
 import sys
+
 sys.path.append("/home/bolty/OpenPCDet")
 
 
 class LidarObjectDetection(Node):
     def __init__(self):
-        super().__init__('lidar_object_detection')
+        super().__init__("lidar_object_detection")
         self.declare_parameter("model_path")
         self.declare_parameter("model_config_path")
         self.declare_parameter("lidar_topic")
         self.model_path = self.get_parameter("model_path").value
         self.model_config_path = self.get_parameter("model_config_path").value
         self.lidar_data = self.get_parameter("lidar_topic").value
-        self.publish_detection = self.get_parameter(
-            'enable_detection').get_parameter_value().bool_value
+        self.publish_detection = (
+            self.get_parameter("enable_detection").get_parameter_value().bool_value
+        )
 
         self.label_mapping = {}
         self.subscription = self.create_subscription(
-            VisionInfo,
-            'vision_info',
-            self.vision_info_callback,
-            10)
-        self.viz_publisher = self.create_publisher(MarkerArray, "/lidar_detections_viz", 10)
-        self.detections_publisher = self.create_publisher(Detection3DArray, "/lidar_detections", 10)
+            VisionInfo, "vision_info", self.vision_info_callback, 10
+        )
+        self.viz_publisher = self.create_publisher(
+            MarkerArray, "/lidar_detections_viz", 10
+        )
+        self.detections_publisher = self.create_publisher(
+            Detection3DArray, "/lidar_detections", 10
+        )
 
         self.subscription = self.create_subscription(
             PointCloud2, self.lidar_data, self.point_cloud_callback, 10
@@ -51,9 +73,13 @@ class LidarObjectDetection(Node):
         )
 
         self.model = build_network(
-            model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.lidar_dataloader
+            model_cfg=cfg.MODEL,
+            num_class=len(cfg.CLASS_NAMES),
+            dataset=self.lidar_dataloader,
         )
-        self.model.load_params_from_file(filename=args.ckpt, logger=self.logger, to_cpu=True)
+        self.model.load_params_from_file(
+            filename=args.ckpt, logger=self.logger, to_cpu=True
+        )
         self.model.cuda()
         self.model.eval()
 
@@ -92,7 +118,9 @@ class LidarObjectDetection(Node):
         marker_array = MarkerArray()
         detections = Detection3DArray()
         detections.header = pointcloud_msg.header
-        for idx, (box, score) in enumerate(zip(pred_dicts[0]["pred_boxes"], pred_dicts[0]["pred_scores"])):
+        for idx, (box, score) in enumerate(
+            zip(pred_dicts[0]["pred_boxes"], pred_dicts[0]["pred_scores"])
+        ):
             if score > 0.6:
                 marker = Marker()
                 marker.header = pointcloud_msg.header
@@ -131,8 +159,12 @@ class LidarObjectDetection(Node):
                 detection.bbox.size.y = float(box[4])
                 detection.bbox.size.z = float(box[5])
                 detected_object = ObjectHypothesisWithPose()
-                detected_object.hypothesis.class_id = str(pred_dicts[0]["pred_labels"][idx])
-                detected_object.hypothesis.score = float(pred_dicts[0]["pred_scores"][idx])
+                detected_object.hypothesis.class_id = str(
+                    pred_dicts[0]["pred_labels"][idx]
+                )
+                detected_object.hypothesis.score = float(
+                    pred_dicts[0]["pred_scores"][idx]
+                )
                 detection.results.append(detected_object)
                 detections.detections.append(detection)
         if self.publish_detection:
@@ -148,7 +180,10 @@ class LidarObjectDetection(Node):
             help="specify the config for demo",
         )
         parser.add_argument(
-            "--ckpt", type=str, default=self.model_path, help="specify the pretrained model"
+            "--ckpt",
+            type=str,
+            default=self.model_path,
+            help="specify the pretrained model",
         )
 
         args, _ = parser.parse_known_args()
@@ -157,8 +192,15 @@ class LidarObjectDetection(Node):
 
 
 class LidarDatalodaer(DatasetTemplate):
-    def __init__(self, dataset_cfg, class_names, training=True, logger=None, ext=".bin"):
-        super().__init__(dataset_cfg=dataset_cfg, class_names=class_names, training=training, logger=logger)
+    def __init__(
+        self, dataset_cfg, class_names, training=True, logger=None, ext=".bin"
+    ):
+        super().__init__(
+            dataset_cfg=dataset_cfg,
+            class_names=class_names,
+            training=training,
+            logger=logger,
+        )
 
 
 def main(args=None):
@@ -169,5 +211,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

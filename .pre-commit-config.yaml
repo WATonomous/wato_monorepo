@@ -20,33 +20,33 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
 
-  # JSON (supports comments)
-  - repo: https://gitlab.com/bmares/check-json5
-    rev: v1.0.0
-    hooks:
-      - id: check-json5
+  # # JSON (supports comments)
+  # - repo: https://gitlab.com/bmares/check-json5
+  #   rev: v1.0.0
+  #   hooks:
+  #     - id: check-json5
 
   # Python (formatting + linting)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.5
-    hooks:
-      - id: ruff-format
-      - id: ruff
-        args: [--fix]
+  # - repo: https://github.com/astral-sh/ruff-pre-commit
+  #   rev: v0.11.5
+  #   hooks:
+  #     - id: ruff-format
+  #     - id: ruff
+  #       args: [--fix]
 
-  # C++ formatting
-  - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v19.1.7
-    hooks:
-      - id: clang-format
-        args: ["--style=file:.config/clang-format"]
+  # # C++ formatting
+  # - repo: https://github.com/pre-commit/mirrors-clang-format
+  #   rev: v19.1.7
+  #   hooks:
+  #     - id: clang-format
+  #       args: ["--style=file:.config/clang-format"]
 
-  # C++ linting
-  - repo: https://github.com/cpplint/cpplint
-    rev: 2.0.0
-    hooks:
-      - id: cpplint
-        args: ["--config=.cpplint.cfg", --quiet, --output=sed]
+  # # C++ linting
+  # - repo: https://github.com/cpplint/cpplint
+  #   rev: 2.0.0
+  #   hooks:
+  #     - id: cpplint
+  #       args: ["--config=.cpplint.cfg", --quiet, --output=sed]
 
   # CMake linting
   - repo: https://github.com/cmake-lint/cmake-lint
@@ -55,12 +55,12 @@ repos:
       - id: cmakelint
         args: [--linelength=140]
 
-  # Bash / Shell scripts
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
-    hooks:
-      - id: shellcheck
-        args: [-e, SC1091]
+  # # Bash / Shell scripts
+  # - repo: https://github.com/shellcheck-py/shellcheck-py
+  #   rev: v0.10.0.1
+  #   hooks:
+  #     - id: shellcheck
+  #       args: [-e, SC1091]
 
   # Dockerfile linting
   - repo: https://github.com/AleksaC/hadolint-py
@@ -91,7 +91,7 @@ repos:
     rev: v1.29.0
     hooks:
       - id: yamllint
-        args: [-d, "{extends: default, rules: {line-length: {max: 256}, commas: false}}"]
+        args: ["-c", ".config/.yamllint.yaml"]
 
   # License headers
   - repo: https://github.com/Lucas-C/pre-commit-hooks

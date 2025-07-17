@@ -16,4 +16,3 @@ FROM <base-image-name> as <stage-name>
 ## How are the wato_monorepo base images created?
 
 All wato_monorepo base images are created using [GitHub Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows). GitHub Workflows are automated procedures defined in a GitHub repository that can be triggered by various GitHub events, such as a push or a pull request, to perform tasks like building, testing, and deploying code.
-

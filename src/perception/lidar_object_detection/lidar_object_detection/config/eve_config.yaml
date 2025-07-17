@@ -1,3 +1,4 @@
+---
 lidar_object_detection_node:
   ros__parameters:
     lidar_topic: /velodyne_points
