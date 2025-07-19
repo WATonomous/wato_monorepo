@@ -10,6 +10,7 @@ This is important for testing ROS2 nodes since they are driven by a subscription
 The recommended way of structuring ROS2 nodes to facilitate unit testing is to have a class that manages tasks at the ROS system layer such as subscriptions, publishers, and parameters.
 Then we have a class that manages the data processing methods that we would like to test.
 For instance,
+
 ```cpp
 class ROSNode : public rclcpp::Node
 {
@@ -28,6 +29,7 @@ public:
   ... process_data2(...);
 }
 ```
+
 For more detailed examples checkout the [Sample C++ ROS2 Nodes](../src/samples/).
 
 For C++ Development ROS2 supports using gtest. Checkout the [Googletest Primer](https://google.github.io/googletest/primer.html) or the [Sample C++ ROS2 Nodes](../src/samples/) for more information.

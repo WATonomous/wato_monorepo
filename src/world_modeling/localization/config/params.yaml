@@ -1,3 +1,4 @@
+---
 localization:
   ros__parameters:
     gps_topic: "/carla/gnss"
@@ -26,33 +27,34 @@ odom_mock_data:
 
 ekf_filter_node_global:
   ros__parameters:
+
     # Frame definitions
     # map_frame: map # Fixed global frame, global navigation
-    odom_frame: map # Local reference that tracks robot position over time based on wheel encoders
-    base_link_frame: ego # Robot's body frame, centered on the robot and moves with it
+    odom_frame: map       # Local reference that tracks robot position over time based on wheel encoders
+    base_link_frame: ego  # Robot's body frame, centered on the robot and moves with it
     world_frame: map
     debug: true
 
     odom0: /carla/ego/odometry  # Provides information about robot's position and velocity
-    odom0_config: [true, true, false, 
-            false, false, false, 
-            false, false, false, 
-            false, false, false, 
-            false, false, false]  # 2D configuration for X, Y position, velocity, and YAW
+    odom0_config: [true, true, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]  # 2D configuration for X, Y position, velocity, and YAW
 
-    imu0: /carla/ego/imu		# Inertial measurement unit, provides info on orientation, accelerations, angular velocity
-    imu0_config: [false, false, false, 
-            false, false, true, 
-            false, false, false, 
-            false, false, false, 
-            false, false, false]  # Yaw is important for steering and orientation
+    imu0: /carla/ego/imu    # Inertial measurement unit, provides info on orientation, accelerations, angular velocity
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, false,
+                  false, false, false]  # Yaw is important for steering and orientation
 
     # Parameters
     frequency: 30.0
     sensor_timeout: 0.1
     two_d_mode: true
     publish_tf: false
-  
+
 navsat_transform:
   ros__parameters:
     frequency: 30.0
@@ -63,4 +65,4 @@ navsat_transform:
     broadcast_utm_transform: true
     publish_filtered_gps: true
     use_odometry_yaw: true
-    wait_for_datum: false 
+    wait_for_datum: false

@@ -3,15 +3,15 @@
 <package format="3">
   <name>local_planning</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>TODO(wato): Package description</description>
   <maintainer email="e23zhou@watonomous.ca">eddyzhou</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
-    
+
   <depend>visualization_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>

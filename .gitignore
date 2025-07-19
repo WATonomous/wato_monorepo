@@ -1,10 +1,11 @@
 __pycache__/
 code_server_config/*/extensions
 code_server_config/*/start_code_server.sh
-*.pyc 
+*.pyc
 *.swp
 .env
 .vscode/
 ssh_config/
+.ruff_cache/
 
 watod-config.local.sh

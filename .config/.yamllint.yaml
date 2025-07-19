@@ -1,0 +1,12 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 256
+  commas: false
+
+  truthy:
+    ignore: |
+      .github/workflows/build_base_images.yml
+      .github/workflows/build_and_unitest.yml

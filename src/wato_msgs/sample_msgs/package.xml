@@ -4,8 +4,8 @@
   <version>0.0.0</version>
   <description>Sample ROS messages</description>
 
-  <maintainer email="watouser@todo.todo">watouser</maintainer>
-  <license>TODO</license>
+  <maintainer email="watouser@watonomous.ca">watouser</maintainer>
+  <license>TODO(wato)</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>std_msgs</depend>

@@ -1,5 +1,0 @@
-lidar_object_detection_node:
-  ros__parameters:
-    lidar_topic: /velodyne_points
-    model_config_path: /home/bolty/OpenPCDet/tools/cfgs/nuscenes_models/transfusion_lidar.yaml
-    model_path: /home/bolty/OpenPCDet/models/transfusion_trained_model.pth

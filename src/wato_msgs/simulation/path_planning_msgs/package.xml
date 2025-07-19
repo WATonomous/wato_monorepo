@@ -5,7 +5,7 @@
   <description>Path Planning ROS2 Messages</description>
 
   <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
-  <license>TODO</license>
+  <license>TODO(wato)</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>std_msgs</depend>

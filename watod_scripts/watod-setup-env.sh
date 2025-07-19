@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 set -e
 
 # ------------------------------------------------------------------------------------
@@ -67,8 +80,8 @@ TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 ACTIVE_MODULES=${ACTIVE_MODULES:-""}
 MODULE_BLACKLIST=${MODULE_BLACKLIST:-"production"}
 REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
-REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
-REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
+REGISTRY="${REGISTRY_URL%%/*}"
+REPOSITORY="${REGISTRY_URL##*/}"
 
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
@@ -88,6 +101,7 @@ PERCEPTION_DEPTH_ESTIMATION_IMAGE=${PERCEPTION_DEPTH_ESTIMATION_IMAGE:-"$REGISTR
 
 # World Modeling
 WORLD_MODELING_IMAGE=${WORLD_MODELING_IMAGE:-"$REGISTRY_URL/world_modeling/world_modeling"}
+
 
 # Action
 ACTION_IMAGE=${ACTION_IMAGE:-"$REGISTRY_URL/action/action"}
@@ -163,6 +177,7 @@ append "PERCEPTION_TRACKING_IMAGE" "$PERCEPTION_TRACKING_IMAGE"
 append "PERCEPTION_DEPTH_ESTIMATION_IMAGE" "$PERCEPTION_DEPTH_ESTIMATION_IMAGE"
 
 append "WORLD_MODELING_IMAGE" "$WORLD_MODELING_IMAGE"
+
 append "ACTION_IMAGE" "$ACTION_IMAGE"
 
 append "SIMULATION_CARLA_IMAGE" "$SIMULATION_CARLA_IMAGE"

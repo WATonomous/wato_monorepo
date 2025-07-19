@@ -1,3 +1,4 @@
+---
 eve_camera_object_detection:
   ros__parameters:
     camera_topic: /right_camera/image_color
@@ -9,4 +10,3 @@ eve_camera_object_detection:
     image_size: 1024
     compressed: true
     nuscenes: false
-

@@ -1,26 +1,44 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "occupancy/occupancy_core.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <sensor_msgs/point_cloud2_iterator.hpp>
-#include "occupancy_core.hpp"
-
-#include <iostream>
 
 // Constructor
-OccupancyCore::OccupancyCore() {}
-OccupancyCore::OccupancyCore(int resolution) : CELLS_PER_METER{resolution} {}
+OccupancyCore::OccupancyCore()
+{}
 
-nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(
-    sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+OccupancyCore::OccupancyCore(int resolution)
+: CELLS_PER_METER{resolution}
+{}
+
+nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
   nav_msgs::msg::OccupancyGrid output_costmap;
 
   // Initialize the output point cloud
   output_costmap.header = msg->header;
-  output_costmap.info.map_load_time =
-      msg->header.stamp;  // Not completely sure about what timestamp to use here
+  output_costmap.info.map_load_time = msg->header.stamp;  // Not completely sure about what timestamp to use here
   output_costmap.info.resolution = 1.0 / CELLS_PER_METER;  // meters per cell
 
   // These offsets should always be the same but load them anyway
@@ -51,8 +69,8 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(
     x_coords.push_back(x_rounded);
     int y_rounded = std::round(CELLS_PER_METER * y);
     y_coords.push_back(y_rounded);
-    z_coords.push_back(z);  // TODO: Filter out points that have too high z values
-    // TODO: Transform intensities into 0-100 range integers
+    z_coords.push_back(z);  // TODO(wato) (wato): Filter out points that have too high z values
+    // TODO(wato) (wato): Transform intensities into 0-100 range integers
     if (x_rounded >= 0) {
       x_high = std::max(x_high, x_rounded);
     } else {

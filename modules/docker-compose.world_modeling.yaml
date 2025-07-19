@@ -1,3 +1,4 @@
+---
 services:
   world_modeling_bringup:
     build:

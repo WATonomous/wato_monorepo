@@ -1,0 +1,69 @@
+---
+# C++ Formatting rules for WATonomous Standard
+
+# See https://releases.llvm.org/14.0.0/tools/clang/docs/ClangFormatStyleOptions.html for documentation of these options
+BasedOnStyle: Google
+IndentWidth: 2
+ColumnLimit: 120
+
+AccessModifierOffset: -2
+AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignEscapedNewlines: Left
+AlignTrailingComments: false
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: false
+BinPackArguments: false
+BinPackParameters: false
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: MultiLine
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+BreakBeforeBraces: Custom
+BreakConstructorInitializers: BeforeComma
+CompactNamespaces: false
+ContinuationIndentWidth: 2
+ConstructorInitializerIndentWidth: 0
+DerivePointerAlignment: false
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Headers in <> with .h extension (best guess at C system headers)
+  - Regex:           '<([A-Za-z0-9\Q/-_\E])+\.h>'
+    Priority:        1
+  # Headers in <> without extension (C++ system headers)
+  - Regex:           '<([A-Za-z0-9\Q/-_\E])+>'
+    Priority:        2
+  # Headers in <> with other extensions.
+  - Regex:           '<([A-Za-z0-9.\Q/-_\E])+>'
+    Priority:        3
+  # Headers in ""
+  - Regex:           '"([A-Za-z0-9.\Q/-_\E])+"'
+    Priority:        4
+IndentAccessModifiers: false
+IndentPPDirectives: BeforeHash
+PackConstructorInitializers: Never
+PointerAlignment: Middle
+ReferenceAlignment: Middle
+ReflowComments: false
+SeparateDefinitionBlocks: Always
+SortIncludes: CaseInsensitive
+SpacesBeforeTrailingComments: 2

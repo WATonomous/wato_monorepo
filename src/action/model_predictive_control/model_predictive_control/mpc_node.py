@@ -1,3 +1,16 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Copyright 2023 WATonomous
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +32,7 @@ from rclpy.node import Node
 # from path_planning_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from carla_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus
 from nav_msgs.msg import Path, Odometry
-from geometry_msgs.msg import PoseStamped, Quaternion
+from geometry_msgs.msg import PoseStamped
 from model_predictive_control.helper import euler_from_quaternion
 from model_predictive_control.mpc_core import MPCCore
 
@@ -28,7 +41,7 @@ from model_predictive_control.mpc_core import MPCCore
 
 class MPCNode(Node):
     def __init__(self):
-        super().__init__('MPCNode')
+        super().__init__("MPCNode")
 
         self.mpc_core = MPCCore()
         print("mpc setup")
@@ -36,23 +49,26 @@ class MPCNode(Node):
         # Subscribe to vehicle state (only retrieving velocity)
         self.state_subscription = self.create_subscription(
             CarlaEgoVehicleStatus,
-            '/carla/ego/vehicle_status',
+            "/carla/ego/vehicle_status",
             self.vehicle_state_callback,
-            10)
+            10,
+        )
 
         # Subscribe to get vehicle position/orientation (x, y, w)
         self.state_odom_subscription = self.create_subscription(
-            Odometry, '/carla/ego/odometry', self.state_odom_callback, 10)
+            Odometry, "/carla/ego/odometry", self.state_odom_callback, 10
+        )
 
         self.control_publisher = self.create_publisher(
-            CarlaEgoVehicleControl, '/carla/ego/vehicle_control_cmd', 10)
+            CarlaEgoVehicleControl, "/carla/ego/vehicle_control_cmd", 10
+        )
 
-        self.goal_publisher = self.create_publisher(
-            PoseStamped, '/carla/ego/goal', 10)
+        self.goal_publisher = self.create_publisher(PoseStamped, "/carla/ego/goal", 10)
 
         # Subscribe to waypoints from CARLA
         self.waypoints_subscription = self.create_subscription(
-            Path, '/carla/ego/waypoints', self.waypoints_callback, 10)
+            Path, "/carla/ego/waypoints", self.waypoints_callback, 10
+        )
 
         self.timer = self.create_timer(
             0.5,  # 0.01 seconds = 10 milliseconds = 100 Hz
@@ -79,7 +95,8 @@ class MPCNode(Node):
             msg.orientation.x,
             msg.orientation.y,
             msg.orientation.z,
-            msg.orientation.w]
+            msg.orientation.w,
+        ]
         # print(quaternion)
         # print(euler_from_quaternion(quaternion))
         _, _, self.mpc_core.theta0 = euler_from_quaternion(quaternion)
@@ -139,7 +156,7 @@ class MPCNode(Node):
     #     pass
 
     def timer_callback(self):
-        if self.goal_set == False:
+        if not self.goal_set:
             return
         steering_angle, throttle = self.mpc_core.compute_control(self.i)
         control_msg = CarlaEgoVehicleControl()
@@ -157,5 +174,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

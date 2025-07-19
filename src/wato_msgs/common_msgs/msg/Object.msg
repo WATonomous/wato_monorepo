@@ -1,6 +1,6 @@
 std_msgs/Header header
 
-string label 
+string label
 
 # Detection confidence
 float32 confidence
@@ -12,7 +12,7 @@ geometry_msgs/Pose pose
 geometry_msgs/Vector3 dimensions
 
 # Velocity
-geometry_msgs/Twist twist 
+geometry_msgs/Twist twist
 
 # Unique ID number
 uint32 id

@@ -6,4 +6,22 @@ Developing in the Eve Monorepo is very similar, except there are a few caveats.
 
 ## Base Images and Docker Registry
 
-WATonomous hosts a docker registry where we store various docker images on the internet. We currently use ghcr.
+WATonomous hosts a docker registry where we store various docker images on the internet. We currently use ghcr.io
+
+```bash
+# BEFORE YOU RUN, you need to create a personal access token with write:packages
+docker login ghcr.io
+# Username: <your github username>
+# PasswordL <your personal access token>
+```
+
+## Pre-commit
+
+Pre-commit is used to handle all of our code formatting and linting
+
+```bash
+sudo apt-get install -y --no-install-recommends libxml2-utils # for xml linting
+pip install pre‑commit  # if you haven't installed it already
+pre-commit install
+pre-commit run --all-files
+```
