@@ -35,12 +35,12 @@ repos:
       - id: ruff
         args: [--fix]
 
-  # # C++ formatting
-  # - repo: https://github.com/pre-commit/mirrors-clang-format
-  #   rev: v19.1.7
-  #   hooks:
-  #     - id: clang-format
-  #       args: ["--style=file:.config/clang-format"]
+  # C++ formatting
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v19.1.7
+    hooks:
+      - id: clang-format
+        args: ["--style=file:.config/clang-format"]
 
   # # C++ linting
   # - repo: https://github.com/cpplint/cpplint
