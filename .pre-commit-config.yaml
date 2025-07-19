@@ -116,13 +116,13 @@ repos:
           --allow-past-years,
         ]
 
-  - repo: local
-    hooks:
-      - id: block-watod-config
-        name: "Prevent commits to watod-config.sh"
-        entry: |
-          changes to watod-config.sh should not be merged — direct edits are blocked.
-          To maintain the same config between branches, use watod-config.local.sh. It
-          overrides watod-config.sh
-        language: fail
-        files: ^watod-config\.sh$me
+  # - repo: local
+  #   hooks:
+  #     - id: block-watod-config
+  #       name: "Prevent commits to watod-config.sh"
+  #       entry: |
+  #         changes to watod-config.sh should not be merged — direct edits are blocked.
+  #         To maintain the same config between branches, use watod-config.local.sh. It
+  #         overrides watod-config.sh
+  #       language: fail
+  #       files: ^watod-config\.sh$

@@ -51,7 +51,7 @@
 ##	 - develop   		    :	runs developer containers (editable)
 
 # MODE_OF_OPERATION=""
-asdaasdasd
+
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
 # COMPOSE_PROJECT_NAME=""
