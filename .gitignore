@@ -9,3 +9,4 @@ ssh_config/
 .ruff_cache/
 
 watod-config.local.sh
+watod-config.sh # but there should always be one
