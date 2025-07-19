@@ -114,9 +114,13 @@ fi
 
 # Generate .env via helper script
 if [[ -n ${VERBOSE:-} ]]; then
-  ( cd "$MONO_DIR" && source ./watod_scripts/watod-setup-env.sh )
+    pushd "$MONO_DIR" > /dev/null
+    source ./watod_scripts/watod-setup-env.sh          # env vars persist
+    popd > /dev/null
 else
-  ( cd "$MONO_DIR" && source ./watod_scripts/watod-setup-env.sh ) &>/dev/null
+    pushd "$MONO_DIR" > /dev/null
+    source ./watod_scripts/watod-setup-env.sh &>/dev/null
+    popd > /dev/null
 fi
 
 # ─────────────────────────── Execute compose ─────────────────────────────

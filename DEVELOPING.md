@@ -20,6 +20,7 @@ docker login ghcr.io
 Pre-commit is used to handle all of our code formatting and linting
 
 ```bash
+sudo apt-get install -y --no-install-recommends libxml2-utils # for xml linting
 pip install pre‑commit  # if you haven't installed it already
 pre-commit install
 pre-commit run --all-files
