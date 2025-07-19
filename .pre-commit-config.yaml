@@ -20,19 +20,20 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
 
-  # # JSON (supports comments)
-  # - repo: https://gitlab.com/bmares/check-json5
-  #   rev: v1.0.0
-  #   hooks:
-  #     - id: check-json5
+  # JSON (supports comments)
+  - repo: https://gitlab.com/bmares/check-json5
+    rev: v1.0.0
+    hooks:
+      - id: check-json5
+        files: '\.(json|json5|jsonc)$'
 
   # Python (formatting + linting)
-  # - repo: https://github.com/astral-sh/ruff-pre-commit
-  #   rev: v0.11.5
-  #   hooks:
-  #     - id: ruff-format
-  #     - id: ruff
-  #       args: [--fix]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.5
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix]
 
   # # C++ formatting
   # - repo: https://github.com/pre-commit/mirrors-clang-format

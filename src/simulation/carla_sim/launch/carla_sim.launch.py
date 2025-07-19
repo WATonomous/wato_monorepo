@@ -15,14 +15,13 @@ from launch import LaunchDescription
 import launch_ros.actions
 
 # For creating launch arguments
-from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
-    publish_autopilot_arg = DeclareLaunchArgument(
-        "publish_autopilot", default_value="False"
-    )
+    # publish_autopilot_arg = DeclareLaunchArgument(
+    #     "publish_autopilot", default_value="False"
+    # )
 
     return LaunchDescription(
         [

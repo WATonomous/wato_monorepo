@@ -142,14 +142,13 @@ class Sampler(ABC):
 class PlannerSampler(Sampler):
     def generateSamples(self, lane_info):
         samples = []
-        max_s_bucket = lane_info["horizon"][1]
+        max_sample_bucket = lane_info["horizon"][1]
 
-        max_l_bucket = lane_info["lane"][1]
-        for s_b in range(1, max_s_bucket + 1):
-            s = s_b * lane_info["horizon"][2]
-            for l_b in range(-1, 2):
-                l = l_b * lane_info["lane"][2]
-                samples.append((s, l))
+        for sample_b in range(1, max_sample_bucket + 1):
+            sample = sample_b * lane_info["horizon"][2]
+            for lane_bucket in range(-1, 2):
+                lane = lane_bucket * lane_info["lane"][2]
+                samples.append((sample, lane))
         return samples
 
 
@@ -242,7 +241,7 @@ class LatticePlanner:
                             new_state_vec, trajectory = self.generate_trajectory(
                                 start, target
                             )
-                        except:
+                        except Exception:
                             continue
 
                         x, y, t, k = tuple(new_state_vec)

@@ -119,7 +119,7 @@ class MPCCore:
 
             x_k = self.X[:, k]  # Current state
             u_k = self.U[:, k]  # Current control input
-            x_next = self.X[:, k + 1]  # Next state
+            # x_next = self.X[:, k + 1]  # Next state
 
             # Reference state with waypoint and zero for other states
             x_ref = ca.vertcat(self.W[:, k], ca.MX.zeros(self.state_dim - 2, 1))

@@ -42,15 +42,15 @@ def generate_launch_description():
     config_file_path = os.path.join(
         get_package_share_directory("carla_config"), "config", "carla_settings.yaml"
     )
-    mpc_bridge_confile_file_path = os.path.join(
-        get_package_share_directory("carla_config"), "config", "mpc_bridge_config.yaml"
-    )
+    # mpc_bridge_confile_file_path = os.path.join(
+    #     get_package_share_directory("carla_config"), "config", "mpc_bridge_config.yaml"
+    # )
 
     """ Load params from yaml file """
     with open(config_file_path, "r") as config_file:
         params = yaml.safe_load(config_file)
-    with open(mpc_bridge_confile_file_path, "r") as config_file:
-        mpc_bridge_config = yaml.safe_load(config_file)
+    # with open(mpc_bridge_confile_file_path, "r") as config_file:
+    #     mpc_bridge_config = yaml.safe_load(config_file)
 
     """ Get hostname from yaml file """
     # Checking if the hostname provided in the yaml file is referencing an env
@@ -163,21 +163,21 @@ def generate_launch_description():
         )
 
     """ Launch MPC Bridge Node """
-    carla_mpc_bridge = Node(
-        package="carla_config",
-        executable="carla_mpc_bridge",
-        parameters=[
-            {
-                "mpc_moutput_topic": mpc_bridge_config["mpc_bridge_node"][
-                    "ros_parameters"
-                ]["mpc_output_topic"],
-                "steering_publisher_topic": mpc_bridge_config["mpc_bridge_node"][
-                    "ros_parameters"
-                ]["steering_publisher_topic"],
-            }
-        ],
-        output="screen",
-    )
+    # carla_mpc_bridge = Node(
+    #     package="carla_config",
+    #     executable="carla_mpc_bridge",
+    #     parameters=[
+    #         {
+    #             "mpc_moutput_topic": mpc_bridge_config["mpc_bridge_node"][
+    #                 "ros_parameters"
+    #             ]["mpc_output_topic"],
+    #             "steering_publisher_topic": mpc_bridge_config["mpc_bridge_node"][
+    #                 "ros_parameters"
+    #             ]["steering_publisher_topic"],
+    #         }
+    #     ],
+    #     output="screen",
+    # )
 
     waypoint_topic = DeclareLaunchArgument(
         "waypoint_topic",

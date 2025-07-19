@@ -37,15 +37,12 @@ class LocalPlanningNode(Node):
 
         self.query_frq = 1.0
 
-        self.query_timer = self.create_timer(
-            self.query_frq, self.publish_query_point
-        )  # publish point every second
+        self.query_timer = self.create_timer(self.query_frq, self.publish_query_point)
         self.car_timer = self.create_timer(1.0, self.car_publish_marker)
 
         self.start_time = self.get_clock().now()
 
         # Car position
-        # TODO: replace car position with subscriber to car position
         self.car_x = 0.0
         self.car_y = 0.0
         self.car_z = 0.0
@@ -55,9 +52,8 @@ class LocalPlanningNode(Node):
 
         self.lane_scope = 6
 
-        # Lattice settings:
         self.horizon = 30  # (m)
-        self.lane_subdiv = 3  # number of latteral "columns" in the lattice
+        self.lane_subdiv = 3
         self.lane_width = 0
 
         self.lattices = []
@@ -79,17 +75,17 @@ class LocalPlanningNode(Node):
         )
 
         self.lanlet_subscriber_ = self.create_subscription(
-            MarkerArray,  # Message type
-            "hd_map_current_lane",  # Topic name
-            self.marker_callback,  # Callback function
-            10,  # QoS profile (queue size)
+            MarkerArray,
+            "hd_map_current_lane",
+            self.marker_callback,
+            10,
         )
 
         self.global_path_subscriber_ = self.create_subscription(
-            MarkerArray,  # Message type
-            "hd_map_route",  # Topic name
-            self.path_callback,  # Callback function
-            10,  # QoS profile (queue size)
+            MarkerArray,
+            "hd_map_route",
+            self.path_callback,
+            10,
         )
         self.lattice_publisher_ = self.create_publisher(Marker, "lattice_marker", 10)
         self.trajectory_publisher_ = self.create_publisher(
@@ -104,16 +100,10 @@ class LocalPlanningNode(Node):
         return self.lane_width * self.lane_subdiv, self.lane_subdiv
 
     def findNearestOnRoad(self):
-        # TODO: make this a smart search
-        # Search points close to where the car last was
-        # and update the current node based on that
-
         minDist = float("Infinity")
         for i in range(len(self.roads)):
             for j in range(len(self.roads[i])):
                 vec, start, points = self.roads[i][j]
-                mid = points[len(points) // 2]
-                mid_vec = np.array([mid.x, mid.y]) - start
                 for k in range(len(points)):
                     pos = np.array([self.car_x, self.car_y])
                     point = np.array([points[k].x, points[k].y])
@@ -127,7 +117,6 @@ class LocalPlanningNode(Node):
         self.create_lattices()
 
     def run_planner(self):
-        # Find target lane
         target_lane = 0
         if self.curr_marker is not None:
             road, lane, s_p = self.curr_marker
@@ -136,10 +125,8 @@ class LocalPlanningNode(Node):
                 vec1, pt1, _ = self.roads[road][0]
                 _, pt2, _ = self.roads[road][1]
 
-                # unknown if the next lane is on the right or left
                 side_vec = pt2 - pt1
 
-                # vector pointing left to lane
                 perp_vec = np.empty_like(vec1)
                 perp_vec[0] = -vec1[1]
                 perp_vec[1] = vec1[0]
@@ -147,30 +134,21 @@ class LocalPlanningNode(Node):
                 unit_side_vec = side_vec / np.linalg.norm(side_vec)
                 unit_perp = perp_vec / np.linalg.norm(perp_vec)
 
-                # if they are in opposite directions (i.e next lane is on the right)
-                # then the sum of the unit vectors should result in a vector with
-                # norm less than 1
                 if np.linalg.norm(unit_perp + unit_side_vec) < 0.5:
                     target_lane *= -1
         self.get_logger().info(f"{target_lane}")
-        # run planner
         res = self.planner.run(target_lane)
 
-        # Check planner was able to generate a plan
         if res is not None:
-            # Place lattice nodes used for the plan
-            # into a list
             parent = res.incomingState
             route = [res]
             while parent is not None:
                 route.append(parent)
                 parent = parent.incomingState
 
-            # Extract trajectory connecting lattice nodes
             self.current_trajectory = []
             self.traj_idx = 0
             for node in route[::-1]:
-                # pos_x, pos_y, theta, curvature
                 count = 0
                 for x, y, t, k in node.incomingTrajectory:
                     count += 1
@@ -182,26 +160,20 @@ class LocalPlanningNode(Node):
         traj_marker = Marker()
         traj_marker.header = Header()
         traj_marker.header.frame_id = "map"
-        traj_marker.type = Marker.POINTS  # Set marker type to POINTS
+        traj_marker.type = Marker.POINTS
         traj_marker.action = Marker.ADD
-
-        # Set the scale of the points (size in meters)
-        traj_marker.scale.x = 1.0  # Width of each point
-        traj_marker.scale.y = 1.0  # Height of each point
-
-        # Set the color for all points (RGBA)
+        traj_marker.scale.x = 1.0
+        traj_marker.scale.y = 1.0
         traj_marker.color.r = 0.0
         traj_marker.color.g = 0.0
         traj_marker.color.b = 1.0
-        traj_marker.color.a = 1.0  # Fully opaque
+        traj_marker.color.a = 1.0
 
-        # Convert your array of points to ROS Point messages
         traj_marker.points = [
             Point(x=pt[0], y=pt[1], z=0.0) for pt in self.current_trajectory
         ]
         self.trajectory_publisher_.publish(traj_marker)
 
-        # make car follow path
         if len(self.current_trajectory) > 0 and self.curr_marker:
             self.car_x = self.current_trajectory[self.traj_idx][0]
             self.car_y = self.current_trajectory[self.traj_idx][1]
@@ -225,24 +197,18 @@ class LocalPlanningNode(Node):
         marker.header.frame_id = "map"
         marker.type = Marker.CUBE
         marker.action = Marker.ADD
-
-        # Set the position and orientation
         marker.pose.position.x = self.car_x
         marker.pose.position.y = self.car_y
         marker.pose.position.z = self.car_z
         marker.pose.orientation.z = math.sin(self.angle / 2.0)
         marker.pose.orientation.w = math.cos(self.angle / 2.0)
-
-        # Define the size of the rectangle (e.g., 2 meters long, 1 meter wide, 0.5 meter high)
-        marker.scale.x = 2.0  # Length
-        marker.scale.y = 1.0  # Width
-        marker.scale.z = 0.5  # Height (thickness for visualization)
-
-        # Set color (RGBA)
+        marker.scale.x = 2.0
+        marker.scale.y = 1.0
+        marker.scale.z = 0.5
         marker.color.r = 0.0
         marker.color.g = 0.0
-        marker.color.b = 1.0  # Blue rectangle
-        marker.color.a = 1.0  # Fully opaque
+        marker.color.b = 1.0
+        marker.color.a = 1.0
 
         self.publish_lattice_marker()
 
@@ -272,7 +238,6 @@ class LocalPlanningNode(Node):
             deriv_tangent_x * deriv_tangent_x + deriv_tangent_y * deriv_tangent_y
         )
         normal = np.array([1 / len_dTdt] * 2).transpose() * dTdt
-        d2sdt2 = np.gradient(dsdt)
         d2xdt2 = np.gradient(dxdt)
         d2ydt2 = np.gradient(dydt)
 
@@ -301,7 +266,7 @@ class LocalPlanningNode(Node):
 
         return final_point, s, pt_curvature, pt_normal, pt_tangent
 
-    def lane_to_coord(self, s: float, l: float):
+    def lane_to_coord(self, s: float, lane_offset: float):
         if self.curr_marker is None:
             return None
         road, lane, s_p = self.curr_marker
@@ -327,7 +292,7 @@ class LocalPlanningNode(Node):
         perp_vec[0] = -tangent[1]
         perp_vec[1] = tangent[0]
 
-        pt += perp_vec * l
+        pt += perp_vec * lane_offset
         theta = np.arctan2(tangent[1], tangent[0])
 
         kappa = curvature
@@ -335,12 +300,9 @@ class LocalPlanningNode(Node):
         return pt[0], pt[1], theta, kappa
 
     def path_callback(self, msg):
-        # Process the received message
         minDist = float("Infinity")
-        min_idx = None
 
         self.roads = []
-
         self.curr_marker = None
 
         prev_vec = None
@@ -350,12 +312,6 @@ class LocalPlanningNode(Node):
             start_point = np.array(
                 [msg.markers[i].points[0].x, msg.markers[i].points[0].y]
             )
-            mid_point = np.array(
-                [
-                    msg.markers[i].points[len(msg.markers[i].points) // 2].x,
-                    msg.markers[i].points[len(msg.markers[i].points) // 2].y,
-                ]
-            )
             end_point = np.array(
                 [msg.markers[i].points[-1].x, msg.markers[i].points[-1].y]
             )
@@ -363,22 +319,18 @@ class LocalPlanningNode(Node):
             curr_vec = end_point - start_point
 
             if prev_vec is not None:
-                # Check lane is parallel
-                # TODO: needs fixing to consider identifying if two curved paths are parallel
                 if (
                     np.linalg.norm(np.cross(prev_vec, curr_vec))
                     / (np.linalg.norm(prev_vec) * np.linalg.norm(curr_vec))
                     < 0.1
                 ):
-                    # Calculate perp. distance (seperatation distance between lanes)
                     p = start_point - prev_start
                     sep_dist = np.linalg.norm(
                         np.cross(prev_vec / np.linalg.norm(prev_vec), p)
                     )
 
-                    # double check this is an adjacent lane
                     if self.lane_width == 0:
-                        self.lane_width = self.ASSUMED_LANE_WIDTH  # temp if not set
+                        self.lane_width = self.ASSUMED_LANE_WIDTH
 
                     if (
                         sep_dist < self.lane_width * 1.3
@@ -405,14 +357,6 @@ class LocalPlanningNode(Node):
                 prev_vec = curr_vec
                 prev_start = start_point
 
-            mid_vec = mid_point - start_point
-            if (
-                np.linalg.norm(np.cross(curr_vec, mid_vec))
-                / (np.linalg.norm(curr_vec) * np.linalg.norm(mid_vec))
-                >= 0.1
-            ):
-                continue
-
             for j in range(len(msg.markers[i].points)):
                 pos = np.array([self.car_x, self.car_y])
                 point = np.array(
@@ -429,56 +373,44 @@ class LocalPlanningNode(Node):
         self.create_lattices()
 
     def marker_callback(self, msg):
-        # estimating a constant lane width
         sqr_x_dist = (msg.markers[0].points[0].x - msg.markers[1].points[0].x) ** 2
         sqr_y_dist = (msg.markers[0].points[0].y - msg.markers[1].points[0].y) ** 2
         dist = (sqr_x_dist + sqr_y_dist) ** (1 / 2)
         self.lane_width = dist
 
     def create_lattices(self):
-        # TODO: Retrieve this directly from planner instead
         self.lattices = []
         for s in range(10, self.horizon + 1, 10):
-            for l in range(-1, 2):
-                l *= self.lane_width
-                coord = self.lane_to_coord(s, l)
-                self.lattices.append(self.lane_to_coord(s, l))
+            for lane_offset_idx in range(-1, 2):
+                lane_offset = lane_offset_idx * self.lane_width
+                self.lattices.append(self.lane_to_coord(s, lane_offset))
 
     def publish_lattice_marker(self):
         marker = Marker()
         marker.header = Header()
         marker.header.frame_id = "map"
-        marker.type = Marker.POINTS  # Set marker type to POINTS
+        marker.type = Marker.POINTS
         marker.action = Marker.ADD
-
-        # Set the scale of the points (size in meters)
-        marker.scale.x = 1.0  # Width of each point
-        marker.scale.y = 1.0  # Height of each point
-
-        # Set the color for all points (RGBA)
+        marker.scale.x = 1.0
+        marker.scale.y = 1.0
         marker.color.r = 1.0
         marker.color.g = 0.0
         marker.color.b = 1.0
-        marker.color.a = 1.0  # Fully opaque
+        marker.color.a = 1.0
 
-        # Convert your array of points to ROS Point messages
         marker.points = [Point(x=pt[0], y=pt[1], z=0.0) for pt in self.lattices]
 
-        # Publish the marker
         if len(self.lattices) > 0:
             self.lattice_publisher_.publish(marker)
 
     def publish_query_point(self):
-        # use to move car
-
         point_msg = PointStamped()
-        point_msg.header.frame_id = "map"  # Set the frame of reference
-        point_msg.header.stamp = self.get_clock().now().to_msg()  # Set timestamp
-        point_msg.point.x = self.car_x  # Example x-coordinate
-        point_msg.point.y = self.car_y  # Example y-coordinate
-        point_msg.point.z = self.car_z  # Example z-coordinate
+        point_msg.header.frame_id = "map"
+        point_msg.header.stamp = self.get_clock().now().to_msg()
+        point_msg.point.x = self.car_x
+        point_msg.point.y = self.car_y
+        point_msg.point.z = self.car_z
 
-        # Publish the message
         self.query_point_publisher_.publish(point_msg)
         self.get_logger().info(
             f"Publishing PointStamped: {point_msg.point.x}, {point_msg.point.y}, {point_msg.point.z}"

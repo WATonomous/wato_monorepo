@@ -156,7 +156,7 @@ class MPCNode(Node):
     #     pass
 
     def timer_callback(self):
-        if self.goal_set == False:
+        if not self.goal_set:
             return
         steering_angle, throttle = self.mpc_core.compute_control(self.i)
         control_msg = CarlaEgoVehicleControl()
