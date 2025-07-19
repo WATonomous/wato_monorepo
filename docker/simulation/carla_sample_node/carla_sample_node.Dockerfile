@@ -18,7 +18,8 @@ RUN git clone --depth 1 https://github.com/ros-drivers/ackermann_msgs.git --bran
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update && \
+# TODO (wato) pipefail is failing here
+RUN set +o pipefail && apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | grep 'apt-get install' \
         | awk '{print $3}' \
