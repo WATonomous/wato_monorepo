@@ -1,3 +1,4 @@
+---
 camera_object_detection_node:
   ros__parameters:
     front_center_camera_topic: /CAM_FRONT/image_rect_compressed

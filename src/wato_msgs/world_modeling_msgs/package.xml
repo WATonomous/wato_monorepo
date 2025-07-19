@@ -5,7 +5,7 @@
   <description>World Modeling ROS2 messages</description>
 
   <maintainer email="oleather@watonomous.ca">Owen Leather</maintainer>
-  <license>TODO</license>
+  <license>TODO(wato)</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>std_msgs</depend>

@@ -1,10 +1,30 @@
-#include "projection_utils.hpp"
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "bbox_2d_3d/projection_utils.hpp"
+
+#include <algorithm>
+#include <limits>
+#include <utility>
+#include <vector>
 
 // PRE-CLUSTER FILTERING
 // ----------------------------------------------------------------------------------------------------------------------
 
-void ProjectionUtils::removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                        float distanceThreshold, int maxIterations) {
+void ProjectionUtils::removeGroundPlane(
+  pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, float distanceThreshold, int maxIterations)
+{
   /*
       Removes the ground plane using RANSAC (RANdom SAmpling Concensus)
       Repeatedly selecting subsets of data fitted into a model (a plane in this case), identifying
@@ -16,8 +36,7 @@ void ProjectionUtils::removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& clo
   if (cloud->empty()) return;
 
   std::vector<int> inliers;
-  pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr model_p(
-      new pcl::SampleConsensusModelPlane<pcl::PointXYZ>(cloud));
+  pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr model_p(new pcl::SampleConsensusModelPlane<pcl::PointXYZ>(cloud));
   pcl::RandomSampleConsensus<pcl::PointXYZ> ransac(model_p);
 
   ransac.setDistanceThreshold(distanceThreshold);
@@ -40,8 +59,8 @@ void ProjectionUtils::removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& clo
 }
 
 std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
-    const geometry_msgs::msg::TransformStamped& transform, const std::array<double, 12>& p,
-    const pcl::PointXYZ& pt) {
+  const geometry_msgs::msg::TransformStamped & transform, const std::array<double, 12> & p, const pcl::PointXYZ & pt)
+{
   /*
       Projects a 3D lidar point onto a 2d camera image using the given extrinsic transformation and
      camera projection matrix
@@ -68,8 +87,7 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
   projection_matrix << p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11];
 
   // Convert camera point to Eigen vector (homogeneous coordinates)
-  Eigen::Vector4d camera_point_eigen(camera_point.point.x, camera_point.point.y,
-                                     camera_point.point.z, 1.0);
+  Eigen::Vector4d camera_point_eigen(camera_point.point.x, camera_point.point.y, camera_point.point.z, 1.0);
 
   // Project the point onto the image plane using the projection matrix
   Eigen::Vector3d projected_point = projection_matrix * camera_point_eigen;
@@ -90,8 +108,8 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
 // CLUSTERING FUNCTIONS
 // ------------------------------------------------------------------------------------------------
 
-void ProjectionUtils::removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, int meanK,
-                                     double stddevMulThresh) {
+void ProjectionUtils::removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, int meanK, double stddevMulThresh)
+{
   /*
       helps to reduce noise and cut outliers
       currently not in use due to computation cost
@@ -105,10 +123,13 @@ void ProjectionUtils::removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
   sor.filter(*cloud);
 }
 
-void ProjectionUtils::euclideanClusterExtraction(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                                 double clusterTolerance, int minClusterSize,
-                                                 int maxClusterSize,
-                                                 std::vector<pcl::PointIndices>& cluster_indices) {
+void ProjectionUtils::euclideanClusterExtraction(
+  pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  double clusterTolerance,
+  int minClusterSize,
+  int maxClusterSize,
+  std::vector<pcl::PointIndices> & cluster_indices)
+{
   /*
       Segments distinct groups of point clouds based on cluster tolerance (euclidean distance) and
      size constraints
@@ -129,9 +150,11 @@ void ProjectionUtils::euclideanClusterExtraction(pcl::PointCloud<pcl::PointXYZ>:
   ec.extract(cluster_indices);
 }
 
-void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                          const std::vector<pcl::PointIndices>& cluster_indices,
-                                          pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clustered_cloud) {
+void ProjectionUtils::assignClusterColors(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const std::vector<pcl::PointIndices> & cluster_indices,
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr & clustered_cloud)
+{
   if (cloud->empty() || cluster_indices.empty()) return;
 
   clustered_cloud->clear();  // Clear previous data
@@ -141,11 +164,11 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> dis(0, 255);
 
-  for (const auto& indices : cluster_indices) {
+  for (const auto & indices : cluster_indices) {
     int r = dis(gen);
     int g = dis(gen);
     int b = dis(gen);
-    for (const auto& index : indices.indices) {
+    for (const auto & index : indices.indices) {
       pcl::PointXYZRGB point;
       point.x = cloud->points[index].x;
       point.y = cloud->points[index].y;
@@ -162,9 +185,11 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
   clustered_cloud->header = cloud->header;
 }
 
-void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
-                                    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                    double mergeTolerance) {
+void ProjectionUtils::mergeClusters(
+  std::vector<pcl::PointIndices> & cluster_indices,
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  double mergeTolerance)
+{
   /*
       merges two clusters based on the euclidean distance between their centroids, determined by
      merge tolerance
@@ -193,9 +218,8 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
       double distance = (centroid_i - centroid_j).norm();
 
       if (distance < mergeTolerance) {
-        cluster_indices[i].indices.insert(cluster_indices[i].indices.end(),
-                                          cluster_indices[j].indices.begin(),
-                                          cluster_indices[j].indices.end());
+        cluster_indices[i].indices.insert(
+          cluster_indices[i].indices.end(), cluster_indices[j].indices.begin(), cluster_indices[j].indices.end());
         merged[j] = true;
       }
     }
@@ -211,10 +235,14 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
   cluster_indices = filtered_clusters;
 }
 
-void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                             const std::vector<pcl::PointIndices>& cluster_indices,
-                                             double densityWeight, double sizeWeight,
-                                             double distanceWeight, double scoreThreshold) {
+void ProjectionUtils::filterClusterbyDensity(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const std::vector<pcl::PointIndices> & cluster_indices,
+  double densityWeight,
+  double sizeWeight,
+  double distanceWeight,
+  double scoreThreshold)
+{
   /*
       Applies weighted scoring of size, density, and distance to filter out clusters, with values
      normalized using arbitrary expected values
@@ -227,27 +255,23 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
 
   // Define maximum expected values for normalization
   const double max_density = 700.0;  // Maximum density (points/m³)
-  const double max_size =
-      12.0;  // Maximum cluster size; the diagonal length of its extents (meters)
+  const double max_size = 12.0;  // Maximum cluster size; the diagonal length of its extents (meters)
   const double max_distance = 60.0;  // Maximum distance of a cluster (meters)
 
   std::vector<pcl::PointIndices> filtered_clusters;
 
-  for (const auto& clusters : cluster_indices) {
+  for (const auto & clusters : cluster_indices) {
     if (clusters.indices.size() < 10) continue;  // Skip small clusters
 
     // Initialize min and max values for cluster bounds
-    double min_x = std::numeric_limits<double>::max(),
-           max_x = std::numeric_limits<double>::lowest();
-    double min_y = std::numeric_limits<double>::max(),
-           max_y = std::numeric_limits<double>::lowest();
-    double min_z = std::numeric_limits<double>::max(),
-           max_z = std::numeric_limits<double>::lowest();
+    double min_x = std::numeric_limits<double>::max(), max_x = std::numeric_limits<double>::lowest();
+    double min_y = std::numeric_limits<double>::max(), max_y = std::numeric_limits<double>::lowest();
+    double min_z = std::numeric_limits<double>::max(), max_z = std::numeric_limits<double>::lowest();
     double total_distance = 0.0;
 
     // Calculate cluster bounds and total distance from origin
-    for (const auto& index : clusters.indices) {
-      const auto& pt = cloud->points[index];
+    for (const auto & index : clusters.indices) {
+      const auto & pt = cloud->points[index];
       min_x = std::min(min_x, static_cast<double>(pt.x));
       max_x = std::max(max_x, static_cast<double>(pt.x));
       min_y = std::min(min_y, static_cast<double>(pt.y));
@@ -258,9 +282,8 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
     }
 
     // calculate cluster size (the diagonal length of the extents of the cluster)
-    double cluster_size =
-        std::sqrt((max_x - min_x) * (max_x - min_x) + (max_y - min_y) * (max_y - min_y) +
-                  (max_z - min_z) * (max_z - min_z));
+    double cluster_size = std::sqrt(
+      (max_x - min_x) * (max_x - min_x) + (max_y - min_y) * (max_y - min_y) + (max_z - min_z) * (max_z - min_z));
 
     // calculate cluster density (points per unit volume)
     double cluster_volume = (max_x - min_x) * (max_y - min_y) * (max_z - min_z);
@@ -275,8 +298,8 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
     double normalized_distance = avg_distance / max_distance;
 
     //  weighted score
-    double score = (normalized_density * densityWeight) + (normalized_size * sizeWeight) +
-                   (normalized_distance * distanceWeight);
+    double score =
+      (normalized_density * densityWeight) + (normalized_size * sizeWeight) + (normalized_distance * distanceWeight);
 
     if (score < scoreThreshold) {
       filtered_clusters.push_back(clusters);
@@ -284,12 +307,14 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
   }
 
   // Replace the original cluster indices with the filtered ones
-  const_cast<std::vector<pcl::PointIndices>&>(cluster_indices) = filtered_clusters;
+  const_cast<std::vector<pcl::PointIndices> &>(cluster_indices) = filtered_clusters;
 }
 
-bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                             const pcl::PointIndices& cluster_indices,
-                                             pcl::PointXYZ& centroid) {
+bool ProjectionUtils::computeClusterCentroid(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const pcl::PointIndices & cluster_indices,
+  pcl::PointXYZ & centroid)
+{
   if (cloud->empty() || cluster_indices.indices.empty()) return false;
 
   // Compute centroid of the cluster
@@ -305,20 +330,20 @@ bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ
 }
 
 double ProjectionUtils::computeMaxIOU4Corners(
-    const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-    const pcl::PointIndices& cluster_indices, const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& projection_matrix,
-    const vision_msgs::msg::Detection2DArray& detections, const float object_detection_confidence) {
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & input_cloud,
+  const pcl::PointIndices & cluster_indices,
+  const geometry_msgs::msg::TransformStamped & transform,
+  const std::array<double, 12> & projection_matrix,
+  const vision_msgs::msg::Detection2DArray & detections,
+  const float object_detection_confidence)
+{
   // 1) compute 3D axis-aligned min/max
-  float min_x = std::numeric_limits<float>::infinity(),
-        max_x = -std::numeric_limits<float>::infinity();
-  float min_y = std::numeric_limits<float>::infinity(),
-        max_y = -std::numeric_limits<float>::infinity();
-  float min_z = std::numeric_limits<float>::infinity(),
-        max_z = -std::numeric_limits<float>::infinity();
+  float min_x = std::numeric_limits<float>::infinity(), max_x = -std::numeric_limits<float>::infinity();
+  float min_y = std::numeric_limits<float>::infinity(), max_y = -std::numeric_limits<float>::infinity();
+  float min_z = std::numeric_limits<float>::infinity(), max_z = -std::numeric_limits<float>::infinity();
 
   for (auto idx : cluster_indices.indices) {
-    const auto& P = input_cloud->points[idx];
+    const auto & P = input_cloud->points[idx];
     min_x = std::min(min_x, P.x);
     max_x = std::max(max_x, P.x);
     min_y = std::min(min_y, P.y);
@@ -331,21 +356,21 @@ double ProjectionUtils::computeMaxIOU4Corners(
   }
 
   // 2) build all eight corners of the AABB
-  std::array<pcl::PointXYZ, 8> corners = {{{min_x, min_y, min_z},
-                                           {min_x, min_y, max_z},
-                                           {min_x, max_y, min_z},
-                                           {min_x, max_y, max_z},
-                                           {max_x, min_y, min_z},
-                                           {max_x, min_y, max_z},
-                                           {max_x, max_y, min_z},
-                                           {max_x, max_y, max_z}}};
+  std::array<pcl::PointXYZ, 8> corners = {
+    {{min_x, min_y, min_z},
+     {min_x, min_y, max_z},
+     {min_x, max_y, min_z},
+     {min_x, max_y, max_z},
+     {max_x, min_y, min_z},
+     {max_x, min_y, max_z},
+     {max_x, max_y, min_z},
+     {max_x, max_y, max_z}}};
 
   // 3) project each corner & form a tight 2D rect
   double u0 = std::numeric_limits<double>::infinity(), v0 = std::numeric_limits<double>::infinity();
-  double u1 = -std::numeric_limits<double>::infinity(),
-         v1 = -std::numeric_limits<double>::infinity();
+  double u1 = -std::numeric_limits<double>::infinity(), v1 = -std::numeric_limits<double>::infinity();
 
-  for (auto& C : corners) {
+  for (auto & C : corners) {
     auto uv = projectLidarToCamera(transform, projection_matrix, C);
     if (!uv) continue;
     u0 = std::min(u0, uv->x);
@@ -360,13 +385,12 @@ double ProjectionUtils::computeMaxIOU4Corners(
 
   // 4) compare to each detection bbox, return the best IoU
   double best_iou = 0.0;
-  for (auto& det : detections.detections) {
+  for (auto & det : detections.detections) {
     if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
       continue;
     }
-    const auto& b = det.bbox;
-    cv::Rect det_rect(b.center.position.x - b.size_x / 2, b.center.position.y - b.size_y / 2,
-                      b.size_x, b.size_y);
+    const auto & b = det.bbox;
+    cv::Rect det_rect(b.center.position.x - b.size_x / 2, b.center.position.y - b.size_y / 2, b.size_x, b.size_y);
     double inter = (cluster_rect & det_rect).area();
     double uni = cluster_rect.area() + det_rect.area() - inter;
     if (uni > 0.0) {
@@ -377,11 +401,13 @@ double ProjectionUtils::computeMaxIOU4Corners(
 }
 
 void ProjectionUtils::computeHighestIOUCluster(
-    const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-    std::vector<pcl::PointIndices>& cluster_indices,
-    const vision_msgs::msg::Detection2DArray& detections,
-    const geometry_msgs::msg::TransformStamped& transform,
-    const std::array<double, 12>& projection_matrix, const float object_detection_confidence) {
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & input_cloud,
+  std::vector<pcl::PointIndices> & cluster_indices,
+  const vision_msgs::msg::Detection2DArray & detections,
+  const geometry_msgs::msg::TransformStamped & transform,
+  const std::array<double, 12> & projection_matrix,
+  const float object_detection_confidence)
+{
   if (input_cloud->empty() || cluster_indices.empty()) {
     return;
   }
@@ -389,10 +415,10 @@ void ProjectionUtils::computeHighestIOUCluster(
   double best_overall_iou = 0.0;
   std::vector<pcl::PointIndices> kept_clusters;
 
-  for (auto& cluster : cluster_indices) {
+  for (auto & cluster : cluster_indices) {
     // computeMaxIOU4Corners projects only the 4 AABB corners and returns the best IoU
-    double iou = computeMaxIOU4Corners(input_cloud, cluster, transform, projection_matrix,
-                                       detections, object_detection_confidence);
+    double iou = computeMaxIOU4Corners(
+      input_cloud, cluster, transform, projection_matrix, detections, object_detection_confidence);
 
     if (iou > best_overall_iou) {
       best_overall_iou = iou;
@@ -408,9 +434,10 @@ void ProjectionUtils::computeHighestIOUCluster(
 // --------------------------------------------------------------------------------------------
 
 visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
-    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-    const std::vector<pcl::PointIndices>& cluster_indices,
-    const sensor_msgs::msg::PointCloud2& msg) {
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const std::vector<pcl::PointIndices> & cluster_indices,
+  const sensor_msgs::msg::PointCloud2 & msg)
+{
   /*
       calculates the bounding box enclosing a cluster using the min/max points and the orientation
      using minAreaRect the function finds the smallest enclosing rotated rectangle for the points in
@@ -424,15 +451,15 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
   if (cloud->empty()) return marker_array;
 
   int id = 0;
-  for (const auto& cluster : cluster_indices) {
+  for (const auto & cluster : cluster_indices) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cluster_cloud(new pcl::PointCloud<pcl::PointXYZ>());
 
     Eigen::Vector4f min_point = Eigen::Vector4f::Constant(std::numeric_limits<float>::max());
     Eigen::Vector4f max_point = Eigen::Vector4f::Constant(std::numeric_limits<float>::lowest());
 
     // get the min/max points
-    for (const auto& index : cluster.indices) {
-      const auto& pt = cloud->points[index];
+    for (const auto & index : cluster.indices) {
+      const auto & pt = cloud->points[index];
       min_point.x() = std::min(min_point.x(), pt.x);
       min_point.y() = std::min(min_point.y(), pt.y);
       min_point.z() = std::min(min_point.z(), pt.z);
@@ -451,7 +478,7 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
 
     {
       std::vector<cv::Point2f> points;
-      for (const auto& index : cluster.indices) {
+      for (const auto & index : cluster.indices) {
         cv::Point2f pt;
         pt.x = cloud->points[index].x;
         pt.y = cloud->points[index].y;

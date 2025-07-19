@@ -1,16 +1,16 @@
 # CARLA Setup in Monorepo
-CARLA is an open-source autonomous driving simulator based on Unreal Engine 4. The primary ways of interacting with the CARLA setup are through the Python API or with ROS2 (via the CARLA ROS Bridge). Both of these methods are explained in greater detail further down in this document. 
+CARLA is an open-source autonomous driving simulator based on Unreal Engine 4. The primary ways of interacting with the CARLA setup are through the Python API or with ROS2 (via the CARLA ROS Bridge). Both of these methods are explained in greater detail further down in this document.
 
 The goal of the  CARLA setup is to provide an easy way for WATonomous members to interact with the simulator without having to setup anything themselves. So, if you have any questions or suggestions regarding any part of the CARLA setup (or questions about CARLA in general) please bring them up in Discord in #simulation-general or contact Vishal Jayakumar (masteroooogway on Discord or at [v3jayaku@watonomous.ca](mailto:v3jayaku@watonomous.ca)).
 
 - [CARLA WATonomous Documentation](#using-carla-setup-in-monorepo)
-    - [Initial Setup](#initial-setup) 
-    - [Interacting with CARLA using the Python API](#interacting-with-carla-using-the-python-api)
-    - [Using a ROS Node to interact with CARLA](#using-a-ros-node-to-interact-with-carla)
-    - [CARLA Visualization using Foxglove Studio](#carla-visualization-using-foxglove-studio)
-    - [CARLA Visualization using CarlaViz](#carla-visualization-using-carlaviz)
-    - [FAQ](#faq)
-        - [CARLA is running very slow (approx. 3 fps)](#carla-is-running-very-slow-approx-3-fps)
+  - [Initial Setup](#initial-setup)
+  - [Interacting with CARLA using the Python API](#interacting-with-carla-using-the-python-api)
+  - [Using a ROS Node to interact with CARLA](#using-a-ros-node-to-interact-with-carla)
+  - [CARLA Visualization using Foxglove Studio](#carla-visualization-using-foxglove-studio)
+  - [CARLA Visualization using CarlaViz](#carla-visualization-using-carlaviz)
+  - [FAQ](#faq)
+    - [CARLA is running very slow (approx. 3 fps)](#carla-is-running-very-slow-approx-3-fps)
 
 **Make sure you are confortable with navigating the monorepo before reading**
 
@@ -20,7 +20,7 @@ To run CARLA and all associated containers first add `simulation` as an `ACTIVE_
 
 ## Interacting with CARLA using the Python API
 
-This is the simplest way of interacting with CARLA and most importantly does not require the usage or knowledge of ROS. The documentation below will only show the setup procedure for using the CARLA Python API in the WATOnomous server (via Jupyter Notebook). The full CARLA Python API documentation can be found here ([CARLA Python API Documentation](https://carla.readthedocs.io/en/0.9.13/python_api/)). 
+This is the simplest way of interacting with CARLA and most importantly does not require the usage or knowledge of ROS. The documentation below will only show the setup procedure for using the CARLA Python API in the WATOnomous server (via Jupyter Notebook). The full CARLA Python API documentation can be found here ([CARLA Python API Documentation](https://carla.readthedocs.io/en/0.9.13/python_api/)).
 
 **On the WATOnomous Server**
 
@@ -35,14 +35,14 @@ Open any web browser (Chrome, Firefox, Edge etc.) and type `localhost:8888` (rep
 **Ensure that you have a good understanding of ROS and writing ROS nodes before proceeding**
 
 Currently there is a CARLA sample node setup (written in Python) shows how to publish a message to enable (and keep enabled) autopilot, subsribe to the GNSS sensor topic and output the data to the console. What is probably most helpful from the sample node is the Dockerfile located in `wato_monorepo_v2/docker/simulation/carla_sample_node/carla_sample_node.Dockerfile`, where you can find all the CARLA related messages that should be installed when building your own ROS nodes that interact with CARLA.
- 
+
 ## CARLA Visualization using Foxglove Studio
 
 Foxglove Studio is a tool to visualize and interact with ROS messages. Using Foxglove Studio, data such as Camera, LiDAR, Radar etc. can be visualized. Foxglove Studio also allows for messages to be published to topics, for example to enable autopilot or set vehicle speed. The documentation below will only show the setup procedure for using Foxglove Studio with the WATOnomous server. Further documentation regarding how to use Foxglove Studio and all its features can be found here ([Foxglove Studio Documentation](https://foxglove.dev/docs/studio))
 
 **On the WATOnomous Server**
 
-Add `infrastructure` as an `ACTIVE_PROFILE`. This will launch the `foxglove` container with an open port when `watod up` is ran. 
+Add `infrastructure` as an `ACTIVE_PROFILE`. This will launch the `foxglove` container with an open port when `watod up` is ran.
 
 It exposes the port specified by the `FOXGLOVE_BRIDGE_PORT` variable, which will be defined in the `.env` file in the `modules` folder (the `.env` file is populated after `watod up` is run). This port may be auto-forwarded by VS Code automatically but if not the port will need to be forwarded manually to your local machine. This can either be done in the `ports` section of VS Code or by running the command `ssh -L 8765:localhost:8765 <username>@<machine>-ubuntu1.watocluster.local` on your local machine (replace 8765 with the port specified in the `FOXGLOVE_BRIDGE_PORT` variable).
 
@@ -58,7 +58,7 @@ CarlaViz is a visualization tool that is useful when you are only using the CARL
 
 **On your local machine (your personal laptop/pc)**
 
-In any browser go to `localhost:8081` (replace 8081 with the port specified in the `CARLAVIZ_PORT` variable) and after waiting 10 seconds or so CarlaViz should appear.  
+In any browser go to `localhost:8081` (replace 8081 with the port specified in the `CARLAVIZ_PORT` variable) and after waiting 10 seconds or so CarlaViz should appear.
 
 ## FAQ
 

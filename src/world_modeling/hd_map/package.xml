@@ -5,7 +5,7 @@
   <description>High Definition Map Package</description>
 
   <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
-  <license>TODO</license>
+  <license>TODO(wato)</license>
 
   <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
   <!--ROS 2 and Message Dependencies-->>

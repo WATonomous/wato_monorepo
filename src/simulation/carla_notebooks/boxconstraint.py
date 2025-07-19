@@ -1,3 +1,16 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import numpy as np
 import torch
 
@@ -18,19 +31,19 @@ class BoxConstraint:
         self.ub = np.array(ub, ndmin=2).reshape(-1, 1)
         self.plot_idxs = plot_idxs
         self.dim = self.lb.shape[0]
-        assert (self.lb < self.ub).all(
-        ), "Lower bounds must be greater than corresponding upper bound for any given dimension"
+        assert (self.lb < self.ub).all(), (
+            "Lower bounds must be greater than corresponding upper bound for any given dimension"
+        )
         self.setup_constraint_matrix()
 
-    def __str__(self): return "Lower bound: %s, Upper bound: %s" % (
-        self.lb, self.ub)
+    def __str__(self):
+        return "Lower bound: %s, Upper bound: %s" % (self.lb, self.ub)
 
     def get_random_vectors(self, num_samples):
         rand_samples = np.random.rand(self.dim, num_samples)
         for i in range(self.dim):
             scale_factor, shift_factor = (self.ub[i] - self.lb[i]), self.lb[i]
-            rand_samples[i, :] = (rand_samples[i, :] *
-                                  scale_factor) + shift_factor
+            rand_samples[i, :] = (rand_samples[i, :] * scale_factor) + shift_factor
         return rand_samples
 
     def setup_constraint_matrix(self):
@@ -51,7 +64,7 @@ class BoxConstraint:
         return (self.sym_func(sample) <= 0).all()
 
     def generate_uniform_samples(self, num_samples):
-        n = int(np.round(num_samples**(1. / self.lb.shape[0])))
+        n = int(np.round(num_samples ** (1.0 / self.lb.shape[0])))
 
         # Generate a 1D array of n equally spaced values between the lower and
         # upper bounds for each dimension
@@ -60,7 +73,7 @@ class BoxConstraint:
             coords.append(np.linspace(self.lb[i, 0], self.ub[i, 0], n))
 
         # Create a meshgrid of all possible combinations of the n-dimensions
-        meshes = np.meshgrid(*coords, indexing='ij')
+        meshes = np.meshgrid(*coords, indexing="ij")
 
         # Flatten the meshgrid and stack the coordinates to create an array of
         # size (K, n-dimensions)

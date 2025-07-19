@@ -1,3 +1,4 @@
+---
 tracking_viz_node:
   ros__parameters:
     image_topic: /annotated_img

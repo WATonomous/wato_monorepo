@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>The camera object detection package</description>
   <maintainer email="pconjeevaram@watonomous.ca">Parasmai Conjeevaram</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <depend>cv_bridge</depend>
   <depend>sensor_msgs</depend>

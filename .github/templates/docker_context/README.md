@@ -53,7 +53,7 @@ runs:
   using: "composite"
   steps:
     - id: environment-generator
-      env: 
+      env:
         MODIFIED_MODULES: ${{ inputs.modified_modules }}
       run: ${{ github.action_path }}/docker_context.sh
       shell: bash
@@ -62,12 +62,14 @@ runs:
 ## Testing Procedure
 
 You will need to install `jq` locally to test the script.
+
 ```bash
 sudo apt-get update
 sudo apt-get install -y jq
 ```
 
 After that, you can run the test script like so:
+
 ```bash
 cd <monorepo_directory_root> # only run the script if you are at the root of the monorepo
 # Pretend “perception” and “action” were the modules changed in your branch

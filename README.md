@@ -18,8 +18,8 @@ Read the following:
 
 **TLDR:** Clone the monorepo, specify active modules, `watod up`. Everything is containerized, so there's little need to setup any dependencies on your end :).
 
-2. [docs/monorepo.md](docs/monorepo.md) What is a monorepo? Why a monorepo?
-3. [docs/how_to_dev.md](docs/dev/how_to_dev.md) How to develop in the monorepo.
+1. [docs/monorepo.md](docs/monorepo.md) What is a monorepo? Why a monorepo?
+2. [docs/how_to_dev.md](docs/dev/how_to_dev.md) How to develop in the monorepo.
 
 ## Description of Important Files and Directories
 
@@ -60,7 +60,6 @@ wato_monorepo_v2
 │   └── world_modeling
 └── watod
 ```
-
 
 - `watod`.
   - This is the main bash script that you will use to interface with your containers. More info on `watod`: [docs/dev/watod.md](docs/dev/watod.md).

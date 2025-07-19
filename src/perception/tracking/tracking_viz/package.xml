@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>The tracking viz package</description>
   <maintainer email="s36gong@watonomous.ca">Steven Gong</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <depend>cv_bridge</depend>
   <depend>sensor_msgs</depend>

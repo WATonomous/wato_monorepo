@@ -1,3 +1,4 @@
+---
 services:
   carla_sim:
     image: carlasim/carla:0.9.13
@@ -13,7 +14,7 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
-    
+
   carla_ros_bridge:
     build:
       context: ..
@@ -33,8 +34,8 @@ services:
     build:
       context: ..
       dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
-      cache_from: 
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}" 
+      cache_from:
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}"
         - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_main"
     image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
     ports:
@@ -62,7 +63,7 @@ services:
     build:
       context: ..
       dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
-      cache_from: 
+      cache_from:
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_${TAG}"
         - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_main"
     image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"

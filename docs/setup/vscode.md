@@ -2,11 +2,11 @@
 ## **General: Connecting VScode Over SSH**
 
 1. Download and install [Visual Studio Code](https://code.visualstudio.com/) on your local machine
-3. In VS Code, install the [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
-4. Select the "Remote Explorer" tab in the left taskbar
-5. Make sure the Remote Explorer is targeting "SSH Targets" and click plus to add the server you are trying to access.  For example, "wato-tr.uwaterloo.ca".
-6. Right click on the added target and connect. Select your workspace, and you can edit code in `src`.
-7. To make an integrated VScode terminal that runs on the host, use `ctrl->p` `> Create New Integrated Terminal`.
+2. In VS Code, install the [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
+3. Select the "Remote Explorer" tab in the left taskbar
+4. Make sure the Remote Explorer is targeting "SSH Targets" and click plus to add the server you are trying to access.  For example, "wato-tr.uwaterloo.ca".
+5. Right click on the added target and connect. Select your workspace, and you can edit code in `src`.
+6. To make an integrated VScode terminal that runs on the host, use `ctrl->p` `> Create New Integrated Terminal`.
 
 ## **General: Connecting VScode Over SSH and Docker**
 

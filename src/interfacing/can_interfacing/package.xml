@@ -3,9 +3,9 @@
 <package format="3">
   <name>can_interfacing</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>TODO(wato): Package description</description>
   <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

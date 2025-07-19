@@ -1,3 +1,4 @@
+---
 name: Generate Docker Environment
 
 inputs:
@@ -21,7 +22,7 @@ runs:
   using: "composite"
   steps:
     - id: environment-generator
-      env: 
+      env:
         MODIFIED_MODULES: ${{ inputs.modified_modules }}
       run: ${{ github.action_path }}/docker_context.sh
       shell: bash

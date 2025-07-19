@@ -1,3 +1,4 @@
+---
 name: Build and Test Monorepo
 
 on:
@@ -39,7 +40,7 @@ jobs:
         uses: "./.github/templates/docker_context"
         with:
           modified_modules: ${{ steps.get-module-changes.outputs.modified_modules }}
-      
+
       - name: Generate GitHub Context
         id: github-context
         uses: "./.github/templates/github_context"
@@ -143,7 +144,7 @@ jobs:
         with:
           image: ${{ steps.construct-registry-url.outputs.url }}
           tag: build_${{ env.SOURCE_BRANCH }}
-  
+
   confirm-build-and-unittest-complete:
     name: Confirm Build and Unit Tests Completed
     needs: build-and-unittest

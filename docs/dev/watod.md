@@ -1,5 +1,5 @@
 # watod
-`watod` is a wrapper for docker-compose. The format is `watod [watod options] [docker-compose options]`. See watod options using `watod -h`. `docker-compose` interface can be found here: https://docs.docker.com/compose/ 
+`watod` is a wrapper for docker-compose. The format is `watod [watod options] [docker-compose options]`. See watod options using `watod -h`. `docker-compose` interface can be found here: https://docs.docker.com/compose/
 
 By default, `watod` will use and create images tagged based on your current branch. For example, `perception/debug-develop`. If you switch to a new branch, you will need to rebuild your images (automatic with `watod up`)
 
@@ -17,7 +17,7 @@ For any environment variable found in `dev-config.sh`, you can overwrite it on t
 - Your docker containers expose a certain number of applications that can be accessed publicly. For example, [VNC](https://en.wikipedia.org/wiki/Virtual_Network_Computing)
 - Start your containers with `watod up` then in another terminal use `watod --ports`
 - `watod -lp` will  also print information if you want to forward the ports from the external server to your local machine over SSH.
-  
+
 **Opening a shell inside a docker container**: `watod -t <SERVICE_NAME>`
 - Opens a bash shell into the specified service. Find a list of your services using `watod ps --services`
-- From here, you can execute commands inside the docker container. For example, ROS2 commands. 
+- From here, you can execute commands inside the docker container. For example, ROS2 commands.

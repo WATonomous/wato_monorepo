@@ -1,3 +1,4 @@
+---
 traffic_light_node:
   ros__parameters:
     camera_topic: /front_camera/image_color

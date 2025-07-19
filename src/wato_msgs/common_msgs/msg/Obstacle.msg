@@ -17,7 +17,7 @@ float32 confidence
 geometry_msgs/PoseWithCovariance pose
 
 # Velocity and its uncertainty
-geometry_msgs/TwistWithCovariance twist 
+geometry_msgs/TwistWithCovariance twist
 
 # Dimensions of bounding box assuming BEV perspective
 # x=width, y=height, z=depth

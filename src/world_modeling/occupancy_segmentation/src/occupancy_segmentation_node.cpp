@@ -1,8 +1,27 @@
-#include "occupancy_segmentation_node.hpp"
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "occupancy_segmentation/occupancy_segmentation_node.hpp"
+
 #include <iostream>
 #include <memory>
+#include <string>
+#include <vector>
 
-OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segmentation") {
+OccupancySegmentationNode::OccupancySegmentationNode()
+: Node("occupancy_segmentation")
+{
   // Declare parameters
   this->declare_parameter<int>("num_zones", 4);
   this->declare_parameter<double>("l_min", 2.7);
@@ -18,11 +37,9 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   this->declare_parameter<double>("global_el_thresh", 0.0);
   this->declare_parameter<std::vector<int>>("zone_rings", std::vector<int>{2, 4, 4, 4});
   this->declare_parameter<std::vector<int>>("zone_sectors", std::vector<int>{16, 32, 54, 32});
-  this->declare_parameter<std::vector<double>>("flatness_thr",
-                                               std::vector<double>{0.0005, 0.000725, 0.001, 0.001});
-  this->declare_parameter<std::vector<double>>("elevation_thr",
-                                               std::vector<double>{0.523, 0.746, 0.879, 1.125});
-  this->declare_parameter<bool>("adaptive_selection_en", bool(false));
+  this->declare_parameter<std::vector<double>>("flatness_thr", std::vector<double>{0.0005, 0.000725, 0.001, 0.001});
+  this->declare_parameter<std::vector<double>>("elevation_thr", std::vector<double>{0.523, 0.746, 0.879, 1.125});
+  this->declare_parameter<bool>("adaptive_selection_en", false);
   this->declare_parameter<std::string>("lidar_input_topic", std::string("/velodyne_points"));
   this->declare_parameter<std::string>("ground_output_topic", std::string("/ground_points"));
   this->declare_parameter<std::string>("nonground_output_topic", std::string("/nonground_points"));
@@ -50,22 +67,33 @@ OccupancySegmentationNode::OccupancySegmentationNode() : Node("occupancy_segment
   std::string nonground_output_topic = this->get_parameter("nonground_output_topic").as_string();
 
   _patchwork = OccupancySegmentationCore<PointXYZIRT>(
-      num_zones, l_min, l_max, md, mh, min_num_points, num_seed_points, th_seeds,
-      uprightness_thresh, num_rings_of_interest, sensor_height, global_el_thresh, zone_rings,
-      zone_sectors, flatness_thr, elevation_thr, adaptive_selection_en);
+    num_zones,
+    l_min,
+    l_max,
+    md,
+    mh,
+    min_num_points,
+    num_seed_points,
+    th_seeds,
+    uprightness_thresh,
+    num_rings_of_interest,
+    sensor_height,
+    global_el_thresh,
+    zone_rings,
+    zone_sectors,
+    flatness_thr,
+    elevation_thr,
+    adaptive_selection_en);
 
   _subscriber = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      lidar_input_topic, 10,
-      std::bind(&OccupancySegmentationNode::subscription_callback, this, std::placeholders::_1));
+    lidar_input_topic, 10, std::bind(&OccupancySegmentationNode::subscription_callback, this, std::placeholders::_1));
 
-  _ground_publisher =
-      this->create_publisher<sensor_msgs::msg::PointCloud2>(ground_output_topic, 10);
-  _nonground_publisher =
-      this->create_publisher<sensor_msgs::msg::PointCloud2>(nonground_output_topic, 10);
+  _ground_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>(ground_output_topic, 10);
+  _nonground_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>(nonground_output_topic, 10);
 }
 
-void OccupancySegmentationNode::subscription_callback(
-    const sensor_msgs::msg::PointCloud2::SharedPtr lidar_cloud) {
+void OccupancySegmentationNode::subscription_callback(const sensor_msgs::msg::PointCloud2::SharedPtr lidar_cloud)
+{
   pcl::PointCloud<PointXYZIRT> temp_cloud;
   RCLCPP_DEBUG(this->get_logger(), "Header incoming: %s", lidar_cloud->header.frame_id.c_str());
   pcl::fromROSMsg(*lidar_cloud, temp_cloud);
@@ -99,7 +127,8 @@ void OccupancySegmentationNode::subscription_callback(
   _nonground_publisher->publish(nonground_msg);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<OccupancySegmentationNode>());
   rclcpp::shutdown();

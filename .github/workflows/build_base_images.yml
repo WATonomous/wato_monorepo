@@ -1,3 +1,4 @@
+---
 name: Build Monorepo Base Images
 
 on:
@@ -46,7 +47,7 @@ jobs:
   build:
     name: Build Base Images
     runs-on: ubuntu-latest
-    needs: [ setup-environment, base-matrix-prep ]
+    needs: [setup-environment, base-matrix-prep]
 
     env:
       DOCKER_REGISTRY: ${{ needs.setup-environment.outputs.registry }}
@@ -92,7 +93,7 @@ jobs:
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}_generic
           builder: ${{ steps.buildx.outputs.name }}
-          target: devel 
+          target: devel
           build-args: |
             GENERIC_IMAGE=${{ matrix.external_image }}
             ROS_DISTRO=${{ matrix.injections.ros2 }}
@@ -107,6 +108,6 @@ jobs:
             ${{ steps.construct-registry-url.outputs.url }}
           builder: ${{ steps.buildx.outputs.name }}
           target: wato_base
-          build-args: | 
+          build-args: |
             GENERIC_IMAGE=${{ steps.construct-registry-url.outputs.url }}_generic
             USER_PASSWD=${{ secrets.MONOREPO_PASSWD }}

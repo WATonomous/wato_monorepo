@@ -1,3 +1,4 @@
+---
 use_sim_time: true
 carla:
   # the network connection for the python connection to CARLA, can be overwritten by launch parameters
@@ -24,5 +25,5 @@ carla:
     role_name: ego
   ackermann_control:
     # override the default values of the pid speed controller
-    # (only relevant for ackermann control mode) 
+    # (only relevant for ackermann control mode)
     control_loop_rate: 0.05

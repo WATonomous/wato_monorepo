@@ -1,44 +1,75 @@
-#include "occupancy_segmentation_core.hpp"
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "occupancy_segmentation/occupancy_segmentation_core.hpp"
+
+#include <algorithm>
+#include <memory>
+#include <vector>
 
 // Explicitly instantiate template constructor for the type we will use
 template class OccupancySegmentationCore<PointXYZIRT>;
 
 template <typename PointT>
 OccupancySegmentationCore<PointT>::OccupancySegmentationCore(
-    int num_zones, float l_min, float l_max, float md, float mh, int min_num_points,
-    int num_seed_points, float th_seeds, float uprightness_thresh, int num_rings_of_interest,
-    float sensor_height, float global_el_thresh,
-    std::vector<long int, std::allocator<long int> > &zone_rings,
-    std::vector<long int, std::allocator<long int> > &zone_sectors,
-    std::vector<double> &flatness_thr, std::vector<double> &elevation_thr,
-    bool adaptive_selection_en)
-    : NUM_ZONES{num_zones},
-      L_MIN{l_min},
-      L_MAX{l_max},
-      MD{md},
-      MH{mh},
-      MIN_NUM_POINTS{min_num_points},
-      NUM_SEED_POINTS{num_seed_points},
-      TH_SEEDS{th_seeds},
-      UPRIGHTNESS_THRESH{uprightness_thresh},
-      NUM_RINGS_OF_INTEREST{num_rings_of_interest},
-      SENSOR_HEIGHT{sensor_height},
-      GLOBAL_EL_THRESH{global_el_thresh},
-      ZONE_RINGS{zone_rings.begin(), zone_rings.end()},
-      ZONE_SECTORS{zone_rings.begin(), zone_sectors.end()},
-      FLATNESS_THR{flatness_thr.begin(), flatness_thr.end()},
-      ELEVATION_THR{elevation_thr.begin(), elevation_thr.end()},
-      lmins{L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4, (L_MIN + L_MAX) / 2},
-      lmaxs{lmins[1], lmins[2], lmins[3], L_MAX},
-      ADAPTIVE_SELECTION_EN{adaptive_selection_en} {
+  int num_zones,
+  float l_min,
+  float l_max,
+  float md,
+  float mh,
+  int min_num_points,
+  int num_seed_points,
+  float th_seeds,
+  float uprightness_thresh,
+  int num_rings_of_interest,
+  float sensor_height,
+  float global_el_thresh,
+  const std::vector<int64_t, std::allocator<int64_t> > & zone_rings,
+  const std::vector<int64_t, std::allocator<int64_t> > & zone_sectors,
+  const std::vector<double> & flatness_thr,
+  const std::vector<double> & elevation_thr,
+  bool adaptive_selection_en)
+: NUM_ZONES{num_zones}
+, L_MIN{l_min}
+, L_MAX{l_max}
+, MD{md}
+, MH{mh}
+, MIN_NUM_POINTS{min_num_points}
+, NUM_SEED_POINTS{num_seed_points}
+, TH_SEEDS{th_seeds}
+, UPRIGHTNESS_THRESH{uprightness_thresh}
+, NUM_RINGS_OF_INTEREST{num_rings_of_interest}
+, SENSOR_HEIGHT{sensor_height}
+, GLOBAL_EL_THRESH{global_el_thresh}
+, ZONE_RINGS{zone_rings.begin(), zone_rings.end()}
+, ZONE_SECTORS{zone_rings.begin(), zone_sectors.end()}
+, FLATNESS_THR{flatness_thr.begin(), flatness_thr.end()}
+, ELEVATION_THR{elevation_thr.begin(), elevation_thr.end()}
+, lmins{L_MIN, (7 * L_MIN + L_MAX) / 8, (3 * L_MIN + L_MAX) / 4, (L_MIN + L_MAX) / 2}
+, lmaxs{lmins[1], lmins[2], lmins[3], L_MAX}
+, ADAPTIVE_SELECTION_EN{adaptive_selection_en}
+{
   init_czm();
 }
 
 template <typename PointT>
-OccupancySegmentationCore<PointT>::OccupancySegmentationCore() {}
+OccupancySegmentationCore<PointT>::OccupancySegmentationCore()
+{}
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::init_czm() {
+void OccupancySegmentationCore<PointT>::init_czm()
+{
   int concentric_count = 0;
   int patch_count = 0;
 
@@ -77,8 +108,9 @@ void OccupancySegmentationCore<PointT>::init_czm() {
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::fill_czm(pcl::PointCloud<PointT> &cloud_in) {
-  for (PointT &p : cloud_in.points) {
+void OccupancySegmentationCore<PointT>::fill_czm(const pcl::PointCloud<PointT> & cloud_in)
+{
+  for (PointT & p : cloud_in.points) {
     double r = sqrt(pow(p.x, 2) + pow(p.y, 2));
 
     // Out of range for czm
@@ -99,8 +131,8 @@ void OccupancySegmentationCore<PointT>::fill_czm(pcl::PointCloud<PointT> &cloud_
         double ring_size = deltal / ZONE_RINGS[zone_idx];
         double sector_size = 2 * M_PI / ZONE_SECTORS[zone_idx];
 
-        ring_idx = std::min((int)((r - lmins[zone_idx]) / ring_size), ZONE_RINGS[zone_idx] - 1);
-        sector_idx = std::min((int)(theta / sector_size), ZONE_SECTORS[zone_idx] - 1);
+        ring_idx = std::min(static_cast<int>((r - lmins[zone_idx]) / ring_size), ZONE_RINGS[zone_idx] - 1);
+        sector_idx = std::min(static_cast<int>(theta / sector_size), ZONE_SECTORS[zone_idx] - 1);
         _czm[zone_idx][ring_idx][sector_idx].points.emplace_back(p);
         break;
       }
@@ -109,10 +141,11 @@ void OccupancySegmentationCore<PointT>::fill_czm(pcl::PointCloud<PointT> &cloud_
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::clear_czm_and_regionwise() {
-  for (Zone &zone : _czm) {
-    for (Ring &ring : zone) {
-      for (pcl::PointCloud<PointT> &patch : ring) {
+void OccupancySegmentationCore<PointT>::clear_czm_and_regionwise()
+{
+  for (Zone & zone : _czm) {
+    for (Ring & ring : zone) {
+      for (pcl::PointCloud<PointT> & patch : ring) {
         patch.clear();
       }
     }
@@ -120,8 +153,8 @@ void OccupancySegmentationCore<PointT>::clear_czm_and_regionwise() {
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::estimate_plane(pcl::PointCloud<PointT> &cloud,
-                                                       PCAFeature &feat) {
+void OccupancySegmentationCore<PointT>::estimate_plane(const pcl::PointCloud<PointT> & cloud, const PCAFeature & feat)
+{
   // Code taken directly from repo
   Eigen::Matrix3f cov;
   Eigen::Vector4f mean;
@@ -130,10 +163,8 @@ void OccupancySegmentationCore<PointT>::estimate_plane(pcl::PointCloud<PointT> &
   Eigen::JacobiSVD<Eigen::MatrixXf> svd(cov, Eigen::DecompositionOptions::ComputeFullU);
   feat.singular_values_ = svd.singularValues();
 
-  feat.linearity_ =
-      (feat.singular_values_(0) - feat.singular_values_(1)) / feat.singular_values_(0);
-  feat.planarity_ =
-      (feat.singular_values_(1) - feat.singular_values_(2)) / feat.singular_values_(0);
+  feat.linearity_ = (feat.singular_values_(0) - feat.singular_values_(1)) / feat.singular_values_(0);
+  feat.planarity_ = (feat.singular_values_(1) - feat.singular_values_(2)) / feat.singular_values_(0);
 
   // use the least singular vector as normal
   feat.normal_ = (svd.matrixU().col(2));
@@ -148,20 +179,22 @@ void OccupancySegmentationCore<PointT>::estimate_plane(pcl::PointCloud<PointT> &
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::segment_ground(pcl::PointCloud<PointT> &unfiltered_cloud,
-                                                       pcl::PointCloud<PointT> &ground,
-                                                       pcl::PointCloud<PointT> &nonground) {
+void OccupancySegmentationCore<PointT>::segment_ground(
+  const pcl::PointCloud<PointT> & unfiltered_cloud,
+  const pcl::PointCloud<PointT> & ground,
+  const pcl::PointCloud<PointT> & nonground)
+{
   clear_czm_and_regionwise();
 
-  // TODO error point removal
+  // TODO(wato) error point removal
 
   fill_czm(unfiltered_cloud);
   tbb::parallel_for(tbb::blocked_range<int>(0, num_patches), [&](tbb::blocked_range<int> r) {
     for (auto patch_num = r.begin(); patch_num != r.end(); patch_num++) {
-      Patch_Index &p_idx = _patch_indices[patch_num];
-      pcl::PointCloud<PointT> &patch = _czm[p_idx.zone_idx][p_idx.ring_idx][p_idx.sector_idx];
-      pcl::PointCloud<PointT> &region_ground = _regionwise_ground[p_idx.idx];
-      pcl::PointCloud<PointT> &region_nonground = _regionwise_nonground[p_idx.idx];
+      Patch_Index & p_idx = _patch_indices[patch_num];
+      pcl::PointCloud<PointT> & patch = _czm[p_idx.zone_idx][p_idx.ring_idx][p_idx.sector_idx];
+      pcl::PointCloud<PointT> & region_ground = _regionwise_ground[p_idx.idx];
+      pcl::PointCloud<PointT> & region_nonground = _regionwise_nonground[p_idx.idx];
       PCAFeature features;
 
       region_ground.clear();
@@ -193,11 +226,12 @@ void OccupancySegmentationCore<PointT>::segment_ground(pcl::PointCloud<PointT> &
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::rgpf(pcl::PointCloud<PointT> &patch, Patch_Index &p_idx,
-                                             PCAFeature &feat) {
+void OccupancySegmentationCore<PointT>::rgpf(
+  const pcl::PointCloud<PointT> & patch, const Patch_Index & p_idx, const PCAFeature & feat)
+{
   pcl::PointCloud<PointT> ground_temp;
-  pcl::PointCloud<PointT> &region_ground = _regionwise_ground[p_idx.idx];
-  pcl::PointCloud<PointT> &region_nonground = _regionwise_nonground[p_idx.idx];
+  pcl::PointCloud<PointT> & region_ground = _regionwise_ground[p_idx.idx];
+  pcl::PointCloud<PointT> & region_nonground = _regionwise_nonground[p_idx.idx];
 
   size_t N = patch.size();
 
@@ -208,7 +242,7 @@ void OccupancySegmentationCore<PointT>::rgpf(pcl::PointCloud<PointT> &patch, Pat
     ground_temp.clear();
     Eigen::MatrixXf points(N, 3);
     int j = 0;
-    for (PointT &p : patch.points) {
+    for (PointT & p : patch.points) {
       points.row(j++) = p.getVector3fMap();
     }
 
@@ -230,8 +264,8 @@ void OccupancySegmentationCore<PointT>::rgpf(pcl::PointCloud<PointT> &patch, Pat
 }
 
 template <typename PointT>
-Status OccupancySegmentationCore<PointT>::ground_likelihood_est(PCAFeature &feat,
-                                                                int concentric_idx) {
+Status OccupancySegmentationCore<PointT>::ground_likelihood_est(const PCAFeature & feat, int concentric_idx)
+{
   // uprightness filter
   if (std::abs(feat.normal_(2)) < UPRIGHTNESS_THRESH) {
     return TOO_TILTED;
@@ -239,8 +273,7 @@ Status OccupancySegmentationCore<PointT>::ground_likelihood_est(PCAFeature &feat
 
   const double z_elevation = feat.mean_(2);
   const double surface_variable =
-      feat.singular_values_.minCoeff() /
-      (feat.singular_values_(0) + feat.singular_values_(1) + feat.singular_values_(2));
+    feat.singular_values_.minCoeff() / (feat.singular_values_(0) + feat.singular_values_(1) + feat.singular_values_(2));
 
   // elevation filter
   if (concentric_idx < NUM_RINGS_OF_INTEREST) {
@@ -263,9 +296,9 @@ Status OccupancySegmentationCore<PointT>::ground_likelihood_est(PCAFeature &feat
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::extract_initial_seeds(pcl::PointCloud<PointT> &cloud,
-                                                              pcl::PointCloud<PointT> &seed_cloud,
-                                                              int zone_idx) {
+void OccupancySegmentationCore<PointT>::extract_initial_seeds(
+  const pcl::PointCloud<PointT> & cloud, const pcl::PointCloud<PointT> & seed_cloud, int zone_idx)
+{
   // adaptive seed selection for 1st zone
   size_t init_idx = 0;
   if (ADAPTIVE_SELECTION_EN && zone_idx == 0) {

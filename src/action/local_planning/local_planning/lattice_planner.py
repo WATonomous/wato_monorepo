@@ -1,3 +1,16 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import numpy as np
 from abc import ABC, abstractmethod
 import copy
@@ -19,14 +32,34 @@ class PlannerConverter(Converter):
 
 class CostCalculator(ABC):
     @abstractmethod
-    def calculateTrajectoryCost(self, trajectory, sample, preferred_lane=0, obstacle_positions=[],
-                                max_curvature_rate=0.1, comfort_weight=1.0, obstacle_weight=5.0,
-                                curvature_weight=2.0, lane_weight=1.0):
+    def calculateTrajectoryCost(
+        self,
+        trajectory,
+        sample,
+        preferred_lane=0,
+        obstacle_positions=[],
+        max_curvature_rate=0.1,
+        comfort_weight=1.0,
+        obstacle_weight=5.0,
+        curvature_weight=2.0,
+        lane_weight=1.0,
+    ):
         pass
 
 
 class PlannerCostCalculator(CostCalculator):
-    def calculateTrajectoryCost(self, trajectory, sample, preferred_lane=0, obstacle_positions=[], max_curvature_rate=0.1, comfort_weight=1, obstacle_weight=5, curvature_weight=2, lane_weight=10):
+    def calculateTrajectoryCost(
+        self,
+        trajectory,
+        sample,
+        preferred_lane=0,
+        obstacle_positions=[],
+        max_curvature_rate=0.1,
+        comfort_weight=1,
+        obstacle_weight=5,
+        curvature_weight=2,
+        lane_weight=10,
+    ):
         """
         Calculate the cost of a trajectory based on obstacle avoidance, physical limitations,
         passenger comfort, and behavioral preferences.
@@ -44,15 +77,14 @@ class PlannerCostCalculator(CostCalculator):
         Returns:
             float: Total cost of the trajectory.
         """
-        # TODO: base this on cost map as well (for collisions / obstacles)
+        # TODO(wato): base this on cost map as well (for collisions / obstacles)
         total_cost = 0.0
         previous_kappa = None
 
         for i, (x, y, theta, kappa) in enumerate(trajectory):
-
             # Obstacle avoidance cost
             obstacle_cost = 0.0
-            for (x_obs, y_obs) in obstacle_positions:
+            for x_obs, y_obs in obstacle_positions:
                 distance = np.hypot(x - x_obs, y - y_obs)
                 if distance > 0:  # Avoid division by zero
                     if distance < 1:
@@ -64,14 +96,20 @@ class PlannerCostCalculator(CostCalculator):
             if previous_kappa is not None:
                 curvature_rate = abs(kappa - previous_kappa)
                 if curvature_rate > max_curvature_rate:
-                    total_cost += curvature_weight * (curvature_rate - max_curvature_rate)
+                    total_cost += curvature_weight * (
+                        curvature_rate - max_curvature_rate
+                    )
 
             # Lateral acceleration cost (passenger comfort)
-            lateral_acceleration = kappa  # Assuming lateral acceleration is proportional to curvature
+            lateral_acceleration = (
+                kappa  # Assuming lateral acceleration is proportional to curvature
+            )
             total_cost += comfort_weight * abs(lateral_acceleration)
 
             # Lane preference cost
-            lane_cost = abs(sample[1] - preferred_lane)  # Minimize distance to preferred lane
+            lane_cost = abs(
+                sample[1] - preferred_lane
+            )  # Minimize distance to preferred lane
             total_cost += lane_weight * lane_cost
 
             previous_kappa = kappa  # Update previous kappa for the next iteration
@@ -104,14 +142,13 @@ class Sampler(ABC):
 class PlannerSampler(Sampler):
     def generateSamples(self, lane_info):
         samples = []
-        max_s_bucket = lane_info['horizon'][1]
+        max_sample_bucket = lane_info["horizon"][1]
 
-        max_l_bucket = lane_info['lane'][1]
-        for s_b in range(1, max_s_bucket+1):
-            s = s_b * lane_info['horizon'][2]
-            for l_b in range(-1, 2):
-                l = l_b * lane_info['lane'][2]
-                samples.append((s, l))
+        for sample_b in range(1, max_sample_bucket + 1):
+            sample = sample_b * lane_info["horizon"][2]
+            for lane_bucket in range(-1, 2):
+                lane = lane_bucket * lane_info["lane"][2]
+                samples.append((sample, lane))
         return samples
 
 
@@ -146,7 +183,17 @@ class VehicleState:
 class LatticePlanner:
     HORIZON_STEP_SIZE = 10  # (m)
 
-    def __init__(self, startState: "VehicleState", getLaneInfo, converter: "Converter", trajectoryCostCalculator: "CostCalculator", sampler: "Sampler", lookAheadDist: float = 30, followingTargetState=False, targetState: "VehicleState" = None):
+    def __init__(
+        self,
+        startState: "VehicleState",
+        getLaneInfo,
+        converter: "Converter",
+        trajectoryCostCalculator: "CostCalculator",
+        sampler: "Sampler",
+        lookAheadDist: float = 30,
+        followingTargetState=False,
+        targetState: "VehicleState" = None,
+    ):
         self.followingTargetState = followingTargetState
         self.targetState = targetState
 
@@ -155,18 +202,20 @@ class LatticePlanner:
 
         self.s_horizon = lookAheadDist
         self.s_buckets = int(self.s_horizon / self.HORIZON_STEP_SIZE)
-        self.s_step_size = self.s_horizon/self.s_buckets
+        self.s_step_size = self.s_horizon / self.s_buckets
 
         self.laneInfo = getLaneInfo
-        self.l_width, self.l_buckets = self.laneInfo()  # TODO: should call "l_width" road with
-        self.l_step_size = self.l_width/self.l_buckets
+        self.l_width, self.l_buckets = (
+            self.laneInfo()
+        )  # TODO(wato): should call "l_width" road with
+        self.l_step_size = self.l_width / self.l_buckets
 
         self.arcinfo = {
             "horizon": [self.s_horizon, self.s_buckets, self.s_step_size],
-            "lane": [self.l_width, self.l_buckets, self.l_step_size]
+            "lane": [self.l_width, self.l_buckets, self.l_step_size],
         }
 
-        self.lattice = [[] for i in range(self.s_buckets+1)]
+        self.lattice = [[] for i in range(self.s_buckets + 1)]
         self.lattice[0].append(startState)
 
         self.converter = converter
@@ -189,15 +238,21 @@ class LatticePlanner:
                         if target is None:
                             continue
                         try:
-                            new_state_vec, trajectory = self.generate_trajectory(start, target)
-                        except:
+                            new_state_vec, trajectory = self.generate_trajectory(
+                                start, target
+                            )
+                        except Exception:
                             continue
 
                         x, y, t, k = tuple(new_state_vec)
                         new_state = VehicleState(x, y, t, k, sample)
                         new_state.setIncoming(curr_state, trajectory)
                         cost = self.trajectoryCostCalculator.calculateTrajectoryCost(
-                            trajectory, sample, lane * -self.l_step_size, [(-15, 0.8796)])
+                            trajectory,
+                            sample,
+                            lane * -self.l_step_size,
+                            [(-15, 0.8796)],
+                        )
                         if cost is False:
                             continue
                         new_state.setCost(cost)
@@ -210,11 +265,11 @@ class LatticePlanner:
 
     def _update_lane_info_(self):
         self.l_width, self.l_buckets = self.laneInfo()
-        self.l_step_size = self.l_width/self.l_buckets
+        self.l_step_size = self.l_width / self.l_buckets
 
         self.arcinfo = {
             "horizon": [self.s_horizon, self.s_buckets, self.s_step_size],
-            "lane": [self.l_width, self.l_buckets, self.l_step_size]
+            "lane": [self.l_width, self.l_buckets, self.l_step_size],
         }
 
     def _get_sorted_paths_(self):
@@ -246,11 +301,11 @@ class LatticePlanner:
         return best_state
 
     def setNewState(self, new_state):
-        self.lattice = [[] for i in range(self.s_buckets+1)]
+        self.lattice = [[] for i in range(self.s_buckets + 1)]
         self.lattice[0].append(new_state)
 
         self.l_width, self.l_buckets = self.laneInfo()
-        self.l_step_size = self.l_width/self.l_buckets
+        self.l_step_size = self.l_width / self.l_buckets
 
     def generate_trajectory(self, start, target, max_iterations=10, tolerance=1e-2):
         """
@@ -266,7 +321,7 @@ class LatticePlanner:
         Returns:
             trajectory (list): List of points along the generated trajectory [(x, y, theta, kappa), ...]
         """
-        # TODO: improve trajectory generation
+        # TODO(wato): improve trajectory generation
 
         def normalize_angle(angle):
             return (angle + np.pi) % (2 * np.pi) - np.pi
@@ -288,9 +343,9 @@ class LatticePlanner:
         def curvature_polynomial(s, p):
             # Define the cubic polynomial for curvature
             a = kappa0
-            b = -(11*kappa0 - 18*p[0] + 9*p[1] - 2*p[2]) / (2 * p[3])
-            c = 9 * (2*kappa0 - 5*p[0] + 4*p[1] - p[2]) / (2 * p[3] ** 2)
-            d = -9 * (kappa0 - 3*p[0] + 3*p[1] - p[2]) / (2 * p[3] ** 3)
+            b = -(11 * kappa0 - 18 * p[0] + 9 * p[1] - 2 * p[2]) / (2 * p[3])
+            c = 9 * (2 * kappa0 - 5 * p[0] + 4 * p[1] - p[2]) / (2 * p[3] ** 2)
+            d = -9 * (kappa0 - 3 * p[0] + 3 * p[1] - p[2]) / (2 * p[3] ** 3)
             return a + b * s + c * s**2 + d * s**3
 
         def integrate_trajectory(p):
@@ -316,7 +371,14 @@ class LatticePlanner:
             final_point, _ = integrate_trajectory(p)
             xf, yf, thetaf, kappaf = final_point
 
-            return np.array([xf - targetX, yf - targetY, angle_diff(thetaf, targetTheta), kappaf - targetKappa])
+            return np.array(
+                [
+                    xf - targetX,
+                    yf - targetY,
+                    angle_diff(thetaf, targetTheta),
+                    kappaf - targetKappa,
+                ]
+            )
 
         # Iterate using Newton's method to adjust parameters for trajectory alignment
         for i in range(max_iterations):

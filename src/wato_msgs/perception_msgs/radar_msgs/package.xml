@@ -5,7 +5,7 @@
   <description>Radar ROS2 messages</description>
 
   <maintainer email="r9murali@watonomous.ca">Rijin Muralidharan</maintainer>
-  <license>TODO</license>
+  <license>TODO(wato)</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>std_msgs</depend>
