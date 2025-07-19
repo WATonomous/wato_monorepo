@@ -80,8 +80,8 @@ TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 ACTIVE_MODULES=${ACTIVE_MODULES:-""}
 MODULE_BLACKLIST=${MODULE_BLACKLIST:-"production"}
 REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
-REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
-REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
+REGISTRY="${REGISTRY_URL%%/*}"
+REPOSITORY="${REGISTRY_URL##*/}"
 
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>

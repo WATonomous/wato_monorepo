@@ -56,12 +56,12 @@ repos:
       - id: cmakelint
         args: [--linelength=140]
 
-  # # Bash / Shell scripts
-  # - repo: https://github.com/shellcheck-py/shellcheck-py
-  #   rev: v0.10.0.1
-  #   hooks:
-  #     - id: shellcheck
-  #       args: [-e, SC1091]
+  # Bash / Shell scripts
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: [-e, SC1091]
 
   # Dockerfile linting
   - repo: https://github.com/AleksaC/hadolint-py

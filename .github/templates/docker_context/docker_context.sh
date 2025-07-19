@@ -52,7 +52,7 @@ REPOSITORY="${REGISTRY_URL#*/}"
 shopt -s lastpipe
 modules=$(find modules -maxdepth 1 -name 'docker-compose.*.ya*ml' | sort)
 
-$DEBUG && { echo "▶ Compose files found:"; printf '  %s\n' $modules; }
+$DEBUG && { echo "▶ Compose files found:"; printf '  %s\n' "$modules"; }
 
 declare -A seen
 declare -a json_rows
