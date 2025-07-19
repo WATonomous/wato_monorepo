@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hd_map_service.hpp"
+#include "hd_map/hd_map_service.hpp"
 
 #include <memory>
+#include <string>
 
 HDMapService::HDMapService()
 : Node("hd_map_service")
@@ -189,7 +190,7 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
   }
 }
 
-// TODO convert lanelet to lanelet msg
+// TODO(wato) convert lanelet to lanelet msg
 
 world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lanelet::ConstLanelet & lanelet)
 {
@@ -227,7 +228,7 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lan
   return lanelet_msg;
 }
 
-// TODO convert path to lanelet path msg
+// TODO(wato) convert path to lanelet path msg
 
 world_modeling_msgs::msg::LaneletPath HDMapService::convert_laneletPath_to_msg(
   const lanelet::Optional<lanelet::routing::LaneletPath> & path)

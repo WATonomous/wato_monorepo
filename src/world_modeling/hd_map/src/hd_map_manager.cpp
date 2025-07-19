@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hd_map_manager.hpp"
+#include "hd_map/hd_map_manager.hpp"
 
 #include <iostream>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 HDMapManager::HDMapManager(std::shared_ptr<HDMapRouter> router)
 : router_(router)
@@ -101,7 +105,7 @@ std::string HDMapManager::get_osm_map_from_coordinates(lanelet::GPSPoint gps_poi
 {
   std::vector<OSMMap> osm_maps;
 
-  // Initializing example maps into the hashmap | TODO: transfer to maybe config (just for
+  // Initializing example maps into the hashmap | TODO(wato): transfer to maybe config (just for
   // organizing the codebase)
   osm_maps = {
     {"map1.osm", 40.0, 41.0, -75.0, -74.0}, {"map2.osm", 42.0, 43.0, -76.0, -75.0}  // Add more maps as needed

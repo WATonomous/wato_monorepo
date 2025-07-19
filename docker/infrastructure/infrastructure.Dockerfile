@@ -25,7 +25,7 @@ FROM ${BASE_IMAGE} as dependencies
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
-# Install Foxglove Deps (TODO use rosdep)
+# Install Foxglove Deps (TODO(wato) use rosdep)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ros-humble-ros2bag \
@@ -33,14 +33,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-foxglove-msgs \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up apt repo (TODO what is this for?)
+# Set up apt repo (TODO(wato) what is this for?)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     lsb-release \
     software-properties-common \
     apt-transport-https \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Dependencies (TODO use rosdep)
+# Install Dependencies (TODO(wato) use rosdep)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-foxglove-bridge \
     ros-humble-rosbridge-server \

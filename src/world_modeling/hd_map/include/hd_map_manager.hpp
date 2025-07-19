@@ -19,14 +19,18 @@
 #include <lanelet2_io/Io.h>
 #include <lanelet2_projection/UTM.h>
 
-#include "hd_map_router.hpp"
+#include <map>
+#include <memory>
+#include <string>
+
+#include "hd_map/hd_map_router.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 
 class HDMapManager
 {
 public:
-  HDMapManager(std::shared_ptr<HDMapRouter> router);
+  explicit HDMapManager(std::shared_ptr<HDMapRouter> router);
 
   /**
    * Select an osm map from the maps directory given the filename.
@@ -81,7 +85,7 @@ private:
    * @param lanelet_ptr the LaneletMapPtr where the result is stored
    * @return whether the projection was successful
    */
-  bool project_osm_to_lanelet(std::string filename, lanelet::Origin origin, lanelet::LaneletMapPtr & lanelet_ptr);
+  bool project_osm_to_lanelet(std::string filename, lanelet::Origin origin, const lanelet::LaneletMapPtr & lanelet_ptr);
 
   /**
    * Project the OSM map to Lanelet format using the specified projector.
@@ -92,7 +96,7 @@ private:
    * @return whether the projection was successful
    */
   bool project_osm_to_lanelet(
-    std::string filename, const lanelet::Projector & projector, lanelet::LaneletMapPtr & lanelet_ptr);
+    std::string filename, const lanelet::Projector & projector, const lanelet::LaneletMapPtr & lanelet_ptr);
 
   /**
    * Set the Lanelet map in the router.
@@ -109,7 +113,7 @@ private:
    * @param origin the origin for the map
    * @return whether the origin was successfully retrieved
    */
-  bool get_origin_from_filename(std::string filename, lanelet::Origin & origin);
+  bool get_origin_from_filename(std::string filename, const lanelet::Origin & origin);
 
   // List of origins associated with map files
   std::map<std::string, lanelet::Origin> originList = {

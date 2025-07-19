@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.hpp"
+#include "hd_map/utils.hpp"
 
 lanelet::Polygon3d utils::boundingBox3dToPolygon3d(const lanelet::BoundingBox3d & bbox)
 {

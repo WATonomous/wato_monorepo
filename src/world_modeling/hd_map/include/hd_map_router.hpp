@@ -27,16 +27,18 @@
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 
 #include <map>
+#include <memory>
+#include <string>
 #include <unordered_set>
 
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/pose_with_covariance.hpp"
-#include "pedestrian_reg_elem.hpp"
+#include "hd_map/pedestrian_reg_elem.hpp"
+#include "hd_map/traffic_light_reg_elem.hpp"
+#include "hd_map/traffic_sign_reg_elem.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
-#include "traffic_light_reg_elem.hpp"
-#include "traffic_sign_reg_elem.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
 

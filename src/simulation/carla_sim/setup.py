@@ -31,7 +31,7 @@ setup(
     maintainer="Vishal Jayakumar",
     maintainer_email="v3jayaku@watonomous.ca",
     description="Sample python node to read data from CARLA",
-    license="TODO: License declaration",
+    license="Apache 2.0",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [

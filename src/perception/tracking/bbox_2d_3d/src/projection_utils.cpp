@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "projection_utils.hpp"
+#include "bbox_2d_3d/projection_utils.hpp"
+
+#include <algorithm>
+#include <limits>
+#include <utility>
+#include <vector>
 
 // PRE-CLUSTER FILTERING
 // ----------------------------------------------------------------------------------------------------------------------

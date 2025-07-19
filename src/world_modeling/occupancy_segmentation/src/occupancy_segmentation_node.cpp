@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "occupancy_segmentation_node.hpp"
+#include "occupancy_segmentation/occupancy_segmentation_node.hpp"
 
 #include <iostream>
 #include <memory>
+#include <string>
+#include <vector>
 
 OccupancySegmentationNode::OccupancySegmentationNode()
 : Node("occupancy_segmentation")
@@ -37,7 +39,7 @@ OccupancySegmentationNode::OccupancySegmentationNode()
   this->declare_parameter<std::vector<int>>("zone_sectors", std::vector<int>{16, 32, 54, 32});
   this->declare_parameter<std::vector<double>>("flatness_thr", std::vector<double>{0.0005, 0.000725, 0.001, 0.001});
   this->declare_parameter<std::vector<double>>("elevation_thr", std::vector<double>{0.523, 0.746, 0.879, 1.125});
-  this->declare_parameter<bool>("adaptive_selection_en", bool(false));
+  this->declare_parameter<bool>("adaptive_selection_en", false);
   this->declare_parameter<std::string>("lidar_input_topic", std::string("/velodyne_points"));
   this->declare_parameter<std::string>("ground_output_topic", std::string("/ground_points"));
   this->declare_parameter<std::string>("nonground_output_topic", std::string("/nonground_points"));

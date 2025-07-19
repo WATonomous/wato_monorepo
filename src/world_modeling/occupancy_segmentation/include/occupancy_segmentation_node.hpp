@@ -26,7 +26,7 @@
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
-#include "occupancy_segmentation_core.hpp"
+#include "occupancy_segmentation/occupancy_segmentation_core.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 typedef std::chrono::high_resolution_clock Clock;

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
+#include <string>
+
 #include "embedded_msgs/msg/steering_angle_can.hpp"
 #include "path_planning_msgs/msg/ackermann_drive.hpp"
 #include "path_planning_msgs/msg/carla_ego_vehicle_status.hpp"

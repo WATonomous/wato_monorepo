@@ -18,6 +18,9 @@ Node to add frame IDs to the waypoints being published by carla_waypoint_publish
 
 */
 
+#include <memory>
+#include <string>
+
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 

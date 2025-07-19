@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
+
 using std::placeholders::_1;
 
 class Image_Encoding_Conversion : public rclcpp::Node
@@ -96,7 +101,7 @@ private:
     imagePubLeft->publish(updatedImage);
   }
 
-  void update_image(sensor_msgs::msg::Image & updatedImage, sensor_msgs::msg::Image::SharedPtr image)
+  void update_image(const sensor_msgs::msg::Image & updatedImage, sensor_msgs::msg::Image::SharedPtr image)
   {
     updatedImage.header = image->header;
     updatedImage.height = image->height;

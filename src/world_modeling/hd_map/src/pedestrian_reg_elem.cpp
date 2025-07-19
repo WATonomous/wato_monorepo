@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pedestrian_reg_elem.hpp"
+#include "hd_map/pedestrian_reg_elem.hpp"
 
-#include "utils.hpp"
+#include <memory>
+#include <utility>
+
+#include "hd_map/utils.hpp"
 
 // Static factory method to create a new instance
 std::shared_ptr<PedestrianRegElem> PedestrianRegElem::make(const lanelet::BoundingBox3d & pedestrianBBox, uint64_t id)

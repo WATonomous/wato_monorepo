@@ -19,6 +19,8 @@
 #include <lanelet2_core/primitives/BasicRegulatoryElements.h>
 #include <lanelet2_core/primitives/Lanelet.h>
 
+#include <memory>
+#include <string>
 #include <unordered_map>
 
 #include "rclcpp/rclcpp.hpp"

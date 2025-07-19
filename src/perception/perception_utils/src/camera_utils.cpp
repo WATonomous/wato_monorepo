@@ -31,10 +31,10 @@ cv::Mat CameraUtils::resize_image_aspect_ratio(const cv::Mat & original_image, i
 {
   int original_width = original_image.cols;
   int original_height = original_image.rows;
-  double original_aspect_ratio = (double)original_width / original_height;
+  double original_aspect_ratio = static_cast<double>(original_width) / original_height;
 
   int new_width, new_height;
-  double max_aspect_ratio = (double)max_width / max_height;
+  double max_aspect_ratio = static_cast<double>(max_width) / max_height;
 
   if (original_aspect_ratio > max_aspect_ratio) {
     // Width is the limiting factor
@@ -57,8 +57,8 @@ cv::Mat CameraUtils::resize_with_padding(const cv::Mat & original_image, int tar
   int original_width = original_image.cols;
   int original_height = original_image.rows;
 
-  double target_ratio = (double)target_width / target_height;
-  double original_ratio = (double)original_width / original_height;
+  double target_ratio = static_cast<double>(target_width) / target_height;
+  double original_ratio = static_cast<double>(original_width) / original_height;
 
   int new_width, new_height;
 
@@ -92,7 +92,7 @@ cv::Mat CameraUtils::resize_from_center(const cv::Mat & original_image, int targ
   int original_height = original_image.rows;
 
   // Calculate the new height maintaining the aspect ratio
-  double target_ratio = (double)target_width / target_height;
+  double target_ratio = static_cast<double>(target_width) / target_height;
   int new_height = static_cast<int>(original_width / target_ratio);
 
   // Calculate the cropping area

@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hd_map_router.hpp"
+#include "hd_map/hd_map_router.hpp"
 
 #include <lanelet2_core/geometry/BoundingBox.h>
 
-#include "utils.hpp"
+#include <map>
+#include <set>
+#include <string>
+
+#include "hd_map/utils.hpp"
 
 HDMapRouter::HDMapRouter()
 {}
@@ -195,7 +199,7 @@ void HDMapRouter::process_pedestrian_msg(const vision_msgs::msg::Detection3DArra
   }
 }
 
-// TODO: populate the detection attribute in the reg elem and return the state/type from the
+// TODO(wato): populate the detection attribute in the reg elem and return the state/type from the
 // detection
 std::string HDMapRouter::get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr)
 {
@@ -278,7 +282,7 @@ void HDMapRouter::update_traffic_light(const vision_msgs::msg::Detection3D::Shar
     rclcpp::get_logger("hd_map_router"), "Traffic light with ID %lu not found for update.", traffic_light_id);
 }
 
-// TODO: implement updating traffic sign in the HD Map
+// TODO(wato): implement updating traffic sign in the HD Map
 
 void HDMapRouter::update_traffic_sign(const vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg_ptr)
 {

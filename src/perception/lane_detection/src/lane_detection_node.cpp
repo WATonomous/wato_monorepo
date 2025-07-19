@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "lane_detection_node.hpp"
+#include "lane_detection/lane_detection_node.hpp"
 
 #include <cv_bridge/cv_bridge.h>
 
@@ -21,18 +21,19 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <opencv2/opencv.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <std_msgs/msg/string.hpp>
 
-#include "common_helper_cv.h"
-#include "image_processor.h"
 #include "image_transport/image_transport.hpp"
+#include "lane_detection/common_helper_cv.h"
+#include "lane_detection/image_processor.h"
+#include "lane_detection/lane_engine.h"
 #include "lane_detection_msgs/msg/lane_detection.hpp"
-#include "lane_engine.h"
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/string.hpp"
 
 LaneDetectionNode::LaneDetectionNode()
 : Node("lane_detection")
@@ -84,7 +85,6 @@ void LaneDetectionNode::populate_lane_msg(
   lane_msg.header.frame_id = "lane_detection";
   lane_msg.lines.clear();
 
-  // Load the message from the raw lane list
   for (size_t i = 0; i < raw_lane_list.size(); i++) {
     lane_detection_msgs::msg::LaneLine line;
     line.points.resize(raw_lane_list[i].size());
@@ -121,7 +121,6 @@ void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstShare
 
   std::vector<std::vector<float>> raw_lane_list;
 
-  /* Call image processor library */
   ImageProcessor::Result result;
   ImageProcessor::Process(image, result, raw_lane_list);
   const auto & time_all1 = std::chrono::steady_clock::now();
@@ -132,14 +131,12 @@ void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstShare
   RCLCPP_INFO(this->get_logger(), "    Post processing: %9.3lf [msec]", result.time_post_process);
   RCLCPP_INFO(this->get_logger(), "=== Finished frame ===");
 
-  // Convert the processed cv::Mat back to sensor_msgs::msg::Image and publish
   sensor_msgs::msg::Image::SharedPtr img_msg = cv_bridge::CvImage(msg->header, "bgr8", image).toImageMsg();
 
   if (debug_node_) {
     image_pub_->publish(*img_msg);
   }
 
-  // Create the lane detection message
   lane_detection_msgs::msg::LaneDetection lane_msg;
   populate_lane_msg(lane_msg, raw_lane_list);
 
@@ -147,7 +144,6 @@ void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstShare
     lane_msg.source_img = *img_msg;
   }
 
-  // Save the output image
   if (save_images_) {
     save_image(image, save_dir_ + "/lane_detection_" + std::to_string(count_) + ".png");
   }
@@ -158,7 +154,6 @@ void LaneDetectionNode::image_callback(const sensor_msgs::msg::Image::ConstShare
 
 int main(int argc, char * argv[])
 {
-  /* Initialize image processor library */
   ImageProcessor::InputParam input_param = {RESOURCE_DIR, 4};
   if (ImageProcessor::Initialize(input_param) != 0) {
     RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Initialization Error\n");

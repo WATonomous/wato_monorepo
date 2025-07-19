@@ -16,12 +16,13 @@
 #define WORLD_MODELING_HD_MAP_SERVICE_
 
 #include <algorithm>
+#include <memory>
 
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
-#include "hd_map_manager.hpp"
-#include "hd_map_router.hpp"
-#include "lanelet_visualization.hpp"
+#include "hd_map/hd_map_manager.hpp"
+#include "hd_map/hd_map_router.hpp"
+#include "hd_map/lanelet_visualization.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"

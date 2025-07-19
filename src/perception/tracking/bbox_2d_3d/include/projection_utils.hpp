@@ -34,6 +34,7 @@
 #include <array>
 #include <optional>
 #include <random>
+#include <vector>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <opencv2/opencv.hpp>
@@ -47,7 +48,7 @@ class ProjectionUtils
 {
 public:
   static void removeGroundPlane(
-    pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, float distanceThreshold, int maxIterations);
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, float distanceThreshold, int maxIterations);
 
   static std::optional<cv::Point2d> projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped & transform, const std::array<double, 12> & p, const pcl::PointXYZ & pt);
@@ -55,22 +56,22 @@ public:
   // CLUSTERING FUNCTIONS
   // -----------------------------------------------------------------------------------------
 
-  static void removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, int meanK, double stddevMulThresh);
+  static void removeOutliers(const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, int meanK, double stddevMulThresh);
 
   static void euclideanClusterExtraction(
-    pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
     double clusterTolerance,
     int minClusterSize,
     int maxClusterSize,
-    std::vector<pcl::PointIndices> & cluster_indices);
+    const std::vector<pcl::PointIndices> & cluster_indices);
 
   static void assignClusterColors(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
     const std::vector<pcl::PointIndices> & cluster_indices,
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr & clustered_cloud);
+    const pcl::PointCloud<pcl::PointXYZRGB>::Ptr & clustered_cloud);
 
   static void mergeClusters(
-    std::vector<pcl::PointIndices> & cluster_indices,
+    const std::vector<pcl::PointIndices> & cluster_indices,
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
     double mergeTolerance);
 
@@ -85,7 +86,7 @@ public:
   static bool computeClusterCentroid(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
     const pcl::PointIndices & cluster_indices,
-    pcl::PointXYZ & centroid);
+    const pcl::PointXYZ & centroid);
 
   // ROI FUNCTIONS
   // ------------------------------------------------------------------------------------------------
@@ -99,7 +100,7 @@ public:
 
   static void computeHighestIOUCluster(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & input_cloud,
-    std::vector<pcl::PointIndices> & cluster_indices,
+    const std::vector<pcl::PointIndices> & cluster_indices,
     const vision_msgs::msg::Detection2DArray & detections,
     const geometry_msgs::msg::TransformStamped & transform,
     const std::array<double, 12> & projection_matrix,

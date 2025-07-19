@@ -29,7 +29,7 @@ RUN apt-get -qq update && rosdep update --rosdistro foxy && \
 FROM ${BASE_IMAGE} as dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# TODO this should be in rosdep
+# TODO(wato) this should be in rosdep
 RUN apt-get update -qq && \
     apt-fast install -qq -y --no-install-recommends \
         lsb-release \

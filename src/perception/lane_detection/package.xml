@@ -6,7 +6,7 @@
   <description>Lane Detection using ultra-fast-lane-detection_v2</description>
   <maintainer email="j89leung@watonomous.ca">Justin Leung</maintainer>
   <maintainer email="s36gong@uwaterloo.ca">Steven Gong</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

@@ -25,13 +25,17 @@
 #include <lanelet2_routing/RoutingGraphContainer.h>
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 
+#include <algorithm>  // For std::max
+#include <limits>  // For std::numeric_limits
+#include <vector>  // For std::vector
+
 #include "geometry_msgs/msg/point.hpp"
-#include "pedestrian_reg_elem.hpp"
+#include "hd_map/pedestrian_reg_elem.hpp"
+#include "hd_map/traffic_light_reg_elem.hpp"
+#include "hd_map/traffic_sign_reg_elem.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
 #include "std_msgs/msg/header.hpp"
-#include "traffic_light_reg_elem.hpp"
-#include "traffic_sign_reg_elem.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
@@ -57,9 +61,9 @@ visualization_msgs::msg::MarkerArray laneletAsMarkerArray(
   std_msgs::msg::ColorRGBA laneColor = std_msgs::msg::ColorRGBA(),
   float centerThickness = .2,
   float laneThickness = .2);
-visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(lanelet::LineStringLayer & lineStrings);
+visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(const lanelet::LineStringLayer & lineStrings);
 visualization_msgs::msg::Marker lineStringAsMarker(
-  lanelet::ConstLineString3d lineString, int * id, float thickness, int type, std_msgs::msg::ColorRGBA color);
+  const lanelet::ConstLineString3d lineString, int * id, float thickness, int type, std_msgs::msg::ColorRGBA color);
 visualization_msgs::msg::Marker polygonToMarker(
   lanelet::ConstPolygon3d polygon, uint64_t * id, float thickness, int type, std_msgs::msg::ColorRGBA color);
 visualization_msgs::msg::MarkerArray trafficLightsAsMakerArray(
@@ -68,6 +72,11 @@ visualization_msgs::msg::MarkerArray trafficSignsAsMakerArray(
   std::vector<std::shared_ptr<TrafficSignRegElem>> trafficSignRegElems);
 visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
   std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems);
+
+// TODO(wato): Resolve overlapping marker IDs for traffic light markers.
+// TODO(wato): Consolidate duplicated logic across lanelet rendering functions.
+// TODO(wato): Optimize marker array publishing rate to reduce bandwidth.
+
 }  // namespace world_modeling::hd_map
 
 #endif

@@ -77,7 +77,7 @@ class PlannerCostCalculator(CostCalculator):
         Returns:
             float: Total cost of the trajectory.
         """
-        # TODO: base this on cost map as well (for collisions / obstacles)
+        # TODO(wato): base this on cost map as well (for collisions / obstacles)
         total_cost = 0.0
         previous_kappa = None
 
@@ -207,7 +207,7 @@ class LatticePlanner:
         self.laneInfo = getLaneInfo
         self.l_width, self.l_buckets = (
             self.laneInfo()
-        )  # TODO: should call "l_width" road with
+        )  # TODO(wato): should call "l_width" road with
         self.l_step_size = self.l_width / self.l_buckets
 
         self.arcinfo = {
@@ -321,7 +321,7 @@ class LatticePlanner:
         Returns:
             trajectory (list): List of points along the generated trajectory [(x, y, theta, kappa), ...]
         """
-        # TODO: improve trajectory generation
+        # TODO(wato): improve trajectory generation
 
         def normalize_angle(angle):
             return (angle + np.pi) % (2 * np.pi) - np.pi

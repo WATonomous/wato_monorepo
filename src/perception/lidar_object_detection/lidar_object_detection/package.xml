@@ -3,9 +3,9 @@
 <package format="3">
   <name>lidar_object_detection</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="bolty@todo.todo">bolty</maintainer>
-  <license>TODO: License declaration</license>
+  <description>TODO(wato): Package description</description>
+  <maintainer email="bolty@watonomous.ca">bolty</maintainer>
+  <license>Apache 2.0</license>
 
   <depend>rclpy</depend>
   <depend>std_msgs</depend>

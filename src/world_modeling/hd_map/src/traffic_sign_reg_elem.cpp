@@ -12,9 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "traffic_sign_reg_elem.hpp"
+#include "hd_map/traffic_sign_reg_elem.hpp"
 
-#include "utils.hpp"
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "hd_map/utils.hpp"
 
 // Static factory method to create a new instance
 

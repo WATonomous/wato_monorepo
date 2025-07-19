@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bbox_2d_3d.hpp"
+#include "bbox_2d_3d/bbox_2d_3d.hpp"
+
+#include <memory>
+#include <string>
+#include <vector>
 
 bbox_2d_3d::bbox_2d_3d()
 : Node("bbox_2d_3d")

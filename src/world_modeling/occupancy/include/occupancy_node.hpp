@@ -19,7 +19,7 @@
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
-#include "occupancy_core.hpp"
+#include "occupancy/occupancy_core.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 /**

@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "occupancy_core.hpp"
+#include "occupancy/occupancy_core.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <sensor_msgs/point_cloud2_iterator.hpp>
@@ -68,8 +69,8 @@ nav_msgs::msg::OccupancyGrid OccupancyCore::remove_z_dimension(sensor_msgs::msg:
     x_coords.push_back(x_rounded);
     int y_rounded = std::round(CELLS_PER_METER * y);
     y_coords.push_back(y_rounded);
-    z_coords.push_back(z);  // TODO: Filter out points that have too high z values
-    // TODO: Transform intensities into 0-100 range integers
+    z_coords.push_back(z);  // TODO(wato) (wato): Filter out points that have too high z values
+    // TODO(wato) (wato): Transform intensities into 0-100 range integers
     if (x_rounded >= 0) {
       x_high = std::max(x_high, x_rounded);
     } else {

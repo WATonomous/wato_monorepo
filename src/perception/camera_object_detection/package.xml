@@ -6,7 +6,7 @@
   <description>The camera object detection package</description>
   <maintainer email="s36gong@watonomous.ca">Steven Gong</maintainer>
   <maintainer email="j89leung@watonomous.ca">Justin Leung</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <depend>cv_bridge</depend>
   <depend>rclpy</depend>

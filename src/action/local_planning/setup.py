@@ -41,8 +41,8 @@ setup(
     zip_safe=True,
     maintainer="eddyzhou, aryanafrouzi",
     maintainer_email="e23zhou@watonomous.ca, aafrouzi@watonomous.ca",
-    description="TODO: Package description",
-    license="TODO: License declaration",
+    description="TODO(wato): Package description",
+    license="Apache 2.0",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [

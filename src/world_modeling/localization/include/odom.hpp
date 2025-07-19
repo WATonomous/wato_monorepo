@@ -31,7 +31,7 @@
 
 #include "carla_msgs/msg/carla_ego_vehicle_status.hpp"
 
-using namespace std::chrono_literals;
+using std::chrono_literals;
 
 class WheelOdometry : public rclcpp::Node
 {

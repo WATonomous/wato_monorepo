@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "lanelet_visualization.hpp"
+#include "hd_map/lanelet_visualization.hpp"
 
 #include <lanelet2_core/primitives/BasicRegulatoryElements.h>
 #include <lanelet2_core/primitives/Lanelet.h>
+
+#include <algorithm>
+#include <limits>
+#include <vector>
 
 #include <boost/variant.hpp>
 
@@ -121,7 +125,7 @@ visualization_msgs::msg::MarkerArray trafficSignsAsMakerArray(
   if (trafficSignRegElems.empty()) {
     return markerArray;
   }
-  // TODO: add and test traffic signs visualization
+  // TODO(wato): add and test traffic signs visualization
 
   for (auto trafficSign = trafficSignRegElems.begin(); trafficSign != trafficSignRegElems.end(); ++trafficSign) {
     auto sign = trafficSign->get();
@@ -149,7 +153,7 @@ visualization_msgs::msg::MarkerArray trafficSignsAsMakerArray(
   return markerArray;
 }
 
-// TODO: finish and test pedestrian visualization
+// TODO(wato): finish and test pedestrian visualization
 
 visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
   std::vector<std::shared_ptr<PedestrianRegElem>> pedestrianRegElems)
@@ -166,7 +170,7 @@ visualization_msgs::msg::MarkerArray pedestrianAsMarkerArray(
     auto pedestrian = pedestrianRegElem->get();
     auto id = pedestrian->getId();
 
-    // TODO: get pedestrian state (crosswalks, sidewalks, etc)
+    // TODO(wato): get pedestrian state (crosswalks, sidewalks, etc)
 
     // Mock color (to change or remove)
     auto pedElemColor = std_msgs::msg::ColorRGBA();
@@ -269,7 +273,7 @@ visualization_msgs::msg::MarkerArray laneletPathAsMarkerArray(lanelet::routing::
   return markerArray;
 }
 
-visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(lanelet::LineStringLayer & lineStrings)
+visualization_msgs::msg::MarkerArray lineStringsAsMarkerArray(const lanelet::LineStringLayer & lineStrings)
 {
   auto markerArray = visualization_msgs::msg::MarkerArray();
 

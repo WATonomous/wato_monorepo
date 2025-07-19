@@ -79,7 +79,7 @@ class MPCCore:
         self.theta0 = 0
         self.v0 = 0
 
-    # TODO: Adapt to local planning trajectories
+    # TODO(wato): Adapt to local planning trajectories
 
     def convert_waypoints(self):
         """
@@ -107,7 +107,7 @@ class MPCCore:
     ):  # Convert to CasADi format and add to the waypoints list
         return ca.vertcat(x, y)
 
-    # TODO: Add lane constraints, obstacle avoidance using ellipses (future)
+    # TODO(wato): Add lane constraints, obstacle avoidance using ellipses (future)
     def setup_mpc(self):
         """
         Setup the MPC problem with CasADi

@@ -31,7 +31,7 @@ setup(
     maintainer="Your Name",
     maintainer_email="your.email@example.com",
     description="Brief description of your package",
-    license="TODO: License declaration",
+    license="Apache 2.0",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [

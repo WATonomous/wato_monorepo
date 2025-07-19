@@ -22,7 +22,10 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <memory>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <opencv2/opencv.hpp>
@@ -34,7 +37,7 @@
 #include <vision_msgs/msg/detection2_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-#include "projection_utils.hpp"
+#include "bbox_2d_3d/projection_utils.hpp"
 
 struct DetectionOutputs
 {

@@ -31,7 +31,7 @@ public:
    * OccupancyCore constructor.
    */
   OccupancyCore();
-  OccupancyCore(int resolution);
+  explicit OccupancyCore(int resolution);
 
   /**
    * Removes the z-axis dimension from the given PointCloud2 message.

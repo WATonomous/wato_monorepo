@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "odom.hpp"
+#include "localization/odom.hpp"
+
+#include <string>
 
 WheelOdometry::WheelOdometry()
 : Node("odom")
@@ -23,9 +25,10 @@ WheelOdometry::WheelOdometry()
   this->declare_parameter<std::string>("odom_output_topic", std::string("/bicycle_model_output"));
 
   this->declare_parameter<std::string>("ego_output_topic", std::string("/carla/ego/vehicle_status"));
-  this->declare_parameter<double>("wheel_base", 2.875);  // TODO: find the acutal value for the kia
-  this->declare_parameter<double>("max_steer_angle",
-                                  45.0);  // in degrees TODO: remove assuming we get the steering
+  this->declare_parameter<double>("wheel_base", 2.875);  // TODO(wato) (wato): find the acutal value for the kia
+  this->declare_parameter<double>(
+    "max_steer_angle",
+    45.0);  // in degrees TODO(wato) (wato): remove assuming we get the steering
   // angle of the wheels of the actual car
   this->declare_parameter<int>("odom_publish_rate", 10);
 
@@ -52,11 +55,11 @@ WheelOdometry::WheelOdometry()
     steering_topic_, qos, [this](const std_msgs::msg::Float64::SharedPtr msg) { steering_angle_ = msg->data; });
 
   // Carla sim test
-  // TODO: tailor to actual car
+  // TODO(wato) (wato): tailor to actual car
   vehicle_status_sub_ = this->create_subscription<carla_msgs::msg::CarlaEgoVehicleStatus>(
     ego_output_topic, qos, std::bind(&WheelOdometry::vehicleStatusCallback, this, std::placeholders::_1));
 
-  // TODO: init the with actual car odom
+  // TODO(wato) (wato): init the with actual car odom
   init_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
     "/carla/ego/odometry",  // CARLA ground-truth topic
     1,
@@ -70,7 +73,7 @@ WheelOdometry::WheelOdometry()
 
 void WheelOdometry::vehicleStatusCallback(const carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg)
 {
-  // TODO: Remove and replace with callback that subscribes to velocity of car and steering angle of
+  // TODO(wato) (wato): Remove and replace with callback that subscribes to velocity of car and steering angle of
   // wheels of the actual car
   velocity_ = msg->velocity;
   steering_angle_ = msg->control.steer * max_steer_angle_ * M_PI / 180.0;
@@ -102,7 +105,7 @@ void WheelOdometry::bicycleModel()
 
   // the delta_t was based on carla's msg time stamp that way we could see if our predicted odom
   // matched CARLA's odom
-  // TODO: find an apppropriate delta_t for the actual car
+  // TODO(wato) (wato): find an apppropriate delta_t for the actual car
   if (last_stamp_ == rclcpp::Time(0, 0, RCL_ROS_TIME)) {
     return;
   }
@@ -114,7 +117,7 @@ void WheelOdometry::bicycleModel()
 
   double angular_velocity = velocity_ * tan(steering_angle_) / wheel_base_;
 
-  theta_ -= angular_velocity * delta_t;  // apparently sign of steer is reversed in CARLA, TODO:
+  theta_ -= angular_velocity * delta_t;  // apparently sign of steer is reversed in CARLA, TODO(wato) (wato):
     // Test w/ the acutal car and determine sign
 
   double velocity_x = velocity_ * cos(theta_);
