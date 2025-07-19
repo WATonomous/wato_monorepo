@@ -5,10 +5,10 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code
-COPY src/perception/tracking                                             tracking
-COPY src/wato_msgs/sample_msgs                                           sample_msgs
-COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs          camera_object_detection_msgs
+# Copy in source code TRACKING IS BROKEN AND NEEDS TO BE MERGED INTO THE MAIN PERCEPTION IMAGE
+# COPY src/perception/tracking                                             tracking
+# COPY src/wato_msgs/sample_msgs                                           sample_msgs
+# COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs          camera_object_detection_msgs
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

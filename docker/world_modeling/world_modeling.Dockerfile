@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
-COPY src/world_modeling world_modeling
+# IDEALLY: COPY src/world_modeling world_modeling
 COPY src/wato_msgs wato_msgs
 
 # Update CONTRIBUTING.md to pass ament_copyright test
