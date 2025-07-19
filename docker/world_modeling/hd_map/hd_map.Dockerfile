@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_IMAGE} AS source
 
 # every RUN with pipes uses bash + pipefail (DL4006)
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -21,7 +21,7 @@ RUN apt-get -qq update && rosdep update && \
       | sort > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} as dependencies
+FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Download maps and set permissions
@@ -47,7 +47,7 @@ RUN apt-get -qq autoremove -y && \
     rm -rf /root/* /root/.ros /tmp/* /usr/share/doc/*
 
 ################################ Build ################################
-FROM dependencies as build
+FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build ROS2 packages
@@ -60,7 +60,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as deploy
+FROM build AS deploy
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Source Cleanup and Security Setup

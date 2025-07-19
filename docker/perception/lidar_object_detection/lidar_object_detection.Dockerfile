@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda11.7-humble-ubuntu22.04-devel
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_IMAGE} AS source
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 WORKDIR ${AMENT_WS}/src
@@ -48,7 +48,7 @@ RUN cmake -D CMAKE_BUILD_TYPE=RELEASE \
 RUN rm -rf /opt/opencv /opt/opencv_contrib
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} as dependencies
+FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \
@@ -98,8 +98,14 @@ RUN apt-get -qq autoremove -y && \
     rm -rf /root/* /root/.ros /tmp/* /usr/share/doc/*
 
 ################################ Build #######################################
-FROM dependencies as build
+FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Base libraries and pip
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3 python3-pip && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/bolty/OpenPCDet
 RUN pip3 install --no-cache-dir -r requirements.txt && \
@@ -117,7 +123,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod #########################################
-FROM build as deploy
+FROM build AS deploy
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*

@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
@@ -18,7 +18,7 @@ RUN apt-get -qq update && rosdep update && \
       | sort  > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} as dependencies
+FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Base libraries and pip
@@ -34,8 +34,9 @@ RUN python3 -m pip install --no-cache-dir -r requirements.txt && rm requirements
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update -qq && \
+    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*v
 
 # Extra runtime ROS package
 RUN apt-get update && \
@@ -53,7 +54,7 @@ RUN apt-get -qq autoremove -y && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
 ################################ Build ################################
-FROM dependencies as build
+FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build ROS2 packages
@@ -66,7 +67,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as deploy
+FROM build AS deploy
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Source Cleanup and Security Setup

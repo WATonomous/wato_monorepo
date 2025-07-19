@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
@@ -21,7 +21,7 @@ RUN apt-get -qq update && rosdep update && \
         | sort  > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} as dependencies
+FROM ${BASE_IMAGE} AS dependencies
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
@@ -67,7 +67,7 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
 ################################ Build ################################
-FROM dependencies as build
+FROM dependencies AS build
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
@@ -80,7 +80,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as deploy
+FROM build AS deploy
 
 # Source Cleanup and Security Setup
 RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*

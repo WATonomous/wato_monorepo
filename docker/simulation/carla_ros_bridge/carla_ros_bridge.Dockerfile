@@ -4,7 +4,7 @@ ARG CARLA_VERSION=0.9.13
 FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
@@ -26,7 +26,7 @@ RUN apt-get -qq update && rosdep update --rosdistro foxy && \
         | sort > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} as dependencies
+FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # TODO(wato) this should be in rosdep
@@ -72,7 +72,7 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /usr/share/doc/*
 
 ################################ Build ################################
-FROM dependencies as build
+FROM dependencies AS build
 
 ARG CARLA_VERSION
 
@@ -97,7 +97,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build as deploy
+FROM build AS deploy
 
 RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*
 

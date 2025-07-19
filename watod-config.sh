@@ -23,11 +23,11 @@
 ## List of active modules to run, defined in docker-compose.yaml.
 ## Possible values:
 ##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc and/or data_stream)
-##	 - perception			:	starts perception nodes
-##	 - world_modeling		:	starts world modeling nodes
-##	 - action				:	starts action nodes
-##	 - simulation			:	starts simulation
-##   - samples             	:   starts sample ROS2 pubsub nodes
+##   - interfacing    : starts up interfacing nodes (CAN and sensor interfaces)
+##	 - perception			:	starts perception nodes (Object detection, tracking)
+##	 - world_modeling		:	starts world modeling nodes (HD map, localization)
+##	 - action				:	starts action nodes (local planning, control)
+##	 - simulation			:	starts simulation (carla)
 
 # ACTIVE_MODULES=""
 

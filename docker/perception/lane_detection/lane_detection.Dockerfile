@@ -2,7 +2,7 @@ ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-humble-ubuntu22.04
 ARG RUNTIME_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-humble-ubuntu22.04
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_IMAGE} AS source
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 WORKDIR ${AMENT_WS}/src
@@ -19,7 +19,7 @@ RUN apt-get -qq update && rosdep update && \
       | sort > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} as dependencies
+FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \
@@ -27,11 +27,10 @@ RUN apt-get update && \
       libopencv-dev python3-opencv tensorrt cuda-toolkit && \
     rm -rf /var/lib/apt/lists/*
 
-ENV OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4/OpenCVConfig.cmake
-
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
+RUN apt-get update -qq && \
+    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy in source code from source stage
@@ -45,7 +44,7 @@ RUN apt-get -qq autoremove -y && \
     rm -rf /root/* /root/.ros /tmp/* /usr/share/doc/*
 
 ################################ Build ################################
-FROM dependencies as build
+FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build ROS 2 packages
@@ -58,7 +57,7 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM ${RUNTIME_IMAGE} as deploy
+FROM ${RUNTIME_IMAGE} AS deploy
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Runtime libs
