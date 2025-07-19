@@ -36,7 +36,9 @@ KDNode* closest(const Point2D& target, KDNode* n1, KDNode* n2) {
     double dist1 = std::hypot(target[0] - n1->point[0], target[1] - n1->point[1]);
     double dist2 = std::hypot(target[0] - n2->point[0], target[1] - n2->point[1]);
 
-    const double EPSILON = 0.5;  // Small threshold for "nearly equal"
+    const double EPSILON = 3;  // Small threshold for "nearly equal"
+
+    std::cout << "Distances are nearly equal: " << std::abs(dist1 - dist2) << std::endl;
 
     if (std::abs(dist1 - dist2) < EPSILON) {
         // Prefer lower index when distances are very close
@@ -77,9 +79,9 @@ KDNode* nearestNeighbour(KDNode* root, const Point2D& target, int depth) {
 
 PurePursuitController::PurePursuitController() : Node("pure_pursuit_control") {
 
-    this->declare_parameter<double>("lookahead_distance", 4);
-    this->declare_parameter<double>("control_frequency", 20);
-    this->declare_parameter<double>("max_steering_angle", 1.2);  // radians
+    this->declare_parameter<double>("lookahead_distance", 2.0);
+    this->declare_parameter<double>("control_frequency", 100.0);
+    this->declare_parameter<double>("max_steering_angle", 1.4);  // radians
 
     lookahead_distance_ = this->get_parameter("lookahead_distance").as_double();
     control_frequency_ = this->get_parameter("control_frequency").as_double();
@@ -108,17 +110,26 @@ void PurePursuitController::odomCallback(const nav_msgs::msg::Odometry::SharedPt
 }
 
 void PurePursuitController::pathCallback(const nav_msgs::msg::Path::SharedPtr msg) {
-    std::vector<geometry_msgs::msg::Point> new_path;
-    new_path.reserve(msg->poses.size());
+    if (!pathSet && !msg->poses.empty()) {
+        current_index_ = 0;
+        current_path_.clear();
+        
+        std::vector<geometry_msgs::msg::Point> new_path;
+        new_path.reserve(msg->poses.size());
 
-    for (const auto& pose_stamped : msg->poses) {
-        new_path.push_back(pose_stamped.pose.position);
+        for (const auto& pose_stamped : msg->poses) {
+            new_path.push_back(pose_stamped.pose.position);
+        }
+
+        // if (isSamePath(new_path)) {
+        //     RCLCPP_INFO(this->get_logger(), "Received the same path, ignoring update.");
+        //     return;
+        // }
+
+        current_path_ = std::move(new_path);
+        buildKDTree();
+        pathSet = true;
     }
-
-    if (isSamePath(new_path)) return;
-
-    current_path_ = std::move(new_path);
-    buildKDTree();
 }
 
 bool PurePursuitController::isSamePath(const std::vector<geometry_msgs::msg::Point>& new_path) {
@@ -155,7 +166,9 @@ void PurePursuitController::controlLoop() {
         return;
     }
 
-    // RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d", closest_idx);
+    RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d", closest_idx);
+    RCLCPP_INFO(this->get_logger(), "Closest waypoint position: x=%.2f, y=%.2f, z=%.2f",
+                current_path_[closest_idx].x, current_path_[closest_idx].y, current_path_[closest_idx].z);
 
     geometry_msgs::msg::PoseStamped target_wp;
     bool success = findTargetWaypoint(closest_idx, current_pose, current_path_, target_wp);
@@ -165,41 +178,75 @@ void PurePursuitController::controlLoop() {
         return;
     }
 
+    RCLCPP_INFO(this->get_logger(), "Target waypoint position: x=%.2f, y=%.2f, z=%.2f",
+                target_wp.pose.position.x, target_wp.pose.position.y, target_wp.pose.position.z);
+
     double steering_angle = -computeSteeringAngle(current_pose, target_wp.pose);
 
-    // RCLCPP_INFO(this->get_logger(), "Steering angle: %.2f radians", steering_angle);
+    RCLCPP_INFO(this->get_logger(), "Steering angle: %.2f radians", steering_angle);
+
+    const auto& goal = current_path_.back();
+    double dx = current_pose.position.x - goal.x;
+    double dy = current_pose.position.y - goal.y;
+    double distance_to_goal = std::hypot(dx, dy);
 
     carla_msgs::msg::CarlaEgoVehicleControl cmd;
     cmd.header.stamp = this->now();
-    cmd.steer = std::clamp(steering_angle / max_steering_angle_, -1.0, 1.0);
-    cmd.throttle = 0.3;
+
+    if (distance_to_goal < 0.1 || goalReached) {
+        cmd.throttle = 0;
+        cmd.brake = 1.0;
+        cmd.steer = 0;
+        RCLCPP_INFO(this->get_logger(), "Reached goal, applying brake.");
+        goalReached = true;
+    }
+    else if (!goalReached) {
+        cmd.throttle = 0.3;
+        cmd.steer = std::clamp(steering_angle / max_steering_angle_, -1.0, 1.0);
+    }
+
     cmd_pub_->publish(cmd);
 }
 
 int PurePursuitController::findClosestWaypointAhead(const geometry_msgs::msg::Pose& pose) {
-    if (!root) return -1;
+    if (!root || current_path_.empty()) return -1;
 
-    Point2D query = { pose.position.x, pose.position.y };
-    KDNode* nearest = nearestNeighbour(root, query);
+    const double heading_x = std::cos(tf2::getYaw(pose.orientation));
+    const double heading_y = std::sin(tf2::getYaw(pose.orientation));
 
-    if (nearest) {
-        // RCLCPP_INFO(this->get_logger(), "Closest waypoint index: %d (%f, %f)", nearest->index, nearest->point[0], nearest->point[1]);
-        return nearest->index;
+    double min_dist = std::numeric_limits<double>::max();
+    int best_index = -1;
+
+    for (size_t i = 0; i < current_path_.size(); ++i) {
+        const auto& wp = current_path_[i];
+
+        double dx = wp.x - pose.position.x;
+        double dy = wp.y - pose.position.y;
+
+        double dot = dx * heading_x + dy * heading_y;
+        if (dot <= 0.0) continue;
+
+        double dist = std::hypot(dx, dy);
+        if (dist < min_dist) {
+            min_dist = dist;
+            best_index = static_cast<int>(i);
+        }
     }
 
-    return -1;
+    if (best_index != -1 && best_index > current_index_) {
+        current_index_ = best_index;
+    }
+
+    return best_index;
 }
 
 bool PurePursuitController::findTargetWaypoint(int start_idx, const geometry_msgs::msg::Pose& pose, const std::vector<geometry_msgs::msg::Point>& current_path, geometry_msgs::msg::PoseStamped& target_wp) {
-    if (current_path.size() < 2 || start_idx < 0 || static_cast<size_t>(start_idx) >= current_path.size()) {
-        return false;
-    }
-
-    double L = lookahead_distance_;
     double cx = pose.position.x;
     double cy = pose.position.y;
 
-    // Step through path until we find a segment where distance crosses L
+    geometry_msgs::msg::Point best_point;
+    double best_distance = -1.0;
+
     for (size_t i = start_idx; i < current_path.size() - 1; ++i) {
         const auto& p1 = current_path[i];
         const auto& p2 = current_path[i + 1];
@@ -207,33 +254,32 @@ bool PurePursuitController::findTargetWaypoint(int start_idx, const geometry_msg
         double d1 = std::hypot(p1.x - cx, p1.y - cy);
         double d2 = std::hypot(p2.x - cx, p2.y - cy);
 
-        // If one point is before and one after the lookahead distance, interpolate
-        if (d1 < L && d2 >= L) {
-            double ratio = (L - d1) / (d2 - d1);  // Linear interpolation ratio
-
+        if (d1 < lookahead_distance_ && d2 >= lookahead_distance_) {
+            double ratio = (lookahead_distance_ - d1) / (d2 - d1);
             target_wp.pose.position.x = p1.x + ratio * (p2.x - p1.x);
             target_wp.pose.position.y = p1.y + ratio * (p2.y - p1.y);
-            target_wp.pose.position.z = p1.z + ratio * (p2.z - p1.z);
-
-            // Orientation can be left as identity or copied from p1/p2 if needed
-            target_wp.pose.orientation.w = 1.0;
-            target_wp.pose.orientation.x = 0.0;
-            target_wp.pose.orientation.y = 0.0;
-            target_wp.pose.orientation.z = 0.0;
-
             return true;
+        }
+
+        if (d1 < lookahead_distance_ && d1 > best_distance) {
+            best_distance = d1;
+            best_point = p1;
         }
     }
 
-    // If no segment crosses L, just pick the last point
-    const auto& last = current_path.back();
-    target_wp.pose.position = last;
-    target_wp.pose.orientation.w = 1.0;
-    target_wp.pose.orientation.x = 0.0;
-    target_wp.pose.orientation.y = 0.0;
-    target_wp.pose.orientation.z = 0.0;
+    if (best_distance > 0.0) {
+        target_wp.pose.position = best_point;
+        return true;
+    }
 
-    return true;
+    // As a last resort, pick a point slightly ahead if available
+    if (!current_path.empty()) {
+        size_t idx = std::min(static_cast<size_t>(start_idx + 2), current_path.size() - 1);
+        target_wp.pose.position = current_path[idx];
+        return true;
+    }
+
+    return false;  // No target found
 }
 
 double PurePursuitController::computeSteeringAngle(const geometry_msgs::msg::Pose& pose, const geometry_msgs::msg::Pose& target) {
@@ -252,19 +298,21 @@ double PurePursuitController::computeSteeringAngle(const geometry_msgs::msg::Pos
     return std::atan(curvature);  // Assuming a simple bicycle model
 }
 
-double PurePursuitController::wrapAngle(double angle) {
-    while (angle > M_PI) angle -= 2 * M_PI;
-    while (angle < -M_PI) angle += 2 * M_PI;
-    return angle;
-}
-
 void PurePursuitController::buildKDTree() {
+    deleteKDTree(root);
     root = nullptr;
     for (size_t i = 0; i < current_path_.size(); ++i) {
         Point2D pt = {current_path_[i].x, current_path_[i].y};
         root = ::insert(root, pt, static_cast<int>(i));
     }
 }
+
+void PurePursuitController::deleteKDTree(KDNode* node) {
+    if (!node) return;
+    deleteKDTree(node->left);
+    deleteKDTree(node->right);
+    delete node;
+} 
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);

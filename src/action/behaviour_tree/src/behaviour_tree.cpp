@@ -5,7 +5,6 @@
 #include <std_msgs/msg/header.hpp>
 #include <world_modeling_msgs/srv/behaviour_tree_info.hpp>
 #include <vector>
-
 class BehaviourTree : public rclcpp::Node {
 public:
     BehaviourTree() : Node("behaviour_tree") {
@@ -17,26 +16,28 @@ public:
 private:
     void sendRequest() {
         if (!client_->wait_for_service(std::chrono::seconds(1))) {
-            RCLCPP_INFO(this->get_logger(), "Waiting for service...");
+            // RCLCPP_INFO(this->get_logger(), "Waiting for service...");
             return;
         }
 
         auto request = std::make_shared<world_modeling_msgs::srv::BehaviourTreeInfo::Request>();
-        RCLCPP_INFO(this->get_logger(), "Sending async service request...");
+        // RCLCPP_INFO(this->get_logger(), "Sending async service request...");
         auto future = client_->async_send_request(request,
             std::bind(&BehaviourTree::handleResponse, this, std::placeholders::_1));
     }
 
     void handleResponse(rclcpp::Client<world_modeling_msgs::srv::BehaviourTreeInfo>::SharedFuture future) {
+
+        int count = 0;
+
         try {
             auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "Received response with %zu lanelets", response->route_list.lanelets.size());
 
             nav_msgs::msg::Path path_msg;
             path_msg.header.stamp = this->get_clock()->now();
 
             for (const auto& lanelet : response->route_list.lanelets) {
-                RCLCPP_INFO(this->get_logger(), "Processing lanelet ID: %d", lanelet.id);
+                // RCLCPP_INFO(this->get_logger(), "Processing lanelet ID: %d", lanelet.id);
                 if (!lanelet.centerline.empty()) {
                     for (const auto& pt : lanelet.centerline) {
                         geometry_msgs::msg::PoseStamped pose_stamped;
@@ -46,12 +47,15 @@ private:
                         pose_stamped.pose.position.z = pt.z;
 
                         path_msg.poses.push_back(pose_stamped);
-                        RCLCPP_INFO(this->get_logger(), "Adding point x=%.2f, y=%.2f, z=%.2f", pt.x, pt.y, pt.z);
+
+                        count++;
                     }
                 } else {
                     RCLCPP_INFO(this->get_logger(), "Lanelet centerline is empty for lanelet ID %d", lanelet.id);
                 }
             }
+
+            RCLCPP_INFO(this->get_logger(), "Received response with %zu waypoints", count);
 
             path_pub_->publish(path_msg);
         } catch (const std::exception& e) {

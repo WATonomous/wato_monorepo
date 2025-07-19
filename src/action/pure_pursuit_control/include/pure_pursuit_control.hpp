@@ -58,16 +58,21 @@ class PurePursuitController : public rclcpp::Node {
 
         std::vector<geometry_msgs::msg::Point> current_path_;
 
+        bool goalReached = false;
+        bool pathSet = false;
+
         void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
         void pathCallback(const nav_msgs::msg::Path::SharedPtr msg);
         void controlLoop();
         int findClosestWaypointAhead(const geometry_msgs::msg::Pose& pose);
         bool findTargetWaypoint(int start_idx, const geometry_msgs::msg::Pose& pose, const std::vector<geometry_msgs::msg::Point>& current_path, geometry_msgs::msg::PoseStamped& target_wp);
-        double wrapAngle(double angle);
         double computeSteeringAngle(const geometry_msgs::msg::Pose& pose, const geometry_msgs::msg::Pose& target);
         void buildKDTree();
+        void deleteKDTree(KDNode* node);
 
         bool isSamePath(const std::vector<geometry_msgs::msg::Point>& new_path);
+
+        int current_index_ = 0;  // Track the current index in the path
 };
 
 #endif  // PURE_PURSUIT_CONTROL_HPP_
