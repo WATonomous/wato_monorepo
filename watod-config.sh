@@ -42,7 +42,7 @@
 ##	 - action				:	starts action nodes (local planning, control)
 ##	 - simulation			:	starts simulation (carla)
 
-# export ACTIVE_MODULES=""
+# ACTIVE_MODULES=""
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -50,15 +50,15 @@
 ##	 - deploy (default)		:	runs production-grade containers (non-editable)
 ##	 - develop   		    :	runs developer containers (editable)
 
-export MODE_OF_OPERATION=""
+# MODE_OF_OPERATION=""
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
-# export COMPOSE_PROJECT_NAME=""
+# COMPOSE_PROJECT_NAME=""
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = "<your_current_github_branch>"
-# export TAG=""
+# TAG=""
 
 # Docker Registry to pull/push images. DEFAULT = "ghcr.io/watonomous/wato_monorepo"
-# export REGISTRY_URL=""
+# REGISTRY_URL=""
