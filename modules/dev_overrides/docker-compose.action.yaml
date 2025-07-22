@@ -61,3 +61,12 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/action/behaviour_tree:/home/bolty/ament_ws/src/behaviour_tree
+controller_pkg:
+    extends:
+      file: ../docker-compose.action.yaml
+      service: controller_pkg
+    image: "${ACTION_CONTROLLER_PKG_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/action/controller_pkg:/home/bolty/ament_ws/src/controller_pkg
+

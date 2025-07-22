@@ -68,3 +68,13 @@ services:
     image: "${ACTION_BEHAVIOUR_TREE_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch behaviour_tree behaviour_tree.launch.py"
 
+  controller_pkg:
+      build:
+        context: ..
+        dockerfile: docker/action/controller_pkg/controller_pkg.Dockerfile
+        cache_from:
+          - "${ACTION_CONTROLLER_PKG_IMAGE}:build_${TAG}"
+          - "${ACTION_CONTROLLER_PKG_IMAGE}:build_main"
+        target: deploy
+      image: "${ACTION_CONTROLLER_PKG_IMAGE}:${TAG}"
+      command: /bin/bash -c "ros2 launch controller_pkg controller.launch.py"
