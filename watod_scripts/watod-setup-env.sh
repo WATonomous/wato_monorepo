@@ -76,7 +76,9 @@ COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 # Tag for docker images – convert slashes to dashes
 TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 
-# Registry
+# Active/black‑listed modules & registry
+ACTIVE_MODULES=${ACTIVE_MODULES:-""}
+MODULE_BLACKLIST=${MODULE_BLACKLIST:-"production"}
 REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
 REGISTRY="${REGISTRY_URL%%/*}"
 REPOSITORY="${REGISTRY_URL##*/}"
