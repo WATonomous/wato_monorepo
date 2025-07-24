@@ -22,3 +22,9 @@ KLD_WEIGHT = 0.00025 # This might need tuning
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 print(f"Using device: {DEVICE}")
+
+#------ 1. Create Dataset -------
+class ImageDataset(Dataset):
+    self.root_dir = root_dir
+    self.transform = transform
+    self.image_paths = []

@@ -2,3 +2,7 @@ opencv-python
 torch
 rclpy
 anomalib
+pathlib
+time
+numpy
+typing
