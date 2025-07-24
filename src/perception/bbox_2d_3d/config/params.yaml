@@ -35,17 +35,10 @@ bbox_2d_3d:
       min_cluster_size: 50 # small values create more noise 
       max_cluster_size: 700 # big values slightly slow down performance
 
-    density_filter_params:
-    # filter out clusters that are too sparse and too far away, on a scale of 0 to 1
-      density_weight: 0.6 # increase to filter out more sparse clusters, least important
-      size_weight: 0.8 # increase to filter out more large clusters, most important
-      distance_weight: 0.3 # increase to filter out more far away clusters, moderately important
-      score_threshold: 0.6 # threshold score for a cluster to be considered as a valid cluster, increase to keep more clusters
-
-    merge_threshold: 0.3
-    # the threshold distance between two clusters centroids for them to be merged into one cluster
-
-    object_detection_confidence: 0.45
+    # 2d/3d IOU matching params
+    matching_params:
+      object_detection_confidence: 0.45
+      iou_threshold: 0.4
 
     publish_visualization: true
 

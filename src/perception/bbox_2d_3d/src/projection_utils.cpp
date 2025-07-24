@@ -164,131 +164,6 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
   clustered_cloud->header = cloud->header;
 }
 
-void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
-                                    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                    double mergeTolerance) {
-  /*
-      merges two clusters based on the euclidean distance between their centroids, determined by
-     merge tolerance
-
-      Purpose: updates cluster_indices with the merged clusters
-  */
-
-  if (cloud->empty() || cluster_indices.empty()) return;
-
-  std::vector<bool> merged(cluster_indices.size(), false);
-
-  for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    if (merged[i]) continue;
-
-    Eigen::Vector4f centroid_i;
-    pcl::compute3DCentroid(*cloud, cluster_indices[i].indices, centroid_i);
-
-    for (size_t j = i + 1; j < cluster_indices.size(); ++j) {
-      if (merged[j]) continue;  // Skip if already merged
-
-      // Compute centroid of cluster j
-      Eigen::Vector4f centroid_j;
-      pcl::compute3DCentroid(*cloud, cluster_indices[j].indices, centroid_j);
-
-      // euclidean distance
-      double distance = (centroid_i - centroid_j).norm();
-
-      if (distance < mergeTolerance) {
-        cluster_indices[i].indices.insert(cluster_indices[i].indices.end(),
-                                          cluster_indices[j].indices.begin(),
-                                          cluster_indices[j].indices.end());
-        merged[j] = true;
-      }
-    }
-  }
-
-  // Remove merged clusters from the list
-  std::vector<pcl::PointIndices> filtered_clusters;
-  for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    if (!merged[i]) {
-      filtered_clusters.push_back(cluster_indices[i]);
-    }
-  }
-  cluster_indices = filtered_clusters;
-}
-
-void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                             const std::vector<pcl::PointIndices>& cluster_indices,
-                                             double densityWeight, double sizeWeight,
-                                             double distanceWeight, double scoreThreshold) {
-  /*
-      Applies weighted scoring of size, density, and distance to filter out clusters, with values
-     normalized using arbitrary expected values
-
-      Purpose: updates cluster_indices with removed clusters that are too big, too far, or too
-     sparse
-  */
-
-  if (cloud->empty() || cluster_indices.empty()) return;
-
-  // Define maximum expected values for normalization
-  const double max_density = 700.0;  // Maximum density (points/m³)
-  const double max_size =
-      12.0;  // Maximum cluster size; the diagonal length of its extents (meters)
-  const double max_distance = 60.0;  // Maximum distance of a cluster (meters)
-
-  std::vector<pcl::PointIndices> filtered_clusters;
-
-  for (const auto& clusters : cluster_indices) {
-    if (clusters.indices.size() < 10) continue;  // Skip small clusters
-
-    // Initialize min and max values for cluster bounds
-    double min_x = std::numeric_limits<double>::max(),
-           max_x = std::numeric_limits<double>::lowest();
-    double min_y = std::numeric_limits<double>::max(),
-           max_y = std::numeric_limits<double>::lowest();
-    double min_z = std::numeric_limits<double>::max(),
-           max_z = std::numeric_limits<double>::lowest();
-    double total_distance = 0.0;
-
-    // Calculate cluster bounds and total distance from origin
-    for (const auto& index : clusters.indices) {
-      const auto& pt = cloud->points[index];
-      min_x = std::min(min_x, static_cast<double>(pt.x));
-      max_x = std::max(max_x, static_cast<double>(pt.x));
-      min_y = std::min(min_y, static_cast<double>(pt.y));
-      max_y = std::max(max_y, static_cast<double>(pt.y));
-      min_z = std::min(min_z, static_cast<double>(pt.z));
-      max_z = std::max(max_z, static_cast<double>(pt.z));
-      total_distance += std::sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z);
-    }
-
-    // calculate cluster size (the diagonal length of the extents of the cluster)
-    double cluster_size =
-        std::sqrt((max_x - min_x) * (max_x - min_x) + (max_y - min_y) * (max_y - min_y) +
-                  (max_z - min_z) * (max_z - min_z));
-
-    // calculate cluster density (points per unit volume)
-    double cluster_volume = (max_x - min_x) * (max_y - min_y) * (max_z - min_z);
-    double density = cluster_volume > 0 ? clusters.indices.size() / cluster_volume : 0;
-
-    // calculate average distance from origin
-    double avg_distance = total_distance / clusters.indices.size();
-
-    // normalize the factors
-    double normalized_density = density / max_density;
-    double normalized_size = cluster_size / max_size;
-    double normalized_distance = avg_distance / max_distance;
-
-    //  weighted score
-    double score = (normalized_density * densityWeight) + (normalized_size * sizeWeight) +
-                   (normalized_distance * distanceWeight);
-
-    if (score < scoreThreshold) {
-      filtered_clusters.push_back(clusters);
-    }
-  }
-
-  // Replace the original cluster indices with the filtered ones
-  const_cast<std::vector<pcl::PointIndices>&>(cluster_indices) = filtered_clusters;
-}
-
 bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                              const pcl::PointIndices& cluster_indices,
                                              pcl::PointXYZ& centroid) {
@@ -375,7 +250,8 @@ void ProjectionUtils::computeHighestIOUCluster(
   const vision_msgs::msg::Detection2DArray& detections,
   const geometry_msgs::msg::TransformStamped& transform,
   const std::array<double, 12>& projection_matrix,
-  const float object_detection_confidence)
+  const float object_detection_confidence,
+  const float iou_threshold)
 {
 
   // For each detection, find the cluster with the highest IoU
@@ -401,7 +277,7 @@ void ProjectionUtils::computeHighestIOUCluster(
         best_cluster = cl_idx;
       }
     }
-    if (best_cluster != -1 && best_iou > 0.40) {
+    if (best_cluster != -1 && best_iou > iou_threshold) {
       best_cluster_indices.push_back(best_cluster);
       RCLCPP_INFO(rclcpp::get_logger("ProjectionUtils"), "Detection: %s, Best Cluster Index: %d, IoU: %.6f", 
             det.results[0].hypothesis.class_id.c_str(), best_cluster, best_iou);

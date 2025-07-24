@@ -58,15 +58,6 @@ class ProjectionUtils {
                                   const std::vector<pcl::PointIndices>& cluster_indices,
                                   pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clustered_cloud);
 
-  static void mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
-                            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                            double mergeTolerance);
-
-  static void filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                     const std::vector<pcl::PointIndices>& cluster_indices,
-                                     double densityWeight, double sizeWeight, double distanceWeight,
-                                     double scoreThreshold);
-
   static bool computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                      const pcl::PointIndices& cluster_indices,
                                      pcl::PointXYZ& centroid);
@@ -85,7 +76,8 @@ class ProjectionUtils {
                                        const vision_msgs::msg::Detection2DArray& detections,
                                        const geometry_msgs::msg::TransformStamped& transform,
                                        const std::array<double, 12>& projection_matrix,
-                                       const float object_detection_confidence);
+                                       const float object_detection_confidence,
+                                       const float iou_threshold);
 
   // BOUNDING BOX FUNCTIONS
   // ----------------------------------------------------------------------------------------

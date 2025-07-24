@@ -69,15 +69,9 @@ void bbox_2d_3d::initializeParams() {
   this->declare_parameter<int>("euclid_params.min_cluster_size", 50);
   this->declare_parameter<int>("euclid_params.max_cluster_size", 700);
 
-  // Density Filtering Parameters
-  this->declare_parameter<double>("density_filter_params.density_weight", 0.6);
-  this->declare_parameter<double>("density_filter_params.size_weight", 0.8);
-  this->declare_parameter<double>("density_filter_params.distance_weight", 0.3);
-  this->declare_parameter<double>("density_filter_params.score_threshold", 0.6);
-
-  this->declare_parameter<double>("merge_threshold", 0.3);
-
-  this->declare_parameter<float>("object_detection_confidence", 0.4);
+  // 2D/3D Matching Parameters
+  this->declare_parameter<float>("matching_params.object_detection_confidence", 0.45);
+  this->declare_parameter<float>("matching_params.iou_threshold", 0.4);
 
   // Get parameters
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
@@ -102,14 +96,8 @@ void bbox_2d_3d::initializeParams() {
   euclid_min_cluster_size_ = this->get_parameter("euclid_params.min_cluster_size").as_int();
   euclid_max_cluster_size_ = this->get_parameter("euclid_params.max_cluster_size").as_int();
 
-  density_weight_ = this->get_parameter("density_filter_params.density_weight").as_double();
-  size_weight_ = this->get_parameter("density_filter_params.size_weight").as_double();
-  distance_weight_ = this->get_parameter("density_filter_params.distance_weight").as_double();
-  score_threshold_ = this->get_parameter("density_filter_params.score_threshold").as_double();
-
-  merge_threshold_ = this->get_parameter("merge_threshold").as_double();
-
-  object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
+  object_detection_confidence_ = this->get_parameter("matching_params.object_detection_confidence").as_double();
+  iou_threshold_ = this->get_parameter("matching_params.iou_threshold").as_double();
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
@@ -163,16 +151,9 @@ DetectionOutputs bbox_2d_3d::processDetections(const vision_msgs::msg::Detection
                                               euclid_min_cluster_size_, euclid_max_cluster_size_,
                                               cluster_indices);
 
-  // filter clusters by density, size and distance
-  // ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_,
-  //                                        size_weight_, distance_weight_, score_threshold_);
-
-  // merge clusters that are close to each other, determined through distance between their
-  // ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, merge_threshold_);
-
   // iou score between x and y area of clusters in camera plane and detections
   ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
-                                            projection_matrix, object_detection_confidence_);
+                                            projection_matrix, object_detection_confidence_, iou_threshold_);
   if (publish_visualization_) {
     detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
   }
