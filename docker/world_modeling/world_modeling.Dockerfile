@@ -39,9 +39,7 @@ RUN apt-get update && \
 
 # Install all rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get update && \
-    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
