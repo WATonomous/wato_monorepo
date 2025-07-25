@@ -1,7 +1,8 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} AS source
+# This stage gathers all source code and identifies all dependencies in one go.
+FROM ${BASE_IMAGE} as source
 
 WORKDIR ${AMENT_WS}/src
 
@@ -52,7 +53,8 @@ RUN apt-get -qq autoremove -y && \
     rm -rf /root/* /root/.ros /tmp/* /usr/share/doc/*
 
 ################################ Build ################################
-FROM dependencies AS build
+# This stage builds all ROS 2 packages in the workspace.
+FROM dependencies as build
 
 WORKDIR ${AMENT_WS}
 
