@@ -5,6 +5,7 @@ import tf_transformations as tr
 
 # from tracking_msgs.msg import TrackedDetection3D
 from tracking_msgs.msg import Obstacle as ObstacleMsg
+from vision_msgs.msg import BoundingBox3D
 
 '''
 
@@ -45,6 +46,19 @@ def marker_to_bbox(marker):
     l = marker.scale.y  # noqa: E741
     h = marker.scale.z
     return [x, y, z, rz, w, l, h]
+
+
+def tracked_obstacle_to_bbox3d(trk_obs):
+    # trk_obs is a TrackedObstacle
+    ob = trk_obs.obstacle
+
+    bb3d = BoundingBox3D()
+    bb3d.center = ob.pose.pose
+    bb3d.size.x = ob.width_along_x_axis
+    bb3d.size.y = ob.height_along_y_axis
+    bb3d.size.z = ob.depth_along_z_axis
+
+    return bb3d
 
 
 def bbox_to_obstacle(bbox, unique_id, label, confidence_score):
