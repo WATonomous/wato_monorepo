@@ -2,7 +2,7 @@ ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
 ################################ Source ################################
 # This stage gathers all source code and identifies all dependencies in one go.
-FROM ${BASE_IMAGE} as source
+FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
@@ -39,8 +39,8 @@ RUN apt-get update && \
 
 # Install all rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get -qq update && \
-    apt-fast install -qq -y --no-install-recommends "$(cat /tmp/colcon_install_list)" && \
+RUN apt-get update && \
+    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy in source code from source stage
@@ -54,10 +54,11 @@ RUN apt-get -qq autoremove -y && \
 
 ################################ Build ################################
 # This stage builds all ROS 2 packages in the workspace.
-FROM dependencies as build
+FROM dependencies AS build
 
 WORKDIR ${AMENT_WS}
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN . "/opt/ros/${ROS_DISTRO}/setup.bash" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
