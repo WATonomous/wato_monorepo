@@ -7,9 +7,11 @@ FROM ${BASE_IMAGE} as source
 WORKDIR ${AMENT_WS}/src
 
 # --- Custom WATO ROS Packages ---
-COPY src/world_modeling/hd_map hd_map
-COPY src/world_modeling/localization localization
-COPY src/world_modeling/world_modeling_bringup world_modeling_bringup
+COPY src/world_modeling world_modeling
+
+# COPY src/world_modeling/hd_map hd_map
+# COPY src/world_modeling/localization localization
+# COPY src/world_modeling/world_modeling_bringup world_modeling_bringup
 
 COPY src/wato_msgs/common_msgs common_msgs
 COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
