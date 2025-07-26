@@ -1,7 +1,6 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
 ################################ Source ################################
-# This stage gathers all source code and identifies all dependencies in one go.
 FROM ${BASE_IMAGE} as source
 
 WORKDIR ${AMENT_WS}/src
@@ -18,60 +17,68 @@ COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
 
-# Update CONTRIBUTING.md to pass ament_copyright test
+# Update CONTRIBUTING.md to pass copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CONTRIBUTING.md
 
+# SHELL for pipefail handling
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Scan all packages at once to create a single dependency list
-RUN apt-get -qq update && rosdep update && \
+# Generate dependency list
+RUN apt-get -qq update && \
+    rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | grep 'apt-get install' \
         | awk '{print $3}' \
-        | sort > /tmp/colcon_install_list
+        | sort > /tmp/colcon_install_list && \
+    rm -rf /var/lib/apt/lists/*
 
-################################# Dependencies ################################
-# This stage installs all system dependencies and external data.
+################################ Dependencies ################################
 FROM ${BASE_IMAGE} as dependencies
 
-# Download WATO OSM Files
-# IMPORTANT NOTE : Downloaded maps are stored in the etc/maps directory
 ENV MAPS_DIR="${AMENT_WS}/etc/maps/"
-RUN apt-get update && git clone https://github.com/WATonomous/map_data.git --depth 1 $MAPS_DIR
-RUN chmod -R 755 $MAPS_DIR
 
-# Install all combined Rosdep requirements
+# Download maps and install apt deps
+RUN apt-get update && \
+    git clone https://github.com/WATonomous/map_data.git --depth 1 "${MAPS_DIR}" && \
+    chmod -R 755 "${MAPS_DIR}" && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install all rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get -qq update && apt-fast install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN apt-get -qq update && \
+    apt-fast install -qq -y --no-install-recommends "$(cat /tmp/colcon_install_list)" && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
 
-# Dependency Cleanup
-WORKDIR /
-RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
-    rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
+# Cleanup
+RUN apt-get -qq autoremove -y && \
+    apt-get -qq clean && \
+    rm -rf /root/* /root/.ros /tmp/* /usr/share/doc/*
 
 ################################ Build ################################
-# This stage builds all ROS 2 packages in the workspace.
 FROM dependencies as build
 
-# Build all ROS2 packages
 WORKDIR ${AMENT_WS}
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# Entrypoint sources the workspace
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN source "/opt/ros/${ROS_DISTRO}/setup.bash" && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Production ################################
-# This is the final, clean image for deployment.
 FROM build as deploy
 
-# Source Cleanup and Security Setup
-RUN chown -R $USER:$USER ${AMENT_WS}
-RUN rm -rf src/*
+SHELL ["/bin/bash", "-c"]
+
+# Cleanup
+RUN chown -R "$USER:$USER" "${AMENT_WS}" && \
+    rm -rf src/*
 
 USER ${USER}
