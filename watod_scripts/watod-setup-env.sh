@@ -144,8 +144,6 @@ append "MONO_DIR" "$MONO_DIR"
 append "ACTIVE_MODULES" "($ACTIVE_MODULES)"
 append "MODULE_BLACKLIST" "$MODULE_BLACKLIST"
 
-=======
->>>>>>> da7d2830 (fix to multimodule error)
 append "COMPOSE_DOCKER_CLI_BUILD" "1"
 append "COMPOSE_PROJECT_NAME" "$COMPOSE_PROJECT_NAME"
 

@@ -12,7 +12,4 @@ services:
     image: "${WORLD_MODELING_IMAGE}:build_${TAG}"
     command: tail -F anything
     volumes:
-      - ${MONO_DIR}/src/world_modeling/hd_map:/home/bolty/ament_ws/src/hd_map
-      - ${MONO_DIR}/src/world_modeling/localization:/home/bolty/ament_ws/src/localization
-      - ${MONO_DIR}/src/world_modeling/world_modeling_bringup:/home/bolty/ament_ws/src/world_modeling_bringup
-
+      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
