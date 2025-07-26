@@ -21,7 +21,7 @@ def generate_launch_description():
 
     ld = LaunchDescription([tracking_param])
 
-    nodes = ['tracker_node', 'nusc_publisher']
+    nodes = ['tracker_node', 'tracking_viz']  # 'nusc_publisher']
 
     for n in nodes:
         ld.add_action(DeclareLaunchArgument(n, default_value='true'))

@@ -2,22 +2,33 @@ tracker_node:
   ros__parameters:
     max_age: 6
     min_hits: 2
-    reference_frame: camera_frame
+    reference_frame: map
     default_distance_threshold: 3
     velocity_filter_constant: 5.0
     velocity_prediction_horizon: 0.5
     prediction_resolution: 0.5
     prediction_length: 4.0
-    sub_det3d: False
+      #sub_det3d: False
 
-nusc_publisher:
+tracking_viz:
   ros__parameters:
-    det_topic: detections
-    img_topic: /annotated_image
-    track_topic: tracked_obstacles
-    dataset_name: v1.0-mini
-    timer_period: 1
-    pub_noise: False
-    simulate_occlusion: False
-    occ_threshold: 0.97
-    
+    image_topic: /annotated_img
+    publish_viz_topic: /annotated_3d_img
+      #det_3d_topic: /detections_3d
+    camera_info_topic: /CAM_FRONT/camera_info
+    camera_frame: CAM_FRONT
+    lidar_frame: LIDAR_TOP
+    global_frame: map
+    viz_tracks: True
+    viz_dets: False
+    pub_markers: True
+    pub_images: True
+    skip_missed_frames: True
+    # setting skip_missed_frames to False causes mem leak i think
+
+/**:
+  ros__parameters:
+    sub_det3d: False
+    det_3d_topic: /detections
+    marker_topic: /markers/annotations
+    track_topic: /tracked_obstacles 
