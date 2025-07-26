@@ -50,6 +50,9 @@ class trackerNode(Node):
         # self.declare_parameter("frequency", 10)
         self.declare_parameter('config_path', config_path)
         self.declare_parameter('publish_frequency', publish_frequency)
+        self.declare_parameter("det_3d_topic", "/detections")
+        self.declare_parameter("marker_topic", "/markers/annotations")
+        self.declare_parameter("track_topic", "/tracked_obstacles")
         self.declare_parameter("sub_det3d", True)
 
         # self.declare_parameter("config_path", "/home/kishoreyogaraj/tracking_ws/src/config/mahalanobis.yaml")  # noqa: E501
@@ -67,6 +70,9 @@ class trackerNode(Node):
         # self.frequency = self.get_parameter("frequency").value
         self.config_path = self.get_parameter("config_path").value
         self.publish_frequency = self.get_parameter("publish_frequency").value
+        self.det_3d_topic = self.get_parameter("det_3d_topic").value
+        self.marker_topic = self.get_parameter("marker_topic").value
+        self.track_topic = self.get_parameter("track_topic").value
         # self.dt = 1.0 / self.frequency
         self.sub_det3d = self.get_parameter("sub_det3d").value
 
@@ -91,16 +97,16 @@ class trackerNode(Node):
         # Publishers/Subscribers
         if self.sub_det3d:
             self.detection_subscriber = self.create_subscription(
-                Detection3DArray, "detections", self.detection_callback, 10
+                Detection3DArray, self.det_3d_topic, self.detection_callback, 10
             )
         else:
             self.detection_subscriber = self.create_subscription(
-                MarkerArray, "/markers/annotations", self.detection_callback, 10
+                MarkerArray, self.marker_topic, self.detection_callback, 10
             )
 
 
         self.tracked_obstacles_publisher = self.create_publisher(
-            TrackedObstacleListMsg, "tracked_obstacles", 10
+            TrackedObstacleListMsg, self.track_topic, 10
         )
         self.get_logger().info("Ready")
         # self.tracked_obstacles_timer = self.create_timer(1, self.publish_tracks)
@@ -155,7 +161,7 @@ class trackerNode(Node):
             detections = geometry_utils.transform_boxes(detections, bbox_to_reference_transform)
 
         timestamp_sec = timestamp.sec + timestamp.nanosec * 1e-9
-        self.get_logger().info(f"Detections to update: {len(detections)}, {len(infos)}")
+        #self.get_logger().info(f"Detections to update: {len(detections)}, {len(infos)}")
         return self.mot_tracker.update(
             detections, infos, timestamp_sec, update_only, distance_threshold
         )
@@ -171,7 +177,7 @@ class trackerNode(Node):
             msg_header = msg.markers[0].header
 
         timestamp = msg_header.stamp
-        frame_id = msg_header.frame_id if self.sub_det3d else "camera_frame"
+        frame_id = msg_header.frame_id# if self.sub_det3d else "map"
 
         if self.sub_det3d:
             msg_array = msg.detections
@@ -186,7 +192,7 @@ class trackerNode(Node):
 
         # Print the number of detections in the received message
         num_markers = len(msg_array)
-        self.get_logger().info(f"Number of {msg_contents}s in the received {msg_type}: {num_markers}")
+        #self.get_logger().info(f"Number of {msg_contents}s in the received {msg_type}: {num_markers}")
 
         if len(msg.markers) == 0:
             self.get_logger().warn(f"Received an empty {msg_type}.")
@@ -213,8 +219,8 @@ class trackerNode(Node):
 
         result = self.track(detections, informations, frame_id, timestamp)
 
-        if result is not None:
-            self.get_logger().info(f"Tracked Objects: {result}")
+        #if result is not None:
+            #self.get_logger().info(f"Tracked Objects: {result}")
 
         self.publish_tracks(1/0.8)
 
@@ -240,7 +246,7 @@ class trackerNode(Node):
         tracked_obstacle_list.tracked_obstacles[0].obstacle.label = "filler"
 
         # Log the number of active trackers
-        self.get_logger().info(f"Number of active trackers: {len(self.mot_tracker.trackers)}")
+        #self.get_logger().info(f"Number of active trackers: {len(self.mot_tracker.trackers)}")
 
         # For each tracker in the list, create a tracked obstacle message and append it to the list  # noqa: E501
         trks = self.mot_tracker.trackers
@@ -256,10 +262,10 @@ class trackerNode(Node):
             tracked_obstacle_list.tracked_obstacles.append(tracked_obstacle_message)
 
         # Log the number of tracked obstacles prepared for publishing
-        self.get_logger().info(
-            "Tracked obstacles prepared for publishing: " +
-            f"{len(tracked_obstacle_list.tracked_obstacles) - 1}"
-        )
+        # self.get_logger().info(
+        #     "Tracked obstacles prepared for publishing: " +
+        #     f"{len(tracked_obstacle_list.tracked_obstacles) - 1}"
+        # )
 
         # Publish entire message with multiple different trackers
         self.tracked_obstacles_publisher.publish(tracked_obstacle_list)
@@ -299,7 +305,7 @@ class trackerNode(Node):
         tracked_obstacle_message.header.frame_id = self.reference_frame
 
         if len(kf_track.history) == 0:
-            self.get_logger().info("No History for id {}".format(kf_track.id))
+            # self.get_logger().info("No History for id {}".format(kf_track.id))
             return tracked_obstacle_message
 
         if kf_track.id not in self.velocities:
