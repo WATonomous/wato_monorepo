@@ -1,0 +1,10 @@
+nusc_publisher:
+  ros__parameters:
+    det_topic: detections
+    img_topic: /annotated_image
+    track_topic: tracked_obstacles
+    dataset_name: v1.0-mini
+    timer_period: 1
+    pub_noise: False
+    simulate_occlusion: False
+    occ_threshold: 0.97
