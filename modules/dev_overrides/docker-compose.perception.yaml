@@ -34,17 +34,6 @@ services:
     volumes:
       - ${MONO_DIR}/src/perception/lidar_object_detection:/home/bolty/ament_ws/src/lidar_object_detection
 
-  semantic_segmentation:
-    <<: *fixuid
-    extends:
-      file: ../docker-compose.perception.yaml
-      service: semantic_segmentation
-    image: "${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE}:build_${TAG}"
-    command: tail -F anything
-    volumes:
-      - ${MONO_DIR}/src/perception/semantic_segmentation:/home/bolty/ament_ws/src/semantic_segmentation
-      - /mnt/wato-drive/perception/segformer-b2:/home/bolty/ament_ws/src/semantic_segmentation/resource/model
-
   lane_detection:
     <<: *fixuid
     extends:
