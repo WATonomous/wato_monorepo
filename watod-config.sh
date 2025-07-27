@@ -24,13 +24,14 @@
 ## List of active modules to run, defined in docker-compose.yaml.
 ## Possible values:
 ##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc and/or data_stream)
-##   - interfacing    : starts up interfacing nodes (CAN and sensor interfaces)
+##   - interfacing          :   starts up interfacing nodes (CAN and sensor interfaces)
 ##	 - perception			:	starts perception nodes (Object detection, tracking)
 ##	 - world_modeling		:	starts world modeling nodes (HD map, localization)
 ##	 - action				:	starts action nodes (local planning, control)
 ##	 - simulation			:	starts simulation (carla)
 
-# export ACTIVE_MODULES=""
+
+export ACTIVE_MODULES="perception infrastructure"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -38,7 +39,7 @@
 ##	 - deploy (default)		:	runs production-grade containers (non-editable)
 ##	 - develop   		    :	runs developer containers (editable)
 
-# export MODE_OF_OPERATION=""
+export MODE_OF_OPERATION="develop"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
