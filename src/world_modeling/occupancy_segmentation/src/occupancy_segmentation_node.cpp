@@ -107,7 +107,7 @@ void OccupancySegmentationNode::subscription_callback(const sensor_msgs::msg::Po
   nonground.header = temp_cloud.header;
 
   auto begin = Clock::now();
-  _patchwork.segment_ground(temp_cloud, ground, nonground);
+  _patchwork.segment_ground(&temp_cloud, &ground, &nonground);
   auto end = Clock::now();
 
   int duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();

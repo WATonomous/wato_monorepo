@@ -107,6 +107,7 @@ void OccupancySegmentationCore<PointT>::init_czm()
   num_patches = patch_count;
 }
 
+template <typename PointT>
 void OccupancySegmentationCore<PointT>::fill_czm(const pcl::PointCloud<PointT> & cloud_in)
 {
   for (const PointT & p : cloud_in.points) {
