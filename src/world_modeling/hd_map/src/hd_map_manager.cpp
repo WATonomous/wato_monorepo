@@ -35,11 +35,11 @@ bool HDMapManager::select_osm_map(std::string filename)
   lanelet::Origin origin;
 
   // Retrieve the origin from the filename
-  if (get_origin_from_filename(filename, origin)) {
+  if (get_origin_from_filename(filename, *origin)) {
     lanelet::LaneletMapPtr lanelet_ptr;
     auto projector = std::make_shared<lanelet::projection::UtmProjector>(origin);
     // Project the OSM map to a Lanelet map using the origin
-    if (project_osm_to_lanelet(filename, *projector, lanelet_ptr)) {
+    if (project_osm_to_lanelet(filename, *projector, *lanelet_ptr)) {
       // Set the map and return the status of the set operation
       return set_map_router_lanelet(lanelet_ptr) && router_->set_projector(projector);
     }
@@ -132,7 +132,7 @@ std::string HDMapManager::get_osm_map_from_coordinates(lanelet::GPSPoint gps_poi
  * @return whether the projection was successful
  */
 bool HDMapManager::project_osm_to_lanelet(
-  std::string filename, lanelet::Origin origin, lanelet::LaneletMapPtr & lanelet_ptr)
+  std::string filename, lanelet::Origin origin, lanelet::LaneletMapPtr * lanelet_ptr)
 {
   return project_osm_to_lanelet(filename, lanelet::projection::UtmProjector(origin), lanelet_ptr);
 }
@@ -146,10 +146,10 @@ bool HDMapManager::project_osm_to_lanelet(
  * @return whether the projection was successful
  */
 bool HDMapManager::project_osm_to_lanelet(
-  std::string filename, const lanelet::Projector & projector, lanelet::LaneletMapPtr & lanelet_ptr)
+  std::string filename, const lanelet::Projector & projector, lanelet::LaneletMapPtr * lanelet_ptr)
 {
   auto lanelet = lanelet::load(filename.c_str(), projector);
-  lanelet_ptr = std::move(lanelet);
+  *lanelet_ptr = std::move(lanelet);
   return true;
 }
 
@@ -171,11 +171,11 @@ bool HDMapManager::set_map_router_lanelet(const lanelet::LaneletMapPtr & lanelet
  * @param origin reference to the origin object
  * @return whether the origin was found
  */
-bool HDMapManager::get_origin_from_filename(std::string filename, lanelet::Origin & origin)
+bool HDMapManager::get_origin_from_filename(std::string filename, lanelet::Origin * origin)
 {
   if (originList.find(filename) == originList.end()) {
     return false;
   }
-  origin = originList[filename];
+  *origin = originList[filename];
   return true;
 }

@@ -107,10 +107,9 @@ void OccupancySegmentationCore<PointT>::init_czm()
   num_patches = patch_count;
 }
 
-template <typename PointT>
-void OccupancySegmentationCore<PointT>::fill_czm(pcl::PointCloud<PointT> & cloud_in)
+void OccupancySegmentationCore<PointT>::fill_czm(const pcl::PointCloud<PointT> & cloud_in)
 {
-  for (PointT & p : cloud_in.points) {
+  for (const PointT & p : cloud_in.points) {
     double r = sqrt(pow(p.x, 2) + pow(p.y, 2));
 
     // Out of range for czm
@@ -153,7 +152,7 @@ void OccupancySegmentationCore<PointT>::clear_czm_and_regionwise()
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::estimate_plane(pcl::PointCloud<PointT> & cloud, PCAFeature & feat)
+void OccupancySegmentationCore<PointT>::estimate_plane(const pcl::PointCloud<PointT> & cloud, PCAFeature * feat)
 {
   // Code taken directly from repo
   Eigen::Matrix3f cov;
@@ -161,34 +160,34 @@ void OccupancySegmentationCore<PointT>::estimate_plane(pcl::PointCloud<PointT> &
   pcl::computeMeanAndCovarianceMatrix(cloud, cov, mean);
 
   Eigen::JacobiSVD<Eigen::MatrixXf> svd(cov, Eigen::DecompositionOptions::ComputeFullU);
-  feat.singular_values_ = svd.singularValues();
+  feat->singular_values_ = svd.singularValues();
 
-  feat.linearity_ = (feat.singular_values_(0) - feat.singular_values_(1)) / feat.singular_values_(0);
-  feat.planarity_ = (feat.singular_values_(1) - feat.singular_values_(2)) / feat.singular_values_(0);
+  feat->linearity_ = (feat->singular_values_(0) - feat->singular_values_(1)) / feat->singular_values_(0);
+  feat->planarity_ = (feat->singular_values_(1) - feat->singular_values_(2)) / feat->singular_values_(0);
 
   // use the least singular vector as normal
-  feat.normal_ = (svd.matrixU().col(2));
-  if (feat.normal_(2) < 0) {  // z-direction of the normal vector should be positive
-    feat.normal_ = -feat.normal_;
+  feat->normal_ = svd.matrixU().col(2);
+  if (feat->normal_(2) < 0) {  // z-direction of the normal vector should be positive
+    feat->normal_ = -feat->normal_;
   }
+
   // mean ground seeds value
-  feat.mean_ = mean.head<3>();
+  feat->mean_ = mean.head<3>();
   // according to normal.T*[x,y,z] = -d
-  feat.d_ = -(feat.normal_.transpose() * feat.mean_)(0, 0);
-  feat.th_dist_d_ = MD - feat.d_;
+  feat->d_ = -(feat->normal_.transpose() * feat->mean_)(0, 0);
+  feat->th_dist_d_ = MD - feat->d_;
 }
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::segment_ground(
-  pcl::PointCloud<PointT> & unfiltered_cloud,
-  pcl::PointCloud<PointT> & ground,
-  pcl::PointCloud<PointT> & nonground)
+  pcl::PointCloud<PointT> * unfiltered_cloud, pcl::PointCloud<PointT> * ground, pcl::PointCloud<PointT> * nonground)
 {
   clear_czm_and_regionwise();
 
   // TODO(wato) error point removal
 
-  fill_czm(unfiltered_cloud);
+  fill_czm(*unfiltered_cloud);
+
   tbb::parallel_for(tbb::blocked_range<int>(0, num_patches), [&](tbb::blocked_range<int> r) {
     for (auto patch_num = r.begin(); patch_num != r.end(); patch_num++) {
       Patch_Index & p_idx = _patch_indices[patch_num];
@@ -199,9 +198,10 @@ void OccupancySegmentationCore<PointT>::segment_ground(
 
       region_ground.clear();
       region_nonground.clear();
+
       if (patch.points.size() > MIN_NUM_POINTS) {
         std::sort(patch.points.begin(), patch.points.end(), point_z_cmp);
-        rgpf(patch, p_idx, features);
+        rgpf(patch, p_idx, &features);  // assuming rgpf now takes PCAFeature* as well
 
         Status status = ground_likelihood_est(features, p_idx.concentric_idx);
         _statuses[p_idx.idx] = status;
@@ -216,18 +216,18 @@ void OccupancySegmentationCore<PointT>::segment_ground(
     Status status = _statuses[p_idx.idx];
 
     if (status == FEW_POINTS || status == FLAT_ENOUGH || status == UPRIGHT_ENOUGH) {
-      ground += _regionwise_ground[p_idx.idx];
-      nonground += _regionwise_nonground[p_idx.idx];
+      *ground += _regionwise_ground[p_idx.idx];
+      *nonground += _regionwise_nonground[p_idx.idx];
     } else {
-      nonground += _regionwise_ground[p_idx.idx];
-      nonground += _regionwise_nonground[p_idx.idx];
+      *nonground += _regionwise_ground[p_idx.idx];
+      *nonground += _regionwise_nonground[p_idx.idx];
     }
   }
 }
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::rgpf(
-  pcl::PointCloud<PointT> & patch, Patch_Index & p_idx, PCAFeature & feat)
+  const pcl::PointCloud<PointT> & patch, const Patch_Index & p_idx, PCAFeature * feat)
 {
   pcl::PointCloud<PointT> ground_temp;
   pcl::PointCloud<PointT> & region_ground = _regionwise_ground[p_idx.idx];
@@ -235,25 +235,25 @@ void OccupancySegmentationCore<PointT>::rgpf(
 
   size_t N = patch.size();
 
-  extract_initial_seeds(patch, ground_temp, p_idx.zone_idx);
+  extract_initial_seeds(patch, &ground_temp, p_idx.zone_idx);
   int num_iters = 3;
   for (int i = 0; i < num_iters; i++) {
     estimate_plane(ground_temp, feat);
     ground_temp.clear();
     Eigen::MatrixXf points(N, 3);
     int j = 0;
-    for (PointT & p : patch.points) {
+    for (const PointT & p : patch.points) {
       points.row(j++) = p.getVector3fMap();
     }
 
-    Eigen::VectorXf result = points * feat.normal_;
+    Eigen::VectorXf result = points * feat->normal_;
     for (size_t r = 0; r < N; r++) {
       if (i < num_iters - 1) {
-        if (result[r] < feat.th_dist_d_) {
+        if (result[r] < feat->th_dist_d_) {
           ground_temp.points.emplace_back(patch.points[r]);
         }
       } else {
-        if (result[r] < feat.th_dist_d_) {
+        if (result[r] < feat->th_dist_d_) {
           region_ground.points.emplace_back(patch.points[r]);
         } else {
           region_nonground.points.emplace_back(patch.points[r]);
@@ -264,9 +264,8 @@ void OccupancySegmentationCore<PointT>::rgpf(
 }
 
 template <typename PointT>
-Status OccupancySegmentationCore<PointT>::ground_likelihood_est(PCAFeature & feat, int concentric_idx)
+Status OccupancySegmentationCore<PointT>::ground_likelihood_est(const PCAFeature & feat, int concentric_idx)
 {
-  // uprightness filter
   if (std::abs(feat.normal_(2)) < UPRIGHTNESS_THRESH) {
     return TOO_TILTED;
   }
@@ -275,7 +274,6 @@ Status OccupancySegmentationCore<PointT>::ground_likelihood_est(PCAFeature & fea
   const double surface_variable =
     feat.singular_values_.minCoeff() / (feat.singular_values_(0) + feat.singular_values_(1) + feat.singular_values_(2));
 
-  // elevation filter
   if (concentric_idx < NUM_RINGS_OF_INTEREST) {
     if (z_elevation > -SENSOR_HEIGHT + ELEVATION_THR[concentric_idx]) {
       if (FLATNESS_THR[concentric_idx] <= surface_variable) {
@@ -297,7 +295,7 @@ Status OccupancySegmentationCore<PointT>::ground_likelihood_est(PCAFeature & fea
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::extract_initial_seeds(
- pcl::PointCloud<PointT> & cloud, pcl::PointCloud<PointT> & seed_cloud, int zone_idx)
+  const pcl::PointCloud<PointT> & cloud, pcl::PointCloud<PointT> * seed_cloud, int zone_idx)
 {
   // adaptive seed selection for 1st zone
   size_t init_idx = 0;
@@ -322,7 +320,7 @@ void OccupancySegmentationCore<PointT>::extract_initial_seeds(
   double mean_z = (cnt != 0) ? sum / cnt : 0;
   for (size_t i = init_idx; i < cloud.points.size(); i++) {
     if (cloud.points[i].z < mean_z + TH_SEEDS) {
-      seed_cloud.points.push_back(cloud.points[i]);
+      seed_cloud->points.push_back(cloud.points[i]);
     }
   }
 }
