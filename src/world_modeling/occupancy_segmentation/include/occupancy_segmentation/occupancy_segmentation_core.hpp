@@ -134,7 +134,7 @@ public:
     bool adaptive_selection_en);
 
   void segment_ground(
-    pcl::PointCloud<PointT> * unfiltered_cloud, pcl::PointCloud<PointT> * ground, pcl::PointCloud<PointT> * nonground);
+    pcl::PointCloud<PointT> & unfiltered_cloud, pcl::PointCloud<PointT> & ground, pcl::PointCloud<PointT> & nonground);
 
 private:
   void init_czm();
@@ -143,11 +143,11 @@ private:
 
   void clear_czm_and_regionwise();
 
-  void estimate_plane(const pcl::PointCloud<PointT> & cloud, PCAFeature * feat);
+  void estimate_plane(const pcl::PointCloud<PointT> & cloud, PCAFeature & feat);
 
-  void rgpf(const pcl::PointCloud<PointT> & patch, const Patch_Index & p_idx, PCAFeature * feat);
+  void rgpf(const pcl::PointCloud<PointT> & patch, const Patch_Index & p_idx, PCAFeature & feat);
 
-  void extract_initial_seeds(const pcl::PointCloud<PointT> & cloud, pcl::PointCloud<PointT> * seed_cloud, int zone_idx);
+  void extract_initial_seeds(const pcl::PointCloud<PointT> & cloud, pcl::PointCloud<PointT> & seed_cloud, int zone_idx);
 
   Status ground_likelihood_est(const PCAFeature & feat, int concentric_idx);
 

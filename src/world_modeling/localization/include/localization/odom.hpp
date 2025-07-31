@@ -31,7 +31,6 @@
 
 #include "carla_msgs/msg/carla_ego_vehicle_status.hpp"
 
-
 class WheelOdometry : public rclcpp::Node
 {
 public:
