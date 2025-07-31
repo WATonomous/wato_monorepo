@@ -56,11 +56,32 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("localization_param_file")],
     )
 
+    # -- Occupancy Node Config --
+    occupancy_seg_pkg_prefix = get_package_share_directory("occupancy_segmentation")
+    occupancy_seg_param_file = os.path.join(
+        occupancy_seg_pkg_prefix, "config", "params.yaml"
+    )
+
+    occupancy_seg_param = DeclareLaunchArgument(
+        "occupancy_segmentation_param_file",
+        default_value=occupancy_seg_param_file,
+        description="Path to config file for occupancy segmentation node",
+    )
+
+    occupancy_seg_node = Node(
+        package="occupancy_segmentation",
+        executable="occupancy_segmentation_node",
+        parameters=[LaunchConfiguration("occupancy_segmentation_param_file")],
+    )
+
     return LaunchDescription(
         [
             hd_map_param,
             localization_param,
+            occupancy_seg_param,
             hd_map_node,
             localization_node,
+            occupancy_seg_node,
+            
         ]
     )

@@ -9,6 +9,9 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <exec_depend>hd_map</exec_depend>
+  <exec_depend>localization</exec_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
