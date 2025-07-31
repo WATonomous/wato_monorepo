@@ -47,7 +47,7 @@ repos:
     rev: 2.0.0
     hooks:
       - id: cpplint
-        args: ["--config=.cpplint.cfg", --quiet, --output=sed]
+        args: ["--config=.cpplint.cfg", "--filter=-runtime/references", --quiet, --output=sed]
 
   # CMake linting
   - repo: https://github.com/cmake-lint/cmake-lint
@@ -68,11 +68,7 @@ repos:
     rev: v2.12.1b3
     hooks:
       - id: hadolint
-        args: [
-          --ignore, SC1091,
-          --ignore, DL3006,
-          --ignore, DL3008,
-        ]
+        args: [--ignore, SC1091, --ignore, DL3006, --ignore, DL3008]
 
   # Markdown linting
   - repo: https://github.com/jackdewinter/pymarkdown
@@ -101,17 +97,16 @@ repos:
       - id: insert-license
         types_or: [python, cmake, shell]
         name: Copyright headers for Python/CMake
-        args: [
-          --license-filepath, .config/copyright.txt,
-          --comment-style, '#',
-          --allow-past-years,
-          --no-extra-eol,
-        ]
+        args:
+          [
+            --license-filepath,
+            .config/copyright.txt,
+            --comment-style,
+            "#",
+            --allow-past-years,
+            --no-extra-eol,
+          ]
       - id: insert-license
         types_or: [c++, c]
         name: Copyright headers for C/C++
-        args: [
-          --license-filepath, .config/copyright.txt,
-          --comment-style, '//',
-          --allow-past-years,
-        ]
+        args: [--license-filepath, .config/copyright.txt, --comment-style, "//", --allow-past-years]

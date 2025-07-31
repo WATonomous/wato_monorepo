@@ -110,7 +110,7 @@ void OccupancySegmentationCore<PointT>::init_czm()
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::fill_czm(const pcl::PointCloud<PointT> & cloud_in)
 {
-  for (PointT & p : cloud_in.points) {
+  for (const PointT & p : cloud_in.points) {
     double r = sqrt(pow(p.x, 2) + pow(p.y, 2));
 
     // Out of range for czm
@@ -153,7 +153,7 @@ void OccupancySegmentationCore<PointT>::clear_czm_and_regionwise()
 }
 
 template <typename PointT>
-void OccupancySegmentationCore<PointT>::estimate_plane(const pcl::PointCloud<PointT> & cloud, const PCAFeature & feat)
+void OccupancySegmentationCore<PointT>::estimate_plane(const pcl::PointCloud<PointT> & cloud, PCAFeature & feat)
 {
   // Code taken directly from repo
   Eigen::Matrix3f cov;
@@ -180,9 +180,7 @@ void OccupancySegmentationCore<PointT>::estimate_plane(const pcl::PointCloud<Poi
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::segment_ground(
-  const pcl::PointCloud<PointT> & unfiltered_cloud,
-  const pcl::PointCloud<PointT> & ground,
-  const pcl::PointCloud<PointT> & nonground)
+  pcl::PointCloud<PointT> & unfiltered_cloud, pcl::PointCloud<PointT> & ground, pcl::PointCloud<PointT> & nonground)
 {
   clear_czm_and_regionwise();
 
@@ -227,7 +225,7 @@ void OccupancySegmentationCore<PointT>::segment_ground(
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::rgpf(
-  const pcl::PointCloud<PointT> & patch, const Patch_Index & p_idx, const PCAFeature & feat)
+  const pcl::PointCloud<PointT> & patch, const Patch_Index & p_idx, PCAFeature & feat)
 {
   pcl::PointCloud<PointT> ground_temp;
   pcl::PointCloud<PointT> & region_ground = _regionwise_ground[p_idx.idx];
@@ -242,7 +240,7 @@ void OccupancySegmentationCore<PointT>::rgpf(
     ground_temp.clear();
     Eigen::MatrixXf points(N, 3);
     int j = 0;
-    for (PointT & p : patch.points) {
+    for (const PointT & p : patch.points) {
       points.row(j++) = p.getVector3fMap();
     }
 
@@ -297,7 +295,7 @@ Status OccupancySegmentationCore<PointT>::ground_likelihood_est(const PCAFeature
 
 template <typename PointT>
 void OccupancySegmentationCore<PointT>::extract_initial_seeds(
-  const pcl::PointCloud<PointT> & cloud, const pcl::PointCloud<PointT> & seed_cloud, int zone_idx)
+  const pcl::PointCloud<PointT> & cloud, pcl::PointCloud<PointT> & seed_cloud, int zone_idx)
 {
   // adaptive seed selection for 1st zone
   size_t init_idx = 0;
