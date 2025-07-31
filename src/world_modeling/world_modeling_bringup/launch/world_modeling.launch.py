@@ -82,6 +82,5 @@ def generate_launch_description():
             hd_map_node,
             localization_node,
             occupancy_seg_node,
-            
         ]
     )
