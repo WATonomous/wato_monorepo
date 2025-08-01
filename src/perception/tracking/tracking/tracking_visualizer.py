@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 import os
 
-from tracking.core.utils.ros_utils import tracked_obstacle_to_bbox3d
+from tracking.core.utils.ros_utils import tracked_obstacle_to_bbox3d, marker_to_bbox3d
 
 import tf2_geometry_msgs
 from tf2_ros import TransformException
@@ -45,6 +45,7 @@ class ObjectTrackingVisualizer(Node):
         self.declare_parameter("pub_markers", True)
         self.declare_parameter("pub_images", True)
         self.declare_parameter("skip_missed_frames", False)
+        self.declare_parameter("box_line_width", 5)
 
         self.image_topic = self.get_parameter("image_topic").value
         self.publish_viz_topic = self.get_parameter("publish_viz_topic").value
@@ -61,6 +62,7 @@ class ObjectTrackingVisualizer(Node):
         self.pub_markers = self.get_parameter("pub_markers").value
         self.pub_images = self.get_parameter("pub_images").value
         self.skip_missed_frames = self.get_parameter("skip_missed_frames").value
+        self.box_line_width = self.get_parameter("box_line_width").value
 
         # Subscribing to the tracked obstacles topic
         self.tracked_obstacles_sub = self.create_subscription(
@@ -69,6 +71,16 @@ class ObjectTrackingVisualizer(Node):
             self.tracked_obstacles_callback,
             10  # Queue size
         )
+        
+        if self.sub_det3d:
+            self.detection_subscriber = self.create_subscription(
+                Detection3DArray, self.det_3d_topic, self.detection_callback, 10
+            )
+        else:
+            self.detection_subscriber = self.create_subscription(
+                MarkerArray, self.marker_topic, self.detection_callback, 10
+            )
+
         # Publisher for visualization markers
         self.marker_pub = self.create_publisher(MarkerArray, "/tracked_objects_markers", 10)
         # Subscribing to the camera image feed
@@ -97,16 +109,46 @@ class ObjectTrackingVisualizer(Node):
         self.unprocessed_images = deque()
         self.unprocessed_dets = deque()
         self.unprocessed_tracked_obstacles = deque()
+        self.image_width = None
+        self.image_height = None
         self.camera_info = None
         self.transform = None
         self.latest_image = None
         self.latest_dets = None
         self.latest_tracked_obstacles = None
+        self.latest_time = None
         self.get_logger().info(f"AAAAAAAAAAAA: {self.track_topic}")
         self.imgs_saved = 0
 
+    def det_timestamp(self, det):
+        if self.sub_det3d:
+            return det.header.stamp
+        else:
+            return det.markers[0].header.stamp
+
+    def time_diff(self, t1, t2):
+        t1 = rclpy.time.Time.from_msg(t1)
+        t2 = rclpy.time.Time.from_msg(t2)
+        if t1 > t2:
+            return t1 - t2
+        else:
+            return t2 - t1
+
+    def get_closest_by_time(self, time):
+        self.unprocessed_images = sorted(self.unprocessed_images, key=lambda x: self.time_diff(x.header.stamp, time))
+        self.latest_image = self.unprocessed_images[0]
+        if self.viz_tracks:
+            self.unprocessed_dets = sorted(self.unprocessed_dets, key=lambda x: self.time_diff(self.det_timestamp(x), time))
+            self.latest_dets = self.unprocessed_dets[0]
+            self.unprocessed_dets = deque()
+        self.latest_time = self.latest_image.header.stamp
+        self.get_logger().info(f"CHOSEN TIME: {self.latest_time}")
+        self.unprocessed_images = deque()
+        return
+
     def image_callback(self, msg: CompressedImage):
         """Store and convert the latest compressed image frame."""
+        self.get_logger().info(f"GOT IMAGE: {msg.header.stamp}")
         try:
             # Convert the compressed image to OpenCV format
             np_arr = np.frombuffer(msg.data, np.uint8)
@@ -115,10 +157,12 @@ class ObjectTrackingVisualizer(Node):
             with mutex:
                 self.latest_image = 0
                 imsg = self.cv_bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
-                if self.skip_missed_frames:
-                    self.latest_image = imsg
-                else:
-                    self.unprocessed_images.append(imsg)
+                imsg.header.stamp = msg.header.stamp
+                # if self.skip_missed_frames:
+                #     self.latest_image = imsg
+                #     self.latest_time = msg.header.stamp
+                # else:
+                self.unprocessed_images.append(imsg)
         except Exception as e:
             self.get_logger().error(f"Failed to decode compressed image: {e}")
 
@@ -135,17 +179,20 @@ class ObjectTrackingVisualizer(Node):
             else:
                 self.unprocessed_tracked_obstacles.append(msg)
         self.get_logger().info("GOT TRACKS")
-        if self.viz_tracks:
+        if self.viz_tracks and self.unprocessed_images and self.unprocessed_dets:
             # Generate 3D visualization markers for bounding boxes
             self.generate_markers(msg)
 
             # Get transform from global -> camera
+            self.get_closest_by_time(msg.header.stamp)
             try:
                 self.transform = self.tf_buffer.lookup_transform(
                     self.camera_frame,
                     self.global_frame,
-                    rclpy.time.Time())
-                self.get_logger().info(f"TRANS: {self.transform.transform.translation}, {self.transform.transform.rotation}")
+                    self.latest_time)
+                q = self.transform.transform.rotation
+                r = Rotation.from_quat([q.x, q.y, q.z, q.w])
+                self.get_logger().info(f"TRANS: {self.transform.transform.translation}, {r.as_euler('xyz', degrees=True)}")
             except TransformException as ex:
                 self.get_logger().info(
                     f'Could not transform from {self.global_frame} to {self.camera_frame}: {ex}')
@@ -157,31 +204,34 @@ class ObjectTrackingVisualizer(Node):
         # Annotate the camera image with bounding boxes and IDs
         # self.annotate_image_with_bounding_boxes()
 
-    def det_3d_callback(self, msg):
+    def detection_callback(self, msg):
         with mutex:
             self.latest_dets = 0
-            if self.skip_missed_frames:
+            if self.skip_missed_frames and not self.viz_tracks:
                 self.latest_dets = msg
             else:
                 self.unprocessed_dets.append(msg)
-
-        if not self.viz_tracks:
+        self.get_logger().info("GOT DETS")
+        if not self.viz_tracks and self.unprocessed_images:
             # Get transform from global -> camera
-            if self.transform is None:
-                try:
-                    self.transform = self.tf_buffer.lookup_transform(
-                        self.camera_frame,
-                        self.global_frame,
-                        rclpy.time.Time())
-                except TransformException as ex:
-                    self.get_logger().info(
-                        f'Could not transform from {self.global_frame} to {self.camera_frame}: {ex}')
-                    return
+            self.get_closest_by_time(self.det_timestamp(msg))
+            try:
+                self.transform = self.tf_buffer.lookup_transform(
+                    self.camera_frame,
+                    self.global_frame,
+                    self.latest_time)
+            except TransformException as ex:
+                self.get_logger().info(
+                    f'Could not transform from {self.global_frame} to {self.camera_frame}: {ex}')
+                return
 
             self.try_draw()
 
     def camera_info_callback(self, msg):
-        self.camera_info = np.array(msg.p).reshape(3, 4)
+        # msg.k[5] = msg.height/2
+        self.image_width = msg.width
+        self.image_height = msg.height
+        self.camera_info = np.array(msg.k).reshape(3, 3)
         self.get_logger().info(f"GOT CAMERA INFO... {self.camera_info}")
         self.destroy_subscription(self.camera_info_subscription)
 
@@ -239,17 +289,17 @@ class ObjectTrackingVisualizer(Node):
             [bbox.center.position.x, bbox.center.position.y, bbox.center.position.z])
         rot = Rotation.from_quat([bbox.center.orientation.x, bbox.center.orientation.y,
                                 bbox.center.orientation.z, bbox.center.orientation.w])
-        size = np.array([bbox.size.x, bbox.size.y, bbox.size.z])
+        half_size = np.array([bbox.size.x, bbox.size.y, bbox.size.z])/2
 
         # get all 8 corners
-        vert = [center + rot.apply(np.multiply(size, np.array([-1, 1, 1]))),
-                center + rot.apply(np.multiply(size, np.array([-1, -1, 1]))),
-                center + rot.apply(np.multiply(size, np.array([-1, -1, -1]))),
-                center + rot.apply(np.multiply(size, np.array([-1, 1, -1]))),
-                center + rot.apply(np.multiply(size, np.array([1, 1, 1]))),
-                center + rot.apply(np.multiply(size, np.array([1, -1, 1]))),
-                center + rot.apply(np.multiply(size, np.array([1, -1, -1]))),
-                center + rot.apply(np.multiply(size, np.array([1, 1, -1]))),
+        vert = [center + rot.apply(np.multiply(half_size, np.array([-1, 1, 1]))),
+                center + rot.apply(np.multiply(half_size, np.array([-1, -1, 1]))),
+                center + rot.apply(np.multiply(half_size, np.array([-1, -1, -1]))),
+                center + rot.apply(np.multiply(half_size, np.array([-1, 1, -1]))),
+                center + rot.apply(np.multiply(half_size, np.array([1, 1, 1]))),
+                center + rot.apply(np.multiply(half_size, np.array([1, -1, 1]))),
+                center + rot.apply(np.multiply(half_size, np.array([1, -1, -1]))),
+                center + rot.apply(np.multiply(half_size, np.array([1, 1, -1]))),
                 ]
 
         verts_2d = []
@@ -273,35 +323,50 @@ class ObjectTrackingVisualizer(Node):
 
             # global to camera frame
             v_trans = tf2_geometry_msgs.do_transform_pose(v_msg, self.transform)
-            v_trans = np.array([v_trans.position.x, v_trans.position.y, v_trans.position.z, 1])
-            self.get_logger().info(f"FFFF: {v}, {v_trans}")
+            v_trans = np.array([v_trans.position.x, v_trans.position.y, v_trans.position.z])
+            
             # project 3d camera frame to 2d camera plane
             v_2d = self.camera_info @ v_trans
             v_2d = np.array([int(v_2d[0] / v_2d[2]), int(v_2d[1] / v_2d[2])])
+            if v_trans[2] < 0:
+                v_2d[0] = self.image_width - v_2d[0]
+                v_2d[1] = self.image_height - v_2d[1]
+
             verts_2d.append(v_2d)
+            #self.get_logger().info(f"FFFF: {v}, {v_trans}, {v_2d}")
 
             # draw vertex onto image
             # image = cv2.circle(image, v_2d, 5, color, thickness=-1)
         
         return verts_2d
 
-    def draw_dets(self, image, det_3d_msg):
-        for det_msg in det_3d_msg.detections:
-            verts_2d = self.project_3d_to_2d(det_msg.bbox)
+    def draw_dets(self, image, det_msg):
+        if self.sub_det3d:
+            det_arr = det_msg.detections
+        else:
+            det_arr = det_msg.markers
+
+        for det in det_arr:
+            if self.sub_det3d:
+                bb = det.bbox
+            else:
+                bb = marker_to_bbox3d(det)
+
+            verts_2d = self.project_3d_to_2d(bb)
 
             if verts_2d is None:
                 continue
 
-            color = (randint(0, 255), randint(0, 255), randint(0, 255))
+            color = (255, 0, 0)#(randint(0, 255), randint(0, 255), randint(0, 255))
 
             # draw edges
             for i in range(4):
                 # face 1
-                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, 10)
+                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, self.box_line_width)
                 # face 2
-                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, 10)
+                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, self.box_line_width)
                 # connect faces
-                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, 10)
+                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, self.box_line_width)
 
         return image
 
@@ -319,11 +384,11 @@ class ObjectTrackingVisualizer(Node):
             # draw edges
             for i in range(4):
                 # face 1
-                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, 10)
+                image = cv2.line(image, verts_2d[i], verts_2d[(i+1) % 4], color, self.box_line_width)
                 # face 2
-                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, 10)
+                image = cv2.line(image, verts_2d[i+4], verts_2d[(i+1) % 4 + 4], color, self.box_line_width)
                 # connect faces
-                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, 10)
+                image = cv2.line(image, verts_2d[i], verts_2d[i+4], color, self.box_line_width)
 
         return image
 
@@ -340,13 +405,13 @@ class ObjectTrackingVisualizer(Node):
         with mutex:
             if self.skip_missed_frames:
                 image_msg = self.latest_image
-                det_3d_msg = self.latest_dets
+                det_msg = self.latest_dets
                 track_msg = self.latest_tracked_obstacles
                 self.get_logger().info(f"CCCC: {len(self.unprocessed_images)}, {len(self.unprocessed_dets)}, {len(self.unprocessed_tracked_obstacles)}")
             else:
                 image_msg = self.unprocessed_images.popleft()
                 if self.viz_dets:
-                    det_3d_msg = self.unprocessed_dets.popleft()
+                    det_msg = self.unprocessed_dets.popleft()
                 if self.viz_tracks:
                     track_msg = self.unprocessed_tracked_obstacles.popleft()
                 self.get_logger().info(f"BBBB: {len(self.unprocessed_images)}, {len(self.unprocessed_dets)}, {len(self.unprocessed_tracked_obstacles)}")
@@ -360,8 +425,8 @@ class ObjectTrackingVisualizer(Node):
         self.get_logger().info(f"PROCESSING IMAGE{' + DET3D' if self.viz_dets else ''}{' + TRACK' if self.viz_tracks else ''}")
 
         if self.viz_dets:
-            self.get_logger().info(f"{len(det_3d_msg.detections)} DET3DS DRAWN")
-            image = self.draw_dets(image, det_3d_msg)
+            self.get_logger().info(f"{len(det_msg.detections if self.sub_det3d else det_msg.markers)} DET3DS DRAWN")
+            image = self.draw_dets(image, det_msg)
         if self.viz_tracks:
             self.get_logger().info(f"{len(track_msg.tracked_obstacles)} TRACKS DRAWN")
             image = self.draw_tracks(image, track_msg)
@@ -409,8 +474,8 @@ class ObjectTrackingVisualizer(Node):
         imgmsg = self.cv_bridge.cv2_to_imgmsg(cv_img, "bgr8")
         imgmsg.header.stamp = msg.header.stamp
         imgmsg.header.frame_id = msg.header.frame_id
-        save_dir = os.sep + os.path.join('home', 'bolty', 'ament_ws', 'src', 'tracking', 'tracking', 'images_check')
-        cv2.imwrite(os.path.join(save_dir, f"image{self.imgs_saved}.png"), cv_img)
+        # save_dir = os.sep + os.path.join('home', 'bolty', 'ament_ws', 'src', 'tracking', 'tracking', 'images_check')
+        # cv2.imwrite(os.path.join(save_dir, f"image{self.imgs_saved}.png"), cv_img)
         self.image_pub.publish(imgmsg)
         self.imgs_saved += 1
         self.get_logger().info("IMAGE PUBBED")

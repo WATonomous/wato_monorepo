@@ -48,6 +48,15 @@ def marker_to_bbox(marker):
     return [x, y, z, rz, w, l, h]
 
 
+def marker_to_bbox3d(mrk):
+    # trk_obs is a Marker
+    bb3d = BoundingBox3D()
+    bb3d.center = mrk.pose
+    bb3d.size = mrk.scale
+
+    return bb3d
+
+
 def tracked_obstacle_to_bbox3d(trk_obs):
     # trk_obs is a TrackedObstacle
     ob = trk_obs.obstacle

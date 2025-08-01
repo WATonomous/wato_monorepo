@@ -222,12 +222,12 @@ class trackerNode(Node):
         #if result is not None:
             #self.get_logger().info(f"Tracked Objects: {result}")
 
-        self.publish_tracks(1/0.8)
+        self.publish_tracks(1/0.8, timestamp)
 
         # end_time = time.time()
         # self.get_logger().info(f"Processing time: {end_time - start_time:.4f} seconds")
 
-    def publish_tracks(self, dt):
+    def publish_tracks(self, dt, timestamp):
         """
         Publish the tracks as obj_tracked. Also publishes the node status message.
 
@@ -238,7 +238,7 @@ class trackerNode(Node):
 
         # Set frame_id and timestamp in the header of the message
         tracked_obstacle_list.header.frame_id = self.reference_frame
-        tracked_obstacle_list.header.stamp = self.get_clock().now().to_msg()
+        tracked_obstacle_list.header.stamp = timestamp  # self.get_clock().now().to_msg()
 
         # Initialize an empty list to hold tracked obstacles
         tracked_obstacle_list.tracked_obstacles = [TrackedObstacleMsg()]

@@ -20,10 +20,11 @@ tracking_viz:
     lidar_frame: LIDAR_TOP
     global_frame: map
     viz_tracks: True
-    viz_dets: False
+    viz_dets: True
     pub_markers: True
     pub_images: True
     skip_missed_frames: True
+    box_line_width: 5
     # setting skip_missed_frames to False causes mem leak i think
 
 /**:
