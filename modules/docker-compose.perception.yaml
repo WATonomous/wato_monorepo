@@ -81,6 +81,17 @@ services:
     image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch dets_2d_3d dets_2d_3d.launch.py"
 
+  patchwork:
+    build:
+      context: ..
+      dockerfile: docker/perception/patchwork/patchwork.Dockerfile
+      cache_from:
+        - "${PERCEPTION_PATCHWORK_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_PATCHWORK_IMAGE}:build_main"
+      target: deploy
+    image: "${PERCEPTION_PATCHWORK_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch patchwork patchwork.launch.py"
+
   depth_estimation:
     build:
       context: ..
