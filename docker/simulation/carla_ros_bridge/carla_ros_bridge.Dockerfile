@@ -19,11 +19,12 @@ COPY src/simulation/carla_config carla_config
 COPY src/wato_msgs/simulation ros_msgs
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update --rosdistro foxy && \
-    rosdep install --from-paths . -r -s \
+RUN apt-get -qq update && apt-get install --no-install-recommends -qq python3-pip && \
+    rosdep update --include-eol-distros --rosdistro foxy && \
+    rosdep install --from-paths . --ignore-src -r -s \
         | (grep 'apt-get install' || true) \
         | awk '{print $3}' \
-        | sort > /tmp/colcon_install_list
+        | sort  > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
@@ -40,23 +41,23 @@ RUN apt-get update -qq && \
         python3-rospkg \
         python3-colcon-common-extensions \
         python3-pygame \
-        ros-humble-tf2-geometry-msgs \
-        ros-humble-tf2-eigen \
-        ros-humble-ackermann-msgs \
-        ros-humble-derived-object-msgs \
-        ros-humble-cv-bridge \
-        ros-humble-vision-opencv \
-        ros-humble-rqt-image-view \
-        ros-humble-rqt-gui-py \
+        ros-foxy-tf2-geometry-msgs \
+        ros-foxy-tf2-eigen \
+        ros-foxy-ackermann-msgs \
+        ros-foxy-derived-object-msgs \
+        ros-foxy-cv-bridge \
+        ros-foxy-vision-opencv \
+        ros-foxy-rqt-image-view \
+        ros-foxy-rqt-gui-py \
         qt5-default \
-        ros-humble-pcl-conversions \
-        ros-humble-resource-retriever \
-        ros-humble-yaml-cpp-vendor \
-        ros-humble-urdf \
-        ros-humble-map-msgs \
-        ros-humble-laser-geometry \
-        ros-humble-interactive-markers \
-        ros-humble-rviz2 && \
+        ros-foxy-pcl-conversions \
+        ros-foxy-resource-retriever \
+        ros-foxy-yaml-cpp-vendor \
+        ros-foxy-urdf \
+        ros-foxy-map-msgs \
+        ros-foxy-laser-geometry \
+        ros-foxy-interactive-markers \
+        ros-foxy-rviz2 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
