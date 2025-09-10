@@ -20,7 +20,7 @@ COPY src/perception/depth_estimation depth_estimation
 # Scan for rosdeps
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
-      | grep 'apt-get install' \
+      | (grep 'apt-get install' || true) \
       | awk '{print $3}' \
       | sort > /tmp/colcon_install_list
 
