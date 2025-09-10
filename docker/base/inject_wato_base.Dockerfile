@@ -14,6 +14,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 
 ENV USER="bolty"
 ENV AMENT_WS=/home/${USER}/ament_ws
+ENV WATONOMOUS_INSTALL=/opt/watonomous/
 
 # User Setup
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
