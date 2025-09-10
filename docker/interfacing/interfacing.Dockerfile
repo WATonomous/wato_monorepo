@@ -16,7 +16,7 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msg
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
-        | grep 'apt-get install' \
+        | (grep 'apt-get install' || true) \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
