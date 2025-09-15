@@ -1,62 +1,56 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
-################################ Source ################################
+############################## Source ##############################
 FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
+COPY src/perception/patchwork patchwork
 
-# Copy in source code
-# COPY src/perception perception
-COPY src/wato_msgs wato_msgs
-
-RUN git clone https://github.com/url-kaist/patchwork-plusplus.git patchwork_plus_plus
-
-# Scan for rosdeps
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update && \
-    rosdep install --from-paths . --ignore-src -r -s \
-        | grep 'apt-get install' \
-        | awk '{print $3}' \
-        | sort  > /tmp/colcon_install_list
-
-################################# Dependencies ################################
+############################ Dependencies ##########################
 FROM ${BASE_IMAGE} AS dependencies
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
-# INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
-# Only do this as a last resort. Utilize ROSDEP first
-
-# Install Rosdep requirements
-COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+# Base libraries and pip
 RUN apt-get update && \
-    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends \
+      python3 python3-pip ffmpeg libsm6 libxext6 wget \
+      libpcl-dev pcl-tools libeigen3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy in source code from source stage
+# Build and install Patchwork++ from source so headers/libraries are available
+WORKDIR /opt
+RUN git clone --depth 1 --branch master https://github.com/url-kaist/patchwork-plusplus patchwork-plusplus && \
+    cmake -S patchwork-plusplus/cpp -B patchwork-plusplus/build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build patchwork-plusplus/build -j"$(nproc)" && \
+    cmake --install patchwork-plusplus/build \
+    && echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
+
+# Copy source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
 
-# Dependency Cleanup
-WORKDIR /
+# Clean up apt caches
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
-################################ Build ################################
+############################### Build ##############################
 FROM dependencies AS build
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
-# Build ROS2 packages
+# Build ROS 2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
-    colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
+
+# Entrypoint will source ROS2 and workspace
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
-################################ Prod ################################
+############################### Prod ###############################
 FROM build AS deploy
 
-# Source Cleanup and Security Setup
 RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*
-
 USER ${USER}

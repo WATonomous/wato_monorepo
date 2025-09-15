@@ -1,123 +1,83 @@
-# Copyright (c) 2025-present WATonomous. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-cmake_minimum_required(VERSION 3.10)
-project(patchwork)
+cmake_minimum_required(VERSION 3.16...3.26)
+project(patchworkpp VERSION 1.0.4 LANGUAGES CXX)
 
-# Set C++ standard
-if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 17)
-endif()
+set(ignore ${CATKIN_INSTALL_INTO_PREFIX_ROOT})
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Add compiler warnings
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
-# Find ROS 2 packages
+# Find ROS 2 dependencies first
 find_package(ament_cmake REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(rcutils REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(sample_msgs REQUIRED)
-find_package(camera_object_detection_msgs REQUIRED)
-find_package(vision_msgs REQUIRED)
-find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
-find_package(tf2_geometry_msgs REQUIRED)
-find_package(tf2_eigen REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(OpenCV REQUIRED)
-find_package(pcl_conversions REQUIRED)
-find_package(pcl_ros REQUIRED)
-find_package(visualization_msgs REQUIRED)
-find_package(PCL REQUIRED) # Added PCL find_package
+find_package(geometry_msgs REQUIRED)
 
-add_library(projection_utils
-  src/projection_utils.cpp
-)
+# PCL and Eigen3 dependencies
+find_package(PCL REQUIRED)
+find_package(eigen3_cmake_module REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-target_include_directories(projection_utils
-    PUBLIC
-    include
-    projection_utils
-    ${OpenCV_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS} # Corrected PCL includes
-)
+# Try to find Patchwork++ using find_package first
+# The package should be installed to /usr/local by the Dockerfile
+find_package(patchworkpp QUIET HINTS /usr/local/lib/cmake/patchworkpp)
 
-ament_target_dependencies(projection_utils
-    rclcpp
-    sample_msgs
-    sensor_msgs
-    vision_msgs
-    visualization_msgs
-    camera_object_detection_msgs
-    pcl_conversions
-    pcl_ros
-    tf2
-    tf2_ros
-    tf2_geometry_msgs
-    tf2_eigen
-    std_msgs
-    geometry_msgs
-)
+if(TARGET patchworkpp::ground_seg_cores)
+  # Use the proper CMake target if available
+  message(STATUS "Found Patchwork++ via find_package")
+  set(PATCHWORKPP_TARGET patchworkpp::ground_seg_cores)
+else()
+  # Fallback to manual library finding
+  find_path(PATCHWORKPP_INCLUDE_DIR
+    NAMES patchwork/patchworkpp.h
+    HINTS /usr/local/include /usr/include
+    PATH_SUFFIXES patchworkpp
+  )
+  find_library(PATCHWORKPP_LIBRARY
+    NAMES ground_seg_cores
+    HINTS /usr/local/lib /usr/lib /usr/local/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu
+  )
 
-# Add the executable for the bbox_2d_3d node
-add_executable(bbox_2d_3d_node src/bbox_2d_3d.cpp)
+  if(NOT PATCHWORKPP_INCLUDE_DIR OR NOT PATCHWORKPP_LIBRARY)
+    message(STATUS "PATCHWORKPP_INCLUDE_DIR: ${PATCHWORKPP_INCLUDE_DIR}")
+    message(STATUS "PATCHWORKPP_LIBRARY: ${PATCHWORKPP_LIBRARY}")
+    message(FATAL_ERROR "Patchwork++ not found. Ensure it is installed in the image.")
+  endif()
 
-# Include directories
-target_include_directories(bbox_2d_3d_node
-    PUBLIC
-    include
-    ${OpenCV_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS} # Corrected PCL includes
-)
+  message(STATUS "Found Patchwork++ include dir: ${PATCHWORKPP_INCLUDE_DIR}")
+  message(STATUS "Found Patchwork++ library: ${PATCHWORKPP_LIBRARY}")
 
-# Link libraries
-target_link_libraries(bbox_2d_3d_node
-    projection_utils
-    ${OpenCV_LIBS}
-    tf2::tf2
-    ${PCL_LIBRARIES} #added PCL libraries
-)
+  # Create interface target for manual linking
+  add_library(patchworkpp_vendor INTERFACE)
+  target_include_directories(patchworkpp_vendor INTERFACE ${PATCHWORKPP_INCLUDE_DIR})
+  target_link_libraries(patchworkpp_vendor INTERFACE ${PATCHWORKPP_LIBRARY} ${PCL_LIBRARIES})
+  set(PATCHWORKPP_TARGET patchworkpp_vendor)
+endif()
 
-# Add ROS 2 dependencies
-ament_target_dependencies(bbox_2d_3d_node
-    rclcpp
-    sensor_msgs
-    geometry_msgs
-    vision_msgs
-    tf2
-    tf2_ros
-    tf2_geometry_msgs
-    std_msgs
-    cv_bridge
-    pcl_conversions
-    pcl_ros
-)
+# ROS 2 ground removal node
+add_library(ground_removal_component SHARED src/ground_removal.cpp)
+target_compile_features(ground_removal_component PUBLIC cxx_std_20)
+target_include_directories(ground_removal_component PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(ground_removal_component PRIVATE ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(ground_removal_component ${PATCHWORKPP_TARGET})
+ament_target_dependencies(
+  ground_removal_component
+  rcutils
+  rclcpp
+  rclcpp_components
+  nav_msgs
+  sensor_msgs
+  geometry_msgs
+  tf2_ros
+  eigen3_cmake_module)
 
-# Install the executable
-install(TARGETS
-    bbox_2d_3d_node
-    DESTINATION lib/${PROJECT_NAME}
-)
+rclcpp_components_register_node(ground_removal_component PLUGIN "patchworkpp_ros::GroundRemovalServer" EXECUTABLE patchworkpp_ground_removal_node)
 
-# Install launch files (if any)
-install(DIRECTORY
-    launch
-    DESTINATION share/${PROJECT_NAME}
-)
+install(TARGETS ground_removal_component LIBRARY DESTINATION lib RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 # Export dependencies
+ament_export_dependencies(Eigen3)
+
 ament_package()
