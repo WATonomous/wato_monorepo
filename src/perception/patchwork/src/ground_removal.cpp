@@ -102,8 +102,7 @@ GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
   // Get configuration parameters
   base_frame_ = declare_parameter<std::string>("base_frame", base_frame_);
   publish_debug_ = declare_parameter<bool>("publish_debug", publish_debug_);
-  publish_original_ = declare_parameter<bool>("publish_original", publish_original_);
-
+  
   // Patchwork++ parameters
   params.sensor_height = declare_parameter<double>("sensor_height", params.sensor_height);
   params.num_iter      = declare_parameter<int>("num_iter", params.num_iter);
@@ -121,19 +120,19 @@ GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
 
   params.verbose = get_parameter<bool>("verbose", params.verbose);
 
-  // ToDo. Support intensity
-  params.enable_RNR = false;
+  // Support intensity via runtime parameter controlling RNR usage
+  params.enable_RNR = declare_parameter<bool>("enable_RNR", params.enable_RNR);
 
   // Construct the main Patchwork++ node
   Patchworkpp_ = std::make_unique<patchwork::PatchWorkpp>(params);
 
   // Initialize subscribers
   pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      "pointcloud_topic",
+      "/LIDAR_TOP",
       rclcpp::SensorDataQoS(),
-      std::bind(&GroundRemovalServer::RemoveGround, this, std::placeholders::_1));
+      std::bind(&GroundRemovalServer::removeGround, this, std::placeholders::_1));
 
-  // QoS settings for reliable ground removal
+  // QoS settings
   rclcpp::QoS qos(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
   qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
   qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
@@ -150,25 +149,14 @@ GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
         "/patchworkpp/debug/nonground", qos);
   }
 
-  if (publish_original_) {
-    original_cloud_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-        "/patchworkpp/debug/original", qos);
-  }
-
   RCLCPP_INFO(this->get_logger(), "Patchwork++ Ground Removal ROS 2 node initialized");
   RCLCPP_INFO(this->get_logger(), "Debug publishing: %s", publish_debug_ ? "enabled" : "disabled");
-  RCLCPP_INFO(this->get_logger(), "Original cloud publishing: %s", publish_original_ ? "enabled" : "disabled");
 }
 
-void GroundRemovalServer::RemoveGround(
+void GroundRemovalServer::removeGround(
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg) {
   const auto &cloud = utils::PointCloud2ToEigenMat(msg);
 
-  // Publish original cloud if requested
-  if (publish_original_) {
-    original_cloud_publisher_->publish(
-        utils::EigenMatToPointCloud2(cloud, msg->header));
-  }
 
   // Estimate ground
   Patchworkpp_->estimateGround(cloud);
@@ -179,11 +167,11 @@ void GroundRemovalServer::RemoveGround(
   double time_taken          = Patchworkpp_->getTimeTaken();
 
   // Publish the main output: filtered cloud (ground removed)
-  PublishFilteredCloud(nonground, msg->header);
+  publishFilteredCloud(nonground, msg->header);
 
   // Publish debug information if enabled
   if (publish_debug_) {
-    PublishDebugClouds(ground, nonground, msg->header);
+    publishDebugClouds(ground, nonground, msg->header);
   }
 
   // Log processing statistics
@@ -192,7 +180,7 @@ void GroundRemovalServer::RemoveGround(
                cloud.rows(), ground.rows(), nonground.rows(), time_taken);
 }
 
-void GroundRemovalServer::PublishFilteredCloud(const Eigen::MatrixX3f &nonground_points,
+void GroundRemovalServer::publishFilteredCloud(const Eigen::MatrixX3f &nonground_points,
                                               const std_msgs::msg::Header header_msg) {
   std_msgs::msg::Header header = header_msg;
   header.frame_id = base_frame_;
@@ -202,7 +190,7 @@ void GroundRemovalServer::PublishFilteredCloud(const Eigen::MatrixX3f &nonground
       std::move(utils::EigenMatToPointCloud2(nonground_points, header)));
 }
 
-void GroundRemovalServer::PublishDebugClouds(const Eigen::MatrixX3f &est_ground,
+void GroundRemovalServer::publishDebugClouds(const Eigen::MatrixX3f &est_ground,
                                             const Eigen::MatrixX3f &est_nonground,
                                             const std_msgs::msg::Header header_msg) {
   std_msgs::msg::Header header = header_msg;
@@ -219,5 +207,3 @@ void GroundRemovalServer::PublishDebugClouds(const Eigen::MatrixX3f &est_ground,
 
 }  // namespace patchworkpp_ros
 
-#include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(patchworkpp_ros::GroundRemovalServer)

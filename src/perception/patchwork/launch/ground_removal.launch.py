@@ -1,32 +1,24 @@
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess
-from launch.conditions import IfCondition
-from launch.substitutions import (LaunchConfiguration, PathJoinSubstitution,
-                                  PythonExpression)
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    use_sim_time = LaunchConfiguration("use_sim_time", default="true")
 
     # tf tree configuration
-    base_frame = LaunchConfiguration("base_frame", default="base_link")
+    base_frame = LaunchConfiguration("base_frame")
 
     # ROS configuration
     pointcloud_topic = LaunchConfiguration("cloud_topic")
-    visualize = LaunchConfiguration("visualize", default="true")
-    publish_debug = LaunchConfiguration("publish_debug", default="false")
-    publish_original = LaunchConfiguration("publish_original", default="false")
-
-    # Optional ros bag play
-    bagfile = LaunchConfiguration("bagfile", default="")
+    publish_debug = LaunchConfiguration("publish_debug")
+    publish_original = LaunchConfiguration("publish_original")
 
     # Patchwork++ Ground Removal node
     ground_removal_node = Node(
         package="patchworkpp",
-        executable="patchworkpp_ground_removal_node",
-        name="patchworkpp_ground_removal_node",
+        executable="patchworkpp_node",
+        name="patchworkpp_node",
         output="screen",
         remappings=[
             ("pointcloud_topic", pointcloud_topic),
@@ -59,9 +51,13 @@ def generate_launch_description():
         ],
     )
 
-    # Optional bagfile playback
-    bagfile_play = ExecuteProcess(
-        cmd=["ros2", "bag", "play", bagfile],
-        output="screen",
-        condition=IfCondition(PythonExpression(["'", bagfile, "' != ''"])),
-    )
+
+    return LaunchDescription([
+        # Declare launch arguments
+        DeclareLaunchArgument("base_frame", default_value="base_link"),
+        DeclareLaunchArgument("cloud_topic", default_value="/points_raw"),
+        DeclareLaunchArgument("publish_debug", default_value="false"),
+        DeclareLaunchArgument("publish_original", default_value="false"),
+
+        ground_removal_node
+    ])
