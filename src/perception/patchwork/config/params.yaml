@@ -1,0 +1,13 @@
+---
+ros__parameters:
+
+  # subscribers
+  
+  # publishers
+  filtered_topic: /patchworkpp/filtered_cloud
+
+  #debugging
+  
+  publish_debug: false
+  non_ground_topic: /patchworkpp/non_ground_cloud
+  ground_topic: /patchworkpp/ground_cloud
