@@ -207,3 +207,15 @@ void GroundRemovalServer::publishDebugClouds(const Eigen::MatrixX3f &est_ground,
 
 }  // namespace patchworkpp_ros
 
+
+int main(int argc, char** argv) {
+  rclcpp::init(argc, argv);
+  rclcpp::executors::MultiThreadedExecutor exec;
+  auto node = std::make_shared<patchworkpp_ros::GroundRemovalServer>(rclcpp::NodeOptions());
+  exec.add_node(node);
+  exec.spin();
+  rclcpp::shutdown();
+  return 0;
+}
+
+
