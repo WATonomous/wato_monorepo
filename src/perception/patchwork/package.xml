@@ -12,7 +12,9 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <build_depend>eigen3_cmake_module</build_depend>
-  <depend>Eigen3</depend>
+  <build_export_depend>eigen3_cmake_module</build_export_depend>
+  <exec_depend>eigen3_cmake_module</exec_depend>
+  <depend>eigen</depend>
   <depend>rcutils</depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
