@@ -27,7 +27,6 @@ def generate_launch_description():
             {
                 # ROS node configuration
                 "base_frame": base_frame,
-                "use_sim_time": use_sim_time,
                 "publish_debug": publish_debug,
                 "publish_original": publish_original,
                 

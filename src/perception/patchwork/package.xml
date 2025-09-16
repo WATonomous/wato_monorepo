@@ -1,33 +1,29 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-<package format="3">
   <name>patchworkpp</name>
-  <version>0.0.0</version>
-  <description>Patchwork++ ROS 2 Wrapper</description>
+  <version>0.1.0</version>
+  <description>Patchwork++ ROS 2 wrapper that filters ground points from a point cloud.</description>
+
   <maintainer email="b69zheng@uwaterloo.ca">Brian Zheng</maintainer>
   <license>Apache License 2.0</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <build_depend>eigen3_cmake_module</build_depend>
   <depend>Eigen3</depend>
-
   <depend>rcutils</depend>
   <depend>rclcpp</depend>
-  <depend>rclcpp_components</depend>
-  <depend>geometry_msgs</depend>
-  <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-
-  <exec_depend>ros2launch</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
