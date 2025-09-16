@@ -10,6 +10,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/parameter_value.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/string.hpp>
 
@@ -87,70 +88,97 @@ Eigen::MatrixX3f PointCloud2ToEigenMat(
   return points;
 }
 
-std::vector<double> GetTimestamps(
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr &cloud_msg) {
-  // For now, return empty vector as timestamps are not used in this implementation
-  return std::vector<double>();
-}
-
 }  // namespace utils
 
 GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
     : rclcpp::Node("patchworkpp_ground_removal_node", options) {
   patchwork::Params params;
-  
-  // Get configuration parameters
-  base_frame_ = declare_parameter<std::string>("base_frame", base_frame_);
-  publish_debug_ = declare_parameter<bool>("publish_debug", publish_debug_);
-  
-  // Patchwork++ parameters
-  params.sensor_height = declare_parameter<double>("sensor_height", params.sensor_height);
-  params.num_iter      = declare_parameter<int>("num_iter", params.num_iter);
-  params.num_lpr       = declare_parameter<int>("num_lpr", params.num_lpr);
-  params.num_min_pts   = declare_parameter<int>("num_min_pts", params.num_min_pts);
-  params.th_seeds      = declare_parameter<double>("th_seeds", params.th_seeds);
 
-  params.th_dist    = declare_parameter<double>("th_dist", params.th_dist);
-  params.th_seeds_v = declare_parameter<double>("th_seeds_v", params.th_seeds_v);
-  params.th_dist_v  = declare_parameter<double>("th_dist_v", params.th_dist_v);
-
-  params.max_range       = declare_parameter<double>("max_range", params.max_range);
-  params.min_range       = declare_parameter<double>("min_range", params.min_range);
-  params.uprightness_thr = declare_parameter<double>("uprightness_thr", params.uprightness_thr);
-
-  params.verbose = get_parameter<bool>("verbose", params.verbose);
-
-  // Support intensity via runtime parameter controlling RNR usage
-  params.enable_RNR = declare_parameter<bool>("enable_RNR", params.enable_RNR);
+  // Declare and load all parameters at once
+  declareParameters(params);
 
   // Construct the main Patchwork++ node
   Patchworkpp_ = std::make_unique<patchwork::PatchWorkpp>(params);
-
   // Initialize subscribers
   pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/LIDAR_TOP",
+      cloud_topic_,
       rclcpp::SensorDataQoS(),
       std::bind(&GroundRemovalServer::removeGround, this, std::placeholders::_1));
 
-  // QoS settings
   rclcpp::QoS qos(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
   qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
   qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
 
-  // Main output: filtered point cloud (ground removed)
   filtered_cloud_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-      "/patchworkpp/filtered_cloud", qos);
+      filtered_topic_, qos);
 
   // Optional debug publishers
   if (publish_debug_) {
     ground_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-        "/patchworkpp/debug/ground", qos);
+        ground_topic_, qos);
     nonground_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-        "/patchworkpp/debug/nonground", qos);
+        nonground_topic_, qos);
   }
 
   RCLCPP_INFO(this->get_logger(), "Patchwork++ Ground Removal ROS 2 node initialized");
   RCLCPP_INFO(this->get_logger(), "Debug publishing: %s", publish_debug_ ? "enabled" : "disabled");
+}
+
+void GroundRemovalServer::declareParameters(patchwork::Params &params) {
+  std::map<std::string, rclcpp::ParameterValue> defaults;
+
+  // ROS node configuration defaults
+  defaults["base_frame"]       = rclcpp::ParameterValue(base_frame_);
+  defaults["publish_debug"]    = rclcpp::ParameterValue(publish_debug_);
+  defaults["publish_original"] = rclcpp::ParameterValue(publish_original_);
+
+  // Topics
+  defaults["cloud_topic"]    = rclcpp::ParameterValue(cloud_topic_);
+  defaults["filtered_topic"] = rclcpp::ParameterValue(filtered_topic_);
+  defaults["ground_topic"]   = rclcpp::ParameterValue(ground_topic_);
+  defaults["non_ground_topic"] = rclcpp::ParameterValue(nonground_topic_);
+
+  // Patchwork++ algorithm parameters (seeded from library defaults)
+  defaults["sensor_height"]   = rclcpp::ParameterValue(params.sensor_height);
+  defaults["num_iter"]         = rclcpp::ParameterValue(params.num_iter);
+  defaults["num_lpr"]          = rclcpp::ParameterValue(params.num_lpr);
+  defaults["num_min_pts"]      = rclcpp::ParameterValue(params.num_min_pts);
+  defaults["th_seeds"]         = rclcpp::ParameterValue(params.th_seeds);
+  defaults["th_dist"]          = rclcpp::ParameterValue(params.th_dist);
+  defaults["th_seeds_v"]       = rclcpp::ParameterValue(params.th_seeds_v);
+  defaults["th_dist_v"]        = rclcpp::ParameterValue(params.th_dist_v);
+  defaults["max_range"]        = rclcpp::ParameterValue(params.max_range);
+  defaults["min_range"]        = rclcpp::ParameterValue(params.min_range);
+  defaults["uprightness_thr"]  = rclcpp::ParameterValue(params.uprightness_thr);
+  defaults["enable_RNR"]       = rclcpp::ParameterValue(params.enable_RNR);
+  defaults["verbose"]          = rclcpp::ParameterValue(params.verbose);
+
+  // Declare all parameters together
+  this->declare_parameters("", defaults);
+
+  // Load back into members and Patchwork++ params
+  this->get_parameter("base_frame", base_frame_);
+  this->get_parameter("publish_debug", publish_debug_);
+  this->get_parameter("publish_original", publish_original_);
+
+  this->get_parameter("cloud_topic", cloud_topic_);
+  this->get_parameter("filtered_topic", filtered_topic_);
+  this->get_parameter("ground_topic", ground_topic_);
+  this->get_parameter("non_ground_topic", nonground_topic_);
+
+  this->get_parameter("sensor_height", params.sensor_height);
+  this->get_parameter("num_iter", params.num_iter);
+  this->get_parameter("num_lpr", params.num_lpr);
+  this->get_parameter("num_min_pts", params.num_min_pts);
+  this->get_parameter("th_seeds", params.th_seeds);
+  this->get_parameter("th_dist", params.th_dist);
+  this->get_parameter("th_seeds_v", params.th_seeds_v);
+  this->get_parameter("th_dist_v", params.th_dist_v);
+  this->get_parameter("max_range", params.max_range);
+  this->get_parameter("min_range", params.min_range);
+  this->get_parameter("uprightness_thr", params.uprightness_thr);
+  this->get_parameter("enable_RNR", params.enable_RNR);
+  this->get_parameter("verbose", params.verbose);
 }
 
 void GroundRemovalServer::removeGround(
@@ -193,6 +221,10 @@ void GroundRemovalServer::publishFilteredCloud(const Eigen::MatrixX3f &nonground
 void GroundRemovalServer::publishDebugClouds(const Eigen::MatrixX3f &est_ground,
                                             const Eigen::MatrixX3f &est_nonground,
                                             const std_msgs::msg::Header header_msg) {
+  // Only publish if debug is enabled and publishers exist
+  if (!publish_debug_ || !ground_publisher_ || !nonground_publisher_) {
+    return;
+  }
   std_msgs::msg::Header header = header_msg;
   header.frame_id = base_frame_;
   
@@ -217,5 +249,3 @@ int main(int argc, char** argv) {
   rclcpp::shutdown();
   return 0;
 }
-
-

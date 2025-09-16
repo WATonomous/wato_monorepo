@@ -50,13 +50,11 @@ def generate_launch_description():
         ],
     )
 
-
     return LaunchDescription([
         # Declare launch arguments
         DeclareLaunchArgument("base_frame", default_value="base_link"),
-        DeclareLaunchArgument("cloud_topic", default_value="/points_raw"),
+        DeclareLaunchArgument("cloud_topic", default_value="/LIDAR_TOP"),
         DeclareLaunchArgument("publish_debug", default_value="false"),
         DeclareLaunchArgument("publish_original", default_value="false"),
-
         ground_removal_node
     ])

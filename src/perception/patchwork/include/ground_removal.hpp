@@ -16,6 +16,9 @@ class GroundRemovalServer : public rclcpp::Node {
   explicit GroundRemovalServer(const rclcpp::NodeOptions &options);
 
  private:
+  /// Declare all ROS and Patchwork++ parameters at once and load them
+  void declareParameters(patchwork::Params &params);
+
   /// Process incoming point cloud and remove ground
   void removeGround(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg);
 
@@ -35,7 +38,7 @@ class GroundRemovalServer : public rclcpp::Node {
   /// Data publishers.
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_publisher_;
   
-  /// Debug publishers (option)
+ /// Debug publishers (option)
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr nonground_publisher_;
 
@@ -45,6 +48,14 @@ class GroundRemovalServer : public rclcpp::Node {
   /// Configuration parameters
   std::string base_frame_{"base_link"};
   bool publish_debug_{false};
+  bool publish_original_{false};
+
+  // Topic configuration
+  std::string cloud_topic_{"/LIDAR_TOP"};
+  std::string filtered_topic_{"/patchworkpp/filtered_cloud"};
+  std::string ground_topic_{"/patchworkpp/ground_cloud"};
+  std::string nonground_topic_{"/patchworkpp/non_ground_cloud"};
+  
 };
 
 }  
