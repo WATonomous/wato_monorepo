@@ -13,7 +13,7 @@ COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs  camera_object_d
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
-      | grep 'apt-get install' \
+      | (grep 'apt-get install' || true) \
       | awk '{print $3}' \
       | sort  > /tmp/colcon_install_list
 

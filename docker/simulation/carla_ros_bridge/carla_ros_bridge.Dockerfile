@@ -21,7 +21,7 @@ COPY src/wato_msgs/simulation ros_msgs
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && rosdep update --rosdistro foxy && \
     rosdep install --from-paths . -r -s \
-        | grep 'apt-get install' \
+        | (grep 'apt-get install' || true) \
         | awk '{print $3}' \
         | sort > /tmp/colcon_install_list
 
