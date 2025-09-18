@@ -103,3 +103,14 @@ services:
     volumes:
       - /mnt/wato-drive2/perception_models/depth_anything_v2_large.pth:/perception_models/depth_anything_v2_large.pth
       - /mnt/wato-drive2/perception_models/depth_anything_v2_small.pth:/perception_models/depth_anything_v2_small.pth
+
+  tracking_2d:
+    build:
+      context: ..
+      dockerfile: docker/perception/tracking_2d/tracking_2d.Dockerfile
+      cache_from:
+        - "${PERCEPTION_TRACKING_IMAGE}:build_${TAG}"
+        - "${PERCEPTION_TRACKING_IMAGE}:build_main"
+      target: deploy
+    image: "${PERCEPTION_TRACKING_IMAGE}:${TAG}"
+    # command: /bin/bash -c "ros2 launch"
