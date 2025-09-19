@@ -38,7 +38,8 @@ set(msg_files
     msg/ObstacleList.msg
     msg/BoundingBox.msg
     msg/BoundingBoxArray.msg
-    msg/CombinedSensor.msg)
+    msg/CombinedSensor.msg
+    msg/VehicleStatus.msg)
 # Parses message files to generate ROS2 interfaces
 rosidl_generate_interfaces(common_msgs
     ${msg_files}

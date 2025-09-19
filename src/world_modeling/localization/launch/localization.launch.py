@@ -35,41 +35,51 @@ def generate_launch_description():
 
     config_file = LaunchConfiguration("localization_param_file")
 
-    odom = Node(
+    wheel_odometry = Node(
         package="localization",
-        executable="odom",
+        executable="wheel_odometry",
         parameters=[config_file],
     )
 
-    # ekf_node = (
-    #     Node(
-    #         package="robot_localization",
-    #         executable="ekf_node",
-    #         name="ekf_filter_node_global",
-    #         parameters=[config_file],
-    #         remappings=[("odometry/filtered", "odometry/filtered")],
-    #         output="screen",
-    #     ),
-    # )
+    ekf_local = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node_local",
+        parameters=[config_file],
+        remappings=[("odometry/filtered", "/localization/odometry/filtered/local")],
+        output="screen",
+    )
 
-    # navsat_transform = Node(
-    #     package="robot_localization",
-    #     executable="navsat_transform_node",
-    #     name="navsat_transform",
-    #     parameters=[config_file],
-    #     output="screen",
-    #     remappings=[
-    #         ("imu/data", "carla/ego/imu"),
-    #         ("gps/fix", "carla/ego/gnss"),
-    #         ("gps/filtered", "gps/filtered"),
-    #         ("odometry/gps", "odometry/gps"),
-    #         ("odometry/filtered", "odometry/filtered"),
-    #     ],
-    # )
+    ekf_global = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node_global",
+        parameters=[config_file],
+        remappings=[("odometry/filtered", "/localization/odometry/filtered/global")],
+        output="screen",
+    )
+
+    navsat_transform = Node(
+        package="robot_localization",
+        executable="navsat_transform_node",
+        name="navsat_transform",
+        parameters=[config_file],
+        output="screen",
+        remappings=[
+            ("imu", "/imu"),
+            ("gps/fix", "/gnss"),
+            # ("gps/filtered", "/localization/gps/filtered"),
+            ("odometry/gps", "/localization/odometry/gps"),
+            ("odometry/filtered", "/localization/odometry/filtered/global"),
+        ],
+    )
 
     return LaunchDescription(
         [
             localization_param,
-            odom,
+            wheel_odometry,
+            ekf_local,
+            ekf_global,
+            navsat_transform
         ]
     )

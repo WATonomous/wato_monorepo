@@ -1,68 +1,100 @@
 ---
-localization:
+/**:
   ros__parameters:
-    gps_topic: "/carla/gnss"
-    imu_topic: "/carla/imu"
-    wheel_odom_topic: "/odom"
-    gps_output_topic: "/localization/gps"
-    imu_output_topic: "/localization/imu"
-    wheel_odom_output_topic: "/localization/odom"
-odom:
+    use_sim_time: true # only for ROS bags or simulation
+    sensor_timeout: 1.0
+
+wheel_odometry:
   ros__parameters:
-    odom_output_topic: "/bicycle_model_output"
-    wheel_base: 2.875
-    max_steer_angle: 55.0
-    odom_publish_rate: 10
-odom_mock_data:
+    wheel_odometry_output_topic: "/localization/odometry/wheel_odometry"
+    vehicle_status_topic: "/vehicle_status"
+    wheel_base: 2.875               # distance between front and rear axles
+
+ekf_filter_node_local:
   ros__parameters:
-    right_wheel_topic: "/motor_encoder_right"
-    left_wheel_topic: "/motor_encoder_left"
-    steering_topic: "/steering_angle"
-    wheel_speed_min: 3.0
-    wheel_speed_max: 3.0
-    turning_angle_min: 0.0
-    turning_angle_max: 0.0
-    wheel_publish_rate: 1000
-    turn_publish_rate: 1000
+    frequency: 15.0                 # EKF update rate
+    two_d_mode: true                # ignore Z axis for 2D robot
+    odom_frame: odom                # local odometry frame
+    base_link_frame: base_link      # robot frame
+    world_frame: odom               # output frame (local pose)
+    publish_tf: true                # broadcast odom -> base_link TF
+    # debug: true
+
+    # Odometry data (from wheel odometry)
+    odom0: /localization/odometry/wheel_odometry
+    odom0_config: [
+      false, false, false,   # x, y, z positions (we don’t trust wheel odom for position)
+      false, false, false,   # roll, pitch, yaw angles
+      true, true, false,     # vx, vy, vz (linear velocities)
+      false, false, true,    # vroll, vpitch, vyaw (angular velocities)
+      false, false, false    # ax, ay, az (linear accelerations)
+    ]
+
+    # IMU data for orientation
+    imu0: /imu
+    imu0_config: [
+      false, false, false,
+      false, false, true,
+      false, false, false,
+      false, false, true,
+      true, false, false
+    ]
 
 ekf_filter_node_global:
   ros__parameters:
+    frequency: 15.0                  # EKF update rate
+    two_d_mode: true                # ignore Z axis for 2D robot
+    odom_frame: odom                # local odometry frame
+    base_link_frame: base_link      # robot frame
+    world_frame: map                # output frame
+    publish_tf: true                # broadcast map -> base_link TF
+    # transform_time_offset: 1.0      # prevents error in navsat_transform
+    initial_state: [
+      73.6, -66.4, 0.0,
+      0.0, 0.0, 0.0, 
+      0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0
+    ] # the initial state. Note: the numbers here are for CARLA (change for real car)
 
-    # Frame definitions
-    # map_frame: map # Fixed global frame, global navigation
-    odom_frame: map       # Local reference that tracks robot position over time based on wheel encoders
-    base_link_frame: ego  # Robot's body frame, centered on the robot and moves with it
-    world_frame: map
-    debug: true
+    # Odometry data (from wheel odometry)
+    odom0: /localization/odometry/wheel_odometry
+    odom0_config: [
+      false, false, false,   # x, y, z positions (we don’t trust wheel odom for position)
+      false, false, false,   # roll, pitch, yaw angles
+      true, true, false,     # vx, vy, vz (linear velocities)
+      false, false, true,    # vroll, vpitch, vyaw (angular velocities)
+      false, false, false    # ax, ay, az (linear accelerations)
+    ]
 
-    odom0: /carla/ego/odometry  # Provides information about robot's position and velocity
-    odom0_config: [true, true, false,
-                   false, false, false,
-                   false, false, false,
-                   false, false, false,
-                   false, false, false]  # 2D configuration for X, Y position, velocity, and YAW
+    # Odometry data (from navsat_transform)
+    odom1: /localization/odometry/gps
+    odom1_config: [
+      true, true, false,
+      false, false, false,
+      false, false, false,
+      false, false, false,
+      false, false, false
+    ] 
 
-    imu0: /carla/ego/imu    # Inertial measurement unit, provides info on orientation, accelerations, angular velocity
-    imu0_config: [false, false, false,
-                  false, false, true,
-                  false, false, false,
-                  false, false, false,
-                  false, false, false]  # Yaw is important for steering and orientation
-
-    # Parameters
-    frequency: 30.0
-    sensor_timeout: 0.1
-    two_d_mode: true
-    publish_tf: false
+    # IMU data for orientation
+    imu0: /imu
+    imu0_config: [
+      false, false, false,
+      false, false, true,
+      false, false, false,
+      false, false, true,
+      true, false, false
+    ]
 
 navsat_transform:
   ros__parameters:
-    frequency: 30.0
-    delay: 3.0
+    frequency: 10.0
+    # delay: 3.0
     magnetic_declination_radians: 0.0
-    yaw_offset: 0.0
+    yaw_offset: 0.0 # 1.5707963 # 90 degrees in radians
     zero_altitude: true
-    broadcast_utm_transform: true
-    publish_filtered_gps: true
-    use_odometry_yaw: true
+    broadcast_cartesian_transform: false
+    publish_filtered_gps: false
+    use_odometry_yaw: false
     wait_for_datum: false
