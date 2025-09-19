@@ -51,7 +51,7 @@ ekf_filter_node_global:
     # transform_time_offset: 1.0      # prevents error in navsat_transform
     initial_state: [
       73.6, -66.4, 0.0,
-      0.0, 0.0, 0.0, 
+      0.0, 0.0, 0.0,
       0.0, 0.0, 0.0,
       0.0, 0.0, 0.0,
       0.0, 0.0, 0.0
@@ -75,7 +75,7 @@ ekf_filter_node_global:
       false, false, false,
       false, false, false,
       false, false, false
-    ] 
+    ]
 
     # IMU data for orientation
     imu0: /imu

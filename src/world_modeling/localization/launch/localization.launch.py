@@ -75,11 +75,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription(
-        [
-            localization_param,
-            wheel_odometry,
-            ekf_local,
-            ekf_global,
-            navsat_transform
-        ]
+        [localization_param, wheel_odometry, ekf_local, ekf_global, navsat_transform]
     )

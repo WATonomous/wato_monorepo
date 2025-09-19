@@ -14,7 +14,11 @@
 
 #include "localization/wheel_odometry.hpp"
 
-WheelOdometry::WheelOdometry() : Node("wheel_odometry") {
+#include <string>
+
+WheelOdometry::WheelOdometry()
+: Node("wheel_odometry")
+{
   // Input and Output Topic Names
   this->declare_parameter<std::string>("vehicle_status_topic", std::string("/vehicle_status"));
   this->declare_parameter<std::string>("wheel_odometry_output_topic", std::string("/localization/wheel_odometry"));
@@ -27,24 +31,24 @@ WheelOdometry::WheelOdometry() : Node("wheel_odometry") {
   wheel_base_ = this->get_parameter("wheel_base").as_double();
 
   // Subscriber
-  auto qos = rclcpp::QoS(rclcpp::KeepLast(10)); // keep only last 10 messages
+  auto qos = rclcpp::QoS(rclcpp::KeepLast(10));  // keep only last 10 messages
   vehicle_status_sub_ = this->create_subscription<common_msgs::msg::VehicleStatus>(
-    vehicle_status_topic_, qos, std::bind(&WheelOdometry::vehicleStatusCallback, this, std::placeholders::_1)
-  );
+    vehicle_status_topic_, qos, std::bind(&WheelOdometry::vehicleStatusCallback, this, std::placeholders::_1));
 
   // Publisher
   wheel_odometry_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>(odometry_output_topic_, qos);
 }
 
-void WheelOdometry::vehicleStatusCallback(const common_msgs::msg::VehicleStatus::SharedPtr msg) {
+void WheelOdometry::vehicleStatusCallback(const common_msgs::msg::VehicleStatus::SharedPtr msg)
+{
   // Get current vehicle speed and steering angle
-  double speed = msg->speed; // in m/s
-  double steering_angle = msg->steering_angle; // in radians
+  double speed = msg->speed;  // in m/s
+  double steering_angle = msg->steering_angle;  // in radians
 
   // Update bicycle model based on received data
   // Note: The twist part of the odometry message is in the child frame (base_link)
-  double _forward_velocity = speed; // vehicle moves forward at the speed
-  double _lateral_velocity = 0.0; // vehicle cannot move laterally
+  double _forward_velocity = speed;  // vehicle moves forward at the speed
+  double _lateral_velocity = 0.0;  // vehicle cannot move laterally
   double _angular_velocity = -(speed / wheel_base_) * tan(steering_angle);
 
   // Create odometry message

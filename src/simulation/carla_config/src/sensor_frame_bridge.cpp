@@ -14,14 +14,16 @@
 
 #include <memory>
 #include <string>
+#include <vector>
+
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/header.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
-#include "tf2_ros/transform_listener.h"
-#include "tf2_ros/transform_broadcaster.h"
+#include "std_msgs/msg/header.hpp"
 #include "tf2_ros/buffer.h"
-#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "tf2_ros/transform_broadcaster.h"
+#include "tf2_ros/transform_listener.h"
 
 using std::placeholders::_1;
 
@@ -58,9 +60,9 @@ public:
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this);
 
     timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(1000),
-      std::bind(&SensorFrameBridge::broadcast_transform, this));
+      std::chrono::milliseconds(1000), std::bind(&SensorFrameBridge::broadcast_transform, this));
   }
+
   // Publishers
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gnss_pub_;
@@ -97,20 +99,20 @@ public:
     std::vector<std::string> sensor_frames = {"ego/imu", "ego/gnss"};
     for (const auto & sensor_frame : sensor_frames) {
       try {
-        geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(
-          "ego", sensor_frame, tf2::TimePointZero);
+        geometry_msgs::msg::TransformStamped transform_stamped =
+          tf_buffer_->lookupTransform("ego", sensor_frame, tf2::TimePointZero);
         // Republish as base_link -> base_link/sensor
         geometry_msgs::msg::TransformStamped transform_stamped_out;
         transform_stamped_out.header.stamp = transform_stamped.header.stamp;
         transform_stamped_out.header.frame_id = target_frame_;
-        transform_stamped_out.child_frame_id = target_frame_ + "/" + sensor_frame.substr(4); // remove "ego/"
+        transform_stamped_out.child_frame_id = target_frame_ + "/" + sensor_frame.substr(4);  // remove "ego/"
         transform_stamped_out.transform = transform_stamped.transform;
         // Broadcast the transform
         tf_broadcaster_->sendTransform(transform_stamped_out);
-      } catch (tf2::TransformException & ex) {}
+      } catch (tf2::TransformException & ex) {
+      }
     }
   }
-
 };
 
 int main(int argc, char ** argv)

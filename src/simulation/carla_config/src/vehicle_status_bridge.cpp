@@ -13,9 +13,11 @@
 // limitations under the License.
 
 #include <memory>
-#include "rclcpp/rclcpp.hpp"
+#include <string>
+
 #include "carla_msgs/msg/carla_ego_vehicle_status.hpp"
 #include "common_msgs/msg/vehicle_status.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 using std::placeholders::_1;
 
@@ -34,12 +36,12 @@ public:
     max_steer_angle_ = 70.0;
 
     // Create publisher for the converted vehicle status messages
-    pub_ = this->create_publisher<common_msgs::msg::VehicleStatus>(
-      output_topic, 10);
+    pub_ = this->create_publisher<common_msgs::msg::VehicleStatus>(output_topic, 10);
 
     // Subscribe to Carla ego vehicle status messages
     sub_ = this->create_subscription<carla_msgs::msg::CarlaEgoVehicleStatus>(
-      "/carla/ego/vehicle_status", 10, // assumes the role name is ego
+      "/carla/ego/vehicle_status",
+      10,  // assumes the role name is ego
       std::bind(&VehicleStatusBridge::vehicle_status_callback, this, _1));
   }
 
@@ -52,24 +54,23 @@ private:
   double max_steer_angle_;
 
   // Callback to convert and publish vehicle status messages
-  void vehicle_status_callback(
-    const carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg)
+  void vehicle_status_callback(const carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg)
   {
     common_msgs::msg::VehicleStatus out_msg;
-    out_msg.header = msg->header; // Copy header
-    out_msg.speed = msg->velocity; // Copy speed
+    out_msg.header = msg->header;  // Copy header
+    out_msg.speed = msg->velocity;  // Copy speed
     // Convert normalized steer to angle in radians
     out_msg.steering_angle = msg->control.steer * max_steer_angle_ * M_PI / 180.0;
 
-    pub_->publish(out_msg); // Publish converted message
+    pub_->publish(out_msg);  // Publish converted message
   }
 };
 
 int main(int argc, char ** argv)
 {
-  rclcpp::init(argc, argv); // Initialize ROS 2
-  auto node = std::make_shared<VehicleStatusBridge>(); // Create node
-  rclcpp::spin(node); // Spin node
-  rclcpp::shutdown(); // Shutdown ROS 2
+  rclcpp::init(argc, argv);  // Initialize ROS 2
+  auto node = std::make_shared<VehicleStatusBridge>();  // Create node
+  rclcpp::spin(node);  // Spin node
+  rclcpp::shutdown();  // Shutdown ROS 2
   return 0;
 }
