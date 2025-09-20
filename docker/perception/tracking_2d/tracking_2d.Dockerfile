@@ -19,12 +19,6 @@ RUN apt-get -qq update && rosdep update && \
       | awk '{print $3}' \
       | sort > /tmp/colcon_install_list
 
-
-RUN git clone --depth 1 --branch main https://github.com/FoundationVision/ByteTrack.git /opt/ByteTrack && \
-    python3 -m pip install --no-cache-dir --upgrade pip && \
-    python3 -m pip install --no-cache-dir -r /opt/ByteTrack/requirements.txt && \
-    python3 -m pip install --no-cache-dir -e /opt/ByteTrack
-
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -33,13 +27,23 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       python3 python3-pip ffmpeg libsm6 libxext6 wget \
-      git build-essential libgl1 libglib2.0-0 libjpeg-dev && \
+      git build-essential libgl1 libglib2.0-0 libjpeg-dev \
+      cmake libeigen3-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # OpenCV runtime libs (no-recommendations)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libopencv-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Install ByteTrack C++ library for native ROS wrappers
+RUN git clone --depth 1 --branch main https://github.com/Vertical-Beach/ByteTrack-cpp.git /opt/ByteTrack-cpp && \
+    cmake -S /opt/ByteTrack-cpp -B /opt/ByteTrack-cpp/build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build /opt/ByteTrack-cpp/build --config Release && \
+    install -Dm755 /opt/ByteTrack-cpp/build/libbytetrack.so /usr/local/lib/libbytetrack.so && \
+    install -d /usr/local/include/ByteTrack && \
+    cp -r /opt/ByteTrack-cpp/include/ByteTrack/. /usr/local/include/ByteTrack/ && \
+    ldconfig
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
