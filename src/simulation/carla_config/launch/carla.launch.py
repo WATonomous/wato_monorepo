@@ -93,7 +93,6 @@ def generate_launch_description():
     role_name_arg = DeclareLaunchArgument(
         "role_name", default_value=params["carla"]["ego_vehicle"]["role_name"]
     )
-    spawn_point_arg = DeclareLaunchArgument("spawn_point", default_value="None")
     spawn_sensors_only_arg = DeclareLaunchArgument(
         "spawn_sensors_only", default_value="False"
     )
@@ -137,7 +136,6 @@ def generate_launch_description():
         launch_arguments={
             "objects_definition_file": LaunchConfiguration("objects_definition_file"),
             "role_name": LaunchConfiguration("role_name"),
-            "spawn_point_ego_vehicle": LaunchConfiguration("spawn_point"),
             "spawn_sensors_only": LaunchConfiguration("spawn_sensors_only"),
             "host": LaunchConfiguration("host"),
             "port": LaunchConfiguration("port"),
@@ -230,6 +228,20 @@ def generate_launch_description():
         output="screen",
     )
 
+    """ Launch Vehicle Status Bridge """
+    vehicle_status_bridge = Node(
+        package="carla_config",
+        executable="vehicle_status_bridge",
+        output="screen",
+    )
+
+    """ Launch Sensor Frame Bridge """
+    sensor_frame_bridge = Node(
+        package="carla_config",
+        executable="sensor_frame_bridge",
+        output="screen",
+    )
+
     return LaunchDescription(
         [
             host_arg,
@@ -241,7 +253,6 @@ def generate_launch_description():
             town_arg,
             objects_definition_arg,
             role_name_arg,
-            spawn_point_arg,
             spawn_sensors_only_arg,
             control_loop_rate_arg,
             carla_ros_bridge,
@@ -252,6 +263,8 @@ def generate_launch_description():
             carla_waypoint_publisher,
             carla_waypoint_modifier,
             carla_image_encoding_conversion,
+            vehicle_status_bridge,
+            sensor_frame_bridge,
             # carla_mpc_bridge, # MPC bridge needs to be reworked
         ]
     )

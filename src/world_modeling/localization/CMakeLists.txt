@@ -28,18 +28,18 @@ find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(std_msgs REQUIRED)      # ROS2 Messages
 find_package(nav_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(carla_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(robot_localization REQUIRED)
+
+find_package(common_msgs REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
 # against it to access defined methods and classes.
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
-add_library(localization_lib src/odom.cpp)
+add_library(localization_lib src/wheel_odometry.cpp)
 # Indicate to compiler where to search for header files
 target_include_directories(localization_lib
   PUBLIC
@@ -48,25 +48,23 @@ target_include_directories(localization_lib
 ament_target_dependencies(localization_lib
   std_msgs
   nav_msgs
-  sensor_msgs
-  carla_msgs
   rclcpp
   tf2
   tf2_geometry_msgs
-  robot_localization)
+  robot_localization
+  common_msgs)
 
 # Create ROS2 node executable from source files
 
-#odom is the name of the node which we can run
-add_executable(odom src/odom.cpp)
+#wheel_odometry is the name of the node which we can run
+add_executable(wheel_odometry src/wheel_odometry.cpp)
 
 # Link to the previously built library to access occupancy classes and methods
-target_link_libraries(odom localization_lib)
+target_link_libraries(wheel_odometry localization_lib)
 
 # Copy executable to installation location
 install(TARGETS
-  odom
-  # odom_mock_data
+  wheel_odometry
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location
