@@ -10,6 +10,7 @@ WORKDIR ${AMENT_WS}/src
 COPY src/world_modeling world_modeling
 
 COPY src/wato_msgs/common_msgs common_msgs
+COPY src/wato_msgs/interfacing_msgs interfacing_msgs
 COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs

@@ -14,7 +14,7 @@
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>carla_msgs</depend>
-  <depend>common_msgs</depend>
+  <depend>interfacing_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>geometry_msgs</depend>
 

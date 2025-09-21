@@ -27,7 +27,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include "common_msgs/msg/vehicle_status.hpp"
+#include "interfacing_msgs/msg/vehicle_status.hpp"
 
 class WheelOdometry : public rclcpp::Node
 {
@@ -36,8 +36,8 @@ public:
 
 private:
   // Vehicle Status Subscriber
-  rclcpp::Subscription<common_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_sub_;
-  void vehicleStatusCallback(const common_msgs::msg::VehicleStatus::SharedPtr msg);
+  rclcpp::Subscription<interfacing_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_sub_;
+  void vehicleStatusCallback(const interfacing_msgs::msg::VehicleStatus::SharedPtr msg);
 
   // Wheel Odometry Publisher
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr wheel_odometry_publisher_;

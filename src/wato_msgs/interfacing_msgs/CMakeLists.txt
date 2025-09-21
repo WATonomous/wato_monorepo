@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.10)
-project(common_msgs)
+project(interfacing_msgs)
 
 # Set compiler to use C++ 17 standard
 if(NOT CMAKE_CXX_STANDARD)
@@ -26,23 +26,14 @@ endif()
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(std_msgs REQUIRED) # ROS2 common messages
-find_package(geometry_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
-    msg/Object.msg
-    msg/ObjectList.msg
-    msg/Obstacle.msg
-    msg/ObstacleList.msg
-    msg/BoundingBox.msg
-    msg/BoundingBoxArray.msg
-    msg/CombinedSensor.msg)
+    msg/VehicleStatus.msg)
 # Parses message files to generate ROS2 interfaces
-rosidl_generate_interfaces(common_msgs
+rosidl_generate_interfaces(interfacing_msgs
     ${msg_files}
-    DEPENDENCIES std_msgs sensor_msgs geometry_msgs builtin_interfaces)
+    DEPENDENCIES std_msgs)
 
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()

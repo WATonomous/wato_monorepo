@@ -32,14 +32,14 @@ WheelOdometry::WheelOdometry()
 
   // Subscriber
   auto qos = rclcpp::QoS(rclcpp::KeepLast(10));  // keep only last 10 messages
-  vehicle_status_sub_ = this->create_subscription<common_msgs::msg::VehicleStatus>(
+  vehicle_status_sub_ = this->create_subscription<interfacing_msgs::msg::VehicleStatus>(
     vehicle_status_topic_, qos, std::bind(&WheelOdometry::vehicleStatusCallback, this, std::placeholders::_1));
 
   // Publisher
   wheel_odometry_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>(odometry_output_topic_, qos);
 }
 
-void WheelOdometry::vehicleStatusCallback(const common_msgs::msg::VehicleStatus::SharedPtr msg)
+void WheelOdometry::vehicleStatusCallback(const interfacing_msgs::msg::VehicleStatus::SharedPtr msg)
 {
   // Get current vehicle speed and steering angle
   double speed = msg->speed;  // in m/s
