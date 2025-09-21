@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wheel_odometry.hpp"
+#include "state_estimation/wheel_odometry.hpp"
 
 #include <string>
 

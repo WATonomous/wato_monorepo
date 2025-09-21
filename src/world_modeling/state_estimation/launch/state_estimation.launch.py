@@ -41,6 +41,4 @@ def generate_launch_description():
         parameters=[config_file],
     )
 
-    return LaunchDescription(
-        [state_estimation_param, wheel_odometry]
-    )
+    return LaunchDescription([state_estimation_param, wheel_odometry])

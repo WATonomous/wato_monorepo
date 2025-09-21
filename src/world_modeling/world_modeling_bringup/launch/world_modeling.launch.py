@@ -22,7 +22,6 @@ from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
-
 def generate_launch_description():
     # --- HD Map Node Config ---
     hd_map_pkg_prefix = get_package_share_directory("hd_map")
@@ -54,7 +53,7 @@ def generate_launch_description():
 
     localization_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-          os.path.join(localization_pkg_prefix, "launch", "localization.launch.py")
+            os.path.join(localization_pkg_prefix, "launch", "localization.launch.py")
         ),
         launch_arguments={
             "localization_param_file": LaunchConfiguration("localization_param_file")
