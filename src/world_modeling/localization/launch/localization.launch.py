@@ -35,12 +35,6 @@ def generate_launch_description():
 
     config_file = LaunchConfiguration("localization_param_file")
 
-    wheel_odometry = Node(
-        package="localization",
-        executable="wheel_odometry",
-        parameters=[config_file],
-    )
-
     ekf_local = Node(
         package="robot_localization",
         executable="ekf_node",
@@ -75,5 +69,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription(
-        [localization_param, wheel_odometry, ekf_local, ekf_global, navsat_transform]
+        [localization_param, ekf_local, ekf_global, navsat_transform]
     )

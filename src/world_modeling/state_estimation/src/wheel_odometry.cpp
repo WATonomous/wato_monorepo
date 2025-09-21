@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "localization/wheel_odometry.hpp"
+#include "wheel_odometry.hpp"
 
 #include <string>
 
@@ -21,7 +21,7 @@ WheelOdometry::WheelOdometry()
 {
   // Input and Output Topic Names
   this->declare_parameter<std::string>("vehicle_status_topic", std::string("/vehicle_status"));
-  this->declare_parameter<std::string>("wheel_odometry_output_topic", std::string("/localization/wheel_odometry"));
+  this->declare_parameter<std::string>("wheel_odometry_output_topic", std::string("/state_estimation/wheel_odometry"));
 
   // Other Parameters
   this->declare_parameter<double>("wheel_base", 2.875);

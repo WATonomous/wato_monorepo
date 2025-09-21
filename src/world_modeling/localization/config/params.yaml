@@ -4,12 +4,6 @@
     use_sim_time: true # only for ROS bags or simulation
     sensor_timeout: 1.0
 
-wheel_odometry:
-  ros__parameters:
-    wheel_odometry_output_topic: "/localization/odometry/wheel_odometry"
-    vehicle_status_topic: "/vehicle_status"
-    wheel_base: 2.875               # distance between front and rear axles
-
 ekf_filter_node_local:
   ros__parameters:
     frequency: 15.0                 # EKF update rate
@@ -21,7 +15,7 @@ ekf_filter_node_local:
     # debug: true
 
     # Odometry data (from wheel odometry)
-    odom0: /localization/odometry/wheel_odometry
+    odom0: /state_estimation/wheel_odometry
     odom0_config: [
       false, false, false,   # x, y, z positions (we don’t trust wheel odom for position)
       false, false, false,   # roll, pitch, yaw angles
@@ -58,7 +52,7 @@ ekf_filter_node_global:
     ] # the initial state. Note: the numbers here are for CARLA (change for real car)
 
     # Odometry data (from wheel odometry)
-    odom0: /localization/odometry/wheel_odometry
+    odom0: /state_estimation/wheel_odometry
     odom0_config: [
       false, false, false,   # x, y, z positions (we don’t trust wheel odom for position)
       false, false, false,   # roll, pitch, yaw angles

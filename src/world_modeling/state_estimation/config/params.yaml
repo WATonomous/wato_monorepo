@@ -1,0 +1,6 @@
+---
+wheel_odometry:
+  ros__parameters:
+    wheel_odometry_output_topic: "/state_estimation/wheel_odometry"
+    vehicle_status_topic: "/vehicle_status"
+    wheel_base: 2.875               # distance between front and rear axles

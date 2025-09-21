@@ -16,9 +16,11 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+
 
 
 def generate_launch_description():
@@ -50,10 +52,31 @@ def generate_launch_description():
         description="Path to config file for localization node",
     )
 
-    localization_node = Node(
-        package="localization",
-        executable="odom",
-        parameters=[LaunchConfiguration("localization_param_file")],
+    localization_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+          os.path.join(localization_pkg_prefix, "launch", "localization.launch.py")
+        ),
+        launch_arguments={
+            "localization_param_file": LaunchConfiguration("localization_param_file")
+        }.items(),
+    )
+
+    # --- State Estimation Node Config ---
+    state_estimation_pkg_prefix = get_package_share_directory("state_estimation")
+    state_estimation_param_file = os.path.join(
+        state_estimation_pkg_prefix, "config", "params.yaml"
+    )
+
+    state_estimation_param = DeclareLaunchArgument(
+        "state_estimation_param_file",
+        default_value=state_estimation_param_file,
+        description="Path to config file for state_estimation node",
+    )
+
+    state_estimation_node = Node(
+        package="state_estimation",
+        executable="wheel_odometry",
+        parameters=[LaunchConfiguration("state_estimation_param_file")],
     )
 
     # -- Occupancy Node Config --
@@ -78,9 +101,11 @@ def generate_launch_description():
         [
             hd_map_param,
             localization_param,
+            state_estimation_param,
             occupancy_seg_param,
             hd_map_node,
-            localization_node,
+            localization_launch,
+            state_estimation_node,
             occupancy_seg_node,
         ]
     )
