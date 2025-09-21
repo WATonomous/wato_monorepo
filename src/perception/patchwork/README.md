@@ -4,7 +4,7 @@
 
 ```watod build patchwork```
 
-2. attach a shell or open the container and run
+2. attach a shell or open the container and run (in mode 'develop')
 
 ```colcon build patchworkpp```
 

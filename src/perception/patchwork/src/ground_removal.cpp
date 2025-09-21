@@ -21,75 +21,135 @@ namespace patchworkpp_ros {
 // Utility functions for point cloud conversion
 namespace utils {
 
+namespace detail {
+
+// Byte-swap for big-endian payloads if needed.
+inline float readFloat(const uint8_t* p, bool big_endian) {
+  float v;
+  if (!big_endian) {
+    std::memcpy(&v, p, sizeof(float));
+  } else {
+    uint8_t tmp[4] = {p[3], p[2], p[1], p[0]};
+    std::memcpy(&v, tmp, sizeof(float));
+  }
+  return v;
+}
+
+inline void writeFloat(uint8_t* p, float v, bool big_endian) {
+  if (!big_endian) {
+    std::memcpy(p, &v, sizeof(float));
+  } else {
+    uint8_t tmp[4];
+    std::memcpy(tmp, &v, sizeof(float));
+    // write reversed
+    p[0] = tmp[3]; p[1] = tmp[2]; p[2] = tmp[1]; p[3] = tmp[0];
+  }
+}
+
+} // namespace detail
+
 sensor_msgs::msg::PointCloud2 EigenMatToPointCloud2(
-    const Eigen::MatrixX3f &points, 
+    const Eigen::MatrixX3f &points,
     const std_msgs::msg::Header &header) {
+
   sensor_msgs::msg::PointCloud2 cloud_msg;
-  cloud_msg.header = header;
-  cloud_msg.height = 1;
-  cloud_msg.width = points.rows();
-  cloud_msg.is_bigendian = false;
-  cloud_msg.is_dense = false;
-  
-  // Set fields
+  cloud_msg.header       = header;
+  cloud_msg.height       = 1;                      // unorganized by default
+  cloud_msg.width        = static_cast<uint32_t>(points.rows());
+  cloud_msg.is_bigendian = false;                  // ROS 2 on typical machines is little-endian
+  cloud_msg.is_dense     = false;                  // conservative; set true if you guarantee no NaNs
+
+  cloud_msg.fields.clear();
+  cloud_msg.fields.reserve(3);
+
   sensor_msgs::msg::PointField field;
-  field.name = "x";
-  field.offset = 0;
   field.datatype = sensor_msgs::msg::PointField::FLOAT32;
-  field.count = 1;
-  cloud_msg.fields.push_back(field);
-  
-  field.name = "y";
-  field.offset = 4;
-  field.datatype = sensor_msgs::msg::PointField::FLOAT32;
-  field.count = 1;
-  cloud_msg.fields.push_back(field);
-  
-  field.name = "z";
-  field.offset = 8;
-  field.datatype = sensor_msgs::msg::PointField::FLOAT32;
-  field.count = 1;
-  cloud_msg.fields.push_back(field);
-  
+  field.count    = 1;
+
+  field.name   = "x"; field.offset = 0;  cloud_msg.fields.push_back(field);
+  field.name   = "y"; field.offset = 4;  cloud_msg.fields.push_back(field);
+  field.name   = "z"; field.offset = 8;  cloud_msg.fields.push_back(field);
+
   cloud_msg.point_step = 12; // 3 * 4 bytes
-  cloud_msg.row_step = cloud_msg.point_step * cloud_msg.width;
-  cloud_msg.data.resize(cloud_msg.row_step * cloud_msg.height);
-  
-  // Copy data
-  memcpy(cloud_msg.data.data(), points.data(), cloud_msg.data.size());
-  
+  cloud_msg.row_step   = cloud_msg.point_step * cloud_msg.width;
+
+  // allocate data buffer
+  cloud_msg.data.resize(static_cast<size_t>(cloud_msg.row_step) * cloud_msg.height);
+
+  // IMPORTANT: Eigen is column-major by default. Pack per-point.
+  // If you prefer memcpy, you can first make a RowMajor view/copy:
+  //   Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> rowMajor = points;
+  //   std::memcpy(cloud_msg.data.data(), rowMajor.data(), rowMajor.size() * sizeof(float));
+  // We'll do explicit packing for clarity.
+
+  uint8_t* base = cloud_msg.data.data();
+  const bool big_endian = cloud_msg.is_bigendian;
+
+  for (int i = 0; i < points.rows(); ++i) {
+    uint8_t* dst = base + static_cast<size_t>(i) * cloud_msg.point_step;
+    detail::writeFloat(dst + 0,  points(i, 0), big_endian);
+    detail::writeFloat(dst + 4,  points(i, 1), big_endian);
+    detail::writeFloat(dst + 8,  points(i, 2), big_endian);
+  }
+
   return cloud_msg;
 }
 
 Eigen::MatrixX3f PointCloud2ToEigenMat(
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr &cloud_msg) {
-  Eigen::MatrixX3f points(cloud_msg->width, 3);
-  
-  // Find x, y, z field indices
+
+  // Locate x/y/z fields and validate datatypes
   int x_idx = -1, y_idx = -1, z_idx = -1;
   for (size_t i = 0; i < cloud_msg->fields.size(); ++i) {
-    if (cloud_msg->fields[i].name == "x") x_idx = i;
-    else if (cloud_msg->fields[i].name == "y") y_idx = i;
-    else if (cloud_msg->fields[i].name == "z") z_idx = i;
+    const auto &f = cloud_msg->fields[i];
+    if (f.name == "x") x_idx = static_cast<int>(i);
+    else if (f.name == "y") y_idx = static_cast<int>(i);
+    else if (f.name == "z") z_idx = static_cast<int>(i);
   }
-  
   if (x_idx == -1 || y_idx == -1 || z_idx == -1) {
     throw std::runtime_error("PointCloud2 missing x, y, or z field");
   }
-  
-  // Extract points
-  for (size_t i = 0; i < cloud_msg->width; ++i) {
-    size_t offset = i * cloud_msg->point_step;
-    points(i, 0) = *reinterpret_cast<const float*>(&cloud_msg->data[offset + cloud_msg->fields[x_idx].offset]);
-    points(i, 1) = *reinterpret_cast<const float*>(&cloud_msg->data[offset + cloud_msg->fields[y_idx].offset]);
-    points(i, 2) = *reinterpret_cast<const float*>(&cloud_msg->data[offset + cloud_msg->fields[z_idx].offset]);
+  const auto &fx = cloud_msg->fields[static_cast<size_t>(x_idx)];
+  const auto &fy = cloud_msg->fields[static_cast<size_t>(y_idx)];
+  const auto &fz = cloud_msg->fields[static_cast<size_t>(z_idx)];
+  if (fx.datatype != sensor_msgs::msg::PointField::FLOAT32 ||
+      fy.datatype != sensor_msgs::msg::PointField::FLOAT32 ||
+      fz.datatype != sensor_msgs::msg::PointField::FLOAT32) {
+    throw std::runtime_error("PointCloud2 x/y/z fields must be FLOAT32");
   }
-  
+
+  const uint32_t width      = cloud_msg->width;
+  const uint32_t height     = cloud_msg->height == 0 ? 1 : cloud_msg->height; // defensive
+  const uint32_t point_step = cloud_msg->point_step;
+  const uint32_t row_step   = cloud_msg->row_step ? cloud_msg->row_step : point_step * width;
+
+  const size_t total_points = static_cast<size_t>(width) * static_cast<size_t>(height);
+  Eigen::MatrixX3f points(static_cast<int>(total_points), 3);
+
+  const uint8_t* base = cloud_msg->data.data();
+  const bool big_endian = cloud_msg->is_bigendian;
+
+  // Support both organized (height > 1) and unorganized (height == 1)
+  size_t k = 0;
+  for (uint32_t r = 0; r < height; ++r) {
+    const uint8_t* row_ptr = base + static_cast<size_t>(r) * row_step;
+    for (uint32_t c = 0; c < width; ++c, ++k) {
+      const uint8_t* p = row_ptr + static_cast<size_t>(c) * point_step;
+
+      const float x = detail::readFloat(p + fx.offset, big_endian);
+      const float y = detail::readFloat(p + fy.offset, big_endian);
+      const float z = detail::readFloat(p + fz.offset, big_endian);
+
+      points(static_cast<int>(k), 0) = x;
+      points(static_cast<int>(k), 1) = y;
+      points(static_cast<int>(k), 2) = z;
+    }
+  }
+
   return points;
 }
 
-}  // namespace utils
-
+} // namespace utils
 GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
     : rclcpp::Node("patchworkpp_ground_removal_node", options) {
   patchwork::Params params;
@@ -128,7 +188,6 @@ void GroundRemovalServer::declareParameters(patchwork::Params &params) {
   std::map<std::string, rclcpp::ParameterValue> defaults;
 
   // ROS node configuration defaults
-  defaults["base_frame"]       = rclcpp::ParameterValue(base_frame_);
   defaults["publish_debug"]    = rclcpp::ParameterValue(publish_debug_);
   defaults["publish_original"] = rclcpp::ParameterValue(publish_original_);
 
@@ -157,7 +216,6 @@ void GroundRemovalServer::declareParameters(patchwork::Params &params) {
   this->declare_parameters("", defaults);
 
   // Load back into members and Patchwork++ params
-  this->get_parameter("base_frame", base_frame_);
   this->get_parameter("publish_debug", publish_debug_);
   this->get_parameter("publish_original", publish_original_);
 
@@ -208,33 +266,24 @@ void GroundRemovalServer::removeGround(
                cloud.rows(), ground.rows(), nonground.rows(), time_taken);
 }
 
-void GroundRemovalServer::publishFilteredCloud(const Eigen::MatrixX3f &nonground_points,
-                                              const std_msgs::msg::Header header_msg) {
-  std_msgs::msg::Header header = header_msg;
-  header.frame_id = base_frame_;
-  
-  // Publish the filtered cloud (ground removed)
+void GroundRemovalServer::publishFilteredCloud(
+    const Eigen::MatrixX3f &nonground_points,
+    const std_msgs::msg::Header &in_header) {
+
+  // Keep the exact same header; do NOT change frame_id unless you transformed the data.
   filtered_cloud_publisher_->publish(
-      std::move(utils::EigenMatToPointCloud2(nonground_points, header)));
+      utils::EigenMatToPointCloud2(nonground_points, in_header));
 }
 
-void GroundRemovalServer::publishDebugClouds(const Eigen::MatrixX3f &est_ground,
-                                            const Eigen::MatrixX3f &est_nonground,
-                                            const std_msgs::msg::Header header_msg) {
-  // Only publish if debug is enabled and publishers exist
-  if (!publish_debug_ || !ground_publisher_ || !nonground_publisher_) {
-    return;
-  }
-  std_msgs::msg::Header header = header_msg;
-  header.frame_id = base_frame_;
-  
-  // Publish ground points for debugging
-  ground_publisher_->publish(
-      std::move(utils::EigenMatToPointCloud2(est_ground, header)));
-  
-  // Publish non-ground points for debugging
-  nonground_publisher_->publish(
-      std::move(utils::EigenMatToPointCloud2(est_nonground, header)));
+void GroundRemovalServer::publishDebugClouds(
+    const Eigen::MatrixX3f &est_ground,
+    const Eigen::MatrixX3f &est_nonground,
+    const std_msgs::msg::Header &in_header) {
+
+  if (!publish_debug_ || !ground_publisher_ || !nonground_publisher_) return;
+
+  ground_publisher_->publish(utils::EigenMatToPointCloud2(est_ground, in_header));
+  nonground_publisher_->publish(utils::EigenMatToPointCloud2(est_nonground, in_header));
 }
 
 }  // namespace patchworkpp_ros

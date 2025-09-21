@@ -24,12 +24,12 @@ class GroundRemovalServer : public rclcpp::Node {
 
   /// Publish the filtered point cloud (ground removed)
   void publishFilteredCloud(const Eigen::MatrixX3f &nonground_points,
-                           const std_msgs::msg::Header header_msg);
+                           const std_msgs::msg::Header &header_msg);
 
   /// Publish additional debug information if enabled
   void publishDebugClouds(const Eigen::MatrixX3f &est_ground,
                          const Eigen::MatrixX3f &est_nonground,
-                         const std_msgs::msg::Header header_msg);
+                         const std_msgs::msg::Header &header_msg);
 
  private:
   /// Data subscribers.
@@ -46,7 +46,6 @@ class GroundRemovalServer : public rclcpp::Node {
   std::unique_ptr<patchwork::PatchWorkpp> Patchworkpp_;
 
   /// Configuration parameters
-  std::string base_frame_{"base_link"};
   bool publish_debug_{false};
   bool publish_original_{false};
 
