@@ -29,7 +29,7 @@ if(TARGET patchworkpp::ground_seg_cores)
 elseif(TARGET patchworkpp::patchworkpp)
   set(PATCHWORKPP_TARGET patchworkpp::patchworkpp)
 else()
-  message(FATAL_ERROR "Found patchworkpp but no expected exported target (ground_seg_cores or patchworkpp).")
+  message(FATAL_ERROR "Found patchworkpp but no expected exported target")
 endif()
 
 
@@ -59,6 +59,7 @@ ament_target_dependencies(patchworkpp_node
 install(TARGETS patchworkpp_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # Export
 ament_export_dependencies(Eigen3)

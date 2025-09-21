@@ -3,7 +3,7 @@
 <package format="3">
   <name>patchworkpp</name>
   <version>0.1.0</version>
-  <description>Patchwork++ ROS 2 wrapper that filters ground points from a point cloud.</description>
+  <description>Patchwork++ ROS2 wrapper</description>
 
   <maintainer email="b69zheng@uwaterloo.ca">Brian Zheng</maintainer>
   <license>Apache License 2.0</license>

@@ -10,7 +10,6 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <rclcpp/parameter_value.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/string.hpp>
 
@@ -20,8 +19,6 @@ namespace patchworkpp_ros {
 
 // Utility functions for point cloud conversion
 namespace utils {
-
-namespace detail {
 
 // Byte-swap for big-endian payloads if needed.
 inline float readFloat(const uint8_t* p, bool big_endian) {
@@ -46,18 +43,16 @@ inline void writeFloat(uint8_t* p, float v, bool big_endian) {
   }
 }
 
-} // namespace detail
-
 sensor_msgs::msg::PointCloud2 EigenMatToPointCloud2(
     const Eigen::MatrixX3f &points,
     const std_msgs::msg::Header &header) {
 
   sensor_msgs::msg::PointCloud2 cloud_msg;
   cloud_msg.header       = header;
-  cloud_msg.height       = 1;                      // unorganized by default
+  cloud_msg.height       = 1;                      
   cloud_msg.width        = static_cast<uint32_t>(points.rows());
-  cloud_msg.is_bigendian = false;                  // ROS 2 on typical machines is little-endian
-  cloud_msg.is_dense     = false;                  // conservative; set true if you guarantee no NaNs
+  cloud_msg.is_bigendian = false;                  
+  cloud_msg.is_dense     = false;                  
 
   cloud_msg.fields.clear();
   cloud_msg.fields.reserve(3);
@@ -76,20 +71,14 @@ sensor_msgs::msg::PointCloud2 EigenMatToPointCloud2(
   // allocate data buffer
   cloud_msg.data.resize(static_cast<size_t>(cloud_msg.row_step) * cloud_msg.height);
 
-  // IMPORTANT: Eigen is column-major by default. Pack per-point.
-  // If you prefer memcpy, you can first make a RowMajor view/copy:
-  //   Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> rowMajor = points;
-  //   std::memcpy(cloud_msg.data.data(), rowMajor.data(), rowMajor.size() * sizeof(float));
-  // We'll do explicit packing for clarity.
-
   uint8_t* base = cloud_msg.data.data();
   const bool big_endian = cloud_msg.is_bigendian;
 
   for (int i = 0; i < points.rows(); ++i) {
     uint8_t* dst = base + static_cast<size_t>(i) * cloud_msg.point_step;
-    detail::writeFloat(dst + 0,  points(i, 0), big_endian);
-    detail::writeFloat(dst + 4,  points(i, 1), big_endian);
-    detail::writeFloat(dst + 8,  points(i, 2), big_endian);
+    writeFloat(dst + 0,  points(i, 0), big_endian);
+    writeFloat(dst + 4,  points(i, 1), big_endian);
+    writeFloat(dst + 8,  points(i, 2), big_endian);
   }
 
   return cloud_msg;
@@ -119,7 +108,7 @@ Eigen::MatrixX3f PointCloud2ToEigenMat(
   }
 
   const uint32_t width      = cloud_msg->width;
-  const uint32_t height     = cloud_msg->height == 0 ? 1 : cloud_msg->height; // defensive
+  const uint32_t height     = cloud_msg->height == 0 ? 1 : cloud_msg->height; 
   const uint32_t point_step = cloud_msg->point_step;
   const uint32_t row_step   = cloud_msg->row_step ? cloud_msg->row_step : point_step * width;
 
@@ -136,9 +125,9 @@ Eigen::MatrixX3f PointCloud2ToEigenMat(
     for (uint32_t c = 0; c < width; ++c, ++k) {
       const uint8_t* p = row_ptr + static_cast<size_t>(c) * point_step;
 
-      const float x = detail::readFloat(p + fx.offset, big_endian);
-      const float y = detail::readFloat(p + fy.offset, big_endian);
-      const float z = detail::readFloat(p + fz.offset, big_endian);
+      const float x = readFloat(p + fx.offset, big_endian);
+      const float y = readFloat(p + fy.offset, big_endian);
+      const float z = readFloat(p + fz.offset, big_endian);
 
       points(static_cast<int>(k), 0) = x;
       points(static_cast<int>(k), 1) = y;
@@ -151,15 +140,15 @@ Eigen::MatrixX3f PointCloud2ToEigenMat(
 
 } // namespace utils
 GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
-    : rclcpp::Node("patchworkpp_ground_removal_node", options) {
+    : rclcpp::Node("patchworkpp_node", options) {
   patchwork::Params params;
 
-  // Declare and load all parameters at once
+  // load params
   declareParameters(params);
 
-  // Construct the main Patchwork++ node
+  // Patchwork++ node
   Patchworkpp_ = std::make_unique<patchwork::PatchWorkpp>(params);
-  // Initialize subscribers
+  // subscribers
   pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       cloud_topic_,
       rclcpp::SensorDataQoS(),
@@ -168,7 +157,7 @@ GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
   rclcpp::QoS qos(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
   qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
   qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
-
+ 
   filtered_cloud_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
       filtered_topic_, qos);
 
@@ -185,58 +174,31 @@ GroundRemovalServer::GroundRemovalServer(const rclcpp::NodeOptions &options)
 }
 
 void GroundRemovalServer::declareParameters(patchwork::Params &params) {
-  std::map<std::string, rclcpp::ParameterValue> defaults;
-
-  // ROS node configuration defaults
-  defaults["publish_debug"]    = rclcpp::ParameterValue(publish_debug_);
-  defaults["publish_original"] = rclcpp::ParameterValue(publish_original_);
+  // ROS node configuration
+  publish_debug_ = this->declare_parameter<bool>("publish_debug", false);
+  publish_original_ = this->declare_parameter<bool>("publish_original", false);
 
   // Topics
-  defaults["cloud_topic"]    = rclcpp::ParameterValue(cloud_topic_);
-  defaults["filtered_topic"] = rclcpp::ParameterValue(filtered_topic_);
-  defaults["ground_topic"]   = rclcpp::ParameterValue(ground_topic_);
-  defaults["non_ground_topic"] = rclcpp::ParameterValue(nonground_topic_);
+  this->declare_parameter<std::string>("base_frame", "base_link");
+  cloud_topic_ = this->declare_parameter<std::string>("cloud_topic", "/LIDAR_TOP");
+  filtered_topic_ = this->declare_parameter<std::string>("filtered_topic", "/patchworkpp/filtered_cloud");
+  ground_topic_ = this->declare_parameter<std::string>("ground_topic", "/patchworkpp/ground_cloud");
+  nonground_topic_ = this->declare_parameter<std::string>("non_ground_topic", "/patchworkpp/non_ground_cloud");
 
-  // Patchwork++ algorithm parameters (seeded from library defaults)
-  defaults["sensor_height"]   = rclcpp::ParameterValue(params.sensor_height);
-  defaults["num_iter"]         = rclcpp::ParameterValue(params.num_iter);
-  defaults["num_lpr"]          = rclcpp::ParameterValue(params.num_lpr);
-  defaults["num_min_pts"]      = rclcpp::ParameterValue(params.num_min_pts);
-  defaults["th_seeds"]         = rclcpp::ParameterValue(params.th_seeds);
-  defaults["th_dist"]          = rclcpp::ParameterValue(params.th_dist);
-  defaults["th_seeds_v"]       = rclcpp::ParameterValue(params.th_seeds_v);
-  defaults["th_dist_v"]        = rclcpp::ParameterValue(params.th_dist_v);
-  defaults["max_range"]        = rclcpp::ParameterValue(params.max_range);
-  defaults["min_range"]        = rclcpp::ParameterValue(params.min_range);
-  defaults["uprightness_thr"]  = rclcpp::ParameterValue(params.uprightness_thr);
-  defaults["enable_RNR"]       = rclcpp::ParameterValue(params.enable_RNR);
-  defaults["verbose"]          = rclcpp::ParameterValue(params.verbose);
-
-  // Declare all parameters together
-  this->declare_parameters("", defaults);
-
-  // Load back into members and Patchwork++ params
-  this->get_parameter("publish_debug", publish_debug_);
-  this->get_parameter("publish_original", publish_original_);
-
-  this->get_parameter("cloud_topic", cloud_topic_);
-  this->get_parameter("filtered_topic", filtered_topic_);
-  this->get_parameter("ground_topic", ground_topic_);
-  this->get_parameter("non_ground_topic", nonground_topic_);
-
-  this->get_parameter("sensor_height", params.sensor_height);
-  this->get_parameter("num_iter", params.num_iter);
-  this->get_parameter("num_lpr", params.num_lpr);
-  this->get_parameter("num_min_pts", params.num_min_pts);
-  this->get_parameter("th_seeds", params.th_seeds);
-  this->get_parameter("th_dist", params.th_dist);
-  this->get_parameter("th_seeds_v", params.th_seeds_v);
-  this->get_parameter("th_dist_v", params.th_dist_v);
-  this->get_parameter("max_range", params.max_range);
-  this->get_parameter("min_range", params.min_range);
-  this->get_parameter("uprightness_thr", params.uprightness_thr);
-  this->get_parameter("enable_RNR", params.enable_RNR);
-  this->get_parameter("verbose", params.verbose);
+  // Patchwork++ algorithm parameters (explicit defaults mirror config file)
+  params.sensor_height = this->declare_parameter<double>("sensor_height", 1.88);
+  params.num_iter = this->declare_parameter<int>("num_iter", 3);
+  params.num_lpr = this->declare_parameter<int>("num_lpr", 20);
+  params.num_min_pts = this->declare_parameter<int>("num_min_pts", 0);
+  params.th_seeds = this->declare_parameter<double>("th_seeds", 0.3);
+  params.th_dist = this->declare_parameter<double>("th_dist", 0.10);
+  params.th_seeds_v = this->declare_parameter<double>("th_seeds_v", 0.25);
+  params.th_dist_v = this->declare_parameter<double>("th_dist_v", 0.85);
+  params.max_range = this->declare_parameter<double>("max_range", 80.0);
+  params.min_range = this->declare_parameter<double>("min_range", 1.0);
+  params.uprightness_thr = this->declare_parameter<double>("uprightness_thr", 0.101);
+  params.enable_RNR = this->declare_parameter<bool>("enable_RNR", false);
+  params.verbose = this->declare_parameter<bool>("verbose", true);
 }
 
 void GroundRemovalServer::removeGround(
@@ -258,19 +220,16 @@ void GroundRemovalServer::removeGround(
   // Publish debug information if enabled
   if (publish_debug_) {
     publishDebugClouds(ground, nonground, msg->header);
-  }
-
-  // Log processing statistics
-  RCLCPP_DEBUG(this->get_logger(), 
+    RCLCPP_DEBUG(this->get_logger(), 
                "Processed %zu points: %zu ground, %zu non-ground (removed). Time: %.3f ms",
                cloud.rows(), ground.rows(), nonground.rows(), time_taken);
+  }
 }
-
+  
 void GroundRemovalServer::publishFilteredCloud(
     const Eigen::MatrixX3f &nonground_points,
     const std_msgs::msg::Header &in_header) {
 
-  // Keep the exact same header; do NOT change frame_id unless you transformed the data.
   filtered_cloud_publisher_->publish(
       utils::EigenMatToPointCloud2(nonground_points, in_header));
 }
@@ -287,7 +246,6 @@ void GroundRemovalServer::publishDebugClouds(
 }
 
 }  // namespace patchworkpp_ros
-
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);

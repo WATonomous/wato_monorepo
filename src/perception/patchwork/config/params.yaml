@@ -1,27 +1,28 @@
 ---
-ros__parameters:
-  # Frame
-  base_frame: base_link
-  publish_debug: false
-  publish_original: false
+patchworkpp_node: 
+  ros__parameters:
+    # Frame
+    base_frame: base_link
+    publish_debug: false
+    publish_original: false
 
-  # Topics
-  cloud_topic: /LIDAR_TOP
-  filtered_topic: /patchworkpp/filtered_cloud
-  ground_topic: /patchworkpp/ground_cloud
-  non_ground_topic: /patchworkpp/non_ground_cloud
+    # Topics
+    cloud_topic: /LIDAR_TOP
+    filtered_topic: /patchworkpp/filtered_cloud
+    ground_topic: /patchworkpp/ground_cloud
+    non_ground_topic: /patchworkpp/non_ground_cloud
 
-  # Patchwork++ parameters (defaults mirror launch example)
-  sensor_height: 1.88
-  num_iter: 3
-  num_lpr: 20
-  num_min_pts: 0
-  th_seeds: 0.3
-  th_dist: 0.125
-  th_seeds_v: 0.25
-  th_dist_v: 0.9
-  max_range: 80.0
-  min_range: 1.0
-  uprightness_thr: 0.101
-  enable_RNR: false
-  verbose: true
+    # Patchwork++ parameters (seeded from library defaults)
+    sensor_height: 1.84 #lidar height specific to nuscenes, change this for eve
+    num_iter: 3
+    num_lpr: 20
+    num_min_pts: 0
+    th_seeds: 0.3
+    th_dist: 0.15
+    th_seeds_v: 0.25
+    th_dist_v: 0.85
+    max_range: 90.0
+    min_range: 1.0
+    uprightness_thr: 0.101
+    enable_RNR: false
+    verbose: false
