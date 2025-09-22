@@ -16,6 +16,7 @@
 #define STATE_ESTIMATION__WHEEL_ODOMETRY_CORE_HPP_
 
 #include <nav_msgs/msg/odometry.hpp>
+
 #include "interfacing_msgs/msg/vehicle_status.hpp"
 
 namespace wato::world_modeling::state_estimation
@@ -39,9 +40,7 @@ public:
    * @param msg Shared pointer to the vehicle status message.
    * @param odom_msg Reference to the odometry message to be populated.
    */
-  void computeOdometry(
-    const interfacing_msgs::msg::VehicleStatus::SharedPtr & msg,
-    nav_msgs::msg::Odometry & odom_msg);
+  void computeOdometry(const interfacing_msgs::msg::VehicleStatus::SharedPtr & msg, nav_msgs::msg::Odometry & odom_msg);
 
   /**
    * @brief Sets the wheel base of the vehicle.

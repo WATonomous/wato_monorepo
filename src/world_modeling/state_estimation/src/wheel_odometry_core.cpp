@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cmath>
-#include <nav_msgs/msg/odometry.hpp>
-#include <interfacing_msgs/msg/vehicle_status.hpp>
-
 #include "state_estimation/wheel_odometry_core.hpp"
 
+#include <cmath>
+
+#include <interfacing_msgs/msg/vehicle_status.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+
 wato::world_modeling::state_estimation::WheelOdometryCore::WheelOdometryCore(double wheel_base)
-: wheel_base_(wheel_base) {}
+: wheel_base_(wheel_base)
+{}
 
 void wato::world_modeling::state_estimation::WheelOdometryCore::setWheelBase(double wheel_base)
 {

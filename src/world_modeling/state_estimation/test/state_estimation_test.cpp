@@ -13,22 +13,26 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
-#include <nav_msgs/msg/odometry.hpp>
+
+#include <memory>
+
 #include <interfacing_msgs/msg/vehicle_status.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 #include "state_estimation/wheel_odometry_core.hpp"
 
 /**
  * @brief Tests if the sign of the angular velocity is correct.
  */
-TEST(WheelOdometryCoreTest, CheckAngularVelocitySign) {
+TEST(WheelOdometryCoreTest, CheckAngularVelocitySign)
+{
   // Initialize WheelOdometryCore with a wheel base of 2.5 meters
   wato::world_modeling::state_estimation::WheelOdometryCore odometry_core(2.5);
 
   // Create a mock VehicleStatus message
   auto vehicle_status = std::make_shared<interfacing_msgs::msg::VehicleStatus>();
-  vehicle_status->speed = 10.0;    // 10 m/s
-  vehicle_status->steering_angle = 0.1;    // 0.1 radians
+  vehicle_status->speed = 10.0;  // 10 m/s
+  vehicle_status->steering_angle = 0.1;  // 0.1 radians
 
   // Create an Odometry message to populate
   nav_msgs::msg::Odometry odom_msg;
@@ -40,7 +44,7 @@ TEST(WheelOdometryCoreTest, CheckAngularVelocitySign) {
   EXPECT_LT(odom_msg.twist.twist.angular.z, 0.0);
 
   // Update mock VehicleStatus message with negative steering angle
-  vehicle_status->steering_angle = -0.1;    // -0.1 radians
+  vehicle_status->steering_angle = -0.1;  // -0.1 radians
 
   // Compute odometry again
   odometry_core.computeOdometry(vehicle_status, odom_msg);

@@ -12,27 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <string>
-#include <rclcpp/rclcpp.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <interfacing_msgs/msg/vehicle_status.hpp>
-
 #include "state_estimation/wheel_odometry_node.hpp"
+
+#include <string>
+
+#include <interfacing_msgs/msg/vehicle_status.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/rclcpp.hpp>
+
 #include "state_estimation/wheel_odometry_core.hpp"
 
 WheelOdometryNode::WheelOdometryNode()
-: Node("wheel_odometry"), wheel_odometry_(2.875)  // default wheel base in meters
+: Node("wheel_odometry")
+, wheel_odometry_(2.875)  // default wheel base in meters
 {
   // Input and Output Topic Names
   this->declare_parameter<std::string>("vehicle_status_topic", std::string("/vehicle_status"));
-  this->declare_parameter<std::string>(
-    "wheel_odometry_output_topic",
-    std::string("/state_estimation/wheel_odometry"));
+  this->declare_parameter<std::string>("wheel_odometry_output_topic", std::string("/state_estimation/wheel_odometry"));
   this->declare_parameter<double>("wheel_base", 2.875);
 
   std::string vehicle_status_topic_ = this->get_parameter("vehicle_status_topic").as_string();
-  std::string odometry_output_topic_ =
-    this->get_parameter("wheel_odometry_output_topic").as_string();
+  std::string odometry_output_topic_ = this->get_parameter("wheel_odometry_output_topic").as_string();
   double wheel_base_ = this->get_parameter("wheel_base").as_double();
 
   // Update wheel base size based on parameter
@@ -41,16 +41,13 @@ WheelOdometryNode::WheelOdometryNode()
   // Subscriber
   auto qos = rclcpp::QoS(rclcpp::KeepLast(10));  // keep only last 10 messages
   vehicle_status_sub_ = this->create_subscription<interfacing_msgs::msg::VehicleStatus>(
-    vehicle_status_topic_, qos,
-    std::bind(&WheelOdometryNode::vehicleStatusCallback, this, std::placeholders::_1));
+    vehicle_status_topic_, qos, std::bind(&WheelOdometryNode::vehicleStatusCallback, this, std::placeholders::_1));
 
   // Publisher
-  wheel_odometry_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>(
-    odometry_output_topic_, qos);
+  wheel_odometry_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>(odometry_output_topic_, qos);
 }
 
-void WheelOdometryNode::vehicleStatusCallback(
-  const interfacing_msgs::msg::VehicleStatus::SharedPtr msg)
+void WheelOdometryNode::vehicleStatusCallback(const interfacing_msgs::msg::VehicleStatus::SharedPtr msg)
 {
   // Use core logic to compute odometry
   auto odom_msg = nav_msgs::msg::Odometry();
