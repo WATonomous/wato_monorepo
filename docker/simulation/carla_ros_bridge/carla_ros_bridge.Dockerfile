@@ -17,6 +17,7 @@ RUN sed -i s/simple_pid.PID/simple_pid.pid/g ./ros-bridge/carla_ackermann_contro
 
 COPY src/simulation/carla_config carla_config
 COPY src/wato_msgs/simulation ros_msgs
+COPY src/wato_msgs/interfacing_msgs interfacing_msgs
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && rosdep update --rosdistro foxy && \
