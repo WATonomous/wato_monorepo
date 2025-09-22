@@ -34,7 +34,8 @@ endif()
 
 
 add_executable(patchworkpp_node
-  src/ground_removal.cpp
+  src/ground_removal_core.cpp
+  src/ground_removal_node.cpp
 )
 
 target_include_directories(patchworkpp_node

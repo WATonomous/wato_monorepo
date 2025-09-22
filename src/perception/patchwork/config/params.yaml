@@ -2,7 +2,6 @@
 patchworkpp_node: 
   ros__parameters:
     # Frame
-    base_frame: base_link
     publish_debug: false
     publish_original: false
 
