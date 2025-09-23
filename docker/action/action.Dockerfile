@@ -9,8 +9,13 @@ WORKDIR ${AMENT_WS}/src
 COPY src/action action
 COPY src/wato_msgs wato_msgs
 
-# Update CONTRIBUTING.md to pass ament_copyright test
-COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
+
+
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
+
+# Update CONTRIBUTING.md to pass copyright test
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CONTRIBUTING.md
+#COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
