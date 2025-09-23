@@ -35,6 +35,10 @@ WORKDIR /home/bolty
 RUN git clone https://github.com/carla-simulator/scenario_runner.git
 
 WORKDIR /home/bolty/scenario_runner
+
+# CHECKOUT the tag that matches your CARLA version:
+RUN git fetch --tags && git checkout v0.9.13
+
 RUN pip3 install --no-cache-dir -r requirements.txt && \
     sed -i 's/hero/ego/g' srunner/tools/scenario_parser.py
 
