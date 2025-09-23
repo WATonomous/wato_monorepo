@@ -4,10 +4,18 @@ FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 FROM python:3.8.16-slim-bullseye
 ARG CARLA_VERSION=0.9.13
 
+#upgrade pip
+RUN python3 -m pip install --upgrade pip setuptools wheel
+
+
+
 RUN pip3 install --no-cache-dir \
-        carla==${CARLA_VERSION} \
-        jupyter==1.0.0 \
-        tensorflow-probability==0.23.0
+    carla==${CARLA_VERSION} \
+    jupyter==1.0.0 \
+    tensorflow==2.13.1 \
+    tensorflow-probability==0.21.0 \
+    "keras<3"
+
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
