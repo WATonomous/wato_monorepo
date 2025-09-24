@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>state_estimation</name>
+  <version>0.0.0</version>
+  <description>ROS2 Package for State Estimation using Wheel Odometry</description>
+
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache 2.0</license>
+
+  <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>std_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>nav_msgs</depend>
+  <depend>interfacing_msgs</depend>
+
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <!--https://www.ros.org/reps/rep-0149.html#export-->
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
