@@ -20,11 +20,11 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription(
         [
-        Node(
-            package="model_predictive_control",
-            executable="mpc_node",  
-            name="mpc_node",
-            output="screen", 
-        )
+            Node(
+                package="model_predictive_control",
+                executable="mpc_node",
+                name="mpc_node",
+                output="screen",
+            )
         ]
     )
