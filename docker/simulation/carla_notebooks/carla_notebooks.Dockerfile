@@ -5,16 +5,15 @@ FROM python:3.8.16-slim-bullseye
 ARG CARLA_VERSION=0.9.13
 
 #upgrade pip
-RUN python3 -m pip install --upgrade pip setuptools wheel
 
-
-
-RUN pip3 install --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir --upgrade \
+    pip==24.2 setuptools==70.0.0 wheel==0.44.0 && \
+    pip3 install --no-cache-dir \
     carla==${CARLA_VERSION} \
     jupyter==1.0.0 \
     tensorflow==2.13.1 \
     tensorflow-probability==0.21.0 \
-    "keras<3"
+    keras==2.13.1
 
 
 RUN apt-get update && \

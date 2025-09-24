@@ -37,7 +37,7 @@ RUN apt-get update && \
 
 #install casadi via pip
 RUN apt-get update && apt-fast install -qq -y --no-install-recommends python3-pip && \
-    python3 -m pip install --no-cache-dir --upgrade pip && \
+    python3 -m pip install --no-cache-dir "pip==24.2" && \
     # Install CasADi
     python3 -m pip install --no-cache-dir "casadi==3.6.5" && \
     # Verify installation
