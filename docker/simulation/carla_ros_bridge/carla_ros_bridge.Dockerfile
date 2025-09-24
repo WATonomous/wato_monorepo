@@ -37,27 +37,8 @@ RUN apt-get update -qq && \
         libglu1-mesa-dev xorg-dev \
         software-properties-common \
         build-essential \
-        python3-rosdep \
-        python3-rospkg \
-        python3-colcon-common-extensions \
         python3-pygame \
-        ros-foxy-tf2-geometry-msgs \
-        ros-foxy-tf2-eigen \
-        ros-foxy-ackermann-msgs \
-        ros-foxy-derived-object-msgs \
-        ros-foxy-cv-bridge \
-        ros-foxy-vision-opencv \
-        ros-foxy-rqt-image-view \
-        ros-foxy-rqt-gui-py \
-        qt5-default \
-        ros-foxy-pcl-conversions \
-        ros-foxy-resource-retriever \
-        ros-foxy-yaml-cpp-vendor \
-        ros-foxy-urdf \
-        ros-foxy-map-msgs \
-        ros-foxy-laser-geometry \
-        ros-foxy-interactive-markers \
-        ros-foxy-rviz2 && \
+        qt5-default && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
