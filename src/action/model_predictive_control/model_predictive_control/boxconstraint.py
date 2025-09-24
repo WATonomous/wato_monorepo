@@ -13,6 +13,7 @@
 # limitations under the License.
 import numpy as np
 
+
 class BoxConstraint:
     """
     Bounded constraints lb <= x <= ub as polytopic constraints -Ix <= -b and Ix <= b. np.vstack(-I, I) forms the H matrix from III-D-b of the paper
@@ -49,10 +50,10 @@ class BoxConstraint:
         # Casadi can't do matrix mult with Torch instances but only numpy instead. So have to use the np version of the H and b matrix/vector when
         # defining constraints in the opti stack.
         self.H_np = np.vstack((-np.eye(dim), np.eye(dim)))
-        #self.H = torch.Tensor(self.H_np)
+        # self.H = torch.Tensor(self.H_np)
         # self.b = torch.Tensor(np.hstack((-self.lb, self.ub)))
         self.b_np = np.vstack((-self.lb, self.ub))
-        #self.b = torch.Tensor(self.b_np)
+        # self.b = torch.Tensor(self.b_np)
         # print(self.b)
         self.sym_func = lambda x: self.H_np @ np.array(x, ndmin=2).T - self.b_np
 
