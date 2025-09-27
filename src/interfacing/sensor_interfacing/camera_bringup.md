@@ -13,12 +13,10 @@ p7 = PCI bus 7
 s0 = slot 0
 f1 = function 1
 
-Ensure the Maximum Transmission Unit (MTU) value is 9000 for the interface:
+Key things to check for:
+- Default and max recieve buffer size of 10485760
+- Maximum Transmission Unit (MTU) value is 9000 for the interface:
 
-```sh
-4: enp7s0f1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc mq state UP mode DEFAULT group default qlen 1000
-    link/ether 1a:4b:23:17:63:dc brd ff:ff:ff:ff:ff:ff
-```
 
 ## Camera Specific
 
