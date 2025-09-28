@@ -9,9 +9,6 @@ WORKDIR ${AMENT_WS}/src
 COPY src/interfacing interfacing
 COPY src/wato_msgs wato_msgs
 
-# Update CONTRIBUTING.md to pass ament_copyright test
-COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
-
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && rosdep update && \

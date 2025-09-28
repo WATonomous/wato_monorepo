@@ -3,12 +3,13 @@
 <package format="3">
   <name>interfacing_bringup</name>
   <version>0.0.0</version>
-  <description>TODO(wato): Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
+  <description>Bringup package used to launch drivers for Eve.</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <exec_depend>novatel_gps_driver</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

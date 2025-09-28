@@ -1,0 +1,32 @@
+launch:
+  - arg:
+      name: "oem7_ip_addr"
+      default: "192.168.0.100"
+      description: "IP address of the OEM7 receiver"
+  
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+  
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp, Oem7ReceiverUdp)"
+  
+  - node:
+      pkg: "novatel_oem7_driver"
+      exec: "novatel_oem7_driver_exe"
+      name: "novatel_oem7_driver"
+      namespace: "novatel/oem7"
+      param:
+        # Load base configuration from YAML file
+        - from: "$(find-pkg-share interfacing_bringup)/config/novatel_oem7_config.yaml"
+        
+        # Network interface parameters
+        - name: "oem7_ip_addr"
+          value: "$(var oem7_ip_addr)"
+        - name: "oem7_port"
+          value: "$(var oem7_port)"
+        - name: "oem7_if"
+          value: "$(var oem7_if)"
