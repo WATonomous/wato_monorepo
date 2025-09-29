@@ -1,5 +1,19 @@
 # Camera Bringup
 
+## Networking
+Dnsmasq assigns static IP's to the cameras based on their MAC address. You can see the assignments [here](../interfacing_bringup/README.md).
+
+To set the cameras to automatically search for a DHCP server on boot, do the following:
+1. Auto force IP of camera in order to be able to access its configurations
+2. Go to `Blackfly BFLY...` -> `Transport Layer Control`
+3. Make sure the following are checked:
+[x] GEV Supported Option
+[x] GEV Current IPConfiguration LLA
+[x] GEV Current IPConfiguration DHCP
+[ ] GEV Current IPConfiguration Persistent IP
+
+What this does is tell the blackfly camera to first attempt to retrieve an IP from a DHCP server (which in our case is the server on our computer setup with dnsmasq), and then resort to Link-Local for fallback. Do not enable Persistent IP as it will take precedent over DHCP
+
 ## Computer specific 
 
 The cameras are plugged into a switch that is connected to the main computer.
