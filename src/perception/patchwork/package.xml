@@ -15,6 +15,14 @@
   <build_export_depend>eigen3_cmake_module</build_export_depend>
   <exec_depend>eigen3_cmake_module</exec_depend>
   <depend>eigen</depend>
+  <depend>ffmpeg</depend>
+  <depend>libeigen3-dev</depend>
+  <depend>libpcl-dev</depend>
+  <depend>libsm6</depend>
+  <depend>libxext6</depend>
+  <depend>pcl-tools</depend>
+  <depend>python3</depend>
+  <depend>python3-pip</depend>
   <depend>rcutils</depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
@@ -23,6 +31,7 @@
   <depend>nav_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+  <depend>wget</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

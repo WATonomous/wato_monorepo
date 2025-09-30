@@ -10,35 +10,17 @@ COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs          camera_
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update && \
+RUN apt-get -qq update && \
+    rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
-      | grep 'apt-get install' \
+      | (grep 'apt-get install' || true) \
       | awk '{print $3}' \
-      | sort > /tmp/colcon_install_list
+      | sort > /tmp/colcon_install_list && \
+    rm -rf /var/lib/apt/lists/*
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# Base libraries, compiler tool-chain and pip
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      python3 python3-pip ffmpeg libsm6 libxext6 wget \
-      build-essential gcc gfortran libopenblas-dev liblapack-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-# Python: scipy first (wheels build OpenBLAS)
-RUN python3 -m pip install --no-cache-dir scipy==1.11.4
-
-# Other Python packages
-WORKDIR /tmp
-COPY src/perception/tracking/requirements.txt ./requirements.txt
-RUN python3 -m pip install --no-cache-dir -r requirements.txt && rm requirements.txt
-
-# OpenCV runtime libs (no-recommendations)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libopencv-dev && \
-    rm -rf /var/lib/apt/lists/*
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

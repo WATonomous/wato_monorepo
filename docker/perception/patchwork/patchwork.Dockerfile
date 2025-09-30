@@ -6,38 +6,49 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 COPY src/perception/patchwork patchwork
 
-############################ Dependencies ##########################
-FROM ${BASE_IMAGE} AS dependencies
-SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+RUN git clone --depth 1 --branch master \
+      https://github.com/url-kaist/patchwork-plusplus \
+      patchwork/patchwork-plusplus
 
-# Base libraries and pip
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      python3 python3-pip ffmpeg libsm6 libxext6 wget \
-      libpcl-dev pcl-tools libeigen3-dev && \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN apt-get -qq update && \
+    rosdep update && \
+    rosdep install --from-paths . --ignore-src -r -s \
+        | (grep 'apt-get install' || true) \
+        | awk '{print $3}' \
+        | sort > /tmp/colcon_install_list && \
     rm -rf /var/lib/apt/lists/*
 
-# Build and install Patchwork++ from source so headers/libraries are available
-WORKDIR /opt
-RUN git clone --depth 1 --branch master https://github.com/url-kaist/patchwork-plusplus patchwork-plusplus && \
-    cmake -S patchwork-plusplus/cpp -B patchwork-plusplus/build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    cmake --build patchwork-plusplus/build -j"$(nproc)" && \
-    cmake --install patchwork-plusplus/build \
-    && echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
+############################ Dependencies ##########################
+FROM ${BASE_IMAGE} AS dependencies
 
-# Copy source code from source stage
+# INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
+# Only do this as a last resort. Utilize ROSDEP first
+
+# Copy source code (including Patchwork++) from source stage
 WORKDIR ${AMENT_WS}
+COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+RUN apt-get -qq update && \
+    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=source ${AMENT_WS}/src src
 
-# Clean up apt caches
+WORKDIR ${AMENT_WS}/src/patchwork/patchwork-plusplus
+RUN cmake -S cpp -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build build -j"$(nproc)" && \
+    cmake --install build && \
+    echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
+
+# Clean up package manager caches
+WORKDIR ${AMENT_WS}
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
 ############################### Build ##############################
 FROM dependencies AS build
-SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
 # Build ROS 2 packages
 WORKDIR ${AMENT_WS}
