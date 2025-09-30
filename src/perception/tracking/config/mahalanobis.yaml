@@ -1,7 +1,0 @@
-
-TRACKER:
-  COVARIANCE: 'BaselineCovariance'       # see covariance.py
-  MATCH_THRESHOLD: 11                    # maximum mahalanobis distance
-  MATCH_ALGORITHM: 'greedy_match'        # see algorithms.py
-  SCORE_METRIC: 'mahalanobis_euclidian_metric'
-  USE_ANGULAR_VELOCITY: False
