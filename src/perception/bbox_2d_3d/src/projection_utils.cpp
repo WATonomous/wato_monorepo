@@ -329,13 +329,14 @@ bool ProjectionUtils::computeClusterCentroid(
   return true;
 }
 
-double ProjectionUtils::computeMaxIOU4Corners(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr & input_cloud,
-  const pcl::PointIndices & cluster_indices,
-  const geometry_msgs::msg::TransformStamped & transform,
-  const std::array<double, 12> & projection_matrix,
-  const vision_msgs::msg::Detection2DArray & detections,
-  const float object_detection_confidence)
+
+double ProjectionUtils::computeMaxIOU8Corners(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr&  input_cloud,
+  const pcl::PointIndices&                    cluster_indices,
+  const geometry_msgs::msg::TransformStamped& transform,
+  const std::array<double, 12>&               projection_matrix,
+  const vision_msgs::msg::Detection2DArray&   detections,
+  const float                                 object_detection_confidence)
 {
   // 1) compute 3D axis-aligned min/max
   float min_x = std::numeric_limits<float>::infinity(), max_x = -std::numeric_limits<float>::infinity();
@@ -408,8 +409,27 @@ void ProjectionUtils::computeHighestIOUCluster(
   const std::array<double, 12> & projection_matrix,
   const float object_detection_confidence)
 {
-  if (input_cloud->empty() || cluster_indices.empty()) {
-    return;
+if (input_cloud->empty() || cluster_indices.empty()) {
+  return;
+}
+
+double best_overall_iou = 0.0;
+std::vector<pcl::PointIndices> kept_clusters;
+
+for (auto &cluster : cluster_indices) {
+  // computeMaxIOU8Corners projects the 8 AABB corners and returns the best IoU
+  double iou = computeMaxIOU8Corners(
+    input_cloud,
+    cluster,
+    transform,
+    projection_matrix,
+    detections,
+    object_detection_confidence
+  );
+
+  if (iou > best_overall_iou) {
+    best_overall_iou = iou;
+    kept_clusters.push_back(cluster);
   }
 
   double best_overall_iou = 0.0;
@@ -531,4 +551,60 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
   }
 
   return marker_array;
+}
+
+// compute detection 3d array
+vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+    const std::vector<pcl::PointIndices>& cluster_indices,
+    const sensor_msgs::msg::PointCloud2& msg)
+{
+  vision_msgs::msg::Detection3DArray det_arr;
+  // copy the same header you used for the markers
+  det_arr.header = msg.header;
+
+  int id = 0;
+  for (const auto &cluster : cluster_indices) {
+    // 1) compute axis-aligned min/max (same as you do in computeBoundingBox)
+    Eigen::Vector4f min_pt(+INFINITY, +INFINITY, +INFINITY, 1.0),
+                    max_pt(-INFINITY, -INFINITY, -INFINITY, 1.0);
+    for (auto idx : cluster.indices) {
+      const auto &P = cloud->points[idx];
+      min_pt.x() = std::min(min_pt.x(), P.x);
+      min_pt.y() = std::min(min_pt.y(), P.y);
+      min_pt.z() = std::min(min_pt.z(), P.z);
+      max_pt.x() = std::max(max_pt.x(), P.x);
+      max_pt.y() = std::max(max_pt.y(), P.y);
+      max_pt.z() = std::max(max_pt.z(), P.z);
+    }
+
+    // 2) fill in a Detection3D
+    vision_msgs::msg::Detection3D det;
+    det.header = msg.header;
+
+    // Hypothesis
+    vision_msgs::msg::ObjectHypothesisWithPose hypo;
+    hypo.hypothesis.class_id = "cluster";    // or whatever label
+    hypo.hypothesis.score    = 1.0;          // or your confidence metric
+    det.results.push_back(hypo);
+
+    // Bounding box center
+    geometry_msgs::msg::Pose &pose = det.bbox.center;
+    pose.position.x = 0.5 * (min_pt.x() + max_pt.x());
+    pose.position.y = 0.5 * (min_pt.y() + max_pt.y());
+    pose.position.z = 0.5 * (min_pt.z() + max_pt.z());
+
+    // Orientation — if you want axis-aligned, just leave it identity
+    pose.orientation.w = 1.0;
+
+    // Size
+    det.bbox.size.x = max_pt.x() - min_pt.x();
+    det.bbox.size.y = max_pt.y() - min_pt.y();
+    det.bbox.size.z = max_pt.z() - min_pt.z();
+
+    det_arr.detections.push_back(det);
+    ++id;
+  }
+
+  return det_arr;
 }

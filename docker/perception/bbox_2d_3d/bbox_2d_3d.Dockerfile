@@ -1,38 +1,49 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
 
 ################################ Source ################################
-FROM ${BASE_IMAGE} AS source
+FROM ${BASE_IMAGE} as source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code
-COPY src/interfacing interfacing
-COPY src/wato_msgs wato_msgs
+# Copy in source code 
+COPY src/perception/bbox_2d_3d bbox_2d_3d
+COPY src/wato_msgs/sample_msgs sample_msgs
+COPY src/wato_msgs/perception_msgs/camera_object_detection_msgs camera_object_detection_msgs
 
-# Update CONTRIBUTING.md to pass ament_copyright test
-COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
 
 # Scan for rosdeps
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
-        | (grep 'apt-get install' || true) \
+        | grep 'apt-get install' \
         | awk '{print $3}' \
         | sort  > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
-FROM ${BASE_IMAGE} AS dependencies
+FROM ${BASE_IMAGE} as dependencies
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirror.math.princeton.edu/pub/ubuntu|g' /etc/apt/sources.list
 
-# Install dependancies here, BEFORE WE INSTALL WITH ROSDEP
-
-# Camera and LiDAR ROS Driver
-
+# Install pip
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg libsm6 libxext6 wget \
+    build-essential \
+    gcc \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev \
+    ros-${ROS_DISTRO}-cv-bridge \
+    ros-${ROS_DISTRO}-tf-transformations \
+    ros-${ROS_DISTRO}-pcl-conversions
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get update && \
-    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update
+RUN apt-get install -qq -y --no-install-recommends $(cat /tmp/colcon_install_list)
+RUN apt install ros-$ROS_DISTRO-tf-transformations -y
+
+# install opencv
+RUN apt-get install -y libopencv-dev
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -44,11 +55,11 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
 ################################ Build ################################
-FROM dependencies AS build
+FROM dependencies as build
 
 # Build ROS2 packages
 WORKDIR ${AMENT_WS}
-RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
+RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     colcon build \
         --cmake-args -DCMAKE_BUILD_TYPE=Release
 
@@ -57,9 +68,10 @@ COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
 
 ################################ Prod ################################
-FROM build AS deploy
+FROM build as deploy
 
 # Source Cleanup and Security Setup
-RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*
+RUN chown -R $USER:$USER ${AMENT_WS}
+RUN rm -rf src/*
 
 USER ${USER}
