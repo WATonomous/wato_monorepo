@@ -109,15 +109,8 @@ class bbox_2d_3d : public rclcpp::Node {
   int euclid_min_cluster_size_;
   int euclid_max_cluster_size_;
 
-  double density_weight_;
-  double size_weight_;
-  double distance_weight_;
-  double score_threshold_;
-
-  double merge_threshold_;
-
   float object_detection_confidence_;
-
+  float iou_threshold_;
 };
 
 #endif

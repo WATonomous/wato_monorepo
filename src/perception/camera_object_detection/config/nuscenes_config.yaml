@@ -3,7 +3,7 @@ camera_object_detection_node:
     front_center_camera_topic: /CAM_FRONT/image_rect_compressed
     front_right_camera_topic: /CAM_FRONT_RIGHT/image_rect_compressed
     front_left_camera_topic: /CAM_FRONT_LEFT/image_rect_compressed
-    publish_vis_topic: false
+    publish_vis_topic: true
     publish_obstacle_topic: /obstacles
     model_path: /perception_models/yolov8m.pt
     image_size: 640

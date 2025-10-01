@@ -70,7 +70,7 @@ class CameraDetectionNode(Node):
                                "/camera/center/image_color")
 
         # Nuscenes
-        self.declare_parameter("nuscenes", False)
+        self.declare_parameter("nuscenes", True)
         self.declare_parameter("front_center_camera_topic",
                                "/CAM_FRONT/image_rect_compressed")
         self.declare_parameter("front_right_camera_topic",
@@ -92,7 +92,7 @@ class CameraDetectionNode(Node):
                                "/perception_models/tensorRT.engine")
         self.declare_parameter("eve_tensorRT_model_path",
                                "/perception_models/eve.engine")
-        self.declare_parameter("publish_vis_topic", False)
+        self.declare_parameter("publish_vis_topic", True)
         self.declare_parameter("batch_publish_vis_topic",
                                "/batch_annotated_img")
         self.declare_parameter(
@@ -217,9 +217,20 @@ class CameraDetectionNode(Node):
         trt.init_libnvinfer_plugins(self.logger, namespace='')
         self.weight = Path(self.tensorRT_model_path) if isinstance(
             self.tensorRT_model_path, str) else self.tensorRT_model_path
-        with trt.Runtime(self.logger) as runtime:
-            self.tensorRT_model = runtime.deserialize_cuda_engine(
-                self.weight.read_bytes())
+        
+        try:
+            with trt.Runtime(self.logger) as runtime:
+                self.tensorRT_model = runtime.deserialize_cuda_engine(
+                    self.weight.read_bytes())
+            if self.tensorRT_model is None:
+                raise RuntimeError("TensorRT engine deserialization returned None")
+        except Exception as e:
+            self.get_logger().warn(f"Failed to load TensorRT engine: {e}. Building engine from ONNX...")
+            self.build_engine()
+            with trt.Runtime(self.logger) as runtime:
+                self.tensorRT_model = runtime.deserialize_cuda_engine(
+                    self.weight.read_bytes())
+    
         self.execution_context = self.tensorRT_model.create_execution_context()
         if not self.execution_context:
             self.get_logger().error("Failed to create execution context")
