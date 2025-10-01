@@ -1,0 +1,18 @@
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence name="root_sequence">
+
+      <RateController hz="1.0">
+        <SampleAction action_name="execute_behaviour" behaviour="Task A: Initializing"/>
+      </RateController>
+
+      <Sleep msec="1000"/>
+
+      <SampleAction action_name="execute_behaviour" behaviour="Task B: Finalizing"/>
+
+      <AlwaysSuccess/>
+    </Sequence>
+  </BehaviorTree>
+
+</root>

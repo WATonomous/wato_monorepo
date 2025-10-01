@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!--
+  Copyright (c) 2025-present WATonomous. All rights reserved.
+
+  Skeleton for intersection logic.
+  TODO(wato): handle the different types of regulatory elements (traffic light, stop sign, yield)
+
+-->
+<root BTCPP_format="4">
+  <BehaviorTree ID="Intersection">
+        <Sequence name="intersection_logic">
+        <DetermineRegElem
+            lane_context="{current_lane_context}"
+            lookahead_distance="30.0"
+            is_approaching_reg_elem="{approaching_event}"
+            reg_elem_type="{event_type}"
+            distance_to_reg_elem="{event_dist}" />
+
+        <Condition ID="CheckApproaching" value="{approaching_event}" />
+
+        <!-- Logic for specific element types -->
+        <Switch variable="{event_type}">
+            <Case value="traffic_light">
+            <SubTree ID="HandleTrafficLight" distance="{event_dist}" />
+            </Case>
+            <Case value="stop_line">
+            <SubTree ID="HandleStopLine" distance="{event_dist}" />
+            </Case>
+            <Default>
+            <AlwaysSuccess />
+            </Default>
+        </Switch>
+        </Sequence>
+    </BehaviorTree>
+</root>

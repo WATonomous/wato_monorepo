@@ -8,6 +8,15 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
+# Clone in Carla-specific items
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CONTRIBUTING.md
+
+# Behaviour Tree ROS2
+RUN git clone https://github.com/BehaviorTree/BehaviorTree.ROS2.git --branch humble behaviortree_ros2 \
+    && cd behaviortree_ros2 \
+    && git checkout 6c6aa078ee7bc52fec98984bed4964556abf5beb
+
 # Copy in source code
 COPY src/world_modeling world_modeling
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
