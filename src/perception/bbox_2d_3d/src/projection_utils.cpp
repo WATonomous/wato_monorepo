@@ -155,8 +155,6 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
       point.b = b;
       clustered_cloud->points.push_back(point);
     }
-    RCLCPP_INFO(rclcpp::get_logger("ProjectionUtils"), "%zu points in cluster with color (%d, %d, %d)", 
-            indices.indices.size(), r, g, b);
   }
   clustered_cloud->width = clustered_cloud->points.size();
   clustered_cloud->height = 1;
@@ -279,8 +277,6 @@ void ProjectionUtils::computeHighestIOUCluster(
     }
     if (best_cluster != -1 && best_iou > iou_threshold) {
       best_cluster_indices.push_back(best_cluster);
-      RCLCPP_INFO(rclcpp::get_logger("ProjectionUtils"), "Detection: %s, Best Cluster Index: %d, IoU: %.6f", 
-            det.results[0].hypothesis.class_id.c_str(), best_cluster, best_iou);
     }
   }
 
