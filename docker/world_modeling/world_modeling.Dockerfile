@@ -15,6 +15,11 @@ COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
 
+# Install behaviortree_ros2 from source
+RUN git clone --branch humble --single-branch https://github.com/BehaviorTree/BehaviorTree.ROS2.git && \
+  cd BehaviorTree.ROS2 && \
+  git checkout 7a6ace6424adaa81737b95d20d81e1e8c0782ed7
+
 # Update CONTRIBUTING.md to pass copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CONTRIBUTING.md
 
