@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bbox_2d_3d/bbox_2d_3d.hpp"
+#include "spatial_association/spatial_association.hpp"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-bbox_2d_3d::bbox_2d_3d()
-: Node("bbox_2d_3d")
+spatial_association::spatial_association()
+: Node("spatial_association")
 {
   initializeParams();
 
@@ -27,21 +27,21 @@ bbox_2d_3d::bbox_2d_3d()
   // -------------------------------------------------------------------------------------------------
 
   lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    lidar_topic_, 10, std::bind(&bbox_2d_3d::lidarCallback, this, std::placeholders::_1));
+    lidar_topic_, 10, std::bind(&spatial_association::lidarCallback, this, std::placeholders::_1));
 
   batch_dets_sub_ = this->create_subscription<camera_object_detection_msgs::msg::BatchDetection>(
-    detections_topic_, 10, std::bind(&bbox_2d_3d::multiDetectionsCallback, this, std::placeholders::_1));
+    detections_topic_, 10, std::bind(&spatial_association::multiDetectionsCallback, this, std::placeholders::_1));
 
   auto info_qos = rclcpp::SensorDataQoS();
 
   camera_info_sub_front_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    camera_info_topic_front_, info_qos, std::bind(&bbox_2d_3d::multiCameraInfoCallback, this, std::placeholders::_1));
+    camera_info_topic_front_, info_qos, std::bind(&spatial_association::multiCameraInfoCallback, this, std::placeholders::_1));
 
   camera_info_sub_left_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    camera_info_topic_left_, info_qos, std::bind(&bbox_2d_3d::multiCameraInfoCallback, this, std::placeholders::_1));
+    camera_info_topic_left_, info_qos, std::bind(&spatial_association::multiCameraInfoCallback, this, std::placeholders::_1));
 
   camera_info_sub_right_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    camera_info_topic_right_, info_qos, std::bind(&bbox_2d_3d::multiCameraInfoCallback, this, std::placeholders::_1));
+    camera_info_topic_right_, info_qos, std::bind(&spatial_association::multiCameraInfoCallback, this, std::placeholders::_1));
 
   // PUBLISHERS
   // --------------------------------------------------------------------------------------------------
@@ -60,7 +60,7 @@ bbox_2d_3d::bbox_2d_3d()
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
-void bbox_2d_3d::initializeParams()
+void spatial_association::initializeParams()
 {
   this->declare_parameter<std::string>("camera_info_topic_front_", "/CAM_FRONT/camera_info");
   this->declare_parameter<std::string>("camera_info_topic_left_", "/CAM_FRONT_LEFT/camera_info");
@@ -130,13 +130,13 @@ void bbox_2d_3d::initializeParams()
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
-void bbox_2d_3d::multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
+void spatial_association::multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
 {
   const auto frame = msg->header.frame_id;
   camInfoMap_[frame] = msg;
 }
 
-void bbox_2d_3d::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   // store the lidar msg
   latest_lidar_msg_ = *msg;
@@ -161,7 +161,7 @@ void bbox_2d_3d::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
       ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
 }
 
-DetectionOutputs bbox_2d_3d::processDetections(
+DetectionOutputs spatial_association::processDetections(
   const vision_msgs::msg::Detection2DArray & detection,
   const geometry_msgs::msg::TransformStamped & transform,
   const std::array<double, 12> & projection_matrix)
@@ -222,7 +222,7 @@ DetectionOutputs bbox_2d_3d::processDetections(
 }
 
 
-void bbox_2d_3d::multiDetectionsCallback(
+void spatial_association::multiDetectionsCallback(
     camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg)
 {
   if (camInfoMap_.size() < 3) {
@@ -315,7 +315,7 @@ void bbox_2d_3d::multiDetectionsCallback(
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<bbox_2d_3d>());
+  rclcpp::spin(std::make_shared<spatial_association>());
   rclcpp::shutdown();
   return 0;
 }

@@ -19,14 +19,14 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     config_file = PathJoinSubstitution(
-        [FindPackageShare("bbox_2d_3d"), "config", "params.yaml"]
+        [FindPackageShare("spatial_association"), "config", "params.yaml"]
     )
 
-    bbox_2d_3d_node = Node(
-        package="bbox_2d_3d",
-        executable="bbox_2d_3d_node",
-        name="bbox_2d_3d_node",
+    spatial_association_node = Node(
+        package="spatial_association",
+        executable="spatial_association_node",
+        name="spatial_association_node",
         parameters=[config_file],
     )
 
-    return LaunchDescription([bbox_2d_3d_node])
+    return LaunchDescription([spatial_association_node])

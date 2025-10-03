@@ -5,8 +5,8 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code
-# COPY src/perception perception
+# Copy in perception packages and supporting message definitions
+COPY src/perception perception
 COPY src/wato_msgs wato_msgs
 
 # Update CONTRIBUTING.md to pass ament_copyright test

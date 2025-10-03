@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BBOX_2D_3D_HPP
-#define BBOX_2D_3D_HPP
+#ifndef SPATIAL_ASSOCIATION__SPATIAL_ASSOCIATION_HPP_
+#define SPATIAL_ASSOCIATION__SPATIAL_ASSOCIATION_HPP_
 
 #include <cv_bridge/cv_bridge.h>
 #include <pcl/point_cloud.h>
@@ -38,7 +38,7 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-#include "bbox_2d_3d/projection_utils.hpp"
+#include "spatial_association/projection_utils.hpp"
 
 struct DetectionOutputs
 {
@@ -48,10 +48,10 @@ struct DetectionOutputs
   vision_msgs::msg::Detection3DArray detections3d;
 };
 
-class bbox_2d_3d : public rclcpp::Node
+class spatial_association : public rclcpp::Node
 {
 public:
-  bbox_2d_3d();
+  spatial_association();
 
 private:
   // CONFIG/VISUALIZATION
@@ -140,4 +140,4 @@ private:
   float object_detection_confidence_;
 };
 
-#endif
+#endif  // SPATIAL_ASSOCIATION__SPATIAL_ASSOCIATION_HPP_

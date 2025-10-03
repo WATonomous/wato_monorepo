@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>bbox_2d_3d</name>
+  <name>spatial_association</name>
   <version>0.0.0</version>
-  <description>bbox_2d_3d package</description>
+  <description>spatial_association package</description>
   <maintainer email="b69zheng@uwaterloo.ca">Brian Zheng</maintainer>
   <license>Apache License 2.0</license>
 

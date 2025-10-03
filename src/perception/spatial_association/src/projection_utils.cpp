@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bbox_2d_3d/projection_utils.hpp"
+#include "spatial_association/projection_utils.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
+#include <rclcpp/duration.hpp>
 #include <utility>
 #include <vector>
 
@@ -409,44 +411,33 @@ void ProjectionUtils::computeHighestIOUCluster(
   const std::array<double, 12> & projection_matrix,
   const float object_detection_confidence)
 {
-if (input_cloud->empty() || cluster_indices.empty()) {
-  return;
-}
-
-double best_overall_iou = 0.0;
-std::vector<pcl::PointIndices> kept_clusters;
-
-for (auto &cluster : cluster_indices) {
-  // computeMaxIOU8Corners projects the 8 AABB corners and returns the best IoU
-  double iou = computeMaxIOU8Corners(
-    input_cloud,
-    cluster,
-    transform,
-    projection_matrix,
-    detections,
-    object_detection_confidence
-  );
-
-  if (iou > best_overall_iou) {
-    best_overall_iou = iou;
-    kept_clusters.push_back(cluster);
+  if (input_cloud->empty() || cluster_indices.empty()) {
+    return;
   }
 
-  double best_overall_iou = 0.0;
+  constexpr double kIouTolerance = 1e-6;
+  double best_overall_iou = -1.0;
   std::vector<pcl::PointIndices> kept_clusters;
 
-  for (auto & cluster : cluster_indices) {
-    // computeMaxIOU4Corners projects only the 4 AABB corners and returns the best IoU
-    double iou = computeMaxIOU4Corners(
-      input_cloud, cluster, transform, projection_matrix, detections, object_detection_confidence);
+  for (const auto & cluster : cluster_indices) {
+    // computeMaxIOU8Corners projects the 8 AABB corners and returns the best IoU
+    double iou = computeMaxIOU8Corners(
+      input_cloud,
+      cluster,
+      transform,
+      projection_matrix,
+      detections,
+      object_detection_confidence);
 
-    if (iou > best_overall_iou) {
+    if (iou > best_overall_iou + kIouTolerance) {
       best_overall_iou = iou;
+      kept_clusters.clear();
+      kept_clusters.push_back(cluster);
+    } else if (std::abs(iou - best_overall_iou) <= kIouTolerance) {
       kept_clusters.push_back(cluster);
     }
   }
 
-  // only keep the cluster(s) with highest IoU
   cluster_indices = std::move(kept_clusters);
 }
 
