@@ -4,11 +4,11 @@
 
 `watod build patchwork`
 
-2. attach a shell or open the container and run (in mode 'develop')
+1. attach a shell or open the container and run (in mode 'develop')
 
 `colcon build patchworkpp`
 
-3. launch the node 
+1. launch the node
 
 `ros2 launch patchworkpp ground_removal.launch.py`
 

@@ -1,5 +1,5 @@
 ---
-patchworkpp_node: 
+patchworkpp_node:
   ros__parameters:
     # Frame
     publish_debug: false

@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "ground_removal_node.hpp"
 
 #include <functional>
@@ -5,38 +19,36 @@
 #include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/qos.hpp>
 
-namespace wato::percpetion::patchworkpp {
+namespace wato::percpetion::patchworkpp
+{
 
-GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions &options)
-    : rclcpp::Node("patchworkpp_node", options) {
+GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions & options)
+: rclcpp::Node("patchworkpp_node", options)
+{
   patchwork::Params params;
   declareParameters(params);
   core_ = std::make_unique<GroundRemovalCore>(params);
 
   pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      cloud_topic_,
-      rclcpp::SensorDataQoS(),
-      std::bind(&GroundRemovalNode::removeGround, this, std::placeholders::_1));
+    cloud_topic_, rclcpp::SensorDataQoS(), std::bind(&GroundRemovalNode::removeGround, this, std::placeholders::_1));
 
   rclcpp::QoS qos(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
   qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
   qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
 
-  filtered_cloud_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-      filtered_topic_, qos);
+  filtered_cloud_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(filtered_topic_, qos);
 
   if (publish_debug_) {
-    ground_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-        ground_topic_, qos);
-    nonground_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-        nonground_topic_, qos);
+    ground_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(ground_topic_, qos);
+    nonground_publisher_ = create_publisher<sensor_msgs::msg::PointCloud2>(nonground_topic_, qos);
   }
 
   RCLCPP_INFO(this->get_logger(), "Patchwork++ Ground Removal ROS 2 node initialized");
   RCLCPP_INFO(this->get_logger(), "Debug publishing: %s", publish_debug_ ? "enabled" : "disabled");
 }
 
-void GroundRemovalNode::declareParameters(patchwork::Params &params) {
+void GroundRemovalNode::declareParameters(patchwork::Params & params)
+{
   publish_debug_ = this->declare_parameter<bool>("publish_debug", false);
   publish_original_ = this->declare_parameter<bool>("publish_original", false);
 
@@ -60,9 +72,9 @@ void GroundRemovalNode::declareParameters(patchwork::Params &params) {
   params.verbose = this->declare_parameter<bool>("verbose", true);
 }
 
-void GroundRemovalNode::removeGround(
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg) {
-  const auto &cloud = GroundRemovalCore::pointCloud2ToEigen(msg);
+void GroundRemovalNode::removeGround(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg)
+{
+  const auto & cloud = GroundRemovalCore::pointCloud2ToEigen(msg);
 
   core_->process(cloud);
 
@@ -74,23 +86,25 @@ void GroundRemovalNode::removeGround(
 
   if (publish_debug_) {
     publishDebugClouds(ground, nonground, msg->header);
-    RCLCPP_DEBUG(this->get_logger(),
-                 "Processed %zu points: %zu ground, %zu non-ground (removed). Time: %.3f ms",
-                 cloud.rows(), ground.rows(), nonground.rows(), time_taken);
+    RCLCPP_DEBUG(
+      this->get_logger(),
+      "Processed %zu points: %zu ground, %zu non-ground (removed). Time: %.3f ms",
+      cloud.rows(),
+      ground.rows(),
+      nonground.rows(),
+      time_taken);
   }
 }
 
 void GroundRemovalNode::publishFilteredCloud(
-    const Eigen::MatrixX3f &nonground_points,
-    const std_msgs::msg::Header &in_header) {
-  filtered_cloud_publisher_->publish(
-      GroundRemovalCore::eigenToPointCloud2(nonground_points, in_header));
+  const Eigen::MatrixX3f & nonground_points, const std_msgs::msg::Header & in_header)
+{
+  filtered_cloud_publisher_->publish(GroundRemovalCore::eigenToPointCloud2(nonground_points, in_header));
 }
 
 void GroundRemovalNode::publishDebugClouds(
-    const Eigen::MatrixX3f &est_ground,
-    const Eigen::MatrixX3f &est_nonground,
-    const std_msgs::msg::Header &in_header) {
+  const Eigen::MatrixX3f & est_ground, const Eigen::MatrixX3f & est_nonground, const std_msgs::msg::Header & in_header)
+{
   if (!publish_debug_ || !ground_publisher_ || !nonground_publisher_) {
     return;
   }
@@ -101,7 +115,8 @@ void GroundRemovalNode::publishDebugClouds(
 
 }  // namespace wato::percpetion::patchworkpp
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
   rclcpp::init(argc, argv);
   rclcpp::executors::MultiThreadedExecutor exec;
   auto node = std::make_shared<patchworkpp_ros::GroundRemovalNode>(rclcpp::NodeOptions());

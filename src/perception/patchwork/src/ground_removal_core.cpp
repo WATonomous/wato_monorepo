@@ -1,10 +1,28 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "ground_removal_core.hpp"
+
 #include <cstring>
+
 #include <sensor_msgs/msg/point_field.hpp>
 
-namespace wato::perception::patchworkpp {
+namespace wato::perception::patchworkpp
+{
 
-static float readFloat(const uint8_t* p, bool big_endian) {
+static float readFloat(const uint8_t * p, bool big_endian)
+{
   float v;
   if (!big_endian) {
     std::memcpy(&v, p, sizeof(float));
@@ -15,7 +33,8 @@ static float readFloat(const uint8_t* p, bool big_endian) {
   return v;
 }
 
-static void writeFloat(uint8_t* p, float v, bool big_endian) {
+static void writeFloat(uint8_t * p, float v, bool big_endian)
+{
   if (!big_endian) {
     std::memcpy(p, &v, sizeof(float));
   } else {
@@ -28,30 +47,35 @@ static void writeFloat(uint8_t* p, float v, bool big_endian) {
   }
 }
 
-GroundRemovalCore::GroundRemovalCore(const patchwork::Params &params)
-    : patchwork_(std::make_unique<patchwork::PatchWorkpp>(params)) {}
+GroundRemovalCore::GroundRemovalCore(const patchwork::Params & params)
+: patchwork_(std::make_unique<patchwork::PatchWorkpp>(params))
+{}
 
-void GroundRemovalCore::process(const Eigen::MatrixX3f &cloud) {
+void GroundRemovalCore::process(const Eigen::MatrixX3f & cloud)
+{
   patchwork_->estimateGround(cloud);
 }
 
-Eigen::MatrixX3f GroundRemovalCore::getGround() const {
+Eigen::MatrixX3f GroundRemovalCore::getGround() const
+{
   return patchwork_->getGround();
 }
 
-Eigen::MatrixX3f GroundRemovalCore::getNonground() const {
+Eigen::MatrixX3f GroundRemovalCore::getNonground() const
+{
   return patchwork_->getNonground();
 }
 
-double GroundRemovalCore::getTimeTaken() const {
+double GroundRemovalCore::getTimeTaken() const
+{
   return patchwork_->getTimeTaken();
 }
 
-Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr &cloud_msg) {
+Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg)
+{
   int x_idx = -1, y_idx = -1, z_idx = -1;
   for (size_t i = 0; i < cloud_msg->fields.size(); ++i) {
-    const auto &f = cloud_msg->fields[i];
+    const auto & f = cloud_msg->fields[i];
     if (f.name == "x") {
       x_idx = static_cast<int>(i);
     } else if (f.name == "y") {
@@ -65,13 +89,14 @@ Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(
     throw std::runtime_error("PointCloud2 missing x, y, or z field");
   }
 
-  const auto &fx = cloud_msg->fields[static_cast<size_t>(x_idx)];
-  const auto &fy = cloud_msg->fields[static_cast<size_t>(y_idx)];
-  const auto &fz = cloud_msg->fields[static_cast<size_t>(z_idx)];
+  const auto & fx = cloud_msg->fields[static_cast<size_t>(x_idx)];
+  const auto & fy = cloud_msg->fields[static_cast<size_t>(y_idx)];
+  const auto & fz = cloud_msg->fields[static_cast<size_t>(z_idx)];
 
-  if (fx.datatype != sensor_msgs::msg::PointField::FLOAT32 ||
-      fy.datatype != sensor_msgs::msg::PointField::FLOAT32 ||
-      fz.datatype != sensor_msgs::msg::PointField::FLOAT32) {
+  if (
+    fx.datatype != sensor_msgs::msg::PointField::FLOAT32 || fy.datatype != sensor_msgs::msg::PointField::FLOAT32 ||
+    fz.datatype != sensor_msgs::msg::PointField::FLOAT32)
+  {
     throw std::runtime_error("PointCloud2 x/y/z fields must be FLOAT32");
   }
 
@@ -83,14 +108,14 @@ Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(
   const size_t total_points = static_cast<size_t>(width) * static_cast<size_t>(height);
   Eigen::MatrixX3f points(static_cast<int>(total_points), 3);
 
-  const uint8_t* base = cloud_msg->data.data();
+  const uint8_t * base = cloud_msg->data.data();
   const bool big_endian = cloud_msg->is_bigendian;
 
   size_t k = 0;
   for (uint32_t r = 0; r < height; ++r) {
-    const uint8_t* row_ptr = base + static_cast<size_t>(r) * row_step;
+    const uint8_t * row_ptr = base + static_cast<size_t>(r) * row_step;
     for (uint32_t c = 0; c < width; ++c, ++k) {
-      const uint8_t* p = row_ptr + static_cast<size_t>(c) * point_step;
+      const uint8_t * p = row_ptr + static_cast<size_t>(c) * point_step;
 
       const float x = readFloat(p + fx.offset, big_endian);
       const float y = readFloat(p + fy.offset, big_endian);
@@ -106,8 +131,8 @@ Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(
 }
 
 sensor_msgs::msg::PointCloud2 GroundRemovalCore::eigenToPointCloud2(
-    const Eigen::MatrixX3f &points,
-    const std_msgs::msg::Header &header) {
+  const Eigen::MatrixX3f & points, const std_msgs::msg::Header & header)
+{
   sensor_msgs::msg::PointCloud2 cloud_msg;
   cloud_msg.header = header;
   cloud_msg.height = 1;
@@ -137,11 +162,11 @@ sensor_msgs::msg::PointCloud2 GroundRemovalCore::eigenToPointCloud2(
 
   cloud_msg.data.resize(static_cast<size_t>(cloud_msg.row_step) * cloud_msg.height);
 
-  uint8_t* base = cloud_msg.data.data();
+  uint8_t * base = cloud_msg.data.data();
   const bool big_endian = cloud_msg.is_bigendian;
 
   for (int i = 0; i < points.rows(); ++i) {
-    uint8_t* dst = base + static_cast<size_t>(i) * cloud_msg.point_step;
+    uint8_t * dst = base + static_cast<size_t>(i) * cloud_msg.point_step;
     writeFloat(dst + 0, points(i, 0), big_endian);
     writeFloat(dst + 4, points(i, 1), big_endian);
     writeFloat(dst + 8, points(i, 2), big_endian);
@@ -150,4 +175,4 @@ sensor_msgs::msg::PointCloud2 GroundRemovalCore::eigenToPointCloud2(
   return cloud_msg;
 }
 
-}  // namespace wato::percpetion::patchworkpp
+}  // namespace wato::perception::patchworkpp
