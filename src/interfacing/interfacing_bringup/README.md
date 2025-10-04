@@ -38,7 +38,10 @@ dhcp-range=10.8.0.100,10.8.0.200,12h
 dhcp-host=00:B0:9D:1A:F0:0E,10.8.0.18   # Blackfly Cam 1
 dhcp-host=00:B0:9D:0A:50:F8,10.8.0.19   # Blackfly Cam 2
 dhcp-host=00:B0:9D:0A:51:05,10.8.0.20   # Blackfly Cam 3
-dhcp-host=00:21:66:04:A1:EC,10.8.0.8   # Novatel GPS/IMU (MAC address on the GPS receiver is wrong by 1 byte)
+dhcp-host=00:21:66:04:A1:EC,10.8.0.8    # Novatel GPS/IMU (MAC address on the GPS receiver is wrong by 1 byte)
+dhcp-host=60:76:88:34:30:94,10.8.0.88   # VLP32 Top Lidar
+dhcp-host=60:76:88:10:36:7A,10.8.0.89   # VLP16 Side Lidar
+dhcp-host=60:76:88:10:31:60,10.8.0.90   # VLP16 Side Lidar
 ```
 
 We do not setup a gateway. That is, we do not tell our sensors how to reach networks outside their subnet (ie. the internet)
