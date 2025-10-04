@@ -5,7 +5,7 @@
 #include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/qos.hpp>
 
-namespace patchworkpp_ros {
+namespace wato::percpetion::patchworkpp {
 
 GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions &options)
     : rclcpp::Node("patchworkpp_node", options) {
@@ -99,7 +99,7 @@ void GroundRemovalNode::publishDebugClouds(
   nonground_publisher_->publish(GroundRemovalCore::eigenToPointCloud2(est_nonground, in_header));
 }
 
-}  // namespace patchworkpp_ros
+}  // namespace wato::percpetion::patchworkpp
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);

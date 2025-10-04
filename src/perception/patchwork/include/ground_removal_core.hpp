@@ -9,7 +9,7 @@
 
 #include "patchwork/patchworkpp.h"
 
-namespace patchworkpp_ros {
+namespace wato::percpetion::patchworkpp {
 
 class GroundRemovalCore {
  public:
@@ -30,4 +30,4 @@ class GroundRemovalCore {
   std::unique_ptr<patchwork::PatchWorkpp> patchwork_;
 };
 
-}  // namespace patchworkpp_ros
+}  // namespace wato::percpetion::patchworkpp

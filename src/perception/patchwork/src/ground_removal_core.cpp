@@ -2,11 +2,9 @@
 #include <cstring>
 #include <sensor_msgs/msg/point_field.hpp>
 
-namespace patchworkpp_ros {
+namespace wato::perception::patchworkpp {
 
-namespace {
-
-inline float readFloat(const uint8_t* p, bool big_endian) {
+static float readFloat(const uint8_t* p, bool big_endian) {
   float v;
   if (!big_endian) {
     std::memcpy(&v, p, sizeof(float));
@@ -17,7 +15,7 @@ inline float readFloat(const uint8_t* p, bool big_endian) {
   return v;
 }
 
-inline void writeFloat(uint8_t* p, float v, bool big_endian) {
+static void writeFloat(uint8_t* p, float v, bool big_endian) {
   if (!big_endian) {
     std::memcpy(p, &v, sizeof(float));
   } else {
@@ -29,8 +27,6 @@ inline void writeFloat(uint8_t* p, float v, bool big_endian) {
     p[3] = tmp[0];
   }
 }
-
-}  // namespace
 
 GroundRemovalCore::GroundRemovalCore(const patchwork::Params &params)
     : patchwork_(std::make_unique<patchwork::PatchWorkpp>(params)) {}
@@ -154,4 +150,4 @@ sensor_msgs::msg::PointCloud2 GroundRemovalCore::eigenToPointCloud2(
   return cloud_msg;
 }
 
-}  // namespace patchworkpp_ros
+}  // namespace wato::percpetion::patchworkpp

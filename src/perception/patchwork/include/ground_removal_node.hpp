@@ -11,7 +11,7 @@
 
 #include "ground_removal_core.hpp"
 
-namespace patchworkpp_ros {
+namespace wato::percpetion::patchworkpp {
 
 class GroundRemovalNode : public rclcpp::Node {
  public:
@@ -44,4 +44,4 @@ class GroundRemovalNode : public rclcpp::Node {
   std::string nonground_topic_{"/patchworkpp/non_ground_cloud"};
 };
 
-}  // namespace patchworkpp_ros
+}  // namespace wato::percpetion::patchworkpp

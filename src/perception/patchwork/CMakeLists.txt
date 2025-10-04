@@ -22,46 +22,36 @@ find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # Patchwork++ (CMake package)
-
 find_package(patchworkpp REQUIRED)
-if(TARGET patchworkpp::ground_seg_cores)
-  set(PATCHWORKPP_TARGET patchworkpp::ground_seg_cores)
-elseif(TARGET patchworkpp::patchworkpp)
-  set(PATCHWORKPP_TARGET patchworkpp::patchworkpp)
-else()
-  message(FATAL_ERROR "Found patchworkpp but no expected exported target")
-endif()
-
 
 add_executable(patchworkpp_node
   src/ground_removal_core.cpp
   src/ground_removal_node.cpp
 )
 
+
 target_include_directories(patchworkpp_node
-  PUBLIC
+  PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${EIGEN3_INCLUDE_DIRS}
 )
 
-target_link_libraries(patchworkpp_node ${PATCHWORKPP_TARGET})
 
-ament_target_dependencies(patchworkpp_node
-  rcutils
-  rclcpp
-  sensor_msgs
-  geometry_msgs
-  nav_msgs
-  tf2_ros
-  std_msgs
-  Eigen3
+target_link_libraries(patchworkpp_node
+  PRIVATE
+    ${PATCHWORKPP_TARGET}
+    rcutils::rcutils
+    rclcpp::rclcpp
+    sensor_msgs::sensor_msgs
+    geometry_msgs::geometry_msgs
+    nav_msgs::nav_msgs
+    tf2_ros::tf2_ros
+    std_msgs::std_msgs
+    Eigen3::Eigen
 )
 
 install(TARGETS patchworkpp_node RUNTIME DESTINATION lib/${PROJECT_NAME})
-
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
-# Export
-ament_export_dependencies(Eigen3)
+
 ament_package()
