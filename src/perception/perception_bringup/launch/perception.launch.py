@@ -40,7 +40,6 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("camera_object_detection_param_file")],
     )
 
-
     depth_estimation_pkg = get_package_share_directory("depth_estimation")
     depth_estimation_param_file = os.path.join(
         depth_estimation_pkg, "config", "config.yaml"
@@ -57,7 +56,6 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("depth_estimation_param_file")],
     )
 
-
     patchwork_pkg = get_package_share_directory("patchworkpp")
     patchwork_param_file = os.path.join(patchwork_pkg, "config", "params.yaml")
     patchwork_param = DeclareLaunchArgument(
@@ -72,9 +70,10 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("patchwork_param_file")],
     )
 
-
     spatial_association_pkg = get_package_share_directory("spatial_association")
-    spatial_association_param_file = os.path.join(spatial_association_pkg, "config", "params.yaml")
+    spatial_association_param_file = os.path.join(
+        spatial_association_pkg, "config", "params.yaml"
+    )
     spatial_association_param = DeclareLaunchArgument(
         "spatial_association_param_file",
         default_value=spatial_association_param_file,
@@ -93,7 +92,6 @@ def generate_launch_description():
             depth_estimation_param,
             patchwork_param,
             spatial_association_param,
-
             camera_object_detection_node,
             depth_estimation_node,
             patchwork_node,
