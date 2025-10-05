@@ -23,7 +23,7 @@
 
 #include "patchworkpp/ground_removal_core.hpp"
 
-namespace wato::percpetion::patchworkpp
+namespace wato::perception::patchworkpp
 {
 
 class GroundRemovalNode : public rclcpp::Node
@@ -52,4 +52,4 @@ private:
   std::unique_ptr<GroundRemovalCore> core_;
 };
 
-}  // namespace wato::percpetion::patchworkpp
+}  // namespace wato::perception::patchworkpp

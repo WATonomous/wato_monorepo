@@ -22,7 +22,7 @@
 
 #include "patchwork/patchworkpp.h"
 
-namespace wato::percpetion::patchworkpp
+namespace wato::perception::patchworkpp
 {
 
 class GroundRemovalCore
@@ -43,4 +43,4 @@ private:
   std::unique_ptr<patchwork::PatchWorkpp> patchwork_;
 };
 
-}  // namespace wato::percpetion::patchworkpp
+}  // namespace wato::perception::patchworkpp

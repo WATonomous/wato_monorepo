@@ -34,37 +34,42 @@ find_package(std_msgs REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-# Patchwork++ (CMake package)
+# Patchwork++ (it exports different target names across installs, so normalize it to PATCHWORKPP_TARGET
 find_package(patchworkpp REQUIRED)
+if(TARGET patchworkpp::ground_seg_cores)
+  set(PATCHWORKPP_TARGET patchworkpp::ground_seg_cores)
+elseif(TARGET patchworkpp::patchworkpp)
+  set(PATCHWORKPP_TARGET patchworkpp::patchworkpp)
+else()
+  message(FATAL_ERROR "Found patchworkpp but no expected exported target")
+endif()
 
 add_executable(patchworkpp_node
   src/ground_removal_core.cpp
   src/ground_removal_node.cpp
 )
 
+target_include_directories(patchworkpp_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_include_directories(patchworkpp_node
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+# Use the PLAIN signature here (no PRIVATE/PUBLIC/INTERFACE) to match ament_target_dependencies.
+target_link_libraries(patchworkpp_node
+  ${PATCHWORKPP_TARGET}
+  Eigen3::Eigen
+  rcutils::rcutils
+  rclcpp::rclcpp
+  tf2_ros::tf2_ros
 )
 
-
-target_link_libraries(patchworkpp_node
-  PRIVATE
-    ${PATCHWORKPP_TARGET}
-    rcutils::rcutils
-    rclcpp::rclcpp
-    sensor_msgs::sensor_msgs
-    geometry_msgs::geometry_msgs
-    nav_msgs::nav_msgs
-    tf2_ros::tf2_ros
-    std_msgs::std_msgs
-    Eigen3::Eigen
+# Message/interface packages don't export imported targets → use ament for them.
+ament_target_dependencies(patchworkpp_node
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  std_msgs
 )
 
 install(TARGETS patchworkpp_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-
 
 ament_package()

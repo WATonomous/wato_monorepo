@@ -20,7 +20,7 @@
 #include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/qos.hpp>
 
-namespace wato::percpetion::patchworkpp
+namespace wato::perception::patchworkpp
 {
 
 GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions & options)
@@ -102,13 +102,13 @@ void GroundRemovalNode::publishSegments(
   nonground_publisher_->publish(GroundRemovalCore::eigenToPointCloud2(nonground_points, in_header));
 }
 
-}  // namespace wato::percpetion::patchworkpp
+}  // namespace wato::perception::patchworkpp
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   rclcpp::executors::MultiThreadedExecutor exec;
-  auto node = std::make_shared<wato::percpetion::patchworkpp::GroundRemovalNode>(rclcpp::NodeOptions());
+  auto node = std::make_shared<wato::perception::patchworkpp::GroundRemovalNode>(rclcpp::NodeOptions());
   exec.add_node(node);
   exec.spin();
   rclcpp::shutdown();
