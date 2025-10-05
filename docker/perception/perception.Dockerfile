@@ -10,9 +10,6 @@ WORKDIR ${AMENT_WS}/src
 COPY src/perception/patchwork patchwork
 COPY src/wato_msgs wato_msgs
 
-# Include Patchwork++ ROS package sources
-COPY src/perception/patchwork patchwork
-
 # Bring in Patchwork++ third-party dependency (built later in dependencies stage)
 RUN git clone --depth 1 --branch master \
       https://github.com/url-kaist/patchwork-plusplus \
@@ -45,7 +42,10 @@ RUN apt-get -qq update && \
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
 
-# Build and install Patchwork++ 
+# Ensure bash with pipefail for RUN commands with pipelines
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Build and install Patchwork++
 WORKDIR ${AMENT_WS}/src/patchwork/patchwork-plusplus
 RUN cmake -S cpp -B build \
         -DCMAKE_BUILD_TYPE=Release \

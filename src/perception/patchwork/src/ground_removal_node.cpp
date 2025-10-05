@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ground_removal_node.hpp"
+#include "patchworkpp/ground_removal_node.hpp"
 
 #include <functional>
+#include <memory>
 
 #include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/qos.hpp>
@@ -30,9 +31,7 @@ GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions & options)
   core_ = std::make_unique<GroundRemovalCore>(params);
 
   pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    kCloudTopic,
-    rclcpp::SensorDataQoS(),
-    std::bind(&GroundRemovalNode::removeGround, this, std::placeholders::_1));
+    kCloudTopic, rclcpp::SensorDataQoS(), std::bind(&GroundRemovalNode::removeGround, this, std::placeholders::_1));
 
   rclcpp::QoS qos(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
   qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
@@ -95,8 +94,7 @@ void GroundRemovalNode::publishSegments(
 {
   if (!ground_publisher_ || !nonground_publisher_) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000,
-      "Publishers not ready; skipping ground segmentation publish");
+      this->get_logger(), *this->get_clock(), 5000, "Publishers not ready; skipping ground segmentation publish");
     return;
   }
 

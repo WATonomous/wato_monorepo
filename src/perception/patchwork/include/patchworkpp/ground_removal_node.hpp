@@ -21,7 +21,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
 
-#include "ground_removal_core.hpp"
+#include "patchworkpp/ground_removal_core.hpp"
 
 namespace wato::percpetion::patchworkpp
 {
