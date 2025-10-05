@@ -1,16 +1,6 @@
 ---
 patchworkpp_node:
   ros__parameters:
-    # Frame
-    publish_debug: false
-    publish_original: false
-
-    # Topics
-    cloud_topic: /LIDAR_TOP
-    filtered_topic: /patchworkpp/filtered_cloud
-    ground_topic: /patchworkpp/ground_cloud
-    non_ground_topic: /patchworkpp/non_ground_cloud
-
     # Patchwork++ parameters (seeded from library defaults)
     sensor_height: 1.84 #lidar height specific to nuscenes, change this for eve
     num_iter: 3
