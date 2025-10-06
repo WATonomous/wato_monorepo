@@ -54,18 +54,14 @@ target_include_directories(patchworkpp_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/
 # Use the PLAIN signature here (no PRIVATE/PUBLIC/INTERFACE) to match ament_target_dependencies.
 target_link_libraries(patchworkpp_node
   ${PATCHWORKPP_TARGET}
+  ${sensor_msgs_TARGETS}
+  ${geometry_msg_TARGETS}
+  ${nav_msgs_TARGETS}
+  ${std_msgs_TARGETS}
   Eigen3::Eigen
   rcutils::rcutils
   rclcpp::rclcpp
   tf2_ros::tf2_ros
-)
-
-# Message/interface packages don't export imported targets → use ament for them.
-ament_target_dependencies(patchworkpp_node
-  sensor_msgs
-  geometry_msgs
-  nav_msgs
-  std_msgs
 )
 
 install(TARGETS patchworkpp_node RUNTIME DESTINATION lib/${PROJECT_NAME})
