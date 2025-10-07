@@ -37,8 +37,6 @@ def generate_launch_description():
         name="patchworkpp_node",
         output="screen",
         parameters=[config_file],
-        remappings=[
-            ("pointcloud_topic", pointcloud_topic),
-        ],
+        remappings=[("input_cloud", pointcloud_topic)],
     )
     return LaunchDescription([cloud_topic_arg, ground_removal_node])
