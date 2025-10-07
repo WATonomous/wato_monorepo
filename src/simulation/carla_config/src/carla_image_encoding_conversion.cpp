@@ -101,7 +101,7 @@ private:
     imagePubLeft->publish(updatedImage);
   }
 
-  void update_image(const sensor_msgs::msg::Image & updatedImage, sensor_msgs::msg::Image::SharedPtr image)
+  void update_image(sensor_msgs::msg::Image & updatedImage, sensor_msgs::msg::Image::SharedPtr image)
   {
     updatedImage.header = image->header;
     updatedImage.height = image->height;
