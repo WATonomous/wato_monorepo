@@ -1,47 +1,46 @@
-//=============================================================================  
-// Copyright (c) 2025 FLIR Integrated Imaging Solutions, Inc. All Rights Reserved.  
-//  
-// This software is the confidential and proprietary information of FLIR  
-// Integrated Imaging Solutions, Inc. ("Confidential Information"). You  
-// shall not disclose such Confidential Information and shall use it only in  
-// accordance with the terms of the license agreement you entered into  
-// with FLIR Integrated Imaging Solutions, Inc. (FLIR).  
-//  
-// FLIR MAKES NO REPRESENTATIONS OR WARRANTIES ABOUT THE SUITABILITY OF THE  
-// SOFTWARE, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE  
-// IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR  
-// PURPOSE, OR NON-INFRINGEMENT. FLIR SHALL NOT BE LIABLE FOR ANY DAMAGES  
-// SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR DISTRIBUTING  
-// THIS SOFTWARE OR ITS DERIVATIVES.  
+//=============================================================================
+// Copyright (c) 2025 FLIR Integrated Imaging Solutions, Inc. All Rights Reserved.
+//
+// This software is the confidential and proprietary information of FLIR
+// Integrated Imaging Solutions, Inc. ("Confidential Information"). You
+// shall not disclose such Confidential Information and shall use it only in
+// accordance with the terms of the license agreement you entered into
+// with FLIR Integrated Imaging Solutions, Inc. (FLIR).
+//
+// FLIR MAKES NO REPRESENTATIONS OR WARRANTIES ABOUT THE SUITABILITY OF THE
+// SOFTWARE, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+// PURPOSE, OR NON-INFRINGEMENT. FLIR SHALL NOT BE LIABLE FOR ANY DAMAGES
+// SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR DISTRIBUTING
+// THIS SOFTWARE OR ITS DERIVATIVES.
 //  =============================================================================
 
 # README
 
 # TABLE OF CONTENTS
 
-  - [1. DEPENDENCIES]
-    - [1.1. UBUNTU 22.04 DEPENDENCIES]
-      - [1.1.1. UBUNTU 22.04 DEPENDENCY INSTALLATION]
-    - [1.2. UBUNTU 20.04 DEPENDENCIES]
-  - [2. SPINNAKER INSTALLATION]
-  - [3. USB CAMERA SETUP]
-  - [4. GIGE CAMERA SETUP]
-    - [4.1. DISABLE REVERSE PATH FILTERING (RPF)]
-    - [4.2. INCREASE RECEIVE BUFFER SIZE]
-    - [4.3. ENABLE JUMBO PACKET]
-    - [4.4. SET 5G LINK SPEED]
-    - [4.5. NETWORKING BEST PRACTICES]
-  - [5. GENICAM GENTL PRODUCER SETUP]
-    - [5.1. GENTL LOGGING]
-  - [6. SPINNAKER REMOVAL]
-  - [7. RUNNING PREBUILT UTILITIES]
-    - [7.1. SpinView QT]
-    - [7.2. SpinUpdateConsole]
-  - [8. TELEDYNE-MV SPINNAKER EXAMPLES]
-
+- [1. DEPENDENCIES]
+  - [1.1. UBUNTU 22.04 DEPENDENCIES]
+    - [1.1.1. UBUNTU 22.04 DEPENDENCY INSTALLATION]
+  - [1.2. UBUNTU 20.04 DEPENDENCIES]
+- [2. SPINNAKER INSTALLATION]
+- [3. USB CAMERA SETUP]
+- [4. GIGE CAMERA SETUP]
+  - [4.1. DISABLE REVERSE PATH FILTERING (RPF)]
+  - [4.2. INCREASE RECEIVE BUFFER SIZE]
+  - [4.3. ENABLE JUMBO PACKET]
+  - [4.4. SET 5G LINK SPEED]
+  - [4.5. NETWORKING BEST PRACTICES]
+- [5. GENICAM GENTL PRODUCER SETUP]
+  - [5.1. GENTL LOGGING]
+- [6. SPINNAKER REMOVAL]
+- [7. RUNNING PREBUILT UTILITIES]
+  - [7.1. SpinView QT]
+  - [7.2. SpinUpdateConsole]
+- [8. TELEDYNE-MV SPINNAKER EXAMPLES]
 
 ===============================================================================
-## 1. DEPENDENCIES  
+## 1. DEPENDENCIES
 ===============================================================================
 
 To install Spinnaker on Linux a few prerequisite libraries will need to be installed.
@@ -58,8 +57,8 @@ The core library includes Spinnaker and Spinnaker-C
 
 - libusb-1.0-0 (version 1.0.17 or greater recommended)
 
-2) Video Recording Library
-Video recording functionalities are provided by SpinVideo library.  
+1) Video Recording Library
+Video recording functionalities are provided by SpinVideo library.
 SpinView_QT and examples like SaveToVideo depend on the SpinVideo library.
 
 - libavcodec58
@@ -68,7 +67,7 @@ SpinView_QT and examples like SaveToVideo depend on the SpinVideo library.
 - libswresample3
 - libavutil56
 
-3) SpinView_QT
+1) SpinView_QT
 
 - qtbase5-dev
 - qtchooser
@@ -84,8 +83,8 @@ Ubuntu 22.04 LTS:   Linux kernel version 5.15 or later.
 
 To install these dependencies, the most straightforward approach is to use the
 system's built-in package management utility. In the case of Ubuntu, the utility
-is named "apt".  
-Below is a one-line command that can be used to install all the required 
+is named "apt".
+Below is a one-line command that can be used to install all the required
 dependencies for Ubuntu 20.04 Long Term Support (LTS):
 
     $ sudo apt-get install libavcodec58 libavformat58 \
@@ -106,8 +105,8 @@ The core library includes Spinnaker and Spinnaker-C
 
 - libusb-1.0-0 (version 1.0.17 or greater recommended)
 
-2) Video Recording Library
-Video recording functionalities are provided by SpinVideo library.  
+1) Video Recording Library
+Video recording functionalities are provided by SpinVideo library.
 SpinView_QT and examples like SaveToVideo depend on the SpinVideo library.
 
 - libavcodec58
@@ -116,11 +115,11 @@ SpinView_QT and examples like SaveToVideo depend on the SpinVideo library.
 - libswresample3
 - libavutil56
 
-3) SpinView_QT
+1) SpinView_QT
 
 - qt5-default
 
-Strongly recommended:  
+Strongly recommended:
 - Ubuntu 20.04 LTS
 - Linux kernel version 5.4 or later
 
@@ -135,15 +134,15 @@ was extracted into.
     $ sudo sh install_spinnaker.sh
 
 This script will install all the Spinnaker libraries, example code, example
-apps and documentation.  
+apps and documentation.
 The Spinnaker install script will also ask you to configure udev so that a user
-will be able to use the USB devices.  
+will be able to use the USB devices.
 If you choose to configure the USB devices, this script will change permissions
-on the nodes to give this particular user full read and write access to the 
-device nodes.  
+on the nodes to give this particular user full read and write access to the
+device nodes.
 
 Unfortunately restarting udev doesn't seem to set the permissions on the device
-nodes immediately.  
+nodes immediately.
 The machine may need to be rebooted before the user can access the device nodes.
 
 The Spinnaker packages are:
@@ -164,9 +163,9 @@ The Spinnaker packages are:
 - spinview-qt-dev_<version>_<platform>.deb
 
 The packages with a preceding 'lib' are all the shared objects and their
-respective dev packages.  
+respective dev packages.
 The spinnaker package installs the capture application which can be launched by
-typing 'spinview' in a terminal or through the Applications menu.  
+typing 'spinview' in a terminal or through the Applications menu.
 The spinnaker-doc package contains our documentation in pdf format (located in /opt/spinnaker/doc).
 
 ===============================================================================
@@ -174,9 +173,9 @@ The spinnaker-doc package contains our documentation in pdf format (located in /
 ===============================================================================
 
 By default, USB-FS on Linux systems only allows 16 MB of buffer memory for all
-USB devices.  
+USB devices.
 This may result in image acquisition issues from high-resolution cameras or
-multiple-camera set ups.  
+multiple-camera set ups.
 This limit must be increased to make use of the imaging hardware's full capabilities.
 
 The Spinnaker installer asks to automatically set the appropriate USB-FS memory
@@ -213,8 +212,8 @@ USB-FS memory until the next restart by running the following command:
 
     $ sudo sh -c 'echo 1000 > /sys/module/usbcore/parameters/usbfs_memory_mb'
 
-If using multiple USB3 cameras, the USB-FS memory limit may need to exceed 1000.  
-More information on these changes can be found at:  
+If using multiple USB3 cameras, the USB-FS memory limit may need to exceed 1000.
+More information on these changes can be found at:
 <https://www.flir.com/support-center/iis/machine-vision/application-note/understanding-usbfs-on-linux>
 
 ===============================================================================
@@ -222,19 +221,19 @@ More information on these changes can be found at:
 ===============================================================================
 
 To avoid packet loss on the network interface, a number of parameters may be
-adjusted by the user.  
-Important parameters to maximize are the MTU (maximum transmission unit) size 
-and the number of receive buffers available to the NIC driver.  
+adjusted by the user.
+Important parameters to maximize are the MTU (maximum transmission unit) size
+and the number of receive buffers available to the NIC driver.
 This helps reduce the number of packets to process and therefore minimizes CPU
 overhead and interrupts.
 
 A network tuning script provided with the SDK can maximize the MTU (enabling
 Jumbo frames) and optimize certain network settings, including the number of
-receive buffers, using a standard tool named "ethtool".  
-Note that depending on the type of network interface and architecture, not all 
-parameters set by the script are supported.  
-Also note that the changes applied by the tuning script will not persist when 
-system is rebooted, so the user will need to re-run the script after a reboot 
+receive buffers, using a standard tool named "ethtool".
+Note that depending on the type of network interface and architecture, not all
+parameters set by the script are supported.
+Also note that the changes applied by the tuning script will not persist when
+system is rebooted, so the user will need to re-run the script after a reboot
 or have the script setup to run automatically at start-up (via /etc/rc.local).
 
 To install ethtool, run the following command:
@@ -268,11 +267,11 @@ net.unix.max_dgram_qlen : Adjust the network queue length for UDP packets.
                           maximum image size and the number of cameras expected
                           provide a hint for this setting.
 
-net.core.rmem_default :  
+net.core.rmem_default :
 net.core.rmem_max     : Adjust the default (and maximum) memory for receiving
                         network packets.
 
-rx_value :  
+rx_value :
 rx_jumbo : Use "ethtool" utility (if present) to adjust the setting of the
            network device drivers to optimize the rx_ring and the rx jumbo
            packet queue for maximum throughput and to disable the rx pause
@@ -283,10 +282,10 @@ rx_jumbo : Use "ethtool" utility (if present) to adjust the setting of the
 ### 4.1. DISABLE REVERSE PATH FILTERING (RPF)
 -------------------------------------------------------------------------------
 
-RPF is a security feature that limits the effect of DDOS attacks.  
+RPF is a security feature that limits the effect of DDOS attacks.
 To ensure that GigE cameras enumerate properly, RPF needs to be disabled.
 
-To PERMANENTLY disable reverse path filtering:  
+To PERMANENTLY disable reverse path filtering:
 1. Run the following command:
 
        $ sudo gedit /etc/sysctl.d/10-network-security.conf
@@ -308,12 +307,12 @@ until the next reboot, eg. eth1, run the following commands:
     $ sudo sysctl -w net.ipv4.conf.all.rp_filter=0
     $ sudo sysctl -w net.ipv4.conf.eth1.rp_filter=0
 
-Once RPF is disabled, the GigE camera should show up in SpinView Devices panel.  
+Once RPF is disabled, the GigE camera should show up in SpinView Devices panel.
 If the camera's subnet mismatches the subnet of the network adapter (with
 an exclamation mark), right-click GEV Interface and click "Auto Force IP".
 
 To configure the IP address / subnet mask, or set a persisent IP, more
-information can be found at:  
+information can be found at:
 <https://www.flir.com/support-center/iis/machine-vision/knowledge-base/setting-an-ip-address-for-a-gige-camera-to-be-recognized-in-linux/>
 
 -------------------------------------------------------------------------------
@@ -321,8 +320,8 @@ information can be found at:
 -------------------------------------------------------------------------------
 
 The receive buffer size is strongly recommended to be increased, in order to
-greatly improve streaming results.  
-This can be done via the gev_nettweak script method mentioned above or by 
+greatly improve streaming results.
+This can be done via the gev_nettweak script method mentioned above or by
 following the manual instructions below.
 
 To PERMANENTLY update the receive buffer size:
@@ -332,7 +331,7 @@ To PERMANENTLY update the receive buffer size:
 
 2. Add the following lines to the bottom of the /etc/sysctl.conf file:
 
-       net.core.rmem_max=10485760  
+       net.core.rmem_max=10485760
        net.core.rmem_default=10485760
 
 3. Once changes are persisted, they can be reloaded at any time by running the
@@ -348,7 +347,7 @@ following commands:
     $ sudo sysctl -w net.core.rmem_max=10485760
     $ sudo sysctl -w net.core.rmem_default=10485760
 
-More information can be found at:  
+More information can be found at:
 <https://www.flir.com/support-center/iis/machine-vision/knowledge-base/lost-ethernet-data-packets-on-linux-systems-using-flycapture2/>
 
 -------------------------------------------------------------------------------
@@ -356,8 +355,8 @@ More information can be found at:
 -------------------------------------------------------------------------------
 
 Jumbo Packet is strongly recommended to be enabled for the network adapter and
-the camera, in order to greatly improve streaming results.  
-This can be done via the gev_nettweak script method mentioned above or by 
+the camera, in order to greatly improve streaming results.
+This can be done via the gev_nettweak script method mentioned above or by
 following the manual instructions below to persist the configuration across reboots.
 
 Run ifconfig and find the network adapter that the cameras are connected to
@@ -374,14 +373,14 @@ one of the methods below.
 Note that when the following methods are used in conjunction with each other on Ubuntu 20.04 or newer,
 your interface may sometimes be assigned 2 IP addresses, thus showing up twice in Spinnaker.
 
-Netplan (Ubuntu 20.04 or newer)  
+Netplan (Ubuntu 20.04 or newer)
 1. Open up your netplan YAML configuration in /etc/netplan/ in a text editor (as sudo):
    (eg. 01-network-manager-all.yaml)
 
        $ sudo gedit /etc/netplan/01-network-manager-all.yaml
 
 2. Set the Maximum Transfer Unit (MTU) of the network adapter to the maximum allowable
-   value for your interface (eg. 9000):  
+   value for your interface (eg. 9000):
    (change enp15s0 to match the name of the adapter connected to the camera,
    the address and netmask of the network adapter can also be configured here):
 
@@ -407,8 +406,8 @@ To enable Jumbo Packet for the GigE camera, change SCPS Packet Size
 (GevSCPSPacketSize) to 9000 in SpinView or via Spinnaker API.
 
 If using multiple interfaces, ensure that the addresses used are on different
-subnets (eg. 169.254.0.64/255.255.0.0 and 169.253.0.64/255.255.0.0).  
-More information can be found at:  
+subnets (eg. 169.254.0.64/255.255.0.0 and 169.253.0.64/255.255.0.0).
+More information can be found at:
 <https://www.flir.com/support-center/iis/machine-vision/application-note/setting-up-multiple-gige-cameras/>
 
 -------------------------------------------------------------------------------
@@ -427,7 +426,7 @@ To install ethtool, run the following command:
 
 With ethtool installed, you can check the supported link modes:
 
-    $ sudo ethtool enp15s0  
+    $ sudo ethtool enp15s0
 
 (change enp15s0 to match the name of the adapter connected to the camera)
 
@@ -454,7 +453,7 @@ More information can be found at:
 ### 4.5. NETWORKING BEST PRACTICES
 -------------------------------------------------------------------------------
 
-Using a subnet mask of 255.255.255.0 (or /24 in CIDR). 
+Using a subnet mask of 255.255.255.0 (or /24 in CIDR).
 This is a common practice in many network setups and is
 preferred for the following reasons:
 
@@ -466,27 +465,27 @@ accommodate less than 256 devices.
 efficient use of the available addresses within the subnet.
 
 3) Performance: Smaller subnets can reduce broadcast traffic and
-improve network performance, since we don't need a lot of space for 256 
+improve network performance, since we don't need a lot of space for 256
 cameras we might as well take advantage of this.
 
 It is also a good practice to avoid LLA (169.254.x.x) as the
-Network Interface Cards statically assigned IP.  
+Network Interface Cards statically assigned IP.
 In short we don't want to do this because it causes address conflicts,
-incompatibilities, and unpredictable behaviours.  
+incompatibilities, and unpredictable behaviours.
 For an in depth explanation look at the following link under subsection
-"Guidelines for Configuring Multi-NIC Systems":  
+"Guidelines for Configuring Multi-NIC Systems":
 <https://www.ni.com/en/support/documentation/supplemental/11/best-practices-for-using-multiple-network-interfaces--nics--with.html>
 
-Two additional parameters should be set on the camera for reduced packet loss:  
+Two additional parameters should be set on the camera for reduced packet loss:
 
-1) DeviceLinkThroughputLimit:  
-   after setting the camera frame rate, image size, stream settings (for 
+1) DeviceLinkThroughputLimit:
+   after setting the camera frame rate, image size, stream settings (for
    multi-stream cameras), the device link throughput limit should be set
    to match the current throughput (DeviceLinkCurrentThroughput).
 
-2) GevSCPSPacketSize:  
+2) GevSCPSPacketSize:
    the GEV stream channel packet size should be set to the maximum packet size
-   supported by the interface it is connected to. Refer to beginning of 
+   supported by the interface it is connected to. Refer to beginning of
    section 4 on how to enable jumbo packet on the interface.
 
 The example StereoAcquisition demonstrates how to set these parameters.
@@ -518,14 +517,14 @@ The appropriate environment variable can be updated by running:
 
 To enable Spinnaker GenTL logging, copy the logging configuration file "log4cpp.gentl.property"
 from /opt/spinnaker/lib/spinnaker-gentl to the location that the consumer application
-executes from.  
+executes from.
 The logging configuration file can be modified for specific levels of logging.
 
 ===============================================================================
 ## 6. SPINNAKER REMOVAL
 ===============================================================================
 
-To remove Spinnaker, run the uninstall script that is provided.  
+To remove Spinnaker, run the uninstall script that is provided.
 The removal script will also remove the udev rules therefore restoring the original ubuntu
 permissions on the device nodes.
 
@@ -557,7 +556,7 @@ The appropriate environment variable can be updated by running:
 After environment variables are setup, you can then run the tools by simply
 invoking their "launcher" command via the command line, and it is not
 required to change the PWD to "/opt/spinnaker/bin" or modify environment variables
-in order to launch them.  
+in order to launch them.
 Note that to run an example from a non-login shell (e.g. by using sudo),
 you will need to pass the user environment variables.
 This can be done with the "-E" parameter, e.g.
@@ -593,5 +592,5 @@ Launcher: SpinUpdateConsole
 ## 8. TELEDYNE-MV SPINNAKER EXAMPLES
 ===============================================================================
 
-Please visit our Github repository for examples you can refer to at:  
+Please visit our Github repository for examples you can refer to at:
 <https://github.com/Teledyne-MV/Spinnaker-Examples>

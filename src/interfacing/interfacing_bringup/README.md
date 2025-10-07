@@ -8,13 +8,13 @@ Given that some of our sensors are connected via ethernet, some extra work needs
 Doing so requires knowledge in networking, which can get pretty convoluted.
 
 At a high level, here's what needs to happen in order to make this work:
-- We configure the SFP port to act as a local subnet with a DHCP server. (using common IP range for local network 10.x.x.x/16) 
+- We configure the SFP port to act as a local subnet with a DHCP server. (using common IP range for local network 10.x.x.x/16)
   - That way any sensor asking for an IP address on startup will get it from our local PC's DHCP server instead of the internet.
   - This means that when the car is NOT connected to the internet, sensors can still be configured properly.
   - Without this, sensors will be unable to acquire an IP address, or alternatively cycle between different IP addresses periodically. Both are not ideal.
 - We ensure that our ethernet port on the motherboard has a direct pathway to the internet.
   - We still want to be able to connect the car to the internet so that we can SSH into it for development.
-  - We want to do so without exposing our sensors to the internet without a 
+  - We want to do so without exposing our sensors to the internet without a
 
 ### Installing dnsmasq
 To setup a computer to act as a DHCP server, we will be installing `dnsmasq` on the robot PC.
@@ -27,6 +27,7 @@ sudo apt install dnsmasq -y
 We will be doing static IP assignments by MAC address. Each device has a unique MAC address giving us a way to determine its identity.
 
 Edit `/etc/dnsmasq.d/robot-net.conf`
+
 ```conf
 interface=enp7s0f1
 bind-interfaces
@@ -48,6 +49,7 @@ We do not setup a gateway. That is, we do not tell our sensors how to reach netw
 
 ### Configuring Netplan
 Edited `/etc/netplan/01-netcfg.yaml`
+
 ```yaml
 network:
   version: 2
@@ -64,12 +66,14 @@ network:
 If `ip a show enp7s0f1` shows an IP different from the one you configured with Netplan, then there is a chance that another tool is managing `enp7s0f1` and overriding Netplan. In our case, NetworkManager was overriding.
 
 To see which profile controls `enp7s0f1`:
+
 ```bash
 nmcli device status
 nmcli connection show
 ```
 
 If managed by profile "Wired connection 1", we modify NetworkManager's existing profile (or create a new one):
+
 ```bash
 sudo nmcli connection modify "Wired connection 1" ipv4.method manual ipv4.addresses 10.8.0.1/16
 sudo nmcli connection modify "Wired connection 1" 802-3-ethernet.mtu 9000

@@ -12,11 +12,11 @@ novatel/oem7/novatel_oem7_driver:
     oem7_strict_receiver_init: true
     oem7_publish_unknown_oem7raw: false
     oem7_publish_delay: 0.0
-    
+
     # Frame IDs
     gps_frame_id: "gps"
     imu_frame_id: "imu"
-    
+
     # Topic configuration
     oem7_raw_topic: "oem7/raw"
     oem7_corrimu_topic: "oem7/corrimu"

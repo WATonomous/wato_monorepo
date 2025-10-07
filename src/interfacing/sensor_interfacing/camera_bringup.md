@@ -14,7 +14,7 @@ To set the cameras to automatically search for a DHCP server on boot, do the fol
 
 What this does is tell the blackfly camera to first attempt to retrieve an IP from a DHCP server (which in our case is the server on our computer setup with dnsmasq), and then resort to Link-Local for fallback. Do not enable Persistent IP as it will take precedent over DHCP
 
-## Computer specific 
+## Computer specific
 
 The cameras are plugged into a switch that is connected to the main computer.
 
@@ -31,14 +31,13 @@ Key things to check for:
 - Default and max recieve buffer size of 10485760
 - Maximum Transmission Unit (MTU) value is 9000 for the interface:
 
-
 ## Camera Specific
 
 To find information about the connected cameras, type:
 
 `spinview`
 
-to open an interactive GUI. 
+to open an interactive GUI.
 
 Software Note: we use composable nodes to connect to the Spinnaker SDK [to prevent undefined behaviour](https://docs.ros.org/en/iron/p/spinnaker_camera_driver/)
 
@@ -52,16 +51,13 @@ Software Note: we use composable nodes to connect to the Spinnaker SDK [to preve
     - 18542606
 
     Assuming the humble-devel version of [flir_camera_driver](https://github.com/ros-drivers/flir_camera_driver) is installed, test a camera with:
-    
+
     ```sh
     ros2 launch spinnaker_camera_driver driver_node.launch.py camera_type:=blackfly serial:="'17453317'"
     ```
 
-
-
-
 #### Lens (Fujinon CF12.5HA-1)
 
-To write: 
+To write:
 - intrinsics calibration: tuning and fixing focus
 - extrinsics calibration: URDF and mounting to vehicle
