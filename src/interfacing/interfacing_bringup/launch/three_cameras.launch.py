@@ -37,32 +37,53 @@ def generate_launch_description():
         "gev_scps_packet_size": 9000,
     }
 
-    cams = [
-        ("flir_camera_0", "18542606"),
-        ("flir_camera_1", "17453304"),
-        ("flir_camera_2", "17453317"),
-    ]
-
     parameter_file = PathJoinSubstitution(
         [FindPackageShare("spinnaker_camera_driver"), "config", "blackfly.yaml"]
     )
 
     composables = []
-    for name, serial in cams:
-        composables.append(
-            ComposableNode(
-                package="spinnaker_camera_driver",
-                plugin="spinnaker_camera_driver::CameraDriver",
-                name="camera",
-                namespace=name,
-                parameters=[
-                    camera_params,
-                    {"serial_number": serial, "parameter_file": parameter_file},
-                ],
-                remappings=[("~/control", "/exposure_control/control")],
-                extra_arguments=[{"use_intra_process_comms": True}],
-            )
+    composables.append(
+        ComposableNode(
+            package="spinnaker_camera_driver",
+            plugin="spinnaker_camera_driver::CameraDriver",
+            name="camera",
+            namespace="flir_camera_0",
+            parameters=[
+                camera_params,
+                {"serial_number": "18542606", "parameter_file": parameter_file},
+            ],
+            remappings=[("~/control", "/exposure_control/control")],
+            extra_arguments=[{"use_intra_process_comms": True}],
         )
+    )
+    composables.append(
+        ComposableNode(
+            package="spinnaker_camera_driver",
+            plugin="spinnaker_camera_driver::CameraDriver",
+            name="camera",
+            namespace="flir_camera_1",
+            parameters=[
+                camera_params,
+                {"serial_number": "17453304", "parameter_file": parameter_file},
+            ],
+            remappings=[("~/control", "/exposure_control/control")],
+            extra_arguments=[{"use_intra_process_comms": True}],
+        )
+    )
+    composables.append(
+        ComposableNode(
+            package="spinnaker_camera_driver",
+            plugin="spinnaker_camera_driver::CameraDriver",
+            name="camera",
+            namespace="flir_camera_2",
+            parameters=[
+                camera_params,
+                {"serial_number": "17453317", "parameter_file": parameter_file},
+            ],
+            remappings=[("~/control", "/exposure_control/control")],
+            extra_arguments=[{"use_intra_process_comms": True}],
+        )
+    )
 
     container = ComposableNodeContainer(
         name="multi_camera_container",
