@@ -11,6 +11,7 @@
 
   <exec_depend>novatel_gps_driver</exec_depend>
   <exec_depend>velodyne</exec_depend>
+  <exec_depend>spinnaker_camera_driver</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
