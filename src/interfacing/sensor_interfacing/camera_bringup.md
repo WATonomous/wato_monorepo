@@ -1,5 +1,11 @@
 # Camera Bringup
 
+To publish raw frames from all three Blackfly cameras, run:
+
+```sh
+ros2 launch interfacing_bringup three_cameras.launch.py
+```
+
 ## Computer specific
 
 The cameras are plugged into a switch that is connected to the main computer.
