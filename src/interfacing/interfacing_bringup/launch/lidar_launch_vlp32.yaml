@@ -1,10 +1,11 @@
+---
 launch:
   - node:
       pkg: velodyne_driver
       exec: velodyne_driver_node
       output: both
       param:
-        -  from: "$(find-pkg-share interfacing_bringup)/config/VLP32C-velodyne_driver_node-params.yaml"
+        - from: "$(find-pkg-share interfacing_bringup)/config/VLP32C-velodyne_driver_node-params.yaml"
 
   - node:
       pkg: velodyne_pointcloud

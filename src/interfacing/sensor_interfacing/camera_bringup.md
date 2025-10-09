@@ -62,7 +62,8 @@ What this does is tell the blackfly camera to first attempt to retrieve an IP fr
     ros2 launch spinnaker_camera_driver driver_node.launch.py camera_type:=blackfly serial:="'17453317'"
     ```
 
-#### Lens (Fujinon CF12.5HA-1)
+
+### Lens (Fujinon CF 12.5HA-1)
 
 To write:
 - intrinsics calibration: tuning and fixing focus
