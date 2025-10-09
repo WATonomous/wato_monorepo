@@ -5,6 +5,7 @@ To publish raw frames from the roof-mounted VLP-32C, run:
 ```sh
 ros2 launch interfacing_bringup lidar_launch_vlp32.yaml
 ```
+
 ## Visualization
 
 To visualize in Foxglove without a URDF, we need a reference frame. This will be added in a future PR that contains publishers for sensor extrinsics.
