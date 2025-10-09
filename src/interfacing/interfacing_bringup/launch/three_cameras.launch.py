@@ -23,8 +23,6 @@ def generate_launch_description():
        'gev_scps_packet_size': 9000,
    }
 
-
-   # Camera details
    cams = [
        ('flir_camera_0', '18542606'),
        ('flir_camera_1', '17453304'),
@@ -39,7 +37,6 @@ def generate_launch_description():
 
    composables = []
    for name, serial in cams:
-       # Camera driver node in its own namespace
        composables.append(
            ComposableNode(
                package='spinnaker_camera_driver',
@@ -51,19 +48,7 @@ def generate_launch_description():
                extra_arguments=[{'use_intra_process_comms': True}],
            )
        )
-       # Debayer in the same namespace, auto-subscribes to /<name>/image_raw
-       composables.append(
-           ComposableNode(
-               package='image_proc',
-               plugin='image_proc::DebayerNode',
-               name='debayer',
-               namespace=name,
-               extra_arguments=[{'use_intra_process_comms': True}],
-           )
-       )
 
-
-   # Multi-threaded container for parallel processing
    container = ComposableNodeContainer(
        name='multi_camera_container',
        namespace='',
