@@ -15,14 +15,11 @@
 #include "behaviour/behaviour_node.hpp"
 #include "behaviour/bt_node_utils.hpp"
 
-BehaviourNode::BehaviourNode() : Node("behaviour_node")
-{
+BehaviourNode::BehaviourNode() : Node("behaviour_node") {
   RCLCPP_INFO(this->get_logger(), "BehaviourNode has been started.");
 }
 
-
-int main(int argc, char * argv[])
-{
+int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
   // create a single shared node instance that BT leaf nodes will use

@@ -14,19 +14,16 @@
 
 #include "behaviour/bt_node_utils.hpp"
 
-namespace wato::world_modeling::behaviour
-{
+namespace wato::world_modeling::behaviour {
 
 static rclcpp::Node::SharedPtr shared_node = nullptr;
 
-void set_shared_node(const rclcpp::Node::SharedPtr & node)
-{
+void set_shared_node(const rclcpp::Node::SharedPtr &node) {
   shared_node = node;
 }
 
-rclcpp::Node::SharedPtr get_shared_node()
-{
+rclcpp::Node::SharedPtr get_shared_node() {
   return shared_node;
 }
 
-}  // namespace wato::world_modeling::behaviour
+} // namespace wato::world_modeling::behaviour
