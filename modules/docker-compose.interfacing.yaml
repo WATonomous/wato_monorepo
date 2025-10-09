@@ -1,6 +1,7 @@
 ---
 services:
   interfacing_bringup:
+    net: host
     build:
       context: ..
       dockerfile: docker/interfacing/interfacing.Dockerfile

@@ -100,13 +100,3 @@ Not all sensors support PTP. For example, our main Blackfly cameras are not supp
 
 **More documentation on setup:** [Camera Bringup](../sensor_interfacing/camera_bringup.md)
 
-
-### Running launch files outside Docker (watod)
-
-Sometimes it may be necessary to experiment quickly with certain packages. To build a subset of the packages, symlink into your workspace src directory. For example:
-
-```
-ln -s /home/watonomous/thchzh/wato_monorepo/src/interfacing/interfacing_bringup /home/watonomous/thchzh/ros2_ws/src/interfacing_bringup
-cd $HOME/thchzh/ros2_ws
-colcon build --symlink-install
-```
