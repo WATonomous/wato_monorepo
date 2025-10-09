@@ -9,7 +9,7 @@
   <xacro:property name="wheel_width" value="0.2"/>
   <xacro:property name="wheelbase" value="2.51"/>
   <xacro:property name="track_width" value="1.52"/>
-  
+
   <link name="base_link">
     <visual>
       <origin xyz="${wheelbase/2} 0 ${height/2}" rpy="0 0 0"/>
@@ -44,7 +44,7 @@
       <parent link="base_link"/>
       <child link="${name}_wheel"/>
       <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
-      <axis xyz="0 1 0"/> 
+      <axis xyz="0 1 0"/>
     </joint>
   </xacro:macro>
 
@@ -54,7 +54,7 @@
       <parent link="base_link"/>
       <child link="${name}_knuckle"/>
       <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
-      <axis xyz="0 0 1"/> 
+      <axis xyz="0 0 1"/>
       <limit effort="10" velocity="1" lower="-0.785" upper="0.785"/> <!-- +/-45 deg -->
     </joint>
     <link name="${name}_wheel">
@@ -78,7 +78,7 @@
       <parent link="${name}_knuckle"/>
       <child link="${name}_wheel"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <axis xyz="0 1 0"/> 
+      <axis xyz="0 1 0"/>
     </joint>
   </xacro:macro>
 
