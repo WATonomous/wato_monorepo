@@ -12,27 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "behaviour/behaviour_node.hpp"
 #include "behaviour/bt_node_utils.hpp"
 
-BehaviourNode::BehaviourNode() : Node("behaviour_node")
+namespace wato::world_modeling::behaviour
 {
-  RCLCPP_INFO(this->get_logger(), "BehaviourNode has been started.");
+
+static rclcpp::Node::SharedPtr shared_node = nullptr;
+
+void set_shared_node(const rclcpp::Node::SharedPtr & node)
+{
+  shared_node = node;
 }
 
-
-int main(int argc, char * argv[])
+rclcpp::Node::SharedPtr get_shared_node()
 {
-  rclcpp::init(argc, argv);
-
-  // create a single shared node instance that BT leaf nodes will use
-  auto node = std::make_shared<BehaviourNode>();
-  wato::world_modeling::behaviour::set_shared_node(node);
-
-  // keep behaviour node alive; BT factory and nodes will be added later
-  RCLCPP_INFO(node->get_logger(), "BehaviourNode initialized (shared node set)");
-
-  rclcpp::spin(node);
-  rclcpp::shutdown();
-  return 0;
+  return shared_node;
 }
+
+}  // namespace wato::world_modeling::behaviour
