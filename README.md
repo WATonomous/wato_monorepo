@@ -42,6 +42,7 @@ wato_monorepo_v2
 ├── src
 │   ├── motion_planning_and_control
 │   ├── perception
+|   ├── prediction
 │   ├── wato_msgs
 │   │   └── sample_msgs
 │   │       ├── CMakeLists.txt
