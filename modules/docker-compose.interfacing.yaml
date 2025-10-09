@@ -1,6 +1,7 @@
 ---
 services:
   interfacing_bringup:
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/interfacing/interfacing.Dockerfile
