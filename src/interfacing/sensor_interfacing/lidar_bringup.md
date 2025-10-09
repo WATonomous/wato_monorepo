@@ -3,7 +3,7 @@
 To publish raw frames from the roof-mounted VLP-32C, run:
 
 ```sh
-ros2 launch interfacing_bringup velodyne_VLP32C.launch.py
+ros2 launch interfacing_bringup lidar_launch_vlp32.yaml
 ```
 ## Visualization
 
