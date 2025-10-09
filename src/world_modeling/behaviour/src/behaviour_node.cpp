@@ -26,10 +26,37 @@ int main(int argc, char *argv[]) {
   auto node = std::make_shared<BehaviourNode>();
   wato::world_modeling::behaviour::set_shared_node(node);
 
-  // keep behaviour node alive; BT factory and nodes will be added later
+  // create BT factory and load tree XML from package share
+  BT::BehaviorTreeFactory factory;
+
+  std::string pkg_share;
+  try {
+    pkg_share = ament_index_cpp::get_package_share_directory("behaviour");
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(node->get_logger(), "Could not find package share directory: %s", e.what());
+    return 1;
+  }
+
+  std::string xml_path = pkg_share + "/bt/xml/main_tree.xml";
+  RCLCPP_INFO(node->get_logger(), "Loading BT XML: %s", xml_path.c_str());
+
+  BT::Tree tree;
+  try {
+    tree = factory.createTreeFromFile(xml_path);
+  } catch (const std::exception &ex) {
+    RCLCPP_ERROR(node->get_logger(), "Failed to create BT from file: %s", ex.what());
+    return 1;
+  }
+
   RCLCPP_INFO(node->get_logger(), "BehaviourNode initialized (shared node set)");
 
-  rclcpp::spin(node);
+  rclcpp::Rate rate(10);
+  while (rclcpp::ok()) {
+    tree.tickRoot();
+    rclcpp::spin_some(node);
+    rate.sleep();
+  }
+
   rclcpp::shutdown();
   return 0;
 }

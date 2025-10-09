@@ -1,0 +1,14 @@
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence name="main_sequence">
+      <!-- Call HD map service to get current and goal points -->
+      <GetHDMapInfo current_point="{current_point}" goal_point="{goal_point}" />
+
+      <!-- Publish clicked_point to request a route from hd_map -->
+      <RequestRoute goal_point="{goal_point}" />
+
+      <!-- Wait for hd_map to publish the route (timeout in ms) -->
+      <WaitForRoute timeout_ms="2000" />
+    </Sequence>
+  </BehaviorTree>
+</root>
