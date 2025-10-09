@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>kalman_filter</name>
+  <version>0.0.0</version>
+  <description>Kalman Filter Prediction Package</description>
+
+  <maintainer email="yashjoshi@watonomous.ca">Yash Joshi</maintainer>
+  <license>TODO(wato)</license>
+
+  <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
+  <!--ROS 2 and Message Dependencies-->>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>common_msgs</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <!--https://www.ros.org/reps/rep-0149.html#export-->
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
