@@ -1,5 +1,11 @@
 # Camera Bringup
 
+To publish raw frames from all three Blackfly cameras, run:
+
+```sh
+ros2 launch interfacing_bringup three_cameras.launch.py
+```
+
 ## Computer specific
 
 The cameras are plugged into a switch that is connected to the main computer.
@@ -43,20 +49,20 @@ What this does is tell the blackfly camera to first attempt to retrieve an IP fr
 
 ### Blackfly GigE (Teledyne FLIR BFLY-PGE-23S6C-C)
 
-    These are global shutter RGB cameras with a max frame rate of 41 fps. Please note that PTP IEEE 1588 is not supported (https://docs.ros.org/en/rolling/p/spinnaker_camera_driver/#configuring-ptp-ieee-1588)
+These are global shutter RGB cameras with a max frame rate of 41 fps. Please note that PTP IEEE 1588 is not supported (https://docs.ros.org/en/rolling/p/spinnaker_camera_driver/#configuring-ptp-ieee-1588)
 
-    The serial numbers are:
-    - 17453304
-    - 17453317
-    - 18542606
+The serial numbers are:
+- 17453304
+- 17453317
+- 18542606
 
-    Assuming the humble-devel version of [flir_camera_driver](https://github.com/ros-drivers/flir_camera_driver) is installed, test a camera with:
+Assuming the humble-devel version of [flir_camera_driver](https://github.com/ros-drivers/flir_camera_driver) is installed, test a camera with:
 
-    ```sh
-    ros2 launch spinnaker_camera_driver driver_node.launch.py camera_type:=blackfly serial:="'17453317'"
-    ```
+```sh
+ros2 launch spinnaker_camera_driver driver_node.launch.py camera_type:=blackfly serial:="'17453317'"
+```
 
-#### Lens (Fujinon CF12.5HA-1)
+### Lens (Fujinon CF 12.5HA-1)
 
 To write:
 - intrinsics calibration: tuning and fixing focus
