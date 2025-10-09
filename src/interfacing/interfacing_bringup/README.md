@@ -83,7 +83,6 @@ sudo nmcli connection up "Wired connection 1"
 
 ### IEEE 1588 Precision Time Protocol (PTP)
 
-
 Not all sensors support PTP. For example, our main Blackfly cameras are not supported while the Blackfly S is supported.
 
 ## Current Drivers
@@ -99,4 +98,3 @@ Not all sensors support PTP. For example, our main Blackfly cameras are not supp
 **Usage Pattern:** This driver is available as a rosdep key, usage of this driver consists of depending on the released version in `package.xml` and launching.
 
 **More documentation on setup:** [Camera Bringup](../sensor_interfacing/camera_bringup.md)
-

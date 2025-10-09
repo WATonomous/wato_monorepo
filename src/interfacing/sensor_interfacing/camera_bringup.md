@@ -41,7 +41,6 @@ To set the cameras to automatically search for a DHCP server on boot, do the fol
 
 What this does is tell the blackfly camera to first attempt to retrieve an IP from a DHCP server (which in our case is the server on our computer setup with dnsmasq), and then resort to Link-Local for fallback. Do not enable Persistent IP as it will take precedent over DHCP.
 
-
 ### Blackfly GigE (Teledyne FLIR BFLY-PGE-23S6C-C)
 
     These are global shutter RGB cameras with a max frame rate of 41 fps. Please note that PTP IEEE 1588 is not supported (https://docs.ros.org/en/rolling/p/spinnaker_camera_driver/#configuring-ptp-ieee-1588)
