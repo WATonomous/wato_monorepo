@@ -1,14 +1,50 @@
 <root main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
+    <!--
+      High level behaviour tree:
+      1) Query HD map for current & goal
+      2) If we already have a valid trajectory -> Execute
+      3) Otherwise: request route, wait for it, run planner, validate, then execute
+      Blackboard keys used:
+        current_point, goal_point, planned_path, have_valid_trajectory, trajectory_ok
+    -->
+
     <Sequence name="main_sequence">
-      <!-- Call HD map service to get current and goal points -->
+      <!-- Populate current and goal on the blackboard -->
       <GetHDMapInfo current_point="{current_point}" goal_point="{goal_point}" />
 
-      <!-- Publish clicked_point to request a route from hd_map -->
-      <RequestRoute goal_point="{goal_point}" />
+      <!-- Monitor traffic lights / dynamic reg elems in parallel while planning/executing -->
+      <Parallel name="monitor_and_control" success_threshold="1" failure_threshold="1">
+        <!-- optional monitor node (implement later) -->
+        <MonitorTrafficLights state="{traffic_light_state}" />
 
-      <!-- Wait for hd_map to publish the route (timeout in ms) -->
-      <WaitForRoute timeout_ms="2000" />
+        <!-- Plan or follow: try to follow existing trajectory, else plan -->
+        <Fallback name="plan_or_follow">
+          <!-- If we already have a valid trajectory, execute it -->
+          <Sequence name="follow_sequence">
+            <CheckHaveValidTrajectory have_valid="{have_valid_trajectory}" />
+            <ExecuteTrajectory path="{planned_path}" />
+          </Sequence>
+
+          <!-- Otherwise plan a new trajectory -->
+          <Sequence name="plan_sequence">
+            <!-- Request route from HD map -->
+            <RequestRoute goal_point="{goal_point}" />
+
+            <!-- Wait for the hd_map node to publish the route -->
+            <WaitForRoute timeout_ms="2000" />
+
+            <!-- Run the local planner (start=current_point, goal=goal_point) -->
+            <RunPlanner start="{current_point}" goal="{goal_point}" planned_path="{planned_path}" />
+
+            <!-- Validate path against occupancy/traffic rules -->
+            <ValidateTrajectory path="{planned_path}" ok="{trajectory_ok}" />
+
+            <!-- If valid, execute -->
+            <ExecuteTrajectory path="{planned_path}" />
+          </Sequence>
+        </Fallback>
+      </Parallel>
     </Sequence>
   </BehaviorTree>
 </root>
