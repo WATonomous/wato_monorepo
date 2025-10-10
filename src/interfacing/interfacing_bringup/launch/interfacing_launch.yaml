@@ -44,7 +44,7 @@ launch:
   
   # Launch three cameras
   - include:
-      file: "$(find-pkg-share interfacing_bringup)/launch/three_cameras.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/three_cameras.yaml"
       arg:
         - name: "camera_config_file"
           value: "$(var camera_config_file)"
