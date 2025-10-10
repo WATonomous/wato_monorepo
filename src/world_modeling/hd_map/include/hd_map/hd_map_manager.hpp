@@ -76,6 +76,8 @@ public:
    */
   std::string get_osm_map_from_coordinates(lanelet::GPSPoint gps_point);
 
+  std::string get_maps_directory() const;
+
 private:
   /**
    * Project the OSM map to Lanelet format using the specified origin.
@@ -115,14 +117,10 @@ private:
    */
   bool get_origin_from_filename(std::string filename, lanelet::Origin & origin);
 
-  // List of origins associated with map files
-  std::map<std::string, lanelet::Origin> originList = {
-    {"/home/bolty/ament_ws/etc/maps/osm/Town05.osm", lanelet::Origin({0, 0})},
-    {"/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm", lanelet::Origin({0, 0})},
-  };
+  std::string maps_directory_ = "/home/bolty/ament_ws/etc/maps/osm/";
+  std::map<std::string, lanelet::Origin> originList;
+  std::map<std::string, lanelet::Origin> create_origin_list() const;
 
-  // Shared pointer to the HDMapRouter object
   std::shared_ptr<HDMapRouter> router_;
 };
-
 #endif
