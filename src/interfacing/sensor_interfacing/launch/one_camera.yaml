@@ -8,4 +8,4 @@ launch:
       - name: serial
         value: "'17453304'"
       - name: parameter_file
-        value: /home/watonomous/ws/src/flir_camera_driver/spinnaker_camera_driver/config/blackfly.yaml
+        value: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
