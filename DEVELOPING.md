@@ -58,8 +58,18 @@ Example: `watod run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scen
 
 Eve uses Carla Simulator for offline tests. See [CARLA_README.md](src/simulation/CARLA_README.md).
 
-## Where are the docs?
+## Documentation Guidelines
 
-We follow a by-package mentality for documentation. That is, every package in the monorepo has a README.md to discuss general usage, and a DEVELOPING.md to discuss technical specifications and general development patterns of that package.
+We follow a by-package mentality for documentation. Every package in the monorepo should contain:
+
+1. `README.md` to discuss general usage
+1. `DEVELOPING.md` to discuss technical specifications and general development patterns of that package
+
+Generally you should:
+- Avoid potential **documentation rot** by reducing documentation that directly refers to implementation details.
+  - **Why?** The implementation could change, and you forget to change the documentation associated with it.
+- Assume users of your package knows ROS2, and also generally how to use the monorepo infrastructure
+- Provide enough information so that anyone knows how hit the ground running.
+- Always keep track of current hacks
 
 We also have the global README.md and DEVELOPING.md as shown to help you navigate around.
