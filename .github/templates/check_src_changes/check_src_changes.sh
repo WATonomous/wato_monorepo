@@ -54,6 +54,12 @@ if [ "$WORLD_MODELING_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
     MODIFIED_MODULES+="world_modeling "
 fi
 
+# Prediction
+if [ "$PREDICTION_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
+    echo "Detected prediction changes"
+    MODIFIED_MODULES+="prediction "
+fi
+
 # Infrastructure
 if [ "$INFRASTRUCTURE_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
     echo "::notice:: Detected infrastructure changes"
