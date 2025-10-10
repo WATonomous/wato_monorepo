@@ -12,17 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.8)
-project(interfacing_bringup)
+project(eve_description)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# find dependencies
 find_package(ament_cmake REQUIRED)
-
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
 install(DIRECTORY
-  config
   launch
+  urdf
   DESTINATION share/${PROJECT_NAME}/
 )
 
