@@ -34,7 +34,7 @@ launch:
             - from: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
           extra_arg:
             - name: use_intra_process_comms
-              value: true
+              value: 'true'
 
         # Camera 1
         - pkg: spinnaker_camera_driver
@@ -49,7 +49,7 @@ launch:
             - from: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
           extra_arg:
             - name: use_intra_process_comms
-              value: true
+              value: 'true'
 
         # Camera 2
         - pkg: spinnaker_camera_driver
@@ -64,4 +64,4 @@ launch:
             - from: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
           extra_arg:
             - name: use_intra_process_comms
-              value: true
+              value: 'true'
