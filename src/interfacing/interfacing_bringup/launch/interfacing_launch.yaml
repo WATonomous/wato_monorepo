@@ -29,18 +29,18 @@ launch:
       description: "Camera configuration file"
 
   # Launch GPS with parameters and config file
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
-      arg:
-        - name: "gps_config_file"
-          value: "$(var gps_config_file)"
+#  - include:
+#      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+#      arg:
+#        - name: "gps_config_file"
+#          value: "$(var gps_config_file)"
   
   # Launch LiDAR VLP-32 with config file
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/lidar_launch_vlp32.yaml"
-      arg:
-        - name: "lidar_config_file"
-          value: "$(var lidar_config_file)"
+#  - include:
+#      file: "$(find-pkg-share sensor_interfacing)/launch/lidar_launch_vlp32.yaml"
+#      arg:
+#        - name: "lidar_config_file"
+#          value: "$(var lidar_config_file)"
   
   # Launch three cameras
   - include:
