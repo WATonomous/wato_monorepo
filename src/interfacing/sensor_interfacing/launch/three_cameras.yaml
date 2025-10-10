@@ -22,6 +22,7 @@ launch:
       pkg: rclcpp_components
       exec: component_container
       name: spinnaker_camera_container
+      namespace: ""
 
   - load_composable_node:
       target: spinnaker_camera_container
