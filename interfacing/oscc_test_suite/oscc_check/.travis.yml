@@ -1,0 +1,18 @@
+sudo: true
+
+language: python3
+    - "3.5"
+
+addons:
+  apt:
+    packages:
+      - "python3.5"
+      - "python3-pip"
+      - "python3-setuptools"
+
+install:
+    - sudo python3.5 -m pip install pip --upgrade
+    - sudo python3.5 -m pip install setuptools --upgrade
+
+script:
+    - python3.5 setup.py test
