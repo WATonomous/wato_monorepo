@@ -9,8 +9,8 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <exec_depend>novatel_gps_driver</exec_depend>
-  <exec_depend>velodyne</exec_depend>
+  <exec_depend>sensor_interfacing</exec_depend>
+  <exec_depend>eve_description</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

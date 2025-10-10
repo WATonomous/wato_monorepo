@@ -1,11 +1,16 @@
 ---
 launch:
+  - arg:
+      name: "lidar_config_file"
+      default: "$(find-pkg-share sensor_interfacing)/config/VLP32C_lidar_config.yaml"
+      description: "Path to LiDAR configuration file"
+
   - node:
       pkg: velodyne_driver
       exec: velodyne_driver_node
       output: both
       param:
-        - from: "$(find-pkg-share interfacing_bringup)/config/VLP32C-velodyne_driver_node-params.yaml"
+        - from: "$(var lidar_config_file)"
 
   - node:
       pkg: velodyne_pointcloud
