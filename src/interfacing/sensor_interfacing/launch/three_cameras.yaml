@@ -31,7 +31,7 @@ launch:
               to: '/exposure_control/control'
           param:
             - from: $(var camera_config_file)
-            - parameter_file: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
+            - from: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
           extra_arg:
             - name: use_intra_process_comms
               value: true
@@ -46,7 +46,7 @@ launch:
               to: '/exposure_control/control'
           param:
             - from: $(var camera_config_file)
-            - parameter_file: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
+            - from: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
           extra_arg:
             - name: use_intra_process_comms
               value: true
@@ -61,7 +61,7 @@ launch:
               to: '/exposure_control/control'
           param:
             - from: $(var camera_config_file)
-            - parameter_file: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
+            - from: $(find-pkg-share spinnaker_camera_driver)/config/blackfly.yaml
           extra_arg:
             - name: use_intra_process_comms
               value: true
