@@ -10,4 +10,4 @@ services:
         - "${INTERFACING_IMAGE}:build_main"
       target: deploy
     image: "${INTERFACING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch interfacing_bringup interfacing.launch.py && ros2 launch novatel_oem7_driver oem7_net.launch.py oem7_ip_addr:=169.254.0.10"
+    command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_launch.yaml"
