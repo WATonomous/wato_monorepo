@@ -1,10 +1,5 @@
 novatel/oem7/novatel_oem7_driver:
   ros__parameters:
-    # Network interface parameters
-    oem7_ip_addr: "10.8.0.8"
-    oem7_port: "3001"
-    oem7_if: "Oem7ReceiverTcp"
-    
     # OEM7 Driver Configuration
     oem7_max_io_errors: 10
     oem7_msg_decoder: "Oem7MessageDecoder"

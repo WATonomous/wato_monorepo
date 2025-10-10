@@ -1,0 +1,30 @@
+---
+launch:
+  - arg:
+      name: "oem7_ip_addr"
+      default: "192.168.0.100"
+      description: "IP address of the OEM7 receiver"
+
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp, Oem7ReceiverUdp)"
+  
+  - arg:
+      name: "gps_config_file"
+      default: "$(find-pkg-share sensor_interfacing)/config/novatel_oem7_config.yaml"
+      description: "Path to GPS configuration file"
+
+  - node:
+      pkg: "novatel_oem7_driver"
+      exec: "novatel_oem7_driver_exe"
+      name: "novatel_oem7_driver"
+      namespace: "novatel/oem7"
+      param:
+        # Load base configuration from YAML file
+        - from: "$(var gps_config_file)"

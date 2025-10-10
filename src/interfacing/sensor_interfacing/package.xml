@@ -1,15 +1,17 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>interfacing_bringup</name>
+  <name>sensor_interfacing</name>
   <version>0.0.0</version>
-  <description>Bringup package used to launch drivers for Eve.</description>
+  <description>Package of various launchfiles to debug and launch sensors</description>
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <exec_depend>sensor_interfacing</exec_depend>
+  <exec_depend>novatel_gps_driver</exec_depend>
+  <exec_depend>velodyne</exec_depend>
+  <exec_depend>spinnaker_camera_driver</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
