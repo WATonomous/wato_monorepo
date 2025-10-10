@@ -22,7 +22,7 @@ launch:
       name: "camera_config_file"
       default: "$(find-pkg-share interfacing_bringup)/config/blackfly_cameras_config.yaml"
       description: "Camera configuration file"
-  
+
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
@@ -47,14 +47,14 @@ launch:
           value: "$(var oem7_port)"
         - name: "oem7_if"
           value: "$(var oem7_if)"
-  
+
   # LiDAR VLP-32 with config file
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/lidar_launch_vlp32.yaml"
       arg:
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
-  
+
   # Blackfly cameras
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/three_cameras.yaml"
