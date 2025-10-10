@@ -44,11 +44,11 @@ private:
   void get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr msg);
   void publish_hd_map_marker();
   void behaviour_tree_info_callback(
-      const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request,
-      const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response);
-  world_modeling_msgs::msg::Lanelet convert_lanelet_to_msg(const lanelet::ConstLanelet &lanelet);
+    const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request,
+    const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response);
+  world_modeling_msgs::msg::Lanelet convert_lanelet_to_msg(const lanelet::ConstLanelet & lanelet);
   world_modeling_msgs::msg::LaneletPath convert_laneletPath_to_msg(
-      const lanelet::Optional<lanelet::routing::LaneletPath> &path);
+    const lanelet::Optional<lanelet::routing::LaneletPath> & path);
 
   rclcpp::Service<world_modeling_msgs::srv::BehaviourTreeInfo>::SharedPtr behaviour_tree_info_service;
 
@@ -76,8 +76,6 @@ private:
   geometry_msgs::msg::Point current_point_;
   lanelet::Lanelet goal_lanelet_;
   lanelet::ConstLanelet current_lanelet_;
-
-  std::string osm_maps_directory = "/home/bolty/ament_ws/etc/maps/osm/";
 };
 
 #endif
