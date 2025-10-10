@@ -3,14 +3,40 @@
 <package format="3">
   <name>tracking_2d</name>
   <version>0.0.0</version>
-  <description>tracking_2d package</description>
+  <description>2D object tracking</description>
   <maintainer email="b69zheng@uwaterloo.ca">Brian Zheng</maintainer>
   <license>Apache License 2.0</license>
 
+  <!-- Build system -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- Core ROS dependencies -->
   <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
 
+  <!-- C++ / math / vision libs -->
+  <build_depend>libeigen3-dev</build_depend>
+  <exec_depend>libeigen3-dev</exec_depend>
+  <build_depend>libjpeg-dev</build_depend>
+  <depend>opencv</depend>
+
+  <!-- System / runtime libs -->
+  <exec_depend>ffmpeg</exec_depend>
+  <exec_depend>libsm6</exec_depend>
+  <exec_depend>libxext6</exec_depend>
+  <exec_depend>libgl1</exec_depend>
+  <exec_depend>libglib2.0-0</exec_depend>
+
+  <!-- Build tools (optional; usually part of base image, but harmless) -->
+  <buildtool_depend>build-essential</buildtool_depend>
+  <buildtool_depend>cmake</buildtool_depend>
+  <buildtool_depend>git</buildtool_depend>
+  <buildtool_depend>wget</buildtool_depend>
+  <buildtool_depend>python3</buildtool_depend>
+  <buildtool_depend>python3-pip</buildtool_depend>
+
+  <!-- Tests -->
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

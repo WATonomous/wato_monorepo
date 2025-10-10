@@ -13,7 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 
 
-add_executable(tracking_2d_node src/tracking_2d.cpp)
+add_executable(tracking_2d_node src/tracking_2d_node.cpp)
 
 target_include_directories(tracking_2d_node
     PUBLIC
