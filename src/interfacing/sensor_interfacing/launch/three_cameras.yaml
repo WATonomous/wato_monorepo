@@ -18,8 +18,13 @@ launch:
       default: "$(find-pkg-share sensor_interfacing)/config/three_cameras_config.yaml"
       description: "Path to camera configuration file"
 
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: spinnaker_camera_container
+
   - load_composable_node:
-      target: "spinnaker_camera_container"
+      target: spinnaker_camera_container
       composable_node:
         # Camera 0
         - pkg: spinnaker_camera_driver

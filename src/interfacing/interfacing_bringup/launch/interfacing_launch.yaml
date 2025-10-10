@@ -44,7 +44,7 @@ launch:
   
   # Launch three cameras
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/three_cameras.launch.py"
-      # arg:
-      #   - name: "camera_config_file"
-      #     value: "$(var camera_config_file)"
+      file: "$(find-pkg-share sensor_interfacing)/launch/three_cameras.yaml"
+      arg:
+        - name: "camera_config_file"
+          value: "$(var camera_config_file)"
