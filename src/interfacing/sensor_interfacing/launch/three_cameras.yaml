@@ -18,12 +18,7 @@ launch:
       default: "$(find-pkg-share sensor_interfacing)/config/three_cameras_config.yaml"
       description: "Path to LiDAR configuration file"
 
-  - composable_node_container:
-      name: multi_camera_container
-      namespace: ''
-      package: rclcpp_components
-      executable: component_container_mt
-      output: screen
+  - load_composable_node:
       composable_node:
         # Camera 0
         - package: spinnaker_camera_driver
