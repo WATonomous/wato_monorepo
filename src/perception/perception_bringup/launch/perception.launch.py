@@ -63,11 +63,31 @@ def generate_launch_description():
         default_value=patchwork_param_file,
         description="Path to config file for patchwork ground removal node",
     )
+    patchwork_cloud_topic = DeclareLaunchArgument(
+        "patchwork_cloud_topic",
+        default_value="/LIDAR_TOP",
+        description="Input point cloud topic consumed by Patchwork++",
+    )
+    patchwork_ground_topic = DeclareLaunchArgument(
+        "patchwork_ground_topic",
+        default_value="/patchworkpp/ground_cloud",
+        description="Ground points output topic from Patchwork++",
+    )
+    patchwork_non_ground_topic = DeclareLaunchArgument(
+        "patchwork_non_ground_topic",
+        default_value="/patchworkpp/non_ground_cloud",
+        description="Non-ground points output topic from Patchwork++",
+    )
     patchwork_node = Node(
         package="patchworkpp",
         executable="patchworkpp_node",
         name="patchworkpp_node",
         parameters=[LaunchConfiguration("patchwork_param_file")],
+        remappings=[
+            ("input_cloud", LaunchConfiguration("patchwork_cloud_topic")),
+            ("ground_cloud", LaunchConfiguration("patchwork_ground_topic")),
+            ("non_ground_cloud", LaunchConfiguration("patchwork_non_ground_topic")),
+        ],
     )
 
     spatial_association_pkg = get_package_share_directory("spatial_association")
@@ -91,6 +111,9 @@ def generate_launch_description():
             camera_detection_param,
             depth_estimation_param,
             patchwork_param,
+            patchwork_cloud_topic,
+            patchwork_ground_topic,
+            patchwork_non_ground_topic,
             spatial_association_param,
             camera_object_detection_node,
             depth_estimation_node,
