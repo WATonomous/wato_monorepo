@@ -30,7 +30,7 @@
 ##	 - action				:	starts action nodes (local planning, control)
 ##	 - simulation			:	starts simulation (carla)
 
-export ACTIVE_MODULES="infrastructure interfacing"
+# export ACTIVE_MODULES=""
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -42,7 +42,7 @@ export ACTIVE_MODULES="infrastructure interfacing"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
-export COMPOSE_PROJECT_NAME="eddy"
+# export COMPOSE_PROJECT_NAME=""
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = "<your_current_github_branch>"
