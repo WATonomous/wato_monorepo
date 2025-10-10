@@ -18,9 +18,11 @@
 #include <string>
 
 HDMapService::HDMapService()
-: Node("hd_map_service")
+    : Node("hd_map_service")
 {
   // Declare parameters
+  this->declare_parameter<std::string>("osm_map_filename", std::string("Town10HD.osm"));
+
   this->declare_parameter<std::string>("visualization_output_topic", std::string("hd_map_viz"));
   this->declare_parameter<std::string>("route_output_topic", std::string("hd_map_route"));
   this->declare_parameter<std::string>("start_output_topic", std::string("hd_map_start_lanelet"));
@@ -35,6 +37,7 @@ HDMapService::HDMapService()
   this->declare_parameter<std::string>("query_point_input_topic", std::string("query_point"));
 
   // Get parameters
+  std::string osm_map_filename = this->get_parameter("osm_map_filename").as_string();
   std::string visualization_output_topic = this->get_parameter("visualization_output_topic").as_string();
   std::string route_output_topic = this->get_parameter("route_output_topic").as_string();
   std::string start_output_topic = this->get_parameter("start_output_topic").as_string();
@@ -52,42 +55,47 @@ HDMapService::HDMapService()
   manager_ = std::make_shared<HDMapManager>(this->router_);
 
   behaviour_tree_info_service = this->create_service<world_modeling_msgs::srv::BehaviourTreeInfo>(
-    "behaviour_tree_info",
-    std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
+      "behaviour_tree_info",
+      std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Map selection hardcoded for now
-  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town10HD.osm...\n");
-  if (manager_->select_osm_map("/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm")) {
+
+  std::string osm_map = manager_->get_maps_directory() + osm_map_filename;
+  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map %s...\n", osm_map.c_str());
+  if (manager_->select_osm_map(osm_map))
+  {
     RCLCPP_INFO(this->get_logger(), "Map Selection Successful!\n");
-  } else {
+  }
+  else
+  {
     RCLCPP_INFO(this->get_logger(), "Map Selection Failed.\n");
   }
 
   hd_map_visualization_publisher_ =
-    this->create_publisher<visualization_msgs::msg::MarkerArray>(visualization_output_topic, 20);
+      this->create_publisher<visualization_msgs::msg::MarkerArray>(visualization_output_topic, 20);
   hd_map_route_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(route_output_topic, 20);
   hd_map_start_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(start_output_topic, 20);
   hd_map_end_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(end_output_topic, 20);
   hd_map_desired_lane_publisher_ =
-    this->create_publisher<visualization_msgs::msg::MarkerArray>(desired_lane_output_topic, 20);
+      this->create_publisher<visualization_msgs::msg::MarkerArray>(desired_lane_output_topic, 20);
   hd_map_current_lane_publisher_ =
-    this->create_publisher<visualization_msgs::msg::MarkerArray>(current_lane_output_topic, 20);
+      this->create_publisher<visualization_msgs::msg::MarkerArray>(current_lane_output_topic, 20);
 
   hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    traffic_light_input_topic,
-    20,
-    std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
+      traffic_light_input_topic,
+      20,
+      std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
   hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>(
-    traffic_sign_input_topic, 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
+      traffic_sign_input_topic, 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
   hd_map_pedestrian_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    pedestrian_input_topic, 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
+      pedestrian_input_topic, 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
   point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
-    point_input_topic, 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
+      point_input_topic, 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
   query_point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
-    query_point_input_topic, 20, std::bind(&HDMapService::get_desired_lane, this, std::placeholders::_1));
+      query_point_input_topic, 20, std::bind(&HDMapService::get_desired_lane, this, std::placeholders::_1));
 
   hd_map_visualization_timer_ =
-    this->create_wall_timer(std::chrono::milliseconds(5000), std::bind(&HDMapService::publish_hd_map_marker, this));
+      this->create_wall_timer(std::chrono::milliseconds(5000), std::bind(&HDMapService::publish_hd_map_marker, this));
 }
 
 void HDMapService::hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg)
@@ -139,9 +147,11 @@ void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr ms
   hd_map_end_publisher_->publish(marker2);
 
   lanelet_path = router_->route(pt1, pt2);
-  if (lanelet_path) {
+  if (lanelet_path)
+  {
     RCLCPP_INFO(this->get_logger(), "Route Found. Publishing Route Markers...\n");
-    for (auto lanelet = lanelet_path->begin(); lanelet != lanelet_path->end(); ++lanelet) {
+    for (auto lanelet = lanelet_path->begin(); lanelet != lanelet_path->end(); ++lanelet)
+    {
       RCLCPP_INFO(this->get_logger(), "Lanelet: \n");
     }
     auto path_marker_array = world_modeling::hd_map::laneletPathAsMarkerArray(*lanelet_path);
@@ -158,9 +168,11 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
 
   current_lanelet_ = lanelet;
 
-  if (lanelet_path) {
+  if (lanelet_path)
+  {
     auto it = std::find(lanelet_path->begin(), lanelet_path->end(), lanelet);
-    if (it != lanelet_path->end()) {
+    if (it != lanelet_path->end())
+    {
       int idx = it - lanelet_path->begin();
       RCLCPP_INFO(this->get_logger(), "Found lanelet: %i\n", idx);
 
@@ -170,16 +182,21 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
       color.b = 1;
       color.a = 1;
       int id = 0;
-      if (lanelet_path->getRemainingLane(it).size() > 1) {
+      if (lanelet_path->getRemainingLane(it).size() > 1)
+      {
         RCLCPP_INFO(this->get_logger(), "Using Current It");
         current_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
         desired_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
-      } else if (idx < lanelet_path->size() - 1) {
+      }
+      else if (idx < lanelet_path->size() - 1)
+      {
         RCLCPP_INFO(this->get_logger(), "Using Next It");
         current_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
         desired_marker = world_modeling::hd_map::laneletAsMarkerArray(
-          (*lanelet_path)[idx + 1], &id, false, true, color, color, .3, .4);
-      } else {
+            (*lanelet_path)[idx + 1], &id, false, true, color, color, .3, .4);
+      }
+      else
+      {
         current_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
         desired_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
       }
@@ -192,12 +209,13 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
 
 // TODO(wato) convert lanelet to lanelet msg
 
-world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lanelet::ConstLanelet & lanelet)
+world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lanelet::ConstLanelet &lanelet)
 {
   world_modeling_msgs::msg::Lanelet lanelet_msg;
 
   // convert left boundary
-  for (const auto & point : lanelet.leftBound()) {
+  for (const auto &point : lanelet.leftBound())
+  {
     geometry_msgs::msg::Point p;
     p.x = point.x();
     p.y = point.y();
@@ -206,7 +224,8 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lan
   }
 
   // convert right boundary
-  for (const auto & point : lanelet.rightBound()) {
+  for (const auto &point : lanelet.rightBound())
+  {
     geometry_msgs::msg::Point p;
     p.x = point.x();
     p.y = point.y();
@@ -215,7 +234,8 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lan
   }
 
   // convert centerline
-  for (const auto & point : lanelet.centerline()) {
+  for (const auto &point : lanelet.centerline())
+  {
     geometry_msgs::msg::Point p;
     p.x = point.x();
     p.y = point.y();
@@ -231,12 +251,14 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lan
 // TODO(wato) convert path to lanelet path msg
 
 world_modeling_msgs::msg::LaneletPath HDMapService::convert_laneletPath_to_msg(
-  const lanelet::Optional<lanelet::routing::LaneletPath> & path)
+    const lanelet::Optional<lanelet::routing::LaneletPath> &path)
 {
   world_modeling_msgs::msg::LaneletPath path_msg;
 
-  if (path) {
-    for (const auto & lanelet : *path) {
+  if (path)
+  {
+    for (const auto &lanelet : *path)
+    {
       path_msg.lanelets.push_back(this->convert_lanelet_to_msg(lanelet));
     }
   }
@@ -245,8 +267,8 @@ world_modeling_msgs::msg::LaneletPath HDMapService::convert_laneletPath_to_msg(
 }
 
 void HDMapService::behaviour_tree_info_callback(
-  const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request,
-  const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response)
+    const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request,
+    const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response)
 {
   response->current_point = current_point_;
   response->goal_point = goal_point_;
@@ -256,7 +278,7 @@ void HDMapService::behaviour_tree_info_callback(
   // response->route_list = convert_laneletPath_to_msg(lanelet_path);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<HDMapService>());

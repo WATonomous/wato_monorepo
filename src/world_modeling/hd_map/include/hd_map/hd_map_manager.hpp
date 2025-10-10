@@ -76,6 +76,8 @@ public:
    */
   std::string get_osm_map_from_coordinates(lanelet::GPSPoint gps_point);
 
+  std::string get_maps_directory() const;
+
 private:
   /**
    * Project the OSM map to Lanelet format using the specified origin.
@@ -85,7 +87,8 @@ private:
    * @param lanelet_ptr the LaneletMapPtr where the result is stored
    * @return whether the projection was successful
    */
-  bool project_osm_to_lanelet(std::string filename, lanelet::Origin origin, lanelet::LaneletMapPtr & lanelet_ptr);
+  bool
+  project_osm_to_lanelet(std::string filename, lanelet::Origin origin, lanelet::LaneletMapPtr &lanelet_ptr);
 
   /**
    * Project the OSM map to Lanelet format using the specified projector.
@@ -96,7 +99,7 @@ private:
    * @return whether the projection was successful
    */
   bool project_osm_to_lanelet(
-    std::string filename, const lanelet::Projector & projector, lanelet::LaneletMapPtr & lanelet_ptr);
+      std::string filename, const lanelet::Projector &projector, lanelet::LaneletMapPtr &lanelet_ptr);
 
   /**
    * Set the Lanelet map in the router.
@@ -104,7 +107,7 @@ private:
    * @param lanelet_ptr the Lanelet map to set
    * @return whether the map was successfully set
    */
-  bool set_map_router_lanelet(const lanelet::LaneletMapPtr & lanelet_ptr);
+  bool set_map_router_lanelet(const lanelet::LaneletMapPtr &lanelet_ptr);
 
   /**
    * Retrieve the origin for a specific map file.
@@ -113,16 +116,12 @@ private:
    * @param origin the origin for the map
    * @return whether the origin was successfully retrieved
    */
-  bool get_origin_from_filename(std::string filename, lanelet::Origin & origin);
+  bool get_origin_from_filename(std::string filename, lanelet::Origin &origin);
 
-  // List of origins associated with map files
-  std::map<std::string, lanelet::Origin> originList = {
-    {"/home/bolty/ament_ws/etc/maps/osm/Town05.osm", lanelet::Origin({0, 0})},
-    {"/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm", lanelet::Origin({0, 0})},
-  };
+  std::string maps_directory_ = "/home/bolty/ament_ws/etc/maps/osm/";
+  std::map<std::string, lanelet::Origin> originList;
+  std::map<std::string, lanelet::Origin> create_origin_list() const;
 
-  // Shared pointer to the HDMapRouter object
   std::shared_ptr<HDMapRouter> router_;
 };
-
 #endif
