@@ -74,7 +74,7 @@ def generate_launch_description():
 
     state_estimation_node = Node(
         package="state_estimation",
-        executable="wheel_odometry",
+        executable="wheel_odometry_node",
         parameters=[LaunchConfiguration("state_estimation_param_file")],
     )
 
