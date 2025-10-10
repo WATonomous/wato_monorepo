@@ -25,7 +25,6 @@ launch:
         - pkg: spinnaker_camera_driver
           plugin: spinnaker_camera_driver::CameraDriver
           name: camera
-          output: screen
           namespace: flir_camera_0
           remap:
             - from: '~/control'
@@ -42,7 +41,6 @@ launch:
         - pkg: spinnaker_camera_driver
           plugin: spinnaker_camera_driver::CameraDriver
           name: camera
-          output: screen
           namespace: flir_camera_1
           remap:
             - from: '~/control'
@@ -59,7 +57,6 @@ launch:
         - pkg: spinnaker_camera_driver
           plugin: spinnaker_camera_driver::CameraDriver
           name: camera
-          output: screen
           namespace: flir_camera_2
           remap:
             - from: '~/control'
