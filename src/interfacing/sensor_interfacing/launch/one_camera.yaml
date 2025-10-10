@@ -1,3 +1,4 @@
+---
 launch:
   - include:
     file: $(find-pkg-share spinnaker_camera_driver)/launch/driver_node.launch.py

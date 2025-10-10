@@ -11,14 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# Combined launch file for all sensors: GPS, LiDAR, and Cameras
+---
 launch:
-  # Sensor Config Paths (exposes config tuning here as the "Final Draft")
-  - arg:
-      name: "gps_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/novatel_oem7_config.yaml"
-      description: "GPS configuration file"
+  # Sensor Configs
   - arg:
       name: "lidar_config_file"
       default: "$(find-pkg-share interfacing_bringup)/config/VLP32C_lidar_config.yaml"
@@ -27,17 +22,31 @@ launch:
       name: "camera_config_file"
       default: "$(find-pkg-share interfacing_bringup)/config/blackfly_cameras_config.yaml"
       description: "Camera configuration file"
+  
+  # GPS Configs
+  - arg:
+      name: "oem7_ip_addr"
+      default: "10.8.0.8"
+      description: "IP address of the OEM7 GPS receiver"
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
 
-  # Eve Robot Description
-  - include:
-      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
-
-  # GPS with parameters and config file
+  # GPS - Novatel OEM7
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
       arg:
-        - name: "gps_config_file"
-          value: "$(var gps_config_file)"
+        - name: "oem7_ip_addr"
+          value: "$(var oem7_ip_addr)"
+        - name: "oem7_port"
+          value: "$(var oem7_port)"
+        - name: "oem7_if"
+          value: "$(var oem7_if)"
   
   # LiDAR VLP-32 with config file
   - include:
@@ -52,3 +61,7 @@ launch:
       arg:
         - name: "camera_config_file"
           value: "$(var camera_config_file)"
+
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
