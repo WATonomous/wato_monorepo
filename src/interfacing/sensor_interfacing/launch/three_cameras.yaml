@@ -19,6 +19,7 @@ launch:
       description: "Path to LiDAR configuration file"
 
   - load_composable_node:
+      target: "spinnaker_camera_container"
       composable_node:
         # Camera 0
         - package: spinnaker_camera_driver
