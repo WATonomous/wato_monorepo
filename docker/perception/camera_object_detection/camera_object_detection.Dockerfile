@@ -55,13 +55,12 @@ RUN apt-get -qq autoremove -y && \
 
 ################################ Build ################################
 FROM dependencies AS build
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    cp -r install/* "${WATONOMOUS_INSTALL}"
+    cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_entrypoint.sh ${AMENT_WS}/wato_entrypoint.sh

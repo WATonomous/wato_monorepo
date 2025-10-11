@@ -56,6 +56,7 @@ EOF
 build_modules_array() {
   local -n modules_array=$1  # nameref to the array to populate
   local modules_dir=${2:-$MODULES_DIR}
+  local blacklist=${3:-""}  # space-separated list of modules to exclude
 
   modules_array=()
 
@@ -64,10 +65,14 @@ build_modules_array() {
 
   # Ensure ACTIVE_MODULES is an array
   if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
-    read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
+    read -ra ACTIVE_MODULES <<<"${ACTIVE_MODULES[*]}"
   fi
 
   for m in "${ACTIVE_MODULES[@]}"; do
+    # Skip if module is in blacklist
+    if [[ -n "$blacklist" && " $blacklist " =~ \ $m\  ]]; then
+      continue
+    fi
     modules_array+=( -f "$modules_dir/docker-compose.${m}.yaml" )
   done
 }
@@ -83,6 +88,7 @@ run_compose() {
 
   echo "Running: docker compose ${MODULES[*]} ${COMPOSE_CMD[*]}"
   DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
+    COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
     docker compose "${MODULES[@]}" "${COMPOSE_CMD[@]}"
 }
 
@@ -171,9 +177,23 @@ if [[ -n ${RUN_TESTS:-} ]]; then
   COMPOSE_CMD=( build )
   run_compose
 
-  # For tests, rebuild modules array with dev_overrides
+  # For tests, rebuild modules array with dev_overrides but exclude simulation and infrastructure
   TEST_MODULES=()
-  build_modules_array TEST_MODULES "$MODULES_DIR"
+
+  # shellcheck source=/dev/null
+  source "$MODULES_DIR/.env"    # must define $ACTIVE_MODULES
+
+  # Ensure ACTIVE_MODULES is an array
+  if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
+    read -ra ACTIVE_MODULES <<<"${ACTIVE_MODULES[*]}"
+  fi
+
+  # Build test modules array, excluding simulation and infrastructure
+  for m in "${ACTIVE_MODULES[@]}"; do
+    if [[ "$m" != "simulation" && "$m" != "infrastructure" ]]; then
+      TEST_MODULES+=( -f "$MODULES_DIR/docker-compose.${m}.yaml" )
+    fi
+  done
 
   # Call the test script with modules array as arguments
   if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
