@@ -35,7 +35,7 @@ pre-commit run --all-files
 ## Testing
 
 ### Unittesting with wato_test
-We use catch2 tests to do our unittesting. TODO(Eddy) : bring over testing infra from deep_ros
+We use catch2 tests to do our unittesting. TODO(Eddy) : bring over testing infra from wato
 
 ### Playing ROS2 Bags
 

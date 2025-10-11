@@ -8,6 +8,7 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code
 COPY src/action action
 COPY src/wato_msgs wato_msgs
+COPY src/wato_test wato_test
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -48,16 +49,15 @@ FROM dependencies AS build
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+        --cmake-args -DCMAKE_BUILD_TYPE=Release --install-base ${WATONOMOUS_INSTALL}
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
-ENTRYPOINT ["./wato_ros_entrypoint.sh"]
+COPY docker/wato_entrypoint.sh ${AMENT_WS}/wato_entrypoint.sh
+ENTRYPOINT ["./wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
 
 # Source Cleanup and Security Setup
-RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*
-
+RUN rm -rf ${AMENT_WS}/*
 USER ${USER}
