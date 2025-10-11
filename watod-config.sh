@@ -30,7 +30,7 @@
 ##	 - action				:	starts action nodes (local planning, control)
 ##	 - simulation			:	starts simulation (carla)
 
-# export ACTIVE_MODULES=""
+export ACTIVE_MODULES="interfacing perception"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
