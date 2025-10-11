@@ -18,10 +18,10 @@
 #include <thread>
 
 #include <catch2/catch.hpp>
-#include <wato_test/wato_test.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/set_bool.hpp>
+#include <wato_test/wato_test.hpp>
 
 namespace wato
 {

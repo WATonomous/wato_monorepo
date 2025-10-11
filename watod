@@ -56,17 +56,17 @@ EOF
 build_modules_array() {
   local -n modules_array=$1  # nameref to the array to populate
   local modules_dir=${2:-$MODULES_DIR}
-  
+
   modules_array=()
-  
+
   # shellcheck source=/dev/null
   source "$modules_dir/.env"    # must define $ACTIVE_MODULES
-  
+
   # Ensure ACTIVE_MODULES is an array
   if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
     read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
   fi
-  
+
   for m in "${ACTIVE_MODULES[@]}"; do
     modules_array+=( -f "$modules_dir/docker-compose.${m}.yaml" )
   done
@@ -170,11 +170,11 @@ if [[ -n ${RUN_TESTS:-} ]]; then
   echo "Building images before running tests..."
   COMPOSE_CMD=( build )
   run_compose
-  
+
   # For tests, rebuild modules array with dev_overrides
   TEST_MODULES=()
   build_modules_array TEST_MODULES "$MODULES_DIR"
-  
+
   # Call the test script with modules array as arguments
   if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
     "$MONO_DIR/watod_scripts/watod-test.sh" "${TEST_MODULES[@]}" "${TEST_SERVICES[@]}"

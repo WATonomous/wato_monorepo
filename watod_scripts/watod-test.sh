@@ -34,16 +34,17 @@ TEST_ROS_DOMAIN_ID=${TEST_ROS_DOMAIN_ID:-99}
 # Run tests for a service
 run_tests() {
   local service=$1
-  local image=$(docker compose "${MODULES[@]}" config --images "$service" 2>/dev/null | head -n1)
-  
+  local image
+  image=$(docker compose "${MODULES[@]}" config --images "$service" 2>/dev/null | head -n1)
+
   if [[ -z "$image" ]]; then
     echo "Error: Could not find image for service $service"
     return 1
   fi
-  
+
   echo "Testing $service (image: $image)"
   docker run --rm \
-    -e ROS_DOMAIN_ID=$TEST_ROS_DOMAIN_ID \
+    -e ROS_DOMAIN_ID="$TEST_ROS_DOMAIN_ID" \
     --name "${service}_test_$$" \
     "$image" \
     /bin/bash -c "colcon test; colcon test-result --verbose"
@@ -58,12 +59,12 @@ if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
 else
   # Test all services
   readarray -t SERVICES < <(docker compose "${MODULES[@]}" config --services 2>/dev/null)
-  
+
   if [[ ${#SERVICES[@]} -eq 0 ]]; then
     echo "No services found in active modules."
     exit 1
   fi
-  
+
   for service in "${SERVICES[@]}"; do
     run_tests "$service"
   done

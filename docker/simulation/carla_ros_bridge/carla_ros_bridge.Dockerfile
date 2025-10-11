@@ -74,7 +74,7 @@ RUN curl -O https://bootstrap.pypa.io/pip/3.8/get-pip.py && \
 
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --install-base ${WATONOMOUS_INSTALL}
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --install-base "${WATONOMOUS_INSTALL}"
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_entrypoint.sh ${AMENT_WS}/wato_entrypoint.sh
@@ -84,5 +84,5 @@ ENTRYPOINT ["./wato_entrypoint.sh"]
 FROM build AS deploy
 
 # Source Cleanup and Security Setup
-RUN rm -rf ${AMENT_WS}/*
+RUN rm -rf "${AMENT_WS:?}"/*
 USER ${USER}

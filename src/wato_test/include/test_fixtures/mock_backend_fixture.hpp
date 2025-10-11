@@ -38,8 +38,7 @@ public:
    */
   MockBackendFixture()
   {
-    loader_ =
-      std::make_unique<pluginlib::ClassLoader<wato::DeepBackendPlugin>>("deep_core", "wato::DeepBackendPlugin");
+    loader_ = std::make_unique<pluginlib::ClassLoader<wato::DeepBackendPlugin>>("deep_core", "wato::DeepBackendPlugin");
     mock_backend_ = loader_->createUniqueInstance("mock_backend");
     allocator_ = mock_backend_->get_allocator();
   }
