@@ -16,16 +16,17 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
 def generate_launch_description():
     # --- HD Map Node Config ---
     kalman_filter_pkg_prefix = get_package_share_directory("kalman_filter")
-    kalman_filter_param_file = os.path.join(kalman_filter_pkg_prefix, "config", "params.yaml")
+    kalman_filter_param_file = os.path.join(
+        kalman_filter_pkg_prefix, "config", "params.yaml"
+    )
 
     kalman_filter_param = DeclareLaunchArgument(
         "kalman_filter_param_file",

@@ -23,7 +23,9 @@ from launch_ros.actions import Node
 def generate_launch_description():
     """Launch sample node."""
     kalman_filter_pkg_prefix = get_package_share_directory("kalman_filter")
-    kalman_filter_param_file = os.path.join(kalman_filter_pkg_prefix, "config", "params.yaml")
+    kalman_filter_param_file = os.path.join(
+        kalman_filter_pkg_prefix, "config", "params.yaml"
+    )
 
     kalman_filter_param = DeclareLaunchArgument(
         "kalman_filter_param_file",

@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef UTILS
-#define UTILS
+#ifndef KALMAN_FILTER
+#define KALMAN_FILTER
 
-class Utils {};
+class KalmanFilter
+{};
 
 #endif

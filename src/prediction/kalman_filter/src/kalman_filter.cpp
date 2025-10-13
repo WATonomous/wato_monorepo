@@ -12,37 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "kalman_filter/kalman_filter.hpp"
+
 #include <rclcpp/rclcpp.hpp>
-#include "kalman_filter.hpp"
 
 class KalmanFilterNode : public rclcpp::Node
 {
 public:
-    KalmanFilterNode() : Node("kalman_filter_node")
-    {
-        RCLCPP_INFO(this->get_logger(), "Kalman Filter Node started");
-        
-        // TODO(wato): Add your subscribers, publishers, timers, etc. here
-        timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(100),
-            std::bind(&KalmanFilterNode::timer_callback, this));
-    }
+  KalmanFilterNode()
+  : Node("kalman_filter_node")
+  {
+    RCLCPP_INFO(this->get_logger(), "Kalman Filter Node started");
+
+    // TODO(wato): Add your subscribers, publishers, timers, etc. here
+    timer_ =
+      this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&KalmanFilterNode::timer_callback, this));
+  }
 
 private:
-    void timer_callback()
-    {
-        // TODO(wato): Implement your Kalman filter logic here
-        RCLCPP_DEBUG(this->get_logger(), "Kalman filter running...");
-    }
+  void timer_callback()
+  {
+    // TODO(wato): Implement your Kalman filter logic here
+    RCLCPP_DEBUG(this->get_logger(), "Kalman filter running...");
+  }
 
-    rclcpp::TimerBase::SharedPtr timer_;
-    KalmanFilter kalman_filter_; // Use your KalmanFilter class here
+  rclcpp::TimerBase::SharedPtr timer_;
+  KalmanFilter kalman_filter_;  // Use your KalmanFilter class here
 };
 
 int main(int argc, char * argv[])
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<KalmanFilterNode>());
-    rclcpp::shutdown();
-    return 0;
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared<KalmanFilterNode>());
+  rclcpp::shutdown();
+  return 0;
 }
