@@ -10,8 +10,6 @@ RUN python3 -m pip install --no-cache-dir --upgrade \
     pip3 install --no-cache-dir \
     carla==${CARLA_VERSION} \
     jupyter==1.0.0 \
-    tensorflow==2.13.1 \
-    tensorflow-probability==0.21.0 \
     keras==2.13.1
 
 
