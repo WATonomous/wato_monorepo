@@ -4,7 +4,6 @@ FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 FROM python:3.8.16-slim-bullseye
 ARG CARLA_VERSION=0.9.13
 
-#upgrade pip
 
 RUN python3 -m pip install --no-cache-dir --upgrade \
     pip==24.2 setuptools==70.0.0 wheel==0.44.0 && \
