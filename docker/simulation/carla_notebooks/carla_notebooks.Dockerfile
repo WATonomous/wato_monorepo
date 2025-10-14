@@ -1,8 +1,8 @@
 ARG CARLA_VERSION=0.9.13
 FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
-FROM python:3.8.16-slim-bullseye
-ARG CARLA_VERSION=0.9.13
+FROM python:3.10.19-slim-bookworm
+ARG CARLA_VERSION=0.9.15
 
 
 RUN python3 -m pip install --no-cache-dir --upgrade \

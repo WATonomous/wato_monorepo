@@ -8,6 +8,7 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code
 COPY src/action action
 COPY src/wato_msgs wato_msgs
+COPY src/wato_test wato_test
 
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
 
@@ -56,20 +57,19 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies AS build
 
-# Build ROS2 packages
+# Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
-    colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    cp -r install/. "${WATONOMOUS_INSTALL}"
 
-# Entrypoint will run before any CMD on launch.
-COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
-ENTRYPOINT ["./wato_ros_entrypoint.sh"]
+# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
+COPY docker/wato_entrypoint.sh ${AMENT_WS}/wato_entrypoint.sh
+ENTRYPOINT ["./wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
 
 # Source Cleanup and Security Setup
-RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*
-
+RUN rm -rf "${AMENT_WS:?}"/*
 USER ${USER}
