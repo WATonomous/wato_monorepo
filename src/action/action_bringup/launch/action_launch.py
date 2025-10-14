@@ -11,21 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.8)
-project(action_bringup)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
 
-# find dependencies
-find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+from launch import LaunchDescription
+from launch_ros.actions import Node
 
-install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}
-)
 
-ament_package()
+def generate_launch_description():
+    return LaunchDescription(
+        [
+            Node(
+                package="model_predictive_control",
+                executable="mpc_node",
+                name="mpc_node",
+                output="screen",
+            )
+        ]
+    )

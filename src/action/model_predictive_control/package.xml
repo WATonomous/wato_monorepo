@@ -13,7 +13,7 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>path_planning_msgs</exec_depend>
-
+  <exec_depend>python3-casadi</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <export>
     <build_type>ament_python</build_type>

@@ -4,10 +4,14 @@ FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 FROM python:3.10.19-slim-bookworm
 ARG CARLA_VERSION=0.9.15
 
-RUN pip3 install --no-cache-dir \
-        carla==${CARLA_VERSION} \
-        jupyter==1.0.0 \
-        tensorflow-probability==0.23.0
+
+RUN python3 -m pip install --no-cache-dir --upgrade \
+    pip==24.2 setuptools==70.0.0 wheel==0.44.0 && \
+    pip3 install --no-cache-dir \
+    carla==${CARLA_VERSION} \
+    jupyter==1.0.0 \
+    keras==2.13.1
+
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -27,6 +31,10 @@ WORKDIR /home/bolty
 RUN git clone https://github.com/carla-simulator/scenario_runner.git
 
 WORKDIR /home/bolty/scenario_runner
+
+# CHECKOUT the tag that matches your CARLA version:
+RUN git fetch --tags && git checkout v0.9.13
+
 RUN pip3 install --no-cache-dir -r requirements.txt && \
     sed -i 's/hero/ego/g' srunner/tools/scenario_parser.py
 

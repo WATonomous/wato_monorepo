@@ -10,8 +10,11 @@ COPY src/action action
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
-# Update CONTRIBUTING.md to pass ament_copyright test
-COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
+
+# Update CONTRIBUTING.md to pass copyright test
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CONTRIBUTING.md
+#COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -31,6 +34,15 @@ FROM ${BASE_IMAGE} AS dependencies
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+#install casadi via pip
+RUN apt-get update && apt-fast install -qq -y --no-install-recommends python3-pip && \
+    python3 -m pip install --no-cache-dir "pip==24.2" && \
+    # Install CasADi
+    python3 -m pip install --no-cache-dir "casadi==3.6.5" && \
+    # Verify installation
+    python3 -c "import casadi; print('CasADi:', casadi.__version__);" && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy in source code from source stage
