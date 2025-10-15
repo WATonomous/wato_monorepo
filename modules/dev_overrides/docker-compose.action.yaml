@@ -1,11 +1,8 @@
 ---
-x-fixuid: &fixuid
-  build:
-    target: build
-
 services:
   action_bringup:
-    <<: *fixuid
+    build:
+      target: build
     extends:
       file: ../docker-compose.action.yaml
       service: action_bringup
