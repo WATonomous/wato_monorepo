@@ -1,11 +1,8 @@
 ---
-x-fixuid: &fixuid
-  build:
-    target: build
-
 services:
   world_modeling_bringup:
-    <<: *fixuid
+    build:
+      target: build
     extends:
       file: ../docker-compose.world_modeling.yaml
       service: world_modeling_bringup

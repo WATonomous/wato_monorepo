@@ -21,6 +21,8 @@ HDMapService::HDMapService()
 : Node("hd_map_service")
 {
   // Declare parameters
+  this->declare_parameter<std::string>("osm_map_filename", std::string("Town10HD.osm"));
+
   this->declare_parameter<std::string>("visualization_output_topic", std::string("hd_map_viz"));
   this->declare_parameter<std::string>("route_output_topic", std::string("hd_map_route"));
   this->declare_parameter<std::string>("start_output_topic", std::string("hd_map_start_lanelet"));
@@ -35,6 +37,7 @@ HDMapService::HDMapService()
   this->declare_parameter<std::string>("query_point_input_topic", std::string("query_point"));
 
   // Get parameters
+  std::string osm_map_filename = this->get_parameter("osm_map_filename").as_string();
   std::string visualization_output_topic = this->get_parameter("visualization_output_topic").as_string();
   std::string route_output_topic = this->get_parameter("route_output_topic").as_string();
   std::string start_output_topic = this->get_parameter("start_output_topic").as_string();
@@ -56,8 +59,10 @@ HDMapService::HDMapService()
     std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Map selection hardcoded for now
-  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map Town10HD.osm...\n");
-  if (manager_->select_osm_map("/home/bolty/ament_ws/etc/maps/osm/Town10HD.osm")) {
+
+  std::string osm_map = manager_->get_maps_directory() + osm_map_filename;
+  RCLCPP_INFO(this->get_logger(), "Selecting Lanelet Map %s...\n", osm_map.c_str());
+  if (manager_->select_osm_map(osm_map)) {
     RCLCPP_INFO(this->get_logger(), "Map Selection Successful!\n");
   } else {
     RCLCPP_INFO(this->get_logger(), "Map Selection Failed.\n");

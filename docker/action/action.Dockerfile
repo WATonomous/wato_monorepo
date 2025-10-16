@@ -8,9 +8,13 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code
 COPY src/action action
 COPY src/wato_msgs wato_msgs
+COPY src/wato_test wato_test
 
-# Update CONTRIBUTING.md to pass ament_copyright test
-COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
+RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
+
+# Update CONTRIBUTING.md to pass copyright test
+COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CONTRIBUTING.md
+#COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -32,6 +36,15 @@ RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
+#install casadi via pip
+RUN apt-get update && apt-fast install -qq -y --no-install-recommends python3-pip && \
+    python3 -m pip install --no-cache-dir "pip==24.2" && \
+    # Install CasADi
+    python3 -m pip install --no-cache-dir "casadi==3.6.5" && \
+    # Verify installation
+    python3 -c "import casadi; print('CasADi:', casadi.__version__);" && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
@@ -44,20 +57,19 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 ################################ Build ################################
 FROM dependencies AS build
 
-# Build ROS2 packages
+# Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
-    colcon build \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
-ENTRYPOINT ["./wato_ros_entrypoint.sh"]
+COPY docker/wato_entrypoint.sh ${AMENT_WS}/wato_entrypoint.sh
+ENTRYPOINT ["./wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
 
 # Source Cleanup and Security Setup
-RUN chown -R "${USER}:${USER}" "${AMENT_WS}" && rm -rf src/*
-
+RUN rm -rf "${AMENT_WS:?}"/*
 USER ${USER}

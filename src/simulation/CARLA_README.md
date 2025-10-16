@@ -65,3 +65,7 @@ In any browser go to `localhost:8081` (replace 8081 with the port specified in t
 ### CARLA is running very slow (approx. 3 fps)
 
 This is expected. The ROS bridge causes CARLA to render all the sensor data which slows down the simulation considerably. While this may be annoying when viewing real-time camera output or trying to control the car manual, the simulation is still running accurately. If you wish to replay scenes with a configurable playback speed, check out the docs on [CARLA's recorder](https://carla.readthedocs.io/en/0.9.13/adv_recorder/) functionality.
+
+## Custom messages
+
+Custom messages may be used to help send messages between nodes. [see docs](../wato_msgs/MSGS_README.md)
