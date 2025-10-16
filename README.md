@@ -23,7 +23,7 @@ Launches packages directly connecting to hardware. This includes the sensors of 
 
 ### Perception
 
-Launches packages nodes. [see docs](src/perception/PERCEPTION_README.md)
+Launches packages for perception. [see docs](src/perception/PERCEPTION_README.md)
 
 ### World Modeling
 
