@@ -77,6 +77,9 @@ public:
 
     executor_.add_node(node->get_node_base_interface());
 
+    // Keep nodes alive to prevent destruction from CATCH2 while executor is running
+    nodes_.push_back(node->get_node_base_interface());
+
     // Track lifecycle nodes for cleanup
     if constexpr (std::is_base_of_v<rclcpp_lifecycle::LifecycleNode, T>) {
       lifecycle_nodes_.push_back(std::static_pointer_cast<rclcpp_lifecycle::LifecycleNode>(node));
@@ -86,6 +89,7 @@ public:
 protected:
   rclcpp::executors::SingleThreadedExecutor executor_;
   std::thread spin_thread_;
+  std::vector<rclcpp::node_interfaces::NodeBaseInterface::SharedPtr> nodes_;
   std::vector<std::shared_ptr<rclcpp_lifecycle::LifecycleNode>> lifecycle_nodes_;
 };
 
