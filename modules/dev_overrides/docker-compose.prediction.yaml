@@ -1,0 +1,15 @@
+---
+x-fixuid: &fixuid
+  build:
+    target: build
+
+services:
+  prediction_bringup:
+    <<: *fixuid
+    extends:
+      file: ../docker-compose.prediction.yaml
+      service: prediction_bringup
+    image: "${PREDICTION_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/prediction:/home/bolty/ament_ws/src/prediction
