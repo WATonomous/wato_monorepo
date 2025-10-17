@@ -24,11 +24,12 @@
 ## List of active modules to run, defined in docker-compose.yaml.
 ## Possible values:
 ##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc and/or data_stream)
-##   - interfacing    : starts up interfacing nodes (CAN and sensor interfaces)
+##   - interfacing          :   starts up interfacing nodes (CAN and sensor interfaces)
 ##	 - perception			:	starts perception nodes (Object detection, tracking)
 ##	 - world_modeling		:	starts world modeling nodes (HD map, localization)
 ##	 - action				:	starts action nodes (local planning, control)
 ##	 - simulation			:	starts simulation (carla)
+
 
 # export ACTIVE_MODULES=""
 
@@ -50,3 +51,7 @@
 
 # Docker Registry to pull/push images. DEFAULT = "ghcr.io/watonomous/wato_monorepo"
 # export REGISTRY_URL=""
+
+############################### FOXGLOVE SETTINGS ##################################
+## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.
+# export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"

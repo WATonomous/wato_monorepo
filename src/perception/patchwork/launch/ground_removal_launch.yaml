@@ -1,0 +1,22 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# http://www.apache.org/licenses/LICENSE-2.0
+---
+launch:
+  # Declare launch argument for the input cloud topic
+  - arg:
+      name: cloud_topic
+      default: /LIDAR_TOP
+      description: Point cloud topic patchworks subscribes to
+
+  # Launch the Patchwork++ ground removal node
+  - node:
+      pkg: patchworkpp
+      exec: patchworkpp_node
+      name: patchworkpp_node
+      output: screen
+      param:
+        - from: $(find-pkg-share patchworkpp)/config/params.yaml
+      remap:
+        - from: input_cloud
+          to: $(var cloud_topic)
