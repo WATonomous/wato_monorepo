@@ -1,9 +1,4 @@
-version: "3.8"
-
-x-fixuid: &fixuid
-  build:
-    target: build
-
+---
 services:
   carla_sim:
     extends:
@@ -11,7 +6,8 @@ services:
       service: carla_sim
 
   carla_ros_bridge:
-    <<: *fixuid
+    build:
+      target: build
     extends:
       file: ../docker-compose.simulation.yaml
       service: carla_ros_bridge
@@ -26,14 +22,15 @@ services:
       service: carla_viz
 
   carla_sample_node:
-    <<: *fixuid
+    build:
+      target: build
     extends:
       file: ../docker-compose.simulation.yaml
       service: carla_sample_node
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
-  
+
   carla_notebooks:
     extends:
       file: ../docker-compose.simulation.yaml

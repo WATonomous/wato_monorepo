@@ -5,11 +5,8 @@
   <version>0.0.0</version>
   <description>Sample python node to read data from CARLA</description>
   <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
 
   <depend>rclpy</depend>

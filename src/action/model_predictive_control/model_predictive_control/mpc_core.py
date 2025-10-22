@@ -1,10 +1,20 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import casadi as ca
 import numpy as np
-import datetime
-import os
-import shutil
 
-from boxconstraint import BoxConstraint
+from model_predictive_control.boxconstraint import BoxConstraint
 
 TIME_STEP = 0.05
 PREDICTION_HORIZON = 2.0
@@ -13,12 +23,14 @@ SIM_DURATION = 500
 
 class MPCCore:
     def __init__(self):
-
         self.params = {
-            'L': 2.875  # Wheelbase of the vehicle. Source : https://www.tesla.com/ownersmanual/model3/en_us/GUID-56562137-FC31-4110-A13C-9A9FC6657BF0.html
+            "L": 2.875  # Wheelbase of the vehicle. Source : https://www.tesla.com/ownersmanual/model3/en_us/GUID-56562137-FC31-4110-A13C-9A9FC6657BF0.html
         }
+        self.TIME_STEP = 0.05
+        self.PREDICTION_HORIZON = 2.0
+        self.SIM_DURATION = 500
         self.T = PREDICTION_HORIZON  # Prediction horizon in seconds
-        self.N = int(T / TIME_STEP)  # Prediction horizon in time steps
+        self.N = int(self.T / TIME_STEP)  # Prediction horizon in time steps
         self.dt = TIME_STEP  # Time step for discretization
         self.state_dim = 4  # Dimension of the state [x, y, theta, v]
         # Dimension of the control input [steering angle, acceleration]
@@ -56,7 +68,7 @@ class MPCCore:
         self.prev_sol_u = None
 
         # MPC Initial Setup
-        self.get_waypoints()
+        # self.get_waypoints()
         self.setup_mpc()
         self.setup_constraints()
         self.setup_solver()
@@ -67,6 +79,8 @@ class MPCCore:
         self.theta0 = 0
         self.v0 = 0
 
+    # TODO(wato): Adapt to local planning trajectories
+
     def convert_waypoints(self):
         """
         Convert raw waypoints (alternating x, y in a flat list) to CasADi-compatible waypoints.
@@ -75,17 +89,25 @@ class MPCCore:
 
         if len(self.raw_waypoints) % 2 != 0:  # Check if raw_waypoints is even
             print(
-                "Error: raw_waypoints length is not even. Ignoring the last unpaired value.")
+                "Error: raw_waypoints length is not even. Ignoring the last unpaired value."
+            )
             self.raw_waypoints = self.raw_waypoints[:-1]
 
         for i in range(0, len(self.raw_waypoints), 2):
             x, y = self.raw_waypoints[i], self.raw_waypoints[i + 1]
+            # print(i)
+            # print("waypoint raw")
+            # print(type(x))
+            # print(type(y))
             waypoint = self.generate_waypoint(x, y)
             self.waypoints.append(waypoint)
 
-    def generate_waypoint(x, y):  # Convert to CasADi format and add to the waypoints list
+    def generate_waypoint(
+        self, x, y
+    ):  # Convert to CasADi format and add to the waypoints list
         return ca.vertcat(x, y)
 
+    # TODO(wato): Add lane constraints, obstacle avoidance using ellipses (future)
     def setup_mpc(self):
         """
         Setup the MPC problem with CasADi
@@ -93,15 +115,14 @@ class MPCCore:
 
         for k in range(self.N):
             # Increase weight for each step in the prediction horizon
-            Q = self.Q_base * (self.weight_increase_factor ** k)
+            Q = self.Q_base * (self.weight_increase_factor**k)
 
             x_k = self.X[:, k]  # Current state
             u_k = self.U[:, k]  # Current control input
-            x_next = self.X[:, k + 1]  # Next state
+            # x_next = self.X[:, k + 1]  # Next state
 
             # Reference state with waypoint and zero for other states
-            x_ref = ca.vertcat(
-                self.W[:, k], ca.MX.zeros(self.state_dim - 2, 1))
+            x_ref = ca.vertcat(self.W[:, k], ca.MX.zeros(self.state_dim - 2, 1))
 
             dx = x_k - x_ref  # Deviation of state from reference state
             # Control input deviation (assuming a desired control input of
@@ -110,43 +131,47 @@ class MPCCore:
 
             # Quadratic cost with reference state and control input
             # Minimize quadratic cost and deviation from reference state
-            self.obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + \
-                ca.mtimes([ca.mtimes(du.T, self.R), du])
+            self.obj += ca.mtimes([ca.mtimes(dx.T, Q), dx]) + ca.mtimes(
+                [ca.mtimes(du.T, self.R), du]
+            )
 
         self.opti.minimize(self.obj)
 
         # Maximum steerin angle for dynamics
-        self.max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
-        ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
-        self.max_steering_angle_rad = max_steering_angle_deg * \
-            (ca.pi / 180)  # Maximum steering angle in radians
+        # self.max_steering_angle_deg = max(wheel.max_steer_angle for wheel in vehicle.get_physics_control(
+        # ).wheels)  # Maximum steering angle in degrees (from vehicle physics control
+        self.max_steering_angle_deg = 30.0
+
+        self.max_steering_angle_rad = self.max_steering_angle_deg * (
+            ca.pi / 180
+        )  # Maximum steering angle in radians
 
         # Dynamics (Euler discretization using bicycle model)
         for k in range(self.N):
             # Convert normalized steering angle to radians
             steering_angle_rad = self.U[0, k] * self.max_steering_angle_rad
 
-            self.opti.subject_to(self.X[:, k +
-                                        1] == self.X[:, k] +
-                                 self.dt *
-                                 ca.vertcat(self.X[3, k] *
-                                            ca.cos(self.X[2, k]), self.X[3, k] *
-                                            ca.sin(self.X[2, k]), (self.X[3, k] /
-                                                                   self.params['L']) *
-                                            ca.tan(steering_angle_rad), self.U[1, k]))
+            self.opti.subject_to(
+                self.X[:, k + 1]
+                == self.X[:, k]
+                + self.dt
+                * ca.vertcat(
+                    self.X[3, k] * ca.cos(self.X[2, k]),
+                    self.X[3, k] * ca.sin(self.X[2, k]),
+                    (self.X[3, k] / self.params["L"]) * ca.tan(steering_angle_rad),
+                    self.U[1, k],
+                )
+            )
 
     def setup_constraints(self):
-
         # Initial state constraint
         self.opti.subject_to(self.X[:, 0] == self.P)
 
         # Input constraints
         steering_angle_bounds = [-1.0, 1.0]
         acceleration_bounds = [-1.0, 1.0]
-        lb = np.array([steering_angle_bounds[0],
-                      acceleration_bounds[0]]).reshape(-1, 1)
-        ub = np.array([steering_angle_bounds[1],
-                      acceleration_bounds[1]]).reshape(-1, 1)
+        lb = np.array([steering_angle_bounds[0], acceleration_bounds[0]]).reshape(-1, 1)
+        ub = np.array([steering_angle_bounds[1], acceleration_bounds[1]]).reshape(-1, 1)
         action_space = BoxConstraint(lb=lb, ub=ub)
 
         # State constraints
@@ -161,8 +186,7 @@ class MPCCore:
         # Apply constraints to optimization problem
         for i in range(self.N):
             # Input constraints
-            self.opti.subject_to(action_space.H_np @
-                                 self.U[:, i] <= action_space.b_np)
+            self.opti.subject_to(action_space.H_np @ self.U[:, i] <= action_space.b_np)
 
             # State constraints
             # opti.subject_to(state_space.H_np @ X[:, i] <= state_space.b_np)
@@ -174,14 +198,16 @@ class MPCCore:
         acceptable_constr_viol_tol = 1e-3
         acceptable_tol = 1e-6
 
-        opts = {"ipopt.acceptable_tol": acceptable_tol,
-                "ipopt.acceptable_constr_viol_tol": acceptable_constr_viol_tol,
-                "ipopt.acceptable_dual_inf_tol": acceptable_dual_inf_tol,
-                "ipopt.acceptable_iter": acceptable_iter,
-                "ipopt.acceptable_compl_inf_tol": acceptable_compl_inf_tol,
-                "ipopt.hessian_approximation": "limited-memory",
-                "ipopt.print_level": 0}
-        self.opti.solver('ipopt', opts)
+        opts = {
+            "ipopt.acceptable_tol": acceptable_tol,
+            "ipopt.acceptable_constr_viol_tol": acceptable_constr_viol_tol,
+            "ipopt.acceptable_dual_inf_tol": acceptable_dual_inf_tol,
+            "ipopt.acceptable_iter": acceptable_iter,
+            "ipopt.acceptable_compl_inf_tol": acceptable_compl_inf_tol,
+            "ipopt.hessian_approximation": "limited-memory",
+            "ipopt.print_level": 0,
+        }
+        self.opti.solver("ipopt", opts)
 
     def compute_control(self, i):
         """
@@ -189,23 +215,24 @@ class MPCCore:
         :param vehicle_state: VehicleState message with current position, velocity, and angle.
         """
         # Update P (initial state) with the new vehicle state
-        self.opti.set_value(self.P, ca.vertcat(x, y, theta0, v0))
+        self.opti.set_value(self.P, ca.vertcat(self.x0, self.y0, self.theta0, self.v0))
 
-        print("Current x: ", x0)
-        print("Current y: ", y0)
-        print("Current theta: ", theta0)
-        print("Current velocity: ", v0)
+        print("Current x: ", self.x0)
+        print("Current y: ", self.y0)
+        print("Current theta: ", self.theta0)
+        print("Current velocity: ", self.v0)
 
         if i > 0:
             # Original Code need i > 0
-            self.closed_loop_data.append([x0, y0, theta0, v0])
+            self.closed_loop_data.append([self.x0, self.y0, self.theta0, self.v0])
 
-        initial_state = ca.vertcat(x0, y0, theta0, v0)
+        initial_state = ca.vertcat(self.x0, self.y0, self.theta0, self.v0)
         self.opti.set_value(self.P, initial_state)
 
         # Set the reference trajectory for the current iteration
-        self.opti.set_value(self.W, ca.horzcat(
-            *self.waypoints[i:i + self.N]))  # Concatenate waypoints
+        self.opti.set_value(
+            self.W, ca.horzcat(*self.waypoints[i : i + self.N])
+        )  # Concatenate waypoints
 
         if self.prev_sol_x is not None and self.prev_sol_u is not None:
             # Warm-starting the solver with the previous solution
@@ -222,7 +249,7 @@ class MPCCore:
         # Solve the optimization problem
         sol = self.opti.solve()
 
-        if sol.stats()['success']:
+        if sol.stats()["success"]:
             # Extract control inputs (steering angle, throttle)
             u = sol.value(self.U[:, 0])
             steering_angle = np.clip(u[0], -1.0, 1.0)
@@ -234,17 +261,17 @@ class MPCCore:
             # Store open-loop trajectory data with control input applied to
             # vehicle
             open_loop_trajectory = sol.value(self.X)
-            open_loop_trajectory = open_loop_trajectory.T.reshape(
-                -1, self.state_dim)
+            open_loop_trajectory = open_loop_trajectory.T.reshape(-1, self.state_dim)
             open_loop_trajectory = np.hstack(
-                (open_loop_trajectory, np.tile(u, (N + 1, 1))))
+                (open_loop_trajectory, np.tile(u, (self.N + 1, 1)))
+            )
             self.open_loop_data.append(open_loop_trajectory)
 
             if i > 0:
                 # Predicted next state from the previous solution
                 predicted_state = self.prev_sol_x[:, 1]
                 # Current actual state from CARLA
-                actual_state = np.array([x0, y0, theta0, v0])
+                actual_state = np.array([self.x0, self.y0, self.theta0, self.v0])
                 residual = actual_state - predicted_state
                 self.residuals_data.append(residual)
 

@@ -1,3 +1,4 @@
+---
 name: Build and Test Monorepo
 
 on:
@@ -14,11 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      docker_matrix: ${{ steps.docker-environment.outputs.docker_matrix }}
-      registry: ${{ steps.docker-environment.outputs.registry }}
-      repository: ${{ steps.docker-environment.outputs.repository }}
-      source_branch: ${{ steps.github-environment.outputs.source_branch }}
-      target_branch: ${{ steps.github-environment.outputs.target_branch }}
+      docker_matrix: ${{ steps.docker-context.outputs.docker_matrix }}
+      registry: ${{ steps.docker-context.outputs.registry }}
+      repository: ${{ steps.docker-context.outputs.repository }}
+      source_branch: ${{ steps.github-context.outputs.source_branch }}
+      target_branch: ${{ steps.github-context.outputs.target_branch }}
 
     steps:
       - name: Checkout Repository
@@ -34,14 +35,14 @@ jobs:
           . ./watod_scripts/watod-setup-env.sh
         shell: bash
 
-      - name: Generate Docker Environment
-        id: docker-environment
+      - name: Generate Docker Context
+        id: docker-context
         uses: "./.github/templates/docker_context"
         with:
           modified_modules: ${{ steps.get-module-changes.outputs.modified_modules }}
-      
-      - name: Generate GitHub Environment
-        id: github-environment
+
+      - name: Generate GitHub Context
+        id: github-context
         uses: "./.github/templates/github_context"
 
   build-and-unittest:
@@ -70,7 +71,12 @@ jobs:
       - name: Construct Registry URL
         id: construct-registry-url
         run: |
-          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${{ matrix.service }}" \
+          # Takes the path of the dockerfile and finds the basename
+          # eg. "docker/perception/tracking/tracking.Dockerfile" turns into "tracking" from tracking.Dockerfile
+          name=$(basename "${{ matrix.dockerfile }}")
+          name="${name%.Dockerfile}"
+
+          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${name}" \
           >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
@@ -85,11 +91,10 @@ jobs:
           password: ${{ secrets.GHCR_PWD }}
 
       - name: Prepare Image Dependencies
-        if: ${{ matrix.module != 'infrastructure' }}
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
@@ -104,7 +109,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
@@ -120,7 +125,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/${{ matrix.module }}/${{ matrix.service }}/${{ matrix.service }}.Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
             ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
@@ -139,7 +144,7 @@ jobs:
         with:
           image: ${{ steps.construct-registry-url.outputs.url }}
           tag: build_${{ env.SOURCE_BRANCH }}
-  
+
   confirm-build-and-unittest-complete:
     name: Confirm Build and Unit Tests Completed
     needs: build-and-unittest

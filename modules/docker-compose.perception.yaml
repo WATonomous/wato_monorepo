@@ -1,36 +1,17 @@
-version: "3.8"
-
+---
 services:
-  radar_object_detection:
+  perception_bringup:
     build:
       context: ..
-      dockerfile: docker/perception/radar_object_detection/radar_object_detection.Dockerfile
+      dockerfile: docker/perception/perception.Dockerfile
       cache_from:
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
-        - "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_main"
+        - "${PERCEPTION_IMAGE:?}:build_${TAG}"
+        - "${PERCEPTION_IMAGE:?}:build_main"
       target: deploy
-    image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    command: /bin/bash -c "ros2 launch radar_object_detection radar_object_detection.launch.py"
-
-  camera_object_detection:
-    build:
-      context: ..
-      dockerfile: docker/perception/camera_object_detection/camera_object_detection.Dockerfile
-      cache_from:
-        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
-        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_main"
-      target: deploy
-    image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
-    shm_size: 8G
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
-    command: /bin/bash -c "ros2 launch camera_object_detection nuscenes_launch.py"
+    image: "${PERCEPTION_IMAGE:?}:${TAG}"
+    command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
     volumes:
+<<<<<<< HEAD
       - /mnt/wato-drive2/perception_models/yolov8m.pt:/perception_models/yolov8m.pt
       - /mnt/wato-drive2/perception_models/traffic_light.pt:/perception_models/traffic_light.pt
       - /mnt/wato-drive2/perception_models/traffic_signs_v0.pt:/perception_models/traffic_signs_v1.pt
@@ -135,3 +116,6 @@ services:
     volumes:
       - /mnt/wato-drive2/perception_models/depth_anything_v2_large.pth:/perception_models/depth_anything_v2_large.pth
       - /mnt/wato-drive2/perception_models/depth_anything_v2_small.pth:/perception_models/depth_anything_v2_small.pth
+=======
+      - /mnt/wato-drive2/perception_models:/perception_models
+>>>>>>> origin/main

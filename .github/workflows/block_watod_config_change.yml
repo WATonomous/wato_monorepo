@@ -1,0 +1,19 @@
+---
+name: Block watod-config.sh changes
+on: [pull_request]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # we need full history for diff
+
+      - name: Fail PR when watod-config.sh differs from base
+        run: |
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          if git diff --name-only "$base_sha"...HEAD | grep -q '^watod-config\.sh$'; then
+            echo "::error file=watod-config.sh::watod-config.sh is protected. Use watod-config.local.sh instead."
+            exit 1
+          fi

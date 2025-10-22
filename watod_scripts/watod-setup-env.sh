@@ -1,92 +1,111 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 set -e
 
-# This script generates a .env file to be used with docker-compose
-# To override any of the variables in this script, create watod-config.sh 
-#   in the same directory and populate it with variables
-#   e.g. `COMPOSE_PROJECT_NAME=<NAME>`.
+# ------------------------------------------------------------------------------------
+# watod-setup-env.sh
+# -------------------
+# Generates a .env file for docker‑compose based on project & host settings.
+#
+# Usage (source so variables propagate):
+#   . ./watod-setup-env.sh                   # normal local run
+#   . ./watod-setup-env.sh --is-ci           # CI run (forces MODULES_DIR layout & skips UID/GID)
+#
+# Flags
+#   --is-ci        Explicitly signal that we are running inside a CI agent.  *No autodetection*
+#                  · Forces MODULES_DIR="$MONO_DIR/modules"
+#                  · Omits SETUID / SETGID entries from the generated .env
+#
+# To override any variable, create a sibling script named `watod-config.sh` and define
+# the desired env‑vars, e.g.  COMPOSE_PROJECT_NAME=<name>
+# ------------------------------------------------------------------------------------
 
+################################  Flag parsing  ######################################
+IS_CI=false
+for arg in "$@"; do
+  case "$arg" in
+    --is-ci) IS_CI=true ;;
+  esac
+done
+
+################################  Safety checks  #####################################
 if [ -f /.dockerenv ]; then
-	echo "Please run this in the host machine (not in the Docker container)"
-	exit 1
+  echo "Please run this in the host machine (not in the Docker container)" >&2
+  exit 1
 fi
 
-# Retrieve git branch
-if ! [ -x "$(command -v git)" ]; then
-    echo 'Error: git is not installed.' >&2
+################################  Git branch  ########################################
+if command -v git >/dev/null 2>&1; then
+  BRANCH=${BRANCH:-$(git branch --show-current)}
 else
-    BRANCH=${BRANCH:-$(git branch --show-current)}
+  echo 'Error: git is not installed.' >&2
 fi
 
-## ----------------------- Configuration (Subject to Override) ----------------------------
+################################  Overrides hook  ####################################
+# shellcheck source=./watod-config.sh
+if [ -f "$(dirname "$0")/watod-config.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/watod-config.sh"
+fi
+
+################################  Paths & Layout  ####################################
+# Force MODULES_DIR and MONO_DIR layout when running in CI
+if $IS_CI; then
+  git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+  MONO_DIR="$git_root"
+  MODULES_DIR="$MONO_DIR/modules"
+  echo "[setup-env] CI mode: forcing MODULES_DIR → $MODULES_DIR"
+fi
+
+################################  Configuration  #####################################
 
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
-# Tag to use. Images as formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced
-# with dashes
-TAG=$(echo ${TAG:-$BRANCH} | tr / -)
-# replace / with -
-TAG=${TAG/\//-}
+# Tag for docker images – convert slashes to dashes
+TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 
-# List of active modules to run, defined in docker-compose.yaml.
-# Possible values:
-#   - infrastructure     	:   starts visualization tools (foxglove and/or vnc)
-#	- perception			:	starts perception nodes
-#	- world_modeling		:	starts world modeling nodes
-#	- action				:	starts action nodes
-#	- simulation			:	starts simulation
-#   - samples             	:   starts sample ROS2 pubsub nodes
-ACTIVE_MODULES=${ACTIVE_MODULES:-""}
-
-# List of modules to IGNORE when using the --all flag
-MODULE_BLACKLIST=${MODULE_BLACKLIST:-"production"}
-
-# Docker Registry to pull/push images
+# Registry
 REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
+REGISTRY="${REGISTRY_URL%%/*}"
+REPOSITORY="${REGISTRY_URL##*/}"
 
-REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
-REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
-
-## --------------------------- Images -------------------------------
-# NOTE: ALL IMAGE NAMES MUCH BE IN THE FORMAT OF <COMPOSE_FILE>_<SERVICE>
-
-# ROS2 C++ Samples
-SAMPLES_CPP_AGGREGATOR_IMAGE=${SAMPLES_CPP_AGGREGATOR_IMAGE:-"$REGISTRY_URL/samples/cpp_aggregator"}
-SAMPLES_CPP_PRODUCER_IMAGE=${SAMPLES_CPP_PRODUCER_IMAGE:-"$REGISTRY_URL/samples/cpp_producer"}
-SAMPLES_CPP_TRANSFORMER_IMAGE=${SAMPLES_CPP_TRANSFORMER_IMAGE:-"$REGISTRY_URL/samples/cpp_transformer"}
-
-# ROS2 Python Samples
-SAMPLES_PYTHON_AGGREGATOR_IMAGE=${SAMPLES_PYTHON_AGGREGATOR_IMAGE:-"$REGISTRY_URL/samples/py_aggregator"}
-SAMPLES_PYTHON_PRODUCER_IMAGE=${SAMPLES_PYTHON_PRODUCER_IMAGE:-"$REGISTRY_URL/samples/py_producer"}
-SAMPLES_PYTHON_TRANSFORMER_IMAGE=${SAMPLES_PYTHON_TRANSFORMER_IMAGE:-"$REGISTRY_URL/samples/py_transformer"}
+################################  Image names  #######################################
+# NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
 
 # Infrastructure
-INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=${INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE:-"$REGISTRY_URL/infrastructure/vis_tools_vnc"}
-INFRASTRUCTURE_DATA_STREAM_IMAGE=${DATA_STREAM_IMAGE:-"$REGISTRY_URL/infrastructure/data_stream"}
-INFRASTRUCTURE_FOXGLOVE_IMAGE=${DATA_STREAM_IMAGE:-"$REGISTRY_URL/infrastructure/foxglove"}
+INFRASTRUCTURE_IMAGE=${INFRASTRUCTURE_IMAGE:-"$REGISTRY_URL/infrastructure/infrastructure"}
+: "${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:=67108864}"
 
 # Perception
-PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE=${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:-"$REGISTRY_URL/perception/radar_object_detection"}
-PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE=${PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE:-"$REGISTRY_URL/perception/lidar_object_detection"}
+PERCEPTION_IMAGE=${PERCEPTION_IMAGE:-"$REGISTRY_URL/perception/perception"}
 PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE=${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:-"$REGISTRY_URL/perception/camera_object_detection"}
+<<<<<<< HEAD
 PERCEPTION_LANE_DETECTION_IMAGE=${PERCEPTION_LANE_DETECTION_IMAGE:-"$REGISTRY_URL/perception/lane_detection"}
 PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE=${PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE:-"$REGISTRY_URL/perception/semantic_segmentation"}
 PERCEPTION_TRACKING_IMAGE=${PERCEPTION_TRACKING_IMAGE:-"$REGISTRY_URL/perception/tracking"}
 PERCEPTION_BBOX_2D_3D_IMAGE=${PERCEPTION_BBOX_2D_3D_IMAGE:-"$REGISTRY_URL/perception/bbox_2d_3d"}
+=======
+>>>>>>> origin/main
 PERCEPTION_DEPTH_ESTIMATION_IMAGE=${PERCEPTION_DEPTH_ESTIMATION_IMAGE:-"$REGISTRY_URL/perception/depth_estimation"}
 
-# World Modeling
-WORLD_MODELING_HD_MAP_IMAGE=${WORLD_MODELING_HD_MAP_IMAGE:-"$REGISTRY_URL/world_modeling/hd_map"}
-WORLD_MODELING_OCCUPANCY_IMAGE=${WORLD_MODELING_OCCUPANCY_IMAGE:-"$REGISTRY_URL/world_modeling/occupancy"}
-WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE=${WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE:-"$REGISTRY_URL/world_modeling/occupancy_segmentation"}
-WORLD_MODELING_MOTION_FORECASTING_IMAGE=${WORLD_MODELING_MOTION_FORECASTING_IMAGE:-"$REGISTRY_URL/world_modeling/motion_forecasting"}
-WORLD_MODELING_LOCALIZATION_IMAGE=${WORLD_MODELING_LOCALIZATION_IMAGE:-"$REGISTRY_URL/world_modeling/localization"}
+# World Modeling
+WORLD_MODELING_IMAGE=${WORLD_MODELING_IMAGE:-"$REGISTRY_URL/world_modeling/world_modeling"}
+
 
 # Action
-ACTION_GLOBAL_PLANNING_IMAGE=${ACTION_GLOBAL_PLANNING_IMAGE:-"$REGISTRY_URL/action/global_planning"}
-ACTION_BEHAVIOUR_PLANNING_IMAGE=${ACTION_BEHAVIOUR_PLANNING_IMAGE:-"$REGISTRY_URL/action/behaviour_planning"}
-ACTION_LOCAL_PLANNING_IMAGE=${ACTION_LOCAL_PLANNING_IMAGE:-"$REGISTRY_URL/action/local_planning"}
-ACTION_MPC_IMAGE=${ACTION_MPC_IMAGE:-"$REGISTRY_URL/action/model_predictive_control"}
+ACTION_IMAGE=${ACTION_IMAGE:-"$REGISTRY_URL/action/action"}
 
 # Simulation
 SIMULATION_CARLA_IMAGE=${SIMULATION_CARLA_IMAGE:-"$REGISTRY_URL/simulation/carla_sim"}
@@ -96,71 +115,66 @@ SIMULATION_CARLA_NOTEBOOKS_IMAGE=${SIMULATION_CARLA_NOTEBOOKS_IMAGE:-"$REGISTRY_
 SIMULATION_CARLA_SAMPLE_NODE_IMAGE=${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:-"$REGISTRY_URL/simulation/carla_sample_node"}
 
 # Interfacing
-INTERFACING_CAN_IMAGE=${INTERFACING_CAN_IMAGE:-"$REGISTRY_URL/interfacing/can_interfacing"}
-INTERFACING_SENSOR_IMAGE=${INTERFACING_SENSOR_IMAGE:-"$REGISTRY_URL/interfacing/sensor_interfacing"}
+INTERFACING_IMAGE=${INTERFACING_IMAGE:-"$REGISTRY_URL/interfacing/interfacing"}
 
-## -------------------------- User ID -----------------------------
+################################  UID / GID  #########################################
+SETUID=$(id -u)
+SETGID=$(id -g)
 
-SETUID=$(id -u) 
-SETGID=$(id -g) 
-
-## --------------------------- Ports ------------------------------
-
-BASE_PORT=${BASE_PORT:-$(($(id -u)*20))}
+################################  Ports  #############################################
+BASE_PORT=${BASE_PORT:-$((SETUID*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT+1))}
 FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT+2))}
 CARLAVIZ_PORT=${CARLAVIZ_PORT:-$((BASE_PORT+3))}
 CARLAVIZ_PORT_2=${CARLAVIZ_PORT_2:-$((BASE_PORT+4))}
 CARLA_NOTEBOOKS_PORT=${CARLA_NOTEBOOKS_PORT:-$((BASE_PORT+5))}
 
-## -------------------- Export Environment Variables -------------------------
+################################  Write .env  ########################################
 
-# General
-echo "$MODULES_DIR"
-echo "# Auto-generated by ${BASH_SOURCE[0]}. Edit at own risk." > "$MODULES_DIR/.env"
+mkdir -p "$MODULES_DIR"
+ENV_FILE="$MODULES_DIR/.env"
+echo "# Auto-generated by ${BASH_SOURCE[0]}. Edit at own risk." > "$ENV_FILE"
 
-echo "MODULES_DIR=$MODULES_DIR" >> "$MODULES_DIR/.env"
-echo "MONO_DIR=$MONO_DIR" >> "$MODULES_DIR/.env"
+# Helper for clean appends
+append() { echo "$1=$2" >> "$ENV_FILE"; }
 
-echo "ACTIVE_MODULES=\"$ACTIVE_MODULES\"" >> "$MODULES_DIR/.env"
-echo "MODULE_BLACKLIST=\"$MODULE_BLACKLIST\"" >> "$MODULES_DIR/.env"
+# General paths
+append "MODULES_DIR" "$MODULES_DIR"
+append "MONO_DIR" "$MONO_DIR"
 
-echo "COMPOSE_DOCKER_CLI_BUILD=1" >> "$MODULES_DIR/.env"
-echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> "$MODULES_DIR/.env"
+append "COMPOSE_DOCKER_CLI_BUILD" "1"
+append "COMPOSE_PROJECT_NAME" "$COMPOSE_PROJECT_NAME"
 
-echo "ROS_IP=$ROS_IP" >> "$MODULES_DIR/.env"
-echo "ROS_HOSTNAME=$ROS_HOSTNAME" >> "$MODULES_DIR/.env"
+append "TAG" "$TAG"
 
-echo "TAG=$TAG" >> "$MODULES_DIR/.env"
+if ! $IS_CI; then
+  append "SETUID" "$SETUID"
+  append "SETGID" "$SETGID"
+fi
 
-echo "SETUID=$SETUID" >> "$MODULES_DIR/.env"
-echo "SETGID=$SETGID" >> "$MODULES_DIR/.env"
+append "BASE_PORT" "$BASE_PORT"
+append "GUI_TOOLS_VNC_PORT" "$GUI_TOOLS_VNC_PORT"
+append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
+append "CARLAVIZ_PORT" "$CARLAVIZ_PORT"
+append "CARLAVIZ_PORT_2" "$CARLAVIZ_PORT_2"
+append "CARLA_NOTEBOOKS_PORT" "$CARLA_NOTEBOOKS_PORT"
 
-echo "BASE_PORT=$BASE_PORT" >> "$MODULES_DIR/.env"
-echo "GUI_TOOLS_VNC_PORT=$GUI_TOOLS_VNC_PORT" >> "$MODULES_DIR/.env"
-echo "FOXGLOVE_BRIDGE_PORT=$FOXGLOVE_BRIDGE_PORT" >> "$MODULES_DIR/.env"
-echo "CARLAVIZ_PORT=$CARLAVIZ_PORT" >> "$MODULES_DIR/.env"
-echo "CARLAVIZ_PORT_2=$CARLAVIZ_PORT_2" >> "$MODULES_DIR/.env"
-echo "CARLA_NOTEBOOKS_PORT=$CARLA_NOTEBOOKS_PORT" >> "$MODULES_DIR/.env"
+append "REGISTRY" "$REGISTRY"
+append "REPOSITORY" "$REPOSITORY"
 
-echo "REGISTRY=$REGISTRY" >> "$MODULES_DIR/.env"
-echo "REGISTRY=$REPOSITORY" >> "$MODULES_DIR/.env"
+# Image variables
+append "INFRASTRUCTURE_IMAGE" "$INFRASTRUCTURE_IMAGE"
+append "FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES" "$FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES"
 
-# ROS2 C++ Samples
-echo "SAMPLES_CPP_AGGREGATOR_IMAGE=$SAMPLES_CPP_AGGREGATOR_IMAGE" >> "$MODULES_DIR/.env"
-echo "SAMPLES_CPP_PRODUCER_IMAGE=$SAMPLES_CPP_PRODUCER_IMAGE" >> "$MODULES_DIR/.env"
-echo "SAMPLES_CPP_TRANSFORMER_IMAGE=$SAMPLES_CPP_TRANSFORMER_IMAGE" >> "$MODULES_DIR/.env"
+append "PERCEPTION_IMAGE" "$PERCEPTION_IMAGE"
+append "PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE" "$PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE"
+append "PERCEPTION_DEPTH_ESTIMATION_IMAGE" "$PERCEPTION_DEPTH_ESTIMATION_IMAGE"
 
-# ROS2 Python Samples
-echo "SAMPLES_PYTHON_AGGREGATOR_IMAGE=$SAMPLES_PYTHON_AGGREGATOR_IMAGE" >> "$MODULES_DIR/.env"
-echo "SAMPLES_PYTHON_PRODUCER_IMAGE=$SAMPLES_PYTHON_PRODUCER_IMAGE" >> "$MODULES_DIR/.env"
-echo "SAMPLES_PYTHON_TRANSFORMER_IMAGE=$SAMPLES_PYTHON_TRANSFORMER_IMAGE" >> "$MODULES_DIR/.env"
+append "WORLD_MODELING_IMAGE" "$WORLD_MODELING_IMAGE"
 
-# Infrastructure
-echo "INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE=$INFRASTRUCTURE_VIS_TOOLS_VNC_IMAGE" >> "$MODULES_DIR/.env"
-echo "INFRASTRUCTURE_DATA_STREAM_IMAGE=$INFRASTRUCTURE_DATA_STREAM_IMAGE" >> "$MODULES_DIR/.env"
-echo "INFRASTRUCTURE_FOXGLOVE_IMAGE=$INFRASTRUCTURE_FOXGLOVE_IMAGE" >> "$MODULES_DIR/.env"
+append "ACTION_IMAGE" "$ACTION_IMAGE"
 
+<<<<<<< HEAD
 # Perception
 echo "PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE=$PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE" >> "$MODULES_DIR/.env"
 echo "PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE=$PERCEPTION_LIDAR_OBJECT_DETECTION_IMAGE" >> "$MODULES_DIR/.env"
@@ -170,27 +184,14 @@ echo "PERCEPTION_SEMANTIC_SEGMENTATION_IMAGE=$PERCEPTION_SEMANTIC_SEGMENTATION_I
 echo "PERCEPTION_TRACKING_IMAGE=$PERCEPTION_TRACKING_IMAGE" >> "$MODULES_DIR/.env"
 echo "PERCEPTION_BBOX_2D_3D_IMAGE=$PERCEPTION_BBOX_2D_3D_IMAGE" >> "$MODULES_DIR/.env"
 echo "PERCEPTION_DEPTH_ESTIMATION_IMAGE=$PERCEPTION_DEPTH_ESTIMATION_IMAGE" >> "$MODULES_DIR/.env"
+=======
+append "SIMULATION_CARLA_IMAGE" "$SIMULATION_CARLA_IMAGE"
+append "SIMULATION_CARLA_ROS_BRIDGE_IMAGE" "$SIMULATION_CARLA_ROS_BRIDGE_IMAGE"
+append "SIMULATION_CARLAVIZ_IMAGE" "$SIMULATION_CARLAVIZ_IMAGE"
+append "SIMULATION_CARLA_NOTEBOOKS_IMAGE" "$SIMULATION_CARLA_NOTEBOOKS_IMAGE"
+append "SIMULATION_CARLA_SAMPLE_NODE_IMAGE" "$SIMULATION_CARLA_SAMPLE_NODE_IMAGE"
+>>>>>>> origin/main
 
-# World Modeling
-echo "WORLD_MODELING_HD_MAP_IMAGE=$WORLD_MODELING_HD_MAP_IMAGE" >> "$MODULES_DIR/.env"
-echo "WORLD_MODELING_OCCUPANCY_IMAGE=$WORLD_MODELING_OCCUPANCY_IMAGE" >> "$MODULES_DIR/.env"
-echo "WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE=$WORLD_MODELING_OCCUPANCY_SEGMENTATION_IMAGE" >> "$MODULES_DIR/.env"
-echo "WORLD_MODELING_MOTION_FORECASTING_IMAGE=$WORLD_MODELING_MOTION_FORECASTING_IMAGE" >> "$MODULES_DIR/.env"
-echo "WORLD_MODELING_LOCALIZATION_IMAGE=$WORLD_MODELING_LOCALIZATION_IMAGE" >> "$MODULES_DIR/.env"
+append "INTERFACING_IMAGE" "$INTERFACING_IMAGE"
 
-# Action
-echo "ACTION_GLOBAL_PLANNING_IMAGE=$ACTION_GLOBAL_PLANNING_IMAGE" >> "$MODULES_DIR/.env"
-echo "ACTION_BEHAVIOUR_PLANNING_IMAGE=$ACTION_BEHAVIOUR_PLANNING_IMAGE" >> "$MODULES_DIR/.env"
-echo "ACTION_LOCAL_PLANNING_IMAGE=$ACTION_LOCAL_PLANNING_IMAGE" >> "$MODULES_DIR/.env"
-echo "ACTION_MPC_IMAGE=$ACTION_MPC_IMAGE" >> "$MODULES_DIR/.env"
-
-# Simulation
-echo "SIMULATION_CARLA_IMAGE=$SIMULATION_CARLA_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLA_ROS_BRIDGE_IMAGE=$SIMULATION_CARLA_ROS_BRIDGE_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLAVIZ_IMAGE=$SIMULATION_CARLAVIZ_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLA_NOTEBOOKS_IMAGE=$SIMULATION_CARLA_NOTEBOOKS_IMAGE" >> "$MODULES_DIR/.env"
-echo "SIMULATION_CARLA_SAMPLE_NODE_IMAGE=$SIMULATION_CARLA_SAMPLE_NODE_IMAGE" >> "$MODULES_DIR/.env"
-
-# Interfacing
-echo "INTERFACING_CAN_IMAGE=$INTERFACING_CAN_IMAGE" >> "$MODULES_DIR/.env"
-echo "INTERFACING_SENSOR_IMAGE=$INTERFACING_SENSOR_IMAGE" >> "$MODULES_DIR/.env"
+echo "[setup-env] .env generated at $ENV_FILE"

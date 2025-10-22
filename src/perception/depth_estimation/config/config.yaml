@@ -1,3 +1,4 @@
+---
 depth_estimation_node:
   ros__parameters:
     version: 1
@@ -6,3 +7,7 @@ depth_estimation_node:
     publish_depth_pcl_topic: /camera/right/depth_pcl
     small_model_path: /perception_models/depth_estimation_v2_small.pth
     large_model_path: /perception_models/depth_estimation_v2_large.pth
+    focal_length_x: 470.4
+    focal_length_y: 470.4
+    min_depth_offset: 0    # const distance to add to depth inference (meters)
+    max_depth_cuttoff: 79     # pre-offset distance to ignore for sky (meters)

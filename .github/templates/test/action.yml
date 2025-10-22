@@ -1,3 +1,4 @@
+---
 name: Docker test
 
 inputs:
@@ -8,7 +9,7 @@ inputs:
     description: "monorepo image tag to test"
     required: true
 
-runs: 
+runs:
   using: "composite"
   steps:
     - run: ${{ github.action_path }}/test_image.sh

@@ -1,18 +1,15 @@
-version: "3.8"
-
-x-fixuid: &fixuid
-  build:
-    target: build
-
+---
 services:
-  radar_object_detection:
-    <<: *fixuid
+  perception_bringup:
+    build:
+      target: build
     extends:
       file: ../docker-compose.perception.yaml
-      service: radar_object_detection
-    image: "${PERCEPTION_RADAR_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
+      service: perception_bringup
+    image: "${PERCEPTION_IMAGE:?}:build_${TAG}"
     command: tail -F anything
     volumes:
+<<<<<<< HEAD
       - ${MONO_DIR}/src/perception/radar_object_detection:/home/bolty/ament_ws/src/radar_object_detection
 
   camera_object_detection:
@@ -85,3 +82,6 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/depth_estimation:/home/bolty/ament_ws/src/depth_estimation
+=======
+      - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
+>>>>>>> origin/main

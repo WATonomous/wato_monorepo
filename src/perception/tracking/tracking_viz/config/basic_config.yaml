@@ -1,8 +1,0 @@
-tracking_viz_node:
-  ros__parameters:
-    image_topic: /annotated_img
-    publish_viz_topic: /annotated_3d_img
-    det_3d_topic: /detections_3d
-    camera_info_topic: /CAM_FRONT/camera_info
-    camera_frame: CAM_FRONT
-    lidar_frame: LIDAR_TOP

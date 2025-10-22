@@ -6,13 +6,17 @@
 
   <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
 
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <depend>rclcpp</depend>
   <depend>path_planning_msgs</depend>
   <depend>embedded_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>carla_msgs</depend>
+  <depend>interfacing_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>geometry_msgs</depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

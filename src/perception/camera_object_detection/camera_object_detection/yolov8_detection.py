@@ -1,7 +1,20 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import rclpy
 from rclpy.node import Node
 import os
-from message_filters import Subscriber, TimeSynchronizer, ApproximateTimeSynchronizer
+from message_filters import Subscriber, ApproximateTimeSynchronizer
 from camera_object_detection_msgs.msg import BatchDetection, EveBatchDetection
 from sensor_msgs.msg import Image, CompressedImage
 from vision_msgs.msg import (
@@ -10,28 +23,21 @@ from vision_msgs.msg import (
     Detection2DArray,
 )
 import concurrent.futures
-from std_msgs.msg import Header
 from pathlib import Path
-from ultralytics import YOLO
 from ultralytics.nn.autobackend import AutoBackend
-from ultralytics.data.augment import LetterBox, CenterCrop
 from ultralytics.utils.ops import non_max_suppression
-from ultralytics.utils.plotting import Annotator, colors
+from ultralytics.utils.plotting import Annotator
 
-
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 import cv2
-from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
-import time
 
 import torch
-import onnx
 import tensorrt as trt
-from typing import List, Optional, Tuple, Union
+from typing import Tuple
 from dataclasses import dataclass
 from numpy import ndarray
+
 # import pycuda.driver as cuda
 from cuda import cudart
 
@@ -45,116 +51,121 @@ class Tensor:
     gpu: int
 
 
-class Model():
+class Model:
     def __init__(self, model_path, device):
         self.model_path = model_path
-        self.model = AutoBackend(
-            self.model_path, device=device, dnn=False, fp16=False)
-        self.names = self.model.module.names if hasattr(
-            self.model, "module") else self.model.names
+        self.model = AutoBackend(self.model_path, device=device, dnn=False, fp16=False)
+        self.names = (
+            self.model.module.names
+            if hasattr(self.model, "module")
+            else self.model.names
+        )
         self.stride = int(self.model.stride)
 
 
 class CameraDetectionNode(Node):
-
     def __init__(self):
-        torch.zeros(1).cuda()
-
         super().__init__("camera_object_detection_node")
         self.get_logger().info("Creating batched camera detection node...")
 
         # Eve config params
         self.declare_parameter("camera_topic", "/camera/right/image_color")
         self.declare_parameter("left_camera_topic", "/camera/left/image_color")
-        self.declare_parameter("center_camera_topic",
-                               "/camera/center/image_color")
+        self.declare_parameter("center_camera_topic", "/camera/center/image_color")
+        self.declare_parameter("image_width", 1600)
+        self.declare_parameter("image_height", 900)
 
         # Nuscenes
         self.declare_parameter("nuscenes", False)
-        self.declare_parameter("front_center_camera_topic",
-                               "/CAM_FRONT/image_rect_compressed")
-        self.declare_parameter("front_right_camera_topic",
-                               "/CAM_FRONT_RIGHT/image_rect_compressed")
-        self.declare_parameter("front_left_camera_topic",
-                               "/CAM_FRONT_LEFT/image_rect_compressed")
+        self.declare_parameter(
+            "front_center_camera_topic", "/CAM_FRONT/image_rect_compressed"
+        )
+        self.declare_parameter(
+            "front_right_camera_topic", "/CAM_FRONT_RIGHT/image_rect_compressed"
+        )
+        self.declare_parameter(
+            "front_left_camera_topic", "/CAM_FRONT_LEFT/image_rect_compressed"
+        )
 
-        self.declare_parameter("back_center_camera_topic",
-                               "/CAM_BACK/image_rect_compressed")
-        self.declare_parameter("back_right_camera_topic",
-                               "/CAM_BACK_RIGHT/image_rect_compressed")
-        self.declare_parameter("back_left_camera_topic",
-                               "/CAM_BACK_LEFT/image_rect_compressed")
+        self.declare_parameter(
+            "back_center_camera_topic", "/CAM_BACK/image_rect_compressed"
+        )
+        self.declare_parameter(
+            "back_right_camera_topic", "/CAM_BACK_RIGHT/image_rect_compressed"
+        )
+        self.declare_parameter(
+            "back_left_camera_topic", "/CAM_BACK_LEFT/image_rect_compressed"
+        )
 
         # tensorRT. extensions
+        self.declare_parameter("onnx_model_path", "/perception_models/tensorRT.onnx")
         self.declare_parameter(
-            "onnx_model_path", "/perception_models/tensorRT.onnx")
-        self.declare_parameter("tensorRT_model_path",
-                               "/perception_models/tensorRT.engine")
-        self.declare_parameter("eve_tensorRT_model_path",
-                               "/perception_models/eve.engine")
+            "tensorRT_model_path", "/perception_models/tensorRT.engine"
+        )
+        self.declare_parameter(
+            "eve_tensorRT_model_path", "/perception_models/eve.engine"
+        )
         self.declare_parameter("publish_vis_topic", False)
-        self.declare_parameter("batch_publish_vis_topic",
-                               "/batch_annotated_img")
-        self.declare_parameter(
-            "batch_publish_detection_topic", "/batch_detections")
+        self.declare_parameter("batch_publish_detection_topic", "/batch_detections")
         self.declare_parameter("model_path", "/perception_models/yolov8m.pt")
-        self.declare_parameter("image_size", 1024)
         self.declare_parameter("compressed", False)
         self.declare_parameter("crop_mode", "LetterBox")
         self.declare_parameter("save_detections", False)
 
         # Declare batch topic
-        self.declare_parameter("batch_inference_topic",
-                               "/batched_camera_message")
-        self.declare_parameter("eve_batch_inference_topic",
-                               "/eve_batched_camera_message")
+        self.declare_parameter("batch_inference_topic", "/batched_camera_message")
+        self.declare_parameter(
+            "eve_batch_inference_topic", "/eve_batched_camera_message"
+        )
 
         # Batch inference topic
-        self.batch_inference_topic = self.get_parameter(
-            "batch_inference_topic").value
+        self.batch_inference_topic = self.get_parameter("batch_inference_topic").value
         self.eve_batch_inference_topic = self.get_parameter(
-            "eve_batch_inference_topic").value
+            "eve_batch_inference_topic"
+        ).value
         self.batch_publish_detection_topic = self.get_parameter(
-            "batch_publish_detection_topic").value
-        self.batch_publish_vis_topic = self.get_parameter(
-            "batch_publish_vis_topic").value
+            "batch_publish_detection_topic"
+        ).value
         self.onnx_model_path = self.get_parameter("onnx_model_path").value
-        self.tensorRT_model_path = self.get_parameter(
-            "tensorRT_model_path").value
+        self.tensorRT_model_path = self.get_parameter("tensorRT_model_path").value
         self.eve_tensorRT_model_path = self.get_parameter(
-            "eve_tensorRT_model_path").value
+            "eve_tensorRT_model_path"
+        ).value
 
         # Camera topics for eve
         self.camera_topic = self.get_parameter("camera_topic").value
         self.left_camera_topic = self.get_parameter("left_camera_topic").value
-        self.center_camera_topic = self.get_parameter(
-            "center_camera_topic").value
+        self.center_camera_topic = self.get_parameter("center_camera_topic").value
 
         # Camera topics for nuscenes
         self.nuscenes = self.get_parameter("nuscenes").value
         self.front_center_camera_topic = self.get_parameter(
-            "front_center_camera_topic").value
+            "front_center_camera_topic"
+        ).value
         self.front_right_camera_topic = self.get_parameter(
-            "front_right_camera_topic").value
+            "front_right_camera_topic"
+        ).value
         self.front_left_camera_topic = self.get_parameter(
-            "front_left_camera_topic").value
+            "front_left_camera_topic"
+        ).value
         self.back_center_camera_topic = self.get_parameter(
-            "back_center_camera_topic").value
+            "back_center_camera_topic"
+        ).value
         self.back_right_camera_topic = self.get_parameter(
-            "back_right_camera_topic").value
-        self.back_left_camera_topic = self.get_parameter(
-            "back_left_camera_topic").value
+            "back_right_camera_topic"
+        ).value
+        self.back_left_camera_topic = self.get_parameter("back_left_camera_topic").value
 
         # Bool publish vis topic
-        self.publish_vis_topic = self.get_parameter("publish_vis_topic").value
+        self.publish_vis_topic = bool(self.get_parameter("publish_vis_topic").value)
 
         # Model Path and configs
         self.model_path = self.get_parameter("model_path").value
-        self.image_size = self.get_parameter("image_size").value
+        self.image_width = self.get_parameter("image_width").value
+        self.image_height = self.get_parameter("image_height").value
         self.compressed = self.get_parameter("compressed").value
         self.crop_mode = self.get_parameter("crop_mode").value
-        self.save_detections = bool(
-            self.get_parameter("save_detections").value)
+        self.save_detections = bool(self.get_parameter("save_detections").value)
         self.counter = 0  # For saving detections
         if self.save_detections:
             if not os.path.exists("detections"):
@@ -163,43 +174,96 @@ class CameraDetectionNode(Node):
         self.line_thickness = 1
         self.half = False
 
+        self.batch_size = getattr(self, "num_cameras", 3)
+        self.input_c = 3
+        self.input_h = 640
+        self.input_w = 640
+        self.batched_images_buffer = None
+
+        # Start logger
+        self.logger = trt.Logger(trt.Logger.WARNING)
+        trt.init_libnvinfer_plugins(self.logger, namespace="")
+
+        # Initialize TensorRT model
+        self.weight = (
+            Path(self.tensorRT_model_path)
+            if isinstance(self.tensorRT_model_path, str)
+            else self.tensorRT_model_path
+        )
+        with trt.Runtime(self.logger) as runtime:
+            self.tensorRT_model = runtime.deserialize_cuda_engine(
+                self.weight.read_bytes()
+            )
+        self.execution_context = self.tensorRT_model.create_execution_context()
+        if not self.execution_context:
+            self.get_logger().error("Failed to create execution context")
+            return 1
+
+        input_name = self.tensorRT_model.get_tensor_name(
+            0
+        )  # usually the first I/O is your input
+        self.execution_context.set_input_shape(
+            input_name, (self.batch_size, self.input_c, self.input_h, self.input_w)
+        )
+
+        # Allocate GPU memory for input and output tensors
+        self._collect_io_names()
+        self._alloc_cuda_buffers()
+
         # Subscription for Nuscenes
-        if (self.nuscenes):
+        if self.nuscenes:
             self.front_center_camera_subscription = Subscriber(
-                self, CompressedImage, self.front_center_camera_topic)
+                self, CompressedImage, self.front_center_camera_topic
+            )
             self.front_right_camera_subscription = Subscriber(
-                self, CompressedImage, self.front_right_camera_topic)
+                self, CompressedImage, self.front_right_camera_topic
+            )
             self.front_left_camera_subscription = Subscriber(
-                self, CompressedImage, self.front_left_camera_topic)
+                self, CompressedImage, self.front_left_camera_topic
+            )
             self.back_center_camera_subscription = Subscriber(
-                self, CompressedImage, self.back_center_camera_topic)
+                self, CompressedImage, self.back_center_camera_topic
+            )
             self.back_right_camera_subscription = Subscriber(
-                self, CompressedImage, self.back_right_camera_topic)
+                self, CompressedImage, self.back_right_camera_topic
+            )
             self.back_left_camera_subscription = Subscriber(
-                self, CompressedImage, self.back_left_camera_topic)
+                self, CompressedImage, self.back_left_camera_topic
+            )
             self.ats = ApproximateTimeSynchronizer(
-                [self.front_left_camera_subscription, self.front_center_camera_subscription, self.front_right_camera_subscription], queue_size=10, slop=0.1)
+                [
+                    self.front_left_camera_subscription,
+                    self.front_center_camera_subscription,
+                    self.front_right_camera_subscription,
+                ],
+                queue_size=10,
+                slop=0.1,
+            )
             self.ats.registerCallback(self.batch_inference_callback)
         else:
             # Subscription for Eve cameras
-            self.right_camera_subscription = Subscriber(
-                self, Image, self.camera_topic)
+            self.right_camera_subscription = Subscriber(self, Image, self.camera_topic)
             self.left_camera_subscription = Subscriber(
-                self, Image, self.left_camera_topic)
+                self, Image, self.left_camera_topic
+            )
             self.center_camera_subscription = Subscriber(
-                self, Image, self.center_camera_topic)
+                self, Image, self.center_camera_topic
+            )
             self.eve_ats = ApproximateTimeSynchronizer(
-                [self.right_camera_subscription, self.left_camera_subscription, self.center_camera_subscription], queue_size=10, slop=0.1)
+                [
+                    self.right_camera_subscription,
+                    self.left_camera_subscription,
+                    self.center_camera_subscription,
+                ],
+                queue_size=10,
+                slop=0.1,
+            )
 
             # Create this callback function tomorrow
             self.eve_ats.registerCallback(self.eve_batch_inference_callback)
             self.get_logger().info(f"TENSORT VERSION:{trt.__version__}")
 
-        self.orig_image_width = None
-        self.orig_image_height = None
-
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if torch.cuda.is_available():
             self.get_logger().info("Using GPU for inference")
         else:
@@ -209,83 +273,68 @@ class CameraDetectionNode(Node):
 
         # Batch vis publishers
         self.batched_camera_message_publisher = self.create_publisher(
-            BatchDetection, self.batch_inference_topic, 10)
+            BatchDetection, self.batch_inference_topic, 10
+        )
         self.eve_batched_camera_message_publisher = self.create_publisher(
-            EveBatchDetection, self.eve_batch_inference_topic, 10)
-
-        self.logger = trt.Logger(trt.Logger.WARNING)
-        trt.init_libnvinfer_plugins(self.logger, namespace='')
-        self.weight = Path(self.tensorRT_model_path) if isinstance(
-            self.tensorRT_model_path, str) else self.tensorRT_model_path
-        with trt.Runtime(self.logger) as runtime:
-            self.tensorRT_model = runtime.deserialize_cuda_engine(
-                self.weight.read_bytes())
-        self.execution_context = self.tensorRT_model.create_execution_context()
-        if not self.execution_context:
-            self.get_logger().error("Failed to create execution context")
-            return 1
-
-        self.batch_size = getattr(self, "num_cameras", 3)
-        self.input_c = 3
-        self.input_h = 640
-        self.input_w = 640
-        self.batched_images_buffer = None
-
-        input_name = self.tensorRT_model.get_tensor_name(
-            0)  # usually the first I/O is your input
-        self.execution_context.set_input_shape(
-            input_name,
-            (self.batch_size, self.input_c, self.input_h, self.input_w)
+            EveBatchDetection, self.eve_batch_inference_topic, 10
         )
 
-        self._collect_io_names()
-        self._alloc_cuda_buffers()
-
-       # Nuscenes Publishers
-        if (self.nuscenes):
+        # Nuscenes Publishers
+        if self.nuscenes:
             self.nuscenes_camera_names = [
-                "/CAM_FRONT_LEFT", "/CAM_FRONT", "/CAM_FRONT_RIGHT"]
+                "/CAM_FRONT_LEFT",
+                "/CAM_FRONT",
+                "/CAM_FRONT_RIGHT",
+            ]
             self.batch_vis_publishers = [
                 self.create_publisher(CompressedImage, f"{nuscenes}/viz", 10)
                 for nuscenes in self.nuscenes_camera_names
             ]
             self.batch_detection_publishers = [
-                self.create_publisher(
-                    Detection2DArray, f"{nuscenes}/detections", 10)
+                self.create_publisher(Detection2DArray, f"{nuscenes}/detections", 10)
                 for nuscenes in self.nuscenes_camera_names
             ]
             for nuscenes in self.nuscenes_camera_names:
                 self.get_logger().info(
-                    f"Successfully created node listening on camera topic: {nuscenes}...")
+                    f"Successfully created node listening on camera topic: {nuscenes}..."
+                )
         else:
             # Eve Publishers
-            self.eve_camera_names = [self.left_camera_topic,
-                                     self.center_camera_topic, self.camera_topic]
+            self.eve_camera_names = [
+                self.left_camera_topic,
+                self.center_camera_topic,
+                self.camera_topic,
+            ]
             self.eve_batch_vis_publishers = [
                 self.create_publisher(Image, f"{eve}/eve_batch_viz", 10)
                 for eve in self.eve_camera_names
             ]
             self.eve_batch_detection_publishers = [
                 self.create_publisher(
-                    Detection2DArray, f"{eve}/eve_batch_detections", 10)
+                    Detection2DArray, f"{eve}/eve_batch_detections", 10
+                )
                 for eve in self.eve_camera_names
             ]
             for camera_names in self.eve_camera_names:
                 self.get_logger().info(
-                    f"Successfully created node listening on camera topic: {camera_names}...")
+                    f"Successfully created node listening on camera topic: {camera_names}..."
+                )
 
     def _collect_io_names(self):
         # figure out which TRT tensors are inputs vs outputs
-        all_names = [self.tensorRT_model.get_tensor_name(i)
-                     for i in range(self.tensorRT_model.num_io_tensors)]
-        modes = [self.tensorRT_model.get_tensor_mode(n)
-                 for n in all_names]
+        all_names = [
+            self.tensorRT_model.get_tensor_name(i)
+            for i in range(self.tensorRT_model.num_io_tensors)
+        ]
+        modes = [self.tensorRT_model.get_tensor_mode(n) for n in all_names]
 
         # split into input_names / output_names
-        self.input_names = [n for n, m in zip(all_names, modes)
-                            if m == trt.TensorIOMode.INPUT]
-        self.output_names = [n for n, m in zip(all_names, modes)
-                             if m == trt.TensorIOMode.OUTPUT]
+        self.input_names = [
+            n for n, m in zip(all_names, modes) if m == trt.TensorIOMode.INPUT
+        ]
+        self.output_names = [
+            n for n, m in zip(all_names, modes) if m == trt.TensorIOMode.OUTPUT
+        ]
 
     def _alloc_cuda_buffers(self):
         # create a cudaStream once
@@ -299,12 +348,10 @@ class CameraDetectionNode(Node):
             dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             host_mem = np.empty(shape, dtype=dtype)
 
-            status, dev_mem = cudart.cudaMallocAsync(
-                host_mem.nbytes, self.stream)
+            status, dev_mem = cudart.cudaMallocAsync(host_mem.nbytes, self.stream)
             assert status.value == 0, f"cudaMallocAsync failed for input {name}"
 
-            self.input_info.append(
-                Tensor(name, dtype, shape, host_mem, dev_mem))
+            self.input_info.append(Tensor(name, dtype, shape, host_mem, dev_mem))
 
         # host+device for outputs
         self.output_info = []
@@ -313,12 +360,10 @@ class CameraDetectionNode(Node):
             dtype = trt.nptype(self.tensorRT_model.get_tensor_dtype(name))
             host_mem = np.empty(shape, dtype=dtype)
 
-            status, dev_mem = cudart.cudaMallocAsync(
-                host_mem.nbytes, self.stream)
+            status, dev_mem = cudart.cudaMallocAsync(host_mem.nbytes, self.stream)
             assert status.value == 0, f"cudaMallocAsync failed for output {name}"
 
-            self.output_info.append(
-                Tensor(name, dtype, shape, host_mem, dev_mem))
+            self.output_info.append(Tensor(name, dtype, shape, host_mem, dev_mem))
 
     def build_engine(self):
         # Only calling this function when we dont have an engine file
@@ -327,17 +372,21 @@ class CameraDetectionNode(Node):
         self.channels = 3
         self.height = 640
         self.width = 640
-        self.shape_input_model = [self.max_batch_size,
-                                  self.channels, self.height, self.width]
+        self.shape_input_model = [
+            self.max_batch_size,
+            self.channels,
+            self.height,
+            self.width,
+        ]
         self.logger = trt.Logger(trt.Logger.VERBOSE)
         self.builder = trt.Builder(self.logger)
         self.config = self.builder.create_builder_config()
         self.cache = self.config.create_timing_cache(b"")
         self.config.set_timing_cache(self.cache, ignore_mismatch=False)
-        self.total_memory = torch.cuda.get_device_properties(
-            self.device).total_memory
+        self.total_memory = torch.cuda.get_device_properties(self.device).total_memory
         self.config.set_memory_pool_limit(
-            trt.MemoryPoolType.WORKSPACE, self.total_memory)
+            trt.MemoryPoolType.WORKSPACE, self.total_memory
+        )
         self.flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
         self.network = self.builder.create_network(self.flag)
         self.parser = trt.OnnxParser(self.network, self.logger)
@@ -346,16 +395,20 @@ class CameraDetectionNode(Node):
                 self.get_logger().info("ERROR: Cannot read ONNX FILE")
                 for error in range(self.parser.num_errors):
                     self.get_logger().info(f"{self.parser.get_error(error)}")
-        self.inputs = [self.network.get_input(
-            i) for i in range(self.network.num_inputs)]
-        self.outputs = [self.network.get_output(
-            i) for i in range(self.network.num_outputs)]
+        self.inputs = [
+            self.network.get_input(i) for i in range(self.network.num_inputs)
+        ]
+        self.outputs = [
+            self.network.get_output(i) for i in range(self.network.num_outputs)
+        ]
         for input in self.inputs:
             self.get_logger().info(
-                f"Model {input.name} shape:{input.shape} {input.dtype}")
+                f"Model {input.name} shape:{input.shape} {input.dtype}"
+            )
         for output in self.outputs:
             self.get_logger().info(
-                f"Model {output.name} shape: {output.shape} {output.dtype}")
+                f"Model {output.name} shape: {output.shape} {output.dtype}"
+            )
         if self.max_batch_size > 1:
             self.profile = self.builder.create_optimization_profile()
             self.min_shape = [1, 3, 640, 640]
@@ -363,7 +416,8 @@ class CameraDetectionNode(Node):
             self.max_shape = [6, 3, 640, 640]
             for input in self.inputs:
                 self.profile.set_shape(
-                    input.name, self.min_shape, self.opt_shape, self.max_shape)
+                    input.name, self.min_shape, self.opt_shape, self.max_shape
+                )
             self.config.add_optimization_profile(self.profile)
         self.half = True
         self.int8 = False
@@ -372,95 +426,13 @@ class CameraDetectionNode(Node):
         elif self.int8:
             self.config.set_flag(trt.BuilderFlag.INT8)
         self.engine_bytes = self.builder.build_serialized_network(
-            self.network, self.config)
+            self.network, self.config
+        )
         assert self.engine_bytes is not None, "Failed to create engine"
         self.get_logger().info("BUILT THE ENGINE ")
         with open(self.tensorRT_model_path, "wb") as f:
             f.write(self.engine_bytes)
         self.get_logger().info("FINISHED WRITING ")
-
-    def initialize_engine(self, weight, batch_size, rgb, width, height):
-        """
-            Initializes engine file requirements 
-            - takes in file path for tensorRT file, batch size, # of rgb channels, width & height
-            - includes input names, output names, and setting dimensions for model input shape
-        """
-
-        self.num_io_tensors = self.tensorRT_model.num_io_tensors
-        self.input_tensor_name = self.tensorRT_model.get_tensor_name(0)
-
-        self.execution_context.set_input_shape(
-            self.input_tensor_name, (batch_size, rgb, width, height))
-        self.inputShape = self.execution_context.get_tensor_shape(
-            self.input_tensor_name)
-        self.names = [self.tensorRT_model.get_tensor_name(
-            i) for i in range(self.num_io_tensors)]
-        self.num_io_tensors = self.tensorRT_model.num_io_tensors
-        self.bindings = [0] * self.num_io_tensors
-
-        self.names = [self.tensorRT_model.get_tensor_name(
-            i) for i in range(self.tensorRT_model.num_io_tensors)]
-
-        # Collect input and output tensor names
-        self.input_names = [name for name in self.names if self.tensorRT_model.get_tensor_mode(
-            name) == trt.TensorIOMode.INPUT]
-        self.output_names = [name for name in self.names if self.tensorRT_model.get_tensor_mode(
-            name) == trt.TensorIOMode.OUTPUT]
-
-        # Set number of inputs and outputs
-        self.num_inputs = len(self.input_names)
-        self.num_outputs = len(self.output_names)
-        self.input_names = self.names[:self.num_inputs]
-        # This line removes it
-        self.output_names = [
-            name for name in self.output_names if name not in self.input_names]
-        return 0
-
-    def initialize_tensors(self):
-        """
-            Initializes GPU from cuda to set up inferencing 
-            - Assigns input names, and shape
-            - Assigns output names, and shapes 
-        """
-        self.dynamic = True
-        self.input_info = []
-        self.output_info = []
-        self.output_ptrs = []
-
-        # Initializing output tensors
-        for name in self.output_names:
-            self.tensorRT_output_shape = self.execution_context.get_tensor_shape(
-                name)
-            self.outputDtype = trt.nptype(
-                self.tensorRT_model.get_tensor_dtype(name))
-            self.output_cpu = np.empty(
-                self.tensorRT_output_shape, dtype=self.outputDtype)
-            status, self.output_gpu = cudart.cudaMallocAsync(
-                self.output_cpu.nbytes, self.stream)
-            assert status.value == 0
-            cudart.cudaMemcpyAsync(self.output_gpu, self.output_cpu.ctypes.data, self.output_cpu.nbytes,
-                                   cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream)
-            self.output_ptrs.append(self.output_gpu)
-            self.output_info.append(Tensor(
-                name, self.outputDtype, self.tensorRT_output_shape, self.output_cpu, self.output_gpu))
-
-        # Initializes input tensors
-        for i, name in enumerate(self.input_names):
-            if self.tensorRT_model.get_tensor_name(i) == name:
-                self.tensorRT_input_shape = tuple(self.inputShape)
-                self.dtype = trt.nptype(
-                    self.tensorRT_model.get_tensor_dtype(name))
-                self.input_cpu = np.empty(
-                    self.tensorRT_input_shape, self.dtype)
-                status, self.input_gpu = cudart.cudaMallocAsync(
-                    self.input_cpu.nbytes, self.stream)
-                assert status.value == 0, "DOES NOT MATCH"
-                cudart.cudaMemcpyAsync(
-                    self.input_gpu, self.input_cpu.ctypes.data, self.input_cpu.nbytes,
-                    cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream)
-            self.input_info.append(Tensor(
-                name, self.dtype, self.tensorRT_input_shape, self.input_cpu, self.input_gpu))
-        return self.input_info, self.output_info
 
     def tensorRT_inferencing(self, batch_array: np.ndarray):
         """
@@ -478,7 +450,7 @@ class CameraDetectionNode(Node):
             inp.cpu.ctypes.data,
             inp.cpu.nbytes,
             cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
-            self.stream
+            self.stream,
         )
         # unpack tuple if needed
         status = ret[0] if isinstance(ret, tuple) else ret
@@ -501,7 +473,7 @@ class CameraDetectionNode(Node):
                 out.gpu,
                 out.cpu.nbytes,
                 cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost,
-                self.stream
+                self.stream,
             )
             status = ret[0] if isinstance(ret, tuple) else ret
             code = status.value if hasattr(status, "value") else status
@@ -518,7 +490,10 @@ class CameraDetectionNode(Node):
         compressedImage = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
 
         resized_compressedImage = cv2.resize(
-            compressedImage, (self.input_h, self.input_w), interpolation=cv2.INTER_LINEAR)
+            compressedImage,
+            (self.input_h, self.input_w),
+            interpolation=cv2.INTER_LINEAR,
+        )
         rgb_image = cv2.cvtColor(resized_compressedImage, cv2.COLOR_BGR2RGB)
 
         # normalize to 0-1
@@ -533,33 +508,36 @@ class CameraDetectionNode(Node):
     def batch_inference_callback(self, msg1, msg2, msg3):
         """
         Returns final detections array for publishing to foxglove
-        - Preprocess and batch images 
+        - Preprocess and batch images
         - Call tensorRT and parse through detections and send for visualization
         """
-        now = self.get_clock().now()
-        self.get_logger().info(
-            f"Time since last publish: {((now - self.last_publish_time).nanoseconds / 1e6)} ms")
+        self.last_publish_time = self.get_clock().now()
         # Taking msgs from all 6 ros2 subscribers
         image_list = [msg1, msg2, msg3]
         # First time setup
         if self.batched_images_buffer is None:
             self.batched_images_buffer = np.empty(
                 (len(image_list), self.input_c, self.input_h, self.input_w),
-                dtype=np.float32
+                dtype=np.float32,
             )
         # Use concurrent futures to parallelize the preprocessing step
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = []
             for i, msg in enumerate(image_list):
-                futures.append(executor.submit(
-                    self.preprocess_image, msg, self.batched_images_buffer[i]))
+                futures.append(
+                    executor.submit(
+                        self.preprocess_image, msg, self.batched_images_buffer[i]
+                    )
+                )
 
             concurrent.futures.wait(futures)
-
         detections = self.tensorRT_inferencing(self.batched_images_buffer)
         decoded = self.parse_detections(detections)
-        self.last_publish_time = self.get_clock().now()
         self.publish_batch_nuscenes([msg1, msg2, msg3], decoded)
+        now = self.get_clock().now()
+        self.get_logger().info(
+            f"Speed of inference: {1 / ((now - self.last_publish_time).nanoseconds / 1e9)} fps"
+        )
 
     @torch.no_grad()
     def parse_detections(self, detections):
@@ -587,8 +565,17 @@ class CameraDetectionNode(Node):
         y_max = y_center + height / 2
 
         # Stack detections in the format [x_min, y_min, x_max, y_max, confidence, class]
-        valid_detections = torch.cat((x_min, y_min, x_max, y_max, confidence.unsqueeze(
-            2), predicted_class.unsqueeze(2)), dim=2)
+        valid_detections = torch.cat(
+            (
+                x_min,
+                y_min,
+                x_max,
+                y_max,
+                confidence.unsqueeze(2),
+                predicted_class.unsqueeze(2),
+            ),
+            dim=2,
+        )
 
         # Apply batched Non-Maximum Suppression if supported
         nms_results = non_max_suppression(
@@ -599,8 +586,11 @@ class CameraDetectionNode(Node):
         decoded_results = []
         for camera_idx in range(batch_size):  # Process for each camera
             camera_detections = [
-                {"bbox": det[:4].tolist(), "confidence": det[4].item(),
-                 "class": int(det[5].item())}
+                {
+                    "bbox": det[:4].tolist(),
+                    "confidence": det[4].item(),
+                    "class": int(det[5].item()),
+                }
                 for det in nms_results[camera_idx]
             ]
             decoded_results.append(camera_detections)
@@ -628,20 +618,20 @@ class CameraDetectionNode(Node):
 
             if batch_detections:
                 # Convert bounding boxes in one operation
-                bboxes = np.array([d["bbox"]
-                                  for d in batch_detections])  # Shape: (N, 4)
-                bboxes[:, [0, 2]] *= width / \
-                    self.input_w  # Scale x-coordinates
-                bboxes[:, [1, 3]] *= height / \
-                    self.input_h  # Scale y-coordinates
+                bboxes = np.array(
+                    [d["bbox"] for d in batch_detections]
+                )  # Shape: (N, 4)
+                bboxes[:, [0, 2]] *= width / self.input_w  # Scale x-coordinates
+                bboxes[:, [1, 3]] *= height / self.input_h  # Scale y-coordinates
                 bboxes = bboxes.astype(int)
 
                 confidences = [d["confidence"] for d in batch_detections]
                 class_ids = [d["class"] for d in batch_detections]
 
-                for (x_min, y_min, x_max, y_max), confidence, predicted_class in zip(bboxes, confidences, class_ids):
-                    label = "Class: %d, Conf: %.2f" % (
-                        predicted_class, confidence)
+                for (x_min, y_min, x_max, y_max), confidence, predicted_class in zip(
+                    bboxes, confidences, class_ids
+                ):
+                    label = "Class: %d, Conf: %.2f" % (predicted_class, confidence)
 
                     detection = Detection2D()
                     detection.bbox.center.position.x = (x_min + x_max) / 2
@@ -658,7 +648,8 @@ class CameraDetectionNode(Node):
 
                     if self.publish_vis_topic:
                         annotator.box_label(
-                            (x_min, y_min, x_max, y_max), label, color=(0, 100, 0))
+                            (x_min, y_min, x_max, y_max), label, color=(0, 100, 0)
+                        )
 
             batch_msg.detections.append(detection_array)
 
@@ -673,36 +664,59 @@ class CameraDetectionNode(Node):
                 vis_compressed_image.header.frame_id = img_msg.header.frame_id
                 vis_compressed_image.format = "jpeg"
                 vis_compressed_image.data = cv2.imencode(
-                    '.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
+                    ".jpg", annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 70]
+                )[1].tobytes()
                 self.batch_vis_publishers[idx].publish(vis_compressed_image)
 
         # Publish batch detection message
         self.batched_camera_message_publisher.publish(batch_msg)
 
+    def eve_preprocess_image(self, msg, dest_buffer):
+        numpy_array = np.frombuffer(msg.data, np.uint8)
+        image = numpy_array.reshape((self.image_width, self.image_height, self.input_c))
+
+        if msg.encoding == "bgr8":
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        elif msg.encoding == "rgb8":
+            rgb_image = image
+        else:
+            raise ValueError(f"Unsupported image encoding: {msg.encoding}")
+
+        # Resize the image to the desired input size
+        resized_rgb_image = cv2.resize(
+            rgb_image, (self.input_h, self.input_w), interpolation=cv2.INTER_LINEAR
+        )
+
+        # normalize to 0-1
+        normalized_image = resized_rgb_image.astype(np.float32) / 255.0
+
+        # transpose directly into dest_buffer
+        dest_buffer[0, :, :] = normalized_image[:, :, 0]
+        dest_buffer[1, :, :] = normalized_image[:, :, 1]
+        dest_buffer[2, :, :] = normalized_image[:, :, 2]
+
     def eve_batch_inference_callback(self, msg1, msg2, msg3):
         image_list = [msg1, msg2, msg3]
-        batched_list = []
-        for msg in image_list:
-            if self.compressed:
-                numpy_array = np.frombuffer(msg.data, np.uint8)
-                cv_image = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-                original_height, original_width = cv_image.shape[:2]
-            else:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(
-                    msg, desired_encoding="passthrough")
-            # can also be 1024, 1024
-            resized_image = cv2.resize(cv_image, (640, 640))
-            rgb_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
-            normalized_image = rgb_image / 255
-            chw_image = np.transpose(normalized_image, (2, 0, 1))
-            float_image = chw_image.astype(np.float32)
-            batched_list.append(float_image)
-        batched_images = np.stack(batched_list, axis=0)
-        self.get_logger().info(f"batched image shape:{batched_images.shape}")
-        # self.initialize_engine(self.tensorRT_model_path, 3, 3, 640, 640)
-        # self.input_info, self.output_info = self.initialize_tensors()
-        detections = self.tensorRT_inferencing(batched_images)
+        # First time setup
+        if self.batched_images_buffer is None:
+            self.batched_images_buffer = np.empty(
+                (len(image_list), self.input_c, self.input_h, self.input_w),
+                dtype=np.float32,
+            )
+        # Use concurrent futures to parallelize the preprocessing step
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = []
+            for i, msg in enumerate(image_list):
+                futures.append(
+                    executor.submit(
+                        self.preprocess_image, msg, self.batched_images_buffer[i]
+                    )
+                )
+
+            concurrent.futures.wait(futures)
+        detections = self.tensorRT_inferencing(self.batched_images_buffer)
         decoded_results = self.parse_detections(detections)
+        self.publish_batch_eve([msg1, msg2, msg3], decoded_results)
 
     def publish_batch_eve(self, image_list, decoded_results):
         batch_msg = BatchDetection()
@@ -710,59 +724,73 @@ class CameraDetectionNode(Node):
         batch_msg.header.frame_id = "batch"
 
         for idx, img_msg in enumerate(image_list):
-            if self.compressed:
-                numpy_array = np.frombuffer(img_msg.data, np.uint8)
-                image = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-                original_height, original_width = image.shape[:2]
-            else:
-                image = self.cv_bridge.imgmsg_to_cv2(
-                    img_msg, desired_encoding="passthrough")
+            # Decode only if needed
+            numpy_image = np.frombuffer(img_msg.data, np.uint8)
+            image = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
             height, width = image.shape[:2]
-            annotator = Annotator(image, line_width=2, example="Class:0")
+            if self.publish_vis_topic:
+                annotator = Annotator(image, line_width=2, example="Class:0")
+
             detection_array = Detection2DArray()
             detection_array.header.stamp = batch_msg.header.stamp
-            detection_array.header.frame_id = f"camera_{idx}"
+            detection_array.header.frame_id = img_msg.header.frame_id
+
             batch_detections = decoded_results[idx]
-            for anchor_idx, detection in enumerate(batch_detections):
-                # Extract values from the dictionary
-                bbox = detection["bbox"]
-                x_min, y_min, x_max, y_max = bbox
-                confidence = detection["confidence"]
-                predicted_class = detection["class"]
-                x_min = int(x_min * width / 640)
-                x_max = int(x_max * width / 640)
-                y_min = int(y_min * height / 640)
-                y_max = int(y_max * height / 640)
-                # self.get_logger().info(f"Camera {idx}: bbox: {x_min, y_min, x_max, y_max}, conf: {confidence}")
-                label = f"Class: {predicted_class}, Conf: {confidence:.2f}"
-                annotator.box_label(
-                    (x_min, y_min, x_max, y_max), label, color=(0, 255, 0))
-                detection = Detection2D()
-                detection.bbox.center.position.x = (x_min + x_max) / 2
-                detection.bbox.center.position.y = (y_min + y_max) / 2
-                detection.bbox.size_x = float(x_max - x_min)
-                detection.bbox.size_y = float(y_max - y_min)
 
-                detected_object = ObjectHypothesisWithPose()
-                detected_object.hypothesis.class_id = str(int(predicted_class))
-                detected_object.hypothesis.score = float(confidence)
-                detection.results.append(detected_object)
-                detection_array.detections.append(detection)
+            if batch_detections:
+                # Convert bounding boxes in one operation
+                bboxes = np.array(
+                    [d["bbox"] for d in batch_detections]
+                )  # Shape: (N, 4)
+                bboxes[:, [0, 2]] *= width / self.input_w  # Scale x-coordinates
+                bboxes[:, [1, 3]] *= height / self.input_h  # Scale y-coordinates
+                bboxes = bboxes.astype(int)
+
+                confidences = [d["confidence"] for d in batch_detections]
+                class_ids = [d["class"] for d in batch_detections]
+
+                for (x_min, y_min, x_max, y_max), confidence, predicted_class in zip(
+                    bboxes, confidences, class_ids
+                ):
+                    label = "Class: %d, Conf: %.2f" % (predicted_class, confidence)
+
+                    detection = Detection2D()
+                    detection.bbox.center.position.x = (x_min + x_max) / 2
+                    detection.bbox.center.position.y = (y_min + y_max) / 2
+                    detection.bbox.size_x = float(x_max - x_min)
+                    detection.bbox.size_y = float(y_max - y_min)
+
+                    detected_object = ObjectHypothesisWithPose()
+                    detected_object.hypothesis.class_id = str(predicted_class)
+                    detected_object.hypothesis.score = float(confidence)
+                    detection.results.append(detected_object)
+
+                    detection_array.detections.append(detection)
+
+                    if self.publish_vis_topic:
+                        annotator.box_label(
+                            (x_min, y_min, x_max, y_max), label, color=(0, 100, 0)
+                        )
+
             batch_msg.detections.append(detection_array)
-            annotated_image = annotator.result()
-            vis_image = Image()
-            vis_image.header.stamp = self.get_clock().now().to_msg()
-            vis_image.header.frame_id = f"camera_{idx}"
-            vis_image.format = "jpeg"
-            vis_image.data = self.cv_bridge.cv2_to_imgmsg(
-                annotated_image, encoding="bgr8")
-            self.batch_vis_publishers[idx].publish(vis_image)
 
-            # Publish Detection2DArray
-            self.batch_detection_publishers[idx].publish(detection_array)
+            # Publish individual detection message
+            self.eve_batch_detection_publishers[idx].publish(detection_array)
 
-    # Publish batch detection message
-        self.batched_camera_message_publisher.publish(batch_msg)
+            # Publish visualization if enabled
+            if self.publish_vis_topic:
+                annotated_image = annotator.result()
+                vis_compressed_image = CompressedImage()
+                vis_compressed_image.header.stamp = self.get_clock().now().to_msg()
+                vis_compressed_image.header.frame_id = img_msg.header.frame_id
+                vis_compressed_image.format = "jpeg"
+                vis_compressed_image.data = cv2.imencode(
+                    ".jpg", annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 70]
+                )[1].tobytes()
+                self.eve_batch_vis_publishers[idx].publish(vis_compressed_image)
+
+        # Publish batch detection message
+        self.eve_batched_camera_message_publisher.publish(batch_msg)
 
     def destroy_node(self):
         for tensor in self.input_info + self.output_info:

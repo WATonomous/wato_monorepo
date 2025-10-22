@@ -3,14 +3,19 @@
 <package format="3">
   <name>model_predictive_control</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>TODO(wato): Package description</description>
   <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>geometry_msgs</depend>
+  <buildtool_depend>ament_python</buildtool_depend>
 
+  <depend>rclpy</depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>path_planning_msgs</exec_depend>
+  <exec_depend>python3-casadi</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>

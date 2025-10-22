@@ -1,3 +1,16 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 cmake_minimum_required(VERSION 3.10)
 project(hd_map)
 
@@ -40,13 +53,14 @@ add_library(hd_map_lib
   src/hd_map_router.cpp
   src/pedestrian_reg_elem.cpp
   src/traffic_light_reg_elem.cpp
+  src/traffic_sign_reg_elem.cpp
   src/utils.cpp)
 
 # Indicate to compiler where to search for header files
 target_include_directories(hd_map_lib
   PUBLIC
   include)
-  
+
 # Add ROS2 dependencies required by package
 ament_target_dependencies(hd_map_lib
   rclcpp
@@ -70,24 +84,24 @@ ament_target_dependencies(hd_map_lib
 #   find_package(ament_cmake_gtest REQUIRED)
 #   find_package(ament_lint_auto REQUIRED)
 #   find_package(ament_lint_common REQUIRED)
-# 
+#
 #   # Remove the default C++ and copyright linter
 #   list(APPEND AMENT_LINT_AUTO_EXCLUDE
 #     ament_cmake_cpplint
 #     ament_cmake_copyright)
-# 
+#
 #   # Reinstall cpplint ignoring copyright errors
 #   ament_cpplint(FILTERS "-legal/copyright")
-# 
+#
 #   ament_lint_auto_find_test_dependencies()
-# 
+#
 #   # Create test executable from source files
 #   ament_add_gtest(sample_test test/sample_test.cpp)
 #   # Link to the previously built library to access Sample classes and methods
 #   target_link_libraries(sample_test
 #     hd_map_lib
 #     gtest_main)
-# 
+#
 #   # Copy executable to installation location
 #   install(TARGETS
 #   sample_test

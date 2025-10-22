@@ -1,66 +1,111 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+set -euo pipefail
 
-################# Sweep for Docker Services and Modules #################
-# Scans for services and modules in the wato_monorepo,
-# dynamically builds a json matrix for downstream CI build and testing
+################################################################################
+# docker_context.sh — simple & reliable
+# -------------------------------------
+# Builds a GitHub‑Actions matrix of **unique Dockerfiles** referenced by
+# docker‑compose files in `modules/`.  Loosely based on the original “works but
+# no dockerfile” script the user shared.
+#
+# Differences from the original:
+#   • Includes a `dockerfile` field resolved from each service’s build stanza.
+#   • De‑duplicates identical Dockerfiles (first service wins).
+#   • Still obeys MODIFIED_MODULES and skips heavy perception services.
+#
+# Usage
+#   MODIFIED_MODULES="perception action" ./docker_context.sh --debug
+################################################################################
 
-# Find docker compose files in 'modules' directory
-modules=$(find modules -maxdepth 1 -name "docker-compose*")
+DEBUG=false
+for arg in "$@"; do
+  case $arg in --debug|-d) DEBUG=true ;; esac
+done
 
-# Initialize an empty array for JSON objects
-json_objects=()
+############################# helper for outputs ###############################
+emit() {
+  echo "$1"
+  if [[ -n ${GITHUB_OUTPUT:-} ]]; then
+    echo "$1" >> "$GITHUB_OUTPUT"
+  fi
+}
 
-# Check for infrastructure changes
-TEST_ALL=false
-if [[ $MODIFIED_MODULES = "infrastructure" ]]; then
-    TEST_ALL=true
-fi
-
-# Loop through each module
-while read -r module; do
-
-    # Retrieve docker compose service names
-    services=$(docker compose -f "$module" config --services)
-    module_out=$(echo "$module" | sed -n 's/modules\/docker-compose\.\(.*\)\.yaml/\1/p')
-
-    # Skip simulation module
-    if [[ 'simulation' = $module_out ]]; then
-        continue
-    fi
-
-    # Only work with modules that are modified
-    if [[ $MODIFIED_MODULES != *$module_out* && $TEST_ALL = "false" ]]; then
-        continue
-    fi
-
-    # Loop through each service
-    while read -r service_out; do
-        # Temporarily skip perception services that have too large image size
-        if  [[ "$service_out" == "lane_detection" ]] || \
-            [[ "$service_out" == "camera_object_detection" ]] || \
-            [[ "$service_out" == "lidar_object_detection" ]] || \
-            [[ "$service_out" == "semantic_segmentation" ]]; then
-            continue
-        fi
-        # Construct JSON object for each service with module and service name
-        json_object=$(jq -nc --arg module_out "$module_out" --arg service_out "$service_out" \
-        '{module: $module_out, service: $service_out}')
-        # Append JSON object to the array
-        json_objects+=($json_object)
-    done <<< "$services"
-done <<< "$modules"
-
-# Convert the array of JSON objects to a single JSON array
-json_services=$(jq -nc '[( $ARGS.positional[] | fromjson )]' --args -- ${json_objects[*]})
-echo "docker_matrix=$(echo $json_services | jq -c '{include: .}')" >> $GITHUB_OUTPUT
-
-################# Setup Docker Registry and Repository Name #################
-# Docker Registry to pull/push images
+################################# constants ####################################
 REGISTRY_URL="ghcr.io/watonomous/wato_monorepo"
+REGISTRY="${REGISTRY_URL%%/*}"
+REPOSITORY="${REGISTRY_URL#*/}"
 
-REGISTRY=$(echo "$REGISTRY_URL" | sed 's|^\(.*\)/.*$|\1|')
-REPOSITORY=$(echo "$REGISTRY_URL" | sed 's|^.*/\(.*\)$|\1|')
+################################ build matrix ##################################
+shopt -s lastpipe
+modules=$(find modules -maxdepth 1 -name 'docker-compose.*.ya*ml' | sort)
 
-echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
-echo "repository=$REPOSITORY" >> $GITHUB_OUTPUT
+$DEBUG && { echo "▶ Compose files found:"; printf '  %s\n' "$modules"; }
+
+declare -A seen
+declare -a json_rows
+
+for compose in $modules; do
+  module_out=$(sed -n 's|modules/docker-compose\.\(.*\)\.ya.*|\1|p' <<<"$compose")
+  [[ $module_out == simulation ]] && continue
+  if [[ -n ${MODIFIED_MODULES:-} ]] && [[ " ${MODIFIED_MODULES} " != *" $module_out "* ]]; then
+    continue
+  fi
+
+  cfg=$(docker compose -f "$compose" config --format json)
+
+  echo "$cfg" | jq -r '
+    .services | to_entries[] | select(.value.build?) | [ .key,
+      (.value.build.context // "."),
+      (if (.value.build|type)=="object" then (.value.build.dockerfile // "Dockerfile") else "Dockerfile" end)
+    ] | @tsv' | while IFS=$'\t' read -r svc ctx df_rel; do
+
+      case $svc in camera_object_detection) continue ;; esac
+
+      [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "$(dirname "$compose")/$ctx")"
+      [[ $df_rel = /* ]] && df_abs="$df_rel" || df_abs="$(realpath -m "$ctx_abs/$df_rel")"
+      df_repo_rel="$(realpath --relative-to=. "$df_abs")"
+
+      $DEBUG && echo "↳   $svc → $df_repo_rel" >&2
+
+      [[ -n ${seen[$df_repo_rel]:-} ]] && continue
+      seen[$df_repo_rel]=1
+      json_rows+=("$(jq -nc --arg module "$module_out" --arg service "$svc" --arg dockerfile "$df_repo_rel" '{module:$module,service:$service,dockerfile:$dockerfile}')")
+  done
+
+done
+
+# Build final matrix JSON – every row piped into jq -s to form an array
+matrix=$(printf '%s
+' "${json_rows[@]}" | jq -s '{include: .}' | jq -c .)
+# --------------------------- emit outputs ---------------------------
+echo "================ EMITTING OUTPUTS ================"
+emit "docker_matrix=$matrix"
+emit "registry=$REGISTRY"
+emit "repository=$REPOSITORY"
+
+# --------------------------- debug report ---------------------------
+if $DEBUG; then
+  echo -e "
+================ DEBUG REPORT ================
+"
+  jq <<<"$matrix"
+  echo -e "
+Unique Dockerfiles scheduled: ${#json_rows[@]}"
+  echo   "----------------------------------------------"
+  printf '%s
+' "${!seen[@]}" | sort
+  echo "=============================================="
+fi

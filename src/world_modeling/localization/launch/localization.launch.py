@@ -1,3 +1,16 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -9,30 +22,52 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     """Launch localization node."""
-    localization_pkg_prefix = get_package_share_directory('localization')
+    localization_pkg_prefix = get_package_share_directory("localization")
     localization_param_file = os.path.join(
-        localization_pkg_prefix, 'config', 'params.yaml')
+        localization_pkg_prefix, "config", "params.yaml"
+    )
 
     localization_param = DeclareLaunchArgument(
-        'localization_param_file',
+        "localization_param_file",
         default_value=localization_param_file,
-        description='Path to config file for localization node'
+        description="Path to config file for localization node",
     )
 
-    odom = Node(
-        package='localization',
-        executable='odom',
-        parameters=[LaunchConfiguration('localization_param_file')],
+    config_file = LaunchConfiguration("localization_param_file")
+
+    ekf_local = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node_local",
+        parameters=[config_file],
+        remappings=[("odometry/filtered", "/localization/odometry/filtered/local")],
+        output="screen",
     )
 
-    odom_mock_data = Node(
-        package='localization',
-        executable='odom_mock_data',
-        parameters=[LaunchConfiguration('localization_param_file')],
+    ekf_global = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node_global",
+        parameters=[config_file],
+        remappings=[("odometry/filtered", "/localization/odometry/filtered/global")],
+        output="screen",
     )
 
-    return LaunchDescription([
-        localization_param,
-        odom,
-        odom_mock_data
-    ])
+    navsat_transform = Node(
+        package="robot_localization",
+        executable="navsat_transform_node",
+        name="navsat_transform",
+        parameters=[config_file],
+        output="screen",
+        remappings=[
+            ("imu", "/imu"),
+            ("gps/fix", "/gnss"),
+            # ("gps/filtered", "/localization/gps/filtered"),
+            ("odometry/gps", "/localization/odometry/gps"),
+            ("odometry/filtered", "/localization/odometry/filtered/global"),
+        ],
+    )
+
+    return LaunchDescription(
+        [localization_param, ekf_local, ekf_global, navsat_transform]
+    )
