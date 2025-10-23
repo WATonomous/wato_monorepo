@@ -1,0 +1,70 @@
+cmake_minimum_required(VERSION 3.10)
+project(tracking_2d)
+
+# Set C++ standard
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 17)
+endif()
+
+# Add compiler warnings
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# Path to ByteTrack root folder (will probably change)
+set(BYTETRACK_DIR ByteTrack-cpp)
+
+# Find ROS 2 packages
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
+
+# Add the executable for the tracking_2d node
+add_executable(tracking_2d_node src/tracking_2d.cpp)
+
+# Include directories
+target_include_directories(tracking_2d_node
+    PUBLIC
+    include
+    ${EIGEN3_INCLUDE_DIRS}
+    ${BYTETRACK_DIR}/include
+)
+
+# Set target properties
+set_target_properties(tracking_2d_node PROPERTIES
+    INSTALL_RPATH ${BYTETRACK_DIR}/build
+)
+
+# Link libraries
+target_link_libraries(tracking_2d_node
+    ${BYTETRACK_DIR}/build/libbytetrack.so
+)
+
+# Add ROS 2 dependencies
+ament_target_dependencies(tracking_2d_node
+    rclcpp
+    sensor_msgs
+    geometry_msgs
+    vision_msgs
+    std_msgs
+)
+
+# Install the executable
+install(TARGETS
+    tracking_2d_node
+    DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install launch files (if any)
+install(DIRECTORY
+    launch
+    DESTINATION share/${PROJECT_NAME}
+)
+
+# Export dependencies
+ament_package()

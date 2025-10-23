@@ -1,0 +1,12 @@
+tracking_2d:
+  ros__parameters:
+    detections_topic: /camera_object_detections
+    track_topic: /tracked_boxes
+
+    frame_rate: 30
+    track_buffer: 30
+    track_thresh: 0.5
+    high_thresh: 0.6
+    match_thresh: 0.8
+
+      
