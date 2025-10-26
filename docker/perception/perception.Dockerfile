@@ -8,6 +8,7 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code
 # COPY src/perception perception
 COPY src/perception/patchwork patchwork
+COPY src/perception/spatial_association spatial_association
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
@@ -32,6 +33,14 @@ FROM ${BASE_IMAGE} AS dependencies
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
+
+# Install dependencies for spatial_association
+RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
+    ros-${ROS_DISTRO}-cv-bridge \
+    ros-${ROS_DISTRO}-tf-transformations \
+    ros-${ROS_DISTRO}-pcl-conversions \
+    libopencv-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install rosdep requirements collected from source stage
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

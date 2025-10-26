@@ -31,7 +31,7 @@
 ##	 - simulation			:	starts simulation (carla)
 
 
-# export ACTIVE_MODULES=""
+export ACTIVE_MODULES="perception infrastructure"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
@@ -39,7 +39,7 @@
 ##	 - deploy (default)		:	runs production-grade containers (non-editable)
 ##	 - develop   		    :	runs developer containers (editable)
 
-# export MODE_OF_OPERATION=""
+export MODE_OF_OPERATION="develop"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"

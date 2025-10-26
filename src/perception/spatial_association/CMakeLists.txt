@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(bbox_2d_3d)
+project(spatial_association)
 
 # Set C++ standard
 if(NOT CMAKE_CXX_STANDARD)
@@ -61,11 +61,11 @@ ament_target_dependencies(projection_utils
     geometry_msgs
 )
 
-# Add the executable for the bbox_2d_3d node
-add_executable(bbox_2d_3d_node src/bbox_2d_3d.cpp)
+# Add the executable for the spatial_association node
+add_executable(spatial_association_node src/spatial_association.cpp)
 
 # Include directories
-target_include_directories(bbox_2d_3d_node
+target_include_directories(spatial_association_node
     PUBLIC
     include
     ${OpenCV_INCLUDE_DIRS}
@@ -74,7 +74,7 @@ target_include_directories(bbox_2d_3d_node
 )
 
 # Link libraries
-target_link_libraries(bbox_2d_3d_node
+target_link_libraries(spatial_association_node
     projection_utils
     ${OpenCV_LIBS}
     tf2::tf2
@@ -82,7 +82,7 @@ target_link_libraries(bbox_2d_3d_node
 )
 
 # Add ROS 2 dependencies
-ament_target_dependencies(bbox_2d_3d_node
+ament_target_dependencies(spatial_association_node
     rclcpp
     sensor_msgs
     geometry_msgs
@@ -98,7 +98,7 @@ ament_target_dependencies(bbox_2d_3d_node
 
 # Install the executable
 install(TARGETS
-    bbox_2d_3d_node
+    spatial_association_node
     DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -1,5 +1,5 @@
-#ifndef BBOX_2D_3D_HPP
-#define BBOX_2D_3D_HPP
+#ifndef SPATIAL_ASSOCIATION_HPP
+#define SPATIAL_ASSOCIATION_HPP
 
 #include <cv_bridge/cv_bridge.h>
 #include <pcl/point_cloud.h>
@@ -29,9 +29,9 @@ struct DetectionOutputs {
   vision_msgs::msg::Detection3DArray detections3d;
 };
 
-class bbox_2d_3d : public rclcpp::Node {
+class spatial_association : public rclcpp::Node {
  public:
-  bbox_2d_3d();
+  spatial_association();
 
  private:
   // CONFIG/VISUALIZATION

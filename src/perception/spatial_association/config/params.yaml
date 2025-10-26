@@ -1,4 +1,4 @@
-bbox_2d_3d:
+spatial_association:
   ros__parameters:
     # subscribers
 

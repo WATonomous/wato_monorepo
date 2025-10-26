@@ -97,7 +97,7 @@ def generate_launch_description():
     spatial_association_param = DeclareLaunchArgument(
         "spatial_association_param_file",
         default_value=spatial_association_param_file,
-        description="Path to config file for spatial_association fusion node",
+        description="Path to config file for spatial_association node",
     )
     spatial_association_node = Node(
         package="spatial_association",
