@@ -1,0 +1,14 @@
+<root main_tree_to_execute="MainTree">
+    <BehaviorTree ID="MainTree">
+        <Sequence name="root_sequence">
+            <Fallback name="Fallback">
+                <IsDoorClosed name="IsDoorClosed" />
+                <Decorator name="Decorator" maxattempt="5">
+                    <OpenDoor name="OpenDoor" />
+                </Decorator>
+            </Fallback>
+            <EnterRoom name="EnterRoom"></EnterRoom>
+            <CloseDoor name="CloseDoor"></CloseDoor>
+        </Sequence>
+    </BehaviorTree>
+</root>colcon build --packages-select behaviour

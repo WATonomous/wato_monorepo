@@ -50,7 +50,7 @@ target_link_libraries(behaviour_lib
 )
 
 # Create ROS2 node executable from source files
-add_executable(behaviour_node src/behaviour_node.cpp)
+add_executable(behaviour_node src/main.cpp)
 
 # Link to the previously built library to access behaviour classes and methods
 target_link_libraries(behaviour_node behaviour_lib)
