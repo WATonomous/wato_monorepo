@@ -10,3 +10,14 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
+
+  camera_object_detection:
+    build:
+      target: build
+    extends:
+      file: ../docker-compose.perception.yaml
+      service: camera_object_detection
+    image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - ${MONO_DIR}/src/perception/camera_object_detection:/home/bolty/ament_ws/src/camera_object_detection

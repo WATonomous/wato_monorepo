@@ -11,4 +11,4 @@ onnxruntime-gpu
 tensorrt==10.6.0
 tensorrt_lean
 tensorrt_dispatch
-cuda-python
+cuda-python==12.6.0

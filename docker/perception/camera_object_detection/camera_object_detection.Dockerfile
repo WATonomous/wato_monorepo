@@ -27,6 +27,20 @@ RUN apt-get update && \
       python3 python3-pip ffmpeg libsm6 libxext6 wget && \
     rm -rf /var/lib/apt/lists/*
 
+# CUDA runtime (libcudart) for TensorRT inference
+# Install NVIDIA CUDA keyring, then install cudart runtime and refresh ld cache
+RUN set -eux; \
+    apt-get update -qq && apt-get install -qq -y --no-install-recommends \
+        ca-certificates gnupg wget; \
+    wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb; \
+    dpkg -i cuda-keyring_1.1-1_all.deb; \
+    rm -f cuda-keyring_1.1-1_all.deb; \
+    apt-get update -qq && apt-get install -qq -y --no-install-recommends \
+        cuda-cudart-12-6; \
+    echo "/usr/local/cuda-12.6/targets/x86_64-linux/lib" > /etc/ld.so.conf.d/cuda-12-6.conf; \
+    ldconfig; \
+    rm -rf /var/lib/apt/lists/*
+
 # Python packages
 WORKDIR /tmp
 COPY src/perception/camera_object_detection/requirements.txt ./requirements.txt

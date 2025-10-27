@@ -10,5 +10,28 @@ services:
       target: deploy
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
-    # volumes:
+    volumes:
+        - /mnt/wato-drive/brianzheng:/perception_models
     #   - /mnt/wato-drive2/perception_models:/perception_models
+
+  camera_object_detection:
+    build:
+      context: ..
+      dockerfile: docker/perception/camera_object_detection/camera_object_detection.Dockerfile
+      cache_from:
+        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
+        - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_main"
+      target: develop
+    image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
+    shm_size: 8G
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    command: /bin/bash -c "ros2 launch camera_object_detection nuscenes.launch.py" 
+    volumes:
+        - /mnt/wato-drive/brianzheng:/perception_models
+        - /mnt/wato-drive/perception_models:/perception_models

@@ -26,3 +26,6 @@ services:
     # volumes:
     #   - /mnt/wato-drive2/nuscenes_mcap/ros2bags:/home/bolty/ament_ws/nuscenes
     #   - /mnt/wato-drive2/rosbags2:/home/bolty/ament_ws/rosbags2
+    volumes: 
+      - /mnt/wato-drive/nuscenes:/home/bolty/ament_ws/nuscenes
+      - /mnt/wato-drive/nuscenes:/home/bolty/ament_ws/rosbags2

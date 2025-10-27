@@ -25,8 +25,15 @@ from vision_msgs.msg import (
 import concurrent.futures
 from pathlib import Path
 from ultralytics.nn.autobackend import AutoBackend
-from ultralytics.utils.ops import non_max_suppression
 from ultralytics.utils.plotting import Annotator
+
+# Ultralytics API changed across versions; provide a fallback NMS
+try:
+    from ultralytics.utils.ops import non_max_suppression as _yolo_nms  # type: ignore
+except ImportError:
+    _yolo_nms = None  # will use local fallback
+
+import math
 
 
 import cv2
@@ -365,74 +372,8 @@ class CameraDetectionNode(Node):
 
             self.output_info.append(Tensor(name, dtype, shape, host_mem, dev_mem))
 
-    def build_engine(self):
-        # Only calling this function when we dont have an engine file
-        # Reading the onnx file in the perception models directory
-        self.max_batch_size = 6
-        self.channels = 3
-        self.height = 640
-        self.width = 640
-        self.shape_input_model = [
-            self.max_batch_size,
-            self.channels,
-            self.height,
-            self.width,
-        ]
-        self.logger = trt.Logger(trt.Logger.VERBOSE)
-        self.builder = trt.Builder(self.logger)
-        self.config = self.builder.create_builder_config()
-        self.cache = self.config.create_timing_cache(b"")
-        self.config.set_timing_cache(self.cache, ignore_mismatch=False)
-        self.total_memory = torch.cuda.get_device_properties(self.device).total_memory
-        self.config.set_memory_pool_limit(
-            trt.MemoryPoolType.WORKSPACE, self.total_memory
-        )
-        self.flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-        self.network = self.builder.create_network(self.flag)
-        self.parser = trt.OnnxParser(self.network, self.logger)
-        with open(self.onnx_model_path, "rb") as f:
-            if not self.parser.parse(f.read()):
-                self.get_logger().info("ERROR: Cannot read ONNX FILE")
-                for error in range(self.parser.num_errors):
-                    self.get_logger().info(f"{self.parser.get_error(error)}")
-        self.inputs = [
-            self.network.get_input(i) for i in range(self.network.num_inputs)
-        ]
-        self.outputs = [
-            self.network.get_output(i) for i in range(self.network.num_outputs)
-        ]
-        for input in self.inputs:
-            self.get_logger().info(
-                f"Model {input.name} shape:{input.shape} {input.dtype}"
-            )
-        for output in self.outputs:
-            self.get_logger().info(
-                f"Model {output.name} shape: {output.shape} {output.dtype}"
-            )
-        if self.max_batch_size > 1:
-            self.profile = self.builder.create_optimization_profile()
-            self.min_shape = [1, 3, 640, 640]
-            self.opt_shape = [3, 3, 640, 640]
-            self.max_shape = [6, 3, 640, 640]
-            for input in self.inputs:
-                self.profile.set_shape(
-                    input.name, self.min_shape, self.opt_shape, self.max_shape
-                )
-            self.config.add_optimization_profile(self.profile)
-        self.half = True
-        self.int8 = False
-        if self.half:
-            self.config.set_flag(trt.BuilderFlag.FP16)
-        elif self.int8:
-            self.config.set_flag(trt.BuilderFlag.INT8)
-        self.engine_bytes = self.builder.build_serialized_network(
-            self.network, self.config
-        )
-        assert self.engine_bytes is not None, "Failed to create engine"
-        self.get_logger().info("BUILT THE ENGINE ")
-        with open(self.tensorRT_model_path, "wb") as f:
-            f.write(self.engine_bytes)
-        self.get_logger().info("FINISHED WRITING ")
+    # Note: TensorRT engine building has been moved to
+    # `trt_engine_builder.py` to separate build-time and inference logic.
 
     def tensorRT_inferencing(self, batch_array: np.ndarray):
         """
@@ -578,7 +519,7 @@ class CameraDetectionNode(Node):
         )
 
         # Apply batched Non-Maximum Suppression if supported
-        nms_results = non_max_suppression(
+        nms_results = _batched_nms(
             valid_detections, conf_thres=0.5, iou_thres=0.45
         )
 
@@ -811,3 +752,79 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
+
+# -------------------------
+# NMS fallback implementation
+# -------------------------
+def _box_iou(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
+    """Compute IoU between each box in box1 and each box in box2.
+    box format: [x1, y1, x2, y2]
+    Returns: [len(box1), len(box2)] tensor of IoUs
+    """
+    # Areas
+    area1 = (box1[:, 2] - box1[:, 0]).clamp(min=0) * (box1[:, 3] - box1[:, 1]).clamp(min=0)
+    area2 = (box2[:, 2] - box2[:, 0]).clamp(min=0) * (box2[:, 3] - box2[:, 1]).clamp(min=0)
+
+    # Intersections
+    lt = torch.max(box1[:, None, :2], box2[:, :2])  # [N, M, 2]
+    rb = torch.min(box1[:, None, 2:], box2[:, 2:])  # [N, M, 2]
+    wh = (rb - lt).clamp(min=0)  # [N, M, 2]
+    inter = wh[:, :, 0] * wh[:, :, 1]  # [N, M]
+
+    union = area1[:, None] + area2 - inter
+    return inter / (union + 1e-7)
+
+
+def _simple_nms(dets: torch.Tensor, iou_thres: float) -> torch.Tensor:
+    """Pure PyTorch NMS for a single-class set of detections.
+    dets: [N, 6] -> [x1,y1,x2,y2,score,cls]
+    Returns kept detections [K, 6]
+    """
+    if dets.numel() == 0:
+        return dets
+    # Sort by score descending
+    order = torch.argsort(dets[:, 4], descending=True)
+    dets = dets[order]
+    keep = []
+    while dets.size(0):
+        curr = dets[0:1]
+        keep.append(curr)
+        if dets.size(0) == 1:
+            break
+        ious = _box_iou(curr[:, :4], dets[1:, :4]).squeeze(0)
+        dets = dets[1:][ious <= iou_thres]
+    return torch.cat(keep, dim=0)
+
+
+def _batched_nms(pred: torch.Tensor, conf_thres: float = 0.25, iou_thres: float = 0.45):
+    """Batched NMS wrapper with Ultralytics compatibility.
+    pred: [B, N, 6] (x1,y1,x2,y2,conf,cls)
+    Returns list of length B with [K_i, 6] tensors per image.
+    Uses Ultralytics' NMS if available; otherwise a simple torch fallback.
+    """
+    if _yolo_nms is not None:
+        return _yolo_nms(pred, conf_thres=conf_thres, iou_thres=iou_thres)
+
+    results = []
+    B = pred.shape[0]
+    for i in range(B):
+        det = pred[i]
+        if det.numel() == 0:
+            results.append(torch.empty((0, 6), device=pred.device))
+            continue
+        # Filter by confidence
+        det = det[det[:, 4] >= conf_thres]
+        if det.numel() == 0:
+            results.append(torch.empty((0, 6), device=pred.device))
+            continue
+
+        classes = det[:, 5].to(torch.int64)
+        kept = []
+        for c in classes.unique():
+            dc = det[classes == c]
+            kept.append(_simple_nms(dc, iou_thres))
+        if kept:
+            results.append(torch.cat(kept, dim=0))
+        else:
+            results.append(torch.empty((0, 6), device=pred.device))
+    return results

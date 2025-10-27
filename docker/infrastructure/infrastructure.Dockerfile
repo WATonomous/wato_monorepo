@@ -76,8 +76,9 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-COPY docker/wato_entrypoint.sh ${AMENT_WS}/wato_entrypoint.sh
-ENTRYPOINT ["./wato_entrypoint.sh"]
+# Install entrypoint to a stable path that survives workspace cleanup
+COPY docker/wato_entrypoint.sh /usr/local/bin/wato_entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
