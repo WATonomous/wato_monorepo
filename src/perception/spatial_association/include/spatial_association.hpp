@@ -1,7 +1,6 @@
 #ifndef SPATIAL_ASSOCIATION_HPP
 #define SPATIAL_ASSOCIATION_HPP
 
-#include <cv_bridge/cv_bridge.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -10,7 +9,6 @@
 #include <opencv2/opencv.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
-#include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -46,6 +44,7 @@ class spatial_association : public rclcpp::Node {
   // LIDAR
   // -------------------------------------------------------------------------------------------------------
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   sensor_msgs::msg::PointCloud2 latest_lidar_msg_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
@@ -65,20 +64,17 @@ class spatial_association : public rclcpp::Node {
   // SUBSCRIBERS
   // -----------------------------------------------------------------------------------------------------
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr non_ground_cloud_sub_;
   rclcpp::Subscription<camera_object_detection_msgs::msg::BatchDetection>::SharedPtr batch_dets_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_front_,camera_info_sub_left_, camera_info_sub_right_;
 
-  // for visualization
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
 
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // PUBLISHERS
   // ------------------------------------------------------------------------------------------------------
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr colored_cluster_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
   rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
@@ -93,6 +89,7 @@ class spatial_association : public rclcpp::Node {
   std::string camera_info_topic_right_;
 
   std::string lidar_topic_;
+  std::string non_ground_cloud_topic_;
   std::string detections_topic_;
 
   std::string filtered_lidar_topic_;
@@ -102,8 +99,6 @@ class spatial_association : public rclcpp::Node {
   std::string lidar_frame_;
 
   // Filtering parameters
-  double ransac_distance_threshold_;
-  int ransac_max_iterations_;
 
   double euclid_cluster_tolerance_;
   int euclid_min_cluster_size_;

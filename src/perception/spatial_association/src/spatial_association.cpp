@@ -6,8 +6,12 @@ spatial_association::spatial_association() : Node("spatial_association") {
   // SUBSCRIBERS
   // -------------------------------------------------------------------------------------------------
 
-  lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      lidar_topic_, 10, std::bind(&spatial_association::lidarCallback, this, std::placeholders::_1));
+  // Comment out lidar subscription - now using non_ground_cloud from patchwork
+  // lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+  //     lidar_topic_, 10, std::bind(&spatial_association::lidarCallback, this, std::placeholders::_1));
+
+  non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      non_ground_cloud_topic_, 10, std::bind(&spatial_association::nonGroundCloudCallback, this, std::placeholders::_1));
 
   batch_dets_sub_ = this->create_subscription<camera_object_detection_msgs::msg::BatchDetection>(
       detections_topic_, 10, std::bind(&spatial_association::multiDetectionsCallback, this, std::placeholders::_1));
@@ -50,6 +54,7 @@ void spatial_association::initializeParams() {
   this->declare_parameter<std::string>("camera_info_topic_right_", "/CAM_FRONT_RIGHT/camera_info");
 
   this->declare_parameter<std::string>("lidar_topic", "/LIDAR_TOP");
+  this->declare_parameter<std::string>("non_ground_cloud_topic", "/non_ground_cloud");
   this->declare_parameter<std::string>("detections_topic", "/batched_camera_message");
 
   this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar");
@@ -60,9 +65,6 @@ void spatial_association::initializeParams() {
 
   this->declare_parameter<bool>("publish_visualization", true);
 
-  // RANSAC Parameters
-  this->declare_parameter<double>("ransac_params.distance_threshold", 0.5);
-  this->declare_parameter<int>("ransac_params.max_iterations", 1500);
 
   // Euclidean Clustering Parameters
   this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.5);
@@ -87,6 +89,7 @@ void spatial_association::initializeParams() {
   camera_info_topic_left_ = this->get_parameter("camera_info_topic_left_").as_string();
 
   lidar_topic_ = this->get_parameter("lidar_topic").as_string();
+  non_ground_cloud_topic_ = this->get_parameter("non_ground_cloud_topic").as_string();
   detections_topic_ = this->get_parameter("detections_topic").as_string();
 
   filtered_lidar_topic_ = this->get_parameter("filtered_lidar_topic").as_string();
@@ -95,8 +98,6 @@ void spatial_association::initializeParams() {
 
   lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
-  ransac_distance_threshold_ = this->get_parameter("ransac_params.distance_threshold").as_double();
-  ransac_max_iterations_ = this->get_parameter("ransac_params.max_iterations").as_int();
 
   euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
   euclid_min_cluster_size_ = this->get_parameter("euclid_params.min_cluster_size").as_int();
@@ -133,10 +134,43 @@ void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::Sha
   voxel.setLeafSize(0.1f, 0.1f, 0.1f);
   voxel.filter(*downsampled_cloud);
 
-  ProjectionUtils::removeGroundPlane(downsampled_cloud, ransac_distance_threshold_, ransac_max_iterations_);
   filtered_point_cloud_ = downsampled_cloud;
 
   // Remove outliers from the LiDAR point cloud
+  /*  int meanK = 30; // Number of neighbors to analyze for each point
+      double stddevMulThresh = 1.5; // Standard deviation multiplier threshold
+      ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
+}
+
+void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+  RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
+  
+  // Store the non-ground cloud message from patchwork
+  latest_lidar_msg_ = *msg;
+  filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+
+  // Convert to PCL
+  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::fromROSMsg(latest_lidar_msg_, *point_cloud);
+
+  if (point_cloud->empty()) {
+    RCLCPP_WARN(this->get_logger(), "Received empty non-ground cloud");
+    return;
+  }
+
+  // Apply downsampling to the non-ground cloud
+  pcl::PointCloud<pcl::PointXYZ>::Ptr downsampled_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::VoxelGrid<pcl::PointXYZ> voxel;
+  voxel.setInputCloud(point_cloud);
+  voxel.setLeafSize(0.1f, 0.1f, 0.1f);
+  voxel.filter(*downsampled_cloud);
+
+  // No ground filtering needed - patchwork already removed ground points
+  filtered_point_cloud_ = downsampled_cloud;
+  
+  RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
+
+  // Remove outliers from the non-ground point cloud
   /*  int meanK = 30; // Number of neighbors to analyze for each point
       double stddevMulThresh = 1.5; // Standard deviation multiplier threshold
       ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
@@ -150,8 +184,8 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
 
   DetectionOutputs detection_outputs;
 
-  if (!filtered_point_cloud_) {
-    RCLCPP_WARN(this->get_logger(), "Lidar data not available");
+  if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
+    RCLCPP_WARN(this->get_logger(), "Non-ground cloud data not available or empty");
     return detection_outputs;
   }
 
@@ -205,6 +239,12 @@ void spatial_association::multiDetectionsCallback(
   if (camInfoMap_.size() < 3) {
     RCLCPP_WARN(get_logger(),
                 "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size());
+    return;
+  }
+
+  // Check if we have point cloud data before processing detections
+  if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
+    RCLCPP_WARN(get_logger(), "No non-ground cloud data available, skipping detection processing");
     return;
   }
 

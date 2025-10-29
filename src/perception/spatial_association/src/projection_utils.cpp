@@ -3,41 +3,6 @@
 // PRE-CLUSTER FILTERING
 // ----------------------------------------------------------------------------------------------------------------------
 
-void ProjectionUtils::removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                        float distanceThreshold, int maxIterations) {
-  /*
-      Removes the ground plane using RANSAC (RANdom SAmpling Concensus)
-      Repeatedly selecting subsets of data fitted into a model (a plane in this case), identifying
-     inliers and outliers We want everything but the ground plane, so we choose the outliers in this
-     model
-
-      Purpose: modifies the point cloud data with the floor filtered out
-  */
-  if (cloud->empty()) return;
-
-  std::vector<int> inliers;
-  pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr model_p(
-      new pcl::SampleConsensusModelPlane<pcl::PointXYZ>(cloud));
-  pcl::RandomSampleConsensus<pcl::PointXYZ> ransac(model_p);
-
-  ransac.setDistanceThreshold(distanceThreshold);
-  ransac.setMaxIterations(maxIterations);
-  ransac.computeModel();
-  ransac.getInliers(inliers);
-
-  pcl::PointIndices::Ptr inliers_ptr(new pcl::PointIndices());
-  inliers_ptr->indices = inliers;
-
-  pcl::ExtractIndices<pcl::PointXYZ> extract;
-  extract.setInputCloud(cloud);
-  extract.setIndices(inliers_ptr);
-  extract.setNegative(true);  // keep everything other than the ground
-
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
-  extract.filter(*cloud_filtered);
-
-  cloud->swap(*cloud_filtered);
-}
 
 std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform, const std::array<double, 12>& p,

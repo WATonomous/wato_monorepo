@@ -1,0 +1,13 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# http://www.apache.org/licenses/LICENSE-2.0
+---
+launch:
+  # Launch the Spatial Association node
+  - node:
+      pkg: spatial_association
+      exec: spatial_association_node
+      name: spatial_association_node
+      output: screen
+      param:
+        - from: $(find-pkg-share spatial_association)/config/params.yaml

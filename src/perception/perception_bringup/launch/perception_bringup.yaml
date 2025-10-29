@@ -20,11 +20,11 @@ launch:
       description: Input point cloud topic consumed by Patchwork++
   - arg:
       name: patchwork_ground_topic
-      default: /patchworkpp/ground_cloud
+      default: /ground_cloud
       description: Ground points output topic from Patchwork++
   - arg:
       name: patchwork_non_ground_topic
-      default: /patchworkpp/non_ground_cloud
+      default: /non_ground_cloud
       description: Non-ground points output topic from Patchwork++
 
   # Patchwork++ Node
@@ -51,6 +51,8 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share spatial_association)/config/params.yaml
+        - name: non_ground_cloud_topic
+          value: /non_ground_cloud
 
 
 

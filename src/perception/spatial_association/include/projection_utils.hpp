@@ -2,19 +2,12 @@
 #define PROJECTION_UTILS_HPP
 
 #include <pcl/common/common.h>
-#include <pcl/common/pca.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/search/kdtree.h>
 
-#include <pcl/ModelCoefficients.h>
-#include <pcl/filters/extract_indices.h>
 #include <pcl/filters/statistical_outlier_removal.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/sample_consensus/ransac.h>
-#include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/segmentation/extract_clusters.h>
-#include <pcl/segmentation/sac_segmentation.h>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -36,8 +29,6 @@
 
 class ProjectionUtils {
  public:
-  static void removeGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, float distanceThreshold,
-                                int maxIterations);
 
   static std::optional<cv::Point2d> projectLidarToCamera(
       const geometry_msgs::msg::TransformStamped& transform, const std::array<double, 12>& p,

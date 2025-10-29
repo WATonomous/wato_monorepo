@@ -7,6 +7,7 @@ spatial_association:
     camera_info_topic_left_: /CAM_FRONT_LEFT/camera_info
 
     lidar_topic: /LIDAR_TOP
+    non_ground_cloud_topic: /non_ground_cloud
     detections_topic: /batched_camera_message
 
     # publishers
@@ -23,11 +24,6 @@ spatial_association:
     cam_front_left_detections: /CAM_FRONT_LEFT/detections
 
     # filtering parameters
-    ransac_params:
-      distance_threshold: 0.5
-      # maximum allowed distance a point can be from the estimated plane to still be considered an inlier
-      max_iterations: 1500
-      # the number of times ransac randomly samples a point to estimate a plane, higher number means more accurate plane estimation but heavier computation
 
     euclid_params:
       cluster_tolerance: 0.5
