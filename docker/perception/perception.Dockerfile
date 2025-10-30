@@ -5,8 +5,8 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code
-# COPY src/perception perception
+# Copy in source code needed for patchwork++ and tracking_2d build
+COPY src/perception/tracking_2d tracking_2d
 COPY src/perception/patchwork patchwork
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
@@ -15,6 +15,9 @@ COPY src/wato_test wato_test
 RUN git clone --depth 1 --branch master \
       https://github.com/url-kaist/patchwork-plusplus \
       patchwork/patchwork-plusplus
+
+# Prepare external dependencies
+RUN git clone --depth 1 --branch main https://github.com/Vertical-Beach/ByteTrack-cpp.git /opt/ByteTrack-cpp
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -29,6 +32,7 @@ RUN apt-get -qq update && rosdep update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
@@ -38,6 +42,15 @@ COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get -qq update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
+
+# Install ByteTrack C++ library for native ROS wrappers (requires cmake/build tools from rosdep)
+COPY --from=source /opt/ByteTrack-cpp /opt/ByteTrack-cpp
+RUN cmake -S /opt/ByteTrack-cpp -B /opt/ByteTrack-cpp/build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build /opt/ByteTrack-cpp/build --config Release && \
+    install -Dm755 /opt/ByteTrack-cpp/build/libbytetrack.so /usr/local/lib/libbytetrack.so && \
+    install -d /usr/local/include/ByteTrack && \
+    cp -r /opt/ByteTrack-cpp/include/ByteTrack/. /usr/local/include/ByteTrack/ && \
+    ldconfig
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -62,6 +75,7 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 
 ################################ Build ################################
 FROM dependencies AS build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
@@ -75,6 +89,7 @@ ENTRYPOINT ["./wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Source Cleanup and Security Setup
 RUN rm -rf "${AMENT_WS:?}"/*
