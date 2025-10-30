@@ -12,7 +12,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Path to ByteTrack root folder (will probably change)
-set(BYTETRACK_DIR ByteTrack-cpp)
+set(BYTETRACK_DIR /usr/local)
 
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
@@ -37,12 +37,12 @@ target_include_directories(tracking_2d_node
 
 # Set target properties
 set_target_properties(tracking_2d_node PROPERTIES
-    INSTALL_RPATH ${BYTETRACK_DIR}/build
+    INSTALL_RPATH ${BYTETRACK_DIR}/lib
 )
 
 # Link libraries
 target_link_libraries(tracking_2d_node
-    ${BYTETRACK_DIR}/build/libbytetrack.so
+    ${BYTETRACK_DIR}/lib/libbytetrack.so
 )
 
 # Add ROS 2 dependencies
