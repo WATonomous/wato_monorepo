@@ -16,6 +16,7 @@ find_package(geometry_msgs REQUIRED)
 
 set(msg_files
   msg/Tracking2D.msg
+  msg/Tracking2DArray.msg
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
