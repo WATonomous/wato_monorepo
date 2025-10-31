@@ -14,10 +14,10 @@ COPY src/wato_test wato_test
 # Bring in Patchwork++ third-party dependency (built later in dependencies stage)
 RUN git clone --depth 1 --branch master \
       https://github.com/url-kaist/patchwork-plusplus \
-      patchwork/patchwork-plusplus
-
-# Prepare external dependencies
-RUN git clone --depth 1 --branch main https://github.com/Vertical-Beach/ByteTrack-cpp.git /opt/ByteTrack-cpp
+      patchwork/patchwork-plusplus && \
+    git clone --depth 1 --branch main \
+      https://github.com/Vertical-Beach/ByteTrack-cpp.git \
+      /opt/ByteTrack-cpp
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md

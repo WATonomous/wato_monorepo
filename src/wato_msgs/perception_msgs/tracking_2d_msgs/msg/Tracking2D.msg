@@ -15,4 +15,3 @@ float32 score
 
 # Optional class label
 string class_name
-
