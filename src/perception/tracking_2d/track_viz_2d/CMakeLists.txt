@@ -17,6 +17,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(tracking_2d_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
@@ -41,6 +42,7 @@ ament_target_dependencies(track_viz_2d_node
     sensor_msgs
     vision_msgs
     std_msgs
+    tracking_2d_msgs
     cv_bridge
 )
 

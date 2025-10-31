@@ -17,11 +17,9 @@ set(BYTETRACK_DIR /usr/local)
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(visualization_msgs REQUIRED)
+find_package(tracking_2d_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # Add the executable for the tracking_2d node
@@ -48,10 +46,9 @@ target_link_libraries(tracking_2d_node
 # Add ROS 2 dependencies
 ament_target_dependencies(tracking_2d_node
     rclcpp
-    sensor_msgs
-    geometry_msgs
     vision_msgs
     std_msgs
+    tracking_2d_msgs
 )
 
 # Install the executable

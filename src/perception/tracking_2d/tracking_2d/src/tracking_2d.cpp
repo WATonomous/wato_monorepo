@@ -11,12 +11,10 @@ tracking_2d::tracking_2d() : Node("tracking_2d") {
 
   // Publishers
   tracked_dets_pub_ =
-      this->create_publisher<vision_msgs::msg::Detection2DArray>(track_topic_, 10);
+      this->create_publisher<tracking_2d_msgs::msg::Tracking2DArray>(track_topic_, 10);
 
   // ByteTrack tracker
   tracker_ = std::make_unique<byte_track::BYTETracker>(frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_);
-
-  RCLCPP_INFO(this->get_logger(), "Ready");
 }
 
 void tracking_2d::initializeParams() {
@@ -31,14 +29,20 @@ void tracking_2d::initializeParams() {
   this->declare_parameter<double>("match_thresh", 0.8);
 
   // Get parameters
-  detections_topic_ = this->get_parameter("detections_topic").as_string();
-  track_topic_ = this->get_parameter("track_topic").as_string();
+  bool params_ok = true;
 
-  frame_rate_ = this->get_parameter("frame_rate").as_int();
-  track_buffer_ = this->get_parameter("track_buffer").as_int();
-  track_thresh_ = static_cast<float>(this->get_parameter("track_thresh").as_double());
-  high_thresh_ = static_cast<float>(this->get_parameter("high_thresh").as_double());
-  match_thresh_ = static_cast<float>(this->get_parameter("match_thresh").as_double());
+  // Automatic type assignment, catch errors with params_ok
+  params_ok &= this->get_parameter("detections_topic", detections_topic_);  // string
+  params_ok &= this->get_parameter("track_topic", track_topic_);            // string
+
+  params_ok &= this->get_parameter("frame_rate", frame_rate_);              // int
+  params_ok &= this->get_parameter("track_buffer", track_buffer_);          // int
+  params_ok &= this->get_parameter("track_thresh", track_thresh_);          // float
+  params_ok &= this->get_parameter("high_thresh", high_thresh_);            // float
+  params_ok &= this->get_parameter("match_thresh", match_thresh_);          // float
+
+  if (!params_ok) RCLCPP_WARN(this->get_logger(), "One or more parameters could not be initialized");
+  else RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
 
@@ -89,38 +93,38 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(
 
 
 // Convert from bytetrack format back to ros msgs
-vision_msgs::msg::Detection2DArray tracking_2d::STracksToDets(
+tracking_2d_msgs::msg::Tracking2DArray tracking_2d::STracksToTracks(
   const std::vector<byte_track::BYTETracker::STrackPtr> &strk_ptrs,
   const std_msgs::msg::Header &header
 ) {
-  vision_msgs::msg::Detection2DArray dets;
-  dets.header = header;
+  // Use same header as detections for same time stamps
+  tracking_2d_msgs::msg::Tracking2DArray trks;
+  trks.header.frame_id = header.frame_id;
+  trks.header.stamp = header.stamp;
 
   for (const auto &strk_ptr : strk_ptrs) {
     // Convert STrackPtr to Detection2D
     auto rect = strk_ptr->getRect();
     auto score = strk_ptr->getScore();
-    auto trk_id = std::to_string(strk_ptr->getTrackId());
+    auto trk_id = strk_ptr->getTrackId();
 
-    vision_msgs::msg::Detection2D det;
-    det.header = header;
+    tracking_2d_msgs::msg::Tracking2D trk;
+    trk.header.frame_id = header.frame_id;
+    trk.header.stamp = header.stamp;
 
-    vision_msgs::msg::ObjectHypothesisWithPose hyp;
-    hyp.hypothesis.score = score;
-    hyp.hypothesis.class_id = trk_id;
-    det.results.push_back(hyp);
+    trk.id = trk_id;
 
-    det.bbox.center.position.x = rect.x() + rect.width() / 2;
-    det.bbox.center.position.y = rect.y() + rect.height() / 2;
-    det.bbox.size_x = rect.width();
-    det.bbox.size_y = rect.height();
+    trk.cx = rect.x() + rect.width() / 2;
+    trk.cy = rect.y() + rect.height() / 2;
+    trk.width = rect.width();
+    trk.height = rect.height();
 
-    det.id = trk_id;
+    trk.score = score;
 
-    dets.detections.push_back(det);
+    trks.tracks.push_back(trk);
   }
 
-  return dets;
+  return trks;
 }
 
 
@@ -130,9 +134,9 @@ void tracking_2d::detectionsCallback(
   // Run bytetrack on detections
   auto objs = detsToObjects(msg);
   auto stracks = tracker_->update(objs);
-  auto tracked_dets = STracksToDets(stracks, msg->header);
+  auto tracked_dets = STracksToTracks(stracks, msg->header);
 
-  RCLCPP_INFO(this->get_logger(), "Publishing tracked detections...");
+  RCLCPP_DEBUG(this->get_logger(), "Publishing tracked detections...");
   tracked_dets_pub_->publish(tracked_dets);
 }
 

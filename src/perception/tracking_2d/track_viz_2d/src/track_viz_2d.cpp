@@ -8,7 +8,7 @@ track_viz_2d::track_viz_2d() : Node("track_viz_2d") {
     detections_topic_, 10,
     std::bind(&track_viz_2d::detectionsCallback, this, std::placeholders::_1)
   );
-  trks_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
+  trks_sub_ = this->create_subscription<tracking_2d_msgs::msg::Tracking2DArray>(
     track_topic_, 10,
     std::bind(&track_viz_2d::tracksCallback, this, std::placeholders::_1)
   );
@@ -37,6 +37,7 @@ void track_viz_2d::initializeParams() {
   // Get parameters
   bool params_ok = true;
 
+  // Automatic type assignment, catch errors with params_ok
   params_ok &= this->get_parameter("detections_topic", detections_topic_);  // string
   params_ok &= this->get_parameter("track_topic", track_topic_);            // string
   params_ok &= this->get_parameter("image_sub_topic", image_sub_topic_);    // string
@@ -46,6 +47,7 @@ void track_viz_2d::initializeParams() {
   params_ok &= this->get_parameter("color_trks", color_trks_);              // string
   params_ok &= this->get_parameter("bbox_line_width", bbox_line_width_);    // int
 
+  // bgr
   color_map_ = {
     {"red", cv::Scalar(0, 0, 255)},
     {"green", cv::Scalar(0, 255, 0)},
@@ -54,7 +56,7 @@ void track_viz_2d::initializeParams() {
     {"black", cv::Scalar(0, 0, 0)},
   };
 
-  default_color_ = cv::Scalar(255, 0, 0);
+  default_color_ = cv::Scalar(255, 0, 0);  // bgr
 
   latest_image_ = nullptr;
   latest_dets_ = nullptr;
@@ -64,19 +66,19 @@ void track_viz_2d::initializeParams() {
 }
 
 
-// Get color from color_map_
+// Get color from color_map_ using key
 cv::Scalar track_viz_2d::colorLookup(std::string color) {
   auto it = color_map_.find(color);
   if (it != color_map_.end()) return it->second;
-  else {
+  else {  // Color key not in map
     RCLCPP_WARN(this->get_logger(), "Color '%s' not found, using default", color.c_str());
     return default_color_;
   }
 }
 
 
-// Draw a set of boxes onto the image
-void track_viz_2d::drawBoxes(
+// Draw a set of detection boxes onto the image
+void track_viz_2d::drawDets(
   cv::Mat &image,
   const std::vector<vision_msgs::msg::Detection2D> &dets,
   const cv::Scalar &color
@@ -94,33 +96,56 @@ void track_viz_2d::drawBoxes(
 }
 
 
+// Draw a set of track boxes onto the image
+void track_viz_2d::drawTracks(
+  cv::Mat &image,
+  const std::vector<tracking_2d_msgs::msg::Tracking2D> &trks,
+  const cv::Scalar &color
+) {
+  for (const auto &trk : trks) {
+    int x = static_cast<int>(trk.cx - trk.width/2);
+    int y = static_cast<int>(trk.cy - trk.height/2);
+    int width = static_cast<int>(trk.width);
+    int height = static_cast<int>(trk.height);
+
+    cv::Rect rect(x, y, width, height);
+
+    cv::rectangle(image, rect, color, bbox_line_width_);
+  }
+}
+
+
 // Attempt box drawing
 void track_viz_2d::tryDraw(
   cv::Mat &decoded_img,
-  const vision_msgs::msg::Detection2DArray::SharedPtr latest_trks_
+  const tracking_2d_msgs::msg::Tracking2DArray::SharedPtr latest_trks_
 ) {
+  // Check if image or detections are missing for whatever reason
   if (decoded_img.empty() || !latest_dets_) {
     RCLCPP_WARN(this->get_logger(), "Missing image or detections");
     return;
   }
 
   const std::vector<vision_msgs::msg::Detection2D> dets = latest_dets_->detections;
-  const std::vector<vision_msgs::msg::Detection2D> trks = latest_trks_->detections;
+  const std::vector<tracking_2d_msgs::msg::Tracking2D> trks = latest_trks_->tracks;
 
-  drawBoxes(decoded_img, dets, colorLookup(color_dets_));
-  drawBoxes(decoded_img, trks, colorLookup(color_trks_));
+  // Draw boxes onto image
+  drawDets(decoded_img, dets, colorLookup(color_dets_));
+  drawTracks(decoded_img, trks, colorLookup(color_trks_));
 
+  // Prepare image for publishing
   std_msgs::msg::Header header;
   header.frame_id = camera_frame_;
   header.stamp = this->now();
 
   cv_bridge::CvImage cv_img(header, "bgr8", decoded_img);
 
-  RCLCPP_INFO(this->get_logger(), "Publishing image...");
+  RCLCPP_DEBUG(this->get_logger(), "Publishing image...");
   image_pub_->publish(*(cv_img.toImageMsg()));
 }
 
 
+// Save most recent image
 void track_viz_2d::imageCallback(
   const sensor_msgs::msg::CompressedImage::SharedPtr msg
 ) {
@@ -128,6 +153,7 @@ void track_viz_2d::imageCallback(
 }
 
 
+// Save most recent detections
 void track_viz_2d::detectionsCallback(
   const vision_msgs::msg::Detection2DArray::SharedPtr msg
 ) {
@@ -135,8 +161,9 @@ void track_viz_2d::detectionsCallback(
 }
 
 
+// Image annotation triggered upon receiving tracks
 void track_viz_2d::tracksCallback(
-  const vision_msgs::msg::Detection2DArray::SharedPtr msg
+  const tracking_2d_msgs::msg::Tracking2DArray::SharedPtr msg
 ) {
   if (!latest_image_) {
     RCLCPP_WARN(this->get_logger(), "Missing image");

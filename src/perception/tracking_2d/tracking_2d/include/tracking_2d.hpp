@@ -2,8 +2,9 @@
 #define TRACKING_2D_HPP
 
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/image.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
+#include <tracking_2d_msgs/msg/tracking2_d_array.hpp>
+#include <std_msgs/msg/header.hpp>
 
 #include <ByteTrack/BYTETracker.h>
 
@@ -15,24 +16,24 @@ class tracking_2d : public rclcpp::Node {
  private:
   // Callback functions
   void detectionsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
-  void imageCallback(sensor_msgs::msg::Image::SharedPtr msg);
 
   // Helper functions
   std::vector<byte_track::Object> detsToObjects(const vision_msgs::msg::Detection2DArray::SharedPtr dets);
-  vision_msgs::msg::Detection2DArray STracksToDets(const std::vector<byte_track::BYTETracker::STrackPtr> &strk_ptrs, const std_msgs::msg::Header &header);
+  tracking_2d_msgs::msg::Tracking2DArray STracksToTracks(const std::vector<byte_track::BYTETracker::STrackPtr> &strk_ptrs, const std_msgs::msg::Header &header);
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr
       dets_sub_;
 
   // Publishers
-  rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr tracked_dets_pub_;
+  rclcpp::Publisher<tracking_2d_msgs::msg::Tracking2DArray>::SharedPtr tracked_dets_pub_;
 
   // Parameters
   void initializeParams();
   std::string detections_topic_;
   std::string track_topic_;
 
+  // ByteTrack parameters
   int frame_rate_;
   int track_buffer_;
   float track_thresh_;
