@@ -1,5 +1,4 @@
 ---
 lidar_localization:
   ros__parameters:
-    #Subscribe to topics... probably lidar topic
-    
+    # Subscribe to topics... probably lidar topic
