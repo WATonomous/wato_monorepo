@@ -1,7 +1,7 @@
 
 <?xml version="1.0"?>
 <package format="3">
-  <name>state_estimation</name>
+  <name>lidar_localization</name>
   <version>0.0.0</version>
   <description>Using Lidar to create a map</description>
 
