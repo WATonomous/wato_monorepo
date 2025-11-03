@@ -1,5 +1,0 @@
----
-# TODO(wato): change the parameters value
-kalman_filter:
-  ros__parameters:
-    version: 1
