@@ -7,7 +7,7 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # --- Custom WATO ROS Packages ---
-COPY src/prediction prediction
+COPY src/world_modeling/prediction prediction
 
 COPY src/wato_msgs/common_msgs common_msgs
 
