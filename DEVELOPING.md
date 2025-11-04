@@ -35,7 +35,11 @@ pre-commit run --all-files
 ## Testing
 
 ### Unittesting with wato_test
-We use catch2 tests to do our unittesting. TODO(Eddy) : bring over testing infra from deep_ros
+All nodes must contain some set of unittests. These can either be testing a node's functions individually, or testing the complete node through IPC in a deterministic way.
+
+We use catch2 tests to do our unittesting. To make the testing process easier to setup. We've introduced a helper library used to test all nodes in the monorepo.
+
+[wato_test](src/wato_test/) contains a basic CMAKE macro to let you setup a test with the appropriate libraries. It also contains helper nodes to help you test publishers, subscribers, servers, and clients in an event-driven way. Use this package whenever you are setting up tests.
 
 ### Playing ROS2 Bags
 

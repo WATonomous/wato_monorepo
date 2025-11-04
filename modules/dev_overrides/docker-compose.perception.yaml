@@ -1,11 +1,8 @@
 ---
-x-fixuid: &fixuid
-  build:
-    target: build
-
 services:
   perception_bringup:
-    <<: *fixuid
+    build:
+      target: build
     extends:
       file: ../docker-compose.perception.yaml
       service: perception_bringup

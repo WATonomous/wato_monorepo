@@ -12,6 +12,7 @@ COPY src/world_modeling world_modeling
 COPY src/wato_msgs/common_msgs common_msgs
 COPY src/wato_msgs/interfacing_msgs interfacing_msgs
 COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
+COPY src/wato_test wato_test
 
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0 carla_msgs
 
@@ -54,23 +55,21 @@ RUN apt-get -qq autoremove -y && \
     rm -rf /root/* /root/.ros /tmp/* /usr/share/doc/*
 
 ################################ Build ################################
-# This stage builds all ROS 2 packages in the workspace.
 FROM dependencies AS build
 
+# Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
+RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    cp -r install/. "${WATONOMOUS_INSTALL}"
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN . "/opt/ros/${ROS_DISTRO}/setup.bash" && \
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
+COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
-COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
-ENTRYPOINT ["./wato_ros_entrypoint.sh"]
-
-################################ Production ################################
+################################ Prod ################################
 FROM build AS deploy
 
-# Cleanup
-RUN chown -R "$USER:$USER" "${AMENT_WS}" && \
-    rm -rf src/*
-
+# Source Cleanup and Security Setup
+RUN rm -rf "${AMENT_WS:?}"/*
 USER ${USER}

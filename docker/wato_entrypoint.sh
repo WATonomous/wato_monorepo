@@ -14,6 +14,7 @@
 # limitations under the License.
 set -e
 
-# setup ROS2 environment
-source /home/bolty/ament_ws/install/setup.bash
+# setup WATonomous packages and ROS2 environment
+source /opt/watonomous/setup.bash
+
 exec "$@"
