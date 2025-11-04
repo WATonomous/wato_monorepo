@@ -3,12 +3,15 @@
 spatial_association::spatial_association() : Node("spatial_association") {
   initializeParams();
 
+  // Initialize working PCL objects for performance optimization
+  working_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  working_downsampled_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+  working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  voxel_filter_.setLeafSize(0.15f, 0.15f, 0.15f);
+
   // SUBSCRIBERS
   // -------------------------------------------------------------------------------------------------
-
-  // Comment out lidar subscription - now using non_ground_cloud from patchwork
-  // lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-  //     lidar_topic_, 10, std::bind(&spatial_association::lidarCallback, this, std::placeholders::_1));
 
   non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       non_ground_cloud_topic_, 10, std::bind(&spatial_association::nonGroundCloudCallback, this, std::placeholders::_1));
@@ -33,14 +36,22 @@ spatial_association::spatial_association() : Node("spatial_association") {
   // PUBLISHERS
   // --------------------------------------------------------------------------------------------------
 
-  filtered_lidar_pub_ =
-      this->create_publisher<sensor_msgs::msg::PointCloud2>(filtered_lidar_topic_, 10);
-  cluster_centroid_pub_ =
-      this->create_publisher<sensor_msgs::msg::PointCloud2>(cluster_centroid_topic_, 10);
-  bounding_box_pub_ =
-      this->create_publisher<visualization_msgs::msg::MarkerArray>(bounding_box_topic_, 10);
+  // Always create the main detection publisher
   detection_3d_pub_ = 
       this->create_publisher<vision_msgs::msg::Detection3DArray>("/detection_3d", 10);
+  bounding_box_pub_ =
+        this->create_publisher<visualization_msgs::msg::MarkerArray>("/bounding_box", 10);  
+
+  // Only create visualization publishers if enabled
+  if (publish_visualization_) {
+    filtered_lidar_pub_ =
+        this->create_publisher<sensor_msgs::msg::PointCloud2>(filtered_lidar_topic_, 10);
+    cluster_centroid_pub_ =
+        this->create_publisher<sensor_msgs::msg::PointCloud2>(cluster_centroid_topic_, 10);
+    RCLCPP_INFO(this->get_logger(), "Visualization publishers enabled");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Visualization publishers disabled - only detection_3d will be published");
+  }
   
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -124,22 +135,14 @@ void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::Sha
   latest_lidar_msg_ = *msg;
   filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
-  // Convert to PCL
-  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(latest_lidar_msg_, *point_cloud);
+  // Convert to PCL using working object
+  pcl::fromROSMsg(latest_lidar_msg_, *working_cloud_);
 
-  pcl::PointCloud<pcl::PointXYZ>::Ptr downsampled_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::VoxelGrid<pcl::PointXYZ> voxel;
-  voxel.setInputCloud(point_cloud);
-  voxel.setLeafSize(0.1f, 0.1f, 0.1f);
-  voxel.filter(*downsampled_cloud);
+  // Apply downsampling using working objects
+  voxel_filter_.setInputCloud(working_cloud_);
+  voxel_filter_.filter(*working_downsampled_cloud_);
 
-  filtered_point_cloud_ = downsampled_cloud;
-
-  // Remove outliers from the LiDAR point cloud
-  /*  int meanK = 30; // Number of neighbors to analyze for each point
-      double stddevMulThresh = 1.5; // Standard deviation multiplier threshold
-      ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
+  filtered_point_cloud_ = working_downsampled_cloud_;
 }
 
 void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
@@ -149,50 +152,35 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
   latest_lidar_msg_ = *msg;
   filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
-  // Convert to PCL
-  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(latest_lidar_msg_, *point_cloud);
+  // Convert to PCL using working object
+  pcl::fromROSMsg(latest_lidar_msg_, *working_cloud_);
 
-  if (point_cloud->empty()) {
+  if (working_cloud_->empty()) {
     RCLCPP_WARN(this->get_logger(), "Received empty non-ground cloud");
     return;
   }
 
-  // Apply downsampling to the non-ground cloud
-  pcl::PointCloud<pcl::PointXYZ>::Ptr downsampled_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::VoxelGrid<pcl::PointXYZ> voxel;
-  voxel.setInputCloud(point_cloud);
-  voxel.setLeafSize(0.1f, 0.1f, 0.1f);
-  voxel.filter(*downsampled_cloud);
+  // Apply downsampling using working objects
+  voxel_filter_.setInputCloud(working_cloud_);
+  voxel_filter_.filter(*working_downsampled_cloud_);
 
   // No ground filtering needed - patchwork already removed ground points
-  filtered_point_cloud_ = downsampled_cloud;
+  filtered_point_cloud_ = working_downsampled_cloud_;
   
   RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
 
-  // Remove outliers from the non-ground point cloud
-  /*  int meanK = 30; // Number of neighbors to analyze for each point
-      double stddevMulThresh = 1.5; // Standard deviation multiplier threshold
-      ProjectionUtils::removeOutliers(filtered_point_cloud_, meanK, stddevMulThresh); */
 }
 
-DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
-                                  const geometry_msgs::msg::TransformStamped &transform,
-                                  const std::array<double, 12> &projection_matrix) {
-
-  // checks for if pointers available, prevents accessing null pointers
-
-  DetectionOutputs detection_outputs;
+void spatial_association::performClustering(std::vector<pcl::PointIndices>& cluster_indices) {
+  // Clear previous clusters
+  cluster_indices.clear();
 
   if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
-    RCLCPP_WARN(this->get_logger(), "Non-ground cloud data not available or empty");
-    return detection_outputs;
+    return;
   }
 
   // CLUSTERING-----------------------------------------------------------------------------------------------
   // Perform Euclidean clustering, populate cluster_indices
-
-  std::vector<pcl::PointIndices> cluster_indices;
   ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, euclid_cluster_tolerance_,
                                               euclid_min_cluster_size_, euclid_max_cluster_size_,
                                               cluster_indices);
@@ -203,6 +191,26 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
 
   // merge clusters that are close to each other, determined through distance between their
   ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, merge_threshold_);
+}
+
+DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
+                                  const geometry_msgs::msg::TransformStamped &transform,
+                                  const std::array<double, 12> &projection_matrix,
+                                  const std::vector<pcl::PointIndices>& cluster_indices_input) {
+
+  DetectionOutputs detection_outputs;
+
+  if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
+    RCLCPP_WARN(this->get_logger(), "Non-ground cloud data not available or empty");
+    return detection_outputs;
+  }
+
+  if (cluster_indices_input.empty()) {
+    return detection_outputs;
+  }
+
+  // Create a copy of cluster indices for IOU filtering (this modifies the vector)
+  std::vector<pcl::PointIndices> cluster_indices = cluster_indices_input;
 
   // iou score between x and y area of clusters in camera plane and detections
   ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
@@ -219,10 +227,11 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
   
   // assign colors to the clusters 
   if (publish_visualization_) {
-    detection_outputs.colored_cluster.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+    detection_outputs.colored_cluster = working_colored_cluster_;
     ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
 
-    detection_outputs.centroid_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
+    detection_outputs.centroid_cloud = working_centroid_cloud_;
+    detection_outputs.centroid_cloud->clear(); // Clear previous data
     for (auto &ci : cluster_indices) {
       pcl::PointXYZ c;
       ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, ci, c);
@@ -245,6 +254,15 @@ void spatial_association::multiDetectionsCallback(
   // Check if we have point cloud data before processing detections
   if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
     RCLCPP_WARN(get_logger(), "No non-ground cloud data available, skipping detection processing");
+    return;
+  }
+
+  // PERFORM CLUSTERING ONCE (before camera loop) - significant performance optimization
+  // This avoids redundant clustering computations for each camera
+  performClustering(cluster_indices);
+  
+  if (cluster_indices.empty()) {
+    RCLCPP_DEBUG(get_logger(), "No clusters found after filtering");
     return;
   }
 
@@ -284,11 +302,12 @@ void spatial_association::multiDetectionsCallback(
       continue;
     }
 
-    // 3) Run your clustering + 3D detection pipeline
+    // 3) Run 3D detection pipeline using pre-computed clusters
     auto detection_results = processDetections(
         camera_batch,
         tf_cam_to_lidar,
-        it->second->p);
+        it->second->p,
+        cluster_indices);
 
     // 4) Collect MarkerArray
     for (auto &marker : detection_results.bboxes.markers) {
@@ -310,15 +329,20 @@ void spatial_association::multiDetectionsCallback(
     }
   }
 
-  // 7) Publish MarkerArray only if visualization is enabled
-  if (publish_visualization_) {
+  // 7) Publish visualization data only if enabled and publishers exist
+  if (publish_visualization_ && bounding_box_pub_) {
     bounding_box_pub_->publish(combined_bboxes);
+  }
 
+  if (publish_visualization_ && filtered_lidar_pub_) {
     sensor_msgs::msg::PointCloud2 pcl2_msg;
     pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
     pcl2_msg.header = latest_lidar_msg_.header;
     filtered_lidar_pub_->publish(pcl2_msg);
+  }
 
+  if (publish_visualization_ && cluster_centroid_pub_) {
+    sensor_msgs::msg::PointCloud2 pcl2_msg;
     pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
     pcl2_msg.header = latest_lidar_msg_.header;
     cluster_centroid_pub_->publish(pcl2_msg);

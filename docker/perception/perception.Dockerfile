@@ -9,6 +9,7 @@ WORKDIR ${AMENT_WS}/src
 # COPY src/perception perception
 COPY src/perception/patchwork patchwork
 COPY src/perception/spatial_association spatial_association
+COPY src/perception/perception_bringup perception_bringup
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 

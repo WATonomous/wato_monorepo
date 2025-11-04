@@ -5,6 +5,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/search/kdtree.h>
+#include <pcl/common/centroid.h>
 
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/segmentation/extract_clusters.h>
@@ -36,9 +37,6 @@ class ProjectionUtils {
 
   // CLUSTERING FUNCTIONS
   // -----------------------------------------------------------------------------------------
-
-  static void removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, int meanK,
-                             double stddevMulThresh);
 
   static void euclideanClusterExtraction(pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                          double clusterTolerance, int minClusterSize,

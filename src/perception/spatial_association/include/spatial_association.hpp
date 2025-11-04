@@ -3,6 +3,7 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/filters/voxel_grid.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -50,14 +51,25 @@ class spatial_association : public rclcpp::Node {
   pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
   std::vector<pcl::PointIndices> cluster_indices;
 
+  // Working PCL objects for performance optimization
+  pcl::PointCloud<pcl::PointXYZ>::Ptr working_cloud_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr working_downsampled_cloud_;
+  pcl::VoxelGrid<pcl::PointXYZ> voxel_filter_;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;
+
   // DETECTIONS
   // ------------------------------------------------------------------------------------------------------
   void multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg);
 
+  // Perform clustering once (shared across all cameras)
+  void performClustering(std::vector<pcl::PointIndices>& cluster_indices);
+  
   DetectionOutputs processDetections(
       const vision_msgs::msg::Detection2DArray& detections,
       const geometry_msgs::msg::TransformStamped& transform,
-      const std::array<double, 12>& projection_matrix);
+      const std::array<double, 12>& projection_matrix,
+      const std::vector<pcl::PointIndices>& cluster_indices);
 
   geometry_msgs::msg::TransformStamped transform;
 
@@ -76,6 +88,7 @@ class spatial_association : public rclcpp::Node {
   // ------------------------------------------------------------------------------------------------------
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
+  
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
   rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
 

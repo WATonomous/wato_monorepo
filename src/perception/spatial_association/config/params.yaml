@@ -43,6 +43,6 @@ spatial_association:
 
     object_detection_confidence: 0.45
 
-    publish_visualization: true
+    publish_visualization: false
 
       
