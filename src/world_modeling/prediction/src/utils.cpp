@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/world_modeling/prediction/include/prediction/utils.hpp"
+#include "prediction/utils.hpp"
 
 // Placeholder implementation for utils
 // Add your utility functions here
