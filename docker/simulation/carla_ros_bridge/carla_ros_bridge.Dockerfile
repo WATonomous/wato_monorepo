@@ -86,5 +86,5 @@ ENTRYPOINT ["./wato_entrypoint.sh"]
 FROM build AS deploy
 
 # Source Cleanup and Security Setup
-RUN rm -rf "${AMENT_WS:?}"/*
+RUN rm -rf ${AMENT_WS}/build ${AMENT_WS}/src
 USER ${USER}

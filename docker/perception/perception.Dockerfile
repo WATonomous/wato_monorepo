@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
-# COPY src/perception perception
+COPY src/perception/perception_bringup perception_bringup
 COPY src/perception/patchwork patchwork
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
@@ -77,5 +77,5 @@ ENTRYPOINT ["./wato_entrypoint.sh"]
 FROM build AS deploy
 
 # Source Cleanup and Security Setup
-RUN rm -rf "${AMENT_WS:?}"/*
+RUN rm -rf ${AMENT_WS}/build ${AMENT_WS}/src
 USER ${USER}
