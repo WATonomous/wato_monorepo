@@ -61,12 +61,6 @@ runs:
       with:
         files: src/world_modeling/**
 
-    - name: Get changed files inside src/prediction folder
-      id: changed-files-prediction
-      uses: tj-actions/changed-files@v42
-      with:
-        files: src/prediction/**
-
     - name: Create list of changed modules
       id: output-changes
       env:
@@ -78,7 +72,6 @@ runs:
         SAMPLES_CHANGED: ${{ steps.changed-files-samples.outputs.any_changed }}
         SIMULATION_CHANGED: ${{ steps.changed-files-simulation.outputs.any_changed }}
         WORLD_MODELING_CHANGED: ${{ steps.changed-files-world-modeling.outputs.any_changed }}
-        PREDICTION_CHANGED: ${{ steps.changed-files-prediction.outputs.any_changed }}
 
       run: ${{ github.action_path }}/check_src_changes.sh
       shell: bash

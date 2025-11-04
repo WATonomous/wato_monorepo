@@ -17,43 +17,6 @@ These steps are to setup the monorepo to work on your own PC. We utilize docker 
 
 Starts the foxglove bridge and data streamer for rosbags.
 
-```
-wato_monorepo_v2
-├── watod-setup-env.sh
-├── docker
-│   ├── samples
-│   │   └── cpp
-│   │       ├── Dockerfile.aggregator
-│   │       ├── Dockerfile.producer
-│   │       └── Dockerfile.transformer
-│   └── wato_ros_entrypoint.sh
-├── docs
-├── modules
-│   └── docker-compose.samples.yaml
-├── scripts
-├── src
-│   ├── motion_planning_and_control
-│   ├── perception
-|   ├── prediction
-│   ├── wato_msgs
-│   │   └── sample_msgs
-│   │       ├── CMakeLists.txt
-│   │       ├── msg
-│   │       └── package.xml
-│   ├── samples
-│   │   └── cpp
-│   │       ├── aggregator
-│   │       ├── image
-│   │       ├── producer
-│   │       ├── README.md
-│   │       └── transformer
-│   ├── sensor_interfacing
-│   ├── simulation
-│   ├── tools
-│   └── world_modeling
-└── watod
-```
-
 ### Interfacing
 
 Launches packages directly connecting to hardware. This includes the sensors of the car and the car itself. [see docs](src/interfacing/INTERFACING_README.md)
