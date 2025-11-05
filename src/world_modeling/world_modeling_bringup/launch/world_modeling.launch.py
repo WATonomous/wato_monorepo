@@ -96,15 +96,35 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("occupancy_segmentation_param_file")],
     )
 
+    # Prediction Node Configuration:
+    prediction_pkg_prefix = get_package_share_directory("prediction")
+    prediction_param_file = os.path.join(prediction_pkg_prefix, "config", "params.yaml")
+
+    prediction_param = DeclareLaunchArgument(
+        "prediction_param_file",
+        default_value=prediction_param_file,
+        description="Path to config file for prediction node",
+    )
+
+    prediction_node = Node(
+        package="prediction",
+        executable="prediction_node",
+        name="prediction_node",
+        output="screen",
+        parameters=[LaunchConfiguration("prediction_param_file")],
+    )
+
     return LaunchDescription(
         [
             hd_map_param,
             localization_param,
             state_estimation_param,
             occupancy_seg_param,
+            prediction_param,
             hd_map_node,
             localization_launch,
             state_estimation_node,
             occupancy_seg_node,
+            prediction_node,
         ]
     )
