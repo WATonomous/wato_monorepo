@@ -7,6 +7,9 @@ code_server_config/*/start_code_server.sh
 .vscode/
 ssh_config/
 .ruff_cache/
+build/
 
 watod-config.local.sh
 watod-config.sh
+
+GEMINI.md
