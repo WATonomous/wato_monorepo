@@ -40,41 +40,30 @@ add_executable(tracking_2d_node src/tracking_2d.cpp)
 
 # Include directories
 target_include_directories(tracking_2d_node
-    PUBLIC
-    include
-    ${EIGEN3_INCLUDE_DIRS}
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${BYTETRACK_DIR}/include
-)
-
-# Set target properties
-set_target_properties(tracking_2d_node PROPERTIES
-    INSTALL_RPATH ${BYTETRACK_DIR}/lib
+    ${EIGEN3_INCLUDE_DIRS}
 )
 
 # Link libraries
 target_link_libraries(tracking_2d_node
+    PRIVATE
     ${BYTETRACK_DIR}/lib/libbytetrack.so
-)
-
-# Add ROS 2 dependencies
-ament_target_dependencies(tracking_2d_node
-    rclcpp
-    vision_msgs
-    std_msgs
-    tracking_2d_msgs
+    rclcpp::rclcpp
+    ${vision_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    ${tracking_2d_msgs_TARGETS}
 )
 
 # Install the executable
-install(TARGETS
-    tracking_2d_node
-    DESTINATION lib/${PROJECT_NAME}
-)
+install(TARGETS tracking_2d_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 
-# Install launch files (if any)
-install(DIRECTORY
-    launch
-    DESTINATION share/${PROJECT_NAME}
-)
+# Install launch files
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+
+# Install config
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # Export dependencies
 ament_package()

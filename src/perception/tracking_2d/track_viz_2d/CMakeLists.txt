@@ -39,37 +39,31 @@ add_executable(track_viz_2d_node src/track_viz_2d.cpp)
 
 # Include directories
 target_include_directories(track_viz_2d_node
-    PUBLIC
-    include
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${OpenCV_INCLUDE_DIRS}
 )
 
 # Link libraries
 target_link_libraries(track_viz_2d_node
+    PRIVATE
+    rclcpp::rclcpp
+    ${sensor_msgs_TARGETS}
+    ${vision_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    ${tracking_2d_msgs_TARGETS}
+    cv_bridge::cv_bridge
     ${OpenCV_LIBS}
 )
 
-# Add ROS 2 dependencies
-ament_target_dependencies(track_viz_2d_node
-    rclcpp
-    sensor_msgs
-    vision_msgs
-    std_msgs
-    tracking_2d_msgs
-    cv_bridge
-)
-
 # Install the executable
-install(TARGETS
-    track_viz_2d_node
-    DESTINATION lib/${PROJECT_NAME}
-)
+install(TARGETS track_viz_2d_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 # Install launch files (if any)
-install(DIRECTORY
-    launch
-    DESTINATION share/${PROJECT_NAME}
-)
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+
+# Install config
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # Export dependencies
 ament_package()
