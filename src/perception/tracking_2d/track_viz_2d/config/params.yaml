@@ -1,9 +1,5 @@
 track_viz_2d:
   ros__parameters:
-    detections_topic: /camera_object_detections
-    track_topic: /tracked_boxes
-    image_sub_topic: /CAM_FRONT/image_rect_compressed
-    image_pub_topic: /annotated_image
     camera_frame: CAM_FRONT
     color_dets: blue
     color_trks: red

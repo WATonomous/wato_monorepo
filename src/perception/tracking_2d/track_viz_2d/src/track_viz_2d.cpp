@@ -24,40 +24,23 @@ track_viz_2d::track_viz_2d()
 
   // Subscribers
   dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
-    detections_topic_, 10, std::bind(&track_viz_2d::detectionsCallback, this, std::placeholders::_1));
+    kDetectionsTopic, 10, std::bind(&track_viz_2d::detectionsCallback, this, std::placeholders::_1));
   trks_sub_ = this->create_subscription<tracking_2d_msgs::msg::Tracking2DArray>(
-    track_topic_, 10, std::bind(&track_viz_2d::tracksCallback, this, std::placeholders::_1));
+    kTracksTopic, 10, std::bind(&track_viz_2d::tracksCallback, this, std::placeholders::_1));
   image_sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-    image_sub_topic_, 10, std::bind(&track_viz_2d::imageCallback, this, std::placeholders::_1));
+    kImageSubTopic, 10, std::bind(&track_viz_2d::imageCallback, this, std::placeholders::_1));
 
   // Publishers
-  image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(image_pub_topic_, 10);
+  image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(kImagePubTopic, 10);
 }
 
 void track_viz_2d::initializeParams()
 {
   // Declare parameters
-  this->declare_parameter<std::string>("detections_topic", "/camera_object_detections");
-  this->declare_parameter<std::string>("track_topic", "/tracked_boxes");
-  this->declare_parameter<std::string>("image_sub_topic", "/CAM_FRONT/image_rect_compressed");
-  this->declare_parameter<std::string>("image_pub_topic", "/annotated_image");
-  this->declare_parameter<std::string>("camera_frame", "CAM_FRONT");
-  this->declare_parameter<std::string>("color_dets", "blue");
-  this->declare_parameter<std::string>("color_trks", "red");
-  this->declare_parameter<int>("bbox_line_width", 5);
-
-  // Get parameters
-  bool params_ok = true;
-
-  // Automatic type assignment, catch errors with params_ok
-  params_ok &= this->get_parameter("detections_topic", detections_topic_);  // string
-  params_ok &= this->get_parameter("track_topic", track_topic_);  // string
-  params_ok &= this->get_parameter("image_sub_topic", image_sub_topic_);  // string
-  params_ok &= this->get_parameter("image_pub_topic", image_pub_topic_);  // string
-  params_ok &= this->get_parameter("camera_frame", camera_frame_);  // string
-  params_ok &= this->get_parameter("color_dets", color_dets_);  // string
-  params_ok &= this->get_parameter("color_trks", color_trks_);  // string
-  params_ok &= this->get_parameter("bbox_line_width", bbox_line_width_);  // int
+  camera_frame_ = this->declare_parameter<std::string>("camera_frame", "CAM_FRONT");
+  color_dets_ = this->declare_parameter<std::string>("color_dets", "blue");
+  color_trks_ = this->declare_parameter<std::string>("color_trks", "red");
+  bbox_line_width_ = this->declare_parameter<int>("bbox_line_width", 5);
 
   // bgr
   color_map_ = {
@@ -73,10 +56,7 @@ void track_viz_2d::initializeParams()
   latest_image_ = nullptr;
   latest_dets_ = nullptr;
 
-  if (!params_ok)
-    RCLCPP_WARN(this->get_logger(), "One or more parameters could not be initialized");
-  else
-    RCLCPP_INFO(this->get_logger(), "Parameters initialized");
+  RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
 // Get color from color_map_ using key

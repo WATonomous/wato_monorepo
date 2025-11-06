@@ -25,10 +25,10 @@ tracking_2d::tracking_2d()
 
   // Subscribers
   dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
-    detections_topic_, 10, std::bind(&tracking_2d::detectionsCallback, this, std::placeholders::_1));
+    kDetectionsTopic, 10, std::bind(&tracking_2d::detectionsCallback, this, std::placeholders::_1));
 
   // Publishers
-  tracked_dets_pub_ = this->create_publisher<tracking_2d_msgs::msg::Tracking2DArray>(track_topic_, 10);
+  tracked_dets_pub_ = this->create_publisher<tracking_2d_msgs::msg::Tracking2DArray>(kTracksTopic, 10);
 
   // ByteTrack tracker
   tracker_ =
@@ -38,32 +38,13 @@ tracking_2d::tracking_2d()
 void tracking_2d::initializeParams()
 {
   // Declare parameters
-  this->declare_parameter<std::string>("detections_topic", "/camera_object_detections");
-  this->declare_parameter<std::string>("track_topic", "/tracked_boxes");
+  frame_rate_ = this->declare_parameter<int>("frame_rate", 30);
+  track_buffer_ = this->declare_parameter<int>("track_buffer", 30);
+  track_thresh_ = static_cast<float>(this->declare_parameter<double>("track_thresh", 0.5));
+  high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
+  match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 0.8));
 
-  this->declare_parameter<int>("frame_rate", 30);
-  this->declare_parameter<int>("track_buffer", 30);
-  this->declare_parameter<double>("track_thresh", 0.5);
-  this->declare_parameter<double>("high_thresh", 0.6);
-  this->declare_parameter<double>("match_thresh", 0.8);
-
-  // Get parameters
-  bool params_ok = true;
-
-  // Automatic type assignment, catch errors with params_ok
-  params_ok &= this->get_parameter("detections_topic", detections_topic_);  // string
-  params_ok &= this->get_parameter("track_topic", track_topic_);  // string
-
-  params_ok &= this->get_parameter("frame_rate", frame_rate_);  // int
-  params_ok &= this->get_parameter("track_buffer", track_buffer_);  // int
-  params_ok &= this->get_parameter("track_thresh", track_thresh_);  // float
-  params_ok &= this->get_parameter("high_thresh", high_thresh_);  // float
-  params_ok &= this->get_parameter("match_thresh", match_thresh_);  // float
-
-  if (!params_ok)
-    RCLCPP_WARN(this->get_logger(), "One or more parameters could not be initialized");
-  else
-    RCLCPP_INFO(this->get_logger(), "Parameters initialized");
+  RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
 // Convert from ros msgs to bytetrack's required format
