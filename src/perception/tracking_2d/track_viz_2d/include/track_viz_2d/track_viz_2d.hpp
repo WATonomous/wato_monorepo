@@ -33,18 +33,59 @@ class track_viz_2d : public rclcpp::Node
 public:
   track_viz_2d();
 
+  static constexpr auto kDetectionsTopic = "input_detections";
+  static constexpr auto kTracksTopic = "input_tracks";
+  static constexpr auto kImageSubTopic = "input_image";
+  static constexpr auto kImagePubTopic = "output_image";
+
 private:
+  void initializeParams();
+  /*
+   * Initialize required parameters for visualization.
+  */
+
   // Callback functions
   void detectionsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
+  /*
+   * Callback function for incoming detections.
+   * Saves the latest detection for use when tracks are received.
+  */
   void tracksCallback(const tracking_2d_msgs::msg::Tracking2DArray::SharedPtr msg);
+  /*
+   * Callback function for incoming tracks.
+   * Initiates image annotation using the received tracks,
+   * latest image, and latest detections.
+   * Also decodes compressed images as required.
+  */
   void imageCallback(const sensor_msgs::msg::CompressedImage::SharedPtr msg);
+  /*
+   * Callback function for incoming images.
+   * Saves the latest image for use when tracks are received.
+   * Does not perform image decoding since frames without
+   * associated tracks and detections will be discarded anyways.
+  */
 
   // Helper functions
   cv::Scalar colorLookup(std::string color);
+  /*
+   * Performs color lookup in the color map.
+   * Handles cases where the key is not in the map.
+  */
   void drawDets(cv::Mat & image, const std::vector<vision_msgs::msg::Detection2D> & dets, const cv::Scalar & color);
+  /*
+   * Draws bounding boxes for detections onto the given image.
+  */
   void drawTracks(
     cv::Mat & image, const std::vector<tracking_2d_msgs::msg::Tracking2D> & trks, const cv::Scalar & color);
+  /*
+   * Draws bounding boxes for tracks onto the given image.
+  */
   void tryDraw(cv::Mat & decoded_img, const tracking_2d_msgs::msg::Tracking2DArray::SharedPtr latest_trks_);
+  /*
+   * Attempts to draw bounding boxes onto the given image.
+   * Returns with a warning if drawing is unsuccessful for any reason
+   * (e.g. missing image or detections).
+  */
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr dets_sub_;
@@ -55,11 +96,6 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
 
   // Parameters
-  void initializeParams();
-  std::string detections_topic_;
-  std::string track_topic_;
-  std::string image_sub_topic_;
-  std::string image_pub_topic_;
   std::string camera_frame_;
   std::string color_dets_;
   std::string color_trks_;
