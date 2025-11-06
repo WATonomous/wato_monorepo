@@ -1,0 +1,49 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+launch:
+  # Declare launch arguments for pub and sub topics
+  - arg:
+      name: detections_topic
+      default: /camera_object_detections
+      description: 2D detection topic being subscribed to
+  - arg:
+      name: tracks_topic
+      default: /tracked_boxes
+      description: 2D tracks topic being subscribed to
+  - arg:
+      name: image_sub_topic
+      default: /CAM_FRONT/image_rect_compressed
+      description: Image topic being subscribed to
+  - arg:
+      name: image_pub_topic
+      default: /annotated_image
+      description: Topic to publish annotated images to
+
+  # Launch the 2D tracking node
+  - node:
+      pkg: track_viz_2d
+      exec: track_viz_2d_node
+      name: track_viz_2d_node
+      output: screen
+      param:
+        - from: $(find-pkg-share track_viz_2d)/config/params.yaml
+      remap:
+        - from: input_detections
+          to: $(var detections_topic)
+        - from: input_tracks
+          to: $(var tracks_topic)
+        - from: input_image
+          to: $(var image_sub_topic)
+        - from: output_image
+          to: $(var image_pub_topic)
