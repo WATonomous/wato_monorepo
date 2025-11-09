@@ -58,37 +58,20 @@ ament_target_dependencies(prediction_lib
   tf2
   tf2_ros)
 
-# # By default tests are built. This can be overridden by modifying the
-# # colcon build command to include the -DBUILD_TESTING=OFF flag.
-# option(BUILD_TESTING "Build tests" ON)
-# if(BUILD_TESTING)
-#   # Search for dependencies required for building tests + linting
-#   find_package(ament_cmake_gtest REQUIRED)
-#   find_package(ament_lint_auto REQUIRED)
-#   find_package(ament_lint_common REQUIRED)
-#
-#   # Remove the default C++ and copyright linter
-#   list(APPEND AMENT_LINT_AUTO_EXCLUDE
-#     ament_cmake_cpplint
-#     ament_cmake_copyright)
-#
-#   # Reinstall cpplint ignoring copyright errors
-#   ament_cpplint(FILTERS "-legal/copyright")
-#
-#   ament_lint_auto_find_test_dependencies()
-#
-#   # Create test executable from source files
-#   ament_add_gtest(sample_test test/sample_test.cpp)
-#   # Link to the previously built library to access Sample classes and methods
-#   target_link_libraries(sample_test
-#     kalman_filter_lib
-#     gtest_main)
-#
-#   # Copy executable to installation location
-#   install(TARGETS
-#   sample_test
-#     DESTINATION lib/${PROJECT_NAME})
-# endif()
+# By default tests are built. This can be overridden by modifying the
+# colcon build command to include the -DBUILD_TESTING=OFF flag.
+option(BUILD_TESTING "Build tests" ON)
+if(BUILD_TESTING)
+  # Search for dependencies required for building tests
+  find_package(wato_test REQUIRED)
+
+  # Create test executable using wato_test
+  add_wato_test(object_adapter_test
+    tests/object_adapter_test.cpp
+    LIBRARIES
+      prediction_lib
+  )
+endif()
 
 # Create ROS2 node executable from source files
 add_executable(prediction_node src/kalman_filter.cpp)
