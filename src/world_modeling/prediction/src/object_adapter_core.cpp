@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "prediction/object_adapter.hpp"
+#include "prediction/object_adapter_core.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 
@@ -28,27 +28,20 @@ double get_yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
 }
 }  // namespace
 
-ObjectAdapter::ObjectAdapter()
-: Node("object_adapter")
-{
-  // Subscriber
-  subscription_ = this->create_subscription<visualization_msgs::msg::MarkerArray>(
-    "hd_map_viz", 10,
-    std::bind(&ObjectAdapter::marker_array_callback, this, std::placeholders::_1));
+wato::world_modeling::prediction::ObjectAdapterCore::ObjectAdapterCore()
+{}
 
-  // Publisher
-  publisher_ = this->create_publisher<autoware_perception_msgs::msg::TrackedObjects>(
-    "/prediction/tracked_objects", 10);
-}
-
-void ObjectAdapter::marker_array_callback(const visualization_msgs::msg::MarkerArray::SharedPtr msg)
+void wato::world_modeling::prediction::ObjectAdapterCore::processMarkerArray(
+  const visualization_msgs::msg::MarkerArray::SharedPtr & msg,
+  autoware_perception_msgs::msg::TrackedObjects & tracked_objects)
 {
-  autoware_perception_msgs::msg::TrackedObjects tracked_objects;
   if (!msg->markers.empty()) {
     tracked_objects.header = msg->markers[0].header;
   } else {
-    tracked_objects.header.stamp = this->now();
+    // Note: We cannot set timestamp here without a clock reference
+    // The node will need to set this
     tracked_objects.header.frame_id = "map";
+    return;
   }
 
   const rclcpp::Time current_time = tracked_objects.header.stamp;
@@ -117,14 +110,4 @@ void ObjectAdapter::marker_array_callback(const visualization_msgs::msg::MarkerA
 
   prev_objects_ = new_objects;
   prev_time_ = current_time;
-
-  publisher_->publish(tracked_objects);
-}
-
-int main(int argc, char * argv[])
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<ObjectAdapter>());
-  rclcpp::shutdown();
-  return 0;
 }

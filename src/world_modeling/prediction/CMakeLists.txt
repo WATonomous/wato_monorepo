@@ -41,7 +41,7 @@ find_package(common_msgs REQUIRED)
 # both the unit test and ROS2 node executables.
 add_library(prediction_lib
   src/utils.cpp
-  include/prediction/object_adapter.hpp
+  src/object_adapter_core.cpp
 )
 
 # Indicate to compiler where to search for header files
@@ -95,7 +95,7 @@ add_executable(prediction_node src/kalman_filter.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(prediction_node prediction_lib)
 
-add_executable(object_adapter_node src/object_adapter.cpp)
+add_executable(object_adapter_node src/object_adapter_node.cpp)
 target_link_libraries(object_adapter_node prediction_lib)
 
 # Copy executable to installation location

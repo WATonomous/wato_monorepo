@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef PREDICTION__OBJECT_ADAPTER_HPP_
-#define PREDICTION__OBJECT_ADAPTER_HPP_
+#ifndef PREDICTION__OBJECT_ADAPTER_NODE_HPP_
+#define PREDICTION__OBJECT_ADAPTER_NODE_HPP_
 
 #include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <autoware_perception_msgs/msg/tracked_objects.hpp>
-#include <autoware_perception_msgs/msg/tracked_object.hpp>
-#include <unordered_map>
+
+#include "prediction/object_adapter_core.hpp"
 
 class ObjectAdapter : public rclcpp::Node
 {
@@ -32,9 +32,7 @@ private:
   rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr subscription_;
   rclcpp::Publisher<autoware_perception_msgs::msg::TrackedObjects>::SharedPtr publisher_;
 
-  std::unordered_map<int, autoware_perception_msgs::msg::TrackedObject> prev_objects_;
-  rclcpp::Time prev_time_;
-  bool is_first_ = true;
+  wato::world_modeling::prediction::ObjectAdapterCore object_adapter_;
 };
 
-#endif  // PREDICTION__OBJECT_ADAPTER_HPP_
+#endif  // PREDICTION__OBJECT_ADAPTER_NODE_HPP_
