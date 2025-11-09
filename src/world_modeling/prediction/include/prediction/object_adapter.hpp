@@ -12,10 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef OBJECT_ADAPTER
-#define OBJECT_ADAPTER
+#ifndef PREDICTION__OBJECT_ADAPTER_HPP_
+#define PREDICTION__OBJECT_ADAPTER_HPP_
 
-class ObjectAdapter
-{};
+#include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <autoware_perception_msgs/msg/tracked_objects.hpp>
+#include <autoware_perception_msgs/msg/tracked_object.hpp>
+#include <unordered_map>
 
-#endif
+class ObjectAdapter : public rclcpp::Node
+{
+public:
+  ObjectAdapter();
+
+private:
+  void marker_array_callback(const visualization_msgs::msg::MarkerArray::SharedPtr msg);
+
+  rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr subscription_;
+  rclcpp::Publisher<autoware_perception_msgs::msg::TrackedObjects>::SharedPtr publisher_;
+
+  std::unordered_map<int, autoware_perception_msgs::msg::TrackedObject> prev_objects_;
+  rclcpp::Time prev_time_;
+  bool is_first_ = true;
+};
+
+#endif  // PREDICTION__OBJECT_ADAPTER_HPP_

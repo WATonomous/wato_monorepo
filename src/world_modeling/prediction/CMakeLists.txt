@@ -26,6 +26,10 @@ endif()
 # ---- General ROS 2 Packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(autoware_perception_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 # ---- Msg Packages
 find_package(common_msgs REQUIRED)
@@ -37,6 +41,7 @@ find_package(common_msgs REQUIRED)
 # both the unit test and ROS2 node executables.
 add_library(prediction_lib
   src/utils.cpp
+  include/prediction/object_adapter.hpp
 )
 
 # Indicate to compiler where to search for header files
@@ -48,7 +53,10 @@ target_include_directories(prediction_lib
 ament_target_dependencies(prediction_lib
   rclcpp
   common_msgs
-  )
+  autoware_perception_msgs
+  visualization_msgs
+  tf2
+  tf2_ros)
 
 # # By default tests are built. This can be overridden by modifying the
 # # colcon build command to include the -DBUILD_TESTING=OFF flag.
@@ -87,9 +95,13 @@ add_executable(prediction_node src/kalman_filter.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(prediction_node prediction_lib)
 
+add_executable(object_adapter_node src/object_adapter.cpp)
+target_link_libraries(object_adapter_node prediction_lib)
+
 # Copy executable to installation location
 install(TARGETS
-prediction_node
+  prediction_node
+  object_adapter_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location
