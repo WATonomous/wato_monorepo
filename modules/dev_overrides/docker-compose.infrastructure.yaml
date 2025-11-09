@@ -9,3 +9,5 @@ services:
     extends:
       file: ../docker-compose.infrastructure.yaml
       service: data_stream
+    volumes:
+      - ../../data:/home/bolty/ament_ws/data
