@@ -15,9 +15,6 @@
   <depend>ByteTrack-cpp</depend>
   <depend>eigen3-cmake-module</depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
-
   <export>
     <build_type>ament_cmake</build_type>
   </export>
