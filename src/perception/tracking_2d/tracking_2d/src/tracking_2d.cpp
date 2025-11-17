@@ -28,7 +28,7 @@ tracking_2d::tracking_2d()
     kDetectionsTopic, 10, std::bind(&tracking_2d::detectionsCallback, this, std::placeholders::_1));
 
   // Publishers
-  tracked_dets_pub_ = this->create_publisher<tracking_2d_msgs::msg::Tracking2DArray>(kTracksTopic, 10);
+  tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection2DArray>(kTracksTopic, 10);
 
   // ByteTrack tracker
   tracker_ =
@@ -44,7 +44,24 @@ void tracking_2d::initializeParams()
   high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 0.8));
 
+  class_map_ = {
+    {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 5},
+    // etc...
+  };
+
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
+}
+
+// Get class from class_map_ using key
+int tracking_2d::classLookup(const std::string & class_name)
+{
+  auto it = class_map_.find(class_name);
+  if (it != class_map_.end())
+    return it->second;
+  else {  // Class key not in map
+    RCLCPP_WARN(this->get_logger(), "Class '%s' not found, defaulting to 0 as id", class_name.c_str());
+    return 0;
+  }
 }
 
 // Convert from ros msgs to bytetrack's required format
@@ -53,7 +70,6 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::ms
   std::vector<byte_track::Object> objs;
   objs.reserve(dets->detections.size());
 
-  int inc_id = 0;  // Manually set incrementing id (approach subject to change)
   for (const auto & det : dets->detections) {
     // Convert from Detection2D to byte_track::Object
     float width = det.bbox.size_x;
@@ -65,8 +81,6 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::ms
     int label;
     float prob;
 
-    byte_track::Object obj(rect, label, prob);
-
     // Get highest scored hypothesis
     auto best_hyp = std::max_element(
       det.results.begin(),
@@ -76,29 +90,27 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::ms
       });
 
     if (best_hyp == det.results.end()) {
-      throw std::runtime_error("det.results must be non-empty");
+      RCLCPP_WARN(this->get_logger(), "det.results must be non-empty, falling back to dummy values");
+      label = -1;
+      prob = 0.0;
     } else {
-      label = inc_id;
+      label = classLookup(best_hyp->hypothesis.class_id);
       prob = best_hyp->hypothesis.score;
     }
 
-    obj.rect = rect;
-    obj.label = label;
-    obj.prob = prob;
+    byte_track::Object obj(rect, label, prob);
     objs.push_back(obj);
-
-    ++inc_id;
   }
 
   return objs;
 }
 
 // Convert from bytetrack format back to ros msgs
-tracking_2d_msgs::msg::Tracking2DArray tracking_2d::STracksToTracks(
+vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
   const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header)
 {
   // Use same header as detections for same time stamps
-  tracking_2d_msgs::msg::Tracking2DArray trks;
+  vision_msgs::msg::Detection2DArray trks;
   trks.header.frame_id = header.frame_id;
   trks.header.stamp = header.stamp;
 
@@ -106,22 +118,25 @@ tracking_2d_msgs::msg::Tracking2DArray tracking_2d::STracksToTracks(
     // Convert STrackPtr to Detection2D
     auto rect = strk_ptr->getRect();
     auto score = strk_ptr->getScore();
-    auto trk_id = strk_ptr->getTrackId();
+    auto trk_id = std::to_string(strk_ptr->getTrackId());
 
-    tracking_2d_msgs::msg::Tracking2D trk;
+    vision_msgs::msg::Detection2D trk;
     trk.header.frame_id = header.frame_id;
     trk.header.stamp = header.stamp;
 
+    vision_msgs::msg::ObjectHypothesisWithPose hyp;
+    hyp.hypothesis.score = score;
+    hyp.hypothesis.class_id = trk_id;
+    trk.results.push_back(hyp);
+
+    trk.bbox.center.position.x = rect.x() + rect.width() / 2;
+    trk.bbox.center.position.y = rect.y() + rect.height() / 2;
+    trk.bbox.size_x = rect.width();
+    trk.bbox.size_y = rect.height();
+
     trk.id = trk_id;
 
-    trk.cx = rect.x() + rect.width() / 2;
-    trk.cy = rect.y() + rect.height() / 2;
-    trk.width = rect.width();
-    trk.height = rect.height();
-
-    trk.score = score;
-
-    trks.tracks.push_back(trk);
+    trks.detections.push_back(trk);
   }
 
   return trks;

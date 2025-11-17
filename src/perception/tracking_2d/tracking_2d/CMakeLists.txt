@@ -30,9 +30,8 @@ set(BYTETRACK_DIR /usr/local)
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(vision_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(tracking_2d_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # Add the executable for the tracking_2d node
@@ -51,9 +50,8 @@ target_link_libraries(tracking_2d_node
     PRIVATE
     ${BYTETRACK_DIR}/lib/libbytetrack.so
     rclcpp::rclcpp
-    ${vision_msgs_TARGETS}
     ${std_msgs_TARGETS}
-    ${tracking_2d_msgs_TARGETS}
+    ${vision_msgs_TARGETS}
 )
 
 # Install the executable

@@ -4,15 +4,14 @@
   <name>tracking_2d</name>
   <version>0.0.0</version>
   <description>tracking_2d package</description>
-  <maintainer email="k279huan@uwaterloo.ca">Kevin Huang</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <depend>vision_msgs</depend>
   <depend>std_msgs</depend>
-  <depend>tracking_2d_msgs</depend>
+  <depend>vision_msgs</depend>
   <depend>ByteTrack-cpp</depend>
   <depend>eigen3-cmake-module</depend>
 
