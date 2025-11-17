@@ -7,12 +7,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Torch REQUIRED)
+find_package(carla_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 add_executable(mppi_node src/mppi_node.cpp)
 
 # Let ament set up include dirs and link flags for rclcpp
 ament_target_dependencies(mppi_node
   rclcpp
+  carla_msgs
+  geometry_msgs
+  nav_msgs
+  geometry_msgs
 )
 
 # Link against libtorch
