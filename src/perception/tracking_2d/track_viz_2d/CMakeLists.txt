@@ -27,12 +27,9 @@ endif()
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(vision_msgs REQUIRED)
+find_package(foxglove_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(tracking_2d_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(OpenCV REQUIRED)
+find_package(vision_msgs REQUIRED)
 
 # Add the executable for the track_viz_2d node
 add_executable(track_viz_2d_node src/track_viz_2d.cpp)
@@ -41,19 +38,15 @@ add_executable(track_viz_2d_node src/track_viz_2d.cpp)
 target_include_directories(track_viz_2d_node
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${OpenCV_INCLUDE_DIRS}
 )
 
 # Link libraries
 target_link_libraries(track_viz_2d_node
     PRIVATE
     rclcpp::rclcpp
-    ${sensor_msgs_TARGETS}
-    ${vision_msgs_TARGETS}
+    ${foxglove_msgs_TARGETS}
     ${std_msgs_TARGETS}
-    ${tracking_2d_msgs_TARGETS}
-    cv_bridge::cv_bridge
-    ${OpenCV_LIBS}
+    ${vision_msgs_TARGETS}
 )
 
 # Install the executable

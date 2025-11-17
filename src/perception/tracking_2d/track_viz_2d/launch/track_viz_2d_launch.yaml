@@ -22,13 +22,9 @@ launch:
       default: /tracked_boxes
       description: 2D tracks topic being subscribed to
   - arg:
-      name: image_sub_topic
-      default: /CAM_FRONT/image_rect_compressed
+      name: annotations_topic
+      default: /track_annotations
       description: Image topic being subscribed to
-  - arg:
-      name: image_pub_topic
-      default: /annotated_image
-      description: Topic to publish annotated images to
 
   # Launch the 2D tracking node
   - node:
@@ -43,7 +39,5 @@ launch:
           to: $(var detections_topic)
         - from: input_tracks
           to: $(var tracks_topic)
-        - from: input_image
-          to: $(var image_sub_topic)
-        - from: output_image
-          to: $(var image_pub_topic)
+        - from: output_annotations
+          to: $(var annotations_topic)

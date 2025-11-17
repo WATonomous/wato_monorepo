@@ -25,13 +25,11 @@ track_viz_2d::track_viz_2d()
   // Subscribers
   dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
     kDetectionsTopic, 10, std::bind(&track_viz_2d::detectionsCallback, this, std::placeholders::_1));
-  trks_sub_ = this->create_subscription<tracking_2d_msgs::msg::Tracking2DArray>(
+  trks_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
     kTracksTopic, 10, std::bind(&track_viz_2d::tracksCallback, this, std::placeholders::_1));
-  image_sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-    kImageSubTopic, 10, std::bind(&track_viz_2d::imageCallback, this, std::placeholders::_1));
 
   // Publishers
-  image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(kImagePubTopic, 10);
+  annotations_pub_ = this->create_publisher<foxglove_msgs::msg::ImageAnnotations>(kAnnotationsTopic, 10);
 }
 
 void track_viz_2d::initializeParams()
@@ -42,25 +40,45 @@ void track_viz_2d::initializeParams()
   color_trks_ = this->declare_parameter<std::string>("color_trks", "red");
   bbox_line_width_ = this->declare_parameter<int>("bbox_line_width", 5);
 
-  // bgr
+  // RGBA
   color_map_ = {
-    {"red", cv::Scalar(0, 0, 255)},
-    {"green", cv::Scalar(0, 255, 0)},
-    {"blue", cv::Scalar(255, 0, 0)},
-    {"white", cv::Scalar(255, 255, 255)},
-    {"black", cv::Scalar(0, 0, 0)},
+    {"red", initColor(1.0, 0.0, 0.0, 1.0)},
+    {"green", initColor(0.0, 1.0, 0.0, 1.0)},
+    {"blue", initColor(0.0, 0.0, 1.0, 1.0)},
+    {"white", initColor(1.0, 1.0, 1.0, 1.0)},
+    {"black", initColor(0.0, 0.0, 0.0, 1.0)},
   };
 
-  default_color_ = cv::Scalar(255, 0, 0);  // bgr
+  default_color_ = initColor(0.0, 0.0, 1.0, 1.0);  // RGBA
 
-  latest_image_ = nullptr;
   latest_dets_ = nullptr;
+  latest_trks_ = nullptr;
 
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
+// Initialize foxglove Color from rbga values
+foxglove_msgs::msg::Color track_viz_2d::initColor(double r, double g, double b, double a)
+{
+  foxglove_msgs::msg::Color color;
+  color.r = r;
+  color.g = g;
+  color.b = b;
+  color.a = a;
+  return color;
+}
+
+// Initialize foxglove Point2 from x y
+foxglove_msgs::msg::Point2 track_viz_2d::initPoint2(double x, double y)
+{
+  foxglove_msgs::msg::Point2 pt;
+  pt.x = x;
+  pt.y = y;
+  return pt;
+}
+
 // Get color from color_map_ using key
-cv::Scalar track_viz_2d::colorLookup(std::string color)
+foxglove_msgs::msg::Color track_viz_2d::colorLookup(const std::string & color)
 {
   auto it = color_map_.find(color);
   if (it != color_map_.end())
@@ -71,69 +89,54 @@ cv::Scalar track_viz_2d::colorLookup(std::string color)
   }
 }
 
-// Draw a set of detection boxes onto the image
-void track_viz_2d::drawDets(
-  cv::Mat & image, const std::vector<vision_msgs::msg::Detection2D> & dets, const cv::Scalar & color)
+// Convert a Detection2D message into a PointsAnnotation message
+foxglove_msgs::msg::PointsAnnotation track_viz_2d::det2DToBox(
+  const vision_msgs::msg::Detection2D & det2d, const foxglove_msgs::msg::Color & color)
 {
-  for (const auto & det : dets) {
-    int x = static_cast<int>(det.bbox.center.position.x - det.bbox.size_x / 2);
-    int y = static_cast<int>(det.bbox.center.position.y - det.bbox.size_y / 2);
-    int width = static_cast<int>(det.bbox.size_x);
-    int height = static_cast<int>(det.bbox.size_y);
+  // Initialize bbox
+  foxglove_msgs::msg::PointsAnnotation bbox;
+  bbox.timestamp = this->now();
+  bbox.type = bbox.LINE_LOOP;  // Closed polygon
 
-    cv::Rect rect(x, y, width, height);
+  // Push box corners (top-left, top-right, bottom-right, bottom-left)
+  bbox.points.push_back(initPoint2(
+    det2d.bbox.center.position.x - det2d.bbox.size_x / 2, det2d.bbox.center.position.y - det2d.bbox.size_y / 2));
+  bbox.points.push_back(initPoint2(
+    det2d.bbox.center.position.x + det2d.bbox.size_x / 2, det2d.bbox.center.position.y - det2d.bbox.size_y / 2));
+  bbox.points.push_back(initPoint2(
+    det2d.bbox.center.position.x + det2d.bbox.size_x / 2, det2d.bbox.center.position.y + det2d.bbox.size_y / 2));
+  bbox.points.push_back(initPoint2(
+    det2d.bbox.center.position.x - det2d.bbox.size_x / 2, det2d.bbox.center.position.y + det2d.bbox.size_y / 2));
 
-    cv::rectangle(image, rect, color, bbox_line_width_);
-  }
-}
+  // Color and width
+  bbox.outline_color = color;
+  bbox.thickness = bbox_line_width_;
 
-// Draw a set of track boxes onto the image
-void track_viz_2d::drawTracks(
-  cv::Mat & image, const std::vector<tracking_2d_msgs::msg::Tracking2D> & trks, const cv::Scalar & color)
-{
-  for (const auto & trk : trks) {
-    int x = static_cast<int>(trk.cx - trk.width / 2);
-    int y = static_cast<int>(trk.cy - trk.height / 2);
-    int width = static_cast<int>(trk.width);
-    int height = static_cast<int>(trk.height);
-
-    cv::Rect rect(x, y, width, height);
-
-    cv::rectangle(image, rect, color, bbox_line_width_);
-  }
+  return bbox;
 }
 
 // Attempt box drawing
-void track_viz_2d::tryDraw(cv::Mat & decoded_img, const tracking_2d_msgs::msg::Tracking2DArray::SharedPtr latest_trks_)
+void track_viz_2d::tryAnnotation()
 {
   // Check if image or detections are missing for whatever reason
-  if (decoded_img.empty() || !latest_dets_) {
-    RCLCPP_WARN(this->get_logger(), "Missing image or detections");
+  if (!latest_trks_ || !latest_dets_) {
+    RCLCPP_WARN(this->get_logger(), "Missing image or tracks");
     return;
   }
 
   const std::vector<vision_msgs::msg::Detection2D> dets = latest_dets_->detections;
-  const std::vector<tracking_2d_msgs::msg::Tracking2D> trks = latest_trks_->tracks;
+  const std::vector<vision_msgs::msg::Detection2D> trks = latest_trks_->detections;
 
-  // Draw boxes onto image
-  drawDets(decoded_img, dets, colorLookup(color_dets_));
-  drawTracks(decoded_img, trks, colorLookup(color_trks_));
+  foxglove_msgs::msg::ImageAnnotations bboxes;
 
-  // Prepare image for publishing
-  std_msgs::msg::Header header;
-  header.frame_id = camera_frame_;
-  header.stamp = this->now();
+  foxglove_msgs::msg::Color det_color = colorLookup(color_dets_);
+  foxglove_msgs::msg::Color trk_color = colorLookup(color_trks_);
 
-  cv_bridge::CvImage cv_img(header, "bgr8", decoded_img);
+  // Push bboxes for detections and tracks
+  for (const auto & trk : trks) bboxes.points.push_back(det2DToBox(trk, trk_color));
+  for (const auto & det : dets) bboxes.points.push_back(det2DToBox(det, det_color));
 
-  RCLCPP_DEBUG(this->get_logger(), "Publishing image...");
-  image_pub_->publish(*(cv_img.toImageMsg()));
-}
-
-// Save most recent image
-void track_viz_2d::imageCallback(const sensor_msgs::msg::CompressedImage::SharedPtr msg)
-{
-  latest_image_ = msg;
+  annotations_pub_->publish(bboxes);
 }
 
 // Save most recent detections
@@ -143,25 +146,10 @@ void track_viz_2d::detectionsCallback(const vision_msgs::msg::Detection2DArray::
 }
 
 // Image annotation triggered upon receiving tracks
-void track_viz_2d::tracksCallback(const tracking_2d_msgs::msg::Tracking2DArray::SharedPtr msg)
+void track_viz_2d::tracksCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
 {
-  if (!latest_image_) {
-    RCLCPP_WARN(this->get_logger(), "Missing image");
-    return;
-  }
-
-  try {
-    // Attempt to decode compressed image
-    const std::vector<uint8_t> & raw_data = latest_image_->data;
-    cv::Mat decoded = cv::imdecode(raw_data, cv::IMREAD_COLOR);
-    if (decoded.empty()) {
-      RCLCPP_WARN(this->get_logger(), "Failed to decode compressed image");
-      return;
-    }
-    tryDraw(decoded, msg);
-  } catch (const cv::Exception & e) {
-    RCLCPP_ERROR(this->get_logger(), "OpenCV exception: %s", e.what());
-  }
+  latest_trks_ = msg;
+  tryAnnotation();
 }
 
 int main(int argc, char ** argv)
