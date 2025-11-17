@@ -31,7 +31,7 @@
 ##	 - simulation			:	starts simulation (carla)
 
 
-# export ACTIVE_MODULES=""
+export ACTIVE_MODULES="world_modeling"
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.

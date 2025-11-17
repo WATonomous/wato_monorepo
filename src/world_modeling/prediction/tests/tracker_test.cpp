@@ -22,7 +22,7 @@
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include "prediction/object_adapter_core.hpp"
+#include "prediction/tracker_core.hpp"
 
 using namespace std::chrono_literals;
 
@@ -62,9 +62,9 @@ visualization_msgs::msg::Marker create_marker(
 }
 }  // namespace
 
-TEST_CASE("ObjectAdapterCore processes empty marker array", "[object_adapter]")
+TEST_CASE("TrackerCore processes empty marker array", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   auto marker_array = std::make_shared<visualization_msgs::msg::MarkerArray>();
   autoware_perception_msgs::msg::TrackedObjects tracked_objects;
@@ -78,9 +78,9 @@ TEST_CASE("ObjectAdapterCore processes empty marker array", "[object_adapter]")
   }
 }
 
-TEST_CASE("ObjectAdapterCore processes single marker on first call", "[object_adapter]")
+TEST_CASE("TrackerCore processes single marker on first call", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   auto marker_array = std::make_shared<visualization_msgs::msg::MarkerArray>();
   rclcpp::Time stamp(1, 0, RCL_ROS_TIME);
@@ -99,9 +99,9 @@ TEST_CASE("ObjectAdapterCore processes single marker on first call", "[object_ad
   }
 }
 
-TEST_CASE("ObjectAdapterCore computes velocity between two frames", "[object_adapter]")
+TEST_CASE("TrackerCore computes velocity between two frames", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   rclcpp::Time t0(0, 0, RCL_ROS_TIME);
   rclcpp::Time t1(0, 100000000, RCL_ROS_TIME);  // 0.1 seconds later (100ms = 100,000,000ns)
@@ -135,7 +135,7 @@ TEST_CASE("ObjectAdapterCore computes velocity between two frames", "[object_ada
 
   SECTION("Object moving in positive y direction")
   {
-    adapter = wato::world_modeling::prediction::ObjectAdapterCore();
+    adapter = wato::world_modeling::prediction::TrackerCore();
     
     // First frame at (0, 0)
     auto marker_array_0 = std::make_shared<visualization_msgs::msg::MarkerArray>();
@@ -162,9 +162,9 @@ TEST_CASE("ObjectAdapterCore computes velocity between two frames", "[object_ada
   }
 }
 
-TEST_CASE("ObjectAdapterCore computes angular velocity", "[object_adapter]")
+TEST_CASE("TrackerCore computes angular velocity", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   rclcpp::Time t0(0, 0, RCL_ROS_TIME);
   rclcpp::Time t1(0, 100000000, RCL_ROS_TIME);  // 0.1 seconds later (100ms = 100,000,000ns)
@@ -195,9 +195,9 @@ TEST_CASE("ObjectAdapterCore computes angular velocity", "[object_adapter]")
   }
 }
 
-TEST_CASE("ObjectAdapterCore computes acceleration", "[object_adapter]")
+TEST_CASE("TrackerCore computes acceleration", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   rclcpp::Time t0(0, 0, RCL_ROS_TIME);
   rclcpp::Time t1(0, 100000000, RCL_ROS_TIME);  // 0.1 seconds later (100ms = 100,000,000ns)
@@ -238,9 +238,9 @@ TEST_CASE("ObjectAdapterCore computes acceleration", "[object_adapter]")
   }
 }
 
-TEST_CASE("ObjectAdapterCore handles multiple objects", "[object_adapter]")
+TEST_CASE("TrackerCore handles multiple objects", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   rclcpp::Time t0(0, 0, RCL_ROS_TIME);
   rclcpp::Time t1(0, 100000000, RCL_ROS_TIME);  // 0.1 seconds later (100ms = 100,000,000ns)
@@ -285,9 +285,9 @@ TEST_CASE("ObjectAdapterCore handles multiple objects", "[object_adapter]")
   }
 }
 
-TEST_CASE("ObjectAdapterCore handles new objects appearing", "[object_adapter]")
+TEST_CASE("TrackerCore handles new objects appearing", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   rclcpp::Time t0(0, 0, RCL_ROS_TIME);
   rclcpp::Time t1(0, 100000000, RCL_ROS_TIME);  // 0.1 seconds later (100ms = 100,000,000ns)
@@ -330,9 +330,9 @@ TEST_CASE("ObjectAdapterCore handles new objects appearing", "[object_adapter]")
   }
 }
 
-TEST_CASE("ObjectAdapterCore preserves bounding box dimensions", "[object_adapter]")
+TEST_CASE("TrackerCore preserves bounding box dimensions", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   rclcpp::Time t0(0, 0, RCL_ROS_TIME);
   rclcpp::Time t1(0, 100000000, RCL_ROS_TIME);  // 0.1 seconds later (100ms = 100,000,000ns)
@@ -364,9 +364,9 @@ TEST_CASE("ObjectAdapterCore preserves bounding box dimensions", "[object_adapte
   }
 }
 
-TEST_CASE("ObjectAdapterCore skips updates with small time delta", "[object_adapter]")
+TEST_CASE("TrackerCore skips updates with small time delta", "[tracker]")
 {
-  wato::world_modeling::prediction::ObjectAdapterCore adapter;
+  wato::world_modeling::prediction::TrackerCore adapter;
   
   rclcpp::Time t0(0, 0, RCL_ROS_TIME);
   rclcpp::Time t1(0, 100, RCL_ROS_TIME);  // Only 100 nanoseconds later (< 1ms)

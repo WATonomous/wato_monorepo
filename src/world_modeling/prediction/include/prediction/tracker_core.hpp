@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef PREDICTION__OBJECT_ADAPTER_CORE_HPP_
-#define PREDICTION__OBJECT_ADAPTER_CORE_HPP_
+#ifndef PREDICTION__TRACKER_CORE_HPP_
+#define PREDICTION__TRACKER_CORE_HPP_
 
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <autoware_perception_msgs/msg/tracked_objects.hpp>
@@ -25,15 +25,15 @@ namespace wato {
 namespace world_modeling {
 namespace prediction {
 
-class ObjectAdapterCore
+class TrackerCore
 {
 public:
-  ObjectAdapterCore();
+  TrackerCore();
 
   void processMarkerArray(
     const visualization_msgs::msg::MarkerArray::SharedPtr & msg,
     autoware_perception_msgs::msg::TrackedObjects & tracked_objects);
-
+    
 private:
   std::unordered_map<int, autoware_perception_msgs::msg::TrackedObject> prev_objects_;
   rclcpp::Time prev_time_;
@@ -44,4 +44,4 @@ private:
 }  // namespace world_modeling
 }  // namespace wato
 
-#endif  // PREDICTION__OBJECT_ADAPTER_CORE_HPP_
+#endif  // PREDICTION__TRACKER_CORE_HPP_

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "prediction/object_adapter_core.hpp"
+#include "prediction/tracker_core.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 
@@ -28,10 +28,10 @@ double get_yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
 }
 }  // namespace
 
-wato::world_modeling::prediction::ObjectAdapterCore::ObjectAdapterCore()
+wato::world_modeling::prediction::TrackerCore::TrackerCore()
 {}
 
-void wato::world_modeling::prediction::ObjectAdapterCore::processMarkerArray(
+void wato::world_modeling::prediction::TrackerCore::processMarkerArray(
   const visualization_msgs::msg::MarkerArray::SharedPtr & msg,
   autoware_perception_msgs::msg::TrackedObjects & tracked_objects)
 {

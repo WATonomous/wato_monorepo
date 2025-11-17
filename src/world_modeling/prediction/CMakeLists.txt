@@ -41,7 +41,7 @@ find_package(common_msgs REQUIRED)
 # both the unit test and ROS2 node executables.
 add_library(prediction_lib
   src/utils.cpp
-  src/object_adapter_core.cpp
+  src/tracker_core.cpp
 )
 
 # Indicate to compiler where to search for header files
@@ -66,8 +66,8 @@ if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
 
   # Create test executable using wato_test
-  add_wato_test(object_adapter_test
-    tests/object_adapter_test.cpp
+  add_wato_test(tracker_test
+    tests/tracker_test.cpp
     LIBRARIES
       prediction_lib
   )
@@ -78,13 +78,13 @@ add_executable(prediction_node src/kalman_filter.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(prediction_node prediction_lib)
 
-add_executable(object_adapter_node src/object_adapter_node.cpp)
-target_link_libraries(object_adapter_node prediction_lib)
+add_executable(tracker_node src/tracker_node.cpp)
+target_link_libraries(tracker_node prediction_lib)
 
 # Copy executable to installation location
 install(TARGETS
   prediction_node
-  object_adapter_node
+  tracker_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location
