@@ -9,4 +9,5 @@ services:
         - "${ACTION_IMAGE}:build_main"
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
+    command: /bin/bash -c "ros2 launch action_bringup action_launch.launch.yaml"
+
