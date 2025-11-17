@@ -15,7 +15,7 @@
 launch:
 
   - node:
-      pkg: "model_predictive_control"
-      exec: "mpc_node"
-      name: "mpc_node"
+      pkg: "mppi_pkg"
+      exec: "mppi_node"
+      name: "mppi_node"
       output: "screen"

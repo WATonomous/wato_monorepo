@@ -36,6 +36,14 @@ RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
+# Install unzip (required for libtorch)
+RUN apt-get update && apt-fast install -qq -y --no-install-recommends unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install wget (required for libtorch)
+RUN apt-get update && apt-fast install -qq -y --no-install-recommends wget && \
+    rm -rf /var/lib/apt/lists/*
+
 #install casadi via pip
 RUN apt-get update && apt-fast install -qq -y --no-install-recommends python3-pip && \
     python3 -m pip install --no-cache-dir "pip==24.2" && \
@@ -44,6 +52,18 @@ RUN apt-get update && apt-fast install -qq -y --no-install-recommends python3-pi
     # Verify installation
     python3 -c "import casadi; print('CasADi:', casadi.__version__);" && \
     rm -rf /var/lib/apt/lists/*
+
+# ----------------- Install libtorch (PyTorch C++ API) -----------------
+ARG LIBTORCH_URL=https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcpu.zip
+RUN wget -qO /tmp/libtorch.zip "${LIBTORCH_URL}" && \
+    unzip -q /tmp/libtorch.zip -d /opt && \
+    rm -rf /tmp/libtorch.zip
+
+# Make libtorch visible to CMake and the runtime linker
+ENV Torch_DIR=/opt/libtorch/share/cmake/Torch \
+    CMAKE_PREFIX_PATH=/opt/libtorch:${CMAKE_PREFIX_PATH} \
+    LD_LIBRARY_PATH=/opt/libtorch/lib:${LD_LIBRARY_PATH}
+
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -59,6 +79,11 @@ FROM dependencies AS build
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
+
+
+# Clean previous build cache for safety
+RUN rm -rf build/mppi_pkg install/mppi_pkg log/mppi_pkg || true
+
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
