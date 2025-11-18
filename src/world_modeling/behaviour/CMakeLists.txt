@@ -29,11 +29,15 @@ find_package(rclcpp REQUIRED)      # ROS2 C++ package
 find_package(std_msgs REQUIRED)   # ROS2 Messages
 find_package(std_srvs REQUIRED)   # ROS2 Services
 find_package(rclcpp_action REQUIRED) # ROS2 Action Library
+find_package(behaviortree_cpp_v3 REQUIRED)
 find_package(behaviortree_ros2 REQUIRED) # ROS2 BehaviorTree Library
 find_package(btcpp_ros2_interfaces REQUIRED) # ROS2 BehaviorTree Messages
 
 # Compiles source files into a library
-add_library(behaviour_lib src/behaviour_core.cpp)
+add_library(behaviour_lib 
+  src/behaviour_core.cpp
+  src/bt_tut_01.cpp)
+
 # Indicate to compiler where to search for header files
 target_include_directories(behaviour_lib
   PUBLIC
@@ -45,18 +49,22 @@ target_link_libraries(behaviour_lib
   ${std_msgs_TARGETS}
   ${std_srvs_TARGETS}
   ${rclcpp_action_TARGETS}
+  ${behaviortree_cpp_v3_TARGETS}
   ${behaviortree_ros2_TARGETS}
   ${btcpp_ros2_interfaces_TARGETS}
 )
 
 # Create ROS2 node executable from source files
+add_executable(bt_tut_01 src/bt_tut_01.cpp)
 add_executable(behaviour_node src/behaviour_node.cpp)
 
 # Link to the previously built library to access behaviour classes and methods
+target_link_libraries(bt_tut_01 behaviour_lib)
 target_link_libraries(behaviour_node behaviour_lib)
 
 # Copy executable to installation location
 install(TARGETS
+  bt_tut_01
   behaviour_node
   DESTINATION lib/${PROJECT_NAME})
 
