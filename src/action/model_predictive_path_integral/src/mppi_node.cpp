@@ -2,32 +2,25 @@
 #include <torch/torch.h>
 #include <iostream>
 
+#include <mppi_core.hpp>
 #include <carla_msgs/msg/carla_ego_vehicle_control.hpp>
 #include <carla_msgs/msg/carla_ego_vehicle_status.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 
 //seperate .hpp file later
-
+//will take in a trajectory and output control commands - that trajectory inherently handles speed up and slow down
 
 class MppiNode : public rclcpp::Node {
 public:
   MppiNode() : Node("mppi_node") {
     RCLCPP_INFO(this->get_logger(), "MPPI node starting…");
-    /*
-    // Simple libtorch test: tensor creation + addition
-    torch::Tensor a = torch::rand({2, 3});
-    torch::Tensor b = torch::rand({2, 3});
-    torch::Tensor c = a + b;
 
-    std::cout << "Tensor a:\n" << a << std::endl;
-    std::cout << "Tensor b:\n" << b << std::endl;
-    std::cout << "Tensor c = a + b:\n" << c << std::endl;
-    
-    RCLCPP_INFO(this->get_logger(), "Libtorch test complete."); */
-    
+    mppi_core_ = std::make_shared<MppiCore>();
+
     //odom callback
     odom_subscriber_ = this->create_subscription<nav_msgs::msg::Odometry>(
       "/carla/ego/odometry", 10,
@@ -38,10 +31,18 @@ public:
       "/carla/ego/vehicle_status", 10,
       std::bind(&MppiNode::vehicle_status_callback, this, std::placeholders::_1));
 
+
+    costmap_subscriber_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
+      "/costmap", 10,
+      std::bind(&MppiNode::costmap_callback, this, std::placeholders::_1));
+
+
+
     //vehicle control publisher
     vehicle_control_publisher_ = this->create_publisher<carla_msgs::msg::CarlaEgoVehicleControl>(
       "/carla/ego/vehicle_control_cmd", 10);
-
+    
+    
     //control timer every 10 ms
     //10ms timer
     // control timer every 10 seconds
@@ -51,7 +52,12 @@ public:
   
   }
 
-
+  //cost map callback function
+  void costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+    RCLCPP_INFO(this->get_logger(), "Received costmap data: Width=%d, Height=%d", 
+                msg->info.width, 
+                msg->info.height);
+  };
   //odom callback function
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Received odometry data: Position(%.2f, %.2f, %.2f)", 
@@ -94,7 +100,12 @@ public:
   private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber_;
   rclcpp::Subscription<carla_msgs::msg::CarlaEgoVehicleStatus>::SharedPtr vehicle_status_subscriber_;
+  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_subscriber_;
+
   rclcpp::Publisher<carla_msgs::msg::CarlaEgoVehicleControl>::SharedPtr vehicle_control_publisher_;
+  //cost map subscriber
+
+  std::shared_ptr<MppiCore> mppi_core_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 
