@@ -64,6 +64,15 @@ public:
                 msg->pose.pose.position.x, 
                 msg->pose.pose.position.y, 
                 msg->pose.pose.position.z);
+    // Update position in MPPI core using quat to yaw con
+    double yaw = mppi_core_->quat_to_yaw(
+        msg->pose.pose.orientation.x,
+        msg->pose.pose.orientation.y,
+        msg->pose.pose.orientation.z,
+        msg->pose.pose.orientation.w
+    );
+    mppi_core_->update_position(msg->pose.pose.position.x, msg->pose.pose.position.y, yaw);
+    
   };
 
   //vehicle status callback function
@@ -75,6 +84,7 @@ public:
                 //msg->orientation.y,
                 //msg->orientation.z,
                 //msg->orientation.w);
+    mppi_core_->update_velocity(msg->velocity);
   };
 
   //vehicle command publisher

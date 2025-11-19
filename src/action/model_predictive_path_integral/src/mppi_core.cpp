@@ -21,11 +21,14 @@
 
 
 MppiCore::MppiCore() {
-    //make nominal control sequence of steer angle and acceleration with tensor, make it k x n where k is control dim, n is number of time steps
-    n = 50; 
+    first_iteration = true;
+
+    
+    n = 50; //number of time steps in horizon
     control_dim = 2; //control dim: steer angle and acceleration
 
-    nominal_control_sequence = torch::zeros({control_dim, n});  // reference control sequence
+    previous_control_sequence = torch::zeros({control_dim, n});  // reference control sequence
+    best_control_sequence = torch::zeros({control_dim, n});  // reference control sequence
 
     num_trajectories = 100;
 
@@ -43,19 +46,47 @@ MppiCore::MppiCore() {
     dt_ = 0.05;                  // [s] time step
     L_  = 2.8;                   // [m] wheelbase
     max_steering_angle_rad_ = 0.5;  // [rad] max steering angle
+
+    
+    
     current_state_ = torch::zeros({4});       // [4] = [x, y, yaw, v], set before generate_control_command()
 
     q_control_effort_ = 0.1; // weight for control effort in cost function
     q_tracking_error_ = 1.0; // weight for tracking error in cost function
     q_collision_ = 100.0;    // weight for collision cost in cost function
 
+    steer_max_ = 1.0;  // normalized max steering
+    steer_min_ = -1.0; // normalized min steering
+    accel_max_ = 1.0;  // max acceleration
+    accel_min_ = 0.0; // min acceleration
+
+}
+
+void MppiCore::update_velocity(double v) {
+    //update current_state
+    current_state_.index_put_({3}, v);
+}
+
+void MppiCore::update_position(double x, double y, double yaw) {
+    current_state_.index_put_({0}, x);
+    current_state_.index_put_({1}, y);
+    current_state_.index_put_({2}, yaw);
+}
+
+double MppiCore::quat_to_yaw(double x, double y, double z, double w) {
+    // Convert quaternion to yaw angle (in radians)
+    double siny_cosp = 2.0 * (w * z + x * y);
+    double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
+    return std::atan2(siny_cosp, cosy_cosp);
 }
 
 
 void MppiCore::generate_control_command(){
     //make nominal control sequence equal to last best control sequence if not initial iteration
-    if (/*not initial iteration*/ false) {
-        //nominal_control_sequence = best_control_sequence from last iteration
+    if (first_iteration) {
+        
+        previous_control_sequence = best_control_sequence.clone();
+        first_iteration = false;
     }
 
     add_noise_to_control_sequences();
@@ -73,7 +104,7 @@ void MppiCore::add_noise_to_control_sequences() {
                     .unsqueeze(0)                         // [1, 2, n]
                     .expand({num_trajectories, -1, -1});  // [N, 2, n]
 
-    // --- Independent noise for steering ---
+    // ---  noise for steering ---
     auto steer_noise = torch::normal(
         /*mean=*/0.0,
         /*std=*/noise_std_steer_,
@@ -81,7 +112,7 @@ void MppiCore::add_noise_to_control_sequences() {
         /*options=*/base.options()
     );  // [N, 1, n]
 
-    // --- Independent noise for acceleration ---
+    // ---  noise for acceleration ---
     auto accel_noise = torch::normal(
         /*mean=*/0.0,
         /*std=*/noise_std_accel_,
@@ -90,8 +121,7 @@ void MppiCore::add_noise_to_control_sequences() {
     );  // [N, 1, n]
 
     // Stack the independent noises into a single noise tensor
-    auto noise = torch::cat({steer_noise, accel_noise}, /*dim=*/1);  
-    // noise shape: [N, 2, n]
+    auto noise = torch::cat({steer_noise, accel_noise}, /*dim=*/1);   // noise shape: [N, 2, n]
 
     // Final sampled controls
     control_sequences = base + noise;
@@ -227,27 +257,29 @@ void MppiCore::evaluate_trajectories() {
     // to actually send commands; leave its implementation to you.
 }
 
+
+
 //tracking error - returns double
 double tracking_error(const torch::Tensor& trajectory, const nav_msgs::msg::Path& reference_path) {
-    // Implementation for tracking error calculation
+    
     return 0.0;
 }
 
 //control effort - returns double
 double control_effort(const torch::Tensor& control_sequence) {
-    // Implementation for control effort calculation
+    
     return 0.0;
 }
 
 //collision cost - returns double
 double collision_cost(const torch::Tensor& trajectory, const nav_msgs::msg::OccupancyGrid
 & costmap) {
-    // Implementation for collision cost calculation
+    
     return 0.0;
 }
 
 
 void MppiCore::integrate_controls() {
-    // Implementation for integrating controls
+    
 
 }
