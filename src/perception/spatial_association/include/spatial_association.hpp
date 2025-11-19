@@ -20,6 +20,7 @@
 #include "projection_utils.hpp"
 
 #include <unordered_map>
+#include <string>
 
 struct DetectionOutputs {
   visualization_msgs::msg::MarkerArray bboxes;
@@ -30,11 +31,12 @@ struct DetectionOutputs {
 
 class spatial_association : public rclcpp::Node {
  public:
-  spatial_association();
+ spatial_association();
 
  private:
   // CONFIG/VISUALIZATION
   bool publish_visualization_;
+  bool debug_logging_;
 
   // CAMERA
   // ------------------------------------------------------------------------------------------------------
@@ -90,6 +92,9 @@ class spatial_association : public rclcpp::Node {
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
   
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
+  // Optional dual-publish debug topics for bbox orientation methods
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bbox_minarea_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bbox_pca2d_pub_;
   rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
 
   // FUNCTION PARAMS
@@ -108,6 +113,9 @@ class spatial_association : public rclcpp::Node {
   std::string filtered_lidar_topic_;
   std::string cluster_centroid_topic_;
   std::string bounding_box_topic_;
+  // Optional debug topics for A/B publishing of bbox orientation
+  std::string bbox_minarea_topic_;
+  std::string bbox_pca2d_topic_;
 
   std::string lidar_frame_;
 
@@ -125,6 +133,12 @@ class spatial_association : public rclcpp::Node {
   double merge_threshold_;
 
   float object_detection_confidence_;
+
+  // Bounding box orientation params
+  std::string bbox_orientation_method_;
+  double pca_reliability_min_ratio_;
+  int min_cluster_size_for_pca_;
+  bool bbox_debug_dual_publish_;
 
 };
 

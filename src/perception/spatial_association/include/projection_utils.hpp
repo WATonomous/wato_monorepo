@@ -27,9 +27,18 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <random>
+#include <string>
 
 class ProjectionUtils {
  public:
+
+  struct BBoxOrientationOptions {
+    std::string method;              // "min_area" or "pca2d"
+    double      pca_ratio_thresh{0.6};
+    int         min_points{20};
+    bool        debug_dual_publish{false};
+    std::string log_csv_path;        // optional; empty = disabled
+  };
 
   static std::optional<cv::Point2d> projectLidarToCamera(
       const geometry_msgs::msg::TransformStamped& transform, const std::array<double, 12>& p,
@@ -96,4 +105,3 @@ class ProjectionUtils {
 };
 
 #endif
-

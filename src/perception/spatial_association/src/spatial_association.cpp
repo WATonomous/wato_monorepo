@@ -52,6 +52,16 @@ spatial_association::spatial_association() : Node("spatial_association") {
   } else {
     RCLCPP_INFO(this->get_logger(), "Visualization publishers disabled - only detection_3d will be published");
   }
+
+  // Optional dual bbox publishers for debugging orientation methods
+  if (bbox_debug_dual_publish_) {
+    bbox_minarea_pub_ =
+        this->create_publisher<visualization_msgs::msg::MarkerArray>(bbox_minarea_topic_, 10);
+    bbox_pca2d_pub_ =
+        this->create_publisher<visualization_msgs::msg::MarkerArray>(bbox_pca2d_topic_, 10);
+    RCLCPP_INFO(this->get_logger(), "Dual bbox debug publishers enabled: minarea='%s', pca2d='%s'",
+                bbox_minarea_topic_.c_str(), bbox_pca2d_topic_.c_str());
+  }
   
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -71,10 +81,20 @@ void spatial_association::initializeParams() {
   this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar");
   this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
   this->declare_parameter<std::string>("bounding_box_topic", "/bounding_box");
+  // Optional debug bbox topics
+  this->declare_parameter<std::string>("bbox_minarea_topic", "/bounding_box_minarea");
+  this->declare_parameter<std::string>("bbox_pca2d_topic", "/bounding_box_pca2d");
 
   this->declare_parameter<std::string>("lidar_top_frame", "LIDAR_TOP");
 
   this->declare_parameter<bool>("publish_visualization", true);
+  this->declare_parameter<bool>("debug_logging", false);
+
+  // Bounding box orientation control params
+  this->declare_parameter<std::string>("bbox_orientation_method", "min_area");
+  this->declare_parameter<double>("pca_reliability_min_ratio", 0.6);
+  this->declare_parameter<int>("min_cluster_size_for_pca", 20);
+  this->declare_parameter<bool>("bbox_debug_dual_publish", false);
 
 
   // Euclidean Clustering Parameters
@@ -106,6 +126,8 @@ void spatial_association::initializeParams() {
   filtered_lidar_topic_ = this->get_parameter("filtered_lidar_topic").as_string();
   cluster_centroid_topic_ = this->get_parameter("cluster_centroid_topic").as_string();
   bounding_box_topic_ = this->get_parameter("bounding_box_topic").as_string();
+  bbox_minarea_topic_ = this->get_parameter("bbox_minarea_topic").as_string();
+  bbox_pca2d_topic_ = this->get_parameter("bbox_pca2d_topic").as_string();
 
   lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
@@ -122,6 +144,17 @@ void spatial_association::initializeParams() {
   merge_threshold_ = this->get_parameter("merge_threshold").as_double();
 
   object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
+
+  // Read bbox orientation params
+  bbox_orientation_method_ = this->get_parameter("bbox_orientation_method").as_string();
+  pca_reliability_min_ratio_ = this->get_parameter("pca_reliability_min_ratio").as_double();
+  min_cluster_size_for_pca_ = this->get_parameter("min_cluster_size_for_pca").as_int();
+  bbox_debug_dual_publish_ = this->get_parameter("bbox_debug_dual_publish").as_bool();
+  debug_logging_ = this->get_parameter("debug_logging").as_bool();
+
+  if (debug_logging_) {
+    RCLCPP_INFO(this->get_logger(), "Debug logging is ENABLED for spatial_association");
+  }
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
@@ -146,7 +179,9 @@ void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::Sha
 }
 
 void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
+  if (debug_logging_) {
+    RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
+  }
   
   // Store the non-ground cloud message from patchwork
   latest_lidar_msg_ = *msg;
@@ -166,8 +201,10 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
 
   // No ground filtering needed - patchwork already removed ground points
   filtered_point_cloud_ = working_downsampled_cloud_;
-  
-  RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
+ 
+  if (debug_logging_) {
+    RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
+  }
 
 }
 
@@ -217,7 +254,8 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
                                             projection_matrix, object_detection_confidence_);
 
   if (publish_visualization_) {
-    detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
+    detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(
+        filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
   }
 
   detection_outputs.detections3d = ProjectionUtils::compute3DDetection(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
