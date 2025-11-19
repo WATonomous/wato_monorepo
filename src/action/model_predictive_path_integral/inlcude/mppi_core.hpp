@@ -49,6 +49,8 @@ class MppiCore {
         int state_dim; //x, y, yaw, v (longitudinal velocity)
 
         torch::Tensor state_trajectories;  
+
+        torch::Tensor costs;
         
         double noise_std_steer_;
         double noise_std_accel_;

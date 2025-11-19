@@ -201,13 +201,13 @@ void MppiCore::simulate_trajectories() {
 void MppiCore::evaluate_trajectories() {
     using torch::indexing::Slice;
 
+    //make costs tensor
+    costs = torch::zeros({num_trajectories});
+
     const int64_t N_traj = num_trajectories;
 
     // One scalar cost per trajectory
-    auto costs = torch::empty(
-        {N_traj},
-        control_sequences.options().dtype(torch::kFloat64)
-    );
+    
 
     for (int64_t i = 0; i < N_traj; ++i) {
         // trajectory: [state_dim, n]
@@ -227,30 +227,7 @@ void MppiCore::evaluate_trajectories() {
         costs.index_put_({i}, J);
     }
 
-    // Find best (minimum-cost) trajectory index
-    auto min_res  = costs.min(0);  // returns (values, indices)
-    auto best_idx = std::get<1>(min_res).item<int64_t>();
 
-    // Best control sequence: [control_dim, n]
-    auto best_u = control_sequences.index({best_idx, Slice(), Slice()}).clone();
-
-    // Receding-horizon update of nominal_control_sequence
-    if (n > 1) {
-        // Shift best_u by one step to build next iteration's nominal sequence
-        // nominal[:, 0..n-2] = best_u[:, 1..n-1]
-        nominal_control_sequence.index_put_(
-            {Slice(), Slice(0, n - 1)},
-            best_u.index({Slice(), Slice(1, n)})
-        );
-
-        // Last control stays as the last of the best sequence
-        nominal_control_sequence.index_put_(
-            {Slice(), n - 1},
-            best_u.index({Slice(), n - 1})
-        );
-    } else {
-        nominal_control_sequence = best_u;
-    }
 
     
 }
