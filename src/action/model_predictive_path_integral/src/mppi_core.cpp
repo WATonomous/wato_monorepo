@@ -85,8 +85,11 @@ void MppiCore::generate_control_command(){
     //make nominal control sequence equal to last best control sequence if not initial iteration
     if (first_iteration) {
         
-        previous_control_sequence = best_control_sequence.clone();
+        previous_control_sequence =  torch::zeros({control_dim, n});
         first_iteration = false;
+    }
+    else{
+        previous_control_sequence =best_control_sequence.clone();
     }
 
     add_noise_to_control_sequences();
@@ -126,7 +129,7 @@ void MppiCore::add_noise_to_control_sequences() {
     // Final sampled controls
     control_sequences = base + noise;
 
-    //clamp vaslues
+    //clamp values
 }
 
 
@@ -187,9 +190,7 @@ void MppiCore::simulate_trajectories() {
         // Euler integration: x_{k+1} = x_k + dt * f(x_k, u_k)
         auto x_next = x_k + dt_ * x_dot;     // [N, 4]
 
-        // Optionally clamp speed to be non-negative
-        // auto v_next = x_next.index({Slice(), 3}).clamp_min(0.0);
-        // x_next.index_put_({Slice(), 3}, v_next);
+        
 
         // Store next state
         state_trajectories.index_put_({Slice(), Slice(), k + 1}, x_next);
@@ -215,8 +216,6 @@ void MppiCore::evaluate_trajectories() {
         // control sequence: [control_dim, n]
         auto control_sequence = control_sequences.index({i, Slice(), Slice()}).contiguous();
 
-        // These functions are intentionally left unimplemented here.
-        // You can change their signatures/returns as needed.
         double J_track = tracking_error(trajectory, reference_path_);
         double J_u     = control_effort(control_sequence);
         double J_col   = collision_cost(trajectory, costmap_);
@@ -253,8 +252,7 @@ void MppiCore::evaluate_trajectories() {
         nominal_control_sequence = best_u;
     }
 
-    // integrate_controls() will use nominal_control_sequence (or part of it)
-    // to actually send commands; leave its implementation to you.
+    
 }
 
 
