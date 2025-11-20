@@ -25,7 +25,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Path to ByteTrack root folder (will probably change)
-set(BYTETRACK_DIR /usr/local)
+set(BYTETRACK_DIR /usr/local CACHE STRING "Path to ByteTrack directory")
 
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
