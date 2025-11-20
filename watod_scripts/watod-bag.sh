@@ -97,7 +97,15 @@ if [[ $# -gt 0 && "$1" == "record" ]]; then
 fi
 
 # Run ros2 bag command in container with bags directory mounted
-trap 'docker stop watod_bag_recorder' SIGINT SIGTERM
+cleanup_bag() {
+  echo ""
+  echo "Stopping recording..."
+  docker stop watod_bag_recorder 2>/dev/null || true
+  echo "Recording stopped"
+  exit 0
+}
+
+trap cleanup_bag SIGINT SIGTERM
 
 docker run --rm -t \
   --network host \
