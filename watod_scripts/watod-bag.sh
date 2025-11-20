@@ -97,11 +97,22 @@ if [[ $# -gt 0 && "$1" == "record" ]]; then
 fi
 
 # Run ros2 bag command in container with bags directory mounted
-# Working directory is BAG_DIRECTORY so all paths are relative to it
-docker run --rm -it \
-  --network host \
+cleanup_bag() {
+  echo ""
+  echo "Stopping recording..."
+  docker stop watod_bag_recorder || true
+  echo "Recording stopped"
+  exit 0
+}
+
+trap cleanup_bag SIGINT SIGTERM
+
+docker run --rm -t \
+  --network watod_watonomous_default \
   --name watod_bag_recorder \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
   "$INFRASTRUCTURE_IMAGE:$TAG" \
-  ros2 bag "${ros2_bag_args[@]}"
+  ros2 bag "${ros2_bag_args[@]}" &
+
+wait $!
