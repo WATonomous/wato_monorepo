@@ -39,7 +39,13 @@ All nodes must contain some set of unittests. These can either be testing a node
 
 We use catch2 tests to do our unittesting. To make the testing process easier to setup. We've introduced a helper library used to test all nodes in the monorepo.
 
+#### To Use
 [wato_test](src/wato_test/) contains a basic CMAKE macro to let you setup a test with the appropriate libraries. It also contains helper nodes to help you test publishers, subscribers, servers, and clients in an event-driven way. Use this package whenever you are setting up tests.
+
+To run tests for all $ACTIVE_MODULES, run
+```bash
+./watod test
+```
 
 ### Playing ROS2 Bags
 
@@ -47,16 +53,48 @@ A bag is a file that stores serialized ROS2 message data. We can play a bag to m
 More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html.
 
 #### To Use
+[**Download rosbags for local development here!**](https://drive.google.com/drive/folders/127Kw3o7Org474rkK1wwMDRZKiYHaR0Db)
 
-Add `infrastructure` as an `ACTIVE_PROFILE` in `watod-config.sh`.
+We expose `ros2 bag` CLI through watod with some hardcoded constraints (mcap bag format and 20GB bag splitting).
 
-Run `watod up` (or however you want to launch the `infrastructure` service).
+To view all possible commands, run the following:
+```bash
+$ watod bag --help
+usage: ros2 bag [-h]
+                Call `ros2 bag <command> -h` for more detailed usage. ...
 
-The working directory of the `data_stream` container should have a `nuscenes` directory, which contains the NuScenes dataset converted to ros2bag format. To confirm this, run `watod run data_stream ls nuscenes` to view the available bags. Each bag has its own directory. The location of the `.mcap` file is `<name>/<name>_0.mcap`. For example, one of the bags is in `nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`.
+Various rosbag related sub-commands
 
-Now, using `watod run data_stream [ROS2 BAG COMMAND]` you can run any `ros2 bag ...` command as documented here: http://wiki.ros.org/rosbag/Commandline. You probably want to explore `ros2 bag play ...`: http://wiki.ros.org/rosbag/Commandline#rosbag_play. (Since this documentation is in ROS1, you can replace `rosbag` with `ros2 bag` to run the equivalent command in ROS2)
+options:
+  -h, --help            show this help message and exit
 
-Example: `watod run data_stream ros2 bag play ./nuscenes/NuScenes-v1.0-mini-scene-0061/NuScenes-v1.0-mini-scene-0061_0.mcap`
+Commands:
+  convert   Given an input bag, write out a new bag with different settings
+  info      Print information about a bag to the screen
+  list      Print information about available plugins to the screen
+  play      Play back ROS data from a bag
+  record    Record ROS data to a bag
+  reindex   Reconstruct metadata file for a bag
+  to_video  Convert a ROS 2 bag into a video
+
+  Call `ros2 bag <command> -h` for more detailed usage.
+```
+
+`watod bag` manages rosbags located in `$BAG_DIRECTORY` which is a settable directory in `watod-config.sh` and defaults to `$MONO_DIR/bags`. It will create a `$BAG_DIRECTORY/bags/` directory if it doesn't exist.
+
+Some common commands:
+```bash
+watod bag ls # special command to list all bags inside the $BAG_DIRECTORY
+watod bag record -a -o $BAG_NAME # records all topics, saves in $BAG_DIRECTORY/$BAG_NAME
+watod bag play $BAG_NAME # plays the bag located in $BAG_DIRECTORY/$BAG_NAME
+watod bag convert --help # we can do processing on the bags using ros2 bag conversions
+```
+
+If you are using WATcloud, play-only bags exist in:
+```bash
+/mnt/wato-drive2/nuscenes_mcap/ros2bags # Nuscenes Data converted into ROSbag format
+/mnt/wato-drive2/rosbags2 # Old rosbag recordings
+```
 
 ## Simulation
 

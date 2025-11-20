@@ -13,16 +13,3 @@ services:
     command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
     ports:
       - "${FOXGLOVE_BRIDGE_PORT:?}:${FOXGLOVE_BRIDGE_PORT:?}"
-
-  data_stream:
-    build:
-      context: ..
-      dockerfile: docker/infrastructure/infrastructure.Dockerfile
-      cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
-        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
-      target: deploy
-    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-    volumes:
-      - /mnt/wato-drive2/nuscenes_mcap/ros2bags:/home/bolty/ament_ws/nuscenes
-      - /mnt/wato-drive2/rosbags2:/home/bolty/ament_ws/rosbags2

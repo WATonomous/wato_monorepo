@@ -81,6 +81,19 @@ REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
 REGISTRY="${REGISTRY_URL%%/*}"
 REPOSITORY="${REGISTRY_URL##*/}"
 
+# Bags directory
+BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
+
+# Always append infrastructure to ACTIVE_MODULES if not already present
+if [[ -n ${ACTIVE_MODULES:-} ]]; then
+  # Check if infrastructure is already in the list
+  if [[ ! " ${ACTIVE_MODULES} " =~ " infrastructure " ]]; then
+    ACTIVE_MODULES="${ACTIVE_MODULES} infrastructure"
+  fi
+else
+  ACTIVE_MODULES="infrastructure"
+fi
+
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
 
