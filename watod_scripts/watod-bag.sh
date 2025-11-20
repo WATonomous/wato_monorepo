@@ -99,7 +99,7 @@ fi
 # Run ros2 bag command in container with bags directory mounted
 trap 'docker stop watod_bag_recorder' SIGINT SIGTERM
 
-docker run --rm \
+docker run --rm -t \
   --network host \
   --name watod_bag_recorder \
   -v "$BAG_DIRECTORY:/bags" \
