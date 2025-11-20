@@ -43,6 +43,7 @@ We use catch2 tests to do our unittesting. To make the testing process easier to
 [wato_test](src/wato_test/) contains a basic CMAKE macro to let you setup a test with the appropriate libraries. It also contains helper nodes to help you test publishers, subscribers, servers, and clients in an event-driven way. Use this package whenever you are setting up tests.
 
 To run tests for all $ACTIVE_MODULES, run
+
 ```bash
 ./watod test
 ```
@@ -58,6 +59,7 @@ More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginne
 We expose `ros2 bag` CLI through watod with some hardcoded constraints (mcap bag format and 20GB bag splitting).
 
 To view all possible commands, run the following:
+
 ```bash
 $ watod bag --help
 usage: ros2 bag [-h]
@@ -83,6 +85,7 @@ Commands:
 `watod bag` manages rosbags located in `$BAG_DIRECTORY` which is a settable directory in `watod-config.sh` and defaults to `$MONO_DIR/bags`. It will create a `$BAG_DIRECTORY/bags/` directory if it doesn't exist.
 
 Some common commands:
+
 ```bash
 watod bag ls # special command to list all bags inside the $BAG_DIRECTORY
 watod bag record -a -o $BAG_NAME # records all topics, saves in $BAG_DIRECTORY/$BAG_NAME
@@ -91,6 +94,7 @@ watod bag convert --help # we can do processing on the bags using ros2 bag conve
 ```
 
 If you are using WATcloud, play-only bags exist in:
+
 ```bash
 /mnt/wato-drive2/nuscenes_mcap/ros2bags # Nuscenes Data converted into ROSbag format
 /mnt/wato-drive2/rosbags2 # Old rosbag recordings

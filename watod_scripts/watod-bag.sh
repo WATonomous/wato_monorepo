@@ -40,7 +40,7 @@ if [[ $# -gt 0 && "$1" == "ls" ]]; then
     # Get the directory containing metadata.yaml (this is the bag)
     bag_dir=$(dirname "$metadata")
     # Get the relative path from BAG_DIRECTORY
-    rel_path=${bag_dir#$BAG_DIRECTORY/}
+    rel_path=${bag_dir#"$BAG_DIRECTORY"/}
 
     # Get size and modification time
     size=$(du -sh "$bag_dir" 2>/dev/null | cut -f1)
