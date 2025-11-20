@@ -119,3 +119,17 @@ Generally you should:
 - Always keep track of current hacks
 
 We also have the global README.md and DEVELOPING.md as shown to help you navigate around.
+
+## Logging and Viewing Data
+
+`watod up` will startup both a Foxglove Bridge and a Log Viewer.
+
+### Foxglove Bridge
+
+Use the port number to connect to the Foxglove Bridge via the Foxglove Website / App
+
+### Log Viewer
+
+Click the link to bringup a page containing all the logs of each of the containers
+
+> If you are running `watod` on a remote machine, you will have to forward the respective ports to your local machine.
