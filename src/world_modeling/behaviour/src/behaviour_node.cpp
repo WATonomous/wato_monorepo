@@ -13,17 +13,50 @@
 // limitations under the License.
 
 #include "behaviour/behaviour_node.hpp"
+#include "behaviour/bt_node_utils.hpp"
 
-BehaviourNode::BehaviourNode() : Node("behaviour_node")
-{
+BehaviourNode::BehaviourNode() : Node("behaviour_node") {
   RCLCPP_INFO(this->get_logger(), "BehaviourNode has been started.");
 }
 
-
-int main(int argc, char * argv[])
-{
+int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<BehaviourNode>());
+
+  // create a single shared node instance that BT leaf nodes will use
+  auto node = std::make_shared<BehaviourNode>();
+  wato::world_modeling::behaviour::set_shared_node(node);
+
+  // create BT factory and load tree XML from package share
+  BT::BehaviorTreeFactory factory;
+
+  std::string pkg_share;
+  try {
+    pkg_share = ament_index_cpp::get_package_share_directory("behaviour");
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(node->get_logger(), "Could not find package share directory: %s", e.what());
+    return 1;
+  }
+
+  std::string xml_path = pkg_share + "/bt/xml/main_tree.xml";
+  RCLCPP_INFO(node->get_logger(), "Loading BT XML: %s", xml_path.c_str());
+
+  BT::Tree tree;
+  try {
+    tree = factory.createTreeFromFile(xml_path);
+  } catch (const std::exception &ex) {
+    RCLCPP_ERROR(node->get_logger(), "Failed to create BT from file: %s", ex.what());
+    return 1;
+  }
+
+  RCLCPP_INFO(node->get_logger(), "BehaviourNode initialized (shared node set)");
+
+  rclcpp::Rate rate(10);
+  while (rclcpp::ok()) {
+    tree.tickRoot();
+    rclcpp::spin_some(node);
+    rate.sleep();
+  }
+
   rclcpp::shutdown();
   return 0;
 }

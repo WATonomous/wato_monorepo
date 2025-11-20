@@ -26,27 +26,32 @@ endif()
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
-find_package(std_msgs REQUIRED)   # ROS2 Messages
-find_package(std_srvs REQUIRED)   # ROS2 Services
+find_package(std_msgs REQUIRED)    # ROS2 Messages
+find_package(std_srvs REQUIRED)    # ROS2 Services
 find_package(rclcpp_action REQUIRED) # ROS2 Action Library
+find_package(behaviortree_cpp_v3 REQUIRED) # Core BehaviorTree.CPP library
 find_package(behaviortree_ros2 REQUIRED) # ROS2 BehaviorTree Library
 find_package(btcpp_ros2_interfaces REQUIRED) # ROS2 BehaviorTree Messages
 
 # Compiles source files into a library
-add_library(behaviour_lib src/behaviour_core.cpp)
+add_library(behaviour_lib
+  src/behaviour_core.cpp
+  src/bt_node_utils.cpp
+  src/bt_nodes.cpp
+)
 # Indicate to compiler where to search for header files
 target_include_directories(behaviour_lib
   PUBLIC
   include)
 
-# Add ROS2 dependencies required by package
-target_link_libraries(behaviour_lib
-  ${rclcpp_TARGETS}
-  ${std_msgs_TARGETS}
-  ${std_srvs_TARGETS}
-  ${rclcpp_action_TARGETS}
-  ${behaviortree_ros2_TARGETS}
-  ${btcpp_ros2_interfaces_TARGETS}
+ament_target_dependencies(behaviour_lib
+  rclcpp
+  std_msgs
+  std_srvs
+  rclcpp_action
+  behaviortree_cpp_v3
+  behaviortree_ros2
+  btcpp_ros2_interfaces
 )
 
 # Create ROS2 node executable from source files
@@ -54,6 +59,15 @@ add_executable(behaviour_node src/behaviour_node.cpp)
 
 # Link to the previously built library to access behaviour classes and methods
 target_link_libraries(behaviour_node behaviour_lib)
+ament_target_dependencies(behaviour_node
+  rclcpp
+  std_msgs
+  std_srvs
+  rclcpp_action
+  behaviortree_cpp_v3
+  behaviortree_ros2
+  btcpp_ros2_interfaces
+)
 
 # Copy executable to installation location
 install(TARGETS
