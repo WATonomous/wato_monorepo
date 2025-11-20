@@ -10,3 +10,5 @@ ssh_config/
 
 watod-config.local.sh
 watod-config.sh
+
+bags/

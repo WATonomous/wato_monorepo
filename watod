@@ -40,6 +40,8 @@ Options
 Commands
   test [SERVICE]...           Run colcon test in specified service(s)
                               If no SERVICE specified, runs in all services
+  bag <ros2-bag-args>...      Run ros2 bag commands (record/play/info/etc)
+                              Runs in ./bags directory with auto-mounting
 
 Examples
   watod up                    # docker compose up
@@ -48,6 +50,9 @@ Examples
   watod -t perception         # open a shell in the 'perception' service
   watod test                  # run tests in all services
   watod test perception       # run tests only in perception service
+  watod bag record -a         # record all topics (auto-saves to ./bags)
+  watod bag play my_bag       # play bag from ./bags directory
+  watod bag info my_bag       # show bag info
 
 More info: https://docs.docker.com/compose/reference/overview/
 EOF
@@ -121,6 +126,12 @@ while [[ $# -gt 0 ]]; do
         shift
       done
       break ;;
+    bag)
+      RUN_BAG=1
+      shift
+      # Pass all remaining arguments to watod-bag.sh
+      BAG_ARGS=( "$@" )
+      break ;;
     *)  # first non‑option → rest is docker‑compose cmd
       break ;;
   esac
@@ -151,22 +162,6 @@ else
     pushd "$MONO_DIR" > /dev/null
     source ./watod_scripts/watod-setup-env.sh &>/dev/null
     popd > /dev/null
-fi
-
-# ─────────────────────────── Execute compose ─────────────────────────────
-
-if [[ ${#COMPOSE_CMD[@]} -gt 0 ]]; then
-  # If opening a terminal via `-t`, ensure containers are up in detached mode
-  if [[ -n ${START_TERMINAL:-} && "${COMPOSE_CMD[*]}" =~ \bup\b && ! "${COMPOSE_CMD[*]}" =~ -d ]]; then
-    COMPOSE_CMD+=( -d )
-  fi
-  run_compose
-fi
-
-# Open interactive shell if requested
-if [[ -n ${START_TERMINAL:-} ]]; then
-  echo "Starting bash shell in service '$SERVICE_NAME'..."
-  run_compose exec "$SERVICE_NAME" /bin/bash
 fi
 
 # ────────────────────────────── Run Tests ────────────────────────────────
@@ -201,4 +196,30 @@ if [[ -n ${RUN_TESTS:-} ]]; then
   else
     "$MONO_DIR/watod_scripts/watod-test.sh" "${TEST_MODULES[@]}"
   fi
+  exit $?
+fi
+
+# ────────────────────────────── Run Bag ──────────────────────────────
+
+if [[ -n ${RUN_BAG:-} ]]; then
+  # Export variables needed by watod-bag.sh
+  export MONO_DIR MODULES_DIR BAG_DIRECTORY INFRASTRUCTURE_IMAGE TAG
+  "$MONO_DIR/watod_scripts/watod-bag.sh" "${BAG_ARGS[@]}"
+  exit $?
+fi
+
+# ─────────────────────────── Execute compose ─────────────────────────────
+
+if [[ ${#COMPOSE_CMD[@]} -gt 0 ]]; then
+  # If opening a terminal via `-t`, ensure containers are up in detached mode
+  if [[ -n ${START_TERMINAL:-} && "${COMPOSE_CMD[*]}" =~ \bup\b && ! "${COMPOSE_CMD[*]}" =~ -d ]]; then
+    COMPOSE_CMD+=( -d )
+  fi
+  run_compose
+fi
+
+# Open interactive shell if requested
+if [[ -n ${START_TERMINAL:-} ]]; then
+  echo "Starting bash shell in service '$SERVICE_NAME'..."
+  run_compose exec "$SERVICE_NAME" /bin/bash
 fi
