@@ -30,7 +30,7 @@
 ##	 - simulation			:	starts simulation (carla)
 
 
-export ACTIVE_MODULES="perception interfacing world_modeling action"
+# export ACTIVE_MODULES=""
 
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
