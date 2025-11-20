@@ -100,7 +100,7 @@ fi
 cleanup_bag() {
   echo ""
   echo "Stopping recording..."
-  docker stop watod_bag_recorder 2>/dev/null || true
+  docker stop watod_bag_recorder || true
   echo "Recording stopped"
   exit 0
 }
@@ -108,7 +108,7 @@ cleanup_bag() {
 trap cleanup_bag SIGINT SIGTERM
 
 docker run --rm -t \
-  --network host \
+  --network watod_watonomous_default \
   --name watod_bag_recorder \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
