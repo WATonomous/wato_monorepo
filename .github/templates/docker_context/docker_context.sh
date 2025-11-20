@@ -72,7 +72,7 @@ for compose in $modules; do
       (if (.value.build|type)=="object" then (.value.build.dockerfile // "Dockerfile") else "Dockerfile" end)
     ] | @tsv' | while IFS=$'\t' read -r svc ctx df_rel; do
 
-      case $svc in camera_object_detection) continue ;; esac
+      case $svc in log_viewer) continue ;; esac
 
       [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "$(dirname "$compose")/$ctx")"
       [[ $df_rel = /* ]] && df_abs="$df_rel" || df_abs="$(realpath -m "$ctx_abs/$df_rel")"
