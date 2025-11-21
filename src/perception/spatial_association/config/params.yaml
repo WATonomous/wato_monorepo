@@ -43,7 +43,7 @@ spatial_association:
 
     object_detection_confidence: 0.45
 
-    publish_visualization: true
+    publish_visualization: false
 
     # Enable verbose point-cloud debug logs
     debug_logging: false

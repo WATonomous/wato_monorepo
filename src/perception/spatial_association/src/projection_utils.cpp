@@ -2,22 +2,17 @@
 #include <cmath>
 #include <limits>
 #include <array>
+#include <algorithm>
+#include <vector>
 #include <Eigen/Dense>
+// Removed opencv header as we don't need convexHull anymore
 
 // PRE-CLUSTER FILTERING
 // ----------------------------------------------------------------------------------------------------------------------
 
 
 namespace {
-struct LShapeResult {
-  Eigen::Vector2f center_xy{0.f, 0.f};
-  double yaw{0.0};
-  float len{0.f};
-  float wid{0.f};
-  bool ok{false};
-};
-
-struct PCAResult {
+struct SearchResult {
   Eigen::Vector2f center_xy{0.f, 0.f};
   double yaw{0.0};
   float len{0.f};
@@ -42,172 +37,247 @@ inline double angleDiff(double a, double b) {
   return std::abs(d);
 }
 
-PCAResult computePCAFitXY(const pcl::PointCloud<pcl::PointXYZ>& pts,
-                          const std::vector<int>& indices) {
-  PCAResult r;
-  const size_t n = indices.size();
-  if (n < 3) {
-    r.ok = false;
-    return r;
+// --- EDGE-ALIGNMENT FIT (The "Anti-Diagonal" Fix) ---
+// Instead of minimizing Area (which fails on L-shapes), we minimize
+// the distance of points to the bounding box edges.
+SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
+                                   const std::vector<int>& indices) {
+  SearchResult r;
+  if (indices.size() < 3) { r.ok = false; return r; }
+
+  // 1. Select a subset of points for speed (Downsampling)
+  // We don't need 500 points to find the angle. ~50-100 is plenty.
+  // This replaces the Convex Hull optimization with something safer for L-shapes.
+  std::vector<Eigen::Vector2f> search_points;
+  size_t step = 1;
+  if (indices.size() > 64) {
+      step = indices.size() / 64; // Limit to approx 64 points for search
+  }
+  search_points.reserve(64);
+  
+  for (size_t i = 0; i < indices.size(); i += step) {
+      const auto& p = pts.points[indices[i]];
+      search_points.emplace_back(p.x, p.y);
   }
 
-  // Compute mean
-  Eigen::Vector2d mean(0.0, 0.0);
-  for (int idx : indices) {
-    const auto &p = pts.points[idx];
-    mean.x() += p.x;
-    mean.y() += p.y;
-  }
-  mean /= static_cast<double>(n);
+  double min_energy = std::numeric_limits<double>::max();
+  double best_theta = 0.0;
 
-  // Compute covariance matrix
-  Eigen::Matrix2d cov = Eigen::Matrix2d::Zero();
-  for (int idx : indices) {
-    Eigen::Vector2d d(pts.points[idx].x - mean.x(),
-                      pts.points[idx].y - mean.y());
-    cov += d * d.transpose();
-  }
-  cov /= static_cast<double>(n);
+  // 2. Define the Scoring Function: Edge Energy
+  // We want points to be CLOSE to the min/max bounds (the walls).
+  // Energy = Sum of squared distances to the nearest wall.
+  auto calculateEdgeEnergy = [&](double theta) -> double {
+    double cos_t = std::cos(theta);
+    double sin_t = std::sin(theta);
+    
+    // First pass: Find the bounding box for this rotation
+    float min_x = std::numeric_limits<float>::max();
+    float max_x = std::numeric_limits<float>::lowest();
+    float min_y = std::numeric_limits<float>::max();
+    float max_y = std::numeric_limits<float>::lowest();
 
-  // Eigen decomposition
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> solver(cov);
-  if (solver.info() != Eigen::Success) {
-    r.ok = false;
-    return r;
-  }
+    // Helper to store rotated coords to avoid re-calculating in 2nd pass
+    // (Small optimization for the inner loop)
+    std::vector<std::pair<float, float>> rotated_cache;
+    rotated_cache.reserve(search_points.size());
 
-  // Eigenvalues are sorted ascending => largest is last column
-  Eigen::Vector2d major = solver.eigenvectors().col(1); // direction of max variance
-  Eigen::Vector2d minor(-major.y(), major.x());         // perpendicular
+    for (const auto& p : search_points) {
+      float x_rot = p.x() * cos_t + p.y() * sin_t;
+      float y_rot = -p.x() * sin_t + p.y() * cos_t;
+      
+      if (x_rot < min_x) min_x = x_rot;
+      if (x_rot > max_x) max_x = x_rot;
+      if (y_rot < min_y) min_y = y_rot;
+      if (y_rot > max_y) max_y = y_rot;
 
-  double yaw = std::atan2(major.y(), major.x());
-
-  // Project points onto major/minor axes to find extents
-  double min_u = std::numeric_limits<double>::infinity();
-  double max_u = -std::numeric_limits<double>::infinity();
-  double min_v = std::numeric_limits<double>::infinity();
-  double max_v = -std::numeric_limits<double>::infinity();
-
-  for (int idx : indices) {
-    Eigen::Vector2d p(pts.points[idx].x - mean.x(),
-                      pts.points[idx].y - mean.y());
-    double u = p.dot(major);
-    double v = p.dot(minor);
-    min_u = std::min(min_u, u);
-    max_u = std::max(max_u, u);
-    min_v = std::min(min_v, v);
-    max_v = std::max(max_v, v);
-  }
-
-  // Compute center in PCA frame and transform back to global
-  double center_u = 0.5 * (min_u + max_u);
-  double center_v = 0.5 * (min_v + max_v);
-  Eigen::Vector2d center = mean + center_u * major + center_v * minor;
-
-  r.center_xy = center.cast<float>();
-  r.len = static_cast<float>(max_u - min_u);
-  r.wid = static_cast<float>(max_v - min_v);
-  r.yaw = normalizeAngle(yaw);
-  r.ok = std::isfinite(r.yaw) && std::isfinite(r.len) && std::isfinite(r.wid);
-  return r;
-}
-
-LShapeResult computeLShapeFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
-                              const std::vector<int>& indices) {
-  LShapeResult r;
-  const size_t n = indices.size();
-  if (n < 4) {
-    r.ok = false;
-    return r;
-  }
-
-  // Copy points to std::vector<Eigen::Vector2f> for speed
-  std::vector<Eigen::Vector2f> points;
-  points.reserve(n);
-  for (int idx : indices) {
-    const auto &p = pts.points[idx];
-    points.emplace_back(static_cast<float>(p.x), static_cast<float>(p.y));
-  }
-
-  // Search for the best rotation angle (0 to 90 degrees)
-  const double angle_step = M_PI / 180.0;  // 1 degree in radians
-  double best_angle = 0.0;
-  double min_area = std::numeric_limits<double>::infinity();
-
-  for (double theta = 0.0; theta <= M_PI_2; theta += angle_step) {
-    const double cos_theta = std::cos(theta);
-    const double sin_theta = std::sin(theta);
-
-    // Rotate all points by theta and find axis-aligned bounds
-    double min_x = std::numeric_limits<double>::infinity();
-    double max_x = -std::numeric_limits<double>::infinity();
-    double min_y = std::numeric_limits<double>::infinity();
-    double max_y = -std::numeric_limits<double>::infinity();
-
-    for (const auto &pt : points) {
-      // Rotate point by -theta (to align with axes)
-      const double x_rot = pt.x() * cos_theta + pt.y() * sin_theta;
-      const double y_rot = -pt.x() * sin_theta + pt.y() * cos_theta;
-
-      min_x = std::min(min_x, x_rot);
-      max_x = std::max(max_x, x_rot);
-      min_y = std::min(min_y, y_rot);
-      max_y = std::max(max_y, y_rot);
+      rotated_cache.push_back({x_rot, y_rot});
     }
 
-    // Calculate area of the axis-aligned bounding box
-    const double area = (max_x - min_x) * (max_y - min_y);
-    if (area < min_area) {
-      min_area = area;
-      best_angle = theta;
+    // Second pass: Calculate how "stuck" the points are to the walls
+    double energy = 0.0;
+    for (const auto& p_rot : rotated_cache) {
+        // Distance to X walls
+        float dx = std::min(std::abs(p_rot.first - min_x), std::abs(p_rot.first - max_x));
+        // Distance to Y walls
+        float dy = std::min(std::abs(p_rot.second - min_y), std::abs(p_rot.second - max_y));
+        
+        // Distance to NEAREST wall
+        float d = std::min(dx, dy);
+        
+        // Sum of distances (L1 norm is robust)
+        energy += d; 
+    }
+    
+    // Normalize energy by number of points so it's invariant to sample size
+    return energy / search_points.size();
+  };
+
+  // 3. COARSE SEARCH (0 to 90 degrees, step 5 degrees)
+  double coarse_step = 5.0 * M_PI / 180.0;
+  for (double theta = 0.0; theta < M_PI_2; theta += coarse_step) {
+    double energy = calculateEdgeEnergy(theta);
+    if (energy < min_energy) {
+      min_energy = energy;
+      best_theta = theta;
     }
   }
 
-  // Calculate center, length, and width based on the best rotation
-  const double cos_best = std::cos(best_angle);
-  const double sin_best = std::sin(best_angle);
+  // 4. FINE SEARCH (Range +/- 5 degrees, step 1 degree)
+  double fine_range = 5.0 * M_PI / 180.0;
+  double fine_step = 1.0 * M_PI / 180.0; // 1 degree precision is usually enough
+  
+  double start_theta = std::max(0.0, best_theta - fine_range);
+  double end_theta   = std::min(M_PI_2, best_theta + fine_range);
 
-  double min_x = std::numeric_limits<double>::infinity();
-  double max_x = -std::numeric_limits<double>::infinity();
-  double min_y = std::numeric_limits<double>::infinity();
-  double max_y = -std::numeric_limits<double>::infinity();
-
-  for (const auto &pt : points) {
-    const double x_rot = pt.x() * cos_best + pt.y() * sin_best;
-    const double y_rot = -pt.x() * sin_best + pt.y() * cos_best;
-
-    min_x = std::min(min_x, x_rot);
-    max_x = std::max(max_x, x_rot);
-    min_y = std::min(min_y, y_rot);
-    max_y = std::max(max_y, y_rot);
+  for (double theta = start_theta; theta <= end_theta; theta += fine_step) {
+    double energy = calculateEdgeEnergy(theta);
+    if (energy < min_energy) {
+      min_energy = energy;
+      best_theta = theta;
+    }
+  }
+  
+  // 5. FINAL RE-CALCULATION (Using ALL points, not just subset)
+  // We found the best angle using the subset, now fit the box to everything.
+  std::vector<Eigen::Vector2f> all_points_2d;
+  all_points_2d.reserve(indices.size());
+  for (int idx : indices) {
+      const auto& p = pts.points[idx];
+      all_points_2d.emplace_back(p.x, p.y);
   }
 
-  // Center in rotated frame
-  const double center_x_rot = 0.5 * (min_x + max_x);
-  const double center_y_rot = 0.5 * (min_y + max_y);
+  double cos_t = std::cos(best_theta);
+  double sin_t = std::sin(best_theta);
+  
+  float min_x = std::numeric_limits<float>::max();
+  float max_x = std::numeric_limits<float>::lowest();
+  float min_y = std::numeric_limits<float>::max();
+  float max_y = std::numeric_limits<float>::lowest();
 
-  // Transform center back to global frame
-  const double center_x = center_x_rot * cos_best - center_y_rot * sin_best;
-  const double center_y = center_x_rot * sin_best + center_y_rot * cos_best;
-  r.center_xy = Eigen::Vector2f(static_cast<float>(center_x), static_cast<float>(center_y));
-
-  // Length and width
-  double len = (max_x - min_x);
-  double wid = (max_y - min_y);
-  double yaw = best_angle;
-
-  // Normalize the yaw and ensure length >= width (swap if necessary)
-  if (wid > len) {
-    std::swap(len, wid);
-    yaw += M_PI_2;  // rotate by 90 degrees
+  for (const auto& p : all_points_2d) {
+    float x_rot = p.x() * cos_t + p.y() * sin_t;
+    float y_rot = -p.x() * sin_t + p.y() * cos_t;
+    if (x_rot < min_x) min_x = x_rot;
+    if (x_rot > max_x) max_x = x_rot;
+    if (y_rot < min_y) min_y = y_rot;
+    if (y_rot > max_y) max_y = y_rot;
   }
 
-  r.len = static_cast<float>(len);
-  r.wid = static_cast<float>(wid);
-  r.yaw = normalizeAngle(yaw);
-  r.ok = std::isfinite(r.yaw) && std::isfinite(r.len) && std::isfinite(r.wid);
+  // Transform center back to global
+  float cx_rot = 0.5f * (min_x + max_x);
+  float cy_rot = 0.5f * (min_y + max_y);
+
+  float cx = cx_rot * static_cast<float>(cos_t) - cy_rot * static_cast<float>(sin_t);
+  float cy = cx_rot * static_cast<float>(sin_t) + cy_rot * static_cast<float>(cos_t);
+
+  r.center_xy = Eigen::Vector2f(cx, cy);
+  
+  float d1 = max_x - min_x;
+  float d2 = max_y - min_y;
+
+  // Standardize: Length >= Width
+  if (d1 >= d2) {
+    r.len = d1;
+    r.wid = d2;
+    r.yaw = normalizeAngle(best_theta);
+  } else {
+    r.len = d2;
+    r.wid = d1;
+    r.yaw = normalizeAngle(best_theta + M_PI_2);
+  }
+
+  r.ok = true;
   return r;
 }
+
+void recomputeExtentsInYaw(
+    const pcl::PointCloud<pcl::PointXYZ>& pts,
+    const std::vector<int>& indices,
+    double yaw,
+    const Eigen::Vector2f& base_center,  // initial center (from search-based fit)
+    Eigen::Vector2f& out_center,
+    Eigen::Vector2f& out_size) {
+  const double cos_yaw = std::cos(yaw);
+  const double sin_yaw = std::sin(yaw);
+
+  // 1. Project points to rotated frame (rotating around base_center)
+  // We want to center the box on the DENSITY of points, not the geometric average of outliers
+  std::vector<double> xs_rot;
+  std::vector<double> ys_rot;
+  xs_rot.reserve(indices.size());
+  ys_rot.reserve(indices.size());
+
+  double sum_xr = 0.0, sum_yr = 0.0;
+
+  for (int idx : indices) {
+    const auto& pt = pts.points[idx];
+    double dx = pt.x - base_center.x();
+    double dy = pt.y - base_center.y();
+
+    double x_rot = dx * cos_yaw + dy * sin_yaw;
+    double y_rot = -dx * sin_yaw + dy * cos_yaw;
+
+    xs_rot.push_back(x_rot);
+    ys_rot.push_back(y_rot);
+    sum_xr += x_rot;
+    sum_yr += y_rot;
+  }
+
+  double mean_xr = sum_xr / indices.size();
+  double mean_yr = sum_yr / indices.size();
+
+  // 2. Calculate Variance/StdDev
+  double var_xr = 0.0, var_yr = 0.0;
+  for (size_t i = 0; i < indices.size(); ++i) {
+    var_xr += (xs_rot[i] - mean_xr) * (xs_rot[i] - mean_xr);
+    var_yr += (ys_rot[i] - mean_yr) * (ys_rot[i] - mean_yr);
+  }
+  double std_xr = std::sqrt(var_xr / indices.size());
+  double std_yr = std::sqrt(var_yr / indices.size());
+
+  // 3. Find Bounds
+  // For large point sets (all cluster points), don't apply outlier rejection to ensure full coverage.
+  // For small point sets (filtered orientation points), apply mild outlier rejection.
+  const bool apply_outlier_rejection = (indices.size() < 100); // Only for filtered orientation points
+  const double sigma_mul = 3.5; // Increased from 2.5 to be less aggressive
+
+  double min_x_rot = std::numeric_limits<double>::infinity();
+  double max_x_rot = -std::numeric_limits<double>::infinity();
+  double min_y_rot = std::numeric_limits<double>::infinity();
+  double max_y_rot = -std::numeric_limits<double>::infinity();
+
+  for (size_t i = 0; i < indices.size(); ++i) {
+    double val_x = xs_rot[i];
+    double val_y = ys_rot[i];
+
+    // Only apply outlier rejection for small filtered point sets
+    if (apply_outlier_rejection) {
+      // Soft clamping: we still want the box to cover the car, but stop distant outliers
+      if (val_x > mean_xr + sigma_mul * std_xr) val_x = mean_xr + sigma_mul * std_xr;
+      if (val_x < mean_xr - sigma_mul * std_xr) val_x = mean_xr - sigma_mul * std_xr;
+      if (val_y > mean_yr + sigma_mul * std_yr) val_y = mean_yr + sigma_mul * std_yr;
+      if (val_y < mean_yr - sigma_mul * std_yr) val_y = mean_yr - sigma_mul * std_yr;
+    }
+
+    min_x_rot = std::min(min_x_rot, val_x);
+    max_x_rot = std::max(max_x_rot, val_x);
+    min_y_rot = std::min(min_y_rot, val_y);
+    max_y_rot = std::max(max_y_rot, val_y);
+  }
+
+  // 4. Offset within the rotated frame
+  double center_x_rot = 0.5 * (min_x_rot + max_x_rot);
+  double center_y_rot = 0.5 * (min_y_rot + max_y_rot);
+
+  // 5. Transform back to global frame
+  double center_x = base_center.x() + center_x_rot * cos_yaw - center_y_rot * sin_yaw;
+  double center_y = base_center.y() + center_x_rot * sin_yaw + center_y_rot * cos_yaw;
+
+  out_center = Eigen::Vector2f(static_cast<float>(center_x), static_cast<float>(center_y));
+  out_size = Eigen::Vector2f(static_cast<float>(max_x_rot - min_x_rot),
+                             static_cast<float>(max_y_rot - min_y_rot));
+}
+
 
 Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                         const pcl::PointIndices& cluster) {
@@ -217,124 +287,90 @@ Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     return box;
   }
 
-  // Z-axis (height) - compute using ALL points
+  // 1. Z-axis (height) - compute using ALL points (we still want the box to touch the ground)
   float min_z = std::numeric_limits<float>::max();
   float max_z = std::numeric_limits<float>::lowest();
+
+  // Also collect points into a vector to sort for the fallback strategy
+  std::vector<std::pair<float, int>> z_sorted_indices;
+  z_sorted_indices.reserve(cluster.indices.size());
+
   for (int idx : cluster.indices) {
     const auto& pt = cloud->points[idx];
     if (pt.z < min_z) min_z = pt.z;
     if (pt.z > max_z) max_z = pt.z;
+    z_sorted_indices.push_back({pt.z, idx});
   }
   box.center.z() = 0.5f * (min_z + max_z);
   box.size.z()   = std::max(0.0f, max_z - min_z);
 
-  // Z-slice for orientation computation: filter out points below a certain z level
-  // This helps get better orientation by focusing on the main body of the vehicle
-  // rather than ground points or low-lying parts
-  const float z_slice_threshold = min_z + 0.4f;  // 0.2m above the bottom of the cluster
+  // 2. Select Points for Orientation
+  //    Using High Cut / Top Percentage logic to remove ground points
   std::vector<int> orientation_indices;
-  orientation_indices.reserve(cluster.indices.size());
-  for (int idx : cluster.indices) {
-    const auto& pt = cloud->points[idx];
-    if (pt.z >= z_slice_threshold) {
-      orientation_indices.push_back(idx);
-    }
+  const float height = max_z - min_z;
+  float z_threshold;
+  
+  // High object (>1.5m)? Cut bottom 40%
+  if (height > 1.5f) z_threshold = min_z + (height * 0.4f);
+  else z_threshold = min_z + 0.2f;
+
+  for (const auto& pair : z_sorted_indices) {
+    if (pair.first >= z_threshold) orientation_indices.push_back(pair.second);
   }
 
-  // If z-slice filtered out too many points, use all points (fallback)
-  // Require at least 3 points for PCA fit, but prefer at least 20% of original points
-  const size_t min_points_for_orientation = std::max(3, static_cast<int>(cluster.indices.size() * 0.2));
-  if (orientation_indices.size() < min_points_for_orientation) {
-    // Use all points if z-slice filtered too aggressively
-    orientation_indices = cluster.indices;
+  // Fallback: Top 50%
+  if (orientation_indices.size() < 5 && cluster.indices.size() > 10) {
+    std::sort(z_sorted_indices.begin(), z_sorted_indices.end(),
+              [](const auto& a, const auto& b) { return a.first > b.first; }); 
+    orientation_indices.clear();
+    size_t count_to_take = z_sorted_indices.size() / 2; 
+    if (count_to_take < 5) count_to_take = z_sorted_indices.size();
+    for (size_t i = 0; i < count_to_take; ++i) orientation_indices.push_back(z_sorted_indices[i].second);
   }
+  if (orientation_indices.size() < 3) orientation_indices = cluster.indices;
 
-  // XY-plane (PCA fit) - use z-sliced points for orientation only
-  // PCA is smoother and cheaper than L-shape angle sweep
-  PCAResult pca_result = computePCAFitXY(*cloud, orientation_indices);
-  if (pca_result.ok) {
-    // --- Resolve the 180° ambiguity using line-of-sight from sensor to cluster ---
-    const double cx = static_cast<double>(pca_result.center_xy.x());
-    const double cy = static_cast<double>(pca_result.center_xy.y());
+  // 3. Perform Fit using Search-Based Fit (NOT cv::minAreaRect)
+  SearchResult fit_result = computeSearchBasedFit(*cloud, orientation_indices);
 
-    // LOS yaw from sensor to cluster center
-    const double yaw_los = std::atan2(cy, cx);
+  if (fit_result.ok) {
+    // Aspect Ratio Check
+    double ar = static_cast<double>(fit_result.len) /
+                std::max(static_cast<double>(fit_result.wid), 0.1);
 
-    // Check if this is a "front-view" cluster (square/wall-like, not elongated)
-    // For oncoming cars, the front face often appears square, so geometry doesn't
-    // reliably indicate heading - in this case, trust LOS direction
-    double ar = static_cast<double>(pca_result.len) /
-                std::max(static_cast<double>(pca_result.wid), 0.1);
-    
-    // If aspect ratio is low (cluster is kind of square/wall-like), trust LOS
-    const double ar_front_view_threshold = 1.3;  // tune this
-    bool use_los_only = (ar < ar_front_view_threshold);
-    
+    // Calculate LOS Yaw
+    Eigen::Vector4f centroid_temp;
+    pcl::compute3DCentroid(*cloud, orientation_indices, centroid_temp);
+    double yaw_los = std::atan2(centroid_temp.y(), centroid_temp.x());
+
     double final_yaw;
-    if (use_los_only) {
-      // Front-view: ignore PCA yaw entirely, align box with LOS
+
+    // Square/Wall Check
+    if (ar < 1.4) {
       final_yaw = yaw_los;
     } else {
-      // Elongated cluster: use PCA yaw with 180° disambiguation
-      double yaw0 = normalizeAngle(pca_result.yaw);
-      double yaw1 = normalizeAngle(pca_result.yaw + M_PI);
-      
-      // Pick whichever is closer to LOS
+      // Elongated: Resolve 180 ambiguity
+      double yaw0 = normalizeAngle(fit_result.yaw);
+      double yaw1 = normalizeAngle(fit_result.yaw + M_PI);
+
       double diff0 = angleDiff(yaw0, yaw_los);
       double diff1 = angleDiff(yaw1, yaw_los);
-      
+
       final_yaw = (diff1 < diff0) ? yaw1 : yaw0;
     }
 
-    // Recompute extents with final_yaw using ALL points
-    const double cos_yaw = std::cos(final_yaw);
-    const double sin_yaw = std::sin(final_yaw);
+    // Recompute with all points
+    Eigen::Vector2f center_xy, size_xy;
+    recomputeExtentsInYaw(*cloud, cluster.indices, final_yaw,
+                          fit_result.center_xy, center_xy, size_xy);
 
-    // Centroid of all points
-    double centroid_x = 0.0;
-    double centroid_y = 0.0;
-    for (int idx : cluster.indices) {
-      const auto& pt = cloud->points[idx];
-      centroid_x += pt.x;
-      centroid_y += pt.y;
-    }
-    centroid_x /= cluster.indices.size();
-    centroid_y /= cluster.indices.size();
-
-    // Project all points into the oriented frame
-    double min_x_rot = std::numeric_limits<double>::infinity();
-    double max_x_rot = -std::numeric_limits<double>::infinity();
-    double min_y_rot = std::numeric_limits<double>::infinity();
-    double max_y_rot = -std::numeric_limits<double>::infinity();
-
-    for (int idx : cluster.indices) {
-      const auto& pt = cloud->points[idx];
-      double dx = pt.x - centroid_x;
-      double dy = pt.y - centroid_y;
-
-      double x_rot = dx * cos_yaw + dy * sin_yaw;
-      double y_rot = -dx * sin_yaw + dy * cos_yaw;
-
-      min_x_rot = std::min(min_x_rot, x_rot);
-      max_x_rot = std::max(max_x_rot, x_rot);
-      min_y_rot = std::min(min_y_rot, y_rot);
-      max_y_rot = std::max(max_y_rot, y_rot);
-    }
-
-    const double center_x_rot = 0.5 * (min_x_rot + max_x_rot);
-    const double center_y_rot = 0.5 * (min_y_rot + max_y_rot);
-
-    const double center_x = centroid_x + center_x_rot * cos_yaw - center_y_rot * sin_yaw;
-    const double center_y = centroid_y + center_x_rot * sin_yaw + center_y_rot * cos_yaw;
-
-    box.center.x() = static_cast<float>(center_x);
-    box.center.y() = static_cast<float>(center_y);
-    box.size.x()   = static_cast<float>(max_x_rot - min_x_rot);
-    box.size.y()   = static_cast<float>(max_y_rot - min_y_rot);
+    box.center.x() = center_xy.x();
+    box.center.y() = center_xy.y();
+    box.size.x()   = size_xy.x();
+    box.size.y()   = size_xy.y();
     box.yaw        = final_yaw;
 
   } else {
-    // Fallback: axis-aligned in XY
+    // Fallback: Axis Aligned
     float min_x = std::numeric_limits<float>::max();
     float max_x = std::numeric_limits<float>::lowest();
     float min_y = std::numeric_limits<float>::max();
@@ -505,8 +541,8 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
                             cluster_indices[j].indices.begin(),
                             cluster_indices[j].indices.end());
         
-        // Quick PCA fit check on hypothetical merged cluster
-        PCAResult test_fit = computePCAFitXY(*cloud, merged_indices);
+        // Quick search-based fit check on hypothetical merged cluster
+        SearchResult test_fit = computeSearchBasedFit(*cloud, merged_indices);
         if (test_fit.ok) {
           double aspect_ratio = test_fit.len / std::max(test_fit.wid, 0.1f);
           
@@ -518,7 +554,7 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
           }
           // If aspect ratio is bad, skip merging (clusters remain separate)
         } else {
-          // If PCA fit fails, don't merge (clusters remain separate)
+          // If search-based fit fails, don't merge (clusters remain separate)
         }
       }
     }
@@ -823,7 +859,7 @@ vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
   for (const auto &cluster : cluster_indices) {
     if (cluster.indices.empty()) continue;
 
-    // Use the same L-shape-based 3D box used for visualization
+    // Use the same PCA-based 3D box used for visualization
     Box3D box = computeClusterBox(cloud, cluster);
 
     // fill in a Detection3D
@@ -842,7 +878,7 @@ vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
     pose.position.y = box.center.y();
     pose.position.z = box.center.z();
 
-    // Orientation — yaw from L-shape fit (or AABB fallback)
+    // Orientation — yaw from PCA fit (or AABB fallback)
     tf2::Quaternion quat;
     quat.setRPY(0.0, 0.0, box.yaw);
     pose.orientation = tf2::toMsg(quat);
