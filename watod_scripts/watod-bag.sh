@@ -121,7 +121,7 @@ docker run --rm -t \
   --ipc "container:${roudi_container}" \
   --network host \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
-  --volumes-from "${roudi_container}:ro" \
+  --volumes-from "${roudi_container}" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
   -e "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}" \

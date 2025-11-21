@@ -10,10 +10,9 @@ launch:
   - arg:
       name: use_sim_time
       default: "false"
-
-  - let:
+  - arg:
       name: urdf_path
-      value: $(find-pkg-share eve_description)/urdf/eve_kia_soul_ev.urdf
+      default: $(find-pkg-share eve_description)/urdf/eve_kia_soul_ev.urdf
 
   - node:
       pkg: robot_state_publisher
