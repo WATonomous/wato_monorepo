@@ -101,6 +101,13 @@ run_compose() {
     compose_files+=("-f" "modules/docker-compose.dev.yaml")
   fi
 
+  # Clean up iceoryx shared memory segments before starting
+  # This prevents permission issues when switching between deploy/develop modes or different users
+  if [[ "${COMPOSE_CMD[0]:-}" == "up" ]]; then
+    echo "Cleaning up stale iceoryx shared memory..."
+    sudo rm -f /dev/shm/iceoryx_* 2>/dev/null || true
+  fi
+
   echo "Running: docker compose ${compose_files[*]} ${PROFILES[*]} ${COMPOSE_CMD[*]}"
   DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
     COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
