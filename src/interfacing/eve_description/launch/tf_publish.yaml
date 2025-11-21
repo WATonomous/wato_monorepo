@@ -1,3 +1,7 @@
+# Workaround for iceoryx shared memory issue with transient_local QoS:
+# iceoryx doesn't properly support transient_local durability used by /tf_static
+# See: https://github.com/ros2/rmw_cyclonedds/issues/401
+# Solution: Remap /tf_static to /tf so all transforms use volatile QoS
 launch:
   - arg:
       name: use_sim_time
