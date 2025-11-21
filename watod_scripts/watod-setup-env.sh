@@ -87,7 +87,6 @@ BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
 # ROS 2 Middleware configuration
 RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_cyclonedds_cpp"}
 CYCLONEDDS_URI=${CYCLONEDDS_URI:-"file:///opt/watonomous/dds_config.xml"}
-ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-$((SETUID % 230))}
 
 # Always append infrastructure to ACTIVE_MODULES if not already present
 if [[ -n ${ACTIVE_MODULES:-} ]]; then
@@ -139,6 +138,9 @@ CARLAVIZ_PORT=${CARLAVIZ_PORT:-$((BASE_PORT+3))}
 CARLAVIZ_PORT_2=${CARLAVIZ_PORT_2:-$((BASE_PORT+4))}
 CARLA_NOTEBOOKS_PORT=${CARLA_NOTEBOOKS_PORT:-$((BASE_PORT+5))}
 LOG_VIEWER__PORT=${LOG_VIEWER__PORT:-$((BASE_PORT+6))}
+
+############################  ROS DOMAIN ID  #########################################
+ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-$((SETUID % 230))}
 
 ################################  Write .env  ########################################
 
