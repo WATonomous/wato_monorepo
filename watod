@@ -201,6 +201,7 @@ fi
 if [[ -n ${RUN_BAG:-} ]]; then
   # Export variables needed by watod-bag.sh
   export MONO_DIR MODULES_DIR BAG_DIRECTORY INFRASTRUCTURE_IMAGE TAG
+  export RMW_IMPLEMENTATION CYCLONEDDS_URI ROS_DOMAIN_ID COMPOSE_PROJECT_NAME
   "$MONO_DIR/watod_scripts/watod-bag.sh" "${BAG_ARGS[@]}"
   exit $?
 fi
