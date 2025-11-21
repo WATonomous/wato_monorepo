@@ -55,6 +55,9 @@ RUN cmake -S cpp -B build \
     cmake --install build && \
     echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
 
+# RMW Configurations
+COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \

@@ -1,7 +1,18 @@
+---
+# Workaround for iceoryx shared memory issue with transient_local QoS:
+# iceoryx doesn't properly support transient_local durability used by /tf_static
+# See: https://github.com/ros2/rmw_cyclonedds/issues/401
+# Solution: All sensor frames have 6-DOF joints published to /tf instead of /tf_static
+#
+# Note: joint_state_publisher receives URDF as command-line argument to avoid
+# subscribing to /robot_description topic (which uses transient_local QoS)
 launch:
   - arg:
       name: use_sim_time
       default: "false"
+  - arg:
+      name: urdf_path
+      default: $(find-pkg-share eve_description)/urdf/eve_kia_soul_ev.urdf
 
   - node:
       pkg: robot_state_publisher
@@ -11,12 +22,15 @@ launch:
         - name: use_sim_time
           value: $(var use_sim_time)
         - name: robot_description
-          value: $(command 'xacro $(find-pkg-share eve_description)/urdf/eve_kia_soul_ev.xacro')
+          value: $(command 'cat $(var urdf_path)')
 
   - node:
       pkg: joint_state_publisher
       exec: joint_state_publisher
       name: joint_state_publisher
+      args: $(var urdf_path)
       param:
         - name: use_sim_time
           value: $(var use_sim_time)
+        - name: publish_default_positions
+          value: true

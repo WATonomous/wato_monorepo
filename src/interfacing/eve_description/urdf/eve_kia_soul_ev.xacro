@@ -82,6 +82,73 @@
     </joint>
   </xacro:macro>
 
+  <!-- 6-DOF sensor mount for online calibration -->
+  <!-- Uses chain of joints instead of floating joint (floating not supported by robot_state_publisher) -->
+  <xacro:macro name="sensor_6dof_mount" params="name parent_link child_link x y z roll pitch yaw">
+    <!-- Translation stages -->
+    <link name="${name}_x_translation"/>
+    <joint name="${name}_x" type="prismatic">
+      <parent link="${parent_link}"/>
+      <child link="${name}_x_translation"/>
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+      <axis xyz="1 0 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_y_translation"/>
+    <joint name="${name}_y" type="prismatic">
+      <parent link="${name}_x_translation"/>
+      <child link="${name}_y_translation"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_z_translation"/>
+    <joint name="${name}_z" type="prismatic">
+      <parent link="${name}_y_translation"/>
+      <child link="${name}_z_translation"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <!-- Rotation stages -->
+    <link name="${name}_roll_rotation"/>
+    <joint name="${name}_roll" type="revolute">
+      <parent link="${name}_z_translation"/>
+      <child link="${name}_roll_rotation"/>
+      <origin xyz="0 0 0" rpy="${roll} 0 0"/>
+      <axis xyz="1 0 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_pitch_rotation"/>
+    <joint name="${name}_pitch" type="revolute">
+      <parent link="${name}_roll_rotation"/>
+      <child link="${name}_pitch_rotation"/>
+      <origin xyz="0 0 0" rpy="0 ${pitch} 0"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_yaw_rotation"/>
+    <joint name="${name}_yaw" type="revolute">
+      <parent link="${name}_pitch_rotation"/>
+      <child link="${name}_yaw_rotation"/>
+      <origin xyz="0 0 0" rpy="0 0 ${yaw}"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <!-- Final connection to sensor -->
+    <joint name="${name}_fixed" type="fixed">
+      <parent link="${name}_yaw_rotation"/>
+      <child link="${child_link}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
   <!-- Rear Wheels -->
   <xacro:wheel name="rear_left" x="0" y="${track_width/2}" z="${wheel_radius}"/>
   <xacro:wheel name="rear_right" x="0" y="-${track_width/2}" z="${wheel_radius}"/>
@@ -108,11 +175,8 @@
   </collision>
 </link>
 
-<joint name="lidar_top_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="lidar_top"/>
-  <origin xyz="-0.55 0 2.07" rpy="0 0 0"/>
-</joint>
+<xacro:sensor_6dof_mount name="lidar_top_mount" parent_link="base_link" child_link="lidar_top"
+                          x="-0.55" y="0" z="2.07" roll="0" pitch="0" yaw="0"/>
 
 <!-- Left Mirror LiDAR -->
 <link name="lidar_left">
@@ -133,11 +197,8 @@
   </collision>
 </link>
 
-<joint name="lidar_left_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="lidar_left"/>
-  <origin xyz="-0.55 1 2.07" rpy="0 0 2"/>
-</joint>
+<xacro:sensor_6dof_mount name="lidar_left_mount" parent_link="base_link" child_link="lidar_left"
+                          x="-0.55" y="1" z="2.07" roll="0" pitch="0" yaw="2"/>
 
 <!-- Right Mirror LiDAR -->
 <link name="lidar_right">
@@ -158,11 +219,8 @@
   </collision>
 </link>
 
-<joint name="lidar_right_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="lidar_right"/>
-  <origin xyz="-0.55 -1 2.07" rpy="0 0 2"/>
-</joint>
+<xacro:sensor_6dof_mount name="lidar_right_mount" parent_link="base_link" child_link="lidar_right"
+                          x="-0.55" y="-1" z="2.07" roll="0" pitch="0" yaw="2"/>
 
 <!-- GPS/IMU Antenna -->
 <link name="gps_imu_antenna">
@@ -183,10 +241,7 @@
   </collision>
 </link>
 
-<joint name="gps_imu_antenna_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="gps_imu_antenna"/>
-  <origin xyz="-1.0326 0 1.689" rpy="0 0 0"/>
-</joint>
+<xacro:sensor_6dof_mount name="gps_imu_mount" parent_link="base_link" child_link="gps_imu_antenna"
+                          x="-1.0326" y="0" z="1.689" roll="0" pitch="0" yaw="0"/>
 
 </robot>

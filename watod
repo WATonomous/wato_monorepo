@@ -29,7 +29,7 @@ readonly RESET='\033[0m'
 readonly BOLD='\033[1m'
 
 # Always arrays → safe to expand with "${arr[@]}"
-declare -a MODULES=()
+declare -a PROFILES=()
 declare -a COMPOSE_CMD=()
 
 usage() {
@@ -66,15 +66,11 @@ More info: https://docs.docker.com/compose/reference/overview/
 EOF
 }
 
-build_modules_array() {
-  local -n modules_array=$1  # nameref to the array to populate
-  local modules_dir=${2:-$MODULES_DIR}
-  local blacklist=${3:-""}  # space-separated list of modules to exclude
+build_profiles_array() {
+  local -n profiles_array=$1  # nameref to the array to populate
+  local blacklist=${2:-""}  # space-separated list of modules to exclude
 
-  modules_array=()
-
-  # shellcheck source=/dev/null
-  source "$modules_dir/.env"    # must define $ACTIVE_MODULES
+  profiles_array=()
 
   # Ensure ACTIVE_MODULES is an array
   if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
@@ -86,37 +82,49 @@ build_modules_array() {
     if [[ -n "$blacklist" && " $blacklist " =~ \ $m\  ]]; then
       continue
     fi
-    modules_array+=( -f "$modules_dir/docker-compose.${m}.yaml" )
+    profiles_array+=( --profile "$m" )
   done
 }
 
 run_compose() {
   cd "$MONO_DIR"
 
-  # Build the list of -f <file> arguments once
-  if [[ -z ${MODULES_BUILT:-} ]]; then
-    MODULES_BUILT=1
-    build_modules_array MODULES "$MODULES_DIR"
+  # Build the list of --profile arguments once
+  if [[ -z ${PROFILES_BUILT:-} ]]; then
+    PROFILES_BUILT=1
+    build_profiles_array PROFILES
   fi
 
-  echo "Running: docker compose ${MODULES[*]} ${COMPOSE_CMD[*]}"
+  # Determine compose files to use
+  local compose_files=("-f" "modules/docker-compose.yaml")
+  if [[ "${MODE_OF_OPERATION:-deploy}" == "develop" ]]; then
+    compose_files+=("-f" "modules/docker-compose.dev.yaml")
+  fi
+
+  echo "Running: docker compose ${compose_files[*]} ${PROFILES[*]} ${COMPOSE_CMD[*]}"
   DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
     COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
-    docker compose "${MODULES[@]}" "${COMPOSE_CMD[@]}"
+    docker compose "${compose_files[@]}" "${PROFILES[@]}" "${COMPOSE_CMD[@]}"
 }
 
 down_compose() {
   cd "$MONO_DIR"
 
-  # Build the list of -f <file> arguments if not already built
-  if [[ -z ${MODULES_BUILT:-} ]]; then
-    MODULES_BUILT=1
-    build_modules_array MODULES "$MODULES_DIR"
+  # Build the list of --profile arguments if not already built
+  if [[ -z ${PROFILES_BUILT:-} ]]; then
+    PROFILES_BUILT=1
+    build_profiles_array PROFILES
+  fi
+
+  # Determine compose files to use
+  local compose_files=("-f" "modules/docker-compose.yaml")
+  if [[ "${MODE_OF_OPERATION:-deploy}" == "develop" ]]; then
+    compose_files+=("-f" "modules/docker-compose.dev.yaml")
   fi
 
   DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
     COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
-    docker compose "${MODULES[@]}" down
+    docker compose "${compose_files[@]}" "${PROFILES[@]}" down
 }
 
 # ─────────────────────────── Argument parsing ────────────────────────────
@@ -168,13 +176,6 @@ COMPOSE_CMD=( "$@" )
 [[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
 [[ -f "$MONO_DIR/watod-config.sh"       ]] && source "$MONO_DIR/watod-config.sh"
 
-# Mode of operation (deploy vs develop overrides)
-# Also need to be in develop mode to run tests
-MODE_OF_OPERATION=${MODE_OF_OPERATION:-deploy}
-if [[ $MODE_OF_OPERATION == develop || -n ${RUN_TESTS:-} ]]; then
-  MODULES_DIR="$MONO_DIR/modules/dev_overrides"
-fi
-
 # Generate .env via helper script
 if [[ -n ${VERBOSE:-} ]]; then
     pushd "$MONO_DIR" > /dev/null
@@ -189,34 +190,20 @@ fi
 # ────────────────────────────── Run Tests ────────────────────────────────
 
 if [[ -n ${RUN_TESTS:-} ]]; then
-  # First, build all services in dev mode to ensure images are up-to-date
+  # First, build all services to ensure images are up-to-date
   echo "Building images before running tests..."
   COMPOSE_CMD=( build )
   run_compose
 
-  # For tests, rebuild modules array with dev_overrides but exclude simulation and infrastructure
-  TEST_MODULES=()
+  # Build test profiles array, excluding simulation and infrastructure
+  TEST_PROFILES=()
+  build_profiles_array TEST_PROFILES "simulation infrastructure"
 
-  # shellcheck source=/dev/null
-  source "$MODULES_DIR/.env"    # must define $ACTIVE_MODULES
-
-  # Ensure ACTIVE_MODULES is an array
-  if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
-    read -ra ACTIVE_MODULES <<<"${ACTIVE_MODULES[*]}"
-  fi
-
-  # Build test modules array, excluding simulation and infrastructure
-  for m in "${ACTIVE_MODULES[@]}"; do
-    if [[ "$m" != "simulation" && "$m" != "infrastructure" ]]; then
-      TEST_MODULES+=( -f "$MODULES_DIR/docker-compose.${m}.yaml" )
-    fi
-  done
-
-  # Call the test script with modules array as arguments
+  # Call the test script with profiles array as arguments
   if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
-    "$MONO_DIR/watod_scripts/watod-test.sh" "${TEST_MODULES[@]}" "${TEST_SERVICES[@]}"
+    "$MONO_DIR/watod_scripts/watod-test.sh" -f modules/docker-compose.yaml "${TEST_PROFILES[@]}" "${TEST_SERVICES[@]}"
   else
-    "$MONO_DIR/watod_scripts/watod-test.sh" "${TEST_MODULES[@]}"
+    "$MONO_DIR/watod_scripts/watod-test.sh" -f modules/docker-compose.yaml "${TEST_PROFILES[@]}"
   fi
   exit $?
 fi
@@ -226,6 +213,7 @@ fi
 if [[ -n ${RUN_BAG:-} ]]; then
   # Export variables needed by watod-bag.sh
   export MONO_DIR MODULES_DIR BAG_DIRECTORY INFRASTRUCTURE_IMAGE TAG
+  export RMW_IMPLEMENTATION CYCLONEDDS_URI ROS_DOMAIN_ID COMPOSE_PROJECT_NAME
   "$MONO_DIR/watod_scripts/watod-bag.sh" "${BAG_ARGS[@]}"
   exit $?
 fi
@@ -261,8 +249,8 @@ if [[ ${#COMPOSE_CMD[@]} -gt 0 ]]; then
     COMPOSE_CMD+=( -d )
   fi
 
-  # Special handling for 'up' command
-  if [[ "${COMPOSE_CMD[0]}" == "up" ]]; then
+  # Special handling for 'up' command (only if not in detached mode)
+  if [[ "${COMPOSE_CMD[0]}" == "up" && ! "${COMPOSE_CMD[*]}" =~ -d ]]; then
     # Set up trap for Ctrl+C on 'up' command
     trap cleanup SIGINT SIGTERM
 

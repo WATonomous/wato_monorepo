@@ -1,0 +1,122 @@
+---
+volumes:
+  iox_runtime:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+
+services:
+#################### INFRASTRUCTURE SERVICES ####################
+  roudi:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: roudi
+    image: "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
+    command: iox-roudi -c /opt/watonomous/iox_config.toml
+
+  foxglove:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: foxglove
+    image: "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
+    command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
+
+  log_viewer:
+    extends:
+      file: docker-compose.yaml
+      service: log_viewer
+
+#################### INTERFACING SERVICE ####################
+  interfacing_bringup:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: interfacing_bringup
+    image: "${INTERFACING_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing
+
+#################### PERCEPTION SERVICE ####################
+  perception_bringup:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: perception_bringup
+    image: "${PERCEPTION_IMAGE:?}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
+
+#################### WORLD_MODELING SERVICE ####################
+  world_modeling_bringup:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: world_modeling_bringup
+    image: "${WORLD_MODELING_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
+
+#################### ACTION SERVICE ####################
+  action_bringup:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: action_bringup
+    image: "${ACTION_IMAGE}:build_${TAG}"
+    command: tail -F anything
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/action:/home/bolty/ament_ws/src/action
+
+#################### SIMULATION SERVICE ####################
+  carla_sim:
+    extends:
+      file: docker-compose.yaml
+      service: carla_sim
+
+  carla_ros_bridge:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: carla_ros_bridge
+    command: tail -F anything
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
+
+  carla_viz:
+    extends:
+      file: docker-compose.yaml
+      service: carla_viz
+
+  carla_sample_node:
+    build:
+      target: build
+    extends:
+      file: docker-compose.yaml
+      service: carla_sample_node
+    command: tail -F anything
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
+
+  carla_notebooks:
+    extends:
+      file: docker-compose.yaml
+      service: carla_notebooks

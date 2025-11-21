@@ -50,39 +50,59 @@ REPOSITORY="${REGISTRY_URL#*/}"
 
 ################################ build matrix ##################################
 shopt -s lastpipe
-modules=$(find modules -maxdepth 1 -name 'docker-compose.*.ya*ml' | sort)
+compose_file="modules/docker-compose.yaml"
 
-$DEBUG && { echo "▶ Compose files found:"; printf '  %s\n' "$modules"; }
+$DEBUG && echo "▶ Using compose file: $compose_file"
 
 declare -A seen
 declare -a json_rows
 
-for compose in $modules; do
-  module_out=$(sed -n 's|modules/docker-compose\.\(.*\)\.ya.*|\1|p' <<<"$compose")
-  [[ $module_out == simulation ]] && continue
-  if [[ -n ${MODIFIED_MODULES:-} ]] && [[ " ${MODIFIED_MODULES} " != *" $module_out "* ]]; then
-    continue
-  fi
+# Services to skip
+skip_services="log_viewer carla_sim carla_ros_bridge carla_viz carla_sample_node carla_notebooks"
 
-  cfg=$(docker compose -f "$compose" config --format json)
+# Determine which modules to process
+if [[ -n ${MODIFIED_MODULES:-} ]]; then
+  modules_to_process="$MODIFIED_MODULES"
+else
+  # Default: all modules except simulation
+  modules_to_process="infrastructure interfacing perception world_modeling action"
+fi
+
+$DEBUG && { echo "▶ Modules to process:"; printf '  %s\n' "$modules_to_process"; }
+
+for module in $modules_to_process; do
+  # Skip simulation
+  [[ $module == simulation ]] && continue
+
+  # Always include infrastructure profile as other services depend on it
+  cfg=$(docker compose -f "$compose_file" --profile infrastructure --profile "$module" config --format json)
 
   echo "$cfg" | jq -r '
     .services | to_entries[] | select(.value.build?) | [ .key,
       (.value.build.context // "."),
-      (if (.value.build|type)=="object" then (.value.build.dockerfile // "Dockerfile") else "Dockerfile" end)
-    ] | @tsv' | while IFS=$'\t' read -r svc ctx df_rel; do
+      (if (.value.build|type)=="object" then (.value.build.dockerfile // "Dockerfile") else "Dockerfile" end),
+      (.value.profiles[0] // "")
+    ] | @tsv' | while IFS=$'\t' read -r svc ctx df_rel svc_profile; do
 
-      case $svc in log_viewer) continue ;; esac
+      # Skip services in skip list
+      if [[ " $skip_services " =~ \ $svc\  ]]; then
+        continue
+      fi
 
-      [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "$(dirname "$compose")/$ctx")"
+      # Only process services that belong to the current module profile
+      if [[ "$svc_profile" != "$module" ]]; then
+        continue
+      fi
+
+      [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "$(dirname "$compose_file")/$ctx")"
       [[ $df_rel = /* ]] && df_abs="$df_rel" || df_abs="$(realpath -m "$ctx_abs/$df_rel")"
       df_repo_rel="$(realpath --relative-to=. "$df_abs")"
 
-      $DEBUG && echo "↳   $svc → $df_repo_rel" >&2
+      $DEBUG && echo "↳   $module/$svc → $df_repo_rel" >&2
 
       [[ -n ${seen[$df_repo_rel]:-} ]] && continue
       seen[$df_repo_rel]=1
-      json_rows+=("$(jq -nc --arg module "$module_out" --arg service "$svc" --arg dockerfile "$df_repo_rel" '{module:$module,service:$service,dockerfile:$dockerfile}')")
+      json_rows+=("$(jq -nc --arg module "$module" --arg service "$svc" --arg dockerfile "$df_repo_rel" '{module:$module,service:$service,dockerfile:$dockerfile}')")
   done
 
 done
