@@ -108,7 +108,7 @@ cleanup_bag() {
 trap cleanup_bag SIGINT SIGTERM
 
 docker run --rm -t \
-  --network watod_watonomous_default \
+  --network host \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \

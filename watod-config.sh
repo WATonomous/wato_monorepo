@@ -54,6 +54,17 @@
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
 # export BAG_DIRECTORY=""
 
+############################### ROS 2 MIDDLEWARE SETTINGS ##############################
+## Middleware to use for interprocess communication. DEFAULT = "rmw_cyclonedds_cpp"
+# export RMW_IMPLEMENTATION=""
+
+## Path to CycloneDDS configuration file. DEFAULT = "file:///opt/watonomous/dds_config.xml"
+# export CYCLONEDDS_URI=""
+
+## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
+## Each user gets a unique domain to prevent cross-talk on shared networks
+# export ROS_DOMAIN_ID=""
+
 ############################### FOXGLOVE SETTINGS ##################################
 ## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.
 # export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"

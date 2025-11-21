@@ -11,6 +11,7 @@ services:
   roudi:
     profiles: ["infrastructure"]
     ipc: host
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/infrastructure/infrastructure.Dockerfile
@@ -25,10 +26,12 @@ services:
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
 
   foxglove:
     profiles: ["infrastructure"]
     ipc: "service:roudi"
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/infrastructure/infrastructure.Dockerfile
@@ -38,13 +41,12 @@ services:
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
-    ports:
-      - "${FOXGLOVE_BRIDGE_PORT:?}:${FOXGLOVE_BRIDGE_PORT:?}"
     volumes:
       - iox_runtime:/tmp
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     depends_on:
       - roudi
 
@@ -80,6 +82,7 @@ services:
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     depends_on:
       - roudi
 
@@ -87,6 +90,7 @@ services:
   perception_bringup:
     profiles: ["perception"]
     ipc: "service:roudi"
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/perception/perception.Dockerfile
@@ -102,6 +106,7 @@ services:
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     depends_on:
       - roudi
 
@@ -109,6 +114,7 @@ services:
   world_modeling_bringup:
     profiles: ["world_modeling"]
     ipc: "service:roudi"
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/world_modeling/world_modeling.Dockerfile
@@ -123,6 +129,7 @@ services:
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     depends_on:
       - roudi
 
@@ -130,6 +137,7 @@ services:
   action_bringup:
     profiles: ["action"]
     ipc: "service:roudi"
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/action/action.Dockerfile
@@ -144,6 +152,7 @@ services:
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     depends_on:
       - roudi
 
@@ -167,6 +176,7 @@ services:
   carla_ros_bridge:
     profiles: ["simulation"]
     ipc: "service:roudi"
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
@@ -182,6 +192,7 @@ services:
       - USE_ACKERMANN_CONTROL=False
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
     command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
     depends_on:
@@ -208,6 +219,7 @@ services:
   carla_sample_node:
     profiles: ["simulation"]
     ipc: "service:roudi"
+    network_mode: host
     build:
       context: ..
       dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
@@ -223,6 +235,7 @@ services:
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     depends_on:
       - roudi
 
