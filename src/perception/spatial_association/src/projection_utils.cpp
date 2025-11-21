@@ -12,18 +12,21 @@
 
 
 namespace {
+// Orientation and filtering thresholds
+constexpr float kTallObjectHeightThreshold = 1.5f;
+constexpr float kTallObjectCutBottomFraction = 0.4f;
+constexpr float kShortObjectCutBottomMeters = 0.2f;
+
+constexpr double kARFrontViewThreshold = 1.4; // front-wall vs elongated
+constexpr size_t kOutlierRejectionPointCount = 100;
+constexpr double kOutlierSigmaMultiplier = 3.5;
+
 struct SearchResult {
   Eigen::Vector2f center_xy{0.f, 0.f};
   double yaw{0.0};
   float len{0.f};
   float wid{0.f};
   bool ok{false};
-};
-
-struct Box3D {
-  Eigen::Vector3f center{0.f, 0.f, 0.f};
-  Eigen::Vector3f size{0.f, 0.f, 0.f};  // length (x), width (y), height (z)
-  double yaw{0.0};
 };
 
 inline double normalizeAngle(double a) {
@@ -37,6 +40,28 @@ inline double angleDiff(double a, double b) {
   return std::abs(d);
 }
 
+// Helper function to sample points for orientation search
+std::vector<Eigen::Vector2f> samplePointsXY(
+    const pcl::PointCloud<pcl::PointXYZ>& cloud,
+    const std::vector<int>& indices,
+    size_t desired_count = 64) {
+  std::vector<Eigen::Vector2f> pts;
+  if (indices.empty()) return pts;
+
+  size_t step = 1;
+  if (indices.size() > desired_count) {
+    step = indices.size() / desired_count;
+    if (step == 0) step = 1; // safety
+  }
+
+  pts.reserve((indices.size() + step - 1) / step);
+  for (size_t i = 0; i < indices.size(); i += step) {
+    const auto& p = cloud.points[indices[i]];
+    pts.emplace_back(p.x, p.y);
+  }
+  return pts;
+}
+
 // --- EDGE-ALIGNMENT FIT (The "Anti-Diagonal" Fix) ---
 // Instead of minimizing Area (which fails on L-shapes), we minimize
 // the distance of points to the bounding box edges.
@@ -48,22 +73,17 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
   // 1. Select a subset of points for speed (Downsampling)
   // We don't need 500 points to find the angle. ~50-100 is plenty.
   // This replaces the Convex Hull optimization with something safer for L-shapes.
-  std::vector<Eigen::Vector2f> search_points;
-  size_t step = 1;
-  if (indices.size() > 64) {
-      step = indices.size() / 64; // Limit to approx 64 points for search
-  }
-  search_points.reserve(64);
-  
-  for (size_t i = 0; i < indices.size(); i += step) {
-      const auto& p = pts.points[indices[i]];
-      search_points.emplace_back(p.x, p.y);
-  }
+  auto search_points = samplePointsXY(pts, indices);
+  if (search_points.size() < 3) { r.ok = false; return r; }
 
   double min_energy = std::numeric_limits<double>::max();
   double best_theta = 0.0;
 
-  // 2. Define the Scoring Function: Edge Energy
+  // 2. Pre-allocate rotated cache once to avoid allocations per angle
+  std::vector<std::pair<double, double>> rotated_cache;
+  rotated_cache.resize(search_points.size());
+
+  // 3. Define the Scoring Function: Edge Energy
   // We want points to be CLOSE to the min/max bounds (the walls).
   // Energy = Sum of squared distances to the nearest wall.
   auto calculateEdgeEnergy = [&](double theta) -> double {
@@ -71,49 +91,45 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
     double sin_t = std::sin(theta);
     
     // First pass: Find the bounding box for this rotation
-    float min_x = std::numeric_limits<float>::max();
-    float max_x = std::numeric_limits<float>::lowest();
-    float min_y = std::numeric_limits<float>::max();
-    float max_y = std::numeric_limits<float>::lowest();
+    double min_x = std::numeric_limits<double>::max();
+    double max_x = std::numeric_limits<double>::lowest();
+    double min_y = std::numeric_limits<double>::max();
+    double max_y = std::numeric_limits<double>::lowest();
 
-    // Helper to store rotated coords to avoid re-calculating in 2nd pass
-    // (Small optimization for the inner loop)
-    std::vector<std::pair<float, float>> rotated_cache;
-    rotated_cache.reserve(search_points.size());
-
-    for (const auto& p : search_points) {
-      float x_rot = p.x() * cos_t + p.y() * sin_t;
-      float y_rot = -p.x() * sin_t + p.y() * cos_t;
+    for (size_t i = 0; i < search_points.size(); ++i) {
+      const auto& p = search_points[i];
+      double x_rot = static_cast<double>(p.x()) * cos_t + static_cast<double>(p.y()) * sin_t;
+      double y_rot = -static_cast<double>(p.x()) * sin_t + static_cast<double>(p.y()) * cos_t;
       
+      rotated_cache[i] = {x_rot, y_rot};
+
       if (x_rot < min_x) min_x = x_rot;
       if (x_rot > max_x) max_x = x_rot;
       if (y_rot < min_y) min_y = y_rot;
       if (y_rot > max_y) max_y = y_rot;
-
-      rotated_cache.push_back({x_rot, y_rot});
     }
 
     // Second pass: Calculate how "stuck" the points are to the walls
     double energy = 0.0;
-    for (const auto& p_rot : rotated_cache) {
+    for (const auto& pr : rotated_cache) {
         // Distance to X walls
-        float dx = std::min(std::abs(p_rot.first - min_x), std::abs(p_rot.first - max_x));
+        double dx = std::min(std::abs(pr.first - min_x), std::abs(pr.first - max_x));
         // Distance to Y walls
-        float dy = std::min(std::abs(p_rot.second - min_y), std::abs(p_rot.second - max_y));
+        double dy = std::min(std::abs(pr.second - min_y), std::abs(pr.second - max_y));
         
         // Distance to NEAREST wall
-        float d = std::min(dx, dy);
+        double d = std::min(dx, dy);
         
         // Sum of distances (L1 norm is robust)
         energy += d; 
     }
     
     // Normalize energy by number of points so it's invariant to sample size
-    return energy / search_points.size();
+    return energy / static_cast<double>(search_points.size());
   };
 
-  // 3. COARSE SEARCH (0 to 90 degrees, step 5 degrees)
-  double coarse_step = 5.0 * M_PI / 180.0;
+  // 4. COARSE SEARCH (0 to 90 degrees, step 10 degrees)
+  double coarse_step = 10.0 * M_PI / 180.0;
   for (double theta = 0.0; theta < M_PI_2; theta += coarse_step) {
     double energy = calculateEdgeEnergy(theta);
     if (energy < min_energy) {
@@ -122,9 +138,9 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
     }
   }
 
-  // 4. FINE SEARCH (Range +/- 5 degrees, step 1 degree)
+  // 5. FINE SEARCH (Range +/- 5 degrees, step 2 degrees)
   double fine_range = 5.0 * M_PI / 180.0;
-  double fine_step = 1.0 * M_PI / 180.0; // 1 degree precision is usually enough
+  double fine_step = 2.0 * M_PI / 180.0; // 2 degree precision is usually enough
   
   double start_theta = std::max(0.0, best_theta - fine_range);
   double end_theta   = std::min(M_PI_2, best_theta + fine_range);
@@ -137,7 +153,7 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
     }
   }
   
-  // 5. FINAL RE-CALCULATION (Using ALL points, not just subset)
+  // 6. FINAL RE-CALCULATION (Using ALL points, not just subset)
   // We found the best angle using the subset, now fit the box to everything.
   std::vector<Eigen::Vector2f> all_points_2d;
   all_points_2d.reserve(indices.size());
@@ -149,14 +165,14 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
   double cos_t = std::cos(best_theta);
   double sin_t = std::sin(best_theta);
   
-  float min_x = std::numeric_limits<float>::max();
-  float max_x = std::numeric_limits<float>::lowest();
-  float min_y = std::numeric_limits<float>::max();
-  float max_y = std::numeric_limits<float>::lowest();
+  double min_x = std::numeric_limits<double>::max();
+  double max_x = std::numeric_limits<double>::lowest();
+  double min_y = std::numeric_limits<double>::max();
+  double max_y = std::numeric_limits<double>::lowest();
 
   for (const auto& p : all_points_2d) {
-    float x_rot = p.x() * cos_t + p.y() * sin_t;
-    float y_rot = -p.x() * sin_t + p.y() * cos_t;
+    double x_rot = static_cast<double>(p.x()) * cos_t + static_cast<double>(p.y()) * sin_t;
+    double y_rot = -static_cast<double>(p.x()) * sin_t + static_cast<double>(p.y()) * cos_t;
     if (x_rot < min_x) min_x = x_rot;
     if (x_rot > max_x) max_x = x_rot;
     if (y_rot < min_y) min_y = y_rot;
@@ -164,25 +180,25 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ>& pts,
   }
 
   // Transform center back to global
-  float cx_rot = 0.5f * (min_x + max_x);
-  float cy_rot = 0.5f * (min_y + max_y);
+  double cx_rot = 0.5 * (min_x + max_x);
+  double cy_rot = 0.5 * (min_y + max_y);
 
-  float cx = cx_rot * static_cast<float>(cos_t) - cy_rot * static_cast<float>(sin_t);
-  float cy = cx_rot * static_cast<float>(sin_t) + cy_rot * static_cast<float>(cos_t);
+  double cx = cx_rot * cos_t - cy_rot * sin_t;
+  double cy = cx_rot * sin_t + cy_rot * cos_t;
 
-  r.center_xy = Eigen::Vector2f(cx, cy);
+  r.center_xy = Eigen::Vector2f(static_cast<float>(cx), static_cast<float>(cy));
   
-  float d1 = max_x - min_x;
-  float d2 = max_y - min_y;
+  double d1 = max_x - min_x;
+  double d2 = max_y - min_y;
 
   // Standardize: Length >= Width
   if (d1 >= d2) {
-    r.len = d1;
-    r.wid = d2;
+    r.len = static_cast<float>(d1);
+    r.wid = static_cast<float>(d2);
     r.yaw = normalizeAngle(best_theta);
   } else {
-    r.len = d2;
-    r.wid = d1;
+    r.len = static_cast<float>(d2);
+    r.wid = static_cast<float>(d1);
     r.yaw = normalizeAngle(best_theta + M_PI_2);
   }
 
@@ -238,8 +254,8 @@ void recomputeExtentsInYaw(
   // 3. Find Bounds
   // For large point sets (all cluster points), don't apply outlier rejection to ensure full coverage.
   // For small point sets (filtered orientation points), apply mild outlier rejection.
-  const bool apply_outlier_rejection = (indices.size() < 100); // Only for filtered orientation points
-  const double sigma_mul = 3.5; // Increased from 2.5 to be less aggressive
+  const bool apply_outlier_rejection = (indices.size() < kOutlierRejectionPointCount);
+  const double sigma_mul = kOutlierSigmaMultiplier;
 
   double min_x_rot = std::numeric_limits<double>::infinity();
   double max_x_rot = -std::numeric_limits<double>::infinity();
@@ -279,40 +295,40 @@ void recomputeExtentsInYaw(
 }
 
 
-Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+ProjectionUtils::Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                         const pcl::PointIndices& cluster) {
-  Box3D box;
+  ProjectionUtils::Box3D box;
 
   if (!cloud || cloud->empty() || cluster.indices.empty()) {
     return box;
   }
 
-  // 1. Z-axis (height) - compute using ALL points (we still want the box to touch the ground)
-  float min_z = std::numeric_limits<float>::max();
-  float max_z = std::numeric_limits<float>::lowest();
-
-  // Also collect points into a vector to sort for the fallback strategy
+  // 1. Collect all points and compute initial z bounds
   std::vector<std::pair<float, int>> z_sorted_indices;
   z_sorted_indices.reserve(cluster.indices.size());
 
+  float min_z_all = std::numeric_limits<float>::max();
+  float max_z_all = std::numeric_limits<float>::lowest();
+
   for (int idx : cluster.indices) {
     const auto& pt = cloud->points[idx];
-    if (pt.z < min_z) min_z = pt.z;
-    if (pt.z > max_z) max_z = pt.z;
+    if (pt.z < min_z_all) min_z_all = pt.z;
+    if (pt.z > max_z_all) max_z_all = pt.z;
     z_sorted_indices.push_back({pt.z, idx});
   }
-  box.center.z() = 0.5f * (min_z + max_z);
-  box.size.z()   = std::max(0.0f, max_z - min_z);
 
-  // 2. Select Points for Orientation
-  //    Using High Cut / Top Percentage logic to remove ground points
+  const float height = max_z_all - min_z_all;
+
+  // 2. Select Points for Orientation (z-sliced to avoid ground)
   std::vector<int> orientation_indices;
-  const float height = max_z - min_z;
   float z_threshold;
   
-  // High object (>1.5m)? Cut bottom 40%
-  if (height > 1.5f) z_threshold = min_z + (height * 0.4f);
-  else z_threshold = min_z + 0.2f;
+  // High object threshold? Cut bottom fraction
+  if (height > kTallObjectHeightThreshold) {
+    z_threshold = min_z_all + (height * kTallObjectCutBottomFraction);
+  } else {
+    z_threshold = min_z_all + kShortObjectCutBottomMeters;
+  }
 
   for (const auto& pair : z_sorted_indices) {
     if (pair.first >= z_threshold) orientation_indices.push_back(pair.second);
@@ -329,7 +345,36 @@ Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
   }
   if (orientation_indices.size() < 3) orientation_indices = cluster.indices;
 
-  // 3. Perform Fit using Search-Based Fit (NOT cv::minAreaRect)
+  // 3. Compute filtered z bounds (exclude ground noise for height calculation)
+  // Use the same z_threshold to filter ground points
+  float min_z_filtered = std::numeric_limits<float>::max();
+  float max_z_filtered = std::numeric_limits<float>::lowest();
+
+  for (const auto& pair : z_sorted_indices) {
+    if (pair.first >= z_threshold) {
+      if (pair.first < min_z_filtered) min_z_filtered = pair.first;
+      if (pair.first > max_z_filtered) max_z_filtered = pair.first;
+    }
+  }
+
+  // If filtering removed too many points, use all points for z
+  if (min_z_filtered == std::numeric_limits<float>::max()) {
+    min_z_filtered = min_z_all;
+    max_z_filtered = max_z_all;
+  } else {
+    // Ensure we have at least the orientation points' z range
+    for (int idx : orientation_indices) {
+      const auto& pt = cloud->points[idx];
+      if (pt.z < min_z_filtered) min_z_filtered = pt.z;
+      if (pt.z > max_z_filtered) max_z_filtered = pt.z;
+    }
+  }
+
+  // Z-axis (height) - use filtered points to avoid ground noise
+  box.center.z() = 0.5f * (min_z_filtered + max_z_filtered);
+  box.size.z()   = std::max(0.0f, max_z_filtered - min_z_filtered);
+
+  // 4. Perform Fit using Search-Based Fit (NOT cv::minAreaRect)
   SearchResult fit_result = computeSearchBasedFit(*cloud, orientation_indices);
 
   if (fit_result.ok) {
@@ -345,7 +390,7 @@ Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     double final_yaw;
 
     // Square/Wall Check
-    if (ar < 1.4) {
+    if (ar < kARFrontViewThreshold) {
       final_yaw = yaw_los;
     } else {
       // Elongated: Resolve 180 ambiguity
@@ -358,15 +403,11 @@ Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
       final_yaw = (diff1 < diff0) ? yaw1 : yaw0;
     }
 
-    // Recompute with all points
-    Eigen::Vector2f center_xy, size_xy;
-    recomputeExtentsInYaw(*cloud, cluster.indices, final_yaw,
-                          fit_result.center_xy, center_xy, size_xy);
-
-    box.center.x() = center_xy.x();
-    box.center.y() = center_xy.y();
-    box.size.x()   = size_xy.x();
-    box.size.y()   = size_xy.y();
+    // Use fit_result directly (no need to recompute extents - ground points don't change XY footprint)
+    box.center.x() = fit_result.center_xy.x();
+    box.center.y() = fit_result.center_xy.y();
+    box.size.x()   = fit_result.len;
+    box.size.y()   = fit_result.wid;
     box.yaw        = final_yaw;
 
   } else {
@@ -394,6 +435,56 @@ Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
   return box;
 }
 } // namespace
+
+std::vector<ProjectionUtils::ClusterStats> ProjectionUtils::computeClusterStats(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+    const std::vector<pcl::PointIndices>& cluster_indices) {
+  std::vector<ClusterStats> stats;
+  stats.reserve(cluster_indices.size());
+
+  for (const auto& c : cluster_indices) {
+    ClusterStats s;
+    s.min_x = s.min_y = s.min_z = std::numeric_limits<float>::max();
+    s.max_x = s.max_y = s.max_z = std::numeric_limits<float>::lowest();
+    s.num_points = static_cast<int>(c.indices.size());
+
+    if (c.indices.empty()) {
+      stats.push_back(s);
+      continue;
+    }
+
+    // Compute centroid
+    Eigen::Vector4f centroid;
+    pcl::compute3DCentroid(*cloud, c.indices, centroid);
+    s.centroid = centroid;
+
+    // Compute min/max bounds
+    for (int idx : c.indices) {
+      const auto& p = cloud->points[idx];
+      if (p.x < s.min_x) s.min_x = p.x;
+      if (p.x > s.max_x) s.max_x = p.x;
+      if (p.y < s.min_y) s.min_y = p.y;
+      if (p.y > s.max_y) s.max_y = p.y;
+      if (p.z < s.min_z) s.min_z = p.z;
+      if (p.z > s.max_z) s.max_z = p.z;
+    }
+
+    stats.push_back(s);
+  }
+
+  return stats;
+}
+
+std::vector<ProjectionUtils::Box3D> ProjectionUtils::computeClusterBoxes(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+    const std::vector<pcl::PointIndices>& cluster_indices) {
+  std::vector<Box3D> boxes;
+  boxes.reserve(cluster_indices.size());
+  for (const auto& c : cluster_indices) {
+    boxes.push_back(computeClusterBox(cloud, c));
+  }
+  return boxes;
+}
 
 std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
     const geometry_msgs::msg::TransformStamped& transform, const std::array<double, 12>& p,
@@ -506,6 +597,15 @@ void ProjectionUtils::assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::
 void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
                                     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                     double mergeTolerance) {
+  // Precompute stats and delegate to stats-based version
+  auto stats = computeClusterStats(cloud, cluster_indices);
+  mergeClusters(cluster_indices, cloud, stats, mergeTolerance);
+}
+
+void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
+                                    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+                                    const std::vector<ClusterStats>& stats,
+                                    double mergeTolerance) {
   /*
       merges two clusters based on the euclidean distance between their centroids, determined by
      merge tolerance
@@ -513,22 +613,21 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
       Purpose: updates cluster_indices with the merged clusters
   */
 
-  if (cloud->empty() || cluster_indices.empty()) return;
+  if (cloud->empty() || cluster_indices.empty() || stats.size() != cluster_indices.size()) return;
 
   std::vector<bool> merged(cluster_indices.size(), false);
 
   for (size_t i = 0; i < cluster_indices.size(); ++i) {
     if (merged[i]) continue;
 
-    Eigen::Vector4f centroid_i;
-    pcl::compute3DCentroid(*cloud, cluster_indices[i].indices, centroid_i);
+    // Use precomputed centroid from stats
+    const Eigen::Vector4f& centroid_i = stats[i].centroid;
 
     for (size_t j = i + 1; j < cluster_indices.size(); ++j) {
       if (merged[j]) continue;  // Skip if already merged
 
-      // Compute centroid of cluster j
-      Eigen::Vector4f centroid_j;
-      pcl::compute3DCentroid(*cloud, cluster_indices[j].indices, centroid_j);
+      // Use precomputed centroid from stats
+      const Eigen::Vector4f& centroid_j = stats[j].centroid;
 
       // euclidean distance
       double distance = (centroid_i - centroid_j).norm();
@@ -571,7 +670,16 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
 }
 
 void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                             const std::vector<pcl::PointIndices>& cluster_indices,
+                                             std::vector<pcl::PointIndices>& cluster_indices,
+                                             double densityWeight, double sizeWeight,
+                                             double distanceWeight, double scoreThreshold) {
+  // Precompute stats and delegate to stats-based version
+  auto stats = computeClusterStats(cloud, cluster_indices);
+  filterClusterbyDensity(stats, cluster_indices, densityWeight, sizeWeight, distanceWeight, scoreThreshold);
+}
+
+void ProjectionUtils::filterClusterbyDensity(const std::vector<ClusterStats>& stats,
+                                             std::vector<pcl::PointIndices>& cluster_indices,
                                              double densityWeight, double sizeWeight,
                                              double distanceWeight, double scoreThreshold) {
   /*
@@ -582,7 +690,7 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
      sparse
   */
 
-  if (cloud->empty() || cluster_indices.empty()) return;
+  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) return;
 
   // Define maximum expected values for normalization
   const double max_density = 700.0;  // Maximum density (points/m³)
@@ -592,29 +700,19 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
 
   std::vector<pcl::PointIndices> filtered_clusters;
 
-  for (const auto& clusters : cluster_indices) {
-    if (clusters.indices.size() < 10) continue;  // Skip small clusters
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    const auto& clusters = cluster_indices[i];
+    const auto& s = stats[i];
 
-    // Initialize min and max values for cluster bounds
-    double min_x = std::numeric_limits<double>::max(),
-           max_x = std::numeric_limits<double>::lowest();
-    double min_y = std::numeric_limits<double>::max(),
-           max_y = std::numeric_limits<double>::lowest();
-    double min_z = std::numeric_limits<double>::max(),
-           max_z = std::numeric_limits<double>::lowest();
-    double total_distance = 0.0;
+    if (s.num_points < 10) continue;  // Skip small clusters
 
-    // Calculate cluster bounds and total distance from origin
-    for (const auto& index : clusters.indices) {
-      const auto& pt = cloud->points[index];
-      min_x = std::min(min_x, static_cast<double>(pt.x));
-      max_x = std::max(max_x, static_cast<double>(pt.x));
-      min_y = std::min(min_y, static_cast<double>(pt.y));
-      max_y = std::max(max_y, static_cast<double>(pt.y));
-      min_z = std::min(min_z, static_cast<double>(pt.z));
-      max_z = std::max(max_z, static_cast<double>(pt.z));
-      total_distance += std::sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z);
-    }
+    // Use precomputed stats instead of scanning points
+    double min_x = static_cast<double>(s.min_x);
+    double max_x = static_cast<double>(s.max_x);
+    double min_y = static_cast<double>(s.min_y);
+    double max_y = static_cast<double>(s.max_y);
+    double min_z = static_cast<double>(s.min_z);
+    double max_z = static_cast<double>(s.max_z);
 
     // calculate cluster size (the diagonal length of the extents of the cluster)
     double cluster_size =
@@ -623,10 +721,12 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
 
     // calculate cluster density (points per unit volume)
     double cluster_volume = (max_x - min_x) * (max_y - min_y) * (max_z - min_z);
-    double density = cluster_volume > 0 ? clusters.indices.size() / cluster_volume : 0;
+    double density = cluster_volume > 0 ? static_cast<double>(s.num_points) / cluster_volume : 0;
 
-    // calculate average distance from origin
-    double avg_distance = total_distance / clusters.indices.size();
+    // calculate average distance from origin using centroid
+    double avg_distance = std::sqrt(s.centroid.x() * s.centroid.x() +
+                                    s.centroid.y() * s.centroid.y() +
+                                    s.centroid.z() * s.centroid.z());
 
     // normalize the factors
     double normalized_density = density / max_density;
@@ -643,7 +743,7 @@ void ProjectionUtils::filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ
   }
 
   // Replace the original cluster indices with the filtered ones
-  const_cast<std::vector<pcl::PointIndices>&>(cluster_indices) = filtered_clusters;
+  cluster_indices = filtered_clusters;
 }
 
 bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
@@ -672,21 +772,29 @@ double ProjectionUtils::computeMaxIOU8Corners(
   const vision_msgs::msg::Detection2DArray&   detections,
   const float                                 object_detection_confidence)
 {
-  // 1) compute 3D axis-aligned min/max
-  float min_x =  std::numeric_limits<float>::infinity(),
-        max_x = -std::numeric_limits<float>::infinity();
-  float min_y =  std::numeric_limits<float>::infinity(),
-        max_y = -std::numeric_limits<float>::infinity();
-  float min_z =  std::numeric_limits<float>::infinity(),
-        max_z = -std::numeric_limits<float>::infinity();
+  // Compute stats for this cluster and delegate to stats-based version
+  std::vector<pcl::PointIndices> single_cluster = {cluster_indices};
+  auto stats = computeClusterStats(input_cloud, single_cluster);
+  if (stats.empty()) return 0.0;
+  return computeMaxIOU8Corners(stats[0], transform, projection_matrix, detections, object_detection_confidence);
+}
 
-  for (auto idx : cluster_indices.indices) {
-    const auto &P = input_cloud->points[idx];
-    min_x = std::min(min_x, P.x);  max_x = std::max(max_x, P.x);
-    min_y = std::min(min_y, P.y);  max_y = std::max(max_y, P.y);
-    min_z = std::min(min_z, P.z);  max_z = std::max(max_z, P.z);
-  }
-  if (cluster_indices.indices.empty()) {
+double ProjectionUtils::computeMaxIOU8Corners(
+  const ClusterStats&                         cluster_stats,
+  const geometry_msgs::msg::TransformStamped& transform,
+  const std::array<double, 12>&               projection_matrix,
+  const vision_msgs::msg::Detection2DArray&   detections,
+  const float                                 object_detection_confidence)
+{
+  // 1) Use precomputed 3D axis-aligned min/max from stats
+  float min_x = cluster_stats.min_x;
+  float max_x = cluster_stats.max_x;
+  float min_y = cluster_stats.min_y;
+  float max_y = cluster_stats.max_y;
+  float min_z = cluster_stats.min_z;
+  float max_z = cluster_stats.max_z;
+
+  if (cluster_stats.num_points == 0) {
     return 0.0;
   }
 
@@ -748,7 +856,20 @@ void ProjectionUtils::computeHighestIOUCluster(
   const std::array<double, 12>& projection_matrix,
   const float object_detection_confidence)
 {
-if (input_cloud->empty() || cluster_indices.empty()) {
+  // Precompute stats and delegate to stats-based version
+  auto stats = computeClusterStats(input_cloud, cluster_indices);
+  computeHighestIOUCluster(stats, cluster_indices, detections, transform, projection_matrix, object_detection_confidence);
+}
+
+void ProjectionUtils::computeHighestIOUCluster(
+  const std::vector<ClusterStats>& stats,
+  std::vector<pcl::PointIndices>& cluster_indices,
+  const vision_msgs::msg::Detection2DArray& detections,
+  const geometry_msgs::msg::TransformStamped& transform,
+  const std::array<double, 12>& projection_matrix,
+  const float object_detection_confidence)
+{
+if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
   return;
 }
 
@@ -766,9 +887,9 @@ bool found_valid_cluster = false;
 
 for (size_t i = 0; i < cluster_indices.size(); ++i) {
   // computeMaxIOU8Corners projects the 8 AABB corners and returns the best IoU
+  // Use precomputed stats instead of scanning points
   double iou = computeMaxIOU8Corners(
-    input_cloud,
-    cluster_indices[i],
+    stats[i],
     transform,
     projection_matrix,
     detections,
@@ -802,15 +923,23 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     const std::vector<pcl::PointIndices>& cluster_indices,
     const sensor_msgs::msg::PointCloud2& msg) {
+  // Precompute boxes to avoid recomputing
+  auto boxes = computeClusterBoxes(cloud, cluster_indices);
+  return computeBoundingBox(boxes, cluster_indices, msg);
+}
+
+visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
+    const std::vector<Box3D>& boxes,
+    const std::vector<pcl::PointIndices>& cluster_indices,
+    const sensor_msgs::msg::PointCloud2& msg) {
   visualization_msgs::msg::MarkerArray marker_array;
-  if (!cloud || cloud->empty()) return marker_array;
+  if (boxes.size() != cluster_indices.size()) return marker_array;
 
   int id = 0;
-  for (const auto& cluster : cluster_indices) {
-    if (cluster.indices.empty()) continue;
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    if (cluster_indices[i].indices.empty()) continue;
 
-    // Shared 3D box computation for both visualization and detections
-    Box3D box = computeClusterBox(cloud, cluster);
+    const auto& box = boxes[i];
 
     // Build marker (upright box: yaw about Z only)
     visualization_msgs::msg::Marker bbox_marker;
@@ -851,16 +980,27 @@ vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
     const std::vector<pcl::PointIndices>& cluster_indices,
     const sensor_msgs::msg::PointCloud2& msg)
 {
+  // Precompute boxes to avoid recomputing
+  auto boxes = computeClusterBoxes(cloud, cluster_indices);
+  return compute3DDetection(boxes, cluster_indices, msg);
+}
+
+vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
+    const std::vector<Box3D>& boxes,
+    const std::vector<pcl::PointIndices>& cluster_indices,
+    const sensor_msgs::msg::PointCloud2& msg)
+{
   vision_msgs::msg::Detection3DArray det_arr;
   // copy the same header you used for the markers
   det_arr.header = msg.header;
 
-  int id = 0;
-  for (const auto &cluster : cluster_indices) {
-    if (cluster.indices.empty()) continue;
+  if (boxes.size() != cluster_indices.size()) return det_arr;
 
-    // Use the same PCA-based 3D box used for visualization
-    Box3D box = computeClusterBox(cloud, cluster);
+  int id = 0;
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    if (cluster_indices[i].indices.empty()) continue;
+
+    const auto& box = boxes[i];
 
     // fill in a Detection3D
     vision_msgs::msg::Detection3D det;

@@ -8,7 +8,7 @@ spatial_association::spatial_association() : Node("spatial_association") {
   working_downsampled_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
   working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  voxel_filter_.setLeafSize(0.15f, 0.15f, 0.15f);
+  voxel_filter_.setLeafSize(0.2f, 0.2f, 0.2f);
 
   // SUBSCRIBERS
   // -------------------------------------------------------------------------------------------------
@@ -226,8 +226,11 @@ void spatial_association::performClustering(std::vector<pcl::PointIndices>& clus
   ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_,
                                           size_weight_, distance_weight_, score_threshold_);
 
+  // Precompute cluster stats once to avoid redundant point scans
+  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+
   // merge clusters that are close to each other, determined through distance between their
-  ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, merge_threshold_);
+  ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, cluster_stats, merge_threshold_);
 }
 
 DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
@@ -249,16 +252,22 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
   // Create a copy of cluster indices for IOU filtering (this modifies the vector)
   std::vector<pcl::PointIndices> cluster_indices = cluster_indices_input;
 
+  // Precompute cluster stats once to avoid redundant point scans
+  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+
   // iou score between x and y area of clusters in camera plane and detections
-  ProjectionUtils::computeHighestIOUCluster(filtered_point_cloud_, cluster_indices, detection, transform,
+  ProjectionUtils::computeHighestIOUCluster(cluster_stats, cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
+
+  // Precompute cluster boxes once to avoid recomputing in both computeBoundingBox and compute3DDetection
+  auto boxes = ProjectionUtils::computeClusterBoxes(filtered_point_cloud_, cluster_indices);
 
   if (publish_visualization_) {
     detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(
-        filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
+        boxes, cluster_indices, latest_lidar_msg_);
   }
 
-  detection_outputs.detections3d = ProjectionUtils::compute3DDetection(filtered_point_cloud_, cluster_indices, latest_lidar_msg_);
+  detection_outputs.detections3d = ProjectionUtils::compute3DDetection(boxes, cluster_indices, latest_lidar_msg_);
 
   // VISUALIZATIONS
   // ----------------------------------------------------------------------------

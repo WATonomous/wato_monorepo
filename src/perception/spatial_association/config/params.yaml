@@ -26,9 +26,9 @@ spatial_association:
     # filtering parameters
 
     euclid_params:
-      cluster_tolerance: 0.10
+      cluster_tolerance: 0.20
       #This defines the maximum distance between two points for them to be considered part of the same cluster
-      min_cluster_size: 40 # small values create more noise 
+      min_cluster_size: 20 # small values create more noise 
       max_cluster_size: 800 # big values slightly slow down performance
 
     density_filter_params:
@@ -38,7 +38,7 @@ spatial_association:
       distance_weight: 0.4 # increase to filter out more far away clusters, moderately important
       score_threshold: 0.6 # threshold score for a cluster to be considered as a valid cluster, increase to keep more clusters
 
-    merge_threshold: 0.20
+    merge_threshold: 0.30
     # the threshold distance between two clusters centroids for them to be merged into one cluster
 
     object_detection_confidence: 0.45

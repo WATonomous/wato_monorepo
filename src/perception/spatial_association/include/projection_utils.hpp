@@ -40,6 +40,20 @@ class ProjectionUtils {
     std::string log_csv_path;        // optional; empty = disabled
   };
 
+  struct Box3D {
+    Eigen::Vector3f center{0.f, 0.f, 0.f};
+    Eigen::Vector3f size{0.f, 0.f, 0.f};  // length (x), width (y), height (z)
+    double yaw{0.0};
+  };
+
+  struct ClusterStats {
+    Eigen::Vector4f centroid;  // x,y,z,1
+    float min_x, max_x;
+    float min_y, max_y;
+    float min_z, max_z;
+    int   num_points;
+  };
+
   static std::optional<cv::Point2d> projectLidarToCamera(
       const geometry_msgs::msg::TransformStamped& transform, const std::array<double, 12>& p,
       const pcl::PointXYZ& pt);
@@ -56,12 +70,29 @@ class ProjectionUtils {
                                   const std::vector<pcl::PointIndices>& cluster_indices,
                                   pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clustered_cloud);
 
+  // Precompute cluster statistics to avoid redundant point scans
+  static std::vector<ClusterStats> computeClusterStats(
+      const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+      const std::vector<pcl::PointIndices>& cluster_indices);
+
   static void mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
                             const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                             double mergeTolerance);
 
+  // Overload that accepts precomputed stats
+  static void mergeClusters(std::vector<pcl::PointIndices>& cluster_indices,
+                            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+                            const std::vector<ClusterStats>& stats,
+                            double mergeTolerance);
+
   static void filterClusterbyDensity(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
-                                     const std::vector<pcl::PointIndices>& cluster_indices,
+                                     std::vector<pcl::PointIndices>& cluster_indices,
+                                     double densityWeight, double sizeWeight, double distanceWeight,
+                                     double scoreThreshold);
+
+  // Overload that accepts precomputed stats
+  static void filterClusterbyDensity(const std::vector<ClusterStats>& stats,
+                                     std::vector<pcl::PointIndices>& cluster_indices,
                                      double densityWeight, double sizeWeight, double distanceWeight,
                                      double scoreThreshold);
 
@@ -79,7 +110,23 @@ class ProjectionUtils {
     const vision_msgs::msg::Detection2DArray&   detections,
     const float                                 object_detection_confidence);
 
+  // Overload that accepts precomputed stats
+  static double computeMaxIOU8Corners(
+    const ClusterStats&                         cluster_stats,
+    const geometry_msgs::msg::TransformStamped& transform,
+    const std::array<double, 12>&               projection_matrix,
+    const vision_msgs::msg::Detection2DArray&   detections,
+    const float                                 object_detection_confidence);
+
   static void computeHighestIOUCluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
+                                       std::vector<pcl::PointIndices>& cluster_indices,
+                                       const vision_msgs::msg::Detection2DArray& detections,
+                                       const geometry_msgs::msg::TransformStamped& transform,
+                                       const std::array<double, 12>& projection_matrix,
+                                       const float object_detection_confidence);
+
+  // Overload that accepts precomputed stats
+  static void computeHighestIOUCluster(const std::vector<ClusterStats>& stats,
                                        std::vector<pcl::PointIndices>& cluster_indices,
                                        const vision_msgs::msg::Detection2DArray& detections,
                                        const geometry_msgs::msg::TransformStamped& transform,
@@ -89,13 +136,30 @@ class ProjectionUtils {
   // BOUNDING BOX FUNCTIONS
   // ----------------------------------------------------------------------------------------
 
+    // Precompute all cluster boxes (optimization to avoid recomputing twice)
+    static std::vector<Box3D> computeClusterBoxes(
+      const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+      const std::vector<pcl::PointIndices>& cluster_indices);
+
     static visualization_msgs::msg::MarkerArray computeBoundingBox(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
       const std::vector<pcl::PointIndices>& cluster_indices,
       const sensor_msgs::msg::PointCloud2& msg);
 
+    // Overload that accepts precomputed boxes
+    static visualization_msgs::msg::MarkerArray computeBoundingBox(
+      const std::vector<Box3D>& boxes,
+      const std::vector<pcl::PointIndices>& cluster_indices,
+      const sensor_msgs::msg::PointCloud2& msg);
+
     static vision_msgs::msg::Detection3DArray compute3DDetection(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+      const std::vector<pcl::PointIndices>& cluster_indices,
+      const sensor_msgs::msg::PointCloud2& msg);
+
+    // Overload that accepts precomputed boxes
+    static vision_msgs::msg::Detection3DArray compute3DDetection(
+      const std::vector<Box3D>& boxes,
       const std::vector<pcl::PointIndices>& cluster_indices,
       const sensor_msgs::msg::PointCloud2& msg);
 
