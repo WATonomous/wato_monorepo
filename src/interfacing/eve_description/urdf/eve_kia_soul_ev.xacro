@@ -82,13 +82,70 @@
     </joint>
   </xacro:macro>
 
-  <!-- 6-DOF sensor mount for online calibration using floating joint -->
-  <!-- Allows small adjustments in all 6 degrees of freedom -->
+  <!-- 6-DOF sensor mount for online calibration -->
+  <!-- Uses chain of joints instead of floating joint (floating not supported by robot_state_publisher) -->
   <xacro:macro name="sensor_6dof_mount" params="name parent_link child_link x y z roll pitch yaw">
-    <joint name="${name}_floating_joint" type="floating">
+    <!-- Translation stages -->
+    <link name="${name}_x_translation"/>
+    <joint name="${name}_x" type="prismatic">
       <parent link="${parent_link}"/>
+      <child link="${name}_x_translation"/>
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+      <axis xyz="1 0 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_y_translation"/>
+    <joint name="${name}_y" type="prismatic">
+      <parent link="${name}_x_translation"/>
+      <child link="${name}_y_translation"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_z_translation"/>
+    <joint name="${name}_z" type="prismatic">
+      <parent link="${name}_y_translation"/>
+      <child link="${name}_z_translation"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <!-- Rotation stages -->
+    <link name="${name}_roll_rotation"/>
+    <joint name="${name}_roll" type="revolute">
+      <parent link="${name}_z_translation"/>
+      <child link="${name}_roll_rotation"/>
+      <origin xyz="0 0 0" rpy="${roll} 0 0"/>
+      <axis xyz="1 0 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_pitch_rotation"/>
+    <joint name="${name}_pitch" type="revolute">
+      <parent link="${name}_roll_rotation"/>
+      <child link="${name}_pitch_rotation"/>
+      <origin xyz="0 0 0" rpy="0 ${pitch} 0"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <link name="${name}_yaw_rotation"/>
+    <joint name="${name}_yaw" type="revolute">
+      <parent link="${name}_pitch_rotation"/>
+      <child link="${name}_yaw_rotation"/>
+      <origin xyz="0 0 0" rpy="0 0 ${yaw}"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0.01" lower="-0.1" upper="0.1"/>
+    </joint>
+
+    <!-- Final connection to sensor -->
+    <joint name="${name}_fixed" type="fixed">
+      <parent link="${name}_yaw_rotation"/>
       <child link="${child_link}"/>
-      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
   </xacro:macro>
 
