@@ -4,11 +4,6 @@
             xsi:schemaLocation="https://cdds.io/config https://raw.githubusercontent.com/eclipse-cyclonedds/cyclonedds/master/etc/cyclonedds.xsd">
     <Domain id="any">
         <General>
-            <Interfaces>
-                <NetworkInterface name="lo" priority="2" multicast="true"/>
-                <NetworkInterface name="eth0" priority="10" multicast="true"/>
-                <PubSubMessageExchange name="iox" library="psmx_iox" config="LOG_LEVEL=INFO;"/>
-            </Interfaces>
             <AllowMulticast>true</AllowMulticast>
             <DontRoute>true</DontRoute>
         </General>
@@ -25,5 +20,9 @@
             <Verbosity>severe</Verbosity>
             <OutputFile>stdout</OutputFile>
         </Tracing>
+        <SharedMemory>
+            <Enable>true</Enable>
+            <LogLevel>info</LogLevel>
+        </SharedMemory>
     </Domain>
 </CycloneDDS>

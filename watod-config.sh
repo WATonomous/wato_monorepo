@@ -54,12 +54,6 @@
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
 # export BAG_DIRECTORY=""
 
-## Middleware to use for interprocess communication. DEFAULT = "rmw_cyclonedds_cpp"
-# export RMW_IMPLEMENTATION=""
-
-## Path to middleware configuration file. DEFAULT = "/"
-# export RMW_CONFIG=""
-
 ############################### FOXGLOVE SETTINGS ##################################
 ## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.
 # export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"

@@ -84,6 +84,10 @@ REPOSITORY="${REGISTRY_URL##*/}"
 # Bags directory
 BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
 
+# ROS 2 Middleware configuration
+RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_cyclonedds_cpp"}
+CYCLONEDDS_URI=${CYCLONEDDS_URI:-"file:///opt/watonomous/dds_config.xml"}
+
 # Always append infrastructure to ACTIVE_MODULES if not already present
 if [[ -n ${ACTIVE_MODULES:-} ]]; then
   # Check if infrastructure is already in the list
@@ -188,5 +192,9 @@ append "SIMULATION_CARLA_NOTEBOOKS_IMAGE" "$SIMULATION_CARLA_NOTEBOOKS_IMAGE"
 append "SIMULATION_CARLA_SAMPLE_NODE_IMAGE" "$SIMULATION_CARLA_SAMPLE_NODE_IMAGE"
 
 append "INTERFACING_IMAGE" "$INTERFACING_IMAGE"
+
+# ROS 2 Middleware
+append "RMW_IMPLEMENTATION" "$RMW_IMPLEMENTATION"
+append "CYCLONEDDS_URI" "$CYCLONEDDS_URI"
 
 echo "[setup-env] .env generated at $ENV_FILE"
