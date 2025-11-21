@@ -68,7 +68,7 @@ else
   modules_to_process="infrastructure interfacing perception world_modeling action"
 fi
 
-$DEBUG && { echo "▶ Modules to process:"; printf '  %s\n' $modules_to_process; }
+$DEBUG && { echo "▶ Modules to process:"; printf '  %s\n' "$modules_to_process"; }
 
 for module in $modules_to_process; do
   # Skip simulation
@@ -85,7 +85,7 @@ for module in $modules_to_process; do
     ] | @tsv' | while IFS=$'\t' read -r svc ctx df_rel svc_profile; do
 
       # Skip services in skip list
-      if [[ " $skip_services " =~ " $svc " ]]; then
+      if [[ " $skip_services " =~ \ $svc\  ]]; then
         continue
       fi
 

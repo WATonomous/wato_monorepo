@@ -109,7 +109,7 @@ trap cleanup_bag SIGINT SIGTERM
 
 docker run --rm -t \
   --network watod_watonomous_default \
-  --name ${COMPOSE_PROJECT_NAME}-bag_recorder \
+  --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
   "$INFRASTRUCTURE_IMAGE:$TAG" \

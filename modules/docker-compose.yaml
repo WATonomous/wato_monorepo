@@ -111,7 +111,7 @@ services:
     command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
     depends_on:
       - roudi
-      
+
 #################### SIMULATION SERVICES ####################
   carla_sim:
     profiles: ["simulation"]
@@ -181,7 +181,7 @@ services:
     command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
     depends_on:
       - roudi
-      
+
   carla_notebooks:
     profiles: ["simulation"]
     build:
