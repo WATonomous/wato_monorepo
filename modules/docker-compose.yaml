@@ -12,12 +12,12 @@ services:
         - "${INFRASTRUCTURE_IMAGE:?}:build_main"
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-    command: iox-roudi -c /config/iox_config.toml
+    command: iox-roudi -c /opt/watonomous/iox_config.toml
 
   foxglove:
     profiles: ["infrastructure"]
+    ipc: host
     build:
-      ipc: host
       context: ..
       dockerfile: docker/infrastructure/infrastructure.Dockerfile
       cache_from:
@@ -183,6 +183,7 @@ services:
       - roudi
       
   carla_notebooks:
+    profiles: ["simulation"]
     build:
       context: ..
       dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile

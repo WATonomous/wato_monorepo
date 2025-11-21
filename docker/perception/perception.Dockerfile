@@ -57,7 +57,6 @@ RUN cmake -S cpp -B build \
 
 # RMW Configurations
 COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
-COPY docker/iox_config.toml ${WATONOMOUS_INSTALL}/iox_config.toml
 
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}

@@ -3,17 +3,17 @@ version = 1
 
 [[segment]]
 
-# For large images (e.g., 1080p RGB ~6MB + 64 byte header)
-[[segment.mempool]]
-size = 6291520
-count = 100
-
-# For medium images (e.g., compressed ~500KB + 64 byte header)  
-[[segment.mempool]]
-size = 524352
-count = 200
-
 # For small messages (metadata, control, etc.)
 [[segment.mempool]]
 size = 1024
 count = 1000
+
+# For medium images (e.g., compressed ~500KB + 64 byte header)
+[[segment.mempool]]
+size = 524352
+count = 200
+
+# For large images (e.g., 1080p RGB ~6MB + 64 byte header)
+[[segment.mempool]]
+size = 6291520
+count = 100
