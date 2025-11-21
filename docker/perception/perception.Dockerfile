@@ -7,16 +7,16 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
 # COPY src/perception perception
-COPY src/perception/patchwork patchwork
-COPY src/perception/spatial_association spatial_association
-COPY src/perception/perception_bringup perception_bringup
+COPY src/perception/patchwork perception/patchwork
+COPY src/perception/spatial_association perception/spatial_association
+COPY src/perception/perception_bringup perception/perception_bringup
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
 # Bring in Patchwork++ third-party dependency (built later in dependencies stage)
 RUN git clone --depth 1 --branch master \
       https://github.com/url-kaist/patchwork-plusplus \
-      patchwork/patchwork-plusplus
+      perception/patchwork/patchwork-plusplus
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -57,7 +57,7 @@ COPY --from=source ${AMENT_WS}/src src
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build and install Patchwork++
-WORKDIR ${AMENT_WS}/src/patchwork/patchwork-plusplus
+WORKDIR ${AMENT_WS}/src/perception/patchwork/patchwork-plusplus
 RUN cmake -S cpp -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr/local && \
