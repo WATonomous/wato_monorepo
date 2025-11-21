@@ -95,10 +95,16 @@ run_compose() {
     build_profiles_array PROFILES
   fi
 
-  echo "Running: docker compose -f modules/docker-compose.yaml ${PROFILES[*]} ${COMPOSE_CMD[*]}"
+  # Determine compose files to use
+  local compose_files=("-f" "modules/docker-compose.yaml")
+  if [[ "${MODE_OF_OPERATION:-deploy}" == "develop" ]]; then
+    compose_files+=("-f" "modules/docker-compose.dev.yaml")
+  fi
+
+  echo "Running: docker compose ${compose_files[*]} ${PROFILES[*]} ${COMPOSE_CMD[*]}"
   DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
     COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
-    docker compose -f modules/docker-compose.yaml "${PROFILES[@]}" "${COMPOSE_CMD[@]}"
+    docker compose "${compose_files[@]}" "${PROFILES[@]}" "${COMPOSE_CMD[@]}"
 }
 
 down_compose() {
@@ -110,9 +116,15 @@ down_compose() {
     build_profiles_array PROFILES
   fi
 
+  # Determine compose files to use
+  local compose_files=("-f" "modules/docker-compose.yaml")
+  if [[ "${MODE_OF_OPERATION:-deploy}" == "develop" ]]; then
+    compose_files+=("-f" "modules/docker-compose.dev.yaml")
+  fi
+
   DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
     COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
-    docker compose -f modules/docker-compose.yaml "${PROFILES[@]}" down
+    docker compose "${compose_files[@]}" "${PROFILES[@]}" down
 }
 
 # ─────────────────────────── Argument parsing ────────────────────────────
