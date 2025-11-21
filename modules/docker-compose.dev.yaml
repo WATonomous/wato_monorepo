@@ -1,4 +1,11 @@
 ---
+volumes:
+  iox_runtime:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+
 services:
 #################### INFRASTRUCTURE SERVICES ####################
   roudi:
