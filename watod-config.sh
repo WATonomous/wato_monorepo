@@ -22,23 +22,21 @@
 
 ############################ ACTIVE MODULE CONFIGURATION ############################
 ## List of active modules to run, defined in docker-compose.yaml.
+## Add ":dev" suffix to run a module in development mode (with live code editing)
+##
 ## Possible values:
 ##   - interfacing          :   starts up interfacing nodes (CAN and sensor interfaces)
-##	 - perception			:	starts perception nodes (Object detection, tracking)
-##	 - world_modeling		:	starts world modeling nodes (HD map, localization)
-##	 - action				:	starts action nodes (local planning, control)
-##	 - simulation			:	starts simulation (carla)
-
+##   - perception           :   starts perception nodes (Object detection, tracking)
+##   - world_modeling       :   starts world modeling nodes (HD map, localization)
+##   - action               :   starts action nodes (local planning, control)
+##   - simulation           :   starts simulation (carla)
+##
+## Examples:
+##   - "interfacing"                      : Interfacing in deploy mode
+##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
+##   - "interfacing:dev perception:dev"   : Both in dev mode
 
 # export ACTIVE_MODULES=""
-
-################################# MODE OF OPERATION #################################
-## Possible modes of operation when running watod.
-## Possible values:
-##	 - deploy (default)		:	runs production-grade containers (non-editable)
-##	 - develop   		    :	runs developer containers (editable)
-
-# export MODE_OF_OPERATION=""
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"

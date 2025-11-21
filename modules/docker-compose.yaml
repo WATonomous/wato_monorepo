@@ -9,7 +9,6 @@ volumes:
 services:
 #################### INFRASTRUCTURE SERVICES ####################
   roudi:
-    profiles: ["infrastructure"]
     ipc: host
     network_mode: host
     build:
@@ -29,7 +28,6 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
 
   foxglove:
-    profiles: ["infrastructure"]
     ipc: "service:roudi"
     network_mode: host
     build:
@@ -51,7 +49,6 @@ services:
       - roudi
 
   log_viewer:
-    profiles: ["infrastructure"]
     container_name: watod_log_viewer
     build:
       context: ../watod_scripts/tools/log-viewer
@@ -65,7 +62,6 @@ services:
 
 #################### INTERFACING SERVICE ####################
   interfacing_bringup:
-    profiles: ["interfacing"]
     ipc: "service:roudi"
     network_mode: host
     build:
@@ -88,7 +84,6 @@ services:
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup:
-    profiles: ["perception"]
     ipc: "service:roudi"
     network_mode: host
     build:
@@ -112,7 +107,6 @@ services:
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_bringup:
-    profiles: ["world_modeling"]
     ipc: "service:roudi"
     network_mode: host
     build:
@@ -135,7 +129,6 @@ services:
 
 #################### ACTION SERVICE ####################
   action_bringup:
-    profiles: ["action"]
     ipc: "service:roudi"
     network_mode: host
     build:
@@ -158,7 +151,6 @@ services:
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
-    profiles: ["simulation"]
     image: carlasim/carla:0.9.13
     environment:
       - DISPLAY=1
@@ -174,7 +166,6 @@ services:
               capabilities: [gpu]
 
   carla_ros_bridge:
-    profiles: ["simulation"]
     ipc: "service:roudi"
     network_mode: host
     build:
@@ -199,7 +190,6 @@ services:
       - roudi
 
   carla_viz:
-    profiles: ["simulation"]
     build:
       context: ..
       dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
@@ -217,7 +207,6 @@ services:
     restart: always
 
   carla_sample_node:
-    profiles: ["simulation"]
     ipc: "service:roudi"
     network_mode: host
     build:
@@ -240,7 +229,6 @@ services:
       - roudi
 
   carla_notebooks:
-    profiles: ["simulation"]
     build:
       context: ..
       dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
