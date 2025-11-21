@@ -137,7 +137,7 @@ Click the link to bringup a page containing all the logs of each of the containe
 # General Implementation Details
 
 ## IPC Middleware
-To facilitate efficient interprocess communication, we utilize the [CycloneDDS middleware](https://github.com/ros2/rmw_cyclonedds) with [Iceoryx shared memory message passing underthehood](https://cyclonedds.io/docs/cyclonedds/latest/shared_memory/shared_mem_config.html). 
+To facilitate efficient interprocess communication, we utilize the [CycloneDDS middleware](https://github.com/ros2/rmw_cyclonedds) with [Iceoryx shared memory message passing underthehood](https://cyclonedds.io/docs/cyclonedds/latest/shared_memory/shared_mem_config.html).
 
 What this means is, in the context of ROS2 messages, topics are discovered over the network (DDS), but actual data is passed through shared memory.
 
