@@ -1,0 +1,204 @@
+---
+services:
+#################### INFRASTRUCTURE SERVICES ####################
+  roudi:
+    profiles: ["infrastructure"]
+    ipc: host
+    build:
+      context: ..
+      dockerfile: docker/infrastructure/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
+      target: deploy
+    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
+    command: iox-roudi -c /config/iox_config.toml
+
+  foxglove:
+    profiles: ["infrastructure"]
+    build:
+      ipc: host
+      context: ..
+      dockerfile: docker/infrastructure/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
+      target: deploy
+    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
+    # command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=${FOXGLOVE_BRIDGE_PORT:?}"]
+    command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
+    ports:
+      - "${FOXGLOVE_BRIDGE_PORT:?}:${FOXGLOVE_BRIDGE_PORT:?}"
+    depends_on:
+      - roudi
+
+  log_viewer:
+    profiles: ["infrastructure"]
+    container_name: watod_log_viewer
+    build:
+      context: ../watod_scripts/tools/log-viewer
+      dockerfile: Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${LOG_VIEWER__PORT}:8888"
+    depends_on:
+      - roudi
+
+#################### INTERFACING SERVICE ####################
+  interfacing_bringup:
+    profiles: ["interfacing"]
+    ipc: host
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: docker/interfacing/interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_IMAGE}:build_${TAG}"
+        - "${INTERFACING_IMAGE}:build_main"
+      target: deploy
+    image: "${INTERFACING_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_launch.yaml"
+    depends_on:
+      - roudi
+
+#################### PERCEPTION SERVICE ####################
+  perception_bringup:
+    profiles: ["perception"]
+    ipc: host
+    build:
+      context: ..
+      dockerfile: docker/perception/perception.Dockerfile
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:build_${TAG}"
+        - "${PERCEPTION_IMAGE:?}:build_main"
+      target: deploy
+    image: "${PERCEPTION_IMAGE:?}:${TAG}"
+    command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
+    volumes:
+      - /mnt/wato-drive2/perception_models:/perception_models
+    depends_on:
+      - roudi
+
+#################### WORLD MODELING SERVICE ####################
+  world_modeling_bringup:
+    profiles: ["world_modeling"]
+    ipc: host
+    build:
+      context: ..
+      dockerfile: docker/world_modeling/world_modeling.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_IMAGE}:build_${TAG}"
+        - "${WORLD_MODELING_IMAGE}:build_main"
+      target: deploy
+    image: "${WORLD_MODELING_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.py"
+    depends_on:
+      - roudi
+
+#################### ACTION SERVICE ####################
+  action_bringup:
+    profiles: ["action"]
+    ipc: host
+    build:
+      context: ..
+      dockerfile: docker/action/action.Dockerfile
+      cache_from:
+        - "${ACTION_IMAGE}:build_${TAG}"
+        - "${ACTION_IMAGE}:build_main"
+      target: deploy
+    image: "${ACTION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
+    depends_on:
+      - roudi
+      
+#################### SIMULATION SERVICES ####################
+  carla_sim:
+    profiles: ["simulation"]
+    image: carlasim/carla:0.9.13
+    environment:
+      - DISPLAY=1
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+    restart: always
+    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+
+  carla_ros_bridge:
+    profiles: ["simulation"]
+    ipc: host
+    build:
+      context: ..
+      dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
+      cache_from:
+        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_${TAG}"
+        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
+      target: deploy
+    image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
+    environment:
+      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+      - USE_ACKERMANN_CONTROL=False
+    # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
+    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+    depends_on:
+      - roudi
+
+  carla_viz:
+    profiles: ["simulation"]
+    build:
+      context: ..
+      dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
+      cache_from:
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}"
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_main"
+    image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
+    ports:
+      - ${CARLAVIZ_PORT}:8080
+      - ${CARLAVIZ_PORT_2}:8081
+    environment:
+      - CARLA_SERVER_HOST=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+      - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
+    entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
+    restart: always
+
+  carla_sample_node:
+    profiles: ["simulation"]
+    ipc: host
+    build:
+      context: ..
+      dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
+      cache_from:
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_${TAG}"
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_main"
+      target: deploy
+    image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
+    # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
+    command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
+    depends_on:
+      - roudi
+      
+  carla_notebooks:
+    build:
+      context: ..
+      dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
+      cache_from:
+        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_${TAG}"
+        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_main"
+    image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
+    ports:
+      - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
+    environment:
+      - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
+      - SCENARIO_RUNNER_ROOT=/home/bolty/scenario_runner
+      - DISPLAY=1
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
+    volumes:
+      - ${MONO_DIR}/src/simulation/carla_notebooks:/home/bolty/carla_notebooks
+    command: jupyter notebook --allow-root --ip=0.0.0.0 --port=${CARLA_NOTEBOOKS_PORT:?} --no-browser --ServerApp.token='' --ServerApp.password=''

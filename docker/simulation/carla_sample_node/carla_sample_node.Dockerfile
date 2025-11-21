@@ -52,6 +52,10 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
+# RMW Configurations
+COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+COPY docker/iox_config.toml ${WATONOMOUS_INSTALL}/iox_config.toml
+
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
 ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
