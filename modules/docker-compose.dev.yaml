@@ -13,7 +13,7 @@ services:
     extends:
       file: docker-compose.yaml
       service: interfacing_bringup
-    command: tail -F anything
+    command: sleep infinity
     volumes:
       - iox_runtime:/tmp
       - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing
@@ -24,7 +24,7 @@ services:
     extends:
       file: docker-compose.yaml
       service: perception_bringup
-    command: tail -F anything
+    command: sleep infinity
     volumes:
       - iox_runtime:/tmp
       - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
@@ -35,7 +35,7 @@ services:
     extends:
       file: docker-compose.yaml
       service: world_modeling_bringup
-    command: tail -F anything
+    command: sleep infinity
     volumes:
       - iox_runtime:/tmp
       - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
@@ -46,7 +46,7 @@ services:
     extends:
       file: docker-compose.yaml
       service: action_bringup
-    command: tail -F anything
+    command: sleep infinity
     volumes:
       - iox_runtime:/tmp
       - ${MONO_DIR}/src/action:/home/bolty/ament_ws/src/action
@@ -57,7 +57,7 @@ services:
     extends:
       file: docker-compose.yaml
       service: carla_ros_bridge
-    command: tail -F anything
+    command: sleep infinity
     volumes:
       - iox_runtime:/tmp
       - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
@@ -67,7 +67,7 @@ services:
     extends:
       file: docker-compose.yaml
       service: carla_sample_node
-    command: tail -F anything
+    command: sleep infinity
     volumes:
       - iox_runtime:/tmp
       - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node

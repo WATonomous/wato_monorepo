@@ -24,12 +24,12 @@ MODULES_DIR="$MONO_DIR/modules"
 readonly BLUE='\033[0;34m'
 readonly GREEN='\033[0;32m'
 readonly CYAN='\033[0;36m'
+readonly RED='\033[0;31m'
 readonly YELLOW='\033[0;33m'
 readonly RESET='\033[0m'
 readonly BOLD='\033[1m'
 
 # Always arrays → safe to expand with "${arr[@]}"
-declare -a PROFILES=()
 declare -a COMPOSE_CMD=()
 
 usage() {
@@ -238,17 +238,64 @@ if [[ ${#COMPOSE_CMD[@]} -gt 0 ]]; then
   if [[ "${COMPOSE_CMD[0]}" == "up" && ! "${COMPOSE_CMD[*]}" =~ -d ]]; then
     COMPOSE_CMD+=( -d )
 
+    # Determine URLs based on connection type
+    foxglove_url="ws://localhost:${FOXGLOVE_BRIDGE_PORT}"
+    log_viewer_url="http://localhost:${LOG_VIEWER__PORT}"
+
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+      # SSH_CONNECTION format: client_ip client_port server_ip server_port
+      server_ip=$(echo "$SSH_CONNECTION" | awk '{print $3}')
+      foxglove_url="ws://${server_ip}:${FOXGLOVE_BRIDGE_PORT}"
+      log_viewer_url="http://${server_ip}:${LOG_VIEWER__PORT}"
+    fi
+
+    # Run compose
+    run_compose
+
+    # Show SSH warning if detected
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+      echo ""
+      echo -e "${YELLOW}⚠️  SSH Connection Detected!${RESET}"
+      echo ""
+      echo "If the URLs below don't work, forward ports on your local machine:"
+      echo -e "  ${CYAN}ssh -L ${FOXGLOVE_BRIDGE_PORT}:localhost:${FOXGLOVE_BRIDGE_PORT} -L ${LOG_VIEWER__PORT}:localhost:${LOG_VIEWER__PORT} <host>${RESET}"
+      echo ""
+    fi
+
+    # Get list of running containers (match both project prefix and log_viewer)
+    mapfile -t containers < <(docker ps --format "{{.Names}}" | grep -E "(^${COMPOSE_PROJECT_NAME}-|^watod_log_viewer)" | sort)
+
+    # Display status panel
     echo ""
     echo -e "${BLUE}╔═══════════════════════════════════════════════════════════╗${RESET}"
-    echo -e "${BLUE}║${RESET}  ${BOLD}Starting WATonomous Services${RESET}                             ${BLUE}║${RESET}"
+    echo -e "${BLUE}║${RESET}  ${BOLD}WATonomous Services Started${RESET}                              ${BLUE}║${RESET}"
     echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
-    echo -e "${BLUE}║${RESET}  ${GREEN}Foxglove:${RESET}    ${CYAN}ws://localhost:${FOXGLOVE_BRIDGE_PORT}${RESET}                        ${BLUE}║${RESET}"
-    echo -e "${BLUE}║${RESET}  ${GREEN}Log Viewer:${RESET}  ${CYAN}http://localhost:${LOG_VIEWER__PORT}${RESET}                      ${BLUE}║${RESET}"
+    echo -e "${BLUE}║${RESET}  ${GREEN}Running Containers:${RESET}                                      ${BLUE}║${RESET}"
+
+    for container in "${containers[@]}"; do
+      # Remove project prefix
+      service_name="${container#"${COMPOSE_PROJECT_NAME}"-}"
+      service_name="${service_name%-[0-9]*}"  # Remove trailing -1, -2, etc.
+
+      # Check if it's a dev container
+      if [[ "$service_name" == *"_dev" ]]; then
+        # Format: "    - service_name (DevContainer)" padded to 59 chars
+        printf "${BLUE}║${RESET}    - ${CYAN}%-37s${RESET} ${RED}(DevContainer)${RESET} ${BLUE}║${RESET}\n" "${service_name}"
+      else
+        # Format: "    - service_name" padded to 59 chars
+        printf "${BLUE}║${RESET}    - ${CYAN}%-52s${RESET} ${BLUE}║${RESET}\n" "${service_name}"
+      fi
+    done
+
+    echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
+    printf "${BLUE}║${RESET}  ${GREEN}Foxglove:${RESET}    ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${foxglove_url}"
+    printf "${BLUE}║${RESET}  ${GREEN}Log Viewer:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${log_viewer_url}"
     echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
     echo -e "${BLUE}║${RESET}  ${YELLOW}View container logs at the Log Viewer URL above.${RESET}         ${BLUE}║${RESET}"
-    echo -e "${BLUE}║${RESET}  Use ${BOLD}./watod down${RESET} to stop all services.                  ${BLUE}║${RESET}"
+    echo -e "${BLUE}║${RESET}  Use ${BOLD}./watod down${RESET} to stop all services.                   ${BLUE}║${RESET}"
     echo -e "${BLUE}╚═══════════════════════════════════════════════════════════╝${RESET}"
     echo ""
+    exit 0
   fi
 
   run_compose
