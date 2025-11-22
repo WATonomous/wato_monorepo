@@ -28,8 +28,11 @@ spatial_association:
     euclid_params:
       cluster_tolerance: 0.20
       #This defines the maximum distance between two points for them to be considered part of the same cluster
-      min_cluster_size: 20 # small values create more noise 
+      min_cluster_size: 10 # small values create more noise 
       max_cluster_size: 800 # big values slightly slow down performance
+      use_adaptive_clustering: true  # Use larger tolerance for closer points to prevent fragmentation
+      close_threshold: 10.0  # Distance (m) threshold for close objects
+      close_tolerance_mult: 1.5  # Multiplier for close objects (e.g., 1.5x = 0.30m for close objects)
 
     density_filter_params:
     # filter out clusters that are too sparse and too far away, on a scale of 0 to 1
@@ -41,7 +44,10 @@ spatial_association:
     merge_threshold: 0.30
     # the threshold distance between two clusters centroids for them to be merged into one cluster
 
-    object_detection_confidence: 0.45
+    object_detection_confidence: 0.40
+
+    # Voxel downsampling parameter
+    voxel_size: 0.1  # Fixed voxel size (meters) for downsampling
 
     publish_visualization: false
 

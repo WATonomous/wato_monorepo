@@ -17,7 +17,8 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-#include "projection_utils.hpp"
+#include "utils/projection_utils.hpp"
+#include "spatial_association_core.hpp"
 
 #include <unordered_map>
 #include <string>
@@ -53,20 +54,14 @@ class spatial_association : public rclcpp::Node {
   pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
   std::vector<pcl::PointIndices> cluster_indices;
 
-  // Working PCL objects for performance optimization
-  pcl::PointCloud<pcl::PointXYZ>::Ptr working_cloud_;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr working_downsampled_cloud_;
-  pcl::VoxelGrid<pcl::PointXYZ> voxel_filter_;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;
+  // Core clustering logic (no ROS dependencies)
+  std::unique_ptr<SpatialAssociationCore> core_;
 
   // DETECTIONS
   // ------------------------------------------------------------------------------------------------------
   void multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg);
 
-  // Perform clustering once (shared across all cameras)
-  void performClustering(std::vector<pcl::PointIndices>& cluster_indices);
-  
+  // Process detections using core library and ROS message conversion
   DetectionOutputs processDetections(
       const vision_msgs::msg::Detection2DArray& detections,
       const geometry_msgs::msg::TransformStamped& transform,
@@ -92,9 +87,6 @@ class spatial_association : public rclcpp::Node {
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
   
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
-  // Optional dual-publish debug topics for bbox orientation methods
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bbox_minarea_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bbox_pca2d_pub_;
   rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
 
   // FUNCTION PARAMS
@@ -113,9 +105,6 @@ class spatial_association : public rclcpp::Node {
   std::string filtered_lidar_topic_;
   std::string cluster_centroid_topic_;
   std::string bounding_box_topic_;
-  // Optional debug topics for A/B publishing of bbox orientation
-  std::string bbox_minarea_topic_;
-  std::string bbox_pca2d_topic_;
 
   std::string lidar_frame_;
 
@@ -124,6 +113,9 @@ class spatial_association : public rclcpp::Node {
   double euclid_cluster_tolerance_;
   int euclid_min_cluster_size_;
   int euclid_max_cluster_size_;
+  bool use_adaptive_clustering_;
+  double euclid_close_threshold_;
+  double euclid_close_tolerance_mult_;
 
   double density_weight_;
   double size_weight_;
@@ -134,11 +126,12 @@ class spatial_association : public rclcpp::Node {
 
   float object_detection_confidence_;
 
-  // Bounding box orientation params
-  std::string bbox_orientation_method_;
-  double pca_reliability_min_ratio_;
-  int min_cluster_size_for_pca_;
-  bool bbox_debug_dual_publish_;
+  // Voxel downsampling parameter
+  float voxel_size_;
+
+  // Working PCL objects for visualization (reused from core)
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;
 
 };
 

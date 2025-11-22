@@ -29,80 +29,119 @@ find_package(OpenCV REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(PCL REQUIRED) # Added PCL find_package
+find_package(PCL REQUIRED) 
 
 add_library(projection_utils
-  src/projection_utils.cpp
+  utils/src/projection_utils.cpp
 )
 
 target_include_directories(projection_utils
-    PUBLIC
-    include
-    projection_utils
+    PRIVATE
+    utils/include
     ${OpenCV_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS} # Corrected PCL includes
+    ${PCL_INCLUDE_DIRS}
     ${pcl_conversions_INCLUDE_DIRS}
 )
 
-ament_target_dependencies(projection_utils
-    rclcpp
-    sample_msgs
-    sensor_msgs
-    vision_msgs
-    visualization_msgs
-    camera_object_detection_msgs
-    pcl_conversions
-    pcl_ros
-    tf2
-    tf2_ros
-    tf2_geometry_msgs
-    tf2_eigen
-    std_msgs
-    geometry_msgs
+target_link_libraries(projection_utils
+    PUBLIC
+        rclcpp::rclcpp
+        tf2::tf2
+        tf2_ros::tf2_ros
+        tf2_geometry_msgs::tf2_geometry_msgs
+        tf2_eigen::tf2_eigen
+        ${OpenCV_LIBS}
+        ${PCL_LIBRARIES}
+    PRIVATE
+        ${sample_msgs_TARGETS}
+        ${sensor_msgs_TARGETS}
+        ${vision_msgs_TARGETS}
+        ${visualization_msgs_TARGETS}
+        ${camera_object_detection_msgs_TARGETS}
+        ${std_msgs_TARGETS}
+        ${geometry_msgs_TARGETS}
+        ${pcl_conversions_TARGETS}
+        ${pcl_ros_TARGETS}
 )
 
-# Add the executable for the spatial_association node
+
+add_library(spatial_association_core
+  src/spatial_association_core.cpp
+)
+
+target_include_directories(spatial_association_core
+    PRIVATE
+    include
+    utils/include
+    ${PCL_INCLUDE_DIRS}
+)
+
+
+target_link_libraries(spatial_association_core
+    PRIVATE
+        projection_utils
+        ${sensor_msgs_TARGETS}
+        ${geometry_msgs_TARGETS}
+        ${vision_msgs_TARGETS}
+        ${visualization_msgs_TARGETS}
+    PUBLIC
+        ${PCL_LIBRARIES}
+)
+
+
 add_executable(spatial_association_node src/spatial_association.cpp)
 
-# Include directories
 target_include_directories(spatial_association_node
-    PUBLIC
+    PRIVATE
     include
+    utils/include
     ${OpenCV_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS} # Corrected PCL includes
-    ${pcl_conversions_LIBRARIES}
+    ${PCL_INCLUDE_DIRS}
+    ${pcl_conversions_INCLUDE_DIRS}
 )
 
-# Link libraries
+
 target_link_libraries(spatial_association_node
-    projection_utils
-    ${OpenCV_LIBS}
-    tf2::tf2
-    ${PCL_LIBRARIES} #added PCL libraries
+    PRIVATE
+        spatial_association_core
+        projection_utils
+        ${pcl_conversions_TARGETS}
+        ${pcl_ros_TARGETS}
+        ${sensor_msgs_TARGETS}
+        ${geometry_msgs_TARGETS}
+        ${vision_msgs_TARGETS}
+        ${std_msgs_TARGETS}
+        ${camera_object_detection_msgs_TARGETS}
+        ${visualization_msgs_TARGETS}
+    PUBLIC
+        rclcpp::rclcpp
+        tf2::tf2
+        tf2_ros::tf2_ros
+        tf2_geometry_msgs::tf2_geometry_msgs
+        cv_bridge::cv_bridge
+        ${OpenCV_LIBS}
+        ${PCL_LIBRARIES}
 )
 
-# Add ROS 2 dependencies
-ament_target_dependencies(spatial_association_node
-    rclcpp
-    sensor_msgs
-    geometry_msgs
-    vision_msgs
-    tf2
-    tf2_ros
-    tf2_geometry_msgs
-    std_msgs
-    cv_bridge
-    pcl_conversions
-    pcl_ros
-)
-
-# Install the executable
+# Install the executable and libraries
 install(TARGETS
     spatial_association_node
+    spatial_association_core
+    projection_utils
     DESTINATION lib/${PROJECT_NAME}
 )
 
-# Install launch files (if any)
+# Install header files
+install(DIRECTORY include/
+    DESTINATION include
+)
+
+# Install utils header files
+install(DIRECTORY utils/include/
+    DESTINATION include
+)
+
+
 install(DIRECTORY
     launch
     DESTINATION share/${PROJECT_NAME}

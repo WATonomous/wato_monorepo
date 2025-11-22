@@ -3,12 +3,29 @@
 spatial_association::spatial_association() : Node("spatial_association") {
   initializeParams();
 
-  // Initialize working PCL objects for performance optimization
-  working_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  working_downsampled_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  // Initialize core clustering library
+  core_ = std::make_unique<SpatialAssociationCore>();
+  
+  // Initialize working PCL objects for visualization
   working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
   working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  voxel_filter_.setLeafSize(0.2f, 0.2f, 0.2f);
+  
+  // Set core parameters from ROS parameters
+  SpatialAssociationCore::ClusteringParams core_params;
+  core_params.voxel_size = voxel_size_;
+  core_params.euclid_cluster_tolerance = euclid_cluster_tolerance_;
+  core_params.euclid_min_cluster_size = euclid_min_cluster_size_;
+  core_params.euclid_max_cluster_size = euclid_max_cluster_size_;
+  core_params.use_adaptive_clustering = use_adaptive_clustering_;
+  core_params.euclid_close_threshold = euclid_close_threshold_;
+  core_params.euclid_close_tolerance_mult = euclid_close_tolerance_mult_;
+  core_params.density_weight = density_weight_;
+  core_params.size_weight = size_weight_;
+  core_params.distance_weight = distance_weight_;
+  core_params.score_threshold = score_threshold_;
+  core_params.merge_threshold = merge_threshold_;
+  core_params.object_detection_confidence = object_detection_confidence_;
+  core_->setParams(core_params);
 
   // SUBSCRIBERS
   // -------------------------------------------------------------------------------------------------
@@ -52,16 +69,6 @@ spatial_association::spatial_association() : Node("spatial_association") {
   } else {
     RCLCPP_INFO(this->get_logger(), "Visualization publishers disabled - only detection_3d will be published");
   }
-
-  // Optional dual bbox publishers for debugging orientation methods
-  if (bbox_debug_dual_publish_) {
-    bbox_minarea_pub_ =
-        this->create_publisher<visualization_msgs::msg::MarkerArray>(bbox_minarea_topic_, 10);
-    bbox_pca2d_pub_ =
-        this->create_publisher<visualization_msgs::msg::MarkerArray>(bbox_pca2d_topic_, 10);
-    RCLCPP_INFO(this->get_logger(), "Dual bbox debug publishers enabled: minarea='%s', pca2d='%s'",
-                bbox_minarea_topic_.c_str(), bbox_pca2d_topic_.c_str());
-  }
   
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -81,26 +88,23 @@ void spatial_association::initializeParams() {
   this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar");
   this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
   this->declare_parameter<std::string>("bounding_box_topic", "/bounding_box");
-  // Optional debug bbox topics
-  this->declare_parameter<std::string>("bbox_minarea_topic", "/bounding_box_minarea");
-  this->declare_parameter<std::string>("bbox_pca2d_topic", "/bounding_box_pca2d");
 
   this->declare_parameter<std::string>("lidar_top_frame", "LIDAR_TOP");
 
   this->declare_parameter<bool>("publish_visualization", true);
   this->declare_parameter<bool>("debug_logging", false);
 
-  // Bounding box orientation control params
-  this->declare_parameter<std::string>("bbox_orientation_method", "min_area");
-  this->declare_parameter<double>("pca_reliability_min_ratio", 0.6);
-  this->declare_parameter<int>("min_cluster_size_for_pca", 20);
-  this->declare_parameter<bool>("bbox_debug_dual_publish", false);
+  // Voxel downsampling parameters
+  this->declare_parameter<float>("voxel_size", 0.2f);  // Fixed voxel size (meters)
 
 
   // Euclidean Clustering Parameters
   this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.5);
   this->declare_parameter<int>("euclid_params.min_cluster_size", 50);
   this->declare_parameter<int>("euclid_params.max_cluster_size", 700);
+  this->declare_parameter<bool>("euclid_params.use_adaptive_clustering", true);
+  this->declare_parameter<double>("euclid_params.close_threshold", 10.0);
+  this->declare_parameter<double>("euclid_params.close_tolerance_mult", 1.5);
 
   // Density Filtering Parameters
   this->declare_parameter<double>("density_filter_params.density_weight", 0.6);
@@ -115,6 +119,10 @@ void spatial_association::initializeParams() {
   // Get parameters
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
 
+  // Get voxel downsampling parameter
+  voxel_size_ = static_cast<float>(this->get_parameter("voxel_size").as_double());
+  // Note: voxel_filter_ is now managed by the core library and set via core_->setParams()
+
   camera_info_topic_front_ = this->get_parameter("camera_info_topic_front_").as_string();
   camera_info_topic_right_ = this->get_parameter("camera_info_topic_right_").as_string();
   camera_info_topic_left_ = this->get_parameter("camera_info_topic_left_").as_string();
@@ -126,8 +134,6 @@ void spatial_association::initializeParams() {
   filtered_lidar_topic_ = this->get_parameter("filtered_lidar_topic").as_string();
   cluster_centroid_topic_ = this->get_parameter("cluster_centroid_topic").as_string();
   bounding_box_topic_ = this->get_parameter("bounding_box_topic").as_string();
-  bbox_minarea_topic_ = this->get_parameter("bbox_minarea_topic").as_string();
-  bbox_pca2d_topic_ = this->get_parameter("bbox_pca2d_topic").as_string();
 
   lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
@@ -135,6 +141,9 @@ void spatial_association::initializeParams() {
   euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
   euclid_min_cluster_size_ = this->get_parameter("euclid_params.min_cluster_size").as_int();
   euclid_max_cluster_size_ = this->get_parameter("euclid_params.max_cluster_size").as_int();
+  use_adaptive_clustering_ = this->get_parameter("euclid_params.use_adaptive_clustering").as_bool();
+  euclid_close_threshold_ = this->get_parameter("euclid_params.close_threshold").as_double();
+  euclid_close_tolerance_mult_ = this->get_parameter("euclid_params.close_tolerance_mult").as_double();
 
   density_weight_ = this->get_parameter("density_filter_params.density_weight").as_double();
   size_weight_ = this->get_parameter("density_filter_params.size_weight").as_double();
@@ -145,11 +154,6 @@ void spatial_association::initializeParams() {
 
   object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
 
-  // Read bbox orientation params
-  bbox_orientation_method_ = this->get_parameter("bbox_orientation_method").as_string();
-  pca_reliability_min_ratio_ = this->get_parameter("pca_reliability_min_ratio").as_double();
-  min_cluster_size_for_pca_ = this->get_parameter("min_cluster_size_for_pca").as_int();
-  bbox_debug_dual_publish_ = this->get_parameter("bbox_debug_dual_publish").as_bool();
   debug_logging_ = this->get_parameter("debug_logging").as_bool();
 
   if (debug_logging_) {
@@ -166,16 +170,14 @@ void spatial_association::multiCameraInfoCallback(const sensor_msgs::msg::Camera
 void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
   // store the lidar msg
   latest_lidar_msg_ = *msg;
+  
+  // Convert to PCL
+  pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::fromROSMsg(latest_lidar_msg_, *input_cloud);
+
+  // Use core library to process point cloud (downsampling)
   filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-
-  // Convert to PCL using working object
-  pcl::fromROSMsg(latest_lidar_msg_, *working_cloud_);
-
-  // Apply downsampling using working objects
-  voxel_filter_.setInputCloud(working_cloud_);
-  voxel_filter_.filter(*working_downsampled_cloud_);
-
-  filtered_point_cloud_ = working_downsampled_cloud_;
+  core_->processPointCloud(input_cloud, filtered_point_cloud_);
 }
 
 void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
@@ -185,22 +187,20 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
   
   // Store the non-ground cloud message from patchwork
   latest_lidar_msg_ = *msg;
-  filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  
+  // Convert to PCL
+  pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::fromROSMsg(latest_lidar_msg_, *input_cloud);
 
-  // Convert to PCL using working object
-  pcl::fromROSMsg(latest_lidar_msg_, *working_cloud_);
-
-  if (working_cloud_->empty()) {
+  if (input_cloud->empty()) {
     RCLCPP_WARN(this->get_logger(), "Received empty non-ground cloud");
+    filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
     return;
   }
 
-  // Apply downsampling using working objects
-  voxel_filter_.setInputCloud(working_cloud_);
-  voxel_filter_.filter(*working_downsampled_cloud_);
-
-  // No ground filtering needed - patchwork already removed ground points
-  filtered_point_cloud_ = working_downsampled_cloud_;
+  // Use core library to process point cloud (downsampling)
+  filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  core_->processPointCloud(input_cloud, filtered_point_cloud_);
  
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
@@ -208,30 +208,6 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
 
 }
 
-void spatial_association::performClustering(std::vector<pcl::PointIndices>& cluster_indices) {
-  // Clear previous clusters
-  cluster_indices.clear();
-
-  if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
-    return;
-  }
-
-  // CLUSTERING-----------------------------------------------------------------------------------------------
-  // Perform Euclidean clustering, populate cluster_indices
-  ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, euclid_cluster_tolerance_,
-                                              euclid_min_cluster_size_, euclid_max_cluster_size_,
-                                              cluster_indices);
-
-  // filter clusters by density, size and distance
-  ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_,
-                                          size_weight_, distance_weight_, score_threshold_);
-
-  // Precompute cluster stats once to avoid redundant point scans
-  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
-
-  // merge clusters that are close to each other, determined through distance between their
-  ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, cluster_stats, merge_threshold_);
-}
 
 DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
                                   const geometry_msgs::msg::TransformStamped &transform,
@@ -260,7 +236,8 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
                                             projection_matrix, object_detection_confidence_);
 
   // Precompute cluster boxes once to avoid recomputing in both computeBoundingBox and compute3DDetection
-  auto boxes = ProjectionUtils::computeClusterBoxes(filtered_point_cloud_, cluster_indices);
+  // Use core library to compute boxes
+  auto boxes = core_->computeClusterBoxes(filtered_point_cloud_, cluster_indices);
 
   if (publish_visualization_) {
     detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(
@@ -272,18 +249,13 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
   // VISUALIZATIONS
   // ----------------------------------------------------------------------------
   
-  // assign colors to the clusters 
+  // assign colors to the clusters using core library
   if (publish_visualization_) {
     detection_outputs.colored_cluster = working_colored_cluster_;
-    ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
+    core_->assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
 
     detection_outputs.centroid_cloud = working_centroid_cloud_;
-    detection_outputs.centroid_cloud->clear(); // Clear previous data
-    for (auto &ci : cluster_indices) {
-      pcl::PointXYZ c;
-      ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, ci, c);
-      detection_outputs.centroid_cloud->points.push_back(c);
-    }
+    core_->computeClusterCentroids(filtered_point_cloud_, cluster_indices, detection_outputs.centroid_cloud);
   }
   return detection_outputs;
 }
@@ -306,7 +278,8 @@ void spatial_association::multiDetectionsCallback(
 
   // PERFORM CLUSTERING ONCE (before camera loop) - significant performance optimization
   // This avoids redundant clustering computations for each camera
-  performClustering(cluster_indices);
+  // Use core library for clustering
+  core_->performClustering(filtered_point_cloud_, cluster_indices);
   
   if (cluster_indices.empty()) {
     RCLCPP_DEBUG(get_logger(), "No clusters found after filtering");
