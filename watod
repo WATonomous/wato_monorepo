@@ -24,12 +24,12 @@ MODULES_DIR="$MONO_DIR/modules"
 readonly BLUE='\033[0;34m'
 readonly GREEN='\033[0;32m'
 readonly CYAN='\033[0;36m'
+readonly RED='\033[0;31m'
 readonly YELLOW='\033[0;33m'
 readonly RESET='\033[0m'
 readonly BOLD='\033[1m'
 
 # Always arrays → safe to expand with "${arr[@]}"
-declare -a PROFILES=()
 declare -a COMPOSE_CMD=()
 
 usage() {
@@ -66,11 +66,15 @@ More info: https://docs.docker.com/compose/reference/overview/
 EOF
 }
 
-build_profiles_array() {
-  local -n profiles_array=$1  # nameref to the array to populate
-  local blacklist=${2:-""}  # space-separated list of modules to exclude
+# Parse ACTIVE_MODULES and build profile arrays
+# Input: ACTIVE_MODULES can contain "module" or "module:dev"
+# Output: ALL_PROFILES, DEPLOY_PROFILES, DEV_PROFILES arrays
+build_profile_arrays() {
+  local blacklist=${1:-""}  # optional: space-separated list of modules to exclude
 
-  profiles_array=()
+  ALL_PROFILES=()
+  DEPLOY_PROFILES=()
+  DEV_PROFILES=()
 
   # Ensure ACTIVE_MODULES is an array
   if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
@@ -78,53 +82,63 @@ build_profiles_array() {
   fi
 
   for m in "${ACTIVE_MODULES[@]}"; do
+    local module_name="$m"
+    local is_dev=false
+
+    # Check if this is a dev module
+    if [[ "$m" == *":dev" ]]; then
+      module_name="${m%:dev}"
+      is_dev=true
+    fi
+
     # Skip if module is in blacklist
-    if [[ -n "$blacklist" && " $blacklist " =~ \ $m\  ]]; then
+    if [[ -n "$blacklist" && " $blacklist " =~ \ $module_name\  ]]; then
       continue
     fi
-    profiles_array+=( --profile "$m" )
+
+    # Add to appropriate arrays
+    if $is_dev; then
+      ALL_PROFILES+=( --profile "$module_name-dev" )
+      DEV_PROFILES+=( --profile "$module_name-dev" )
+    else
+      ALL_PROFILES+=( --profile "$module_name" )
+      DEPLOY_PROFILES+=( --profile "$module_name" )
+    fi
   done
 }
 
 run_compose() {
   cd "$MONO_DIR"
 
-  # Build the list of --profile arguments once
+  # Build profile arrays once
   if [[ -z ${PROFILES_BUILT:-} ]]; then
     PROFILES_BUILT=1
-    build_profiles_array PROFILES
+    build_profile_arrays
   fi
 
-  # Determine compose files to use
-  local compose_files=("-f" "modules/docker-compose.yaml")
-  if [[ "${MODE_OF_OPERATION:-deploy}" == "develop" ]]; then
-    compose_files+=("-f" "modules/docker-compose.dev.yaml")
+  # Run with all profiles, all three compose files
+  if [[ ${#ALL_PROFILES[@]} -gt 0 ]]; then
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
+      COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
+      docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${ALL_PROFILES[@]}" "${COMPOSE_CMD[@]}"
   fi
-
-  echo "Running: docker compose ${compose_files[*]} ${PROFILES[*]} ${COMPOSE_CMD[*]}"
-  DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
-    COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
-    docker compose "${compose_files[@]}" "${PROFILES[@]}" "${COMPOSE_CMD[@]}"
 }
 
 down_compose() {
   cd "$MONO_DIR"
 
-  # Build the list of --profile arguments if not already built
+  # Build profile arrays once
   if [[ -z ${PROFILES_BUILT:-} ]]; then
     PROFILES_BUILT=1
-    build_profiles_array PROFILES
+    build_profile_arrays
   fi
 
-  # Determine compose files to use
-  local compose_files=("-f" "modules/docker-compose.yaml")
-  if [[ "${MODE_OF_OPERATION:-deploy}" == "develop" ]]; then
-    compose_files+=("-f" "modules/docker-compose.dev.yaml")
+  # Bring down all containers at once
+  if [[ ${#ALL_PROFILES[@]} -gt 0 ]]; then
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
+      COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
+      docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${ALL_PROFILES[@]}" down
   fi
-
-  DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
-    COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
-    docker compose "${compose_files[@]}" "${PROFILES[@]}" down
 }
 
 # ─────────────────────────── Argument parsing ────────────────────────────
@@ -196,14 +210,13 @@ if [[ -n ${RUN_TESTS:-} ]]; then
   run_compose
 
   # Build test profiles array, excluding simulation and infrastructure
-  TEST_PROFILES=()
-  build_profiles_array TEST_PROFILES "simulation infrastructure"
+  build_profile_arrays "simulation infrastructure"
 
   # Call the test script with profiles array as arguments
   if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
-    "$MONO_DIR/watod_scripts/watod-test.sh" -f modules/docker-compose.yaml "${TEST_PROFILES[@]}" "${TEST_SERVICES[@]}"
+    "$MONO_DIR/watod_scripts/watod-test.sh" -f modules/docker-compose.yaml "${ALL_PROFILES[@]}" "${TEST_SERVICES[@]}"
   else
-    "$MONO_DIR/watod_scripts/watod-test.sh" -f modules/docker-compose.yaml "${TEST_PROFILES[@]}"
+    "$MONO_DIR/watod_scripts/watod-test.sh" -f modules/docker-compose.yaml "${ALL_PROFILES[@]}"
   fi
   exit $?
 fi
@@ -220,57 +233,72 @@ fi
 
 # ─────────────────────────── Execute compose ─────────────────────────────
 
-cleanup() {
-  echo ""
-  echo -ne "\r${BLUE}${BOLD}Stopping containers...${RESET}   "
-
-  # Spinner animation
-  local spin=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-  local i=0
-
-  # Run docker compose down in background
-  down_compose &> /dev/null &
-  local cleanup_pid=$!
-
-  # Show spinner while cleanup is running
-  while kill -0 $cleanup_pid 2>/dev/null; do
-    echo -ne "\r${BLUE}${BOLD}Stopping containers...${RESET} ${spin[$i]} "
-    i=$(( (i+1) % ${#spin[@]} ))
-    sleep 0.1
-  done
-
-  echo -e "\r${GREEN}✓ All containers stopped.${RESET}    "
-  exit 0
-}
-
 if [[ ${#COMPOSE_CMD[@]} -gt 0 ]]; then
-  # If opening a terminal via `-t`, ensure containers are up in detached mode
-  if [[ -n ${START_TERMINAL:-} && "${COMPOSE_CMD[*]}" =~ \bup\b && ! "${COMPOSE_CMD[*]}" =~ -d ]]; then
-    COMPOSE_CMD+=( -d )
-  fi
-
-  # Special handling for 'up' command (only if not in detached mode)
+  # Always run 'up' in detached mode since we run multiple compose commands
   if [[ "${COMPOSE_CMD[0]}" == "up" && ! "${COMPOSE_CMD[*]}" =~ -d ]]; then
-    # Set up trap for Ctrl+C on 'up' command
-    trap cleanup SIGINT SIGTERM
+    COMPOSE_CMD+=( -d )
 
+    # Determine URLs based on connection type
+    foxglove_url="ws://localhost:${FOXGLOVE_BRIDGE_PORT}"
+    log_viewer_url="http://localhost:${LOG_VIEWER__PORT}"
+
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+      # SSH_CONNECTION format: client_ip client_port server_ip server_port
+      server_ip=$(echo "$SSH_CONNECTION" | awk '{print $3}')
+      foxglove_url="ws://${server_ip}:${FOXGLOVE_BRIDGE_PORT}"
+      log_viewer_url="http://${server_ip}:${LOG_VIEWER__PORT}"
+    fi
+
+    # Run compose
+    run_compose
+
+    # Show SSH warning if detected
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+      echo ""
+      echo -e "${YELLOW}⚠️  SSH Connection Detected!${RESET}"
+      echo ""
+      echo "If the URLs below don't work, forward ports on your local machine:"
+      echo -e "  ${CYAN}ssh -L ${FOXGLOVE_BRIDGE_PORT}:localhost:${FOXGLOVE_BRIDGE_PORT} -L ${LOG_VIEWER__PORT}:localhost:${LOG_VIEWER__PORT} <host>${RESET}"
+      echo ""
+    fi
+
+    # Get list of running containers (match both project prefix and log_viewer)
+    mapfile -t containers < <(docker ps --format "{{.Names}}" | grep -E "(^${COMPOSE_PROJECT_NAME}-|^watod_log_viewer)" | sort)
+
+    # Display status panel
     echo ""
     echo -e "${BLUE}╔═══════════════════════════════════════════════════════════╗${RESET}"
-    echo -e "${BLUE}║${RESET}  ${BOLD}Starting WATonomous Services${RESET}                             ${BLUE}║${RESET}"
+    echo -e "${BLUE}║${RESET}  ${BOLD}WATonomous Services Started${RESET}                              ${BLUE}║${RESET}"
     echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
-    echo -e "${BLUE}║${RESET}  ${GREEN}Foxglove:${RESET}    ${CYAN}ws://localhost:${FOXGLOVE_BRIDGE_PORT}${RESET}                        ${BLUE}║${RESET}"
-    echo -e "${BLUE}║${RESET}  ${GREEN}Log Viewer:${RESET}  ${CYAN}http://localhost:${LOG_VIEWER__PORT}${RESET}                      ${BLUE}║${RESET}"
+    echo -e "${BLUE}║${RESET}  ${GREEN}Running Containers:${RESET}                                      ${BLUE}║${RESET}"
+
+    for container in "${containers[@]}"; do
+      # Remove project prefix
+      service_name="${container#"${COMPOSE_PROJECT_NAME}"-}"
+      service_name="${service_name%-[0-9]*}"  # Remove trailing -1, -2, etc.
+
+      # Check if it's a dev container
+      if [[ "$service_name" == *"_dev" ]]; then
+        # Format: "    - service_name (DevContainer)" padded to 59 chars
+        printf "${BLUE}║${RESET}    - ${CYAN}%-37s${RESET} ${RED}(DevContainer)${RESET} ${BLUE}║${RESET}\n" "${service_name}"
+      else
+        # Format: "    - service_name" padded to 59 chars
+        printf "${BLUE}║${RESET}    - ${CYAN}%-52s${RESET} ${BLUE}║${RESET}\n" "${service_name}"
+      fi
+    done
+
+    echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
+    printf "${BLUE}║${RESET}  ${GREEN}Foxglove:${RESET}    ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${foxglove_url}"
+    printf "${BLUE}║${RESET}  ${GREEN}Log Viewer:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${log_viewer_url}"
     echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
     echo -e "${BLUE}║${RESET}  ${YELLOW}View container logs at the Log Viewer URL above.${RESET}         ${BLUE}║${RESET}"
-    echo -e "${BLUE}║${RESET}  Press ${BOLD}Ctrl+C${RESET} to stop all services.                       ${BLUE}║${RESET}"
+    echo -e "${BLUE}║${RESET}  Use ${BOLD}./watod down${RESET} to stop all services.                   ${BLUE}║${RESET}"
     echo -e "${BLUE}╚═══════════════════════════════════════════════════════════╝${RESET}"
     echo ""
-
-    run_compose &> /dev/null &
-    wait $!
-  else
-    run_compose
+    exit 0
   fi
+
+  run_compose
 fi
 
 # Open interactive shell if requested

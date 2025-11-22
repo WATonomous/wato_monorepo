@@ -17,4 +17,17 @@ set -e
 # setup WATonomous packages and ROS2 environment
 source /opt/watonomous/setup.bash
 
-exec "$@"
+# Handle signals properly - forward SIGTERM to child process
+_term() {
+  echo "Caught SIGTERM signal, forwarding to child process..."
+  kill -TERM "$child" 2>/dev/null
+}
+
+trap _term SIGTERM
+
+# Run command in background so we can trap signals
+"$@" &
+child=$!
+
+# Wait for child process
+wait "$child"

@@ -50,9 +50,9 @@ REPOSITORY="${REGISTRY_URL#*/}"
 
 ################################ build matrix ##################################
 shopt -s lastpipe
-compose_file="modules/docker-compose.yaml"
+compose_files=(-f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml)
 
-$DEBUG && echo "▶ Using compose file: $compose_file"
+$DEBUG && echo "▶ Using compose files: ${compose_files[*]}"
 
 declare -A seen
 declare -a json_rows
@@ -75,7 +75,7 @@ for module in $modules_to_process; do
   [[ $module == simulation ]] && continue
 
   # Always include infrastructure profile as other services depend on it
-  cfg=$(docker compose -f "$compose_file" --profile infrastructure --profile "$module" config --format json)
+  cfg=$(docker compose "${compose_files[@]}" --profile infrastructure --profile "$module" config --format json)
 
   echo "$cfg" | jq -r '
     .services | to_entries[] | select(.value.build?) | [ .key,
@@ -94,7 +94,7 @@ for module in $modules_to_process; do
         continue
       fi
 
-      [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "$(dirname "$compose_file")/$ctx")"
+      [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "modules/$ctx")"
       [[ $df_rel = /* ]] && df_abs="$df_rel" || df_abs="$(realpath -m "$ctx_abs/$df_rel")"
       df_repo_rel="$(realpath --relative-to=. "$df_abs")"
 
