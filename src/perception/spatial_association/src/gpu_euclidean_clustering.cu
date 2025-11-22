@@ -96,23 +96,21 @@ __device__ int findRoot(int* parent, int x) {
 }
 
 /**
- * Union two sets (union by rank)
+ * Atomic Union (union by index to prevent cycles)
+ * Always links the higher index to the lower index. This enforces a
+ * monotonically decreasing parent chain and prevents cycles that can hang findRoot.
  */
-__device__ void unionSets(int* parent, int* rank, int x, int y) {
+__device__ void unionSets(int* parent, int x, int y) {
   int root_x = findRoot(parent, x);
   int root_y = findRoot(parent, y);
-  
-  if (root_x == root_y) return;  // Already in same set
-  
-  // Union by rank
-  if (rank[root_x] < rank[root_y]) {
-    parent[root_x] = root_y;
-  } else if (rank[root_x] > rank[root_y]) {
-    parent[root_y] = root_x;
-  } else {
-    parent[root_y] = root_x;
-    rank[root_x]++;
-  }
+
+  if (root_x == root_y) return;
+
+  int high = max(root_x, root_y);
+  int low = min(root_x, root_y);
+
+  // Atomic link: high -> low (cycle-free)
+  atomicMin(&parent[high], low);
 }
 
 // ============================================================================
@@ -185,7 +183,7 @@ __global__ void findNeighborsAndUnionKernel(
     const int* d_hash_table,
     const int* d_next_point,
     int* d_parent,
-    int* d_rank,
+    int* /*d_rank*/,
     int table_size) {
   
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -235,7 +233,7 @@ __global__ void findNeighborsAndUnionKernel(
             
             // If within tolerance, union
             if (dist_sq <= tol_sq) {
-              unionSets(d_parent, d_rank, idx, neighbor_idx);
+              unionSets(d_parent, idx, neighbor_idx);
             }
           }
           
@@ -690,4 +688,3 @@ int runGpuClustering(
   
   return 0;
 }
-

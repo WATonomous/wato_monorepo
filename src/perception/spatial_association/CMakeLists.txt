@@ -154,6 +154,7 @@ install(TARGETS
   gpu_pipeline 
   projection_utils 
   spatial_association_node
+  EXPORT spatial_associationTargets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -166,5 +167,10 @@ install(DIRECTORY include/
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+# Export headers and libraries so other packages (and runtime) can find CUDA bits
+ament_export_include_directories(include)
+ament_export_targets(spatial_associationTargets HAS_LIBRARY_TARGET)
+ament_export_dependencies(CUDAToolkit PCL OpenCV)
 
 ament_package()

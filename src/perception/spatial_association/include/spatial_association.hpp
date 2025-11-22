@@ -38,6 +38,7 @@ class spatial_association : public rclcpp::Node {
   // CONFIG/VISUALIZATION
   bool publish_visualization_;
   bool debug_logging_;
+  bool use_gpu_pipeline_;
 
   // CAMERA
   // ------------------------------------------------------------------------------------------------------
@@ -125,6 +126,7 @@ class spatial_association : public rclcpp::Node {
   std::string filtered_lidar_topic_;
   std::string cluster_centroid_topic_;
   std::string bounding_box_topic_;
+  std::string detection_3d_topic_;
   // Optional debug topics for A/B publishing of bbox orientation
   std::string bbox_minarea_topic_;
   std::string bbox_pca2d_topic_;

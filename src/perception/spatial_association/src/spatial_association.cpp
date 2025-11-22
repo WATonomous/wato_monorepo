@@ -15,14 +15,27 @@ spatial_association::spatial_association() : Node("spatial_association") {
   // OLD CODE (removed):
   //   voxel_filter_.setLeafSize(0.2f, 0.2f, 0.2f);
   
-  // Initialize GPU pipeline with pre-allocated buffers
-  int max_points = 200000;  // Adjust based on typical point cloud size
-  int max_clusters = 4000;
-  if (!initializeGpuPipeline(max_points, max_clusters)) {
-    RCLCPP_WARN(this->get_logger(), "GPU pipeline initialization failed, will use CPU fallback");
+  // Initialize GPU pipeline with pre-allocated buffers (optional)
+  if (use_gpu_pipeline_) {
+    int max_points = 200000;  // Adjust based on typical point cloud size
+    int max_clusters = 4000;
+    if (!initializeGpuPipeline(max_points, max_clusters)) {
+      RCLCPP_WARN(this->get_logger(), "GPU pipeline initialization failed, will use CPU fallback");
+      use_gpu_pipeline_ = false;
+    } else {
+      cudaDeviceProp prop{};
+      if (cudaGetDeviceProperties(&prop, 0) == cudaSuccess) {
+        RCLCPP_INFO(this->get_logger(),
+                    "GPU pipeline initialized on device '%s' (CC %d.%d), max_points=%d, max_clusters=%d",
+                    prop.name, prop.major, prop.minor, max_points, max_clusters);
+      } else {
+        RCLCPP_INFO(this->get_logger(),
+                    "GPU pipeline initialized (device query failed), max_points=%d, max_clusters=%d",
+                    max_points, max_clusters);
+      }
+    }
   } else {
-    RCLCPP_INFO(this->get_logger(), "GPU pipeline initialized: max_points=%d, max_clusters=%d", 
-                max_points, max_clusters);
+    RCLCPP_WARN(this->get_logger(), "GPU pipeline disabled via parameter; using CPU clustering");
   }
 
   // SUBSCRIBERS
@@ -53,9 +66,9 @@ spatial_association::spatial_association() : Node("spatial_association") {
 
   // Always create the main detection publisher
   detection_3d_pub_ = 
-      this->create_publisher<vision_msgs::msg::Detection3DArray>("/detection_3d", 10);
+      this->create_publisher<vision_msgs::msg::Detection3DArray>(detection_3d_topic_, 10);
   bounding_box_pub_ =
-        this->create_publisher<visualization_msgs::msg::MarkerArray>("/bounding_box", 10);  
+        this->create_publisher<visualization_msgs::msg::MarkerArray>(bounding_box_topic_, 10);  
 
   // Only create visualization publishers if enabled
   if (publish_visualization_) {
@@ -111,6 +124,7 @@ void spatial_association::initializeParams() {
   this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar");
   this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
   this->declare_parameter<std::string>("bounding_box_topic", "/bounding_box");
+  this->declare_parameter<std::string>("detection_3d_topic", "/detection_3d");
   // Optional debug bbox topics
   this->declare_parameter<std::string>("bbox_minarea_topic", "/bounding_box_minarea");
   this->declare_parameter<std::string>("bbox_pca2d_topic", "/bounding_box_pca2d");
@@ -119,6 +133,7 @@ void spatial_association::initializeParams() {
 
   this->declare_parameter<bool>("publish_visualization", true);
   this->declare_parameter<bool>("debug_logging", false);
+  this->declare_parameter<bool>("use_gpu_pipeline", false);
 
   // Bounding box orientation control params
   this->declare_parameter<std::string>("bbox_orientation_method", "min_area");
@@ -156,6 +171,7 @@ void spatial_association::initializeParams() {
   filtered_lidar_topic_ = this->get_parameter("filtered_lidar_topic").as_string();
   cluster_centroid_topic_ = this->get_parameter("cluster_centroid_topic").as_string();
   bounding_box_topic_ = this->get_parameter("bounding_box_topic").as_string();
+  detection_3d_topic_ = this->get_parameter("detection_3d_topic").as_string();
   bbox_minarea_topic_ = this->get_parameter("bbox_minarea_topic").as_string();
   bbox_pca2d_topic_ = this->get_parameter("bbox_pca2d_topic").as_string();
 
@@ -181,6 +197,7 @@ void spatial_association::initializeParams() {
   min_cluster_size_for_pca_ = this->get_parameter("min_cluster_size_for_pca").as_int();
   bbox_debug_dual_publish_ = this->get_parameter("bbox_debug_dual_publish").as_bool();
   debug_logging_ = this->get_parameter("debug_logging").as_bool();
+  use_gpu_pipeline_ = this->get_parameter("use_gpu_pipeline").as_bool();
 
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Debug logging is ENABLED for spatial_association");
@@ -264,14 +281,20 @@ std::vector<ProjectionUtils::ClusterStats> spatial_association::performClusterin
   params.min_cluster_size = euclid_min_cluster_size_;
   params.max_cluster_size = euclid_max_cluster_size_;
 
-  // ========== STEP 3: Run GPU pipeline ==========
+  // ========== STEP 3: Run clustering (GPU preferred) ==========
   std::vector<int> labels;
   std::vector<GPUClusterStats> gpu_clusters;
   
-  RCLCPP_INFO(get_logger(), "Calling GPU pipeline with %d points", N);
-  if (!runGpuPipeline(xyz.data(), N, params, labels, gpu_clusters)) {
-    RCLCPP_WARN(get_logger(), "GPU pipeline failed, falling back to CPU");
-    
+  bool gpu_ok = false;
+  if (use_gpu_pipeline_) {
+    RCLCPP_INFO(get_logger(), "Calling GPU pipeline with %d points", N);
+    gpu_ok = runGpuPipeline(xyz.data(), N, params, labels, gpu_clusters);
+    if (!gpu_ok) {
+      RCLCPP_ERROR(get_logger(), "GPU pipeline call returned false - falling back to CPU clustering");
+    }
+  }
+
+  if (!gpu_ok) {
     // ========== FALLBACK: Use CPU implementation ==========
     ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, 
                                                 euclid_cluster_tolerance_,
@@ -359,6 +382,8 @@ std::vector<ProjectionUtils::ClusterStats> spatial_association::performClusterin
 
   RCLCPP_INFO(get_logger(), "GPU clustering complete: %zu clusters found (from %d input points)", 
               cluster_indices.size(), N);
+  RCLCPP_DEBUG(get_logger(), "GPU cluster stats computed: %zu clusters, %zu labels mapped",
+               cluster_stats.size(), labels.size());
 
   return cluster_stats;
 }

@@ -690,12 +690,15 @@ int ProjectionUtils::computeBestClusterIndex(
 
   // Only return the best cluster index if it has a reasonable IoU
   // Use a minimum threshold to avoid keeping clusters with very low IoU
-  const double min_iou_threshold = 0.2;  // Minimum IoU to consider a valid match
+  const double min_iou_threshold = 0.05;  // Be permissive to avoid dropping clusters
 
   if (found_valid_cluster && best_overall_iou >= min_iou_threshold) {
     return static_cast<int>(best_cluster_idx);
   }
 
+  // Debug visibility: surface the best IoU to help tune thresholds when matches fail
+  std::cerr << "[ProjectionUtils] No cluster passed IoU threshold. Best IoU: "
+            << best_overall_iou << " (threshold " << min_iou_threshold << ")\n";
   return -1;
 }
 
