@@ -1,9 +1,16 @@
+/**
+ * Modified spatial_association.hpp with GPU Pipeline Integration
+ * 
+ * This file shows the exact modifications needed to the header file.
+ * Copy the relevant changes into your spatial_association.hpp file.
+ */
+
 #ifndef SPATIAL_ASSOCIATION_HPP
 #define SPATIAL_ASSOCIATION_HPP
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-// REMOVED: #include <pcl/filters/voxel_grid.h>  // No longer needed (GPU handles voxel filtering)
+// REMOVED: #include <pcl/filters/voxel_grid.h>  // No longer needed
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -18,6 +25,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 
 #include "projection_utils.hpp"
+#include "gpu_pipeline.hpp"  // ADD THIS INCLUDE
 
 #include <unordered_map>
 #include <string>
@@ -32,7 +40,7 @@ struct DetectionOutputs {
 class spatial_association : public rclcpp::Node {
  public:
  spatial_association();
- ~spatial_association();  // ADD DESTRUCTOR for GPU cleanup
+ ~spatial_association();  // ADD DESTRUCTOR
 
  private:
   // CONFIG/VISUALIZATION
@@ -57,7 +65,7 @@ class spatial_association : public rclcpp::Node {
   // Working PCL objects for performance optimization
   pcl::PointCloud<pcl::PointXYZ>::Ptr working_cloud_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr working_downsampled_cloud_;
-  // REMOVED: pcl::VoxelGrid<pcl::PointXYZ> voxel_filter_;  // No longer needed (GPU handles voxel filtering)
+  // REMOVED: pcl::VoxelGrid<pcl::PointXYZ> voxel_filter_;  // No longer needed
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;
 
@@ -85,14 +93,6 @@ class spatial_association : public rclcpp::Node {
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr non_ground_cloud_sub_;
   rclcpp::Subscription<camera_object_detection_msgs::msg::BatchDetection>::SharedPtr batch_dets_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_front_,camera_info_sub_left_, camera_info_sub_right_;
-  
-  // TIMER for LiDAR-only clustering (when no camera detections available)
-  rclcpp::TimerBase::SharedPtr lidar_clustering_timer_;
-  void lidarClusteringTimerCallback();
-  
-  // Publish bounding boxes for all clusters (without camera matching)
-  void publishAllClusterBoxes(const std::vector<pcl::PointIndices>& cluster_indices,
-                              const std::vector<ProjectionUtils::ClusterStats>& cluster_stats);
 
 
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -155,3 +155,4 @@ class spatial_association : public rclcpp::Node {
 };
 
 #endif
+

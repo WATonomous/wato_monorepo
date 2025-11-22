@@ -1,4 +1,6 @@
 #include "spatial_association.hpp"
+#include "gpu_pipeline.hpp"
+#include "cuda_utils.hpp"
 
 spatial_association::spatial_association() : Node("spatial_association") {
   initializeParams();
@@ -8,7 +10,20 @@ spatial_association::spatial_association() : Node("spatial_association") {
   working_downsampled_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
   working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  voxel_filter_.setLeafSize(0.2f, 0.2f, 0.2f);
+  
+  // REMOVED: CPU voxel filter - GPU pipeline handles downsampling
+  // OLD CODE (removed):
+  //   voxel_filter_.setLeafSize(0.2f, 0.2f, 0.2f);
+  
+  // Initialize GPU pipeline with pre-allocated buffers
+  int max_points = 200000;  // Adjust based on typical point cloud size
+  int max_clusters = 4000;
+  if (!initializeGpuPipeline(max_points, max_clusters)) {
+    RCLCPP_WARN(this->get_logger(), "GPU pipeline initialization failed, will use CPU fallback");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "GPU pipeline initialized: max_points=%d, max_clusters=%d", 
+                max_points, max_clusters);
+  }
 
   // SUBSCRIBERS
   // -------------------------------------------------------------------------------------------------
@@ -62,10 +77,25 @@ spatial_association::spatial_association() : Node("spatial_association") {
     RCLCPP_INFO(this->get_logger(), "Dual bbox debug publishers enabled: minarea='%s', pca2d='%s'",
                 bbox_minarea_topic_.c_str(), bbox_pca2d_topic_.c_str());
   }
+
+  // TIMER for LiDAR-only clustering (runs periodically when point clouds are available)
+  // This allows publishing bounding boxes even without camera detections
+  lidar_clustering_timer_ = this->create_wall_timer(
+      std::chrono::milliseconds(100),  // 10 Hz
+      std::bind(&spatial_association::lidarClusteringTimerCallback, this));
+  RCLCPP_INFO(this->get_logger(), "LiDAR clustering timer initialized (10 Hz)");
   
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+}
+
+spatial_association::~spatial_association() {
+  // Cleanup GPU pipeline (frees all device memory)
+  cleanupGpuPipeline();
+  if (debug_logging_) {
+    RCLCPP_DEBUG(this->get_logger(), "GPU pipeline cleaned up");
+  }
 }
 
 void spatial_association::initializeParams() {
@@ -171,17 +201,13 @@ void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::Sha
   // Convert to PCL using working object
   pcl::fromROSMsg(latest_lidar_msg_, *working_cloud_);
 
-  // Apply downsampling using working objects
-  voxel_filter_.setInputCloud(working_cloud_);
-  voxel_filter_.filter(*working_downsampled_cloud_);
-
-  filtered_point_cloud_ = working_downsampled_cloud_;
+  // Voxel downsampling is now handled by GPU pipeline in performClustering()
+  // Store the cloud directly for GPU processing
+  filtered_point_cloud_ = working_cloud_;
 }
 
 void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  if (debug_logging_) {
-    RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
-  }
+  RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
   
   // Store the non-ground cloud message from patchwork
   latest_lidar_msg_ = *msg;
@@ -195,48 +221,154 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
     return;
   }
 
-  // Apply downsampling using working objects
-  voxel_filter_.setInputCloud(working_cloud_);
-  voxel_filter_.filter(*working_downsampled_cloud_);
+  // REMOVED: CPU voxel filtering - GPU pipeline will handle downsampling
+  // OLD CODE (removed):
+  //   voxel_filter_.setInputCloud(working_cloud_);
+  //   voxel_filter_.filter(*working_downsampled_cloud_);
+  //   filtered_point_cloud_ = working_downsampled_cloud_;
 
-  // No ground filtering needed - patchwork already removed ground points
-  filtered_point_cloud_ = working_downsampled_cloud_;
+  // NEW CODE: Use raw cloud, GPU will downsample during clustering
+  filtered_point_cloud_ = working_cloud_;
  
-  if (debug_logging_) {
-    RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
-  }
+  RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points (ready for GPU)", 
+              filtered_point_cloud_->size());
 
 }
 
-void spatial_association::performClustering(std::vector<pcl::PointIndices>& cluster_indices) {
+std::vector<ProjectionUtils::ClusterStats> spatial_association::performClustering(
+    std::vector<pcl::PointIndices>& cluster_indices) {
   // Clear previous clusters
   cluster_indices.clear();
 
   if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
-    return;
+    return {};
   }
 
-  // CLUSTERING-----------------------------------------------------------------------------------------------
-  // Perform Euclidean clustering, populate cluster_indices
-  ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, euclid_cluster_tolerance_,
-                                              euclid_min_cluster_size_, euclid_max_cluster_size_,
-                                              cluster_indices);
+  int N = static_cast<int>(filtered_point_cloud_->size());
 
-  // filter clusters by density, size and distance
-  ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, density_weight_,
-                                          size_weight_, distance_weight_, score_threshold_);
+  // ========== STEP 1: Convert PCL cloud to contiguous float array ==========
+  std::vector<float> xyz;
+  xyz.reserve(N * 3);
+  for (size_t i = 0; i < filtered_point_cloud_->size(); ++i) {
+    xyz.push_back(filtered_point_cloud_->points[i].x);
+    xyz.push_back(filtered_point_cloud_->points[i].y);
+    xyz.push_back(filtered_point_cloud_->points[i].z);
+  }
 
-  // Precompute cluster stats once to avoid redundant point scans
-  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+  // ========== STEP 2: Setup GPU parameters ==========
+  GPUParams params;
+  params.voxel_leaf_size_x = 0.2f;
+  params.voxel_leaf_size_y = 0.2f;
+  params.voxel_leaf_size_z = 0.2f;
+  params.cluster_tolerance = euclid_cluster_tolerance_;
+  params.min_cluster_size = euclid_min_cluster_size_;
+  params.max_cluster_size = euclid_max_cluster_size_;
 
-  // merge clusters that are close to each other, determined through distance between their
-  ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, cluster_stats, merge_threshold_);
+  // ========== STEP 3: Run GPU pipeline ==========
+  std::vector<int> labels;
+  std::vector<GPUClusterStats> gpu_clusters;
+  
+  RCLCPP_INFO(get_logger(), "Calling GPU pipeline with %d points", N);
+  if (!runGpuPipeline(xyz.data(), N, params, labels, gpu_clusters)) {
+    RCLCPP_WARN(get_logger(), "GPU pipeline failed, falling back to CPU");
+    
+    // ========== FALLBACK: Use CPU implementation ==========
+    ProjectionUtils::euclideanClusterExtraction(filtered_point_cloud_, 
+                                                euclid_cluster_tolerance_,
+                                                euclid_min_cluster_size_, 
+                                                euclid_max_cluster_size_,
+                                                cluster_indices);
+    auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+    ProjectionUtils::filterClusterbyDensity(filtered_point_cloud_, cluster_indices, 
+                                            density_weight_, size_weight_, 
+                                            distance_weight_, score_threshold_);
+    ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, cluster_stats, merge_threshold_);
+    cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+    return cluster_stats;
+  }
+
+  // ========== STEP 4: Rebuild pcl::PointIndices from labels ==========
+  RCLCPP_INFO(get_logger(), "GPU pipeline returned %zu labels, %zu clusters", 
+               labels.size(), gpu_clusters.size());
+  
+  int max_cluster_id = -1;
+  for (int label : labels) {
+    if (label > max_cluster_id) {
+      max_cluster_id = label;
+    }
+  }
+
+  if (max_cluster_id < 0) {
+    RCLCPP_WARN(get_logger(), "No valid clusters found after GPU clustering (max_cluster_id=%d)", 
+                max_cluster_id);
+    return {};
+  }
+  
+  RCLCPP_DEBUG(get_logger(), "Found max_cluster_id=%d, building cluster_indices", max_cluster_id);
+
+  cluster_indices.resize(max_cluster_id + 1);
+  for (auto& cluster : cluster_indices) {
+    cluster.indices.clear();
+  }
+
+  // Populate cluster_indices from labels
+  for (size_t i = 0; i < labels.size(); ++i) {
+    int cluster_id = labels[i];
+    if (cluster_id >= 0) {
+      cluster_indices[cluster_id].indices.push_back(static_cast<int>(i));
+    }
+  }
+
+  // Remove empty clusters
+  cluster_indices.erase(
+    std::remove_if(cluster_indices.begin(), cluster_indices.end(),
+                   [](const pcl::PointIndices& ci) { return ci.indices.empty(); }),
+    cluster_indices.end()
+  );
+
+  // ========== STEP 5: Convert GPUClusterStats to CPU ClusterStats ==========
+  std::vector<ProjectionUtils::ClusterStats> cluster_stats;
+  cluster_stats.reserve(gpu_clusters.size());
+  
+  for (const auto& gpu_stat : gpu_clusters) {
+    ProjectionUtils::ClusterStats stat;
+    stat.centroid = Eigen::Vector4f(gpu_stat.centroid_x, 
+                                    gpu_stat.centroid_y, 
+                                    gpu_stat.centroid_z, 
+                                    1.0f);
+    stat.min_x = gpu_stat.min_x;
+    stat.max_x = gpu_stat.max_x;
+    stat.min_y = gpu_stat.min_y;
+    stat.max_y = gpu_stat.max_y;
+    stat.min_z = gpu_stat.min_z;
+    stat.max_z = gpu_stat.max_z;
+    stat.num_points = gpu_stat.num_points;
+    cluster_stats.push_back(stat);
+  }
+
+  // ========== STEP 6: Apply filtering and merging (using GPU-computed stats) ==========
+  ProjectionUtils::filterClusterbyDensity(cluster_stats, cluster_indices, 
+                                          density_weight_, size_weight_, 
+                                          distance_weight_, score_threshold_);
+  
+  ProjectionUtils::mergeClusters(cluster_indices, filtered_point_cloud_, 
+                                 cluster_stats, merge_threshold_);
+
+  // ========== STEP 7: Recompute stats after merging ==========
+  cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+
+  RCLCPP_INFO(get_logger(), "GPU clustering complete: %zu clusters found (from %d input points)", 
+              cluster_indices.size(), N);
+
+  return cluster_stats;
 }
 
-DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
-                                  const geometry_msgs::msg::TransformStamped &transform,
-                                  const std::array<double, 12> &projection_matrix,
-                                  const std::vector<pcl::PointIndices>& cluster_indices_input) {
+DetectionOutputs spatial_association::processDetections(
+    const vision_msgs::msg::Detection2DArray &detection, 
+    const geometry_msgs::msg::TransformStamped &transform,
+    const std::array<double, 12> &projection_matrix,
+    const std::vector<pcl::PointIndices>& cluster_indices,
+    const std::vector<ProjectionUtils::ClusterStats>& cluster_stats) {
 
   DetectionOutputs detection_outputs;
 
@@ -245,44 +377,70 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
     return detection_outputs;
   }
 
-  if (cluster_indices_input.empty()) {
+  if (cluster_indices.empty()) {
     return detection_outputs;
   }
 
-  // Create a copy of cluster indices for IOU filtering (this modifies the vector)
-  std::vector<pcl::PointIndices> cluster_indices = cluster_indices_input;
+  // Safety check: ensure cluster_stats matches cluster_indices size
+  if (cluster_stats.size() != cluster_indices.size()) {
+    RCLCPP_WARN(this->get_logger(), "cluster_stats size (%zu) != cluster_indices size (%zu), skipping",
+                cluster_stats.size(), cluster_indices.size());
+    return detection_outputs;
+  }
 
-  // Precompute cluster stats once to avoid redundant point scans
-  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+  // Find the best matching cluster index (no mutation of cluster_indices)
+  int best_cluster_idx = ProjectionUtils::computeBestClusterIndex(
+      cluster_stats, cluster_indices, detection, transform,
+      projection_matrix, object_detection_confidence_);
 
-  // iou score between x and y area of clusters in camera plane and detections
-  ProjectionUtils::computeHighestIOUCluster(cluster_stats, cluster_indices, detection, transform,
-                                            projection_matrix, object_detection_confidence_);
+  // If no valid match found, return empty outputs
+  if (best_cluster_idx < 0 || static_cast<size_t>(best_cluster_idx) >= cluster_indices.size()) {
+    return detection_outputs;
+  }
+
+  // Safety check: ensure the selected cluster has valid indices
+  const auto& selected_cluster = cluster_indices[best_cluster_idx];
+  if (selected_cluster.indices.empty()) {
+    RCLCPP_WARN(this->get_logger(), "Selected cluster at index %d has empty indices", best_cluster_idx);
+    return detection_outputs;
+  }
+
+  // Create a single-element vector with the best cluster for downstream processing
+  std::vector<pcl::PointIndices> best_cluster = {selected_cluster};
 
   // Precompute cluster boxes once to avoid recomputing in both computeBoundingBox and compute3DDetection
-  auto boxes = ProjectionUtils::computeClusterBoxes(filtered_point_cloud_, cluster_indices);
+  auto boxes = ProjectionUtils::computeClusterBoxes(filtered_point_cloud_, best_cluster);
 
   if (publish_visualization_) {
     detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(
-        boxes, cluster_indices, latest_lidar_msg_);
+        boxes, best_cluster, latest_lidar_msg_);
   }
 
-  detection_outputs.detections3d = ProjectionUtils::compute3DDetection(boxes, cluster_indices, latest_lidar_msg_);
+  detection_outputs.detections3d = ProjectionUtils::compute3DDetection(boxes, best_cluster, latest_lidar_msg_);
 
   // VISUALIZATIONS
   // ----------------------------------------------------------------------------
   
   // assign colors to the clusters 
   if (publish_visualization_) {
-    detection_outputs.colored_cluster = working_colored_cluster_;
-    ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
+    // Safety check: ensure working objects are initialized
+    if (!working_colored_cluster_) {
+      RCLCPP_WARN(this->get_logger(), "working_colored_cluster_ is null, skipping visualization");
+    } else {
+      detection_outputs.colored_cluster = working_colored_cluster_;
+      ProjectionUtils::assignClusterColors(filtered_point_cloud_, best_cluster, detection_outputs.colored_cluster);
+    }
 
-    detection_outputs.centroid_cloud = working_centroid_cloud_;
-    detection_outputs.centroid_cloud->clear(); // Clear previous data
-    for (auto &ci : cluster_indices) {
-      pcl::PointXYZ c;
-      ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, ci, c);
-      detection_outputs.centroid_cloud->points.push_back(c);
+    if (!working_centroid_cloud_) {
+      RCLCPP_WARN(this->get_logger(), "working_centroid_cloud_ is null, skipping visualization");
+    } else {
+      detection_outputs.centroid_cloud = working_centroid_cloud_;
+      detection_outputs.centroid_cloud->clear(); // Clear previous data
+      for (auto &ci : best_cluster) {
+        pcl::PointXYZ c;
+        ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, ci, c);
+        detection_outputs.centroid_cloud->points.push_back(c);
+      }
     }
   }
   return detection_outputs;
@@ -292,6 +450,12 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
 void spatial_association::multiDetectionsCallback(
     camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg)
 {
+  // Safety check: ensure message is valid
+  if (!msg) {
+    RCLCPP_WARN(get_logger(), "Received null BatchDetection message");
+    return;
+  }
+
   if (camInfoMap_.size() < 3) {
     RCLCPP_WARN(get_logger(),
                 "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size());
@@ -304,12 +468,42 @@ void spatial_association::multiDetectionsCallback(
     return;
   }
 
+  // Safety check: ensure tf_buffer_ is valid
+  if (!tf_buffer_) {
+    RCLCPP_ERROR(get_logger(), "TF buffer is null!");
+    return;
+  }
+
+  // Safety check: ensure message has detections
+  if (msg->detections.empty()) {
+    RCLCPP_DEBUG(get_logger(), "BatchDetection message has no detections, skipping");
+    return;
+  }
+
   // PERFORM CLUSTERING ONCE (before camera loop) - significant performance optimization
   // This avoids redundant clustering computations for each camera
-  performClustering(cluster_indices);
+  // Also compute cluster stats once to avoid recomputing per camera
+  RCLCPP_DEBUG(get_logger(), "Starting clustering for %zu detections", msg->detections.size());
+  std::vector<ProjectionUtils::ClusterStats> cluster_stats;
+  try {
+    cluster_stats = performClustering(cluster_indices);
+  } catch (const std::exception& e) {
+    RCLCPP_ERROR(get_logger(), "Exception in performClustering: %s", e.what());
+    return;
+  }
   
   if (cluster_indices.empty()) {
-    RCLCPP_DEBUG(get_logger(), "No clusters found after filtering");
+    RCLCPP_WARN(get_logger(), "No clusters found after filtering");
+    return;
+  }
+  
+  RCLCPP_DEBUG(get_logger(), "Clustering complete: %zu clusters, %zu stats", 
+               cluster_indices.size(), cluster_stats.size());
+
+  // Safety check: ensure cluster_stats matches cluster_indices size
+  if (cluster_stats.size() != cluster_indices.size()) {
+    RCLCPP_WARN(get_logger(), "cluster_stats size (%zu) != cluster_indices size (%zu) after clustering, skipping",
+                cluster_stats.size(), cluster_indices.size());
     return;
   }
 
@@ -324,11 +518,20 @@ void spatial_association::multiDetectionsCallback(
 
   // Loop over each camera's batch
   for (const auto &camera_batch : msg->detections) {
+    try {
     // 1) Find camera info
     auto it = camInfoMap_.find(camera_batch.header.frame_id);
     if (it == camInfoMap_.end()) {
       RCLCPP_WARN(get_logger(),
                   "No CameraInfo for '%s', skipping",
+                  camera_batch.header.frame_id.c_str());
+      continue;
+    }
+
+    // Safety check: ensure CameraInfo is valid
+    if (!it->second) {
+      RCLCPP_WARN(get_logger(),
+                  "CameraInfo for '%s' is null, skipping",
                   camera_batch.header.frame_id.c_str());
       continue;
     }
@@ -347,14 +550,20 @@ void spatial_association::multiDetectionsCallback(
                   camera_batch.header.frame_id.c_str(),
                   e.what());
       continue;
+    } catch (const std::exception& e) {
+      RCLCPP_ERROR(get_logger(),
+                   "Unexpected exception during TF lookup: %s",
+                   e.what());
+      continue;
     }
 
-    // 3) Run 3D detection pipeline using pre-computed clusters
+    // 3) Run 3D detection pipeline using pre-computed clusters and stats
     auto detection_results = processDetections(
         camera_batch,
         tf_cam_to_lidar,
         it->second->p,
-        cluster_indices);
+        cluster_indices,
+        cluster_stats);
 
     // 4) Collect MarkerArray
     for (auto &marker : detection_results.bboxes.markers) {
@@ -371,8 +580,17 @@ void spatial_association::multiDetectionsCallback(
 
     // 6) Merge cluster-cloud visuals if requested
     if (publish_visualization_) {
-      merged_cluster_cloud += *detection_results.colored_cluster;
-      merged_centroid_cloud += *detection_results.centroid_cloud;
+      if (detection_results.colored_cluster) {
+        merged_cluster_cloud += *detection_results.colored_cluster;
+      }
+      if (detection_results.centroid_cloud) {
+        merged_centroid_cloud += *detection_results.centroid_cloud;
+      }
+    }
+    } catch (const std::exception& e) {
+      RCLCPP_ERROR(get_logger(), "Exception processing camera batch '%s': %s",
+                   camera_batch.header.frame_id.c_str(), e.what());
+      continue;
     }
   }
 
@@ -398,6 +616,96 @@ void spatial_association::multiDetectionsCallback(
   // 8) Always publish the fused Detection3DArray
   combined_detections3d.header.stamp = this->get_clock()->now();
   detection_3d_pub_->publish(combined_detections3d);
+}
+
+void spatial_association::lidarClusteringTimerCallback() {
+  // Only process if we have point cloud data
+  if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
+    return;
+  }
+
+  // Perform clustering
+  std::vector<pcl::PointIndices> local_cluster_indices;
+  std::vector<ProjectionUtils::ClusterStats> cluster_stats;
+  
+  try {
+    RCLCPP_INFO(get_logger(), "Timer: Starting clustering for %zu points", 
+                filtered_point_cloud_->size());
+    cluster_stats = performClustering(local_cluster_indices);
+    
+    if (local_cluster_indices.empty()) {
+      RCLCPP_DEBUG(get_logger(), "Timer: No clusters found");
+      return;
+    }
+    
+    RCLCPP_INFO(get_logger(), "Timer: Found %zu clusters, publishing bounding boxes", 
+                local_cluster_indices.size());
+    
+    // Publish bounding boxes for all clusters
+    publishAllClusterBoxes(local_cluster_indices, cluster_stats);
+    
+  } catch (const std::exception& e) {
+    RCLCPP_ERROR(get_logger(), "Timer: Exception in clustering: %s", e.what());
+  }
+}
+
+void spatial_association::publishAllClusterBoxes(
+    const std::vector<pcl::PointIndices>& cluster_indices,
+    const std::vector<ProjectionUtils::ClusterStats>& cluster_stats) {
+  
+  if (cluster_indices.empty()) {
+    return;
+  }
+
+  // Safety check: ensure cluster_stats matches cluster_indices size
+  if (cluster_stats.size() != cluster_indices.size()) {
+    RCLCPP_WARN(get_logger(), "cluster_stats size (%zu) != cluster_indices size (%zu), skipping publish",
+                cluster_stats.size(), cluster_indices.size());
+    return;
+  }
+
+  // Compute bounding boxes for all clusters
+  auto boxes = ProjectionUtils::computeClusterBoxes(filtered_point_cloud_, cluster_indices);
+  
+  // Create MarkerArray for visualization
+  if (publish_visualization_ && bounding_box_pub_) {
+    auto marker_array = ProjectionUtils::computeBoundingBox(boxes, cluster_indices, latest_lidar_msg_);
+    bounding_box_pub_->publish(marker_array);
+    RCLCPP_INFO(get_logger(), "Published %zu bounding box markers", marker_array.markers.size());
+  }
+
+  // Create Detection3DArray
+  if (detection_3d_pub_) {
+    auto detections3d = ProjectionUtils::compute3DDetection(boxes, cluster_indices, latest_lidar_msg_);
+    detections3d.header.stamp = this->get_clock()->now();
+    detection_3d_pub_->publish(detections3d);
+    RCLCPP_INFO(get_logger(), "Published %zu 3D detections", detections3d.detections.size());
+  }
+
+  // Publish visualization point clouds if enabled
+  if (publish_visualization_) {
+    if (filtered_lidar_pub_ && working_colored_cluster_) {
+      working_colored_cluster_->clear();
+      ProjectionUtils::assignClusterColors(filtered_point_cloud_, cluster_indices, working_colored_cluster_);
+      sensor_msgs::msg::PointCloud2 pcl2_msg;
+      pcl::toROSMsg(*working_colored_cluster_, pcl2_msg);
+      pcl2_msg.header = latest_lidar_msg_.header;
+      filtered_lidar_pub_->publish(pcl2_msg);
+    }
+
+    if (cluster_centroid_pub_ && working_centroid_cloud_) {
+      working_centroid_cloud_->clear();
+      for (const auto& ci : cluster_indices) {
+        pcl::PointXYZ c;
+        ProjectionUtils::computeClusterCentroid(filtered_point_cloud_, ci, c);
+        working_centroid_cloud_->points.push_back(c);
+      }
+      sensor_msgs::msg::PointCloud2 pcl2_msg;
+      pcl::toROSMsg(*working_centroid_cloud_, pcl2_msg);
+      pcl2_msg.header = latest_lidar_msg_.header;
+      cluster_centroid_pub_->publish(pcl2_msg);
+    }
+  }
 }
 
 

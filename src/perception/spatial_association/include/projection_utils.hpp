@@ -7,7 +7,6 @@
 #include <pcl/search/kdtree.h>
 #include <pcl/common/centroid.h>
 
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/segmentation/extract_clusters.h>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -19,8 +18,6 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <array>
@@ -31,14 +28,6 @@
 
 class ProjectionUtils {
  public:
-
-  struct BBoxOrientationOptions {
-    std::string method;              // "min_area" or "pca2d"
-    double      pca_ratio_thresh{0.6};
-    int         min_points{20};
-    bool        debug_dual_publish{false};
-    std::string log_csv_path;        // optional; empty = disabled
-  };
 
   struct Box3D {
     Eigen::Vector3f center{0.f, 0.f, 0.f};
@@ -65,6 +54,14 @@ class ProjectionUtils {
                                          double clusterTolerance, int minClusterSize,
                                          int maxClusterSize,
                                          std::vector<pcl::PointIndices>& cluster_indices);
+
+  // GPU-accelerated version (drop-in replacement)
+  static void gpuEuclideanClusterExtraction(
+      const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+      double clusterTolerance, 
+      int minClusterSize,
+      int maxClusterSize,
+      std::vector<pcl::PointIndices>& cluster_indices);
 
   static void assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                   const std::vector<pcl::PointIndices>& cluster_indices,
@@ -118,20 +115,22 @@ class ProjectionUtils {
     const vision_msgs::msg::Detection2DArray&   detections,
     const float                                 object_detection_confidence);
 
-  static void computeHighestIOUCluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-                                       std::vector<pcl::PointIndices>& cluster_indices,
-                                       const vision_msgs::msg::Detection2DArray& detections,
-                                       const geometry_msgs::msg::TransformStamped& transform,
-                                       const std::array<double, 12>& projection_matrix,
-                                       const float object_detection_confidence);
+  // Returns the index of the best matching cluster, or -1 if no valid match found
+  // Does not mutate cluster_indices
+  static int computeBestClusterIndex(const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
+                                     const std::vector<pcl::PointIndices>& cluster_indices,
+                                     const vision_msgs::msg::Detection2DArray& detections,
+                                     const geometry_msgs::msg::TransformStamped& transform,
+                                     const std::array<double, 12>& projection_matrix,
+                                     const float object_detection_confidence);
 
   // Overload that accepts precomputed stats
-  static void computeHighestIOUCluster(const std::vector<ClusterStats>& stats,
-                                       std::vector<pcl::PointIndices>& cluster_indices,
-                                       const vision_msgs::msg::Detection2DArray& detections,
-                                       const geometry_msgs::msg::TransformStamped& transform,
-                                       const std::array<double, 12>& projection_matrix,
-                                       const float object_detection_confidence);
+  static int computeBestClusterIndex(const std::vector<ClusterStats>& stats,
+                                     const std::vector<pcl::PointIndices>& cluster_indices,
+                                     const vision_msgs::msg::Detection2DArray& detections,
+                                     const geometry_msgs::msg::TransformStamped& transform,
+                                     const std::array<double, 12>& projection_matrix,
+                                     const float object_detection_confidence);
 
   // BOUNDING BOX FUNCTIONS
   // ----------------------------------------------------------------------------------------

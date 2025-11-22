@@ -1,0 +1,144 @@
+# Modified CMakeLists.txt with CUDA Support
+# 
+# This file shows the exact modifications needed to enable CUDA compilation.
+# Copy the relevant sections into your CMakeLists.txt file.
+
+cmake_minimum_required(VERSION 3.10)
+project(spatial_association)
+
+# ADD THIS: Enable CUDA language
+enable_language(CUDA)
+
+# Set C++ standard
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 17)
+endif()
+
+# ADD THIS: CUDA specific settings
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+# Add compiler warnings
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# Find ROS 2 packages
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sample_msgs REQUIRED)
+find_package(camera_object_detection_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(PCL REQUIRED)
+
+# ADD THIS: Find CUDA
+find_package(CUDAToolkit REQUIRED)
+
+# ADD THIS: CUDA source files
+set(CUDA_SOURCES
+  src/gpu_pipeline.cu
+  src/gpu_voxel_downsample.cu
+  src/gpu_euclidean_clustering.cu
+  src/gpu_cluster_stats.cu
+)
+
+add_library(projection_utils
+  src/projection_utils.cpp
+  src/orientation_utils.cpp
+)
+
+target_include_directories(projection_utils
+    PUBLIC
+    include
+    projection_utils
+    ${OpenCV_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
+    ${pcl_conversions_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(projection_utils
+    rclcpp
+    sample_msgs
+    sensor_msgs
+    vision_msgs
+    visualization_msgs
+    camera_object_detection_msgs
+    pcl_conversions
+    pcl_ros
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
+    tf2_eigen
+    std_msgs
+    geometry_msgs
+)
+
+# MODIFIED: Add CUDA sources to executable
+add_executable(spatial_association_node 
+  src/spatial_association.cpp
+  ${CUDA_SOURCES}  # ADD THIS LINE
+)
+
+# ADD THIS: Set CUDA properties for the executable
+set_property(TARGET spatial_association_node PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+
+# Include directories
+target_include_directories(spatial_association_node
+    PUBLIC
+    include
+    ${OpenCV_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
+    ${pcl_conversions_LIBRARIES}
+)
+
+# MODIFIED: Add CUDA libraries to link
+target_link_libraries(spatial_association_node
+    projection_utils
+    ${OpenCV_LIBS}
+    tf2::tf2
+    ${PCL_LIBRARIES}
+    CUDA::cudart  # ADD THIS LINE
+)
+
+# Add ROS 2 dependencies
+ament_target_dependencies(spatial_association_node
+    rclcpp
+    sensor_msgs
+    geometry_msgs
+    vision_msgs
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
+    std_msgs
+    cv_bridge
+    pcl_conversions
+    pcl_ros
+)
+
+# Install the executable
+install(TARGETS
+    spatial_association_node
+    DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install launch files (if any)
+install(DIRECTORY
+    launch
+    DESTINATION share/${PROJECT_NAME}
+)
+
+# Export dependencies
+ament_package()
+

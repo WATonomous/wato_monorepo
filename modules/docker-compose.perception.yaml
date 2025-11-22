@@ -13,6 +13,14 @@ services:
     volumes:
         - /mnt/wato-drive/brianzheng:/perception_models
     #   - /mnt/wato-drive2/perception_models:/perception_models
+    # GPU access required for CUDA acceleration
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
 
   camera_object_detection:
     build:
