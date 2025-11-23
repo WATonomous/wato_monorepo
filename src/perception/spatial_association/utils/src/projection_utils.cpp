@@ -5,6 +5,7 @@
 #include <array>
 #include <algorithm>
 #include <vector>
+#include <iostream>
 #include <Eigen/Dense>
 
 namespace {
@@ -40,11 +41,40 @@ constexpr double kMaxDensityForNormalization = 5000.0;
 constexpr double kMaxSizeForNormalization = 12.0;
 constexpr double kMaxDistanceForNormalization = 60.0;
 
-constexpr double kMinIOUThreshold = 0.2;
+constexpr double kMinIOUThreshold = 0.15;
+
+constexpr float kMinHeightAboveGround = 0.3f;
+constexpr float kMaxGroundPlaneZ = -1.5f;
+constexpr int kMinPointsForValidObject = 15;
 
 constexpr float kMarkerAlpha = 0.2f;
 constexpr double kMarkerLifetimeSeconds = 0.15;
 constexpr double kDefaultDetectionScore = 1.0;
+
+// Physical object constraints (based on real-world measurements)
+struct ObjectConstraints {
+  // Cars
+  constexpr static float kCarMinHeight = 1.0f;
+  constexpr static float kCarMaxHeight = 3.5f;
+  constexpr static float kCarMinLength = 2.5f;
+  constexpr static float kCarMaxLength = 8.0f;
+  constexpr static float kCarMinWidth = 1.4f;
+  constexpr static float kCarMaxWidth = 2.8f;
+  constexpr static float kCarMinVolume = 3.5f;  // m³
+  
+  // Pedestrians/Cyclists
+  constexpr static float kPedestrianMinHeight = 0.8f;
+  constexpr static float kPedestrianMaxHeight = 2.2f;
+  constexpr static float kPedestrianMaxWidth = 1.0f;
+  
+  // General constraints
+  constexpr static float kMinPointDensity = 5.0f;     // points per m³
+  constexpr static float kMaxPointDensity = 1000.0f;  // points per m³
+  constexpr static int kMinPointsSmallObject = 10;
+  constexpr static int kMinPointsLargeObject = 30;
+  constexpr static float kMaxAspectRatioXY = 8.0f;    // Length/Width
+  constexpr static float kMaxAspectRatioZ = 15.0f;    // Horizontal/Height (for poles)
+};
 
 struct SearchResult {
   Eigen::Vector2f center_xy{0.f, 0.f};
@@ -404,6 +434,217 @@ ProjectionUtils::Box3D computeClusterBox(const pcl::PointCloud<pcl::PointXYZ>::P
 }
 } // namespace
 
+// ============================================================================
+// Multi-Stage Filtering System
+// ============================================================================
+
+namespace {
+
+class ClusterFilter {
+public:
+  struct FilterStats {
+    int total_input = 0;
+    int removed_noise = 0;
+    int removed_geometry = 0;
+    int removed_density = 0;
+    int removed_distance = 0;
+    int final_output = 0;
+    
+    void print() const {
+      std::cout << "Cluster Filtering Results:\n"
+                << "  Input: " << total_input << "\n"
+                << "  Removed (noise): " << removed_noise << "\n"
+                << "  Removed (geometry): " << removed_geometry << "\n"
+                << "  Removed (density): " << removed_density << "\n"
+                << "  Removed (distance): " << removed_distance << "\n"
+                << "  Output: " << final_output << "\n";
+    }
+  };
+
+  // Stage 1: Remove obvious noise
+  static void filterNoise(
+      const std::vector<ProjectionUtils::ClusterStats>& stats,
+      std::vector<pcl::PointIndices>& cluster_indices,
+      FilterStats* filter_stats = nullptr) {
+    
+    std::vector<pcl::PointIndices> kept;
+    kept.reserve(cluster_indices.size());
+    
+    for (size_t i = 0; i < cluster_indices.size(); ++i) {
+      const auto& s = stats[i];
+      bool keep = true;
+      
+      // Too few points
+      if (s.num_points < 5) {
+        keep = false;
+      }
+      
+      // Extremely small objects (likely noise)
+      float max_dim = std::max({s.max_x - s.min_x, 
+                                s.max_y - s.min_y, 
+                                s.max_z - s.min_z});
+      if (max_dim < 0.15f) {  // 15cm - smaller than any real object
+        keep = false;
+      }
+      
+      if (keep) {
+        kept.push_back(cluster_indices[i]);
+      } else if (filter_stats) {
+        filter_stats->removed_noise++;
+      }
+    }
+    
+    cluster_indices = std::move(kept);
+  }
+
+  // Stage 2: Geometry-based filtering (physical plausibility)
+  static void filterByGeometry(
+      const std::vector<ProjectionUtils::ClusterStats>& stats,
+      std::vector<pcl::PointIndices>& cluster_indices,
+      FilterStats* filter_stats = nullptr) {
+    
+    std::vector<pcl::PointIndices> kept;
+    kept.reserve(cluster_indices.size());
+    
+    for (size_t i = 0; i < cluster_indices.size(); ++i) {
+      const auto& s = stats[i];
+      
+      float width_x = s.max_x - s.min_x;
+      float width_y = s.max_y - s.min_y;
+      float height = s.max_z - s.min_z;
+      
+      // Sort dimensions to get length, width, height
+      std::array<float, 3> dims = {width_x, width_y, height};
+      std::sort(dims.begin(), dims.end(), std::greater<float>());
+      float length = dims[0];  // Longest
+      float width = dims[1];   // Middle
+      float h = dims[2];       // Shortest
+      
+      bool keep = true;
+      
+      // Check 1: Unrealistic sizes
+      if (length > 15.0f || width > 4.0f || height > 5.0f) {
+        keep = false;  // Larger than any vehicle
+      }
+      
+      // Check 2: Impossible aspect ratios
+      if (width > 0.05f) {
+        float aspect_ratio = length / width;
+        if (aspect_ratio > ObjectConstraints::kMaxAspectRatioXY) {
+          keep = false;  // Too elongated (likely wall/fence artifact)
+        }
+      }
+      
+      // Check 3: Vertical poles/posts (false positives)
+      if (h > 0.1f) {
+        float vertical_aspect = std::max(length, width) / h;
+        if (vertical_aspect > ObjectConstraints::kMaxAspectRatioZ && 
+            std::max(length, width) < 0.5f) {
+          keep = false;  // Thin vertical pole
+        }
+      }
+      
+      // Check 4: Impossible point counts for size
+      float volume = width_x * width_y * height;
+      if (volume > 0.01f) {
+        float density = s.num_points / volume;
+        
+        // Too sparse (missing most of object)
+        if (density < ObjectConstraints::kMinPointDensity) {
+          keep = false;
+        }
+        
+        // Too dense (impossible - would need <1cm point spacing)
+        if (density > ObjectConstraints::kMaxPointDensity) {
+          keep = false;
+        }
+      }
+      
+      if (keep) {
+        kept.push_back(cluster_indices[i]);
+      } else if (filter_stats) {
+        filter_stats->removed_geometry++;
+      }
+    }
+    
+    cluster_indices = std::move(kept);
+  }
+
+  // Stage 3: Density and quality filtering
+  static void filterByQuality(
+      const std::vector<ProjectionUtils::ClusterStats>& stats,
+      std::vector<pcl::PointIndices>& cluster_indices,
+      double max_distance = 60.0,
+      FilterStats* filter_stats = nullptr) {
+    
+    std::vector<pcl::PointIndices> kept;
+    kept.reserve(cluster_indices.size());
+    
+    for (size_t i = 0; i < cluster_indices.size(); ++i) {
+      const auto& s = stats[i];
+      
+      float width_x = s.max_x - s.min_x;
+      float width_y = s.max_y - s.min_y;
+      float height = s.max_z - s.min_z;
+      float volume = width_x * width_y * height;
+      
+      // Distance from sensor
+      double distance = std::sqrt(s.centroid.x() * s.centroid.x() +
+                                  s.centroid.y() * s.centroid.y() +
+                                  s.centroid.z() * s.centroid.z());
+      
+      bool keep = true;
+      
+      // Check 1: Distance-adaptive point threshold
+      int min_points = ObjectConstraints::kMinPointsSmallObject;
+      if (distance > 30.0) {
+        min_points = 8;  // Allow sparser clusters at distance
+      } else if (distance > 20.0) {
+        min_points = 12;
+      } else if (volume > 8.0f) {
+        min_points = ObjectConstraints::kMinPointsLargeObject;
+      }
+      
+      if (s.num_points < min_points) {
+        keep = false;
+      }
+      
+      // Check 2: Quality score based on completeness
+      if (volume > 0.01f) {
+        float expected_points = volume * 50.0f;  // Rough estimate
+        if (expected_points > 0.0f) {
+          float completeness = std::min(1.0f, s.num_points / expected_points);
+          
+          // At close range, require higher completeness
+          float min_completeness = (distance < 15.0) ? 0.15f : 0.08f;
+          if (completeness < min_completeness) {
+            keep = false;
+          }
+        }
+      }
+      
+      // Check 3: Maximum distance filtering
+      if (distance > max_distance) {
+        keep = false;
+      }
+      
+      if (keep) {
+        kept.push_back(cluster_indices[i]);
+      } else if (filter_stats) {
+        if (distance > max_distance) {
+          filter_stats->removed_distance++;
+        } else {
+          filter_stats->removed_density++;
+        }
+      }
+    }
+    
+    cluster_indices = std::move(kept);
+  }
+};
+
+} // namespace
+
 std::vector<ProjectionUtils::ClusterStats> ProjectionUtils::computeClusterStats(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     const std::vector<pcl::PointIndices>& cluster_indices) {
@@ -709,6 +950,163 @@ void ProjectionUtils::filterClusterbyDensity(const std::vector<ClusterStats>& st
   cluster_indices = filtered_clusters;
 }
 
+void ProjectionUtils::filterClusterByQuality(
+    const std::vector<ClusterStats>& stats,
+    std::vector<pcl::PointIndices>& cluster_indices,
+    double max_distance,
+    bool enable_debug) {
+  
+  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
+    return;
+  }
+  
+  ClusterFilter::FilterStats filter_stats;
+  filter_stats.total_input = cluster_indices.size();
+  
+  // Stage 1: Remove obvious noise
+  ClusterFilter::filterNoise(stats, cluster_indices, &filter_stats);
+  
+  // Recompute stats after stage 1
+  // (In practice, you might pass the cloud and recompute here)
+  
+  // Stage 2: Geometry-based filtering
+  ClusterFilter::filterByGeometry(stats, cluster_indices, &filter_stats);
+  
+  // Stage 3: Quality and density filtering
+  ClusterFilter::filterByQuality(stats, cluster_indices, max_distance, &filter_stats);
+  
+  filter_stats.final_output = cluster_indices.size();
+  
+  if (enable_debug) {
+    filter_stats.print();
+  }
+}
+
+void ProjectionUtils::filterClusterbyDensity_Improved(
+    const std::vector<ClusterStats>& stats,
+    std::vector<pcl::PointIndices>& cluster_indices,
+    double max_distance) {
+  
+  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
+    return;
+  }
+
+  std::vector<pcl::PointIndices> kept_clusters;
+  kept_clusters.reserve(cluster_indices.size());
+
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    const auto& s = stats[i];
+    
+    // Compute basic dimensions
+    float width_x = s.max_x - s.min_x;
+    float width_y = s.max_y - s.min_y;
+    float height = s.max_z - s.min_z;
+    float volume = width_x * width_y * height;
+    
+    // Distance from sensor
+    double distance = std::sqrt(s.centroid.x() * s.centroid.x() +
+                                s.centroid.y() * s.centroid.y() +
+                                s.centroid.z() * s.centroid.z());
+    
+    // === IMPROVED FILTERING LOGIC ===
+    
+    // Filter 1: Minimum viable object
+    if (s.num_points < 5 || height < 0.15f) {
+      continue;
+    }
+    
+    // Filter 2: Distance-adaptive point threshold
+    int min_points = 10;
+    if (distance > 30.0) min_points = 8;
+    else if (distance > 20.0) min_points = 12;
+    else if (volume > 8.0f) min_points = 30;
+    
+    if (s.num_points < min_points) {
+      continue;
+    }
+    
+    // Filter 3: Density check (avoid too sparse or too dense)
+    if (volume > 0.01f) {
+      float density = s.num_points / volume;
+      if (density < 5.0f || density > 1000.0f) {
+        continue;
+      }
+    }
+    
+    // Filter 4: Geometric plausibility
+    float max_dim = std::max({width_x, width_y, height});
+    if (max_dim > 15.0f) {  // Larger than any vehicle
+      continue;
+    }
+    
+    float min_dim = std::min({width_x, width_y, height});
+    if (min_dim > 0.05f && max_dim / min_dim > 15.0f) {
+      continue;  // Unrealistic aspect ratio
+    }
+    
+    // Filter 5: Distance cutoff
+    if (distance > max_distance) {
+      continue;
+    }
+    
+    // Passed all filters
+    kept_clusters.push_back(cluster_indices[i]);
+  }
+
+  cluster_indices = std::move(kept_clusters);
+}
+
+void ProjectionUtils::filterGroundNoise(
+    const std::vector<ClusterStats>& stats,
+    std::vector<pcl::PointIndices>& cluster_indices) {
+  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
+    return;
+  }
+
+  std::vector<pcl::PointIndices> filtered_clusters;
+  filtered_clusters.reserve(cluster_indices.size());
+
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    const auto& s = stats[i];
+
+    // Filter 1: Skip if num_points < kMinPointsForValidObject
+    if (s.num_points < kMinPointsForValidObject) {
+      continue;
+    }
+
+    float height = s.max_z - s.min_z;
+
+    // Filter 2: Skip if height < kMinHeightAboveGround
+    if (height < kMinHeightAboveGround) {
+      continue;
+    }
+
+    // Filter 3: Skip if cluster center z is < kMaxGroundPlaneZ AND height < 0.5f
+    if (s.centroid.z() < kMaxGroundPlaneZ && height < 0.5f) {
+      continue;
+    }
+
+    float max_horizontal_width = std::max(s.max_x - s.min_x, s.max_y - s.min_y);
+
+    // Filter 4: Skip if height < 0.4f AND max horizontal width > 3.0f
+    if (height < 0.4f && max_horizontal_width > 3.0f) {
+      continue;
+    }
+
+    // Filter 5: Skip if aspect ratio (max_horizontal/height) > 10.0f
+    if (height > 0.0f) {
+      float aspect_ratio = max_horizontal_width / height;
+      if (aspect_ratio > 10.0f) {
+        continue;
+      }
+    }
+
+    filtered_clusters.push_back(cluster_indices[i]);
+  }
+
+  cluster_indices = std::move(filtered_clusters);
+}
+
 bool ProjectionUtils::computeClusterCentroid(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                              const pcl::PointIndices& cluster_indices,
                                              pcl::PointXYZ& centroid) {
@@ -806,9 +1204,8 @@ if (detections.detections.empty()) {
   return;
 }
 
-double best_overall_iou = 0.0;
-size_t best_cluster_idx = 0;
-bool found_valid_cluster = false;
+  std::vector<std::pair<size_t, double>> cluster_best_ious;
+  cluster_best_ious.reserve(cluster_indices.size());
 
 for (size_t i = 0; i < cluster_indices.size(); ++i) {
   double iou = computeMaxIOU8Corners(
@@ -819,17 +1216,15 @@ for (size_t i = 0; i < cluster_indices.size(); ++i) {
     object_detection_confidence
   );
 
-  if (iou > best_overall_iou) {
-    best_overall_iou = iou;
-    best_cluster_idx = i;
-    found_valid_cluster = true;
-  }
+    cluster_best_ious.push_back({i, iou});
 }
 
 std::vector<pcl::PointIndices> kept_clusters;
 
-if (found_valid_cluster && best_overall_iou >= kMinIOUThreshold) {
-  kept_clusters.push_back(cluster_indices[best_cluster_idx]);
+  for (const auto& pair : cluster_best_ious) {
+    if (pair.second >= kMinIOUThreshold) {
+      kept_clusters.push_back(cluster_indices[pair.first]);
+    }
 }
 
 cluster_indices = std::move(kept_clusters);

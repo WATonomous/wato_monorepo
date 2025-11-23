@@ -28,7 +28,7 @@ spatial_association:
     euclid_params:
       cluster_tolerance: 0.20
       #This defines the maximum distance between two points for them to be considered part of the same cluster
-      min_cluster_size: 10 # small values create more noise 
+      min_cluster_size: 20 # small values create more noise 
       max_cluster_size: 800 # big values slightly slow down performance
       use_adaptive_clustering: true  # Use larger tolerance for closer points to prevent fragmentation
       close_threshold: 10.0  # Distance (m) threshold for close objects

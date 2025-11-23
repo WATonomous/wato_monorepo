@@ -76,7 +76,6 @@ spatial_association::spatial_association() : Node("spatial_association") {
 }
 
 void spatial_association::initializeParams() {
-
   this->declare_parameter<std::string>("camera_info_topic_front_", "/CAM_FRONT/camera_info");
   this->declare_parameter<std::string>("camera_info_topic_left_", "/CAM_FRONT_LEFT/camera_info");
   this->declare_parameter<std::string>("camera_info_topic_right_", "/CAM_FRONT_RIGHT/camera_info");
@@ -168,14 +167,11 @@ void spatial_association::multiCameraInfoCallback(const sensor_msgs::msg::Camera
 }
 
 void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  // store the lidar msg
   latest_lidar_msg_ = *msg;
   
-  // Convert to PCL
   pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(latest_lidar_msg_, *input_cloud);
 
-  // Use core library to process point cloud (downsampling)
   filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   core_->processPointCloud(input_cloud, filtered_point_cloud_);
 }
@@ -185,10 +181,8 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
     RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
   }
   
-  // Store the non-ground cloud message from patchwork
   latest_lidar_msg_ = *msg;
   
-  // Convert to PCL
   pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(latest_lidar_msg_, *input_cloud);
 
@@ -198,14 +192,12 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
     return;
   }
 
-  // Use core library to process point cloud (downsampling)
   filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   core_->processPointCloud(input_cloud, filtered_point_cloud_);
  
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
   }
-
 }
 
 
@@ -213,7 +205,6 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
                                   const geometry_msgs::msg::TransformStamped &transform,
                                   const std::array<double, 12> &projection_matrix,
                                   const std::vector<pcl::PointIndices>& cluster_indices_input) {
-
   DetectionOutputs detection_outputs;
 
   if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
@@ -225,18 +216,23 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
     return detection_outputs;
   }
 
-  // Create a copy of cluster indices for IOU filtering (this modifies the vector)
   std::vector<pcl::PointIndices> cluster_indices = cluster_indices_input;
 
-  // Precompute cluster stats once to avoid redundant point scans
   auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
 
-  // iou score between x and y area of clusters in camera plane and detections
+  if (debug_logging_) {
+    RCLCPP_INFO(this->get_logger(), "Camera %s: %zu clusters before IOU filtering, %zu detections",
+                transform.child_frame_id.c_str(), cluster_indices.size(), detection.detections.size());
+  }
+
   ProjectionUtils::computeHighestIOUCluster(cluster_stats, cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
 
-  // Precompute cluster boxes once to avoid recomputing in both computeBoundingBox and compute3DDetection
-  // Use core library to compute boxes
+  if (debug_logging_) {
+    RCLCPP_INFO(this->get_logger(), "Camera %s: %zu clusters kept after IOU filtering",
+                transform.child_frame_id.c_str(), cluster_indices.size());
+  }
+
   auto boxes = core_->computeClusterBoxes(filtered_point_cloud_, cluster_indices);
 
   if (publish_visualization_) {
@@ -246,10 +242,6 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
 
   detection_outputs.detections3d = ProjectionUtils::compute3DDetection(boxes, cluster_indices, latest_lidar_msg_);
 
-  // VISUALIZATIONS
-  // ----------------------------------------------------------------------------
-  
-  // assign colors to the clusters using core library
   if (publish_visualization_) {
     detection_outputs.colored_cluster = working_colored_cluster_;
     core_->assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
@@ -270,15 +262,11 @@ void spatial_association::multiDetectionsCallback(
     return;
   }
 
-  // Check if we have point cloud data before processing detections
   if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
     RCLCPP_WARN(get_logger(), "No non-ground cloud data available, skipping detection processing");
     return;
   }
 
-  // PERFORM CLUSTERING ONCE (before camera loop) - significant performance optimization
-  // This avoids redundant clustering computations for each camera
-  // Use core library for clustering
   core_->performClustering(filtered_point_cloud_, cluster_indices);
   
   if (cluster_indices.empty()) {
@@ -286,7 +274,6 @@ void spatial_association::multiDetectionsCallback(
     return;
   }
 
-  // Prepare accumulators
   visualization_msgs::msg::MarkerArray combined_bboxes;
   vision_msgs::msg::Detection3DArray combined_detections3d;
   combined_detections3d.header = latest_lidar_msg_.header;
@@ -295,9 +282,7 @@ void spatial_association::multiDetectionsCallback(
   pcl::PointCloud<pcl::PointXYZ> merged_centroid_cloud;
   int marker_id_offset = 0;
 
-  // Loop over each camera's batch
   for (const auto &camera_batch : msg->detections) {
-    // 1) Find camera info
     auto it = camInfoMap_.find(camera_batch.header.frame_id);
     if (it == camInfoMap_.end()) {
       RCLCPP_WARN(get_logger(),
@@ -306,7 +291,6 @@ void spatial_association::multiDetectionsCallback(
       continue;
     }
 
-    // 2) Lookup TF from LiDAR → this camera
     geometry_msgs::msg::TransformStamped tf_cam_to_lidar;
     try {
       tf_cam_to_lidar = tf_buffer_->lookupTransform(
@@ -322,14 +306,12 @@ void spatial_association::multiDetectionsCallback(
       continue;
     }
 
-    // 3) Run 3D detection pipeline using pre-computed clusters
     auto detection_results = processDetections(
         camera_batch,
         tf_cam_to_lidar,
         it->second->p,
         cluster_indices);
 
-    // 4) Collect MarkerArray
     for (auto &marker : detection_results.bboxes.markers) {
       marker.ns = camera_batch.header.frame_id;
       marker.id += marker_id_offset;
@@ -337,19 +319,16 @@ void spatial_association::multiDetectionsCallback(
     }
     marker_id_offset += static_cast<int>(detection_results.bboxes.markers.size());
 
-    // 5) Collect Detection3DArray
     for (auto &det : detection_results.detections3d.detections) {
       combined_detections3d.detections.push_back(det);
     }
 
-    // 6) Merge cluster-cloud visuals if requested
     if (publish_visualization_) {
       merged_cluster_cloud += *detection_results.colored_cluster;
       merged_centroid_cloud += *detection_results.centroid_cloud;
     }
   }
 
-  // 7) Publish visualization data only if enabled and publishers exist
   if (publish_visualization_ && bounding_box_pub_) {
     bounding_box_pub_->publish(combined_bboxes);
   }
@@ -368,7 +347,6 @@ void spatial_association::multiDetectionsCallback(
     cluster_centroid_pub_->publish(pcl2_msg);
   }
 
-  // 8) Always publish the fused Detection3DArray
   combined_detections3d.header.stamp = this->get_clock()->now();
   detection_3d_pub_->publish(combined_detections3d);
 }

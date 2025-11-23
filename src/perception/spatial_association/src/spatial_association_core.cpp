@@ -1,13 +1,11 @@
 #include "spatial_association_core.hpp"
 
 SpatialAssociationCore::SpatialAssociationCore() {
-  // Initialize working PCL objects for performance optimization
   working_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   working_downsampled_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
   working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   
-  // Initialize voxel filter with default size
   voxel_filter_.setLeafSize(0.2f, 0.2f, 0.2f);
 }
 
@@ -24,10 +22,8 @@ void SpatialAssociationCore::processPointCloud(
     return;
   }
 
-  // Convert to working object
   *working_cloud_ = *input_cloud;
 
-  // Apply downsampling using working objects
   voxel_filter_.setInputCloud(working_cloud_);
   voxel_filter_.filter(*working_downsampled_cloud_);
 
@@ -37,17 +33,13 @@ void SpatialAssociationCore::processPointCloud(
 void SpatialAssociationCore::performClustering(
     pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
     std::vector<pcl::PointIndices>& cluster_indices) {
-  // Clear previous clusters
   cluster_indices.clear();
 
   if (!filtered_cloud || filtered_cloud->empty()) {
     return;
   }
 
-  // CLUSTERING-----------------------------------------------------------------------------------------------
-  // Perform Euclidean clustering, populate cluster_indices
   if (params_.use_adaptive_clustering) {
-    // Use adaptive clustering: larger tolerance for closer points to prevent fragmentation
     ProjectionUtils::adaptiveEuclideanClusterExtraction(
         filtered_cloud,
         params_.euclid_cluster_tolerance,
@@ -57,7 +49,6 @@ void SpatialAssociationCore::performClustering(
         params_.euclid_close_threshold,
         params_.euclid_close_tolerance_mult);
   } else {
-    // Use fixed cluster tolerance (original behavior)
     ProjectionUtils::euclideanClusterExtraction(
         filtered_cloud,
         params_.euclid_cluster_tolerance,
@@ -66,19 +57,26 @@ void SpatialAssociationCore::performClustering(
         cluster_indices);
   }
 
-  // Precompute cluster stats once to avoid redundant point scans
   auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
 
-  // Filter clusters by density, size and distance
-  ProjectionUtils::filterClusterbyDensity(
+  ProjectionUtils::filterGroundNoise(cluster_stats, cluster_indices);
+
+  if (cluster_indices.empty()) {
+    return;
+  }
+
+  cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
+
+  // Step 4: IMPROVED quality filtering (replaces old density filter)
+  ProjectionUtils::filterClusterbyDensity_Improved(
       cluster_stats,
       cluster_indices,
-      params_.density_weight,
-      params_.size_weight,
-      params_.distance_weight,
-      params_.score_threshold);
+      60.0);  // max_distance in meters
 
-  // Merge clusters that are close to each other, determined through distance between their centroids
+  if (cluster_indices.empty()) {
+    return;
+  }
+
   ProjectionUtils::mergeClusters(
       cluster_indices,
       filtered_cloud,
@@ -103,7 +101,7 @@ void SpatialAssociationCore::computeClusterCentroids(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
     const std::vector<pcl::PointIndices>& cluster_indices,
     pcl::PointCloud<pcl::PointXYZ>::Ptr& centroid_cloud) {
-  centroid_cloud->clear(); // Clear previous data
+  centroid_cloud->clear();
   for (const auto& ci : cluster_indices) {
     pcl::PointXYZ c;
     ProjectionUtils::computeClusterCentroid(filtered_cloud, ci, c);

@@ -41,32 +41,71 @@ class SpatialAssociationCore {
   };
 
 
+  /**
+   * @brief Constructor - initializes working PCL objects and voxel filter
+   */
   SpatialAssociationCore();
+  
+  /**
+   * @brief Destructor
+   */
   ~SpatialAssociationCore() = default;
 
-  // Set clustering parameters
+  /**
+   * @brief Sets clustering parameters and updates voxel filter
+   * @param params Clustering parameters structure
+   */
   void setParams(const ClusteringParams& params);
+  
+  /**
+   * @brief Gets current clustering parameters
+   * @return Reference to current clustering parameters
+   */
   const ClusteringParams& getParams() const { return params_; }
 
-  // Process point cloud: convert, downsample, and filter
+  /**
+   * @brief Processes point cloud by applying voxel downsampling
+   * @param input_cloud Input point cloud
+   * @param output_cloud Output downsampled point cloud
+   */
   void processPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
                         pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud);
 
-  // Perform clustering on the filtered point cloud
+  /**
+   * @brief Performs clustering on the filtered point cloud
+   * @param filtered_cloud Input filtered point cloud (modified in place)
+   * @param cluster_indices Output vector of cluster indices
+   * @details Performs Euclidean clustering, density filtering, and cluster merging
+   */
   void performClustering(pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
                        std::vector<pcl::PointIndices>& cluster_indices);
 
-  // Compute cluster boxes from cluster indices
+  /**
+   * @brief Computes 3D bounding boxes for clusters
+   * @param filtered_cloud Input filtered point cloud
+   * @param cluster_indices Vector of cluster indices
+   * @return Vector of 3D bounding boxes
+   */
   std::vector<ProjectionUtils::Box3D> computeClusterBoxes(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
       const std::vector<pcl::PointIndices>& cluster_indices);
 
-  // Assign colors to clusters for visualization
+  /**
+   * @brief Assigns random colors to clusters for visualization
+   * @param filtered_cloud Input filtered point cloud
+   * @param cluster_indices Vector of cluster indices
+   * @param colored_cluster Output colored point cloud
+   */
   void assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
                           const std::vector<pcl::PointIndices>& cluster_indices,
                           pcl::PointCloud<pcl::PointXYZRGB>::Ptr& colored_cluster);
 
-  // Compute cluster centroids
+  /**
+   * @brief Computes centroids for all clusters
+   * @param filtered_cloud Input filtered point cloud
+   * @param cluster_indices Vector of cluster indices
+   * @param centroid_cloud Output point cloud containing cluster centroids
+   */
   void computeClusterCentroids(const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
                               const std::vector<pcl::PointIndices>& cluster_indices,
                               pcl::PointCloud<pcl::PointXYZ>::Ptr& centroid_cloud);

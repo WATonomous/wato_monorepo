@@ -137,6 +137,28 @@ class ProjectionUtils {
                                      double scoreThreshold);
 
   /**
+   * @brief Multi-stage cluster filtering with physics-based constraints
+   * @param stats Precomputed cluster statistics
+   * @param cluster_indices Vector of cluster indices (modified in place)
+   * @param max_distance Maximum distance from sensor to keep cluster
+   * @param enable_debug Enable debug output of filtering statistics
+   */
+  static void filterClusterByQuality(const std::vector<ClusterStats>& stats,
+                                     std::vector<pcl::PointIndices>& cluster_indices,
+                                     double max_distance = 60.0,
+                                     bool enable_debug = false);
+
+  /**
+   * @brief Improved cluster filtering with physics-based thresholds
+   * @param stats Precomputed cluster statistics
+   * @param cluster_indices Vector of cluster indices (modified in place)
+   * @param max_distance Maximum distance from sensor to keep cluster
+   */
+  static void filterClusterbyDensity_Improved(const std::vector<ClusterStats>& stats,
+                                              std::vector<pcl::PointIndices>& cluster_indices,
+                                              double max_distance = 60.0);
+
+  /**
    * @brief Computes the centroid of a cluster
    * @param cloud Input point cloud
    * @param cluster_indices Indices of points in the cluster
@@ -178,6 +200,15 @@ class ProjectionUtils {
                                        const geometry_msgs::msg::TransformStamped& transform,
                                        const std::array<double, 12>& projection_matrix,
                                        const float object_detection_confidence);
+
+  /**
+   * @brief Filters out ground noise clusters
+   * @param stats Precomputed cluster statistics
+   * @param cluster_indices Vector of cluster indices (modified in place)
+   */
+  static void filterGroundNoise(
+      const std::vector<ClusterStats>& stats,
+      std::vector<pcl::PointIndices>& cluster_indices);
 
   /**
    * @brief Computes 3D bounding boxes for all clusters
