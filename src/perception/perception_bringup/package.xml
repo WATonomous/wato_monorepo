@@ -3,12 +3,16 @@
 <package format="3">
   <name>perception_bringup</name>
   <version>0.0.0</version>
-  <description>TODO(wato): Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
+  <description>Bringup Package for Perception</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <!-- To enable Shared Memory IPC -->
+  <depend>rmw_cyclonedds_cpp</depend>
+  <depend>iceoryx_posh</depend>
+  <depend>iceoryx_hoofs</depend>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

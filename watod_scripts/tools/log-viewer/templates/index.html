@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WATonomous Log Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #161b22;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #30363d;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: #58a6ff;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .sidebar h2 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .container-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .container-item:hover {
+            background: #1c2128;
+            border-color: #58a6ff;
+        }
+
+        .container-item.active {
+            background: #1c2128;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 1px #58a6ff;
+        }
+
+        .container-name {
+            font-weight: 600;
+            color: #c9d1d9;
+            margin-bottom: 0.25rem;
+        }
+
+        .container-status {
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+
+        .status-running {
+            color: #3fb950;
+        }
+
+        .status-exited {
+            color: #f85149;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .controls {
+            padding: 1rem 2rem;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        button {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2ea043;
+        }
+
+        button.secondary {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+        }
+
+        button.secondary:hover {
+            background: #30363d;
+        }
+
+        select, input[type="number"] {
+            background: #0d1117;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #8b949e;
+        }
+
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 2rem;
+            background: #0d1117;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-line {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.5;
+            padding: 0.25rem 0;
+        }
+
+        .log-warn {
+            color: #f4bf75;
+        }
+
+        .log-error {
+            color: #f85149;
+        }
+
+        .log-debug {
+            color: #79c0ff;
+        }
+
+        .log-fatal {
+            color: #ff7b72;
+            font-weight: bold;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #8b949e;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #238636;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0d1117;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #484f58;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>WATonomous Log Viewer</h1>
+    </header>
+
+    <div class="container">
+        <div class="sidebar">
+            <h2>Containers</h2>
+            <div id="containerList"></div>
+        </div>
+
+        <div class="main-content">
+            <div class="controls">
+                <button id="copyBtn" disabled>📋 Copy Logs</button>
+                <label>
+                    Tail:
+                    <input type="number" id="tailLines" value="500" min="10" max="10000" step="50">
+                </label>
+                <label>
+                    <input type="checkbox" id="showTimestamps">
+                    Show Timestamps
+                </label>
+            </div>
+
+            <div class="log-container" id="logContainer">
+                <div class="empty-state">
+                    <svg fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M1.5 0A1.5 1.5 0 0 0 0 1.5v13A1.5 1.5 0 0 0 1.5 16h13a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 14.5 0h-13zM1 1.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-13z"/>
+                        <path d="M3 5.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM3 8a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 8zm0 2.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5z"/>
+                    </svg>
+                    <p>Select a container to view logs</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Logs copied to clipboard!</div>
+
+    <script>
+        let currentContainer = null;
+        let eventSource = null;
+
+        async function loadContainers() {
+            try {
+                const response = await fetch('/api/containers');
+                const containers = await response.json();
+
+                const listEl = document.getElementById('containerList');
+                listEl.innerHTML = '';
+
+                containers.forEach(container => {
+                    const item = document.createElement('div');
+                    item.className = 'container-item';
+                    if (currentContainer === container.id) {
+                        item.classList.add('active');
+                    }
+
+                    const statusClass = container.status === 'running' ? 'status-running' : 'status-exited';
+                    const statusText = container.time_ago ? `${container.status} (${container.time_ago})` : container.status;
+
+                    item.innerHTML = `
+                        <div class="container-name">${container.name}</div>
+                        <div class="container-status ${statusClass}">${statusText}</div>
+                    `;
+
+                    item.onclick = () => selectContainer(container.id);
+                    listEl.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading containers:', error);
+            }
+        }
+
+        async function selectContainer(containerId) {
+            // Close existing stream
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            currentContainer = containerId;
+            loadContainers();
+            await loadLogs(containerId);
+            startLogStream(containerId);
+            document.getElementById('copyBtn').disabled = false;
+        }
+
+        async function loadLogs(containerId) {
+            const tail = document.getElementById('tailLines').value;
+            const timestamps = document.getElementById('showTimestamps').checked;
+
+            try {
+                const response = await fetch(`/api/logs/${containerId}?tail=${tail}&timestamps=${timestamps}`);
+                const data = await response.json();
+
+                const logContainer = document.getElementById('logContainer');
+                logContainer.innerHTML = '';
+
+                // Split logs into lines and colorize each one
+                const lines = data.logs.split('\n');
+                lines.forEach(line => {
+                    if (line.trim()) {
+                        const logLine = document.createElement('div');
+                        logLine.className = 'log-line';
+
+                        const logLevel = getLogLevel(line);
+                        if (logLevel) {
+                            logLine.classList.add(`log-${logLevel}`);
+                        }
+
+                        logLine.textContent = line;
+                        logContainer.appendChild(logLine);
+                    }
+                });
+
+                logContainer.scrollTop = logContainer.scrollHeight;
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                const logContainer = document.getElementById('logContainer');
+                logContainer.innerHTML = '<div class="log-line" style="color: #f85149;">Error loading logs</div>';
+            }
+        }
+
+        function getLogLevel(text) {
+            // Check for ROS log levels in the format: [LEVEL]
+            const rosLevelMatch = text.match(/\[(WARN|ERROR|DEBUG|FATAL|INFO)\]/i);
+            if (rosLevelMatch) {
+                return rosLevelMatch[1].toLowerCase();
+            }
+
+            // Check for common log level patterns
+            if (/\bWARN(ING)?\b/i.test(text)) return 'warn';
+            if (/\bERROR\b/i.test(text)) return 'error';
+            if (/\bDEBUG\b/i.test(text)) return 'debug';
+            if (/\bFATAL\b/i.test(text)) return 'fatal';
+
+            return null;
+        }
+
+        function startLogStream(containerId) {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource(`/api/logs/${containerId}/stream`);
+
+            eventSource.onmessage = (event) => {
+                const logContainer = document.getElementById('logContainer');
+                const logLine = document.createElement('div');
+                logLine.className = 'log-line';
+
+                const logLevel = getLogLevel(event.data);
+                if (logLevel) {
+                    logLine.classList.add(`log-${logLevel}`);
+                }
+
+                logLine.textContent = event.data;
+                logContainer.appendChild(logLine);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('EventSource error:', error);
+                eventSource.close();
+            };
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        async function copyLogs() {
+            if (!currentContainer) return;
+
+            const logContainer = document.getElementById('logContainer');
+            const text = logContainer.innerText;
+
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast();
+            } catch (error) {
+                console.error('Error copying logs:', error);
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        document.getElementById('copyBtn').onclick = copyLogs;
+        document.getElementById('tailLines').onchange = () => {
+            if (currentContainer) {
+                loadLogs(currentContainer);
+            }
+        };
+        document.getElementById('showTimestamps').onchange = () => {
+            if (currentContainer) {
+                loadLogs(currentContainer);
+            }
+        };
+
+        // Initial load
+        loadContainers();
+
+        // Auto-refresh container list every 5 seconds
+        setInterval(loadContainers, 5000);
+    </script>
+</body>
+</html>
