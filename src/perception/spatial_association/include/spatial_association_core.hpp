@@ -38,6 +38,22 @@ class SpatialAssociationCore {
     
     // Detection confidence
     float object_detection_confidence = 0.4f;
+    
+    // Quality filtering parameters (improved physics-based filtering)
+    double max_distance = 60.0;
+    int min_points = 5;
+    float min_height = 0.15f;
+    int min_points_default = 10;
+    int min_points_far = 8;
+    int min_points_medium = 12;
+    int min_points_large = 30;
+    double distance_threshold_far = 30.0;
+    double distance_threshold_medium = 20.0;
+    float volume_threshold_large = 8.0f;
+    float min_density = 5.0f;
+    float max_density = 1000.0f;
+    float max_dimension = 15.0f;
+    float max_aspect_ratio = 15.0f;
   };
 
 
@@ -88,7 +104,7 @@ class SpatialAssociationCore {
    */
   std::vector<ProjectionUtils::Box3D> computeClusterBoxes(
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
-      const std::vector<pcl::PointIndices>& cluster_indices);
+      const std::vector<pcl::PointIndices>& cluster_indices) const;
 
   /**
    * @brief Assigns random colors to clusters for visualization
@@ -98,7 +114,7 @@ class SpatialAssociationCore {
    */
   void assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
                           const std::vector<pcl::PointIndices>& cluster_indices,
-                          pcl::PointCloud<pcl::PointXYZRGB>::Ptr& colored_cluster);
+                          pcl::PointCloud<pcl::PointXYZRGB>::Ptr& colored_cluster) const;
 
   /**
    * @brief Computes centroids for all clusters
@@ -108,14 +124,12 @@ class SpatialAssociationCore {
    */
   void computeClusterCentroids(const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
                               const std::vector<pcl::PointIndices>& cluster_indices,
-                              pcl::PointCloud<pcl::PointXYZ>::Ptr& centroid_cloud);
+                              pcl::PointCloud<pcl::PointXYZ>::Ptr& centroid_cloud) const;
 
  private:
   ClusteringParams params_;
   
   // Working PCL objects for performance optimization
-  pcl::PointCloud<pcl::PointXYZ>::Ptr working_cloud_;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr working_downsampled_cloud_;
   pcl::VoxelGrid<pcl::PointXYZ> voxel_filter_;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;

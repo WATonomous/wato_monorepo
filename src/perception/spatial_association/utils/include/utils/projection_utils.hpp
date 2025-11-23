@@ -123,20 +123,6 @@ class ProjectionUtils {
                             double mergeTolerance);
 
   /**
-   * @brief Filters clusters using precomputed statistics
-   * @param stats Precomputed cluster statistics
-   * @param cluster_indices Vector of cluster indices (modified in place)
-   * @param densityWeight Weight for density score
-   * @param sizeWeight Weight for size score
-   * @param distanceWeight Weight for distance score
-   * @param scoreThreshold Minimum score threshold to keep a cluster
-   */
-  static void filterClusterbyDensity(const std::vector<ClusterStats>& stats,
-                                     std::vector<pcl::PointIndices>& cluster_indices,
-                                     double densityWeight, double sizeWeight, double distanceWeight,
-                                     double scoreThreshold);
-
-  /**
    * @brief Multi-stage cluster filtering with physics-based constraints
    * @param stats Precomputed cluster statistics
    * @param cluster_indices Vector of cluster indices (modified in place)
@@ -149,14 +135,41 @@ class ProjectionUtils {
                                      bool enable_debug = false);
 
   /**
-   * @brief Improved cluster filtering with physics-based thresholds
+   * @brief Filters clusters using physics-based constraints with distance-adaptive thresholds
    * @param stats Precomputed cluster statistics
    * @param cluster_indices Vector of cluster indices (modified in place)
    * @param max_distance Maximum distance from sensor to keep cluster
+   * @param min_points Minimum points for viable object
+   * @param min_height Minimum height in meters
+   * @param min_points_default Default minimum points
+   * @param min_points_far Minimum points at far distance
+   * @param min_points_medium Minimum points at medium distance
+   * @param min_points_large Minimum points for large objects
+   * @param distance_threshold_far Distance threshold for far objects (m)
+   * @param distance_threshold_medium Distance threshold for medium objects (m)
+   * @param volume_threshold_large Volume threshold for large objects (m³)
+   * @param min_density Minimum point density (points per m³)
+   * @param max_density Maximum point density (points per m³)
+   * @param max_dimension Maximum object dimension in meters
+   * @param max_aspect_ratio Maximum aspect ratio
    */
-  static void filterClusterbyDensity_Improved(const std::vector<ClusterStats>& stats,
-                                              std::vector<pcl::PointIndices>& cluster_indices,
-                                              double max_distance = 60.0);
+  static void filterClustersByPhysicsConstraints(
+      const std::vector<ClusterStats>& stats,
+      std::vector<pcl::PointIndices>& cluster_indices,
+      double max_distance,
+      int min_points,
+      float min_height,
+      int min_points_default,
+      int min_points_far,
+      int min_points_medium,
+      int min_points_large,
+      double distance_threshold_far,
+      double distance_threshold_medium,
+      float volume_threshold_large,
+      float min_density,
+      float max_density,
+      float max_dimension,
+      float max_aspect_ratio);
 
   /**
    * @brief Computes the centroid of a cluster

@@ -25,6 +25,23 @@ spatial_association::spatial_association() : Node("spatial_association") {
   core_params.score_threshold = score_threshold_;
   core_params.merge_threshold = merge_threshold_;
   core_params.object_detection_confidence = object_detection_confidence_;
+  
+  // Set quality filtering parameters from config
+  core_params.max_distance = this->get_parameter("quality_filter_params.max_distance").as_double();
+  core_params.min_points = this->get_parameter("quality_filter_params.min_points").as_int();
+  core_params.min_height = static_cast<float>(this->get_parameter("quality_filter_params.min_height").as_double());
+  core_params.min_points_default = this->get_parameter("quality_filter_params.min_points_default").as_int();
+  core_params.min_points_far = this->get_parameter("quality_filter_params.min_points_far").as_int();
+  core_params.min_points_medium = this->get_parameter("quality_filter_params.min_points_medium").as_int();
+  core_params.min_points_large = this->get_parameter("quality_filter_params.min_points_large").as_int();
+  core_params.distance_threshold_far = this->get_parameter("quality_filter_params.distance_threshold_far").as_double();
+  core_params.distance_threshold_medium = this->get_parameter("quality_filter_params.distance_threshold_medium").as_double();
+  core_params.volume_threshold_large = static_cast<float>(this->get_parameter("quality_filter_params.volume_threshold_large").as_double());
+  core_params.min_density = static_cast<float>(this->get_parameter("quality_filter_params.min_density").as_double());
+  core_params.max_density = static_cast<float>(this->get_parameter("quality_filter_params.max_density").as_double());
+  core_params.max_dimension = static_cast<float>(this->get_parameter("quality_filter_params.max_dimension").as_double());
+  core_params.max_aspect_ratio = static_cast<float>(this->get_parameter("quality_filter_params.max_aspect_ratio").as_double());
+  
   core_->setParams(core_params);
 
   // SUBSCRIBERS
@@ -80,7 +97,6 @@ void spatial_association::initializeParams() {
   this->declare_parameter<std::string>("camera_info_topic_left_", "/CAM_FRONT_LEFT/camera_info");
   this->declare_parameter<std::string>("camera_info_topic_right_", "/CAM_FRONT_RIGHT/camera_info");
 
-  this->declare_parameter<std::string>("lidar_topic", "/LIDAR_TOP");
   this->declare_parameter<std::string>("non_ground_cloud_topic", "/non_ground_cloud");
   this->declare_parameter<std::string>("detections_topic", "/batched_camera_message");
 
@@ -115,6 +131,22 @@ void spatial_association::initializeParams() {
 
   this->declare_parameter<float>("object_detection_confidence", 0.4);
 
+  // Quality filtering parameters
+  this->declare_parameter<double>("quality_filter_params.max_distance", 60.0);
+  this->declare_parameter<int>("quality_filter_params.min_points", 5);
+  this->declare_parameter<double>("quality_filter_params.min_height", 0.15);
+  this->declare_parameter<int>("quality_filter_params.min_points_default", 10);
+  this->declare_parameter<int>("quality_filter_params.min_points_far", 8);
+  this->declare_parameter<int>("quality_filter_params.min_points_medium", 12);
+  this->declare_parameter<int>("quality_filter_params.min_points_large", 30);
+  this->declare_parameter<double>("quality_filter_params.distance_threshold_far", 30.0);
+  this->declare_parameter<double>("quality_filter_params.distance_threshold_medium", 20.0);
+  this->declare_parameter<double>("quality_filter_params.volume_threshold_large", 8.0);
+  this->declare_parameter<double>("quality_filter_params.min_density", 5.0);
+  this->declare_parameter<double>("quality_filter_params.max_density", 1000.0);
+  this->declare_parameter<double>("quality_filter_params.max_dimension", 15.0);
+  this->declare_parameter<double>("quality_filter_params.max_aspect_ratio", 15.0);
+
   // Get parameters
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
 
@@ -126,7 +158,6 @@ void spatial_association::initializeParams() {
   camera_info_topic_right_ = this->get_parameter("camera_info_topic_right_").as_string();
   camera_info_topic_left_ = this->get_parameter("camera_info_topic_left_").as_string();
 
-  lidar_topic_ = this->get_parameter("lidar_topic").as_string();
   non_ground_cloud_topic_ = this->get_parameter("non_ground_cloud_topic").as_string();
   detections_topic_ = this->get_parameter("detections_topic").as_string();
 
@@ -166,16 +197,6 @@ void spatial_association::multiCameraInfoCallback(const sensor_msgs::msg::Camera
   camInfoMap_[frame] = msg;
 }
 
-void spatial_association::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  latest_lidar_msg_ = *msg;
-  
-  pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(latest_lidar_msg_, *input_cloud);
-
-  filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  core_->processPointCloud(input_cloud, filtered_point_cloud_);
-}
-
 void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
@@ -203,8 +224,7 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
 
 DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::Detection2DArray &detection, 
                                   const geometry_msgs::msg::TransformStamped &transform,
-                                  const std::array<double, 12> &projection_matrix,
-                                  const std::vector<pcl::PointIndices>& cluster_indices_input) {
+                                  const std::array<double, 12> &projection_matrix) {
   DetectionOutputs detection_outputs;
 
   if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
@@ -212,42 +232,43 @@ DetectionOutputs spatial_association::processDetections(const vision_msgs::msg::
     return detection_outputs;
   }
 
-  if (cluster_indices_input.empty()) {
+  if (cluster_indices.empty()) {
     return detection_outputs;
   }
 
-  std::vector<pcl::PointIndices> cluster_indices = cluster_indices_input;
+  // Work with a local copy since computeHighestIOUCluster modifies cluster_indices
+  std::vector<pcl::PointIndices> working_cluster_indices = cluster_indices;
 
-  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, cluster_indices);
+  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, working_cluster_indices);
 
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Camera %s: %zu clusters before IOU filtering, %zu detections",
-                transform.child_frame_id.c_str(), cluster_indices.size(), detection.detections.size());
+                transform.child_frame_id.c_str(), working_cluster_indices.size(), detection.detections.size());
   }
 
-  ProjectionUtils::computeHighestIOUCluster(cluster_stats, cluster_indices, detection, transform,
+  ProjectionUtils::computeHighestIOUCluster(cluster_stats, working_cluster_indices, detection, transform,
                                             projection_matrix, object_detection_confidence_);
 
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Camera %s: %zu clusters kept after IOU filtering",
-                transform.child_frame_id.c_str(), cluster_indices.size());
+                transform.child_frame_id.c_str(), working_cluster_indices.size());
   }
 
-  auto boxes = core_->computeClusterBoxes(filtered_point_cloud_, cluster_indices);
+  auto boxes = core_->computeClusterBoxes(filtered_point_cloud_, working_cluster_indices);
 
   if (publish_visualization_) {
     detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(
-        boxes, cluster_indices, latest_lidar_msg_);
+        boxes, working_cluster_indices, latest_lidar_msg_);
   }
 
-  detection_outputs.detections3d = ProjectionUtils::compute3DDetection(boxes, cluster_indices, latest_lidar_msg_);
+  detection_outputs.detections3d = ProjectionUtils::compute3DDetection(boxes, working_cluster_indices, latest_lidar_msg_);
 
   if (publish_visualization_) {
     detection_outputs.colored_cluster = working_colored_cluster_;
-    core_->assignClusterColors(filtered_point_cloud_, cluster_indices, detection_outputs.colored_cluster);
+    core_->assignClusterColors(filtered_point_cloud_, working_cluster_indices, detection_outputs.colored_cluster);
 
     detection_outputs.centroid_cloud = working_centroid_cloud_;
-    core_->computeClusterCentroids(filtered_point_cloud_, cluster_indices, detection_outputs.centroid_cloud);
+    core_->computeClusterCentroids(filtered_point_cloud_, working_cluster_indices, detection_outputs.centroid_cloud);
   }
   return detection_outputs;
 }
@@ -275,7 +296,12 @@ void spatial_association::multiDetectionsCallback(
   }
 
   visualization_msgs::msg::MarkerArray combined_bboxes;
+  // Preallocate markers to avoid reallocations (estimate: 10 markers per camera batch)
+  combined_bboxes.markers.reserve(msg->detections.size() * 10);
+
   vision_msgs::msg::Detection3DArray combined_detections3d;
+  // Preallocate detections to avoid reallocations (estimate: 10 detections per camera batch)
+  combined_detections3d.detections.reserve(msg->detections.size() * 10);
   combined_detections3d.header = latest_lidar_msg_.header;
 
   pcl::PointCloud<pcl::PointXYZRGB> merged_cluster_cloud;
@@ -283,25 +309,31 @@ void spatial_association::multiDetectionsCallback(
   int marker_id_offset = 0;
 
   for (const auto &camera_batch : msg->detections) {
-    auto it = camInfoMap_.find(camera_batch.header.frame_id);
+    const auto& frame_id = camera_batch.header.frame_id;
+    
+    // Find camera info and use structured binding for cleaner access
+    const auto it = camInfoMap_.find(frame_id);
     if (it == camInfoMap_.end()) {
       RCLCPP_WARN(get_logger(),
                   "No CameraInfo for '%s', skipping",
-                  camera_batch.header.frame_id.c_str());
+                  frame_id.c_str());
       continue;
     }
+
+    // Use structured binding to extract camera info from map
+    const auto& [found_frame_id, camera_info] = *it;
 
     geometry_msgs::msg::TransformStamped tf_cam_to_lidar;
     try {
       tf_cam_to_lidar = tf_buffer_->lookupTransform(
-          camera_batch.header.frame_id,
+          frame_id,
           lidar_frame_,
           tf2::TimePointZero);
     } catch (tf2::TransformException &e) {
       RCLCPP_WARN(get_logger(),
                   "TF %s→%s failed: %s",
                   lidar_frame_.c_str(),
-                  camera_batch.header.frame_id.c_str(),
+                  frame_id.c_str(),
                   e.what());
       continue;
     }
@@ -309,11 +341,10 @@ void spatial_association::multiDetectionsCallback(
     auto detection_results = processDetections(
         camera_batch,
         tf_cam_to_lidar,
-        it->second->p,
-        cluster_indices);
+        camera_info->p);
 
     for (auto &marker : detection_results.bboxes.markers) {
-      marker.ns = camera_batch.header.frame_id;
+      marker.ns = frame_id;
       marker.id += marker_id_offset;
       combined_bboxes.markers.push_back(marker);
     }
@@ -329,22 +360,25 @@ void spatial_association::multiDetectionsCallback(
     }
   }
 
-  if (publish_visualization_ && bounding_box_pub_) {
+  // Publish visualization topics if enabled
+  if (publish_visualization_) {
+    if (bounding_box_pub_) {
     bounding_box_pub_->publish(combined_bboxes);
   }
 
-  if (publish_visualization_ && filtered_lidar_pub_) {
+    if (filtered_lidar_pub_) {
     sensor_msgs::msg::PointCloud2 pcl2_msg;
     pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
     pcl2_msg.header = latest_lidar_msg_.header;
     filtered_lidar_pub_->publish(pcl2_msg);
   }
 
-  if (publish_visualization_ && cluster_centroid_pub_) {
+    if (cluster_centroid_pub_) {
     sensor_msgs::msg::PointCloud2 pcl2_msg;
     pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
     pcl2_msg.header = latest_lidar_msg_.header;
     cluster_centroid_pub_->publish(pcl2_msg);
+    }
   }
 
   combined_detections3d.header.stamp = this->get_clock()->now();

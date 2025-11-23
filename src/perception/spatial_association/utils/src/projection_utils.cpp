@@ -9,71 +9,184 @@
 #include <Eigen/Dense>
 
 namespace {
+// ============================================================================
+// Bounding Box Orientation Parameters
+// ============================================================================
+
+// Height threshold to classify objects as "tall" (cars, trucks)
+// Tall objects: cut bottom 40% for orientation fitting (avoids ground points)
+// Short objects: cut bottom 0.2m for orientation fitting
+// Tune: Increase if tall objects get wrong orientation, decrease if short objects are affected
 constexpr float kTallObjectHeightThreshold = 1.5f;
+
+// Fraction of height to cut from bottom for tall objects (0.0-1.0)
+// Tune: Increase to remove more ground points, decrease to keep more points
 constexpr float kTallObjectCutBottomFraction = 0.4f;
+
+// Meters to cut from bottom for short objects
+// Tune: Increase if ground points affect orientation, decrease to use more points
 constexpr float kShortObjectCutBottomMeters = 0.2f;
 
+// Aspect ratio threshold for front-view detection (nearly square objects)
+// If aspect ratio < this, use line-of-sight yaw instead of fitted orientation
+// Tune: Increase to use line-of-sight for more objects, decrease for tighter fitting
 constexpr double kARFrontViewThreshold = 1.2;
 
+// ============================================================================
+// Outlier Rejection Parameters
+// ============================================================================
+
+// Minimum cluster size to apply outlier rejection (smaller clusters use all points)
+// Tune: Increase to apply rejection to larger clusters, decrease for more aggressive filtering
 constexpr size_t kOutlierRejectionPointCount = 30;
+
+// Standard deviation multiplier for outlier clipping (4.5 = clip beyond 4.5σ)
+// Tune: Increase to keep more edge points, decrease to remove more outliers
 constexpr double kOutlierSigmaMultiplier = 4.5;
 
+// ============================================================================
+// Orientation Search Parameters
+// ============================================================================
+
+// Minimum points required for orientation fitting
+// Tune: Increase for more robust fitting, decrease to fit smaller clusters
 constexpr size_t kMinPointsForFit = 3;
+
+// Number of points to sample for orientation search (reduces computation)
+// Tune: Increase for more accurate fitting (slower), decrease for faster processing
 constexpr size_t kDefaultSamplePointCount = 64;
+
+// Coarse search step size in degrees (0° to 90°)
+// Tune: Increase for faster search (less accurate), decrease for finer search
 constexpr double kCoarseSearchStepDegrees = 10.0;
+
+// Fine search range around best coarse angle (±degrees)
+// Tune: Increase to search wider range, decrease for faster refinement
 constexpr double kFineSearchRangeDegrees = 5.0;
+
+// Fine search step size in degrees (refinement step)
+// Tune: Increase for faster search, decrease for more precise orientation
 constexpr double kFineSearchStepDegrees = 2.0;
 
+// ============================================================================
+// Orientation Fallback Parameters
+// ============================================================================
+
+// Minimum points needed for orientation computation
+// Tune: Increase for more robust orientation, decrease to fit smaller clusters
 constexpr size_t kMinOrientationPoints = 3;
+
+// Minimum points for fallback orientation method
+// Tune: Increase to require more points before fallback, decrease to use fallback earlier
 constexpr size_t kMinOrientationPointsForFallback = 5;
+
+// Minimum cluster size to use fallback orientation
+// Tune: Increase to use fallback only for larger clusters, decrease for smaller clusters
 constexpr size_t kMinClusterSizeForFallback = 10;
+
+// Fraction of top points to use for fallback orientation (0.0-1.0)
+// Tune: Increase to use more points, decrease to focus on top of object
 constexpr double kTopFractionForFallback = 0.5;
+
+// Minimum width to compute aspect ratio (prevents division by zero)
+// Tune: Increase to ignore very narrow objects, decrease to handle thin objects
 constexpr double kMinWidthForAspectRatio = 0.1;
 
+// ============================================================================
+// Camera Projection Parameters
+// ============================================================================
+
+// Minimum Z distance from camera to project point (meters)
+// Points closer than this are considered invalid
+// Tune: Increase to filter very close points, decrease to keep more points
 constexpr double kMinCameraZDistance = 1.0;
 
+// ============================================================================
+// Cluster Merging Parameters
+// ============================================================================
+
+// Minimum width to compute aspect ratio (float version, meters)
+// Tune: Same as kMinWidthForAspectRatio but for float operations
 constexpr float kMinWidthForAspectRatioFloat = 0.1f;
+
+// Minimum aspect ratio to merge clusters (length/width)
+// Tune: Decrease to merge more clusters, increase to merge fewer
 constexpr double kMinAspectRatioForMerge = 1.8;
+
+// Maximum aspect ratio to merge clusters (length/width)
+// Tune: Increase to merge more elongated objects, decrease to merge fewer
 constexpr double kMaxAspectRatioForMerge = 7.0;
 
-constexpr int kMinClusterPointsForFilter = 10;
-constexpr double kMaxDensityForNormalization = 5000.0;
-constexpr double kMaxSizeForNormalization = 12.0;
-constexpr double kMaxDistanceForNormalization = 60.0;
 
+// ============================================================================
+// IoU Matching Parameters
+// ============================================================================
+
+// Minimum IoU (Intersection over Union) to match cluster with camera detection
+// Tune: Increase to require better matches (fewer false positives), decrease to match more (more false positives)
 constexpr double kMinIOUThreshold = 0.15;
 
+// ============================================================================
+// Ground Noise Filtering Parameters
+// ============================================================================
+
+// Minimum height above ground to be considered valid object (meters)
+// Tune: Increase to filter more ground artifacts, decrease to keep lower objects
 constexpr float kMinHeightAboveGround = 0.3f;
+
+// Maximum Z coordinate for ground plane (negative = below sensor)
+// Clusters below this with low height are filtered as ground
+// Tune: Decrease (more negative) to filter more ground points, increase to keep more
 constexpr float kMaxGroundPlaneZ = -1.5f;
+
+// Minimum points required for valid object
+// Tune: Increase to filter more small clusters, decrease to keep smaller objects
 constexpr int kMinPointsForValidObject = 15;
 
+// ============================================================================
+// Visualization Parameters
+// ============================================================================
+
+// Alpha transparency for bounding box markers (0.0 = transparent, 1.0 = opaque)
+// Tune: Increase for more visible boxes, decrease for less obtrusive visualization
 constexpr float kMarkerAlpha = 0.2f;
+
+// Lifetime of visualization markers in seconds
+// Tune: Increase to keep markers longer, decrease for faster updates
 constexpr double kMarkerLifetimeSeconds = 0.15;
+
+// Default detection confidence score (0.0-1.0)
+// Tune: Adjust based on your confidence scoring system
 constexpr double kDefaultDetectionScore = 1.0;
 
-// Physical object constraints (based on real-world measurements)
+// ============================================================================
+// Physical Object Constraints (based on real-world measurements)
+// ============================================================================
 struct ObjectConstraints {
-  // Cars
-  constexpr static float kCarMinHeight = 1.0f;
-  constexpr static float kCarMaxHeight = 3.5f;
-  constexpr static float kCarMinLength = 2.5f;
-  constexpr static float kCarMaxLength = 8.0f;
-  constexpr static float kCarMinWidth = 1.4f;
-  constexpr static float kCarMaxWidth = 2.8f;
-  constexpr static float kCarMinVolume = 3.5f;  // m³
+  // Car dimensions (meters)
+  // Tune: Adjust based on your vehicle types (sedans, SUVs, trucks)
+  constexpr static float kCarMinHeight = 1.0f;    // Compact car minimum
+  constexpr static float kCarMaxHeight = 3.5f;    // Large truck maximum
+  constexpr static float kCarMinLength = 2.5f;    // Small car minimum
+  constexpr static float kCarMaxLength = 8.0f;    // Long truck maximum
+  constexpr static float kCarMinWidth = 1.4f;     // Narrow car minimum
+  constexpr static float kCarMaxWidth = 2.8f;     // Wide truck maximum
+  constexpr static float kCarMinVolume = 3.5f;    // Minimum volume (m³)
   
-  // Pedestrians/Cyclists
-  constexpr static float kPedestrianMinHeight = 0.8f;
-  constexpr static float kPedestrianMaxHeight = 2.2f;
-  constexpr static float kPedestrianMaxWidth = 1.0f;
+  // Pedestrian/Cyclist dimensions (meters)
+  // Tune: Adjust for different pedestrian sizes (children, adults, cyclists)
+  constexpr static float kPedestrianMinHeight = 0.8f;   // Child minimum
+  constexpr static float kPedestrianMaxHeight = 2.2f;   // Tall adult maximum
+  constexpr static float kPedestrianMaxWidth = 1.0f;    // Shoulder width maximum
   
-  // General constraints
-  constexpr static float kMinPointDensity = 5.0f;     // points per m³
-  constexpr static float kMaxPointDensity = 1000.0f;  // points per m³
-  constexpr static int kMinPointsSmallObject = 10;
-  constexpr static int kMinPointsLargeObject = 30;
-  constexpr static float kMaxAspectRatioXY = 8.0f;    // Length/Width
-  constexpr static float kMaxAspectRatioZ = 15.0f;    // Horizontal/Height (for poles)
+  // General filtering constraints
+  // Tune: Adjust based on your LiDAR point density and scene characteristics
+  constexpr static float kMinPointDensity = 5.0f;        // Minimum points per m³ (too sparse = invalid)
+  constexpr static float kMaxPointDensity = 1000.0f;    // Maximum points per m³ (too dense = invalid)
+  constexpr static int kMinPointsSmallObject = 10;      // Minimum points for small objects
+  constexpr static int kMinPointsLargeObject = 30;       // Minimum points for large objects
+  constexpr static float kMaxAspectRatioXY = 8.0f;       // Maximum length/width ratio
+  constexpr static float kMaxAspectRatioZ = 15.0f;       // Maximum horizontal/height ratio (for poles)
 };
 
 struct SearchResult {
@@ -899,57 +1012,6 @@ void ProjectionUtils::mergeClusters(std::vector<pcl::PointIndices>& cluster_indi
   cluster_indices = filtered_clusters;
 }
 
-void ProjectionUtils::filterClusterbyDensity(const std::vector<ClusterStats>& stats,
-                                             std::vector<pcl::PointIndices>& cluster_indices,
-                                             double densityWeight, double sizeWeight,
-                                             double distanceWeight, double scoreThreshold) {
-  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) return;
-
-  const double max_density = kMaxDensityForNormalization;
-  const double max_size = kMaxSizeForNormalization;
-  const double max_distance = kMaxDistanceForNormalization;
-
-  std::vector<pcl::PointIndices> filtered_clusters;
-
-  for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    const auto& clusters = cluster_indices[i];
-    const auto& s = stats[i];
-
-    if (s.num_points < kMinClusterPointsForFilter) continue;
-
-    double min_x = static_cast<double>(s.min_x);
-    double max_x = static_cast<double>(s.max_x);
-    double min_y = static_cast<double>(s.min_y);
-    double max_y = static_cast<double>(s.max_y);
-    double min_z = static_cast<double>(s.min_z);
-    double max_z = static_cast<double>(s.max_z);
-
-    double cluster_size =
-        std::sqrt((max_x - min_x) * (max_x - min_x) + (max_y - min_y) * (max_y - min_y) +
-                  (max_z - min_z) * (max_z - min_z));
-
-    double cluster_volume = (max_x - min_x) * (max_y - min_y) * (max_z - min_z);
-    double density = cluster_volume > 0 ? static_cast<double>(s.num_points) / cluster_volume : 0;
-
-    double avg_distance = std::sqrt(s.centroid.x() * s.centroid.x() +
-                                    s.centroid.y() * s.centroid.y() +
-                                    s.centroid.z() * s.centroid.z());
-
-    double normalized_density = density / max_density;
-    double normalized_size = cluster_size / max_size;
-    double normalized_distance = avg_distance / max_distance;
-
-    double score = (normalized_density * densityWeight) + (normalized_size * sizeWeight) +
-                   (normalized_distance * distanceWeight);
-
-    if (score < scoreThreshold) {
-      filtered_clusters.push_back(clusters);
-    }
-  }
-
-  cluster_indices = filtered_clusters;
-}
-
 void ProjectionUtils::filterClusterByQuality(
     const std::vector<ClusterStats>& stats,
     std::vector<pcl::PointIndices>& cluster_indices,
@@ -982,10 +1044,27 @@ void ProjectionUtils::filterClusterByQuality(
   }
 }
 
-void ProjectionUtils::filterClusterbyDensity_Improved(
+void ProjectionUtils::filterClustersByPhysicsConstraints(
     const std::vector<ClusterStats>& stats,
     std::vector<pcl::PointIndices>& cluster_indices,
-    double max_distance) {
+    double max_distance,
+    int min_points,
+    float min_height,
+    int min_points_default,
+    int min_points_far,
+    int min_points_medium,
+    int min_points_large,
+    double distance_threshold_far,
+    double distance_threshold_medium,
+    float volume_threshold_large,
+    float min_density,
+    float max_density,
+    float max_dimension,
+    float max_aspect_ratio) {
+  
+  // Hardcoded thresholds (too specific to be configurable)
+  constexpr float kMinDimensionForAspect = 0.05f;  // Minimum dimension to check aspect ratio (m)
+  constexpr float kVolumeThresholdDensity = 0.01f;  // Minimum volume to check density (m³)
   
   if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
     return;
@@ -1011,36 +1090,40 @@ void ProjectionUtils::filterClusterbyDensity_Improved(
     // === IMPROVED FILTERING LOGIC ===
     
     // Filter 1: Minimum viable object
-    if (s.num_points < 5 || height < 0.15f) {
+    if (s.num_points < min_points || height < min_height) {
       continue;
     }
     
     // Filter 2: Distance-adaptive point threshold
-    int min_points = 10;
-    if (distance > 30.0) min_points = 8;
-    else if (distance > 20.0) min_points = 12;
-    else if (volume > 8.0f) min_points = 30;
+    int min_points_threshold = min_points_default;
+    if (distance > distance_threshold_far) {
+      min_points_threshold = min_points_far;
+    } else if (distance > distance_threshold_medium) {
+      min_points_threshold = min_points_medium;
+    } else if (volume > volume_threshold_large) {
+      min_points_threshold = min_points_large;
+    }
     
-    if (s.num_points < min_points) {
+    if (s.num_points < min_points_threshold) {
       continue;
     }
     
     // Filter 3: Density check (avoid too sparse or too dense)
-    if (volume > 0.01f) {
+    if (volume > kVolumeThresholdDensity) {
       float density = s.num_points / volume;
-      if (density < 5.0f || density > 1000.0f) {
+      if (density < min_density || density > max_density) {
         continue;
       }
     }
     
     // Filter 4: Geometric plausibility
     float max_dim = std::max({width_x, width_y, height});
-    if (max_dim > 15.0f) {  // Larger than any vehicle
+    if (max_dim > max_dimension) {
       continue;
     }
     
     float min_dim = std::min({width_x, width_y, height});
-    if (min_dim > 0.05f && max_dim / min_dim > 15.0f) {
+    if (min_dim > kMinDimensionForAspect && max_dim / min_dim > max_aspect_ratio) {
       continue;  // Unrealistic aspect ratio
     }
     

@@ -54,8 +54,7 @@ The node is structured in three main layers:
          │
          ▼
 ┌─────────────────┐
-│ Quality Filter  │ ← NEW: Physics-based filtering
-│ (Improved)      │
+│ Quality Filter  │ 
 └────────┬────────┘
          │
          ▼
@@ -65,8 +64,8 @@ The node is structured in three main layers:
          │
          ▼
 ┌─────────────────┐     ┌─────────────────┐
-│ Camera          │     │ IoU Matching   │
-│ Detections      │────▶│ & Filtering    │
+│ Camera          │     │ IoU Matching    │
+│ Detections      │────▶│ & Filtering     │
 └─────────────────┘     └────────┬────────┘
                                 │
                                 ▼
@@ -77,11 +76,6 @@ The node is structured in three main layers:
                         └─────────────────┘
 ```
 
-## Improved Cluster Filtering System
-
-### Overview
-
-The node now uses a **physics-based cluster filtering system** that replaces the old weighted scoring approach. This system uses real-world object constraints to filter out false positives while preserving valid objects.
 
 ### Key Components
 
@@ -116,12 +110,11 @@ struct ObjectConstraints {
 
 #### 2. `ClusterFilter` Class
 
-Multi-stage filtering system with three stages:
+Multi-stage filtering with three stages:
 
 **Stage 1: Noise Filtering** (`filterNoise`)
 - Removes clusters with < 5 points
 - Filters extremely small objects (< 15cm in any dimension)
-- Fast, early-stage filtering
 
 **Stage 2: Geometry-Based Filtering** (`filterByGeometry`)
 - Checks for unrealistic sizes (> 15m length, > 4m width, > 5m height)
@@ -139,11 +132,11 @@ Multi-stage filtering system with three stages:
 
 #### 3. Filtering Functions
 
-**`filterClusterbyDensity_Improved()`** (Currently Used)
-- Drop-in replacement for old `filterClusterbyDensity()`
-- Single-pass filtering with all improved logic
+**`filterClustersByPhysicsConstraints()`** (Currently Used)
+- Physics-based filtering with distance-adaptive thresholds
+- Single-pass filtering with improved logic
+- Validates geometry, density, aspect ratios, and distance constraints
 - Simpler API, good performance
-- **Currently active in `spatial_association_core.cpp`**
 
 **`filterClusterByQuality()`** (Alternative)
 - Multi-stage filtering with detailed statistics
@@ -153,14 +146,16 @@ Multi-stage filtering system with three stages:
 
 ### Usage
 
-The improved filter is automatically used in `SpatialAssociationCore::performClustering()`:
+The physics-based filter is automatically used in `SpatialAssociationCore::performClustering()`:
 
 ```cpp
 // In spatial_association_core.cpp
-ProjectionUtils::filterClusterbyDensity_Improved(
+ProjectionUtils::filterClustersByPhysicsConstraints(
     cluster_stats,
     cluster_indices,
-    60.0);  // max_distance in meters
+    60.0,   // max_distance in meters
+    // ... additional physics-based parameters
+);
 ```
 
 To use the multi-stage version with debug output:
@@ -189,8 +184,8 @@ Main clustering function that executes the full pipeline:
    - Removes clusters that are too low or too flat
    - Filters ground plane artifacts
 
-3. **Quality Filtering**: `filterClusterbyDensity_Improved()`
-   - **NEW**: Physics-based filtering with distance-adaptive thresholds
+3. **Quality Filtering**: `filterClustersByPhysicsConstraints()`
+   - Physics-based filtering with distance-adaptive thresholds
 
 4. **Cluster Merging**: `mergeClusters()`
    - Merges nearby clusters that likely belong to the same object
@@ -242,16 +237,8 @@ euclid_params:
   close_tolerance_mult: 1.5     # Multiplier for close objects (1.5x = 0.30m)
 ```
 
-#### Density Filtering (Legacy - Not Used with Improved Filter)
-```yaml
-density_filter_params:
-  density_weight: 0.6    # Weight for density score
-  size_weight: 0.8       # Weight for size score
-  distance_weight: 0.4   # Weight for distance score
-  score_threshold: 0.6   # Minimum score to keep cluster
-```
-
-**Note**: These parameters are still declared but not used when `filterClusterbyDensity_Improved()` is active.
+#### Physics-Based Filtering Parameters
+The `filterClustersByPhysicsConstraints()` function uses physics-based constraints defined in the code. These are configured through ROS2 parameters in `params.yaml` (see Other Parameters section).
 
 #### Other Parameters
 ```yaml
@@ -432,7 +419,7 @@ Test individual components:
 // Test filtering
 std::vector<ClusterStats> stats = ...;
 std::vector<pcl::PointIndices> clusters = ...;
-ProjectionUtils::filterClusterbyDensity_Improved(stats, clusters, 60.0);
+ProjectionUtils::filterClustersByPhysicsConstraints(stats, clusters, 60.0, /* ... other params ... */);
 ```
 
 ### Integration Testing
@@ -445,15 +432,6 @@ ProjectionUtils::filterClusterbyDensity_Improved(stats, clusters, 60.0);
 3. Verify cluster counts match expectations
 4. Check for false positives/negatives
 
-## Future Improvements
-
-### Potential Enhancements
-
-1. **Dynamic Parameter Tuning**: ROS2 dynamic reconfigure for real-time parameter adjustment
-2. **Multi-Object Tracking**: Associate detections across frames
-3. **Confidence Scoring**: Add confidence scores based on filtering stages
-4. **Object Classification**: Classify clusters as car/pedestrian/cyclist using size constraints
-5. **Temporal Filtering**: Use history to filter flickering detections
 
 ### Code Improvements
 
@@ -461,25 +439,12 @@ ProjectionUtils::filterClusterbyDensity_Improved(stats, clusters, 60.0);
 
 2. **Parameter Exposure**: Expose `ObjectConstraints` values as ROS2 parameters for easier tuning.
 
-3. **Filter Selection**: Add parameter to choose between `filterClusterbyDensity_Improved()` and `filterClusterByQuality()`.
+3. **Filter Selection**: Add parameter to choose between `filterClustersByPhysicsConstraints()` and `filterClusterByQuality()`.
 
 ## References
 
 - **PCL Documentation**: http://pointclouds.org/documentation/
-- **ROS2 TF2**: https://docs.ros.org/en/humble/Tutorials/Intermediate/Tf2/Tf2-Main.html
-- **IoU Calculation**: Standard computer vision metric for bounding box overlap
-
-## Contributing
-
-When modifying the filtering system:
-
-1. **Test with real data**: Use actual LiDAR/camera data, not just synthetic
-2. **Validate physics constraints**: Ensure `ObjectConstraints` values match real-world measurements
-3. **Profile performance**: Check that filtering doesn't add significant latency
-4. **Update documentation**: Keep this DEVELOPING.md file up to date
+- **2D-3D IOU Paper**: https://arxiv.org/pdf/1908.03851
 
 ---
-
-**Last Updated**: 2025-01-XX  
-**Maintainer**: WATonomous Perception Team
 

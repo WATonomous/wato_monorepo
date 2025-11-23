@@ -49,6 +49,23 @@ spatial_association:
     # Voxel downsampling parameter
     voxel_size: 0.1  # Fixed voxel size (meters) for downsampling
 
+    # Quality filtering parameters (improved physics-based filtering)
+    quality_filter_params:
+      max_distance: 60.0  # Maximum detection distance in meters
+      min_points: 5  # Minimum points for viable object
+      min_height: 0.15  # Minimum height in meters
+      min_points_default: 10  # Default minimum points
+      min_points_far: 8  # Minimum points at far distance (> 30m)
+      min_points_medium: 12  # Minimum points at medium distance (> 20m)
+      min_points_large: 30  # Minimum points for large objects
+      distance_threshold_far: 30.0  # Distance threshold for far objects (m)
+      distance_threshold_medium: 20.0  # Distance threshold for medium objects (m)
+      volume_threshold_large: 8.0  # Volume threshold for large objects (m³)
+      min_density: 5.0  # Minimum point density (points per m³)
+      max_density: 1000.0  # Maximum point density (points per m³)
+      max_dimension: 15.0  # Maximum object dimension in meters
+      max_aspect_ratio: 15.0  # Maximum aspect ratio (length/width or length/height)
+
     publish_visualization: false
 
     # Enable verbose point-cloud debug logs

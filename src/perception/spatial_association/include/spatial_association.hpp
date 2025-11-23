@@ -51,12 +51,6 @@ class spatial_association : public rclcpp::Node {
   void multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
   /**
-   * @brief Callback for raw LiDAR point cloud messages
-   * @param msg Point cloud message
-   */
-  void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-  
-  /**
    * @brief Callback for non-ground filtered point cloud from patchwork
    * @param msg Non-ground point cloud message
    */
@@ -79,18 +73,16 @@ class spatial_association : public rclcpp::Node {
    * @param detections 2D camera detections
    * @param transform Transform from LiDAR to camera frame
    * @param projection_matrix Camera projection matrix (3x4, flattened to 12 elements)
-   * @param cluster_indices_input Input cluster indices
    * @return DetectionOutputs containing bounding boxes, detections, and visualization data
+   * @note Uses member variable cluster_indices_ for processing
    */
   DetectionOutputs processDetections(
       const vision_msgs::msg::Detection2DArray& detections,
       const geometry_msgs::msg::TransformStamped& transform,
-      const std::array<double, 12>& projection_matrix,
-      const std::vector<pcl::PointIndices>& cluster_indices_input);
+      const std::array<double, 12>& projection_matrix);
 
   geometry_msgs::msg::TransformStamped transform;
 
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr non_ground_cloud_sub_;
   rclcpp::Subscription<camera_object_detection_msgs::msg::BatchDetection>::SharedPtr batch_dets_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_front_,camera_info_sub_left_, camera_info_sub_right_;
@@ -113,7 +105,6 @@ class spatial_association : public rclcpp::Node {
   std::string camera_info_topic_left_;
   std::string camera_info_topic_right_;
 
-  std::string lidar_topic_;
   std::string non_ground_cloud_topic_;
   std::string detections_topic_;
 
