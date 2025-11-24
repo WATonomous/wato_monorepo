@@ -8,6 +8,7 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code
 COPY src/wato_msgs wato_msgs
 COPY src/infrastructure/infrastructure_deps infrastructure_deps
+COPY src/interfacing/eve_description eve_description
 
 # Copy in CARLA messages (and its contribution text, test requirement)
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
@@ -15,7 +16,7 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msg
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update && \
+RUN apt-get -qq update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | (grep 'apt-get install' || true) \
         | awk '{print $3}' \

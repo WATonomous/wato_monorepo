@@ -1,0 +1,138 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Simplified sensor mount with yaw calibration -->
+  <xacro:macro name="sensor_yaw_mount" params="name parent_link child_link x y z roll pitch yaw">
+    <joint name="${name}_yaw" type="revolute">
+      <parent link="${parent_link}"/>
+      <child link="${child_link}"/>
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0.01" lower="-0.2" upper="0.2"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Roof mount macro - allows parent specification -->
+  <xacro:macro name="roof_mount" params="parent *origin">
+    <!-- Roof mount for all sensors -->
+    <link name="roof_mount"/>
+    <joint name="roof_mount_joint" type="revolute">
+      <parent link="${parent}"/>
+      <child link="roof_mount"/>
+      <xacro:insert_block name="origin"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0" lower="-0.0001" upper="0.0001"/>
+    </joint>
+
+    <!-- Top LiDAR -->
+    <link name="lidar_top">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.1" length="0.15"/>
+        </geometry>
+        <material name="black">
+          <color rgba="0 0 0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.1" length="0.15"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <xacro:sensor_yaw_mount name="lidar_top_mount" parent_link="roof_mount" child_link="lidar_top"
+                            x="0" y="0" z="0.35" roll="0" pitch="0" yaw="0"/>
+
+
+    <!-- GPS/IMU Antenna -->
+    <link name="gps_imu_antenna">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.08"/>
+        </geometry>
+        <material name="blue">
+          <color rgba="0.0 0.0 1.0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.08"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <xacro:sensor_yaw_mount name="gps_imu_mount" parent_link="roof_mount" child_link="gps_imu_antenna"
+                            x="-0.5600" y="0" z="0" roll="0" pitch="0" yaw="0"/>
+
+    <!-- Roof-Mounted Cameras -->
+    <link name="camera_front_center">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.05"/>
+        </geometry>
+        <material name="red">
+          <color rgba="1.0 0.0 0.0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.05"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <xacro:sensor_yaw_mount name="camera_front_center_mount" parent_link="roof_mount" child_link="camera_front_center"
+                            x="0.2375" y="0" z="0.185" roll="0" pitch="0" yaw="0"/>
+    
+    <link name="camera_front_left">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.05"/>
+        </geometry>
+        <material name="red">
+          <color rgba="1.0 0.0 0.0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.05"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <xacro:sensor_yaw_mount name="camera_front_left_mount" parent_link="roof_mount" child_link="camera_front_left"
+                            x="0.1875" y="0.185" z="0.185" roll="0" pitch="0" yaw="${pi/4}"/>
+
+
+    <link name="camera_front_right">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.05"/>
+        </geometry>
+        <material name="red">
+          <color rgba="1.0 0.0 0.0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.05"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <xacro:sensor_yaw_mount name="camera_front_right_mount" parent_link="roof_mount" child_link="camera_front_right"
+                            x="0.1875" y="-0.185" z="0.185" roll="0" pitch="0" yaw="-${pi/4}"/>
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Vehicle Properties -->
+  <xacro:property name="length" value="4.0936"/>
+  <xacro:property name="width" value="1.3579"/>
+  <xacro:property name="height" value="1.4090"/>
+  <xacro:property name="wheel_radius" value="0.31235"/>
+  <xacro:property name="wheel_width" value="0.2137"/>
+  <xacro:property name="wheelbase" value="2.5667"/>
+  <xacro:property name="track_width" value="1.5716"/>
+
+  <!-- Chassis macro - allows parent specification -->
+  <xacro:macro name="chassis" params="parent *origin">
+    <!-- Chassis Link -->
+    <link name="chassis">
+      <visual>
+        <origin xyz="${wheelbase/2 + 0.065} 0 0" rpy="-${pi/2} 0 ${pi/2}"/>
+        <geometry>
+          <mesh filename="package://eve_description/meshes/kia_soul_ev.stl" scale="0.01 0.01 0.01"/>
+        </geometry>
+        <material name="grey">
+          <color rgba="0.5 0.5 0.5 1"/>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Joint from parent to chassis -->
+    <joint name="base_to_chassis" type="revolute">
+      <parent link="${parent}"/>
+      <child link="chassis"/>
+      <xacro:insert_block name="origin"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0" lower="-0.0001" upper="0.0001"/>
+    </joint>
+
+    <!-- Wheel Macro -->
+    <xacro:macro name="wheel" params="name x y z">
+      <link name="${name}_wheel">
+        <visual>
+          <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+          <geometry>
+            <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+          </geometry>
+          <material name="black">
+            <color rgba="0.0 0.0 0.0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+          </geometry>
+        </collision>
+      </link>
+      <joint name="${name}_joint" type="continuous">
+        <parent link="chassis"/>
+        <child link="${name}_wheel"/>
+        <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+      </joint>
+    </xacro:macro>
+
+    <!-- Steering Wheel Macro -->
+    <xacro:macro name="steering_wheel" params="name x y z">
+      <link name="${name}_knuckle"/>
+      <joint name="${name}_steering_joint" type="revolute">
+        <parent link="chassis"/>
+        <child link="${name}_knuckle"/>
+        <origin xyz="${x} ${y} ${z}" rpy="${pi/2} 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="10" velocity="1" lower="-0.785" upper="0.785"/> <!-- +/-45 deg -->
+      </joint>
+      <link name="${name}_wheel">
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+          </geometry>
+          <material name="black">
+            <color rgba="0.0 0.0 0.0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+          </geometry>
+        </collision>
+      </link>
+      <joint name="${name}_wheel_joint" type="continuous">
+        <parent link="${name}_knuckle"/>
+        <child link="${name}_wheel"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+      </joint>
+    </xacro:macro>
+
+    <!-- Instantiate Wheels -->
+    <!-- Rear Wheels -->
+    <xacro:wheel name="rear_left" x="0" y="${track_width/2}" z="${wheel_radius}"/>
+    <xacro:wheel name="rear_right" x="0" y="-${track_width/2}" z="${wheel_radius}"/>
+
+    <!-- Front Wheels with Steering -->
+    <xacro:steering_wheel name="front_left" x="${wheelbase}" y="${track_width/2}" z="${wheel_radius}"/>
+    <xacro:steering_wheel name="front_right" x="${wheelbase}" y="-${track_width/2}" z="${wheel_radius}"/>
+  </xacro:macro>
+
+</robot>
