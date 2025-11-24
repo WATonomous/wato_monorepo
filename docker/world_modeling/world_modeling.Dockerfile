@@ -22,7 +22,6 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/carla_msgs/CO
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && \
-    rosdep update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | (grep 'apt-get install' || true) \
         | awk '{print $3}' \

@@ -34,3 +34,10 @@ launch:
           value: $(var use_sim_time)
         - name: publish_default_positions
           value: true
+
+  - node:
+      pkg: eve_description
+      exec: urdf_publisher.py
+      name: urdf_viz_publisher
+      args: $(var urdf_path)
+      output: screen

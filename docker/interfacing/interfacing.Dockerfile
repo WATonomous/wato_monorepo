@@ -12,7 +12,7 @@ COPY src/wato_test wato_test
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update && \
+RUN apt-get -qq update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | (grep 'apt-get install' || true) \
         | awk '{print $3}' \
