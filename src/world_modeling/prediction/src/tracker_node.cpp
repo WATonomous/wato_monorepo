@@ -19,7 +19,7 @@ Tracker::Tracker()
 {
   // Subscriber
   subscription_ = this->create_subscription<visualization_msgs::msg::MarkerArray>(
-    "hd_map_viz", 10,
+    "/markers/annotations", 10,
     std::bind(&Tracker::marker_array_callback, this, std::placeholders::_1));
 
   // Publisher
