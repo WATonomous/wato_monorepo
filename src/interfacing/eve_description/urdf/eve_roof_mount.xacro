@@ -90,7 +90,7 @@
 
     <xacro:sensor_yaw_mount name="camera_front_center_mount" parent_link="roof_mount" child_link="camera_front_center"
                             x="0.2375" y="0" z="0.185" roll="0" pitch="0" yaw="0"/>
-    
+
     <link name="camera_front_left">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
