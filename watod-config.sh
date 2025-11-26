@@ -36,11 +36,11 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-# export ACTIVE_MODULES=""
+export ACTIVE_MODULES="perception:dev infrastructure"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
-# export COMPOSE_PROJECT_NAME=""
+export COMPOSE_PROJECT_NAME="brianzheng111"
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = "<your_current_github_branch>"
@@ -65,4 +65,4 @@
 
 ############################### FOXGLOVE SETTINGS ##################################
 ## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.
-# export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"
+export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"

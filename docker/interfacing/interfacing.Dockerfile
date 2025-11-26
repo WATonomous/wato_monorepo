@@ -23,6 +23,9 @@ FROM ${BASE_IMAGE} AS dependencies
 
 # Install dependancies here, BEFORE WE INSTALL WITH ROSDEP
 
+# Camera and LiDAR ROS Driver
+
+
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update && \

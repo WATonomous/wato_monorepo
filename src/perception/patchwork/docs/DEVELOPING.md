@@ -45,7 +45,7 @@ Other dependencies:
 Build with colcon (inside the container or a ROS 2 environment):
 
 ```
-colcon build --packages-select patchworkpp --cmake-args -DCMAKE_BUILD_TYPE=Release
+colcon build --packages-select wato_patchworkpp --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 
 ## Runtime Interfaces
@@ -203,7 +203,7 @@ ros2 launch perception_bringup perception.launch.py \
 Package‑local launch:
 
 ```
-ros2 launch patchworkpp ground_removal_launch.yaml cloud_topic:=/LIDAR_TOP
+ros2 launch wato_patchworkpp ground_removal_launch.yaml cloud_topic:=/LIDAR_TOP
 ```
 
 Docker (builds Patchwork++ and this package): see `docker/perception/perception.Dockerfile:1`. Inside the container, build and launch as above.
