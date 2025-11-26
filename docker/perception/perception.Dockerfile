@@ -6,15 +6,9 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
-<<<<<<< HEAD
-# COPY src/perception perception
-COPY src/perception/patchwork perception/patchwork
-COPY src/perception/spatial_association perception/spatial_association
-COPY src/perception/perception_bringup perception/perception_bringup
-=======
 COPY src/perception/perception_bringup perception_bringup
 COPY src/perception/patchwork patchwork
->>>>>>> origin/main
+COPY src/perception/spatial_association spatial_association
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
@@ -46,6 +40,7 @@ RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
     ros-${ROS_DISTRO}-tf-transformations \
     ros-${ROS_DISTRO}-pcl-conversions \
     libopencv-dev \
+    gfortran \
     && rm -rf /var/lib/apt/lists/*
 
 # Install rosdep requirements collected from source stage

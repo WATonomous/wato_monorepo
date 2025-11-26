@@ -29,12 +29,12 @@ launch:
 
   # Patchwork++ Node
   - node:
-      pkg: patchworkpp
+      pkg: wato_patchworkpp
       exec: patchworkpp_node
       name: patchworkpp_node
       output: screen
       param:
-        - from: $(find-pkg-share patchworkpp)/config/params.yaml
+        - from: $(find-pkg-share wato_patchworkpp)/config/params.yaml
       remap:
         - from: input_cloud
           to: $(var patchwork_cloud_topic)

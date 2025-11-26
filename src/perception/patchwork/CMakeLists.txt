@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.10)
-project(patchworkpp)
+project(wato_patchworkpp)
 
 # C++ standard & warnings
 if(NOT CMAKE_CXX_STANDARD)

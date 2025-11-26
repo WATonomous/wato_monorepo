@@ -6,11 +6,11 @@
 
 1. attach a shell or open the container and run (in mode 'develop')
 
-`colcon build patchworkpp`
+`colcon build wato_patchworkpp`
 
 1. launch the node
 
-`ros2 launch patchworkpp ground_removal.launch.py`
+`ros2 launch wato_patchworkpp ground_removal_launch.yaml`
 
 ## Key Parameters (config/params.yaml)
 

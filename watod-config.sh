@@ -36,22 +36,11 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-export ACTIVE_MODULES="perception infrastructure"
+export ACTIVE_MODULES="perception:dev infrastructure"
 
-<<<<<<< HEAD
-################################# MODE OF OPERATION #################################
-## Possible modes of operation when running watod.
-## Possible values:
-##	 - deploy (default)		:	runs production-grade containers (non-editable)
-##	 - develop   		    :	runs developer containers (editable)
-
-export MODE_OF_OPERATION="develop"
-
-=======
->>>>>>> origin/main
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
-# export COMPOSE_PROJECT_NAME=""
+export COMPOSE_PROJECT_NAME="brianzheng111"
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = "<your_current_github_branch>"

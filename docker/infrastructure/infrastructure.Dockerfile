@@ -63,14 +63,8 @@ COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
 COPY docker/iox_config.toml ${WATONOMOUS_INSTALL}/iox_config.toml
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-<<<<<<< HEAD
-# Install entrypoint to a stable path that survives workspace cleanup
-COPY docker/wato_entrypoint.sh /usr/local/bin/wato_entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/wato_entrypoint.sh"]
-=======
 COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
 ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
->>>>>>> origin/main
 
 ################################ Prod ################################
 FROM build AS deploy
