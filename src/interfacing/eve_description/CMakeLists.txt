@@ -20,13 +20,47 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(xacro REQUIRED)
+
+# Generate URDF from xacro during build
+set(XACRO_INPUT_FILE ${CMAKE_CURRENT_SOURCE_DIR}/urdf/eve_kia_soul_ev.xacro)
+set(URDF_OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/urdf/eve_kia_soul_ev.urdf)
+
+# Get all xacro files in urdf directory
+file(GLOB XACRO_FILES ${CMAKE_CURRENT_SOURCE_DIR}/urdf/*.xacro)
+
+# Create output directory
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/urdf)
+
+# Run xacro to generate URDF
+add_custom_command(
+  OUTPUT ${URDF_OUTPUT_FILE}
+  COMMAND xacro ${XACRO_INPUT_FILE} -o ${URDF_OUTPUT_FILE}
+  DEPENDS ${XACRO_FILES}
+  COMMENT "Generating URDF from xacro"
+)
+
+# Create a custom target that depends on the generated URDF
+add_custom_target(generate_urdf ALL DEPENDS ${URDF_OUTPUT_FILE})
+
+# Install scripts
+install(PROGRAMS
+  scripts/urdf_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install both xacro and generated URDF
 install(DIRECTORY
   launch
   urdf
+  meshes
   DESTINATION share/${PROJECT_NAME}/
+)
+
+# Install the generated URDF
+install(FILES
+  ${URDF_OUTPUT_FILE}
+  DESTINATION share/${PROJECT_NAME}/urdf/
 )
 
 ament_package()

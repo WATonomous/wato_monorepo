@@ -81,6 +81,23 @@ REGISTRY_URL=${REGISTRY_URL:-"ghcr.io/watonomous/wato_monorepo"}
 REGISTRY="${REGISTRY_URL%%/*}"
 REPOSITORY="${REGISTRY_URL##*/}"
 
+# Bags directory
+BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
+
+# ROS 2 Middleware configuration
+RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_cyclonedds_cpp"}
+CYCLONEDDS_URI=${CYCLONEDDS_URI:-"file:///opt/watonomous/dds_config.xml"}
+
+# Always append infrastructure to ACTIVE_MODULES if not already present
+if [[ -n ${ACTIVE_MODULES:-} ]]; then
+  # Check if infrastructure is already in the list
+  if [[ ! " ${ACTIVE_MODULES} " =~ " infrastructure " ]]; then
+    ACTIVE_MODULES="${ACTIVE_MODULES} infrastructure"
+  fi
+else
+  ACTIVE_MODULES="infrastructure"
+fi
+
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
 
@@ -95,7 +112,6 @@ PERCEPTION_DEPTH_ESTIMATION_IMAGE=${PERCEPTION_DEPTH_ESTIMATION_IMAGE:-"$REGISTR
 
 # World Modeling
 WORLD_MODELING_IMAGE=${WORLD_MODELING_IMAGE:-"$REGISTRY_URL/world_modeling/world_modeling"}
-
 
 # Action
 ACTION_IMAGE=${ACTION_IMAGE:-"$REGISTRY_URL/action/action"}
@@ -121,6 +137,10 @@ FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT+2))}
 CARLAVIZ_PORT=${CARLAVIZ_PORT:-$((BASE_PORT+3))}
 CARLAVIZ_PORT_2=${CARLAVIZ_PORT_2:-$((BASE_PORT+4))}
 CARLA_NOTEBOOKS_PORT=${CARLA_NOTEBOOKS_PORT:-$((BASE_PORT+5))}
+LOG_VIEWER__PORT=${LOG_VIEWER__PORT:-$((BASE_PORT+6))}
+
+############################  ROS DOMAIN ID  #########################################
+ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-$((SETUID % 230))}
 
 ################################  Write .env  ########################################
 
@@ -151,6 +171,7 @@ append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
 append "CARLAVIZ_PORT" "$CARLAVIZ_PORT"
 append "CARLAVIZ_PORT_2" "$CARLAVIZ_PORT_2"
 append "CARLA_NOTEBOOKS_PORT" "$CARLA_NOTEBOOKS_PORT"
+append "LOG_VIEWER__PORT" "$LOG_VIEWER__PORT"
 
 append "REGISTRY" "$REGISTRY"
 append "REPOSITORY" "$REPOSITORY"
@@ -178,5 +199,10 @@ append "SIMULATION_CARLA_NOTEBOOKS_IMAGE" "$SIMULATION_CARLA_NOTEBOOKS_IMAGE"
 append "SIMULATION_CARLA_SAMPLE_NODE_IMAGE" "$SIMULATION_CARLA_SAMPLE_NODE_IMAGE"
 
 append "INTERFACING_IMAGE" "$INTERFACING_IMAGE"
+
+# ROS 2 Middleware
+append "RMW_IMPLEMENTATION" "$RMW_IMPLEMENTATION"
+append "CYCLONEDDS_URI" "$CYCLONEDDS_URI"
+append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
 
 echo "[setup-env] .env generated at $ENV_FILE"

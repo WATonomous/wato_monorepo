@@ -22,17 +22,23 @@
 
 ############################ ACTIVE MODULE CONFIGURATION ############################
 ## List of active modules to run, defined in docker-compose.yaml.
+## Add ":dev" suffix to run a module in development mode (with live code editing)
+##
 ## Possible values:
-##   - infrastructure     	:   starts visualization tools (foxglove and/or vnc and/or data_stream)
 ##   - interfacing          :   starts up interfacing nodes (CAN and sensor interfaces)
-##	 - perception			:	starts perception nodes (Object detection, tracking)
-##	 - world_modeling		:	starts world modeling nodes (HD map, localization)
-##	 - action				:	starts action nodes (local planning, control)
-##	 - simulation			:	starts simulation (carla)
-
+##   - perception           :   starts perception nodes (Object detection, tracking)
+##   - world_modeling       :   starts world modeling nodes (HD map, localization)
+##   - action               :   starts action nodes (local planning, control)
+##   - simulation           :   starts simulation (carla)
+##
+## Examples:
+##   - "interfacing"                      : Interfacing in deploy mode
+##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
+##   - "interfacing:dev perception:dev"   : Both in dev mode
 
 export ACTIVE_MODULES="perception infrastructure"
 
+<<<<<<< HEAD
 ################################# MODE OF OPERATION #################################
 ## Possible modes of operation when running watod.
 ## Possible values:
@@ -41,6 +47,8 @@ export ACTIVE_MODULES="perception infrastructure"
 
 export MODE_OF_OPERATION="develop"
 
+=======
+>>>>>>> origin/main
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
 # export COMPOSE_PROJECT_NAME=""
@@ -51,6 +59,20 @@ export MODE_OF_OPERATION="develop"
 
 # Docker Registry to pull/push images. DEFAULT = "ghcr.io/watonomous/wato_monorepo"
 # export REGISTRY_URL=""
+
+# Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
+# export BAG_DIRECTORY=""
+
+############################### ROS 2 MIDDLEWARE SETTINGS ##############################
+## Middleware to use for interprocess communication. DEFAULT = "rmw_cyclonedds_cpp"
+# export RMW_IMPLEMENTATION=""
+
+## Path to CycloneDDS configuration file. DEFAULT = "file:///opt/watonomous/dds_config.xml"
+# export CYCLONEDDS_URI=""
+
+## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
+## Each user gets a unique domain to prevent cross-talk on shared networks
+# export ROS_DOMAIN_ID=""
 
 ############################### FOXGLOVE SETTINGS ##################################
 ## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.

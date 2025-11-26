@@ -7,6 +7,8 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
 COPY src/wato_msgs wato_msgs
+COPY src/infrastructure/infrastructure_deps infrastructure_deps
+COPY src/interfacing/eve_description eve_description
 
 # Copy in CARLA messages (and its contribution text, test requirement)
 RUN git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
@@ -14,7 +16,7 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msg
 
 # Scan for rosdeps
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update && \
+RUN apt-get -qq update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | (grep 'apt-get install' || true) \
         | awk '{print $3}' \
@@ -25,33 +27,14 @@ FROM ${BASE_IMAGE} AS dependencies
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
-# Install Foxglove Deps (TODO(wato) use rosdep)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    ros-humble-ros2bag \
-    ros-humble-rosbag2* \
-    ros-humble-foxglove-msgs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set up apt repo (TODO(wato) what is this for?)
-RUN apt-get update && apt-get install -y --no-install-recommends \
     lsb-release \
     software-properties-common \
     apt-transport-https \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Dependencies (TODO(wato) use rosdep)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-humble-foxglove-bridge \
-    ros-humble-rosbridge-server \
-    ros-humble-topic-tools \
-    ros-humble-vision-msgs \
-    ros-humble-ros2bag \
-    ros-humble-rosbag2* \
-    ros-humble-foxglove-msgs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Rosdep requirements
+# Install Rosdep requirements (including all ROS dependencies from infrastructure_deps/package.xml)
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
@@ -75,10 +58,19 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
+# RMW Configurations
+COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+COPY docker/iox_config.toml ${WATONOMOUS_INSTALL}/iox_config.toml
+
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
+<<<<<<< HEAD
 # Install entrypoint to a stable path that survives workspace cleanup
 COPY docker/wato_entrypoint.sh /usr/local/bin/wato_entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/wato_entrypoint.sh"]
+=======
+COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
+>>>>>>> origin/main
 
 ################################ Prod ################################
 FROM build AS deploy
