@@ -24,15 +24,12 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Path to ByteTrack root folder (will probably change)
-set(BYTETRACK_DIR /usr/local CACHE STRING "Path to ByteTrack directory")
-
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
-find_package(Eigen3 REQUIRED)
+find_package(bytetrack_cpp_vendor REQUIRED)
 
 # Add the executable for the tracking_2d node
 add_executable(tracking_2d_node src/tracking_2d.cpp)
@@ -41,14 +38,12 @@ add_executable(tracking_2d_node src/tracking_2d.cpp)
 target_include_directories(tracking_2d_node
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${BYTETRACK_DIR}/include
-    ${EIGEN3_INCLUDE_DIRS}
 )
 
 # Link libraries
 target_link_libraries(tracking_2d_node
     PRIVATE
-    ${BYTETRACK_DIR}/lib/libbytetrack.so
+    bytetrack_cpp_vendor::bytetrack
     rclcpp::rclcpp
     ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}

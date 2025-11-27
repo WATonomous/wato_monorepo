@@ -1,0 +1,2 @@
+ament_prepend_unique_value LD_LIBRARY_PATH "@CMAKE_INSTALL_PREFIX@/opt/bytetrack_cpp_vendor/lib"
+ament_prepend_unique_value CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/bytetrack_cpp_vendor"

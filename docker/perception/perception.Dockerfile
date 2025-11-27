@@ -14,10 +14,7 @@ COPY src/wato_test wato_test
 # Bring in Patchwork++ third-party dependency (built later in dependencies stage)
 RUN git clone --depth 1 --branch master \
       https://github.com/url-kaist/patchwork-plusplus \
-      patchwork/patchwork-plusplus && \
-    git clone --depth 1 --branch main \
-      https://github.com/Vertical-Beach/ByteTrack-cpp.git \
-      /opt/ByteTrack-cpp
+      patchwork/patchwork-plusplus
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -42,15 +39,6 @@ COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get -qq update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
-
-# Install ByteTrack C++ library for native ROS wrappers (requires cmake/build tools from rosdep)
-COPY --from=source /opt/ByteTrack-cpp /opt/ByteTrack-cpp
-RUN cmake -S /opt/ByteTrack-cpp -B /opt/ByteTrack-cpp/build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build /opt/ByteTrack-cpp/build --config Release && \
-    install -Dm755 /opt/ByteTrack-cpp/build/libbytetrack.so /usr/local/lib/libbytetrack.so && \
-    install -d /usr/local/include/ByteTrack && \
-    cp -r /opt/ByteTrack-cpp/include/ByteTrack/. /usr/local/include/ByteTrack/ && \
-    ldconfig
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
