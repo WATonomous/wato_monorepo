@@ -13,29 +13,17 @@ These steps are to setup the monorepo to work on your own PC. We utilize docker 
 
 ## Available Modules
 
-### Infrastructure
+`Infrastructure` Starts the foxglove bridge and data streamer for rosbags.
 
-Starts the foxglove bridge and data streamer for rosbags.
+`Interfacing` Launches packages directly connecting to hardware. This includes the sensors of the car and the car itself. [see docs](src/interfacing/INTERFACING_README.md)
 
-### Interfacing
+`Perception` Launches packages for perception. [see docs](src/perception/PERCEPTION_README.md)
 
-Launches packages directly connecting to hardware. This includes the sensors of the car and the car itself. [see docs](src/interfacing/INTERFACING_README.md)
+`World Modeling` Launches packages for world modeling. [see docs](src/world_modeling/WM_README.md)
 
-### Perception
+`Action` Launches packages for action. [see docs](src/action/ACTION_README.md)
 
-Launches packages for perception. [see docs](src/perception/PERCEPTION_README.md)
-
-### World Modeling
-
-Launches packages for world modeling. [see docs](src/world_modeling/WM_README.md)
-
-### Action
-
-Launches packages for action. [see docs](src/action/ACTION_README.md)
-
-### Simulation
-
-Launches packages CARLA simulator. [see docs](src/simulation/CARLA_README.md)
+`Simulation` Launches packages CARLA simulator. [see docs](src/simulation/CARLA_README.md)
 
 ## Contribute
 

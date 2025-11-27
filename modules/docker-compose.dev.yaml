@@ -1,0 +1,91 @@
+---
+volumes:
+  iox_runtime:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+
+services:
+#################### INTERFACING SERVICE ####################
+  interfacing_bringup_dev:
+    profiles: ["interfacing-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: interfacing_bringup
+    command: sleep infinity
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing
+
+#################### PERCEPTION SERVICE ####################
+  perception_bringup_dev:
+    profiles: ["perception-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: perception_bringup
+    command: sleep infinity
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
+
+#################### WORLD_MODELING SERVICE ####################
+  world_modeling_bringup_dev:
+    profiles: ["world_modeling-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: world_modeling_bringup
+    command: sleep infinity
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
+
+#################### ACTION SERVICE ####################
+  action_bringup_dev:
+    profiles: ["action-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: action_bringup
+    command: sleep infinity
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/action:/home/bolty/ament_ws/src/action
+
+#################### SIMULATION SERVICE ####################
+  carla_ros_bridge_dev:
+    profiles: ["simulation-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_ros_bridge
+    command: sleep infinity
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
+
+  carla_sample_node_dev:
+    profiles: ["simulation-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_sample_node
+    command: sleep infinity
+    volumes:
+      - iox_runtime:/tmp
+      - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
+
+  carla_sim:
+    profiles: ["simulation-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_sim
+
+  carla_viz:
+    profiles: ["simulation-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_viz
+
+  carla_notebooks:
+    profiles: ["simulation-dev"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_notebooks

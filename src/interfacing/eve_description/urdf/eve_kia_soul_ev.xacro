@@ -1,192 +1,23 @@
 <?xml version="1.0"?>
 <robot name="eve_kia_soul_ev" xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <!-- Properties -->
-  <xacro:property name="length" value="4.14"/>
-  <xacro:property name="width" value="1.80"/>
-  <xacro:property name="height" value="1.60"/>
-  <xacro:property name="wheel_radius" value="0.3"/>
-  <xacro:property name="wheel_width" value="0.2"/>
-  <xacro:property name="wheelbase" value="2.51"/>
-  <xacro:property name="track_width" value="1.52"/>
+  <!-- Base link (root of the robot) -->
+  <link name="base_link"/>
 
-  <link name="base_link">
-    <visual>
-      <origin xyz="${wheelbase/2} 0 ${height/2}" rpy="0 0 0"/>
-      <geometry>
-        <box size="${length} ${width} ${height}"/>
-      </geometry>
-      <material name="grey">
-        <color rgba="0.5 0.5 0.5 1"/>
-      </material>
-    </visual>
-  </link>
+  <!-- Include chassis -->
+  <xacro:include filename="eve_chassis.xacro"/>
 
-  <xacro:macro name="wheel" params="name x y z">
-    <link name="${name}_wheel">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
-        <material name="black">
-          <color rgba="0.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
-      </collision>
-    </link>
-    <joint name="${name}_joint" type="continuous">
-      <parent link="base_link"/>
-      <child link="${name}_wheel"/>
-      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
-      <axis xyz="0 1 0"/>
-    </joint>
-  </xacro:macro>
+  <!-- Instantiate chassis with position relative to base_link -->
+  <xacro:chassis parent="base_link">
+    <origin xyz="-0.8629 0 0" rpy="0 0 0"/>
+  </xacro:chassis>
 
-  <xacro:macro name="steering_wheel" params="name x y z">
-    <link name="${name}_knuckle"/>
-    <joint name="${name}_steering_joint" type="revolute">
-      <parent link="base_link"/>
-      <child link="${name}_knuckle"/>
-      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
-      <axis xyz="0 0 1"/>
-      <limit effort="10" velocity="1" lower="-0.785" upper="0.785"/> <!-- +/-45 deg -->
-    </joint>
-    <link name="${name}_wheel">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
-        <material name="black">
-          <color rgba="0.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
-      </collision>
-    </link>
-    <joint name="${name}_wheel_joint" type="continuous">
-      <parent link="${name}_knuckle"/>
-      <child link="${name}_wheel"/>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <axis xyz="0 1 0"/>
-    </joint>
-  </xacro:macro>
+  <!-- Include roof mount and sensors -->
+  <xacro:include filename="eve_roof_mount.xacro"/>
 
-  <!-- Rear Wheels -->
-  <xacro:wheel name="rear_left" x="0" y="${track_width/2}" z="${wheel_radius}"/>
-  <xacro:wheel name="rear_right" x="0" y="-${track_width/2}" z="${wheel_radius}"/>
-
-  <!-- Front Wheels with Steering -->
-  <xacro:steering_wheel name="front_left" x="${wheelbase}" y="${track_width/2}" z="${wheel_radius}"/>
-  <xacro:steering_wheel name="front_right" x="${wheelbase}" y="-${track_width/2}" z="${wheel_radius}"/>
-
-<link name="lidar_top">
-  <visual>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <cylinder radius="0.1" length="0.15"/>
-    </geometry>
-    <material name="black">
-      <color rgba="0 0 0 1"/>
-    </material>
-  </visual>
-  <collision>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <cylinder radius="0.1" length="0.15"/>
-    </geometry>
-  </collision>
-</link>
-
-<joint name="lidar_top_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="lidar_top"/>
-  <origin xyz="-0.55 0 2.07" rpy="0 0 0"/>
-</joint>
-
-<!-- Left Mirror LiDAR -->
-<link name="lidar_left">
-  <visual>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <cylinder radius="0.08" length="0.12"/>
-    </geometry>
-    <material name="black">
-      <color rgba="0 0 0 1"/>
-    </material>
-  </visual>
-  <collision>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <cylinder radius="0.08" length="0.12"/>
-    </geometry>
-  </collision>
-</link>
-
-<joint name="lidar_left_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="lidar_left"/>
-  <origin xyz="-0.55 1 2.07" rpy="0 0 2"/>
-</joint>
-
-<!-- Right Mirror LiDAR -->
-<link name="lidar_right">
-  <visual>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <cylinder radius="0.08" length="0.12"/>
-    </geometry>
-    <material name="black">
-      <color rgba="0 0 0 1"/>
-    </material>
-  </visual>
-  <collision>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <cylinder radius="0.08" length="0.12"/>
-    </geometry>
-  </collision>
-</link>
-
-<joint name="lidar_right_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="lidar_right"/>
-  <origin xyz="-0.55 -1 2.07" rpy="0 0 2"/>
-</joint>
-
-<!-- GPS/IMU Antenna -->
-<link name="gps_imu_antenna">
-  <visual>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <sphere radius="0.05"/>
-    </geometry>
-    <material name="blue">
-      <color rgba="0.0 0.0 1.0 1"/>
-    </material>
-  </visual>
-  <collision>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <sphere radius="0.05"/>
-    </geometry>
-  </collision>
-</link>
-
-<joint name="gps_imu_antenna_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="gps_imu_antenna"/>
-  <origin xyz="-1.0326 0 1.689" rpy="0 0 0"/>
-</joint>
+  <!-- Instantiate roof mount with position relative to chassis -->
+  <xacro:roof_mount parent="base_link">
+    <origin xyz="0 0 1.76" rpy="0 0 0"/>
+  </xacro:roof_mount>
 
 </robot>
