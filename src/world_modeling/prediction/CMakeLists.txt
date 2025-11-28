@@ -23,15 +23,21 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# ---- General ROS 2 Packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
-
-# ---- Msg Packages
-find_package(common_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+# Messages
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/TrackedPrediction.msg"
+  "msg/TrackedPredictionArray.msg"
+  DEPENDENCIES builtin_interfaces geometry_msgs)
+
+ament_export_dependencies(rosidl_default_runtime)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -51,10 +57,10 @@ target_include_directories(prediction_lib
 # Add ROS2 dependencies required by package
 ament_target_dependencies(prediction_lib
   rclcpp
-  common_msgs
   visualization_msgs
   geometry_msgs
   Eigen3
+  rosidl_default_runtime
 )
 
 target_link_libraries(prediction_lib
@@ -96,6 +102,7 @@ if(BUILD_TESTING)
     geometry_msgs
     wato_test
     Eigen3
+    rosidl_default_runtime
   )
 
   add_test(NAME test_kalman_filter_integration 
@@ -106,6 +113,7 @@ endif()
 add_executable(prediction_node src/kalman_filter.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(prediction_node prediction_lib)
+ament_target_dependencies(prediction_node rclcpp rosidl_default_runtime)
 
 # Copy executable to installation location
 install(TARGETS
@@ -116,6 +124,7 @@ install(TARGETS
 install(DIRECTORY
   config
   launch
+  msg
   DESTINATION share/${PROJECT_NAME})
 
 ament_package()

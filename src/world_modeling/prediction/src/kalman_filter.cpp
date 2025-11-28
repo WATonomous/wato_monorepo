@@ -31,6 +31,8 @@
 #include <iomanip>
 #include <algorithm>
 #include <cctype>
+#include <prediction/msg/tracked_prediction.hpp>
+#include <prediction/msg/tracked_prediction_array.hpp>
 
 namespace fs = std::filesystem;
 using std::chrono::system_clock;
@@ -171,6 +173,8 @@ public:
     sub_ = this->create_subscription<visualization_msgs::msg::MarkerArray>(
       input_topic_, 10, std::bind(&KalmanFilterNode::on_detection_markers, this, _1));
     pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(output_topic_, 10);
+    tracked_pub_ = this->create_publisher<prediction::msg::TrackedPredictionArray>(
+      "/prediction/tracked_predictions", 10);
 
     // timer for periodic publishing of predictions
     auto period_ms = std::chrono::milliseconds(static_cast<int>(1000.0 / std::max(1, publish_rate)));
@@ -244,66 +248,55 @@ private:
 
     visualization_msgs::msg::MarkerArray out_markers;
 
+    prediction::msg::TrackedPredictionArray arr;
+    arr.tracks.reserve(tracks_.size());
+
     for (auto &kv : tracks_) {
       const std::string &inst_id = kv.first;
       TrackState &ts = kv.second;
-
       int pred_steps = std::max(1, int(std::round(pred_horizon_ / pred_dt_)));
       ts.kf.set_dt(pred_dt_);
       auto preds = ts.kf.rollout_predictions(pred_steps);
 
-      // FOR VISUALIZATION: Include this data structure
-      struct TrajectoryOutput {
-        std::string object_id = inst_id;
-        std::vector<geometry_msgs::msg::PoseWithCovariance> poses;
-        std::vector<geometry_msgs::msg::Twist> velocities;
-        std::vector<rclcpp::Time> timestamps;
-        double confidence = 0.95;  // or compute from covariance
-      } traj_out;
+      prediction::msg::TrackedPrediction tp;
+      tp.object_id = inst_id;
+      tp.stamp = this->now();
+      const VectorXd &xc = ts.kf.x;
+      tp.x = xc(0); tp.y = xc(1); tp.z = xc(2);
+      tp.yaw = xc(6);
+      tp.vx = xc(3); tp.vy = xc(4); tp.vz = xc(5);
+      tp.length = ts.size_known ? ts.l : 4.0f;
+      tp.width  = ts.size_known ? ts.w : 2.0f;
+      tp.height = ts.size_known ? ts.h : 1.6f;
+      tp.prediction_dt = static_cast<float>(pred_dt_);
+      tp.horizon = static_cast<float>(pred_horizon_);
+      tp.cov_xx = static_cast<float>(ts.kf.P(0,0));
+      tp.cov_yy = static_cast<float>(ts.kf.P(1,1));
+      tp.cov_zz = static_cast<float>(ts.kf.P(2,2));
+      tp.cov_yaw = static_cast<float>(ts.kf.P(6,6));
+      float pos_unc = tp.cov_xx + tp.cov_yy + tp.cov_zz;
+      tp.confidence = 1.0f / (1.0f + pos_unc);
 
-      for (int s = 0; s < static_cast<int>(preds.size()); ++s) {
-        const VectorXd &xpred = preds[s].first;
-        const MatrixXd &Ppred = preds[s].second;
-        
-        // Position
-        double px = xpred(0), py = xpred(1), pz = xpred(2);
-        double pyaw = xpred(6);
-        
-        // Velocity
-        double vx = xpred(3), vy = xpred(4), vz = xpred(5);
-        
-        // Covariance (position uncertainty)
-        // P(0:3, 0:3) is position covariance
-        double pos_cov = Ppred(0,0) + Ppred(1,1) + Ppred(2,2);
-        
-        // Build pose message
-        geometry_msgs::msg::PoseWithCovariance pose_cov;
-        pose_cov.pose.position.x = px;
-        pose_cov.pose.position.y = py;
-        pose_cov.pose.position.z = pz;
-        pose_cov.pose.orientation = yaw_to_quat(pyaw);
-        
-        // 6x6 covariance (x,y,z,rx,ry,rz)
-        pose_cov.covariance[0] = Ppred(0,0);   // x
-        pose_cov.covariance[7] = Ppred(1,1);   // y
-        pose_cov.covariance[14] = Ppred(2,2);  // z
-        pose_cov.covariance[21] = 0.01;        // rx (small)
-        pose_cov.covariance[28] = 0.01;        // ry (small)
-        pose_cov.covariance[35] = Ppred(6,6);  // rz (yaw)
-        
-        traj_out.poses.push_back(pose_cov);
-        
-        // Build velocity message
-        geometry_msgs::msg::Twist vel;
-        vel.linear.x = vx;
-        vel.linear.y = vy;
-        vel.linear.z = vz;
-        vel.angular.z = 0.0;  // optional: yaw rate from model
-        traj_out.velocities.push_back(vel);
-        
-        traj_out.timestamps.push_back(this->now() + rclcpp::Duration::from_seconds(pred_dt_ * (s+1)));
-        
-        // Also create marker (existing code)
+      tp.pred_x.reserve(pred_steps);
+      tp.pred_y.reserve(pred_steps);
+      tp.pred_z.reserve(pred_steps);
+      tp.pred_yaw.reserve(pred_steps);
+      tp.pred_vx.reserve(pred_steps);
+      tp.pred_vy.reserve(pred_steps);
+      tp.pred_vz.reserve(pred_steps);
+
+      visualization_msgs::msg::MarkerArray out_markers_local;
+
+      for (int s = 0; s < pred_steps; ++s) {
+        const VectorXd &xp = preds[s].first;
+        tp.pred_x.push_back(static_cast<float>(xp(0)));
+        tp.pred_y.push_back(static_cast<float>(xp(1)));
+        tp.pred_z.push_back(static_cast<float>(xp(2)));
+        tp.pred_yaw.push_back(static_cast<float>(xp(6)));
+        tp.pred_vx.push_back(static_cast<float>(xp(3)));
+        tp.pred_vy.push_back(static_cast<float>(xp(4)));
+        tp.pred_vz.push_back(static_cast<float>(xp(5)));
+
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "map";
         marker.header.stamp = this->now();
@@ -311,27 +304,31 @@ private:
         marker.id = s;
         marker.type = visualization_msgs::msg::Marker::CUBE;
         marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.pose.position.x = px;
-        marker.pose.position.y = py;
-        marker.pose.position.z = pz;
-        marker.pose.orientation = yaw_to_quat(pyaw);
-        marker.scale.x = ts.size_known ? ts.l : 4.0;
-        marker.scale.y = ts.size_known ? ts.w : 2.0;
-        marker.scale.z = ts.size_known ? ts.h : 1.6;
-        double alpha = std::max(0.05, 1.0 - double(s) / double(preds.size() + 1));
+        marker.pose.position.x = xp(0);
+        marker.pose.position.y = xp(1);
+        marker.pose.position.z = xp(2);
+        marker.pose.orientation = yaw_to_quat(xp(6));
+        marker.scale.x = tp.length;
+        marker.scale.y = tp.width;
+        marker.scale.z = tp.height;
+        double alpha = std::max(0.05, 1.0 - double(s) / double(pred_steps + 1));
         marker.color.r = 0.0f; marker.color.g = 0.8f; marker.color.b = 0.1f;
         marker.color.a = static_cast<float>(alpha);
         marker.lifetime = rclcpp::Duration::from_seconds(pred_dt_ * 1.5);
-        out_markers.markers.push_back(marker);
+        out_markers_local.markers.push_back(marker);
       }
-      
-      // PASS THIS DATA TO VISUALIZATION
-      // Option 1: Publish on separate topic
-      // Option 2: Log to CSV (already doing this)
-      // Option 3: Store in shared data structure
+
+      // append individual markers to shared array
+      for (auto &m : out_markers_local.markers) {
+        out_markers.markers.push_back(m);
+      }
+
+      write_predictions_to_csv(inst_id, preds, ts, pred_dt_);
+      arr.tracks.push_back(std::move(tp));
     }
 
     pub_->publish(out_markers);
+    tracked_pub_->publish(arr);
   }
 
   void write_predictions_to_csv(const std::string &inst_id,
@@ -388,6 +385,7 @@ private:
   // ROS interfaces
   rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr sub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_;
+  rclcpp::Publisher<prediction::msg::TrackedPredictionArray>::SharedPtr tracked_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   // tracks
