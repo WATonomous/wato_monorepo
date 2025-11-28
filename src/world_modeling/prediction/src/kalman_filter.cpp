@@ -240,10 +240,7 @@ private:
   // periodic publisher: rollout and publish predicted boxes for every active track
   void timer_callback() {
     std::lock_guard<std::mutex> lk(mutex_);
-    if (tracks_.empty()) {
-      // nothing to publish
-      return;
-    }
+    if (tracks_.empty()) return;
 
     visualization_msgs::msg::MarkerArray out_markers;
 
@@ -255,18 +252,63 @@ private:
       ts.kf.set_dt(pred_dt_);
       auto preds = ts.kf.rollout_predictions(pred_steps);
 
-      // optional: write CSV per-instance
-      write_predictions_to_csv(inst_id, preds, ts, pred_dt_);
+      // FOR VISUALIZATION: Include this data structure
+      struct TrajectoryOutput {
+        std::string object_id = inst_id;
+        std::vector<geometry_msgs::msg::PoseWithCovariance> poses;
+        std::vector<geometry_msgs::msg::Twist> velocities;
+        std::vector<rclcpp::Time> timestamps;
+        double confidence = 0.95;  // or compute from covariance
+      } traj_out;
 
-      // create marker for each predicted step
       for (int s = 0; s < static_cast<int>(preds.size()); ++s) {
         const VectorXd &xpred = preds[s].first;
-        double px = xpred(0), py = xpred(1), pz = xpred(2), pyaw = xpred(6);
+        const MatrixXd &Ppred = preds[s].second;
+        
+        // Position
+        double px = xpred(0), py = xpred(1), pz = xpred(2);
+        double pyaw = xpred(6);
+        
+        // Velocity
+        double vx = xpred(3), vy = xpred(4), vz = xpred(5);
+        
+        // Covariance (position uncertainty)
+        // P(0:3, 0:3) is position covariance
+        double pos_cov = Ppred(0,0) + Ppred(1,1) + Ppred(2,2);
+        
+        // Build pose message
+        geometry_msgs::msg::PoseWithCovariance pose_cov;
+        pose_cov.pose.position.x = px;
+        pose_cov.pose.position.y = py;
+        pose_cov.pose.position.z = pz;
+        pose_cov.pose.orientation = yaw_to_quat(pyaw);
+        
+        // 6x6 covariance (x,y,z,rx,ry,rz)
+        pose_cov.covariance[0] = Ppred(0,0);   // x
+        pose_cov.covariance[7] = Ppred(1,1);   // y
+        pose_cov.covariance[14] = Ppred(2,2);  // z
+        pose_cov.covariance[21] = 0.01;        // rx (small)
+        pose_cov.covariance[28] = 0.01;        // ry (small)
+        pose_cov.covariance[35] = Ppred(6,6);  // rz (yaw)
+        
+        traj_out.poses.push_back(pose_cov);
+        
+        // Build velocity message
+        geometry_msgs::msg::Twist vel;
+        vel.linear.x = vx;
+        vel.linear.y = vy;
+        vel.linear.z = vz;
+        vel.angular.z = 0.0;  // optional: yaw rate from model
+        traj_out.velocities.push_back(vel);
+        
+        traj_out.timestamps.push_back(this->now() + rclcpp::Duration::from_seconds(pred_dt_ * (s+1)));
+        
+        // Also create marker (existing code)
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "map";
         marker.header.stamp = this->now();
         marker.ns = inst_id + "_pred";
-        marker.id = s;  // step index
+        marker.id = s;
         marker.type = visualization_msgs::msg::Marker::CUBE;
         marker.action = visualization_msgs::msg::Marker::ADD;
         marker.pose.position.x = px;
@@ -282,9 +324,13 @@ private:
         marker.lifetime = rclcpp::Duration::from_seconds(pred_dt_ * 1.5);
         out_markers.markers.push_back(marker);
       }
+      
+      // PASS THIS DATA TO VISUALIZATION
+      // Option 1: Publish on separate topic
+      // Option 2: Log to CSV (already doing this)
+      // Option 3: Store in shared data structure
     }
 
-    // publish all predicted markers
     pub_->publish(out_markers);
   }
 

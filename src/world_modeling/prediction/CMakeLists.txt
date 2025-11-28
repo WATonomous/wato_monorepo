@@ -26,9 +26,12 @@ endif()
 # ---- General ROS 2 Packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 # ---- Msg Packages
 find_package(common_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -37,6 +40,7 @@ find_package(common_msgs REQUIRED)
 # both the unit test and ROS2 node executables.
 add_library(prediction_lib
   src/utils.cpp
+  src/kalman_filter.cpp
 )
 
 # Indicate to compiler where to search for header files
@@ -48,39 +52,55 @@ target_include_directories(prediction_lib
 ament_target_dependencies(prediction_lib
   rclcpp
   common_msgs
-  )
+  visualization_msgs
+  geometry_msgs
+  Eigen3
+)
+
+target_link_libraries(prediction_lib
+  Eigen3::Eigen)
 
 # # By default tests are built. This can be overridden by modifying the
 # # colcon build command to include the -DBUILD_TESTING=OFF flag.
-# option(BUILD_TESTING "Build tests" ON)
-# if(BUILD_TESTING)
-#   # Search for dependencies required for building tests + linting
-#   find_package(ament_cmake_gtest REQUIRED)
-#   find_package(ament_lint_auto REQUIRED)
-#   find_package(ament_lint_common REQUIRED)
-#
-#   # Remove the default C++ and copyright linter
-#   list(APPEND AMENT_LINT_AUTO_EXCLUDE
-#     ament_cmake_cpplint
-#     ament_cmake_copyright)
-#
-#   # Reinstall cpplint ignoring copyright errors
-#   ament_cpplint(FILTERS "-legal/copyright")
-#
-#   ament_lint_auto_find_test_dependencies()
-#
-#   # Create test executable from source files
-#   ament_add_gtest(sample_test test/sample_test.cpp)
-#   # Link to the previously built library to access Sample classes and methods
-#   target_link_libraries(sample_test
-#     kalman_filter_lib
-#     gtest_main)
-#
-#   # Copy executable to installation location
-#   install(TARGETS
-#   sample_test
-#     DESTINATION lib/${PROJECT_NAME})
-# endif()
+option(BUILD_TESTING "Build tests" ON)
+if(BUILD_TESTING)
+  # Search for dependencies required for building tests + linting
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_lint_auto REQUIRED)
+  find_package(ament_lint_common REQUIRED)
+  find_package(catch_ros2 REQUIRED)
+  find_package(wato_test REQUIRED)
+
+  # Remove the default C++ and copyright linter
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE
+    ament_cmake_cpplint
+    ament_cmake_copyright)
+
+  # Reinstall cpplint ignoring copyright errors
+  ament_cpplint(FILTERS "-legal/copyright")
+
+  ament_lint_auto_find_test_dependencies()
+
+  # Integration test using catch2
+  add_executable(test_kalman_filter_integration 
+    test/test_kalman_filter_integration.cpp)
+  
+  target_link_libraries(test_kalman_filter_integration
+    prediction_lib
+    catch_ros2::catch_ros2
+  )
+  
+  ament_target_dependencies(test_kalman_filter_integration
+    rclcpp
+    visualization_msgs
+    geometry_msgs
+    wato_test
+    Eigen3
+  )
+
+  add_test(NAME test_kalman_filter_integration 
+    COMMAND test_kalman_filter_integration)
+endif()
 
 # Create ROS2 node executable from source files
 add_executable(prediction_node src/kalman_filter.cpp)
@@ -89,7 +109,7 @@ target_link_libraries(prediction_node prediction_lib)
 
 # Copy executable to installation location
 install(TARGETS
-prediction_node
+  prediction_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location
