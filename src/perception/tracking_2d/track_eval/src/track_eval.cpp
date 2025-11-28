@@ -29,7 +29,7 @@ track_eval::track_eval()
 
   // Subscribers
   dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
-    kDetectionsTopic, 10, std::bind(&track_eval::detectionsCallback, this, std::placeholders::_1));
+    kGTsTopic, 10, std::bind(&track_eval::gtsCallback, this, std::placeholders::_1));
   trks_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
     kTracksTopic, 10, std::bind(&track_eval::tracksCallback, this, std::placeholders::_1));
 
@@ -50,7 +50,7 @@ void track_eval::initializeParams()
 // Attempt box drawing
 void track_eval::tryMetrics()
 {
-  // Check if image or detections are missing for whatever reason
+  // Check if ground truths or tracks are missing for whatever reason
   if (!latest_trks_ || !latest_dets_ || latest_trks_->detections.empty() || latest_dets_->detections.empty()) {
     RCLCPP_WARN(this->get_logger(), "Missing ground truths or tracks");
     return;
@@ -79,8 +79,8 @@ void track_eval::tryMetrics()
   ++timestep_;
 }
 
-// Save most recent detections
-void track_eval::detectionsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
+// Save most recent ground truths
+void track_eval::gtsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
 {
   latest_dets_ = msg;
 }

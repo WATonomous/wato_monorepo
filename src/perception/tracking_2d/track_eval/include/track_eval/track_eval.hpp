@@ -29,7 +29,7 @@ class track_eval : public rclcpp::Node
 public:
   track_eval();
 
-  static constexpr auto kDetectionsTopic = "input_detections";
+  static constexpr auto kGTsTopic = "input_gts";
   static constexpr auto kTracksTopic = "input_tracks";
 
 private:
@@ -43,13 +43,13 @@ private:
    *
    * @param msg The received gts.
    */
-  void detectionsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
+  void gtsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
 
   /**
    * @brief Callback function for incoming tracks.
    *
    * Saves the latest tracks and attempts to evaluate
-   * using the latest tracks and detections.
+   * using the latest tracks and ground truths.
    *
    * @param msg The received tracks.
    */
@@ -58,7 +58,7 @@ private:
   /**
    * @brief Attempts to evaluate on newest ground truths and tracks.
    *
-   * If valid non-empty detections and tracks have been received,
+   * If valid non-empty ground truths and tracks have been received,
    * then evaluation proceeds.
    * Otherwise, returns immediately and a warning is given.
    */

@@ -14,9 +14,9 @@
 launch:
   # Declare launch arguments for pub and sub topics
   - arg:
-      name: detections_topic
-      default: /camera_object_detections
-      description: 2D detection topic being subscribed to
+      name: gts_topic
+      default: /ground_truths_tracking
+      description: 2D ground truth topic being subscribed to
   - arg:
       name: tracks_topic
       default: /tracked_boxes
@@ -31,7 +31,7 @@ launch:
       param:
         - from: $(find-pkg-share track_eval)/config/params.yaml
       remap:
-        - from: input_detections
-          to: $(var detections_topic)
+        - from: input_gts
+          to: $(var gts_topic)
         - from: input_tracks
           to: $(var tracks_topic)
