@@ -1,31 +1,7 @@
 # 2D Tracking Visualization — Developer Guide
-This document provides technical specifications and details for the visualization of the ByteTrack ROS 2 wrapper in this repository. It explains directory layout, dependencies, build details usage details and what the code does at a high level.
+
 ## Overview
 The `track_viz_2d` package provides visualization for the tracker node. It publishes annotation boxes that visualize both the received detections and the output tracks.
-## Package Organization
-
-```
-track_viz_2d
-|
-|── config
-|   └── params.yaml
-|
-|── docs
-|   └── DEVELOPING.md
-|
-|── include
-|   └── track_viz_2d.hpp
-|
-|── launch
-|   └── track_viz_2d_launch.yaml
-|
-|── src
-|   └── track_viz_2d.cpp
-|
-|── CMakeLists.txt
-└── package.xml
-```
-
 ## Dependencies
 - ROS 2: `foxglove_msgs`, `std_msgs`, `vision_msgs`
 ## Build
@@ -35,7 +11,7 @@ To build, set `ACTIVE_MODULES` in `watod-config.sh` to include `perception` and 
 watod build perception_bringup
 ```
 
-Alternatively, you can also run
+Alternatively, run
 
 ```bash
 colcon build --packages-select track_viz_2d
@@ -49,7 +25,15 @@ To start the container, run
 watod up perception_bringup
 ```
 
-with the command in `docker-compose.perception.yaml` set to
+The command in `docker-compose.perception.yaml` should be set to one of the following:
+
+**If launching the entire perception stack:**
+
+```bash
+bash -c "ros2 launch perception_bringup perception_bringup_launch.yaml"
+```
+
+**If launching just the tracker + visualization:**
 
 ```bash
 bash -c "ros2 launch tracking_2d tracking_2d_launch.yaml & ros2 launch track_viz_2d track_viz_2d_launch.yaml"
