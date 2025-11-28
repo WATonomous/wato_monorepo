@@ -133,3 +133,22 @@ Use the port number to connect to the Foxglove Bridge via the Foxglove Website /
 Click the link to bringup a page containing all the logs of each of the containers
 
 > If you are running `watod` on a remote machine, you will have to forward the respective ports to your local machine.
+
+# General Implementation Details
+
+## IPC Middleware
+To facilitate efficient interprocess communication, we utilize the [CycloneDDS middleware](https://github.com/ros2/rmw_cyclonedds) with [Iceoryx shared memory message passing underthehood](https://cyclonedds.io/docs/cyclonedds/latest/shared_memory/shared_mem_config.html).
+
+What this means is, in the context of ROS2 messages, topics are discovered over the network (DDS), but actual data is passed through shared memory.
+
+## ROS2 Intraprocess Communication
+The CycloneDDS Middleware with Shared Memory can still be inefficient at times. So if we want to guarentee the fastest form of message transfer, we can use [rclcpp_components](https://github.com/ros2/rclcpp/tree/master/rclcpp_components) to form component containers where multiple nodes share the same process.
+
+**Pros**:
+- Message passing is just passing a pointer (no serialization, no data copying at all)
+- Super fast message passing
+**Cons**:
+- All nodes are in one process
+- If one node fails, the whole process fails
+
+Only group your nodes into a component container if you believe that they are tightly coupled and should fail/start as one.

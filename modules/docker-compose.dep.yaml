@@ -1,0 +1,79 @@
+---
+services:
+#################### INFRASTRUCTURE SERVICES ####################
+  roudi:
+    profiles: ["infrastructure"]
+    extends:
+      file: docker-compose.yaml
+      service: roudi
+
+  foxglove:
+    profiles: ["infrastructure"]
+    extends:
+      file: docker-compose.yaml
+      service: foxglove
+
+  log_viewer:
+    profiles: ["infrastructure"]
+    extends:
+      file: docker-compose.yaml
+      service: log_viewer
+
+#################### INTERFACING SERVICE ####################
+  interfacing_bringup:
+    profiles: ["interfacing"]
+    extends:
+      file: docker-compose.yaml
+      service: interfacing_bringup
+
+#################### PERCEPTION SERVICE ####################
+  perception_bringup:
+    profiles: ["perception"]
+    extends:
+      file: docker-compose.yaml
+      service: perception_bringup
+
+#################### WORLD MODELING SERVICE ####################
+  world_modeling_bringup:
+    profiles: ["world_modeling"]
+    extends:
+      file: docker-compose.yaml
+      service: world_modeling_bringup
+
+#################### ACTION SERVICE ####################
+  action_bringup:
+    profiles: ["action"]
+    extends:
+      file: docker-compose.yaml
+      service: action_bringup
+
+#################### SIMULATION SERVICES ####################
+  carla_sim:
+    profiles: ["simulation"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_sim
+
+  carla_ros_bridge:
+    profiles: ["simulation"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_ros_bridge
+
+  carla_viz:
+    profiles: ["simulation"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_viz
+
+  carla_sample_node:
+    profiles: ["simulation"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_sample_node
+
+  carla_notebooks:
+    profiles: ["simulation"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_notebooks

@@ -25,6 +25,10 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(autoware_perception_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -46,6 +50,7 @@ ament_export_dependencies(rosidl_default_runtime)
 # both the unit test and ROS2 node executables.
 add_library(prediction_lib
   src/utils.cpp
+  src/tracker_core.cpp
   src/kalman_filter.cpp
 )
 
@@ -61,10 +66,10 @@ ament_target_dependencies(prediction_lib
   geometry_msgs
   Eigen3
   rosidl_default_runtime
-)
-
-target_link_libraries(prediction_lib
-  Eigen3::Eigen)
+autoware_perception_msgs
+  visualization_msgs
+  tf2
+  tf2_ros)
 
 # # By default tests are built. This can be overridden by modifying the
 # # colcon build command to include the -DBUILD_TESTING=OFF flag.
@@ -77,47 +82,28 @@ if(BUILD_TESTING)
   find_package(catch_ros2 REQUIRED)
   find_package(wato_test REQUIRED)
 
-  # Remove the default C++ and copyright linter
-  list(APPEND AMENT_LINT_AUTO_EXCLUDE
-    ament_cmake_cpplint
-    ament_cmake_copyright)
-
-  # Reinstall cpplint ignoring copyright errors
-  ament_cpplint(FILTERS "-legal/copyright")
-
-  ament_lint_auto_find_test_dependencies()
-
-  # Integration test using catch2
-  add_executable(test_kalman_filter_integration 
-    test/test_kalman_filter_integration.cpp)
-  
-  target_link_libraries(test_kalman_filter_integration
-    prediction_lib
-    catch_ros2::catch_ros2
-  )
-  
-  ament_target_dependencies(test_kalman_filter_integration
-    rclcpp
-    visualization_msgs
-    geometry_msgs
-    wato_test
-    Eigen3
-    rosidl_default_runtime
+  # Create test executable using wato_test
+  add_wato_test(tracker_test
+    tests/tracker_test.cpp
+    LIBRARIES
+      prediction_lib
   )
 
-  add_test(NAME test_kalman_filter_integration 
-    COMMAND test_kalman_filter_integration)
 endif()
 
 # Create ROS2 node executable from source files
 add_executable(prediction_node src/kalman_filter.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(prediction_node prediction_lib)
+
+add_executable(tracker_node src/tracker_node.cpp)
+target_link_libraries(tracker_node prediction_lib)
 ament_target_dependencies(prediction_node rclcpp rosidl_default_runtime)
 
 # Copy executable to installation location
 install(TARGETS
   prediction_node
+  tracker_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location

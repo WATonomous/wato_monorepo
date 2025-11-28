@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,22 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-set -e
+cmake_minimum_required(VERSION 3.8)
+project(infrastructure_deps)
 
-# setup WATonomous packages and ROS2 environment
-source /opt/watonomous/setup.bash
+find_package(ament_cmake REQUIRED)
 
-# Handle signals properly - forward SIGTERM to child process
-_term() {
-  echo "Caught SIGTERM signal, forwarding to child process..."
-  kill -TERM "$child" 2>/dev/null
-}
-
-trap _term SIGTERM
-
-# Run command in background so we can trap signals
-"$@" &
-child=$!
-
-# Wait for child process
-wait "$child"
+ament_package()

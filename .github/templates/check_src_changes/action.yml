@@ -19,11 +19,13 @@ runs:
       with:
         files: '!src/**'
 
-    - name: Find changed files inside src/wato_msgs folder
-      id: changed-files-wato-msgs
+    - name: Find changed files inside infrastructure folders
+      id: changed-files-infrastructure
       uses: tj-actions/changed-files@v42
       with:
-        files: src/wato_msgs/**
+        files: |
+          src/wato_msgs/**
+          src/infrastructure/**
 
     - name: Find changed files inside src/action folder
       id: changed-files-action
@@ -65,7 +67,7 @@ runs:
       id: output-changes
       env:
         ALL_CHANGED: ${{ steps.changed-files-outside-src.outputs.any_changed == 'true' }}
-        INFRASTRUCTURE_CHANGED: ${{ steps.changed-files-wato-msgs.outputs.any_changed == 'true' }}
+        INFRASTRUCTURE_CHANGED: ${{ steps.changed-files-infrastructure.outputs.any_changed == 'true' }}
         ACTION_CHANGED: ${{ steps.changed-files-action.outputs.any_changed }}
         INTERFACING_CHANGED: ${{ steps.changed-files-interfacing.outputs.any_changed }}
         PERCEPTION_CHANGED: ${{ steps.changed-files-perception.outputs.any_changed }}

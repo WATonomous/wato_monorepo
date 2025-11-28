@@ -1,8 +1,8 @@
 ARG CARLA_VERSION=0.9.13
 FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
-FROM python:3.10.19-slim-bookworm
-ARG CARLA_VERSION=0.9.15
+FROM python:3.11.14-slim-bookworm
+ARG CARLA_VERSION=0.9.16
 
 
 RUN python3 -m pip install --no-cache-dir --upgrade \
@@ -18,7 +18,8 @@ RUN apt-get update && \
         curl \
         git \
         wget \
-        unzip && \
+        unzip \
+        libgeos-dev && \
     apt-get remove -y python3-networkx && \
     rm -rf /var/lib/apt/lists/*
 
@@ -35,7 +36,12 @@ WORKDIR /home/bolty/scenario_runner
 # CHECKOUT the tag that matches your CARLA version:
 RUN git fetch --tags && git checkout v0.9.13
 
-RUN pip3 install --no-cache-dir -r requirements.txt && \
+RUN pip3 install --no-cache-dir networkx==2.2 && \
+    pip3 install --no-cache-dir numpy && \
+    pip3 install --no-cache-dir opencv-python && \
+    pip3 install --no-cache-dir pygame && \
+    pip3 install --no-cache-dir Pillow && \
+    pip3 install --no-cache-dir py_trees==0.8.3 && \
     sed -i 's/hero/ego/g' srunner/tools/scenario_parser.py
 
 WORKDIR /home/bolty/carla_notebooks

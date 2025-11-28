@@ -100,18 +100,33 @@ fi
 cleanup_bag() {
   echo ""
   echo "Stopping recording..."
-  docker stop watod_bag_recorder || true
+  docker stop "${COMPOSE_PROJECT_NAME}-bag_recorder" || true
   echo "Recording stopped"
   exit 0
 }
 
 trap cleanup_bag SIGINT SIGTERM
 
+# Get the roudi container name for IPC namespace sharing
+roudi_container="${COMPOSE_PROJECT_NAME}-roudi-1"
+
+# Check if roudi is running
+if ! docker ps --format '{{.Names}}' | grep -q "^${roudi_container}$"; then
+  echo "Error: RouDi container '${roudi_container}' is not running."
+  echo "Please start watod services first with './watod up -d'"
+  exit 1
+fi
+
 docker run --rm -t \
-  --network watod_watonomous_default \
-  --name watod_bag_recorder \
+  --ipc "container:${roudi_container}" \
+  --network host \
+  --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
+  --volumes-from "${roudi_container}" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
+  -e "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}" \
+  -e "CYCLONEDDS_URI=${CYCLONEDDS_URI}" \
+  -e "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}" \
   "$INFRASTRUCTURE_IMAGE:$TAG" \
   ros2 bag "${ros2_bag_args[@]}" &
 
