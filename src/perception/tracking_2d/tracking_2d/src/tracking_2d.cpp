@@ -45,22 +45,36 @@ void tracking_2d::initializeParams()
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 0.8));
 
   class_map_ = {
-    {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 5},
+    {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4},
     // etc...
   };
+
+  for (const auto & [key, val] : class_map_) reverse_class_map_[val] = key;
 
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
-// Get class from class_map_ using key
+// Get class id from class_map_ using class name
 int tracking_2d::classLookup(const std::string & class_name)
 {
   auto it = class_map_.find(class_name);
   if (it != class_map_.end())
     return it->second;
-  else {  // Class key not in map
-    RCLCPP_WARN(this->get_logger(), "Class '%s' not found, defaulting to 0 as id", class_name.c_str());
-    return 0;
+  else {  // Class name key not in map
+    RCLCPP_WARN(this->get_logger(), "Class '%s' not found, defaulting to -1 as id", class_name.c_str());
+    return -1;
+  }
+}
+
+// Get class name from reverse_class_map_ using class id
+std::string tracking_2d::reverseClassLookup(int class_id)
+{
+  auto it = reverse_class_map_.find(class_id);
+  if (it != reverse_class_map_.end())
+    return it->second;
+  else {  // Class id key not in reverse map
+    RCLCPP_WARN(this->get_logger(), "Class %d not found, defaulting to '[unknown]' class", class_id);
+    return "[unknown]";
   }
 }
 
@@ -118,7 +132,8 @@ vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
     // Convert STrackPtr to Detection2D
     auto rect = strk_ptr->getRect();
     auto score = strk_ptr->getScore();
-    auto trk_id = std::to_string(strk_ptr->getTrackId());
+    auto trk_id = strk_ptr->getTrackId();
+    auto class_id = strk_ptr->getClassId();
 
     vision_msgs::msg::Detection2D trk;
     trk.header.frame_id = header.frame_id;
@@ -126,7 +141,7 @@ vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
 
     vision_msgs::msg::ObjectHypothesisWithPose hyp;
     hyp.hypothesis.score = score;
-    hyp.hypothesis.class_id = trk_id;
+    hyp.hypothesis.class_id = reverseClassLookup(class_id);
     trk.results.push_back(hyp);
 
     trk.bbox.center.position.x = rect.x() + rect.width() / 2;
@@ -134,7 +149,7 @@ vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
     trk.bbox.size_x = rect.width();
     trk.bbox.size_y = rect.height();
 
-    trk.id = trk_id;
+    trk.id = std::to_string(trk_id);
 
     trks.detections.push_back(trk);
   }
@@ -151,6 +166,11 @@ void tracking_2d::detectionsCallback(vision_msgs::msg::Detection2DArray::SharedP
 
   RCLCPP_DEBUG(this->get_logger(), "Publishing tracked detections...");
   tracked_dets_pub_->publish(tracked_dets);
+  RCLCPP_DEBUG(
+    this->get_logger(),
+    "First track - Class: '%s'; ID: %d",
+    tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),
+    std::stoi(tracked_dets.detections[0].id));
 }
 
 int main(int argc, char ** argv)

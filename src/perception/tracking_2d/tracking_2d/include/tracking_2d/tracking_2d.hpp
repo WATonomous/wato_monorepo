@@ -70,6 +70,16 @@ private:
   int classLookup(const std::string & class_name);
 
   /**
+   * @brief Looks up the class name corresponding to a numerical id.
+   *
+   * Same logic as classLookup.
+   *
+   * @param class_id The id of the required class.
+   * @return std::string The class name corresponding to the id.
+   */
+  std::string reverseClassLookup(int class_id);
+
+  /**
    * @brief Converts Detection2DArray messages to ByteTrack Object format.
    *
    * Initializes and populates a vector of ByteTrack Objects using the given
@@ -119,6 +129,7 @@ private:
   float match_thresh_;
 
   std::unordered_map<std::string, int> class_map_;
+  std::unordered_map<int, std::string> reverse_class_map_;
 
   std::unique_ptr<byte_track::BYTETracker> tracker_;
 };

@@ -44,6 +44,7 @@ macro(build_bytetrack_cpp)
         CMAKE_ARGS ${extra_cmake_args}
         INSTALL_COMMAND ""
         CONFIGURE_HANDLED_BY_BUILD TRUE
+        PATCH_COMMAND git apply --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/patches/0001-class-id.patch
     )
     externalproject_get_property(bytetrack BINARY_DIR SOURCE_DIR)
 
