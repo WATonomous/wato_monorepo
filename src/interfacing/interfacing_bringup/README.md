@@ -30,7 +30,7 @@ Edit `/etc/dnsmasq.d/robot-net.conf`
 
 ```conf
 interface=enp7s0f1
-bind-interfaces
+bind-dynamic
 
 # General DHCP pool (fallback)
 dhcp-range=10.8.0.100,10.8.0.200,12h
