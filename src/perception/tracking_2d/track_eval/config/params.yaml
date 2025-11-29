@@ -1,0 +1,3 @@
+track_viz_2d:
+  ros__parameters:
+    precision: 4
