@@ -30,7 +30,6 @@ find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(visualization_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
@@ -66,8 +65,7 @@ ament_target_dependencies(prediction_lib
   geometry_msgs
   Eigen3
   rosidl_default_runtime
-autoware_perception_msgs
-  visualization_msgs
+  autoware_perception_msgs
   tf2
   tf2_ros)
 
@@ -87,6 +85,16 @@ if(BUILD_TESTING)
     tests/tracker_test.cpp
     LIBRARIES
       prediction_lib
+  )
+
+  add_wato_test(kalman_filter_integration_test
+    tests/test_kalman_filter_integration.cpp
+    LIBRARIES
+      prediction_lib
+    DEPENDENCIES
+      rclcpp
+      visualization_msgs
+      wato_test
   )
 
 endif()

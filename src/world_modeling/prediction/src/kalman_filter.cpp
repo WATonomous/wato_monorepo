@@ -33,6 +33,7 @@
 #include <cctype>
 #include <prediction/msg/tracked_prediction.hpp>
 #include <prediction/msg/tracked_prediction_array.hpp>
+#include <cmath>
 
 namespace fs = std::filesystem;
 using std::chrono::system_clock;
@@ -40,96 +41,71 @@ using std::chrono::system_clock;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
-//
-// Internal KalmanCV7 implementation (state: [x,y,z, vx,vy,vz, yaw])
-// (Kept inside node file so node is self-contained.)
-//
-struct KalmanCV7 {
-  int n = 7;
-  int m = 4; // measurement: x,y,z,yaw
-  VectorXd x;     // (7)
-  MatrixXd P;     // (7x7)
-  MatrixXd F;     // (7x7)
-  MatrixXd H;     // (4x7)
-  MatrixXd Q;     // (7x7)
-  MatrixXd R;     // (4x4)
-  double dt;
+KalmanCV7::KalmanCV7(double dt_,
+                     double q_pos,
+                     double q_vel,
+                     double q_yaw,
+                     double r_pos,
+                     double r_yaw)
+{
+  dt = dt_;
+  x = VectorXd::Zero(n);
+  P = MatrixXd::Identity(n, n) * 1.0;
+  set_dt(dt);
+  H = MatrixXd::Zero(m, n);
+  H(0, 0) = 1.0; H(1, 1) = 1.0; H(2, 2) = 1.0; H(3, 6) = 1.0;
+  Q = MatrixXd::Zero(n, n);
+  Q(0, 0) = q_pos; Q(1, 1) = q_pos; Q(2, 2) = q_pos;
+  Q(3, 3) = q_vel; Q(4, 4) = q_vel; Q(5, 5) = q_vel;
+  Q(6, 6) = q_yaw;
+  R = MatrixXd::Identity(m, m);
+  R(0, 0) = r_pos; R(1, 1) = r_pos; R(2, 2) = r_pos; R(3, 3) = r_yaw;
+}
 
-  KalmanCV7(double dt_ = 0.05,
-            double q_pos = 0.1,
-            double q_vel = 1.0,
-            double q_yaw = 0.01,
-            double r_pos = 0.5,
-            double r_yaw = 0.1)
-  {
-    dt = dt_;
-    x = VectorXd::Zero(n);
-    P = MatrixXd::Identity(n, n) * 1.0;
-    set_dt(dt);
-    H = MatrixXd::Zero(m, n);
-    H(0,0) = 1.0; H(1,1) = 1.0; H(2,2) = 1.0; H(3,6) = 1.0; // measure x,y,z,yaw
-    Q = MatrixXd::Zero(n,n);
-    Q(0,0) = q_pos; Q(1,1) = q_pos; Q(2,2) = q_pos;
-    Q(3,3) = q_vel; Q(4,4) = q_vel; Q(5,5) = q_vel;
-    Q(6,6) = q_yaw;
-    R = MatrixXd::Identity(m,m);
-    R(0,0) = r_pos; R(1,1) = r_pos; R(2,2) = r_pos; R(3,3) = r_yaw;
+void KalmanCV7::set_dt(double newdt) {
+  dt = newdt;
+  F = MatrixXd::Identity(n, n);
+  F(0, 3) = dt; F(1, 4) = dt; F(2, 5) = dt;
+}
+
+void KalmanCV7::init_from_measurement(const VectorXd &meas) {
+  x = VectorXd::Zero(n);
+  x(0) = meas(0); x(1) = meas(1); x(2) = meas(2);
+  x(3) = 0.0; x(4) = 0.0; x(5) = 0.0;
+  x(6) = meas(3);
+  P = MatrixXd::Identity(n, n) * 1.0;
+}
+
+void KalmanCV7::predict() {
+  x = F * x;
+  P = F * P * F.transpose() + Q;
+}
+
+void KalmanCV7::update(const VectorXd &z) {
+  VectorXd y = z - H * x;
+  y(3) = std::atan2(std::sin(y(3)), std::cos(y(3)));
+  MatrixXd S = H * P * H.transpose() + R;
+  MatrixXd K = P * H.transpose() * S.inverse();
+  x = x + K * y;
+  MatrixXd I = MatrixXd::Identity(n, n);
+  P = (I - K * H) * P;
+}
+
+std::vector<std::pair<VectorXd, MatrixXd>> KalmanCV7::rollout_predictions(int steps) {
+  std::vector<std::pair<VectorXd, MatrixXd>> out;
+  out.reserve(steps);
+  VectorXd x_saved = x;
+  MatrixXd P_saved = P;
+  for (int i = 0; i < steps; ++i) {
+    predict();
+    out.emplace_back(x, P);
   }
+  x = x_saved;
+  P = P_saved;
+  return out;
+}
 
-  void set_dt(double newdt) {
-    dt = newdt;
-    F = MatrixXd::Identity(n,n);
-    F(0,3) = dt; F(1,4) = dt; F(2,5) = dt; // pos += vel*dt
-    // yaw kept constant (no yaw rate in F)
-  }
-
-  void init_from_measurement(const VectorXd &meas) {
-    // meas = [x,y,z,yaw]
-    x.setZero();
-    x(0) = meas(0); x(1) = meas(1); x(2) = meas(2);
-    x(3) = 0.0; x(4) = 0.0; x(5) = 0.0;
-    x(6) = meas(3);
-    P = MatrixXd::Identity(n,n) * 1.0;
-  }
-
-  void predict() {
-    x = F * x;
-    P = F * P * F.transpose() + Q;
-  }
-
-  void update(const VectorXd &z) {
-    VectorXd y = z - H * x;
-    // normalize yaw residual into [-pi, pi]
-    y(3) = std::atan2(std::sin(y(3)), std::cos(y(3)));
-    MatrixXd S = H * P * H.transpose() + R;
-    MatrixXd K = P * H.transpose() * S.inverse();
-    x = x + K * y;
-    MatrixXd I = MatrixXd::Identity(n,n);
-    P = (I - K * H) * P;
-  }
-
-  std::vector<std::pair<VectorXd,MatrixXd>> rollout_predictions(int steps) {
-    std::vector<std::pair<VectorXd,MatrixXd>> out;
-    VectorXd x_saved = x;
-    MatrixXd P_saved = P;
-    for (int i=0;i<steps;i++){
-      predict();
-      out.emplace_back(x, P);
-    }
-    x = x_saved;
-    P = P_saved;
-    return out;
-  }
-};
-
-struct TrackState {
-  KalmanCV7 kf;
-  double last_stamp = 0.0;
-  double l = 0.0, w = 0.0, h = 0.0;
-  bool size_known = false;
-
-  TrackState(double dt = 0.05) : kf(dt) {}
-};
+TrackState::TrackState(double dt) : kf(dt) {}
 
 class KalmanFilterNode : public rclcpp::Node {
 public:
