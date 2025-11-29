@@ -57,6 +57,48 @@ fi
 # If so, add default output with timestamp
 declare -a ros2_bag_args=("$@")
 
+# Handle absolute paths for play command
+# If an absolute path is provided, we need to mount its parent directory
+# and adjust the path inside the container
+if [[ $# -gt 0 && "$1" == "play" ]]; then
+  # Find the bag_path argument (first non-flag argument after "play")
+  bag_path=""
+  for ((i=2; i<=$#; i++)); do
+    arg="${!i}"
+    if [[ "$arg" != -* ]]; then
+      bag_path="$arg"
+      break
+    fi
+  done
+  
+  # If bag_path is absolute and outside BAG_DIRECTORY, mount parent directory
+  if [[ -n "$bag_path" && "$bag_path" == /* ]]; then
+    if [[ "$bag_path" != "$BAG_DIRECTORY"/* ]]; then
+      # Absolute path outside BAG_DIRECTORY - mount parent directory
+      bag_parent=$(dirname "$bag_path")
+      bag_name=$(basename "$bag_path")
+      # Replace the absolute path with relative path inside container
+      for i in "${!ros2_bag_args[@]}"; do
+        if [[ "${ros2_bag_args[$i]}" == "$bag_path" ]]; then
+          ros2_bag_args[$i]="/bags/$bag_name"
+          # Mount the parent directory instead of BAG_DIRECTORY
+          BAG_DIRECTORY="$bag_parent"
+          break
+        fi
+      done
+    else
+      # Absolute path inside BAG_DIRECTORY - convert to relative
+      rel_path=${bag_path#"$BAG_DIRECTORY"/}
+      for i in "${!ros2_bag_args[@]}"; do
+        if [[ "${ros2_bag_args[$i]}" == "$bag_path" ]]; then
+          ros2_bag_args[$i]="/bags/$rel_path"
+          break
+        fi
+      done
+    fi
+  fi
+fi
+
 if [[ $# -gt 0 && "$1" == "record" ]]; then
   # Check if -o or --output is specified
   has_output=false
@@ -107,7 +149,7 @@ cleanup_bag() {
 
 trap cleanup_bag SIGINT SIGTERM
 
-# Get the roudi container name for IPC namespace sharing
+# Get the roudi container name for volume sharing
 roudi_container="${COMPOSE_PROJECT_NAME}-roudi-1"
 
 # Check if roudi is running
@@ -117,14 +159,16 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${roudi_container}$"; then
   exit 1
 fi
 
+# Use CycloneDDS for bag operations to avoid RouDi connection issues
+# Bag recording/playback doesn't need Iceoryx shared memory transport
 docker run --rm -t \
-  --ipc "container:${roudi_container}" \
+  --ipc host \
   --network host \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
   --volumes-from "${roudi_container}" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
-  -e "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}" \
+  -e "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" \
   -e "CYCLONEDDS_URI=${CYCLONEDDS_URI}" \
   -e "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}" \
   "$INFRASTRUCTURE_IMAGE:$TAG" \

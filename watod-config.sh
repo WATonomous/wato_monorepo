@@ -36,7 +36,7 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-# export ACTIVE_MODULES=""
+export ACTIVE_MODULES="infrasturcture"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
@@ -50,7 +50,7 @@
 # export REGISTRY_URL=""
 
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
-# export BAG_DIRECTORY=""
+export BAG_DIRECTORY="/mnt/wato-drive/nuscenes"
 
 ############################### ROS 2 MIDDLEWARE SETTINGS ##############################
 ## Middleware to use for interprocess communication. DEFAULT = "rmw_cyclonedds_cpp"

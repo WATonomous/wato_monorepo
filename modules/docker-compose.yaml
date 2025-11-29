@@ -54,7 +54,7 @@ services:
       context: ../watod_scripts/tools/log-viewer
       dockerfile: Dockerfile
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/run/docker.sock:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
     depends_on:
@@ -146,6 +146,37 @@ services:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+    depends_on:
+      - roudi
+
+#################### DEEP ROS SERVICE ####################
+  deep_ros:
+    ipc: host
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: docker/deep_ros/deep_ros.Dockerfile
+      cache_from:
+        - "${DEEP_ROS_IMAGE:?}:build_${TAG}"
+        - "${DEEP_ROS_IMAGE:?}:build_main"
+      target: deploy
+    image: "${DEEP_ROS_IMAGE:?}:${TAG}"
+    command: /bin/bash -c "sleep infinity"
+    volumes:
+      - iox_runtime:/tmp
+      - /mnt/wato-drive/perception_models:/perception_models:ro
+    environment:
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
     depends_on:
       - roudi
 
