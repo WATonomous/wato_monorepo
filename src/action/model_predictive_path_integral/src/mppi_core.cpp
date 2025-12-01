@@ -90,6 +90,7 @@ void MppiCore::generate_control_command(){
     }
     else{
         previous_control_sequence =best_control_sequence.clone();
+
     }
 
     add_noise_to_control_sequences();
@@ -227,8 +228,23 @@ void MppiCore::evaluate_trajectories() {
         costs.index_put_({i}, J);
     }
 
+    // Receding-horizon update of nominal_control_sequence
+    if (n > 1) {
+        // Shift best_u by one step to build next iteration's nominal sequence
+        // nominal[:, 0..n-2] = best_u[:, 1..n-1]
+        nominal_control_sequence.index_put_(
+            {Slice(), Slice(0, n - 1)},
+            best_u.index({Slice(), Slice(1, n)})
+        );
 
-
+        // Last control stays as the last of the best sequence
+        nominal_control_sequence.index_put_(
+            {Slice(), n - 1},
+            best_u.index({Slice(), n - 1})
+        );
+    } else {
+        nominal_control_sequence = best_u;
+    }
     
 }
 
