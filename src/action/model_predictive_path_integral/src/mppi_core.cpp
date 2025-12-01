@@ -90,7 +90,6 @@ void MppiCore::generate_control_command(){
     }
     else{
         previous_control_sequence =best_control_sequence.clone();
-
     }
 
     add_noise_to_control_sequences();

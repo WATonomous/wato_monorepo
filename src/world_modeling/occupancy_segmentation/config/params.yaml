@@ -2,7 +2,7 @@
 occupancy_segmentation:
   ros__parameters:
     version: 1
-    lidar_input_topic: "/velodyne_points"
+    lidar_input_topic: "/carla/ego/center_lidar" #"/velodyne_points" #change this - 
     ground_output_topic: "/ground_points"
     nonground_output_topic: "/nonground_points"
     num_zones: 4

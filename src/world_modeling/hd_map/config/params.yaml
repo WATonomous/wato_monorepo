@@ -3,7 +3,7 @@
 hd_map_service:
   ros__parameters:
     version: 1
-    osm_map_filename: "boston-seaport.osm"
+    osm_map_filename: "Town10HD.osm"
     visualization_output_topic: "hd_map_viz"
     route_output_topic: "hd_route_map"
     start_output_topic: "hd_map_start_lanelet"
