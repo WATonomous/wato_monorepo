@@ -159,10 +159,10 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${roudi_container}$"; then
   exit 1
 fi
 
-# Use CycloneDDS for bag operations to avoid RouDi connection issues
-# Bag recording/playback doesn't need Iceoryx shared memory transport
+# Use CycloneDDS for bag operations to avoid RouDi connection issues.
+# Still join RouDi's IPC namespace so Iceoryx clients won't segfault if RMW gets overridden.
 docker run --rm -t \
-  --ipc host \
+  --ipc "container:${roudi_container}" \
   --network host \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
   --volumes-from "${roudi_container}" \

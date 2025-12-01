@@ -3,6 +3,8 @@ ARG CUDA_BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.2-humble-ubuntu
 ARG CUDA_VERSION=12.2
 ARG TENSORRT_RUNTIME_VERSION=10.7.0.23
 ARG TENSORRT_CUDA_VERSION=12.6
+ARG CUDNN_VERSION=9.16.0.29
+ARG ONNXRUNTIME_VERSION=1.22.0
 
 ################################ Source ################################
 FROM ${BASE_IMAGE} AS source
@@ -10,23 +12,18 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Clone deep_ros repository
-RUN git clone --depth 1 --branch gpu_runtime_test \
+RUN git clone --depth 1 --branch brian/tensorrt_ep \
       https://github.com/WATonomous/deep_ros.git deep_ros
-
-# Scan for rosdeps across the cloned repository
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && \
-    rosdep install --from-paths deep_ros --ignore-src -r -s \
-        | (grep 'apt-get install' || true) \
-        | awk '{print $3}' \
-        | sort > /tmp/colcon_install_list
 
 ################################# Dependencies ################################
 FROM ${CUDA_BASE_IMAGE} AS dependencies
 
 # Declare ARG variables for this stage (must match top-level ARG defaults)
+ARG CUDA_VERSION=12.2
 ARG TENSORRT_RUNTIME_VERSION=10.7.0.23
 ARG TENSORRT_CUDA_VERSION=12.6
+ARG CUDNN_VERSION=9.16.0.29
+ARG ONNXRUNTIME_VERSION=1.22.0
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
@@ -42,43 +39,68 @@ RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
     python3-dev \
     libprotobuf-dev \
     protobuf-compiler \
-    libopencv-dev \
+    libopencv-core-dev \
+    libopencv-imgproc-dev \
     libyaml-cpp-dev \
     wget \
     curl \
     tar \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /var/cache/apt/archives/partial/*
 
-# Install TensorRT Runtime and cuDNN
-# Note: TensorRT version format is MAJOR.MINOR.PATCH.BUILD-1+cudaVERSION
-# CUDA 12.2 is compatible with TensorRT built for CUDA 12.6 (backward compatible)
-# For CUDA 12.x, cuDNN packages are named libcudnn9-cuda-12
+# Install TensorRT Runtime + essential dev headers and cuDNN
+# Split into runtime (smaller) and dev packages to manage disk space
+# Static libraries are very large and often not needed
 RUN curl -fsSL -o cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb \
     && dpkg -i cuda-keyring_1.1-1_all.deb \
-    && apt-get update && apt-get install -qq -y --no-install-recommends \
-    libnvinfer-lean10=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
-    libcudnn9-cuda-12 \
-    libcudnn9-dev-cuda-12 \
     && rm cuda-keyring_1.1-1_all.deb \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get update \
+    # Install TensorRT runtime packages \
+    && apt-get install -qq -y --no-install-recommends \
+        libnvinfer10=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+        libnvinfer-plugin10=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+        libnvinfer-dispatch10=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+        libnvinfer-lean10=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+        libnvinfer-vc-plugin10=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+        libnvonnxparsers10=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+    # Install TensorRT headers (needed for compilation, but no static libs) \
+        libnvinfer-headers-dev=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+        libnvinfer-headers-plugin-dev=${TENSORRT_RUNTIME_VERSION}-1+cuda${TENSORRT_CUDA_VERSION} \
+    # Install cuDNN \
+        libcudnn9-cuda-12=${CUDNN_VERSION}-1 \
+        libcudnn9-dev-cuda-12=${CUDNN_VERSION}-1 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /var/cache/apt/archives/partial/*
 
-# Install rosdep requirements collected from source stage
-COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
+# Copy in source code from source stage and install rosdep requirements directly
+WORKDIR ${AMENT_WS}
+COPY --from=source ${AMENT_WS}/src/deep_ros src/deep_ros
 RUN apt-get -qq update && \
-    xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
+    rosdep install --from-paths src --ignore-src -r -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Copy in source code from source stage
-WORKDIR ${AMENT_WS}
-COPY --from=source ${AMENT_WS}/src/deep_ros src/deep_ros
+# Pre-download ONNX Runtime CPU/GPU archives to avoid build-time network flakes
+RUN set -euo pipefail; \
+    ORT_CPU_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}.tgz"; \
+    ORT_GPU_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VERSION}.tgz"; \
+    TMP_DIR=$(mktemp -d); \
+    mkdir -p "${AMENT_WS}/build/onnxruntime_vendor" "${AMENT_WS}/build/onnxruntime_gpu_vendor"; \
+    for flavor in cpu gpu; do \
+      if [ "$flavor" = "cpu" ]; then \
+        url="$ORT_CPU_URL"; out_dir="${AMENT_WS}/build/onnxruntime_vendor"; prefix="onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}"; \
+      else \
+        url="$ORT_GPU_URL"; out_dir="${AMENT_WS}/build/onnxruntime_gpu_vendor"; prefix="onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VERSION}"; \
+      fi; \
+      archive="${TMP_DIR}/${prefix}.tgz"; \
+      echo "Downloading ONNX Runtime ${flavor} archive from ${url}"; \
+      curl -fL --retry 5 --retry-delay 5 -o "$archive" "$url"; \
+      tar -xzf "$archive" -C "$out_dir"; \
+    done; \
+    rm -rf "$TMP_DIR"
 
 # Ensure bash with pipefail for RUN commands with pipelines
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# RMW Configurations
-COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
 
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}

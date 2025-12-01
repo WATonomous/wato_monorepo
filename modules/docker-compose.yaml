@@ -9,8 +9,9 @@ volumes:
 services:
 #################### INFRASTRUCTURE SERVICES ####################
   roudi:
-    ipc: host
+    ipc: shareable
     network_mode: host
+    shm_size: 2gb  # increase /dev/shm for iceoryx RouDi shared memory pools
     build:
       context: ..
       dockerfile: docker/infrastructure/infrastructure.Dockerfile
@@ -151,7 +152,7 @@ services:
 
 #################### DEEP ROS SERVICE ####################
   deep_ros:
-    ipc: host
+    ipc: "service:roudi"
     network_mode: host
     build:
       context: ..

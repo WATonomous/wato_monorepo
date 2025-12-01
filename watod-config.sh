@@ -36,11 +36,11 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-export ACTIVE_MODULES="infrasturcture"
+export ACTIVE_MODULES="infrastructure perception:dev"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
-# export COMPOSE_PROJECT_NAME=""
+export COMPOSE_PROJECT_NAME="brianzheng111"
 
 ## Tag to use. Images are formatted as <IMAGE_NAME>:<TAG> with forward slashes replaced with dashes.
 ## DEFAULT = "<your_current_github_branch>"
