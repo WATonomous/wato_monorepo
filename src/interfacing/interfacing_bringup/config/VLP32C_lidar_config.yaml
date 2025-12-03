@@ -1,5 +1,5 @@
 ---
-velodyne_driver_node:
+velodyne_driver_node_top:
   ros__parameters:
     device_ip: 10.8.0.88
     gps_time: false
@@ -10,6 +10,36 @@ velodyne_driver_node:
     repeat_delay: 0.0
     frame_id: lidar_top
     model: 32C
+    rpm: 600.0
+    port: 2368
+    timestamp_first_packet: false
+
+velodyne_driver_node_left:
+  ros__parameters:
+    device_ip: 10.8.0.89
+    gps_time: false
+    time_offset: 0.0
+    enabled: true
+    read_once: false
+    read_fast: false
+    repeat_delay: 0.0
+    frame_id: lidar_left
+    model: VLP16
+    rpm: 600.0
+    port: 2368
+    timestamp_first_packet: false
+
+velodyne_driver_node_right:
+  ros__parameters:
+    device_ip: 10.8.0.90
+    gps_time: false
+    time_offset: 0.0
+    enabled: true
+    read_once: false
+    read_fast: false
+    repeat_delay: 0.0
+    frame_id: lidar_right
+    model: VLP16
     rpm: 600.0
     port: 2368
     timestamp_first_packet: false
