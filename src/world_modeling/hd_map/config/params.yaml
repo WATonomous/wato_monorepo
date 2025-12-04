@@ -4,10 +4,10 @@ hd_map_service:
   ros__parameters:
     version: 1
     visualization_output_topic: "hd_map_viz"
-    route_output_topic: "hd_route_map"
+    route_output_topic: "hd_map_route"
     start_output_topic: "hd_map_start_lanelet"
     end_output_topic: "hd_map_end_lanelet"
-    desired_lane_output: "hd_map_desired_lane"
+    desired_lane_output_topic: "hd_map_desired_lane"
     current_lane_output_topic: "hd_map_current_lane"
     traffic_light_input_topic: "traffic_light"
     traffic_sign_input_topic: "/traffic_signs"

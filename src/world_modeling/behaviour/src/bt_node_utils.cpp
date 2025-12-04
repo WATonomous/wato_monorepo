@@ -12,25 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__BEHAVIOUR_NODE_HPP_
-#define BEHAVIOUR__BEHAVIOUR_NODE_HPP_
+#include "behaviour/bt_node_utils.hpp"
 
-#include <rclcpp/rclcpp.hpp>
+namespace wato::world_modeling::behaviour {
 
-/**
- * @class BehaviourNode
- * @brief A boilerplate class template for BehaviourNode.
- */
-class BehaviourNode : public rclcpp::Node
-{
-public:
-  /**
-   * @brief Constructor.
-   */
-  explicit BehaviourNode();
+static rclcpp::Node::SharedPtr shared_node = nullptr;
 
-private:
-  // Add private members and methods here.
-};
+void set_shared_node(const rclcpp::Node::SharedPtr &node) {
+  shared_node = node;
+}
 
-#endif  // BEHAVIOUR__BEHAVIOUR_NODE_HPP_
+rclcpp::Node::SharedPtr get_shared_node() {
+  return shared_node;
+}
+
+} // namespace wato::world_modeling::behaviour
