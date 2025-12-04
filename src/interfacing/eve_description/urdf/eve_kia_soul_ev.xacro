@@ -20,4 +20,16 @@
     <origin xyz="0 0 1.76" rpy="0 0 0"/>
   </xacro:roof_mount>
 
+  <!-- Include mirror mounts and sensors -->
+  <xacro:include filename="eve_mirror_mount_left.xacro"/>
+  <xacro:include filename="eve_mirror_mount_right.xacro"/>
+
+  <xacro:mirror_mount_left parent="base_link">
+    <origin xyz="0.95 0.88 1.26" rpy="0 0 0"/>
+  </xacro:mirror_mount_left>
+
+  <xacro:mirror_mount_right parent="base_link">
+    <origin xyz="0.95 -0.88 1.26" rpy="0 0 0"/>
+  </xacro:mirror_mount_right>
+
 </robot>

@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Simplified sensor mount with yaw calibration -->
+  <xacro:macro name="sensor_yaw_mount" params="name parent_link child_link x y z roll pitch yaw">
+    <joint name="${name}_yaw" type="revolute">
+      <parent link="${parent_link}"/>
+      <child link="${child_link}"/>
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0.01" lower="-0.2" upper="0.2"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Roof mount macro - allows parent specification -->
+  <xacro:macro name="mirror_mount_left" params="parent *origin">
+    <!-- Roof mount for all sensors -->
+    <link name="mirror_mount_left"/>
+    <joint name="mirror_mount_left_joint" type="revolute">
+      <parent link="${parent}"/>
+      <child link="mirror_mount_left"/>
+      <xacro:insert_block name="origin"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="0" velocity="0" lower="-0.0001" upper="0.0001"/>
+    </joint>
+
+    <!-- Top LiDAR -->
+    <link name="lidar_left">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.1" length="0.15"/>
+        </geometry>
+        <material name="black">
+          <color rgba="0 0 0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.1" length="0.15"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <xacro:sensor_yaw_mount name="lidar_left_mount" parent_link="mirror_mount_left" child_link="lidar_left"
+                            x="0" y="0" z="0" roll="0" pitch="0" yaw="0"/>
+
+
+  </xacro:macro>
+
+</robot>
