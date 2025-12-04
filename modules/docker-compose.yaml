@@ -9,7 +9,7 @@ volumes:
 services:
 #################### INFRASTRUCTURE SERVICES ####################
   roudi:
-    ipc: host
+    ipc: shareable
     network_mode: host
     build:
       context: ..
