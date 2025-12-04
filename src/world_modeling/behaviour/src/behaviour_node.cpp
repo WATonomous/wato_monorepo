@@ -15,6 +15,9 @@
 #include "behaviour/behaviour_node.hpp"
 #include "behaviour/bt_node_utils.hpp"
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <behaviortree_cpp_v3/bt_factory.h>
+
 BehaviourNode::BehaviourNode() : Node("behaviour_node") {
   RCLCPP_INFO(this->get_logger(), "BehaviourNode has been started.");
 }

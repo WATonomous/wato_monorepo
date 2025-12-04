@@ -125,6 +125,7 @@ void HDMapService::point_callback(geometry_msgs::msg::PointStamped::SharedPtr ms
 
   auto lanelet1 = router_->get_nearest_lanelet_to_gps(pt1);
   auto lanelet2 = router_->get_nearest_lanelet_to_gps(pt2);
+  goal_lanelet_ = lanelet2;
 
   std_msgs::msg::ColorRGBA color;
   color.g = 1;
@@ -211,7 +212,7 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lan
     p.x = point.x();
     p.y = point.y();
     p.z = point.z();
-    lanelet_msg.left_boundary.push_back(p);
+    lanelet_msg.right_boundary.push_back(p);
   }
 
   // convert centerline
@@ -251,9 +252,14 @@ void HDMapService::behaviour_tree_info_callback(
   response->current_point = current_point_;
   response->goal_point = goal_point_;
 
-  // response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
-  // response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
-  // response->route_list = convert_laneletPath_to_msg(lanelet_path);
+  // Populate lanelet/route info if available
+  if (current_lanelet_.id() != 0) {
+    response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
+  }
+  if (goal_lanelet_.id() != 0) {
+    response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
+  }
+  response->route_list = convert_laneletPath_to_msg(lanelet_path);
 }
 
 int main(int argc, char ** argv)

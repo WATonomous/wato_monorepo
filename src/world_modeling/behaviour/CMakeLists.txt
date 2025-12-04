@@ -26,6 +26,7 @@ endif()
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
 find_package(rclcpp REQUIRED)      # ROS2 C++ package
+find_package(ament_index_cpp REQUIRED) # ROS2 package index helpers
 find_package(std_msgs REQUIRED)    # ROS2 Messages
 find_package(std_srvs REQUIRED)    # ROS2 Services
 find_package(rclcpp_action REQUIRED) # ROS2 Action Library
@@ -61,6 +62,7 @@ add_executable(behaviour_node src/behaviour_node.cpp)
 target_link_libraries(behaviour_node behaviour_lib)
 ament_target_dependencies(behaviour_node
   rclcpp
+  ament_index_cpp
   std_msgs
   std_srvs
   rclcpp_action

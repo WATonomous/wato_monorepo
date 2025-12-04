@@ -16,7 +16,6 @@
 #define BEHAVIOUR__BEHAVIOUR_NODE_HPP_
 
 #include <rclcpp/rclcpp.hpp>
-#include <behaviour/behaviour_node.hpp>
 
 /**
  * @class BehaviourNode
