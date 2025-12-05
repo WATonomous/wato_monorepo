@@ -59,6 +59,9 @@
 ## Path to CycloneDDS configuration file. DEFAULT = "file:///opt/watonomous/dds_config.xml"
 # export CYCLONEDDS_URI=""
 
+## Size of Shared Memory for IPC. DEFAULT = "6gb"
+# export SHM_SIZE=""
+
 ## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
 ## Each user gets a unique domain to prevent cross-talk on shared networks
 # export ROS_DOMAIN_ID=""
