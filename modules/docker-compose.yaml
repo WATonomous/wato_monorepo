@@ -8,27 +8,27 @@ volumes:
 
 services:
 #################### INFRASTRUCTURE SERVICES ####################
-  roudi:
-    ipc: shareable
-    network_mode: host
-    build:
-      context: ..
-      dockerfile: docker/infrastructure/infrastructure.Dockerfile
-      cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
-        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
-      target: deploy
-    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-    command: iox-roudi -c /opt/watonomous/iox_config.toml
-    volumes:
-      - iox_runtime:/tmp
-    environment:
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+  # roudi:
+  #   ipc: shareable
+  #   network_mode: host
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/infrastructure/infrastructure.Dockerfile
+  #     cache_from:
+  #       - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
+  #       - "${INFRASTRUCTURE_IMAGE:?}:build_main"
+  #     target: deploy
+  #   image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
+  #   command: iox-roudi -c /opt/watonomous/iox_config.toml
+  #   volumes:
+  #     - iox_runtime:/tmp
+  #   environment:
+  #     - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+  #     - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+  #     - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
 
   foxglove:
-    ipc: "service:roudi"
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -39,14 +39,14 @@ services:
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
-    volumes:
-      - iox_runtime:/tmp
-    environment:
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
-    depends_on:
-      - roudi
+    # volumes:
+    #   - iox_runtime:/tmp
+    # environment:
+    #   - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+    #   - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+    #   - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+    # depends_on:
+    #   - roudi
 
   log_viewer:
     container_name: watod_log_viewer
@@ -57,12 +57,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
-    depends_on:
-      - roudi
+    # depends_on:
+    #   - roudi
 
 #################### INTERFACING SERVICE ####################
   interfacing_bringup:
-    ipc: "service:roudi"
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -73,14 +73,14 @@ services:
       target: deploy
     image: "${INTERFACING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_launch.yaml"
-    volumes:
-      - iox_runtime:/tmp
-    environment:
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
-    depends_on:
-      - roudi
+    # volumes:
+    #   - iox_runtime:/tmp
+    # environment:
+    #   - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+    #   - CYCLONEDDS_URI=${CYCLONEDDS_URI}
+    #   - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+    # depends_on:
+    #   - roudi
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup:

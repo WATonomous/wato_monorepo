@@ -25,6 +25,7 @@ endif()
 
 # Search for dependencies required for building this package
 find_package(ament_cmake REQUIRED) # ROS2 build tool
+find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED) # ROS2 common messages
 
 set(msg_files

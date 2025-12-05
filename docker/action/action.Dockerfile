@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
 
 ################################ Source ################################
 FROM ${BASE_IMAGE} AS source
@@ -34,15 +34,6 @@ FROM ${BASE_IMAGE} AS dependencies
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
-
-#install casadi via pip
-RUN apt-get update && apt-fast install -qq -y --no-install-recommends python3-pip && \
-    python3 -m pip install --no-cache-dir "pip==24.2" && \
-    # Install CasADi
-    python3 -m pip install --no-cache-dir "casadi==3.6.5" && \
-    # Verify installation
-    python3 -c "import casadi; print('CasADi:', casadi.__version__);" && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy in source code from source stage
