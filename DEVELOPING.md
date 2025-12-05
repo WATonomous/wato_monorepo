@@ -17,6 +17,8 @@ docker login ghcr.io
 
 Theses base images are used in our dockerfiles to provide a starting point for all of our docker images.
 
+ALL WATONOMOUS BASE IMAGES ARE BUILT USING THE WATO_MONOREPO. It is configured [here](.github/include/base_image_config.json), and must be ran manually in GitHub CI (search for the job **Build Monorepo Base Images** under the **Actions** tab). Note, only administrators can trigger new image builds.
+
 ### How are the wato_monorepo base images created?
 
 All wato_monorepo base images are created using [GitHub Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows). GitHub Workflows are automated procedures defined in a GitHub repository that can be triggered by various GitHub events, such as a push or a pull request, to perform tasks like building, testing, and deploying code.
