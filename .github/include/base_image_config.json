@@ -15,7 +15,6 @@
       }
     },
 
-
     {
       "tag": "cuda12.2.2-cudnn8-runtime-ubuntu22.04",
       "external_image": "nvcr.io/nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04",
