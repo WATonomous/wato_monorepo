@@ -15,7 +15,7 @@
 
   <!-- Unused, for old Blackfly Cams -->
   <exec_depend>spinnaker_camera_driver</exec_depend>
-  
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
