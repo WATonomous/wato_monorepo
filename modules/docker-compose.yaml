@@ -11,6 +11,7 @@ services:
   # roudi:
   #   ipc: shareable
   #   network_mode: host
+  #   shm_size: "${SHM_SIZE}"
   #   build:
   #     context: ..
   #     dockerfile: docker/infrastructure/infrastructure.Dockerfile

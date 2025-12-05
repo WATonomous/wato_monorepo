@@ -87,6 +87,7 @@ BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
 # ROS 2 Middleware configuration
 RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_cyclonedds_cpp"}
 CYCLONEDDS_URI=${CYCLONEDDS_URI:-"file:///opt/watonomous/dds_config.xml"}
+SHM_SIZE=${SHM_SIZE:-"6gb"}
 
 # Always append infrastructure to ACTIVE_MODULES if not already present
 if [[ -n ${ACTIVE_MODULES:-} ]]; then
@@ -199,6 +200,8 @@ append "INTERFACING_IMAGE" "$INTERFACING_IMAGE"
 # ROS 2 Middleware
 append "RMW_IMPLEMENTATION" "$RMW_IMPLEMENTATION"
 append "CYCLONEDDS_URI" "$CYCLONEDDS_URI"
+append "SHM_SIZE" "$SHM_SIZE"
+
 append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
 
 echo "[setup-env] .env generated at $ENV_FILE"
