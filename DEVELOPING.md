@@ -345,3 +345,10 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
         your_org/their_package_vendor
 
         This signals you're maintaining a vendored version.
+
+    4. Maintenance Responsibility
+
+        By releasing, WATonomous (or you) is committing to:
+       - Respond to build farm issues
+       - Update for new ROS distros
+       - Fix critical bugs (or at least coordinate fixes)
