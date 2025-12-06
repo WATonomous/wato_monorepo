@@ -177,16 +177,19 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
        - Pip packages → rosdep/python.yaml
        - System packages → rosdep/base.yaml
     3. Format for pip packages (in python.yaml):
-    python3-yourpackage-pip:
-      debian:
-        pip:
-          packages: [yourpackage]
-      fedora:
-        pip:
-          packages: [yourpackage]
-      ubuntu:
-        pip:
-          packages: [yourpackage]
+
+       ```yaml
+       python3-yourpackage-pip:
+         debian:
+           pip:
+             packages: [yourpackage]
+         fedora:
+           pip:
+             packages: [yourpackage]
+         ubuntu:
+           pip:
+             packages: [yourpackage]
+       ```
 
     4. Submit a Pull Request with:
        - Links to package listings (PyPI for pip packages,
@@ -240,14 +243,12 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
              -DBUILD_EXAMPLES=OFF
 
            # Patch if needed
-           # PATCH_COMMAND patch -p1 <
-         ${CMAKE_CURRENT_SOURCE_DIR}/patches/fix.patch
+           # PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/patches/fix.patch
          )
 
          # Install marker file so other packages know this was built
          install(FILES
-           ${CMAKE_CURRENT_BINARY_DIR}/package_name_external-prefix/src/package
-         _name_external-stamp/package_name_external-build
+           ${CMAKE_CURRENT_BINARY_DIR}/package_name_external-prefix/src/package_name_external-stamp/package_name_external-build
            DESTINATION share/${PROJECT_NAME}
          )
 
@@ -258,50 +259,38 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
 
        For non-git sources:
 
-        ```cmake
-        ExternalProject_Add(package_name_external
-          URL https://example.com/package-1.0.0.tar.gz
-          URL_HASH SHA256=abc123...
+       ```cmake
+       ExternalProject_Add(package_name_external
+         URL https://example.com/package-1.0.0.tar.gz
+         URL_HASH SHA256=abc123...
 
-          CMAKE_ARGS
-            -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        )
-        ```
+         CMAKE_ARGS
+           -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+           -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+       )
+       ```
 
    - **For Non-CMake Projects**
 
-        If the source uses Make, Autotools, or custom build:
+       If the source uses Make, Autotools, or custom build:
 
-        ```cmake
-        ExternalProject_Add(package_name_external
-                GIT_REPOSITORY https://github.com/owner/repo.git
-                GIT_TAG v1.0.0
-            CONFIGURE_COMMAND ./configure --prefix=${CMAKE_INSTALL_PREFIX}
-            BUILD_COMMAND make -j$(nproc)
-        INSTALL_COMMAND make install
+       ```cmake
+       ExternalProject_Add(package_name_external
+         GIT_REPOSITORY https://github.com/owner/repo.git
+         GIT_TAG v1.0.0
 
-            BUILD_IN_SOURCE 1
-          )
-        ```
+         CONFIGURE_COMMAND ./configure --prefix=${CMAKE_INSTALL_PREFIX}
+         BUILD_COMMAND make -j$(nproc)
+         INSTALL_COMMAND make install
 
-   - **For existing codebase that is built with colcon**
-
-        ``` cmake
-        # Set up the colcon workspace
-        ExternalProject_Add(external_package_colcon
-        GIT_REPOSITORY https://github.com/owner/repo.git
-        GIT_TAG v1.0.0
-
-        # Use colcon to build
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND
-          ${CMAKE_COMMAND} -E env
-          bash -c "source /opt/ros/$ENV{ROS_DISTRO}/setup.bash && colcon build --install-base ${CMAKE_INSTALL_PREFIX} --merge-install"
-        INSTALL_COMMAND ""
-
-        BUILD_IN_SOURCE 1
-      )
+         BUILD_IN_SOURCE 1
+       )
        ```
 
-1. **Clone the repo into the dockerfile (not recommended and enforced)** Doing so will cause package bloat and versioning issues.
+    **Contribute to Opensource!** Now that you've create a vendor package, you can release it to the ROS buildfarm and become a co-maintainer of the package! Refer to the below steps (skip to Option B) to see how.
+
+1. **Clone the repo into the dockerfile** This is only for repos can can be built with colcon, BUT do not release themselves as part of the ROS build farm (cannot be downloaded through rosdep).
+
+    **Contribute to Opensource!** If the package can be built with colcon and its dependencies are already handled by rosdep, then you have an opportunity to become a co-maintainer of that package! To do so, do the following:
+
+    > We highly encourage this because it not only helps boosts WATonomous' reputation, but also yours in the opensource community. You also get to say that you are a co-maintainer of a package that could be really important (ie. SLAM, Bytetrack, etc.)
