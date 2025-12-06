@@ -23,10 +23,13 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msg
 # Scan for rosdeps across the copied sources
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && \
-    rosdep install --from-paths . --ignore-src -r -s \
-        | (grep 'apt-get install' || true) \
+    rosdep install --from-paths . --ignore-src -r -s > /tmp/rosdep_output && \
+    (grep 'apt-get install' /tmp/rosdep_output || true) \
         | awk '{print $3}' \
-        | sort > /tmp/colcon_install_list
+        | sort  > /tmp/colcon_install_list && \
+    (grep 'pip3 install' /tmp/rosdep_output || true) \
+        | sed 's/.*pip3 install //' \
+        | sort  > /tmp/colcon_pip_install_list
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
@@ -37,9 +40,13 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install rosdep requirements collected from source stage
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get -qq update && \
+COPY --from=source /tmp/colcon_pip_install_list /tmp/colcon_pip_install_list
+RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    if [ -s /tmp/colcon_pip_install_list ]; then \
+        xargs -a /tmp/colcon_pip_install_list pip3 install --no-cache-dir; \
+    fi
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
