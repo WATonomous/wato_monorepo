@@ -14,7 +14,6 @@
 # limitations under the License.
 """
 Publishes URDF description with volatile QoS for visualization in Foxglove.
-Avoids transient_local QoS which is not supported by iceoryx.
 """
 
 import rclpy
@@ -28,7 +27,7 @@ class URDFPublisher(Node):
     def __init__(self, urdf_content):
         super().__init__("urdf_publisher")
 
-        # Create QoS profile with volatile durability (compatible with iceoryx)
+        # Create QoS profile with volatile durability for visualization
         qos = QoSProfile(
             depth=10,
             durability=DurabilityPolicy.VOLATILE,

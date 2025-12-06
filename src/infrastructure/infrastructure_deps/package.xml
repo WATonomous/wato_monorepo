@@ -8,9 +8,7 @@
   <license>Apache 2.0</license>
 
   <!-- To enable Shared Memory IPC -->
-  <depend>rmw_cyclonedds_cpp</depend>
-  <depend>iceoryx_posh</depend>
-  <depend>iceoryx_hoofs</depend>
+  <depend>rmw_zenoh_cpp</depend>
 
   <!-- Bag recording dependencies -->
   <depend>ros2bag</depend>

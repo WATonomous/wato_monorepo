@@ -12,7 +12,7 @@ A ROS 2 testing framework built on Catch2 that provides test fixtures and utilit
 ## Quick Start
 
 ```cpp
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include <wato_test/wato_test.hpp>
 
 TEST_CASE_METHOD(wato::test::TestExecutorFixture, "My ROS Test", "[ros]") {

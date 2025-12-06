@@ -1,11 +1,11 @@
 ---
 services:
 #################### INFRASTRUCTURE SERVICES ####################
-  roudi:
-    profiles: ["infrastructure"]
-    extends:
-      file: docker-compose.yaml
-      service: roudi
+  # roudi:
+  #   profiles: ["infrastructure"]
+  #   extends:
+  #     file: docker-compose.yaml
+  #     service: roudi
 
   foxglove:
     profiles: ["infrastructure"]

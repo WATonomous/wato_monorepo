@@ -1,17 +1,11 @@
 ---
-volumes:
-  iox_runtime:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-
 services:
 #################### INFRASTRUCTURE SERVICES ####################
-  roudi:
-    ipc: shareable
+  zenoh_router:
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
-    shm_size: "${SHM_SIZE}"
     build:
       context: ..
       dockerfile: docker/infrastructure/infrastructure.Dockerfile
@@ -20,16 +14,17 @@ services:
         - "${INFRASTRUCTURE_IMAGE:?}:build_main"
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-    command: iox-roudi -c /opt/watonomous/iox_config.toml
-    volumes:
-      - iox_runtime:/tmp
+    command: ros2 run rmw_zenoh_cpp rmw_zenohd
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
 
   foxglove:
-    ipc: "service:roudi"
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -40,14 +35,13 @@ services:
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
-    volumes:
-      - iox_runtime:/tmp
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - roudi
+      - zenoh_router
 
   log_viewer:
     container_name: watod_log_viewer
@@ -58,12 +52,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
-    depends_on:
-      - roudi
 
 #################### INTERFACING SERVICE ####################
   interfacing_bringup:
-    ipc: "service:roudi"
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -74,18 +68,19 @@ services:
       target: deploy
     image: "${INTERFACING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_launch.yaml"
-    volumes:
-      - iox_runtime:/tmp
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - roudi
+      - zenoh_router
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup:
-    ipc: "service:roudi"
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -98,17 +93,19 @@ services:
     command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
     volumes:
       - /mnt/wato-drive2/perception_models:/perception_models
-      - iox_runtime:/tmp
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - roudi
+      - zenoh_router
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_bringup:
-    ipc: "service:roudi"
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -119,18 +116,19 @@ services:
       target: deploy
     image: "${WORLD_MODELING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.py"
-    volumes:
-      - iox_runtime:/tmp
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - roudi
+      - zenoh_router
 
 #################### ACTION SERVICE ####################
   action_bringup:
-    ipc: "service:roudi"
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -141,14 +139,13 @@ services:
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
-    volumes:
-      - iox_runtime:/tmp
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - roudi
+      - zenoh_router
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
@@ -167,7 +164,9 @@ services:
               capabilities: [gpu]
 
   carla_ros_bridge:
-    ipc: "service:roudi"
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -177,18 +176,17 @@ services:
         - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
       target: deploy
     image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
-    volumes:
-      - iox_runtime:/tmp
     environment:
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
       - USE_ACKERMANN_CONTROL=False
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
     command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
     depends_on:
-      - roudi
+      - zenoh_router
 
   carla_viz:
     build:
@@ -208,7 +206,9 @@ services:
     restart: always
 
   carla_sample_node:
-    ipc: "service:roudi"
+    ulimits:
+      memlock: -1
+    ipc: host
     network_mode: host
     build:
       context: ..
@@ -220,14 +220,13 @@ services:
     image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
     # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
     command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
-    volumes:
-      - iox_runtime:/tmp
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - CYCLONEDDS_URI=${CYCLONEDDS_URI}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - roudi
+      - zenoh_router
 
   carla_notebooks:
     build:
