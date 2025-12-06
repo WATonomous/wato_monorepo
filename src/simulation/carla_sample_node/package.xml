@@ -9,6 +9,9 @@
 
   <test_depend>python3-pytest</test_depend>
 
+  <!-- To enable Shared Memory IPC -->
+  <depend>rmw_zenoh_cpp</depend>
+
   <depend>rclpy</depend>
 
   <export>

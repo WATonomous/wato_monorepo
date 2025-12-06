@@ -57,9 +57,6 @@ RUN cmake -S cpp -B build \
     cmake --install build && \
     echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
 
-# RMW Configurations
-COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
-
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
@@ -76,7 +73,8 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # RMW Configurations
-COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+COPY docker/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
+COPY docker/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
