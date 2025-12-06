@@ -309,3 +309,39 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
 
         I'm happy to do the work with bloom and submit the PR.
         ```
+
+    2. Wait for Response
+
+        Best case is they say yes
+       - You coordinate with them
+       - They give you push access to their repo (or a -release repo)
+       - You become a co-maintainer
+
+        No response after ~2 weeks: You can proceed independently (see below)
+
+    3. Independent Release
+
+        If they don't respond or aren't interested in maintaining:
+
+        Option A: Release from a fork
+
+        **Fork their repo to the WATonomous GitHub then release from the fork**
+
+        > **TODO (eddy)** Currently, we are trying to figure out how to do the release process for our monorepo. If you run into this, let my know
+
+        bloom-release --rosdistro jazzy --track jazzy package_name \
+          --github-org your_username
+
+        In the rosdistro PR, explain:
+        This is a release of [original_repo] maintained by [original_author].
+
+       - Original repo: https://github.com/original/repo
+       - I've reached out to the maintainer (link to issue)
+       - No response after 2 weeks / Maintainer is no longer active
+       - I'm taking on maintenance responsibility for ROS releases
+
+        Option B: **Create a vendor package**
+
+        your_org/their_package_vendor
+
+        This signals you're maintaining a vendored version.
