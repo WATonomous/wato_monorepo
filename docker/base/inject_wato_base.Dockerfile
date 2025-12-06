@@ -26,6 +26,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 
 # Add a user so that created files in the docker container are owned by a non-root user (for prod)
 ARG USER_PASSWD
+# hadolint ignore=SC2046
 RUN addgroup --gid 1000 ${USER} || groupmod -n ${USER} $(getent group 1000 | cut -d: -f1) && \
     useradd -rm -d /home/${USER} -s /bin/bash -g ${USER} -G sudo -u 1000 ${USER} -p "$(openssl passwd -6 $USER_PASSWD)" || \
     usermod -l ${USER} -d /home/${USER} -m $(getent passwd 1000 | cut -d: -f1) && \
@@ -44,7 +45,7 @@ RUN apt-get update && \
     echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
     echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
     echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
-    apt-get install -y apt-fast && \
+    apt-get install -y --no-install-recommends  apt-fast && \
     rm -rf /var/lib/apt/lists/*
 
 # sources ament_ws automatically when we start a terminal inside the container
