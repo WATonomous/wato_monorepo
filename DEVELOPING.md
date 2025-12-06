@@ -191,17 +191,19 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
              packages: [yourpackage]
        ```
 
-    4. Submit a Pull Request with:
-       - Links to package listings (PyPI for pip packages,
-      Ubuntu/Debian/Fedora repos for system packages)
-       - Brief description of the package and your use case
-       - Ensure alphabetical ordering
-       - Remove trailing whitespace
-    5. Requirements:
-       - Must be in official repos (PyPI main index for pip, official
-      distro repos for apt)
-       - Requires review from 2 people before merging
-       - Typically merged within a week (you can install the dependency as a direct `apt` or `pip` while you wait)
+```
+4. Submit a Pull Request with:
+   - Links to package listings (PyPI for pip packages,
+  Ubuntu/Debian/Fedora repos for system packages)
+   - Brief description of the package and your use case
+   - Ensure alphabetical ordering
+   - Remove trailing whitespace
+5. Requirements:
+   - Must be in official repos (PyPI main index for pip, official
+  distro repos for apt)
+   - Requires review from 2 people before merging
+   - Typically merged within a week (you can install the dependency as a direct `apt` or `pip` while you wait)
+```
 
 1. **Vendor Package** If the codebase that you want to depend on is not released as a pip or apt dependency, and they ask you to build the codebase from source, then you can create a vendor package of that codebase. To do so, create a package called `<package_name>_vendor`, and then use CMakeLists.txt to build the package using colcon build.
 
