@@ -352,3 +352,9 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
        - Respond to build farm issues
        - Update for new ROS distros
        - Fix critical bugs (or at least coordinate fixes)
+        Add watonomous yourself to package.xml:
+
+        ```xml
+          <maintainer email="hello@watonomous.com">WATonomous</maintainer>
+          <author email="original@email.com">Original Author</author>
+        ```
