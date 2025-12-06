@@ -154,3 +154,135 @@ While Zenoh's shared memory support provides efficient zero-copy message passing
 - If one node fails, the whole process fails
 
 Only group your nodes into a component container if you believe that they are tightly coupled and should fail/start as one.
+
+## Adding Dependencies
+**Dependency** any codebase, library, package, that your code depends on.
+
+Dependencies are managed inside a Dockerfile through a variety of tools. When adding external libraries to the wato_monorepo, there are number of ways to do so. The order of methods from best to worst is as follows:
+1. **Installing through ROSdep** ROSdep is a dependency manager from ROS which automatically finds compatible libraries to install for a specific version of ROS. Underthehood, ROSdep uses apt for C++ packages and Pip for python packages. ROSdep dependencies are set inside a ros package's `package.xml`. A `package.xml` has three types of fields:
+   - `<exec_depend>dependency_name</exec_depend>` is used for when your package only needs the dependency at runtime (not during build)
+   - `<test_depend>dependency_name</test_depend>` is used for when your package only needs the dependency at test time
+   - `<build_depend>dependency_name</build_depend>` is used for when your package only needs the dependency at build time
+   - `<depend>dependency_name</depend>` is used for when you package needs the dependency as a whole
+   - This is dangerous as it causes packages to bloat with unneeded dependencies
+
+    To check if the library you want can be installed through ROSdep, you can check [rosdistro](https://github.com/ros/rosdistro). Best way is to clone that repo and Ctrl+F for the package you desire.
+
+1. **Direct `apt` or `pip` installation (not suggested)** You can directly install dependencies in the Dockerfile's `dependencies` stage. This is not recommended as we could run into versioning issues and dockerfile bloat in the future. Also, to make your package open source, you have to make it work with ROSdep. That will heavily increase the odds of your package actually being taken seriously by companies, individuals, research labs, etc.
+
+    **Contribute to opensource! (suggested)** When there doesn't exist a ROSdep key for a given `apt` or `pip` package. Congratulations! You found a quick and easy way to contribute to opensource. To do so:
+
+    1. Fork the https://github.com/ros/rosdistro repository
+    2. Add your package to the appropriate YAML file:
+       - Pip packages → rosdep/python.yaml
+       - System packages → rosdep/base.yaml
+    3. Format for pip packages (in python.yaml):
+    python3-yourpackage-pip:
+      debian:
+        pip:
+          packages: [yourpackage]
+      fedora:
+        pip:
+          packages: [yourpackage]
+      ubuntu:
+        pip:
+          packages: [yourpackage]
+
+    4. Submit a Pull Request with:
+       - Links to package listings (PyPI for pip packages,
+      Ubuntu/Debian/Fedora repos for system packages)
+       - Brief description of the package and your use case
+       - Ensure alphabetical ordering
+       - Remove trailing whitespace
+    5. Requirements:
+       - Must be in official repos (PyPI main index for pip, official
+      distro repos for apt)
+       - Requires review from 2 people before merging
+       - Typically merged within a week (you can install the dependency as a direct `apt` or `pip` while you wait)
+
+1. **Vendor Package** If the codebase that you want to depend on is not released as a pip or apt dependency, and they ask you to build the codebase from source, then you can create a vendor package of that codebase. To do so, create a package called `<package_name>_vendor`, and then use CMakeLists.txt to build the package using colcon build.
+
+   - **Create CMakeLists.txt**
+
+       ```cmake
+         cmake_minimum_required(VERSION 3.8)
+         project(package_name_vendor)
+
+         find_package(ament_cmake REQUIRED)
+
+         # Option to force vendor build even if system version exists
+         option(FORCE_BUILD_VENDOR_PKG "Build from source instead of using
+         system package" OFF)
+
+         # Try to find system-installed version first
+         if(NOT FORCE_BUILD_VENDOR_PKG)
+           find_package(package_name QUIET)
+         endif()
+
+         if(package_name_FOUND)
+           message(STATUS "Found system package_name, skipping build")
+           ament_package()
+           return()
+         endif()
+
+         # Build from source using ExternalProject
+         include(ExternalProject)
+
+         ExternalProject_Add(package_name_external
+           GIT_REPOSITORY https://github.com/owner/repo.git
+           GIT_TAG v1.0.0  # Specific version/tag/commit
+
+           CMAKE_ARGS
+             -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+             # Add other cmake options as needed
+             -DBUILD_TESTING=OFF
+             -DBUILD_EXAMPLES=OFF
+
+           # Patch if needed
+           # PATCH_COMMAND patch -p1 <
+         ${CMAKE_CURRENT_SOURCE_DIR}/patches/fix.patch
+         )
+
+         # Install marker file so other packages know this was built
+         install(FILES
+           ${CMAKE_CURRENT_BINARY_DIR}/package_name_external-prefix/src/package
+         _name_external-stamp/package_name_external-build
+           DESTINATION share/${PROJECT_NAME}
+         )
+
+         ament_package()
+       ```
+
+   - **Alternative: Download and Build Archive**
+
+       For non-git sources:
+
+        ```cmake
+        ExternalProject_Add(package_name_external
+          URL https://example.com/package-1.0.0.tar.gz
+          URL_HASH SHA256=abc123...
+
+          CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        )
+        ```
+
+   - **For Non-CMake Projects**
+
+        If the source uses Make, Autotools, or custom build:
+
+        ```cmake
+        ExternalProject_Add(package_name_external
+                GIT_REPOSITORY https://github.com/owner/repo.git
+                GIT_TAG v1.0.0
+            CONFIGURE_COMMAND ./configure --prefix=${CMAKE_INSTALL_PREFIX}
+            BUILD_COMMAND make -j$(nproc)
+        INSTALL_COMMAND make install
+
+            BUILD_IN_SOURCE 1
+          )
+        ```
+
+1. **Clone the repo into the dockerfile (not recommended and enforced)** Doing so will cause package bloat and versioning issues.
