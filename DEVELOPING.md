@@ -294,3 +294,18 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
     **Contribute to Opensource!** If the package can be built with colcon and its dependencies are already handled by rosdep, then you have an opportunity to become a co-maintainer of that package! To do so, do the following:
 
     > We highly encourage this because it not only helps boosts WATonomous' reputation, but also yours in the opensource community. You also get to say that you are a co-maintainer of a package that could be really important (ie. SLAM, Bytetrack, etc.)
+
+    1. Contact the Original Authors First:
+
+         ```
+         Open an issue or discussion:
+         Title: "Interest in releasing this package to ROS build farm"
+
+         Hi! I'd like to use this package in production and would love to see
+         it
+         available via apt. Would you be open to:
+         1. Me helping release it to the jazzy distribution?
+        2. Becoming a co-maintainer to handle releases?
+
+        I'm happy to do the work with bloom and submit the PR.
+        ```
