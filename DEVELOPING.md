@@ -285,4 +285,23 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
           )
         ```
 
+   - **For existing codebase that is built with colcon**
+
+        ``` cmake
+        # Set up the colcon workspace
+        ExternalProject_Add(external_package_colcon
+        GIT_REPOSITORY https://github.com/owner/repo.git
+        GIT_TAG v1.0.0
+
+        # Use colcon to build
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND
+          ${CMAKE_COMMAND} -E env
+          bash -c "source /opt/ros/$ENV{ROS_DISTRO}/setup.bash && colcon build --install-base ${CMAKE_INSTALL_PREFIX} --merge-install"
+        INSTALL_COMMAND ""
+
+        BUILD_IN_SOURCE 1
+      )
+       ```
+
 1. **Clone the repo into the dockerfile (not recommended and enforced)** Doing so will cause package bloat and versioning issues.
