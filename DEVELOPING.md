@@ -177,28 +177,33 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
        - Pip packages → rosdep/python.yaml
        - System packages → rosdep/base.yaml
     3. Format for pip packages (in python.yaml):
-    python3-yourpackage-pip:
-      debian:
-        pip:
-          packages: [yourpackage]
-      fedora:
-        pip:
-          packages: [yourpackage]
-      ubuntu:
-        pip:
-          packages: [yourpackage]
 
-    4. Submit a Pull Request with:
-       - Links to package listings (PyPI for pip packages,
-      Ubuntu/Debian/Fedora repos for system packages)
-       - Brief description of the package and your use case
-       - Ensure alphabetical ordering
-       - Remove trailing whitespace
-    5. Requirements:
-       - Must be in official repos (PyPI main index for pip, official
-      distro repos for apt)
-       - Requires review from 2 people before merging
-       - Typically merged within a week (you can install the dependency as a direct `apt` or `pip` while you wait)
+       ```yaml
+       python3-yourpackage-pip:
+         debian:
+           pip:
+             packages: [yourpackage]
+         fedora:
+           pip:
+             packages: [yourpackage]
+         ubuntu:
+           pip:
+             packages: [yourpackage]
+       ```
+
+```
+4. Submit a Pull Request with:
+   - Links to package listings (PyPI for pip packages,
+  Ubuntu/Debian/Fedora repos for system packages)
+   - Brief description of the package and your use case
+   - Ensure alphabetical ordering
+   - Remove trailing whitespace
+5. Requirements:
+   - Must be in official repos (PyPI main index for pip, official
+  distro repos for apt)
+   - Requires review from 2 people before merging
+   - Typically merged within a week (you can install the dependency as a direct `apt` or `pip` while you wait)
+```
 
 1. **Vendor Package** If the codebase that you want to depend on is not released as a pip or apt dependency, and they ask you to build the codebase from source, then you can create a vendor package of that codebase. To do so, create a package called `<package_name>_vendor`, and then use CMakeLists.txt to build the package using colcon build.
 
@@ -240,14 +245,12 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
              -DBUILD_EXAMPLES=OFF
 
            # Patch if needed
-           # PATCH_COMMAND patch -p1 <
-         ${CMAKE_CURRENT_SOURCE_DIR}/patches/fix.patch
+           # PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/patches/fix.patch
          )
 
          # Install marker file so other packages know this was built
          install(FILES
-           ${CMAKE_CURRENT_BINARY_DIR}/package_name_external-prefix/src/package
-         _name_external-stamp/package_name_external-build
+           ${CMAKE_CURRENT_BINARY_DIR}/package_name_external-prefix/src/package_name_external-stamp/package_name_external-build
            DESTINATION share/${PROJECT_NAME}
          )
 
@@ -258,50 +261,102 @@ Dependencies are managed inside a Dockerfile through a variety of tools. When ad
 
        For non-git sources:
 
-        ```cmake
-        ExternalProject_Add(package_name_external
-          URL https://example.com/package-1.0.0.tar.gz
-          URL_HASH SHA256=abc123...
+       ```cmake
+       ExternalProject_Add(package_name_external
+         URL https://example.com/package-1.0.0.tar.gz
+         URL_HASH SHA256=abc123...
 
-          CMAKE_ARGS
-            -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        )
-        ```
+         CMAKE_ARGS
+           -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+           -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+       )
+       ```
 
    - **For Non-CMake Projects**
 
-        If the source uses Make, Autotools, or custom build:
+       If the source uses Make, Autotools, or custom build:
 
-        ```cmake
-        ExternalProject_Add(package_name_external
-                GIT_REPOSITORY https://github.com/owner/repo.git
-                GIT_TAG v1.0.0
-            CONFIGURE_COMMAND ./configure --prefix=${CMAKE_INSTALL_PREFIX}
-            BUILD_COMMAND make -j$(nproc)
-        INSTALL_COMMAND make install
+       ```cmake
+       ExternalProject_Add(package_name_external
+         GIT_REPOSITORY https://github.com/owner/repo.git
+         GIT_TAG v1.0.0
 
-            BUILD_IN_SOURCE 1
-          )
-        ```
+         CONFIGURE_COMMAND ./configure --prefix=${CMAKE_INSTALL_PREFIX}
+         BUILD_COMMAND make -j$(nproc)
+         INSTALL_COMMAND make install
 
-   - **For existing codebase that is built with colcon**
-
-        ``` cmake
-        # Set up the colcon workspace
-        ExternalProject_Add(external_package_colcon
-        GIT_REPOSITORY https://github.com/owner/repo.git
-        GIT_TAG v1.0.0
-
-        # Use colcon to build
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND
-          ${CMAKE_COMMAND} -E env
-          bash -c "source /opt/ros/$ENV{ROS_DISTRO}/setup.bash && colcon build --install-base ${CMAKE_INSTALL_PREFIX} --merge-install"
-        INSTALL_COMMAND ""
-
-        BUILD_IN_SOURCE 1
-      )
+         BUILD_IN_SOURCE 1
+       )
        ```
 
-1. **Clone the repo into the dockerfile (not recommended and enforced)** Doing so will cause package bloat and versioning issues.
+    **Contribute to Opensource!** Now that you've create a vendor package, you can release it to the ROS buildfarm and become a co-maintainer of the package! Refer to the below steps (skip to Option B) to see how.
+
+1. **Clone the repo into the dockerfile** This is only for repos can can be built with colcon, BUT do not release themselves as part of the ROS build farm (cannot be downloaded through rosdep).
+
+    **Contribute to Opensource!** If the package can be built with colcon and its dependencies are already handled by rosdep, then you have an opportunity to become a co-maintainer of that package! To do so, do the following:
+
+    > We highly encourage this because it not only helps boosts WATonomous' reputation, but also yours in the opensource community. You also get to say that you are a co-maintainer of a package that could be really important (ie. SLAM, Bytetrack, etc.)
+
+    1. Contact the Original Authors First:
+
+         ```
+         Open an issue or discussion:
+         Title: "Interest in releasing this package to ROS build farm"
+
+         Hi! I'd like to use this package in production and would love to see
+         it
+         available via apt. Would you be open to:
+         1. Me helping release it to the jazzy distribution?
+        2. Becoming a co-maintainer to handle releases?
+
+        I'm happy to do the work with bloom and submit the PR.
+        ```
+
+    2. Wait for Response
+
+        Best case is they say yes
+       - You coordinate with them
+       - They give you push access to their repo (or a -release repo)
+       - You become a co-maintainer
+
+        No response after ~2 weeks: You can proceed independently (see below)
+
+    3. Independent Release
+
+        If they don't respond or aren't interested in maintaining:
+
+        Option A: Release from a fork
+
+        **Fork their repo to the WATonomous GitHub then release from the fork**
+
+        > **TODO (eddy)** Currently, we are trying to figure out how to do the release process for our monorepo. If you run into this, let my know
+
+        bloom-release --rosdistro jazzy --track jazzy package_name \
+          --github-org your_username
+
+        In the rosdistro PR, explain:
+        This is a release of [original_repo] maintained by [original_author].
+
+       - Original repo: https://github.com/original/repo
+       - I've reached out to the maintainer (link to issue)
+       - No response after 2 weeks / Maintainer is no longer active
+       - I'm taking on maintenance responsibility for ROS releases
+
+        Option B: **Create a vendor package**
+
+        your_org/their_package_vendor
+
+        This signals you're maintaining a vendored version.
+
+    4. Maintenance Responsibility
+
+        By releasing, WATonomous (or you) is committing to:
+       - Respond to build farm issues
+       - Update for new ROS distros
+       - Fix critical bugs (or at least coordinate fixes)
+        Add watonomous yourself to package.xml:
+
+        ```xml
+          <maintainer email="hello@watonomous.com">WATonomous</maintainer>
+          <author email="original@email.com">Original Author</author>
+        ```
