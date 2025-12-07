@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
-# COPY src/perception perception
+COPY src/perception/perception_bringup perception_bringup
 COPY src/perception/patchwork patchwork
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
@@ -21,7 +21,7 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msg
 
 # Scan for rosdeps across the copied sources
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && rosdep update && \
+RUN apt-get -qq update && \
     rosdep install --from-paths . --ignore-src -r -s \
         | (grep 'apt-get install' || true) \
         | awk '{print $3}' \
@@ -55,6 +55,9 @@ RUN cmake -S cpp -B build \
     cmake --install build && \
     echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
 
+# RMW Configurations
+COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
@@ -69,9 +72,12 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
+# RMW Configurations
+COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-COPY docker/wato_entrypoint.sh ${AMENT_WS}/wato_entrypoint.sh
-ENTRYPOINT ["./wato_entrypoint.sh"]
+COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
