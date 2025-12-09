@@ -24,25 +24,12 @@ endif()
 
 # ROS 2 & deps
 find_package(ament_cmake REQUIRED)
-find_package(rcutils REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
-find_package(tf2_ros REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
-
-# Patchwork++ (it exports different target names across installs, so normalize it to PATCHWORKPP_TARGET
-find_package(patchworkpp REQUIRED)
-if(TARGET patchworkpp::ground_seg_cores)
-  set(PATCHWORKPP_TARGET patchworkpp::ground_seg_cores)
-elseif(TARGET patchworkpp::patchworkpp)
-  set(PATCHWORKPP_TARGET patchworkpp::patchworkpp)
-else()
-  message(FATAL_ERROR "Found patchworkpp but no expected exported target")
-endif()
+find_package(patchworkpp_vendor REQUIRED)
 
 add_executable(patchworkpp_node
   src/ground_removal_core.cpp
@@ -51,19 +38,13 @@ add_executable(patchworkpp_node
 
 target_include_directories(patchworkpp_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Use the PLAIN signature here (no PRIVATE/PUBLIC/INTERFACE) to match ament_target_dependencies.
 target_link_libraries(patchworkpp_node
   PRIVATE
-    ${PATCHWORKPP_TARGET}
-    ${sensor_msgs_TARGETS}
-    ${geometry_msg_TARGETS}
-    ${nav_msgs_TARGETS}
-    ${std_msgs_TARGETS}
-  PUBLIC
-    Eigen3::Eigen
-    rcutils::rcutils
-    rclcpp::rclcpp
-    tf2_ros::tf2_ros
+  patchworkpp_vendor::ground_seg_cores
+  rclcpp::rclcpp
+  Eigen3::Eigen
+  ${std_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
 )
 
 install(TARGETS patchworkpp_node RUNTIME DESTINATION lib/${PROJECT_NAME})

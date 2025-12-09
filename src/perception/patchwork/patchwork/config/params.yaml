@@ -2,7 +2,7 @@
 patchworkpp_node:
   ros__parameters:
     # Patchwork++ parameters (seeded from library defaults)
-    sensor_height: 1.84 #lidar height specific to nuscenes, change this for eve
+    sensor_height: 1.84 
     num_iter: 3
     num_lpr: 20
     num_min_pts: 0

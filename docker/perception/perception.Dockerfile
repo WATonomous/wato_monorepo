@@ -12,10 +12,6 @@ COPY src/perception/tracking_2d tracking_2d
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
-# Bring in Patchwork++ third-party dependency (built later in dependencies stage)
-RUN git clone --depth 1 --branch master \
-      https://github.com/url-kaist/patchwork-plusplus \
-      patchwork/patchwork-plusplus
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -51,18 +47,12 @@ RUN apt-get update && \
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
+# Ensure source files have correct ownership
+RUN chown -R ${USER}:${USER} "${AMENT_WS}/src"
 
 # Ensure bash with pipefail for RUN commands with pipelines
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Build and install Patchwork++
-WORKDIR ${AMENT_WS}/src/patchwork/patchwork-plusplus
-RUN cmake -S cpp -B build \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    cmake --build build -j"$(nproc)" && \
-    cmake --install build && \
-    echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
 
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}
@@ -73,11 +63,16 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Ensure workspace directory exists and has correct ownership
+RUN mkdir -p "${AMENT_WS}" && \
+    chown -R ${USER}:${USER} "${AMENT_WS}"
+
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    cp -r install/. "${WATONOMOUS_INSTALL}"
+    cp -r install/. "${WATONOMOUS_INSTALL}" && \
+    chown -R ${USER}:${USER} "${AMENT_WS}"
 
 # RMW Configurations
 COPY docker/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
