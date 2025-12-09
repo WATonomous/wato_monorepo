@@ -13,7 +13,6 @@ This naming convention is used for all sensor setup and transforms.
 
 ## Sub-System Diagram
 
-
 ## Custom messages
 
 Custom messages may be used to help send messages between nodes. [see docs](../wato_msgs/MSGS_README.md)
