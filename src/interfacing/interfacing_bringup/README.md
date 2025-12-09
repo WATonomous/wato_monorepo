@@ -48,6 +48,8 @@ dhcp-host=60:76:88:10:52:17,10.8.0.90   # VLP16 Side Lidar
 We do not setup a gateway. That is, we do not tell our sensors how to reach networks outside their subnet (ie. the internet)
 
 ### Configuring Netplan
+> If you are having trouble connecting the computer to the internet, then high chance is that this netplan configuration needs to change.
+
 Edited `/etc/netplan/01-netcfg.yaml`
 
 ```yaml
