@@ -12,7 +12,7 @@ The cameras are plugged into a switch that is connected to the main computer.
 
 Type `ipconfig` to see network interfaces.
 
-The switch is on `enp7s0f1` (the port of SFP network card closer to the motherboard), where:
+The switch is on `enp8s0f1` (the port of SFP network card closer to the motherboard), where:
 
 en = Ethernet
 p7 = PCI bus 7
