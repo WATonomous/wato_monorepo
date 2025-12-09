@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+add_library(patchworkpp_vendor::patchworkpp UNKNOWN IMPORTED)
+
+set_target_properties(patchworkpp_vendor::patchworkpp PROPERTIES
+    IMPORTED_LOCATION "@CMAKE_INSTALL_PREFIX@/opt/patchworkpp_vendor/lib/libground_seg_cores.a"
+    INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_INSTALL_PREFIX@/opt/patchworkpp_vendor/include"
+)
+
+find_package(Eigen3 3.3 REQUIRED)
+target_link_libraries(patchworkpp_vendor::patchworkpp INTERFACE Eigen3::Eigen)
