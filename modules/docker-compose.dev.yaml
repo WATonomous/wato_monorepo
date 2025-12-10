@@ -19,6 +19,8 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
+      - ${MONO_DIR}/src/wato_test:/home/bolty/ament_ws/src/wato_test
+      - ${MONO_DIR}/src/wato_msgs:/home/bolty/ament_ws/src/wato_msgs
 
 #################### WORLD_MODELING SERVICE ####################
   world_modeling_bringup_dev:

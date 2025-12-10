@@ -48,8 +48,9 @@ target_include_directories(patchworkpp_component
 )
 
 target_link_libraries(patchworkpp_component
-  PRIVATE
+  PUBLIC
   patchworkpp_vendor::ground_seg_cores
+  PRIVATE
   rclcpp::rclcpp
   rclcpp_components::component
   rclcpp_lifecycle::rclcpp_lifecycle
@@ -93,5 +94,17 @@ install(TARGETS patchworkpp_component
 install(TARGETS patchworkpp_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+  add_wato_test(test_ground_removal_core
+    test/test_ground_removal_core.cpp
+    LIBRARIES
+      patchworkpp_component
+      ${sensor_msgs_TARGETS}
+      ${std_msgs_TARGETS}
+      Eigen3::Eigen
+  )
+endif()
 
 ament_package()
