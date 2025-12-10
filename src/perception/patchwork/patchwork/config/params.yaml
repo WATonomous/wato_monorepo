@@ -15,3 +15,25 @@ patchworkpp_node:
     uprightness_thr: 0.101
     enable_RNR: false
     verbose: false
+
+    # QoS Configuration
+    # Subscriber QoS: best_effort for low-latency sensor data (default for LiDAR)
+    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_subscriber_depth: 10                   # Queue depth for incoming messages
+
+    # Publisher QoS: reliable + transient_local for immediate availability
+    # Transient local ensures late-joining subscribers (e.g., RViz) receive the latest
+    # segmentation immediately without waiting for the next scan
+    qos_publisher_reliability: "reliable"      # Options: "reliable", "best_effort"
+    qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
+    qos_publisher_depth: 10                    # Queue depth for outgoing messages
+
+    # Point Cloud Validation Limits
+    # Configurable limits to prevent processing unreasonably large or malformed point clouds
+    # Different limit profiles can be used for different LiDAR types:
+    # - Standard LiDAR (e.g., Velodyne VLP-16): max_points ~5,000,000
+    # - High-density LiDAR (e.g., Velodyne VLP-32C): max_points ~10,000,000
+    # - Very high-density (e.g., Ouster OS1-128): max_points ~20,000,000
+    point_cloud_limits:
+      max_points: 10000000  # Maximum points allowed (10 million for typical high-density LiDAR)
+      min_points: 0         # Minimum points required (0 = allow empty clouds, not recommended for production)

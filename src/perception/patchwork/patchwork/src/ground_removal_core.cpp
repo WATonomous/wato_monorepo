@@ -14,14 +14,48 @@
 
 #include "patchworkpp/ground_removal_core.hpp"
 
+#include <cmath>
 #include <cstring>
+#include <string>
 
 #include <sensor_msgs/msg/point_field.hpp>
 
-namespace wato::perception::patchworkpp
+namespace
 {
 
-static float readFloat(const uint8_t * p, bool big_endian)
+struct PointCloudDimensionLimits
+{
+  uint32_t max_width;
+  uint32_t max_height;
+  size_t max_total_points;
+
+  static PointCloudDimensionLimits defaultLimits()
+  {
+    return PointCloudDimensionLimits{1000000, 10000, 10000000};
+  }
+};
+
+void validateDimensions(
+  uint32_t width, uint32_t height, size_t total_points, const PointCloudDimensionLimits & limits)
+{
+  if (width > limits.max_width) {
+    throw std::runtime_error(
+      "PointCloud2 width exceeds reasonable limit: " + std::to_string(width) + " > " +
+      std::to_string(limits.max_width));
+  }
+  if (height > limits.max_height) {
+    throw std::runtime_error(
+      "PointCloud2 height exceeds reasonable limit: " + std::to_string(height) + " > " +
+      std::to_string(limits.max_height));
+  }
+  if (total_points > limits.max_total_points) {
+    throw std::runtime_error(
+      "PointCloud2 total points exceeds reasonable limit: " + std::to_string(total_points) + " > " +
+      std::to_string(limits.max_total_points));
+  }
+}
+
+float readFloat(const uint8_t * p, bool big_endian)
 {
   float v;
   if (!big_endian) {
@@ -33,7 +67,7 @@ static float readFloat(const uint8_t * p, bool big_endian)
   return v;
 }
 
-static void writeFloat(uint8_t * p, float v, bool big_endian)
+void writeFloat(uint8_t * p, float v, bool big_endian)
 {
   if (!big_endian) {
     std::memcpy(p, &v, sizeof(float));
@@ -46,6 +80,11 @@ static void writeFloat(uint8_t * p, float v, bool big_endian)
     p[3] = tmp[0];
   }
 }
+
+}  // namespace
+
+namespace wato::perception::patchworkpp
+{
 
 GroundRemovalCore::GroundRemovalCore(const patchwork::Params & params)
 : patchwork_(std::make_unique<patchwork::PatchWorkpp>(params))
@@ -73,20 +112,30 @@ double GroundRemovalCore::getTimeTaken() const
 
 Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg)
 {
-  int x_idx = -1, y_idx = -1, z_idx = -1;
-  for (size_t i = 0; i < cloud_msg->fields.size(); ++i) {
-    const auto & f = cloud_msg->fields[i];
-    if (f.name == "x") {
-      x_idx = static_cast<int>(i);
-    } else if (f.name == "y") {
-      y_idx = static_cast<int>(i);
-    } else if (f.name == "z") {
-      z_idx = static_cast<int>(i);
-    }
+  if (!cloud_msg) {
+    throw std::runtime_error("PointCloud2 message is null");
   }
 
+  const uint32_t width = cloud_msg->width;
+  const uint32_t height = cloud_msg->height == 0 ? 1 : cloud_msg->height;
+  const size_t total_points = static_cast<size_t>(width) * static_cast<size_t>(height);
+
+  if (total_points == 0) {
+    return Eigen::MatrixX3f(0, 3);
+  }
+
+  validateDimensions(width, height, total_points, PointCloudDimensionLimits::defaultLimits());
+
+  const int x_idx = findFieldIndex(cloud_msg->fields, "x");
+  const int y_idx = findFieldIndex(cloud_msg->fields, "y");
+  const int z_idx = findFieldIndex(cloud_msg->fields, "z");
+
   if (x_idx == -1 || y_idx == -1 || z_idx == -1) {
-    throw std::runtime_error("PointCloud2 missing x, y, or z field");
+    std::string missing_fields;
+    if (x_idx == -1) missing_fields += "x";
+    if (y_idx == -1) missing_fields += (missing_fields.empty() ? "" : ", ") + std::string("y");
+    if (z_idx == -1) missing_fields += (missing_fields.empty() ? "" : ", ") + std::string("z");
+    throw std::runtime_error("PointCloud2 missing required field(s): " + missing_fields);
   }
 
   const auto & fx = cloud_msg->fields[static_cast<size_t>(x_idx)];
@@ -100,12 +149,9 @@ Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(const sensor_msgs::msg::P
     throw std::runtime_error("PointCloud2 x/y/z fields must be FLOAT32");
   }
 
-  const uint32_t width = cloud_msg->width;
-  const uint32_t height = cloud_msg->height == 0 ? 1 : cloud_msg->height;
   const uint32_t point_step = cloud_msg->point_step;
   const uint32_t row_step = cloud_msg->row_step ? cloud_msg->row_step : point_step * width;
 
-  const size_t total_points = static_cast<size_t>(width) * static_cast<size_t>(height);
   Eigen::MatrixX3f points(static_cast<int>(total_points), 3);
 
   const uint8_t * base = cloud_msg->data.data();
@@ -173,6 +219,17 @@ sensor_msgs::msg::PointCloud2 GroundRemovalCore::eigenToPointCloud2(
   }
 
   return cloud_msg;
+}
+
+int GroundRemovalCore::findFieldIndex(
+  const std::vector<sensor_msgs::msg::PointField> & fields, const std::string & field_name)
+{
+  for (size_t i = 0; i < fields.size(); ++i) {
+    if (fields[i].name == field_name) {
+      return static_cast<int>(i);
+    }
+  }
+  return -1;  // Field not found
 }
 
 }  // namespace wato::perception::patchworkpp

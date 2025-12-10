@@ -52,6 +52,10 @@ colcon build --packages-select patchworkpp --cmake-args -DCMAKE_BUILD_TYPE=Relea
 
 Node name: `patchworkpp_node`
 
+Node type: **Lifecycle Node** (`rclcpp_lifecycle::LifecycleNode`)
+
+The node implements the ROS 2 lifecycle pattern for controlled startup, shutdown, and reconfiguration. It can be managed via `lifecycle_manager` or run standalone (automatically configures and activates).
+
 Topics (relative, remappable):
 
 - Subscription
@@ -62,17 +66,21 @@ Topics (relative, remappable):
 
 QoS:
 
-- Subscriber uses `rclcpp::SensorDataQoS()` for robust sensor data ingestion.
-- Publishers use reliable + transient local QoS so the latest segmentation is latched for late joiners (e.g., RViz).
+- Configurable via parameters (see Parameters section below).
+- Default subscriber: `best_effort` reliability for low-latency sensor data.
+- Default publishers: `reliable` + `transient_local` durability for immediate availability to late joiners (e.g., RViz).
 
 Launch options:
 
 - Local launch YAML: `src/perception/patchwork/launch/ground_removal_launch.yaml:1` supports a `cloud_topic` argument.
 - Perception bringup: `src/perception/perception_bringup/launch/perception.launch.py:81` composes this node with remappable input/output topics and parameter file.
+- Component composition: The node is registered as a composable component via `RCLCPP_COMPONENTS_REGISTER_NODE` and can be loaded dynamically.
 
 ## Parameters
 
-Parameters are declared in the node and forwarded into `patchwork::Params`. Defaults are set in both the node and `config/params.yaml`. The canonical list lives in the node (`declareParameters`) and YAML.
+Parameters are declared in the node constructor and forwarded into `patchwork::Params` during `on_configure()`. Defaults are set in both the node and `config/params.yaml`. The canonical list lives in the node constructor and YAML.
+
+### Patchwork++ Algorithm Parameters
 
 Common parameters and intent (tune per platform/dataset):
 
@@ -90,41 +98,80 @@ Common parameters and intent (tune per platform/dataset):
 - `enable_RNR` (bool): Enable ring‑wise noise removal.
 - `verbose` (bool): Enable verbose logging inside Patchwork++.
 
+### QoS Configuration Parameters
+
+- `qos_subscriber_reliability` (string): Reliability policy for input subscriber. Options: `"reliable"`, `"best_effort"` (default: `"best_effort"`).
+- `qos_subscriber_depth` (int): Queue depth for incoming messages (default: `10`).
+- `qos_publisher_reliability` (string): Reliability policy for output publishers. Options: `"reliable"`, `"best_effort"` (default: `"reliable"`).
+- `qos_publisher_durability` (string): Durability policy for output publishers. Options: `"transient_local"`, `"volatile"` (default: `"transient_local"`).
+- `qos_publisher_depth` (int): Queue depth for outgoing messages (default: `10`).
+
+### Point Cloud Validation Limits
+
+- `point_cloud_limits.max_points` (int64): Maximum number of points allowed in a point cloud. Point clouds exceeding this limit are rejected to prevent memory exhaustion. Default: `10000000` (10 million).
+- `point_cloud_limits.min_points` (int64): Minimum number of points required for a valid point cloud. Point clouds with fewer points are rejected. Default: `0` (allows empty clouds, not recommended for production).
+
+The `PointCloudLimits` struct provides factory methods for common LiDAR profiles:
+- `PointCloudLimits::defaultLimits()`: 10M max, 0 min (default)
+- `PointCloudLimits::highDensityLimits()`: 20M max for very dense sensors
+- `PointCloudLimits::standardLimits()`: 5M max for typical sensors
+
 Edit defaults in `src/perception/patchwork/config/params.yaml:1` or pass overrides via launch.
 
 ## Control Flow & Data Model
 
-High‑level processing path (`removeGround`):
+### Lifecycle State Management
+
+The node follows the ROS 2 lifecycle pattern:
+
+1. **Unconfigured → Inactive** (`on_configure`): Validates parameters, initializes `GroundRemovalCore`, sets up QoS profiles, and initializes diagnostic updater. Does not create subscribers/publishers yet.
+2. **Inactive → Active** (`on_activate`): Creates subscribers and publishers, activates lifecycle publishers, and sets up topic diagnostics. Node starts processing point clouds.
+3. **Active → Inactive** (`on_deactivate`): Stops processing but keeps resources allocated for quick reactivation. Deactivates publishers and resets subscriber.
+4. **Inactive → Unconfigured** (`on_cleanup`): Destroys subscribers, publishers, releases core resources, and cleans up diagnostics. Node can be reconfigured after cleanup.
+5. **Any → Finalized** (`on_shutdown`): Performs final cleanup and resource release. Node cannot be restarted after shutdown.
+
+### High‑level Processing Path (`removeGround`)
 
 1. Receive `PointCloud2` on `input_cloud`.
 2. Convert to `Eigen::MatrixX3f` (N×3) via `GroundRemovalCore::pointCloud2ToEigen`.
-3. Call `GroundRemovalCore::process`, which forwards into `patchwork::PatchWorkpp::estimateGround`.
-4. Fetch segmented sets: `getGround()` and `getNonground()` (both `Eigen::MatrixX3f`).
-5. Convert each set back to `PointCloud2` via `GroundRemovalCore::eigenToPointCloud2`.
-6. Publish to `ground_cloud` and `non_ground_cloud` with the original header.
-7. Emit a debug log with counts and processing time.
+3. Validate point cloud dimensions against configured limits (`validatePointCloudDimensions`).
+4. Filter out NaN/Inf values (`filterInvalidPoints`) — allows processing to continue with valid points even if some are invalid.
+5. Call `GroundRemovalCore::process`, which forwards into `patchwork::PatchWorkpp::estimateGround`.
+6. Fetch segmented sets: `getGround()` and `getNonground()` (both `Eigen::MatrixX3f`).
+7. Convert each set back to `PointCloud2` via `GroundRemovalCore::eigenToPointCloud2`.
+8. Publish to `ground_cloud` and `non_ground_cloud` with the original header (only if publishers are activated).
+9. Update statistics (`updateStatistics`) and diagnostics (`updateDiagnostics`).
+10. Emit a debug log with counts and processing time.
 
-Design notes:
+### Design Notes
 
 - Data format is Nx3 single‑precision floats. Additional fields (intensity, ring, etc.) are not preserved in output — the publishers intentionally produce minimal XYZ‑only clouds to reduce message size and complexity.
 - Endianness: conversions honor the message `is_bigendian` flag; writing outputs sets `is_bigendian=false`.
 - The upstream library provides `getTimeTaken()` to report per‑frame processing time (in milliseconds).
+- Point cloud validation: The node validates point cloud dimensions and filters invalid points (NaN/Inf) before processing, with detailed error messages including actual values vs limits for debugging.
+- Statistics tracking: Processing statistics (total processed, average time, last processing time) are tracked atomically and logged periodically (every 30 seconds by default).
 
 ## Conversion Utilities (PointCloud2 ↔ Eigen)
 
 Defined in `src/perception/patchwork/src/ground_removal_core.cpp:1` and declared in `src/perception/patchwork/include/patchworkpp/ground_removal_core.hpp:1`.
 
-`pointCloud2ToEigen(PointCloud2)`:
+### `pointCloud2ToEigen(PointCloud2)`
 
 - Validates presence of `x`, `y`, `z` fields and that each is `FLOAT32`.
+- Validates point cloud dimensions (width, height, total points) against reasonable limits to prevent memory exhaustion.
 - Supports arbitrary `height`, `width`, `point_step`, `row_step`, and endianness.
 - Returns a contiguous `Eigen::MatrixX3f` with one point per row.
-- Throws `std::runtime_error` if required fields are missing or of wrong type.
+- Throws `std::runtime_error` if required fields are missing, of wrong type, or dimensions exceed limits.
 
-`eigenToPointCloud2(Eigen::MatrixX3f, Header)`:
+### `eigenToPointCloud2(Eigen::MatrixX3f, Header)`
 
 - Produces a minimal XYZ‑only `PointCloud2` with fields at offsets 0, 4, and 8 (FLOAT32), `height=1`, `width=N`, `is_bigendian=false`, `is_dense=false`.
 - Copies the provided header (frame id and stamp preserved).
+
+### Helper Functions
+
+- `findFieldIndex(fields, field_name)`: Static private helper to locate field indices by name. Returns -1 if not found.
+- Internal helpers (`readFloat`, `writeFloat`, `validateDimensions`) are in an anonymous namespace to prevent name pollution.
 
 Pattern: avoid PCL dependency for simple conversions — keep a small, explicit converter to minimize footprint and control performance.
 
@@ -139,12 +186,35 @@ See `src/perception/patchwork/CMakeLists.txt:1`.
 
 If Patchwork++ changes its exported target names again, extend the conditional target check in CMake accordingly.
 
-## Logging, QoS, and Executors
+## Logging, QoS, Diagnostics, and Executors
+
+### Logging
 
 - Initialization logs at INFO describe subscriptions and publications.
 - Per‑message logs are at DEBUG level to avoid log spam under load (enable with `RCLCPP_LOG_LEVEL=DEBUG`).
-- Publishers are reliable + transient local for RViz convenience; change to volatile if transient behavior is undesired in production.
+- Error and warning messages include actual values vs limits for better debugging (e.g., "received 12000000 points, but maximum allowed is 10000000 points").
+- Statistics are logged periodically (every 30 seconds by default) with total processed clouds and average processing time.
+
+### QoS
+
+- QoS settings are configurable via parameters (see Parameters section).
+- Default subscriber: `best_effort` reliability for low-latency sensor data.
+- Default publishers: `reliable` + `transient_local` durability for RViz convenience; change to volatile if transient behavior is undesired in production.
+
+### Diagnostics
+
+- The node integrates with `diagnostic_updater` for health monitoring.
+- Topic diagnostics track publishing frequency and timestamp validity for both ground and non-ground publishers.
+- Custom diagnostic callback reports:
+  - Total clouds processed
+  - Average processing time (ms)
+  - Last processing time (ms)
+  - Status (OK/WARN) based on latency thresholds (avg >100ms or last >200ms triggers WARN)
+
+### Executors
+
 - The `main` uses a `MultiThreadedExecutor`, but this node has a single subscription callback — no shared mutable state across callbacks beyond the core instance, so there is no concurrent mutation risk under the default configuration.
+- Statistics tracking uses `std::atomic` for thread-safe updates.
 
 ## Performance Considerations
 
@@ -155,26 +225,36 @@ If Patchwork++ changes its exported target names again, extend the conditional t
 
 ## Extending the Node/Core
 
-Adding a new Patchwork++ parameter:
+### Adding a new Patchwork++ parameter:
 
-1. Add a `declare_parameter` line in `declareParameters` (node) and write into `patchwork::Params`.
-2. Introduce the parameter in `config/params.yaml` with a sensible default.
-3. Document the parameter here and in `README.md` if externally relevant.
+1. Add a `declare_parameter` line in the node constructor.
+2. Retrieve the parameter in `declareParameters()` and write into `patchwork::Params`.
+3. Introduce the parameter in `config/params.yaml` with a sensible default.
+4. Document the parameter here and in `README.md` if externally relevant.
 
-Publishing additional outputs (e.g., plane coefficients, masks, diagnostics):
+### Publishing additional outputs (e.g., plane coefficients, masks, diagnostics):
 
 1. Expose the data in `GroundRemovalCore` (new getters populated from the underlying Patchwork++ instance).
-2. Add new publishers in the node and serialize the data to appropriate message types.
-3. Consider QoS: diagnostics typically do not need transient local.
+2. Add new lifecycle publishers in `on_activate()` and activate them.
+3. Publish in `publishSegments()` or a dedicated method.
+4. Consider QoS: diagnostics typically do not need transient local.
 
-Changing topics or QoS:
+### Changing topics or QoS:
 
 - Prefer remapping topics in launch files rather than changing constants in code.
-- Adjust QoS in one place (the node constructor) to keep behavior consistent across publishers.
+- Adjust QoS via parameters (see Parameters section) or in the node constructor to keep behavior consistent across publishers.
 
-Component composition:
+### Component composition:
 
-- `GroundRemovalNode` takes `rclcpp::NodeOptions` and can be converted to a composable component (register via `rclcpp_components`) if needed.
+- `GroundRemovalNode` is registered as a composable component via `RCLCPP_COMPONENTS_REGISTER_NODE` and can be loaded dynamically.
+- The node takes `rclcpp::NodeOptions` and supports both standalone execution and component composition.
+
+### Code Organization Patterns:
+
+- **Separation of Concerns**: Validation logic is in dedicated functions (`validatePointCloudDimensions`, `filterInvalidPoints`).
+- **Helper Methods**: Statistics and diagnostics updates are in dedicated methods (`updateStatistics`, `updateDiagnostics`).
+- **Anonymous Namespaces**: Internal helpers (e.g., in `ground_removal_core.cpp`) use anonymous namespaces to prevent name pollution.
+- **Documentation**: All docstrings are in header files; implementation files are kept minimal with self-documenting code.
 
 ## Testing & Validation
 
@@ -215,12 +295,19 @@ Docker (builds Patchwork++ and this package): see `docker/perception/perception.
 - Do not depend on PCL in this package; keep ROS↔Eigen conversions local and explicit.
 - Preserve message headers when republishing derived data.
 - Keep subscribers lightweight — heavy logic remains in `GroundRemovalCore`.
+- **Header/Implementation Separation**: All method declarations in headers with comprehensive Doxygen docstrings; implementations in `.cpp` files with minimal comments.
+- **Anonymous Namespaces**: Use anonymous namespaces for internal helper functions to prevent name pollution.
+- **Error Messages**: Include actual values vs limits in error messages for better debugging (e.g., "received X points, but maximum allowed is Y points").
+- **Lifecycle Pattern**: Follow ROS 2 lifecycle node conventions — configure in `on_configure()`, activate in `on_activate()`, clean up resources properly.
+- **Atomic Operations**: Use `std::atomic` for thread-safe statistics tracking.
 
 ## Known Limitations
 
 - Output clouds do not retain input fields other than XYZ.
 - The node does not currently expose plane model coefficients; add this via the extension pattern above if needed.
 - The package assumes a single LiDAR input; multi‑sensor fusion is out of scope here.
+- Point cloud validation limits are configurable but use reasonable defaults; adjust based on your LiDAR sensor characteristics.
+- Invalid points (NaN/Inf) are filtered out rather than causing the entire cloud to be rejected; this allows processing to continue with valid points.
 
 ## Maintenance Tips
 

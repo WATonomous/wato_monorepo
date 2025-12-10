@@ -11,9 +11,12 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>eigen3_cmake_module</depend>
   <depend>patchworkpp_vendor</depend>
   <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>diagnostic_updater</depend>
+  <depend>diagnostic_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
 

@@ -63,9 +63,8 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Ensure workspace directory exists and has correct ownership
-RUN mkdir -p "${AMENT_WS}" && \
-    chown -R ${USER}:${USER} "${AMENT_WS}"
+
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/${USER}/.bashrc
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}

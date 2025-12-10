@@ -25,12 +25,44 @@ endif()
 # ROS 2 & deps
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(diagnostic_updater REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(patchworkpp_vendor REQUIRED)
 
+# Component library (for composable node loading)
+add_library(patchworkpp_component SHARED
+  src/ground_removal_core.cpp
+  src/ground_removal_node.cpp
+)
+
+target_include_directories(patchworkpp_component
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(patchworkpp_component
+  PRIVATE
+  patchworkpp_vendor::ground_seg_cores
+  rclcpp::rclcpp
+  rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  diagnostic_updater::diagnostic_updater
+  Eigen3::Eigen
+  ${std_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  ${diagnostic_msgs_TARGETS}
+)
+
+# Component registration is handled by RCLCPP_COMPONENTS_REGISTER_NODE macro in source file
+
+# Standalone executable (for backward compatibility)
 add_executable(patchworkpp_node
   src/ground_removal_core.cpp
   src/ground_removal_node.cpp
@@ -42,9 +74,20 @@ target_link_libraries(patchworkpp_node
   PRIVATE
   patchworkpp_vendor::ground_seg_cores
   rclcpp::rclcpp
+  rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  diagnostic_updater::diagnostic_updater
   Eigen3::Eigen
   ${std_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
+  ${diagnostic_msgs_TARGETS}
+)
+
+# Install both component library and executable
+install(TARGETS patchworkpp_component
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 install(TARGETS patchworkpp_node RUNTIME DESTINATION lib/${PROJECT_NAME})
