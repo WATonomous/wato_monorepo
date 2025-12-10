@@ -2,8 +2,5 @@
 HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PREFIX=$(dirname $(dirname $(dirname $HERE)))
 
-# Relative path at runtime
-ament_prepend_unique_value LD_LIBRARY_PATH "$PREFIX/opt/patchworkpp_vendor/lib"
-
 # Fixed path at build time
 ament_prepend_unique_value CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/patchworkpp_vendor"

@@ -14,25 +14,34 @@
 cmake_minimum_required(VERSION 3.10)
 project(patchworkpp_vendor)
 
-set(PATCHWORKPP_GIT_REPOSITORY "https://github.com/url-kaist/patchwork-plusplus.git")
-set(PATCHWORKPP_GIT_TAG "v1.0.4")
+set(PATCHWORKPP_GIT_REPOSITORY "https://github.com/url-kaist/patchwork-plusplus.git" CACHE STRING "Git repository URL")
+set(PATCHWORKPP_GIT_TAG "v1.0.4" CACHE STRING "Git tag/branch to checkout")
 set(PATCHWORKPP_SOURCE_SUBDIR "cpp")
 set(PATCHWORKPP_HEADERS_SUBDIR "patchworkpp/include")
 set(PATCHWORKPP_LIBRARY_NAME "libground_seg_cores.a")
 
 # List of patch files
-set(PATCHWORKPP_PATCHES)
+set(PATCHWORKPP_PATCHES "" CACHE STRING "List of patch files to apply")
 
 option(FORCE_BUILD_VENDOR_PKG
   "Force building Patchwork++ from source"
   OFF)
 
+option(BUILD_TESTING "Build tests" ON)
+
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 
+if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    ament_lint_auto_find_test_dependencies()
+endif()
+
 macro(build_patchworkpp)
+    message(STATUS "Building Patchwork++ from source")
     include(ExternalProject)
     set(PATCHWORKPP_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/patchworkpp_install)
+    set(PATCHWORKPP_VENDOR_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}/opt/patchworkpp_vendor")
 
     set(patchworkpp_build_type "${CMAKE_BUILD_TYPE}")
     if(NOT patchworkpp_build_type)
@@ -48,6 +57,7 @@ macro(build_patchworkpp)
     externalproject_add(patchworkpp_src
         GIT_REPOSITORY ${PATCHWORKPP_GIT_REPOSITORY}
         GIT_TAG ${PATCHWORKPP_GIT_TAG}
+        GIT_SHALLOW TRUE
         TIMEOUT 600
         SOURCE_SUBDIR ${PATCHWORKPP_SOURCE_SUBDIR}
         CMAKE_ARGS
@@ -55,6 +65,7 @@ macro(build_patchworkpp)
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON
             -DUSE_SYSTEM_EIGEN3=ON
             -DINCLUDE_CPP_EXAMPLES=OFF
+            -DCMAKE_CXX_STANDARD=14
         INSTALL_COMMAND ""
         CONFIGURE_HANDLED_BY_BUILD TRUE
         ${patchworkpp_patch_arg}
@@ -75,7 +86,7 @@ macro(build_patchworkpp)
 
     # Copy required files to installation directory
     add_custom_command(
-        OUTPUT ${PATCHWORKPP_INSTALL_DIR}
+        OUTPUT ${PATCHWORKPP_INSTALL_DIR}/stamp
         COMMAND ${CMAKE_COMMAND} -E rm -rf ${PATCHWORKPP_INSTALL_DIR}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${PATCHWORKPP_INSTALL_DIR}/include
         COMMAND ${CMAKE_COMMAND} -E make_directory ${PATCHWORKPP_INSTALL_DIR}/lib
@@ -85,24 +96,33 @@ macro(build_patchworkpp)
         COMMAND ${CMAKE_COMMAND} -E copy
           ${BINARY_DIR}/patchworkpp/${PATCHWORKPP_LIBRARY_NAME}
           ${PATCHWORKPP_INSTALL_DIR}/lib/
+        COMMAND ${CMAKE_COMMAND} -E touch ${PATCHWORKPP_INSTALL_DIR}/stamp
         DEPENDS patchworkpp_src
+        COMMENT "Installing Patchwork++ to ${PATCHWORKPP_INSTALL_DIR}"
     )
 
     # Dummy target to run custom command by depending on output
     add_custom_target(patchworkpp_minimal_install ALL
-        DEPENDS ${PATCHWORKPP_INSTALL_DIR}
+        DEPENDS ${PATCHWORKPP_INSTALL_DIR}/stamp
     )
 
     # Install include and lib
     install(
         DIRECTORY ${PATCHWORKPP_INSTALL_DIR}/
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/opt/patchworkpp_vendor
+        DESTINATION ${PATCHWORKPP_VENDOR_INSTALL_PREFIX}
+        USE_SOURCE_PERMISSIONS
     )
 
     # Install cmake config
     install(
         FILES ${CMAKE_CURRENT_BINARY_DIR}/patchworkpp_vendor-config.cmake
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/opt/patchworkpp_vendor/cmake
+        DESTINATION ${PATCHWORKPP_VENDOR_INSTALL_PREFIX}/cmake
+    )
+
+    # Install package.xml for downstream dependency tracking
+    install(
+        FILES ${CMAKE_CURRENT_SOURCE_DIR}/package.xml
+        DESTINATION share/${PROJECT_NAME}
     )
 
 endmacro()
@@ -113,7 +133,8 @@ if(FORCE_BUILD_VENDOR_PKG OR NOT patchworkpp_FOUND)
     build_patchworkpp()
     ament_environment_hooks(${CMAKE_CURRENT_BINARY_DIR}/patchworkpp_vendor_paths.sh)
 else()
-    message(STATUS "Found patchworkpp in path ${patchworkpp_CONFIG}")
+    message(STATUS "Found existing Patchwork++ installation: ${patchworkpp_CONFIG}")
+    message(STATUS "Skipping build. Set FORCE_BUILD_VENDOR_PKG=ON to rebuild from source.")
 endif()
 
 # Export dependencies
