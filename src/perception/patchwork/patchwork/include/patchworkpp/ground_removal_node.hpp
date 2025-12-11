@@ -17,77 +17,21 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-
 #include <Eigen/Core>
 #include <memory>
+#include <string>
 
+#include <diagnostic_updater/diagnostic_updater.hpp>
+#include <diagnostic_updater/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
 
-#include <diagnostic_updater/diagnostic_updater.hpp>
-#include <diagnostic_updater/publisher.hpp>
-
 #include "patchworkpp/ground_removal_core.hpp"
 
 namespace wato::perception::patchworkpp
 {
-
-/**
- * @brief Point cloud validation limits
- *
- * Configurable limits for point cloud validation to prevent processing
- * unreasonably large or malformed point clouds. Different limit profiles
- * can be configured for different LiDAR types (typical, high-density, etc.)
- */
-struct PointCloudLimits
-{
-  /**
-   * @brief Maximum number of points allowed in a point cloud
-   *
-   * Point clouds exceeding this limit will be rejected to prevent
-   * memory exhaustion and excessive processing time.
-   *
-   * Typical values:
-   * - Standard LiDAR (e.g., Velodyne VLP-16): 100,000 - 500,000 points
-   * - High-density LiDAR (e.g., Velodyne VLP-32C): 1,000,000 - 2,000,000 points
-   * - Very high-density (e.g., Ouster OS1-128): 2,000,000 - 10,000,000 points
-   */
-  size_t max_points;
-
-  /**
-   * @brief Minimum number of points expected in a valid point cloud
-   *
-   * Point clouds with fewer points than this will be rejected as likely
-   * malformed or empty. Set to 0 to allow empty clouds (not recommended).
-   */
-  size_t min_points;
-
-  /**
-   * @brief Create default limits for typical LiDAR sensors
-   */
-  static PointCloudLimits defaultLimits()
-  {
-    return PointCloudLimits{10000000, 0};  // 10M max, 0 min (allow empty)
-  }
-
-  /**
-   * @brief Create limits for high-density LiDAR sensors
-   */
-  static PointCloudLimits highDensityLimits()
-  {
-    return PointCloudLimits{20000000, 0};  // 20M max for very dense sensors
-  }
-
-  /**
-   * @brief Create limits for standard LiDAR sensors
-   */
-  static PointCloudLimits standardLimits()
-  {
-    return PointCloudLimits{5000000, 0};  // 5M max for typical sensors
-  }
-};
 
 /**
  * @brief ROS 2 lifecycle node for Patchwork++ ground removal algorithm
@@ -113,8 +57,8 @@ public:
    */
   explicit GroundRemovalNode(const rclcpp::NodeOptions & options);
 
-  static constexpr auto kCloudTopic = "input_cloud";      ///< Input point cloud topic name
-  static constexpr auto kGroundTopic = "ground_cloud";    ///< Output ground points topic name
+  static constexpr auto kCloudTopic = "input_cloud";  ///< Input point cloud topic name
+  static constexpr auto kGroundTopic = "ground_cloud";  ///< Output ground points topic name
   static constexpr auto kNonGroundTopic = "non_ground_cloud";  ///< Output non-ground points topic name
 
   /**
@@ -265,17 +209,6 @@ private:
   void diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapper & stat);
 
   /**
-   * @brief Validates point cloud dimensions against configured limits
-   *
-   * Checks if the point cloud size is within the configured min/max limits.
-   * Logs warnings/errors with actual values vs limits for debugging.
-   *
-   * @param num_points Number of points in the point cloud
-   * @return true if validation passes (within limits), false otherwise
-   */
-  bool validatePointCloudDimensions(size_t num_points) const;
-
-  /**
    * @brief Filters out NaN and Inf values from a point cloud
    *
    * Creates a new point cloud matrix containing only points with finite
@@ -320,19 +253,19 @@ private:
   rclcpp::QoS subscriber_qos_;  ///< QoS profile for point cloud subscriber (configured in on_configure)
   rclcpp::QoS publisher_qos_;  ///< QoS profile for publishers (configured in on_configure)
 
-  std::atomic<uint64_t> total_processed_{0};              ///< Total number of point clouds processed
-  std::atomic<double> total_processing_time_ms_{0.0};      ///< Cumulative processing time in milliseconds
-  std::atomic<double> last_processing_time_ms_{0.0};       ///< Processing time for last cloud in milliseconds
+  std::atomic<uint64_t> total_processed_{0};  ///< Total number of point clouds processed
+  std::atomic<double> total_processing_time_ms_{0.0};  ///< Cumulative processing time in milliseconds
+  std::atomic<double> last_processing_time_ms_{0.0};  ///< Processing time for last cloud in milliseconds
   std::chrono::steady_clock::time_point last_stats_log_time_;  ///< Last time statistics were logged
   static constexpr std::chrono::seconds kStatsLogInterval{30};  ///< Statistics logging interval
 
   std::unique_ptr<diagnostic_updater::Updater> diagnostic_updater_;  ///< Diagnostic updater for node health
-  std::unique_ptr<diagnostic_updater::TopicDiagnostic> ground_pub_diagnostic_;      ///< Topic diagnostics for ground publisher
-  std::unique_ptr<diagnostic_updater::TopicDiagnostic> nonground_pub_diagnostic_;   ///< Topic diagnostics for non-ground publisher
-  double min_freq_{0.0};    ///< Minimum expected publishing frequency (Hz)
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic>
+    ground_pub_diagnostic_;  ///< Topic diagnostics for ground publisher
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic>
+    nonground_pub_diagnostic_;  ///< Topic diagnostics for non-ground publisher
+  double min_freq_{0.0};  ///< Minimum expected publishing frequency (Hz)
   double max_freq_{100.0};  ///< Maximum expected publishing frequency (Hz)
-
-  PointCloudLimits point_cloud_limits_;  ///< Configurable limits for point cloud validation
 };
 
 }  // namespace wato::perception::patchworkpp

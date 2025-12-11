@@ -113,7 +113,13 @@ macro(build_patchworkpp)
         USE_SOURCE_PERMISSIONS
     )
 
-    # Install cmake config
+    # Install cmake config to both locations:
+    # 1. Standard ROS 2 location for find_package to discover it
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/patchworkpp_vendor-config.cmake
+        DESTINATION share/${PROJECT_NAME}/cmake
+    )
+    # 2. Vendor-specific location (for reference)
     install(
         FILES ${CMAKE_CURRENT_BINARY_DIR}/patchworkpp_vendor-config.cmake
         DESTINATION ${PATCHWORKPP_VENDOR_INSTALL_PREFIX}/cmake

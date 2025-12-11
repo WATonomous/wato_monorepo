@@ -48,7 +48,7 @@ RUN apt-get update && \
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
 # Ensure source files have correct ownership
-RUN chown -R ${USER}:${USER} "${AMENT_WS}/src"
+RUN chown -R "${USER}:${USER}" "${AMENT_WS}/src"
 
 # Ensure bash with pipefail for RUN commands with pipelines
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -64,7 +64,7 @@ FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 
-RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/${USER}/.bashrc
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> "/home/${USER}/.bashrc"
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}

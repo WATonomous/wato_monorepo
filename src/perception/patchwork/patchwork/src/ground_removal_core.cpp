@@ -17,43 +17,12 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include <sensor_msgs/msg/point_field.hpp>
 
 namespace
 {
-
-struct PointCloudDimensionLimits
-{
-  uint32_t max_width;
-  uint32_t max_height;
-  size_t max_total_points;
-
-  static PointCloudDimensionLimits defaultLimits()
-  {
-    return PointCloudDimensionLimits{1000000, 10000, 10000000};
-  }
-};
-
-void validateDimensions(
-  uint32_t width, uint32_t height, size_t total_points, const PointCloudDimensionLimits & limits)
-{
-  if (width > limits.max_width) {
-    throw std::runtime_error(
-      "PointCloud2 width exceeds reasonable limit: " + std::to_string(width) + " > " +
-      std::to_string(limits.max_width));
-  }
-  if (height > limits.max_height) {
-    throw std::runtime_error(
-      "PointCloud2 height exceeds reasonable limit: " + std::to_string(height) + " > " +
-      std::to_string(limits.max_height));
-  }
-  if (total_points > limits.max_total_points) {
-    throw std::runtime_error(
-      "PointCloud2 total points exceeds reasonable limit: " + std::to_string(total_points) + " > " +
-      std::to_string(limits.max_total_points));
-  }
-}
 
 float readFloat(const uint8_t * p, bool big_endian)
 {
@@ -123,8 +92,6 @@ Eigen::MatrixX3f GroundRemovalCore::pointCloud2ToEigen(const sensor_msgs::msg::P
   if (total_points == 0) {
     return Eigen::MatrixX3f(0, 3);
   }
-
-  validateDimensions(width, height, total_points, PointCloudDimensionLimits::defaultLimits());
 
   const int x_idx = findFieldIndex(cloud_msg->fields, "x");
   const int y_idx = findFieldIndex(cloud_msg->fields, "y");

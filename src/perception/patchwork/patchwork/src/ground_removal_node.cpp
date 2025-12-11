@@ -21,20 +21,19 @@
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
-#include <rclcpp_components/register_node_macro.hpp>
 #include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/qos.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
 namespace wato::perception::patchworkpp
 {
 
 GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions & options)
-: rclcpp_lifecycle::LifecycleNode("patchworkpp_node", options),
-  subscriber_qos_(10),
-  publisher_qos_(10),
-  last_stats_log_time_(std::chrono::steady_clock::now()),
-  point_cloud_limits_(PointCloudLimits::defaultLimits())
+: rclcpp_lifecycle::LifecycleNode("patchworkpp_node", options)
+, subscriber_qos_(10)
+, publisher_qos_(10)
+, last_stats_log_time_(std::chrono::steady_clock::now())
 {
   this->declare_parameter<double>("sensor_height", 1.88);
   this->declare_parameter<int>("num_iter", 3);
@@ -54,40 +53,9 @@ GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<std::string>("qos_publisher_reliability", "reliable");
   this->declare_parameter<std::string>("qos_publisher_durability", "transient_local");
   this->declare_parameter<int>("qos_publisher_depth", 10);
-  this->declare_parameter<int64_t>("point_cloud_limits.max_points", static_cast<int64_t>(PointCloudLimits::defaultLimits().max_points));
-  this->declare_parameter<int64_t>("point_cloud_limits.min_points", static_cast<int64_t>(PointCloudLimits::defaultLimits().min_points));
 
   RCLCPP_INFO(this->get_logger(), "Patchwork++ Ground Removal ROS 2 lifecycle node created");
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
-}
-
-bool GroundRemovalNode::validatePointCloudDimensions(size_t num_points) const
-{
-  if (num_points < point_cloud_limits_.min_points) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "Point cloud validation failed: received %zu points, but minimum required is %zu points. "
-      "Skipping processing. Consider adjusting 'point_cloud_limits.min_points' if this is expected.",
-      num_points,
-      point_cloud_limits_.min_points);
-    return false;
-  }
-  if (num_points > point_cloud_limits_.max_points) {
-    RCLCPP_ERROR_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "Point cloud validation failed: received %zu points, but maximum allowed is %zu points "
-      "(exceeds limit by %zu points). Skipping processing. "
-      "Consider increasing 'point_cloud_limits.max_points' if your LiDAR produces larger point clouds.",
-      num_points,
-      point_cloud_limits_.max_points,
-      num_points - point_cloud_limits_.max_points);
-    return false;
-  }
-  return true;
 }
 
 Eigen::MatrixX3f GroundRemovalNode::filterInvalidPoints(const Eigen::MatrixX3f & cloud)
@@ -190,11 +158,6 @@ void GroundRemovalNode::removeGround(const sensor_msgs::msg::PointCloud2::ConstS
     return;
   }
 
-  const size_t num_points = static_cast<size_t>(cloud.rows());
-  if (!validatePointCloudDimensions(num_points)) {
-    return;
-  }
-
   Eigen::MatrixX3f filtered_cloud = filterInvalidPoints(cloud);
   if (filtered_cloud.rows() == 0) {
     return;
@@ -241,10 +204,7 @@ void GroundRemovalNode::publishSegments(
     nonground_publisher_->publish(GroundRemovalCore::eigenToPointCloud2(nonground_points, in_header));
   } else {
     RCLCPP_DEBUG_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "Publishers not activated; skipping ground segmentation publish");
+      this->get_logger(), *this->get_clock(), 5000, "Publishers not activated; skipping ground segmentation publish");
   }
 }
 
@@ -255,10 +215,7 @@ void GroundRemovalNode::logStatistics() const
   const double avg_time = processed > 0 ? total_time / static_cast<double>(processed) : 0.0;
 
   RCLCPP_INFO(
-    this->get_logger(),
-    "Statistics: %lu clouds processed, average processing time: %.3f ms",
-    processed,
-    avg_time);
+    this->get_logger(), "Statistics: %lu clouds processed, average processing time: %.3f ms", processed, avg_time);
 }
 
 rclcpp::QoS GroundRemovalNode::createSubscriberQoS(const std::string & reliability, int depth)
@@ -350,14 +307,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
     const int publisher_depth = this->get_parameter("qos_publisher_depth").as_int();
     publisher_qos_ = createPublisherQoS(publisher_reliability, publisher_durability, publisher_depth);
 
-    point_cloud_limits_.max_points = static_cast<size_t>(this->get_parameter("point_cloud_limits.max_points").as_int());
-    point_cloud_limits_.min_points = static_cast<size_t>(this->get_parameter("point_cloud_limits.min_points").as_int());
-    RCLCPP_INFO(
-      this->get_logger(),
-      "Point cloud limits configured: min=%zu, max=%zu points",
-      point_cloud_limits_.min_points,
-      point_cloud_limits_.max_points);
-
     diagnostic_updater_ = std::make_unique<diagnostic_updater::Updater>(this);
     diagnostic_updater_->setHardwareID("patchworkpp");
     diagnostic_updater_->add("Ground Removal Status", this, &GroundRemovalNode::diagnosticCallback);
@@ -391,10 +340,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
 
     if (diagnostic_updater_ && ground_publisher_ && nonground_publisher_) {
       ground_pub_diagnostic_ = std::make_unique<diagnostic_updater::TopicDiagnostic>(
-        kGroundTopic, *diagnostic_updater_, diagnostic_updater::FrequencyStatusParam(&min_freq_, &max_freq_, 0.1, 10),
+        kGroundTopic,
+        *diagnostic_updater_,
+        diagnostic_updater::FrequencyStatusParam(&min_freq_, &max_freq_, 0.1, 10),
         diagnostic_updater::TimeStampStatusParam());
       nonground_pub_diagnostic_ = std::make_unique<diagnostic_updater::TopicDiagnostic>(
-        kNonGroundTopic, *diagnostic_updater_,
+        kNonGroundTopic,
+        *diagnostic_updater_,
         diagnostic_updater::FrequencyStatusParam(&min_freq_, &max_freq_, 0.1, 10),
         diagnostic_updater::TimeStampStatusParam());
     }
@@ -452,9 +404,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
   const rclcpp_lifecycle::State & previous_state)
 {
   RCLCPP_INFO(
-    this->get_logger(),
-    "Shutting down Patchwork++ Ground Removal node from state: %s",
-    previous_state.label().c_str());
+    this->get_logger(), "Shutting down Patchwork++ Ground Removal node from state: %s", previous_state.label().c_str());
 
   pointcloud_sub_.reset();
   ground_publisher_.reset();
@@ -474,29 +424,3 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
 }  // namespace wato::perception::patchworkpp
 
 RCLCPP_COMPONENTS_REGISTER_NODE(wato::perception::patchworkpp::GroundRemovalNode)
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::executors::MultiThreadedExecutor exec;
-  auto node = std::make_shared<wato::perception::patchworkpp::GroundRemovalNode>(rclcpp::NodeOptions());
-  exec.add_node(node->get_node_base_interface());
-
-  auto configured_state = node->configure();
-  if (configured_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
-    auto activated_state = node->activate();
-    if (activated_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-      RCLCPP_INFO(node->get_logger(), "Node configured and activated, spinning...");
-      exec.spin();
-    } else {
-      RCLCPP_ERROR(
-        node->get_logger(), "Failed to activate node, current state: %s", activated_state.label().c_str());
-    }
-  } else {
-    RCLCPP_ERROR(
-      node->get_logger(), "Failed to configure node, current state: %s", configured_state.label().c_str());
-  }
-
-  rclcpp::shutdown();
-  return 0;
-}

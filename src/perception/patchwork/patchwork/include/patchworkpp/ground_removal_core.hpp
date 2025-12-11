@@ -16,6 +16,8 @@
 
 #include <Eigen/Core>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
@@ -89,7 +91,7 @@ public:
    *
    * @param cloud_msg Input PointCloud2 message
    * @return N×3 Eigen matrix with one row per point
-   * @throws std::runtime_error if x/y/z are missing, not FLOAT32, or dimensions are invalid
+   * @throws std::runtime_error if x/y/z are missing or not FLOAT32
    */
   static Eigen::MatrixX3f pointCloud2ToEigen(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg);
 
@@ -118,8 +120,7 @@ private:
    * @param field_name Name of the field to find (e.g., "x", "y", "z")
    * @return Index of the field if found, -1 otherwise
    */
-  static int findFieldIndex(
-    const std::vector<sensor_msgs::msg::PointField> & fields, const std::string & field_name);
+  static int findFieldIndex(const std::vector<sensor_msgs::msg::PointField> & fields, const std::string & field_name);
 
   std::unique_ptr<patchwork::PatchWorkpp> patchwork_;
 };

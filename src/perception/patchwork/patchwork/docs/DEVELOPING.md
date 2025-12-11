@@ -106,15 +106,9 @@ Common parameters and intent (tune per platform/dataset):
 - `qos_publisher_durability` (string): Durability policy for output publishers. Options: `"transient_local"`, `"volatile"` (default: `"transient_local"`).
 - `qos_publisher_depth` (int): Queue depth for outgoing messages (default: `10`).
 
-### Point Cloud Validation Limits
+### Point Cloud Size Validation
 
-- `point_cloud_limits.max_points` (int64): Maximum number of points allowed in a point cloud. Point clouds exceeding this limit are rejected to prevent memory exhaustion. Default: `10000000` (10 million).
-- `point_cloud_limits.min_points` (int64): Minimum number of points required for a valid point cloud. Point clouds with fewer points are rejected. Default: `0` (allows empty clouds, not recommended for production).
-
-The `PointCloudLimits` struct provides factory methods for common LiDAR profiles:
-- `PointCloudLimits::defaultLimits()`: 10M max, 0 min (default)
-- `PointCloudLimits::highDensityLimits()`: 20M max for very dense sensors
-- `PointCloudLimits::standardLimits()`: 5M max for typical sensors
+**Note**: Point cloud size validation has been removed from production code. Users are responsible for ensuring reasonable input sizes by running tests before deploying. The test suite includes validation tests for various point cloud sizes.
 
 Edit defaults in `src/perception/patchwork/config/params.yaml:1` or pass overrides via launch.
 
@@ -148,7 +142,7 @@ The node follows the ROS 2 lifecycle pattern:
 - Data format is Nx3 single‑precision floats. Additional fields (intensity, ring, etc.) are not preserved in output — the publishers intentionally produce minimal XYZ‑only clouds to reduce message size and complexity.
 - Endianness: conversions honor the message `is_bigendian` flag; writing outputs sets `is_bigendian=false`.
 - The upstream library provides `getTimeTaken()` to report per‑frame processing time (in milliseconds).
-- Point cloud validation: The node validates point cloud dimensions and filters invalid points (NaN/Inf) before processing, with detailed error messages including actual values vs limits for debugging.
+- Point cloud filtering: The node filters invalid points (NaN/Inf) before processing. Size validation is not performed in production code - users should test their inputs.
 - Statistics tracking: Processing statistics (total processed, average time, last processing time) are tracked atomically and logged periodically (every 30 seconds by default).
 
 ## Conversion Utilities (PointCloud2 ↔ Eigen)
@@ -258,16 +252,155 @@ If Patchwork++ changes its exported target names again, extend the conditional t
 
 ## Testing & Validation
 
-Manual checks:
+The package includes comprehensive test suites covering core functionality and ROS integration.
+
+### Running Tests
+
+#### Build Tests
+
+First, ensure tests are built:
+
+```bash
+colcon build --packages-select patchworkpp
+```
+
+#### Run All Tests
+
+Run all tests for the package:
+
+```bash
+colcon test --packages-select patchworkpp
+colcon test-result --verbose
+```
+
+#### Run Specific Test Suites
+
+**Core/LiDAR Processing Tests** (`test_ground_removal_core`):
+- Tests point cloud conversion, validation logic, and algorithm processing
+- No ROS dependencies required
+
+```bash
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core
+colcon test-result --verbose
+```
+
+**ROS Integration Tests** (`test_ground_removal_node`):
+- Tests lifecycle node behavior, QoS configuration, callbacks, statistics, and parameters
+- Requires ROS 2 environment
+
+```bash
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node
+colcon test-result --verbose
+```
+
+#### Run Tests by Tag
+
+Tests are organized with Catch2 tags for selective execution:
+
+**Core conversion tests:**
+```bash
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core -E "[ground_removal_core]"
+```
+
+**Validation logic tests:**
+```bash
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core -E "[validation]"
+```
+
+**ROS integration tests:**
+```bash
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[ros_integration]"
+```
+
+**Statistics and diagnostics tests:**
+```bash
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[statistics]"
+```
+
+**Parameter handling tests:**
+```bash
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[parameters]"
+```
+
+#### Run Tests Directly (for debugging)
+
+To run a specific test executable directly with verbose output:
+
+```bash
+# Core tests
+/home/bolty/ament_ws/build/patchworkpp/test_ground_removal_core -s "GroundRemovalCore Conversion Tests"
+
+# Node tests (requires ROS environment)
+source /opt/ros/jazzy/setup.bash
+source /home/bolty/ament_ws/install/setup.bash
+/home/bolty/ament_ws/build/patchworkpp/test_ground_removal_node -s "ROS Integration Tests"
+```
+
+#### Re-run Failed Tests
+
+To re-run only failed tests with verbose output:
+
+```bash
+colcon test --packages-select patchworkpp --ctest-args --rerun-failed --output-on-failure
+colcon test-result --verbose
+```
+
+### Test Coverage
+
+#### Core Tests (`test_ground_removal_core.cpp`)
+
+**PointCloud2 ↔ Eigen Conversion Tests:**
+- Valid data conversion
+- NaN/Inf value handling
+- Empty point cloud handling
+- Missing field error handling
+- Large dimension handling (no validation limits)
+
+**Point Cloud Validation Logic Tests:**
+- Size limits (empty, single point, small, medium, large, very large)
+- NaN/Inf filtering behavior
+- Edge cases (all points invalid)
+
+**GroundRemovalCore Processing Tests:**
+- Smoke test with synthetic plane data
+- Robustness to different parameter configurations
+- Eigen to PointCloud2 conversion
+
+#### ROS Integration Tests (`test_ground_removal_node.cpp`)
+
+**ROS Integration Tests:**
+- Topic name constants verification
+- Lifecycle state transitions (configure, activate, deactivate)
+- QoS configuration (subscriber/publisher reliability, durability)
+- Publisher activation state checking
+- `removeGround()` callback message handling
+- Empty point cloud handling
+- Invalid point cloud error handling
+
+**Statistics and Diagnostics Tests:**
+- Statistics logging interval constant
+- Statistics update (counter increments)
+- Diagnostic callback status levels
+
+**Parameter Handling Tests:**
+- Parameter declaration and retrieval
+- Parameter default values verification
+- Invalid parameter values (unknown QoS strings)
+- Parameter modification and reconfiguration
+
+### Manual Validation
+
+For manual testing with real data:
 
 - Launch with a recorded bag or live sensor and view outputs in RViz.
 - Confirm frame IDs and timestamps are preserved end‑to‑end.
-- Inspect topic stats for throughput and latency; correlate with the core’s `getTimeTaken()` debug log for processing time.
+- Inspect topic stats for throughput and latency; correlate with the core's `getTimeTaken()` debug log for processing time.
 
-Suggested automated tests (not yet in repo):
+### Test Requirements
 
-- Unit tests for `pointCloud2ToEigen`/`eigenToPointCloud2` to cover field order, row/point steps, and endianness.
-- Scenario tests with synthetic planes plus obstacles to verify split counts under known thresholds.
+- **Core tests**: No special requirements, can run in any environment
+- **Node tests**: Require ROS 2 environment (automatically set up in Docker container)
+- **Dependencies**: `wato_test` package must be built before running node tests
 
 ## Running
 
@@ -306,7 +439,7 @@ Docker (builds Patchwork++ and this package): see `docker/perception/perception.
 - Output clouds do not retain input fields other than XYZ.
 - The node does not currently expose plane model coefficients; add this via the extension pattern above if needed.
 - The package assumes a single LiDAR input; multi‑sensor fusion is out of scope here.
-- Point cloud validation limits are configurable but use reasonable defaults; adjust based on your LiDAR sensor characteristics.
+- Point cloud size validation is not performed in production code. Users should run tests to ensure their point cloud inputs are reasonable for their use case.
 - Invalid points (NaN/Inf) are filtered out rather than causing the entire cloud to be rejected; this allows processing to continue with valid points.
 
 ## Maintenance Tips

@@ -2,7 +2,7 @@
 patchworkpp_node:
   ros__parameters:
     # Patchwork++ parameters (seeded from library defaults)
-    sensor_height: 1.84 
+    sensor_height: 1.84
     num_iter: 3
     num_lpr: 20
     num_min_pts: 0
@@ -27,13 +27,3 @@ patchworkpp_node:
     qos_publisher_reliability: "reliable"      # Options: "reliable", "best_effort"
     qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
     qos_publisher_depth: 10                    # Queue depth for outgoing messages
-
-    # Point Cloud Validation Limits
-    # Configurable limits to prevent processing unreasonably large or malformed point clouds
-    # Different limit profiles can be used for different LiDAR types:
-    # - Standard LiDAR (e.g., Velodyne VLP-16): max_points ~5,000,000
-    # - High-density LiDAR (e.g., Velodyne VLP-32C): max_points ~10,000,000
-    # - Very high-density (e.g., Ouster OS1-128): max_points ~20,000,000
-    point_cloud_limits:
-      max_points: 10000000  # Maximum points allowed (10 million for typical high-density LiDAR)
-      min_points: 0         # Minimum points required (0 = allow empty clouds, not recommended for production)
