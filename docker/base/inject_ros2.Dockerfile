@@ -57,6 +57,11 @@ RUN apt-get update && \
 # initialise rosdep
 RUN rosdep init && rosdep update --rosdistro "${ROS_DISTRO}"
 
+# To bypass PEP 668 for rosdep (https://docs.ros.org/en/independent/api/rosdep/html/pip_and_pep_668.html)
+ENV PIP_BREAK_SYSTEM_PACKAGES=true
+RUN apt-get update && apt-get install -y --no-install-recommends python3-venv python3-pip && \
+    rm -rf /var/lib/apt/lists/*
+
 # add colcon mixins / metadata
 RUN colcon mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml && \
     colcon mixin update && \

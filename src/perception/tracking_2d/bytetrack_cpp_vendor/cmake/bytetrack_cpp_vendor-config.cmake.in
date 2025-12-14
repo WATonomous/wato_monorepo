@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+add_library(bytetrack_cpp_vendor::bytetrack UNKNOWN IMPORTED)
+
+set_target_properties(bytetrack_cpp_vendor::bytetrack PROPERTIES
+    IMPORTED_LOCATION "@CMAKE_INSTALL_PREFIX@/opt/bytetrack_cpp_vendor/lib/libbytetrack.so"
+    INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_INSTALL_PREFIX@/opt/bytetrack_cpp_vendor/include"
+)
+
+find_package(Eigen3 3.3 REQUIRED)
+target_link_libraries(bytetrack_cpp_vendor::bytetrack INTERFACE Eigen3::Eigen)

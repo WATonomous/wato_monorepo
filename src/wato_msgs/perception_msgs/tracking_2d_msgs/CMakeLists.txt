@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.10)
-project(lane_detection_msgs)
+project(tracking_2d_msgs)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
@@ -23,17 +23,19 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
 
 set(msg_files
-    msg/LaneLine.msg
-    msg/LaneDetection.msg)
+  msg/Tracking2D.msg
+  msg/Tracking2DArray.msg
+)
 
-rosidl_generate_interfaces(lane_detection_msgs
-    ${msg_files}
-    DEPENDENCIES std_msgs geometry_msgs sensor_msgs)
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${msg_files}
+  DEPENDENCIES std_msgs geometry_msgs
+)
 
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()

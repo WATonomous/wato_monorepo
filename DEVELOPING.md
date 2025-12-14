@@ -17,6 +17,8 @@ docker login ghcr.io
 
 Theses base images are used in our dockerfiles to provide a starting point for all of our docker images.
 
+ALL WATONOMOUS BASE IMAGES ARE BUILT USING THE WATO_MONOREPO. It is configured [here](.github/include/base_image_config.json), and must be ran manually in GitHub CI (search for the job **Build Monorepo Base Images** under the **Actions** tab). Note, only administrators can trigger new image builds.
+
 ### How are the wato_monorepo base images created?
 
 All wato_monorepo base images are created using [GitHub Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows). GitHub Workflows are automated procedures defined in a GitHub repository that can be triggered by various GitHub events, such as a push or a pull request, to perform tasks like building, testing, and deploying code.
@@ -137,12 +139,12 @@ Click the link to bringup a page containing all the logs of each of the containe
 # General Implementation Details
 
 ## IPC Middleware
-To facilitate efficient interprocess communication, we utilize the [CycloneDDS middleware](https://github.com/ros2/rmw_cyclonedds) with [Iceoryx shared memory message passing underthehood](https://cyclonedds.io/docs/cyclonedds/latest/shared_memory/shared_mem_config.html).
+To facilitate efficient interprocess communication, we utilize the [Zenoh middleware (rmw_zenoh)](https://github.com/ros2/rmw_zenoh/tree/rolling) with [shared memory support](https://zenoh.io/docs/manual/abstractions/#shared-memory).
 
-What this means is, in the context of ROS2 messages, topics are discovered over the network (DDS), but actual data is passed through shared memory.
+What this means is, in the context of ROS2 messages, topics are discovered and routed through Zenoh's peer-to-peer protocol, with large messages automatically passed through shared memory for zero-copy data transfer between processes on the same machine.
 
 ## ROS2 Intraprocess Communication
-The CycloneDDS Middleware with Shared Memory can still be inefficient at times. So if we want to guarentee the fastest form of message transfer, we can use [rclcpp_components](https://github.com/ros2/rclcpp/tree/master/rclcpp_components) to form component containers where multiple nodes share the same process.
+While Zenoh's shared memory support provides efficient zero-copy message passing, we can achieve even faster communication by using [rclcpp_components](https://github.com/ros2/rclcpp/tree/master/rclcpp_components) to form component containers where multiple nodes share the same process.
 
 **Pros**:
 - Message passing is just passing a pointer (no serialization, no data copying at all)
@@ -152,3 +154,209 @@ The CycloneDDS Middleware with Shared Memory can still be inefficient at times. 
 - If one node fails, the whole process fails
 
 Only group your nodes into a component container if you believe that they are tightly coupled and should fail/start as one.
+
+## Adding Dependencies
+**Dependency** any codebase, library, package, that your code depends on.
+
+Dependencies are managed inside a Dockerfile through a variety of tools. When adding external libraries to the wato_monorepo, there are number of ways to do so. The order of methods from best to worst is as follows:
+1. **Installing through ROSdep** ROSdep is a dependency manager from ROS which automatically finds compatible libraries to install for a specific version of ROS. Underthehood, ROSdep uses apt for C++ packages and Pip for python packages. ROSdep dependencies are set inside a ros package's `package.xml`. A `package.xml` has three types of fields:
+   - `<exec_depend>dependency_name</exec_depend>` is used for when your package only needs the dependency at runtime (not during build)
+   - `<test_depend>dependency_name</test_depend>` is used for when your package only needs the dependency at test time
+   - `<build_depend>dependency_name</build_depend>` is used for when your package only needs the dependency at build time
+   - `<depend>dependency_name</depend>` is used for when you package needs the dependency as a whole
+   - This is dangerous as it causes packages to bloat with unneeded dependencies
+
+    To check if the library you want can be installed through ROSdep, you can check [rosdistro](https://github.com/ros/rosdistro). Best way is to clone that repo and Ctrl+F for the package you desire.
+
+1. **Direct `apt` or `pip` installation (not suggested)** You can directly install dependencies in the Dockerfile's `dependencies` stage. This is not recommended as we could run into versioning issues and dockerfile bloat in the future. Also, to make your package open source, you have to make it work with ROSdep. That will heavily increase the odds of your package actually being taken seriously by companies, individuals, research labs, etc.
+
+    **Contribute to opensource! (suggested)** When there doesn't exist a ROSdep key for a given `apt` or `pip` package. Congratulations! You found a quick and easy way to contribute to opensource. To do so:
+
+    1. Fork the https://github.com/ros/rosdistro repository
+    2. Add your package to the appropriate YAML file:
+       - Pip packages → rosdep/python.yaml
+       - System packages → rosdep/base.yaml
+    3. Format for pip packages (in python.yaml):
+
+       ```yaml
+       python3-yourpackage-pip:
+         debian:
+           pip:
+             packages: [yourpackage]
+         fedora:
+           pip:
+             packages: [yourpackage]
+         ubuntu:
+           pip:
+             packages: [yourpackage]
+       ```
+
+```
+4. Submit a Pull Request with:
+   - Links to package listings (PyPI for pip packages,
+  Ubuntu/Debian/Fedora repos for system packages)
+   - Brief description of the package and your use case
+   - Ensure alphabetical ordering
+   - Remove trailing whitespace
+5. Requirements:
+   - Must be in official repos (PyPI main index for pip, official
+  distro repos for apt)
+   - Requires review from 2 people before merging
+   - Typically merged within a week (you can install the dependency as a direct `apt` or `pip` while you wait)
+```
+
+1. **Vendor Package** If the codebase that you want to depend on is not released as a pip or apt dependency, and they ask you to build the codebase from source, then you can create a vendor package of that codebase. To do so, create a package called `<package_name>_vendor`, and then use CMakeLists.txt to build the package using colcon build.
+
+   - **Create CMakeLists.txt**
+
+       ```cmake
+         cmake_minimum_required(VERSION 3.8)
+         project(package_name_vendor)
+
+         find_package(ament_cmake REQUIRED)
+
+         # Option to force vendor build even if system version exists
+         option(FORCE_BUILD_VENDOR_PKG "Build from source instead of using
+         system package" OFF)
+
+         # Try to find system-installed version first
+         if(NOT FORCE_BUILD_VENDOR_PKG)
+           find_package(package_name QUIET)
+         endif()
+
+         if(package_name_FOUND)
+           message(STATUS "Found system package_name, skipping build")
+           ament_package()
+           return()
+         endif()
+
+         # Build from source using ExternalProject
+         include(ExternalProject)
+
+         ExternalProject_Add(package_name_external
+           GIT_REPOSITORY https://github.com/owner/repo.git
+           GIT_TAG v1.0.0  # Specific version/tag/commit
+
+           CMAKE_ARGS
+             -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+             # Add other cmake options as needed
+             -DBUILD_TESTING=OFF
+             -DBUILD_EXAMPLES=OFF
+
+           # Patch if needed
+           # PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/patches/fix.patch
+         )
+
+         # Install marker file so other packages know this was built
+         install(FILES
+           ${CMAKE_CURRENT_BINARY_DIR}/package_name_external-prefix/src/package_name_external-stamp/package_name_external-build
+           DESTINATION share/${PROJECT_NAME}
+         )
+
+         ament_package()
+       ```
+
+   - **Alternative: Download and Build Archive**
+
+       For non-git sources:
+
+       ```cmake
+       ExternalProject_Add(package_name_external
+         URL https://example.com/package-1.0.0.tar.gz
+         URL_HASH SHA256=abc123...
+
+         CMAKE_ARGS
+           -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+           -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+       )
+       ```
+
+   - **For Non-CMake Projects**
+
+       If the source uses Make, Autotools, or custom build:
+
+       ```cmake
+       ExternalProject_Add(package_name_external
+         GIT_REPOSITORY https://github.com/owner/repo.git
+         GIT_TAG v1.0.0
+
+         CONFIGURE_COMMAND ./configure --prefix=${CMAKE_INSTALL_PREFIX}
+         BUILD_COMMAND make -j$(nproc)
+         INSTALL_COMMAND make install
+
+         BUILD_IN_SOURCE 1
+       )
+       ```
+
+    **Contribute to Opensource!** Now that you've create a vendor package, you can release it to the ROS buildfarm and become a co-maintainer of the package! Refer to the below steps (skip to Option B) to see how.
+
+1. **Clone the repo into the dockerfile** This is only for repos can can be built with colcon, BUT do not release themselves as part of the ROS build farm (cannot be downloaded through rosdep).
+
+    **Contribute to Opensource!** If the package can be built with colcon and its dependencies are already handled by rosdep, then you have an opportunity to become a co-maintainer of that package! To do so, do the following:
+
+    > We highly encourage this because it not only helps boosts WATonomous' reputation, but also yours in the opensource community. You also get to say that you are a co-maintainer of a package that could be really important (ie. SLAM, Bytetrack, etc.)
+
+    1. Contact the Original Authors First:
+
+         ```
+         Open an issue or discussion:
+         Title: "Interest in releasing this package to ROS build farm"
+
+         Hi! I'd like to use this package in production and would love to see
+         it
+         available via apt. Would you be open to:
+         1. Me helping release it to the jazzy distribution?
+        2. Becoming a co-maintainer to handle releases?
+
+        I'm happy to do the work with bloom and submit the PR.
+        ```
+
+    2. Wait for Response
+
+        Best case is they say yes
+       - You coordinate with them
+       - They give you push access to their repo (or a -release repo)
+       - You become a co-maintainer
+
+        No response after ~2 weeks: You can proceed independently (see below)
+
+    3. Independent Release
+
+        If they don't respond or aren't interested in maintaining:
+
+        Option A: Release from a fork
+
+        **Fork their repo to the WATonomous GitHub then release from the fork**
+
+        > **TODO (eddy)** Currently, we are trying to figure out how to do the release process for our monorepo. If you run into this, let my know
+
+        bloom-release --rosdistro jazzy --track jazzy package_name \
+          --github-org your_username
+
+        In the rosdistro PR, explain:
+        This is a release of [original_repo] maintained by [original_author].
+
+       - Original repo: https://github.com/original/repo
+       - I've reached out to the maintainer (link to issue)
+       - No response after 2 weeks / Maintainer is no longer active
+       - I'm taking on maintenance responsibility for ROS releases
+
+        Option B: **Create a vendor package**
+
+        your_org/their_package_vendor
+
+        This signals you're maintaining a vendored version.
+
+    4. Maintenance Responsibility
+
+        By releasing, WATonomous (or you) is committing to:
+       - Respond to build farm issues
+       - Update for new ROS distros
+       - Fix critical bugs (or at least coordinate fixes)
+        Add watonomous yourself to package.xml:
+
+        ```xml
+          <maintainer email="hello@watonomous.com">WATonomous</maintainer>
+          <author email="original@email.com">Original Author</author>
+        ```

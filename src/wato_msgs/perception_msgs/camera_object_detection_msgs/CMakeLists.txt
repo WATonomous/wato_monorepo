@@ -26,7 +26,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 
 
-
 rosidl_generate_interfaces(${PROJECT_NAME}
     "msg/BatchDetection.msg"
     "msg/EveBatchDetection.msg"

@@ -17,7 +17,7 @@
 #include <string>
 #include <thread>
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/set_bool.hpp>

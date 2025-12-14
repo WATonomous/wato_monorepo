@@ -149,12 +149,12 @@ cleanup_bag() {
 
 trap cleanup_bag SIGINT SIGTERM
 
-# Get the roudi container name for volume sharing
-roudi_container="${COMPOSE_PROJECT_NAME}-roudi-1"
+# Get the zenoh_router container name for dependency checking
+zenoh_router_container="${COMPOSE_PROJECT_NAME}-zenoh_router-1"
 
-# Check if roudi is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${roudi_container}$"; then
-  echo "Error: RouDi container '${roudi_container}' is not running."
+# Check if zenoh_router is running
+if ! docker ps --format '{{.Names}}' | grep -q "^${zenoh_router_container}$"; then
+  echo "Error: Zenoh router container '${zenoh_router_container}' is not running."
   echo "Please start watod services first with './watod up -d'"
   exit 1
 fi
@@ -162,15 +162,15 @@ fi
 # Use CycloneDDS for bag operations to avoid RouDi connection issues.
 # Still join RouDi's IPC namespace so Iceoryx clients won't segfault if RMW gets overridden.
 docker run --rm -t \
-  --ipc "container:${roudi_container}" \
+  --ipc host \
   --network host \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
-  --volumes-from "${roudi_container}" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
-  -e "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" \
-  -e "CYCLONEDDS_URI=${CYCLONEDDS_URI}" \
+  -e "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}" \
   -e "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}" \
+  -e "ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}" \
+  -e "ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}" \
   "$INFRASTRUCTURE_IMAGE:$TAG" \
   ros2 bag "${ros2_bag_args[@]}" &
 

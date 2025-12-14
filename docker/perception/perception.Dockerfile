@@ -1,13 +1,14 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
 
 ################################ Source ################################
 FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code
+# Copy in source code needed for perception build
 COPY src/perception/perception_bringup perception_bringup
 COPY src/perception/patchwork patchwork
+COPY src/perception/tracking_2d tracking_2d
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
@@ -22,22 +23,30 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msg
 # Scan for rosdeps across the copied sources
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get -qq update && \
-    rosdep install --from-paths . --ignore-src -r -s \
-        | (grep 'apt-get install' || true) \
+    rosdep install --from-paths . --ignore-src -r -s > /tmp/rosdep_output && \
+    (grep 'apt-get install' /tmp/rosdep_output || true) \
         | awk '{print $3}' \
-        | sort > /tmp/colcon_install_list
+        | sort  > /tmp/colcon_install_list && \
+    (grep 'pip3 install' /tmp/rosdep_output || true) \
+        | sed 's/.*pip3 install //' \
+        | sort  > /tmp/colcon_pip_install_list
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
 
 # Install rosdep requirements collected from source stage
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get -qq update && \
+COPY --from=source /tmp/colcon_pip_install_list /tmp/colcon_pip_install_list
+RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    if [ -s /tmp/colcon_pip_install_list ]; then \
+        xargs -a /tmp/colcon_pip_install_list pip3 install --no-cache-dir; \
+    fi
 
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
@@ -55,9 +64,6 @@ RUN cmake -S cpp -B build \
     cmake --install build && \
     echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
 
-# RMW Configurations
-COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
-
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
@@ -65,6 +71,7 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 
 ################################ Build ################################
 FROM dependencies AS build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
@@ -73,7 +80,8 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # RMW Configurations
-COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+COPY docker/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
+COPY docker/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
 COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
@@ -81,6 +89,7 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Source Cleanup and Security Setup
 RUN rm -rf "${AMENT_WS:?}"/*

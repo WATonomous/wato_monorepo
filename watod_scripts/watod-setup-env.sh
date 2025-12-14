@@ -85,8 +85,11 @@ REPOSITORY="${REGISTRY_URL##*/}"
 BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
 
 # ROS 2 Middleware configuration
-RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_cyclonedds_cpp"}
-CYCLONEDDS_URI=${CYCLONEDDS_URI:-"file:///opt/watonomous/dds_config.xml"}
+RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
+
+# Zenoh configuration URIs (paths inside Docker containers)
+ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_router_config.json5"}
+ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_session_config.json5"}
 
 # Always append infrastructure to ACTIVE_MODULES if not already present
 if [[ -n ${ACTIVE_MODULES:-} ]]; then
@@ -203,7 +206,11 @@ append "DEEP_ROS_IMAGE" "$DEEP_ROS_IMAGE"
 
 # ROS 2 Middleware
 append "RMW_IMPLEMENTATION" "$RMW_IMPLEMENTATION"
-append "CYCLONEDDS_URI" "$CYCLONEDDS_URI"
+
+# Zenoh configuration
+append "ZENOH_ROUTER_CONFIG_URI" "$ZENOH_ROUTER_CONFIG_URI"
+append "ZENOH_SESSION_CONFIG_URI" "$ZENOH_SESSION_CONFIG_URI"
+
 append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
 
 echo "[setup-env] .env generated at $ENV_FILE"
