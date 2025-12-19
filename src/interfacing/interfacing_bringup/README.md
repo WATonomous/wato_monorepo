@@ -29,7 +29,7 @@ We will be doing static IP assignments by MAC address. Each device has a unique 
 Edit `/etc/dnsmasq.d/robot-net.conf`
 
 ```conf
-interface=enp7s0f1
+interface=br0
 bind-dynamic
 
 # General DHCP pool (fallback)
@@ -73,16 +73,25 @@ Edited `/etc/netplan/01-netcfg.yaml`
 network:
   version: 2
   ethernets:
-    enp6s0:        # Internet port
+    enp7s0: # motherboard ethernet interface for PC
       dhcp4: true
-    enp7s0f1:      # SFP port for robot network
+    enp8s0f0:
+      dhcp4: no
+      mtu: 9000
+    enp8s0f1:  # second SFP port, also connected to switch
+      dhcp4: no
+      mtu: 9000
+  bridges:
+    br0:
+      interfaces: [enp8s0f0, enp8s0f1]
       addresses:
         - 10.8.0.1/16
+        - 192.168.0.1/24
       mtu: 9000
 ```
 
 ### Clashes with Network Manager
-If `ip a show enp7s0f1` shows an IP different from the one you configured with Netplan, then there is a chance that another tool is managing `enp7s0f1` and overriding Netplan. In our case, NetworkManager was overriding.
+If `ip a show enp8s0f1` shows an IP different from the one you configured with Netplan, then there is a chance that another tool is managing `enp7s0f1` and overriding Netplan. In our case, NetworkManager was overriding.
 
 To see which profile controls `enp7s0f1`:
 
@@ -102,7 +111,7 @@ sudo nmcli connection up "Wired connection 1"
 
 ### IEEE 1588 Precision Time Protocol (PTP)
 
-Not all sensors support PTP. For example, our main Blackfly cameras are not supported while the Blackfly S is supported.
+Not all sensors support PTP. For example, our main Hikrobot cameras are not supported.
 
 ## Current Drivers
 
