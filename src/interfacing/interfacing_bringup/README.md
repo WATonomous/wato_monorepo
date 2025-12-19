@@ -66,6 +66,11 @@ dhcp-host=60:76:88:10:52:17,10.8.0.90   # VLP16 Side Lidar
 
 We do not setup a gateway. That is, we do not tell our sensors how to reach networks outside their subnet (ie. the internet)
 
+Use the updated config with
+```sh
+sudo systemctl restart dnsmasq
+```
+
 ### Configuring Netplan
 Edited `/etc/netplan/01-netcfg.yaml`
 
@@ -90,10 +95,15 @@ network:
       mtu: 9000
 ```
 
-### Clashes with Network Manager
-If `ip a show enp8s0f1` shows an IP different from the one you configured with Netplan, then there is a chance that another tool is managing `enp7s0f1` and overriding Netplan. In our case, NetworkManager was overriding.
+Apply changes with 
+```sh
+sudo netplan apply
+```
 
-To see which profile controls `enp7s0f1`:
+### Clashes with Network Manager
+If `ip a show enp8s0f1` shows an IP different from the one you configured with Netplan, then there is a chance that another tool is managing `enp8s0f1` and overriding Netplan. In our case, NetworkManager was overriding.
+
+To see which profile controls `enp8s0f1`:
 
 ```bash
 nmcli device status
