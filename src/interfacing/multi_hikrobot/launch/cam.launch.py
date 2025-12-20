@@ -74,11 +74,10 @@ def generate_launch_description():
                         # 'ExposureTime': 8000.0,
                         # 'ExposureAuto': 'Off',
                         'AcquisitionFrameRateEnable': True,
-                        'AcquisitionFrameRate': 30.0
+                        'AcquisitionFrameRate': 63.0
                     },
                 }
-            ],
-            namespace=config.frame_id,
+            ]
         )
         nodes.append(node)
 
