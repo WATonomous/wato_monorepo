@@ -50,7 +50,7 @@
 # export REGISTRY_URL=""
 
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
-# export BAG_DIRECTORY=""
+# export BAG_DIRECTORY="/mnt/data/bags"
 
 ############################### ROS 2 MIDDLEWARE SETTINGS ##############################
 ## Middleware to use for interprocess communication. DEFAULT = "rmw_zenoh_cpp"
