@@ -15,6 +15,27 @@ class CameraConfig:
 def generate_launch_description():
     configs = [
         CameraConfig(
+            guid='Hikrobot-MV-CU013-80GC-DA8386154',
+            frame_id='camera_pano_ne',
+            stream_name='pano_ne_raw'
+        ),
+
+        CameraConfig(
+            guid='Hikrobot-MV-CU013-80GC-DA8386084',
+            frame_id='camera_pano_ee',
+            stream_name='pano_ee_raw'
+        ),
+        CameraConfig(
+            guid='Hikrobot-MV-CU013-80GC-DA8386152',
+            frame_id='camera_pano_se',
+            stream_name='pano_se_raw'
+        ),
+        CameraConfig(
+            guid='Hikrobot-MV-CU013-80GC-DA8386134',
+            frame_id='camera_pano_ss',
+            stream_name='pano_ss_raw'
+        ),
+        CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386093',
             frame_id='camera_pano_sw',
             stream_name='pano_sw_raw'
@@ -60,8 +81,8 @@ def generate_launch_description():
                     },
                     'ImageFormatControl': {},
                     'AcquisitionControl': {
-                        'ExposureTime': 8000.0,
-                        'ExposureAuto': 'Off',
+                        # 'ExposureTime': 8000.0,
+                        # 'ExposureAuto': 'Off',
                         'AcquisitionFrameRateEnable': True,
                         'AcquisitionFrameRate': 30.0
                     },
