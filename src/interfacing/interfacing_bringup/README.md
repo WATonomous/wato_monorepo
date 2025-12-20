@@ -71,6 +71,11 @@ Use the updated config with
 sudo systemctl restart dnsmasq
 ```
 
+And check leases with
+```sh
+cat /var/lib/misc/dnsmasq.leases
+```
+
 ### Configuring Netplan
 Edited `/etc/netplan/01-netcfg.yaml`
 
@@ -91,7 +96,6 @@ network:
       interfaces: [enp8s0f0, enp8s0f1]
       addresses:
         - 10.8.0.1/16
-        - 192.168.0.1/24
       mtu: 9000
 ```
 
