@@ -9,51 +9,41 @@ from dataclasses import dataclass
 class CameraConfig:
     guid: str
     frame_id: str
-    stream_name: str
 
 
 def generate_launch_description():
     configs = [
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386154',
-            frame_id='camera_pano_ne',
-            stream_name='pano_ne_raw'
+            frame_id='camera_pano_ne'
         ),
-
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386084',
-            frame_id='camera_pano_ee',
-            stream_name='pano_ee_raw'
+            frame_id='camera_pano_ee'
         ),
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386152',
-            frame_id='camera_pano_se',
-            stream_name='pano_se_raw'
+            frame_id='camera_pano_se'
         ),
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386134',
-            frame_id='camera_pano_ss',
-            stream_name='pano_ss_raw'
+            frame_id='camera_pano_ss'
         ),
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386093',
-            frame_id='camera_pano_sw',
-            stream_name='pano_sw_raw'
+            frame_id='camera_pano_sw'
         ),
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386110',
-            frame_id='camera_pano_ww',
-            stream_name='pano_ww_raw'
+            frame_id='camera_pano_ww'
         ),
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386109',
-            frame_id='camera_pano_nw',
-            stream_name='pano_nw_raw'
+            frame_id='camera_pano_nw'
         ),
         CameraConfig(
             guid='Hikrobot-MV-CU013-80GC-DA8386098',
-            frame_id='camera_pano_nn',
-            stream_name='pano_nn_raw'
+            frame_id='camera_pano_nn'
         ),
     ]
 
@@ -61,7 +51,7 @@ def generate_launch_description():
 
     for config in configs:
         node = Node(
-            name=f'camera_driver_{config.frame_id}',
+            name=config.frame_id,
             package='camera_aravis2',
             executable='camera_driver_gv',
             output='screen',
@@ -70,7 +60,7 @@ def generate_launch_description():
                 {
                     'guid': config.guid,
                     'frame_id': config.frame_id,
-                    'stream_names': [config.stream_name],
+                    'stream_names': ['rgb'],
                     'camera_info_urls': [os.path.join(
                         get_package_share_directory('multi_hikrobot'),
                         f'config/{config.frame_id}.yaml')],
@@ -87,7 +77,8 @@ def generate_launch_description():
                         'AcquisitionFrameRate': 30.0
                     },
                 }
-            ]
+            ],
+            namespace=config.frame_id,
         )
         nodes.append(node)
 
