@@ -153,5 +153,3 @@ launch:
           value: "camera_pano_nw"
         - name: camera_info_urls
           value: ["$(find-pkg-share calibration)/config/camera_pano_nw.yaml"]
-
-
