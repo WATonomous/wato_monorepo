@@ -63,7 +63,7 @@ launch:
   #         value: "$(var camera_config_file)"
 
   - include:
-      file: "$(find-pkg-share multi_hikrobot)/launch/cam.launch.py"
+      file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
 
   # Eve Robot Description
   - include:

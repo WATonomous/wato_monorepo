@@ -42,7 +42,7 @@ dhcp-host=00:B0:9D:1A:F0:0E,10.8.0.18   # Blackfly Cam 1 17453317
 dhcp-host=00:B0:9D:0A:50:F8,10.8.0.19   # Blackfly Cam 2 17453304
 dhcp-host=00:B0:9D:0A:51:05,10.8.0.20   # Blackfly Cam 3 18542606
 
-# Hikrobot MV-CU013-80GC 
+# Hikrobot MV-CU013-80GC
 # panorama cameras
 dhcp-host=34:BD:20:79:38:D9,10.8.0.30    # 0: camera_pan_NN
 dhcp-host=34:BD:20:79:39:11,10.8.0.31    # 1: camera_pan_NE
@@ -67,11 +67,13 @@ dhcp-host=60:76:88:10:52:17,10.8.0.90   # VLP16 Side Lidar
 We do not setup a gateway. That is, we do not tell our sensors how to reach networks outside their subnet (ie. the internet)
 
 Use the updated config with
+
 ```sh
 sudo systemctl restart dnsmasq
 ```
 
 And check leases with
+
 ```sh
 cat /var/lib/misc/dnsmasq.leases
 ```
@@ -99,7 +101,8 @@ network:
       mtu: 9000
 ```
 
-Apply changes with 
+Apply changes with
+
 ```sh
 sudo netplan apply
 ```
