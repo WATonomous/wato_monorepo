@@ -62,6 +62,9 @@ launch:
   #       - name: "camera_config_file"
   #         value: "$(var camera_config_file)"
 
+  - include:
+      file: "$(find-pkg-share multi_hikrobot)/launch/cam.launch.py"
+
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
