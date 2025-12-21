@@ -10,7 +10,7 @@ velodyne_driver_node_top:
     repeat_delay: 0.0
     frame_id: lidar_top
     model: 32C
-    rpm: 600.0
+    rpm: 1200.0
     port: 2368
     timestamp_first_packet: false
 
@@ -25,8 +25,8 @@ velodyne_driver_node_left:
     repeat_delay: 0.0
     frame_id: lidar_left
     model: VLP16
-    rpm: 600.0
-    port: 2368
+    rpm: 1200.0
+    port: 2369
     timestamp_first_packet: false
 
 velodyne_driver_node_right:
@@ -40,6 +40,6 @@ velodyne_driver_node_right:
     repeat_delay: 0.0
     frame_id: lidar_right
     model: VLP16
-    rpm: 600.0
-    port: 2368
+    rpm: 1200.0
+    port: 2370
     timestamp_first_packet: false
