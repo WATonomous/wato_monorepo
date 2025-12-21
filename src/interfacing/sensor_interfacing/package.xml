@@ -12,7 +12,7 @@
   <exec_depend>novatel_oem7_driver</exec_depend>
   <exec_depend>velodyne</exec_depend>
   <exec_depend>camera_aravis2</exec_depend>
-  <exec_depend>multi_hikrobot</exec_depend>
+  <exec_depend>calibration</exec_depend>
 
   <!-- Unused, for old Blackfly Cams -->
   <!-- <exec_depend>spinnaker_camera_driver</exec_depend> -->
