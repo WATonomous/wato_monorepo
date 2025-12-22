@@ -55,13 +55,7 @@ launch:
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
 
-  # Blackfly cameras
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/three_cameras.yaml"
-  #     arg:
-  #       - name: "camera_config_file"
-  #         value: "$(var camera_config_file)"
-
+  # Hikrobot Cameras
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
 
