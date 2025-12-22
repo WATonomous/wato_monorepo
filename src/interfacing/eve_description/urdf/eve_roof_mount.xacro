@@ -62,8 +62,11 @@
       <origin xyz="-0.5600 0 0" rpy="0 0 0"/>
     </joint>
 
+    <xacro:property name="camera_z" value="0.217"/>
+    <xacro:property name="pano_radius" value="0.240676"/>
+
     <!-- Roof-Mounted Cameras -->
-    <link name="camera_front_center">
+    <link name="camera_nn">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -81,13 +84,14 @@
       </collision>
     </link>
 
-    <joint name="camera_front_center_mount_yaw" type="fixed">
+
+    <joint name="camera_nn_mount_yaw" type="fixed">
       <parent link="roof_mount"/>
-      <child link="camera_front_center"/>
-      <origin xyz="0.2375 0 0.185" rpy="0 0 0"/>
+      <child link="camera_nn"/>
+      <origin xyz="${pano_radius} 0 ${camera_z}" rpy="0 0 0"/>
     </joint>
 
-    <link name="camera_front_left">
+    <link name="camera_pano_nw">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -105,14 +109,14 @@
       </collision>
     </link>
 
-    <joint name="camera_front_left_mount_yaw" type="fixed">
+    <joint name="camera_pano_nw_mount_yaw" type="fixed">
       <parent link="roof_mount"/>
-      <child link="camera_front_left"/>
-      <origin xyz="0.1875 0.185 0.185" rpy="0 0 ${pi/4}"/>
+      <child link="camera_pano_nw"/>
+      <origin xyz="${pano_radius/sqrt(2)} ${pano_radius/sqrt(2)} ${camera_z}" rpy="0 0 ${pi/4}"/>
     </joint>
 
 
-    <link name="camera_front_right">
+    <link name="camera_pano_ne">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -130,10 +134,10 @@
       </collision>
     </link>
 
-    <joint name="camera_front_right_mount_yaw" type="fixed">
+    <joint name="camera_pano_ne_mount_yaw" type="fixed">
       <parent link="roof_mount"/>
-      <child link="camera_front_right"/>
-      <origin xyz="0.1875 -0.185 0.185" rpy="0 -0 -${pi/4}"/>
+      <child link="camera_pano_ne"/>
+      <origin xyz="${pano_radius/sqrt(2)} -${pano_radius/sqrt(2)} ${camera_z}" rpy="0 -0 -${pi/4}"/>
     </joint>
   </xacro:macro>
 
