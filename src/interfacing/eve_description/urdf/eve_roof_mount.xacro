@@ -64,81 +64,48 @@
 
     <xacro:property name="camera_z" value="0.217"/>
     <xacro:property name="pano_radius" value="0.240676"/>
+    <xacro:property name="pano_cameras" value="8"/>
+    <xacro:property name="angle_increment" value="${2*pi/pano_cameras}"/>
 
-    <!-- Roof-Mounted Cameras -->
-    <link name="camera_nn">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-        <material name="red">
-          <color rgba="1.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-      </collision>
-    </link>
+    <xacro:macro name="create_camera" params="index name">
+      <xacro:property name="angle" value="${-pi/4 - index * angle_increment}"/>
+      <xacro:property name="cam_x" value="${pano_radius * cos(angle)}"/>
+      <xacro:property name="cam_y" value="${pano_radius * sin(angle)}"/>
+      
+      <link name="camera_pano_${name}">
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <sphere radius="0.05"/>
+          </geometry>
+          <material name="red">
+            <color rgba="1.0 0.0 0.0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <sphere radius="0.05"/>
+          </geometry>
+        </collision>
+      </link>
 
-
-    <joint name="camera_nn_mount_yaw" type="fixed">
-      <parent link="roof_mount"/>
-      <child link="camera_nn"/>
-      <origin xyz="${pano_radius} 0 ${camera_z}" rpy="0 0 0"/>
-    </joint>
-
-    <link name="camera_pano_nw">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-        <material name="red">
-          <color rgba="1.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-      </collision>
-    </link>
-
-    <joint name="camera_pano_nw_mount_yaw" type="fixed">
-      <parent link="roof_mount"/>
-      <child link="camera_pano_nw"/>
-      <origin xyz="${pano_radius/sqrt(2)} ${pano_radius/sqrt(2)} ${camera_z}" rpy="0 0 ${pi/4}"/>
-    </joint>
+      <joint name="camera_pano_${name}_mount" type="fixed">
+        <parent link="roof_mount"/>
+        <child link="camera_pano_${name}"/>
+        <origin xyz="${cam_x} ${cam_y} ${camera_z}" rpy="0 0 ${angle}"/>
+      </joint>
+    </xacro:macro>
 
 
-    <link name="camera_pano_ne">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-        <material name="red">
-          <color rgba="1.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-      </collision>
-    </link>
-
-    <joint name="camera_pano_ne_mount_yaw" type="fixed">
-      <parent link="roof_mount"/>
-      <child link="camera_pano_ne"/>
-      <origin xyz="${pano_radius/sqrt(2)} -${pano_radius/sqrt(2)} ${camera_z}" rpy="0 -0 -${pi/4}"/>
-    </joint>
+    <xacro:create_camera index="0" name="ne"/>
+    <xacro:create_camera index="1" name="ee"/>
+    <xacro:create_camera index="2" name="se"/>
+    <xacro:create_camera index="3" name="ss"/>
+    <xacro:create_camera index="4" name="sw"/>
+    <xacro:create_camera index="5" name="ww"/>
+    <xacro:create_camera index="6" name="nw"/>
+    <xacro:create_camera index="7" name="nn"/>
   </xacro:macro>
 
 </robot>
