@@ -1,0 +1,155 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+launch:
+  - arg:
+      name: "cameras_config_file"
+      default: "$(find-pkg-share sensor_interfacing)/config/cameras_config.yaml"
+      description: "Hikrobot cameras configuration file"
+
+  # camera 0 - pano NN
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_nn
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386098"
+        - name: frame_id
+          value: "camera_pano_nn"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_nn.yaml"]
+
+  # camera 1 - pano NE
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_ne
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386154"
+        - name: frame_id
+          value: "camera_pano_ne"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ne.yaml"]
+
+  # camera 2 - pano EE
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_ee
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386084"
+        - name: frame_id
+          value: "camera_pano_ee"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ee.yaml"]
+
+  # camera 3 - pano SE
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_se
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386152"
+        - name: frame_id
+          value: "camera_pano_se"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_se.yaml"]
+
+  # camera 4 - pano SS
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_ss
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386134"
+        - name: frame_id
+          value: "camera_pano_ss"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ss.yaml"]
+
+  # camera 5 - pano SW
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_sw
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386093"
+        - name: frame_id
+          value: "camera_pano_sw"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_sw.yaml"]
+
+  # camera 6 - pano WW
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_ww
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386110"
+        - name: frame_id
+          value: "camera_pano_ww"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ww.yaml"]
+
+  # camera 7 - pano NW
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_pano_nw
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386109"
+        - name: frame_id
+          value: "camera_pano_nw"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_nw.yaml"]
