@@ -79,6 +79,8 @@ cat /var/lib/misc/dnsmasq.leases
 ```
 
 ### Configuring Netplan
+> If you are having trouble connecting the computer to the internet, then high chance is that this netplan configuration needs to change.
+
 Edited `/etc/netplan/01-netcfg.yaml`
 
 ```yaml
