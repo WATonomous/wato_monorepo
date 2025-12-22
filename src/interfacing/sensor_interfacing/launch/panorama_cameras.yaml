@@ -33,7 +33,7 @@ launch:
         - name: frame_id
           value: "camera_pano_nn"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_nn.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_nn.yaml"]
 
   # camera 1 - pano NE
   - node:
@@ -50,7 +50,7 @@ launch:
         - name: frame_id
           value: "camera_pano_ne"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_ne.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ne.yaml"]
 
   # camera 2 - pano EE
   - node:
@@ -67,7 +67,7 @@ launch:
         - name: frame_id
           value: "camera_pano_ee"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_ee.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ee.yaml"]
 
   # camera 3 - pano SE
   - node:
@@ -84,7 +84,7 @@ launch:
         - name: frame_id
           value: "camera_pano_se"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_se.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_se.yaml"]
 
   # camera 4 - pano SS
   - node:
@@ -101,7 +101,7 @@ launch:
         - name: frame_id
           value: "camera_pano_ss"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_ss.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ss.yaml"]
 
   # camera 5 - pano SW
   - node:
@@ -118,7 +118,7 @@ launch:
         - name: frame_id
           value: "camera_pano_sw"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_sw.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_sw.yaml"]
 
   # camera 6 - pano WW
   - node:
@@ -135,7 +135,7 @@ launch:
         - name: frame_id
           value: "camera_pano_ww"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_ww.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_ww.yaml"]
 
   # camera 7 - pano NW
   - node:
@@ -152,4 +152,4 @@ launch:
         - name: frame_id
           value: "camera_pano_nw"
         - name: camera_info_urls
-          value: ["$(find-pkg-share calibration)/config/camera_pano_nw.yaml"]
+          value: ["$(find-pkg-share camera_calib)/config/camera_pano_nw.yaml"]
