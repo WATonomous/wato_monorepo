@@ -76,6 +76,7 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 ################################ Prod ################################
 FROM build AS deploy
 
-# Source Cleanup and Security Setup
-RUN rm -rf "${AMENT_WS:?}"/*
-USER ${USER}
+# Source Cleanup, Security Setup, and Workspace Setup
+RUN rm -rf "${AMENT_WS:?}"/* && \
+    mkdir -p "${AMENT_WS}"/src && \
+    chown -R "${USER}":"${USER}" "${AMENT_WS}"
