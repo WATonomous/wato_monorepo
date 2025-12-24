@@ -21,12 +21,12 @@ launch:
 
   - arg:
       name: "source_topic"
-      default: "/lidar/front/points"
+      default: "/lidar_left/velodyne_points"
       description: "Source pointcloud topic"
 
   - arg:
       name: "target_topic"
-      default: "/lidar/rear/points"
+      default: "/lidar_top/velodyne_points"
       description: "Target pointcloud topic"
 
 

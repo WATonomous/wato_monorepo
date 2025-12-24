@@ -30,6 +30,9 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(message_filters REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 find_package(small_gicp_vendor REQUIRED)
@@ -47,12 +50,15 @@ target_include_directories(lidar_lidar_calib PUBLIC
 
 # Link libraries
 target_link_libraries(lidar_lidar_calib
-    PRIVATE
+  PRIVATE
     rclcpp_components::component
     rclcpp::rclcpp
     small_gicp::small_gicp
     ${sensor_msgs_TARGETS}
     ${message_filters_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${tf2_geometry_msgs_TARGETS}
     ${pcl_ros_LIBRARIES}
     Eigen3::Eigen
 )

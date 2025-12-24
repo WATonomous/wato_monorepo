@@ -14,6 +14,9 @@
   <depend>sensor_msgs</depend>
   <depend>message_filters</depend>
   <depend>eigen3_cmake_module</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
 
   <depend>small_gicp_vendor</depend>
   <depend>pcl_ros</depend>

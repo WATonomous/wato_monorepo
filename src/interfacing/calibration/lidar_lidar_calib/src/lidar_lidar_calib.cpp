@@ -14,20 +14,46 @@
 
 #include "lidar_lidar_calib/lidar_lidar_calib.hpp"
 
+#include <tf2/LinearMath/Quaternion.h>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <limits>
 #include <memory>
+#include <string>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <small_gicp/points/point_cloud.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace lidar_lidar_calib
 {
 
 LidarLidarCalibNode::LidarLidarCalibNode(const rclcpp::NodeOptions & options)
 : Node("lidar_lidar_calib", options)
+, best_error_(std::numeric_limits<double>::infinity())
+{
+  configure();
+
+  // Initialize TF broadcaster
+  tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+
+  // Setup message filters for synchronized subscription
+  source_sub_.subscribe(this, "source_pointcloud");
+  target_sub_.subscribe(this, "target_pointcloud");
+
+  sync_ =
+    std::make_shared<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(queue_size_), source_sub_, target_sub_);
+  sync_->registerCallback(
+    std::bind(&LidarLidarCalibNode::cloud_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+  RCLCPP_INFO(this->get_logger(), "LidarLidarCalibNode initialized");
+}
+
+void LidarLidarCalibNode::configure()
 {
   // Declare topic parameters
   this->declare_parameter<int>("queue_size", 10);
@@ -46,22 +72,158 @@ LidarLidarCalibNode::LidarLidarCalibNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("initial_rotation_pitch", 0.0);
   this->declare_parameter<double>("initial_rotation_yaw", 0.0);
 
-  // Get parameters
-  int queue_size = this->get_parameter("queue_size").as_int();
+  // Declare frame ID parameters
+  this->declare_parameter<std::string>("target_frame", "lidar_target");
+  this->declare_parameter<std::string>("source_frame", "lidar_source");
 
-  // Setup message filters for synchronized subscription
-  source_sub_.subscribe(this, "source_pointcloud");
-  target_sub_.subscribe(this, "target_pointcloud");
+  // Get parameters (assign to member variables, not local variables!)
+  queue_size_ = this->get_parameter("queue_size").as_int();
 
-  sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(queue_size), source_sub_, target_sub_);
-  sync_->registerCallback(
-    std::bind(&LidarLidarCalibNode::cloudCallback, this, std::placeholders::_1, std::placeholders::_2));
+  // Get GICP parameters
+  num_threads_ = this->get_parameter("num_threads").as_int();
+  downsampling_resolution_ = this->get_parameter("downsampling_resolution").as_double();
+  max_correspondence_distance_ = this->get_parameter("max_correspondence_distance").as_double();
+  max_iterations_ = this->get_parameter("max_iterations").as_int();
 
-  RCLCPP_INFO(this->get_logger(), "LidarLidarCalibNode initialized");
+  // Get initial guess parameters
+  tx_ = this->get_parameter("initial_translation_x").as_double();
+  ty_ = this->get_parameter("initial_translation_y").as_double();
+  tz_ = this->get_parameter("initial_translation_z").as_double();
+  roll_ = this->get_parameter("initial_rotation_roll").as_double();
+  pitch_ = this->get_parameter("initial_rotation_pitch").as_double();
+  yaw_ = this->get_parameter("initial_rotation_yaw").as_double();
+
+  // Get frame IDs
+  target_frame_ = this->get_parameter("target_frame").as_string();
+  source_frame_ = this->get_parameter("source_frame").as_string();
 }
 
-// Helper function to convert PointCloud2 to small_gicp point cloud
-std::shared_ptr<small_gicp::PointCloud> convertToSmallGICP(
+small_gicp::RegistrationResult LidarLidarCalibNode::perform_registration(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & source_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & target_msg)
+{
+  // Convert to small_gicp format
+  auto source_cloud = convert_to_small_gicp(source_msg);
+  auto target_cloud = convert_to_small_gicp(target_msg);
+
+  if (source_cloud->empty() || target_cloud->empty()) {
+    RCLCPP_WARN(this->get_logger(), "One or both point clouds are empty after filtering");
+    // Return a failed result
+    small_gicp::RegistrationResult failed_result;
+    failed_result.converged = false;
+    failed_result.error = std::numeric_limits<double>::infinity();
+    return failed_result;
+  }
+
+  // Construct initial guess transformation
+  Eigen::Isometry3d initial_guess = Eigen::Isometry3d::Identity();
+  Eigen::AngleAxisd rollAngle(roll_, Eigen::Vector3d::UnitX());
+  Eigen::AngleAxisd pitchAngle(pitch_, Eigen::Vector3d::UnitY());
+  Eigen::AngleAxisd yawAngle(yaw_, Eigen::Vector3d::UnitZ());
+  initial_guess.rotate(yawAngle * pitchAngle * rollAngle);
+  initial_guess.translation() = Eigen::Vector3d(tx_, ty_, tz_);
+
+  // Perform ICP registration using small_gicp
+  // Configure registration parameters
+  small_gicp::RegistrationSetting setting;
+  setting.num_threads = num_threads_;
+  setting.downsampling_resolution = downsampling_resolution_;
+  setting.max_correspondence_distance = max_correspondence_distance_;
+  setting.max_iterations = max_iterations_;
+
+  // Perform registration and return
+  return small_gicp::align(target_cloud->points, source_cloud->points, initial_guess, setting);
+}
+
+void LidarLidarCalibNode::log_results()
+{
+  RCLCPP_INFO(this->get_logger(), "========== NEW BEST Registration Result ==========");
+  RCLCPP_INFO(this->get_logger(), "Error: %.6f", best_error_);
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Translation [x, y, z]: [%.6f %.6f %.6f]",
+    translation_.x(),
+    translation_.y(),
+    translation_.z());
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Rotation (Euler) [roll, pitch, yaw]: [%.6f %.6f %.6f] rad",
+    euler_.x(),
+    euler_.y(),
+    euler_.z());
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Rotation (Euler) [roll, pitch, yaw]: [%.4f %.4f %.4f] deg",
+    euler_.x() * 180.0 / M_PI,
+    euler_.y() * 180.0 / M_PI,
+    euler_.z() * 180.0 / M_PI);
+  RCLCPP_INFO(this->get_logger(), "Transformation Matrix:");
+  RCLCPP_INFO(
+    this->get_logger(),
+    "[%.6f %.6f %.6f %.6f]",
+    transform_.matrix()(0, 0),
+    transform_.matrix()(0, 1),
+    transform_.matrix()(0, 2),
+    transform_.matrix()(0, 3));
+  RCLCPP_INFO(
+    this->get_logger(),
+    "[%.6f %.6f %.6f %.6f]",
+    transform_.matrix()(1, 0),
+    transform_.matrix()(1, 1),
+    transform_.matrix()(1, 2),
+    transform_.matrix()(1, 3));
+  RCLCPP_INFO(
+    this->get_logger(),
+    "[%.6f %.6f %.6f %.6f]",
+    transform_.matrix()(2, 0),
+    transform_.matrix()(2, 1),
+    transform_.matrix()(2, 2),
+    transform_.matrix()(2, 3));
+  RCLCPP_INFO(
+    this->get_logger(),
+    "[%.6f %.6f %.6f %.6f]",
+    transform_.matrix()(3, 0),
+    transform_.matrix()(3, 1),
+    transform_.matrix()(3, 2),
+    transform_.matrix()(3, 3));
+  RCLCPP_INFO(this->get_logger(), "============================================");
+}
+
+void LidarLidarCalibNode::publish_transform()
+{
+  geometry_msgs::msg::TransformStamped transform_stamped;
+  transform_stamped.header.stamp = this->now();
+  transform_stamped.header.frame_id = target_frame_;
+  transform_stamped.child_frame_id = source_frame_;
+
+  // Set translation
+  transform_stamped.transform.translation.x = translation_.x();
+  transform_stamped.transform.translation.y = translation_.y();
+  transform_stamped.transform.translation.z = translation_.z();
+
+  // Convert rotation matrix to quaternion and normalize
+  Eigen::Quaterniond quat(rotation_);
+  quat.normalize();
+  transform_stamped.transform.rotation.x = quat.x();
+  transform_stamped.transform.rotation.y = quat.y();
+  transform_stamped.transform.rotation.z = quat.z();
+  transform_stamped.transform.rotation.w = quat.w();
+
+  RCLCPP_INFO(
+    this->get_logger(), "Quaternion [x, y, z, w]: [%.6f %.6f %.6f %.6f]", quat.x(), quat.y(), quat.z(), quat.w());
+
+  // Broadcast the static transform
+  tf_broadcaster_->sendTransform(transform_stamped);
+
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Published static transform from '%s' to '%s' at time %.3f",
+    target_frame_.c_str(),
+    source_frame_.c_str(),
+    transform_stamped.header.stamp.sec + transform_stamped.header.stamp.nanosec * 1e-9);
+}
+
+std::shared_ptr<small_gicp::PointCloud> LidarLidarCalibNode::convert_to_small_gicp(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg)
 {
   auto cloud = std::make_shared<small_gicp::PointCloud>();
@@ -91,131 +253,44 @@ std::shared_ptr<small_gicp::PointCloud> convertToSmallGICP(
   return cloud;
 }
 
-void LidarLidarCalibNode::cloudCallback(
+void LidarLidarCalibNode::cloud_callback(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & source_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & target_msg)
 {
-  RCLCPP_INFO(this->get_logger(), "Received synchronized pointclouds");
-  RCLCPP_INFO(this->get_logger(), "Source cloud size: %d points", source_msg->width * source_msg->height);
-  RCLCPP_INFO(this->get_logger(), "Target cloud size: %d points", target_msg->width * target_msg->height);
-
   try {
-    // Convert to small_gicp format
-    auto source_cloud = convertToSmallGICP(source_msg);
-    auto target_cloud = convertToSmallGICP(target_msg);
+    auto result = perform_registration(source_msg, target_msg);
 
-    RCLCPP_INFO(
+    RCLCPP_INFO_THROTTLE(
       this->get_logger(),
-      "After filtering - Source: %zu points, Target: %zu points",
-      source_cloud->size(),
-      target_cloud->size());
+      *this->get_clock(),
+      200,
+      "After filtering - Source: %d points, Target: %d points (converged: %s, error: %.6f)",
+      static_cast<int>(source_msg->width * source_msg->height),
+      static_cast<int>(target_msg->width * target_msg->height),
+      result.converged ? "true" : "false",
+      result.error);
 
-    if (source_cloud->empty() || target_cloud->empty()) {
-      RCLCPP_WARN(this->get_logger(), "One or both point clouds are empty after filtering");
-      return;
+    // Only process and publish if error is better than previous best
+    if (result.converged && result.error < best_error_) {
+      // Update best error
+      best_error_ = result.error;
+
+      // Store the transformation data in member variables
+      transform_ = result.T_target_source;
+      rotation_ = transform_.rotation();
+      translation_ = transform_.translation();
+
+      // Convert rotation to Euler angles (roll, pitch, yaw)
+      euler_ = rotation_.eulerAngles(0, 1, 2);
+
+      log_results();
+      publish_transform();
+    } else if (!result.converged) {
+      RCLCPP_WARN(this->get_logger(), "Registration did not converge (error: %.6f)", result.error);
+    } else {
+      RCLCPP_DEBUG(
+        this->get_logger(), "Skipping result - error %.6f is not better than best %.6f", result.error, best_error_);
     }
-
-    // Get GICP parameters
-    int num_threads = this->get_parameter("num_threads").as_int();
-    double downsampling_resolution = this->get_parameter("downsampling_resolution").as_double();
-    double max_correspondence_distance = this->get_parameter("max_correspondence_distance").as_double();
-
-    // Get initial guess parameters
-    double tx = this->get_parameter("initial_translation_x").as_double();
-    double ty = this->get_parameter("initial_translation_y").as_double();
-    double tz = this->get_parameter("initial_translation_z").as_double();
-    double roll = this->get_parameter("initial_rotation_roll").as_double();
-    double pitch = this->get_parameter("initial_rotation_pitch").as_double();
-    double yaw = this->get_parameter("initial_rotation_yaw").as_double();
-
-    // Construct initial guess transformation
-    Eigen::Isometry3d initial_guess = Eigen::Isometry3d::Identity();
-    Eigen::AngleAxisd rollAngle(roll, Eigen::Vector3d::UnitX());
-    Eigen::AngleAxisd pitchAngle(pitch, Eigen::Vector3d::UnitY());
-    Eigen::AngleAxisd yawAngle(yaw, Eigen::Vector3d::UnitZ());
-    initial_guess.rotate(yawAngle * pitchAngle * rollAngle);
-    initial_guess.translation() = Eigen::Vector3d(tx, ty, tz);
-
-    RCLCPP_INFO(
-      this->get_logger(),
-      "Initial guess - Translation: [%.3f, %.3f, %.3f], Rotation (RPY): [%.3f, %.3f, %.3f]",
-      tx,
-      ty,
-      tz,
-      roll,
-      pitch,
-      yaw);
-
-    // Perform ICP registration using small_gicp
-    // Configure registration parameters
-    small_gicp::RegistrationSetting setting;
-    setting.num_threads = num_threads;
-    setting.downsampling_resolution = downsampling_resolution;
-    setting.max_correspondence_distance = max_correspondence_distance;
-
-    // Perform registration
-    auto result = small_gicp::align(target_cloud->points, source_cloud->points, initial_guess, setting);
-
-    // Log the transformation
-    Eigen::Isometry3d transform = result.T_target_source;
-    Eigen::Matrix3d rotation = transform.rotation();
-    Eigen::Vector3d translation = transform.translation();
-
-    // Convert rotation to Euler angles (roll, pitch, yaw)
-    Eigen::Vector3d euler = rotation.eulerAngles(0, 1, 2);
-
-    RCLCPP_INFO(this->get_logger(), "========== ICP Registration Result ==========");
-    RCLCPP_INFO(this->get_logger(), "Converged: %s", result.converged ? "true" : "false");
-    RCLCPP_INFO(this->get_logger(), "Iterations: %zu", result.iterations);
-    RCLCPP_INFO(this->get_logger(), "Error: %.6f", result.error);
-    RCLCPP_INFO(
-      this->get_logger(),
-      "Translation [x, y, z]: [%.6f, %.6f, %.6f]",
-      translation.x(),
-      translation.y(),
-      translation.z());
-    RCLCPP_INFO(
-      this->get_logger(),
-      "Rotation (Euler) [roll, pitch, yaw]: [%.6f, %.6f, %.6f] rad",
-      euler.x(),
-      euler.y(),
-      euler.z());
-    RCLCPP_INFO(
-      this->get_logger(),
-      "Rotation (Euler) [roll, pitch, yaw]: [%.4f, %.4f, %.4f] deg",
-      euler.x() * 180.0 / M_PI,
-      euler.y() * 180.0 / M_PI,
-      euler.z() * 180.0 / M_PI);
-    RCLCPP_INFO(this->get_logger(), "Transformation Matrix:");
-    RCLCPP_INFO(
-      this->get_logger(),
-      "[%.6f, %.6f, %.6f, %.6f]",
-      transform.matrix()(0, 0),
-      transform.matrix()(0, 1),
-      transform.matrix()(0, 2),
-      transform.matrix()(0, 3));
-    RCLCPP_INFO(
-      this->get_logger(),
-      "[%.6f, %.6f, %.6f, %.6f]",
-      transform.matrix()(1, 0),
-      transform.matrix()(1, 1),
-      transform.matrix()(1, 2),
-      transform.matrix()(1, 3));
-    RCLCPP_INFO(
-      this->get_logger(),
-      "[%.6f, %.6f, %.6f, %.6f]",
-      transform.matrix()(2, 0),
-      transform.matrix()(2, 1),
-      transform.matrix()(2, 2),
-      transform.matrix()(2, 3));
-    RCLCPP_INFO(
-      this->get_logger(),
-      "[%.6f, %.6f, %.6f, %.6f]",
-      transform.matrix()(3, 0),
-      transform.matrix()(3, 1),
-      transform.matrix()(3, 2),
-      transform.matrix()(3, 3));
-    RCLCPP_INFO(this->get_logger(), "============================================");
   } catch (const std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "Error during registration: %s", e.what());
   }
