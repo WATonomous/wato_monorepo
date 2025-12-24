@@ -1,0 +1,26 @@
+image_width: 1280
+image_height: 1024
+camera_name: camera_pano_nn
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1025.409640, 0.000000, 643.041196,
+         0.000000, 1036.845562, 568.690972,
+         0.000000, 0.000000, 1.000000]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.089012, 0.082982, 0.012405, -0.000384, 0.000000]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1011.529602, 0.000000, 641.978770, 0.000000,
+         0.000000, 1013.494751, 579.978240, 0.000000,
+         0.000000, 0.000000, 1.000000, 0.000000]

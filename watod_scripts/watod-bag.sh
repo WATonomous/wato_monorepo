@@ -118,6 +118,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${zenoh_router_container}$"; th
 fi
 
 docker run --rm -t \
+  --ulimit memlock=-1 \
   --ipc host \
   --network host \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
