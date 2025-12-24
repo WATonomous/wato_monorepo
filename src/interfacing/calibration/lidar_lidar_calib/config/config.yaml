@@ -1,0 +1,25 @@
+/**:
+  ros__parameters:
+    # Topic parameters
+    queue_size: 10
+
+    # Frame IDs for TF publishing
+    target_frame: "lidar_top"
+    source_frame: "lidar_left"
+
+    # GICP parameters
+    num_threads: 2
+    downsampling_resolution: 0.05  # meters
+    max_correspondence_distance: 0.5  # meters
+    max_iterations: 10000
+
+    # Initial guess (transformation from source to target)
+    # Translation in meters
+    initial_translation_x: 0.924884
+    initial_translation_y: -0.972881
+    initial_translation_z: -0.840734
+
+    # Rotation in radians (roll, pitch, yaw)
+    initial_rotation_roll: 0.017163
+    initial_rotation_pitch: 0.108708
+    initial_rotation_yaw: -0.580009  # 10 degrees

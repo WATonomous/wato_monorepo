@@ -91,6 +91,7 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 FROM build AS deploy
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Source Cleanup and Security Setup
-RUN rm -rf "${AMENT_WS:?}"/*
-USER ${USER}
+# Source Cleanup, Security Setup, and Workspace Setup
+RUN rm -rf "${AMENT_WS:?}"/* && \
+    mkdir -p "${AMENT_WS}"/src && \
+    chown -R "${USER}":"${USER}" "${AMENT_WS}"
