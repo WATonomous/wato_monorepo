@@ -11,7 +11,6 @@ COPY src/wato_msgs/simulation/embedded_msgs embedded_msgs
 COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
 
 # Carla specific messages
-
 RUN git clone --depth 1 https://github.com/ros-drivers/ackermann_msgs.git --branch 2.0.2 \
     && git clone --depth 1 https://github.com/ros-perception/image_common.git --branch 3.1.8 \
     && git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0

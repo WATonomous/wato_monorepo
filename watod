@@ -68,13 +68,12 @@ EOF
 
 # Parse ACTIVE_MODULES and build profile arrays
 # Input: ACTIVE_MODULES can contain "module" or "module:dev"
-# Output: ALL_PROFILES, DEPLOY_PROFILES, DEV_PROFILES arrays
+# Output: ALL_PROFILES, PRE_PROFILES arrays
 build_profile_arrays() {
   local blacklist=${1:-""}  # optional: space-separated list of modules to exclude
 
   ALL_PROFILES=()
-  DEPLOY_PROFILES=()
-  DEV_PROFILES=()
+  PRE_PROFILES=()
 
   # Ensure ACTIVE_MODULES is an array
   if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
@@ -96,13 +95,14 @@ build_profile_arrays() {
       continue
     fi
 
+    # Always add pre
+    PRE_PROFILES+=( --profile "$module_name-pre" )
+
     # Add to appropriate arrays
     if $is_dev; then
       ALL_PROFILES+=( --profile "$module_name-dev" )
-      DEV_PROFILES+=( --profile "$module_name-dev" )
     else
       ALL_PROFILES+=( --profile "$module_name" )
-      DEPLOY_PROFILES+=( --profile "$module_name" )
     fi
   done
 }
@@ -114,6 +114,13 @@ run_compose() {
   if [[ -z ${PROFILES_BUILT:-} ]]; then
     PROFILES_BUILT=1
     build_profile_arrays
+  fi
+
+  # If build, prepare source and dependency stages of each module
+  if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
+    DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
+      COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
+      docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${PRE_PROFILES[@]}" "build"
   fi
 
   # Run with all profiles, all three compose files

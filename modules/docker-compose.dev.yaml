@@ -6,6 +6,9 @@ services:
     extends:
       file: docker-compose.yaml
       service: interfacing_bringup
+    build:
+      target: rosdep_install
+    image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing
@@ -18,6 +21,9 @@ services:
     extends:
       file: docker-compose.yaml
       service: perception_bringup
+    build:
+      target: rosdep_install
+    image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
@@ -29,6 +35,9 @@ services:
     extends:
       file: docker-compose.yaml
       service: world_modeling_bringup
+    build:
+      target: rosdep_install
+    image: "${WORLD_MODELING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
@@ -40,6 +49,9 @@ services:
     extends:
       file: docker-compose.yaml
       service: action_bringup
+    build:
+      target: rosdep_install
+    image: "${ACTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/action:/home/bolty/ament_ws/src/action
