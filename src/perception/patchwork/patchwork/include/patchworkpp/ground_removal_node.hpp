@@ -14,10 +14,13 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include <Eigen/Core>
+
+// clang-format off
 #include <atomic>
 #include <chrono>
-#include <cstdint>
-#include <Eigen/Core>
 #include <memory>
 #include <string>
 
@@ -29,17 +32,16 @@
 #include <std_msgs/msg/header.hpp>
 
 #include "patchworkpp/ground_removal_core.hpp"
+// clang-format on
 
 namespace wato::perception::patchworkpp
 {
 
 /**
- * @brief ROS 2 lifecycle node for Patchwork++ ground removal algorithm
+ * @brief ROS 2 lifecycle node for Patchwork++ ground removal.
  *
- * This node processes LiDAR point clouds to segment ground and non-ground points
- * using the Patchwork++ algorithm. It implements a ROS 2 lifecycle node pattern
- * for proper state management and supports configurable parameters, QoS settings,
- * diagnostics, and statistics tracking.
+ * Subscribes to a point cloud, segments ground/non-ground via Patchwork++,
+ * publishes both outputs, and reports diagnostics/statistics.
  */
 class GroundRemovalNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -47,12 +49,7 @@ public:
   GroundRemovalNode() = delete;
 
   /**
-   * @brief Constructs the Patchwork++ ROS 2 lifecycle node
-   *
-   * Declares all algorithm parameters and QoS settings. Actual initialization
-   * of subscribers and publishers occurs in on_configure() and on_activate()
-   * lifecycle callbacks respectively.
-   *
+   * @brief Construct the node and declare parameters/QoS settings.
    * @param options Node options for remapping, parameters, etc.
    */
   explicit GroundRemovalNode(const rclcpp::NodeOptions & options);
@@ -62,36 +59,23 @@ public:
   static constexpr auto kNonGroundTopic = "non_ground_cloud";  ///< Output non-ground points topic name
 
   /**
-   * @brief Lifecycle callback: Configures the node
-   *
-   * Initializes GroundRemovalCore with parameters, sets up QoS profiles,
-   * and initializes diagnostic updater. Does not create subscribers/publishers
-   * yet (done in on_activate).
-   *
+   * @brief Lifecycle: configure parameters/core/QoS/diagnostics.
    * @param previous_state Previous lifecycle state
-   * @return SUCCESS if configuration succeeds, FAILURE otherwise
+   * @return SUCCESS on configuration
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State & previous_state) override;
 
   /**
-   * @brief Lifecycle callback: Activates the node
-   *
-   * Creates subscribers and publishers, activates lifecycle publishers,
-   * and sets up topic diagnostics. Node starts processing point clouds.
-   *
+   * @brief Lifecycle: create sub/pub, activate publishers, start diagnostics.
    * @param previous_state Previous lifecycle state
-   * @return SUCCESS if activation succeeds, FAILURE otherwise
+   * @return SUCCESS on activation
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_activate(
     const rclcpp_lifecycle::State & previous_state) override;
 
   /**
-   * @brief Lifecycle callback: Deactivates the node
-   *
-   * Stops processing but keeps resources allocated for quick reactivation.
-   * Deactivates publishers and resets subscriber.
-   *
+   * @brief Lifecycle: deactivate publishers and stop processing.
    * @param previous_state Previous lifecycle state
    * @return SUCCESS
    */
@@ -99,11 +83,7 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
   /**
-   * @brief Lifecycle callback: Cleans up resources
-   *
-   * Destroys subscribers, publishers, releases core resources, and cleans up
-   * diagnostics. Node can be reconfigured after cleanup.
-   *
+   * @brief Lifecycle: destroy pubs/subs and diagnostics, release core.
    * @param previous_state Previous lifecycle state
    * @return SUCCESS
    */
@@ -111,11 +91,7 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
   /**
-   * @brief Lifecycle callback: Shuts down the node
-   *
-   * Performs final cleanup and resource release. Node cannot be restarted
-   * after shutdown.
-   *
+   * @brief Lifecycle: final shutdown and cleanup.
    * @param previous_state Previous lifecycle state
    * @return SUCCESS
    */
@@ -124,37 +100,19 @@ public:
 
 private:
   /**
-   * @brief Declares and populates Patchwork++ algorithm parameters
-   *
-   * Retrieves parameter values from the node and writes them into the provided
-   * params struct. Parameters include sensor height, iteration counts, thresholds,
-   * ranges, and verbosity settings.
-   *
-   * @param params Output parameter struct to populate
+   * @brief Populate Patchwork++ params from declared parameters.
+   * @param params Output parameter struct
    */
   void declareParameters(patchwork::Params & params);
 
   /**
-   * @brief Subscription callback for incoming PointCloud2 messages
-   *
-   * Main processing callback that:
-   * - Converts PointCloud2 to Eigen matrix
-   * - Validates and filters point cloud
-   * - Runs ground removal algorithm
-   * - Updates statistics and diagnostics
-   * - Publishes ground and non-ground segments
-   *
+   * @brief Point cloud subscription callback: process and publish segments.
    * @param msg Incoming point cloud message
    */
   void removeGround(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg);
 
   /**
-   * @brief Publishes ground and non-ground point cloud segments
-   *
-   * Converts Eigen matrices to PointCloud2 messages (XYZ, FLOAT32) while
-   * preserving the incoming header (frame, timestamp). Only publishes if
-   * publishers are activated and ready.
-   *
+   * @brief Publish ground and non-ground clouds with the given header.
    * @param ground_points Ground points as Eigen matrix
    * @param nonground_points Non-ground points as Eigen matrix
    * @param header Header to copy to output messages
@@ -165,81 +123,49 @@ private:
     const std_msgs::msg::Header & header);
 
   /**
-   * @brief Logs processing statistics to console
-   *
-   * Logs total processed clouds and average processing time. Called periodically
-   * or on demand for performance monitoring.
+   * @brief Log total processed clouds and average processing time.
    */
   void logStatistics() const;
 
   /**
-   * @brief Creates a QoS profile for the point cloud subscriber
-   *
-   * Configures reliability and depth based on parameters. Defaults to best_effort
-   * reliability for low-latency sensor data processing.
-   *
+   * @brief Build subscriber QoS from reliability/depth parameters.
    * @param reliability Reliability policy ("reliable" or "best_effort")
-   * @param depth Queue depth for incoming messages
+   * @param depth Queue depth
    * @return Configured QoS profile
    */
   rclcpp::QoS createSubscriberQoS(const std::string & reliability, int depth);
 
   /**
-   * @brief Creates a QoS profile for publishers
-   *
-   * Configures reliability, durability, and depth based on parameters.
-   * Defaults to reliable + transient_local for immediate availability to
-   * late-joining subscribers (e.g., RViz).
-   *
+   * @brief Build publisher QoS from reliability/durability/depth parameters.
    * @param reliability Reliability policy ("reliable" or "best_effort")
    * @param durability Durability policy ("transient_local" or "volatile")
-   * @param depth Queue depth for outgoing messages
+   * @param depth Queue depth
    * @return Configured QoS profile
    */
   rclcpp::QoS createPublisherQoS(const std::string & reliability, const std::string & durability, int depth);
 
   /**
-   * @brief Diagnostic callback for monitoring node health and performance
-   *
-   * Reports processing statistics, latency metrics, and operational status.
-   * Sets diagnostic status to OK, WARN, or ERROR based on performance thresholds.
-   *
+   * @brief Diagnostic callback for node health/performance.
    * @param stat Diagnostic status wrapper to populate
    */
   void diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapper & stat);
 
   /**
-   * @brief Filters out NaN and Inf values from a point cloud
-   *
-   * Creates a new point cloud matrix containing only points with finite
-   * x, y, z values. This allows processing to continue even if some points
-   * are invalid, rather than rejecting the entire cloud. Logs warnings if
-   * invalid points are found.
-   *
-   * @param cloud Input point cloud (may contain NaN/Inf)
-   * @return Filtered point cloud with only finite points, or empty matrix if all invalid
+   * @brief Remove NaN/Inf points from a cloud.
+   * @param cloud Input point cloud
+   * @return Filtered cloud with only finite points (may be empty)
    */
   Eigen::MatrixX3f filterInvalidPoints(const Eigen::MatrixX3f & cloud);
 
   /**
-   * @brief Updates processing statistics after a successful processing cycle
-   *
-   * Atomically updates the total processed count and cumulative processing time.
-   * Updates last processing time and triggers periodic statistics logging if
-   * the interval has elapsed.
-   *
-   * @param time_taken Processing time in milliseconds for the current cycle
+   * @brief Update counters/timers after processing.
+   * @param time_taken Processing time in milliseconds
    */
   void updateStatistics(double time_taken);
 
   /**
-   * @brief Updates diagnostic information after processing a point cloud
-   *
-   * Ticks topic diagnostics for ground and non-ground publishers to track
-   * publishing frequency and timestamp validity. Forces diagnostic updater
-   * to refresh its status information.
-   *
-   * @param timestamp Timestamp from the processed point cloud message
+   * @brief Tick topic diagnostics and refresh updater.
+   * @param timestamp Timestamp from the processed point cloud
    */
   void updateDiagnostics(const std_msgs::msg::Header::_stamp_type & timestamp);
 

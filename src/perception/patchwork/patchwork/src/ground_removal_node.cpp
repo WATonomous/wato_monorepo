@@ -18,6 +18,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <type_traits>
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
@@ -35,25 +36,6 @@ GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions & options)
 , publisher_qos_(10)
 , last_stats_log_time_(std::chrono::steady_clock::now())
 {
-  this->declare_parameter<double>("sensor_height", 1.88);
-  this->declare_parameter<int>("num_iter", 3);
-  this->declare_parameter<int>("num_lpr", 20);
-  this->declare_parameter<int>("num_min_pts", 0);
-  this->declare_parameter<double>("th_seeds", 0.3);
-  this->declare_parameter<double>("th_dist", 0.10);
-  this->declare_parameter<double>("th_seeds_v", 0.25);
-  this->declare_parameter<double>("th_dist_v", 0.85);
-  this->declare_parameter<double>("max_range", 80.0);
-  this->declare_parameter<double>("min_range", 1.0);
-  this->declare_parameter<double>("uprightness_thr", 0.101);
-  this->declare_parameter<bool>("enable_RNR", false);
-  this->declare_parameter<bool>("verbose", true);
-  this->declare_parameter<std::string>("qos_subscriber_reliability", "best_effort");
-  this->declare_parameter<int>("qos_subscriber_depth", 10);
-  this->declare_parameter<std::string>("qos_publisher_reliability", "reliable");
-  this->declare_parameter<std::string>("qos_publisher_durability", "transient_local");
-  this->declare_parameter<int>("qos_publisher_depth", 10);
-
   RCLCPP_INFO(this->get_logger(), "Patchwork++ Ground Removal ROS 2 lifecycle node created");
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
 }
@@ -122,19 +104,27 @@ void GroundRemovalNode::updateDiagnostics(const std_msgs::msg::Header::_stamp_ty
 
 void GroundRemovalNode::declareParameters(patchwork::Params & params)
 {
-  params.sensor_height = this->get_parameter("sensor_height").as_double();
-  params.num_iter = this->get_parameter("num_iter").as_int();
-  params.num_lpr = this->get_parameter("num_lpr").as_int();
-  params.num_min_pts = this->get_parameter("num_min_pts").as_int();
-  params.th_seeds = this->get_parameter("th_seeds").as_double();
-  params.th_dist = this->get_parameter("th_dist").as_double();
-  params.th_seeds_v = this->get_parameter("th_seeds_v").as_double();
-  params.th_dist_v = this->get_parameter("th_dist_v").as_double();
-  params.max_range = this->get_parameter("max_range").as_double();
-  params.min_range = this->get_parameter("min_range").as_double();
-  params.uprightness_thr = this->get_parameter("uprightness_thr").as_double();
-  params.enable_RNR = this->get_parameter("enable_RNR").as_bool();
-  params.verbose = this->get_parameter("verbose").as_bool();
+  const auto declare_if_missing = [this](const std::string & name, const auto & default_value) {
+    using ValueType = std::decay_t<decltype(default_value)>;
+    if (!this->has_parameter(name)) {
+      this->declare_parameter<ValueType>(name, default_value);
+    }
+    return this->get_parameter(name).template get_value<ValueType>();
+  };
+
+  params.sensor_height = declare_if_missing("sensor_height", 1.88);
+  params.num_iter = declare_if_missing("num_iter", 3);
+  params.num_lpr = declare_if_missing("num_lpr", 20);
+  params.num_min_pts = declare_if_missing("num_min_pts", 0);
+  params.th_seeds = declare_if_missing("th_seeds", 0.3);
+  params.th_dist = declare_if_missing("th_dist", 0.10);
+  params.th_seeds_v = declare_if_missing("th_seeds_v", 0.25);
+  params.th_dist_v = declare_if_missing("th_dist_v", 0.85);
+  params.max_range = declare_if_missing("max_range", 80.0);
+  params.min_range = declare_if_missing("min_range", 1.0);
+  params.uprightness_thr = declare_if_missing("uprightness_thr", 0.101);
+  params.enable_RNR = declare_if_missing("enable_RNR", false);
+  params.verbose = declare_if_missing("verbose", true);
 }
 
 void GroundRemovalNode::removeGround(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg)
@@ -297,6 +287,19 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
     patchwork::Params params;
     declareParameters(params);
     core_ = std::make_unique<GroundRemovalCore>(params);
+
+    const auto declare_if_missing = [this](const std::string & name, const auto & default_value) {
+      using ValueType = std::decay_t<decltype(default_value)>;
+      if (!this->has_parameter(name)) {
+        this->declare_parameter<ValueType>(name, default_value);
+      }
+    };
+
+    declare_if_missing("qos_subscriber_reliability", std::string("best_effort"));
+    declare_if_missing("qos_subscriber_depth", 10);
+    declare_if_missing("qos_publisher_reliability", std::string("reliable"));
+    declare_if_missing("qos_publisher_durability", std::string("transient_local"));
+    declare_if_missing("qos_publisher_depth", 10);
 
     const std::string subscriber_reliability = this->get_parameter("qos_subscriber_reliability").as_string();
     const int subscriber_depth = this->get_parameter("qos_subscriber_depth").as_int();

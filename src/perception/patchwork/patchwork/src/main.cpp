@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "patchworkpp/ground_removal_node.hpp"
+#include <memory>
 
+#include <lifecycle_msgs/msg/state.hpp>
 #include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <lifecycle_msgs/msg/state.hpp>
+
+#include "patchworkpp/ground_removal_node.hpp"
 
 int main(int argc, char ** argv)
 {
@@ -41,4 +43,3 @@ int main(int argc, char ** argv)
   rclcpp::shutdown();
   return 0;
 }
-

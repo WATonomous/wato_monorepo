@@ -47,8 +47,8 @@ RUN apt-get update && \
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
-# Ensure source files have correct ownership
-RUN chown -R "${USER}:${USER}" "${AMENT_WS}/src"
+# Ensure non-root user can write workspace (colcon logs, build/test outputs)
+RUN chown -R "${USER}:${USER}" "${AMENT_WS}"
 
 # Ensure bash with pipefail for RUN commands with pipelines
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -63,15 +63,11 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 FROM dependencies AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-
-RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> "/home/${USER}/.bashrc"
-
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    cp -r install/. "${WATONOMOUS_INSTALL}" && \
-    chown -R ${USER}:${USER} "${AMENT_WS}"
+    cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # RMW Configurations
 COPY docker/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5

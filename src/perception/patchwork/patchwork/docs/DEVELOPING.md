@@ -298,26 +298,31 @@ colcon test-result --verbose
 Tests are organized with Catch2 tags for selective execution:
 
 **Core conversion tests:**
+
 ```bash
 colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core -E "[ground_removal_core]"
 ```
 
 **Validation logic tests:**
+
 ```bash
 colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core -E "[validation]"
 ```
 
 **ROS integration tests:**
+
 ```bash
 colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[ros_integration]"
 ```
 
 **Statistics and diagnostics tests:**
+
 ```bash
 colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[statistics]"
 ```
 
 **Parameter handling tests:**
+
 ```bash
 colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[parameters]"
 ```

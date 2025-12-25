@@ -52,8 +52,8 @@ target_link_libraries(${PROJECT_NAME}_core
   PUBLIC
     patchworkpp_vendor::ground_seg_cores
     Eigen3::Eigen
-    ${sensor_msgs_TARGETS}  
-    ${std_msgs_TARGETS}     
+    ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS}
 )
 
 
@@ -70,18 +70,22 @@ target_include_directories(${PROJECT_NAME}_node
 
 target_link_libraries(${PROJECT_NAME}_node
   PUBLIC
-    ${PROJECT_NAME}_core
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     diagnostic_updater::diagnostic_updater
+    ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    ${PROJECT_NAME}_core
   PRIVATE
+    patchworkpp_vendor::ground_seg_cores
+    Eigen3::Eigen
     rclcpp_components::component
     ${diagnostic_msgs_TARGETS}
 )
 
 
 add_executable(${PROJECT_NAME}_exe
-  src/main.cpp  
+  src/main.cpp
 )
 
 
@@ -98,7 +102,6 @@ target_include_directories(${PROJECT_NAME}_exe
 target_link_libraries(${PROJECT_NAME}_exe
   PRIVATE
     ${PROJECT_NAME}_node
-    ${sensor_msgs_TARGETS}  
 )
 
 
@@ -152,28 +155,28 @@ ament_export_dependencies(
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
   find_package(lifecycle_msgs REQUIRED)
-  
-  
+
+
   add_wato_test(test_ground_removal_core
     test/test_ground_removal_core.cpp
     LIBRARIES
       ${PROJECT_NAME}_core
   )
-  
+
   add_wato_test(test_ground_removal_node
     test/test_ground_removal_node.cpp
     LIBRARIES
       ${PROJECT_NAME}_node
       ${lifecycle_msgs_TARGETS}
-      ${sensor_msgs_TARGETS}  
+      ${sensor_msgs_TARGETS}
   )
-  
 
-  set_tests_properties(test_ground_removal_core PROPERTIES TIMEOUT 60)
-  set_tests_properties(test_ground_removal_node PROPERTIES TIMEOUT 120)
-  
+
+  set_tests_properties(test_ground_removal_core PROPERTIES TIMEOUT 45)
+  set_tests_properties(test_ground_removal_node PROPERTIES TIMEOUT 60)
+
   set_tests_properties(test_ground_removal_core PROPERTIES LABELS "unit;fast")
-  set_tests_properties(test_ground_removal_node PROPERTIES LABELS "integration;slow")
+  set_tests_properties(test_ground_removal_node PROPERTIES LABELS "integration;ros")
 endif()
 
 ament_package()
