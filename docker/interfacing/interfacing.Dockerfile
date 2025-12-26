@@ -24,12 +24,12 @@ RUN apt-get -qq update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
 
-# Install dependancies here, BEFORE WE INSTALL WITH ROSDEP
+# Install dependencies here, BEFORE WE INSTALL WITH ROSDEP
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 COPY --from=source /tmp/colcon_pip_install_list /tmp/colcon_pip_install_list
-RUN apt-get update && \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/* && \
     if [ -s /tmp/colcon_pip_install_list ]; then \
@@ -65,6 +65,8 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 ################################ Prod ################################
 FROM build AS deploy
 
-# Source Cleanup and Security Setup
-RUN rm -rf "${AMENT_WS:?}"/*
+# Source Cleanup, Security Setup, and Workspace Setup
+RUN rm -rf "${AMENT_WS:?}"/* && \
+    mkdir -p "${AMENT_WS}"/src && \
+    chown -R "${USER}":"${USER}" "${AMENT_WS}"
 USER ${USER}

@@ -24,12 +24,12 @@
   <xacro:include filename="eve_mirror_mount_left.xacro"/>
   <xacro:include filename="eve_mirror_mount_right.xacro"/>
 
-  <xacro:mirror_mount_left parent="base_link">
-    <origin xyz="0.95 0.88 1.26" rpy="0 0 0"/>
+  <xacro:mirror_mount_left parent="lidar_top">
+    <origin xyz="0.924884 -0.972881 -0.840734" rpy="0.017163 0.108708 -0.580009"/>
   </xacro:mirror_mount_left>
 
-  <xacro:mirror_mount_right parent="base_link">
-    <origin xyz="0.95 -0.88 1.26" rpy="0 0 0"/>
+  <xacro:mirror_mount_right parent="lidar_top">
+    <origin xyz="1.102008 0.748385 -0.824361" rpy="0.049416 0.068287 0.246267"/>
   </xacro:mirror_mount_right>
 
 </robot>
