@@ -42,12 +42,6 @@ if [ "$PERCEPTION_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
     MODIFIED_MODULES+="perception "
 fi
 
-# Samples
-if [ "$SAMPLES_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
-    echo "Detected samples changes"
-    MODIFIED_MODULES+="samples "
-fi
-
 # Simulation
 if [ "$SIMULATION_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
     echo "Detected simulation changes"

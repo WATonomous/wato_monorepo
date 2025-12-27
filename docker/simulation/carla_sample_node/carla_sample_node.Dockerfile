@@ -1,6 +1,9 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
 
 ################################ Source ################################
+# NOTE: You should add in the source stage in the following order:
+#   - clone git repositories -> copy source code
+# This will make your builds significantly faster
 FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
@@ -11,7 +14,6 @@ COPY src/wato_msgs/simulation/embedded_msgs embedded_msgs
 COPY src/wato_msgs/simulation/path_planning_msgs path_planning_msgs
 
 # Carla specific messages
-
 RUN git clone --depth 1 https://github.com/ros-drivers/ackermann_msgs.git --branch 2.0.2 \
     && git clone --depth 1 https://github.com/ros-perception/image_common.git --branch 3.1.8 \
     && git clone --depth 1 https://github.com/carla-simulator/ros-carla-msgs.git --branch 1.3.0
@@ -29,6 +31,8 @@ RUN apt-get -qq update && \
         | sort  > /tmp/colcon_pip_install_list
 
 ################################# Dependencies ################################
+# NOTE: You should be relying on ROSDEP as much as possible
+# Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
 
 # Install Rosdep requirements

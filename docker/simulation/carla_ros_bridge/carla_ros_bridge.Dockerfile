@@ -4,6 +4,9 @@ ARG CARLA_VERSION=0.9.13
 FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
 ################################ Source ################################
+# NOTE: You should add in the source stage in the following order:
+#   - clone git repositories -> copy source code
+# This will make your builds significantly faster
 FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
@@ -30,6 +33,8 @@ RUN apt-get -qq update && \
         | sort  > /tmp/colcon_pip_install_list
 
 ################################# Dependencies ################################
+# NOTE: You should be relying on ROSDEP as much as possible
+# Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
