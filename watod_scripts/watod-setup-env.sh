@@ -33,7 +33,14 @@ set -e
 # ------------------------------------------------------------------------------------
 
 ################################  Flag parsing  ######################################
-IS_CI=false
+# Auto-detect CI environment if not explicitly set
+if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then
+  IS_CI=true
+else
+  IS_CI=false
+fi
+
+# Allow explicit override via command-line flag
 for arg in "$@"; do
   case "$arg" in
     --is-ci) IS_CI=true ;;
@@ -47,10 +54,19 @@ if [ -f /.dockerenv ]; then
 fi
 
 ################################  Git branch  ########################################
-if command -v git >/dev/null 2>&1; then
+# In CI, git is in detached HEAD state, so use CI environment variables
+if $IS_CI && [[ -n ${SOURCE_BRANCH:-} ]]; then
+  BRANCH=${BRANCH:-$SOURCE_BRANCH}
+  echo "[setup-env] CI mode: using SOURCE_BRANCH → $BRANCH"
+elif command -v git >/dev/null 2>&1; then
   BRANCH=${BRANCH:-$(git branch --show-current)}
+  if [[ -z $BRANCH ]]; then
+    echo 'Error: git branch is empty (detached HEAD?). Set BRANCH or SOURCE_BRANCH environment variable.' >&2
+    exit 1
+  fi
 else
   echo 'Error: git is not installed.' >&2
+  exit 1
 fi
 
 ################################  Overrides hook  ####################################
