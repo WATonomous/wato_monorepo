@@ -32,7 +32,7 @@ GroundRemovalNode::GroundRemovalNode(const rclcpp::NodeOptions & options)
 
   pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     kCloudTopic, rclcpp::SensorDataQoS(), std::bind(&GroundRemovalNode::removeGround, this, std::placeholders::_1));
-
+  // testing caching mechanismsdsadasdasaasasd
   rclcpp::QoS qos(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
   qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
   qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);

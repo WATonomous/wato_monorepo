@@ -116,15 +116,34 @@ run_compose() {
     build_profile_arrays
   fi
 
+  # If build, pull base images first to ensure they're tagged locally
+  if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
+    echo "Pulling base images..."
+    # Extract unique base images from all Dockerfiles
+    local base_images
+    base_images=$(grep -h "^ARG BASE_IMAGE=" docker/*.Dockerfile 2>/dev/null | \
+                  sed 's/ARG BASE_IMAGE=//' | \
+                  sort -u)
+
+    # Try to pull each base image; continue if offline
+    if [[ -n "$base_images" ]]; then
+      while IFS= read -r base_image; do
+        echo "  Pulling $base_image..."
+        docker pull "$base_image" 2>/dev/null || \
+          echo "    (Skipped - using cached version or offline)"
+      done <<< "$base_images"
+    fi
+  fi
+
   # If build, prepare source and dependency stages of each module
-  echo "RUNNING PRE"
+  echo "RUNNING PRE-BUILD"
   if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
     DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
       COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
       docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml "${PRE_PROFILES[@]}" "build"
   fi
 
-  echo "RUNNING POST"
+  echo "RUNNING BUILD"
   # Run with all profiles, all three compose files
   if [[ ${#ALL_PROFILES[@]} -gt 0 ]]; then
     DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
@@ -314,5 +333,6 @@ fi
 # Open interactive shell if requested
 if [[ -n ${START_TERMINAL:-} ]]; then
   echo "Starting bash shell in service '$SERVICE_NAME'..."
-  run_compose exec "$SERVICE_NAME" /bin/bash
+  COMPOSE_CMD=( exec "$SERVICE_NAME" /bin/bash )
+  run_compose
 fi

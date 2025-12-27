@@ -6,6 +6,8 @@ services:
     build:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
       target: source
     image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
 
@@ -14,6 +16,8 @@ services:
     build:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
       target: dependencies
     image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
 
@@ -81,6 +85,8 @@ services:
     build:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_IMAGE:?}:source_${TAG}"
       target: source
     image: "${INTERFACING_IMAGE}:source_${TAG}"
 
@@ -89,6 +95,8 @@ services:
     build:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_IMAGE:?}:deps_${TAG}"
       target: dependencies
     image: "${INTERFACING_IMAGE}:deps_${TAG}"
 
@@ -124,6 +132,8 @@ services:
     build:
       context: ..
       dockerfile: docker/perception.Dockerfile
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:source_${TAG}"
       target: source
     image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
 
@@ -132,6 +142,8 @@ services:
     build:
       context: ..
       dockerfile: docker/perception.Dockerfile
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:deps_${TAG}"
       target: dependencies
     image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
 
@@ -168,6 +180,8 @@ services:
     build:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_IMAGE:?}:source_${TAG}"
       target: source
     image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
 
@@ -176,6 +190,8 @@ services:
     build:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_IMAGE:?}:deps_${TAG}"
       target: dependencies
     image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
 
@@ -210,6 +226,8 @@ services:
     build:
       context: ..
       dockerfile: docker/action.Dockerfile
+      cache_from:
+        - "${ACTION_IMAGE:?}:source_${TAG}"
       target: source
     image: "${ACTION_IMAGE}:source_${TAG}"
 
@@ -218,6 +236,8 @@ services:
     build:
       context: ..
       dockerfile: docker/action.Dockerfile
+      cache_from:
+        - "${ACTION_IMAGE:?}:deps_${TAG}"
       target: dependencies
     image: "${ACTION_IMAGE}:deps_${TAG}"
 

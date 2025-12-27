@@ -7,7 +7,7 @@ services:
       file: docker-compose.yaml
       service: interfacing_bringup
     build:
-      target: rosdep_install
+      target: develop
     image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -22,7 +22,7 @@ services:
       file: docker-compose.yaml
       service: perception_bringup
     build:
-      target: rosdep_install
+      target: develop
     image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -36,7 +36,7 @@ services:
       file: docker-compose.yaml
       service: world_modeling_bringup
     build:
-      target: rosdep_install
+      target: develop
     image: "${WORLD_MODELING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -50,7 +50,7 @@ services:
       file: docker-compose.yaml
       service: action_bringup
     build:
-      target: rosdep_install
+      target: develop
     image: "${ACTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:

@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.4
-
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
 
 ################################ Source ################################

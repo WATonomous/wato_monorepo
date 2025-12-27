@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.4
-
 ARG MODULE_SOURCE=interfacing:source
 ARG MODULE_DEPS=interfacing:deps
 
@@ -68,7 +66,25 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 FROM build AS deploy
 
 # Source Cleanup, Security Setup, and Workspace Setup
-RUN rm -rf "${AMENT_WS:?}"/* && \
-    mkdir -p "${AMENT_WS}"/src && \
-    chown -R "${USER}":"${USER}" "${AMENT_WS}"
+RUN rm -rf "${AMENT_WS:?}"/*
 USER ${USER}
+
+################################ Develop ################################
+FROM rosdep_install AS develop
+
+# Update Sources and Install Useful Developer Tools
+# hadolint ignore=DL3009
+RUN apt-get update && \
+    apt-fast install -qq -y --no-install-recommends \
+    tmux \
+    git \
+    curl \
+    wget \
+    htop \
+    tree
+
+USER ${USER}
+
+# Install Claude Code natively
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN curl -fsSL https://claude.ai/install.sh | bash
