@@ -1,0 +1,33 @@
+@PACKAGE_INIT@
+
+if(patchworkpp_vendor_FOUND)
+    return()
+endif()
+set(patchworkpp_vendor_FOUND TRUE)
+
+set(patchworkpp_vendor_VERSION "@PATCHWORKPP_GIT_TAG@")
+set(patchworkpp_vendor_VERSION_MAJOR 1)
+set(patchworkpp_vendor_VERSION_MINOR 0)
+set(patchworkpp_vendor_VERSION_PATCH 4)
+
+check_required_components(patchworkpp_vendor)
+
+include(CMakeFindDependencyMacro)
+find_dependency(Eigen3 3.3 REQUIRED)
+
+if(NOT TARGET patchworkpp_vendor::ground_seg_cores)
+    add_library(patchworkpp_vendor::ground_seg_cores STATIC IMPORTED)
+
+    set_target_properties(patchworkpp_vendor::ground_seg_cores PROPERTIES
+        IMPORTED_LOCATION "@CMAKE_INSTALL_PREFIX@/opt/patchworkpp_vendor/lib/libground_seg_cores.a"
+        INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_INSTALL_PREFIX@/opt/patchworkpp_vendor/include"
+    )
+
+    # Verify library exists
+    get_target_property(_lib_location patchworkpp_vendor::ground_seg_cores IMPORTED_LOCATION)
+    if(NOT EXISTS "${_lib_location}")
+        message(FATAL_ERROR "Patchwork++ library not found at: ${_lib_location}")
+    endif()
+
+    target_link_libraries(patchworkpp_vendor::ground_seg_cores INTERFACE Eigen3::Eigen)
+endif()
