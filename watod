@@ -214,9 +214,9 @@ COMPOSE_CMD=( "$@" )
 
 # ─────────────────────────── Environment setup ───────────────────────────
 
-# Local overrides
-[[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
+# Config files (local overrides main)
 [[ -f "$MONO_DIR/watod-config.sh"       ]] && source "$MONO_DIR/watod-config.sh"
+[[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
 
 # Generate .env via helper script
 if [[ -n ${VERBOSE:-} ]]; then
