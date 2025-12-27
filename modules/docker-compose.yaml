@@ -26,8 +26,6 @@ services:
       memlock: -1
     ipc: host
     network_mode: host
-    ports:
-      - "20002:20002"
     build:
       context: ..
       dockerfile: docker/infrastructure/infrastructure.Dockerfile
