@@ -67,7 +67,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
   log_viewer:
     container_name: watod_log_viewer
@@ -124,7 +126,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
@@ -172,7 +176,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
@@ -218,7 +224,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### ACTION SERVICE ####################
   action_source:
@@ -264,7 +272,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
@@ -305,7 +315,9 @@ services:
     # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
     command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
   carla_viz:
     build:
@@ -345,7 +357,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
   carla_notebooks:
     build:
