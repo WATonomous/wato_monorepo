@@ -252,7 +252,7 @@ If Patchwork++ changes its exported target names again, extend the conditional t
 
 ## Testing & Validation
 
-The package includes comprehensive test suites covering core functionality and ROS integration.
+The package includes focused test suites covering essential functionality and ROS integration.
 
 ### Running Tests
 
@@ -273,72 +273,36 @@ colcon test --packages-select patchworkpp
 colcon test-result --verbose
 ```
 
-#### Run Specific Test Suites
-
-**Core/LiDAR Processing Tests** (`test_ground_removal_core`):
-- Tests point cloud conversion, validation logic, and algorithm processing
-- No ROS dependencies required
-
-```bash
-colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core
-colcon test-result --verbose
-```
-
-**ROS Integration Tests** (`test_ground_removal_node`):
-- Tests lifecycle node behavior, QoS configuration, callbacks, statistics, and parameters
-- Requires ROS 2 environment
-
-```bash
-colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node
-colcon test-result --verbose
-```
-
 #### Run Tests by Tag
 
 Tests are organized with Catch2 tags for selective execution:
 
-**Core conversion tests:**
+**Core conversion tests** (`[core][fast]`):
 
 ```bash
-colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core -E "[ground_removal_core]"
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal -E "[core]"
 ```
 
-**Validation logic tests:**
+**Lifecycle node tests** (`[node][fast]`):
 
 ```bash
-colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_core -E "[validation]"
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal -E "[node]"
 ```
 
-**ROS integration tests:**
+**Integration tests** (`[node][integration]`):
 
 ```bash
-colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[ros_integration]"
-```
-
-**Statistics and diagnostics tests:**
-
-```bash
-colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[statistics]"
-```
-
-**Parameter handling tests:**
-
-```bash
-colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal_node -E "[parameters]"
+colcon test --packages-select patchworkpp --ctest-args -R test_ground_removal -E "[integration]"
 ```
 
 #### Run Tests Directly (for debugging)
 
-To run a specific test executable directly with verbose output:
+To run the test executable directly with verbose output:
 
 ```bash
-# Core tests
-/home/bolty/ament_ws/build/patchworkpp/test_ground_removal_core -s "GroundRemovalCore Conversion Tests"
-
-# Node tests (requires ROS environment)
 source /opt/ros/jazzy/setup.bash
 source /home/bolty/ament_ws/install/setup.bash
-/home/bolty/ament_ws/build/patchworkpp/test_ground_removal_node -s "ROS Integration Tests"
+/home/bolty/ament_ws/build/patchworkpp/test_ground_removal -s
 ```
 
 #### Re-run Failed Tests
@@ -352,46 +316,44 @@ colcon test-result --verbose
 
 ### Test Coverage
 
-#### Core Tests (`test_ground_removal_core.cpp`)
+The test suite (`test/test_ground_removal_node.cpp`, compiled to executable `test_ground_removal`) includes three essential test cases:
 
-**PointCloud2 ↔ Eigen Conversion Tests:**
-- Valid data conversion
-- NaN/Inf value handling
-- Empty point cloud handling
-- Missing field error handling
-- Large dimension handling (no validation limits)
+#### 1. PointCloud2 to Eigen Conversion (`[core][fast]`)
 
-**Point Cloud Validation Logic Tests:**
-- Size limits (empty, single point, small, medium, large, very large)
-- NaN/Inf filtering behavior
-- Edge cases (all points invalid)
+**Purpose**: Verifies the fundamental data transformation that all processing depends on.
 
-**GroundRemovalCore Processing Tests:**
-- Smoke test with synthetic plane data
-- Robustness to different parameter configurations
-- Eigen to PointCloud2 conversion
+**What it tests**:
+- Correct extraction of x, y, z coordinates from PointCloud2 messages
+- Accurate conversion to Eigen::MatrixX3f format
+- Preservation of point data values through the conversion
 
-#### ROS Integration Tests (`test_ground_removal_node.cpp`)
+**Why it's essential**: If point data isn't correctly converted from ROS messages to Eigen matrices, the algorithm receives garbage input and produces incorrect results.
 
-**ROS Integration Tests:**
-- Topic name constants verification
-- Lifecycle state transitions (configure, activate, deactivate)
-- QoS configuration (subscriber/publisher reliability, durability)
-- Publisher activation state checking
-- `removeGround()` callback message handling
-- Empty point cloud handling
-- Invalid point cloud error handling
+#### 2. Lifecycle Node Transitions (`[node][fast]`)
 
-**Statistics and Diagnostics Tests:**
-- Statistics logging interval constant
-- Statistics update (counter increments)
-- Diagnostic callback status levels
+**Purpose**: Verifies the node correctly implements the ROS 2 lifecycle state machine.
 
-**Parameter Handling Tests:**
-- Parameter declaration and retrieval
-- Parameter default values verification
-- Invalid parameter values (unknown QoS strings)
-- Parameter modification and reconfiguration
+**What it tests**:
+- UNCONFIGURED → configure() → INACTIVE
+- INACTIVE → activate() → ACTIVE
+- ACTIVE → deactivate() → INACTIVE
+- INACTIVE → cleanup() → UNCONFIGURED
+
+**Why it's essential**: The node is a lifecycle node and must work with ROS 2 lifecycle management. If state transitions fail, the node cannot be properly managed in production systems.
+
+#### 3. End-to-End Ground Segmentation (`[node][integration]`)
+
+**Purpose**: Verifies the complete ROS integration and core algorithm functionality.
+
+**What it tests**:
+- Node subscribes to `/input_cloud` topic
+- Node publishes to `/ground_cloud` and `/non_ground_cloud` topics
+- Header (frame_id) is preserved in output messages
+- Algorithm produces non-empty ground AND non-ground outputs
+- Total output points ≤ input points (no points created from nothing)
+- Realistic synthetic data with ground plane points and elevated obstacle points
+
+**Why it's essential**: This is the PRIMARY purpose of the node - receiving point clouds, segmenting them into ground and non-ground, and publishing the results. This test verifies the complete data flow from ROS message input through algorithm processing to ROS message output.
 
 ### Manual Validation
 
@@ -403,9 +365,9 @@ For manual testing with real data:
 
 ### Test Requirements
 
-- **Core tests**: No special requirements, can run in any environment
-- **Node tests**: Require ROS 2 environment (automatically set up in Docker container)
-- **Dependencies**: `wato_test` package must be built before running node tests
+- **Test executable**: `test_ground_removal` (single combined test file)
+- **Dependencies**: `wato_test` package must be built before running tests
+- **ROS environment**: Required for lifecycle and integration tests (automatically set up in Docker container)
 
 ## Running
 

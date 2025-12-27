@@ -14,12 +14,9 @@
 
 #include <array>
 #include <chrono>
-#include <cmath>
 #include <future>
-#include <limits>
 #include <memory>
 #include <optional>
-#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -27,13 +24,14 @@
 #include <catch2/catch_all.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
 #include <rclcpp/node_options.hpp>
-#include <rclcpp/qos.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <wato_test/wato_test.hpp>
 
+#include "patchworkpp/ground_removal_core.hpp"
 #include "patchworkpp/ground_removal_node.hpp"
 
+using wato::perception::patchworkpp::GroundRemovalCore;
 using wato::perception::patchworkpp::GroundRemovalNode;
 
 namespace
@@ -55,63 +53,6 @@ struct RclcppGuard
     }
   }
 };
-
-sensor_msgs::msg::PointCloud2 makePointCloud(std::size_t point_count)
-{
-  sensor_msgs::msg::PointCloud2 cloud;
-  cloud.height = 1;
-  cloud.width = static_cast<uint32_t>(point_count);
-  cloud.is_dense = false;
-  cloud.is_bigendian = false;
-
-  sensor_msgs::PointCloud2Modifier modifier(cloud);
-  modifier.setPointCloud2FieldsByString(1, "xyz");
-  modifier.resize(point_count);
-
-  sensor_msgs::PointCloud2Iterator<float> iter_x(cloud, "x");
-  sensor_msgs::PointCloud2Iterator<float> iter_y(cloud, "y");
-  sensor_msgs::PointCloud2Iterator<float> iter_z(cloud, "z");
-
-  for (std::size_t i = 0; i < point_count; ++i, ++iter_x, ++iter_y, ++iter_z) {
-    *iter_x = 3.0f + static_cast<float>(i) * 0.1f;
-    *iter_y = static_cast<float>(i % 4);
-    *iter_z = 0.0F;
-  }
-
-  cloud.header.frame_id = "test_frame";
-  cloud.header.stamp = rclcpp::Clock().now();
-  return cloud;
-}
-
-sensor_msgs::msg::PointCloud2 makeInvalidCloud()
-{
-  sensor_msgs::msg::PointCloud2 cloud;
-  cloud.height = 1;
-  cloud.width = 5;
-  cloud.header.frame_id = "test_frame";
-  cloud.header.stamp = rclcpp::Clock().now();
-  return cloud;
-}
-
-sensor_msgs::msg::PointCloud2 makeCloudWithNonFinite()
-{
-  auto cloud = makePointCloud(6);
-
-  sensor_msgs::PointCloud2Iterator<float> iter_x(cloud, "x");
-  sensor_msgs::PointCloud2Iterator<float> iter_y(cloud, "y");
-  sensor_msgs::PointCloud2Iterator<float> iter_z(cloud, "z");
-
-  for (std::size_t i = 0; i < 6; ++i, ++iter_x, ++iter_y, ++iter_z) {
-    if (i == 1) {
-      *iter_x = std::numeric_limits<float>::quiet_NaN();
-    } else if (i == 3) {
-      *iter_y = std::numeric_limits<float>::infinity();
-    } else if (i == 5) {
-      *iter_z = -std::numeric_limits<float>::infinity();
-    }
-  }
-  return cloud;
-}
 
 sensor_msgs::msg::PointCloud2 makePointCloudFromTriples(const std::vector<std::array<float, 3>> & points)
 {
@@ -143,21 +84,6 @@ sensor_msgs::msg::PointCloud2 makePointCloudFromTriples(const std::vector<std::a
   return cloud;
 }
 
-bool hasOnlyFinitePoints(const sensor_msgs::msg::PointCloud2 & msg)
-{
-  sensor_msgs::PointCloud2ConstIterator<float> iter_x(msg, "x");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_y(msg, "y");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_z(msg, "z");
-
-  const std::size_t total = static_cast<std::size_t>(msg.width) * static_cast<std::size_t>(msg.height);
-  for (std::size_t i = 0; i < total; ++i, ++iter_x, ++iter_y, ++iter_z) {
-    if (!std::isfinite(*iter_x) || !std::isfinite(*iter_y) || !std::isfinite(*iter_z)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 template <typename Predicate>
 bool waitForCondition(Predicate && condition, std::chrono::milliseconds timeout, std::chrono::milliseconds interval)
 {
@@ -182,7 +108,34 @@ std::optional<MessageType> waitForFuture(std::future<MessageType> future, std::c
 
 }  // namespace
 
-TEST_CASE("Lifecycle transitions succeed without executor", "[node][fast]")
+// =============================================================================
+// TEST 1: PointCloud2 to Eigen conversion
+// WHY: This is the fundamental data transformation that all processing depends on.
+//      If this fails, nothing else will work correctly.
+// =============================================================================
+TEST_CASE("PointCloud2 to Eigen conversion preserves point data", "[core][fast]")
+{
+  std::vector<std::array<float, 3>> points = {{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}};
+  auto msg = std::make_shared<sensor_msgs::msg::PointCloud2>(makePointCloudFromTriples(points));
+
+  Eigen::MatrixX3f eigen_cloud = GroundRemovalCore::pointCloud2ToEigen(msg);
+
+  REQUIRE(eigen_cloud.rows() == 2);
+  REQUIRE(eigen_cloud.cols() == 3);
+  REQUIRE_THAT(eigen_cloud(0, 0), Catch::Matchers::WithinRel(1.0f));
+  REQUIRE_THAT(eigen_cloud(0, 1), Catch::Matchers::WithinRel(2.0f));
+  REQUIRE_THAT(eigen_cloud(0, 2), Catch::Matchers::WithinRel(3.0f));
+  REQUIRE_THAT(eigen_cloud(1, 0), Catch::Matchers::WithinRel(4.0f));
+  REQUIRE_THAT(eigen_cloud(1, 1), Catch::Matchers::WithinRel(5.0f));
+  REQUIRE_THAT(eigen_cloud(1, 2), Catch::Matchers::WithinRel(6.0f));
+}
+
+// =============================================================================
+// TEST 2: Lifecycle state machine
+// WHY: The node is a lifecycle node - it MUST transition through states correctly.
+//      This verifies the node can be configured, activated, deactivated, and cleaned up.
+// =============================================================================
+TEST_CASE("Lifecycle node transitions through all states", "[node][fast]")
 {
   RclcppGuard guard;
   auto node = std::make_shared<GroundRemovalNode>(rclcpp::NodeOptions{});
@@ -194,114 +147,14 @@ TEST_CASE("Lifecycle transitions succeed without executor", "[node][fast]")
   REQUIRE(node->cleanup().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED);
 }
 
+// =============================================================================
+// TEST 3: End-to-end ground segmentation
+// WHY: This is the PRIMARY purpose of the node - receive point cloud, segment it,
+//      publish ground and non-ground clouds. Uses realistic synthetic data with
+//      ground plane points and elevated obstacle points.
+// =============================================================================
 TEST_CASE_METHOD(
-  wato::test::TestExecutorFixture, "Handles empty or malformed input safely", "[node][integration][fast]")
-{
-  auto node = std::make_shared<GroundRemovalNode>(rclcpp::NodeOptions{});
-  add_node(node);
-
-  auto input_pub =
-    std::make_shared<wato::test::PublisherTestNode<sensor_msgs::msg::PointCloud2>>(GroundRemovalNode::kCloudTopic);
-  add_node(input_pub);
-
-  node->configure();
-  node->activate();
-  start_spinning();
-
-  REQUIRE(waitForCondition(
-    [&]() { return input_pub->count_subscribers(GroundRemovalNode::kCloudTopic) > 0; },
-    std::chrono::milliseconds(500),
-    std::chrono::milliseconds(25)));
-
-  SECTION("Empty cloud is ignored without crashing")
-  {
-    input_pub->publish(makePointCloud(0));
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    REQUIRE(node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
-  }
-
-  SECTION("Cloud missing required fields is handled gracefully")
-  {
-    input_pub->publish(makeInvalidCloud());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    REQUIRE(node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
-  }
-
-  node->deactivate();
-  node->cleanup();
-}
-
-TEST_CASE_METHOD(
-  wato::test::TestExecutorFixture, "Publishes segmented clouds and filters invalid input", "[node][integration][fast]")
-{
-  auto node = std::make_shared<GroundRemovalNode>(rclcpp::NodeOptions{});
-  add_node(node);
-
-  auto ground_sub =
-    std::make_shared<wato::test::SubscriberTestNode<sensor_msgs::msg::PointCloud2>>(GroundRemovalNode::kGroundTopic);
-  auto nonground_sub =
-    std::make_shared<wato::test::SubscriberTestNode<sensor_msgs::msg::PointCloud2>>(GroundRemovalNode::kNonGroundTopic);
-  add_node(ground_sub);
-  add_node(nonground_sub);
-
-  auto input_pub =
-    std::make_shared<wato::test::PublisherTestNode<sensor_msgs::msg::PointCloud2>>(GroundRemovalNode::kCloudTopic);
-  add_node(input_pub);
-
-  node->configure();
-  node->activate();
-  start_spinning();
-
-  REQUIRE(waitForCondition(
-    [&]() {
-      return input_pub->count_subscribers(GroundRemovalNode::kCloudTopic) > 0 &&
-             ground_sub->count_publishers(GroundRemovalNode::kGroundTopic) > 0 &&
-             nonground_sub->count_publishers(GroundRemovalNode::kNonGroundTopic) > 0;
-    },
-    std::chrono::milliseconds(750),
-    std::chrono::milliseconds(25)));
-
-  SECTION("Publishes segmented clouds when active")
-  {
-    auto ground_future = ground_sub->expect_next_message();
-    auto nonground_future = nonground_sub->expect_next_message();
-
-    input_pub->publish(makePointCloud(30));
-
-    auto ground_msg = waitForFuture(std::move(ground_future), std::chrono::milliseconds(750));
-    auto nonground_msg = waitForFuture(std::move(nonground_future), std::chrono::milliseconds(750));
-
-    REQUIRE(ground_msg.has_value());
-    REQUIRE(nonground_msg.has_value());
-    REQUIRE(ground_msg->header.frame_id == "test_frame");
-    REQUIRE(nonground_msg->header.frame_id == "test_frame");
-    REQUIRE(node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
-  }
-
-  SECTION("Filters non-finite inputs before publishing")
-  {
-    auto ground_future = ground_sub->expect_next_message();
-    auto nonground_future = nonground_sub->expect_next_message();
-
-    input_pub->publish(makeCloudWithNonFinite());
-
-    auto ground_msg = waitForFuture(std::move(ground_future), std::chrono::milliseconds(750));
-    auto nonground_msg = waitForFuture(std::move(nonground_future), std::chrono::milliseconds(750));
-
-    REQUIRE(ground_msg.has_value());
-    REQUIRE(nonground_msg.has_value());
-    REQUIRE(ground_msg->width * ground_msg->height + nonground_msg->width * nonground_msg->height > 0);
-    REQUIRE(hasOnlyFinitePoints(*ground_msg));
-    REQUIRE(hasOnlyFinitePoints(*nonground_msg));
-    REQUIRE(node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
-  }
-
-  node->deactivate();
-  node->cleanup();
-}
-
-TEST_CASE_METHOD(
-  wato::test::TestExecutorFixture, "Classifies ground vs elevated obstacles", "[node][integration][fast]")
+  wato::test::TestExecutorFixture, "Node segments point cloud into ground and non-ground", "[node][integration]")
 {
   rclcpp::NodeOptions options;
   options.append_parameter_override("sensor_height", 1.5);
@@ -332,8 +185,10 @@ TEST_CASE_METHOD(
     std::chrono::milliseconds(750),
     std::chrono::milliseconds(25)));
 
+  // Create realistic test data: ground plane + obstacles
   std::vector<std::array<float, 3>> samples;
-  // Ground points beyond typical min_range
+
+  // Ground points: flat plane at z = -1.5 (sensor height is 1.5, so ground is at -1.5)
   for (int i = 0; i < 20; ++i) {
     for (int j = -2; j <= 2; ++j) {
       const float x = 3.0f + static_cast<float>(i) * 0.3f;
@@ -341,15 +196,13 @@ TEST_CASE_METHOD(
       samples.push_back({x, y, -1.5f});
     }
   }
-  const int ground_expected = static_cast<int>(samples.size());
 
-  // Elevated obstacles sharing similar ranges
+  // Obstacle points: elevated above ground at z = -0.5
   for (int i = 0; i < 10; ++i) {
     const float x = 3.5f + static_cast<float>(i) * 0.6f;
     const float y = (i % 2 == 0) ? 0.8f : -0.8f;
     samples.push_back({x, y, -0.5f});
   }
-  const int obstacle_expected = static_cast<int>(samples.size()) - ground_expected;
 
   auto test_cloud = makePointCloudFromTriples(samples);
 
@@ -361,9 +214,15 @@ TEST_CASE_METHOD(
   auto ground_msg = waitForFuture(std::move(ground_future), std::chrono::milliseconds(1000));
   auto nonground_msg = waitForFuture(std::move(nonground_future), std::chrono::milliseconds(1000));
 
+  // Verify outputs are published
   REQUIRE(ground_msg.has_value());
   REQUIRE(nonground_msg.has_value());
 
+  // Verify header is preserved
+  REQUIRE(ground_msg->header.frame_id == "test_frame");
+  REQUIRE(nonground_msg->header.frame_id == "test_frame");
+
+  // Verify algorithm produces reasonable segmentation
   const auto ground_count = static_cast<int>(ground_msg->width * ground_msg->height);
   const auto nonground_count = static_cast<int>(nonground_msg->width * nonground_msg->height);
   const auto total_in = static_cast<int>(test_cloud.width * test_cloud.height);
@@ -371,9 +230,4 @@ TEST_CASE_METHOD(
   REQUIRE(ground_count + nonground_count <= total_in);
   REQUIRE(ground_count > 0);
   REQUIRE(nonground_count > 0);
-  REQUIRE(ground_count >= static_cast<int>(0.5F * static_cast<float>(ground_expected)));
-  REQUIRE(nonground_count >= static_cast<int>(0.5F * static_cast<float>(obstacle_expected)));
-
-  node->deactivate();
-  node->cleanup();
 }

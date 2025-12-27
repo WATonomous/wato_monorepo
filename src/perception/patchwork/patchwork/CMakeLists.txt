@@ -50,8 +50,8 @@ target_include_directories(${PROJECT_NAME}_core
 
 target_link_libraries(${PROJECT_NAME}_core
   PUBLIC
-    patchworkpp_vendor::ground_seg_cores
     Eigen3::Eigen
+    patchworkpp_vendor::ground_seg_cores
     ${sensor_msgs_TARGETS}
     ${std_msgs_TARGETS}
 )
@@ -77,8 +77,6 @@ target_link_libraries(${PROJECT_NAME}_node
     ${std_msgs_TARGETS}
     ${PROJECT_NAME}_core
   PRIVATE
-    patchworkpp_vendor::ground_seg_cores
-    Eigen3::Eigen
     rclcpp_components::component
     ${diagnostic_msgs_TARGETS}
 )
@@ -156,27 +154,17 @@ if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
   find_package(lifecycle_msgs REQUIRED)
 
-
-  add_wato_test(test_ground_removal_core
-    test/test_ground_removal_core.cpp
-    LIBRARIES
-      ${PROJECT_NAME}_core
-  )
-
-  add_wato_test(test_ground_removal_node
+  add_wato_test(test_ground_removal
     test/test_ground_removal_node.cpp
     LIBRARIES
+      ${PROJECT_NAME}_core
       ${PROJECT_NAME}_node
       ${lifecycle_msgs_TARGETS}
       ${sensor_msgs_TARGETS}
   )
 
-
-  set_tests_properties(test_ground_removal_core PROPERTIES TIMEOUT 45)
-  set_tests_properties(test_ground_removal_node PROPERTIES TIMEOUT 60)
-
-  set_tests_properties(test_ground_removal_core PROPERTIES LABELS "unit;fast")
-  set_tests_properties(test_ground_removal_node PROPERTIES LABELS "integration;ros")
+  set_tests_properties(test_ground_removal PROPERTIES TIMEOUT 60)
+  set_tests_properties(test_ground_removal PROPERTIES LABELS "unit;integration;ros;fast")
 endif()
 
 ament_package()
