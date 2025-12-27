@@ -107,14 +107,17 @@ RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
 ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_router_config.json5"}
 ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_session_config.json5"}
 
-# Always append infrastructure to ACTIVE_MODULES if not already present
-if [[ -n ${ACTIVE_MODULES:-} ]]; then
-  # Check if infrastructure is already in the list
-  if [[ ! " ${ACTIVE_MODULES} " =~ " infrastructure " ]]; then
-    ACTIVE_MODULES="${ACTIVE_MODULES} infrastructure"
+# Always append infrastructure to ACTIVE_MODULES if not already present (except in CI)
+# In CI, build only the specified module to avoid unnecessary builds
+if ! $IS_CI; then
+  if [[ -n ${ACTIVE_MODULES:-} ]]; then
+    # Check if infrastructure is already in the list
+    if [[ ! " ${ACTIVE_MODULES} " =~ " infrastructure " ]]; then
+      ACTIVE_MODULES="${ACTIVE_MODULES} infrastructure"
+    fi
+  else
+    ACTIVE_MODULES="infrastructure"
   fi
-else
-  ACTIVE_MODULES="infrastructure"
 fi
 
 ################################  Image names  #######################################
