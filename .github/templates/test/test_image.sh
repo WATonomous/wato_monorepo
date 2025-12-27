@@ -15,4 +15,4 @@
 set -e
 
 docker pull -q "$IMAGE":"$TAG"
-docker run "$IMAGE":"$TAG" /bin/bash -c "source /opt/watonomous/setup.bash; colcon test; colcon test-result --verbose"
+docker run --rm "$IMAGE":"$TAG" /bin/bash -c "source /opt/watonomous/setup.bash && colcon test && colcon test-result --verbose"

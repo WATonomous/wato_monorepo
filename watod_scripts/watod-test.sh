@@ -35,38 +35,45 @@ TEST_ROS_DOMAIN_ID=${TEST_ROS_DOMAIN_ID:-99}
 run_tests() {
   local service=$1
   local image
-  image=$(docker compose "${MODULES[@]}" config --images "$service" 2>/dev/null | head -n1)
+
+  echo "Getting image for service: $service"
+  image=$(docker compose "${MODULES[@]}" config --images "$service" | head -n1)
 
   if [[ -z "$image" ]]; then
-    echo "Error: Could not find image for service $service"
+    echo "Error: Could not find image for service $service" >&2
     return 1
   fi
 
   echo "Testing $service (image: $image)"
-  docker run --rm \
+  if ! docker run --rm \
     -e ROS_DOMAIN_ID="$TEST_ROS_DOMAIN_ID" \
     --name "${service}_test_$$" \
     "$image" \
-    /bin/bash -c "colcon test; colcon test-result --verbose"
+    /bin/bash -c "source /opt/watonomous/setup.bash && colcon test && colcon test-result --verbose"; then
+    echo "Error: Tests failed for $service" >&2
+    return 1
+  fi
 }
 
 # Main logic
 if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
   # Test specific services
   for service in "${TEST_SERVICES[@]}"; do
-    run_tests "$service"
+    run_tests "$service" || exit 1
   done
 else
   # Test all services
-  readarray -t SERVICES < <(docker compose "${MODULES[@]}" config --services 2>/dev/null)
+  echo "Getting list of services to test..."
+  readarray -t SERVICES < <(docker compose "${MODULES[@]}" config --services)
 
   if [[ ${#SERVICES[@]} -eq 0 ]]; then
-    echo "No services found in active modules."
+    echo "Error: No services found in active modules." >&2
     exit 1
   fi
 
+  echo "Found ${#SERVICES[@]} service(s) to test"
   for service in "${SERVICES[@]}"; do
-    run_tests "$service"
+    run_tests "$service" || exit 1
   done
 fi
 
