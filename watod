@@ -141,6 +141,13 @@ run_compose() {
     DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
       COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
       docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml "${PRE_PROFILES[@]}" "build"
+
+    # In CI, push PRE-BUILD images to registry so they're available for RUNNING BUILD
+    # BuildKit tries to pull from registry first when using FROM with registry-qualified names
+    if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then
+      echo "CI detected: Pushing PRE-BUILD images to registry..."
+      docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml "${PRE_PROFILES[@]}" "push"
+    fi
   fi
 
   echo "RUNNING BUILD"
@@ -149,6 +156,12 @@ run_compose() {
     DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} \
       COMPOSE_BAKE=${COMPOSE_BAKE:-true} \
       docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${ALL_PROFILES[@]}" "${COMPOSE_CMD[@]}"
+
+    # In CI, push final images to registry after successful build
+    if [[ "${COMPOSE_CMD[0]}" == "build" && ( -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ) ]]; then
+      echo "CI detected: Pushing final images to registry..."
+      docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${ALL_PROFILES[@]}" "push"
+    fi
   fi
 }
 

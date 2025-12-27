@@ -87,13 +87,6 @@ jobs:
         run: |
           ./watod build
 
-      - name: Push Built Images to Registry
-        run: |
-          # Push all images for this module to enable caching for future builds
-          docker compose -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml \
-            --profile ${{ matrix.module }}-pre --profile ${{ matrix.module }} \
-            push
-
       - name: Run testing suite
         uses: "./.github/templates/test"
         env:
