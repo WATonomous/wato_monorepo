@@ -1,18 +1,6 @@
 ---
 services:
 #################### INFRASTRUCTURE SERVICES ####################
-  infrastructure_source:
-    profiles: ["infrastructure_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: infrastructure_source
-
-  infrastructure_deps:
-    profiles: ["infrastructure_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: infrastructure_deps
-
   zenoh_router:
     profiles: ["infrastructure"]
     extends:
@@ -32,18 +20,6 @@ services:
       service: log_viewer
 
 #################### INTERFACING SERVICE ####################
-  interfacing_source:
-    profiles: ["interfacing_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: interfacing_source
-
-  interfacing_deps:
-    profiles: ["interfacing_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: interfacing_deps
-
   interfacing_bringup:
     profiles: ["interfacing"]
     extends:
@@ -51,18 +27,6 @@ services:
       service: interfacing_bringup
 
 #################### PERCEPTION SERVICE ####################
-  perception_source:
-    profiles: ["perception_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: perception_source
-
-  perception_deps:
-    profiles: ["perception_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: perception_deps
-
   perception_bringup:
     profiles: ["perception"]
     extends:
@@ -70,18 +34,6 @@ services:
       service: perception_bringup
 
 #################### WORLD MODELING SERVICE ####################
-  world_modeling_source:
-    profiles: ["world_modeling_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: world_modeling_source
-
-  world_modeling_deps:
-    profiles: ["world_modeling_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: world_modeling_deps
-
   world_modeling_bringup:
     profiles: ["world_modeling"]
     extends:
@@ -89,18 +41,6 @@ services:
       service: world_modeling_bringup
 
 #################### ACTION SERVICE ####################
-  action_source:
-    profiles: ["action_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: action_source
-
-  action_deps:
-    profiles: ["action_pre"]
-    extends:
-      file: docker-compose.yaml
-      service: action_deps
-
   action_bringup:
     profiles: ["action"]
     extends:
