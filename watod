@@ -17,7 +17,23 @@
 set -euo pipefail
 
 programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
-MONO_DIR="$(cd -- "$(dirname -- "$(realpath "$0")")" && pwd)"
+
+# Discover monorepo directory by searching up from current directory
+find_monorepo_root() {
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/watod-config.sh" ]]; then
+      echo "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+
+  # Fallback to script location if not found
+  cd -- "$(dirname -- "$(realpath "$0")")" && pwd
+}
+
+MONO_DIR="$(find_monorepo_root)"
 MODULES_DIR="$MONO_DIR/modules"
 
 # Always arrays → safe to expand with "${arr[@]}"
@@ -37,6 +53,7 @@ Options
   -h, --help                  Show this help and exit
 
 Commands
+  install                     Install watod to /usr/local/bin (requires sudo)
   test [SERVICE]...           Run colcon test in specified service(s)
                               If no SERVICE specified, runs in all services
   bag <ros2-bag-args>...      Run ros2 bag commands (record/play/info/etc)
@@ -113,6 +130,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help|help)
       usage; exit 0 ;;
+    install)
+      "$MONO_DIR/watod_scripts/watod-install.sh"
+      exit $?
+      ;;
     test)
       RUN_TESTS=1
       shift
@@ -210,6 +231,12 @@ if [[ -n ${START_TERMINAL:-} ]]; then
   # Build profile arrays
   build_profile_arrays ""
 
-  echo "Starting bash shell in service '$SERVICE_NAME'..."
-  "$MONO_DIR/watod_scripts/watod-compose.sh" exec --pre-profiles "${PRE_PROFILES[@]}" --all-profiles "${ALL_PROFILES[@]}" "$SERVICE_NAME" /bin/bash
+  # Check if service is running
+  if ! docker compose -f "$MONO_DIR/modules/docker-compose.yaml" ps "$SERVICE_NAME" 2>/dev/null | grep -q "Up"; then
+    echo "Error: Service '$SERVICE_NAME' is not running." >&2
+    exit 1
+  fi
+
+  echo "Opening bash shell in service '$SERVICE_NAME'..."
+  "$MONO_DIR/watod_scripts/watod-compose.sh" exec -it -e TERM="${TERM:-xterm-256color}" "$SERVICE_NAME" /bin/bash --pre-profiles "${PRE_PROFILES[@]}" --all-profiles "${ALL_PROFILES[@]}"
 fi

@@ -15,7 +15,9 @@
 set -e
 
 # setup WATonomous packages and ROS2 environment
-source /opt/watonomous/setup.bash
+# shellcheck disable=SC1090,SC1091
+source /opt/ros/"${ROS_DISTRO}"/setup.bash
+[ -f /opt/watonomous/setup.bash ] && source /opt/watonomous/setup.bash
 
 # Handle signals properly - forward SIGTERM to child process
 _term() {

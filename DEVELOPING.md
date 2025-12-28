@@ -4,6 +4,36 @@ If you have not already, you can get a better understanding of working with Dock
 
 Developing in the Eve Monorepo is very similar, except there are a few caveats.
 
+## watod
+
+`watod` is a wrapper script around `docker compose` that manages the monorepo's development environment. It automatically handles environment variables, compose files, and service configuration.
+
+### Installation (Optional)
+To run watod from anywhere in your computer, you can install `watod` by running:
+
+```bash
+./watod install
+```
+
+Otherwise, you can run `watod` as just `./watod` when you are under the `wato_monorepo/` directory.
+
+### Usage
+
+For current usage and all available options:
+
+```bash
+watod --help
+```
+
+**Important Features:**
+- **Service management**: Start, stop, and manage Docker containers (`watod up`, `watod down`, `watod ps`)
+- **Terminal access**: Open shells in running containers with `-t` flag (`watod -t perception_bringup_dev`)
+  - Note: for full DevContainer experience, run `watod -t` on a container that is denoted as a `DevContainer`. More information about DevContainers [here](#devcontainers)
+- **Testing**: Run colcon tests across $ACTIVE_MODULES with (`watod test`)
+- **ROS bag management**: Record and play ROS2 bags with automatic mounting (`watod bag <command>`)
+
+To begin using `watod`, edit the [`watod-config.sh`](./watod-config.sh) or create a copy called `watod-config.local.sh` to configure important settings for `watod` like $ACTIVE_MODULES which defines which docker services to start.
+
 ## Base Images and Docker Registry
 
 WATonomous hosts a docker registry where we store various docker images on the internet. We currently use ghcr.io
@@ -22,6 +52,20 @@ ALL WATONOMOUS BASE IMAGES ARE BUILT USING THE WATO_MONOREPO. It is configured [
 ### How are the wato_monorepo base images created?
 
 All wato_monorepo base images are created using [GitHub Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows). GitHub Workflows are automated procedures defined in a GitHub repository that can be triggered by various GitHub events, such as a push or a pull request, to perform tasks like building, testing, and deploying code.
+
+## DevContainers
+The WATonomous monorepo allows for quick, isolated development using docker containers. This means that you can write and test code without any explicit installations on your own machine except for docker.
+
+To setup a DevContainer:
+1. Append `:dev` to any of the $ACTIVE_MODULES you specify in `watod-config.sh`.
+1. Up containers with `watod up`. Containers denoted as `(DevContainer)` are development environments that you can connect to.
+1. Connect to the DevContainer in one of the following ways:
+
+    1. **Terminal Access** Access a devcontainer through your terminal with `watod -t $DEVCONTAINER_NAME`. Replace `$DEVCONTAINER_NAME` with the name of the container that was denoted as `(DevContainer)` when you ran `watod up`
+    1. **VSCode Access** Install the DevContainer extension on vscode. Then do `Ctrl+Shift+P` and select `Dev Containers: Attach to Running Container...`. Then select the container prepended with `_dev` as the container you want to connect VSCode into.
+
+1. Once you are inside a DevContainer, make sure you work in `~/ament_ws/`. All `src` files relevant to the module will be mounted from the monorepo to `~/ament_ws/src`. This is a default ROS2 workspace where you can run commands like `colcon`
+1. Manage git changes outside of the devcontainer.
 
 ## Pre-commit
 
@@ -44,7 +88,7 @@ We use catch2 tests to do our unittesting. To make the testing process easier to
 #### To Use
 [wato_test](src/wato_test/) contains a basic CMAKE macro to let you setup a test with the appropriate libraries. It also contains helper nodes to help you test publishers, subscribers, servers, and clients in an event-driven way. Use this package whenever you are setting up tests.
 
-To run tests for all $ACTIVE_MODULES, run
+To run tests for all `$ACTIVE_MODULES`, run
 
 ```bash
 ./watod test

@@ -19,7 +19,6 @@ COPY src/wato_test wato_test
 # NOTE: You should be relying on ROSDEP as much as possible
 # Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install module-specific dependencies here (non-rosdep)
 # For perception, there are no extra dependencies needed

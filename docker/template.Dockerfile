@@ -45,6 +45,14 @@ WORKDIR /
 RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
     rm -rf /root/* /root/.ros /tmp/* /var/lib/apt/lists/* /usr/share/doc/*
 
+# RMW Configurations
+COPY docker/config/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
+COPY docker/config/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
+
+# Entrypoint
+COPY docker/config/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
+
 ################################ Build ################################
 FROM rosdep_install AS build
 
@@ -53,14 +61,6 @@ WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
-
-# RMW Configurations
-COPY docker/config/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
-COPY docker/config/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
-
-# Entrypoint
-COPY docker/config/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
-ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
 ################################ Deploy ################################
 FROM build AS deploy
@@ -91,3 +91,10 @@ USER ${USER}
 # Install Claude Code natively
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Setup dev bashrc
+COPY docker/config/wato_dev.bashrc ${WATONOMOUS_INSTALL}/wato_dev.bashrc
+RUN echo "source ${WATONOMOUS_INSTALL}/wato_dev.bashrc" >> ~/.bashrc
+
+# Default to opening in the AMENT_WS
+WORKDIR ${AMENT_WS}
