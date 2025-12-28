@@ -80,22 +80,12 @@ jobs:
           echo "ACTIVE_MODULES=${{ matrix.module }}" > watod-config.local.sh
         shell: bash
 
-      - name: Build Module with Watod
+      - name: Build and Test Module with Watod
         env:
           DOCKER_BUILDKIT: 1
           COMPOSE_BAKE: true
         run: |
-          ./watod build
-
-      - name: Run testing suite
-        uses: "./.github/templates/test"
-        env:
-          DOCKER_BUILDKIT: 1
-          COMPOSE_DOCKER_CLI_BUILD: 1
-          BUILDKIT_INLINE_CACHE: 1
-        with:
-          image: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${{ matrix.module }}
-          tag: ${{ env.SOURCE_BRANCH }}
+          ./watod test
 
   confirm-build-and-unittest-complete:
     name: Confirm Build and Unit Tests Completed
