@@ -2,13 +2,13 @@
 services:
 #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
-    profiles: ["infrastructure-pre"]
+    profiles: ["infrastructure_pre"]
     extends:
       file: docker-compose.yaml
       service: infrastructure_source
 
   infrastructure_deps:
-    profiles: ["infrastructure-pre"]
+    profiles: ["infrastructure_pre"]
     extends:
       file: docker-compose.yaml
       service: infrastructure_deps
@@ -33,13 +33,13 @@ services:
 
 #################### INTERFACING SERVICE ####################
   interfacing_source:
-    profiles: ["interfacing-pre"]
+    profiles: ["interfacing_pre"]
     extends:
       file: docker-compose.yaml
       service: interfacing_source
 
   interfacing_deps:
-    profiles: ["interfacing-pre"]
+    profiles: ["interfacing_pre"]
     extends:
       file: docker-compose.yaml
       service: interfacing_deps
@@ -52,13 +52,13 @@ services:
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
-    profiles: ["perception-pre"]
+    profiles: ["perception_pre"]
     extends:
       file: docker-compose.yaml
       service: perception_source
 
   perception_deps:
-    profiles: ["perception-pre"]
+    profiles: ["perception_pre"]
     extends:
       file: docker-compose.yaml
       service: perception_deps
@@ -71,13 +71,13 @@ services:
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
-    profiles: ["world_modeling-pre"]
+    profiles: ["world_modeling_pre"]
     extends:
       file: docker-compose.yaml
       service: world_modeling_source
 
   world_modeling_deps:
-    profiles: ["world_modeling-pre"]
+    profiles: ["world_modeling_pre"]
     extends:
       file: docker-compose.yaml
       service: world_modeling_deps
@@ -90,13 +90,13 @@ services:
 
 #################### ACTION SERVICE ####################
   action_source:
-    profiles: ["action-pre"]
+    profiles: ["action_pre"]
     extends:
       file: docker-compose.yaml
       service: action_source
 
   action_deps:
-    profiles: ["action-pre"]
+    profiles: ["action_pre"]
     extends:
       file: docker-compose.yaml
       service: action_deps

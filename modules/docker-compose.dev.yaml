@@ -2,7 +2,7 @@
 services:
 #################### INTERFACING SERVICE ####################
   interfacing_bringup_dev:
-    profiles: ["interfacing-dev"]
+    profiles: ["interfacing_dev"]
     extends:
       file: docker-compose.yaml
       service: interfacing_bringup
@@ -17,7 +17,7 @@ services:
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup_dev:
-    profiles: ["perception-dev"]
+    profiles: ["perception_dev"]
     extends:
       file: docker-compose.yaml
       service: perception_bringup
@@ -31,7 +31,7 @@ services:
 
 #################### WORLD_MODELING SERVICE ####################
   world_modeling_bringup_dev:
-    profiles: ["world_modeling-dev"]
+    profiles: ["world_modeling_dev"]
     extends:
       file: docker-compose.yaml
       service: world_modeling_bringup
@@ -45,7 +45,7 @@ services:
 
 #################### ACTION SERVICE ####################
   action_bringup_dev:
-    profiles: ["action-dev"]
+    profiles: ["action_dev"]
     extends:
       file: docker-compose.yaml
       service: action_bringup
@@ -59,7 +59,7 @@ services:
 
 #################### SIMULATION SERVICE ####################
   carla_ros_bridge_dev:
-    profiles: ["simulation-dev"]
+    profiles: ["simulation_dev"]
     extends:
       file: docker-compose.yaml
       service: carla_ros_bridge
@@ -68,7 +68,7 @@ services:
       - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
 
   carla_sample_node_dev:
-    profiles: ["simulation-dev"]
+    profiles: ["simulation_dev"]
     extends:
       file: docker-compose.yaml
       service: carla_sample_node
@@ -77,19 +77,19 @@ services:
       - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
 
   carla_sim:
-    profiles: ["simulation-dev"]
+    profiles: ["simulation_dev"]
     extends:
       file: docker-compose.yaml
       service: carla_sim
 
   carla_viz:
-    profiles: ["simulation-dev"]
+    profiles: ["simulation_dev"]
     extends:
       file: docker-compose.yaml
       service: carla_viz
 
   carla_notebooks:
-    profiles: ["simulation-dev"]
+    profiles: ["simulation_dev"]
     extends:
       file: docker-compose.yaml
       service: carla_notebooks

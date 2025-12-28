@@ -14,6 +14,7 @@ COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msg
 
 # Copy in source code
 COPY src/wato_msgs wato_msgs
+COPY src/wato_test wato_test
 COPY src/infrastructure/infrastructure_deps infrastructure_deps
 COPY src/interfacing/eve_description eve_description
 

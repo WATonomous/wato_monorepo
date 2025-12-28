@@ -66,7 +66,8 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 FROM build AS deploy
 
 # Source Cleanup, Security Setup, and Workspace Setup
-RUN rm -rf "${AMENT_WS:?}"/*
+RUN rm -rf "${AMENT_WS:?}"/* && \
+    chown -R "${USER}":"${USER}" "${AMENT_WS}"
 USER ${USER}
 
 ################################ Develop ################################
@@ -83,6 +84,8 @@ RUN apt-get update && \
     htop \
     tree
 
+# Make ament_ws owned by bolty
+RUN chown -R "${USER}":"${USER}" "${AMENT_WS}"
 USER ${USER}
 
 # Install Claude Code natively
