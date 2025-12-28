@@ -1,9 +1,5 @@
 # Developer Guidelines for the Eve Monorepo
 
-If you have not already, you can get a better understanding of working with Docker + ROS2 monorepo's with our onboarding assignment.
-
-Developing in the Eve Monorepo is very similar, except there are a few caveats.
-
 ## watod
 
 `watod` is a wrapper script around `docker compose` that manages the monorepo's development environment. It automatically handles environment variables, compose files, and service configuration.
