@@ -12,10 +12,6 @@ COPY src/perception/tracking_2d tracking_2d
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
-# Bring in Patchwork++ third-party dependency (built later in dependencies stage)
-RUN git clone --depth 1 --branch master \
-      https://github.com/url-kaist/patchwork-plusplus \
-      patchwork/patchwork-plusplus
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -51,18 +47,12 @@ RUN apt-get update && \
 # Copy in source code from source stage
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
+# Ensure non-root user can write workspace (colcon logs, build/test outputs)
+RUN chown -R "${USER}:${USER}" "${AMENT_WS}"
 
 # Ensure bash with pipefail for RUN commands with pipelines
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Build and install Patchwork++
-WORKDIR ${AMENT_WS}/src/patchwork/patchwork-plusplus
-RUN cmake -S cpp -B build \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    cmake --build build -j"$(nproc)" && \
-    cmake --install build && \
-    echo /usr/local/lib | tee /etc/ld.so.conf.d/usr-local.conf && ldconfig
 
 # Dependency Cleanup
 WORKDIR ${AMENT_WS}
