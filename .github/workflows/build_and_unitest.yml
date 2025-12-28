@@ -85,7 +85,13 @@ jobs:
           DOCKER_BUILDKIT: 1
           COMPOSE_BAKE: true
         run: |
-          ./watod test
+          if [[ "${{ matrix.module }}" == "infrastructure" ]]; then
+            echo "Infrastructure module: building only (no tests)"
+            ./watod build
+          else
+            echo "Testing module: ${{ matrix.module }}"
+            ./watod test
+          fi
 
   confirm-build-and-unittest-complete:
     name: Confirm Build and Unit Tests Completed
