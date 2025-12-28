@@ -144,7 +144,9 @@ COMPOSE_CMD=( "$@" )
 [[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
 
 # Convert ACTIVE_MODULES to array for consistent handling
-read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
+if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
+  read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
+fi
 
 # Save original ACTIVE_MODULES before watod-setup-env.sh adds infrastructure
 ORIGINAL_ACTIVE_MODULES=("${ACTIVE_MODULES[@]}")

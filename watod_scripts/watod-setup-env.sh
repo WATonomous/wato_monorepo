@@ -69,13 +69,6 @@ else
   exit 1
 fi
 
-################################  Overrides hook  ####################################
-# shellcheck source=./watod-config.sh
-if [ -f "$(dirname "$0")/watod-config.sh" ]; then
-  # shellcheck disable=SC1091
-  . "$(dirname "$0")/watod-config.sh"
-fi
-
 ################################  Paths & Layout  ####################################
 # Force MODULES_DIR and MONO_DIR layout when running in CI
 if $IS_CI; then
@@ -110,13 +103,18 @@ ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_
 # Always append infrastructure to ACTIVE_MODULES if not already present (except in CI)
 # In CI, build only the specified module to avoid unnecessary builds
 if ! $IS_CI; then
-  if [[ -n ${ACTIVE_MODULES:-} ]]; then
-    # Check if infrastructure is already in the list
-    if [[ ! " ${ACTIVE_MODULES} " =~ " infrastructure " ]]; then
-      ACTIVE_MODULES="${ACTIVE_MODULES} infrastructure"
+  # Check if infrastructure is already in the array
+  has_infrastructure=false
+  for module in "${ACTIVE_MODULES[@]}"; do
+    if [[ "$module" == "infrastructure" ]]; then
+      has_infrastructure=true
+      break
     fi
-  else
-    ACTIVE_MODULES="infrastructure"
+  done
+
+  # Add infrastructure if not present
+  if ! $has_infrastructure; then
+    ACTIVE_MODULES+=("infrastructure")
   fi
 fi
 
