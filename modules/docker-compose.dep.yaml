@@ -1,6 +1,12 @@
 ---
 services:
 #################### INFRASTRUCTURE SERVICES ####################
+  zenoh_router:
+    profiles: ["infrastructure"]
+    extends:
+      file: docker-compose.yaml
+      service: zenoh_router
+
   foxglove:
     profiles: ["infrastructure"]
     extends:

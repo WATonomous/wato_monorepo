@@ -14,5 +14,22 @@
 # limitations under the License.
 set -e
 
-docker pull -q "$IMAGE":"$TAG"
-docker run "$IMAGE":"$TAG" /bin/bash -c "source /home/bolty/ament_ws/install/setup.bash; colcon test; colcon test-result --verbose"
+# setup WATonomous packages and ROS2 environment
+# shellcheck disable=SC1090,SC1091
+source /opt/ros/"${ROS_DISTRO}"/setup.bash
+[ -f /opt/watonomous/setup.bash ] && source /opt/watonomous/setup.bash
+
+# Handle signals properly - forward SIGTERM to child process
+_term() {
+  echo "Caught SIGTERM signal, forwarding to child process..."
+  kill -TERM "$child" 2>/dev/null
+}
+
+trap _term SIGTERM
+
+# Run command in background so we can trap signals
+"$@" &
+child=$!
+
+# Wait for child process
+wait "$child"

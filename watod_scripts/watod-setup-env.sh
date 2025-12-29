@@ -33,7 +33,14 @@ set -e
 # ------------------------------------------------------------------------------------
 
 ################################  Flag parsing  ######################################
-IS_CI=false
+# Auto-detect CI environment if not explicitly set
+if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then
+  IS_CI=true
+else
+  IS_CI=false
+fi
+
+# Allow explicit override via command-line flag
 for arg in "$@"; do
   case "$arg" in
     --is-ci) IS_CI=true ;;
@@ -47,17 +54,19 @@ if [ -f /.dockerenv ]; then
 fi
 
 ################################  Git branch  ########################################
-if command -v git >/dev/null 2>&1; then
+# In CI, git is in detached HEAD state, so use CI environment variables
+if $IS_CI && [[ -n ${SOURCE_BRANCH:-} ]]; then
+  BRANCH=${BRANCH:-$SOURCE_BRANCH}
+  echo "[setup-env] CI mode: using SOURCE_BRANCH → $BRANCH"
+elif command -v git >/dev/null 2>&1; then
   BRANCH=${BRANCH:-$(git branch --show-current)}
+  if [[ -z $BRANCH ]]; then
+    echo 'Error: git branch is empty (detached HEAD?). Set BRANCH or SOURCE_BRANCH environment variable.' >&2
+    exit 1
+  fi
 else
   echo 'Error: git is not installed.' >&2
-fi
-
-################################  Overrides hook  ####################################
-# shellcheck source=./watod-config.sh
-if [ -f "$(dirname "$0")/watod-config.sh" ]; then
-  # shellcheck disable=SC1091
-  . "$(dirname "$0")/watod-config.sh"
+  exit 1
 fi
 
 ################################  Paths & Layout  ####################################
@@ -91,14 +100,22 @@ RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
 ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_router_config.json5"}
 ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_session_config.json5"}
 
-# Always append infrastructure to ACTIVE_MODULES if not already present
-if [[ -n ${ACTIVE_MODULES:-} ]]; then
-  # Check if infrastructure is already in the list
-  if [[ ! " ${ACTIVE_MODULES} " =~ " infrastructure " ]]; then
-    ACTIVE_MODULES="${ACTIVE_MODULES} infrastructure"
+# Always append infrastructure to ACTIVE_MODULES if not already present (except in CI)
+# In CI, build only the specified module to avoid unnecessary builds
+if ! $IS_CI; then
+  # Check if infrastructure is already in the array
+  has_infrastructure=false
+  for module in "${ACTIVE_MODULES[@]}"; do
+    if [[ "$module" == "infrastructure" ]]; then
+      has_infrastructure=true
+      break
+    fi
+  done
+
+  # Add infrastructure if not present
+  if ! $has_infrastructure; then
+    ACTIVE_MODULES+=("infrastructure")
   fi
-else
-  ACTIVE_MODULES="infrastructure"
 fi
 
 ################################  Image names  #######################################

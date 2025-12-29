@@ -1,6 +1,26 @@
 ---
 services:
 #################### INFRASTRUCTURE SERVICES ####################
+  infrastructure_source:
+    profiles: ["infrastructure-pre"]
+    build:
+      context: ..
+      dockerfile: docker/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+
+  infrastructure_deps:
+    profiles: ["infrastructure-pre"]
+    build:
+      context: ..
+      dockerfile: docker/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
+
   zenoh_router:
     ulimits:
       memlock: -1
@@ -8,10 +28,13 @@ services:
     network_mode: host
     build:
       context: ..
-      dockerfile: docker/infrastructure/infrastructure.Dockerfile
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+        MODULE_DEPS: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
       cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
-        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
+        - "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:main"
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     command: ros2 run rmw_zenoh_cpp rmw_zenohd
@@ -28,10 +51,13 @@ services:
     network_mode: host
     build:
       context: ..
-      dockerfile: docker/infrastructure/infrastructure.Dockerfile
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+        MODULE_DEPS: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
       cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:build_${TAG}"
-        - "${INFRASTRUCTURE_IMAGE:?}:build_main"
+        - "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:main"
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
@@ -41,7 +67,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
   log_viewer:
     container_name: watod_log_viewer
@@ -54,17 +82,41 @@ services:
       - "${LOG_VIEWER__PORT}:8888"
 
 #################### INTERFACING SERVICE ####################
+  interfacing_source:
+    profiles: ["interfacing-pre"]
+    build:
+      context: ..
+      dockerfile: docker/interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${INTERFACING_IMAGE}:source_${TAG}"
+
+  interfacing_deps:
+    profiles: ["interfacing-pre"]
+    build:
+      context: ..
+      dockerfile: docker/interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${INTERFACING_IMAGE}:deps_${TAG}"
+
   interfacing_bringup:
     ulimits:
       memlock: -1
     ipc: host
     network_mode: host
+    pull_policy: never
     build:
       context: ..
-      dockerfile: docker/interfacing/interfacing.Dockerfile
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${INTERFACING_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${INTERFACING_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${INTERFACING_IMAGE}:build_${TAG}"
-        - "${INTERFACING_IMAGE}:build_main"
+        - "${INTERFACING_IMAGE}:${TAG}"
+        - "${INTERFACING_IMAGE}:main"
       target: deploy
     image: "${INTERFACING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_launch.yaml"
@@ -74,9 +126,31 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### PERCEPTION SERVICE ####################
+  perception_source:
+    profiles: ["perception-pre"]
+    build:
+      context: ..
+      dockerfile: docker/perception.Dockerfile
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
+
+  perception_deps:
+    profiles: ["perception-pre"]
+    build:
+      context: ..
+      dockerfile: docker/perception.Dockerfile
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+
   perception_bringup:
     ulimits:
       memlock: -1
@@ -84,10 +158,13 @@ services:
     network_mode: host
     build:
       context: ..
-      dockerfile: docker/perception/perception.Dockerfile
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${PERCEPTION_IMAGE:?}:source_${TAG}"
+        MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
       cache_from:
-        - "${PERCEPTION_IMAGE:?}:build_${TAG}"
-        - "${PERCEPTION_IMAGE:?}:build_main"
+        - "${PERCEPTION_IMAGE:?}:${TAG}"
+        - "${PERCEPTION_IMAGE:?}:main"
       target: deploy
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
@@ -99,9 +176,31 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### WORLD MODELING SERVICE ####################
+  world_modeling_source:
+    profiles: ["world-modeling-pre"]
+    build:
+      context: ..
+      dockerfile: docker/world_modeling.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
+
+  world_modeling_deps:
+    profiles: ["world-modeling-pre"]
+    build:
+      context: ..
+      dockerfile: docker/world_modeling.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
+
   world_modeling_bringup:
     ulimits:
       memlock: -1
@@ -109,10 +208,13 @@ services:
     network_mode: host
     build:
       context: ..
-      dockerfile: docker/world_modeling/world_modeling.Dockerfile
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${WORLD_MODELING_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${WORLD_MODELING_IMAGE}:build_${TAG}"
-        - "${WORLD_MODELING_IMAGE}:build_main"
+        - "${WORLD_MODELING_IMAGE}:${TAG}"
+        - "${WORLD_MODELING_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.py"
@@ -122,9 +224,31 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### ACTION SERVICE ####################
+  action_source:
+    profiles: ["action-pre"]
+    build:
+      context: ..
+      dockerfile: docker/action.Dockerfile
+      cache_from:
+        - "${ACTION_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${ACTION_IMAGE}:source_${TAG}"
+
+  action_deps:
+    profiles: ["action-pre"]
+    build:
+      context: ..
+      dockerfile: docker/action.Dockerfile
+      cache_from:
+        - "${ACTION_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${ACTION_IMAGE}:deps_${TAG}"
+
   action_bringup:
     ulimits:
       memlock: -1
@@ -132,10 +256,13 @@ services:
     network_mode: host
     build:
       context: ..
-      dockerfile: docker/action/action.Dockerfile
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${ACTION_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${ACTION_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${ACTION_IMAGE}:build_${TAG}"
-        - "${ACTION_IMAGE}:build_main"
+        - "${ACTION_IMAGE}:${TAG}"
+        - "${ACTION_IMAGE}:main"
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
@@ -145,7 +272,9 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
@@ -172,8 +301,8 @@ services:
       context: ..
       dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
       cache_from:
-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_${TAG}"
-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:build_main"
+        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:main"
       target: deploy
     image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
     environment:
@@ -186,15 +315,17 @@ services:
     # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
     command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
   carla_viz:
     build:
       context: ..
       dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
       cache_from:
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_${TAG}"
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:build_main"
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLAVIZ_IMAGE:?}:main"
     image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
     ports:
       - ${CARLAVIZ_PORT}:8080
@@ -214,8 +345,8 @@ services:
       context: ..
       dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
       cache_from:
-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_${TAG}"
-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:build_main"
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:main"
       target: deploy
     image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
     # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
@@ -226,15 +357,17 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      - zenoh_router
+      zenoh_router:
+        condition: service_started
+        required: false
 
   carla_notebooks:
     build:
       context: ..
       dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
       cache_from:
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_${TAG}"
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:build_main"
+        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
+        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:main"
     image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
     ports:
       - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
