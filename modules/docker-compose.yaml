@@ -2,7 +2,7 @@
 services:
 #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
-    profiles: ["infrastructure-pre"]
+    profiles: ["infrastructure_pre"]
     build:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
@@ -12,7 +12,7 @@ services:
     image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
 
   infrastructure_deps:
-    profiles: ["infrastructure-pre"]
+    profiles: ["infrastructure_pre"]
     build:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
@@ -83,7 +83,7 @@ services:
 
 #################### INTERFACING SERVICE ####################
   interfacing_source:
-    profiles: ["interfacing-pre"]
+    profiles: ["interfacing_pre"]
     build:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
@@ -93,7 +93,7 @@ services:
     image: "${INTERFACING_IMAGE}:source_${TAG}"
 
   interfacing_deps:
-    profiles: ["interfacing-pre"]
+    profiles: ["interfacing_pre"]
     build:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
@@ -132,7 +132,7 @@ services:
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
-    profiles: ["perception-pre"]
+    profiles: ["perception_pre"]
     build:
       context: ..
       dockerfile: docker/perception.Dockerfile
@@ -142,7 +142,7 @@ services:
     image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
 
   perception_deps:
-    profiles: ["perception-pre"]
+    profiles: ["perception_pre"]
     build:
       context: ..
       dockerfile: docker/perception.Dockerfile
@@ -182,7 +182,7 @@ services:
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
-    profiles: ["world-modeling-pre"]
+    profiles: ["world_modeling_pre"]
     build:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
@@ -192,7 +192,7 @@ services:
     image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
 
   world_modeling_deps:
-    profiles: ["world-modeling-pre"]
+    profiles: ["world_modeling_pre"]
     build:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
@@ -230,7 +230,7 @@ services:
 
 #################### ACTION SERVICE ####################
   action_source:
-    profiles: ["action-pre"]
+    profiles: ["action_pre"]
     build:
       context: ..
       dockerfile: docker/action.Dockerfile
@@ -240,7 +240,7 @@ services:
     image: "${ACTION_IMAGE}:source_${TAG}"
 
   action_deps:
-    profiles: ["action-pre"]
+    profiles: ["action_pre"]
     build:
       context: ..
       dockerfile: docker/action.Dockerfile
