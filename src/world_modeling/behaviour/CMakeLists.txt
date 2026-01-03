@@ -55,6 +55,11 @@ add_executable(behaviour_node src/behaviour_node.cpp)
 # Link to the previously built library to access behaviour classes and methods
 target_link_libraries(behaviour_node behaviour_lib)
 
+ament_target_dependencies(bt_sample_node
+  rclcpp
+  behaviortree_cpp
+)
+
 # Copy executable to installation location
 install(TARGETS
   behaviour_node
