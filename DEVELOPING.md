@@ -1,5 +1,10 @@
 # Developer Guidelines for the Eve Monorepo
 
+## System Architecture
+The overall architecture of the entire autonomous vehicle system is given below.
+
+![alt text](./public/system_arch.png)
+
 ## watod
 
 `watod` is a wrapper script around `docker compose` that manages the monorepo's development environment. It automatically handles environment variables, compose files, and service configuration.

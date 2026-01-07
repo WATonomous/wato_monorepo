@@ -11,6 +11,9 @@ These steps are to setup the monorepo to work on your own PC. We utilize docker 
 2. Once inside Linux, [Download Docker Engine using the `apt` repository](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository). If you are using WSL, install docker outside of WSL, it will automatically setup docker within WSL for you.
 3. You're all set! Information on running the monorepo with our infrastructure is given [here](https://wiki.watonomous.ca/autonomous_software_general/monorepo_infrastructure/)
 
+## System Architecture
+![alt text](./public/system_arch.png)
+
 ## Available Modules
 
 `Infrastructure` Starts the foxglove bridge and data streamer for rosbags.
