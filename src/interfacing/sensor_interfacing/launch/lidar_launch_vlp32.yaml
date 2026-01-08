@@ -8,18 +8,18 @@ launch:
   - node_container:
       pkg: rclcpp_components
       exec: component_container
-      name: lidar_top_container
+      name: lidar_cc_container
       namespace: ""
 
   - load_composable_node:
-      target: lidar_top_container
+      target: lidar_cc_container
       composable_node:
         - pkg: velodyne_driver
           plugin: velodyne_driver::VelodyneDriver
           name: velodyne_driver_node_top
           remap:
             - from: "velodyne_packets"
-              to: "lidar_top/velodyne_packets"
+              to: "lidar_cc/velodyne_packets"
           param:
             - from: "$(var lidar_config_file)"
 
@@ -28,9 +28,9 @@ launch:
           name: velodyne_transform_node_top
           remap:
             - from: "velodyne_packets"
-              to: "lidar_top/velodyne_packets"
+              to: "lidar_cc/velodyne_packets"
             - from: "velodyne_points"
-              to: "lidar_top/velodyne_points"
+              to: "lidar_cc/velodyne_points"
           param:
             - from: "$(find-pkg-share velodyne_pointcloud)/config/VLP32C-velodyne_transform_node-params.yaml"
             - name: calibration
@@ -41,8 +41,8 @@ launch:
           name: velodyne_laserscan_node_top
           remap:
             - from: "velodyne_points"
-              to: "lidar_top/velodyne_points"
+              to: "lidar_cc/velodyne_points"
             - from: "scan"
-              to: "lidar_top/scan"
+              to: "lidar_cc/scan"
           param:
             - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"

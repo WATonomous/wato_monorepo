@@ -15,36 +15,36 @@
 launch:
   # Arguments
   - arg:
-      name: "config_file_left"
-      default: "$(find-pkg-share lidar_lidar_calib)/config/config_left.yaml"
+      name: "config_file_nw"
+      default: "$(find-pkg-share lidar_lidar_calib)/config/config_nw.yaml"
       description: "Path to the configuration file"
   - arg:
-      name: "config_file_right"
-      default: "$(find-pkg-share lidar_lidar_calib)/config/config_right.yaml"
+      name: "config_file_ne"
+      default: "$(find-pkg-share lidar_lidar_calib)/config/config_ne.yaml"
       description: "Path to the configuration file"
 
   - node:
       pkg: "lidar_lidar_calib"
       exec: "lidar_lidar_calib_node"
-      name: "lidar_lidar_calib_left"
+      name: "lidar_lidar_calib_nw"
       namespace: ""
       param:
-        - from: "$(var config_file_left)"
+        - from: "$(var config_file_nw)"
       remap:
         - from: "source_pointcloud"
-          to: "/lidar_NW/velodyne_points"
+          to: "/lidar_nw/velodyne_points"
         - from: "target_pointcloud"
-          to: "/lidar_top/velodyne_points"
+          to: "/lidar_cc/velodyne_points"
 
   - node:
       pkg: "lidar_lidar_calib"
       exec: "lidar_lidar_calib_node"
-      name: "lidar_lidar_calib_right"
+      name: "lidar_lidar_calib_ne"
       namespace: ""
       param:
-        - from: "$(var config_file_right)"
+        - from: "$(var config_file_ne)"
       remap:
         - from: "source_pointcloud"
-          to: "/lidar_NE/velodyne_points"
+          to: "/lidar_ne/velodyne_points"
         - from: "target_pointcloud"
-          to: "/lidar_top/velodyne_points"
+          to: "/lidar_cc/velodyne_points"

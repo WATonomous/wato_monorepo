@@ -375,7 +375,7 @@ Using this repo’s bringup:
 
 ```
 ros2 launch perception_bringup perception.launch.py \
-  patchwork_cloud_topic:=/LIDAR_TOP \
+  patchwork_cloud_topic:=/lidar_cc \
   patchwork_ground_topic:=/patchworkpp/ground_cloud \
   patchwork_non_ground_topic:=/patchworkpp/non_ground_cloud
 ```
@@ -383,7 +383,7 @@ ros2 launch perception_bringup perception.launch.py \
 Package‑local launch:
 
 ```
-ros2 launch patchworkpp ground_removal_launch.yaml cloud_topic:=/LIDAR_TOP
+ros2 launch patchworkpp ground_removal_launch.yaml cloud_topic:=/lidar_cc
 ```
 
 Docker (builds Patchwork++ and this package): see `docker/perception/perception.Dockerfile:1`. Inside the container, build and launch as above.

@@ -4,13 +4,13 @@
     queue_size: 10
 
     # Frame IDs for TF publishing
-    target_frame: "lidar_top"
-    source_frame: "lidar_NE"
+    target_frame: "lidar_cc"
+    source_frame: "lidar_nw"
 
     # GICP parameters
     num_threads: 2
-    downsampling_resolution: 0.05  # meters
-    max_correspondence_distance: 0.5  # meters
+    downsampling_resolution: 0.01  # meters
+    max_correspondence_distance: 0.1  # meters
     max_iterations: 10000
 
     # Initial guess (transformation from source to target)

@@ -37,16 +37,16 @@ launch:
       default: "Oem7ReceiverTcp"
       description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
 
-  # GPS - Novatel OEM7
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
-      arg:
-        - name: "oem7_ip_addr"
-          value: "$(var oem7_ip_addr)"
-        - name: "oem7_port"
-          value: "$(var oem7_port)"
-        - name: "oem7_if"
-          value: "$(var oem7_if)"
+  # # GPS - Novatel OEM7
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+  #     arg:
+  #       - name: "oem7_ip_addr"
+  #         value: "$(var oem7_ip_addr)"
+  #       - name: "oem7_port"
+  #         value: "$(var oem7_port)"
+  #       - name: "oem7_if"
+  #         value: "$(var oem7_if)"
 
   # LiDAR VLP-32 with config file
   - include:
@@ -55,9 +55,9 @@ launch:
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
 
-  # Hikrobot Cameras
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
+  # # Hikrobot Cameras
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
 
   # Eve Robot Description
   - include:

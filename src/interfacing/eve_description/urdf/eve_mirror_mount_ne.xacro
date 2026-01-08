@@ -2,17 +2,17 @@
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
 
   <!-- Mirror mount macro - allows parent specification -->
-  <xacro:macro name="mirror_mount_right" params="parent *origin">
+  <xacro:macro name="mirror_mount_nw" params="parent *origin">
     <!-- Mirror mount for all sensors -->
-    <link name="mirror_mount_right"/>
-    <joint name="mirror_mount_right_joint" type="fixed">
+    <link name="mirror_mount_nw"/>
+    <joint name="mirror_mount_nw_joint" type="fixed">
       <parent link="${parent}"/>
-      <child link="mirror_mount_right"/>
+      <child link="mirror_mount_nw"/>
       <xacro:insert_block name="origin"/>
     </joint>
 
-    <!-- Right LiDAR -->
-    <link name="lidar_NE">
+    <!-- Left LiDAR -->
+    <link name="lidar_nw">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -30,9 +30,9 @@
       </collision>
     </link>
 
-    <joint name="lidar_NE_mount_yaw" type="fixed">
-      <parent link="mirror_mount_right"/>
-      <child link="lidar_NE"/>
+    <joint name="lidar_nw_mount_yaw" type="fixed">
+      <parent link="mirror_mount_nw"/>
+      <child link="lidar_nw"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
 

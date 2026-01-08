@@ -6,7 +6,7 @@ launch:
   # Declare launch argument for the input cloud topic
   - arg:
       name: cloud_topic
-      default: /LIDAR_TOP
+      default: /lidar_cc
       description: Point cloud topic patchworks subscribes to
 
   # Launch the Patchwork++ ground removal node
