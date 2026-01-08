@@ -32,7 +32,7 @@ launch:
         - from: "$(var config_file_left)"
       remap:
         - from: "source_pointcloud"
-          to: "/lidar_left/velodyne_points"
+          to: "/lidar_NW/velodyne_points"
         - from: "target_pointcloud"
           to: "/lidar_top/velodyne_points"
 
@@ -45,6 +45,6 @@ launch:
         - from: "$(var config_file_right)"
       remap:
         - from: "source_pointcloud"
-          to: "/lidar_right/velodyne_points"
+          to: "/lidar_NE/velodyne_points"
         - from: "target_pointcloud"
           to: "/lidar_top/velodyne_points"

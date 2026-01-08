@@ -12,7 +12,7 @@
     </joint>
 
     <!-- Left LiDAR -->
-    <link name="lidar_left">
+    <link name="lidar_NW">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -30,9 +30,9 @@
       </collision>
     </link>
 
-    <joint name="lidar_left_mount_yaw" type="fixed">
+    <joint name="lidar_NW_mount_yaw" type="fixed">
       <parent link="mirror_mount_left"/>
-      <child link="lidar_left"/>
+      <child link="lidar_NW"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
 

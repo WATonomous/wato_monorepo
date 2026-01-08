@@ -13,13 +13,13 @@ launch:
   - node_container:
       pkg: rclcpp_components
       exec: component_container
-      name: lidar_left_container
+      name: lidar_NW_container
       namespace: ""
 
   - node_container:
       pkg: rclcpp_components
       exec: component_container
-      name: lidar_right_container
+      name: lidar_NE_container
       namespace: ""
 
   - load_composable_node:
@@ -59,14 +59,14 @@ launch:
             - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"
 
   - load_composable_node:
-      target: lidar_left_container
+      target: lidar_NW_container
       composable_node:
         - pkg: velodyne_driver
           plugin: velodyne_driver::VelodyneDriver
           name: velodyne_driver_node_left
           remap:
             - from: "velodyne_packets"
-              to: "lidar_left/velodyne_packets"
+              to: "lidar_NW/velodyne_packets"
           param:
             - from: "$(var lidar_config_file)"
 
@@ -75,9 +75,9 @@ launch:
           name: velodyne_transform_node_left
           remap:
             - from: "velodyne_packets"
-              to: "lidar_left/velodyne_packets"
+              to: "lidar_NW/velodyne_packets"
             - from: "velodyne_points"
-              to: "lidar_left/velodyne_points"
+              to: "lidar_NW/velodyne_points"
           param:
             - from: "$(find-pkg-share velodyne_pointcloud)/config/VLP16-velodyne_transform_node-params.yaml"
             - name: calibration
@@ -88,21 +88,21 @@ launch:
           name: velodyne_laserscan_node_left
           remap:
             - from: "velodyne_points"
-              to: "lidar_left/velodyne_points"
+              to: "lidar_NW/velodyne_points"
             - from: "scan"
-              to: "lidar_left/scan"
+              to: "lidar_NW/scan"
           param:
             - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"
 
   - load_composable_node:
-      target: lidar_right_container
+      target: lidar_NE_container
       composable_node:
         - pkg: velodyne_driver
           plugin: velodyne_driver::VelodyneDriver
           name: velodyne_driver_node_right
           remap:
             - from: "velodyne_packets"
-              to: "lidar_right/velodyne_packets"
+              to: "lidar_NE/velodyne_packets"
           param:
             - from: "$(var lidar_config_file)"
 
@@ -111,9 +111,9 @@ launch:
           name: velodyne_transform_node_right
           remap:
             - from: "velodyne_packets"
-              to: "lidar_right/velodyne_packets"
+              to: "lidar_NE/velodyne_packets"
             - from: "velodyne_points"
-              to: "lidar_right/velodyne_points"
+              to: "lidar_NE/velodyne_points"
           param:
             - from: "$(find-pkg-share velodyne_pointcloud)/config/VLP16-velodyne_transform_node-params.yaml"
             - name: calibration
@@ -124,8 +124,8 @@ launch:
           name: velodyne_laserscan_node_right
           remap:
             - from: "velodyne_points"
-              to: "lidar_right/velodyne_points"
+              to: "lidar_NE/velodyne_points"
             - from: "scan"
-              to: "lidar_right/scan"
+              to: "lidar_NE/scan"
           param:
             - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"

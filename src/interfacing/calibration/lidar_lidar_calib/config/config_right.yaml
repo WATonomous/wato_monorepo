@@ -5,7 +5,7 @@
 
     # Frame IDs for TF publishing
     target_frame: "lidar_top"
-    source_frame: "lidar_right"
+    source_frame: "lidar_NE"
 
     # GICP parameters
     num_threads: 2
