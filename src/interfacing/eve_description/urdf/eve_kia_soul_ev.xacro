@@ -21,15 +21,15 @@
   </xacro:roof_mount>
 
   <!-- Include mirror mounts and sensors -->
-  <xacro:include filename="eve_mirror_mount_left.xacro"/>
-  <xacro:include filename="eve_mirror_mount_right.xacro"/>
+  <xacro:include filename="eve_mirror_mount_nw.xacro"/>
+  <xacro:include filename="eve_mirror_mount_ne.xacro"/>
 
-  <xacro:mirror_mount_left parent="lidar_top">
+  <xacro:mirror_mount_ne parent="lidar_cc">
     <origin xyz="0.924884 -0.972881 -0.840734" rpy="0.017163 0.108708 -0.580009"/>
-  </xacro:mirror_mount_left>
+  </xacro:mirror_mount_ne>
 
-  <xacro:mirror_mount_right parent="lidar_top">
+  <xacro:mirror_mount_nw parent="lidar_cc">
     <origin xyz="1.102008 0.748385 -0.824361" rpy="0.049416 0.068287 0.246267"/>
-  </xacro:mirror_mount_right>
+  </xacro:mirror_mount_nw>
 
 </robot>

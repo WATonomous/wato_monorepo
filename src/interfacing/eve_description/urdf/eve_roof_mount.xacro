@@ -12,7 +12,7 @@
     </joint>
 
     <!-- Top LiDAR -->
-    <link name="lidar_top">
+    <link name="lidar_cc">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -30,9 +30,9 @@
       </collision>
     </link>
 
-    <joint name="lidar_top_mount_yaw" type="fixed">
+    <joint name="lidar_cc_mount_yaw" type="fixed">
       <parent link="roof_mount"/>
-      <child link="lidar_top"/>
+      <child link="lidar_cc"/>
       <origin xyz="0 0 0.35" rpy="0 0 0"/>
     </joint>
 
