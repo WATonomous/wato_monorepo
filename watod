@@ -48,6 +48,9 @@ compose files and environment variables.
 
 Options
   -v, --verbose               Print env setup output
+  -m, --module MODULE         Add a specific module (can be used multiple times)
+                              Use "all" for all modules
+                              Append :dev for dev mode (e.g., -m perception:dev)
   -t, --terminal SERVICE      Run 'docker compose up -d' (if needed) and open
                               a bash shell in the SERVICE container
   -h, --help                  Show this help and exit
@@ -60,28 +63,74 @@ Commands
                               Runs in ./bags directory with auto-mounting
 
 Examples
-  watod up                    # docker compose up
-  watod ps --services         # docker compose ps --services
-  watod --all build           # docker compose build for all modules
-  watod -t perception         # open a shell in the 'perception' service
-  watod test                  # run tests in all services
-  watod test perception       # run tests only in perception service
-  watod bag record -a         # record all topics (auto-saves to ./bags)
-  watod bag play my_bag       # play bag from ./bags directory
-  watod bag info my_bag       # show bag info
+  watod up                              # docker compose up
+  watod ps --services                   # docker compose ps --services
+  watod -m all up                       # start all modules in deploy mode
+  watod -m all:dev up                   # start all modules in dev mode
+  watod -m all down                     # stop all containers
+  watod -m perception -m action up      # start only perception and action
+  watod -m perception:dev up            # start perception in dev mode
+  watod -t perception                   # open a shell in the 'perception' service
+  watod test                            # run tests in all services
+  watod test perception                 # run tests only in perception service
+  watod bag record -a                   # record all topics (auto-saves to ./bags)
+  watod bag play my_bag                 # play bag from ./bags directory
+  watod bag info my_bag                 # show bag info
 
 More info: https://docs.docker.com/compose/reference/overview/
 EOF
 }
 
+# Get all available modules
+# Returns list of modules (excludes infrastructure which is added automatically)
+# TODO: Re-enable simulation once it's fixed
+get_all_modules() {
+  # Core modules (simulation excluded until fixed)
+  echo "action"
+  echo "interfacing"
+  echo "perception"
+  echo "world_modeling"
+}
+
 # Parse ACTIVE_MODULES and build profile arrays
-# Input: ACTIVE_MODULES can contain "module" or "module:dev"
+# Input: ACTIVE_MODULES can contain "module", "module:dev", "all", or "all:dev"
 # Output: ALL_PROFILES, PRE_PROFILES arrays
 build_profile_arrays() {
   local blacklist=${1:-""}  # optional: space-separated list of modules to exclude
 
   ALL_PROFILES=()
   PRE_PROFILES=()
+
+  # Check if "all" or "all:dev" is in ACTIVE_MODULES
+  local has_all=false
+  local all_is_dev=false
+
+  for m in "${ACTIVE_MODULES[@]}"; do
+    if [[ "$m" == "all" ]]; then
+      has_all=true
+      break
+    elif [[ "$m" == "all:dev" ]]; then
+      has_all=true
+      all_is_dev=true
+      break
+    fi
+  done
+
+  # If "all" is specified, expand it to all available modules
+  if $has_all; then
+    local all_modules
+    all_modules=$(get_all_modules)
+    ACTIVE_MODULES=()
+
+    while IFS= read -r module; do
+      [[ -z "$module" ]] && continue
+      if $all_is_dev; then
+        ACTIVE_MODULES+=("$module:dev")
+      else
+        ACTIVE_MODULES+=("$module")
+      fi
+    done <<< "$all_modules"
+  fi
 
   # ACTIVE_MODULES is already an array
   for m in "${ACTIVE_MODULES[@]}"; do
@@ -109,11 +158,22 @@ build_profile_arrays() {
       ALL_PROFILES+=( "$module_name" )
     fi
   done
+
+  # Always add infrastructure profiles (unless in CI or in blacklist)
+  if [[ -z ${CI:-} && -z ${GITHUB_ACTIONS:-} ]]; then
+    if [[ -z "$blacklist" || ! " $blacklist " =~ \ infrastructure\  ]]; then
+      PRE_PROFILES+=( "infrastructure_pre" )
+      ALL_PROFILES+=( "infrastructure" )
+    fi
+  fi
 }
 
 # ─────────────────────────── Argument parsing ────────────────────────────
 
 [[ $# -eq 0 ]] && usage && exit 0
+
+# Array to collect modules from CLI flags
+declare -a CLI_MODULES=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -121,11 +181,18 @@ while [[ $# -gt 0 ]]; do
       VERBOSE=1
       shift
       ;;
+    -m|--module)
+      shift
+      MODULE_NAME=${1:-}
+      [[ -z $MODULE_NAME ]] && { echo "Missing module name after -m/--module"; usage; exit 1; }
+      CLI_MODULES+=("$MODULE_NAME")
+      shift
+      ;;
     -t|--terminal)
       START_TERMINAL=1
       shift
       SERVICE_NAME=${1:-}
-      [[ -z $SERVICE_NAME ]] && { echo "Missing service name after -t"; usage; }
+      [[ -z $SERVICE_NAME ]] && { echo "Missing service name after -t"; usage; exit 1; }
       shift
       ;;
     -h|--help|help)
@@ -164,9 +231,25 @@ COMPOSE_CMD=( "$@" )
 [[ -f "$MONO_DIR/watod-config.sh"       ]] && source "$MONO_DIR/watod-config.sh"
 [[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
 
-# Convert ACTIVE_MODULES to array for consistent handling
-if [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
+# Determine ACTIVE_MODULES: CLI flags take precedence over config
+if [[ ${#CLI_MODULES[@]} -gt 0 ]]; then
+  # Use modules specified via CLI flags
+  ACTIVE_MODULES=("${CLI_MODULES[@]}")
+elif [[ -z ${ACTIVE_MODULES+x} ]]; then
+  # ACTIVE_MODULES not set, initialize as empty array
+  ACTIVE_MODULES=()
+elif [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
+  # ACTIVE_MODULES is set but not an array, convert it
+  # shellcheck disable=SC2128
   read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
+fi
+
+# Check if any modules were specified
+if [[ ${#ACTIVE_MODULES[@]} -eq 0 ]]; then
+  echo "Error: No modules specified. Use -m/--module or set ACTIVE_MODULES in watod-config.sh" >&2
+  echo "Example: watod -m perception up" >&2
+  echo "         watod -m all up" >&2
+  exit 1
 fi
 
 # Save original ACTIVE_MODULES before watod-setup-env.sh adds infrastructure

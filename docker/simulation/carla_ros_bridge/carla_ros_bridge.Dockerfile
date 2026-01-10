@@ -45,8 +45,7 @@ RUN apt-get update -qq && \
         libglu1-mesa-dev xorg-dev \
         software-properties-common \
         build-essential \
-        python3-pygame \
-        qt5-default && \
+        python3-pygame && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
@@ -90,11 +89,11 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # RMW Configurations
-COPY docker/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
-COPY docker/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
+COPY docker/config/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
+COPY docker/config/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+COPY docker/config/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
 ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
 ################################ Prod ################################
