@@ -67,15 +67,6 @@ services:
     volumes:
       - ${MONO_DIR}/src/simulation/carla_config:/home/bolty/ament_ws/src/carla_config
 
-  carla_sample_node_dev:
-    profiles: ["simulation_dev"]
-    extends:
-      file: docker-compose.yaml
-      service: carla_sample_node
-    command: sleep infinity
-    volumes:
-      - ${MONO_DIR}/src/simulation/carla_sample_node:/home/bolty/ament_ws/src/carla_sample_node
-
   carla_sim:
     profiles: ["simulation_dev"]
     extends:

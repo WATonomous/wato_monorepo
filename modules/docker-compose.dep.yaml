@@ -65,13 +65,6 @@ services:
     extends:
       file: docker-compose.yaml
       service: carla_viz
-
-  carla_sample_node:
-    profiles: ["simulation"]
-    extends:
-      file: docker-compose.yaml
-      service: carla_sample_node
-
   carla_notebooks:
     profiles: ["simulation"]
     extends:

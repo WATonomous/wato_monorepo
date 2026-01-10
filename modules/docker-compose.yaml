@@ -336,31 +336,6 @@ services:
     entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
     restart: always
 
-  carla_sample_node:
-    ulimits:
-      memlock: -1
-    ipc: host
-    network_mode: host
-    build:
-      context: ..
-      dockerfile: docker/simulation/carla_sample_node/carla_sample_node.Dockerfile
-      cache_from:
-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
-        - "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:main"
-      target: deploy
-    image: "${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:?}:${TAG}"
-    # command: /bin/bash -c "echo CARLA_SAMPLE_NODE disabled"
-    command: /bin/bash -c "ros2 launch carla_sample_node carla_sample_node.launch.py publish_autopilot:='False'"
-    environment:
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
-      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
-      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-    depends_on:
-      zenoh_router:
-        condition: service_started
-        required: false
-
   carla_notebooks:
     build:
       context: ..

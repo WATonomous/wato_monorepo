@@ -148,19 +148,18 @@ if [[ "${COMPOSE_CMD[0]}" == "up" && ! "${EXTRA_COMPOSE_ARGS[*]}" =~ -d ]]; then
   SHOW_STATUS_PANEL=true
 fi
 
-# Run main compose command with all profiles
-if [[ ${#ALL_PROFILES[@]} -gt 0 ]]; then
-  if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
-    echo "RUNNING BUILD"
-  fi
+# Run main compose command
+if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
+  echo "RUNNING BUILD"
+fi
 
-  run_docker_compose "${ALL_COMPOSE_FILES[@]}" "${ALL_PROFILE_FLAGS[@]}" "${COMPOSE_CMD[@]}" "${EXTRA_COMPOSE_ARGS[@]}"
+# Run compose command with or without profiles
+run_docker_compose "${ALL_COMPOSE_FILES[@]}" "${ALL_PROFILE_FLAGS[@]}" "${COMPOSE_CMD[@]}" "${EXTRA_COMPOSE_ARGS[@]}"
 
-  # In CI, push final images after successful build
-  if [[ "${COMPOSE_CMD[0]}" == "build" && ( -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ) ]]; then
-    echo "CI detected: Pushing final images to registry..."
-    run_docker_compose "${ALL_COMPOSE_FILES[@]}" "${ALL_PROFILE_FLAGS[@]}" push
-  fi
+# In CI, push final images after successful build
+if [[ "${COMPOSE_CMD[0]}" == "build" && ( -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ) && ${#ALL_PROFILES[@]} -gt 0 ]]; then
+  echo "CI detected: Pushing final images to registry..."
+  run_docker_compose "${ALL_COMPOSE_FILES[@]}" "${ALL_PROFILE_FLAGS[@]}" push
 fi
 
 # Display status panel after 'up' command
