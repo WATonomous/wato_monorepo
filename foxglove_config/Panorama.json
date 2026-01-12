@@ -3,13 +3,13 @@
     "3D!3ge91h": {
       "cameraState": {
         "perspective": true,
-        "distance": 45.44146361600471,
-        "phi": 56.80005729833886,
-        "thetaOffset": 97.58485320392047,
+        "distance": 10.807201753236237,
+        "phi": 58.23927723333573,
+        "thetaOffset": -80.34970800951677,
         "targetOffset": [
-          13.05575419046718,
-          -2.1880381493778596,
-          4.196858587866247e-15
+          -2.3542316424569822,
+          2.8646768738784787,
+          3.939087762251183e-15
         ],
         "target": [
           0,
@@ -32,41 +32,57 @@
           "visible": true
         }
       },
-      "transforms": {},
+      "transforms": {
+        "frame:front_left_knuckle": {
+          "visible": false
+        },
+        "frame:front_right_knuckle": {
+          "visible": false
+        },
+        "frame:roof_mount": {
+          "visible": true
+        },
+        "frame:gps_imu_antenna": {
+          "visible": false
+        },
+        "frame:camera_pano_nn": {
+          "visible": true
+        }
+      },
       "topics": {
-        "/lidar_cc/scan": {
+        "/lidar_top/scan": {
           "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
           "pointSize": 2
         },
-        "/lidar_nw/scan": {
+        "/lidar_left/scan": {
           "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_ne/scan": {
+        "/lidar_right/scan": {
           "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_ne/velodyne_points": {
+        "/lidar_right/velodyne_points": {
           "visible": false,
           "colorField": "ring",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_nw/velodyne_points": {
+        "/lidar_left/velodyne_points": {
           "visible": false,
           "colorField": "ring",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_cc/velodyne_points": {
-          "visible": false,
+        "/lidar_top/velodyne_points": {
+          "visible": true,
           "colorField": "ring",
           "colorMode": "colormap",
           "colorMap": "turbo"
@@ -148,8 +164,9 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_nw/image_raw",
-        "calibrationTopic": "/camera_pano_nw/camera_info"
+        "imageTopic": "/camera_pano_nw/image_color",
+        "calibrationTopic": "/camera_pano_nw/camera_info",
+        "rectifyImage": false
       }
     },
     "Image!3z6w4jw": {
@@ -193,9 +210,9 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_ww/image_raw",
+        "imageTopic": "/camera_pano_ww/image_color",
         "calibrationTopic": "/camera_pano_ww/camera_info",
-        "rectifyImage": true
+        "rectifyImage": false
       }
     },
     "Image!1ak5mku": {
@@ -239,9 +256,9 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_sw/image_raw",
+        "imageTopic": "/camera_pano_sw/image_color",
         "calibrationTopic": "/camera_pano_sw/camera_info",
-        "rectifyImage": true
+        "rectifyImage": false
       }
     },
     "Image!1ecj2t4": {
@@ -285,9 +302,43 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_nn/image_raw",
-        "calibrationTopic": "/camera_pano_nn/camera_info"
+        "imageTopic": "/camera_pano_nn/image_color",
+        "calibrationTopic": "/camera_pano_nn/camera_info",
+        "rectifyImage": false
       }
+    },
+    "Plot!z727ch": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/novatel/oem7/imu/data_raw.angular_velocity.z",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "65354bfd-60db-4bbe-a287-7e2f37d4f198"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/novatel/oem7/imu/data_raw.linear_acceleration.x",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "525c227f-aa8a-477b-b851-ec7aed16311f"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/novatel/oem7/imu/data_raw.linear_acceleration.y",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "54152a4d-aeff-4b17-9aed-ab9799b78ff4"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
     },
     "Image!10fpgi4": {
       "cameraState": {
@@ -330,9 +381,9 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_ss/image_raw",
+        "imageTopic": "/camera_pano_ss/image_color",
         "calibrationTopic": "/camera_pano_ss/camera_info",
-        "rectifyImage": true
+        "rectifyImage": false
       }
     },
     "Image!qkt94o": {
@@ -376,9 +427,9 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_ne/image_raw",
+        "imageTopic": "/camera_pano_ne/image_color",
         "calibrationTopic": "/camera_pano_ne/camera_info",
-        "rectifyImage": true
+        "rectifyImage": false
       }
     },
     "Image!enw2pg": {
@@ -422,7 +473,7 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_ee/image_raw",
+        "imageTopic": "/camera_pano_ee/image_color",
         "calibrationTopic": "/camera_pano_ee/camera_info",
         "rectifyImage": false
       }
@@ -468,42 +519,10 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_pano_se/image_raw",
-        "calibrationTopic": "/camera_pano_se/camera_info"
+        "imageTopic": "/camera_pano_se/image_color",
+        "calibrationTopic": "/camera_pano_se/camera_info",
+        "rectifyImage": false
       }
-    },
-    "Plot!z727ch": {
-      "paths": [
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/novatel/oem7/imu/data_raw.angular_velocity.z",
-          "enabled": true,
-          "color": "#4e98e2",
-          "id": "65354bfd-60db-4bbe-a287-7e2f37d4f198"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/novatel/oem7/imu/data_raw.linear_acceleration.x",
-          "enabled": true,
-          "color": "#f5774d",
-          "id": "525c227f-aa8a-477b-b851-ec7aed16311f"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/novatel/oem7/imu/data_raw.linear_acceleration.y",
-          "enabled": true,
-          "color": "#f7df71",
-          "id": "54152a4d-aeff-4b17-9aed-ab9799b78ff4"
-        }
-      ],
-      "showXAxisLabels": true,
-      "showYAxisLabels": true,
-      "showLegend": true,
-      "legendDisplay": "floating",
-      "showPlotValuesInLegend": false,
-      "isSynced": true,
-      "xAxisVal": "timestamp",
-      "sidebarDimension": 240
     }
   },
   "globalVariables": {},
