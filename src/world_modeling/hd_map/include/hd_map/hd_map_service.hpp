@@ -37,16 +37,71 @@ public:
   HDMapService();
 
 private:
+  /**
+  * Handle incoming traffic light detections.
+  *
+  * @param traffic_light_array_msg array of detected traffic lights
+  */
   void hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg);
+
+  /**
+  * Handle incoming traffic sign detections.
+  *
+  * @param traffic_sign_msg detected traffic sign
+  */
   void hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg);
+
+  /**
+  * Handle incoming pedestrian detections.
+  *
+  * @param pedestrian_msg array of detected pedestrians
+  */
   void hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg);
+
+  /**
+  * Handle incoming point messages for route visualization.
+  *
+  * @param msg the selected position
+  */
   void point_callback(geometry_msgs::msg::PointStamped::SharedPtr msg);
+
+  /**
+  * Get the desired lane based on current vehicle position.
+  *
+  * @param msg current vehicle position
+  */
   void get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr msg);
+
+  /**
+  * Publish HD map visualization markers.
+  *
+  */
   void publish_hd_map_marker();
+
+  /**
+  * Handle behaviour tree info service requests.
+  *
+  * @param request service request containing query info
+  * @param response service response with current or goal points
+  */
   void behaviour_tree_info_callback(
     const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request,
     const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response);
+
+  /**
+  * Convert a lanelet to a ROS message
+  *
+  * @param lanelet the lanelet to convert
+  * @return lanelet as a ROS message
+  */
   world_modeling_msgs::msg::Lanelet convert_lanelet_to_msg(const lanelet::ConstLanelet & lanelet);
+
+  /**
+  * Convert a lanelet path to a ROS message
+  *
+  * @param path the lanelet path to convert
+  * @return lanelet path as a ROS message
+  */
   world_modeling_msgs::msg::LaneletPath convert_laneletPath_to_msg(
     const lanelet::Optional<lanelet::routing::LaneletPath> & path);
 
