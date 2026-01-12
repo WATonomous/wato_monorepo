@@ -49,25 +49,99 @@ class HDMapRouter
 public:
   HDMapRouter();
 
+  /**
+  * Set the lanelet map for routing.
+  *
+  * @param lanelet_ptr pointer to the lanelet map
+  * @return whether the lanelet was successfully set
+  */
   bool set_lanelet(const lanelet::LaneletMapPtr & lanelet_ptr);
 
+  /**
+  * Set the projector to convert GPS to local XYZ coordinates.
+  *
+  * @param projector projector for the cordinate conversions
+  * @return whether the projector was successfully set
+  */
   bool set_projector(std::shared_ptr<lanelet::Projector> projector);
 
+  /**
+  * Get the current lanelet map.
+  *
+  * @return pointer to the lanelet map
+  */
   lanelet::LaneletMapPtr get_lanelet();
 
+  /**
+  * Convert GPS coordinates to local XYZ coordinates.
+  *
+  * @param gps_point GPS coordinates
+  * @return local XYZ corrdinates in meters
+  */
   lanelet::BasicPoint3d project_gps_to_point3d(lanelet::GPSPoint gps_point);
+
+  /**
+  * Convert local XYZ coordinates to GPS coordinates.
+  *
+  * @param point3d the filename of the map
+  * @return GPS coordinates
+  */
   lanelet::GPSPoint project_point3d_to_gps(lanelet::BasicPoint3d point3d);
 
+  /**
+  * Find the nearest lanelet to a GPS point.
+  *
+  * @param gps_point GPS points to search for
+  * @return the lanelet cloest to the given GPS point
+  */
   lanelet::ConstLanelet get_nearest_lanelet_to_gps(lanelet::GPSPoint gps_point);
 
+  /**
+  * Find the nearest lanelet to the center of a bounding box.
+  *
+  * @param x left edge x-coordinate of the boundng box
+  * @param y top edge y-coordinate of the bounding box
+  * @param width_x width of the bounding box
+  * @param width_y height of the bounding box
+  * @return the lanelet closest to the center of the bounding box
+  */
   lanelet::ConstLanelet get_nearest_lanelet_to_xy(float x, float y, float width_x, float height_y);
+
+  /**
+  * Find the nearest lanelet to a XYZ point.
+  *
+  * @param x the x-coordinate
+  * @param y the y-coordinate
+  * @param z the z-coordinate
+  * @return the lanelet closest to the point
+  */
   lanelet::ConstLanelet get_nearest_lanelet_to_xyz(float x, float y, float z);
 
+  /**
+  * Calculate a route between two GPS points.
+  *
+  * @param from_point starting GPS coordinates
+  * @param to_point destination GPS coordinates
+  * @return the shortest path between the points, or empty if no route exists
+  */
   lanelet::Optional<lanelet::routing::LaneletPath> route(lanelet::GPSPoint from_point, lanelet::GPSPoint to_point);
 
+  /**
+  * Calculate a route between two lanelets.
+  *
+  * @param from_lanelet starting lanelet
+  * @param to_lanelet destination lanelet
+  * @return the shortest path between the lanelets, or empty if no route exists
+  */
   lanelet::Optional<lanelet::routing::LaneletPath> route(
     lanelet::ConstLanelet from_lanelet, lanelet::ConstLanelet to_lanelet);
 
+  /**
+  * Get the class ID from a 3D detection message.
+  *
+  * @param reg_elem_msg_ptr 3D detection message
+  * @return the class ID with the highest confidence score
+  */
   std::string get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr);
 
   // Mock functions to get reg elem state/subtype
