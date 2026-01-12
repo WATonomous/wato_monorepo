@@ -195,7 +195,8 @@ std::map<std::string, lanelet::Origin> HDMapManager::create_origin_list() const
     {"boston-seaport.osm", lanelet::Origin({42.34662556029, -71.03961952122})},
     {"singapore-onenorth.osm", lanelet::Origin({1.29737492463, 103.79170844651})},
     {"singapore-hollandvillage.osm", lanelet::Origin({1.316013710965, 103.79549063793})},
-    {"singapore-queenstown.osm", lanelet::Origin({1.29779876, 103.7826437429})}};
+    {"singapore-queenstown.osm", lanelet::Origin({1.29779876, 103.7826437429})},
+    {"ringroad.osm", lanelet::Origin({43.470645, -80.543345})}};
 
   std::map<std::string, lanelet::Origin> result;
   for (const auto & [filename, origin] : map_origins) {
