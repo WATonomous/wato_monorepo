@@ -144,7 +144,12 @@ public:
   */
   std::string get_detection3d_class(const vision_msgs::msg::Detection3D::SharedPtr reg_elem_msg_ptr);
 
-  // Mock functions to get reg elem state/subtype
+  /**
+  * Get the current state of a Traffic Light.
+  *
+  * @param traffic_light_msg_ptr the traffic light regulatory element
+  * @return the traffic light state, either red, yellow or green
+  */
   TrafficLightState get_traffic_light_state(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
 
 private:
