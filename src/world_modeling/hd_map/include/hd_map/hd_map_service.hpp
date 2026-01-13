@@ -30,6 +30,9 @@
 #include "world_modeling_msgs/msg/lanelet_path.hpp"
 #include "world_modeling_msgs/srv/behaviour_tree_info.hpp"
 #include "world_modeling_msgs/srv/lanelet_info.hpp"
+#include "world_modeling_msgs/srv/lanelet_info_gps.hpp"
+#include "world_modeling_msgs/srv/lanelet_info_xy.hpp"
+#include "world_modeling_msgs/srv/lanelet_info_xyz.hpp"
 
 class HDMapService : public rclcpp::Node
 {
@@ -67,6 +70,18 @@ private:
     const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request,
     const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response);
 
+  void laneletInfoGPSCallback(
+    const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Request> request,
+    std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Response> response);
+
+  void laneletInfoXYZCallback(
+    const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Request> request,
+    std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Response> response);
+
+  void laneletInfoXYCallback(
+    const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Request> request,
+    std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Response> response);
+
   /**
   * Convert a lanelet to a ROS message
   *
@@ -85,6 +100,9 @@ private:
     const lanelet::Optional<lanelet::routing::LaneletPath> & path);
 
   rclcpp::Service<world_modeling_msgs::srv::BehaviourTreeInfo>::SharedPtr behaviour_tree_info_service;
+  rclcpp::Service<world_modeling_msgs::srv::LaneletInfoGPS>::SharedPtr lanelet_info_gps_service_;
+  rclcpp::Service<world_modeling_msgs::srv::LaneletInfoXYZ>::SharedPtr lanelet_info_xyz_service_;
+  rclcpp::Service<world_modeling_msgs::srv::LaneletInfoXY>::SharedPtr lanelet_info_xy_service_;
 
   std::shared_ptr<HDMapRouter> router_;
   std::shared_ptr<HDMapManager> manager_;

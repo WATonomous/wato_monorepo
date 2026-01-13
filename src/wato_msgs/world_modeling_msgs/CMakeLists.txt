@@ -39,6 +39,9 @@ set(msg_files
 set(srv_files
   srv/LaneletInfo.srv
   srv/BehaviourTreeInfo.srv
+  srv/LaneletInfoXY.srv
+  srv/LaneletInfoXYZ.srv
+  srv/LaneletInfoGPS.srv
   )
 
 # Parses message files to generate ROS2 interfaces

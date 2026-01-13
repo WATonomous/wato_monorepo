@@ -58,6 +58,18 @@ HDMapService::HDMapService()
     "behaviour_tree_info",
     std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
 
+  lanelet_info_gps_service_ = this->create_service<world_modeling_msgs::srv::LaneletInfoGPS>(
+    "lanelet_info_gps",
+    std::bind(&HDMapService::laneletInfoGPSCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lanelet_info_xyz_service_ = this->create_service<world_modeling_msgs::srv::LaneletInfoXYZ>(
+    "lanelet_info_xyz",
+    std::bind(&HDMapService::laneletInfoXYZCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lanelet_info_xy_service_ = this->create_service<world_modeling_msgs::srv::LaneletInfoXY>(
+    "lanelet_info_xy",
+    std::bind(&HDMapService::laneletInfoXYCallback, this, std::placeholders::_1, std::placeholders::_2));
+
   // Map selection hardcoded for now
 
   std::string osm_map = manager_->get_maps_directory() + osm_map_filename;
@@ -236,6 +248,36 @@ void HDMapService::behaviour_tree_info_callback(
   // response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
   // response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
   // response->route_list = convert_laneletPath_to_msg(lanelet_path);
+}
+
+void HDMapService::laneletInfoGPSCallback(
+  const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Response> response)
+{
+  lanelet::GPSPoint gps_point;
+  gps_point.lat = request->latitude;
+  gps_point.lon = request->longitude;
+  gps_point.ele = request->altitude;
+
+  lanelet::ConstLanelet closest_lanelet = router_->get_nearest_lanelet_to_gps(gps_point);
+  response->lanelet = convert_lanelet_to_msg(closest_lanelet);
+}
+
+void HDMapService::laneletInfoXYZCallback(
+  const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Response> response)
+{
+  lanelet::ConstLanelet closest_lanelet = router_->get_nearest_lanelet_to_xyz(request->x, request->y, request->z);
+  response->lanelet = convert_lanelet_to_msg(closest_lanelet);
+}
+
+void HDMapService::laneletInfoXYCallback(
+  const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Response> response)
+{
+  lanelet::ConstLanelet closest_lanelet =
+    router_->get_nearest_lanelet_to_xy(request->x, request->y, request->width_x, request->height_y);
+  response->lanelet = convert_lanelet_to_msg(closest_lanelet);
 }
 
 int main(int argc, char ** argv)
