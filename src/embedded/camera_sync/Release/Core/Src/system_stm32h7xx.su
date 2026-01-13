@@ -1,0 +1,3 @@
+../Core/Src/system_stm32h7xx.c:180:6:SystemInit	0	static
+../Core/Src/system_stm32h7xx.c:354:6:SystemCoreClockUpdate	12	static
+../Core/Src/system_stm32h7xx.c:476:6:ExitRun0Mode	0	static
