@@ -26,9 +26,17 @@ endif()
 # ---- General ROS 2 Packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
 # ---- Msg Packages
-find_package(common_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
+# TODO: Add wato_msgs dependencies when message types are defined
+# find_package(world_modeling_msgs REQUIRED)
+
+# ---- Other Dependencies
+find_package(Eigen3 REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -36,18 +44,25 @@ find_package(common_msgs REQUIRED)
 # We build a library so that the methods defined can be used by
 # both the unit test and ROS2 node executables.
 add_library(prediction_lib
-  src/utils.cpp
+  src/trajectory_predictor.cpp
+  src/intent_classifier.cpp
+  src/motion_models.cpp
+  src/map_interface.cpp
 )
 
 # Indicate to compiler where to search for header files
 target_include_directories(prediction_lib
   PUBLIC
-  include)
+  include
+  ${EIGEN3_INCLUDE_DIR})
 
 # Add ROS2 dependencies required by package
 ament_target_dependencies(prediction_lib
   rclcpp
-  common_msgs
+  rclcpp_components
+  std_msgs
+  geometry_msgs
+  vision_msgs
   )
 
 # # By default tests are built. This can be overridden by modifying the
@@ -83,7 +98,7 @@ ament_target_dependencies(prediction_lib
 # endif()
 
 # Create ROS2 node executable from source files
-add_executable(prediction_node src/kalman_filter.cpp)
+add_executable(prediction_node src/prediction_node.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(prediction_node prediction_lib)
 

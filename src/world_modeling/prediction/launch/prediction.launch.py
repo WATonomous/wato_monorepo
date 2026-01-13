@@ -21,22 +21,29 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    """Launch sample node."""
-    kalman_filter_pkg_prefix = get_package_share_directory("kalman_filter")
-    kalman_filter_param_file = os.path.join(
-        kalman_filter_pkg_prefix, "config", "params.yaml"
+    """Launch multi-modal trajectory prediction node."""
+    prediction_pkg_prefix = get_package_share_directory("prediction")
+    prediction_param_file = os.path.join(
+        prediction_pkg_prefix, "config", "params.yaml"
     )
 
-    kalman_filter_param = DeclareLaunchArgument(
-        "kalman_filter_param_file",
-        default_value=kalman_filter_param_file,
-        description="Path to config file for kalman_filter node",
+    prediction_param = DeclareLaunchArgument(
+        "prediction_param_file",
+        default_value=prediction_param_file,
+        description="Path to config file for prediction node",
     )
 
-    kalman_filter_service_node = Node(
-        package="kalman_filter",
-        executable="kalman_filter_service",
-        parameters=[LaunchConfiguration("kalman_filter_param_file")],
+    prediction_node = Node(
+        package="prediction",
+        executable="prediction_node",
+        name="prediction_node",
+        output="screen",
+        parameters=[LaunchConfiguration("prediction_param_file")],
+        remappings=[
+            ("/perception/detections_3D_tracked", "/perception/detections_3D_tracked"),
+            ("/localization/pose", "/localization/pose"),
+            ("/world_modeling/prediction/predicted_paths", "/world_modeling/prediction/predicted_paths"),
+        ],
     )
 
-    return LaunchDescription([kalman_filter_param, kalman_filter_service_node])
+    return LaunchDescription([prediction_param, prediction_node])
