@@ -50,38 +50,38 @@
         }
       },
       "topics": {
-        "/lidar_top/scan": {
+        "/lidar_cc/scan": {
           "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
           "pointSize": 2
         },
-        "/lidar_left/scan": {
+        "/lidar_nw/scan": {
           "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_right/scan": {
+        "/lidar_ne/scan": {
           "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_right/velodyne_points": {
+        "/lidar_ne/velodyne_points": {
           "visible": false,
           "colorField": "ring",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_left/velodyne_points": {
+        "/lidar_nw/velodyne_points": {
           "visible": false,
           "colorField": "ring",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
-        "/lidar_top/velodyne_points": {
+        "/lidar_cc/velodyne_points": {
           "visible": true,
           "colorField": "ring",
           "colorMode": "colormap",
