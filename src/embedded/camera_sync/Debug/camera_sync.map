@@ -4427,7 +4427,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
  .text.SysTick_Handler
                 0x08000706        0xc ./Core/Src/stm32h7xx_it.o
                 0x08000706                SysTick_Handler
- *fill*         0x08000712        0x2 
+ *fill*         0x08000712        0x2
  .text.SystemInit
                 0x08000714      0x140 ./Core/Src/system_stm32h7xx.o
                 0x08000714                SystemInit
@@ -4580,7 +4580,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
                 0x080008d8                DMA2_Stream6_IRQHandler
                 0x080008d8                SAI1_IRQHandler
                 0x080008d8                DMA1_Stream3_IRQHandler
- *fill*         0x080008da        0x2 
+ *fill*         0x080008da        0x2
  .text.HAL_Init
                 0x080008dc       0x78 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.o
                 0x080008dc                HAL_Init
@@ -4604,7 +4604,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
                 0x08000a7c       0x54 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.o
  .text.NVIC_EncodePriority
                 0x08000ad0       0x66 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.o
- *fill*         0x08000b36        0x2 
+ *fill*         0x08000b36        0x2
  .text.SysTick_Config
                 0x08000b38       0x44 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.o
  .text.HAL_NVIC_SetPriorityGrouping
@@ -4616,7 +4616,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
  .text.HAL_SYSTICK_Config
                 0x08000bc6       0x18 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.o
                 0x08000bc6                HAL_SYSTICK_Config
- *fill*         0x08000bde        0x2 
+ *fill*         0x08000bde        0x2
  .text.HAL_MPU_Disable
                 0x08000be0       0x30 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.o
                 0x08000be0                HAL_MPU_Disable
@@ -4679,7 +4679,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
                 0x08002e48       0x5e ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
  .text.TIM_TI2_ConfigInputStage
                 0x08002ea6       0x60 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
- *fill*         0x08002f06        0x2 
+ *fill*         0x08002f06        0x2
  .text.TIM_ITRx_SetConfig
                 0x08002f08       0x3c ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
  .text.TIM_ETR_SetConfig
@@ -4688,7 +4688,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
  .text.TIM_CCxChannelCmd
                 0x08002f84       0x4a ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
                 0x08002f84                TIM_CCxChannelCmd
- *fill*         0x08002fce        0x2 
+ *fill*         0x08002fce        0x2
  .text.HAL_TIMEx_MasterConfigSynchronization
                 0x08002fd0      0x11c ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.o
                 0x08002fd0                HAL_TIMEx_MasterConfigSynchronization
@@ -4786,7 +4786,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
  *(.RamFunc)
  *(.RamFunc*)
                 0x24000010                        . = ALIGN (0x4)
- *fill*         0x2400000d        0x3 
+ *fill*         0x2400000d        0x3
                 0x24000010                        _edata = .
 
 .igot.plt       0x24000010        0x0 load address 0x08003280
@@ -4811,13 +4811,13 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
 ._user_heap_stack
                 0x2400007c      0x604 load address 0x08003280
                 0x24000080                        . = ALIGN (0x8)
- *fill*         0x2400007c        0x4 
+ *fill*         0x2400007c        0x4
                 [!provide]                        PROVIDE (end = .)
                 0x24000080                        PROVIDE (_end = .)
                 0x24000280                        . = (. + _Min_Heap_Size)
- *fill*         0x24000080      0x200 
+ *fill*         0x24000080      0x200
                 0x24000680                        . = (. + _Min_Stack_Size)
- *fill*         0x24000280      0x400 
+ *fill*         0x24000280      0x400
                 0x24000680                        . = ALIGN (0x8)
 
 /DISCARD/

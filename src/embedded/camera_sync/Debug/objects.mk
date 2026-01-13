@@ -6,4 +6,3 @@
 USER_OBJS :=
 
 LIBS :=
-

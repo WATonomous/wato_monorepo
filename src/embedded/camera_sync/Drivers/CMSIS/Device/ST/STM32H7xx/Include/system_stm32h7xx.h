@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
   ******************************************************************************
   * @file    system_stm32h7xx.h
@@ -28,22 +42,22 @@
   * @brief Define to prevent recursive inclusion
   */
 #ifndef SYSTEM_STM32H7XX_H
-#define SYSTEM_STM32H7XX_H
+  #define SYSTEM_STM32H7XX_H
 
-#ifdef __cplusplus
- extern "C" {
-#endif
+  #ifdef __cplusplus
+extern "C"
+{
+  #endif
 
-/** @addtogroup STM32H7xx_System_Includes
+  /** @addtogroup STM32H7xx_System_Includes
   * @{
   */
 
-/**
+  /**
   * @}
   */
 
-
-/** @addtogroup STM32H7xx_System_Exported_types
+  /** @addtogroup STM32H7xx_System_Exported_types
   * @{
   */
   /* This variable is updated in three ways:
@@ -54,44 +68,44 @@
                is no need to call the 2 first functions listed above, since SystemCoreClock
                variable is updated automatically.
   */
-extern uint32_t SystemCoreClock;             /*!< System Domain1 Clock Frequency  */
-extern uint32_t SystemD2Clock;               /*!< System Domain2 Clock Frequency  */
-extern const  uint8_t D1CorePrescTable[16] ; /*!< D1CorePrescTable prescalers table values */
+  extern uint32_t SystemCoreClock; /*!< System Domain1 Clock Frequency  */
+  extern uint32_t SystemD2Clock; /*!< System Domain2 Clock Frequency  */
+  extern const uint8_t D1CorePrescTable[16]; /*!< D1CorePrescTable prescalers table values */
 
-/**
+  /**
   * @}
   */
 
-/** @addtogroup STM32H7xx_System_Exported_Constants
+  /** @addtogroup STM32H7xx_System_Exported_Constants
   * @{
   */
 
-/**
+  /**
   * @}
   */
 
-/** @addtogroup STM32H7xx_System_Exported_Macros
+  /** @addtogroup STM32H7xx_System_Exported_Macros
   * @{
   */
 
-/**
+  /**
   * @}
   */
 
-/** @addtogroup STM32H7xx_System_Exported_Functions
+  /** @addtogroup STM32H7xx_System_Exported_Functions
   * @{
   */
 
-extern void SystemInit(void);
-extern void SystemCoreClockUpdate(void);
-extern void ExitRun0Mode(void);
-/**
+  extern void SystemInit(void);
+  extern void SystemCoreClockUpdate(void);
+  extern void ExitRun0Mode(void);
+  /**
   * @}
   */
 
-#ifdef __cplusplus
+  #ifdef __cplusplus
 }
-#endif
+  #endif
 
 #endif /* SYSTEM_STM32H7XX_H */
 

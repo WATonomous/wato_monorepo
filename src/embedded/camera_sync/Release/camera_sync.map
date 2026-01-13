@@ -1661,7 +1661,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
                 0x080006c4                DMA2_Stream6_IRQHandler
                 0x080006c4                SAI1_IRQHandler
                 0x080006c4                DMA1_Stream3_IRQHandler
- *fill*         0x080006c6        0x2 
+ *fill*         0x080006c6        0x2
  .text.HAL_InitTick
                 0x080006c8       0x4c ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.o
                 0x080006c8                HAL_InitTick
@@ -1723,7 +1723,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
  .text.HAL_TIM_PWM_MspInit
                 0x08001608        0x2 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
                 0x08001608                HAL_TIM_PWM_MspInit
- *fill*         0x0800160a        0x2 
+ *fill*         0x0800160a        0x2
  .text.TIM_Base_SetConfig
                 0x0800160c       0xa8 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
                 0x0800160c                TIM_Base_SetConfig
@@ -1845,7 +1845,7 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
  .data.uwTickFreq
                 0x24000008        0x1 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.o
                 0x24000008                uwTickFreq
- *fill*         0x24000009        0x3 
+ *fill*         0x24000009        0x3
  .data.uwTickPrio
                 0x2400000c        0x4 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.o
                 0x2400000c                uwTickPrio
@@ -1876,13 +1876,13 @@ LOAD /home/thchzh/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externa
 ._user_heap_stack
                 0x2400007c      0x604 load address 0x08001d68
                 0x24000080                        . = ALIGN (0x8)
- *fill*         0x2400007c        0x4 
+ *fill*         0x2400007c        0x4
                 [!provide]                        PROVIDE (end = .)
                 0x24000080                        PROVIDE (_end = .)
                 0x24000280                        . = (. + _Min_Heap_Size)
- *fill*         0x24000080      0x200 
+ *fill*         0x24000080      0x200
                 0x24000680                        . = (. + _Min_Stack_Size)
- *fill*         0x24000280      0x400 
+ *fill*         0x24000280      0x400
                 0x24000680                        . = ALIGN (0x8)
 
 /DISCARD/

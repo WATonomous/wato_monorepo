@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
   ******************************************************************************
   * @file    stm32h7xx_hal_cortex.c
@@ -103,7 +117,6 @@
   * @{
   */
 
-
 /** @defgroup CORTEX_Exported_Functions_Group1 Initialization and de-initialization functions
  *  @brief    Initialization and Configuration functions
  *
@@ -118,7 +131,6 @@
 @endverbatim
   * @{
   */
-
 
 /**
   * @brief  Sets the priority grouping field (preemption priority and subpriority)
@@ -227,13 +239,14 @@ void HAL_NVIC_SystemReset(void)
   */
 uint32_t HAL_SYSTICK_Config(uint32_t TicksNumb)
 {
-   return SysTick_Config(TicksNumb);
+  return SysTick_Config(TicksNumb);
 }
-/**
+
+  /**
   * @}
   */
 
-/** @defgroup CORTEX_Exported_Functions_Group2 Peripheral Control functions
+  /** @defgroup CORTEX_Exported_Functions_Group2 Peripheral Control functions
  *  @brief   Cortex control functions
  *
 @verbatim
@@ -248,7 +261,7 @@ uint32_t HAL_SYSTICK_Config(uint32_t TicksNumb)
 @endverbatim
   * @{
   */
-#if (__MPU_PRESENT == 1)
+  #if (__MPU_PRESENT == 1)
 /**
   * @brief  Disables the MPU
   * @retval None
@@ -327,7 +340,7 @@ void HAL_MPU_DisableRegion(uint32_t RegionNumber)
   *                the initialization and configuration information.
   * @retval None
   */
-void HAL_MPU_ConfigRegion(const MPU_Region_InitTypeDef *MPU_Init)
+void HAL_MPU_ConfigRegion(const MPU_Region_InitTypeDef * MPU_Init)
 {
   /* Check the parameters */
   assert_param(IS_MPU_REGION_NUMBER(MPU_Init->Number));
@@ -349,17 +362,14 @@ void HAL_MPU_ConfigRegion(const MPU_Region_InitTypeDef *MPU_Init)
 
   /* Apply configuration */
   MPU->RBAR = MPU_Init->BaseAddress;
-  MPU->RASR = ((uint32_t)MPU_Init->DisableExec             << MPU_RASR_XN_Pos)   |
-              ((uint32_t)MPU_Init->AccessPermission        << MPU_RASR_AP_Pos)   |
-              ((uint32_t)MPU_Init->TypeExtField            << MPU_RASR_TEX_Pos)  |
-              ((uint32_t)MPU_Init->IsShareable             << MPU_RASR_S_Pos)    |
-              ((uint32_t)MPU_Init->IsCacheable             << MPU_RASR_C_Pos)    |
-              ((uint32_t)MPU_Init->IsBufferable            << MPU_RASR_B_Pos)    |
-              ((uint32_t)MPU_Init->SubRegionDisable        << MPU_RASR_SRD_Pos)  |
-              ((uint32_t)MPU_Init->Size                    << MPU_RASR_SIZE_Pos) |
-              ((uint32_t)MPU_Init->Enable                  << MPU_RASR_ENABLE_Pos);
+  MPU->RASR =
+    ((uint32_t)MPU_Init->DisableExec << MPU_RASR_XN_Pos) | ((uint32_t)MPU_Init->AccessPermission << MPU_RASR_AP_Pos) |
+    ((uint32_t)MPU_Init->TypeExtField << MPU_RASR_TEX_Pos) | ((uint32_t)MPU_Init->IsShareable << MPU_RASR_S_Pos) |
+    ((uint32_t)MPU_Init->IsCacheable << MPU_RASR_C_Pos) | ((uint32_t)MPU_Init->IsBufferable << MPU_RASR_B_Pos) |
+    ((uint32_t)MPU_Init->SubRegionDisable << MPU_RASR_SRD_Pos) | ((uint32_t)MPU_Init->Size << MPU_RASR_SIZE_Pos) |
+    ((uint32_t)MPU_Init->Enable << MPU_RASR_ENABLE_Pos);
 }
-#endif /* __MPU_PRESENT */
+  #endif /* __MPU_PRESENT */
 
 /**
   * @brief  Gets the priority grouping field from the NVIC Interrupt Controller.
@@ -392,11 +402,11 @@ uint32_t HAL_NVIC_GetPriorityGrouping(void)
   * @param  pSubPriority Pointer on the Subpriority value (starting from 0).
   * @retval None
   */
-void HAL_NVIC_GetPriority(IRQn_Type IRQn, uint32_t PriorityGroup, uint32_t *pPreemptPriority, uint32_t *pSubPriority)
+void HAL_NVIC_GetPriority(IRQn_Type IRQn, uint32_t PriorityGroup, uint32_t * pPreemptPriority, uint32_t * pSubPriority)
 {
   /* Check the parameters */
   assert_param(IS_NVIC_PRIORITY_GROUP(PriorityGroup));
- /* Get priority for Cortex-M system or device specific interrupts */
+  /* Get priority for Cortex-M system or device specific interrupts */
   NVIC_DecodePriority(NVIC_GetPriority(IRQn), PriorityGroup, pPreemptPriority, pSubPriority);
 }
 
@@ -479,12 +489,9 @@ void HAL_SYSTICK_CLKSourceConfig(uint32_t CLKSource)
 {
   /* Check the parameters */
   assert_param(IS_SYSTICK_CLK_SOURCE(CLKSource));
-  if (CLKSource == SYSTICK_CLKSOURCE_HCLK)
-  {
+  if (CLKSource == SYSTICK_CLKSOURCE_HCLK) {
     SysTick->CTRL |= SYSTICK_CLKSOURCE_HCLK;
-  }
-  else
-  {
+  } else {
     SysTick->CTRL &= ~SYSTICK_CLKSOURCE_HCLK;
   }
 }
@@ -509,7 +516,7 @@ __weak void HAL_SYSTICK_Callback(void)
    */
 }
 
-#if defined(DUAL_CORE)
+  #if defined(DUAL_CORE)
 
 /**
   * @brief  Returns the current CPU ID.
@@ -517,17 +524,14 @@ __weak void HAL_SYSTICK_Callback(void)
   */
 uint32_t HAL_GetCurrentCPUID(void)
 {
-  if (((SCB->CPUID & 0x000000F0U) >> 4 )== 0x7U)
-  {
-    return  CM7_CPUID;
-  }
-  else
-  {
+  if (((SCB->CPUID & 0x000000F0U) >> 4) == 0x7U) {
+    return CM7_CPUID;
+  } else {
     return CM4_CPUID;
   }
 }
 
-#else
+  #else
 
 /**
 * @brief  Returns the current CPU ID.
@@ -535,10 +539,10 @@ uint32_t HAL_GetCurrentCPUID(void)
 */
 uint32_t HAL_GetCurrentCPUID(void)
 {
-  return  CM7_CPUID;
+  return CM7_CPUID;
 }
 
-#endif /*DUAL_CORE*/
+  #endif /*DUAL_CORE*/
 /**
   * @}
   */
@@ -555,4 +559,3 @@ uint32_t HAL_GetCurrentCPUID(void)
 /**
   * @}
   */
-

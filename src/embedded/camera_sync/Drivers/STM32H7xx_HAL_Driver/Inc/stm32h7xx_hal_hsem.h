@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
   ******************************************************************************
   * @file    stm32h7xx_hal_hsem.h
@@ -21,7 +35,8 @@
 #define STM32H7xx_HAL_HSEM_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* Includes ------------------------------------------------------------------*/
@@ -53,11 +68,10 @@ extern "C" {
   * @retval None.
   */
 #if defined(DUAL_CORE)
-#define __HAL_HSEM_ENABLE_IT(__SEM_MASK__) ((((SCB->CPUID & 0x000000F0) >> 4 )== 0x7) ? \
-                                            (HSEM->C1IER |= (__SEM_MASK__)) : \
-                                            (HSEM->C2IER |= (__SEM_MASK__)))
+  #define __HAL_HSEM_ENABLE_IT(__SEM_MASK__) \
+    ((((SCB->CPUID & 0x000000F0) >> 4) == 0x7) ? (HSEM->C1IER |= (__SEM_MASK__)) : (HSEM->C2IER |= (__SEM_MASK__)))
 #else
-#define __HAL_HSEM_ENABLE_IT(__SEM_MASK__) (HSEM->C1IER |= (__SEM_MASK__))
+  #define __HAL_HSEM_ENABLE_IT(__SEM_MASK__) (HSEM->C1IER |= (__SEM_MASK__))
 #endif /* DUAL_CORE */
 /**
   * @brief  Disables the specified HSEM interrupts.
@@ -65,11 +79,10 @@ extern "C" {
   * @retval None.
   */
 #if defined(DUAL_CORE)
-#define __HAL_HSEM_DISABLE_IT(__SEM_MASK__) ((((SCB->CPUID & 0x000000F0) >> 4 )== 0x7) ? \
-                                             (HSEM->C1IER &= ~(__SEM_MASK__)) :       \
-                                             (HSEM->C2IER &= ~(__SEM_MASK__)))
+  #define __HAL_HSEM_DISABLE_IT(__SEM_MASK__) \
+    ((((SCB->CPUID & 0x000000F0) >> 4) == 0x7) ? (HSEM->C1IER &= ~(__SEM_MASK__)) : (HSEM->C2IER &= ~(__SEM_MASK__)))
 #else
-#define __HAL_HSEM_DISABLE_IT(__SEM_MASK__) (HSEM->C1IER &= ~(__SEM_MASK__))
+  #define __HAL_HSEM_DISABLE_IT(__SEM_MASK__) (HSEM->C1IER &= ~(__SEM_MASK__))
 #endif /* DUAL_CORE */
 
 /**
@@ -78,11 +91,10 @@ extern "C" {
   * @retval semaphores Mask : Semaphores where an interrupt occurred.
   */
 #if defined(DUAL_CORE)
-#define __HAL_HSEM_GET_IT(__SEM_MASK__) ((((SCB->CPUID & 0x000000F0) >> 4 )== 0x7) ? \
-                                         ((__SEM_MASK__) & HSEM->C1MISR) :        \
-                                         ((__SEM_MASK__) & HSEM->C2MISR))
+  #define __HAL_HSEM_GET_IT(__SEM_MASK__) \
+    ((((SCB->CPUID & 0x000000F0) >> 4) == 0x7) ? ((__SEM_MASK__) & HSEM->C1MISR) : ((__SEM_MASK__) & HSEM->C2MISR))
 #else
-#define __HAL_HSEM_GET_IT(__SEM_MASK__) ((__SEM_MASK__) & HSEM->C1MISR)
+  #define __HAL_HSEM_GET_IT(__SEM_MASK__) ((__SEM_MASK__) & HSEM->C1MISR)
 #endif /* DUAL_CORE */
 
 /**
@@ -91,11 +103,10 @@ extern "C" {
   * @retval semaphores Mask : Semaphores where Release flags rise.
   */
 #if defined(DUAL_CORE)
-#define __HAL_HSEM_GET_FLAG(__SEM_MASK__) ((((SCB->CPUID & 0x000000F0) >> 4 )== 0x7) ? \
-                                           (__SEM_MASK__) & HSEM->C1ISR :           \
-                                           (__SEM_MASK__) & HSEM->C2ISR)
+  #define __HAL_HSEM_GET_FLAG(__SEM_MASK__) \
+    ((((SCB->CPUID & 0x000000F0) >> 4) == 0x7) ? (__SEM_MASK__) & HSEM->C1ISR : (__SEM_MASK__) & HSEM->C2ISR)
 #else
-#define __HAL_HSEM_GET_FLAG(__SEM_MASK__) ((__SEM_MASK__) & HSEM->C1ISR)
+  #define __HAL_HSEM_GET_FLAG(__SEM_MASK__) ((__SEM_MASK__) & HSEM->C1ISR)
 #endif /* DUAL_CORE */
 
 /**
@@ -104,103 +115,100 @@ extern "C" {
   * @retval None.
   */
 #if defined(DUAL_CORE)
-#define __HAL_HSEM_CLEAR_FLAG(__SEM_MASK__) ((((SCB->CPUID & 0x000000F0) >> 4 )== 0x7) ? \
-                                             (HSEM->C1ICR |= (__SEM_MASK__)) :        \
-                                             (HSEM->C2ICR |= (__SEM_MASK__)))
+  #define __HAL_HSEM_CLEAR_FLAG(__SEM_MASK__) \
+    ((((SCB->CPUID & 0x000000F0) >> 4) == 0x7) ? (HSEM->C1ICR |= (__SEM_MASK__)) : (HSEM->C2ICR |= (__SEM_MASK__)))
 #else
-#define __HAL_HSEM_CLEAR_FLAG(__SEM_MASK__) (HSEM->C1ICR |= (__SEM_MASK__))
+  #define __HAL_HSEM_CLEAR_FLAG(__SEM_MASK__) (HSEM->C1ICR |= (__SEM_MASK__))
 #endif /* DUAL_CORE */
 
-/**
+  /**
   * @}
   */
 
-/* Exported functions --------------------------------------------------------*/
-/** @defgroup HSEM_Exported_Functions HSEM Exported Functions
+  /* Exported functions --------------------------------------------------------*/
+  /** @defgroup HSEM_Exported_Functions HSEM Exported Functions
   * @{
   */
 
-/** @addtogroup HSEM_Exported_Functions_Group1 Take and Release functions
+  /** @addtogroup HSEM_Exported_Functions_Group1 Take and Release functions
   * @brief    HSEM Take and Release functions
   * @{
   */
 
-/* HSEM semaphore take (lock) using 2-Step  method ****************************/
-HAL_StatusTypeDef  HAL_HSEM_Take(uint32_t SemID, uint32_t ProcessID);
-/* HSEM semaphore fast take (lock) using 1-Step  method ***********************/
-HAL_StatusTypeDef  HAL_HSEM_FastTake(uint32_t SemID);
-/* HSEM Release  **************************************************************/
-void  HAL_HSEM_Release(uint32_t SemID, uint32_t ProcessID);
-/* HSEM Release All************************************************************/
-void HAL_HSEM_ReleaseAll(uint32_t Key, uint32_t CoreID);
-/* HSEM Check semaphore state Taken or not   **********************************/
-uint32_t HAL_HSEM_IsSemTaken(uint32_t SemID);
+  /* HSEM semaphore take (lock) using 2-Step  method ****************************/
+  HAL_StatusTypeDef HAL_HSEM_Take(uint32_t SemID, uint32_t ProcessID);
+  /* HSEM semaphore fast take (lock) using 1-Step  method ***********************/
+  HAL_StatusTypeDef HAL_HSEM_FastTake(uint32_t SemID);
+  /* HSEM Release  **************************************************************/
+  void HAL_HSEM_Release(uint32_t SemID, uint32_t ProcessID);
+  /* HSEM Release All************************************************************/
+  void HAL_HSEM_ReleaseAll(uint32_t Key, uint32_t CoreID);
+  /* HSEM Check semaphore state Taken or not   **********************************/
+  uint32_t HAL_HSEM_IsSemTaken(uint32_t SemID);
 
-/**
+  /**
   * @}
   */
 
-/** @addtogroup HSEM_Exported_Functions_Group2 HSEM Set and Get Key functions
+  /** @addtogroup HSEM_Exported_Functions_Group2 HSEM Set and Get Key functions
   * @brief    HSEM Set and Get Key functions.
   * @{
   */
-/* HSEM Set Clear Key *********************************************************/
-void  HAL_HSEM_SetClearKey(uint32_t Key);
-/* HSEM Get Clear Key *********************************************************/
-uint32_t HAL_HSEM_GetClearKey(void);
-/**
+  /* HSEM Set Clear Key *********************************************************/
+  void HAL_HSEM_SetClearKey(uint32_t Key);
+  /* HSEM Get Clear Key *********************************************************/
+  uint32_t HAL_HSEM_GetClearKey(void);
+  /**
   * @}
   */
 
-/** @addtogroup HSEM_Exported_Functions_Group3
+  /** @addtogroup HSEM_Exported_Functions_Group3
   * @brief   HSEM Notification functions
   * @{
   */
-/* HSEM Activate HSEM Notification (When a semaphore is released) ) *****************/
-void HAL_HSEM_ActivateNotification(uint32_t SemMask);
-/* HSEM Deactivate HSEM Notification (When a semaphore is released)  ****************/
-void HAL_HSEM_DeactivateNotification(uint32_t SemMask);
-/* HSEM Free Callback (When a semaphore is released)  *******************************/
-void HAL_HSEM_FreeCallback(uint32_t SemMask);
-/* HSEM IRQ Handler  **********************************************************/
-void HAL_HSEM_IRQHandler(void);
+  /* HSEM Activate HSEM Notification (When a semaphore is released) ) *****************/
+  void HAL_HSEM_ActivateNotification(uint32_t SemMask);
+  /* HSEM Deactivate HSEM Notification (When a semaphore is released)  ****************/
+  void HAL_HSEM_DeactivateNotification(uint32_t SemMask);
+  /* HSEM Free Callback (When a semaphore is released)  *******************************/
+  void HAL_HSEM_FreeCallback(uint32_t SemMask);
+  /* HSEM IRQ Handler  **********************************************************/
+  void HAL_HSEM_IRQHandler(void);
 
-/**
+  /**
   * @}
   */
 
-/**
+  /**
   * @}
   */
 
-/* Private macros ------------------------------------------------------------*/
-/** @defgroup HSEM_Private_Macros HSEM Private Macros
+  /* Private macros ------------------------------------------------------------*/
+  /** @defgroup HSEM_Private_Macros HSEM Private Macros
   * @{
   */
 
-#define IS_HSEM_SEMID(__SEMID__) ((__SEMID__) <= HSEM_SEMID_MAX )
+#define IS_HSEM_SEMID(__SEMID__) ((__SEMID__) <= HSEM_SEMID_MAX)
 
-#define IS_HSEM_PROCESSID(__PROCESSID__) ((__PROCESSID__) <= HSEM_PROCESSID_MAX )
+#define IS_HSEM_PROCESSID(__PROCESSID__) ((__PROCESSID__) <= HSEM_PROCESSID_MAX)
 
-#define IS_HSEM_KEY(__KEY__) ((__KEY__) <= HSEM_CLEAR_KEY_MAX )
+#define IS_HSEM_KEY(__KEY__) ((__KEY__) <= HSEM_CLEAR_KEY_MAX)
 
 #if defined(DUAL_CORE)
-#define IS_HSEM_COREID(__COREID__) (((__COREID__) == HSEM_CPU1_COREID) || \
-                                    ((__COREID__) == HSEM_CPU2_COREID))
+  #define IS_HSEM_COREID(__COREID__) (((__COREID__) == HSEM_CPU1_COREID) || ((__COREID__) == HSEM_CPU2_COREID))
 #else
-#define IS_HSEM_COREID(__COREID__) ((__COREID__) == HSEM_CPU1_COREID)
+  #define IS_HSEM_COREID(__COREID__) ((__COREID__) == HSEM_CPU1_COREID)
 #endif
 
-
-/**
+  /**
   * @}
   */
 
-/**
+  /**
   * @}
   */
 
-/**
+  /**
   * @}
   */
 
