@@ -38,27 +38,6 @@ public:
 
 private:
   /**
-  * Handle incoming traffic light detections.
-  *
-  * @param traffic_light_array_msg array of detected traffic lights
-  */
-  void hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg);
-
-  /**
-  * Handle incoming traffic sign detections.
-  *
-  * @param traffic_sign_msg detected traffic sign
-  */
-  void hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg);
-
-  /**
-  * Handle incoming pedestrian detections.
-  *
-  * @param pedestrian_msg array of detected pedestrians
-  */
-  void hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg);
-
-  /**
   * Handle incoming point messages for route visualization.
   *
   * @param msg the selected position
@@ -117,8 +96,6 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hd_map_desired_lane_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hd_map_current_lane_publisher_;
 
-  rclcpp::Subscription<vision_msgs::msg::Detection3D>::SharedPtr hd_map_traffic_sign_subscriber_;
-  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr hd_map_traffic_light_subscriber_;
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr hd_map_pedestrian_subscriber_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr point_subscriber_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr query_point_subscriber_;

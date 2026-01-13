@@ -78,14 +78,6 @@ HDMapService::HDMapService()
   hd_map_current_lane_publisher_ =
     this->create_publisher<visualization_msgs::msg::MarkerArray>(current_lane_output_topic, 20);
 
-  hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    traffic_light_input_topic,
-    20,
-    std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
-  hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>(
-    traffic_sign_input_topic, 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
-  hd_map_pedestrian_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    pedestrian_input_topic, 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
   point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
     point_input_topic, 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
   query_point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
@@ -93,21 +85,6 @@ HDMapService::HDMapService()
 
   hd_map_visualization_timer_ =
     this->create_wall_timer(std::chrono::milliseconds(5000), std::bind(&HDMapService::publish_hd_map_marker, this));
-}
-
-void HDMapService::hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg)
-{
-  router_->process_traffic_light_msg(traffic_light_array_msg);
-}
-
-void HDMapService::hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg)
-{
-  router_->process_traffic_sign_msg(traffic_sign_msg);
-}
-
-void HDMapService::hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg)
-{
-  router_->process_pedestrian_msg(pedestrian_msg);
 }
 
 void HDMapService::publish_hd_map_marker()
@@ -179,7 +156,7 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
         RCLCPP_INFO(this->get_logger(), "Using Current It");
         current_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
         desired_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
-      } else if (idx < lanelet_path->size() - 1) {
+      } else if (idx + 1 < lanelet_path->size()) {
         RCLCPP_INFO(this->get_logger(), "Using Next It");
         current_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
         desired_marker = world_modeling::hd_map::laneletAsMarkerArray(
