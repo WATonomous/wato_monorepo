@@ -76,6 +76,21 @@ public:
    */
   std::string get_osm_map_from_coordinates(lanelet::GPSPoint gps_point);
 
+  /**
+  * Get the router instance used by this manager.
+  *
+  * @return shared pointer to the HDMapRouter owned by the manager.
+  */
+  std::shared_ptr<HDMapRouter> get_router() const
+  {
+    return router_;
+  }
+
+  /**
+  * Get the base directory where OSM maps are stored.
+  *
+  * @return absolute path to the maps directory.
+  */
   std::string get_maps_directory() const;
 
 private:

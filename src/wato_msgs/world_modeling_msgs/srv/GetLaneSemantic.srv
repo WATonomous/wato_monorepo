@@ -1,0 +1,14 @@
+# Request
+geometry_msgs/Pose pose
+float32 max_search_distance   # [m] max distance from pose to lane
+
+---
+# Response
+int64 lane_id                 # lanelet id, -1 if none
+int32 lane_index              # 0 = leftmost in road section
+int32 lane_count              # total lanes in this road section (same dir)
+float32 speed_limit           # [m/s] (check once in your env)
+bool has_left_neighbor        # true if can change to left lane
+bool has_right_neighbor       # true if can change to right lane
+bool in_intersection          # heuristic: lane is part of intersection
+string turn_direction         # "straight", "left", "right", etc.

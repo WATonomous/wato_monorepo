@@ -1,0 +1,20 @@
+# Request
+geometry_msgs/Pose pose
+float32 distance_ahead        # [m] distance along route-ish from ego
+float32 lateral_radius        # [m] lateral radius (for crosswalks/bike lanes)
+
+---
+# Response
+
+# Traffic signs (regulatory elements with subtype "traffic_sign")
+int32 num_traffic_signs
+geometry_msgs/Pose[] traffic_sign_poses
+string[] traffic_sign_types   # from "type" or "subtype" attribute
+
+# Crosswalks (lanelets with subtype "crosswalk")
+int32 num_crosswalks
+geometry_msgs/Pose[] crosswalk_poses
+
+# Bike lanes (lanelets with subtype "bicycle_lane" or "bike_lane")
+int32 num_bike_lanes
+geometry_msgs/Pose[] bike_lane_poses

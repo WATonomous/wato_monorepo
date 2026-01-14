@@ -64,20 +64,38 @@ private:
   * Handle behaviour tree info service requests.
   *
   * @param request service request containing query info
-  * @param response service response with current or goal points
+  * @param response response with current or goal points
   */
   void behaviour_tree_info_callback(
     const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Request> request,
     const std::shared_ptr<world_modeling_msgs::srv::BehaviourTreeInfo::Response> response);
 
+  /**
+  * Handle lanelet lookup for a GPS point query.
+  *
+  * @param request service request containing query info.
+  * @param response response closest lanelet to the GPS point.
+  */
   void laneletInfoGPSCallback(
     const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Request> request,
     std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Response> response);
 
+  /**
+  * Handle lanelet lookup for a local XYZ point query.
+  *
+  * @param request service request containing query info.
+  * @param response response closest lanelet to the XYZ point.
+  */
   void laneletInfoXYZCallback(
     const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Request> request,
     std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Response> response);
 
+  /**
+  * Handle lanelet lookup for a 2D bounding box query.
+  *
+  * @param request service request containing query info.
+  * @param response response closest lanelet to the bbox center.
+  */
   void laneletInfoXYCallback(
     const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Request> request,
     std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Response> response);
