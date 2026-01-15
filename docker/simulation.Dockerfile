@@ -8,10 +8,8 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code
-COPY src/wato_msgs wato_msgs
-COPY src/wato_test wato_test
-COPY src/infrastructure/infrastructure_deps infrastructure_deps
+COPY src/simulation simulation
+COPY src/wato_msgs/interfacing_msgs interfacing_msgs
 COPY src/interfacing/eve_description eve_description
 
 ################################# Dependencies ################################
@@ -19,10 +17,7 @@ COPY src/interfacing/eve_description eve_description
 # Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
 
-# Install module-specific dependencies (non-rosdep)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    lsb-release \
-    software-properties-common \
-    apt-transport-https \
-    && rm -rf /var/lib/apt/lists/*
+# Install CARLA Client API (TODO, wait for 0.10.0 to exist in pypi)
+# https://pypi.org/project/carla/#history
+COPY src/simulation/carla_sim/dist /opt/carla/dist
+RUN pip3 install --no-cache-dir /opt/carla/dist/carla-0.10.0-cp312-cp312-linux_x86_64.whl

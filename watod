@@ -83,13 +83,12 @@ EOF
 
 # Get all available modules
 # Returns list of modules (excludes infrastructure which is added automatically)
-# TODO: Re-enable simulation once it's fixed
 get_all_modules() {
-  # Core modules (simulation excluded until fixed)
   echo "action"
   echo "interfacing"
   echo "perception"
   echo "world_modeling"
+  echo "simulation"
 }
 
 # Parse ACTIVE_MODULES and build profile arrays

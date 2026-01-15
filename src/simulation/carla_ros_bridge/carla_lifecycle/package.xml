@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>carla_lifecycle</name>
+  <version>1.0.0</version>
+  <description>Lifecycle manager for CARLA ROS2 bridge nodes</description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>carla_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

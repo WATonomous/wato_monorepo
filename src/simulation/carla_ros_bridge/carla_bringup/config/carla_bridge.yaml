@@ -1,0 +1,75 @@
+# CARLA ROS2 Bridge Configuration
+
+# Scenario Server Configuration
+scenario_server:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    initial_scenario: "carla_scenarios.scenarios.default_scenario"
+
+# Ackermann Control Configuration
+ackermann_control:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    role_name: "ego_vehicle"
+    command_timeout: 0.5  # seconds
+
+# Camera Publisher Configuration
+camera_publisher:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    role_name: "ego_vehicle"
+    # Camera settings
+    image_width: 800
+    image_height: 600
+    fov: 90.0
+    optical_frame: true
+    frame_id: "front_camera_optical"
+
+# LiDAR Publisher Configuration
+lidar_publisher:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    role_name: "ego_vehicle"
+    # LiDAR settings
+    channels: 32
+    range: 100.0
+    points_per_second: 56000
+    rotation_frequency: 10.0
+    upper_fov: 10.0
+    lower_fov: -30.0
+    sensor_link: "lidar_link"
+    frame_id: "lidar_link"
+
+# BBox Publisher Configuration
+bbox_publisher:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    # Publishing settings
+    publish_rate: 10.0
+    frame_id: "map"
+    include_vehicles: true
+    include_pedestrians: true
+
+# Teleop Configuration (Foxglove compatible)
+carla_teleop:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    role_name: "ego_vehicle"
+    # Control parameters
+    max_speed: 10.0        # m/s (for normalizing linear.x)
+    max_steering: 1.0      # max angular.z value
+    throttle_scale: 1.0    # scale factor for throttle
+    steering_scale: 1.0    # scale factor for steering
+    command_timeout: 0.5   # seconds

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>carla_bringup</name>
+  <version>1.0.0</version>
+  <description>Launch files and configuration for CARLA ROS2 bridge</description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>carla_ros_bridge</exec_depend>
+  <exec_depend>carla_scenarios</exec_depend>
+  <exec_depend>carla_control</exec_depend>
+  <exec_depend>carla_perception</exec_depend>
+  <exec_depend>carla_lifecycle</exec_depend>
+  <exec_depend>carla_sample_description</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

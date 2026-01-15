@@ -1,0 +1,79 @@
+launch:
+  # Robot Description (TF tree for sensors)
+  - include:
+      file: $(find-pkg-share carla_sample_description)/launch/robot_description.launch.yaml
+
+  # Scenario Server Node
+  - node:
+      pkg: carla_scenarios
+      exec: scenario_server
+      name: scenario_server
+      output: screen
+      param:
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+
+  # Lifecycle Manager - brings up scenario_server and restarts nodes on scenario change
+  - node:
+      pkg: carla_lifecycle
+      exec: lifecycle_manager
+      name: carla_lifecycle_manager
+      output: screen
+      param:
+        - name: autostart
+          value: true
+        - name: scenario_server_name
+          value: scenario_server
+        - name: node_names
+          value:
+            - carla_teleop
+            - ackermann_control
+            - camera_publisher
+            - lidar_publisher
+            - bbox_publisher
+        - name: service_timeout
+          value: 10.0
+
+  # Teleop Node
+  - node:
+      pkg: carla_teleop
+      exec: teleop
+      name: carla_teleop
+      output: screen
+      param:th
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+
+  # Ackermann Control Node
+  - node:
+      pkg: carla_control
+      exec: ackermann_control
+      name: ackermann_control
+      output: screen
+      param:
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+
+  # Camera Publisher Node
+  - node:
+      pkg: carla_perception
+      exec: camera_publisher
+      name: camera_publisher
+      output: screen
+      param:
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+
+  # # LiDAR Publisher Node
+  # - node:
+  #     pkg: carla_perception
+  #     exec: lidar_publisher
+  #     name: lidar_publisher
+  #     output: screen
+  #     param:
+  #       - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+
+  # # BBox Publisher Node
+  # - node:
+  #     pkg: carla_perception
+  #     exec: bbox_publisher
+  #     name: bbox_publisher
+  #     output: screen
+  #     param:
+  #       - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml

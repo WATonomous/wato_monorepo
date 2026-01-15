@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>simulation_bringup</name>
+  <version>0.0.0</version>
+  <description>Contains launch files, scenario scripts, and custom carla bridge nodes</description>
+
+  <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
+
+  <license>Apache 2.0</license>
+
+  <!-- To enable Shared Memory IPC -->
+  <depend>rmw_zenoh_cpp</depend>
+
+  <depend>rclcpp</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>interfacing_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>geometry_msgs</depend>
+
+  <exec_depend>pygame</exec_depend>
+  <exec_depend>numpy</exec_depend>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

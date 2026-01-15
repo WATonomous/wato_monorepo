@@ -54,19 +54,8 @@ services:
       file: docker-compose.yaml
       service: carla_sim
 
-  carla_ros_bridge:
+  simulation_bringup:
     profiles: ["simulation"]
     extends:
       file: docker-compose.yaml
-      service: carla_ros_bridge
-
-  carla_viz:
-    profiles: ["simulation"]
-    extends:
-      file: docker-compose.yaml
-      service: carla_viz
-  carla_notebooks:
-    profiles: ["simulation"]
-    extends:
-      file: docker-compose.yaml
-      service: carla_notebooks
+      service: simulation_bringup

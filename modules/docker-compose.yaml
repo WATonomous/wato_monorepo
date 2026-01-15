@@ -69,7 +69,6 @@ services:
     depends_on:
       zenoh_router:
         condition: service_started
-        required: false
 
   log_viewer:
     container_name: watod_log_viewer
@@ -128,7 +127,6 @@ services:
     depends_on:
       zenoh_router:
         condition: service_started
-        required: false
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
@@ -178,7 +176,6 @@ services:
     depends_on:
       zenoh_router:
         condition: service_started
-        required: false
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
@@ -226,7 +223,6 @@ services:
     depends_on:
       zenoh_router:
         condition: service_started
-        required: false
 
 #################### ACTION SERVICE ####################
   action_source:
@@ -274,17 +270,19 @@ services:
     depends_on:
       zenoh_router:
         condition: service_started
-        required: false
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
-    image: carlasim/carla:0.9.13
+    image: carlasim/carla:0.10.0
+    runtime: nvidia
+    network_mode: host
     environment:
-      - DISPLAY=1
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=0
-    restart: always
-    command: /bin/bash -c "./CarlaUE4.sh -nosound -carla-server -RenderOffscreen -world-port=2000 -quality-level=Low"
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    command: /bin/bash -c "./CarlaUnreal.sh -nosound -RenderOffscreen -quality-level=Epic"
     deploy:
       resources:
         reservations:
@@ -292,19 +290,42 @@ services:
             - driver: nvidia
               capabilities: [gpu]
 
-  carla_ros_bridge:
+  simulation_source:
+    profiles: ["simulation_pre"]
+    build:
+      context: ..
+      dockerfile: docker/simulation.Dockerfile
+      cache_from:
+        - "${SIMULATION_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${SIMULATION_IMAGE}:source_${TAG}"
+
+  simulation_deps:
+    profiles: ["simulation_pre"]
+    build:
+      context: ..
+      dockerfile: docker/simulation.Dockerfile
+      cache_from:
+        - "${SIMULATION_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${SIMULATION_IMAGE}:deps_${TAG}"
+
+  simulation_bringup:
     ulimits:
       memlock: -1
     ipc: host
     network_mode: host
     build:
       context: ..
-      dockerfile: docker/simulation/carla_ros_bridge/carla_ros_bridge.Dockerfile
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${SIMULATION_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${SIMULATION_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:${TAG}"
-        - "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:?}:main"
+        - "${SIMULATION_IMAGE:?}:${TAG}"
+        - "${SIMULATION_IMAGE:?}:main"
       target: deploy
-    image: "${SIMULATION_CARLA_ROS_BRIDGE_IMAGE}:${TAG}"
+    image: "${SIMULATION_IMAGE}:${TAG}"
     environment:
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
       - USE_ACKERMANN_CONTROL=False
@@ -312,47 +333,9 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-    # command: /bin/bash -c "echo CARLA_ROS_BRIDGE disabled"
-    command: /bin/bash -c "ros2 launch carla_config carla.launch.py"
+    command: /bin/bash -c "ros2 launch simulation_bringup carla.launch.py"
     depends_on:
       zenoh_router:
         condition: service_started
-        required: false
-
-  carla_viz:
-    build:
-      context: ..
-      dockerfile: docker/simulation/carla_viz/carla_viz.Dockerfile
-      cache_from:
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
-        - "${SIMULATION_CARLAVIZ_IMAGE:?}:main"
-    image: "${SIMULATION_CARLAVIZ_IMAGE:?}:${TAG}"
-    ports:
-      - ${CARLAVIZ_PORT}:8080
-      - ${CARLAVIZ_PORT_2}:8081
-    environment:
-      - CARLA_SERVER_HOST=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - CARLAVIZ_BACKEND_PORT=${CARLAVIZ_PORT_2}
-    entrypoint: ["/bin/bash", "-c", "./docker/carlaviz_entrypoint.sh  > /dev/null 2>&1"]
-    restart: always
-
-  carla_notebooks:
-    build:
-      context: ..
-      dockerfile: docker/simulation/carla_notebooks/carla_notebooks.Dockerfile
-      cache_from:
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
-        - "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:main"
-    image: "${SIMULATION_CARLA_NOTEBOOKS_IMAGE:?}:${TAG}"
-    ports:
-      - ${CARLA_NOTEBOOKS_PORT:?}:${CARLA_NOTEBOOKS_PORT:?}
-    environment:
-      - CLIENT_NAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - SCENARIO_RUNNER_ROOT=/home/bolty/scenario_runner
-      - DISPLAY=1
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=0
-    container_name: ${COMPOSE_PROJECT_NAME:?}_carla_notebooks
-    volumes:
-      - ${MONO_DIR}/src/simulation/carla_notebooks:/home/bolty/carla_notebooks
-    command: jupyter notebook --allow-root --ip=0.0.0.0 --port=${CARLA_NOTEBOOKS_PORT:?} --no-browser --ServerApp.token='' --ServerApp.password=''
+      carla_sim:
+        condition: service_started
