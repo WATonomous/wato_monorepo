@@ -56,13 +56,14 @@ target_include_directories(prediction_lib
   include
   ${EIGEN3_INCLUDE_DIR})
 
-# Add ROS2 dependencies required by package
-ament_target_dependencies(prediction_lib
-  rclcpp
-  rclcpp_components
-  std_msgs
-  geometry_msgs
-  vision_msgs
+# Link ROS2 dependencies required by package
+target_link_libraries(prediction_lib
+  rclcpp::rclcpp
+  rclcpp_components::component
+  ${std_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+  ${vision_msgs_TARGETS}
+  Eigen3::Eigen
   )
 
 # # By default tests are built. This can be overridden by modifying the
