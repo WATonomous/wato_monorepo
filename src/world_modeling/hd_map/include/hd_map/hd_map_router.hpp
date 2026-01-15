@@ -30,6 +30,7 @@
 #include <memory>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "common_msgs/msg/obstacle.hpp"
 #include "geometry_msgs/msg/pose.hpp"
@@ -152,9 +153,85 @@ public:
   */
   TrafficLightState get_traffic_light_state(const vision_msgs::msg::Detection3D::SharedPtr traffic_light_msg_ptr);
 
+  /*
+  Lightweight representations of various map objects for the GetLaneObjects service.
+  Includes:
+    -Lane semantics
+    -Traffic signs
+    -Crosswalks
+    -Bike lanes
+  */
+
+  // 0 is the leftmost lane, and the speed limit is in m/s
+  struct LaneSemantic
+  {
+    lanelet::Id lane_id{lanelet::InvalId};
+    int32_t lane_index{0};
+    int32_t lane_count{1};
+    double speed_limit{0.0};
+    bool has_left_neighbor{false};
+    bool has_right_neighbor{false};
+    bool in_intersection{false};
+  };
+
+  // pose is for the position and orientation of the traffic sign (processed from the lanelet map)
+  // type is for the type of sign, ex. stop, yield, speed limits
+  struct LaneObjectTrafficSign
+  {
+    geometry_msgs::msg::Pose pose;
+    std::string type;
+  };
+
+  struct LaneObjectCrosswalk
+  {
+    geometry_msgs::msg::Pose pose;
+  };
+
+  struct LaneObjectBikeLane
+  {
+    geometry_msgs::msg::Pose pose;
+  };
+
+  struct LaneObjects
+  {
+    std::vector<LaneObjectTrafficSign> traffic_signs;
+    std::vector<LaneObjectCrosswalk> crosswalks;
+    std::vector<LaneObjectBikeLane> bike_lanes;
+  };
+
+  /**
+  * Compute semantic attributes for a lanelet.
+  *
+  * @param lanelet lanelet to analyze
+  * @return lane semantic summary
+  */
+  LaneSemantic get_lane_semantic(const lanelet::ConstLanelet & lanelet) const;
+
+  /**
+  * Collect lane-related objects along a forward path along the routing graph.
+  *
+  * @param start_lanelet starting lanelet for the corridor
+  * @param distance_ahead lookahead distance along the route [m]
+  * @param lateral_radius max lateral distance from corridor centerlines [m]
+  * @return lane objects found along the corridor
+  */
+  LaneObjects get_lane_objects_along_corridor(
+    const lanelet::ConstLanelet & start_lanelet, double distance_ahead, double lateral_radius) const;
+
+  /**
+  * Build a sequence of lanelets ahead of a start lanelet.
+  *
+  * @param start starting lanelet
+  * @param lookahead distance to traverse forward [m]
+  * @return ordered lanelet sequence along the route
+  */
+  std::vector<lanelet::ConstLanelet> collect_lane_sequence_ahead(
+    const lanelet::ConstLanelet & start, double lookahead) const;
+
 private:
   lanelet::LaneletMapPtr lanelet_ptr_;
   lanelet::routing::RoutingGraphPtr routing_graph_;
+  lanelet::traffic_rules::TrafficRulesPtr traffic_rules_;
   std::shared_ptr<lanelet::Projector> projector_;
 
   std::unordered_set<uint64_t> traffic_sign_list_;

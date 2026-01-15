@@ -29,6 +29,8 @@
 #include "world_modeling_msgs/msg/lanelet.hpp"
 #include "world_modeling_msgs/msg/lanelet_path.hpp"
 #include "world_modeling_msgs/srv/behaviour_tree_info.hpp"
+#include "world_modeling_msgs/srv/get_lane_objects.hpp"
+#include "world_modeling_msgs/srv/get_lane_semantic.hpp"
 #include "world_modeling_msgs/srv/lanelet_info.hpp"
 #include "world_modeling_msgs/srv/lanelet_info_gps.hpp"
 #include "world_modeling_msgs/srv/lanelet_info_xy.hpp"
@@ -101,6 +103,26 @@ private:
     std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Response> response);
 
   /**
+  * Handle lane semantic lookup for a pose query.
+  *
+  * @param request service request containing pose and related query info.
+  * @param response response lane semantic info for the nearest lanelet.
+  */
+  void get_lane_semantic_callback(
+    const std::shared_ptr<world_modeling_msgs::srv::GetLaneSemantic::Request> request,
+    std::shared_ptr<world_modeling_msgs::srv::GetLaneSemantic::Response> response);
+
+  /**
+  * Handle lane object lookup along a forward path on the routing graph
+  *
+  * @param request request service request containing pose, distance_ahead, lateral_radius.
+  * @param response response lane objects found along the path.
+  */
+  void get_lane_objects_callback(
+    const std::shared_ptr<world_modeling_msgs::srv::GetLaneObjects::Request> request,
+    std::shared_ptr<world_modeling_msgs::srv::GetLaneObjects::Response> response);
+
+  /**
   * Convert a lanelet to a ROS message
   *
   * @param lanelet the lanelet to convert
@@ -121,6 +143,8 @@ private:
   rclcpp::Service<world_modeling_msgs::srv::LaneletInfoGPS>::SharedPtr lanelet_info_gps_service_;
   rclcpp::Service<world_modeling_msgs::srv::LaneletInfoXYZ>::SharedPtr lanelet_info_xyz_service_;
   rclcpp::Service<world_modeling_msgs::srv::LaneletInfoXY>::SharedPtr lanelet_info_xy_service_;
+  rclcpp::Service<world_modeling_msgs::srv::GetLaneSemantic>::SharedPtr lane_semantic_service_;
+  rclcpp::Service<world_modeling_msgs::srv::GetLaneObjects>::SharedPtr lane_objects_service_;
 
   std::shared_ptr<HDMapRouter> router_;
   std::shared_ptr<HDMapManager> manager_;

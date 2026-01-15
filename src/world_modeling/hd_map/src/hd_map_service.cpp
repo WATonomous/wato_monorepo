@@ -14,6 +14,7 @@
 
 #include "hd_map/hd_map_service.hpp"
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -69,6 +70,14 @@ HDMapService::HDMapService()
   lanelet_info_xy_service_ = this->create_service<world_modeling_msgs::srv::LaneletInfoXY>(
     "lanelet_info_xy",
     std::bind(&HDMapService::laneletInfoXYCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lane_semantic_service_ = this->create_service<world_modeling_msgs::srv::GetLaneSemantic>(
+    "get_lane_semantic",
+    std::bind(&HDMapService::get_lane_semantic_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lane_objects_service_ = this->create_service<world_modeling_msgs::srv::GetLaneObjects>(
+    "get_lane_objects",
+    std::bind(&HDMapService::get_lane_objects_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Map selection hardcoded for now
 
@@ -205,7 +214,7 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lan
     p.x = point.x();
     p.y = point.y();
     p.z = point.z();
-    lanelet_msg.left_boundary.push_back(p);
+    lanelet_msg.right_boundary.push_back(p);
   }
 
   // convert centerline
@@ -278,6 +287,94 @@ void HDMapService::laneletInfoXYCallback(
   lanelet::ConstLanelet closest_lanelet =
     router_->get_nearest_lanelet_to_xy(request->x, request->y, request->width_x, request->height_y);
   response->lanelet = convert_lanelet_to_msg(closest_lanelet);
+}
+
+void HDMapService::get_lane_semantic_callback(
+  const std::shared_ptr<world_modeling_msgs::srv::GetLaneSemantic::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::GetLaneSemantic::Response> response)
+{
+  auto router = manager_->get_router();
+  if (!router) {
+    RCLCPP_ERROR(this->get_logger(), "HDMapRouter not available");
+    response->lane_id = -1;
+    return;
+  }
+
+  // finds the nearest lanelet to this pose
+  const auto & pose = request->pose;
+  lanelet::ConstLanelet lanelet = router->get_nearest_lanelet_to_xyz(pose.position.x, pose.position.y, pose.position.z);
+
+  if (lanelet.id() == lanelet::InvalId) {
+    RCLCPP_WARN(this->get_logger(), "No lanelet near query pose");
+    response->lane_id = -1;
+    return;
+  }
+
+  auto sem = router->get_lane_semantic(lanelet);
+
+  response->lane_id = sem.lane_id;
+  response->lane_index = sem.lane_index;
+  response->lane_count = sem.lane_count;
+  response->speed_limit = static_cast<float>(sem.speed_limit);
+  response->has_left_neighbor = sem.has_left_neighbor;
+  response->has_right_neighbor = sem.has_right_neighbor;
+  response->in_intersection = sem.in_intersection;
+}
+
+void HDMapService::get_lane_objects_callback(
+  const std::shared_ptr<world_modeling_msgs::srv::GetLaneObjects::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::GetLaneObjects::Response> response)
+{
+  auto router = manager_->get_router();
+  if (!router) {
+    RCLCPP_ERROR(this->get_logger(), "HDMapRouter not available");
+    response->num_traffic_signs = 0;
+    response->num_crosswalks = 0;
+    response->num_bike_lanes = 0;
+    return;
+  }
+
+  const auto & pose = request->pose;
+
+  lanelet::ConstLanelet lanelet = router->get_nearest_lanelet_to_xyz(pose.position.x, pose.position.y, pose.position.z);
+
+  if (lanelet.id() == lanelet::InvalId) {
+    RCLCPP_WARN(this->get_logger(), "No lanelet near query pose");
+    response->num_traffic_signs = 0;
+    response->num_crosswalks = 0;
+    response->num_bike_lanes = 0;
+    return;
+  }
+
+  auto objs = router->get_lane_objects_along_corridor(lanelet, request->distance_ahead, request->lateral_radius);
+
+  // traffic signs
+  response->traffic_sign_poses.clear();
+  response->traffic_sign_types.clear();
+  response->traffic_sign_poses.reserve(objs.traffic_signs.size());
+  response->traffic_sign_types.reserve(objs.traffic_signs.size());
+
+  for (const auto & sign : objs.traffic_signs) {
+    response->traffic_sign_poses.push_back(sign.pose);
+    response->traffic_sign_types.push_back(sign.type);
+  }
+  response->num_traffic_signs = static_cast<int32_t>(objs.traffic_signs.size());
+
+  // crosswalks
+  response->crosswalk_poses.clear();
+  response->crosswalk_poses.reserve(objs.crosswalks.size());
+  for (const auto & crosswalk : objs.crosswalks) {
+    response->crosswalk_poses.push_back(crosswalk.pose);
+  }
+  response->num_crosswalks = static_cast<int32_t>(objs.crosswalks.size());
+
+  // bike lanes
+  response->bike_lane_poses.clear();
+  response->bike_lane_poses.reserve(objs.bike_lanes.size());
+  for (const auto & bike_lane : objs.bike_lanes) {
+    response->bike_lane_poses.push_back(bike_lane.pose);
+  }
+  response->num_bike_lanes = static_cast<int32_t>(objs.bike_lanes.size());
 }
 
 int main(int argc, char ** argv)
