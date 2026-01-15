@@ -72,7 +72,6 @@ public:
    * @brief Construct a new Map Interface
    * @param node ROS node pointer for service clients
    */
-  // FIX: Changed std::shared_ptr to rclcpp::Node*
   explicit MapInterface(rclcpp::Node* node);
 
   /**
@@ -115,16 +114,7 @@ public:
   bool isCrosswalkNearby(const geometry_msgs::msg::Point & point, double radius);
 
 private:
-  // FIX: Changed std::shared_ptr to rclcpp::Node*
   rclcpp::Node* node_;
-
-  // Service clients for map queries
-  // TODO: Add service client declarations
-  // rclcpp::Client<wato_msgs::srv::GetLaneletById>::SharedPtr get_lanelet_client_;
-  // rclcpp::Client<wato_msgs::srv::FindNearestLanelet>::SharedPtr find_nearest_client_;
-  // rclcpp::Client<wato_msgs::srv::ComputeRoute>::SharedPtr compute_route_client_;
-  // rclcpp::Client<wato_msgs::srv::GetRegulatoryElements>::SharedPtr get_regulatory_client_;
-  // rclcpp::Client<wato_msgs::srv::GetSpeedLimit>::SharedPtr get_speed_limit_client_;
 };
 
 }  // namespace prediction

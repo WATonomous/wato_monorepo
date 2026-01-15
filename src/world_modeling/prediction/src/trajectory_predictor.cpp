@@ -61,9 +61,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
 ObjectType TrajectoryPredictor::classifyObjectType(
   const vision_msgs::msg::Detection3D & detection)
 {
-  // PLACEHOLDER: Simple rule-based classification
-  // TODO: Implement proper classification using detection class labels and features
-  
+  // PLACEHOLDER: Simple rule-based classification using bounding box dimensions
   RCLCPP_DEBUG(node_->get_logger(), "Classifying object type for detection: %s", 
                detection.id.c_str());
   
@@ -92,19 +90,6 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
   const vision_msgs::msg::Detection3D & detection,
   const std::vector<int64_t> & possible_lanelets)
 {
-  // ============================================================================
-  // JOHN TASK: VEHICLE PREDICTION (BICYCLE KINEMATICS)
-  // ============================================================================
-  // TODO: Implement vehicle trajectory generation using bicycle model
-  // - Query map_interface_ for lanelets and centerlines
-  // - Use bicycle_model_->generateTrajectory() for path following
-  // - Generate hypotheses for different intents (straight, turns, lane changes)
-  // - Also implement BicycleModel::generateTrajectory() in motion_models.cpp
-  // - Return std::vector<TrajectoryHypothesis> (see trajectory_predictor.hpp)
-  // ============================================================================
-  
-  // PLACEHOLDER: Generate simple straight-line trajectory
-  // TODO: Replace this with your full implementation
   std::vector<TrajectoryHypothesis> hypotheses;
   
   if (possible_lanelets.empty()) {
@@ -145,17 +130,6 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
   const vision_msgs::msg::Detection3D & detection,
   const std::vector<int64_t> & possible_lanelets)
 {
-  // ============================================================================
-  // GIRISH TASK: PEDESTRIAN PREDICTION
-  // ============================================================================
-  // TODO: Implement pedestrian trajectory generation with constant velocity model
-  // - Use constant_velocity_model_->generateTrajectory() with noise
-  // - Check map_interface_->isCrosswalkNearby() for goal-directed behavior
-  // - Return std::vector<TrajectoryHypothesis> (see trajectory_predictor.hpp)
-  // ============================================================================
-  
-  // PLACEHOLDER: Generate simple constant velocity trajectory
-  // TODO: Replace this with your full implementation
   std::vector<TrajectoryHypothesis> hypotheses;
 
   TrajectoryHypothesis walk_hyp;
@@ -190,20 +164,6 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
   const vision_msgs::msg::Detection3D & detection,
   const std::vector<int64_t> & possible_lanelets)
 {
-  // ============================================================================
-  // ARUHANT TASK: CYCLIST PREDICTION (HYBRID MODEL)
-  // ============================================================================
-  // TODO: Implement hybrid cyclist model (pedestrian-like + vehicle-like)
-  // - Research cyclist behavior at crosswalks vs on roads
-  // - Use map_interface_->isCrosswalkNearby() to determine context
-  // - Near crosswalk: use constant_velocity_model_ (pedestrian-like)
-  // - On road: use bicycle_model_ (vehicle-like)
-  // - IMPORTANT: Coordinate with Girish & John to match output format
-  // - Return std::vector<TrajectoryHypothesis> (see trajectory_predictor.hpp)
-  // ============================================================================
-  
-  // PLACEHOLDER: Use medium speed constant velocity
-  // TODO: Replace this with your full hybrid implementation
   std::vector<TrajectoryHypothesis> hypotheses;
 
   TrajectoryHypothesis cycle_hyp;

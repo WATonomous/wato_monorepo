@@ -87,18 +87,12 @@ private:
   /**
    * @brief Process a single tracked object and generate predictions
    * @param detection The tracked object to predict
-   * @return TODO: PredictionHypotheses Multi-modal trajectory predictions
    */
-  // TODO: Replace return type with wato_msgs::msg::PredictionHypotheses
   void processObject(const vision_msgs::msg::Detection3D & detection);
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
-
-  // Publishers
-  // TODO: Add publisher for wato_msgs::msg::PredictionHypothesesArray
-  // rclcpp::Publisher<wato_msgs::msg::PredictionHypothesesArray>::SharedPtr predictions_pub_;
 
   // Core components
   std::unique_ptr<TrajectoryPredictor> trajectory_predictor_;

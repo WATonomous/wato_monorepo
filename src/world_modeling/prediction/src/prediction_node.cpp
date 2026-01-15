@@ -46,19 +46,12 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
     10,
     std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1));
 
-  // Initialize publishers
-  // TODO: Uncomment when wato_msgs::msg::PredictionHypothesesArray is available
-  // predictions_pub_ = this->create_publisher<wato_msgs::msg::PredictionHypothesesArray>(
-  //   "/world_modeling/prediction/predicted_paths", 10);
-
-  // Initialize core components
   trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(
     this, prediction_horizon_, prediction_time_step_);
   
   intent_classifier_ = std::make_unique<IntentClassifier>(this);
   
   map_interface_ = std::make_unique<MapInterface>(this);
-
   RCLCPP_INFO(this->get_logger(), "Prediction node initialized successfully");
 }
 
@@ -73,20 +66,9 @@ void PredictionNode::trackedObjectsCallback(
 
   RCLCPP_DEBUG(this->get_logger(), "Processing %zu tracked objects", msg->detections.size());
 
-  // TODO: Create output message
-  // wato_msgs::msg::PredictionHypothesesArray predictions_msg;
-  // predictions_msg.header = msg->header;
-
-  // Process each tracked object
   for (const auto & detection : msg->detections) {
     processObject(detection);
-    
-    // TODO: Add predictions to output message
-    // predictions_msg.predictions.push_back(prediction);
   }
-
-  // TODO: Publish predictions
-  // predictions_pub_->publish(predictions_msg);
 }
 
 void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -96,21 +78,15 @@ void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::Shar
 
 void PredictionNode::processObject(const vision_msgs::msg::Detection3D & detection)
 {
-  // PLACEHOLDER: Basic prediction pipeline with placeholders
-  // TODO: Complete implementation with proper tracking integration
-  
   RCLCPP_DEBUG(this->get_logger(), "Processing object with ID: %s", detection.id.c_str());
   
   try {
-    // Step 1: Find current lanelet (using placeholder)
     geometry_msgs::msg::Point center = detection.bbox.center.position;
     int64_t current_lanelet = map_interface_->findNearestLanelet(center);
     
-    // Step 2: Get possible future lanelets (using placeholder)
     auto future_lanelets = map_interface_->getPossibleFutureLanelets(
       current_lanelet, 3);
     
-    // Step 3: Generate trajectory hypotheses
     auto hypotheses = trajectory_predictor_->generateHypotheses(
       detection, future_lanelets);
     
@@ -120,18 +96,12 @@ void PredictionNode::processObject(const vision_msgs::msg::Detection3D & detecti
       return;
     }
     
-    // Step 4: Extract features for intent classification
     auto features = intent_classifier_->extractFeatures(detection, future_lanelets);
-    
-    // Step 5: Assign probabilities to hypotheses
     intent_classifier_->assignProbabilities(detection, hypotheses, features);
     
-    // Step 6: Log results (would publish in real implementation)
     RCLCPP_DEBUG(this->get_logger(), 
                  "Generated %zu predictions for object %s",
                  hypotheses.size(), detection.id.c_str());
-    
-    // TODO: Create and publish wato_msgs::msg::PredictionHypotheses message
     
   } catch (const std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), 

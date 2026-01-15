@@ -19,12 +19,9 @@
 namespace prediction
 {
 
-// FIX: Changed std::shared_ptr to rclcpp::Node*
 IntentClassifier::IntentClassifier(rclcpp::Node* node)
 : node_(node)
 {
-  // Initialize classifier weights
-  // TODO: Load these from parameters or trained model
   weights_.velocity_weight = 0.3;
   weights_.heading_weight = 0.2;
   weights_.intersection_weight = 0.25;
@@ -59,7 +56,7 @@ IntentFeatures IntentClassifier::extractFeatures(
   const vision_msgs::msg::Detection3D & detection,
   const std::vector<int64_t> & possible_lanelets)
 {
-  // PLACEHOLDER: Extract basic features from detection
+  // PLACEHOLDER: Extract basic features (needs tracking history for velocity)
   IntentFeatures features;
 
   // Estimate velocity from detection (would normally use tracking history)
@@ -94,8 +91,6 @@ double IntentClassifier::computeIntentProbability(
   Intent intent,
   const IntentFeatures & features)
 {
-  // TODO: Implement proper probability computation
-  
   double probability = 0.0;
 
   switch (intent) {

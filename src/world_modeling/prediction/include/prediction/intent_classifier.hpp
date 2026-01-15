@@ -56,7 +56,6 @@ public:
    * @brief Construct a new Intent Classifier
    * @param node ROS node pointer for logging
    */
-  // FIX: Changed std::shared_ptr to rclcpp::Node*
   explicit IntentClassifier(rclcpp::Node* node);
 
   /**
@@ -95,7 +94,6 @@ private:
    */
   void normalizeProbabilities(std::vector<TrajectoryHypothesis> & hypotheses);
 
-  // FIX: Changed std::shared_ptr to rclcpp::Node*
   rclcpp::Node* node_;
 
   // Classifier parameters (could be learned weights)

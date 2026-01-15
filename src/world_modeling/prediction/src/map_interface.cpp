@@ -20,34 +20,12 @@ namespace prediction
 MapInterface::MapInterface(rclcpp::Node* node)
 : node_(node)
 {
-  // TODO: Initialize service clients for HD map queries when services are available
-  // get_lanelet_client_ = node_->create_client<wato_msgs::srv::GetLaneletById>(
-  //   "/world_modeling/lanelet/query/GetLaneletById");
-  // find_nearest_client_ = node_->create_client<wato_msgs::srv::FindNearestLanelet>(
-  //   "/world_modeling/lanelet/query/FindNearestLanelet");
-  // compute_route_client_ = node_->create_client<wato_msgs::srv::ComputeRoute>(
-  //   "/world_modeling/lanelet/query/ComputeRoute");
-  // get_regulatory_client_ = node_->create_client<wato_msgs::srv::GetRegulatoryElements>(
-  //   "/world_modeling/lanelet/query/GetRegulatoryElements");
-  // get_speed_limit_client_ = node_->create_client<wato_msgs::srv::GetSpeedLimit>(
-  //   "/world_modeling/lanelet/query/GetSpeedLimit");
-
   RCLCPP_INFO(node_->get_logger(), "MapInterface initialized (using placeholders until map services are available)");
 }
 
 int64_t MapInterface::findNearestLanelet(const geometry_msgs::msg::Point & point)
 {
-  // PLACEHOLDER: Return a mock lanelet ID based on position
-  // TODO: Replace with actual service call when map services are available
-  // auto request = std::make_shared<wato_msgs::srv::FindNearestLanelet::Request>();
-  // request->point = point;
-  // auto future = find_nearest_client_->async_send_request(request);
-  // if (rclcpp::spin_until_future_complete(node_, future) == 
-  //     rclcpp::FutureReturnCode::SUCCESS)
-  // {
-  //   return future.get()->lanelet_id;
-  // }
-
+  // PLACEHOLDER: Return mock lanelet ID until map services are available
   RCLCPP_DEBUG_ONCE(node_->get_logger(), 
                     "Using placeholder lanelet ID (map services not available)");
   
@@ -60,7 +38,6 @@ int64_t MapInterface::findNearestLanelet(const geometry_msgs::msg::Point & point
 LaneletInfo MapInterface::getLaneletById(int64_t lanelet_id)
 {
   // PLACEHOLDER: Return mock lanelet info with straight centerline
-  // TODO: Replace with actual service call when map services are available
   LaneletInfo info;
   info.id = lanelet_id;
 
@@ -92,8 +69,7 @@ std::vector<int64_t> MapInterface::getPossibleFutureLanelets(
   int64_t current_lanelet_id,
   int max_depth)
 {
-  // PLACEHOLDER: Return simple linear sequence of future lanelets
-  // TODO: Replace with BFS through actual lanelet graph when map services are available
+  // PLACEHOLDER: Return simple linear sequence until map graph is available
   std::vector<int64_t> possible_lanelets;
 
   // Current lanelet
@@ -119,16 +95,6 @@ std::vector<int64_t> MapInterface::getPossibleFutureLanelets(
 double MapInterface::getSpeedLimit(int64_t lanelet_id)
 {
   // PLACEHOLDER: Return default speed limit
-  // TODO: Replace with actual service call when map services are available
-  // auto request = std::make_shared<wato_msgs::srv::GetSpeedLimit::Request>();
-  // request->lanelet_id = lanelet_id;
-  // auto future = get_speed_limit_client_->async_send_request(request);
-  // if (rclcpp::spin_until_future_complete(node_, future) == 
-  //     rclcpp::FutureReturnCode::SUCCESS)
-  // {
-  //   return future.get()->speed_limit;
-  // }
-
   RCLCPP_DEBUG_ONCE(node_->get_logger(), 
                     "Using placeholder speed limit (map services not available)");
   
@@ -143,18 +109,6 @@ bool MapInterface::isCrosswalkNearby(
   double radius)
 {
   // PLACEHOLDER: Simple grid-based crosswalk detection
-  // TODO: Replace with actual regulatory elements query when map services are available
-  // auto request = std::make_shared<wato_msgs::srv::GetRegulatoryElements::Request>();
-  // request->point = point;
-  // request->radius = radius;
-  // request->type = "crosswalk";
-  // auto future = get_regulatory_client_->async_send_request(request);
-  // if (rclcpp::spin_until_future_complete(node_, future) == 
-  //     rclcpp::FutureReturnCode::SUCCESS)
-  // {
-  //   return !future.get()->elements.empty();
-  // }
-
   RCLCPP_DEBUG_ONCE(node_->get_logger(), 
                     "Using placeholder crosswalk detection (map services not available)");
   

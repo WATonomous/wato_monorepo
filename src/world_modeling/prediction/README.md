@@ -5,7 +5,7 @@ Multi-modal trajectory prediction for vehicles, pedestrians, and cyclists using 
 ## Overview
 
 Predicts future trajectories for tracked objects by:
-1. Classifying object type (vehicle/pedestrian/cyclist)
+1. Retreiving object type from Preception (vehicle/pedestrian/cyclist)
 2. Querying HD map for current and possible future lanelets
 3. Generating multiple trajectory hypotheses (different intents/paths)
 4. Assigning probabilities to each hypothesis
