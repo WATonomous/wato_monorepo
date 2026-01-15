@@ -74,8 +74,13 @@ rclcpp::Time InputHandle::last_cmd_time() const
 bool InputHandle::eligible_for_mux() const
 {
   std::scoped_lock<std::mutex> lk(mtx_);
-  if (!has_cmd_) return false;
-  if (cfg_.has_mask && !cfg_.mask_topic.empty() && mask_value_) return false;
+  if (!has_cmd_) {
+    return false;
+  }
+  if (cfg_.has_mask && !cfg_.mask_topic.empty() && mask_value_) {
+    return false;
+  }
+
   return true;
 }
 

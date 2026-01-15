@@ -33,6 +33,7 @@ AckermannMuxNode::AckermannMuxNode(const rclcpp::NodeOptions & options)
     "ackermann_mux",
     rclcpp::NodeOptions(options).allow_undeclared_parameters(true).automatically_declare_parameters_from_overrides(
       true))
+
 {
   safety_threshold_ = get_param_or<double>("safety_threshold", 0.5);
   publish_rate_hz_ = get_param_or<double>("publish_rate_hz", 50.0);
