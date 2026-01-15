@@ -57,7 +57,10 @@ MockActionPublisherNode::MockActionPublisherNode(const rclcpp::NodeOptions & opt
     std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&MockActionPublisherNode::on_timer, this));
 
   // publish idle state at 10 Hz so mux always has a fresh mask signal
-  idle_timer_ = this->create_wall_timer(100ms, std::bind(&MockActionPublisherNode::on_idle_timer, this));
+  const auto idle_period = std::chrono::duration<double>(0.1);  // 10 Hz
+  idle_timer_ = this->create_wall_timer(
+    std::chrono::duration_cast<std::chrono::nanoseconds>(idle_period),
+    std::bind(&MockActionPublisherNode::on_idle_timer, this));
 
   RCLCPP_INFO(
     this->get_logger(),
