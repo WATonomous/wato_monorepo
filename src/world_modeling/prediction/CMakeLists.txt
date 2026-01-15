@@ -29,6 +29,7 @@ find_package(rclcpp REQUIRED)
 
 # ---- Msg Packages
 find_package(common_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
 
 # Compiles source files into a library
 # A library is not executed, instead other executables can link
@@ -87,9 +88,20 @@ add_executable(prediction_node src/kalman_filter.cpp)
 # Link to the previously built library to access Sample classes and methods
 target_link_libraries(prediction_node prediction_lib)
 
+# Create tracking placeholder node executable
+add_executable(tracking_placeholder_node src/tracking_placeholder.cpp)
+ament_target_dependencies(tracking_placeholder_node
+  rclcpp
+  vision_msgs
+)
+target_include_directories(tracking_placeholder_node
+  PUBLIC
+  include)
+
 # Copy executable to installation location
 install(TARGETS
 prediction_node
+tracking_placeholder_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Copy launch and config files to installation location
