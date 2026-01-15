@@ -142,11 +142,5 @@ void PredictionNode::processObject(const vision_msgs::msg::Detection3D & detecti
 
 }  // namespace prediction
 
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<prediction::PredictionNode>();
-  rclcpp::spin(node);
-  rclcpp::shutdown();
-  return 0;
-}
+#include "rclcpp_components/register_node_macro.hpp"
+RCLCPP_COMPONENTS_REGISTER_NODE(prediction::PredictionNode)

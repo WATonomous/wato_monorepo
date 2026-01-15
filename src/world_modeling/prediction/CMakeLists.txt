@@ -98,15 +98,18 @@ target_link_libraries(prediction_lib
 #     DESTINATION lib/${PROJECT_NAME})
 # endif()
 
-# Create ROS2 node executable from source files
-add_executable(prediction_node src/prediction_node.cpp)
-# Link to the previously built library to access Sample classes and methods
+# Create ROS2 component library
+add_library(prediction_node SHARED src/prediction_node.cpp)
 target_link_libraries(prediction_node prediction_lib)
+rclcpp_components_register_nodes(prediction_node "prediction::PredictionNode")
 
-# Copy executable to installation location
+# Copy component library to installation location
 install(TARGETS
-prediction_node
-  DESTINATION lib/${PROJECT_NAME})
+  prediction_lib
+  prediction_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
 
 # Copy launch and config files to installation location
 install(DIRECTORY
