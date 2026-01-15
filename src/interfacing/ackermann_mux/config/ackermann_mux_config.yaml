@@ -1,0 +1,25 @@
+ackermann_mux:
+  ros__parameters:
+    safety_threshold: 0.5
+
+    emergency:
+      steering_angle: 0.0
+      speed: -0.5
+
+    publish_rate_hz: 50.0
+
+    #HIGER NUMBER == higer priority
+    inputs:
+      joystick:
+        topic: /joystick/ackermann
+        priority: 100
+        has_mask: true
+        mask_topic: /joystick/is_idle
+        safety_gating: true
+
+      action:
+        topic: /action/ackermann
+        priority: 10
+        has_mask: true
+        mask_topic: /action/is_idle
+        safety_gating: false
