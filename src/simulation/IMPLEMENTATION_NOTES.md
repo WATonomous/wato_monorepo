@@ -148,8 +148,9 @@ robot_description/
    - In `on_activate()`, spawn CARLA sensors at extracted transforms
    - Use link name as frame_id for published data
    - Example:
+     
      ```cpp
-     auto transform = sensor_parser.getTransform("base_link", "camera_link");
+auto transform = sensor_parser.getTransform("base_link", "camera_link");
      carla::rpc::Transform carla_transform;
      carla_transform.location.x = transform.translation().x();
      // ... spawn camera at this location
@@ -218,17 +219,19 @@ def generate_launch_description():
 ## Updated Package Dependencies
 
 ### carla_control/package.xml
+
 ```xml
 <depend>ackermann_msgs</depend>  <!-- NEW: Use standard message -->
 ```
 
 ### carla_perception/package.xml
+
 ```xml
 <depend>vision_msgs</depend>  <!-- For Detection2DArray and Detection3DArray -->
 ```
 
 All dependencies use rosdep keys that can be installed via:
+
 ```bash
 rosdep install --from-paths src --ignore-src -r -y
 ```
-

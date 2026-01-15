@@ -1,4 +1,18 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Teleop control lifecycle node for CARLA - connects to Foxglove teleop panel."""
+
 from typing import Optional
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
@@ -14,25 +28,25 @@ except ImportError:
 class TeleopNode(LifecycleNode):
     """Lifecycle node for teleop control via Twist messages (Foxglove compatible)."""
 
-    def __init__(self, node_name='carla_teleop'):
+    def __init__(self, node_name="carla_teleop"):
         super().__init__(node_name)
 
         # CARLA connection parameters
-        self.declare_parameter('carla_host', 'localhost')
-        self.declare_parameter('carla_port', 2000)
-        self.declare_parameter('carla_timeout', 10.0)
-        self.declare_parameter('role_name', 'ego_vehicle')
+        self.declare_parameter("carla_host", "localhost")
+        self.declare_parameter("carla_port", 2000)
+        self.declare_parameter("carla_timeout", 10.0)
+        self.declare_parameter("role_name", "ego_vehicle")
 
         # Control parameters
-        self.declare_parameter('max_speed', 10.0)  # m/s for linear.x scaling
-        self.declare_parameter('max_steering', 1.0)  # max angular.z value
-        self.declare_parameter('throttle_scale', 1.0)  # scale factor for throttle
-        self.declare_parameter('steering_scale', 1.0)  # scale factor for steering
-        self.declare_parameter('command_timeout', 0.5)  # seconds
+        self.declare_parameter("max_speed", 10.0)  # m/s for linear.x scaling
+        self.declare_parameter("max_steering", 1.0)  # max angular.z value
+        self.declare_parameter("throttle_scale", 1.0)  # scale factor for throttle
+        self.declare_parameter("steering_scale", 1.0)  # scale factor for steering
+        self.declare_parameter("command_timeout", 0.5)  # seconds
 
         # State
-        self.carla_client: Optional['carla.Client'] = None
-        self.ego_vehicle: Optional['carla.Vehicle'] = None
+        self.carla_client: Optional["carla.Client"] = None
+        self.ego_vehicle: Optional["carla.Vehicle"] = None
         self.last_command_time: Optional[Time] = None
         self.last_twist: Optional[Twist] = None
 
@@ -40,68 +54,69 @@ class TeleopNode(LifecycleNode):
         self.twist_subscription = None
         self.control_timer = None
 
-        self.get_logger().info(f'{node_name} initialized')
+        self.get_logger().info(f"{node_name} initialized")
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Configure lifecycle callback."""
-        self.get_logger().info('Configuring...')
+        self.get_logger().info("Configuring...")
 
         # Get parameters
-        host = self.get_parameter('carla_host').value
-        port = self.get_parameter('carla_port').value
-        timeout = self.get_parameter('carla_timeout').value
-        role_name = self.get_parameter('role_name').value
+        host = self.get_parameter("carla_host").value
+        port = self.get_parameter("carla_port").value
+        timeout = self.get_parameter("carla_timeout").value
+        role_name = self.get_parameter("role_name").value
 
         # Connect to CARLA
         if carla is None:
-            self.get_logger().error('CARLA Python API not available')
+            self.get_logger().error("CARLA Python API not available")
             return TransitionCallbackReturn.FAILURE
 
         try:
             self.carla_client = carla.Client(host, port)
             self.carla_client.set_timeout(timeout)
             version = self.carla_client.get_server_version()
-            self.get_logger().info(f'Connected to CARLA {version} at {host}:{port}')
+            self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
         except Exception as e:
-            self.get_logger().error(f'Failed to connect to CARLA: {e}')
+            self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
 
         # Find ego vehicle
         try:
             world = self.carla_client.get_world()
             actors = world.get_actors()
-            vehicles = actors.filter('vehicle.*')
+            vehicles = actors.filter("vehicle.*")
 
-            ego_vehicles = [v for v in vehicles if v.attributes.get('role_name') == role_name]
+            ego_vehicles = [
+                v for v in vehicles if v.attributes.get("role_name") == role_name
+            ]
             if not ego_vehicles:
                 if vehicles:
                     self.ego_vehicle = vehicles[0]
-                    self.get_logger().warn(f'No vehicle with role_name "{role_name}", using first vehicle')
+                    self.get_logger().warn(
+                        f'No vehicle with role_name "{role_name}", using first vehicle'
+                    )
                 else:
-                    self.get_logger().error('No vehicles found in CARLA world')
+                    self.get_logger().error("No vehicles found in CARLA world")
                     return TransitionCallbackReturn.FAILURE
             else:
                 self.ego_vehicle = ego_vehicles[0]
 
-            self.get_logger().info(f'Found ego vehicle: {self.ego_vehicle.type_id}')
+            self.get_logger().info(f"Found ego vehicle: {self.ego_vehicle.type_id}")
         except Exception as e:
-            self.get_logger().error(f'Failed to find ego vehicle: {e}')
+            self.get_logger().error(f"Failed to find ego vehicle: {e}")
             return TransitionCallbackReturn.FAILURE
 
         # Create subscription for Twist messages (Foxglove teleop panel)
         self.twist_subscription = self.create_subscription(
-            Twist,
-            '~/cmd_vel',
-            self.twist_callback,
-            10
+            Twist, "~/cmd_vel", self.twist_callback, 10
         )
 
-        self.get_logger().info('Configuration complete')
+        self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Activate lifecycle callback."""
-        self.get_logger().info('Activating...')
+        self.get_logger().info("Activating...")
 
         # Reset state
         self.last_command_time = None
@@ -110,12 +125,12 @@ class TeleopNode(LifecycleNode):
         # Create control timer (runs at 50 Hz)
         self.control_timer = self.create_timer(0.02, self.control_timer_callback)
 
-        self.get_logger().info('Activation complete')
+        self.get_logger().info("Activation complete")
         return super().on_activate(state)
 
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Deactivate lifecycle callback."""
-        self.get_logger().info('Deactivating...')
+        self.get_logger().info("Deactivating...")
 
         # Stop control timer
         if self.control_timer:
@@ -131,14 +146,14 @@ class TeleopNode(LifecycleNode):
                 control.steer = 0.0
                 self.ego_vehicle.apply_control(control)
             except Exception as e:
-                self.get_logger().error(f'Failed to stop vehicle: {e}')
+                self.get_logger().error(f"Failed to stop vehicle: {e}")
 
-        self.get_logger().info('Deactivation complete')
+        self.get_logger().info("Deactivation complete")
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Cleanup lifecycle callback."""
-        self.get_logger().info('Cleaning up...')
+        self.get_logger().info("Cleaning up...")
 
         # Destroy subscription
         if self.twist_subscription:
@@ -149,12 +164,12 @@ class TeleopNode(LifecycleNode):
         self.ego_vehicle = None
         self.carla_client = None
 
-        self.get_logger().info('Cleanup complete')
+        self.get_logger().info("Cleanup complete")
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Shutdown lifecycle callback."""
-        self.get_logger().info('Shutting down...')
+        self.get_logger().info("Shutting down...")
         return TransitionCallbackReturn.SUCCESS
 
     def twist_callback(self, msg: Twist):
@@ -168,12 +183,14 @@ class TeleopNode(LifecycleNode):
             return
 
         # Check for command timeout
-        timeout = self.get_parameter('command_timeout').value
+        timeout = self.get_parameter("command_timeout").value
         if self.last_command_time is None:
             self._apply_stop_control()
             return
 
-        time_since_command = (self.get_clock().now() - self.last_command_time).nanoseconds / 1e9
+        time_since_command = (
+            self.get_clock().now() - self.last_command_time
+        ).nanoseconds / 1e9
         if time_since_command > timeout:
             self._apply_stop_control()
             return
@@ -185,10 +202,10 @@ class TeleopNode(LifecycleNode):
         # Apply Twist command
         try:
             twist = self.last_twist
-            max_speed = self.get_parameter('max_speed').value
-            max_steering = self.get_parameter('max_steering').value
-            throttle_scale = self.get_parameter('throttle_scale').value
-            steering_scale = self.get_parameter('steering_scale').value
+            max_speed = self.get_parameter("max_speed").value
+            max_steering = self.get_parameter("max_steering").value
+            throttle_scale = self.get_parameter("throttle_scale").value
+            steering_scale = self.get_parameter("steering_scale").value
 
             control = carla.VehicleControl()
 
@@ -211,14 +228,16 @@ class TeleopNode(LifecycleNode):
             # Convert angular.z to steering
             # Positive angular.z = left turn (negative steer in CARLA)
             # Negative angular.z = right turn (positive steer in CARLA)
-            normalized_steer = -twist.angular.z / max_steering if max_steering > 0 else 0.0
+            normalized_steer = (
+                -twist.angular.z / max_steering if max_steering > 0 else 0.0
+            )
             steer_value = normalized_steer * steering_scale
             control.steer = max(-1.0, min(1.0, steer_value))
 
             self.ego_vehicle.apply_control(control)
 
         except Exception as e:
-            self.get_logger().error(f'Error applying control: {e}')
+            self.get_logger().error(f"Error applying control: {e}")
 
     def _apply_stop_control(self):
         """Apply stop control to vehicle."""
@@ -229,7 +248,7 @@ class TeleopNode(LifecycleNode):
             control.steer = 0.0
             self.ego_vehicle.apply_control(control)
         except Exception as e:
-            self.get_logger().error(f'Error applying stop control: {e}')
+            self.get_logger().error(f"Error applying stop control: {e}")
 
 
 def main(args=None):
@@ -245,5 +264,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

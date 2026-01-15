@@ -1,4 +1,18 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Default scenario implementation."""
+
 from carla_scenarios.scenario_base import ScenarioBase
 
 try:
@@ -22,7 +36,7 @@ class DefaultScenario(ScenarioBase):
         """Return scenario description."""
         return "Basic scenario that spawns ego vehicle"
 
-    def initialize(self, client: 'carla.Client') -> bool:
+    def initialize(self, client: "carla.Client") -> bool:
         """Initialize scenario with CARLA client."""
         if carla is None:
             print("CARLA module not available")
@@ -46,22 +60,22 @@ class DefaultScenario(ScenarioBase):
 
             # Check if Town10HD is already loaded
             current_map = self.world.get_map().name
-            if 'Town10HD' not in current_map:
+            if "Town10HD" not in current_map:
                 print(f"Loading Town10HD map (current: {current_map})...")
-                self.client.load_world('Town10HD')
+                self.client.load_world("Town10HD")
                 time.sleep(2.0)  # Wait for world to load
                 self.world = self.client.get_world()
             else:
-                print(f"Town10HD already loaded")
+                print("Town10HD already loaded")
 
             # Get blueprint library
             blueprint_library = self.world.get_blueprint_library()
 
             # Get a vehicle blueprint (Mini Cooper)
-            vehicle_bp = blueprint_library.filter('vehicle.mini.cooper')[0]
+            vehicle_bp = blueprint_library.filter("vehicle.mini.cooper")[0]
 
             # Set the role name for other nodes to find this vehicle
-            vehicle_bp.set_attribute('role_name', 'ego_vehicle')
+            vehicle_bp.set_attribute("role_name", "ego_vehicle")
 
             # Get a spawn point
             spawn_points = self.world.get_map().get_spawn_points()
@@ -86,7 +100,7 @@ class DefaultScenario(ScenarioBase):
             ego_transform = ego_vehicle.get_transform()
             spectator_transform = carla.Transform(
                 ego_transform.location + carla.Location(x=-10, z=5),
-                carla.Rotation(pitch=-15, yaw=ego_transform.rotation.yaw)
+                carla.Rotation(pitch=-15, yaw=ego_transform.rotation.yaw),
             )
             spectator.set_transform(spectator_transform)
 
@@ -101,6 +115,7 @@ class DefaultScenario(ScenarioBase):
         except Exception as e:
             print(f"Failed to setup default scenario: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 

@@ -1,10 +1,24 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "carla_lifecycle/lifecycle_manager_node.hpp"
 
 #include <chrono>
 #include <future>
 
-#include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
+#include "lifecycle_msgs/msg/transition.hpp"
 
 using namespace std::chrono_literals;
 
@@ -30,20 +44,15 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "  managed nodes: %zu nodes", node_names_.size());
 
   // Create callback group for service clients
-  service_cb_group_ = this->create_callback_group(
-    rclcpp::CallbackGroupType::MutuallyExclusive);
+  service_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   // Initialize all service clients upfront
   auto init_clients = [this](const std::string & node_name) {
     NodeClients nc;
     nc.change_state = this->create_client<lifecycle_msgs::srv::ChangeState>(
-      "/" + node_name + "/change_state",
-      rclcpp::ServicesQoS(),
-      service_cb_group_);
+      "/" + node_name + "/change_state", rclcpp::ServicesQoS(), service_cb_group_);
     nc.get_state = this->create_client<lifecycle_msgs::srv::GetState>(
-      "/" + node_name + "/get_state",
-      rclcpp::ServicesQoS(),
-      service_cb_group_);
+      "/" + node_name + "/get_state", rclcpp::ServicesQoS(), service_cb_group_);
     clients_[node_name] = nc;
   };
 
@@ -63,9 +72,7 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
 
   // Autostart timer
   if (autostart_) {
-    startup_timer_ = this->create_wall_timer(
-      2s,
-      std::bind(&LifecycleManagerNode::startupTimerCallback, this));
+    startup_timer_ = this->create_wall_timer(2s, std::bind(&LifecycleManagerNode::startupTimerCallback, this));
   }
 }
 
@@ -83,19 +90,18 @@ void LifecycleManagerNode::startupTimerCallback()
   }
 }
 
-void LifecycleManagerNode::scenarioStatusCallback(
-  const carla_msgs::msg::ScenarioStatus::SharedPtr msg)
+void LifecycleManagerNode::scenarioStatusCallback(const carla_msgs::msg::ScenarioStatus::SharedPtr msg)
 {
   bool scenario_changed = msg->scenario_name != current_scenario_;
-  bool state_changed_to_running =
-    (msg->state == "running" && last_scenario_state_ != "running");
+  bool state_changed_to_running = (msg->state == "running" && last_scenario_state_ != "running");
 
   if (scenario_changed || state_changed_to_running) {
     if (!current_scenario_.empty()) {
       RCLCPP_INFO(
         this->get_logger(),
         "Scenario changed: \"%s\" -> \"%s\", restarting managed nodes...",
-        current_scenario_.c_str(), msg->scenario_name.c_str());
+        current_scenario_.c_str(),
+        msg->scenario_name.c_str());
       restartManagedNodes();
     } else {
       RCLCPP_INFO(this->get_logger(), "Initial scenario loaded: %s", msg->scenario_name.c_str());
@@ -186,8 +192,7 @@ bool LifecycleManagerNode::bringUpNode(const std::string & node_name)
     return false;
   }
 
-  RCLCPP_INFO(this->get_logger(), "Bringing up %s (state: %s)",
-    node_name.c_str(), stateName(state).c_str());
+  RCLCPP_INFO(this->get_logger(), "Bringing up %s (state: %s)", node_name.c_str(), stateName(state).c_str());
 
   // Configure if unconfigured
   if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
@@ -218,14 +223,12 @@ bool LifecycleManagerNode::changeState(const std::string & node_name, uint8_t tr
   auto timeout = std::chrono::duration<double>(service_timeout_);
 
   if (future.wait_for(timeout) != std::future_status::ready) {
-    RCLCPP_ERROR(this->get_logger(), "%s transition %d timed out",
-      node_name.c_str(), transition_id);
+    RCLCPP_ERROR(this->get_logger(), "%s transition %d timed out", node_name.c_str(), transition_id);
     return false;
   }
 
   if (!future.get()->success) {
-    RCLCPP_ERROR(this->get_logger(), "%s transition %d failed",
-      node_name.c_str(), transition_id);
+    RCLCPP_ERROR(this->get_logger(), "%s transition %d failed", node_name.c_str(), transition_id);
     return false;
   }
 
@@ -253,12 +256,18 @@ int LifecycleManagerNode::getNodeState(const std::string & node_name)
 std::string LifecycleManagerNode::stateName(int state_id)
 {
   switch (state_id) {
-    case lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN: return "unknown";
-    case lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED: return "unconfigured";
-    case lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE: return "inactive";
-    case lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE: return "active";
-    case lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED: return "finalized";
-    default: return std::to_string(state_id);
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN:
+      return "unknown";
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED:
+      return "unconfigured";
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE:
+      return "inactive";
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE:
+      return "active";
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED:
+      return "finalized";
+    default:
+      return std::to_string(state_id);
   }
 }
 

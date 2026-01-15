@@ -124,6 +124,7 @@ Scenarios are C++ plugins loaded via pluginlib:
 - When switching, scenario_server triggers lifecycle transitions on all bridge nodes
 
 ### 7. Lifecycle State Flow for Scenario Switching
+
 ```
 1. Service call: /switch_scenario
 2. Scenario Server deactivates all managed nodes
@@ -143,6 +144,7 @@ Scenarios are C++ plugins loaded via pluginlib:
 
 ### 8. Modern CMake (No ament_target_dependencies)
 Use target-based linking instead of deprecated ament_target_dependencies:
+
 ```cmake
 # Old (deprecated)
 ament_target_dependencies(my_target rclcpp std_msgs)
@@ -163,6 +165,7 @@ The implementation follows dependency order: carla_msgs → carla_core → carla
 ### Package 1: carla_msgs
 
 **1.1. carla_msgs/package.xml**
+
 ```xml
 <?xml version="1.0"?>
 <package format="3">
@@ -188,6 +191,7 @@ The implementation follows dependency order: carla_msgs → carla_core → carla
 ```
 
 **1.2. carla_msgs/CMakeLists.txt**
+
 ```cmake
 cmake_minimum_required(VERSION 3.10)
 project(carla_msgs)
@@ -217,6 +221,7 @@ ament_package()
 ```
 
 **1.3. carla_msgs/msg/AckermannControl.msg**
+
 ```
 std_msgs/Header header
 
@@ -230,6 +235,7 @@ float64 linear_acceleration
 ```
 
 **1.4. carla_msgs/msg/ScenarioStatus.msg**
+
 ```
 std_msgs/Header header
 
@@ -247,6 +253,7 @@ string info
 ```
 
 **1.5. carla_msgs/srv/SwitchScenario.srv**
+
 ```
 # Plugin class name, e.g., "carla_scenarios/HighwayScenario"
 string scenario_name
@@ -257,6 +264,7 @@ string previous_scenario
 ```
 
 **1.6. carla_msgs/srv/GetAvailableScenarios.srv**
+
 ```
 # Request - empty
 ---
@@ -270,6 +278,7 @@ string[] descriptions
 ### Package 2: carla_core
 
 **2.1. carla_core/package.xml**
+
 ```xml
 <?xml version="1.0"?>
 <package format="3">
@@ -293,6 +302,7 @@ string[] descriptions
 ```
 
 **2.2. carla_core/CMakeLists.txt** (Modern CMake, no ament_target_dependencies)
+
 ```cmake
 cmake_minimum_required(VERSION 3.10)
 project(carla_core)
@@ -363,6 +373,7 @@ ament_package()
 ### Package 3: carla_scenarios
 
 **3.1. carla_scenarios/package.xml**
+
 ```xml
 <?xml version="1.0"?>
 <package format="3">
@@ -390,6 +401,7 @@ ament_package()
 ```
 
 **3.2. carla_scenarios/CMakeLists.txt** (Modern CMake)
+
 ```cmake
 cmake_minimum_required(VERSION 3.10)
 project(carla_scenarios)
@@ -478,6 +490,7 @@ ament_package()
 ### Package 4: carla_control
 
 **4.1. carla_control/package.xml**
+
 ```xml
 <?xml version="1.0"?>
 <package format="3">
@@ -503,6 +516,7 @@ ament_package()
 ```
 
 **4.2. carla_control/CMakeLists.txt** (Modern CMake)
+
 ```cmake
 cmake_minimum_required(VERSION 3.10)
 project(carla_control)
@@ -574,6 +588,7 @@ ament_package()
 ### Package 5: carla_perception
 
 **5.1. carla_perception/package.xml**
+
 ```xml
 <?xml version="1.0"?>
 <package format="3">
@@ -602,6 +617,7 @@ ament_package()
 ```
 
 **5.2. carla_perception/CMakeLists.txt** (Modern CMake)
+
 ```cmake
 cmake_minimum_required(VERSION 3.10)
 project(carla_perception)
@@ -732,6 +748,7 @@ ament_package()
 ### Package 6: carla_ros_bridge (Meta-package)
 
 **6.1. carla_ros_bridge/package.xml**
+
 ```xml
 <?xml version="1.0"?>
 <package format="3">
@@ -756,6 +773,7 @@ ament_package()
 ```
 
 **6.2. carla_ros_bridge/CMakeLists.txt**
+
 ```cmake
 cmake_minimum_required(VERSION 3.10)
 project(carla_ros_bridge)
@@ -923,6 +941,7 @@ sudo apt install ros-jazzy-urdf
 After implementation, verify each package in dependency order:
 
 ### 1. Build carla_msgs
+
 ```bash
 cd /home/bolty/ament_ws
 colcon build --packages-select carla_msgs
@@ -934,6 +953,7 @@ ros2 interface show carla_msgs/srv/SwitchScenario
 ```
 
 ### 2. Build carla_core
+
 ```bash
 colcon build --packages-select carla_core
 source install/setup.bash
@@ -943,6 +963,7 @@ ls install/carla_core/lib/libcarla_client.so
 ```
 
 ### 3. Build carla_scenarios
+
 ```bash
 colcon build --packages-select carla_scenarios
 source install/setup.bash
@@ -957,6 +978,7 @@ ros2 pkg plugins --package carla_scenarios carla_scenarios::ScenarioBase
 ```
 
 ### 4. Build carla_control
+
 ```bash
 colcon build --packages-select carla_control
 source install/setup.bash
@@ -967,6 +989,7 @@ ros2 component types | grep carla_control
 ```
 
 ### 5. Build carla_perception
+
 ```bash
 colcon build --packages-select carla_perception
 source install/setup.bash
@@ -977,6 +1000,7 @@ ros2 component types | grep carla_perception
 ```
 
 ### 6. Build entire workspace
+
 ```bash
 colcon build
 source install/setup.bash
@@ -985,6 +1009,7 @@ source install/setup.bash
 ### 7. Runtime Testing
 
 **7.1. Start CARLA simulator** <--- carla is up and running in a separate container at the moment
+
 ```bash
 # Assuming CARLA is installed
 cd /path/to/CARLA
@@ -992,12 +1017,14 @@ cd /path/to/CARLA
 ```
 
 **7.2. Launch bridge nodes**
+
 ```bash
 # Launch all nodes (add launch file to simulation_bringup or carla_scenarios)
 ros2 launch carla_scenarios carla_bridge.launch.py
 ```
 
 **7.3. Verify nodes and lifecycle states**
+
 ```bash
 # List nodes
 ros2 node list
@@ -1010,6 +1037,7 @@ ros2 lifecycle get /ackermann_control
 ```
 
 **7.4. Test scenario switching** <--- when a scenario switch occurs, the other nodes should be forced to restart (lifecycle wise)
+
 ```bash
 # Get available scenarios
 ros2 service call /scenario_server/get_available_scenarios carla_msgs/srv/GetAvailableScenarios
@@ -1019,6 +1047,7 @@ ros2 service call /scenario_server/switch_scenario carla_msgs/srv/SwitchScenario
 ```
 
 **7.5. Test Ackermann control**
+
 ```bash
 # Send control command
 ros2 topic pub --once /ackermann_control/command carla_msgs/msg/AckermannControl \
@@ -1028,6 +1057,7 @@ ros2 topic pub --once /ackermann_control/command carla_msgs/msg/AckermannControl
 ```
 
 **7.6. Verify sensor topics**
+
 ```bash
 # List topics
 ros2 topic list
@@ -1045,6 +1075,7 @@ ros2 topic echo /bbox_publisher/detections --once
 ```
 
 **7.7. Verify robot_description integration**
+
 ```bash
 # Set robot_description parameter (example URDF with sensor links)
 ros2 param set /camera_publisher robot_description "$(cat example_robot.urdf)"
@@ -1062,7 +1093,7 @@ Use modern CMake targets instead of ament_target_dependencies:
 - CARLA: `${CARLA_CLIENT_LIB}`, `${RPC_LIB}`
 - Custom libraries: `carla_core::carla_client`, `pluginlib::pluginlib`, `urdf::urdf`
 
-### URDF Sensor Placement <-- can you make note of what a "standard" description package looks like? 
+### URDF Sensor Placement <-- can you make note of what a "standard" description package looks like?
 - Sensor publisher nodes read `robot_description` parameter
 - Parse URDF to find links with sensor names (e.g., `camera_link`, `lidar_link`)
 - Extract transform from `base_link` to sensor link

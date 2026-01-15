@@ -63,7 +63,7 @@ services:
     extends:
       file: docker-compose.yaml
       service: carla_sim
-  
+
   simulation_bringup_dev:
     profiles: ["simulation_dev"]
     extends:
