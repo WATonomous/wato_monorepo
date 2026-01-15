@@ -46,9 +46,9 @@ def generate_launch_description():
                 name="prediction_node",
                 parameters=[LaunchConfiguration("prediction_param_file")],
                 remappings=[
-                    ("/perception/detections_3D_tracked", "/perception/detections_3D_tracked"),
-                    ("/localization/pose", "/localization/pose"),
-                    ("/world_modeling/prediction/predicted_paths", "/world_modeling/prediction/predicted_paths"),
+                    ("tracks_3d", "/perception/detections_3D_tracked"),
+                    ("ego_pose", "/localization/pose"),
+                    ("predicted_paths", "/world_modeling/prediction/predicted_paths"),
                 ],
             ),
         ],

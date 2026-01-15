@@ -37,12 +37,12 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
 
   // Initialize subscribers
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    "/perception/detections_3D_tracked",
+    "tracks_3d",
     10,
     std::bind(&PredictionNode::trackedObjectsCallback, this, std::placeholders::_1));
 
   ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "/localization/pose",
+    "ego_pose",
     10,
     std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1));
 
