@@ -42,7 +42,8 @@ add_library(prediction_lib
   src/map_interface.cpp
 )
 
-# Indicate to compiler where to search for header files
+set_target_properties(prediction_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 target_include_directories(prediction_lib
   PUBLIC
   include
