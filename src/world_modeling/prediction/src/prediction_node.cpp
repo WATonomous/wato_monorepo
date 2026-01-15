@@ -14,6 +14,8 @@
 
 #include "prediction/prediction_node.hpp"
 
+#include <memory>  // for std::make_unique
+
 namespace prediction
 {
 
@@ -37,30 +39,24 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
 
   // Initialize subscribers
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    "tracks_3d",
-    10,
-    std::bind(&PredictionNode::trackedObjectsCallback, this, std::placeholders::_1));
+    "tracks_3d", 10, std::bind(&PredictionNode::trackedObjectsCallback, this, std::placeholders::_1));
 
   ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "ego_pose",
-    10,
-    std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1));
+    "ego_pose", 10, std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1));
 
-  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(
-    this, prediction_horizon_, prediction_time_step_);
-  
+  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_);
+
   intent_classifier_ = std::make_unique<IntentClassifier>(this);
-  
+
   map_interface_ = std::make_unique<MapInterface>(this);
   RCLCPP_INFO(this->get_logger(), "Prediction node initialized successfully");
 }
 
-void PredictionNode::trackedObjectsCallback(
-  const vision_msgs::msg::Detection3DArray::SharedPtr msg)
+void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
   if (!ego_pose_) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                         "Ego pose not received yet, skipping prediction");
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 1000, "Ego pose not received yet, skipping prediction");
     return;
   }
 
@@ -79,34 +75,27 @@ void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::Shar
 void PredictionNode::processObject(const vision_msgs::msg::Detection3D & detection)
 {
   RCLCPP_DEBUG(this->get_logger(), "Processing object with ID: %s", detection.id.c_str());
-  
+
   try {
     geometry_msgs::msg::Point center = detection.bbox.center.position;
     int64_t current_lanelet = map_interface_->findNearestLanelet(center);
-    
-    auto future_lanelets = map_interface_->getPossibleFutureLanelets(
-      current_lanelet, 3);
-    
-    auto hypotheses = trajectory_predictor_->generateHypotheses(
-      detection, future_lanelets);
-    
+
+    auto future_lanelets = map_interface_->getPossibleFutureLanelets(current_lanelet, 3);
+
+    auto hypotheses = trajectory_predictor_->generateHypotheses(detection, future_lanelets);
+
     if (hypotheses.empty()) {
-      RCLCPP_DEBUG(this->get_logger(), "No hypotheses generated for object %s", 
-                   detection.id.c_str());
+      RCLCPP_DEBUG(this->get_logger(), "No hypotheses generated for object %s", detection.id.c_str());
       return;
     }
-    
+
     auto features = intent_classifier_->extractFeatures(detection, future_lanelets);
     intent_classifier_->assignProbabilities(detection, hypotheses, features);
-    
-    RCLCPP_DEBUG(this->get_logger(), 
-                 "Generated %zu predictions for object %s",
-                 hypotheses.size(), detection.id.c_str());
-    
+
+    RCLCPP_DEBUG(
+      this->get_logger(), "Generated %zu predictions for object %s", hypotheses.size(), detection.id.c_str());
   } catch (const std::exception & e) {
-    RCLCPP_ERROR(this->get_logger(), 
-                 "Error processing object %s: %s", 
-                 detection.id.c_str(), e.what());
+    RCLCPP_ERROR(this->get_logger(), "Error processing object %s: %s", detection.id.c_str(), e.what());
   }
 }
 

@@ -14,16 +14,16 @@
 
 #include "prediction/trajectory_predictor.hpp"
 
+#include <memory>  // for std::make_unique
+#include <vector>  // for std::vector
+
 namespace prediction
 {
 
-TrajectoryPredictor::TrajectoryPredictor(
-  rclcpp::Node* node,
-  double prediction_horizon,
-  double time_step)
-: node_(node),
-  prediction_horizon_(prediction_horizon),
-  time_step_(time_step)
+TrajectoryPredictor::TrajectoryPredictor(rclcpp::Node * node, double prediction_horizon, double time_step)
+: node_(node)
+, prediction_horizon_(prediction_horizon)
+, time_step_(time_step)
 {
   // Initialize motion models
   bicycle_model_ = std::make_unique<BicycleModel>();
@@ -33,8 +33,7 @@ TrajectoryPredictor::TrajectoryPredictor(
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
-  const vision_msgs::msg::Detection3D & detection,
-  const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
 {
   ObjectType obj_type = classifyObjectType(detection);
 
@@ -58,40 +57,39 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
   return hypotheses;
 }
 
-ObjectType TrajectoryPredictor::classifyObjectType(
-  const vision_msgs::msg::Detection3D & detection)
+ObjectType TrajectoryPredictor::classifyObjectType(const vision_msgs::msg::Detection3D & detection)
 {
   // PLACEHOLDER: Simple rule-based classification using bounding box dimensions
-  RCLCPP_DEBUG(node_->get_logger(), "Classifying object type for detection: %s", 
-               detection.id.c_str());
-  
+  RCLCPP_DEBUG(node_->get_logger(), "Classifying object type for detection: %s", detection.id.c_str());
+
   // Use bounding box size as a simple heuristic
   double length = detection.bbox.size.x;
   double height = detection.bbox.size.z;
-  
+
   // Vehicle: large length (> 3m)
   if (length > 3.5) {
     return ObjectType::VEHICLE;
   }
   // Pedestrian: small and tall
-  else if (length < 1.0 && height > 1.0) {
+  else if (length < 1.0 && height > 1.0)
+  {
     return ObjectType::PEDESTRIAN;
   }
   // Cyclist: medium size
-  else if (length >= 1.0 && length <= 3.5) {
+  else if (length >= 1.0 && length <= 3.5)
+  {
     return ObjectType::CYCLIST;
   }
-  
+
   // Default to vehicle
   return ObjectType::VEHICLE;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses(
-  const vision_msgs::msg::Detection3D & detection,
-  const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
-  
+
   if (possible_lanelets.empty()) {
     return hypotheses;
   }
@@ -105,7 +103,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
   double current_x = detection.bbox.center.position.x;
   double current_y = detection.bbox.center.position.y;
   double velocity = 5.0;  // Assume 5 m/s for now
-  double heading = 0.0;   // Assume heading forward for now
+  double heading = 0.0;  // Assume heading forward for now
 
   for (double t = 0.0; t <= prediction_horizon_; t += time_step_) {
     geometry_msgs::msg::Pose waypoint;
@@ -113,22 +111,20 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
     waypoint.position.y = current_y + velocity * std::sin(heading) * t;
     waypoint.position.z = 0.0;
     waypoint.orientation.w = 1.0;
-    
+
     straight_hyp.waypoints.push_back(waypoint);
     straight_hyp.timestamps.push_back(t);
   }
 
   hypotheses.push_back(straight_hyp);
-  
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), 
-                    "Using placeholder vehicle trajectories (simple straight-line)");
-  
+
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder vehicle trajectories (simple straight-line)");
+
   return hypotheses;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
-  const vision_msgs::msg::Detection3D & detection,
-  const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
@@ -147,22 +143,20 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
     waypoint.position.y = current_y + velocity * std::sin(heading) * t;
     waypoint.position.z = 0.0;
     waypoint.orientation.w = 1.0;
-    
+
     walk_hyp.waypoints.push_back(waypoint);
     walk_hyp.timestamps.push_back(t);
   }
 
   hypotheses.push_back(walk_hyp);
-  
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), 
-                    "Using placeholder pedestrian trajectories (simple constant velocity)");
-  
+
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder pedestrian trajectories (simple constant velocity)");
+
   return hypotheses;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
-  const vision_msgs::msg::Detection3D & detection,
-  const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
@@ -181,16 +175,15 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
     waypoint.position.y = current_y + velocity * std::sin(heading) * t;
     waypoint.position.z = 0.0;
     waypoint.orientation.w = 1.0;
-    
+
     cycle_hyp.waypoints.push_back(waypoint);
     cycle_hyp.timestamps.push_back(t);
   }
 
   hypotheses.push_back(cycle_hyp);
-  
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), 
-                    "Using placeholder cyclist trajectories (simple constant velocity)");
-  
+
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder cyclist trajectories (simple constant velocity)");
+
   return hypotheses;
 }
 

@@ -27,6 +27,7 @@ Complete skeleton implementation for multi-modal trajectory prediction system. R
 - ✅ Comprehensive documentation (README + DEVELOPING.md)
 
 ## File Structure
+
 ```
 prediction/
 ├── README.md              # User-facing overview and quick start
@@ -76,6 +77,7 @@ prediction/
 5. Define message types in `world_modeling_msgs`
 
 ## Testing
+
 ```bash
 # Build
 colcon build --packages-select prediction

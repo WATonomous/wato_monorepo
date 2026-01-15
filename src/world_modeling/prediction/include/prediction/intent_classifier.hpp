@@ -23,9 +23,9 @@
 #include <memory>
 #include <vector>
 
+#include "prediction/trajectory_predictor.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
-#include "prediction/trajectory_predictor.hpp"
 
 namespace prediction
 {
@@ -33,15 +33,16 @@ namespace prediction
 /**
  * @brief Features used for intent classification
  */
-struct IntentFeatures {
-  double velocity;                      // Current velocity magnitude
-  double heading;                       // Current heading
-  double distance_to_intersection;      // Distance to nearest intersection
-  double lateral_offset;                // Offset from lane centerline
-  bool turn_signal_left;                // Turn signal observations
+struct IntentFeatures
+{
+  double velocity;  // Current velocity magnitude
+  double heading;  // Current heading
+  double distance_to_intersection;  // Distance to nearest intersection
+  double lateral_offset;  // Offset from lane centerline
+  bool turn_signal_left;  // Turn signal observations
   bool turn_signal_right;
-  int num_possible_lanelets;            // Number of possible future lanelets
-  double time_in_lane;                  // Time spent in current lane
+  int num_possible_lanelets;  // Number of possible future lanelets
+  double time_in_lane;  // Time spent in current lane
 };
 
 /**
@@ -56,7 +57,7 @@ public:
    * @brief Construct a new Intent Classifier
    * @param node ROS node pointer for logging
    */
-  explicit IntentClassifier(rclcpp::Node* node);
+  explicit IntentClassifier(rclcpp::Node * node);
 
   /**
    * @brief Assign probabilities to trajectory hypotheses
@@ -76,8 +77,7 @@ public:
    * @return IntentFeatures Feature vector for classification
    */
   IntentFeatures extractFeatures(
-    const vision_msgs::msg::Detection3D & detection,
-    const std::vector<int64_t> & possible_lanelets);
+    const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets);
 
 private:
   /**
@@ -94,10 +94,11 @@ private:
    */
   void normalizeProbabilities(std::vector<TrajectoryHypothesis> & hypotheses);
 
-  rclcpp::Node* node_;
+  rclcpp::Node * node_;
 
   // Classifier parameters (could be learned weights)
-  struct ClassifierWeights {
+  struct ClassifierWeights
+  {
     double velocity_weight;
     double heading_weight;
     double intersection_weight;

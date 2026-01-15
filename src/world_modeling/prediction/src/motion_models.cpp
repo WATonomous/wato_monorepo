@@ -13,7 +13,9 @@
 // limitations under the License.
 
 #include "prediction/motion_models.hpp"
+
 #include <cmath>
+#include <vector>  // for std::vector
 
 namespace prediction
 {
@@ -24,13 +26,9 @@ namespace prediction
 
 BicycleModel::BicycleModel()
 : max_steering_angle_(M_PI / 4.0)  // 45 degrees
-{
-}
+{}
 
-KinematicState BicycleModel::propagate(
-  const KinematicState & initial_state,
-  double dt,
-  double wheelbase)
+KinematicState BicycleModel::propagate(const KinematicState & initial_state, double dt, double wheelbase)
 {
   KinematicState next_state;
 
@@ -38,11 +36,10 @@ KinematicState BicycleModel::propagate(
   // x_dot = v * cos(theta)
   // y_dot = v * sin(theta)
   // theta_dot = v * tan(delta) / L
-  
+
   next_state.x = initial_state.x + initial_state.v * std::cos(initial_state.theta) * dt;
   next_state.y = initial_state.y + initial_state.v * std::sin(initial_state.theta) * dt;
-  next_state.theta = initial_state.theta + 
-                     initial_state.v * std::tan(initial_state.delta) / wheelbase * dt;
+  next_state.theta = initial_state.theta + initial_state.v * std::tan(initial_state.delta) / wheelbase * dt;
   next_state.v = initial_state.v;  // Constant velocity for now
   next_state.delta = initial_state.delta;
   next_state.a = initial_state.a;
@@ -51,34 +48,31 @@ KinematicState BicycleModel::propagate(
 }
 
 std::vector<geometry_msgs::msg::Pose> BicycleModel::generateTrajectory(
-  const KinematicState & initial_state,
-  const std::vector<Eigen::Vector2d> & path_points,
-  double horizon,
-  double dt)
+  const KinematicState & initial_state, const std::vector<Eigen::Vector2d> & path_points, double horizon, double dt)
 {
   std::vector<geometry_msgs::msg::Pose> trajectory;
-  
+
   KinematicState current_state = initial_state;
   double t = 0.0;
-  
+
   while (t < horizon) {
     current_state = propagate(current_state, dt);
-    
+
     geometry_msgs::msg::Pose pose;
     pose.position.x = current_state.x;
     pose.position.y = current_state.y;
     pose.position.z = 0.0;
-    
+
     // Convert heading to quaternion
     pose.orientation.w = std::cos(current_state.theta / 2.0);
     pose.orientation.x = 0.0;
     pose.orientation.y = 0.0;
     pose.orientation.z = std::sin(current_state.theta / 2.0);
-    
+
     trajectory.push_back(pose);
     t += dt;
   }
-  
+
   return trajectory;
 }
 
@@ -87,14 +81,11 @@ std::vector<geometry_msgs::msg::Pose> BicycleModel::generateTrajectory(
 // ============================================================================
 
 ConstantVelocityModel::ConstantVelocityModel()
-: position_noise_std_(0.1),
-  heading_noise_std_(0.05)
-{
-}
+: position_noise_std_(0.1)
+, heading_noise_std_(0.05)
+{}
 
-KinematicState ConstantVelocityModel::propagate(
-  const KinematicState & initial_state,
-  double dt)
+KinematicState ConstantVelocityModel::propagate(const KinematicState & initial_state, double dt)
 {
   KinematicState next_state;
 
@@ -110,34 +101,31 @@ KinematicState ConstantVelocityModel::propagate(
 }
 
 std::vector<geometry_msgs::msg::Pose> ConstantVelocityModel::generateTrajectory(
-  const KinematicState & initial_state,
-  double horizon,
-  double dt,
-  bool add_noise)
+  const KinematicState & initial_state, double horizon, double dt, bool add_noise)
 {
   std::vector<geometry_msgs::msg::Pose> trajectory;
-  
+
   KinematicState current_state = initial_state;
   double t = 0.0;
-  
+
   while (t < horizon) {
     current_state = propagate(current_state, dt);
-    
+
     geometry_msgs::msg::Pose pose;
     pose.position.x = current_state.x;
     pose.position.y = current_state.y;
     pose.position.z = 0.0;
-    
+
     // Convert heading to quaternion
     pose.orientation.w = std::cos(current_state.theta / 2.0);
     pose.orientation.x = 0.0;
     pose.orientation.y = 0.0;
     pose.orientation.z = std::sin(current_state.theta / 2.0);
-    
+
     trajectory.push_back(pose);
     t += dt;
   }
-  
+
   return trajectory;
 }
 

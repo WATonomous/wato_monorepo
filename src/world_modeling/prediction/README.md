@@ -72,6 +72,7 @@ ros2 launch prediction prediction.launch.py
 - **Critical**: Coordinate output format with Person 1 & 2
 
 **Output Format** (all must match):
+
 ```cpp
 struct TrajectoryHypothesis {
   std::vector<geometry_msgs::msg::Pose> waypoints;
@@ -85,7 +86,7 @@ struct TrajectoryHypothesis {
 
 Parameters in `config/params.yaml`:
 - `prediction_horizon`: 5.0 seconds
-- `prediction_time_step`: 0.1 seconds  
+- `prediction_time_step`: 0.1 seconds
 - Vehicle/pedestrian/cyclist specific parameters
 
 ## Team Assignments

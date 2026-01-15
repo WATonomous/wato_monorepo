@@ -40,8 +40,8 @@
 #include <memory>
 #include <vector>
 
-#include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/point.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 namespace prediction
 {
@@ -49,7 +49,8 @@ namespace prediction
 /**
  * @brief Lanelet information structure
  */
-struct LaneletInfo {
+struct LaneletInfo
+{
   int64_t id;
   std::vector<geometry_msgs::msg::Point> centerline;
   double speed_limit;
@@ -72,7 +73,7 @@ public:
    * @brief Construct a new Map Interface
    * @param node ROS node pointer for service clients
    */
-  explicit MapInterface(rclcpp::Node* node);
+  explicit MapInterface(rclcpp::Node * node);
 
   /**
    * @brief Find nearest lanelet to a point
@@ -94,9 +95,7 @@ public:
    * @param max_depth Maximum search depth
    * @return Vector of possible future lanelet IDs
    */
-  std::vector<int64_t> getPossibleFutureLanelets(
-    int64_t current_lanelet_id,
-    int max_depth = 3);
+  std::vector<int64_t> getPossibleFutureLanelets(int64_t current_lanelet_id, int max_depth = 3);
 
   /**
    * @brief Get speed limit for a lanelet
@@ -114,7 +113,7 @@ public:
   bool isCrosswalkNearby(const geometry_msgs::msg::Point & point, double radius);
 
 private:
-  rclcpp::Node* node_;
+  rclcpp::Node * node_;
 };
 
 }  // namespace prediction

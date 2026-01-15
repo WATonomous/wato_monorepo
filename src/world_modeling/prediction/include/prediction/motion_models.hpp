@@ -15,14 +15,14 @@
 /**
  * @file motion_models.hpp
  * @brief PHYSICS-BASED MOTION MODELS - Low-level kinematic propagation
- * 
+ *
  * WHAT THIS FILE DOES:
  * - Provides physics-based models to propagate object state forward in time
  * - BicycleModel: Vehicle motion with front-wheel steering
  * - ConstantVelocityModel: Simple linear motion with optional noise
- * 
+ *
  * ========== TASK ASSIGNMENTS ==========
- * 
+ *
  * JOHN - BICYCLE MODEL (for vehicles):
  * - Implement: BicycleModel::generateTrajectory() in motion_models.cpp
  * - Add: Path following logic (pure pursuit or Stanley controller)
@@ -30,14 +30,14 @@
  * - Add: Velocity profile generation (acceleration/deceleration)
  * - Input: Initial state + path points (from lanelet centerline)
  * - Output: Vector of Pose messages (trajectory waypoints)
- * 
+ *
  * GIRISH - CONSTANT VELOCITY MODEL (for pedestrians):
  * - Implement: ConstantVelocityModel::generateTrajectory() noise option
  * - Add: Gaussian noise sampling for position and heading
  * - Add: Multiple trajectory samples for uncertainty representation
  * - Input: Initial state + horizon + dt
  * - Output: Vector of Pose messages (trajectory waypoints)
- * 
+ *
  * ARUHANT - CAN USE BOTH MODELS:
  * - Use BicycleModel when cyclist is on road
  * - Use ConstantVelocityModel when cyclist is near crosswalk
@@ -47,8 +47,9 @@
 #ifndef PREDICTION__MOTION_MODELS_HPP_
 #define PREDICTION__MOTION_MODELS_HPP_
 
-#include <vector>
 #include <Eigen/Dense>
+#include <vector>
+
 #include "geometry_msgs/msg/pose.hpp"
 
 namespace prediction
@@ -57,18 +58,19 @@ namespace prediction
 /**
  * @brief State vector for kinematic models
  */
-struct KinematicState {
-  double x;           // Position x
-  double y;           // Position y
-  double theta;       // Heading angle
-  double v;           // Velocity
-  double a;           // Acceleration (optional)
-  double delta;       // Steering angle (for bicycle model)
+struct KinematicState
+{
+  double x;  // Position x
+  double y;  // Position y
+  double theta;  // Heading angle
+  double v;  // Velocity
+  double a;  // Acceleration (optional)
+  double delta;  // Steering angle (for bicycle model)
 };
 
 /**
  * @brief Bicycle kinematic model for vehicle motion
- * 
+ *
  * Models vehicle motion using bicycle kinematics with front wheel steering.
  */
 class BicycleModel
@@ -83,10 +85,7 @@ public:
    * @param wheelbase Vehicle wheelbase
    * @return New kinematic state after dt
    */
-  KinematicState propagate(
-    const KinematicState & initial_state,
-    double dt,
-    double wheelbase = 2.5);
+  KinematicState propagate(const KinematicState & initial_state, double dt, double wheelbase = 2.5);
 
   /**
    * @brief Generate trajectory following a path
@@ -97,10 +96,7 @@ public:
    * @return Vector of poses along trajectory
    */
   std::vector<geometry_msgs::msg::Pose> generateTrajectory(
-    const KinematicState & initial_state,
-    const std::vector<Eigen::Vector2d> & path_points,
-    double horizon,
-    double dt);
+    const KinematicState & initial_state, const std::vector<Eigen::Vector2d> & path_points, double horizon, double dt);
 
 private:
   double max_steering_angle_;  // Maximum steering angle (rad)
@@ -108,7 +104,7 @@ private:
 
 /**
  * @brief Constant velocity model with Gaussian noise
- * 
+ *
  * Simple motion model assuming constant velocity with additive noise.
  */
 class ConstantVelocityModel
@@ -122,9 +118,7 @@ public:
    * @param dt Time step
    * @return New kinematic state after dt
    */
-  KinematicState propagate(
-    const KinematicState & initial_state,
-    double dt);
+  KinematicState propagate(const KinematicState & initial_state, double dt);
 
   /**
    * @brief Generate trajectory with constant velocity
@@ -135,14 +129,11 @@ public:
    * @return Vector of poses along trajectory
    */
   std::vector<geometry_msgs::msg::Pose> generateTrajectory(
-    const KinematicState & initial_state,
-    double horizon,
-    double dt,
-    bool add_noise = false);
+    const KinematicState & initial_state, double horizon, double dt, bool add_noise = false);
 
 private:
   double position_noise_std_;  // Standard deviation for position noise
-  double heading_noise_std_;   // Standard deviation for heading noise
+  double heading_noise_std_;  // Standard deviation for heading noise
 };
 
 }  // namespace prediction

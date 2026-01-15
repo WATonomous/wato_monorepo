@@ -13,13 +13,16 @@
 // limitations under the License.
 
 #include "prediction/intent_classifier.hpp"
+
+#include <algorithm>  // for std::max, std::min
 #include <cmath>
 #include <numeric>
+#include <vector>  // for std::vector
 
 namespace prediction
 {
 
-IntentClassifier::IntentClassifier(rclcpp::Node* node)
+IntentClassifier::IntentClassifier(rclcpp::Node * node)
 : node_(node)
 {
   weights_.velocity_weight = 0.3;
@@ -48,82 +51,80 @@ void IntentClassifier::assignProbabilities(
   // Normalize probabilities to sum to 1.0
   normalizeProbabilities(hypotheses);
 
-  RCLCPP_DEBUG(node_->get_logger(), "Assigned probabilities to %zu hypotheses", 
-               hypotheses.size());
+  RCLCPP_DEBUG(node_->get_logger(), "Assigned probabilities to %zu hypotheses", hypotheses.size());
 }
 
 IntentFeatures IntentClassifier::extractFeatures(
-  const vision_msgs::msg::Detection3D & detection,
-  const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
 {
   // PLACEHOLDER: Extract basic features (needs tracking history for velocity)
   IntentFeatures features;
 
   // Estimate velocity from detection (would normally use tracking history)
   features.velocity = 5.0;  // Placeholder: assume 5 m/s
-  
+
   // Estimate heading from detection orientation
   features.heading = 0.0;  // Placeholder
-  
+
   // Distance to intersection (would query map)
   features.distance_to_intersection = 50.0;  // Placeholder: 50m
-  
+
   // Lateral offset from lane centerline (would use map query)
   features.lateral_offset = 0.0;  // Placeholder: centered
-  
+
   // Turn signals (would come from CAN bus or visual detection)
   features.turn_signal_left = false;
   features.turn_signal_right = false;
-  
+
   // Number of possible future paths
   features.num_possible_lanelets = static_cast<int>(possible_lanelets.size());
-  
+
   // Time in lane (would track from history)
   features.time_in_lane = 2.0;  // Placeholder: 2 seconds
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), 
-                    "Using placeholder feature extraction");
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder feature extraction");
 
   return features;
 }
 
-double IntentClassifier::computeIntentProbability(
-  Intent intent,
-  const IntentFeatures & features)
+double IntentClassifier::computeIntentProbability(Intent intent, const IntentFeatures & features)
 {
   double probability = 0.0;
 
   switch (intent) {
     case Intent::CONTINUE_STRAIGHT:
       // Higher probability if moving straight, no turn signals
-      probability = 0.6 * (1.0 - std::abs(features.lateral_offset)) * (!features.turn_signal_left && !features.turn_signal_right ? 1.0 : 0.5);
+      probability = 0.6 * (1.0 - std::abs(features.lateral_offset)) *
+                    (!features.turn_signal_left && !features.turn_signal_right ? 1.0 : 0.5);
       break;
-      
+
     case Intent::TURN_LEFT:
       // Higher probability if turn signal on and near intersection
-      probability = (features.turn_signal_left ? 0.8 : 0.2) * std::max(0.0, 1.0 - features.distance_to_intersection / 50.0);
+      probability =
+        (features.turn_signal_left ? 0.8 : 0.2) * std::max(0.0, 1.0 - features.distance_to_intersection / 50.0);
       break;
-      
+
     case Intent::TURN_RIGHT:
       // Higher probability if turn signal on and near intersection
-      probability = (features.turn_signal_right ? 0.8 : 0.2) * std::max(0.0, 1.0 - features.distance_to_intersection / 50.0);
+      probability =
+        (features.turn_signal_right ? 0.8 : 0.2) * std::max(0.0, 1.0 - features.distance_to_intersection / 50.0);
       break;
-      
+
     case Intent::LANE_CHANGE_LEFT:
       // Higher probability if lateral offset to left
       probability = std::max(0.0, features.lateral_offset) * (features.turn_signal_left ? 1.0 : 0.5);
       break;
-      
+
     case Intent::LANE_CHANGE_RIGHT:
       // Higher probability if lateral offset to right
       probability = std::max(0.0, -features.lateral_offset) * (features.turn_signal_right ? 1.0 : 0.5);
       break;
-      
+
     case Intent::STOP:
       // Higher probability if low velocity
       probability = features.velocity < 1.0 ? 0.7 : 0.1;
       break;
-      
+
     default:
       probability = 0.1;
       break;
@@ -133,8 +134,7 @@ double IntentClassifier::computeIntentProbability(
   return std::max(0.0, std::min(1.0, probability));
 }
 
-void IntentClassifier::normalizeProbabilities(
-  std::vector<TrajectoryHypothesis> & hypotheses)
+void IntentClassifier::normalizeProbabilities(std::vector<TrajectoryHypothesis> & hypotheses)
 {
   if (hypotheses.empty()) {
     return;

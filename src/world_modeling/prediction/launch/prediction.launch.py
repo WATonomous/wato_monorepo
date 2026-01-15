@@ -24,9 +24,7 @@ from launch_ros.descriptions import ComposableNode
 def generate_launch_description():
     """Launch multi-modal trajectory prediction node."""
     prediction_pkg_prefix = get_package_share_directory("prediction")
-    prediction_param_file = os.path.join(
-        prediction_pkg_prefix, "config", "params.yaml"
-    )
+    prediction_param_file = os.path.join(prediction_pkg_prefix, "config", "params.yaml")
 
     prediction_param = DeclareLaunchArgument(
         "prediction_param_file",
