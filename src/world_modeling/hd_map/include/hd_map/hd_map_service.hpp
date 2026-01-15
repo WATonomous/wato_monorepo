@@ -156,7 +156,6 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hd_map_desired_lane_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hd_map_current_lane_publisher_;
 
-  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr hd_map_pedestrian_subscriber_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr point_subscriber_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr query_point_subscriber_;
 

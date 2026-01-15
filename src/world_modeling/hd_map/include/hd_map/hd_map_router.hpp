@@ -84,7 +84,7 @@ public:
   /**
   * Convert local XYZ coordinates to GPS coordinates.
   *
-  * @param point3d the filename of the map
+  * @param point3d XYZ coordinates
   * @return GPS coordinates
   */
   lanelet::GPSPoint project_point3d_to_gps(lanelet::BasicPoint3d point3d);
@@ -208,11 +208,11 @@ public:
   LaneSemantic get_lane_semantic(const lanelet::ConstLanelet & lanelet) const;
 
   /**
-  * Collect lane-related objects along a forward path along the routing graph.
+  * Collect lane related objects along a forward path on the routing graph.
   *
   * @param start_lanelet starting lanelet for the corridor
-  * @param distance_ahead lookahead distance along the route [m]
-  * @param lateral_radius max lateral distance from corridor centerlines [m]
+  * @param distance_ahead lookahead distance along the route in meters
+  * @param lateral_radius max lateral distance from corridor centerlines in meters
   * @return lane objects found along the corridor
   */
   LaneObjects get_lane_objects_along_corridor(
