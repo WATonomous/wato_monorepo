@@ -59,6 +59,9 @@ launch:
   # - include:
   #     file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
 
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/lower_cameras.yaml"
+
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
