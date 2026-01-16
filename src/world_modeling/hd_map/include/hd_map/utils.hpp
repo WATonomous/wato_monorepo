@@ -20,6 +20,19 @@
 
 namespace utils
 {
+/**
+ * Convert a 3D bounding box to a 3D polygon.
+ *
+ * @param bbox the bounding box to convert
+ * @return a polygon representing the bounding box
+ */
 lanelet::Polygon3d boundingBox3dToPolygon3d(const lanelet::BoundingBox3d & bbox);
+
+/**
+ * Convert a ROS Detection3D bounding box to a lanelet bounding box.
+ *
+ * @param detection3d_bbox the ROS bounding box message
+ * @return a lanelet bounding box
+ */
 lanelet::BoundingBox3d detection3dToLaneletBBox(const vision_msgs::msg::BoundingBox3D & detection3d_bbox);
 }  // namespace utils

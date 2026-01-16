@@ -14,6 +14,7 @@
 
 #include "hd_map/hd_map_service.hpp"
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -58,6 +59,26 @@ HDMapService::HDMapService()
     "behaviour_tree_info",
     std::bind(&HDMapService::behaviour_tree_info_callback, this, std::placeholders::_1, std::placeholders::_2));
 
+  lanelet_info_gps_service_ = this->create_service<world_modeling_msgs::srv::LaneletInfoGPS>(
+    "lanelet_info_gps",
+    std::bind(&HDMapService::laneletInfoGPSCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lanelet_info_xyz_service_ = this->create_service<world_modeling_msgs::srv::LaneletInfoXYZ>(
+    "lanelet_info_xyz",
+    std::bind(&HDMapService::laneletInfoXYZCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lanelet_info_xy_service_ = this->create_service<world_modeling_msgs::srv::LaneletInfoXY>(
+    "lanelet_info_xy",
+    std::bind(&HDMapService::laneletInfoXYCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lane_semantic_service_ = this->create_service<world_modeling_msgs::srv::GetLaneSemantic>(
+    "get_lane_semantic",
+    std::bind(&HDMapService::get_lane_semantic_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+  lane_objects_service_ = this->create_service<world_modeling_msgs::srv::GetLaneObjects>(
+    "get_lane_objects",
+    std::bind(&HDMapService::get_lane_objects_callback, this, std::placeholders::_1, std::placeholders::_2));
+
   // Map selection hardcoded for now
 
   std::string osm_map = manager_->get_maps_directory() + osm_map_filename;
@@ -78,14 +99,6 @@ HDMapService::HDMapService()
   hd_map_current_lane_publisher_ =
     this->create_publisher<visualization_msgs::msg::MarkerArray>(current_lane_output_topic, 20);
 
-  hd_map_traffic_light_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    traffic_light_input_topic,
-    20,
-    std::bind(&HDMapService::hd_map_traffic_light_callback, this, std::placeholders::_1));
-  hd_map_traffic_sign_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3D>(
-    traffic_sign_input_topic, 20, std::bind(&HDMapService::hd_map_traffic_sign_callback, this, std::placeholders::_1));
-  hd_map_pedestrian_subscriber_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    pedestrian_input_topic, 20, std::bind(&HDMapService::hd_map_pedestrian_callback, this, std::placeholders::_1));
   point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
     point_input_topic, 20, std::bind(&HDMapService::point_callback, this, std::placeholders::_1));
   query_point_subscriber_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
@@ -93,21 +106,6 @@ HDMapService::HDMapService()
 
   hd_map_visualization_timer_ =
     this->create_wall_timer(std::chrono::milliseconds(5000), std::bind(&HDMapService::publish_hd_map_marker, this));
-}
-
-void HDMapService::hd_map_traffic_light_callback(vision_msgs::msg::Detection3DArray::SharedPtr traffic_light_array_msg)
-{
-  router_->process_traffic_light_msg(traffic_light_array_msg);
-}
-
-void HDMapService::hd_map_traffic_sign_callback(vision_msgs::msg::Detection3D::SharedPtr traffic_sign_msg)
-{
-  router_->process_traffic_sign_msg(traffic_sign_msg);
-}
-
-void HDMapService::hd_map_pedestrian_callback(vision_msgs::msg::Detection3DArray::SharedPtr pedestrian_msg)
-{
-  router_->process_pedestrian_msg(pedestrian_msg);
 }
 
 void HDMapService::publish_hd_map_marker()
@@ -179,7 +177,7 @@ void HDMapService::get_desired_lane(geometry_msgs::msg::PointStamped::SharedPtr 
         RCLCPP_INFO(this->get_logger(), "Using Current It");
         current_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
         desired_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
-      } else if (idx < lanelet_path->size() - 1) {
+      } else if (idx + 1 < lanelet_path->size()) {
         RCLCPP_INFO(this->get_logger(), "Using Next It");
         current_marker = world_modeling::hd_map::laneletAsMarkerArray(*it, &id, false, true, color, color, .3, .4);
         desired_marker = world_modeling::hd_map::laneletAsMarkerArray(
@@ -216,7 +214,7 @@ world_modeling_msgs::msg::Lanelet HDMapService::convert_lanelet_to_msg(const lan
     p.x = point.x();
     p.y = point.y();
     p.z = point.z();
-    lanelet_msg.left_boundary.push_back(p);
+    lanelet_msg.right_boundary.push_back(p);
   }
 
   // convert centerline
@@ -259,6 +257,124 @@ void HDMapService::behaviour_tree_info_callback(
   // response->current_lanelet = convert_lanelet_to_msg(current_lanelet_);
   // response->goal_lanelet = convert_lanelet_to_msg(goal_lanelet_);
   // response->route_list = convert_laneletPath_to_msg(lanelet_path);
+}
+
+void HDMapService::laneletInfoGPSCallback(
+  const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::LaneletInfoGPS::Response> response)
+{
+  lanelet::GPSPoint gps_point;
+  gps_point.lat = request->latitude;
+  gps_point.lon = request->longitude;
+  gps_point.ele = request->altitude;
+
+  lanelet::ConstLanelet closest_lanelet = router_->get_nearest_lanelet_to_gps(gps_point);
+  response->lanelet = convert_lanelet_to_msg(closest_lanelet);
+}
+
+void HDMapService::laneletInfoXYZCallback(
+  const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXYZ::Response> response)
+{
+  lanelet::ConstLanelet closest_lanelet = router_->get_nearest_lanelet_to_xyz(request->x, request->y, request->z);
+  response->lanelet = convert_lanelet_to_msg(closest_lanelet);
+}
+
+void HDMapService::laneletInfoXYCallback(
+  const std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::LaneletInfoXY::Response> response)
+{
+  lanelet::ConstLanelet closest_lanelet =
+    router_->get_nearest_lanelet_to_xy(request->x, request->y, request->width_x, request->height_y);
+  response->lanelet = convert_lanelet_to_msg(closest_lanelet);
+}
+
+void HDMapService::get_lane_semantic_callback(
+  const std::shared_ptr<world_modeling_msgs::srv::GetLaneSemantic::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::GetLaneSemantic::Response> response)
+{
+  auto router = manager_->get_router();
+  if (!router) {
+    RCLCPP_ERROR(this->get_logger(), "HDMapRouter not available");
+    response->lane_id = -1;
+    return;
+  }
+
+  // finds the nearest lanelet to this pose
+  const auto & pose = request->pose;
+  lanelet::ConstLanelet lanelet = router->get_nearest_lanelet_to_xyz(pose.position.x, pose.position.y, pose.position.z);
+
+  if (lanelet.id() == lanelet::InvalId) {
+    RCLCPP_WARN(this->get_logger(), "No lanelet near query pose");
+    response->lane_id = -1;
+    return;
+  }
+
+  auto sem = router->get_lane_semantic(lanelet);
+
+  response->lane_id = sem.lane_id;
+  response->lane_index = sem.lane_index;
+  response->lane_count = sem.lane_count;
+  response->speed_limit = static_cast<float>(sem.speed_limit);
+  response->has_left_neighbor = sem.has_left_neighbor;
+  response->has_right_neighbor = sem.has_right_neighbor;
+  response->in_intersection = sem.in_intersection;
+}
+
+void HDMapService::get_lane_objects_callback(
+  const std::shared_ptr<world_modeling_msgs::srv::GetLaneObjects::Request> request,
+  std::shared_ptr<world_modeling_msgs::srv::GetLaneObjects::Response> response)
+{
+  auto router = manager_->get_router();
+  if (!router) {
+    RCLCPP_ERROR(this->get_logger(), "HDMapRouter not available");
+    response->num_traffic_signs = 0;
+    response->num_crosswalks = 0;
+    response->num_bike_lanes = 0;
+    return;
+  }
+
+  const auto & pose = request->pose;
+
+  lanelet::ConstLanelet lanelet = router->get_nearest_lanelet_to_xyz(pose.position.x, pose.position.y, pose.position.z);
+
+  if (lanelet.id() == lanelet::InvalId) {
+    RCLCPP_WARN(this->get_logger(), "No lanelet near query pose");
+    response->num_traffic_signs = 0;
+    response->num_crosswalks = 0;
+    response->num_bike_lanes = 0;
+    return;
+  }
+
+  auto objs = router->get_lane_objects_along_corridor(lanelet, request->distance_ahead, request->lateral_radius);
+
+  // traffic signs
+  response->traffic_sign_poses.clear();
+  response->traffic_sign_types.clear();
+  response->traffic_sign_poses.reserve(objs.traffic_signs.size());
+  response->traffic_sign_types.reserve(objs.traffic_signs.size());
+
+  for (const auto & sign : objs.traffic_signs) {
+    response->traffic_sign_poses.push_back(sign.pose);
+    response->traffic_sign_types.push_back(sign.type);
+  }
+  response->num_traffic_signs = static_cast<int32_t>(objs.traffic_signs.size());
+
+  // crosswalks
+  response->crosswalk_poses.clear();
+  response->crosswalk_poses.reserve(objs.crosswalks.size());
+  for (const auto & crosswalk : objs.crosswalks) {
+    response->crosswalk_poses.push_back(crosswalk.pose);
+  }
+  response->num_crosswalks = static_cast<int32_t>(objs.crosswalks.size());
+
+  // bike lanes
+  response->bike_lane_poses.clear();
+  response->bike_lane_poses.reserve(objs.bike_lanes.size());
+  for (const auto & bike_lane : objs.bike_lanes) {
+    response->bike_lane_poses.push_back(bike_lane.pose);
+  }
+  response->num_bike_lanes = static_cast<int32_t>(objs.bike_lanes.size());
 }
 
 int main(int argc, char ** argv)
