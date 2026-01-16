@@ -1,0 +1,131 @@
+---
+launch:
+  - arg:
+      name: "lidar_config_file"
+      description: "Path to Top LiDAR configuration file"
+
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: lidar_cc_container
+      namespace: ""
+
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: lidar_nw_container
+      namespace: ""
+
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: lidar_ne_container
+      namespace: ""
+
+  - load_composable_node:
+      target: lidar_cc_container
+      composable_node:
+        - pkg: velodyne_driver
+          plugin: velodyne_driver::VelodyneDriver
+          name: velodyne_driver_node_cc
+          remap:
+            - from: "velodyne_packets"
+              to: "lidar_cc/velodyne_packets"
+          param:
+            - from: "$(var lidar_config_file)"
+
+        - pkg: velodyne_pointcloud
+          plugin: velodyne_pointcloud::Transform
+          name: velodyne_transform_node_cc
+          remap:
+            - from: "velodyne_packets"
+              to: "lidar_cc/velodyne_packets"
+            - from: "velodyne_points"
+              to: "lidar_cc/velodyne_points"
+          param:
+            - from: "$(find-pkg-share velodyne_pointcloud)/config/VLP32C-velodyne_transform_node-params.yaml"
+            - name: calibration
+              value: "$(find-pkg-share velodyne_pointcloud)/params/VeloView-VLP-32C.yaml"
+
+        - pkg: velodyne_laserscan
+          plugin: velodyne_laserscan::VelodyneLaserScan
+          name: velodyne_laserscan_node_cc
+          remap:
+            - from: "velodyne_points"
+              to: "lidar_cc/velodyne_points"
+            - from: "scan"
+              to: "lidar_cc/scan"
+          param:
+            - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"
+
+  - load_composable_node:
+      target: lidar_nw_container
+      composable_node:
+        - pkg: velodyne_driver
+          plugin: velodyne_driver::VelodyneDriver
+          name: velodyne_driver_node_ne
+          remap:
+            - from: "velodyne_packets"
+              to: "lidar_nw/velodyne_packets"
+          param:
+            - from: "$(var lidar_config_file)"
+
+        - pkg: velodyne_pointcloud
+          plugin: velodyne_pointcloud::Transform
+          name: velodyne_transform_node_ne
+          remap:
+            - from: "velodyne_packets"
+              to: "lidar_nw/velodyne_packets"
+            - from: "velodyne_points"
+              to: "lidar_nw/velodyne_points"
+          param:
+            - from: "$(find-pkg-share velodyne_pointcloud)/config/VLP16-velodyne_transform_node-params.yaml"
+            - name: calibration
+              value: "$(find-pkg-share velodyne_pointcloud)/params/VLP16db.yaml"
+
+        - pkg: velodyne_laserscan
+          plugin: velodyne_laserscan::VelodyneLaserScan
+          name: velodyne_laserscan_node_ne
+          remap:
+            - from: "velodyne_points"
+              to: "lidar_nw/velodyne_points"
+            - from: "scan"
+              to: "lidar_nw/scan"
+          param:
+            - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"
+
+  - load_composable_node:
+      target: lidar_ne_container
+      composable_node:
+        - pkg: velodyne_driver
+          plugin: velodyne_driver::VelodyneDriver
+          name: velodyne_driver_node_nw
+          remap:
+            - from: "velodyne_packets"
+              to: "lidar_ne/velodyne_packets"
+          param:
+            - from: "$(var lidar_config_file)"
+
+        - pkg: velodyne_pointcloud
+          plugin: velodyne_pointcloud::Transform
+          name: velodyne_transform_node_nw
+          remap:
+            - from: "velodyne_packets"
+              to: "lidar_ne/velodyne_packets"
+            - from: "velodyne_points"
+              to: "lidar_ne/velodyne_points"
+          param:
+            - from: "$(find-pkg-share velodyne_pointcloud)/config/VLP16-velodyne_transform_node-params.yaml"
+            - name: calibration
+              value: "$(find-pkg-share velodyne_pointcloud)/params/VLP16db.yaml"
+
+        - pkg: velodyne_laserscan
+          plugin: velodyne_laserscan::VelodyneLaserScan
+          name: velodyne_laserscan_node_nw
+          remap:
+            - from: "velodyne_points"
+              to: "lidar_ne/velodyne_points"
+            - from: "scan"
+              to: "lidar_ne/scan"
+          param:
+            - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"

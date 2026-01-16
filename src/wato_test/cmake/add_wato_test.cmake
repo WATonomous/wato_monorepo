@@ -32,7 +32,7 @@ function(add_wato_test TEST_NAME TEST_SOURCE)
   )
 
   # Find dependencies
-  find_package(Catch2 2 REQUIRED)
+  find_package(Catch2 3 REQUIRED)
   find_package(rclcpp REQUIRED)
   find_package(rclcpp_lifecycle REQUIRED)
 

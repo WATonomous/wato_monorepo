@@ -1,9 +1,12 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:foxy-ubuntu20.04
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
 
 ARG CARLA_VERSION=0.9.13
 FROM carlasim/carla:${CARLA_VERSION} AS wato_carla_api
 
 ################################ Source ################################
+# NOTE: You should add in the source stage in the following order:
+#   - clone git repositories -> copy source code
+# This will make your builds significantly faster
 FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
@@ -20,14 +23,18 @@ COPY src/wato_msgs/simulation ros_msgs
 COPY src/wato_msgs/interfacing_msgs interfacing_msgs
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && apt-get install --no-install-recommends -qq python3-pip && \
-    rosdep update --include-eol-distros --rosdistro foxy && \
-    rosdep install --from-paths . --ignore-src -r -s \
-        | (grep 'apt-get install' || true) \
+RUN apt-get -qq update && \
+    rosdep install --from-paths . --ignore-src -r -s > /tmp/rosdep_output && \
+    (grep 'apt-get install' /tmp/rosdep_output || true) \
         | awk '{print $3}' \
-        | sort  > /tmp/colcon_install_list
+        | sort  > /tmp/colcon_install_list && \
+    (grep 'pip3 install' /tmp/rosdep_output || true) \
+        | sed 's/.*pip3 install //' \
+        | sort  > /tmp/colcon_pip_install_list
 
 ################################# Dependencies ################################
+# NOTE: You should be relying on ROSDEP as much as possible
+# Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -38,14 +45,17 @@ RUN apt-get update -qq && \
         libglu1-mesa-dev xorg-dev \
         software-properties-common \
         build-essential \
-        python3-pygame \
-        qt5-default && \
+        python3-pygame && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
-RUN apt-get update -qq && \
+COPY --from=source /tmp/colcon_pip_install_list /tmp/colcon_pip_install_list
+RUN apt-get update && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    if [ -s /tmp/colcon_pip_install_list ]; then \
+        xargs -a /tmp/colcon_pip_install_list pip3 install --no-cache-dir; \
+    fi
 
 WORKDIR ${AMENT_WS}
 COPY --from=source ${AMENT_WS}/src src
@@ -79,15 +89,17 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # RMW Configurations
-COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+COPY docker/config/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
+COPY docker/config/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+COPY docker/config/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
 ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
 
-# Source Cleanup and Security Setup
-RUN rm -rf "${AMENT_WS:?}"/*
-USER ${USER}
+# Source Cleanup, Security Setup, and Workspace Setup
+RUN rm -rf "${AMENT_WS:?}"/* && \
+    mkdir -p "${AMENT_WS}"/src && \
+    chown -R "${USER}":"${USER}" "${AMENT_WS}"
