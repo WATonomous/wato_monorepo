@@ -56,7 +56,7 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("depth_estimation_param_file")],
     )
 
-    patchwork_pkg = get_package_share_directory("patchworkpp")
+    patchwork_pkg = get_package_share_directory("wato_patchworkpp")
     patchwork_param_file = os.path.join(patchwork_pkg, "config", "params.yaml")
     patchwork_param = DeclareLaunchArgument(
         "patchwork_param_file",
@@ -79,7 +79,7 @@ def generate_launch_description():
         description="Non-ground points output topic from Patchwork++",
     )
     patchwork_node = Node(
-        package="patchworkpp",
+        package="wato_patchworkpp",
         executable="patchworkpp_node",
         name="patchworkpp_node",
         parameters=[LaunchConfiguration("patchwork_param_file")],
@@ -97,7 +97,7 @@ def generate_launch_description():
     spatial_association_param = DeclareLaunchArgument(
         "spatial_association_param_file",
         default_value=spatial_association_param_file,
-        description="Path to config file for spatial_association fusion node",
+        description="Path to config file for spatial_association node",
     )
     spatial_association_node = Node(
         package="spatial_association",
