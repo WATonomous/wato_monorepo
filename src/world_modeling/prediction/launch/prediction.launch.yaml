@@ -1,0 +1,41 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Launch multi-modal trajectory prediction node.
+
+launch:
+  - arg:
+      name: prediction_param_file
+      default: $(find-pkg-share prediction)/config/params.yaml
+      description: Path to config file for prediction node
+
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: prediction_container
+      namespace: ''
+      composable_node:
+        - pkg: prediction
+          plugin: prediction::PredictionNode
+          name: prediction_node
+          param:
+            - $(var prediction_param_file)
+          remap:
+            - from: tracks_3d
+              to: /perception/detections_3D_tracked
+            - from: ego_pose
+              to: /localization/pose
+            - from: predicted_paths
+              to: /world_modeling/prediction/predicted_paths
+      output: screen
