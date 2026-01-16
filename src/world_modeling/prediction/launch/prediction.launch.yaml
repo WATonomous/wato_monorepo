@@ -30,7 +30,8 @@ launch:
           plugin: prediction::PredictionNode
           name: prediction_node
           param:
-            - $(var prediction_param_file)
+            - from: $(var prediction_param_file)
+              to: ''
           remap:
             - from: tracks_3d
               to: /perception/detections_3D_tracked
