@@ -101,6 +101,7 @@ services:
     depends_on:
       infrastructure_bringup:
         condition: service_started
+        required: false
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
@@ -150,6 +151,7 @@ services:
     depends_on:
       infrastructure_bringup:
         condition: service_started
+        required: false
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
@@ -197,6 +199,7 @@ services:
     depends_on:
       infrastructure_bringup:
         condition: service_started
+        required: false
 
 #################### ACTION SERVICE ####################
   action_source:
@@ -244,6 +247,7 @@ services:
     depends_on:
       infrastructure_bringup:
         condition: service_started
+        required: false
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
@@ -319,3 +323,4 @@ services:
     depends_on:
       infrastructure_bringup:
         condition: service_started
+        required: false
