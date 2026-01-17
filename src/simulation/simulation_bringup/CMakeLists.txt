@@ -51,7 +51,6 @@ install(TARGETS
 # Copy launch and config files to installation location
 install(DIRECTORY
   config
-  launch
   DESTINATION share/${PROJECT_NAME})
 
 ament_package()

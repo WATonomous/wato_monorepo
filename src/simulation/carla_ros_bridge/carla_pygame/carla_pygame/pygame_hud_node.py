@@ -21,8 +21,8 @@ import threading
 import time
 
 # Set SDL to use dummy video driver for headless operation
-os.environ['SDL_VIDEODRIVER'] = 'dummy'
-os.environ['SDL_AUDIODRIVER'] = 'dummy'
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
@@ -138,7 +138,7 @@ class PygameHudNode(LifecycleNode):
             role_name=role_name,
             show_triggers=show_triggers,
             show_connections=show_connections,
-            show_spawn_points=show_spawn_points
+            show_spawn_points=show_spawn_points,
         )
 
         if not self.world.start():
@@ -147,25 +147,34 @@ class PygameHudNode(LifecycleNode):
 
         # Set up Flask app
         self.app = Flask(__name__)
-        self.app.config['SECRET_KEY'] = 'carla-visualizer'
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*", async_mode='threading')
+        self.app.config["SECRET_KEY"] = "carla-visualizer"
+        self.socketio = SocketIO(
+            self.app,
+            cors_allowed_origins="*",
+            async_mode="threading",
+            ping_timeout=60,
+            ping_interval=25,
+            max_http_buffer_size=10 * 1024 * 1024,  # 10MB buffer
+        )
 
         # Set up routes
         world_ref = self.world
 
-        @self.app.route('/')
+        @self.app.route("/")
         def index():
-            return render_template_string(HTML_TEMPLATE, width=world_ref.dim[0], height=world_ref.dim[1])
+            return render_template_string(
+                HTML_TEMPLATE, width=world_ref.dim[0], height=world_ref.dim[1]
+            )
 
-        @self.socketio.on('pan')
+        @self.socketio.on("pan")
         def handle_pan(data):
             if world_ref:
-                world_ref.handle_pan(data['dx'], data['dy'])
+                world_ref.handle_pan(data["dx"], data["dy"])
 
-        @self.socketio.on('zoom')
+        @self.socketio.on("zoom")
         def handle_zoom(data):
             if world_ref:
-                world_ref.handle_zoom(data['delta'], data['x'], data['y'])
+                world_ref.handle_zoom(data["delta"], data["x"], data["y"])
 
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
@@ -177,7 +186,7 @@ class PygameHudNode(LifecycleNode):
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    s.bind(('0.0.0.0', port))
+                    s.bind(("0.0.0.0", port))
                     return True
             except OSError:
                 time.sleep(0.1)
@@ -189,12 +198,12 @@ class PygameHudNode(LifecycleNode):
 
         # Create a custom request handler that doesn't log
         class QuietHandler(WSGIRequestHandler):
-            def log_request(self, code='-', size='-'):
+            def log_request(self, code="-", size="-"):
                 pass  # Suppress request logging
 
         # Create the WSGI server with SO_REUSEADDR
         self._server = make_server(
-            '0.0.0.0',
+            "0.0.0.0",
             port,
             self.app,
             threaded=True,
@@ -225,7 +234,9 @@ class PygameHudNode(LifecycleNode):
 
         # Wait for port to be available (in case previous server didn't release it)
         if not self._wait_for_port_available(web_port, timeout=3.0):
-            self.get_logger().warn(f"Port {web_port} may still be in use, attempting to start anyway")
+            self.get_logger().warn(
+                f"Port {web_port} may still be in use, attempting to start anyway"
+            )
 
         # Start frame emitter thread
         self.emitter_thread = threading.Thread(target=self._frame_emitter, daemon=True)
@@ -233,9 +244,7 @@ class PygameHudNode(LifecycleNode):
 
         # Start Flask server in a thread using custom server for proper shutdown
         self.server_thread = threading.Thread(
-            target=self._run_server,
-            args=(web_port,),
-            daemon=True
+            target=self._run_server, args=(web_port,), daemon=True
         )
         self.server_thread.start()
 
@@ -253,7 +262,7 @@ class PygameHudNode(LifecycleNode):
             self.emitter_thread.join(timeout=2.0)
 
         # Stop the werkzeug server properly
-        if hasattr(self, '_server') and self._server:
+        if hasattr(self, "_server") and self._server:
             try:
                 self._server.shutdown()
             except Exception as e:
@@ -312,14 +321,14 @@ class PygameHudNode(LifecycleNode):
                     surface = self.world.render()
 
                     if surface:
-                        data = pygame.image.tostring(surface, 'RGB')
-                        img = Image.frombytes('RGB', surface.get_size(), data)
+                        data = pygame.image.tostring(surface, "RGB")
+                        img = Image.frombytes("RGB", surface.get_size(), data)
 
                         buffer = io.BytesIO()
-                        img.save(buffer, format='PNG', optimize=False)
-                        frame_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                        img.save(buffer, format="PNG", optimize=False)
+                        frame_data = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-                        self.socketio.emit('frame', frame_data)
+                        self.socketio.emit("frame", frame_data)
             except Exception as e:
                 self.get_logger().error(f"Frame emitter error: {e}")
 

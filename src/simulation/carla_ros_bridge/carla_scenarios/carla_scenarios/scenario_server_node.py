@@ -22,7 +22,6 @@ from carla_msgs.msg import ScenarioStatus
 from std_msgs.msg import Header
 from std_srvs.srv import Trigger
 from rosgraph_msgs.msg import Clock
-from builtin_interfaces.msg import Time
 
 try:
     import carla
@@ -120,8 +119,10 @@ class ScenarioServerNode(LifecycleNode):
         self.service_cb_group = rclpy.callback_groups.ReentrantCallbackGroup()
 
         self.switch_scenario_service = self.create_service(
-            SwitchScenario, "~/switch_scenario", self.switch_scenario_callback,
-            callback_group=self.service_cb_group
+            SwitchScenario,
+            "~/switch_scenario",
+            self.switch_scenario_callback,
+            callback_group=self.service_cb_group,
         )
 
         self.get_scenarios_service = self.create_service(
@@ -262,20 +263,26 @@ class ScenarioServerNode(LifecycleNode):
 
     def switch_scenario_callback(self, request, response):
         """Handle switch scenario service request."""
-        self.get_logger().info(f"Received switch_scenario request: {request.scenario_name}")
+        self.get_logger().info(
+            f"Received switch_scenario request: {request.scenario_name}"
+        )
 
         previous = self.current_scenario_name
 
         # Request lifecycle manager to cleanup managed nodes first
         if self.prepare_switch_client and self.current_scenario:
             if self.prepare_switch_client.service_is_ready():
-                self.get_logger().info("Requesting lifecycle manager to cleanup nodes...")
+                self.get_logger().info(
+                    "Requesting lifecycle manager to cleanup nodes..."
+                )
                 try:
                     result = self.prepare_switch_client.call(Trigger.Request())
                     if result.success:
                         self.get_logger().info("Lifecycle manager cleanup complete")
                     else:
-                        self.get_logger().warn(f"Lifecycle manager cleanup failed: {result.message}")
+                        self.get_logger().warn(
+                            f"Lifecycle manager cleanup failed: {result.message}"
+                        )
                 except Exception as e:
                     self.get_logger().warn(f"Error calling lifecycle manager: {e}")
             else:
@@ -420,7 +427,7 @@ def main(args=None):
     node = ScenarioServerNode()
 
     # Use MultiThreadedExecutor to allow service calls from within callbacks
-    executor = rclpy.executors.MultiThreadedExecutor(num_threads=8)
+    executor = rclpy.executors.MultiThreadedExecutor(num_threads=4)
     executor.add_node(node)
 
     try:

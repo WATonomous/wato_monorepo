@@ -7,7 +7,7 @@ scenario_server:
     carla_port: 2000
     carla_timeout: 10.0
     carla_fps: 60.0  # Simulation FPS (enables synchronous mode)
-    initial_scenario: "carla_scenarios.scenarios.default_scenario"
+    initial_scenario: "carla_scenarios.scenarios.light_traffic_scenario"
 
 # Ackermann Control Configuration
 ackermann_control:

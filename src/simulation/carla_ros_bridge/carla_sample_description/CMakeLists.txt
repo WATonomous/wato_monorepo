@@ -39,7 +39,7 @@ add_custom_command(
 add_custom_target(generate_urdf ALL DEPENDS ${URDF_OUTPUT_FILE})
 
 # Install directories
-install(DIRECTORY urdf launch config
+install(DIRECTORY urdf launch
   DESTINATION share/${PROJECT_NAME}
 )
 
