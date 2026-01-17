@@ -25,6 +25,7 @@ Renders the map using pygame (headless) and streams frames to a web interface vi
 ## Usage
 
 Launched automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

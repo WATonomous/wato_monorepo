@@ -14,7 +14,7 @@
 """LiDAR publisher lifecycle node for CARLA with multi-sensor support."""
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 import math
 import numpy as np
 import rclpy
@@ -45,7 +45,9 @@ class LidarConfig:
     lower_fov: float  # Angle in degrees of the lowest laser
     # Dropout configuration (for realistic point loss simulation)
     dropoff_general_rate: float  # Proportion of points randomly dropped (0.0 = none)
-    dropoff_intensity_limit: float  # Intensity threshold above which no points are dropped
+    dropoff_intensity_limit: (
+        float  # Intensity threshold above which no points are dropped
+    )
     dropoff_zero_intensity: float  # Probability of dropping points with zero intensity
     # Atmosphere and noise
     atmosphere_attenuation_rate: float  # Intensity loss coefficient per meter
@@ -227,9 +229,15 @@ class LidarPublisherNode(LifecycleNode):
         upper_fov = self.get_parameter(f"{name}.upper_fov").value
         lower_fov = self.get_parameter(f"{name}.lower_fov").value
         dropoff_general_rate = self.get_parameter(f"{name}.dropoff_general_rate").value
-        dropoff_intensity_limit = self.get_parameter(f"{name}.dropoff_intensity_limit").value
-        dropoff_zero_intensity = self.get_parameter(f"{name}.dropoff_zero_intensity").value
-        atmosphere_attenuation_rate = self.get_parameter(f"{name}.atmosphere_attenuation_rate").value
+        dropoff_intensity_limit = self.get_parameter(
+            f"{name}.dropoff_intensity_limit"
+        ).value
+        dropoff_zero_intensity = self.get_parameter(
+            f"{name}.dropoff_zero_intensity"
+        ).value
+        atmosphere_attenuation_rate = self.get_parameter(
+            f"{name}.atmosphere_attenuation_rate"
+        ).value
         noise_stddev = self.get_parameter(f"{name}.noise_stddev").value
 
         # Validate required fields
@@ -240,19 +248,25 @@ class LidarPublisherNode(LifecycleNode):
             self.get_logger().error(f"LiDAR '{name}': range must be positive")
             return None
         if rotation_frequency <= 0:
-            self.get_logger().error(f"LiDAR '{name}': rotation_frequency must be positive")
+            self.get_logger().error(
+                f"LiDAR '{name}': rotation_frequency must be positive"
+            )
             return None
         if horizontal_fov <= 0:
             self.get_logger().error(f"LiDAR '{name}': horizontal_fov must be positive")
             return None
         if points_per_channel <= 0:
-            self.get_logger().error(f"LiDAR '{name}': points_per_channel must be positive")
+            self.get_logger().error(
+                f"LiDAR '{name}': points_per_channel must be positive"
+            )
             return None
         if channels <= 0:
             self.get_logger().error(f"LiDAR '{name}': channels must be positive")
             return None
         if upper_fov <= lower_fov:
-            self.get_logger().error(f"LiDAR '{name}': upper_fov must be greater than lower_fov")
+            self.get_logger().error(
+                f"LiDAR '{name}': upper_fov must be greater than lower_fov"
+            )
             return None
 
         return LidarConfig(
@@ -297,7 +311,9 @@ class LidarPublisherNode(LifecycleNode):
                     lidar.sensor = None
                     self.get_logger().info(f"LiDAR sensor '{name}' destroyed")
                 except Exception as e:
-                    self.get_logger().error(f"Failed to destroy LiDAR sensor '{name}': {e}")
+                    self.get_logger().error(
+                        f"Failed to destroy LiDAR sensor '{name}': {e}"
+                    )
 
         self.get_logger().info("Deactivation complete")
         return super().on_deactivate(state)
@@ -356,12 +372,20 @@ class LidarPublisherNode(LifecycleNode):
             lidar_bp.set_attribute("horizontal_fov", str(config.horizontal_fov))
 
             # Dropout configuration (for realistic point loss)
-            lidar_bp.set_attribute("dropoff_general_rate", str(config.dropoff_general_rate))
-            lidar_bp.set_attribute("dropoff_intensity_limit", str(config.dropoff_intensity_limit))
-            lidar_bp.set_attribute("dropoff_zero_intensity", str(config.dropoff_zero_intensity))
+            lidar_bp.set_attribute(
+                "dropoff_general_rate", str(config.dropoff_general_rate)
+            )
+            lidar_bp.set_attribute(
+                "dropoff_intensity_limit", str(config.dropoff_intensity_limit)
+            )
+            lidar_bp.set_attribute(
+                "dropoff_zero_intensity", str(config.dropoff_zero_intensity)
+            )
 
             # Atmosphere and noise
-            lidar_bp.set_attribute("atmosphere_attenuation_rate", str(config.atmosphere_attenuation_rate))
+            lidar_bp.set_attribute(
+                "atmosphere_attenuation_rate", str(config.atmosphere_attenuation_rate)
+            )
             lidar_bp.set_attribute("noise_stddev", str(config.noise_stddev))
 
             # Get transform from TF
@@ -373,7 +397,9 @@ class LidarPublisherNode(LifecycleNode):
             )
 
             # Register callback with closure to capture the lidar instance
-            lidar.sensor.listen(lambda data, l=lidar: self._lidar_callback(data, l))
+            lidar.sensor.listen(
+                lambda data, lidar_inst=lidar: self._lidar_callback(data, lidar_inst)
+            )
 
             self.get_logger().info(
                 f"LiDAR '{config.name}' spawned at {lidar_transform.location} "

@@ -26,6 +26,7 @@ Manages lifecycle transitions for all CARLA nodes. Waits for the scenario server
 ## Usage
 
 Launched automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

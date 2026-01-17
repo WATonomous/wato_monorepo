@@ -28,6 +28,7 @@ Manages scenario lifecycle and provides services for switching scenarios.
 ## Usage
 
 Launched automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

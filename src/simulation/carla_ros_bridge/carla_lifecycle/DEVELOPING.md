@@ -9,6 +9,7 @@ The lifecycle manager is implemented in C++ for performance and direct access to
 ### NodeClients
 
 Holds service clients for each managed node:
+
 ```cpp
 struct NodeClients {
     rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr change_state;
@@ -19,6 +20,7 @@ struct NodeClients {
 ### TransitionStep
 
 Represents a lifecycle transition to execute:
+
 ```cpp
 struct TransitionStep {
     uint8_t transition_id;     // e.g., TRANSITION_CONFIGURE
@@ -36,6 +38,7 @@ struct TransitionStep {
 ## Parallel Transitions
 
 Nodes are transitioned in parallel using async service calls:
+
 ```cpp
 for (const auto& node_name : node_names_) {
     futures.emplace_back(node_name, client->async_send_request(req));

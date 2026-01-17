@@ -26,6 +26,7 @@ def on_cleanup(self, state):
 ## Multi-Sensor Configuration
 
 Sensors are configured via lists in parameters:
+
 ```yaml
 camera_names:
   - front_camera
@@ -39,6 +40,7 @@ The node iterates over `*_names` and reads prefixed parameters for each.
 ## CARLA Sensor Callbacks
 
 Sensors use async callbacks:
+
 ```python
 sensor.listen(lambda data: self._sensor_callback(data, sensor_name))
 ```

@@ -116,7 +116,9 @@ class BBoxPublisherNode(LifecycleNode):
                 v for v in vehicles if v.attributes.get("role_name") == role_name
             ]
             if not ego_vehicles:
-                self.get_logger().error(f'No vehicle with role_name "{role_name}" found')
+                self.get_logger().error(
+                    f'No vehicle with role_name "{role_name}" found'
+                )
                 return TransitionCallbackReturn.FAILURE
             self.ego_vehicle = ego_vehicles[0]
             self.get_logger().info(f"Found ego vehicle: {self.ego_vehicle.type_id}")
@@ -227,10 +229,15 @@ class BBoxPublisherNode(LifecycleNode):
                 try:
                     # Use Time() to get latest available transform rather than exact timestamp
                     transform = self.tf_buffer.lookup_transform(
-                        frame_id, "map", rclpy.time.Time(), timeout=rclpy.duration.Duration(seconds=0.1)
+                        frame_id,
+                        "map",
+                        rclpy.time.Time(),
+                        timeout=rclpy.duration.Duration(seconds=0.1),
                     )
                 except TransformException as e:
-                    self.get_logger().warn(f"Could not get transform from map to {frame_id}: {e}")
+                    self.get_logger().warn(
+                        f"Could not get transform from map to {frame_id}: {e}"
+                    )
                     return
 
             for actor in filtered_actors:

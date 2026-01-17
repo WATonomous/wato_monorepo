@@ -221,7 +221,9 @@ class TeleopNode(LifecycleNode):
                 self.ego_vehicle.set_autopilot(True)
                 self.autonomy_enabled = True
                 response.success = True
-                response.message = "Autonomy enabled - CARLA autopilot active, teleop disabled"
+                response.message = (
+                    "Autonomy enabled - CARLA autopilot active, teleop disabled"
+                )
                 self.get_logger().info("Autonomy mode ENABLED - teleop disabled")
             else:
                 # Disable autonomy - deactivate CARLA autopilot

@@ -30,6 +30,7 @@ class ScenarioBase:
 ## Creating a New Scenario
 
 1. Create module in `carla_scenarios/scenarios/`:
+
    ```python
    from carla_scenarios.scenario_base import ScenarioBase
 
@@ -48,6 +49,7 @@ class ScenarioBase:
 ## Scenario Loading
 
 The server converts module path to class:
+
 ```python
 module = importlib.import_module(scenario_module_path)
 class_name = "".join(word.capitalize() for word in module_name.split("_"))
@@ -68,11 +70,13 @@ The server calls `world.wait_for_tick()` continuously. This is required for pede
 ## NPC Traffic
 
 For autopilot vehicles, use CARLA's Traffic Manager:
+
 ```python
 vehicle.set_autopilot(True)
 ```
 
 For pedestrians, spawn `controller.ai.walker`:
+
 ```python
 controller = world.spawn_actor(controller_bp, transform, attach_to=walker)
 controller.start()

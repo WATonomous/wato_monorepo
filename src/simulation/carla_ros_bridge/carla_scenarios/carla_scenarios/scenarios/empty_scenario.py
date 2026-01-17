@@ -81,6 +81,7 @@ class EmptyScenario(ScenarioBase):
         except Exception as e:
             self._log(f"Failed to setup: {e}", "error")
             import traceback
+
             traceback.print_exc()
             return False
 

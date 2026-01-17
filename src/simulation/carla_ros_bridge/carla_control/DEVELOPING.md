@@ -36,6 +36,7 @@ Nodes implement a safety timeout. If no command is received within `command_time
 ## Ego Vehicle Discovery
 
 Vehicles are found by `role_name` attribute:
+
 ```python
 ego_vehicles = [v for v in vehicles
                 if v.attributes.get("role_name") == role_name]

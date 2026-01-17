@@ -16,11 +16,14 @@
 
 #include <chrono>
 #include <future>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "lifecycle_msgs/msg/state.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
 
-using namespace std::chrono_literals;
+using std::chrono_literals::operator""s;
 
 namespace carla_lifecycle
 {
@@ -75,9 +78,7 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
   // Service for scenario_server to request node cleanup before switching
   prepare_switch_service_ = this->create_service<std_srvs::srv::Trigger>(
     "~/prepare_for_scenario_switch",
-    std::bind(
-      &LifecycleManagerNode::prepareForSwitchCallback, this,
-      std::placeholders::_1, std::placeholders::_2));
+    std::bind(&LifecycleManagerNode::prepareForSwitchCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Autostart timer - retries until scenario_server connects to CARLA
   if (autostart_) {
@@ -101,15 +102,11 @@ void LifecycleManagerNode::startupTimerCallback()
   }
 
   RCLCPP_INFO(
-    this->get_logger(),
-    "Attempting to bring up %s (connecting to CARLA server)...",
-    scenario_server_name_.c_str());
+    this->get_logger(), "Attempting to bring up %s (connecting to CARLA server)...", scenario_server_name_.c_str());
 
   if (bringUpNode(scenario_server_name_)) {
     RCLCPP_INFO(
-      this->get_logger(),
-      "%s successfully connected to CARLA server and is now active",
-      scenario_server_name_.c_str());
+      this->get_logger(), "%s successfully connected to CARLA server and is now active", scenario_server_name_.c_str());
     startup_complete_ = true;
     startup_timer_->cancel();
   } else {

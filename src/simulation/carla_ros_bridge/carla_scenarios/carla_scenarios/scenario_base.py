@@ -113,7 +113,9 @@ class ScenarioBase(ABC):
             blueprint = random.choice(vehicle_blueprints)
 
             if blueprint.has_attribute("color"):
-                color = random.choice(blueprint.get_attribute("color").recommended_values)
+                color = random.choice(
+                    blueprint.get_attribute("color").recommended_values
+                )
                 blueprint.set_attribute("color", color)
 
             blueprint.set_attribute("role_name", "npc")

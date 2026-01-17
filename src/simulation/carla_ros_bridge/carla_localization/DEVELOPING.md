@@ -33,6 +33,7 @@ The `map → odom` transform is identity because simulation has no odometry drif
 ## Euler to Quaternion
 
 Uses ZYX (yaw-pitch-roll) convention:
+
 ```python
 def euler_to_quaternion(roll, pitch, yaw):
     # Standard ZYX quaternion conversion

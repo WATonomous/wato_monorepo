@@ -27,6 +27,7 @@ CARLA uses a left-handed coordinate system. This node converts to ROS right-hand
 ## Usage
 
 Launched automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

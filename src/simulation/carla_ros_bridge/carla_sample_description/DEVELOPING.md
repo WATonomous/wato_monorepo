@@ -35,6 +35,7 @@ Define the TF tree from `base_link` to sensor frames:
 ## Launch Integration
 
 The launch file reads URDF and starts robot_state_publisher:
+
 ```yaml
 - node:
     pkg: robot_state_publisher

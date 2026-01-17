@@ -15,6 +15,7 @@ The launch file follows this pattern:
 ### Adding a New Node
 
 1. Add node configuration to `config/carla_bridge.yaml`:
+
    ```yaml
    my_node:
      ros__parameters:
@@ -23,7 +24,8 @@ The launch file follows this pattern:
    ```
 
 2. Add node entry to the launch file:
-   ```yaml
+
+```yaml
    - node:
        pkg: my_package
        exec: my_node
@@ -32,13 +34,14 @@ The launch file follows this pattern:
          - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
    ```
 
-3. If the node is a lifecycle node, add it to the lifecycle manager's `node_names` list.
+1. If the node is a lifecycle node, add it to the lifecycle manager's `node_names` list.
 
 ## Configuration Patterns
 
 ### Conditional Nodes
 
 Use `if` to conditionally launch nodes:
+
 ```yaml
 - node:
     pkg: my_package
@@ -49,6 +52,7 @@ Use `if` to conditionally launch nodes:
 ### Parameter Overrides
 
 Override config file parameters with launch arguments:
+
 ```yaml
 param:
   - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml

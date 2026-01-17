@@ -20,6 +20,7 @@ Subscribes to `ackermann_msgs/AckermannDriveStamped` messages and applies contro
 ## Usage
 
 Launched automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

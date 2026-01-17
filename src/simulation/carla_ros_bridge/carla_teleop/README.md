@@ -28,6 +28,7 @@ Subscribes to Twist messages and applies control to the ego vehicle.
 ## Usage
 
 Launched automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

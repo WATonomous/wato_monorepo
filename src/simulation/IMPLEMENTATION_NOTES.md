@@ -148,7 +148,7 @@ robot_description/
    - In `on_activate()`, spawn CARLA sensors at extracted transforms
    - Use link name as frame_id for published data
    - Example:
-     
+
      ```cpp
 auto transform = sensor_parser.getTransform("base_link", "camera_link");
      carla::rpc::Transform carla_transform;
@@ -156,7 +156,7 @@ auto transform = sensor_parser.getTransform("base_link", "camera_link");
      // ... spawn camera at this location
      ```
 
-4. **Benefits**:
+1. **Benefits**:
    - Single source of truth for robot geometry
    - Consistent TF frames across all nodes
    - Easy to modify sensor placement without changing code

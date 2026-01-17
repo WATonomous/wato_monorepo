@@ -51,7 +51,16 @@ from carla_pygame.utils import Util
 class World:
     """Manages CARLA world state and rendering for visualization."""
 
-    def __init__(self, carla_client, width, height, role_name="ego_vehicle", show_triggers=False, show_connections=False, show_spawn_points=False):
+    def __init__(
+        self,
+        carla_client,
+        width,
+        height,
+        role_name="ego_vehicle",
+        show_triggers=False,
+        show_connections=False,
+        show_spawn_points=False,
+    ):
         self.client = carla_client
         self.dim = (width, height)
         self.role_name = role_name
@@ -93,7 +102,7 @@ class World:
         try:
             self.world = self.client.get_world()
             self.town_map = self.world.get_map()
-        except RuntimeError as ex:
+        except RuntimeError:
             return False
 
         settings = self.world.get_settings()
@@ -106,7 +115,8 @@ class World:
             pixels_per_meter=PIXELS_PER_METER,
             show_triggers=self.show_triggers,
             show_connections=self.show_connections,
-            show_spawn_points=self.show_spawn_points)
+            show_spawn_points=self.show_spawn_points,
+        )
 
         self.original_surface_size = min(self.dim[0], self.dim[1])
         self.surface_size = self.map_image.big_map_surface.get_width()
@@ -114,13 +124,19 @@ class World:
         self.scaled_size = int(self.surface_size)
         self.prev_scaled_size = int(self.surface_size)
 
-        self.actors_surface = pygame.Surface((self.map_image.surface.get_width(), self.map_image.surface.get_height()))
+        self.actors_surface = pygame.Surface(
+            (self.map_image.surface.get_width(), self.map_image.surface.get_height())
+        )
         self.actors_surface.set_colorkey(COLOR_BLACK)
 
-        self.vehicle_id_surface = pygame.Surface((self.surface_size, self.surface_size)).convert()
+        self.vehicle_id_surface = pygame.Surface(
+            (self.surface_size, self.surface_size)
+        ).convert()
         self.vehicle_id_surface.set_colorkey(COLOR_BLACK)
 
-        self.result_surface = pygame.Surface((self.surface_size, self.surface_size)).convert()
+        self.result_surface = pygame.Surface(
+            (self.surface_size, self.surface_size)
+        ).convert()
         self.result_surface.set_colorkey(COLOR_BLACK)
 
         self.display_surface = pygame.Surface(self.dim).convert()
@@ -134,8 +150,12 @@ class World:
 
     def _find_hero_actor(self):
         """Find the hero (ego) vehicle in the world."""
-        hero_vehicles = [actor for actor in self.world.get_actors()
-                         if 'vehicle' in actor.type_id and actor.attributes.get('role_name') == self.role_name]
+        hero_vehicles = [
+            actor
+            for actor in self.world.get_actors()
+            if "vehicle" in actor.type_id
+            and actor.attributes.get("role_name") == self.role_name
+        ]
         if len(hero_vehicles) > 0:
             self.hero_actor = random.choice(hero_vehicles)
             self.hero_transform = self.hero_actor.get_transform()
@@ -146,7 +166,9 @@ class World:
     def tick(self):
         """Update actor transforms for the current simulation tick."""
         actors = self.world.get_actors()
-        self.actors_with_transforms = [(actor, actor.get_transform()) for actor in actors]
+        self.actors_with_transforms = [
+            (actor, actor.get_transform()) for actor in actors
+        ]
         if self.hero_actor is not None:
             self.hero_transform = self.hero_actor.get_transform()
 
@@ -169,13 +191,13 @@ class World:
 
         for actor_with_transform in self.actors_with_transforms:
             actor = actor_with_transform[0]
-            if 'vehicle' in actor.type_id:
+            if "vehicle" in actor.type_id:
                 vehicles.append(actor_with_transform)
-            elif 'traffic_light' in actor.type_id:
+            elif "traffic_light" in actor.type_id:
                 traffic_lights.append(actor_with_transform)
-            elif 'speed_limit' in actor.type_id:
+            elif "speed_limit" in actor.type_id:
                 speed_limits.append(actor_with_transform)
-            elif 'walker.pedestrian' in actor.type_id:
+            elif "walker.pedestrian" in actor.type_id:
                 walkers.append(actor_with_transform)
 
         return (vehicles, traffic_lights, speed_limits, walkers)
@@ -199,20 +221,24 @@ class World:
                 transformed_tv = tl_t.transform(tl.trigger_volume.location)
                 hero_location = self.hero_actor.get_location()
                 d = hero_location.distance(transformed_tv)
-                s = Util.length(tl.trigger_volume.extent) + Util.length(self.hero_actor.bounding_box.extent)
-                if (d <= s):
+                s = Util.length(tl.trigger_volume.extent) + Util.length(
+                    self.hero_actor.bounding_box.extent
+                )
+                if d <= s:
                     self.affected_traffic_light = tl
-                    srf = self.traffic_light_surfaces.surfaces['h']
+                    srf = self.traffic_light_surfaces.surfaces["h"]
                     surface.blit(srf, srf.get_rect(center=pos))
 
             srf = self.traffic_light_surfaces.surfaces[tl.state]
             surface.blit(srf, srf.get_rect(center=pos))
 
-    def _render_speed_limits(self, surface, list_sl, world_to_pixel, world_to_pixel_width):
+    def _render_speed_limits(
+        self, surface, list_sl, world_to_pixel, world_to_pixel_width
+    ):
         """Render speed limit signs on the surface."""
         font_size = world_to_pixel_width(2)
         radius = world_to_pixel_width(2)
-        font = pygame.font.SysFont('Arial', font_size)
+        font = pygame.font.SysFont("Arial", font_size)
 
         for sl in list_sl:
             x, y = world_to_pixel(sl.get_location())
@@ -220,7 +246,7 @@ class World:
             pygame.draw.circle(surface, COLOR_SCARLET_RED_1, (x, y), radius)
             pygame.draw.circle(surface, COLOR_ALUMINIUM_0, (x, y), white_circle_radius)
 
-            limit = sl.type_id.split('.')[2]
+            limit = sl.type_id.split(".")[2]
             font_surface = font.render(limit, True, COLOR_ALUMINIUM_5)
 
             if self.show_triggers:
@@ -239,7 +265,8 @@ class World:
                 carla.Location(x=-bb.x, y=-bb.y),
                 carla.Location(x=bb.x, y=-bb.y),
                 carla.Location(x=bb.x, y=bb.y),
-                carla.Location(x=-bb.x, y=bb.y)]
+                carla.Location(x=-bb.x, y=bb.y),
+            ]
             w[1].transform(corners)
             corners = [world_to_pixel(p) for p in corners]
             pygame.draw.polygon(surface, color, corners)
@@ -248,26 +275,40 @@ class World:
         """Render vehicles on the surface."""
         for v in list_v:
             color = COLOR_SKY_BLUE_0
-            if int(v[0].attributes['number_of_wheels']) == 2:
+            if int(v[0].attributes["number_of_wheels"]) == 2:
                 color = COLOR_CHOCOLATE_1
-            if v[0].attributes.get('role_name') == self.role_name:
+            if v[0].attributes.get("role_name") == self.role_name:
                 color = COLOR_CHAMELEON_0
             bb = v[0].bounding_box.extent
-            corners = [carla.Location(x=-bb.x, y=-bb.y),
-                       carla.Location(x=bb.x - 0.8, y=-bb.y),
-                       carla.Location(x=bb.x, y=0),
-                       carla.Location(x=bb.x - 0.8, y=bb.y),
-                       carla.Location(x=-bb.x, y=bb.y),
-                       carla.Location(x=-bb.x, y=-bb.y)]
+            corners = [
+                carla.Location(x=-bb.x, y=-bb.y),
+                carla.Location(x=bb.x - 0.8, y=-bb.y),
+                carla.Location(x=bb.x, y=0),
+                carla.Location(x=bb.x - 0.8, y=bb.y),
+                carla.Location(x=-bb.x, y=bb.y),
+                carla.Location(x=-bb.x, y=-bb.y),
+            ]
             v[1].transform(corners)
             corners = [world_to_pixel(p) for p in corners]
-            pygame.draw.lines(surface, color, False, corners, int(math.ceil(4.0 * self.map_image.scale)))
+            pygame.draw.lines(
+                surface,
+                color,
+                False,
+                corners,
+                int(math.ceil(4.0 * self.map_image.scale)),
+            )
 
     def render_actors(self, surface, vehicles, traffic_lights, speed_limits, walkers):
         """Render all actors on the given surface."""
-        self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
-        self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
-                                  self.map_image.world_to_pixel_width)
+        self._render_traffic_lights(
+            surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel
+        )
+        self._render_speed_limits(
+            surface,
+            [sl[0] for sl in speed_limits],
+            self.map_image.world_to_pixel,
+            self.map_image.world_to_pixel_width,
+        )
         self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
         self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
@@ -294,11 +335,8 @@ class World:
 
         self.actors_surface.fill(COLOR_BLACK)
         self.render_actors(
-            self.actors_surface,
-            vehicles,
-            traffic_lights,
-            speed_limits,
-            walkers)
+            self.actors_surface, vehicles, traffic_lights, speed_limits, walkers
+        )
 
         self.traffic_light_surfaces.rotozoom(0, self.map_image.scale)
 
@@ -314,8 +352,11 @@ class World:
         dest_x = (self.dim[0] - scaled_map_size[0]) // 2 + int(pan_x)
         dest_y = (self.dim[1] - scaled_map_size[1]) // 2 + int(pan_y)
 
-        self.display_surface.blit(self.result_surface, (dest_x, dest_y),
-                                  area=pygame.Rect(0, 0, scaled_map_size[0], scaled_map_size[1]))
+        self.display_surface.blit(
+            self.result_surface,
+            (dest_x, dest_y),
+            area=pygame.Rect(0, 0, scaled_map_size[0], scaled_map_size[1]),
+        )
 
         self._render_hud()
 
@@ -323,18 +364,20 @@ class World:
 
     def _render_hud(self):
         """Render the heads-up display overlay."""
-        font = pygame.font.SysFont('monospace', 14)
+        font = pygame.font.SysFont("monospace", 14)
 
         hud_surface = pygame.Surface((260, 200))
         hud_surface.fill(COLOR_ALUMINIUM_5)
         hud_surface.set_alpha(180)
         self.display_surface.blit(hud_surface, (0, 0))
 
-        map_name = self.town_map.name.split('/')[-1]
+        map_name = self.town_map.name.split("/")[-1]
         if len(map_name) > 20:
-            map_name = map_name[:19] + '\u2026'
+            map_name = map_name[:19] + "\u2026"
 
-        server_fps = 'inf' if self.server_fps == float('inf') else round(self.server_fps)
+        server_fps = (
+            "inf" if self.server_fps == float("inf") else round(self.server_fps)
+        )
 
         lines = [
             f"Server:  {server_fps:>16} FPS",
@@ -345,12 +388,16 @@ class World:
 
         if self.hero_actor is not None:
             ego_speed = self.hero_actor.get_velocity()
-            speed_kmh = int(3.6 * math.sqrt(ego_speed.x ** 2 + ego_speed.y ** 2 + ego_speed.z ** 2))
-            lines.extend([
-                "EGO VEHICLE",
-                f"  ID: {self.hero_actor.id}",
-                f"  Speed: {speed_kmh} km/h",
-            ])
+            speed_kmh = int(
+                3.6 * math.sqrt(ego_speed.x**2 + ego_speed.y**2 + ego_speed.z**2)
+            )
+            lines.extend(
+                [
+                    "EGO VEHICLE",
+                    f"  ID: {self.hero_actor.id}",
+                    f"  Speed: {speed_kmh} km/h",
+                ]
+            )
         else:
             lines.append("EGO: Not connected")
 
@@ -388,12 +435,15 @@ class World:
         for color, label in legend_items:
             # Draw color box
             pygame.draw.rect(
-                self.display_surface, color,
-                pygame.Rect(legend_x + 8, legend_y + y_offset, 12, 12)
+                self.display_surface,
+                color,
+                pygame.Rect(legend_x + 8, legend_y + y_offset, 12, 12),
             )
             # Draw label
             text_surface = font.render(label, True, COLOR_ALUMINIUM_0)
-            self.display_surface.blit(text_surface, (legend_x + 28, legend_y + y_offset - 2))
+            self.display_surface.blit(
+                text_surface, (legend_x + 28, legend_y + y_offset - 2)
+            )
             y_offset += 20
 
     def handle_pan(self, dx, dy):

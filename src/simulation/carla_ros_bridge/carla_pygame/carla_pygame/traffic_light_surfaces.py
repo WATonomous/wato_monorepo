@@ -40,25 +40,39 @@ class TrafficLightSurfaces:
         def make_surface(tl_state):
             w = 40
             surface = pygame.Surface((w, 3 * w), pygame.SRCALPHA)
-            surface.fill(COLOR_ALUMINIUM_5 if tl_state != 'h' else COLOR_ORANGE_2)
-            if tl_state != 'h':
+            surface.fill(COLOR_ALUMINIUM_5 if tl_state != "h" else COLOR_ORANGE_2)
+            if tl_state != "h":
                 hw = int(w / 2)
                 off = COLOR_ALUMINIUM_4
                 red = COLOR_SCARLET_RED_0
                 yellow = COLOR_BUTTER_0
                 green = COLOR_CHAMELEON_0
-                pygame.draw.circle(surface, red if tl_state == tls.Red else off, (hw, hw), int(0.4 * w))
-                pygame.draw.circle(surface, yellow if tl_state == tls.Yellow else off, (hw, w + hw), int(0.4 * w))
-                pygame.draw.circle(surface, green if tl_state == tls.Green else off, (hw, 2 * w + hw), int(0.4 * w))
-            return pygame.transform.smoothscale(surface, (15, 45) if tl_state != 'h' else (19, 49))
+                pygame.draw.circle(
+                    surface, red if tl_state == tls.Red else off, (hw, hw), int(0.4 * w)
+                )
+                pygame.draw.circle(
+                    surface,
+                    yellow if tl_state == tls.Yellow else off,
+                    (hw, w + hw),
+                    int(0.4 * w),
+                )
+                pygame.draw.circle(
+                    surface,
+                    green if tl_state == tls.Green else off,
+                    (hw, 2 * w + hw),
+                    int(0.4 * w),
+                )
+            return pygame.transform.smoothscale(
+                surface, (15, 45) if tl_state != "h" else (19, 49)
+            )
 
         self._original_surfaces = {
-            'h': make_surface('h'),
+            "h": make_surface("h"),
             tls.Red: make_surface(tls.Red),
             tls.Yellow: make_surface(tls.Yellow),
             tls.Green: make_surface(tls.Green),
             tls.Off: make_surface(tls.Off),
-            tls.Unknown: make_surface(tls.Unknown)
+            tls.Unknown: make_surface(tls.Unknown),
         }
         self.surfaces = dict(self._original_surfaces)
 

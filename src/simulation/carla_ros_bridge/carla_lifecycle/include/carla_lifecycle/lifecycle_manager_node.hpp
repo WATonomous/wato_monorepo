@@ -23,8 +23,8 @@
 #include "carla_msgs/msg/scenario_status.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "lifecycle_msgs/srv/get_state.hpp"
-#include "std_srvs/srv/trigger.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace carla_lifecycle
 {

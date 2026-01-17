@@ -1,8 +1,24 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "vision_msgs_markers/vision_msgs_markers_node.hpp"
 
 #include <functional>
 #include <iomanip>
+#include <memory>
 #include <sstream>
+#include <string>
 
 namespace vision_msgs_markers
 {
@@ -22,31 +38,29 @@ VisionMsgsMarkersNode::VisionMsgsMarkersNode()
 
   // Distinct color palette for different classes (RGB)
   color_palette_ = {
-    {1.0f, 0.0f, 0.0f},    // Red
-    {0.0f, 1.0f, 0.0f},    // Green
-    {0.0f, 0.0f, 1.0f},    // Blue
-    {1.0f, 1.0f, 0.0f},    // Yellow
-    {1.0f, 0.0f, 1.0f},    // Magenta
-    {0.0f, 1.0f, 1.0f},    // Cyan
-    {1.0f, 0.5f, 0.0f},    // Orange
-    {0.5f, 0.0f, 1.0f},    // Purple
-    {0.0f, 1.0f, 0.5f},    // Spring Green
-    {1.0f, 0.0f, 0.5f},    // Rose
-    {0.5f, 1.0f, 0.0f},    // Lime
-    {0.0f, 0.5f, 1.0f},    // Sky Blue
+    {1.0f, 0.0f, 0.0f},  // Red
+    {0.0f, 1.0f, 0.0f},  // Green
+    {0.0f, 0.0f, 1.0f},  // Blue
+    {1.0f, 1.0f, 0.0f},  // Yellow
+    {1.0f, 0.0f, 1.0f},  // Magenta
+    {0.0f, 1.0f, 1.0f},  // Cyan
+    {1.0f, 0.5f, 0.0f},  // Orange
+    {0.5f, 0.0f, 1.0f},  // Purple
+    {0.0f, 1.0f, 0.5f},  // Spring Green
+    {1.0f, 0.0f, 0.5f},  // Rose
+    {0.5f, 1.0f, 0.0f},  // Lime
+    {0.0f, 0.5f, 1.0f},  // Sky Blue
   };
 
   detections_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    kInputTopic, 10,
-    std::bind(&VisionMsgsMarkersNode::detectionsCallback, this, std::placeholders::_1));
+    kInputTopic, 10, std::bind(&VisionMsgsMarkersNode::detectionsCallback, this, std::placeholders::_1));
 
   markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kOutputTopic, 10);
 
   RCLCPP_INFO(this->get_logger(), "VisionMsgsMarkersNode initialized");
 }
 
-void VisionMsgsMarkersNode::detectionsCallback(
-  const vision_msgs::msg::Detection3DArray::SharedPtr msg)
+void VisionMsgsMarkersNode::detectionsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
   visualization_msgs::msg::MarkerArray marker_array;
 
@@ -74,9 +88,7 @@ void VisionMsgsMarkersNode::detectionsCallback(
 }
 
 visualization_msgs::msg::Marker VisionMsgsMarkersNode::createBoxMarker(
-  const vision_msgs::msg::Detection3D & detection,
-  const std_msgs::msg::Header & header,
-  int id)
+  const vision_msgs::msg::Detection3D & detection, const std_msgs::msg::Header & header, int id)
 {
   visualization_msgs::msg::Marker marker;
   marker.header = header;
@@ -110,40 +122,66 @@ visualization_msgs::msg::Marker VisionMsgsMarkersNode::createBoxMarker(
   // Define 8 corners of the bounding box (in local frame)
   std::array<geometry_msgs::msg::Point, 8> corners;
   // Bottom face
-  corners[0].x = -sx; corners[0].y = -sy; corners[0].z = -sz;
-  corners[1].x =  sx; corners[1].y = -sy; corners[1].z = -sz;
-  corners[2].x =  sx; corners[2].y =  sy; corners[2].z = -sz;
-  corners[3].x = -sx; corners[3].y =  sy; corners[3].z = -sz;
+  corners[0].x = -sx;
+  corners[0].y = -sy;
+  corners[0].z = -sz;
+  corners[1].x = sx;
+  corners[1].y = -sy;
+  corners[1].z = -sz;
+  corners[2].x = sx;
+  corners[2].y = sy;
+  corners[2].z = -sz;
+  corners[3].x = -sx;
+  corners[3].y = sy;
+  corners[3].z = -sz;
   // Top face
-  corners[4].x = -sx; corners[4].y = -sy; corners[4].z =  sz;
-  corners[5].x =  sx; corners[5].y = -sy; corners[5].z =  sz;
-  corners[6].x =  sx; corners[6].y =  sy; corners[6].z =  sz;
-  corners[7].x = -sx; corners[7].y =  sy; corners[7].z =  sz;
+  corners[4].x = -sx;
+  corners[4].y = -sy;
+  corners[4].z = sz;
+  corners[5].x = sx;
+  corners[5].y = -sy;
+  corners[5].z = sz;
+  corners[6].x = sx;
+  corners[6].y = sy;
+  corners[6].z = sz;
+  corners[7].x = -sx;
+  corners[7].y = sy;
+  corners[7].z = sz;
 
   // 12 edges of the box (pairs of points)
   // Bottom face edges
-  marker.points.push_back(corners[0]); marker.points.push_back(corners[1]);
-  marker.points.push_back(corners[1]); marker.points.push_back(corners[2]);
-  marker.points.push_back(corners[2]); marker.points.push_back(corners[3]);
-  marker.points.push_back(corners[3]); marker.points.push_back(corners[0]);
+  marker.points.push_back(corners[0]);
+  marker.points.push_back(corners[1]);
+  marker.points.push_back(corners[1]);
+  marker.points.push_back(corners[2]);
+  marker.points.push_back(corners[2]);
+  marker.points.push_back(corners[3]);
+  marker.points.push_back(corners[3]);
+  marker.points.push_back(corners[0]);
   // Top face edges
-  marker.points.push_back(corners[4]); marker.points.push_back(corners[5]);
-  marker.points.push_back(corners[5]); marker.points.push_back(corners[6]);
-  marker.points.push_back(corners[6]); marker.points.push_back(corners[7]);
-  marker.points.push_back(corners[7]); marker.points.push_back(corners[4]);
+  marker.points.push_back(corners[4]);
+  marker.points.push_back(corners[5]);
+  marker.points.push_back(corners[5]);
+  marker.points.push_back(corners[6]);
+  marker.points.push_back(corners[6]);
+  marker.points.push_back(corners[7]);
+  marker.points.push_back(corners[7]);
+  marker.points.push_back(corners[4]);
   // Vertical edges
-  marker.points.push_back(corners[0]); marker.points.push_back(corners[4]);
-  marker.points.push_back(corners[1]); marker.points.push_back(corners[5]);
-  marker.points.push_back(corners[2]); marker.points.push_back(corners[6]);
-  marker.points.push_back(corners[3]); marker.points.push_back(corners[7]);
+  marker.points.push_back(corners[0]);
+  marker.points.push_back(corners[4]);
+  marker.points.push_back(corners[1]);
+  marker.points.push_back(corners[5]);
+  marker.points.push_back(corners[2]);
+  marker.points.push_back(corners[6]);
+  marker.points.push_back(corners[3]);
+  marker.points.push_back(corners[7]);
 
   return marker;
 }
 
 visualization_msgs::msg::Marker VisionMsgsMarkersNode::createFillMarker(
-  const vision_msgs::msg::Detection3D & detection,
-  const std_msgs::msg::Header & header,
-  int id)
+  const vision_msgs::msg::Detection3D & detection, const std_msgs::msg::Header & header, int id)
 {
   visualization_msgs::msg::Marker marker;
   marker.header = header;
@@ -173,9 +211,7 @@ visualization_msgs::msg::Marker VisionMsgsMarkersNode::createFillMarker(
 }
 
 visualization_msgs::msg::Marker VisionMsgsMarkersNode::createTextMarker(
-  const vision_msgs::msg::Detection3D & detection,
-  const std_msgs::msg::Header & header,
-  int id)
+  const vision_msgs::msg::Detection3D & detection, const std_msgs::msg::Header & header, int id)
 {
   visualization_msgs::msg::Marker marker;
   marker.header = header;
@@ -227,8 +263,7 @@ std::array<float, 4> VisionMsgsMarkersNode::getColorForClassId(const std::string
     color_palette_[color_index][0],
     color_palette_[color_index][1],
     color_palette_[color_index][2],
-    static_cast<float>(marker_alpha_)
-  };
+    static_cast<float>(marker_alpha_)};
 
   color_cache_[class_id] = color;
   return color;

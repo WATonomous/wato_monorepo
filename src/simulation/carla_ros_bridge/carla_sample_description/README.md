@@ -9,6 +9,7 @@ Provides a sample URDF defining the TF tree for sensors attached to the ego vehi
 ## Usage
 
 Included automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

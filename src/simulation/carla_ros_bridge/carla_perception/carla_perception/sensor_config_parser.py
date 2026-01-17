@@ -45,7 +45,6 @@ class SensorConfigParser:
         # Find all joints and identify sensor links
         # Typically sensor links are connected to base_link via fixed joints
         for joint in self.urdf.findall(".//joint"):
-            joint_type = joint.get("type", "")
             child_link = joint.find("child")
 
             if child_link is not None:

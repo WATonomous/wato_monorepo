@@ -78,7 +78,9 @@ class LightTrafficScenario(ScenarioBase):
             self.world.set_weather(carla.WeatherParameters.ClearSunset)
 
             # Spawn NPCs
-            npc_spawn_points = [sp for i, sp in enumerate(spawn_points) if i != spawn_index]
+            npc_spawn_points = [
+                sp for i, sp in enumerate(spawn_points) if i != spawn_index
+            ]
             self.spawn_vehicles(self.NUM_VEHICLES, npc_spawn_points)
             self.spawn_pedestrians(self.NUM_PEDESTRIANS)
 
@@ -88,6 +90,7 @@ class LightTrafficScenario(ScenarioBase):
         except Exception as e:
             self._log(f"Failed to setup: {e}", "error")
             import traceback
+
             traceback.print_exc()
             return False
 

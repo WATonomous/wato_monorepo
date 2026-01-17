@@ -15,6 +15,7 @@ ros2 launch carla_bringup carla_bridge.launch.yaml
 ### Launch Arguments
 
 See available arguments with:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml --show-args
 ```

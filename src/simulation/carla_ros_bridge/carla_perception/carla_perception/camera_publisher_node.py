@@ -177,7 +177,10 @@ class CameraPublisherNode(LifecycleNode):
         self.declare_parameter(f"{name}.distortion_model", "plumb_bob")
         self.declare_parameter(f"{name}.camera_matrix.data", [0.0] * 9)
         self.declare_parameter(f"{name}.distortion_coefficients.data", [0.0] * 5)
-        self.declare_parameter(f"{name}.rectification_matrix.data", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
+        self.declare_parameter(
+            f"{name}.rectification_matrix.data",
+            [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        )
         self.declare_parameter(f"{name}.projection_matrix.data", [0.0] * 12)
 
         # Get values
@@ -188,8 +191,12 @@ class CameraPublisherNode(LifecycleNode):
         optical_frame = self.get_parameter(f"{name}.optical_frame").value
         distortion_model = self.get_parameter(f"{name}.distortion_model").value
         camera_matrix = self.get_parameter(f"{name}.camera_matrix.data").value
-        distortion_coefficients = self.get_parameter(f"{name}.distortion_coefficients.data").value
-        rectification_matrix = self.get_parameter(f"{name}.rectification_matrix.data").value
+        distortion_coefficients = self.get_parameter(
+            f"{name}.distortion_coefficients.data"
+        ).value
+        rectification_matrix = self.get_parameter(
+            f"{name}.rectification_matrix.data"
+        ).value
         projection_matrix = self.get_parameter(f"{name}.projection_matrix.data").value
 
         # Validate required fields
@@ -197,13 +204,19 @@ class CameraPublisherNode(LifecycleNode):
             self.get_logger().error(f"Camera '{name}': frame_id is required")
             return None
         if image_width <= 0 or image_height <= 0:
-            self.get_logger().error(f"Camera '{name}': image_width and image_height must be positive")
+            self.get_logger().error(
+                f"Camera '{name}': image_width and image_height must be positive"
+            )
             return None
         if len(camera_matrix) != 9:
-            self.get_logger().error(f"Camera '{name}': camera_matrix.data must have 9 elements")
+            self.get_logger().error(
+                f"Camera '{name}': camera_matrix.data must have 9 elements"
+            )
             return None
         if len(projection_matrix) != 12:
-            self.get_logger().error(f"Camera '{name}': projection_matrix.data must have 12 elements")
+            self.get_logger().error(
+                f"Camera '{name}': projection_matrix.data must have 12 elements"
+            )
             return None
 
         return CameraConfig(

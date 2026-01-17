@@ -35,6 +35,7 @@ Publishes 3D bounding boxes for vehicles and pedestrians in the world.
 ## Usage
 
 Launched automatically via:
+
 ```bash
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```

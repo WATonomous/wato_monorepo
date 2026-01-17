@@ -18,6 +18,7 @@ carla_pygame/
 ## Headless Rendering
 
 Pygame runs in headless mode via SDL dummy driver:
+
 ```python
 os.environ['SDL_VIDEODRIVER'] = 'dummy'
 os.environ['SDL_AUDIODRIVER'] = 'dummy'
@@ -33,6 +34,7 @@ os.environ['SDL_AUDIODRIVER'] = 'dummy'
 ## Map Caching
 
 Map images are cached to disk based on OpenDRIVE content hash:
+
 ```python
 filename = f"{map_name}_{opendrive_hash}.tga"
 ```
@@ -40,6 +42,7 @@ filename = f"{map_name}_{opendrive_hash}.tga"
 ## Actor Rendering
 
 The `World` class tracks actors and renders them each frame:
+
 ```python
 def tick(self):
     actors = self.world.get_actors()
@@ -61,6 +64,7 @@ Actors are color-coded via constants:
 ## Pan/Zoom
 
 Mouse events are sent via WebSocket and applied to view transform:
+
 ```python
 def handle_pan(self, dx, dy):
     self.mouse_offset[0] += dx
