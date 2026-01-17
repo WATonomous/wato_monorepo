@@ -39,3 +39,13 @@ services:
     build:
       target: build
     image: "${ACTION_IMAGE:?}:test_${TAG}"
+
+#################### SIMULATION SERVICE ####################
+  simulation_bringup_test:
+    profiles: ["simulation_test"]
+    extends:
+      file: docker-compose.yaml
+      service: simulation_bringup
+    build:
+      target: build
+    image: "${SIMULATION_IMAGE:?}:test_${TAG}"

@@ -83,13 +83,12 @@ EOF
 
 # Get all available modules
 # Returns list of modules (excludes infrastructure which is added automatically)
-# TODO: Re-enable simulation once it's fixed
 get_all_modules() {
-  # Core modules (simulation excluded until fixed)
   echo "action"
   echo "interfacing"
   echo "perception"
   echo "world_modeling"
+  echo "simulation"
 }
 
 # Parse ACTIVE_MODULES and build profile arrays
@@ -166,6 +165,19 @@ build_profile_arrays() {
       ALL_PROFILES+=( "infrastructure" )
     fi
   fi
+
+  # Add CARLA render mode profile if simulation is active
+  for profile in "${ALL_PROFILES[@]}"; do
+    if [[ "$profile" == "simulation" || "$profile" == "simulation_dev" ]]; then
+      local carla_mode="${CARLA_RENDER_MODE:-no_gpu}"
+      if [[ "$carla_mode" == "gpu" ]]; then
+        ALL_PROFILES+=( "carla_gpu" )
+      else
+        ALL_PROFILES+=( "carla_no_gpu" )
+      fi
+      break
+    fi
+  done
 }
 
 # ─────────────────────────── Argument parsing ────────────────────────────

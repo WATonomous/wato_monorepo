@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="camera_sensor" params="name parent_link *origin">
+    <joint name="${name}_joint" type="fixed">
+      <xacro:insert_block name="origin"/>
+      <parent link="${parent_link}"/>
+      <child link="${name}"/>
+    </joint>
+    <link name="${name}"/>
+
+    <joint name="${name}_optical_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+      <parent link="${name}"/>
+      <child link="${name}_optical"/>
+    </joint>
+    <link name="${name}_optical"/>
+  </xacro:macro>
+
+  <xacro:macro name="lidar_sensor" params="name parent_link *origin">
+    <joint name="${name}_joint" type="fixed">
+      <xacro:insert_block name="origin"/>
+      <parent link="${parent_link}"/>
+      <child link="${name}"/>
+    </joint>
+    <link name="${name}"/>
+  </xacro:macro>
+
+</robot>

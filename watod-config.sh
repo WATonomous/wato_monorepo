@@ -71,3 +71,9 @@
 ############################### FOXGLOVE SETTINGS ##################################
 ## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.
 # export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"
+
+############################### SIMULATION SETTINGS ################################
+## CARLA rendering mode: "gpu" for GPU-accelerated rendering, "no_gpu" for headless/software rendering
+## Use "no_gpu" when running on machines without a GPU or when GPU resources are limited
+## DEFAULT = "no_gpu"
+# export CARLA_RENDER_MODE="no_gpu"

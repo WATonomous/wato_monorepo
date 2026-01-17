@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<robot name="carla_ego_vehicle" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="sensors.xacro"/>
+
+  <link name="base_link"/>
+
+  <xacro:camera_sensor name="front_camera" parent_link="base_link">
+    <origin xyz="2.0 0.0 1.5" rpy="0 0 0"/>
+  </xacro:camera_sensor>
+
+  <xacro:lidar_sensor name="lidar" parent_link="base_link">
+    <origin xyz="0.0 0.0 2.0" rpy="0 0 0"/>
+  </xacro:lidar_sensor>
+
+</robot>
