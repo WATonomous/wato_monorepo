@@ -16,7 +16,9 @@
 import base64
 import io
 import os
+import socket
 import threading
+import time
 
 # Set SDL to use dummy video driver for headless operation
 os.environ['SDL_VIDEODRIVER'] = 'dummy'
@@ -77,6 +79,7 @@ class PygameHudNode(LifecycleNode):
         self.server_thread = None
         self.emitter_thread = None
         self.running = False
+        self._server_shutdown_event = threading.Event()
 
         self.get_logger().info(f"{node_name} initialized")
 
@@ -167,27 +170,71 @@ class PygameHudNode(LifecycleNode):
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
 
+    def _wait_for_port_available(self, port: int, timeout: float = 5.0) -> bool:
+        """Wait for a port to become available."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    s.bind(('0.0.0.0', port))
+                    return True
+            except OSError:
+                time.sleep(0.1)
+        return False
+
+    def _run_server(self, port: int):
+        """Run the Flask-SocketIO server with proper shutdown support."""
+        from werkzeug.serving import make_server, WSGIRequestHandler
+
+        # Create a custom request handler that doesn't log
+        class QuietHandler(WSGIRequestHandler):
+            def log_request(self, code='-', size='-'):
+                pass  # Suppress request logging
+
+        # Create the WSGI server with SO_REUSEADDR
+        self._server = make_server(
+            '0.0.0.0',
+            port,
+            self.app,
+            threaded=True,
+            request_handler=QuietHandler,
+        )
+        self._server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        self._server_shutdown_event.clear()
+        try:
+            self._server.serve_forever()
+        except Exception:
+            pass
+        finally:
+            # Ensure socket is closed
+            try:
+                self._server.server_close()
+            except Exception:
+                pass
+            self._server_shutdown_event.set()
+
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Activate: Start the web server and frame emitter."""
         self.get_logger().info("Activating...")
 
         web_port = self.get_parameter("web_port").value
         self.running = True
+        self._server = None
+
+        # Wait for port to be available (in case previous server didn't release it)
+        if not self._wait_for_port_available(web_port, timeout=3.0):
+            self.get_logger().warn(f"Port {web_port} may still be in use, attempting to start anyway")
 
         # Start frame emitter thread
         self.emitter_thread = threading.Thread(target=self._frame_emitter, daemon=True)
         self.emitter_thread.start()
 
-        # Start Flask server in a thread
+        # Start Flask server in a thread using custom server for proper shutdown
         self.server_thread = threading.Thread(
-            target=lambda: self.socketio.run(
-                self.app,
-                host='0.0.0.0',
-                port=web_port,
-                debug=False,
-                use_reloader=False,
-                allow_unsafe_werkzeug=True
-            ),
+            target=self._run_server,
+            args=(web_port,),
             daemon=True
         )
         self.server_thread.start()
@@ -205,12 +252,26 @@ class PygameHudNode(LifecycleNode):
         if self.emitter_thread and self.emitter_thread.is_alive():
             self.emitter_thread.join(timeout=2.0)
 
-        # Stop Flask-SocketIO server
+        # Stop the werkzeug server properly
+        if hasattr(self, '_server') and self._server:
+            try:
+                self._server.shutdown()
+            except Exception as e:
+                self.get_logger().warn(f"Error shutting down server: {e}")
+
+        # Wait for server thread to finish
+        if self.server_thread and self.server_thread.is_alive():
+            self._server_shutdown_event.wait(timeout=3.0)
+            self.server_thread.join(timeout=2.0)
+
+        # Also try Flask-SocketIO stop as fallback
         if self.socketio:
             try:
                 self.socketio.stop()
             except Exception:
                 pass
+
+        self._server = None
 
         self.get_logger().info("Deactivation complete")
         return super().on_deactivate(state)
@@ -226,6 +287,9 @@ class PygameHudNode(LifecycleNode):
         self.carla_client = None
         self.app = None
         self.socketio = None
+        self._server = None
+        self.server_thread = None
+        self.emitter_thread = None
 
         pygame.quit()
 
