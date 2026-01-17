@@ -35,12 +35,9 @@ private:
   void build_inputs_from_params();
   void ackerman_cmd_callback();
 
-  template <typename T>
-  T get_param_or(const std::string & name, const T & fallback) const;
-
   // Params
-  double safety_threshold_{0.5};
-  double publish_rate_hz_{50.0};
+  double safety_threshold_{};
+  double publish_rate_hz_{};
   ackermann_msgs::msg::AckermannDriveStamped emergency_{};
 
   // IO

@@ -8,7 +8,7 @@ ackermann_mux:
 
     publish_rate_hz: 50.0
 
-    #HIGER NUMBER == higer priority
+    #HIGHER NUMBER == higer priority
     inputs:
       joystick:
         topic: /joystick/ackermann

@@ -119,20 +119,38 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   // -------------------------
   const bool enable_pressed = get_axis(*msg, enable_axis_) <= -0.9;
   const bool deadman_pressed = get_axis(*msg, deadman_axis_) <= -0.9;
-  const bool joystick_active = enable_pressed && deadman_pressed;
 
-  if (!joystick_active) {
-    // Immediately stop when safety conditions are not met
-    // (avoid spamming if already zero, optional)
+  // If enable is not held, fully disarm and stop.
+  if (!enable_pressed) {
+    deadman_armed_ = false;
+    enable_prev_ = false;
 
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 500, "Safety not met (enable_axis=false) -> publishing zero command");
+    publish_neutral_state(true);
+    return;
+  }
+
+  // Enable is held. If it was just pressed, reset arming requirement.
+  const bool enable_rising_edge = enable_pressed && !enable_prev_;
+  enable_prev_ = enable_pressed;
+  if (enable_rising_edge) {
+    deadman_armed_ = false;
+  }
+
+  // Arm once deadman is pressed while enable is held.
+  if (!deadman_armed_ && deadman_pressed) {
+    deadman_armed_ = true;
+  }
+
+  // Not armed yet -> stop.
+  if (!deadman_armed_) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       500,
-      "Safety not met (enable_axis=%s deadman_axis=%s) -> publishing zero command",
-      enable_pressed ? "true" : "false",
-      deadman_pressed ? "true" : "false");
-    publish_neutral_state(true);  // Joystick not is active, so is_idle
+      "Safety not met (enable held, deadman not yet pressed) -> publishing zero command");
+    publish_neutral_state(true);
     return;
   }
 

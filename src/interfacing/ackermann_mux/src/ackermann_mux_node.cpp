@@ -35,22 +35,20 @@ AckermannMuxNode::AckermannMuxNode(const rclcpp::NodeOptions & options)
       true))
 
 {
-  safety_threshold_ = get_param_or<double>("safety_threshold", 0.5);
-  publish_rate_hz_ = get_param_or<double>("publish_rate_hz", 50.0);
+  this->get_parameter_or("safety_threshold", safety_threshold_, 0.5);
+  this->get_parameter_or("publish_rate_hz", publish_rate_hz_, 50.0);
 
-  emergency_.drive.steering_angle = get_param_or<double>("emergency.steering_angle", 0.0);
-  emergency_.drive.speed = get_param_or<double>("emergency.speed", 0.0);
+  this->get_parameter_or("emergency.frame_id", emergency_.header.frame_id, std::string{""});
+  this->get_parameter_or("emergency.steering_angle", emergency_.drive.steering_angle, 0.0f);
+  this->get_parameter_or("emergency.speed", emergency_.drive.speed, 0.0f);
 
-  emergency_.header.frame_id = "";
-  emergency_.drive.steering_angle = get_param_or<double>("emergency.steering_angle", 0.0);
-  emergency_.drive.speed = get_param_or<double>("emergency.speed", 0.0);
   pub_out_ =
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/ackermann", rclcpp::QoS(rclcpp::KeepLast(1)));
 
   build_inputs_from_params();
 
   if (publish_rate_hz_ <= 0.0) {
-    publish_rate_hz_ = 50.0;
+    throw std::runtime_error("publish_rate_hz must be > 0");
   }
   const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
   timer_ = this->create_wall_timer(
@@ -65,29 +63,6 @@ AckermannMuxNode::AckermannMuxNode(const rclcpp::NodeOptions & options)
     emergency_.drive.speed,
     emergency_.drive.steering_angle,
     inputs_.size());
-}
-
-template <typename T>
-T AckermannMuxNode::get_param_or(const std::string & name, const T & fallback) const
-{
-  if (!this->has_parameter(name)) {
-    return fallback;
-  }
-  const auto p = this->get_parameter(name);
-
-  if constexpr (std::is_same_v<T, std::string>) {
-    return p.as_string();
-  } else if constexpr (std::is_same_v<T, bool>) {
-    return p.as_bool();
-  } else if constexpr (std::is_same_v<T, int>) {
-    return static_cast<int>(p.as_int());
-  } else if constexpr (std::is_same_v<T, int64_t>) {
-    return p.as_int();
-  } else if constexpr (std::is_same_v<T, double>) {
-    return p.as_double();
-  } else {
-    return fallback;
-  }
 }
 
 void AckermannMuxNode::build_inputs_from_params()
@@ -111,16 +86,30 @@ void AckermannMuxNode::build_inputs_from_params()
 
     InputConfig cfg;
     cfg.name = name;
-    cfg.topic = get_param_or<std::string>(prefix + ".topic", "");
-    cfg.priority = get_param_or<int>(prefix + ".priority", 0);
-    cfg.has_mask = get_param_or<bool>(prefix + ".has_mask", false);
-    cfg.mask_topic = get_param_or<std::string>(prefix + ".mask_topic", "");
-    cfg.safety_gating = get_param_or<bool>(prefix + ".safety_gating", false);
 
-    if (cfg.topic.empty()) {
-      RCLCPP_ERROR(this->get_logger(), "Input '%s' missing '%s.topic'. Skipping.", cfg.name.c_str(), prefix.c_str());
+    const auto topic_key = prefix + ".topic";
+    if (!this->has_parameter(topic_key)) {
+      RCLCPP_ERROR(this->get_logger(), "Input '%s' missing '%s'. Skipping.", cfg.name.c_str(), topic_key.c_str());
       continue;
     }
+    cfg.topic = this->get_parameter(topic_key).as_string();
+    if (cfg.topic.empty()) {
+      RCLCPP_ERROR(this->get_logger(), "Input '%s' has empty '%s'. Skipping.", cfg.name.c_str(), topic_key.c_str());
+      continue;
+    }
+
+    const auto pri_key = prefix + ".priority";
+    cfg.priority = this->has_parameter(pri_key) ? this->get_parameter(pri_key).as_int() : 0;
+
+    const auto has_mask_key = prefix + ".has_mask";
+    cfg.has_mask = this->has_parameter(has_mask_key) ? this->get_parameter(has_mask_key).as_bool() : false;
+
+    const auto mask_topic_key = prefix + ".mask_topic";
+    cfg.mask_topic = this->has_parameter(mask_topic_key) ? this->get_parameter(mask_topic_key).as_string() : "";
+
+    const auto safety_gating_key = prefix + ".safety_gating";
+    cfg.safety_gating =
+      this->has_parameter(safety_gating_key) ? this->get_parameter(safety_gating_key).as_bool() : false;
 
     inputs_.push_back(std::make_shared<InputHandle>(this, cfg));
   }
@@ -130,7 +119,7 @@ void AckermannMuxNode::ackerman_cmd_callback()
 {
   const auto now = this->now();
 
-  // 1) Safety override
+  // Safety override
   for (const auto & h : inputs_) {
     if (h->safety_trip(now, safety_threshold_)) {
       auto e = emergency_;
@@ -140,22 +129,22 @@ void AckermannMuxNode::ackerman_cmd_callback()
     }
   }
 
-  // 2) Arbitration
-  std::shared_ptr<InputHandle> winner = nullptr;
-  int best_priority = std::numeric_limits<int>::min();
+  // Pick the highest-priority eligible input.
+  std::shared_ptr<InputHandle> winner;
+  int64_t best_priority = std::numeric_limits<int64_t>::min();
 
   for (const auto & h : inputs_) {
     if (!h->eligible_for_mux()) {
       continue;
     }
-    const int pri = h->cfg().priority;
+    const int64_t pri = h->cfg().priority;
     if (!winner || pri > best_priority) {
       winner = h;
       best_priority = pri;
     }
   }
 
-  // 3) No eligible => emergency
+  // No eligible inputs: publish emergency.
   if (!winner) {
     auto e = emergency_;
     e.header.stamp = now;
@@ -163,7 +152,7 @@ void AckermannMuxNode::ackerman_cmd_callback()
     return;
   }
 
-  // 4) Publish winner latest cmd (update stamp to now so downstream sees "fresh")
+  // Publish the latest command from the winning input, stamped as "now".
   auto out = winner->last_cmd();
   out.header.stamp = now;
   pub_out_->publish(out);

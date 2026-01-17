@@ -15,8 +15,6 @@ services:
       - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
       - /dev/input:/dev/input
       - /run/udev:/run/udev:ro
-    devices:
-      - /dev/input:/dev/input
     privileged: true
 
 #################### PERCEPTION SERVICE ####################

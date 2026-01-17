@@ -36,16 +36,23 @@ add_library(ackermann_mux_component SHARED
   src/ackermann_mux_node.cpp
 )
 
-target_include_directories(ackermann_mux_component PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+target_include_directories(ackermann_mux_component
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  SYSTEM PRIVATE
+    ${rclcpp_INCLUDE_DIRS}
+    ${rclcpp_components_INCLUDE_DIRS}
+    ${ackermann_msgs_INCLUDE_DIRS}
+    ${std_msgs_INCLUDE_DIRS}
 )
 
-ament_target_dependencies(ackermann_mux_component
-  rclcpp
-  rclcpp_components
-  ackermann_msgs
-  std_msgs
+target_link_libraries(ackermann_mux_component
+  PRIVATE
+    ${rclcpp_LIBRARIES}
+    ${rclcpp_components_LIBRARIES}
+    ${ackermann_msgs_LIBRARIES}
+    ${std_msgs_LIBRARIES}
 )
 
 
