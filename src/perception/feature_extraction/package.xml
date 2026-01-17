@@ -3,7 +3,7 @@
 <package format="3">
   <name>feature_extraction</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Classical frontend</description>
   <maintainer email="t95zhou@uwaterloo.ca">watonomous</maintainer>
   <license>Apache-2.0</license>
 
