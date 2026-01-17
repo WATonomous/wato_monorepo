@@ -96,6 +96,12 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(wato_test REQUIRED)
+  add_wato_test(ackermann_mux_test test/ackermann_mux_test.cpp
+    LIBRARIES ackermann_mux_component
+  )
+  ament_target_dependencies(ackermann_mux_test ackermann_msgs)
 endif()
 
 ament_package()

@@ -67,9 +67,6 @@ launch:
   # - include:
   #     file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
 
-# action/ackermann_mux Mock node
-  - include:
-      file: "$(find-pkg-share mock_action_publisher)/launch/mock_action_publisher.launch.yaml"
 
   # Joystick Node
   - include:

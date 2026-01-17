@@ -1,5 +1,0 @@
-mock_action_publisher:
-  ros__parameters:
-    publish_rate_hz: 20.0
-    speed: 1.0
-    steering_angle: 1.0

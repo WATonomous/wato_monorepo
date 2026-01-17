@@ -75,7 +75,18 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)
+  set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(wato_test REQUIRED)
+  add_wato_test(joystick_interfacing_test test/joystick_interfacing_test.cpp
+    LIBRARIES joystick_interfacing
+  )
+  ament_target_dependencies(joystick_interfacing_test
+    ackermann_msgs
+    sensor_msgs
+    std_msgs
+  )
 endif()
 
 ament_package()
