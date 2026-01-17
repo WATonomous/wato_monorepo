@@ -32,9 +32,7 @@ JoystickNode::JoystickNode(const rclcpp::NodeOptions & options)
 
 void JoystickNode::configure()
 {
-  // -------------------------
   // Declare parameters (no default values)
-  // -------------------------
   this->declare_parameter<int>("enable_axis");
   this->declare_parameter<int>("deadman_axis");
   this->declare_parameter<int>("steering_axis");
@@ -45,10 +43,8 @@ void JoystickNode::configure()
 
   this->declare_parameter<bool>("invert_steering", false);
   this->declare_parameter<bool>("invert_throttle", false);
-  // -------------------------
-  // Read parameters
-  // -------------------------
 
+  // Read parameters
   enable_axis_ = this->get_parameter("enable_axis").as_int();
   deadman_axis_ = this->get_parameter("deadman_axis").as_int();
 
@@ -61,9 +57,7 @@ void JoystickNode::configure()
   invert_steering_ = this->get_parameter("invert_steering").as_bool();
   invert_throttle_ = this->get_parameter("invert_throttle").as_bool();
 
-  // -------------------------
   // Setup pubs/subs
-  // -------------------------
   ackermann_drive_stamped_pub_ =
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/joystick/ackermann", rclcpp::QoS(10));
   idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/joystick/is_idle", rclcpp::QoS(10));
@@ -113,10 +107,8 @@ void JoystickNode::publish_zero_command()
 
 void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
 {
-  // -------------------------
   // Safety gating
   // Two-stage: enable AND deadman must be held
-  // -------------------------
   const bool enable_pressed = get_axis(*msg, enable_axis_) <= -0.9;
   const bool deadman_pressed = get_axis(*msg, deadman_axis_) <= -0.9;
 
@@ -154,9 +146,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
     return;
   }
 
-  // -------------------------
   // Read + process axes
-  // -------------------------
   double steer = get_axis(*msg, steering_axis_);
   double throttle = get_axis(*msg, throttle_axis_);
 
@@ -168,9 +158,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
     throttle = -throttle;
   }
 
-  // -------------------------
   // Scale to physical commands
-  // -------------------------
   const double steering_angle = std::clamp(steer, -1.0, 1.0) * max_steering_angle_;
   const double speed = std::clamp(throttle, -1.0, 1.0) * max_speed_;
 

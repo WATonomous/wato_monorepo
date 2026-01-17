@@ -24,41 +24,88 @@
 namespace ackermann_mux
 {
 
+/**
+ * @struct InputConfig
+ * @brief Configuration for a single input source to the Ackermann mux.
+ */
 struct InputConfig
 {
-  std::string name;
-  std::string topic;
-  int priority{0};
+  std::string name;  ///< Human-readable name for this input.
+  std::string topic;  ///< ROS topic to subscribe to for Ackermann commands.
+  int priority{0};  ///< Priority level (higher = more important).
 
-  bool has_mask{false};
-  std::string mask_topic;
+  bool has_mask{false};  ///< Whether this input has an associated mask topic.
+  std::string mask_topic;  ///< Topic for masking this input (Bool message).
 
-  bool safety_gating{false};
+  bool safety_gating{false};  ///< If true, triggers emergency stop on timeout.
 };
 
+/**
+ * @class InputHandle
+ * @brief Manages a single input source for the Ackermann mux.
+ *
+ * Handles subscription to an Ackermann command topic and optional mask topic.
+ * Tracks the last received command, timestamp, and mask state for use by
+ * the mux node during priority arbitration.
+ */
 class InputHandle
 {
 public:
+  /**
+   * @brief Constructs an InputHandle with the given configuration.
+   * @param node Pointer to the parent ROS node (for creating subscriptions).
+   * @param cfg Configuration specifying topic, priority, and mask settings.
+   */
   InputHandle(rclcpp::Node * node, const InputConfig & cfg);
 
+  /**
+   * @brief Returns the configuration for this input.
+   * @return Const reference to the InputConfig.
+   */
   const InputConfig & cfg() const
   {
     return cfg_;
   }
 
   // --- Queries used by the mux ---
+
+  /**
+   * @brief Returns the timestamp of the last received command.
+   * @return ROS time of the most recent command message.
+   */
   rclcpp::Time last_cmd_time() const;
 
-  // eligible iff we have ever seen a cmd and not masked
+  /**
+   * @brief Checks if this input is eligible for mux selection.
+   * @return True if a command has been received and input is not masked.
+   */
   bool eligible_for_mux() const;
 
-  // Safety gating trip: if enabled and (never seen cmd OR age > safety_threshold)
+  /**
+   * @brief Checks if safety gating has tripped due to command timeout.
+   * @param now Current ROS time.
+   * @param safety_threshold_sec Maximum allowed age (seconds) for a command.
+   * @return True if safety gating is enabled and command is stale or missing.
+   */
   bool safety_trip(const rclcpp::Time & now, double safety_threshold_sec) const;
 
+  /**
+   * @brief Returns the last received Ackermann command.
+   * @return Copy of the most recent AckermannDriveStamped message.
+   */
   ackermann_msgs::msg::AckermannDriveStamped last_cmd() const;
 
 private:
+  /**
+   * @brief Callback for incoming Ackermann command messages.
+   * @param msg The received AckermannDriveStamped message.
+   */
   void on_cmd_callback(const ackermann_msgs::msg::AckermannDriveStamped::ConstSharedPtr msg);
+
+  /**
+   * @brief Callback for incoming mask messages.
+   * @param msg The received Bool message (true = masked/disabled).
+   */
   void on_mask_callback(const std_msgs::msg::Bool::ConstSharedPtr msg);
 
   rclcpp::Node * node_{nullptr};

@@ -3,9 +3,9 @@
 <package format="3">
   <name>joystick_interfacing</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="shawn.yang@uwaterloo.ca">bolty</maintainer>
-  <license>TODO: License declaration</license>
+  <description>Joystick interfacing node for Eve.</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

@@ -63,15 +63,11 @@ private:
 
   void publish_zero_command();
 
-  // -------------------------
   // ROS Interfaces
-  // -------------------------
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_drive_stamped_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr idle_state_pub_;
-  // -------------------------
-  // Parameters
-  // -------------------------
+
   int enable_axis_;  // index of enable axis (shoulder button)
   int deadman_axis_;  // index of deadman axis (shoulder button)
 

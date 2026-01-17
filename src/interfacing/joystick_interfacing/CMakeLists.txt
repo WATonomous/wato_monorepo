@@ -37,12 +37,12 @@ target_include_directories(joystick_interfacing PUBLIC
 )
 
 # Link dependencies to library
-ament_target_dependencies(joystick_interfacing
-  rclcpp
-  rclcpp_components
-  sensor_msgs
-  ackermann_msgs
-  std_msgs
+target_link_libraries(joystick_interfacing PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  ${sensor_msgs_TARGETS}
+  ${ackermann_msgs_TARGETS}
+  ${std_msgs_TARGETS}
 )
 
 # Register component and automatically create standalone executable
@@ -72,20 +72,14 @@ install(DIRECTORY
 )
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  set(ament_cmake_copyright_FOUND TRUE)
-  set(ament_cmake_cpplint_FOUND TRUE)
-  set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-
   find_package(wato_test REQUIRED)
   add_wato_test(joystick_interfacing_test test/joystick_interfacing_test.cpp
     LIBRARIES joystick_interfacing
   )
-  ament_target_dependencies(joystick_interfacing_test
-    ackermann_msgs
-    sensor_msgs
-    std_msgs
+  target_link_libraries(joystick_interfacing_test
+    ${ackermann_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS}
   )
 endif()
 

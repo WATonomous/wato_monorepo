@@ -5,8 +5,8 @@
   <version>0.0.0</version>
   <description>Priority-based Ackermann command mux with masking and safety gating.</description>
 
-  <maintainer email="shawn.yang@uwaterloo.ca">bolty</maintainer>
-  <license>TODO: License declaration</license>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

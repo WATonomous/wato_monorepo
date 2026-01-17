@@ -1,4 +1,4 @@
-# Joystick Interfacing
+# Eve Joystick
 
 ROS2 node that interfaces with physical joystick hardware and converts joystick input into Ackermann drive commands for vehicle control. Provides safety gating through enable and deadman switches.
 
@@ -63,29 +63,6 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
    - Inversion flags are applied if configured
 
 4. **Output**: The converted Ackermann command is published with the current timestamp, and the idle state is set to `false`.
-
-## Example Configuration
-
-```yaml
-joy_node:
-  ros__parameters:
-    deadzone: 0.05
-
-joystick_node:
-  ros__parameters:
-    # Left and right shoulder buttons (triggers)
-    enable_axis: 2
-    deadman_axis: 5
-    # Left and right joystick axes
-    steering_axis: 0 # Left stick horizontal
-    throttle_axis: 4 # Right stick vertical
-    # Max speed and steering angle
-    max_speed: 2.0
-    max_steering_angle: 0.5
-    # Invert steering and throttle
-    invert_steering: false
-    invert_throttle: false
-```
 
 ## Finding Joystick Axis Indices
 
