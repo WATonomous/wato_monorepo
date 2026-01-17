@@ -21,7 +21,7 @@ services:
       target: dependencies
     image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
 
-  zenoh_router:
+  infrastructure_bringup:
     ulimits:
       memlock: -1
     ipc: host
@@ -37,38 +37,12 @@ services:
         - "${INFRASTRUCTURE_IMAGE:?}:main"
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-    command: ros2 run rmw_zenoh_cpp rmw_zenohd
+    command: /bin/bash -c "ros2 launch infrastructure_bringup infrastructure.launch.yaml foxglove_port:=${FOXGLOVE_BRIDGE_PORT:?}"
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-
-  foxglove:
-    ulimits:
-      memlock: -1
-    ipc: host
-    network_mode: host
-    build:
-      context: ..
-      dockerfile: docker/template.Dockerfile
-      args:
-        MODULE_SOURCE: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
-        MODULE_DEPS: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
-      cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-        - "${INFRASTRUCTURE_IMAGE:?}:main"
-      target: deploy
-    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-    command: bash -c "ros2 run topic_tools relay /tf /tf_new & ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=${FOXGLOVE_BRIDGE_PORT:?} send_buffer_limit_bytes:=${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:?} && fg"
-    environment:
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
-      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
-      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-    depends_on:
-      zenoh_router:
-        condition: service_started
 
   log_viewer:
     container_name: watod_log_viewer
@@ -125,7 +99,7 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      zenoh_router:
+      infrastructure_bringup:
         condition: service_started
 
 #################### PERCEPTION SERVICE ####################
@@ -174,7 +148,7 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      zenoh_router:
+      infrastructure_bringup:
         condition: service_started
 
 #################### WORLD MODELING SERVICE ####################
@@ -221,7 +195,7 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      zenoh_router:
+      infrastructure_bringup:
         condition: service_started
 
 #################### ACTION SERVICE ####################
@@ -268,13 +242,14 @@ services:
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     depends_on:
-      zenoh_router:
+      infrastructure_bringup:
         condition: service_started
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
     image: carlasim/carla:0.10.0
     runtime: nvidia
+    init: true
     network_mode: host
     environment:
       - DISPLAY=${DISPLAY}
@@ -289,6 +264,12 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+
+  carla_sim_no_gpu:
+    image: carlasim/carla:0.10.0
+    init: true
+    network_mode: host
+    command: /bin/bash -c "./CarlaUnreal.sh -nosound -nullrhi"
 
   simulation_source:
     profiles: ["simulation_pre"]
@@ -327,6 +308,7 @@ services:
       target: deploy
     image: "${SIMULATION_IMAGE}:${TAG}"
     environment:
+      - DISPLAY=${DISPLAY}
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
       - USE_ACKERMANN_CONTROL=False
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
@@ -335,7 +317,5 @@ services:
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
     command: /bin/bash -c "ros2 launch simulation_bringup carla.launch.py"
     depends_on:
-      zenoh_router:
-        condition: service_started
-      carla_sim:
+      infrastructure_bringup:
         condition: service_started

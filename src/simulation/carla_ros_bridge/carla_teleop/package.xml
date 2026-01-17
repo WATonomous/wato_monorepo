@@ -11,6 +11,7 @@
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>lifecycle_msgs</depend>
+  <depend>std_srvs</depend>
 
   <exec_depend>python3-carla</exec_depend>
 

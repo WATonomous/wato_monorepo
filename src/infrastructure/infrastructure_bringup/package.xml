@@ -1,11 +1,16 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>infrastructure_deps</name>
+  <name>infrastructure_bringup</name>
   <version>0.0.0</version>
-  <description>Metapackage for Infrastructure Dependencies</description>
+  <description>Bringup package for infrastructure services (Foxglove, Zenoh router, visualization)</description>
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Launch dependencies -->
+  <exec_depend>ros2launch</exec_depend>
 
   <!-- To enable Shared Memory IPC -->
   <depend>rmw_zenoh_cpp</depend>
@@ -20,6 +25,9 @@
   <depend>foxglove_msgs</depend>
   <depend>foxglove_bridge</depend>
 
+  <!-- Visualization nodes -->
+  <depend>vision_msgs_markers</depend>
+
   <!-- Bridge and tools -->
   <depend>rosbridge_server</depend>
   <depend>topic_tools</depend>
@@ -31,8 +39,6 @@
   <depend>flir_camera_msgs</depend>
   <depend>velodyne_msgs</depend>
   <depend>robot_localization</depend>
-
-  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

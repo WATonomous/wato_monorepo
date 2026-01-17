@@ -33,11 +33,13 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("scenario_server_name", "scenario_server");
   this->declare_parameter("node_names", std::vector<std::string>{});
   this->declare_parameter("service_timeout", 10.0);
+  this->declare_parameter("startup_retry_interval", 5.0);
 
   autostart_ = this->get_parameter("autostart").as_bool();
   scenario_server_name_ = this->get_parameter("scenario_server_name").as_string();
   node_names_ = this->get_parameter("node_names").as_string_array();
   service_timeout_ = this->get_parameter("service_timeout").as_double();
+  startup_retry_interval_ = this->get_parameter("startup_retry_interval").as_double();
 
   RCLCPP_INFO(this->get_logger(), "Lifecycle manager initialized");
   RCLCPP_INFO(this->get_logger(), "  scenario_server: %s", scenario_server_name_.c_str());
@@ -70,23 +72,52 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
     10,
     std::bind(&LifecycleManagerNode::scenarioStatusCallback, this, std::placeholders::_1));
 
-  // Autostart timer
+  // Service for scenario_server to request node cleanup before switching
+  prepare_switch_service_ = this->create_service<std_srvs::srv::Trigger>(
+    "~/prepare_for_scenario_switch",
+    std::bind(
+      &LifecycleManagerNode::prepareForSwitchCallback, this,
+      std::placeholders::_1, std::placeholders::_2));
+
+  // Autostart timer - retries until scenario_server connects to CARLA
   if (autostart_) {
-    startup_timer_ = this->create_wall_timer(2s, std::bind(&LifecycleManagerNode::startupTimerCallback, this));
+    auto interval = std::chrono::duration<double>(startup_retry_interval_);
+    startup_timer_ = this->create_wall_timer(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(interval),
+      std::bind(&LifecycleManagerNode::startupTimerCallback, this));
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Waiting for %s to connect to CARLA server (retry interval: %.1fs)...",
+      scenario_server_name_.c_str(),
+      startup_retry_interval_);
   }
 }
 
 void LifecycleManagerNode::startupTimerCallback()
 {
-  startup_timer_->cancel();
+  if (startup_complete_) {
+    startup_timer_->cancel();
+    return;
+  }
 
-  RCLCPP_INFO(this->get_logger(), "Bringing up %s...", scenario_server_name_.c_str());
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Attempting to bring up %s (connecting to CARLA server)...",
+    scenario_server_name_.c_str());
 
   if (bringUpNode(scenario_server_name_)) {
-    RCLCPP_INFO(this->get_logger(), "%s is now active", scenario_server_name_.c_str());
+    RCLCPP_INFO(
+      this->get_logger(),
+      "%s successfully connected to CARLA server and is now active",
+      scenario_server_name_.c_str());
     startup_complete_ = true;
+    startup_timer_->cancel();
   } else {
-    RCLCPP_ERROR(this->get_logger(), "Failed to bring up %s", scenario_server_name_.c_str());
+    RCLCPP_WARN(
+      this->get_logger(),
+      "Failed to bring up %s (CARLA server may not be available), retrying in %.1fs...",
+      scenario_server_name_.c_str(),
+      startup_retry_interval_);
   }
 }
 
@@ -99,10 +130,11 @@ void LifecycleManagerNode::scenarioStatusCallback(const carla_msgs::msg::Scenari
     if (!current_scenario_.empty()) {
       RCLCPP_INFO(
         this->get_logger(),
-        "Scenario changed: \"%s\" -> \"%s\", restarting managed nodes...",
+        "Scenario changed: \"%s\" -> \"%s\", bringing up managed nodes...",
         current_scenario_.c_str(),
         msg->scenario_name.c_str());
-      restartManagedNodes();
+      // Nodes should already be cleaned up via prepare_for_scenario_switch service
+      bringUpAllNodes();
     } else {
       RCLCPP_INFO(this->get_logger(), "Initial scenario loaded: %s", msg->scenario_name.c_str());
       bringUpAllNodes();
@@ -110,6 +142,17 @@ void LifecycleManagerNode::scenarioStatusCallback(const carla_msgs::msg::Scenari
     current_scenario_ = msg->scenario_name;
   }
   last_scenario_state_ = msg->state;
+}
+
+void LifecycleManagerNode::prepareForSwitchCallback(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  RCLCPP_INFO(this->get_logger(), "Preparing for scenario switch: cleaning up managed nodes...");
+  cleanupAllNodes();
+  response->success = true;
+  response->message = "Managed nodes cleaned up";
+  RCLCPP_INFO(this->get_logger(), "Managed nodes cleaned up, ready for scenario switch");
 }
 
 void LifecycleManagerNode::bringUpAllNodes()
@@ -120,6 +163,17 @@ void LifecycleManagerNode::bringUpAllNodes()
   executeTransitionSteps({
     {Transition::TRANSITION_CONFIGURE, State::PRIMARY_STATE_UNCONFIGURED, "configure"},
     {Transition::TRANSITION_ACTIVATE, State::PRIMARY_STATE_INACTIVE, "activate"},
+  });
+}
+
+void LifecycleManagerNode::cleanupAllNodes()
+{
+  using Transition = lifecycle_msgs::msg::Transition;
+  using State = lifecycle_msgs::msg::State;
+
+  executeTransitionSteps({
+    {Transition::TRANSITION_DEACTIVATE, State::PRIMARY_STATE_ACTIVE, "deactivate"},
+    {Transition::TRANSITION_CLEANUP, State::PRIMARY_STATE_INACTIVE, "cleanup"},
   });
 }
 

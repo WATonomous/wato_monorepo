@@ -77,6 +77,8 @@ class AckermannControlNode(LifecycleNode):
         # Find ego vehicle
         try:
             world = self.carla_client.get_world()
+            # Wait for a tick to sync with latest world state (needed in synchronous mode)
+            world.wait_for_tick()
             actors = world.get_actors()
             vehicles = actors.filter("vehicle.*")
 

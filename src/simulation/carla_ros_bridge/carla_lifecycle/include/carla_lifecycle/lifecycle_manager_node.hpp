@@ -23,6 +23,7 @@
 #include "carla_msgs/msg/scenario_status.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "lifecycle_msgs/srv/get_state.hpp"
+#include "std_srvs/srv/trigger.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace carla_lifecycle
@@ -49,9 +50,13 @@ public:
 private:
   void startupTimerCallback();
   void scenarioStatusCallback(const carla_msgs::msg::ScenarioStatus::SharedPtr msg);
+  void prepareForSwitchCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
   bool bringUpNode(const std::string & node_name);
   void bringUpAllNodes();
+  void cleanupAllNodes();
   void restartManagedNodes();
   void executeTransitionSteps(const std::vector<TransitionStep> & steps);
 
@@ -64,6 +69,7 @@ private:
   std::string scenario_server_name_;
   std::vector<std::string> node_names_;
   double service_timeout_;
+  double startup_retry_interval_;
 
   // State tracking
   std::string current_scenario_;
@@ -77,6 +83,7 @@ private:
   rclcpp::Subscription<carla_msgs::msg::ScenarioStatus>::SharedPtr scenario_sub_;
   rclcpp::TimerBase::SharedPtr startup_timer_;
   rclcpp::CallbackGroup::SharedPtr service_cb_group_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr prepare_switch_service_;
 };
 
 }  // namespace carla_lifecycle

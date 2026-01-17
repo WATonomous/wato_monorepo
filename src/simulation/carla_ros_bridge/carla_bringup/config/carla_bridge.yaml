@@ -6,6 +6,7 @@ scenario_server:
     carla_host: "localhost"
     carla_port: 2000
     carla_timeout: 10.0
+    carla_fps: 60.0  # Simulation FPS (enables synchronous mode)
     initial_scenario: "carla_scenarios.scenarios.default_scenario"
 
 # Ackermann Control Configuration
@@ -18,35 +19,67 @@ ackermann_control:
     command_timeout: 0.5  # seconds
 
 # Camera Publisher Configuration
+# Supports multiple cameras - each camera publishes to ~/{name}/image_raw and ~/{name}/camera_info
 camera_publisher:
   ros__parameters:
     carla_host: "localhost"
     carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
-    # Camera settings
-    image_width: 800
-    image_height: 600
-    fov: 90.0
-    optical_frame: true
-    frame_id: "front_camera_optical"
+    # List of camera names to spawn
+    camera_names:
+      - front_camera
+    # Per-camera settings (prefix with camera name)
+    front_camera.frame_id: "front_camera_optical"
+    front_camera.image_width: 800
+    front_camera.image_height: 600
+    front_camera.fov: 90.0
+    front_camera.optical_frame: true
+    front_camera.distortion_model: "plumb_bob"
+    # Camera matrix K (3x3, row-major): [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+    front_camera.camera_matrix.data: [400.0, 0.0, 400.0,
+                                      0.0, 400.0, 300.0,
+                                      0.0, 0.0, 1.0]
+    # Distortion coefficients (plumb_bob): [k1, k2, p1, p2, k3]
+    front_camera.distortion_coefficients.data: [0.0, 0.0, 0.0, 0.0, 0.0]
+    # Rectification matrix R (3x3, row-major)
+    front_camera.rectification_matrix.data: [1.0, 0.0, 0.0,
+                                             0.0, 1.0, 0.0,
+                                             0.0, 0.0, 1.0]
+    # Projection matrix P (3x4, row-major): [fx', 0, cx', Tx, 0, fy', cy', Ty, 0, 0, 1, 0]
+    front_camera.projection_matrix.data: [400.0, 0.0, 400.0, 0.0,
+                                          0.0, 400.0, 300.0, 0.0,
+                                          0.0, 0.0, 1.0, 0.0]
 
 # LiDAR Publisher Configuration
+# Supports multiple LiDARs - each LiDAR publishes to ~/{name}/points
+# All per-LiDAR fields are required
 lidar_publisher:
   ros__parameters:
     carla_host: "localhost"
     carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
-    # LiDAR settings
-    channels: 32
-    range: 100.0
-    points_per_second: 56000
-    rotation_frequency: 10.0
-    upper_fov: 10.0
-    lower_fov: -30.0
-    sensor_link: "lidar_link"
-    frame_id: "lidar_link"
+    # List of LiDAR names to spawn
+    lidar_names:
+      - top_lidar
+    # Per-LiDAR settings (prefix with lidar name)
+    top_lidar.frame_id: "lidar"               # TF frame for this LiDAR
+    top_lidar.range: 100.0                    # Maximum detection range (meters)
+    top_lidar.rotation_frequency: 15.0        # Scan rate (Hz)
+    top_lidar.horizontal_fov: 360.0           # Horizontal FOV (degrees)
+    top_lidar.points_per_channel: 1800        # Points per channel per rotation
+    # Vertical FOV configuration (CARLA distributes channels uniformly)
+    top_lidar.channels: 32                    # Number of laser channels
+    top_lidar.upper_fov: 15.0                 # Highest laser angle (degrees)
+    top_lidar.lower_fov: -25.0                # Lowest laser angle (degrees)
+    # Dropout configuration (tuned for minimal loss like real Velodyne)
+    top_lidar.dropoff_general_rate: 0.0       # Random dropout rate (0.0 = no dropout)
+    top_lidar.dropoff_intensity_limit: 0.8    # Intensity above which no dropout occurs
+    top_lidar.dropoff_zero_intensity: 0.1     # Dropout probability for zero-intensity points
+    # Atmosphere and noise
+    top_lidar.atmosphere_attenuation_rate: 0.004  # Intensity loss per meter
+    top_lidar.noise_stddev: 0.0               # Distance noise std dev (0.0 = no noise)
 
 # BBox Publisher Configuration
 bbox_publisher:
@@ -56,9 +89,22 @@ bbox_publisher:
     carla_timeout: 10.0
     # Publishing settings
     publish_rate: 10.0
-    frame_id: "map"
+    frame_id: "base_link"
     include_vehicles: true
     include_pedestrians: true
+
+# Localization Configuration (TF publisher)
+carla_localization:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    role_name: "ego_vehicle"
+    # TF frame names
+    map_frame: "map"
+    odom_frame: "odom"
+    base_link_frame: "base_link"
+    publish_rate: 50.0  # Hz
 
 # Teleop Configuration (Foxglove compatible)
 carla_teleop:
@@ -73,3 +119,16 @@ carla_teleop:
     throttle_scale: 1.0    # scale factor for throttle
     steering_scale: 1.0    # scale factor for steering
     command_timeout: 0.5   # seconds
+
+# Pygame HUD Configuration (web-based map visualizer)
+pygame_hud:
+  ros__parameters:
+    carla_host: "localhost"
+    carla_port: 2000
+    carla_timeout: 10.0
+    role_name: "ego_vehicle"
+    width: 1280
+    height: 720
+    show_triggers: false
+    show_connections: false
+    show_spawn_points: false

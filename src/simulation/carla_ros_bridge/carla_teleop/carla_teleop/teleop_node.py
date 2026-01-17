@@ -18,6 +18,7 @@ import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.time import Time
 from geometry_msgs.msg import Twist
+from std_srvs.srv import SetBool
 
 try:
     import carla
@@ -49,10 +50,12 @@ class TeleopNode(LifecycleNode):
         self.ego_vehicle: Optional["carla.Vehicle"] = None
         self.last_command_time: Optional[Time] = None
         self.last_twist: Optional[Twist] = None
+        self.autonomy_enabled: bool = False
 
         # ROS interfaces
         self.twist_subscription = None
         self.control_timer = None
+        self.autonomy_service = None
 
         self.get_logger().info(f"{node_name} initialized")
 
@@ -83,6 +86,8 @@ class TeleopNode(LifecycleNode):
         # Find ego vehicle
         try:
             world = self.carla_client.get_world()
+            # Wait for a tick to sync with latest world state (needed in synchronous mode)
+            world.wait_for_tick()
             actors = world.get_actors()
             vehicles = actors.filter("vehicle.*")
 
@@ -111,6 +116,11 @@ class TeleopNode(LifecycleNode):
             Twist, "~/cmd_vel", self.twist_callback, 10
         )
 
+        # Create service for enabling/disabling autonomy mode
+        self.autonomy_service = self.create_service(
+            SetBool, "~/set_autonomy", self.set_autonomy_callback
+        )
+
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
 
@@ -121,6 +131,14 @@ class TeleopNode(LifecycleNode):
         # Reset state
         self.last_command_time = None
         self.last_twist = None
+        self.autonomy_enabled = False
+
+        # Ensure CARLA autopilot is disabled on activation
+        if self.ego_vehicle:
+            try:
+                self.ego_vehicle.set_autopilot(False)
+            except Exception as e:
+                self.get_logger().warn(f"Failed to disable autopilot: {e}")
 
         # Create control timer (runs at 50 Hz)
         self.control_timer = self.create_timer(0.02, self.control_timer_callback)
@@ -137,8 +155,14 @@ class TeleopNode(LifecycleNode):
             self.destroy_timer(self.control_timer)
             self.control_timer = None
 
-        # Stop vehicle
+        # Disable autopilot and stop vehicle
         if self.ego_vehicle:
+            try:
+                self.ego_vehicle.set_autopilot(False)
+                self.autonomy_enabled = False
+            except Exception as e:
+                self.get_logger().warn(f"Failed to disable autopilot: {e}")
+
             try:
                 control = carla.VehicleControl()
                 control.throttle = 0.0
@@ -160,6 +184,11 @@ class TeleopNode(LifecycleNode):
             self.destroy_subscription(self.twist_subscription)
             self.twist_subscription = None
 
+        # Destroy service
+        if self.autonomy_service:
+            self.destroy_service(self.autonomy_service)
+            self.autonomy_service = None
+
         # Release CARLA resources
         self.ego_vehicle = None
         self.carla_client = None
@@ -177,9 +206,50 @@ class TeleopNode(LifecycleNode):
         self.last_command_time = self.get_clock().now()
         self.last_twist = msg
 
+    def set_autonomy_callback(
+        self, request: SetBool.Request, response: SetBool.Response
+    ) -> SetBool.Response:
+        """Handle autonomy mode enable/disable requests."""
+        if not self.ego_vehicle:
+            response.success = False
+            response.message = "No ego vehicle available"
+            return response
+
+        try:
+            if request.data:
+                # Enable autonomy - activate CARLA autopilot
+                self.ego_vehicle.set_autopilot(True)
+                self.autonomy_enabled = True
+                response.success = True
+                response.message = "Autonomy enabled - CARLA autopilot active, teleop disabled"
+                self.get_logger().info("Autonomy mode ENABLED - teleop disabled")
+            else:
+                # Disable autonomy - deactivate CARLA autopilot
+                self.ego_vehicle.set_autopilot(False)
+                self.autonomy_enabled = False
+                # Immediately apply stop control to take back control from Traffic Manager
+                control = carla.VehicleControl()
+                control.throttle = 0.0
+                control.brake = 1.0
+                control.steer = 0.0
+                self.ego_vehicle.apply_control(control)
+                response.success = True
+                response.message = "Autonomy disabled - teleop enabled"
+                self.get_logger().info("Autonomy mode DISABLED - teleop enabled")
+        except Exception as e:
+            response.success = False
+            response.message = f"Failed to set autopilot: {e}"
+            self.get_logger().error(f"Failed to set autopilot: {e}")
+
+        return response
+
     def control_timer_callback(self):
         """Apply control to vehicle (called at fixed rate)."""
         if not self.ego_vehicle:
+            return
+
+        # Skip teleop control when autonomy is enabled
+        if self.autonomy_enabled:
             return
 
         # Check for command timeout

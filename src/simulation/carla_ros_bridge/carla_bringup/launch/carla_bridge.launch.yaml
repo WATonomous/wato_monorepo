@@ -1,37 +1,65 @@
 launch:
+  # Launch arguments
+  - arg:
+      name: pygame_hud_enabled
+      default: "true"
+      description: "Enable the pygame HUD web visualizer"
+  - arg:
+      name: pygame_web_port
+      default: "5000"
+      description: "Port for the pygame HUD web server"
+
   # Robot Description (TF tree for sensors)
   - include:
       file: $(find-pkg-share carla_sample_description)/launch/robot_description.launch.yaml
 
   # Scenario Server Node
+  # Note: scenario_server uses wall time since it's the /clock source
   - node:
       pkg: carla_scenarios
       exec: scenario_server
       name: scenario_server
       output: screen
       param:
+        - name: use_sim_time
+          value: false
         - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
 
-  # Lifecycle Manager - brings up scenario_server and restarts nodes on scenario change
+  # Lifecycle Manager - waits for scenario_server to connect to CARLA, then brings up all nodes
+  # Note: lifecycle_manager uses wall time since it orchestrates before /clock is available
   - node:
       pkg: carla_lifecycle
       exec: lifecycle_manager
       name: carla_lifecycle_manager
       output: screen
       param:
-        - name: autostart
-          value: true
+        - name: use_sim_time
+          value: false
         - name: scenario_server_name
           value: scenario_server
         - name: node_names
           value:
+            - carla_localization
             - carla_teleop
             - ackermann_control
-            - camera_publisher
             - lidar_publisher
             - bbox_publisher
+            - pygame_hud
         - name: service_timeout
           value: 10.0
+        - name: startup_retry_interval
+          value: 5.0
+
+  # Localization Node (publishes TF: map -> odom -> base_link)
+  - node:
+      pkg: carla_localization
+      exec: localization
+      name: carla_localization
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
 
   # Teleop Node
   - node:
@@ -39,7 +67,9 @@ launch:
       exec: teleop
       name: carla_teleop
       output: screen
-      param:th
+      param:
+        - name: use_sim_time
+          value: true
         - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
 
   # Ackermann Control Node
@@ -49,31 +79,57 @@ launch:
       name: ackermann_control
       output: screen
       param:
+        - name: use_sim_time
+          value: true
         - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
 
-  # Camera Publisher Node
+  # LiDAR Publisher Node
   - node:
       pkg: carla_perception
-      exec: camera_publisher
-      name: camera_publisher
+      exec: lidar_publisher
+      name: lidar_publisher
       output: screen
       param:
+        - name: use_sim_time
+          value: true
         - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
 
-  # # LiDAR Publisher Node
-  # - node:
-  #     pkg: carla_perception
-  #     exec: lidar_publisher
-  #     name: lidar_publisher
-  #     output: screen
-  #     param:
-  #       - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+  # BBox Publisher Node
+  - node:
+      pkg: carla_perception
+      exec: bbox_publisher
+      name: bbox_publisher
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
 
-  # # BBox Publisher Node
-  # - node:
-  #     pkg: carla_perception
-  #     exec: bbox_publisher
-  #     name: bbox_publisher
-  #     output: screen
-  #     param:
-  #       - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+  # Pygame HUD Node (web-based map visualizer)
+  - node:
+      pkg: carla_pygame
+      exec: pygame_hud
+      name: pygame_hud
+      output: screen
+      if: $(var pygame_hud_enabled)
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: web_port
+          value: $(var pygame_web_port)
+
+  # 3D Detection Visualization (converts Detection3DArray to MarkerArray)
+  - node:
+      pkg: vision_msgs_markers
+      exec: vision_msgs_markers_node
+      name: bbox_markers
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+      remap:
+        - from: detections_in
+          to: /bbox_publisher/detections_3d
+        - from: markers_out
+          to: /carla/bbox_markers

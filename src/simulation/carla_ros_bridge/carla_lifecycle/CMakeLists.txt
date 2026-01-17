@@ -22,6 +22,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(carla_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 add_executable(lifecycle_manager
   src/lifecycle_manager_node.cpp
@@ -35,6 +36,7 @@ target_link_libraries(lifecycle_manager
   rclcpp::rclcpp
   ${lifecycle_msgs_TARGETS}
   ${carla_msgs_TARGETS}
+  ${std_srvs_TARGETS}
 )
 
 install(TARGETS lifecycle_manager

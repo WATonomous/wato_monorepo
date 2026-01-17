@@ -1,17 +1,11 @@
 ---
 services:
 #################### INFRASTRUCTURE SERVICES ####################
-  zenoh_router:
+  infrastructure_bringup:
     profiles: ["infrastructure"]
     extends:
       file: docker-compose.yaml
-      service: zenoh_router
-
-  foxglove:
-    profiles: ["infrastructure"]
-    extends:
-      file: docker-compose.yaml
-      service: foxglove
+      service: infrastructure_bringup
 
   log_viewer:
     profiles: ["infrastructure"]
@@ -49,10 +43,16 @@ services:
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
-    profiles: ["simulation"]
+    profiles: ["carla_gpu"]
     extends:
       file: docker-compose.yaml
       service: carla_sim
+
+  carla_sim_no_gpu:
+    profiles: ["carla_no_gpu"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_sim_no_gpu
 
   simulation_bringup:
     profiles: ["simulation"]

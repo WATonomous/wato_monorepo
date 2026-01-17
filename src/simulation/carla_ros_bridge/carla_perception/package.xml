@@ -14,6 +14,7 @@
   <depend>geometry_msgs</depend>
   <depend>lifecycle_msgs</depend>
   <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
 
   <exec_depend>python3-carla</exec_depend>
   <exec_depend>python3-numpy</exec_depend>

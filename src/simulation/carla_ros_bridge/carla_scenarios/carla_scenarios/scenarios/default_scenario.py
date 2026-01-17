@@ -22,24 +22,22 @@ except ImportError:
 
 
 class DefaultScenario(ScenarioBase):
-    """Default scenario that spawns the ego vehicle."""
+    """Default scenario that spawns the ego vehicle and NPC traffic."""
 
-    def __init__(self):
-        super().__init__()
-        self.spawned_actors = []
+    # Configuration
+    NUM_VEHICLES = 20
+    NUM_PEDESTRIANS = 40
+    SPAWN_POINT_INDEX = 0
 
     def get_name(self) -> str:
-        """Return scenario name."""
         return "Default Ego Spawn"
 
     def get_description(self) -> str:
-        """Return scenario description."""
-        return "Basic scenario that spawns ego vehicle"
+        return "Basic scenario with ego vehicle, vehicles, and pedestrians"
 
     def initialize(self, client: "carla.Client") -> bool:
-        """Initialize scenario with CARLA client."""
         if carla is None:
-            print("CARLA module not available")
+            self._log("CARLA module not available", "error")
             return False
 
         try:
@@ -47,90 +45,51 @@ class DefaultScenario(ScenarioBase):
             self.world = client.get_world()
             return True
         except Exception as e:
-            print(f"Failed to initialize default scenario: {e}")
+            self._log(f"Failed to initialize: {e}", "error")
             return False
 
     def setup(self) -> bool:
-        """Set up CARLA world for default scenario."""
         if self.world is None:
             return False
 
         try:
             import time
 
-            # Check if Town10HD is already loaded
+            # Load Town10HD if needed
             current_map = self.world.get_map().name
             if "Town10HD" not in current_map:
-                print(f"Loading Town10HD map (current: {current_map})...")
+                self._log(f"Loading Town10HD map (current: {current_map})...")
                 self.client.load_world("Town10HD")
-                time.sleep(2.0)  # Wait for world to load
+                time.sleep(2.0)
                 self.world = self.client.get_world()
-            else:
-                print("Town10HD already loaded")
 
-            # Get blueprint library
-            blueprint_library = self.world.get_blueprint_library()
-
-            # Get a vehicle blueprint (Mini Cooper)
-            vehicle_bp = blueprint_library.filter("vehicle.mini.cooper")[0]
-
-            # Set the role name for other nodes to find this vehicle
-            vehicle_bp.set_attribute("role_name", "ego_vehicle")
-
-            # Get a spawn point
+            # Get spawn points
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:
-                print("No spawn points available in Town10")
+                self._log("No spawn points available", "error")
                 return False
 
-            spawn_point = spawn_points[0]  # Use first spawn point
-
-            # Spawn the ego vehicle
-            print(f"Spawning ego vehicle at {spawn_point.location}")
-            ego_vehicle = self.world.spawn_actor(vehicle_bp, spawn_point)
-
-            if ego_vehicle is None:
-                print("Failed to spawn ego vehicle")
+            # Spawn ego vehicle
+            spawn_index = min(self.SPAWN_POINT_INDEX, len(spawn_points) - 1)
+            if not self.spawn_ego_vehicle(spawn_points[spawn_index]):
                 return False
 
-            self.spawned_actors.append(ego_vehicle)
+            # Set weather
+            self.world.set_weather(carla.WeatherParameters.ClearNoon)
 
-            # Position spectator camera behind and above the ego vehicle
-            spectator = self.world.get_spectator()
-            ego_transform = ego_vehicle.get_transform()
-            spectator_transform = carla.Transform(
-                ego_transform.location + carla.Location(x=-10, z=5),
-                carla.Rotation(pitch=-15, yaw=ego_transform.rotation.yaw),
-            )
-            spectator.set_transform(spectator_transform)
+            # Spawn NPCs (exclude ego spawn point)
+            npc_spawn_points = [sp for i, sp in enumerate(spawn_points) if i != spawn_index]
+            self.spawn_vehicles(self.NUM_VEHICLES, npc_spawn_points)
+            self.spawn_pedestrians(self.NUM_PEDESTRIANS)
 
-            # Set weather to clear day
-            weather = carla.WeatherParameters.ClearNoon
-            self.world.set_weather(weather)
-
-            print(f"Setup complete: {self.get_name()}")
-            print(f"Ego vehicle spawned with ID: {ego_vehicle.id}")
-
+            self._log(f"Setup complete: {self.get_name()}")
             return True
-        except Exception as e:
-            print(f"Failed to setup default scenario: {e}")
-            import traceback
 
+        except Exception as e:
+            self._log(f"Failed to setup: {e}", "error")
+            import traceback
             traceback.print_exc()
             return False
 
     def execute(self) -> None:
-        """Execute scenario logic."""
         pass
-
-    def cleanup(self) -> None:
-        """Clean up scenario resources."""
-        try:
-            # Destroy all spawned actors
-            if self.client and self.spawned_actors:
-                batch = [carla.command.DestroyActor(x) for x in self.spawned_actors]
-                self.client.apply_batch_sync(batch)
-                self.spawned_actors.clear()
-            print(f"Cleaned up {self.get_name()}")
-        except Exception as e:
-            print(f"Error during cleanup: {e}")

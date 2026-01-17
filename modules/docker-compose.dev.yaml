@@ -59,10 +59,16 @@ services:
 
 #################### SIMULATION SERVICE ####################
   carla_sim:
-    profiles: ["simulation_dev"]
+    profiles: ["carla_gpu"]
     extends:
       file: docker-compose.yaml
       service: carla_sim
+
+  carla_sim_no_gpu:
+    profiles: ["carla_no_gpu"]
+    extends:
+      file: docker-compose.yaml
+      service: carla_sim_no_gpu
 
   simulation_bringup_dev:
     profiles: ["simulation_dev"]
@@ -76,3 +82,4 @@ services:
     volumes:
       - ${MONO_DIR}/src/simulation:/home/bolty/ament_ws/src/simulation
       - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw

@@ -18,8 +18,8 @@
   <depend>tf2_ros</depend>
   <depend>geometry_msgs</depend>
 
-  <exec_depend>pygame</exec_depend>
-  <exec_depend>numpy</exec_depend>
+  <exec_depend>python3-pygame</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

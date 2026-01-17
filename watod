@@ -165,6 +165,19 @@ build_profile_arrays() {
       ALL_PROFILES+=( "infrastructure" )
     fi
   fi
+
+  # Add CARLA render mode profile if simulation is active
+  for profile in "${ALL_PROFILES[@]}"; do
+    if [[ "$profile" == "simulation" || "$profile" == "simulation_dev" ]]; then
+      local carla_mode="${CARLA_RENDER_MODE:-no_gpu}"
+      if [[ "$carla_mode" == "gpu" ]]; then
+        ALL_PROFILES+=( "carla_gpu" )
+      else
+        ALL_PROFILES+=( "carla_no_gpu" )
+      fi
+      break
+    fi
+  done
 }
 
 # ─────────────────────────── Argument parsing ────────────────────────────

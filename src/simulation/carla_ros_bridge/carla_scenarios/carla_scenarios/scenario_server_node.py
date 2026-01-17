@@ -20,6 +20,9 @@ from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackRet
 from carla_msgs.srv import SwitchScenario, GetAvailableScenarios
 from carla_msgs.msg import ScenarioStatus
 from std_msgs.msg import Header
+from std_srvs.srv import Trigger
+from rosgraph_msgs.msg import Clock
+from builtin_interfaces.msg import Time
 
 try:
     import carla
@@ -42,18 +45,28 @@ class ScenarioServerNode(LifecycleNode):
         self.declare_parameter(
             "initial_scenario", "carla_scenarios.scenarios.default_scenario"
         )
+        # Simulation timing
+        self.declare_parameter("carla_fps", 60.0)  # Target simulation FPS
+        # Lifecycle manager coordination
+        self.declare_parameter("lifecycle_manager_name", "carla_lifecycle_manager")
 
         # State
         self.carla_client: Optional["carla.Client"] = None
+        self.carla_world: Optional["carla.World"] = None
+        self.synchronous_mode: bool = False
         self.current_scenario: Optional[ScenarioBase] = None
         self.current_scenario_name: str = ""
         self.available_scenarios: Dict[str, str] = {}
 
         # ROS interfaces (created in on_configure)
         self.status_publisher = None
+        self.clock_publisher = None
         self.switch_scenario_service = None
         self.get_scenarios_service = None
-        self.scenario_timer = None
+        self.tick_timer = None
+        self.prepare_switch_client = None
+        self.client_cb_group = None
+        self.service_cb_group = None
 
         self.get_logger().info(f"{node_name} initialized")
 
@@ -76,6 +89,21 @@ class ScenarioServerNode(LifecycleNode):
             self.carla_client.set_timeout(timeout)
             version = self.carla_client.get_server_version()
             self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
+
+            # Get world and configure synchronous mode with fixed timestep
+            self.carla_world = self.carla_client.get_world()
+            carla_fps = self.get_parameter("carla_fps").value
+
+            settings = self.carla_world.get_settings()
+            settings.synchronous_mode = True
+            settings.fixed_delta_seconds = 1.0 / carla_fps
+            self.carla_world.apply_settings(settings)
+
+            self.synchronous_mode = True
+            self.get_logger().info(
+                f"Configured CARLA: synchronous_mode=True, "
+                f"fixed_delta_seconds={settings.fixed_delta_seconds:.4f} ({carla_fps} FPS)"
+            )
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
@@ -85,14 +113,31 @@ class ScenarioServerNode(LifecycleNode):
             ScenarioStatus, "~/scenario_status", 10
         )
 
+        # Clock publisher for simulation time (not lifecycle - always active)
+        self.clock_publisher = self.create_publisher(Clock, "/clock", 10)
+
+        # Separate callback group for services to prevent blocking by tick timer
+        self.service_cb_group = rclpy.callback_groups.ReentrantCallbackGroup()
+
         self.switch_scenario_service = self.create_service(
-            SwitchScenario, "~/switch_scenario", self.switch_scenario_callback
+            SwitchScenario, "~/switch_scenario", self.switch_scenario_callback,
+            callback_group=self.service_cb_group
         )
 
         self.get_scenarios_service = self.create_service(
             GetAvailableScenarios,
             "~/get_available_scenarios",
             self.get_scenarios_callback,
+            callback_group=self.service_cb_group,
+        )
+
+        # Create client for lifecycle manager's prepare_for_scenario_switch service
+        lifecycle_manager_name = self.get_parameter("lifecycle_manager_name").value
+        self.client_cb_group = rclpy.callback_groups.MutuallyExclusiveCallbackGroup()
+        self.prepare_switch_client = self.create_client(
+            Trigger,
+            f"/{lifecycle_manager_name}/prepare_for_scenario_switch",
+            callback_group=self.client_cb_group,
         )
 
         # Discover available scenarios
@@ -115,8 +160,10 @@ class ScenarioServerNode(LifecycleNode):
                 )
                 return TransitionCallbackReturn.FAILURE
 
-        # Create timer for scenario execution
-        self.scenario_timer = self.create_timer(0.1, self.scenario_timer_callback)
+        # Create fast timer for world tick synchronization (1ms)
+        # Pedestrian AI needs continuous wait_for_tick() calls to work properly
+        # The callback blocks on wait_for_tick(), so this effectively runs every CARLA tick
+        self.tick_timer = self.create_timer(0.001, self._tick_callback)
 
         self.get_logger().info("Activation complete")
         return super().on_activate(state)
@@ -125,16 +172,13 @@ class ScenarioServerNode(LifecycleNode):
         """Deactivate lifecycle callback."""
         self.get_logger().info("Deactivating...")
 
-        # Stop scenario execution
-        if self.scenario_timer:
-            self.scenario_timer.cancel()
-            self.scenario_timer = None
+        # Stop tick timer
+        if self.tick_timer:
+            self.tick_timer.cancel()
+            self.tick_timer = None
 
-        # Cleanup current scenario
-        if self.current_scenario:
-            self.current_scenario.cleanup()
-            self.current_scenario = None
-            self.current_scenario_name = ""
+        # Unload current scenario
+        self._unload_scenario()
 
         self.get_logger().info("Deactivation complete")
         return super().on_deactivate(state)
@@ -156,6 +200,14 @@ class ScenarioServerNode(LifecycleNode):
             self.destroy_publisher(self.status_publisher)
             self.status_publisher = None
 
+        if self.clock_publisher:
+            self.destroy_publisher(self.clock_publisher)
+            self.clock_publisher = None
+
+        if self.prepare_switch_client:
+            self.destroy_client(self.prepare_switch_client)
+            self.prepare_switch_client = None
+
         # Disconnect from CARLA
         self.carla_client = None
 
@@ -167,8 +219,28 @@ class ScenarioServerNode(LifecycleNode):
         self.get_logger().info("Shutting down...")
         return TransitionCallbackReturn.SUCCESS
 
-    def scenario_timer_callback(self):
-        """Periodically execute scenario and publish status."""
+    def _tick_callback(self):
+        """Timer callback for world tick synchronization and status publishing."""
+        # Synchronize with world tick
+        if self.carla_world:
+            try:
+                if self.synchronous_mode:
+                    self.carla_world.tick()
+                else:
+                    self.carla_world.wait_for_tick()
+
+                # Publish simulation clock from CARLA timestamp
+                if self.clock_publisher:
+                    snapshot = self.carla_world.get_snapshot()
+                    sim_time = snapshot.timestamp.elapsed_seconds
+                    clock_msg = Clock()
+                    clock_msg.clock.sec = int(sim_time)
+                    clock_msg.clock.nanosec = int((sim_time % 1.0) * 1e9)
+                    self.clock_publisher.publish(clock_msg)
+            except Exception as e:
+                self.get_logger().warn(f"Error ticking world: {e}")
+
+        # Execute scenario logic
         if self.current_scenario:
             try:
                 self.current_scenario.execute()
@@ -190,9 +262,31 @@ class ScenarioServerNode(LifecycleNode):
 
     def switch_scenario_callback(self, request, response):
         """Handle switch scenario service request."""
-        self.get_logger().info(f"Switching to scenario: {request.scenario_name}")
+        self.get_logger().info(f"Received switch_scenario request: {request.scenario_name}")
 
         previous = self.current_scenario_name
+
+        # Request lifecycle manager to cleanup managed nodes first
+        if self.prepare_switch_client and self.current_scenario:
+            if self.prepare_switch_client.service_is_ready():
+                self.get_logger().info("Requesting lifecycle manager to cleanup nodes...")
+                try:
+                    result = self.prepare_switch_client.call(Trigger.Request())
+                    if result.success:
+                        self.get_logger().info("Lifecycle manager cleanup complete")
+                    else:
+                        self.get_logger().warn(f"Lifecycle manager cleanup failed: {result.message}")
+                except Exception as e:
+                    self.get_logger().warn(f"Error calling lifecycle manager: {e}")
+            else:
+                self.get_logger().warn(
+                    "Lifecycle manager service not ready, proceeding anyway"
+                )
+        else:
+            self.get_logger().info("No current scenario, skipping lifecycle cleanup")
+
+        self.get_logger().info("Proceeding with scenario load...")
+
         success = self._load_scenario(request.scenario_name)
 
         response.success = success
@@ -216,6 +310,9 @@ class ScenarioServerNode(LifecycleNode):
         # Built-in scenarios
         builtin_scenarios = {
             "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
+            "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
+            "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
+            "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
         }
         self.available_scenarios.update(builtin_scenarios)
 
@@ -227,33 +324,44 @@ class ScenarioServerNode(LifecycleNode):
 
         self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
 
-    def _cleanup_world(self):
-        """Clean up all spawned actors in the CARLA world."""
+    def _unload_scenario(self):
+        """Unload current scenario and clean up CARLA world."""
+        # Clear scenario reference (but keep name until new scenario is set)
+        self.current_scenario = None
+
+        # Clean up all spawned actors in CARLA world
+        if not self.carla_client:
+            return
+
         try:
             world = self.carla_client.get_world()
             actors = world.get_actors()
-            vehicles = actors.filter("vehicle.*")
-            sensors = actors.filter("sensor.*")
 
-            # Destroy all vehicles and sensors
-            for actor in list(vehicles) + list(sensors):
-                actor.destroy()
+            # Stop all controllers first (they need to be stopped before destruction)
+            for controller in actors.filter("controller.*"):
+                controller.stop()
 
-            count = len(vehicles) + len(sensors)
+            # Destroy all spawned actors (excludes static world elements)
+            count = 0
+            for actor in actors:
+                if actor.type_id.startswith(("traffic.", "static.")):
+                    continue
+                try:
+                    actor.destroy()
+                    count += 1
+                except Exception:
+                    pass
+
             if count > 0:
                 self.get_logger().info(f"Cleaned up {count} actors from world")
+                world.tick()
         except Exception as e:
             self.get_logger().warn(f"Error cleaning up world: {e}")
 
     def _load_scenario(self, scenario_module_path: str) -> bool:
         """Load and initialize a scenario."""
-        # Cleanup previous scenario
-        if self.current_scenario:
-            self.current_scenario.cleanup()
-            self.current_scenario = None
-
-        # Clean up any remaining actors in the world
-        self._cleanup_world()
+        # Unload any existing scenario first
+        self._unload_scenario()
 
         try:
             # Import scenario module
@@ -278,6 +386,7 @@ class ScenarioServerNode(LifecycleNode):
 
             # Instantiate and initialize scenario
             scenario = scenario_class()
+            scenario.logger = self.get_logger()
             if not scenario.initialize(self.carla_client):
                 self.get_logger().error(
                     f"Failed to initialize scenario: {scenario_module_path}"
@@ -288,8 +397,11 @@ class ScenarioServerNode(LifecycleNode):
                 self.get_logger().error(
                     f"Failed to setup scenario: {scenario_module_path}"
                 )
-                scenario.cleanup()
                 return False
+
+            # Refresh world reference (scenario may have changed the map)
+            self.carla_world = self.carla_client.get_world()
+            self.synchronous_mode = self.carla_world.get_settings().synchronous_mode
 
             self.current_scenario = scenario
             self.current_scenario_name = scenario_module_path
@@ -307,11 +419,16 @@ def main(args=None):
     rclpy.init(args=args)
     node = ScenarioServerNode()
 
+    # Use MultiThreadedExecutor to allow service calls from within callbacks
+    executor = rclpy.executors.MultiThreadedExecutor(num_threads=8)
+    executor.add_node(node)
+
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
+        executor.shutdown()
         node.destroy_node()
         rclpy.shutdown()
 

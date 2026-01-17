@@ -14,17 +14,37 @@
 """Bounding box publisher lifecycle node for CARLA."""
 
 from typing import Optional
+import math
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from vision_msgs.msg import Detection2DArray, ObjectHypothesisWithPose
 from vision_msgs.msg import Detection3DArray, Detection3D
-from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
+from geometry_msgs.msg import Pose, Point, Quaternion, Vector3, PoseStamped
 from std_msgs.msg import Header
+from tf2_ros import Buffer, TransformListener, TransformException
+import tf2_geometry_msgs
 
 try:
     import carla
 except ImportError:
     carla = None
+
+
+def euler_to_quaternion(roll: float, pitch: float, yaw: float):
+    """Convert Euler angles (in radians) to quaternion."""
+    cy = math.cos(yaw * 0.5)
+    sy = math.sin(yaw * 0.5)
+    cp = math.cos(pitch * 0.5)
+    sp = math.sin(pitch * 0.5)
+    cr = math.cos(roll * 0.5)
+    sr = math.sin(roll * 0.5)
+
+    qw = cr * cp * cy + sr * sp * sy
+    qx = sr * cp * cy - cr * sp * sy
+    qy = cr * sp * cy + sr * cp * sy
+    qz = cr * cp * sy - sr * sp * cy
+
+    return qx, qy, qz, qw
 
 
 class BBoxPublisherNode(LifecycleNode):
@@ -37,21 +57,27 @@ class BBoxPublisherNode(LifecycleNode):
         self.declare_parameter("carla_host", "localhost")
         self.declare_parameter("carla_port", 2000)
         self.declare_parameter("carla_timeout", 10.0)
+        self.declare_parameter("role_name", "ego_vehicle")
 
         # Publishing parameters
         self.declare_parameter("publish_rate", 10.0)  # Hz
-        self.declare_parameter("frame_id", "map")
+        self.declare_parameter("frame_id", "base_link")
         self.declare_parameter("include_vehicles", True)
         self.declare_parameter("include_pedestrians", True)
 
         # State
         self.carla_client: Optional["carla.Client"] = None
         self.world: Optional["carla.World"] = None
+        self.ego_vehicle: Optional["carla.Vehicle"] = None
 
         # ROS interfaces (created in on_configure)
         self.detections_2d_publisher = None
         self.detections_3d_publisher = None
         self.publish_timer = None
+
+        # TF2 for frame transforms
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.get_logger().info(f"{node_name} initialized")
 
@@ -77,6 +103,25 @@ class BBoxPublisherNode(LifecycleNode):
             self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
+            return TransitionCallbackReturn.FAILURE
+
+        # Find ego vehicle
+        role_name = self.get_parameter("role_name").value
+        try:
+            # Wait for a tick to sync with latest world state (needed in synchronous mode)
+            self.world.wait_for_tick()
+            actors = self.world.get_actors()
+            vehicles = actors.filter("vehicle.*")
+            ego_vehicles = [
+                v for v in vehicles if v.attributes.get("role_name") == role_name
+            ]
+            if not ego_vehicles:
+                self.get_logger().error(f'No vehicle with role_name "{role_name}" found')
+                return TransitionCallbackReturn.FAILURE
+            self.ego_vehicle = ego_vehicles[0]
+            self.get_logger().info(f"Found ego vehicle: {self.ego_vehicle.type_id}")
+        except Exception as e:
+            self.get_logger().error(f"Failed to find ego vehicle: {e}")
             return TransitionCallbackReturn.FAILURE
 
         # Create publishers
@@ -130,6 +175,7 @@ class BBoxPublisherNode(LifecycleNode):
             self.detections_3d_publisher = None
 
         # Release CARLA resources
+        self.ego_vehicle = None
         self.world = None
         self.carla_client = None
 
@@ -143,16 +189,16 @@ class BBoxPublisherNode(LifecycleNode):
 
     def publish_timer_callback(self):
         """Periodically query CARLA for actors and publish bounding boxes."""
-        if not self.world:
+        if not self.world or not self.ego_vehicle:
             return
 
-        if (
-            not self.detections_3d_publisher
-            or not self.detections_3d_publisher.is_activated
-        ):
+        if not self.detections_3d_publisher:
             return
 
         try:
+            frame_id = self.get_parameter("frame_id").value
+            stamp = self.get_clock().now().to_msg()
+
             # Get all actors from CARLA world
             actors = self.world.get_actors()
 
@@ -168,66 +214,89 @@ class BBoxPublisherNode(LifecycleNode):
 
             # Create header
             header = Header()
-            header.stamp = self.get_clock().now().to_msg()
-            header.frame_id = self.get_parameter("frame_id").value
+            header.stamp = stamp
+            header.frame_id = frame_id
 
             # Create 3D detections
             detections_3d = Detection3DArray()
             detections_3d.header = header
 
+            # Check if we need TF transform (frame_id is not "map")
+            transform = None
+            if frame_id != "map":
+                try:
+                    # Use Time() to get latest available transform rather than exact timestamp
+                    transform = self.tf_buffer.lookup_transform(
+                        frame_id, "map", rclpy.time.Time(), timeout=rclpy.duration.Duration(seconds=0.1)
+                    )
+                except TransformException as e:
+                    self.get_logger().warn(f"Could not get transform from map to {frame_id}: {e}")
+                    return
+
             for actor in filtered_actors:
-                detection_3d = self._create_detection_3d(actor)
+                # Skip ego vehicle
+                if actor.id == self.ego_vehicle.id:
+                    continue
+                detection_3d = self._create_detection_3d(actor, stamp, transform)
                 if detection_3d:
                     detections_3d.detections.append(detection_3d)
 
             # Publish 3D detections
             self.detections_3d_publisher.publish(detections_3d)
 
-            # TODO: Create and publish 2D detections (requires camera projection)
-            # For now, we'll skip 2D detections
-            # detections_2d = Detection2DArray()
-            # detections_2d.header = header
-            # self.detections_2d_publisher.publish(detections_2d)
-
         except Exception as e:
             self.get_logger().error(f"Error publishing detections: {e}")
 
-    def _create_detection_3d(self, actor: "carla.Actor") -> Optional[Detection3D]:
-        """Create Detection3D message from CARLA actor."""
+    def _create_detection_3d(
+        self, actor: "carla.Actor", stamp, transform
+    ) -> Optional[Detection3D]:
+        """Create Detection3D message from CARLA actor.
+
+        Coordinates are first computed in map frame (CARLA world -> ROS), then
+        transformed to the target frame using TF2 if transform is provided.
+        """
         try:
             detection = Detection3D()
 
-            # Get actor's bounding box
+            # Get actor's bounding box and transform
             bbox = actor.bounding_box
-            transform = actor.get_transform()
+            actor_transform = actor.get_transform()
 
-            # Set bbox center pose
-            detection.bbox.center = Pose()
-            detection.bbox.center.position = Point(
-                x=transform.location.x, y=transform.location.y, z=transform.location.z
-            )
+            # First compute in map frame (CARLA to ROS coordinate conversion)
+            # CARLA vehicle location is at ground level, so offset z by half bbox height
+            # Pedestrians already have their origin at center mass, so no offset needed
+            ros_x = actor_transform.location.x
+            ros_y = -actor_transform.location.y  # Flip Y axis
+            is_vehicle = "vehicle" in actor.type_id
+            ros_z = actor_transform.location.z + (bbox.extent.z if is_vehicle else 0.0)
 
-            # Convert rotation to quaternion
-            # CARLA uses pitch-yaw-roll, convert to quaternion
-            import math
+            roll = math.radians(actor_transform.rotation.roll)
+            pitch = -math.radians(actor_transform.rotation.pitch)
+            yaw = -math.radians(actor_transform.rotation.yaw)
 
-            pitch = math.radians(transform.rotation.pitch)
-            yaw = math.radians(transform.rotation.yaw)
-            roll = math.radians(transform.rotation.roll)
+            qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
 
-            cy = math.cos(yaw * 0.5)
-            sy = math.sin(yaw * 0.5)
-            cp = math.cos(pitch * 0.5)
-            sp = math.sin(pitch * 0.5)
-            cr = math.cos(roll * 0.5)
-            sr = math.sin(roll * 0.5)
+            # If we have a transform, apply it to get coordinates in target frame
+            if transform is not None:
+                # Create PoseStamped in map frame
+                pose_stamped = PoseStamped()
+                pose_stamped.header.stamp = stamp
+                pose_stamped.header.frame_id = "map"
+                pose_stamped.pose.position = Point(x=ros_x, y=ros_y, z=ros_z)
+                pose_stamped.pose.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
 
-            detection.bbox.center.orientation = Quaternion(
-                w=cr * cp * cy + sr * sp * sy,
-                x=sr * cp * cy - cr * sp * sy,
-                y=cr * sp * cy + sr * cp * sy,
-                z=cr * cp * sy - sr * sp * cy,
-            )
+                # Transform to target frame
+                transformed_pose = tf2_geometry_msgs.do_transform_pose_stamped(
+                    pose_stamped, transform
+                )
+
+                # Use transformed coordinates
+                detection.bbox.center = transformed_pose.pose
+            else:
+                # No transform needed, use map frame coordinates directly
+                detection.bbox.center = Pose()
+                detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
+                detection.bbox.center.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
 
             # Set bbox size (CARLA bbox extent is half-size)
             detection.bbox.size = Vector3(
