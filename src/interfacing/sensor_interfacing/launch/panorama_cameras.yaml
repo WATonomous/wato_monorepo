@@ -15,7 +15,7 @@
 launch:
   - arg:
       name: "cameras_config_file"
-      default: "$(find-pkg-share sensor_interfacing)/config/cameras_config.yaml"
+      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
   # camera 0 - pano NN

@@ -37,7 +37,7 @@ launch:
       default: "Oem7ReceiverTcp"
       description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
 
-  # # GPS - Novatel OEM7
+  # GPS - Novatel OEM7
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
       arg:
@@ -55,6 +55,12 @@ launch:
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
 
+  # Hikrobot Cameras
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/lower_cameras.yaml"
 
   # Eve Robot Description
   - include:
