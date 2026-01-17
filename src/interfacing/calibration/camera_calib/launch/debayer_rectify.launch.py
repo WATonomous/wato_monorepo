@@ -40,8 +40,7 @@ def generate_launch_description():
             namespace=namespace,
             package="image_proc",
             plugin="image_proc::RectifyNode",
-            remappings=[('image', 'image_color')],
-
+            remappings=[("image", "image_color")],
         )
         composable_nodes.append(rectify_node)
 
