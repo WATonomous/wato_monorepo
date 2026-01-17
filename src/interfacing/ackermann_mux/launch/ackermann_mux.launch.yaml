@@ -1,0 +1,15 @@
+launch:
+  - arg:
+      name: "ackermann_config_file"
+      default: "$(find-pkg-share ackermann_mux)/config/ackermann_mux_config.yaml"
+      description: "Path to the ackermann mux configuration file"
+
+  - node:
+      pkg: "ackermann_mux"
+      exec: "ackermann_mux_node"
+      name: "ackermann_mux"
+      output: "screen"
+      ros_args: "--log-level warn"
+      namespace: ""
+      param:
+        - from: "$(var ackermann_config_file)"
