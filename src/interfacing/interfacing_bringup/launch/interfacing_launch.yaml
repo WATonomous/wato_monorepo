@@ -68,8 +68,14 @@ launch:
 
   # Joystick Node
   - include:
-      file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
-
+      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+      arg:
+        - name: "oem7_ip_addr"
+          value: "$(var oem7_ip_addr)"
+        - name: "oem7_port"
+          value: "$(var oem7_port)"
+        - name: "oem7_if"
+          value: "$(var oem7_if)"
 
   # ackerman_mux Node
   - include:
