@@ -17,17 +17,32 @@ from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
+    cameras = []
     PANO_DIRS = ["ne", "ee", "se", "ss", "sw", "ww", "nw", "nn"]
+    LOWER_DIRS = ["ne", "se", "sw", "nw"]
+    cameras.extend("camera_pano_" + dir for dir in PANO_DIRS)
+    cameras.extend("camera_lower_" + dir for dir in LOWER_DIRS)
 
-    composable_nodes = [
-        ComposableNode(
-            name="debayer",
-            namespace=f"/camera_pano_{dir}",
+    composable_nodes = []
+
+    for camera in cameras:
+        namespace = f"/{camera}"
+        debayer_node = ComposableNode(
+            name=f"debayer_{camera}",
+            namespace=camera,
             package="image_proc",
             plugin="image_proc::DebayerNode",
         )
-        for dir in PANO_DIRS
-    ]
+        composable_nodes.append(debayer_node)
+
+        rectify_node = ComposableNode(
+            name=f"rectify_{camera}",
+            namespace=namespace,
+            package="image_proc",
+            plugin="image_proc::RectifyNode",
+            remappings=[("image", "image_color")],
+        )
+        composable_nodes.append(rectify_node)
 
     container = ComposableNodeContainer(
         name="image_proc_container",

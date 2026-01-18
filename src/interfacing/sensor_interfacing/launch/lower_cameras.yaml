@@ -1,0 +1,87 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+launch:
+  - arg:
+      name: "cameras_config_file"
+      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
+      description: "Hikrobot cameras configuration file"
+
+  # camera 8 - lower NE
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_lower_ne
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386132"
+        - name: frame_id
+          value: "camera_lower_ne"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_lower_ne.yaml"]
+
+  # camera 9 - lower SE
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_lower_se
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "Hikrobot-MV-CU013-80GC-DA8386083"
+        - name: frame_id
+          value: "camera_lower_se"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_lower_se.yaml"]
+
+  # camera 10 - lower SW
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_lower_sw
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "GEV-MV-CU013-80GC-DA8434466"
+        - name: frame_id
+          value: "camera_lower_sw"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_lower_sw.yaml"]
+
+  # camera 11 - lower NW
+  - node:
+      pkg: camera_aravis2
+      exec: camera_driver_gv
+      namespace: ""
+      output: screen
+      emulate_tty: true
+      name: camera_lower_nw
+      param:
+        - from: $(var cameras_config_file)
+        - name: guid
+          value: "GEV-MV-CU013-80GC-DA8434479"
+        - name: frame_id
+          value: "camera_lower_nw"
+        - name: camera_info_urls
+          value: ["$(find-pkg-share camera_calib)/config/camera_lower_nw.yaml"]
