@@ -13,3 +13,6 @@ watod-config.local.sh
 watod-config.sh
 
 bags/
+build/
+install/
+log/

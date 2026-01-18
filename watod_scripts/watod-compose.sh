@@ -184,19 +184,25 @@ if [[ "$SHOW_STATUS_PANEL" == "true" ]]; then
   # Determine URLs based on connection type
   foxglove_url="ws://localhost:${FOXGLOVE_BRIDGE_PORT}"
   log_viewer_url="http://localhost:${LOG_VIEWER__PORT}"
+  pygame_hud_url="http://localhost:${PYGAME_HUD_PORT}"
 
   if [[ -n "${SSH_CONNECTION:-}" ]]; then
     # SSH_CONNECTION format: client_ip client_port server_ip server_port
     server_ip=$(echo "$SSH_CONNECTION" | awk '{print $3}')
     foxglove_url="ws://${server_ip}:${FOXGLOVE_BRIDGE_PORT}"
     log_viewer_url="http://${server_ip}:${LOG_VIEWER__PORT}"
+    pygame_hud_url="http://${server_ip}:${PYGAME_HUD_PORT}"
 
     # Show SSH warning
     echo ""
     echo -e "${YELLOW}⚠️  SSH Connection Detected!${RESET}"
     echo ""
     echo "If the URLs below don't work, forward ports on your local machine:"
-    echo -e "  ${CYAN}ssh -L ${FOXGLOVE_BRIDGE_PORT}:localhost:${FOXGLOVE_BRIDGE_PORT} -L ${LOG_VIEWER__PORT}:localhost:${LOG_VIEWER__PORT} <host>${RESET}"
+    ssh_ports="-L ${FOXGLOVE_BRIDGE_PORT}:localhost:${FOXGLOVE_BRIDGE_PORT} -L ${LOG_VIEWER__PORT}:localhost:${LOG_VIEWER__PORT}"
+    if [[ "${PYGAME_HUD_ENABLED:-}" == "true" ]]; then
+      ssh_ports="${ssh_ports} -L ${PYGAME_HUD_PORT}:localhost:${PYGAME_HUD_PORT}"
+    fi
+    echo -e "  ${CYAN}ssh ${ssh_ports} <host>${RESET}"
     echo ""
   fi
 
@@ -228,6 +234,9 @@ if [[ "$SHOW_STATUS_PANEL" == "true" ]]; then
   echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
   printf "${BLUE}║${RESET}  ${GREEN}Foxglove:${RESET}    ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${foxglove_url}"
   printf "${BLUE}║${RESET}  ${GREEN}Log Viewer:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${log_viewer_url}"
+  if [[ "${PYGAME_HUD_ENABLED:-}" == "true" ]]; then
+    printf "${BLUE}║${RESET}  ${GREEN}Pygame HUD:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${pygame_hud_url}"
+  fi
   echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
   echo -e "${BLUE}║${RESET}  ${YELLOW}View container logs at the Log Viewer URL above.${RESET}         ${BLUE}║${RESET}"
   echo -e "${BLUE}║${RESET}  Use ${BOLD}./watod down${RESET} to stop all services.                   ${BLUE}║${RESET}"

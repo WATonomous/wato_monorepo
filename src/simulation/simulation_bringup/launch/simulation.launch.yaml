@@ -1,0 +1,31 @@
+launch:
+  # Launch arguments
+  - arg:
+      name: carla_port
+      default: "2000"
+      description: "CARLA server port"
+  - arg:
+      name: pygame_hud_enabled
+      default: "true"
+      description: "Enable the pygame HUD web visualizer"
+  - arg:
+      name: pygame_web_port
+      default: "5000"
+      description: "Port for the pygame HUD web server"
+
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
+  # Carla Bridge
+  - include:
+      file: $(find-pkg-share carla_bringup)/launch/carla_bridge.launch.yaml
+      arg:
+        - name: config_file
+          value: $(find-pkg-share simulation_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+        - name: pygame_hud_enabled
+          value: $(var pygame_hud_enabled)
+        - name: pygame_web_port
+          value: $(var pygame_web_port)
