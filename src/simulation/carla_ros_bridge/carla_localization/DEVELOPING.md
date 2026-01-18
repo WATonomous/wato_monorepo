@@ -1,47 +1,40 @@
 # Developing carla_localization
 
+## Design Rationale
+
+Ground truth localization from CARLA provides a known-good pose for:
+1. Testing perception/planning without localization errors
+2. Comparing estimated pose against ground truth
+3. Development before real localization is available
+
+The TF tree follows REP 105 conventions with map -> odom -> base_link.
+
 ## Architecture
 
-The localization node follows the standard lifecycle node pattern and publishes TF at a configurable rate.
+A timer publishes TF at `publish_rate` Hz. Each tick:
+1. Get ego vehicle transform from CARLA
+2. Convert from CARLA coordinates to ROS coordinates
+3. Publish map -> odom (identity) and odom -> base_link transforms
 
-## Coordinate Transformation
+## Coordinate System Conversion
 
-CARLA (left-handed) to ROS (right-handed):
+CARLA (left-handed): X-forward, Y-right, Z-up
+ROS (right-handed): X-forward, Y-left, Z-up
 
-```python
-# Position
-x = carla_transform.location.x
-y = -carla_transform.location.y  # Flip Y
-z = carla_transform.location.z
+Position: Y is negated
+Rotation: pitch and yaw are negated (roll stays the same)
 
-# Rotation (degrees to radians, with sign flips)
-roll = math.radians(carla_transform.rotation.roll)
-pitch = -math.radians(carla_transform.rotation.pitch)
-yaw = -math.radians(carla_transform.rotation.yaw)
-```
+The `carla_common` package provides `euler_to_quaternion` for this conversion.
 
-## TF Tree Structure
+## Why map -> odom is Identity
 
-```
-map
- └── odom (identity transform - no drift in simulation)
-      └── base_link (vehicle pose)
-```
+In real robots, map -> odom corrects for odometry drift. In simulation there's no drift, so it's always identity. This keeps the TF tree structure consistent with real robot configurations.
 
-The `map → odom` transform is identity because simulation has no odometry drift.
+## Extension: Additional Frames
 
-## Euler to Quaternion
-
-Uses ZYX (yaw-pitch-roll) convention:
-
-```python
-def euler_to_quaternion(roll, pitch, yaw):
-    # Standard ZYX quaternion conversion
-```
-
-## Extension Points
-
-To add additional transforms (e.g., sensor frames):
-1. Get sensor transforms relative to vehicle from CARLA
+To publish additional frames (e.g., sensor frames from CARLA):
+1. Get the relative transform from CARLA
 2. Apply coordinate conversion
-3. Broadcast as child of `base_link`
+3. Broadcast as child of base_link
+
+However, static sensor frames are better defined in URDF and published by robot_state_publisher.

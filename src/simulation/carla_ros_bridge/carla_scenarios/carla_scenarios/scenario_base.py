@@ -39,6 +39,53 @@ class ScenarioBase(ABC):
             print(msg, flush=True)
 
     # -------------------------------------------------------------------------
+    # Common Implementation Helpers
+    # -------------------------------------------------------------------------
+
+    def _initialize_carla(self, client: "carla.Client") -> bool:
+        """
+        Standard CARLA initialization.
+
+        Args:
+            client: CARLA client instance
+
+        Returns:
+            True if initialization successful
+        """
+        if carla is None:
+            self._log("CARLA module not available", "error")
+            return False
+
+        try:
+            self.client = client
+            self.world = client.get_world()
+            return True
+        except Exception as e:
+            self._log(f"Failed to initialize: {e}", "error")
+            return False
+
+    def _load_map(self, map_name: str = "Town10HD", wait_time: float = 2.0) -> bool:
+        """
+        Load a map if not already loaded.
+
+        Args:
+            map_name: Name of the map to load
+            wait_time: Time to wait after loading (seconds)
+
+        Returns:
+            True if map is ready
+        """
+        import time
+
+        current_map = self.world.get_map().name
+        if map_name not in current_map:
+            self._log(f"Loading {map_name} map (current: {current_map})...")
+            self.client.load_world(map_name)
+            time.sleep(wait_time)
+            self.world = self.client.get_world()
+        return True
+
+    # -------------------------------------------------------------------------
     # Shared Spawn Utilities
     # -------------------------------------------------------------------------
 
@@ -244,9 +291,8 @@ class ScenarioBase(ABC):
 
         all_actors = self.world.get_actors(all_ids)
 
-        # Wait for tick before starting controllers
-        settings = self.world.get_settings()
-        if settings.synchronous_mode:
+        # Wait for next tick before starting controllers
+        if self.world.get_settings().synchronous_mode:
             self.world.tick()
         else:
             self.world.wait_for_tick()

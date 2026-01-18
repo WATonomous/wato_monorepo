@@ -1,61 +1,40 @@
 # Developing carla_perception
 
+## Design Rationale
+
+Sensors are spawned in CARLA rather than just reading existing sensors because:
+1. We control exact sensor placement via TF
+2. We control sensor parameters (resolution, FOV, etc.)
+3. Sensors are destroyed on deactivate, preventing resource leaks across scenario switches
+
+Sensor positions come from TF (published by robot_state_publisher from URDF) so the sensor configuration is defined in one place.
+
 ## Architecture
 
-Sensor nodes spawn CARLA sensors on the ego vehicle and convert sensor data to ROS messages via callbacks.
+Each sensor publisher node:
+1. On configure: connects to CARLA, finds ego vehicle, creates ROS publishers
+2. On activate: looks up sensor transforms from TF, spawns sensors in CARLA, registers callbacks
+3. On deactivate: destroys sensors
+4. On cleanup: destroys publishers, releases CARLA connection
 
-## Sensor Lifecycle
+Sensor data arrives via CARLA callbacks which run in CARLA's thread. Keep callback processing minimal.
 
-```python
-def on_configure(self, state):
-    # Connect to CARLA, find ego vehicle
-    # Parse sensor configs from parameters
-    # Create ROS publishers
+## Multi-Sensor Support
 
-def on_activate(self, state):
-    # Spawn sensors in CARLA
-    # Register sensor callbacks
+Sensors are configured via list parameters (`camera_names`, `lidar_names`). For each name, the node reads namespaced parameters (e.g., `front_camera.image_width`).
 
-def on_deactivate(self, state):
-    # Destroy sensors
+This pattern allows spawning multiple sensors of the same type with different configurations.
 
-def on_cleanup(self, state):
-    # Destroy publishers
-```
+## Coordinate Transforms
 
-## Multi-Sensor Configuration
+CARLA uses left-handed coordinates (X-forward, Y-right, Z-up). ROS uses right-handed (X-forward, Y-left, Z-up). The Y axis is flipped when converting positions and rotations.
 
-Sensors are configured via lists in parameters:
-
-```yaml
-camera_names:
-  - front_camera
-  - rear_camera
-front_camera.frame_id: "front_camera_optical"
-front_camera.image_width: 800
-```
-
-The node iterates over `*_names` and reads prefixed parameters for each.
-
-## CARLA Sensor Callbacks
-
-Sensors use async callbacks:
-
-```python
-sensor.listen(lambda data: self._sensor_callback(data, sensor_name))
-```
-
-Callbacks run in CARLA's thread - keep processing minimal and use queues if needed.
-
-## Coordinate Systems
-
-- **Camera**: CARLA uses X-forward, Y-right, Z-up. Apply optical frame rotation if `optical_frame: true`.
-- **LiDAR**: Points are in sensor frame. Convert to ROS coordinates (flip Y axis).
+Camera optical frames have Z-forward, X-right, Y-down. The `optical_frame` parameter indicates whether the configured frame_id follows this convention.
 
 ## Adding a New Sensor Type
 
-1. Create new node class extending `LifecycleNode`
-2. Define sensor-specific parameters
-3. Spawn sensor with appropriate blueprint
-4. Convert CARLA data format to ROS message
-5. Add entry point in `setup.py`
+1. Create a new lifecycle node
+2. Follow the same configure/activate/deactivate/cleanup pattern
+3. Use `_declare_if_not_exists` for per-sensor parameters
+4. Convert CARLA sensor data to appropriate ROS message type
+5. Add entry point in setup.cfg

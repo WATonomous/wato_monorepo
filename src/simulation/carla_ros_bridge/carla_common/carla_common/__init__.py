@@ -11,13 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Unit tests for carla_localization package."""
+"""Common utilities for CARLA ROS bridge packages."""
 
+from carla_common.transforms import (
+    euler_to_quaternion,
+    quaternion_to_euler,
+    carla_to_ros_position,
+    carla_to_ros_rotation,
+)
+from carla_common.carla_utils import (
+    connect_carla,
+    find_ego_vehicle,
+)
 
-class TestCarlaLocalization:
-    """Test suite for carla_localization package."""
-
-    def test_placeholder(self):
-        """Placeholder test - replace with actual unit tests."""
-        # TODO: Add unit tests for carla_localization
-        pass
+__all__ = [
+    "euler_to_quaternion",
+    "quaternion_to_euler",
+    "carla_to_ros_position",
+    "carla_to_ros_rotation",
+    "connect_carla",
+    "find_ego_vehicle",
+]

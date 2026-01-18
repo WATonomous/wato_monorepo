@@ -24,7 +24,6 @@ except ImportError:
 class LightTrafficScenario(ScenarioBase):
     """Light traffic scenario with minimal NPC vehicles and pedestrians."""
 
-    # Configuration
     NUM_VEHICLES = 5
     NUM_PEDESTRIANS = 10
     SPAWN_POINT_INDEX = 5
@@ -36,48 +35,26 @@ class LightTrafficScenario(ScenarioBase):
         return "Sparse traffic with few vehicles and pedestrians"
 
     def initialize(self, client: "carla.Client") -> bool:
-        if carla is None:
-            self._log("CARLA module not available", "error")
-            return False
-
-        try:
-            self.client = client
-            self.world = client.get_world()
-            return True
-        except Exception as e:
-            self._log(f"Failed to initialize: {e}", "error")
-            return False
+        return self._initialize_carla(client)
 
     def setup(self) -> bool:
         if self.world is None:
             return False
 
         try:
-            import time
+            self._load_map("Town10HD")
 
-            # Load Town10HD if needed
-            current_map = self.world.get_map().name
-            if "Town10HD" not in current_map:
-                self._log(f"Loading Town10HD map (current: {current_map})...")
-                self.client.load_world("Town10HD")
-                time.sleep(2.0)
-                self.world = self.client.get_world()
-
-            # Get spawn points
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:
                 self._log("No spawn points available", "error")
                 return False
 
-            # Spawn ego vehicle
             spawn_index = min(self.SPAWN_POINT_INDEX, len(spawn_points) - 1)
             if not self.spawn_ego_vehicle(spawn_points[spawn_index]):
                 return False
 
-            # Set weather
             self.world.set_weather(carla.WeatherParameters.ClearSunset)
 
-            # Spawn NPCs
             npc_spawn_points = [
                 sp for i, sp in enumerate(spawn_points) if i != spawn_index
             ]
@@ -89,10 +66,4 @@ class LightTrafficScenario(ScenarioBase):
 
         except Exception as e:
             self._log(f"Failed to setup: {e}", "error")
-            import traceback
-
-            traceback.print_exc()
             return False
-
-    def execute(self) -> None:
-        pass

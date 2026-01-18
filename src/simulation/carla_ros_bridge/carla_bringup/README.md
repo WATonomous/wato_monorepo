@@ -2,9 +2,9 @@
 
 Launch files and configuration for the CARLA ROS 2 bridge.
 
-## Overview
+This package is the main entry point for launching the complete CARLA bridge stack. The launch file starts all nodes in the correct order: first the `scenario_server` and `lifecycle_manager`, then the robot description, and finally all sensor and control nodes as managed lifecycle nodes.
 
-This package provides the main entry point for launching the CARLA ROS 2 bridge. It contains launch files that coordinate all bridge nodes and a centralized configuration file.
+All node parameters are centralized in `config/carla_bridge.yaml`, making it easy to configure the entire system from one file. Individual packages can still be run standalone for development using `ros2 run`.
 
 ## Usage
 
@@ -12,25 +12,22 @@ This package provides the main entry point for launching the CARLA ROS 2 bridge.
 ros2 launch carla_bringup carla_bridge.launch.yaml
 ```
 
-### Launch Arguments
+Launch arguments: `ros2 launch carla_bringup carla_bridge.launch.yaml --show-args`
 
-See available arguments with:
+## Files
+
+- `config/carla_bridge.yaml` - Centralized configuration for all nodes
+- `config/qos_overrides.yaml` - Example QoS settings for publishers/subscribers
+- `launch/carla_bridge.launch.yaml` - Main launch file
+- `launch/carla_bridge_qos.launch.yaml` - Example launch with QoS overrides
+
+## QoS Configuration
+
+ROS 2 supports QoS overrides via YAML files. To customize QoS settings for sensor topics:
 
 ```bash
-ros2 launch carla_bringup carla_bridge.launch.yaml --show-args
+# Use the example launch file with QoS overrides
+ros2 launch carla_bringup carla_bridge_qos.launch.yaml
 ```
 
-## Configuration
-
-All node parameters are configured in `config/carla_bridge.yaml`. Each node section uses the ROS 2 parameter format with `ros__parameters`.
-
-## Package Structure
-
-```
-carla_bringup/
-├── config/
-│   └── carla_bridge.yaml    # Centralized configuration
-├── launch/
-│   └── carla_bridge.launch.yaml
-└── package.xml
-```
+Edit `config/qos_overrides.yaml` to adjust reliability, durability, and history settings. This is useful for tuning performance (best_effort for high-frequency sensors) or ensuring delivery (reliable for control commands).

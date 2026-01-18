@@ -1,51 +1,36 @@
 # Developing carla_teleop
 
-## Architecture
+## Design Rationale
 
-The teleop node converts `geometry_msgs/Twist` to CARLA `VehicleControl`, providing compatibility with standard ROS teleop interfaces.
+Teleop uses `geometry_msgs/Twist` rather than a CARLA-specific message for compatibility with:
+- Foxglove teleop panel
+- teleop_twist_keyboard
+- Joystick drivers (joy_teleop)
+- Any standard ROS teleop source
+
+This lets users control the CARLA vehicle with their existing teleop tools.
 
 ## Twist to VehicleControl Mapping
 
-```python
-# linear.x → throttle/brake
-normalized_speed = twist.linear.x / max_speed
-if normalized_speed >= 0:
-    control.throttle = normalized_speed * throttle_scale
-    control.reverse = False
-else:
-    control.throttle = abs(normalized_speed) * throttle_scale
-    control.reverse = True
+- `linear.x` is normalized by `max_speed` to get throttle (0-1)
+- Negative `linear.x` engages reverse
+- `angular.z` is normalized by `max_steering` to get steer (-1 to 1)
+- Steering is inverted: positive angular.z (left turn) becomes negative CARLA steer
 
-# angular.z → steering (inverted: positive twist = left = negative CARLA steer)
-control.steer = -twist.angular.z / max_steering * steering_scale
-```
+Scale factors (`throttle_scale`, `steering_scale`) allow tuning response.
 
 ## Autonomy Mode
 
-When autonomy is enabled:
-1. CARLA autopilot is activated via `vehicle.set_autopilot(True)`
+The `set_autonomy` service toggles CARLA's built-in autopilot. When enabled:
+1. `vehicle.set_autopilot(True)` activates Traffic Manager control
 2. Teleop commands are ignored
-3. Vehicle follows Traffic Manager behavior
+3. Vehicle follows traffic rules and avoids collisions
 
-When autonomy is disabled:
+When disabled:
 1. Autopilot is deactivated
-2. Immediate brake is applied to take control from Traffic Manager
-3. Teleop commands resume
+2. Immediate brake is applied (Traffic Manager may have been accelerating)
+3. Teleop commands resume control
 
 ## Command Timeout
 
-If no Twist message is received within `command_timeout` seconds, the vehicle brakes to a stop. This prevents runaway vehicles if the teleop source disconnects.
-
-## Control Loop
-
-The control timer runs at 50 Hz:
-1. Check if autonomy is enabled (skip if yes)
-2. Check command timeout
-3. Convert latest Twist to VehicleControl
-4. Apply to vehicle
-
-## Foxglove Integration
-
-The node is designed for Foxglove's teleop panel which publishes `geometry_msgs/Twist`:
-- Joystick forward/back → `linear.x`
-- Joystick left/right → `angular.z`
+Same pattern as ackermann_control - if no Twist is received within `command_timeout`, brake to stop.

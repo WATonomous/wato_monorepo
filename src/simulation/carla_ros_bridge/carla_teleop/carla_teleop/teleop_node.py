@@ -17,13 +17,13 @@ from typing import Optional
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.time import Time
+from rcl_interfaces.msg import ParameterDescriptor
 from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBool
 
-try:
-    import carla
-except ImportError:
-    carla = None
+from carla_common import connect_carla, find_ego_vehicle
+
+import carla
 
 
 class TeleopNode(LifecycleNode):
@@ -33,17 +33,38 @@ class TeleopNode(LifecycleNode):
         super().__init__(node_name)
 
         # CARLA connection parameters
-        self.declare_parameter("carla_host", "localhost")
-        self.declare_parameter("carla_port", 2000)
-        self.declare_parameter("carla_timeout", 10.0)
-        self.declare_parameter("role_name", "ego_vehicle")
+        self.declare_parameter(
+            "carla_host", "localhost",
+            ParameterDescriptor(description="CARLA server hostname"))
+        self.declare_parameter(
+            "carla_port", 2000,
+            ParameterDescriptor(description="CARLA server port"))
+        self.declare_parameter(
+            "carla_timeout", 10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"))
+        self.declare_parameter(
+            "role_name", "ego_vehicle",
+            ParameterDescriptor(description="Role name of the ego vehicle to control"))
 
         # Control parameters
-        self.declare_parameter("max_speed", 10.0)  # m/s for linear.x scaling
-        self.declare_parameter("max_steering", 1.0)  # max angular.z value
-        self.declare_parameter("throttle_scale", 1.0)  # scale factor for throttle
-        self.declare_parameter("steering_scale", 1.0)  # scale factor for steering
-        self.declare_parameter("command_timeout", 0.5)  # seconds
+        self.declare_parameter(
+            "max_speed", 10.0,
+            ParameterDescriptor(description="Max speed for normalizing linear.x input (m/s)"))
+        self.declare_parameter(
+            "max_steering", 1.0,
+            ParameterDescriptor(description="Max angular.z value for normalizing steering input"))
+        self.declare_parameter(
+            "throttle_scale", 1.0,
+            ParameterDescriptor(description="Scale factor applied to throttle output"))
+        self.declare_parameter(
+            "steering_scale", 1.0,
+            ParameterDescriptor(description="Scale factor applied to steering output"))
+        self.declare_parameter(
+            "command_timeout", 0.5,
+            ParameterDescriptor(description="Stop vehicle if no command received within this time (seconds)"))
+        self.declare_parameter(
+            "control_rate", 50.0,
+            ParameterDescriptor(description="Control loop frequency in Hz"))
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -69,43 +90,22 @@ class TeleopNode(LifecycleNode):
         timeout = self.get_parameter("carla_timeout").value
         role_name = self.get_parameter("role_name").value
 
-        # Connect to CARLA
-        if carla is None:
-            self.get_logger().error("CARLA Python API not available")
-            return TransitionCallbackReturn.FAILURE
-
         try:
-            self.carla_client = carla.Client(host, port)
-            self.carla_client.set_timeout(timeout)
-            version = self.carla_client.get_server_version()
-            self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
+            self.carla_client = connect_carla(host, port, timeout)
+            self.get_logger().info(f"Connected to CARLA at {host}:{port}")
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
 
-        # Find ego vehicle
         try:
             world = self.carla_client.get_world()
-            # Wait for a tick to sync with latest world state (needed in synchronous mode)
             world.wait_for_tick()
-            actors = world.get_actors()
-            vehicles = actors.filter("vehicle.*")
-
-            ego_vehicles = [
-                v for v in vehicles if v.attributes.get("role_name") == role_name
-            ]
-            if not ego_vehicles:
-                if vehicles:
-                    self.ego_vehicle = vehicles[0]
-                    self.get_logger().warn(
-                        f'No vehicle with role_name "{role_name}", using first vehicle'
-                    )
-                else:
-                    self.get_logger().error("No vehicles found in CARLA world")
-                    return TransitionCallbackReturn.FAILURE
-            else:
-                self.ego_vehicle = ego_vehicles[0]
-
+            self.ego_vehicle = find_ego_vehicle(world, role_name)
+            if not self.ego_vehicle:
+                self.get_logger().error(
+                    f'No vehicle with role_name "{role_name}" found'
+                )
+                return TransitionCallbackReturn.FAILURE
             self.get_logger().info(f"Found ego vehicle: {self.ego_vehicle.type_id}")
         except Exception as e:
             self.get_logger().error(f"Failed to find ego vehicle: {e}")
@@ -140,8 +140,8 @@ class TeleopNode(LifecycleNode):
             except Exception as e:
                 self.get_logger().warn(f"Failed to disable autopilot: {e}")
 
-        # Create control timer (runs at 50 Hz)
-        self.control_timer = self.create_timer(0.02, self.control_timer_callback)
+        control_rate = self.get_parameter("control_rate").value
+        self.control_timer = self.create_timer(1.0 / control_rate, self.control_timer_callback)
 
         self.get_logger().info("Activation complete")
         return super().on_activate(state)

@@ -39,24 +39,20 @@ HTML_TEMPLATE = """
             font-size: 1.5em;
             font-weight: normal;
         }
-        #status {
-            color: #888;
-            font-size: 0.9em;
-        }
-        #status.connected { color: #8ae234; }
-        #status.disconnected { color: #ef2929; }
-        #canvas-container {
+        #stream-container {
             position: relative;
             border: 2px solid #333;
             border-radius: 4px;
             overflow: hidden;
-        }
-        #mapCanvas {
-            display: block;
             cursor: grab;
         }
-        #mapCanvas:active {
+        #stream-container:active {
             cursor: grabbing;
+        }
+        #stream {
+            display: block;
+            user-select: none;
+            -webkit-user-drag: none;
         }
         .controls {
             color: #888;
@@ -68,79 +64,62 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <h1>CARLA Map Visualizer</h1>
-        <div id="status" class="disconnected">Connecting...</div>
-        <div id="canvas-container">
-            <canvas id="mapCanvas" width="{{ width }}" height="{{ height }}"></canvas>
+        <div id="stream-container">
+            <img id="stream" src="/stream" width="{{ width }}" height="{{ height }}" draggable="false" />
         </div>
         <div class="controls">
             Scroll to zoom | Drag to pan
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        const canvas = document.getElementById('mapCanvas');
-        const ctx = canvas.getContext('2d');
-        const status = document.getElementById('status');
-
-        const socket = io();
-
+        const container = document.getElementById('stream-container');
         let isDragging = false;
         let lastMousePos = { x: 0, y: 0 };
 
-        socket.on('connect', () => {
-            status.textContent = 'Connected';
-            status.className = 'connected';
-        });
-
-        socket.on('disconnect', () => {
-            status.textContent = 'Disconnected';
-            status.className = 'disconnected';
-        });
-
-        socket.on('frame', (data) => {
-            const img = new Image();
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0);
-            };
-            img.src = 'data:image/png;base64,' + data;
-        });
-
-        canvas.addEventListener('mousedown', (e) => {
+        container.addEventListener('mousedown', (e) => {
             isDragging = true;
             lastMousePos = { x: e.clientX, y: e.clientY };
-            canvas.style.cursor = 'grabbing';
+            container.style.cursor = 'grabbing';
         });
 
-        canvas.addEventListener('mousemove', (e) => {
+        container.addEventListener('mousemove', (e) => {
             if (isDragging) {
                 const dx = e.clientX - lastMousePos.x;
                 const dy = e.clientY - lastMousePos.y;
                 lastMousePos = { x: e.clientX, y: e.clientY };
-                socket.emit('pan', { dx: dx, dy: dy });
+                fetch('/pan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dx: dx, dy: dy })
+                });
             }
         });
 
-        canvas.addEventListener('mouseup', () => {
+        container.addEventListener('mouseup', () => {
             isDragging = false;
-            canvas.style.cursor = 'grab';
+            container.style.cursor = 'grab';
         });
 
-        canvas.addEventListener('mouseleave', () => {
+        container.addEventListener('mouseleave', () => {
             isDragging = false;
-            canvas.style.cursor = 'grab';
+            container.style.cursor = 'grab';
         });
 
-        canvas.addEventListener('wheel', (e) => {
+        container.addEventListener('wheel', (e) => {
             e.preventDefault();
             const delta = e.deltaY > 0 ? -1 : 1;
-            const rect = canvas.getBoundingClientRect();
+            const rect = container.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            socket.emit('zoom', { delta: delta, x: x, y: y });
+            fetch('/zoom', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ delta: delta, x: x, y: y })
+            });
         });
 
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        container.addEventListener('contextmenu', (e) => e.preventDefault());
     </script>
 </body>
 </html>

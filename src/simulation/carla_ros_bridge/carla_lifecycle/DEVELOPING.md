@@ -1,59 +1,35 @@
 # Developing carla_lifecycle
 
+## Design Rationale
+
+All CARLA bridge nodes are lifecycle nodes so they can be started/stopped cleanly during scenario switches. Without lifecycle management, sensors would fail when their parent vehicle is destroyed, requiring a full system restart.
+
+The lifecycle_manager centralizes this coordination rather than having each node watch for scenario changes independently.
+
 ## Architecture
 
-The lifecycle manager is implemented in C++ for performance and direct access to lifecycle service clients.
+The manager subscribes to `scenario_status` from the scenario_server. When the scenario changes:
 
-## Key Components
+1. scenario_server calls `prepare_for_scenario_switch` service
+2. Manager deactivates and cleans up all managed nodes
+3. scenario_server unloads old scenario, loads new one
+4. Manager sees new scenario in status, brings nodes back up
 
-### NodeClients
+This ordering ensures nodes don't try to use CARLA resources that no longer exist.
 
-Holds service clients for each managed node:
+## Node Discovery
 
-```cpp
-struct NodeClients {
-    rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr change_state;
-    rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr get_state;
-};
-```
+Managed nodes are specified by name in the `node_names` parameter. The manager creates lifecycle service clients for each node upfront. Nodes that aren't running yet will be brought up when they become available.
 
-### TransitionStep
+## Startup Behavior
 
-Represents a lifecycle transition to execute:
+With `autostart:=true`, the manager first brings up the scenario_server (which connects to CARLA and loads the initial scenario), then waits for scenario_status to indicate "running" before bringing up other nodes.
 
-```cpp
-struct TransitionStep {
-    uint8_t transition_id;     // e.g., TRANSITION_CONFIGURE
-    uint8_t required_state;    // State node must be in
-    const char* name;          // For logging
-};
-```
-
-## Startup Flow
-
-1. `startupTimerCallback` - Retries bringing up scenario_server
-2. `bringUpNode` - Configures then activates a single node
-3. `scenarioStatusCallback` - Triggers node bringup/restart on scenario changes
-
-## Parallel Transitions
-
-Nodes are transitioned in parallel using async service calls:
-
-```cpp
-for (const auto& node_name : node_names_) {
-    futures.emplace_back(node_name, client->async_send_request(req));
-}
-for (auto& [node_name, future] : futures) {
-    future.wait_for(timeout);
-}
-```
-
-## Node State Handling
-
-- Nodes not ready (`service_is_ready() == false`) are skipped
-- Nodes in wrong state for transition are skipped
-- Failed transitions are logged but don't block other nodes
+If CARLA isn't available, the startup timer retries at `startup_retry_interval` until it succeeds.
 
 ## Adding New Managed Nodes
 
-Add the node name to `node_names` parameter in launch configuration. The manager will automatically create service clients and manage its lifecycle.
+Just add the node name to `node_names` parameter. The node must:
+- Be a lifecycle node
+- Handle configure/activate/deactivate/cleanup transitions properly
+- Not hold CARLA resources after cleanup (connections, sensors, actors)

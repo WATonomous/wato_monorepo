@@ -1,84 +1,34 @@
 # Developing carla_scenarios
 
+## Design Rationale
+
+The scenario system separates "what world state to create" (scenarios) from "how to manage that state" (scenario_server). This allows adding new scenarios without modifying the server.
+
+Scenarios are loaded dynamically by module path so users can define custom scenarios in their own packages without forking this one.
+
 ## Architecture
 
-Scenarios are Python classes that extend `ScenarioBase`. The scenario server dynamically loads scenarios by module path.
+- **scenario_server** - Lifecycle node that owns the CARLA connection, ticks the world, and coordinates with the lifecycle_manager
+- **scenario_base** - Abstract base class defining the scenario interface
+- **scenarios/** - Concrete scenario implementations
 
-## ScenarioBase Interface
+The server is the only node that calls `world.tick()` in synchronous mode. All other nodes just read from CARLA on their own timers.
 
-```python
-class ScenarioBase:
-    def initialize(self, client: carla.Client) -> bool:
-        """Called once with CARLA client."""
+## Adding a New Scenario
 
-    def setup(self) -> bool:
-        """Set up the scenario (spawn actors, set weather, etc.)."""
+1. Create a new module in `carla_scenarios/scenarios/` (e.g., `my_scenario.py`)
+2. Define a class matching the module name in PascalCase (e.g., `MyScenario`)
+3. Extend `ScenarioBase` and implement `setup()` at minimum
+4. Reference by module path: `carla_scenarios.scenarios.my_scenario`
 
-    def execute(self) -> None:
-        """Called every tick while scenario is running."""
+The base class provides `_initialize_carla()` and `_load_map()` helpers to reduce boilerplate.
 
-    def cleanup(self) -> None:
-        """Clean up spawned actors."""
+## Lifecycle Coordination
 
-    def get_name(self) -> str:
-        """Return scenario display name."""
+When switching scenarios, the server calls the lifecycle_manager's `prepare_for_scenario_switch` service before unloading. This ensures sensors are destroyed before their parent vehicle disappears.
 
-    def get_description(self) -> str:
-        """Return scenario description."""
-```
+The server publishes `scenario_status` which the lifecycle_manager subscribes to. When status changes to "running" with a new scenario name, the manager brings up all managed nodes.
 
-## Creating a New Scenario
+## Clock Publishing
 
-1. Create module in `carla_scenarios/scenarios/`:
-
-   ```python
-   from carla_scenarios.scenario_base import ScenarioBase
-
-   class MyScenario(ScenarioBase):
-       def setup(self):
-           # Spawn actors, configure world
-           return True
-   ```
-
-2. Class name must match module name in PascalCase:
-   - `my_scenario.py` → `MyScenario`
-
-3. Reference by module path:
-   - `carla_scenarios.scenarios.my_scenario`
-
-## Scenario Loading
-
-The server converts module path to class:
-
-```python
-module = importlib.import_module(scenario_module_path)
-class_name = "".join(word.capitalize() for word in module_name.split("_"))
-scenario_class = getattr(module, class_name)
-```
-
-## World Cleanup
-
-Before loading a new scenario, the server:
-1. Calls `cleanup()` on current scenario
-2. Destroys all spawned actors (except static world elements)
-3. Ticks the world to process destruction
-
-## Tick Synchronization
-
-The server calls `world.wait_for_tick()` continuously. This is required for pedestrian AI to function properly.
-
-## NPC Traffic
-
-For autopilot vehicles, use CARLA's Traffic Manager:
-
-```python
-vehicle.set_autopilot(True)
-```
-
-For pedestrians, spawn `controller.ai.walker`:
-
-```python
-controller = world.spawn_actor(controller_bp, transform, attach_to=walker)
-controller.start()
-controller.go_to_location(destination)
-```
+The server publishes `/clock` from CARLA's simulation timestamp. Nodes should use `use_sim_time:=true` to stay synchronized.

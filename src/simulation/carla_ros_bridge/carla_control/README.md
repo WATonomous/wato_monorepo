@@ -2,25 +2,27 @@
 
 Vehicle control nodes for CARLA simulation.
 
-## Overview
-
-Provides nodes for controlling CARLA vehicles using standard ROS 2 message types.
-
 ## Nodes
 
 ### ackermann_control
 
-Subscribes to `ackermann_msgs/AckermannDriveStamped` messages and applies control to the ego vehicle using CARLA's native Ackermann control interface.
+Receives `AckermannDriveStamped` commands and applies them to the ego vehicle in CARLA using CARLA's native Ackermann control API. The node finds the ego vehicle by its `role_name` attribute and applies speed, acceleration, jerk, and steering commands directly.
 
-**Subscriptions:**
-- `~/command` (ackermann_msgs/AckermannDriveStamped)
-
-**Parameters:** See `carla_bringup/config/carla_bridge.yaml`
-
-## Usage
-
-Launched automatically via:
+If no command is received within the `command_timeout`, the vehicle automatically brakes to a stop. This prevents runaway vehicles when the control source disconnects.
 
 ```bash
-ros2 launch carla_bringup carla_bridge.launch.yaml
+ros2 run carla_control ackermann_control
 ```
+
+**Subscriptions:** `~/command` (`ackermann_msgs/AckermannDriveStamped`)
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `carla_host` | string | `localhost` | CARLA server hostname |
+| `carla_port` | int | `2000` | CARLA server port |
+| `carla_timeout` | double | `10.0` | Connection timeout in seconds |
+| `role_name` | string | `ego_vehicle` | Role name of the ego vehicle to control |
+| `command_timeout` | double | `0.5` | Stop vehicle if no command received within this time (seconds) |
+| `control_rate` | double | `50.0` | Control loop frequency in Hz |

@@ -57,7 +57,6 @@ private:
   bool bringUpNode(const std::string & node_name);
   void bringUpAllNodes();
   void cleanupAllNodes();
-  void restartManagedNodes();
   void executeTransitionSteps(const std::vector<TransitionStep> & steps);
 
   bool changeState(const std::string & node_name, uint8_t transition_id);

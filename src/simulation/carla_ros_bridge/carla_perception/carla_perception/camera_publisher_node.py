@@ -19,14 +19,17 @@ import math
 import numpy as np
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rcl_interfaces.msg import ParameterDescriptor
 from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import Header
 from tf2_ros import Buffer, TransformListener, TransformException
 
+from carla_common import connect_carla, find_ego_vehicle, quaternion_to_euler
+
 try:
     import carla
 except ImportError:
-    carla = None
+    carla = None  # Still needed for type hints and blueprint access
 
 
 @dataclass
@@ -64,13 +67,23 @@ class CameraPublisherNode(LifecycleNode):
         super().__init__(node_name)
 
         # CARLA connection parameters
-        self.declare_parameter("carla_host", "localhost")
-        self.declare_parameter("carla_port", 2000)
-        self.declare_parameter("carla_timeout", 10.0)
-        self.declare_parameter("role_name", "ego_vehicle")
+        self.declare_parameter(
+            "carla_host", "localhost",
+            ParameterDescriptor(description="CARLA server hostname"))
+        self.declare_parameter(
+            "carla_port", 2000,
+            ParameterDescriptor(description="CARLA server port"))
+        self.declare_parameter(
+            "carla_timeout", 10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"))
+        self.declare_parameter(
+            "role_name", "ego_vehicle",
+            ParameterDescriptor(description="Role name of the ego vehicle to attach sensors to"))
 
         # List of camera names to spawn
-        self.declare_parameter("camera_names", ["camera"])
+        self.declare_parameter(
+            "camera_names", ["camera"],
+            ParameterDescriptor(description="List of camera sensor names to spawn"))
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -93,43 +106,22 @@ class CameraPublisherNode(LifecycleNode):
         timeout = self.get_parameter("carla_timeout").value
         role_name = self.get_parameter("role_name").value
 
-        # Connect to CARLA
-        if carla is None:
-            self.get_logger().error("CARLA Python API not available")
-            return TransitionCallbackReturn.FAILURE
-
         try:
-            self.carla_client = carla.Client(host, port)
-            self.carla_client.set_timeout(timeout)
-            version = self.carla_client.get_server_version()
-            self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
+            self.carla_client = connect_carla(host, port, timeout)
+            self.get_logger().info(f"Connected to CARLA at {host}:{port}")
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
 
-        # Find ego vehicle
         try:
             world = self.carla_client.get_world()
-            # Wait for a tick to sync with latest world state (needed in synchronous mode)
             world.wait_for_tick()
-            actors = world.get_actors()
-            vehicles = actors.filter("vehicle.*")
-
-            ego_vehicles = [
-                v for v in vehicles if v.attributes.get("role_name") == role_name
-            ]
-            if not ego_vehicles:
-                if vehicles:
-                    self.ego_vehicle = vehicles[0]
-                    self.get_logger().warn(
-                        f'No vehicle with role_name "{role_name}", using first vehicle'
-                    )
-                else:
-                    self.get_logger().error("No vehicles found in CARLA world")
-                    return TransitionCallbackReturn.FAILURE
-            else:
-                self.ego_vehicle = ego_vehicles[0]
-
+            self.ego_vehicle = find_ego_vehicle(world, role_name)
+            if not self.ego_vehicle:
+                self.get_logger().error(
+                    f'No vehicle with role_name "{role_name}" found'
+                )
+                return TransitionCallbackReturn.FAILURE
             self.get_logger().info(f"Found ego vehicle: {self.ego_vehicle.type_id}")
         except Exception as e:
             self.get_logger().error(f"Failed to find ego vehicle: {e}")
@@ -312,6 +304,8 @@ class CameraPublisherNode(LifecycleNode):
             camera_transform = self._get_transform_from_tf(
                 config.frame_id, config.optical_frame
             )
+            if camera_transform is None:
+                return False
 
             # Spawn sensor
             camera.sensor = world.spawn_actor(
@@ -335,26 +329,21 @@ class CameraPublisherNode(LifecycleNode):
 
     def _get_transform_from_tf(
         self, frame_id: str, optical_frame: bool
-    ) -> "carla.Transform":
+    ) -> Optional["carla.Transform"]:
         """Look up transform from base_link to frame_id and convert to CARLA transform."""
         try:
             tf = self.tf_buffer.lookup_transform(
                 "base_link", frame_id, rclpy.time.Time()
             )
 
-            # Extract translation
             t = tf.transform.translation
             x, y, z = t.x, t.y, t.z
 
-            # Extract rotation (quaternion to euler)
             q = tf.transform.rotation
 
-            # If optical frame, we need to remove the optical rotation to get physical sensor orientation
-            # Optical frame: Z forward, X right, Y down
-            # CARLA expects: X forward, Y right, Z up (same as ROS standard)
             if optical_frame:
+                # Optical frame: Z forward, X right, Y down
                 # The optical frame has rotation rpy=(-pi/2, 0, -pi/2) applied
-                # We need to compute the inverse to get the physical sensor orientation
                 # For position, we still use the optical frame position (same as sensor)
                 # For rotation, we remove the optical rotation
                 return carla.Transform(
@@ -362,20 +351,7 @@ class CameraPublisherNode(LifecycleNode):
                     carla.Rotation(pitch=0.0, yaw=0.0, roll=0.0),
                 )
             else:
-                # Non-optical frame: convert quaternion to euler directly
-                sinr_cosp = 2.0 * (q.w * q.x + q.y * q.z)
-                cosr_cosp = 1.0 - 2.0 * (q.x * q.x + q.y * q.y)
-                roll = math.atan2(sinr_cosp, cosr_cosp)
-
-                sinp = 2.0 * (q.w * q.y - q.z * q.x)
-                if abs(sinp) >= 1:
-                    pitch = math.copysign(math.pi / 2, sinp)
-                else:
-                    pitch = math.asin(sinp)
-
-                siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
-                cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-                yaw = math.atan2(siny_cosp, cosy_cosp)
+                roll, pitch, yaw = quaternion_to_euler(q.x, q.y, q.z, q.w)
 
                 return carla.Transform(
                     carla.Location(x=x, y=y, z=z),
@@ -387,13 +363,8 @@ class CameraPublisherNode(LifecycleNode):
                 )
 
         except TransformException as e:
-            self.get_logger().warn(
-                f"TF lookup failed for {frame_id}: {e}, using default transform"
-            )
-            return carla.Transform(
-                carla.Location(x=2.0, y=0.0, z=1.5),
-                carla.Rotation(pitch=0.0, yaw=0.0, roll=0.0),
-            )
+            self.get_logger().error(f"TF lookup failed for {frame_id}: {e}")
+            return None
 
     def _camera_callback(self, carla_image, camera: CameraInstance):
         """Handle incoming camera images from CARLA."""

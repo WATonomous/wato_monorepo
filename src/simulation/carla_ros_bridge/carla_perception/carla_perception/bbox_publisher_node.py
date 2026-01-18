@@ -24,27 +24,18 @@ from std_msgs.msg import Header
 from tf2_ros import Buffer, TransformListener, TransformException
 import tf2_geometry_msgs
 
+from carla_common import (
+    connect_carla,
+    find_ego_vehicle,
+    euler_to_quaternion,
+    carla_to_ros_position,
+    carla_to_ros_rotation,
+)
+
 try:
     import carla
 except ImportError:
-    carla = None
-
-
-def euler_to_quaternion(roll: float, pitch: float, yaw: float):
-    """Convert Euler angles (in radians) to quaternion."""
-    cy = math.cos(yaw * 0.5)
-    sy = math.sin(yaw * 0.5)
-    cp = math.cos(pitch * 0.5)
-    sp = math.sin(pitch * 0.5)
-    cr = math.cos(roll * 0.5)
-    sr = math.sin(roll * 0.5)
-
-    qw = cr * cp * cy + sr * sp * sy
-    qx = sr * cp * cy - cr * sp * sy
-    qy = cr * sp * cy + sr * cp * sy
-    qz = cr * cp * sy - sr * sp * cy
-
-    return qx, qy, qz, qw
+    carla = None  # Still needed for type hints
 
 
 class BBoxPublisherNode(LifecycleNode):
@@ -64,6 +55,7 @@ class BBoxPublisherNode(LifecycleNode):
         self.declare_parameter("frame_id", "base_link")
         self.declare_parameter("include_vehicles", True)
         self.declare_parameter("include_pedestrians", True)
+        self.declare_parameter("max_distance", -1.0)  # -1 means no limit
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -91,16 +83,9 @@ class BBoxPublisherNode(LifecycleNode):
         timeout = self.get_parameter("carla_timeout").value
 
         # Connect to CARLA
-        if carla is None:
-            self.get_logger().error("CARLA Python API not available")
-            return TransitionCallbackReturn.FAILURE
-
         try:
-            self.carla_client = carla.Client(host, port)
-            self.carla_client.set_timeout(timeout)
-            self.world = self.carla_client.get_world()
-            version = self.carla_client.get_server_version()
-            self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
+            self.carla_client = connect_carla(host, port, timeout)
+            self.get_logger().info(f"Connected to CARLA at {host}:{port}")
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
@@ -108,19 +93,14 @@ class BBoxPublisherNode(LifecycleNode):
         # Find ego vehicle
         role_name = self.get_parameter("role_name").value
         try:
-            # Wait for a tick to sync with latest world state (needed in synchronous mode)
+            self.world = self.carla_client.get_world()
             self.world.wait_for_tick()
-            actors = self.world.get_actors()
-            vehicles = actors.filter("vehicle.*")
-            ego_vehicles = [
-                v for v in vehicles if v.attributes.get("role_name") == role_name
-            ]
-            if not ego_vehicles:
+            self.ego_vehicle = find_ego_vehicle(self.world, role_name)
+            if not self.ego_vehicle:
                 self.get_logger().error(
                     f'No vehicle with role_name "{role_name}" found'
                 )
                 return TransitionCallbackReturn.FAILURE
-            self.ego_vehicle = ego_vehicles[0]
             self.get_logger().info(f"Found ego vehicle: {self.ego_vehicle.type_id}")
         except Exception as e:
             self.get_logger().error(f"Failed to find ego vehicle: {e}")
@@ -207,12 +187,21 @@ class BBoxPublisherNode(LifecycleNode):
             # Filter actors based on parameters
             include_vehicles = self.get_parameter("include_vehicles").value
             include_pedestrians = self.get_parameter("include_pedestrians").value
+            max_distance = self.get_parameter("max_distance").value
 
             filtered_actors = []
             if include_vehicles:
                 filtered_actors.extend(actors.filter("vehicle.*"))
             if include_pedestrians:
                 filtered_actors.extend(actors.filter("walker.pedestrian.*"))
+
+            # Filter by distance if max_distance is set
+            if max_distance > 0:
+                ego_location = self.ego_vehicle.get_location()
+                filtered_actors = [
+                    actor for actor in filtered_actors
+                    if actor.get_location().distance(ego_location) <= max_distance
+                ]
 
             # Create header
             header = Header()
@@ -269,18 +258,20 @@ class BBoxPublisherNode(LifecycleNode):
             bbox = actor.bounding_box
             actor_transform = actor.get_transform()
 
-            # First compute in map frame (CARLA to ROS coordinate conversion)
+            # Convert CARLA transform to ROS coordinates
             # CARLA vehicle location is at ground level, so offset z by half bbox height
             # Pedestrians already have their origin at center mass, so no offset needed
-            ros_x = actor_transform.location.x
-            ros_y = -actor_transform.location.y  # Flip Y axis
             is_vehicle = "vehicle" in actor.type_id
-            ros_z = actor_transform.location.z + (bbox.extent.z if is_vehicle else 0.0)
-
-            roll = math.radians(actor_transform.rotation.roll)
-            pitch = -math.radians(actor_transform.rotation.pitch)
-            yaw = -math.radians(actor_transform.rotation.yaw)
-
+            ros_x, ros_y, ros_z = carla_to_ros_position(
+                actor_transform.location.x,
+                actor_transform.location.y,
+                actor_transform.location.z + (bbox.extent.z if is_vehicle else 0.0),
+            )
+            roll, pitch, yaw = carla_to_ros_rotation(
+                actor_transform.rotation.roll,
+                actor_transform.rotation.pitch,
+                actor_transform.rotation.yaw,
+            )
             qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
 
             # If we have a transform, apply it to get coordinates in target frame

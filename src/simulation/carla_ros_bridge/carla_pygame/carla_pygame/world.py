@@ -105,10 +105,6 @@ class World:
         except RuntimeError:
             return False
 
-        settings = self.world.get_settings()
-        settings.no_rendering_mode = True
-        self.world.apply_settings(settings)
-
         self.map_image = MapImage(
             carla_world=self.world,
             carla_map=self.town_map,
@@ -470,9 +466,3 @@ class World:
         self.mouse_offset[0] += dx - new_dx
         self.mouse_offset[1] += dy - new_dy
 
-    def destroy(self):
-        """Clean up world resources."""
-        if self.world is not None:
-            settings = self.world.get_settings()
-            settings.no_rendering_mode = False
-            self.world.apply_settings(settings)

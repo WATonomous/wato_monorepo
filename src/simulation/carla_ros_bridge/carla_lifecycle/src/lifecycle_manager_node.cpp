@@ -22,6 +22,7 @@
 
 #include "lifecycle_msgs/msg/state.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
+#include "rcl_interfaces/msg/parameter_descriptor.hpp"
 
 using std::chrono_literals::operator""s;
 
@@ -32,11 +33,22 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
 : Node("carla_lifecycle_manager", options)
 {
   // Parameters
-  this->declare_parameter("autostart", true);
-  this->declare_parameter("scenario_server_name", "scenario_server");
-  this->declare_parameter("node_names", std::vector<std::string>{});
-  this->declare_parameter("service_timeout", 10.0);
-  this->declare_parameter("startup_retry_interval", 5.0);
+  rcl_interfaces::msg::ParameterDescriptor desc;
+
+  desc.description = "Automatically start managed nodes on startup";
+  this->declare_parameter("autostart", true, desc);
+
+  desc.description = "Name of the scenario server node to coordinate with";
+  this->declare_parameter("scenario_server_name", "scenario_server", desc);
+
+  desc.description = "List of lifecycle node names to manage";
+  this->declare_parameter("node_names", std::vector<std::string>{}, desc);
+
+  desc.description = "Timeout for lifecycle service calls in seconds";
+  this->declare_parameter("service_timeout", 10.0, desc);
+
+  desc.description = "Retry interval when waiting for nodes in seconds";
+  this->declare_parameter("startup_retry_interval", 5.0, desc);
 
   autostart_ = this->get_parameter("autostart").as_bool();
   scenario_server_name_ = this->get_parameter("scenario_server_name").as_string();
@@ -174,19 +186,6 @@ void LifecycleManagerNode::cleanupAllNodes()
   });
 }
 
-void LifecycleManagerNode::restartManagedNodes()
-{
-  using Transition = lifecycle_msgs::msg::Transition;
-  using State = lifecycle_msgs::msg::State;
-
-  executeTransitionSteps({
-    {Transition::TRANSITION_DEACTIVATE, State::PRIMARY_STATE_ACTIVE, "deactivate"},
-    {Transition::TRANSITION_CLEANUP, State::PRIMARY_STATE_INACTIVE, "cleanup"},
-    {Transition::TRANSITION_CONFIGURE, State::PRIMARY_STATE_UNCONFIGURED, "configure"},
-    {Transition::TRANSITION_ACTIVATE, State::PRIMARY_STATE_INACTIVE, "activate"},
-  });
-}
-
 void LifecycleManagerNode::executeTransitionSteps(const std::vector<TransitionStep> & steps)
 {
   auto timeout = std::chrono::duration<double>(service_timeout_);
@@ -289,15 +288,16 @@ bool LifecycleManagerNode::changeState(const std::string & node_name, uint8_t tr
 int LifecycleManagerNode::getNodeState(const std::string & node_name)
 {
   auto & client = clients_[node_name].get_state;
+  auto timeout = std::chrono::duration<double>(service_timeout_);
 
-  if (!client->wait_for_service(1s)) {
+  if (!client->wait_for_service(timeout)) {
     return -1;
   }
 
   auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
   auto future = client->async_send_request(request);
 
-  if (future.wait_for(5s) != std::future_status::ready) {
+  if (future.wait_for(timeout) != std::future_status::ready) {
     return -1;
   }
 

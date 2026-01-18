@@ -11,23 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Scenario server lifecycle node."""
 
 import importlib
 from typing import Optional, Dict
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rcl_interfaces.msg import ParameterDescriptor
 from carla_msgs.srv import SwitchScenario, GetAvailableScenarios
 from carla_msgs.msg import ScenarioStatus
 from std_msgs.msg import Header
 from std_srvs.srv import Trigger
 from rosgraph_msgs.msg import Clock
 
-try:
-    import carla
-except ImportError:
-    carla = None
-
+import carla
+from carla_common import connect_carla
 from carla_scenarios.scenario_base import ScenarioBase
 
 
@@ -38,21 +35,45 @@ class ScenarioServerNode(LifecycleNode):
         super().__init__(node_name)
 
         # CARLA connection parameters
-        self.declare_parameter("carla_host", "localhost")
-        self.declare_parameter("carla_port", 2000)
-        self.declare_parameter("carla_timeout", 10.0)
         self.declare_parameter(
-            "initial_scenario", "carla_scenarios.scenarios.default_scenario"
-        )
-        # Simulation timing
-        self.declare_parameter("carla_fps", 60.0)  # Target simulation FPS
+            "carla_host", "localhost",
+            ParameterDescriptor(description="CARLA server hostname"))
+        self.declare_parameter(
+            "carla_port", 2000,
+            ParameterDescriptor(description="CARLA server port"))
+        self.declare_parameter(
+            "carla_timeout", 10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"))
+        self.declare_parameter(
+            "initial_scenario", "carla_scenarios.scenarios.default_scenario",
+            ParameterDescriptor(description="Scenario module path to load on startup"))
+        # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
+        self.declare_parameter(
+            "carla_fps", 60.0,
+            ParameterDescriptor(description="Simulation frames per second (sets fixed_delta_seconds)"))
+        self.declare_parameter(
+            "synchronous_mode", False,
+            ParameterDescriptor(description="Enable synchronous mode (server waits for client tick)"))
+        self.declare_parameter(
+            "no_rendering_mode", False,
+            ParameterDescriptor(description="Disable rendering for faster simulation"))
+        self.declare_parameter(
+            "substepping", True,
+            ParameterDescriptor(description="Enable physics substepping"))
+        self.declare_parameter(
+            "max_substep_delta_time", 0.01,
+            ParameterDescriptor(description="Max physics substep time in seconds"))
+        self.declare_parameter(
+            "max_substeps", 10,
+            ParameterDescriptor(description="Max number of physics substeps per frame"))
         # Lifecycle manager coordination
-        self.declare_parameter("lifecycle_manager_name", "carla_lifecycle_manager")
+        self.declare_parameter(
+            "lifecycle_manager_name", "carla_lifecycle_manager",
+            ParameterDescriptor(description="Name of the lifecycle manager node for coordination"))
 
         # State
         self.carla_client: Optional["carla.Client"] = None
         self.carla_world: Optional["carla.World"] = None
-        self.synchronous_mode: bool = False
         self.current_scenario: Optional[ScenarioBase] = None
         self.current_scenario_name: str = ""
         self.available_scenarios: Dict[str, str] = {}
@@ -69,6 +90,47 @@ class ScenarioServerNode(LifecycleNode):
 
         self.get_logger().info(f"{node_name} initialized")
 
+    def _apply_simulation_settings(self):
+        """Apply simulation settings to CARLA world."""
+        carla_fps = self.get_parameter("carla_fps").value
+        sync_mode = self.get_parameter("synchronous_mode").value
+        no_rendering = self.get_parameter("no_rendering_mode").value
+        substepping = self.get_parameter("substepping").value
+        max_substep_delta = self.get_parameter("max_substep_delta_time").value
+        max_substeps = self.get_parameter("max_substeps").value
+
+        # Sync mode: fixed timestep, server waits for tick()
+        # Async mode: variable timestep
+        if sync_mode:
+            fixed_delta = 1.0 / carla_fps
+        else:
+            fixed_delta = 0.0
+
+        # Create explicit settings rather than modifying existing
+        # This ensures we don't inherit unexpected values after load_world()
+        settings = carla.WorldSettings(
+            synchronous_mode=sync_mode,
+            no_rendering_mode=no_rendering,
+            fixed_delta_seconds=fixed_delta,
+            substepping=substepping,
+            max_substep_delta_time=max_substep_delta,
+            max_substeps=max_substeps,
+        )
+        self.carla_world.apply_settings(settings)
+
+        # Verify settings were applied
+        actual = self.carla_world.get_settings()
+        if sync_mode:
+            self.get_logger().info(
+                f"Applied settings: sync=True, fixed_delta={fixed_delta:.6f} ({carla_fps} FPS), "
+                f"no_rendering={no_rendering}, substepping={substepping}"
+            )
+        else:
+            self.get_logger().info(
+                f"Applied settings: sync=False, variable_timestep, "
+                f"no_rendering={no_rendering}, substepping={substepping}"
+            )
+
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Configure lifecycle callback."""
         self.get_logger().info("Configuring...")
@@ -79,30 +141,13 @@ class ScenarioServerNode(LifecycleNode):
         timeout = self.get_parameter("carla_timeout").value
 
         # Connect to CARLA
-        if carla is None:
-            self.get_logger().error("CARLA Python API not available")
-            return TransitionCallbackReturn.FAILURE
-
         try:
-            self.carla_client = carla.Client(host, port)
-            self.carla_client.set_timeout(timeout)
-            version = self.carla_client.get_server_version()
-            self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
+            self.carla_client = connect_carla(host, port, timeout)
+            self.get_logger().info(f"Connected to CARLA at {host}:{port}")
 
-            # Get world and configure synchronous mode with fixed timestep
+            # Get world and configure simulation mode
             self.carla_world = self.carla_client.get_world()
-            carla_fps = self.get_parameter("carla_fps").value
-
-            settings = self.carla_world.get_settings()
-            settings.synchronous_mode = True
-            settings.fixed_delta_seconds = 1.0 / carla_fps
-            self.carla_world.apply_settings(settings)
-
-            self.synchronous_mode = True
-            self.get_logger().info(
-                f"Configured CARLA: synchronous_mode=True, "
-                f"fixed_delta_seconds={settings.fixed_delta_seconds:.4f} ({carla_fps} FPS)"
-            )
+            self._apply_simulation_settings()
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
@@ -151,6 +196,12 @@ class ScenarioServerNode(LifecycleNode):
         """Activate lifecycle callback."""
         self.get_logger().info("Activating...")
 
+        # Create tick timer before loading scenario (sync mode needs ticks for spawning)
+        sync_mode = self.get_parameter("synchronous_mode").value
+        carla_fps = self.get_parameter("carla_fps").value
+        timer_period = (1.0 / carla_fps) if sync_mode else 0.001
+        self.tick_timer = self.create_timer(timer_period, self._tick_callback)
+
         # Load initial scenario
         initial_scenario = self.get_parameter("initial_scenario").value
         if initial_scenario:
@@ -160,11 +211,6 @@ class ScenarioServerNode(LifecycleNode):
                     f"Failed to load initial scenario: {initial_scenario}"
                 )
                 return TransitionCallbackReturn.FAILURE
-
-        # Create fast timer for world tick synchronization (1ms)
-        # Pedestrian AI needs continuous wait_for_tick() calls to work properly
-        # The callback blocks on wait_for_tick(), so this effectively runs every CARLA tick
-        self.tick_timer = self.create_timer(0.001, self._tick_callback)
 
         self.get_logger().info("Activation complete")
         return super().on_activate(state)
@@ -221,11 +267,10 @@ class ScenarioServerNode(LifecycleNode):
         return TransitionCallbackReturn.SUCCESS
 
     def _tick_callback(self):
-        """Timer callback for world tick synchronization and status publishing."""
-        # Synchronize with world tick
+        """Timer callback for world synchronization and status publishing."""
         if self.carla_world:
             try:
-                if self.synchronous_mode:
+                if self.get_parameter("synchronous_mode").value:
                     self.carla_world.tick()
                 else:
                     self.carla_world.wait_for_tick()
@@ -239,7 +284,7 @@ class ScenarioServerNode(LifecycleNode):
                     clock_msg.clock.nanosec = int((sim_time % 1.0) * 1e9)
                     self.clock_publisher.publish(clock_msg)
             except Exception as e:
-                self.get_logger().warn(f"Error ticking world: {e}")
+                self.get_logger().warn(f"Error waiting for tick: {e}")
 
         # Execute scenario logic
         if self.current_scenario:
@@ -314,7 +359,6 @@ class ScenarioServerNode(LifecycleNode):
 
     def _discover_scenarios(self):
         """Discover available scenarios."""
-        # Built-in scenarios
         builtin_scenarios = {
             "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
             "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
@@ -322,12 +366,6 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
         }
         self.available_scenarios.update(builtin_scenarios)
-
-        # TODO: Discover external scenarios via entry points
-        # from importlib.metadata import entry_points
-        # discovered = entry_points(group='carla_scenarios.plugins')
-        # for ep in discovered:
-        #     self.available_scenarios[ep.name] = ep.value
 
         self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
 
@@ -406,9 +444,9 @@ class ScenarioServerNode(LifecycleNode):
                 )
                 return False
 
-            # Refresh world reference (scenario may have changed the map)
+            # Refresh world reference and reapply settings (load_world resets to defaults)
             self.carla_world = self.carla_client.get_world()
-            self.synchronous_mode = self.carla_world.get_settings().synchronous_mode
+            self._apply_simulation_settings()
 
             self.current_scenario = scenario
             self.current_scenario_name = scenario_module_path

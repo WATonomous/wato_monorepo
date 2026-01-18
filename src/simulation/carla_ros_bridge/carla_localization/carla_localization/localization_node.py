@@ -14,33 +14,19 @@
 """Localization lifecycle node for CARLA - publishes TF from map -> odom -> base_link."""
 
 from typing import Optional
-import math
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rcl_interfaces.msg import ParameterDescriptor
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 
-try:
-    import carla
-except ImportError:
-    carla = None
-
-
-def euler_to_quaternion(roll: float, pitch: float, yaw: float):
-    """Convert Euler angles (in radians) to quaternion."""
-    cy = math.cos(yaw * 0.5)
-    sy = math.sin(yaw * 0.5)
-    cp = math.cos(pitch * 0.5)
-    sp = math.sin(pitch * 0.5)
-    cr = math.cos(roll * 0.5)
-    sr = math.sin(roll * 0.5)
-
-    qw = cr * cp * cy + sr * sp * sy
-    qx = sr * cp * cy - cr * sp * sy
-    qy = cr * sp * cy + sr * cp * sy
-    qz = cr * cp * sy - sr * sp * cy
-
-    return qx, qy, qz, qw
+from carla_common import (
+    connect_carla,
+    find_ego_vehicle,
+    euler_to_quaternion,
+    carla_to_ros_position,
+    carla_to_ros_rotation,
+)
 
 
 class LocalizationNode(LifecycleNode):
@@ -50,16 +36,32 @@ class LocalizationNode(LifecycleNode):
         super().__init__(node_name)
 
         # CARLA connection parameters
-        self.declare_parameter("carla_host", "localhost")
-        self.declare_parameter("carla_port", 2000)
-        self.declare_parameter("carla_timeout", 10.0)
-        self.declare_parameter("role_name", "ego_vehicle")
+        self.declare_parameter(
+            "carla_host", "localhost",
+            ParameterDescriptor(description="CARLA server hostname"))
+        self.declare_parameter(
+            "carla_port", 2000,
+            ParameterDescriptor(description="CARLA server port"))
+        self.declare_parameter(
+            "carla_timeout", 10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"))
+        self.declare_parameter(
+            "role_name", "ego_vehicle",
+            ParameterDescriptor(description="Role name of the ego vehicle to track"))
 
         # TF frame parameters
-        self.declare_parameter("map_frame", "map")
-        self.declare_parameter("odom_frame", "odom")
-        self.declare_parameter("base_link_frame", "base_link")
-        self.declare_parameter("publish_rate", 50.0)  # Hz
+        self.declare_parameter(
+            "map_frame", "map",
+            ParameterDescriptor(description="Name of the map frame"))
+        self.declare_parameter(
+            "odom_frame", "odom",
+            ParameterDescriptor(description="Name of the odom frame"))
+        self.declare_parameter(
+            "base_link_frame", "base_link",
+            ParameterDescriptor(description="Name of the base_link frame"))
+        self.declare_parameter(
+            "publish_rate", 50.0,
+            ParameterDescriptor(description="TF publish rate in Hz"))
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -81,43 +83,22 @@ class LocalizationNode(LifecycleNode):
         timeout = self.get_parameter("carla_timeout").value
         role_name = self.get_parameter("role_name").value
 
-        # Connect to CARLA
-        if carla is None:
-            self.get_logger().error("CARLA Python API not available")
-            return TransitionCallbackReturn.FAILURE
-
         try:
-            self.carla_client = carla.Client(host, port)
-            self.carla_client.set_timeout(timeout)
-            version = self.carla_client.get_server_version()
-            self.get_logger().info(f"Connected to CARLA {version} at {host}:{port}")
+            self.carla_client = connect_carla(host, port, timeout)
+            self.get_logger().info(f"Connected to CARLA at {host}:{port}")
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
 
-        # Find ego vehicle
         try:
             world = self.carla_client.get_world()
-            # Wait for a tick to sync with latest world state (needed in synchronous mode)
             world.wait_for_tick()
-            actors = world.get_actors()
-            vehicles = actors.filter("vehicle.*")
-
-            ego_vehicles = [
-                v for v in vehicles if v.attributes.get("role_name") == role_name
-            ]
-            if not ego_vehicles:
-                if vehicles:
-                    self.ego_vehicle = vehicles[0]
-                    self.get_logger().warn(
-                        f'No vehicle with role_name "{role_name}", using first vehicle'
-                    )
-                else:
-                    self.get_logger().error("No vehicles found in CARLA world")
-                    return TransitionCallbackReturn.FAILURE
-            else:
-                self.ego_vehicle = ego_vehicles[0]
-
+            self.ego_vehicle = find_ego_vehicle(world, role_name)
+            if not self.ego_vehicle:
+                self.get_logger().error(
+                    f'No vehicle with role_name "{role_name}" found'
+                )
+                return TransitionCallbackReturn.FAILURE
             self.get_logger().info(f"Found ego vehicle: {self.ego_vehicle.type_id}")
         except Exception as e:
             self.get_logger().error(f"Failed to find ego vehicle: {e}")
@@ -187,21 +168,17 @@ class LocalizationNode(LifecycleNode):
             # Current timestamp
             now = self.get_clock().now().to_msg()
 
-            # CARLA uses left-handed coordinate system (X-forward, Y-right, Z-up)
-            # ROS uses right-handed coordinate system (X-forward, Y-left, Z-up)
-            # Convert CARLA coordinates to ROS coordinates
-            x = carla_transform.location.x
-            y = -carla_transform.location.y  # Flip Y axis
-            z = carla_transform.location.z
-
-            # Convert CARLA rotation (degrees) to ROS rotation (radians)
-            # CARLA: pitch (Y), yaw (Z), roll (X) in degrees
-            # Also need to flip signs for Y rotation due to coordinate system change
-            roll = math.radians(carla_transform.rotation.roll)
-            pitch = -math.radians(carla_transform.rotation.pitch)  # Flip pitch
-            yaw = -math.radians(carla_transform.rotation.yaw)  # Flip yaw
-
-            # Convert to quaternion
+            # Convert CARLA transform to ROS coordinates
+            x, y, z = carla_to_ros_position(
+                carla_transform.location.x,
+                carla_transform.location.y,
+                carla_transform.location.z,
+            )
+            roll, pitch, yaw = carla_to_ros_rotation(
+                carla_transform.rotation.roll,
+                carla_transform.rotation.pitch,
+                carla_transform.rotation.yaw,
+            )
             qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
 
             # Publish map -> odom (identity transform, no drift in simulation)
