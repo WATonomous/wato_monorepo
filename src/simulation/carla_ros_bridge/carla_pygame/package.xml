@@ -3,7 +3,7 @@
   <name>carla_pygame</name>
   <version>1.0.0</version>
   <description>Web-based pygame HUD visualizer for CARLA</description>
-  <maintainer email="you@example.com">Your Name</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>

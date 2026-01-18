@@ -1,0 +1,25 @@
+launch:
+  # Launch arguments
+  - arg:
+      name: pygame_hud_enabled
+      default: "true"
+      description: "Enable the pygame HUD web visualizer"
+  - arg:
+      name: pygame_web_port
+      default: "5000"
+      description: "Port for the pygame HUD web server"
+
+  # Robot Description (TF tree for sensors)
+  - include:
+      file: $(find-pkg-share eve_description)/launch/robot_description.launch.yaml
+
+  # Carla Bridge
+  - include:
+      file: $(find-pkg-share carla_bringup)/launch/carla_bridge.launch.yaml
+      arg:
+        - name: config_file
+          value: $(find-pkg-share simulation_bringup)/config/carla_bridge.yaml
+        - name: pygame_hud_enabled
+          value: $(var pygame_hud_enabled)
+        - name: pygame_web_port
+          value: $(var pygame_web_port)

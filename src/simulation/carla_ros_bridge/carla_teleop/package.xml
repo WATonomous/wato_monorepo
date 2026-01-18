@@ -3,7 +3,7 @@
   <name>carla_teleop</name>
   <version>1.0.0</version>
   <description>Teleop control bridge for CARLA - Foxglove compatible</description>
-  <maintainer email="you@example.com">Your Name</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>

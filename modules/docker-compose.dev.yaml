@@ -82,4 +82,3 @@ services:
     volumes:
       - ${MONO_DIR}/src/simulation:/home/bolty/ament_ws/src/simulation
       - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw

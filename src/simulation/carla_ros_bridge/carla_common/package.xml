@@ -4,7 +4,7 @@
   <name>carla_common</name>
   <version>0.1.0</version>
   <description>Common utilities for CARLA ROS bridge packages</description>
-  <maintainer email="infra@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>

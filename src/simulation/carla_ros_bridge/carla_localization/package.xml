@@ -3,7 +3,7 @@
   <name>carla_localization</name>
   <version>1.0.0</version>
   <description>Localization bridge for CARLA - publishes TF from ground truth</description>
-  <maintainer email="you@example.com">Your Name</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>

@@ -4,7 +4,7 @@
   <version>0.0.0</version>
   <description>Contains launch files, scenario scripts, and custom carla bridge nodes</description>
 
-  <maintainer email="v3jayaku@watonomous.ca">Vishal Jayakumar</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
 
   <license>Apache 2.0</license>
 
@@ -12,14 +12,8 @@
   <depend>rmw_zenoh_cpp</depend>
 
   <depend>rclcpp</depend>
-  <depend>nav_msgs</depend>
-  <depend>sensor_msgs</depend>
-  <depend>interfacing_msgs</depend>
-  <depend>tf2_ros</depend>
-  <depend>geometry_msgs</depend>
-
-  <exec_depend>python3-pygame</exec_depend>
-  <exec_depend>python3-numpy</exec_depend>
+  <depend>carla_bringup</depend>
+  <depend>eve_description</depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

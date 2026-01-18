@@ -312,14 +312,13 @@ services:
       target: deploy
     image: "${SIMULATION_IMAGE}:${TAG}"
     environment:
-      - DISPLAY=${DISPLAY}
       - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
       - USE_ACKERMANN_CONTROL=False
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-    command: /bin/bash -c "ros2 launch simulation_bringup carla.launch.py"
+    command: /bin/bash -c "ros2 launch simulation_bringup simulation.launch.yaml pygame_hud_enabled:=${PYGAME_HUD_ENABLED} pygame_web_port:=${PYGAME_HUD_PORT}"
     depends_on:
       infrastructure_bringup:
         condition: service_started

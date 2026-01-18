@@ -3,7 +3,7 @@
   <name>carla_perception</name>
   <version>1.0.0</version>
   <description>Sensor bridge nodes (camera, lidar, bbox)</description>
-  <maintainer email="you@example.com">Your Name</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>

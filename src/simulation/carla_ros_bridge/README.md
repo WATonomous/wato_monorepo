@@ -86,3 +86,66 @@ See [carla_bringup](carla_bringup/README.md) for configuration options.
 ```
 
 The `scenario_server` owns the CARLA connection and coordinates with `lifecycle_manager` during scenario switches. All other nodes connect to CARLA independently but are lifecycle-managed to ensure clean resource handling.
+
+## Workflow
+
+Once the bridge is running, all nodes start automatically and connect to CARLA. Use ROS2 services to control the simulation at runtime.
+
+### Switching Scenarios
+
+Change maps, traffic density, or weather without restarting:
+
+```bash
+# List available scenarios
+ros2 service call /scenario_server/get_available_scenarios carla_msgs/srv/GetAvailableScenarios
+
+# Switch to heavy traffic
+ros2 service call /scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
+  "{scenario_name: 'carla_scenarios.scenarios.heavy_traffic_scenario'}"
+```
+
+When switching scenarios, the lifecycle manager automatically:
+1. Deactivates all managed nodes
+2. Waits for the scenario server to load the new scenario
+3. Reactivates all nodes with the new world state
+
+### Enabling Autonomy Mode
+
+Toggle CARLA's built-in autopilot via the teleop node:
+
+```bash
+# Enable autopilot (vehicle follows Traffic Manager AI)
+ros2 service call /carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: true}"
+
+# Disable autopilot (return to manual/teleop control)
+ros2 service call /carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: false}"
+```
+
+### Manual Control
+
+When autonomy is disabled, control the vehicle via Twist commands:
+
+```bash
+# Using teleop_twist_keyboard
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/carla_teleop/cmd_vel
+```
+
+Or use Foxglove's teleop panel publishing to `/carla_teleop/cmd_vel`.
+
+### Key Topics
+
+| Topic | Type | Description |
+|-------|------|-------------|
+| `/clock` | `rosgraph_msgs/Clock` | Simulation time from CARLA |
+| `/tf` | `tf2_msgs/TFMessage` | Transform tree (map → odom → base_link → sensors) |
+| `/lidar_publisher/*/points` | `sensor_msgs/PointCloud2` | LiDAR point clouds |
+| `/bbox_publisher/detections_3d` | `vision_msgs/Detection3DArray` | Ground truth 3D bounding boxes |
+| `/carla_teleop/cmd_vel` | `geometry_msgs/Twist` | Vehicle control input |
+
+### Key Services
+
+| Service | Type | Description |
+|---------|------|-------------|
+| `/scenario_server/switch_scenario` | `carla_msgs/SwitchScenario` | Load a different scenario |
+| `/scenario_server/get_available_scenarios` | `carla_msgs/GetAvailableScenarios` | List available scenarios |
+| `/carla_teleop/set_autonomy` | `std_srvs/SetBool` | Enable/disable CARLA autopilot |

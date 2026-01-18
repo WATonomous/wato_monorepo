@@ -133,6 +133,16 @@ BASE_PORT=${BASE_PORT:-$((SETUID*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT+1))}
 FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT+2))}
 LOG_VIEWER__PORT=${LOG_VIEWER__PORT:-$((BASE_PORT+6))}
+PYGAME_HUD_PORT=${PYGAME_HUD_PORT:-$((BASE_PORT+7))}
+
+################################  Simulation  ########################################
+CARLA_RENDER_MODE=${CARLA_RENDER_MODE:-"no_gpu"}
+# Enable pygame HUD only when GPU rendering is enabled
+if [[ "$CARLA_RENDER_MODE" == "gpu" ]]; then
+  PYGAME_HUD_ENABLED=${PYGAME_HUD_ENABLED:-"true"}
+else
+  PYGAME_HUD_ENABLED=${PYGAME_HUD_ENABLED:-"false"}
+fi
 
 ############################  ROS DOMAIN ID  #########################################
 ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-$((SETUID % 230))}
@@ -164,6 +174,11 @@ append "BASE_PORT" "$BASE_PORT"
 append "GUI_TOOLS_VNC_PORT" "$GUI_TOOLS_VNC_PORT"
 append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
 append "LOG_VIEWER__PORT" "$LOG_VIEWER__PORT"
+append "PYGAME_HUD_PORT" "$PYGAME_HUD_PORT"
+
+# Simulation
+append "CARLA_RENDER_MODE" "$CARLA_RENDER_MODE"
+append "PYGAME_HUD_ENABLED" "$PYGAME_HUD_ENABLED"
 
 append "REGISTRY" "$REGISTRY"
 append "REPOSITORY" "$REPOSITORY"

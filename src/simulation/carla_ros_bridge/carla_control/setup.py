@@ -26,8 +26,8 @@ setup(
     install_requires=["setuptools"],
     tests_require=["pytest"],
     zip_safe=True,
-    maintainer="Your Name",
-    maintainer_email="you@example.com",
+    maintainer="WATonomous",
+    maintainer_email="hello@watonomous.ca",
     description="Vehicle control bridge node",
     license="Apache-2.0",
     entry_points={

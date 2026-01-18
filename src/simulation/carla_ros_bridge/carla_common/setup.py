@@ -23,7 +23,7 @@ setup(
     tests_require=["pytest"],
     zip_safe=True,
     maintainer="WATonomous",
-    maintainer_email="infra@watonomous.ca",
+    maintainer_email="hello@watonomous.ca",
     description="Common utilities for CARLA ROS bridge packages",
     license="Apache-2.0",
 )
