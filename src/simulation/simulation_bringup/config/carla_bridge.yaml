@@ -73,7 +73,7 @@ lidar_publisher:
     lidar_names:
       - top_lidar
     # Per-LiDAR settings (prefix with lidar name)
-    top_lidar.frame_id: "lidar"               # TF frame for this LiDAR
+    top_lidar.frame_id: "lidar_cc"               # TF frame for this LiDAR
     top_lidar.range: 100.0                    # Maximum detection range (meters)
     top_lidar.rotation_frequency: 15.0        # Scan rate (Hz)
     top_lidar.horizontal_fov: 360.0           # Horizontal FOV (degrees)

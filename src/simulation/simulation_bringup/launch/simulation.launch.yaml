@@ -9,9 +9,9 @@ launch:
       default: "5000"
       description: "Port for the pygame HUD web server"
 
-  # Robot Description (TF tree for sensors)
+  # Eve Robot Description
   - include:
-      file: $(find-pkg-share eve_description)/launch/robot_description.launch.yaml
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
 
   # Carla Bridge
   - include:
