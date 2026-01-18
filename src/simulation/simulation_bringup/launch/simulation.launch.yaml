@@ -1,6 +1,10 @@
 launch:
   # Launch arguments
   - arg:
+      name: carla_port
+      default: "2000"
+      description: "CARLA server port"
+  - arg:
       name: pygame_hud_enabled
       default: "true"
       description: "Enable the pygame HUD web visualizer"
@@ -19,6 +23,8 @@ launch:
       arg:
         - name: config_file
           value: $(find-pkg-share simulation_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
         - name: pygame_hud_enabled
           value: $(var pygame_hud_enabled)
         - name: pygame_web_port

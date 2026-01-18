@@ -5,7 +5,6 @@
 scenario_server:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     initial_scenario: "carla_scenarios.scenarios.light_traffic_scenario"
     lifecycle_manager_name: "carla_lifecycle_manager"
@@ -21,7 +20,6 @@ scenario_server:
 ackermann_control:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
     command_timeout: 0.5
@@ -32,7 +30,6 @@ ackermann_control:
 camera_publisher:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
     # List of camera names to spawn
@@ -66,7 +63,6 @@ camera_publisher:
 lidar_publisher:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
     # List of LiDAR names to spawn
@@ -94,7 +90,6 @@ lidar_publisher:
 bbox_publisher:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     # Publishing settings
     publish_rate: 10.0
@@ -107,7 +102,6 @@ bbox_publisher:
 carla_localization:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
     # TF frame names
@@ -120,7 +114,6 @@ carla_localization:
 carla_teleop:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
     max_speed: 10.0
@@ -134,7 +127,6 @@ carla_teleop:
 pygame_hud:
   ros__parameters:
     carla_host: "localhost"
-    carla_port: 2000
     carla_timeout: 10.0
     role_name: "ego_vehicle"
     width: 1280

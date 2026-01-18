@@ -145,7 +145,6 @@ class ScenarioServerNode(LifecycleNode):
         self.carla_world.apply_settings(settings)
 
         # Verify settings were applied
-        _actual = self.carla_world.get_settings()
         if sync_mode:
             self.get_logger().info(
                 f"Applied settings: sync=True, fixed_delta={fixed_delta:.6f} ({carla_fps} FPS), "

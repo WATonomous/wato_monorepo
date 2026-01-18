@@ -134,11 +134,12 @@ GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT+1))}
 FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT+2))}
 LOG_VIEWER__PORT=${LOG_VIEWER__PORT:-$((BASE_PORT+6))}
 PYGAME_HUD_PORT=${PYGAME_HUD_PORT:-$((BASE_PORT+7))}
+CARLA_PORT=${CARLA_PORT:-$((BASE_PORT+8))}
 
 ################################  Simulation  ########################################
 CARLA_RENDER_MODE=${CARLA_RENDER_MODE:-"no_gpu"}
-# Enable pygame HUD only when GPU rendering is enabled
-if [[ "$CARLA_RENDER_MODE" == "gpu" ]]; then
+# Enable pygame HUD when running without GPU (provides web-based visualization fallback)
+if [[ "$CARLA_RENDER_MODE" == "no_gpu" ]]; then
   PYGAME_HUD_ENABLED=${PYGAME_HUD_ENABLED:-"true"}
 else
   PYGAME_HUD_ENABLED=${PYGAME_HUD_ENABLED:-"false"}
@@ -175,6 +176,7 @@ append "GUI_TOOLS_VNC_PORT" "$GUI_TOOLS_VNC_PORT"
 append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
 append "LOG_VIEWER__PORT" "$LOG_VIEWER__PORT"
 append "PYGAME_HUD_PORT" "$PYGAME_HUD_PORT"
+append "CARLA_PORT" "$CARLA_PORT"
 
 # Simulation
 append "CARLA_RENDER_MODE" "$CARLA_RENDER_MODE"

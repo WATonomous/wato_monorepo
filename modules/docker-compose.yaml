@@ -261,7 +261,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    command: /bin/bash -c "./CarlaUnreal.sh -nosound -RenderOffscreen -quality-level=Epic"
+    command: /bin/bash -c "./CarlaUnreal.sh -nosound -RenderOffscreen -quality-level=Epic -carla-rpc-port=${CARLA_PORT}"
     deploy:
       resources:
         reservations:
@@ -273,7 +273,7 @@ services:
     image: carlasim/carla:0.10.0
     init: true
     network_mode: host
-    command: /bin/bash -c "./CarlaUnreal.sh -nosound -nullrhi"
+    command: /bin/bash -c "./CarlaUnreal.sh -nosound -nullrhi -carla-rpc-port=${CARLA_PORT}"
 
   simulation_source:
     profiles: ["simulation_pre"]
@@ -312,13 +312,11 @@ services:
       target: deploy
     image: "${SIMULATION_IMAGE}:${TAG}"
     environment:
-      - CARLA_HOSTNAME=${COMPOSE_PROJECT_NAME:?}-carla_sim-1
-      - USE_ACKERMANN_CONTROL=False
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-    command: /bin/bash -c "ros2 launch simulation_bringup simulation.launch.yaml pygame_hud_enabled:=${PYGAME_HUD_ENABLED} pygame_web_port:=${PYGAME_HUD_PORT}"
+    command: /bin/bash -c "ros2 launch simulation_bringup simulation.launch.yaml carla_port:=${CARLA_PORT} pygame_hud_enabled:=${PYGAME_HUD_ENABLED} pygame_web_port:=${PYGAME_HUD_PORT}"
     depends_on:
       infrastructure_bringup:
         condition: service_started

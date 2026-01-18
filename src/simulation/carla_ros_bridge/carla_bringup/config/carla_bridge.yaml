@@ -1,12 +1,16 @@
 # CARLA ROS2 Bridge Configuration
+#
+# Shared connection settings - change port here to match your CARLA server
+_carla_connection: &carla_connection
+  carla_host: "localhost"
+  carla_port: 2000
+  carla_timeout: 10.0
 
 # Scenario Server Configuration
 # See https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/ for timing settings
 scenario_server:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     initial_scenario: "carla_scenarios.scenarios.light_traffic_scenario"
     lifecycle_manager_name: "carla_lifecycle_manager"
     # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
@@ -20,9 +24,7 @@ scenario_server:
 # Ackermann Control Configuration
 ackermann_control:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     role_name: "ego_vehicle"
     command_timeout: 0.5
     control_rate: 50.0
@@ -31,9 +33,7 @@ ackermann_control:
 # Supports multiple cameras - each camera publishes to ~/{name}/image_raw and ~/{name}/camera_info
 camera_publisher:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     role_name: "ego_vehicle"
     # List of camera names to spawn
     camera_names:
@@ -65,9 +65,7 @@ camera_publisher:
 # All per-LiDAR fields are required
 lidar_publisher:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     role_name: "ego_vehicle"
     # List of LiDAR names to spawn
     lidar_names:
@@ -93,9 +91,7 @@ lidar_publisher:
 # BBox Publisher Configuration
 bbox_publisher:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     # Publishing settings
     publish_rate: 10.0
     frame_id: "base_link"
@@ -106,9 +102,7 @@ bbox_publisher:
 # Localization Configuration (TF publisher)
 carla_localization:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     role_name: "ego_vehicle"
     # TF frame names
     map_frame: "map"
@@ -119,9 +113,7 @@ carla_localization:
 # Teleop Configuration (Foxglove compatible)
 carla_teleop:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     role_name: "ego_vehicle"
     max_speed: 10.0
     max_steering: 1.0
@@ -133,9 +125,7 @@ carla_teleop:
 # Pygame HUD Configuration (web-based map visualizer)
 pygame_hud:
   ros__parameters:
-    carla_host: "localhost"
-    carla_port: 2000
-    carla_timeout: 10.0
+    <<: *carla_connection
     role_name: "ego_vehicle"
     width: 1280
     height: 720

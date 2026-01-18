@@ -23,7 +23,7 @@ export ACTIVE_MODULES="simulation"
 
 ### 2. Configure GPU Mode (Optional)
 
-By default, CARLA runs without GPU rendering (`no_gpu` mode). For full visualization with the pygame HUD:
+By default, CARLA runs without GPU rendering (`no_gpu` mode), which automatically enables the pygame HUD for web-based visualization. For GPU-accelerated rendering:
 
 ```bash
 export CARLA_RENDER_MODE="gpu"  # Requires NVIDIA GPU with >8GB VRAM
@@ -48,7 +48,7 @@ All bridge nodes start automatically and connect to CARLA. The simulation is rea
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CARLA_RENDER_MODE` | `no_gpu` | `gpu` for GPU rendering, `no_gpu` for headless |
-| `PYGAME_HUD_ENABLED` | `false` | Auto-set to `true` when `CARLA_RENDER_MODE=gpu` |
+| `PYGAME_HUD_ENABLED` | `true` | Auto-set to `true` when `CARLA_RENDER_MODE=no_gpu` |
 | `PYGAME_HUD_PORT` | Auto | Port for pygame web HUD (auto-assigned based on user ID) |
 
 ### Simulation Parameters
@@ -133,9 +133,9 @@ Your modules can subscribe to these topics and publish control commands to test 
    - Image view with camera topics
    - Teleop panel publishing to `/carla_teleop/cmd_vel`
 
-### Pygame HUD (GPU Mode Only)
+### Pygame HUD (No-GPU Mode)
 
-When `CARLA_RENDER_MODE=gpu`, a web-based bird's-eye view is available:
+When `CARLA_RENDER_MODE=no_gpu` (the default), a web-based bird's-eye view is automatically enabled:
 
 1. Forward the `PYGAME_HUD_PORT` to your local machine
 2. Open `http://localhost:<PYGAME_HUD_PORT>` in a browser

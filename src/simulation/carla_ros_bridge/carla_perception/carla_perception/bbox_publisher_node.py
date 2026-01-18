@@ -16,6 +16,7 @@
 from typing import Optional
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rcl_interfaces.msg import ParameterDescriptor
 from vision_msgs.msg import Detection2DArray, ObjectHypothesisWithPose
 from vision_msgs.msg import Detection3DArray, Detection3D
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3, PoseStamped
@@ -44,17 +45,55 @@ class BBoxPublisherNode(LifecycleNode):
         super().__init__(node_name)
 
         # CARLA connection parameters
-        self.declare_parameter("carla_host", "localhost")
-        self.declare_parameter("carla_port", 2000)
-        self.declare_parameter("carla_timeout", 10.0)
-        self.declare_parameter("role_name", "ego_vehicle")
+        self.declare_parameter(
+            "carla_host",
+            "localhost",
+            ParameterDescriptor(description="CARLA server hostname"),
+        )
+        self.declare_parameter(
+            "carla_port",
+            2000,
+            ParameterDescriptor(description="CARLA server port"),
+        )
+        self.declare_parameter(
+            "carla_timeout",
+            10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"),
+        )
+        self.declare_parameter(
+            "role_name",
+            "ego_vehicle",
+            ParameterDescriptor(description="Role name of the ego vehicle"),
+        )
 
         # Publishing parameters
-        self.declare_parameter("publish_rate", 10.0)  # Hz
-        self.declare_parameter("frame_id", "base_link")
-        self.declare_parameter("include_vehicles", True)
-        self.declare_parameter("include_pedestrians", True)
-        self.declare_parameter("max_distance", -1.0)  # -1 means no limit
+        self.declare_parameter(
+            "publish_rate",
+            10.0,
+            ParameterDescriptor(description="Detection publish rate in Hz"),
+        )
+        self.declare_parameter(
+            "frame_id",
+            "base_link",
+            ParameterDescriptor(description="TF frame for published detections"),
+        )
+        self.declare_parameter(
+            "include_vehicles",
+            True,
+            ParameterDescriptor(description="Include vehicles in detections"),
+        )
+        self.declare_parameter(
+            "include_pedestrians",
+            True,
+            ParameterDescriptor(description="Include pedestrians in detections"),
+        )
+        self.declare_parameter(
+            "max_distance",
+            -1.0,
+            ParameterDescriptor(
+                description="Max distance from ego vehicle in meters (-1 = no limit)"
+            ),
+        )
 
         # State
         self.carla_client: Optional["carla.Client"] = None
