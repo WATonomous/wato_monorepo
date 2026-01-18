@@ -64,7 +64,5 @@ def find_ego_vehicle(
         Vehicle actor if found, None otherwise
     """
     vehicles = world.get_actors().filter("vehicle.*")
-    ego_vehicles = [
-        v for v in vehicles if v.attributes.get("role_name") == role_name
-    ]
+    ego_vehicles = [v for v in vehicles if v.attributes.get("role_name") == role_name]
     return ego_vehicles[0] if ego_vehicles else None

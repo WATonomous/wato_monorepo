@@ -13,11 +13,6 @@
 # limitations under the License.
 """Tests for pygame HUD node."""
 
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 class TestPygameHudParameters:
     """Tests for pygame HUD parameters."""

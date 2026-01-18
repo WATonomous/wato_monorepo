@@ -13,11 +13,6 @@
 # limitations under the License.
 """Tests for scenario server node."""
 
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 class TestScenarioServerParameters:
     """Tests for scenario server parameters."""

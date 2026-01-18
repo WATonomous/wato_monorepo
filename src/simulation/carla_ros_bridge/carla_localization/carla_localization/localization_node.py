@@ -13,7 +13,7 @@
 # limitations under the License.
 """Localization lifecycle node for CARLA - publishes TF from map -> odom -> base_link."""
 
-from typing import Optional
+from typing import Any, Optional
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rcl_interfaces.msg import ParameterDescriptor
@@ -37,35 +37,47 @@ class LocalizationNode(LifecycleNode):
 
         # CARLA connection parameters
         self.declare_parameter(
-            "carla_host", "localhost",
-            ParameterDescriptor(description="CARLA server hostname"))
+            "carla_host",
+            "localhost",
+            ParameterDescriptor(description="CARLA server hostname"),
+        )
         self.declare_parameter(
-            "carla_port", 2000,
-            ParameterDescriptor(description="CARLA server port"))
+            "carla_port", 2000, ParameterDescriptor(description="CARLA server port")
+        )
         self.declare_parameter(
-            "carla_timeout", 10.0,
-            ParameterDescriptor(description="Connection timeout in seconds"))
+            "carla_timeout",
+            10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"),
+        )
         self.declare_parameter(
-            "role_name", "ego_vehicle",
-            ParameterDescriptor(description="Role name of the ego vehicle to track"))
+            "role_name",
+            "ego_vehicle",
+            ParameterDescriptor(description="Role name of the ego vehicle to track"),
+        )
 
         # TF frame parameters
         self.declare_parameter(
-            "map_frame", "map",
-            ParameterDescriptor(description="Name of the map frame"))
+            "map_frame", "map", ParameterDescriptor(description="Name of the map frame")
+        )
         self.declare_parameter(
-            "odom_frame", "odom",
-            ParameterDescriptor(description="Name of the odom frame"))
+            "odom_frame",
+            "odom",
+            ParameterDescriptor(description="Name of the odom frame"),
+        )
         self.declare_parameter(
-            "base_link_frame", "base_link",
-            ParameterDescriptor(description="Name of the base_link frame"))
+            "base_link_frame",
+            "base_link",
+            ParameterDescriptor(description="Name of the base_link frame"),
+        )
         self.declare_parameter(
-            "publish_rate", 50.0,
-            ParameterDescriptor(description="TF publish rate in Hz"))
+            "publish_rate",
+            50.0,
+            ParameterDescriptor(description="TF publish rate in Hz"),
+        )
 
         # State
-        self.carla_client: Optional["carla.Client"] = None
-        self.ego_vehicle: Optional["carla.Vehicle"] = None
+        self.carla_client: Optional[Any] = None
+        self.ego_vehicle: Optional[Any] = None
 
         # ROS interfaces
         self.tf_broadcaster: Optional[TransformBroadcaster] = None

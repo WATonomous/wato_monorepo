@@ -14,7 +14,6 @@
 """Tests for transform utilities."""
 
 import math
-import pytest
 
 from carla_common.transforms import (
     euler_to_quaternion,

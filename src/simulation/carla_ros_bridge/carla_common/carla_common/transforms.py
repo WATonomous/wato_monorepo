@@ -78,9 +78,7 @@ def quaternion_to_euler(
     return roll, pitch, yaw
 
 
-def carla_to_ros_position(
-    x: float, y: float, z: float
-) -> Tuple[float, float, float]:
+def carla_to_ros_position(x: float, y: float, z: float) -> Tuple[float, float, float]:
     """
     Convert CARLA position (left-handed) to ROS position (right-handed).
 

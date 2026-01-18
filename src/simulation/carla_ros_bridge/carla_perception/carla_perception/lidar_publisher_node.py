@@ -80,22 +80,32 @@ class LidarPublisherNode(LifecycleNode):
 
         # CARLA connection parameters
         self.declare_parameter(
-            "carla_host", "localhost",
-            ParameterDescriptor(description="CARLA server hostname"))
+            "carla_host",
+            "localhost",
+            ParameterDescriptor(description="CARLA server hostname"),
+        )
         self.declare_parameter(
-            "carla_port", 2000,
-            ParameterDescriptor(description="CARLA server port"))
+            "carla_port", 2000, ParameterDescriptor(description="CARLA server port")
+        )
         self.declare_parameter(
-            "carla_timeout", 10.0,
-            ParameterDescriptor(description="Connection timeout in seconds"))
+            "carla_timeout",
+            10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"),
+        )
         self.declare_parameter(
-            "role_name", "ego_vehicle",
-            ParameterDescriptor(description="Role name of the ego vehicle to attach sensors to"))
+            "role_name",
+            "ego_vehicle",
+            ParameterDescriptor(
+                description="Role name of the ego vehicle to attach sensors to"
+            ),
+        )
 
         # List of LiDAR names to spawn
         self.declare_parameter(
-            "lidar_names", ["lidar"],
-            ParameterDescriptor(description="List of LiDAR sensor names to spawn"))
+            "lidar_names",
+            ["lidar"],
+            ParameterDescriptor(description="List of LiDAR sensor names to spawn"),
+        )
 
         # State
         self.carla_client: Optional["carla.Client"] = None

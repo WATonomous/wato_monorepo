@@ -13,12 +13,6 @@
 # limitations under the License.
 """Tests for teleop node."""
 
-import math
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 class TestTeleopNode:
     """Tests for TeleopNode class."""
@@ -62,7 +56,7 @@ class TestTwistToControl:
     def test_reverse_motion(self):
         """Test reverse motion from negative linear.x."""
         linear_x = -5.0
-        max_speed = 10.0
+        _max_speed = 10.0
 
         # Reverse uses brake or reverse gear
         is_reverse = linear_x < 0

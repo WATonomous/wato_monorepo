@@ -33,25 +33,37 @@ class AckermannControlNode(LifecycleNode):
 
         # CARLA connection parameters
         self.declare_parameter(
-            "carla_host", "localhost",
-            ParameterDescriptor(description="CARLA server hostname"))
+            "carla_host",
+            "localhost",
+            ParameterDescriptor(description="CARLA server hostname"),
+        )
         self.declare_parameter(
-            "carla_port", 2000,
-            ParameterDescriptor(description="CARLA server port"))
+            "carla_port", 2000, ParameterDescriptor(description="CARLA server port")
+        )
         self.declare_parameter(
-            "carla_timeout", 10.0,
-            ParameterDescriptor(description="Connection timeout in seconds"))
+            "carla_timeout",
+            10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"),
+        )
         self.declare_parameter(
-            "role_name", "ego_vehicle",
-            ParameterDescriptor(description="Role name of the ego vehicle to control"))
+            "role_name",
+            "ego_vehicle",
+            ParameterDescriptor(description="Role name of the ego vehicle to control"),
+        )
 
         # Control parameters
         self.declare_parameter(
-            "command_timeout", 0.5,
-            ParameterDescriptor(description="Stop vehicle if no command received within this time (seconds)"))
+            "command_timeout",
+            0.5,
+            ParameterDescriptor(
+                description="Stop vehicle if no command received within this time (seconds)"
+            ),
+        )
         self.declare_parameter(
-            "control_rate", 50.0,
-            ParameterDescriptor(description="Control loop frequency in Hz"))
+            "control_rate",
+            50.0,
+            ParameterDescriptor(description="Control loop frequency in Hz"),
+        )
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -110,7 +122,9 @@ class AckermannControlNode(LifecycleNode):
         self.last_command = None
 
         control_rate = self.get_parameter("control_rate").value
-        self.control_timer = self.create_timer(1.0 / control_rate, self.control_timer_callback)
+        self.control_timer = self.create_timer(
+            1.0 / control_rate, self.control_timer_callback
+        )
 
         self.get_logger().info("Activation complete")
         return super().on_activate(state)

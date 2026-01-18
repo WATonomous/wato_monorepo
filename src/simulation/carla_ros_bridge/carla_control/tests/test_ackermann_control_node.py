@@ -13,10 +13,7 @@
 # limitations under the License.
 """Tests for Ackermann control node."""
 
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 
 class TestAckermannControlNode:

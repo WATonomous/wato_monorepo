@@ -14,11 +14,6 @@
 """Tests for perception nodes."""
 
 import math
-import struct
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 class TestCameraPublisher:

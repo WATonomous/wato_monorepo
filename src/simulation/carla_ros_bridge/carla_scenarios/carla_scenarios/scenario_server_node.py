@@ -36,40 +36,66 @@ class ScenarioServerNode(LifecycleNode):
 
         # CARLA connection parameters
         self.declare_parameter(
-            "carla_host", "localhost",
-            ParameterDescriptor(description="CARLA server hostname"))
+            "carla_host",
+            "localhost",
+            ParameterDescriptor(description="CARLA server hostname"),
+        )
         self.declare_parameter(
-            "carla_port", 2000,
-            ParameterDescriptor(description="CARLA server port"))
+            "carla_port", 2000, ParameterDescriptor(description="CARLA server port")
+        )
         self.declare_parameter(
-            "carla_timeout", 10.0,
-            ParameterDescriptor(description="Connection timeout in seconds"))
+            "carla_timeout",
+            10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"),
+        )
         self.declare_parameter(
-            "initial_scenario", "carla_scenarios.scenarios.default_scenario",
-            ParameterDescriptor(description="Scenario module path to load on startup"))
+            "initial_scenario",
+            "carla_scenarios.scenarios.default_scenario",
+            ParameterDescriptor(description="Scenario module path to load on startup"),
+        )
         # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
         self.declare_parameter(
-            "carla_fps", 60.0,
-            ParameterDescriptor(description="Simulation frames per second (sets fixed_delta_seconds)"))
+            "carla_fps",
+            60.0,
+            ParameterDescriptor(
+                description="Simulation frames per second (sets fixed_delta_seconds)"
+            ),
+        )
         self.declare_parameter(
-            "synchronous_mode", False,
-            ParameterDescriptor(description="Enable synchronous mode (server waits for client tick)"))
+            "synchronous_mode",
+            False,
+            ParameterDescriptor(
+                description="Enable synchronous mode (server waits for client tick)"
+            ),
+        )
         self.declare_parameter(
-            "no_rendering_mode", False,
-            ParameterDescriptor(description="Disable rendering for faster simulation"))
+            "no_rendering_mode",
+            False,
+            ParameterDescriptor(description="Disable rendering for faster simulation"),
+        )
         self.declare_parameter(
-            "substepping", True,
-            ParameterDescriptor(description="Enable physics substepping"))
+            "substepping",
+            True,
+            ParameterDescriptor(description="Enable physics substepping"),
+        )
         self.declare_parameter(
-            "max_substep_delta_time", 0.01,
-            ParameterDescriptor(description="Max physics substep time in seconds"))
+            "max_substep_delta_time",
+            0.01,
+            ParameterDescriptor(description="Max physics substep time in seconds"),
+        )
         self.declare_parameter(
-            "max_substeps", 10,
-            ParameterDescriptor(description="Max number of physics substeps per frame"))
+            "max_substeps",
+            10,
+            ParameterDescriptor(description="Max number of physics substeps per frame"),
+        )
         # Lifecycle manager coordination
         self.declare_parameter(
-            "lifecycle_manager_name", "carla_lifecycle_manager",
-            ParameterDescriptor(description="Name of the lifecycle manager node for coordination"))
+            "lifecycle_manager_name",
+            "carla_lifecycle_manager",
+            ParameterDescriptor(
+                description="Name of the lifecycle manager node for coordination"
+            ),
+        )
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -119,7 +145,7 @@ class ScenarioServerNode(LifecycleNode):
         self.carla_world.apply_settings(settings)
 
         # Verify settings were applied
-        actual = self.carla_world.get_settings()
+        _actual = self.carla_world.get_settings()
         if sync_mode:
             self.get_logger().info(
                 f"Applied settings: sync=True, fixed_delta={fixed_delta:.6f} ({carla_fps} FPS), "

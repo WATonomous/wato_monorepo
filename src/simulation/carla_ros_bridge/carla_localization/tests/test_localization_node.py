@@ -14,10 +14,6 @@
 """Tests for localization node."""
 
 import math
-import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 class TestLocalizationNode:

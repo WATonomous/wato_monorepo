@@ -14,7 +14,6 @@
 """Bounding box publisher lifecycle node for CARLA."""
 
 from typing import Optional
-import math
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from vision_msgs.msg import Detection2DArray, ObjectHypothesisWithPose
@@ -199,7 +198,8 @@ class BBoxPublisherNode(LifecycleNode):
             if max_distance > 0:
                 ego_location = self.ego_vehicle.get_location()
                 filtered_actors = [
-                    actor for actor in filtered_actors
+                    actor
+                    for actor in filtered_actors
                     if actor.get_location().distance(ego_location) <= max_distance
                 ]
 

@@ -61,38 +61,54 @@ class PygameHudNode(LifecycleNode):
 
         # Parameters
         self.declare_parameter(
-            "carla_host", "localhost",
-            ParameterDescriptor(description="CARLA server hostname"))
+            "carla_host",
+            "localhost",
+            ParameterDescriptor(description="CARLA server hostname"),
+        )
         self.declare_parameter(
-            "carla_port", 2000,
-            ParameterDescriptor(description="CARLA server port"))
+            "carla_port", 2000, ParameterDescriptor(description="CARLA server port")
+        )
         self.declare_parameter(
-            "carla_timeout", 10.0,
-            ParameterDescriptor(description="Connection timeout in seconds"))
+            "carla_timeout",
+            10.0,
+            ParameterDescriptor(description="Connection timeout in seconds"),
+        )
         self.declare_parameter(
-            "web_port", 5000,
-            ParameterDescriptor(description="Web server port for map visualization"))
+            "web_port",
+            5000,
+            ParameterDescriptor(description="Web server port for map visualization"),
+        )
         self.declare_parameter(
-            "width", 1280,
-            ParameterDescriptor(description="Render width in pixels"))
+            "width", 1280, ParameterDescriptor(description="Render width in pixels")
+        )
         self.declare_parameter(
-            "height", 720,
-            ParameterDescriptor(description="Render height in pixels"))
+            "height", 720, ParameterDescriptor(description="Render height in pixels")
+        )
         self.declare_parameter(
-            "role_name", "ego_vehicle",
-            ParameterDescriptor(description="Role name of the ego vehicle to track"))
+            "role_name",
+            "ego_vehicle",
+            ParameterDescriptor(description="Role name of the ego vehicle to track"),
+        )
         self.declare_parameter(
-            "show_triggers", False,
-            ParameterDescriptor(description="Show trigger volumes on map"))
+            "show_triggers",
+            False,
+            ParameterDescriptor(description="Show trigger volumes on map"),
+        )
         self.declare_parameter(
-            "show_connections", False,
-            ParameterDescriptor(description="Show lane connections on map"))
+            "show_connections",
+            False,
+            ParameterDescriptor(description="Show lane connections on map"),
+        )
         self.declare_parameter(
-            "show_spawn_points", False,
-            ParameterDescriptor(description="Show spawn points on map"))
+            "show_spawn_points",
+            False,
+            ParameterDescriptor(description="Show spawn points on map"),
+        )
         self.declare_parameter(
-            "frame_rate", 30.0,
-            ParameterDescriptor(description="Frame rate for web streaming in Hz"))
+            "frame_rate",
+            30.0,
+            ParameterDescriptor(description="Frame rate for web streaming in Hz"),
+        )
 
         # State
         self.carla_client = None

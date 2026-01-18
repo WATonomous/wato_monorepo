@@ -16,8 +16,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 class TestConnectCarla:
     """Tests for connect_carla function."""
@@ -56,7 +54,7 @@ class TestConnectCarla:
 
             importlib.reload(carla_utils)
 
-            client = carla_utils.connect_carla("192.168.1.100", 3000, 30.0)
+            _client = carla_utils.connect_carla("192.168.1.100", 3000, 30.0)
 
             mock_carla.Client.assert_called_once_with("192.168.1.100", 3000)
             mock_client.set_timeout.assert_called_once_with(30.0)

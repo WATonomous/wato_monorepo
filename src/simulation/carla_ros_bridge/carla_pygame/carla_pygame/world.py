@@ -465,4 +465,3 @@ class World:
 
         self.mouse_offset[0] += dx - new_dx
         self.mouse_offset[1] += dy - new_dy
-
