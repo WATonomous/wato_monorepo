@@ -1,9 +1,0 @@
-<?xml version="1.0"?>
-<scenarios>
-    <scenario name="OtherLeadingVehicle_Custom" type="OtherLeadingVehicle" town="Town05">
-        <ego_vehicle x="-10" y="191.1" z="3" yaw="-180" model="vehicle.tesla.model3" role_name="ego_vehicle"/>
-    </scenario>
-    <scenario name="ManeuverOppositeDirection_Custom" type="ManeuverOppositeDirection" town="Town05">
-        <ego_vehicle x="94" y="144.7" z="2" yaw="-19" model="vehicle.tesla.model3" role_name="ego_vehicle"/>
-    </scenario>
-</scenarios>

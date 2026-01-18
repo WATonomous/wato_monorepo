@@ -1,5 +1,0 @@
----
-mpc_bridge_node:
-  ros_parameters:
-    mpc_output_topic: /mpc_output
-    steering_publisher_topic: /steering_data
