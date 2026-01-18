@@ -12,15 +12,89 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
-# Hikrobot common camera configuration
-/**:
+# Hikrobot camera configuration
+
+# Panorama cameras
+camera_pano_nn:
   ros__parameters:
-    pkg: camera_aravis2
-    exec: camera_driver_gv
-    namespace: ""
-    output: screen
-    emulate_tty: true
-    stream_names: ["rgb"]
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_pano_ne:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_pano_ee:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_pano_se:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_pano_ss:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_pano_sw:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_pano_ww:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_pano_nw:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+# Lower cameras
+camera_lower_ne:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_lower_se:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_lower_sw:
+  ros__parameters:
+    verbose: false
+    transport_layer_packet_size: 9156
+    acquisition_frame_rate_enable: true
+    acquisition_frame_rate: 63.0
+
+camera_lower_nw:
+  ros__parameters:
     verbose: false
     transport_layer_packet_size: 9156
     acquisition_frame_rate_enable: true
