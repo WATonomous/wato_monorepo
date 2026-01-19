@@ -98,6 +98,10 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+    volumes:
+      - /dev/input:/dev/input
+      - /run/udev:/run/udev:ro
+    privileged: true
     depends_on:
       infrastructure_bringup:
         condition: service_started
