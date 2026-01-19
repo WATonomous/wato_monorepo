@@ -1,3 +1,4 @@
+src/world_modeling/hd_map/src/hd_maps/ringroad.osm
 __pycache__/
 code_server_config/*/extensions
 code_server_config/*/start_code_server.sh

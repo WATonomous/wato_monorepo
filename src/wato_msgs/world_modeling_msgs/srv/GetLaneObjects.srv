@@ -1,0 +1,17 @@
+# Request
+geometry_msgs/Pose pose
+float32 distance_ahead
+float32 lateral_radius
+
+---
+# Response
+
+int32 num_traffic_signs
+geometry_msgs/Pose[] traffic_sign_poses
+string[] traffic_sign_types
+
+int32 num_crosswalks
+geometry_msgs/Pose[] crosswalk_poses
+
+int32 num_bike_lanes
+geometry_msgs/Pose[] bike_lane_poses

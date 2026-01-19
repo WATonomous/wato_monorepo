@@ -1,13 +1,23 @@
 # World Modeling HD Map
 
-The HD map is responsible for navigation and behavioral planning for the vehicle given a high-definition map of the roads. It implements the [Dynamic Relation Graph](https://ieeexplore.ieee.org/document/9812290) for decision making from dynamic perceptions.
+The HD map node loads and provides high-precision map data so other modules know the exact road layout, lanes, and important landmarks as well as calculating the route to the destination.
 
-## Structure
+## Info Service
+Other nodes may call various services to request information from HD map. Options include:
+-Nearest lanelet to a GPS point
+-Nearest lanelet to a XYZ point
+-Nearest lanelet to the cneter of a bounding box
 
-The HD map is based on a central routing node, which includes IO for a lanelet2 graph. The routing graph is initialized using an open street map (.osm) file and updated dynamically using the dynamic relation graph, which receivs perception inputs.
+## Sub-System Diagram
 
-The HD map projector is responsible for taking open street map files (.osm) and convert them to lanelet2 graphs.
+Currently there are 3 main components present: the manager, router, and service. The lanelet visualization file exists to visualize and see the loaded map on foxglove.
 
-The HD map destination service is responsible for taking a destination address or lat/long coordinates and passing it to the HD map routing graph. It will use the routing graph to convert the address or lat/long into a desination lanelet node, which will then be used by the lanelet graph for global planning.
+## Accessing Maps
 
-The HD map visualization node is responsible for taking the routing graph and visualizing the lanelet map as well as the route that is currently being followed.
+There are maps available at "/home/bolty/ament_ws/etc/maps/osm/" while inside the hd_map node dev container. The current default map is ringroad.osm, which is a osm of ring road here at the University of Waterloo. This can be adjusted in hd_map/config/params.yaml.
+
+## Creating new services
+
+Define a .srv file in world_modeling_msgs/srv/
+Update the srv file set in CmakeLists.txt
+Implement the service and its callback functions in hd_map_service.cpp
