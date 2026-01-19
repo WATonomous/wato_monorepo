@@ -1,0 +1,68 @@
+# Lanelet.msg
+# Complete data for a single lanelet (atomic road segment).
+#
+# Contains geometry, semantics, connectivity, and regulatory elements.
+# Used in GetRoute responses, CurrentLaneContext, and MapVisualization.
+
+int64 id
+
+# ===========================================================================
+# Geometry
+# ===========================================================================
+# Raw boundary points (not sampled, direct from map)
+
+geometry_msgs/Point[] left_boundary
+geometry_msgs/Point[] right_boundary
+geometry_msgs/Point[] centerline
+
+# ===========================================================================
+# Type
+# ===========================================================================
+# Values: "road", "intersection", "crosswalk", "parking", "bicycle_lane"
+
+string lanelet_type
+
+# ===========================================================================
+# Semantics
+# ===========================================================================
+
+# Speed limit in meters per second
+float64 speed_limit_mps
+
+# True if mandatory (legal limit), false if advisory
+bool speed_limit_is_mandatory
+
+# Intersection flags
+bool is_intersection
+bool has_traffic_light
+bool has_stop_line
+bool has_yield_sign
+bool must_yield
+
+# Lanelets this one must yield to
+int64[] yield_to_lanelet_ids
+
+# Lanelets that cross/conflict with this one
+int64[] conflicting_lanelet_ids
+
+# ===========================================================================
+# Connectivity
+# ===========================================================================
+
+# Lane change permissions
+bool can_change_left
+bool can_change_right
+
+# Adjacent lanelet IDs (-1 if none)
+int64 left_lane_id
+int64 right_lane_id
+
+# Successor lanelet IDs (what comes after this lanelet)
+int64[] successor_ids
+
+# ===========================================================================
+# Regulatory Elements
+# ===========================================================================
+
+TrafficLightInfo[] traffic_lights
+StopLineInfo[] stop_lines
