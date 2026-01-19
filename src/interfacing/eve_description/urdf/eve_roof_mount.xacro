@@ -33,7 +33,7 @@
     <joint name="lidar_cc_mount_yaw" type="fixed">
       <parent link="roof_mount"/>
       <child link="lidar_cc"/>
-      <origin xyz="0 0 0.35" rpy="0 0 0"/>
+      <origin xyz="0 0 0.35" rpy="0 0 0.10472"/>
     </joint>
 
 
