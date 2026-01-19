@@ -17,7 +17,7 @@
 
   <!-- Instantiate roof mount with position relative to chassis -->
   <xacro:roof_mount parent="base_link">
-    <origin xyz="0 0 1.76" rpy="0 0 0"/>
+    <origin xyz="0 0 1.72" rpy="0 0 0"/>
   </xacro:roof_mount>
 
   <!-- Include mirror mounts and sensors -->
