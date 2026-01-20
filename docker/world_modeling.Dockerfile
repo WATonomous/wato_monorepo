@@ -11,9 +11,6 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code
 COPY src/world_modeling world_modeling
 
-COPY src/wato_msgs/common_msgs common_msgs
-COPY src/wato_msgs/interfacing_msgs interfacing_msgs
-COPY src/wato_msgs/world_modeling_msgs world_modeling_msgs
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################

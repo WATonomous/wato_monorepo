@@ -9,7 +9,6 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
-COPY src/wato_msgs wato_msgs
 COPY src/simulation/carla_ros_bridge/carla_msgs carla_msgs
 COPY src/wato_test wato_test
 COPY src/infrastructure/infrastructure_bringup infrastructure_bringup

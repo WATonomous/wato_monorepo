@@ -10,7 +10,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code
 COPY src/action action
-COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################
