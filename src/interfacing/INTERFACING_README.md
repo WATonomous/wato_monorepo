@@ -47,8 +47,6 @@ bind-dynamic
 dhcp-range=10.8.0.100,10.8.0.200,12h
 
 # Static assignments by MAC
-dhcp-host=28:94:01:b5:ef:fe, 10.8.0.78  # NETGEAR Managed Switch
-
 dhcp-host=00:21:66:04:A1:EC,10.8.0.8    # Novatel GPS/IMU (MAC address on the GPS receiver is wrong by 1 byte)
 
 dhcp-host=00:B0:9D:1A:F0:0E,10.8.0.18   # Blackfly Cam 1 17453317
@@ -56,6 +54,7 @@ dhcp-host=00:B0:9D:0A:50:F8,10.8.0.19   # Blackfly Cam 2 17453304
 dhcp-host=00:B0:9D:0A:51:05,10.8.0.20   # Blackfly Cam 3 18542606
 
 # Hikrobot MV-CU013-80GC
+# (Note, camera_aravis2 disables DHCP for these cameras on reboot)
 # panorama cameras
 dhcp-host=34:BD:20:79:38:D9,10.8.0.30    # 0: camera_pan_NN
 dhcp-host=34:BD:20:79:39:11,10.8.0.31    # 1: camera_pan_NE
