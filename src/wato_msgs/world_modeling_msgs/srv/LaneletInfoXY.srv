@@ -1,8 +1,0 @@
-# Request
-float64 x
-float64 y
-float64 width_x
-float64 height_y
----
-# Response
-Lanelet lanelet

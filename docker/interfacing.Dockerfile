@@ -10,7 +10,6 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in module-specific source code
 COPY src/interfacing interfacing
-COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################
