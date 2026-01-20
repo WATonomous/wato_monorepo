@@ -1,9 +1,9 @@
 # Camera Bringup
 
-To publish raw frames from all three Blackfly cameras, run:
+To publish raw frames from all Hikrobot cameras, run:
 
 ```sh
-ros2 launch interfacing_bringup three_cameras.launch.py
+ros2 launch sensor_interfacing all_cameras_composed.yaml
 ```
 
 ## Computer specific
@@ -32,3 +32,5 @@ To configure permanent settings for cameras, use the MVS tool located at:
 ```
 
 We use [camera_aravis2](https://github.com/FraunhoferIOSB/camera_aravis2) to communicate with Hikrobot cameras throught the GenICam standard interface.
+
+The config file located at sensor_interfacing/config/MV-CU013-80GC_master_config.mfs can be loaded in the MVS software to ensure camera settings are consistent.

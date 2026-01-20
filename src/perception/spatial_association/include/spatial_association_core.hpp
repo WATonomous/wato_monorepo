@@ -1,24 +1,40 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef SPATIAL_ASSOCIATION_CORE_HPP
 #define SPATIAL_ASSOCIATION_CORE_HPP
 
+#include <pcl/filters/voxel_grid.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
 #include <pcl/segmentation/extract_clusters.h>
+
+#include <memory>
+#include <vector>
 
 #include "utils/projection_utils.hpp"
 
-#include <vector>
-#include <memory>
-
 // Core clustering logic without ROS dependencies
-class SpatialAssociationCore {
- public:
+class SpatialAssociationCore
+{
+public:
   // Configuration structure for clustering parameters
-  struct ClusteringParams {
+  struct ClusteringParams
+  {
     // Voxel downsampling
     float voxel_size = 0.2f;
-    
+
     // Euclidean clustering
     double euclid_cluster_tolerance = 0.5;
     int euclid_min_cluster_size = 50;
@@ -26,19 +42,19 @@ class SpatialAssociationCore {
     bool use_adaptive_clustering = true;
     double euclid_close_threshold = 10.0;
     double euclid_close_tolerance_mult = 1.5;
-    
+
     // Density filtering
     double density_weight = 0.6;
     double size_weight = 0.8;
     double distance_weight = 0.7;
     double score_threshold = 0.6;
-    
+
     // Merging
     double merge_threshold = 0.3;
-    
+
     // Detection confidence
     float object_detection_confidence = 0.4f;
-    
+
     // Quality filtering parameters (improved physics-based filtering)
     double max_distance = 60.0;
     int min_points = 5;
@@ -56,12 +72,11 @@ class SpatialAssociationCore {
     float max_aspect_ratio = 15.0f;
   };
 
-
   /**
    * @brief Constructor - initializes working PCL objects and voxel filter
    */
   SpatialAssociationCore();
-  
+
   /**
    * @brief Destructor
    */
@@ -71,21 +86,24 @@ class SpatialAssociationCore {
    * @brief Sets clustering parameters and updates voxel filter
    * @param params Clustering parameters structure
    */
-  void setParams(const ClusteringParams& params);
-  
+  void setParams(const ClusteringParams & params);
+
   /**
    * @brief Gets current clustering parameters
    * @return Reference to current clustering parameters
    */
-  const ClusteringParams& getParams() const { return params_; }
+  const ClusteringParams & getParams() const
+  {
+    return params_;
+  }
 
   /**
    * @brief Processes point cloud by applying voxel downsampling
    * @param input_cloud Input point cloud
    * @param output_cloud Output downsampled point cloud
    */
-  void processPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud,
-                        pcl::PointCloud<pcl::PointXYZ>::Ptr& output_cloud);
+  void processPointCloud(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & input_cloud, pcl::PointCloud<pcl::PointXYZ>::Ptr & output_cloud);
 
   /**
    * @brief Performs clustering on the filtered point cloud
@@ -93,8 +111,8 @@ class SpatialAssociationCore {
    * @param cluster_indices Output vector of cluster indices
    * @details Performs Euclidean clustering, density filtering, and cluster merging
    */
-  void performClustering(pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
-                       std::vector<pcl::PointIndices>& cluster_indices);
+  void performClustering(
+    pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud, std::vector<pcl::PointIndices> & cluster_indices);
 
   /**
    * @brief Computes 3D bounding boxes for clusters
@@ -103,8 +121,8 @@ class SpatialAssociationCore {
    * @return Vector of 3D bounding boxes
    */
   std::vector<ProjectionUtils::Box3D> computeClusterBoxes(
-      const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
-      const std::vector<pcl::PointIndices>& cluster_indices) const;
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud,
+    const std::vector<pcl::PointIndices> & cluster_indices) const;
 
   /**
    * @brief Assigns random colors to clusters for visualization
@@ -112,9 +130,10 @@ class SpatialAssociationCore {
    * @param cluster_indices Vector of cluster indices
    * @param colored_cluster Output colored point cloud
    */
-  void assignClusterColors(const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
-                          const std::vector<pcl::PointIndices>& cluster_indices,
-                          pcl::PointCloud<pcl::PointXYZRGB>::Ptr& colored_cluster) const;
+  void assignClusterColors(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud,
+    const std::vector<pcl::PointIndices> & cluster_indices,
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr & colored_cluster) const;
 
   /**
    * @brief Computes centroids for all clusters
@@ -122,13 +141,14 @@ class SpatialAssociationCore {
    * @param cluster_indices Vector of cluster indices
    * @param centroid_cloud Output point cloud containing cluster centroids
    */
-  void computeClusterCentroids(const pcl::PointCloud<pcl::PointXYZ>::Ptr& filtered_cloud,
-                              const std::vector<pcl::PointIndices>& cluster_indices,
-                              pcl::PointCloud<pcl::PointXYZ>::Ptr& centroid_cloud) const;
+  void computeClusterCentroids(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud,
+    const std::vector<pcl::PointIndices> & cluster_indices,
+    pcl::PointCloud<pcl::PointXYZ>::Ptr & centroid_cloud) const;
 
- private:
+private:
   ClusteringParams params_;
-  
+
   // Working PCL objects for performance optimization
   pcl::VoxelGrid<pcl::PointXYZ> voxel_filter_;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
@@ -136,4 +156,3 @@ class SpatialAssociationCore {
 };
 
 #endif  // SPATIAL_ASSOCIATION_CORE_HPP
-

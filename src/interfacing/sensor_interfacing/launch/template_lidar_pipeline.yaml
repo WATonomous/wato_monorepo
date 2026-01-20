@@ -1,0 +1,84 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Template launch file for a single lidar pipeline with driver, pointcloud transform,
+# and laserscan nodes in a composable container with intraprocess communication enabled.
+---
+launch:
+  - arg:
+      name: "lidar_name"
+      description: "Name of the lidar (e.g., lidar_cc, lidar_nw, lidar_ne)"
+
+  - arg:
+      name: "lidar_config_file"
+      description: "Path to lidar driver configuration file"
+
+  - arg:
+      name: "pointcloud_config"
+      description: "Pointcloud transform config file name (e.g., VLP32C or VLP16)"
+
+  - arg:
+      name: "calibration_file"
+      description: "Calibration file name (e.g., VeloView-VLP-32C.yaml or VLP16db.yaml)"
+
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: $(var lidar_name)_container
+      namespace: ""
+
+  - load_composable_node:
+      target: $(var lidar_name)_container
+      composable_node:
+        - pkg: velodyne_driver
+          plugin: velodyne_driver::VelodyneDriver
+          name: velodyne_driver_node_$(var lidar_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          remap:
+            - from: "velodyne_packets"
+              to: "$(var lidar_name)/velodyne_packets"
+          param:
+            - from: "$(var lidar_config_file)"
+
+        - pkg: velodyne_pointcloud
+          plugin: velodyne_pointcloud::Transform
+          name: velodyne_transform_node_$(var lidar_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          remap:
+            - from: "velodyne_packets"
+              to: "$(var lidar_name)/velodyne_packets"
+            - from: "velodyne_points"
+              to: "$(var lidar_name)/velodyne_points"
+          param:
+            - from: "$(find-pkg-share velodyne_pointcloud)/config/$(var pointcloud_config)-velodyne_transform_node-params.yaml"
+            - name: calibration
+              value: "$(find-pkg-share velodyne_pointcloud)/params/$(var calibration_file)"
+
+        - pkg: velodyne_laserscan
+          plugin: velodyne_laserscan::VelodyneLaserScan
+          name: velodyne_laserscan_node_$(var lidar_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          remap:
+            - from: "velodyne_points"
+              to: "$(var lidar_name)/velodyne_points"
+            - from: "scan"
+              to: "$(var lidar_name)/scan"
+          param:
+            - from: "$(find-pkg-share velodyne_laserscan)/config/default-velodyne_laserscan_node-params.yaml"

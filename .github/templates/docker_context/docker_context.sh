@@ -53,8 +53,8 @@ REPOSITORY="${REGISTRY_URL#*/}"
 if [[ -n ${MODIFIED_MODULES:-} ]]; then
   modules_to_process="$MODIFIED_MODULES"
 else
-  # Default: all modules except simulation
-  modules_to_process="infrastructure interfacing perception world_modeling action"
+  # Default: all modules
+  modules_to_process="infrastructure interfacing perception world_modeling action simulation"
 fi
 
 $DEBUG && { echo "▶ Modules to process:"; printf '  %s\n' "$modules_to_process"; }
@@ -62,9 +62,6 @@ $DEBUG && { echo "▶ Modules to process:"; printf '  %s\n' "$modules_to_process
 # Build matrix with one entry per module (watod will build entire module)
 declare -a json_rows
 for module in $modules_to_process; do
-  # Skip simulation
-  [[ $module == simulation ]] && continue
-
   $DEBUG && echo "↳   $module" >&2
 
   json_rows+=("$(jq -nc --arg module "$module" '{module:$module}')")

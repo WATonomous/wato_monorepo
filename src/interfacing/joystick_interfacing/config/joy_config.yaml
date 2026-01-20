@@ -1,0 +1,17 @@
+joy_node:
+  ros__parameters:
+    deadzone: 0.05
+
+joystick_node:
+  ros__parameters:
+    #left shoulder buttons
+    enable_axis: 2
+    #left and right joystick axes
+    steering_axis: 0
+    throttle_axis: 4
+    #max speed and steering angle
+    max_speed: 2.0
+    max_steering_angle: 0.5
+    #invert steering and throttle
+    invert_steering: false
+    invert_throttle: false

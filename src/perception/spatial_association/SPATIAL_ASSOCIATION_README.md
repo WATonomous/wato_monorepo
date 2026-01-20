@@ -4,11 +4,11 @@
 
 `watod build perception`
 
-2. attach a shell or open the container and run (in mode 'develop')
+1. attach a shell or open the container and run (in mode 'develop')
 
 `colcon build spatial_association`
 
-3. launch the node
+1. launch the node
 
 `ros2 launch spatial_association spatial_association_launch.yaml`
 
@@ -67,4 +67,3 @@ The filtering thresholds are based on real-world measurements:
 - Maximum detection range: 60m (configurable)
 
 For detailed information about the filtering system, see [DEVELOPING.md](./DEVELOPING.md).
-

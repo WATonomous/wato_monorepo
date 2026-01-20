@@ -129,9 +129,9 @@ Commands:
 Some common commands:
 
 ```bash
-watod bag ls # special command to list all bags inside the $BAG_DIRECTORY
+watod bag ls # lists all bags inside $BAG_DIRECTORY with relative paths
 watod bag record -a -o $BAG_NAME # records all topics, saves in $BAG_DIRECTORY/$BAG_NAME
-watod bag play $BAG_NAME # plays the bag located in $BAG_DIRECTORY/$BAG_NAME
+watod bag play $BAG_NAME/$BAG_NAME_0.mcap # plays the mcap file located in $BAG_DIRECTORY
 watod bag convert --help # we can do processing on the bags using ros2 bag conversions
 ```
 

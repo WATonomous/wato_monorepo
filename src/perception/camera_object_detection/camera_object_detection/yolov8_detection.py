@@ -33,8 +33,6 @@ try:
 except ImportError:
     _yolo_nms = None  # will use local fallback
 
-import math
-
 
 import cv2
 import numpy as np
@@ -207,7 +205,7 @@ class CameraDetectionNode(Node):
             if isinstance(self.tensorRT_model_path, str)
             else self.tensorRT_model_path
         )
-        
+
         # Check if engine file exists
         if not self.weight.exists():
             self.get_logger().error(
@@ -221,8 +219,10 @@ class CameraDetectionNode(Node):
                 f"    --max-shape 6 3 640 640 \\\n"
                 f"    --fp16"
             )
-            raise FileNotFoundError(f"TensorRT engine not found: {self.tensorRT_model_path}")
-        
+            raise FileNotFoundError(
+                f"TensorRT engine not found: {self.tensorRT_model_path}"
+            )
+
         # Get current GPU info for error messages
         gpu_name = "Unknown"
         try:
@@ -230,12 +230,12 @@ class CameraDetectionNode(Node):
                 gpu_name = torch.cuda.get_device_name(0)
         except Exception:
             pass
-        
+
         with trt.Runtime(self.logger) as runtime:
             self.tensorRT_model = runtime.deserialize_cuda_engine(
                 self.weight.read_bytes()
             )
-        
+
         # Check if deserialization succeeded (architecture mismatch returns None)
         if self.tensorRT_model is None:
             self.get_logger().warn(
@@ -243,7 +243,7 @@ class CameraDetectionNode(Node):
                 f"Current GPU: {gpu_name}. "
                 f"Attempting to rebuild engine automatically..."
             )
-            
+
             # Check if ONNX file exists, try multiple possible locations
             onnx_path = Path(self.onnx_model_path)
             if not onnx_path.exists():
@@ -253,12 +253,12 @@ class CameraDetectionNode(Node):
                     Path("/perception_models"),
                     onnx_path.parent,
                 ]
-                
+
                 found = False
                 for alt_dir in alternative_dirs:
                     if not alt_dir.exists():
                         continue
-                    
+
                     # First try exact filename match
                     exact_path = alt_dir / onnx_path.name
                     if exact_path.exists():
@@ -268,18 +268,20 @@ class CameraDetectionNode(Node):
                         onnx_path = exact_path
                         found = True
                         break
-                    
+
                     # If exact match fails, search for any .onnx file in the directory
                     try:
                         onnx_files = list(alt_dir.glob("*.onnx"))
                         if onnx_files:
                             # Prefer files with "tensorRT" or "tensor" in the name
-                            preferred = [f for f in onnx_files if "tensor" in f.name.lower()]
+                            preferred = [
+                                f for f in onnx_files if "tensor" in f.name.lower()
+                            ]
                             if preferred:
                                 onnx_path = preferred[0]
                             else:
                                 onnx_path = onnx_files[0]  # Use first .onnx file found
-                            
+
                             self.get_logger().info(
                                 f"Found ONNX model at alternative location: {onnx_path} "
                                 f"(searched in {alt_dir})"
@@ -289,7 +291,7 @@ class CameraDetectionNode(Node):
                     except Exception as e:
                         self.get_logger().debug(f"Error searching {alt_dir}: {e}")
                         continue
-                
+
                 if not found:
                     # List what we actually found for debugging
                     debug_info = []
@@ -297,10 +299,12 @@ class CameraDetectionNode(Node):
                         if alt_dir.exists():
                             try:
                                 files = list(alt_dir.glob("*.onnx"))
-                                debug_info.append(f"{alt_dir}: {[f.name for f in files]}")
+                                debug_info.append(
+                                    f"{alt_dir}: {[f.name for f in files]}"
+                                )
                             except Exception:
                                 debug_info.append(f"{alt_dir}: (error listing)")
-                    
+
                     self.get_logger().error(
                         f"ONNX model not found at: {self.onnx_model_path}\n"
                         f"Searched directories: {[str(d) for d in alternative_dirs]}\n"
@@ -311,7 +315,7 @@ class CameraDetectionNode(Node):
                         f"ONNX model not found: {self.onnx_model_path}. "
                         f"Cannot rebuild TensorRT engine automatically."
                     )
-            
+
             # Check if build_trt_engine is available
             if build_trt_engine is None:
                 self.get_logger().error(
@@ -326,7 +330,7 @@ class CameraDetectionNode(Node):
                     f"    --fp16"
                 )
                 raise RuntimeError("Cannot rebuild TensorRT engine automatically")
-            
+
             # Automatically rebuild the engine
             try:
                 self.get_logger().info(
@@ -342,20 +346,22 @@ class CameraDetectionNode(Node):
                     fp16=True,
                     int8=False,
                 )
-                self.get_logger().info("TensorRT engine rebuilt successfully. Reloading...")
-                
+                self.get_logger().info(
+                    "TensorRT engine rebuilt successfully. Reloading..."
+                )
+
                 # Retry loading the rebuilt engine
                 with trt.Runtime(self.logger) as runtime:
                     self.tensorRT_model = runtime.deserialize_cuda_engine(
                         self.weight.read_bytes()
                     )
-                
+
                 if self.tensorRT_model is None:
                     raise RuntimeError(
                         "Failed to load rebuilt TensorRT engine. "
                         "Please check the build logs for errors."
                     )
-                    
+
             except Exception as e:
                 self.get_logger().error(
                     f"Failed to rebuild TensorRT engine: {e}\n"
@@ -369,7 +375,7 @@ class CameraDetectionNode(Node):
                     f"    --fp16"
                 )
                 raise RuntimeError(f"Failed to rebuild TensorRT engine: {e}") from e
-        
+
         self.execution_context = self.tensorRT_model.create_execution_context()
         if not self.execution_context:
             self.get_logger().error("Failed to create execution context")
@@ -688,9 +694,7 @@ class CameraDetectionNode(Node):
         )
 
         # Apply batched Non-Maximum Suppression if supported
-        nms_results = _batched_nms(
-            valid_detections, conf_thres=0.5, iou_thres=0.45
-        )
+        nms_results = _batched_nms(valid_detections, conf_thres=0.5, iou_thres=0.45)
 
         # Convert detections to desired format
         decoded_results = []
@@ -922,6 +926,7 @@ def main(args=None):
 if __name__ == "__main__":
     main()
 
+
 # -------------------------
 # NMS fallback implementation
 # -------------------------
@@ -931,8 +936,12 @@ def _box_iou(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
     Returns: [len(box1), len(box2)] tensor of IoUs
     """
     # Areas
-    area1 = (box1[:, 2] - box1[:, 0]).clamp(min=0) * (box1[:, 3] - box1[:, 1]).clamp(min=0)
-    area2 = (box2[:, 2] - box2[:, 0]).clamp(min=0) * (box2[:, 3] - box2[:, 1]).clamp(min=0)
+    area1 = (box1[:, 2] - box1[:, 0]).clamp(min=0) * (box1[:, 3] - box1[:, 1]).clamp(
+        min=0
+    )
+    area2 = (box2[:, 2] - box2[:, 0]).clamp(min=0) * (box2[:, 3] - box2[:, 1]).clamp(
+        min=0
+    )
 
     # Intersections
     lt = torch.max(box1[:, None, :2], box2[:, :2])  # [N, M, 2]

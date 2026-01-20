@@ -19,37 +19,9 @@ mkdir -p "$BAG_DIRECTORY"
 
 # Handle custom ls command
 if [[ $# -gt 0 && "$1" == "ls" ]]; then
-  echo "Bags directory: $BAG_DIRECTORY"
+  echo "Usage: watod bag play <path>"
   echo ""
-
-  if [[ ! -d "$BAG_DIRECTORY" ]]; then
-    echo "Directory does not exist"
-    exit 0
-  fi
-
-  # Find all metadata.yaml files which indicate bag directories
-  mapfile -t bag_files < <(find "$BAG_DIRECTORY" -name "metadata.yaml" -type f 2>/dev/null | sort)
-
-  if [[ ${#bag_files[@]} -eq 0 ]]; then
-    echo "No bag files found"
-    exit 0
-  fi
-
-  echo "Available bags:"
-  for metadata in "${bag_files[@]}"; do
-    # Get the directory containing metadata.yaml (this is the bag)
-    bag_dir=$(dirname "$metadata")
-    # Get the relative path from BAG_DIRECTORY
-    rel_path=${bag_dir#"$BAG_DIRECTORY"/}
-
-    # Get size and modification time
-    size=$(du -sh "$bag_dir" 2>/dev/null | cut -f1)
-    mtime=$(stat -c %y "$bag_dir" 2>/dev/null | cut -d'.' -f1)
-
-    echo "  $rel_path"
-    echo "    Size: $size, Modified: $mtime"
-  done
-
+  (cd "$BAG_DIRECTORY" && ls -lhR .)
   exit 0
 fi
 
@@ -107,12 +79,12 @@ cleanup_bag() {
 
 trap cleanup_bag SIGINT SIGTERM
 
-# Get the zenoh_router container name for dependency checking
-zenoh_router_container="${COMPOSE_PROJECT_NAME}-zenoh_router-1"
+# Get the infrastructure_bringup container name for dependency checking
+infra_container="${COMPOSE_PROJECT_NAME}-infrastructure_bringup-1"
 
-# Check if zenoh_router is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${zenoh_router_container}$"; then
-  echo "Error: Zenoh router container '${zenoh_router_container}' is not running."
+# Check if infrastructure_bringup is running
+if ! docker ps --format '{{.Names}}' | grep -q "^${infra_container}$"; then
+  echo "Error: Infrastructure bringup container '${infra_container}' is not running."
   echo "Please start watod services first with './watod up -d'"
   exit 1
 fi

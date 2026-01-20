@@ -1,6 +1,6 @@
 std_msgs/Header header
 
-# ID of the detection being tracked 
+# ID of the detection being tracked
 int64 tracked_id
 # The bounding box and current position of the detection in question
 vision_msgs/Detection3D detection

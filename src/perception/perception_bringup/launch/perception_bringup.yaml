@@ -53,6 +53,3 @@ launch:
         - from: $(find-pkg-share spatial_association)/config/params.yaml
         - name: non_ground_cloud_topic
           value: /non_ground_cloud
-
-
-

@@ -54,7 +54,7 @@ The node is structured in three main layers:
          │
          ▼
 ┌─────────────────┐
-│ Quality Filter  │ 
+│ Quality Filter  │
 └────────┬────────┘
          │
          ▼
@@ -92,12 +92,12 @@ struct ObjectConstraints {
   constexpr static float kCarMaxLength = 8.0f;
   constexpr static float kCarMinWidth = 1.4f;
   constexpr static float kCarMaxWidth = 2.8f;
-  
+
   // Pedestrians/Cyclists
   constexpr static float kPedestrianMinHeight = 0.8f;
   constexpr static float kPedestrianMaxHeight = 2.2f;
   constexpr static float kPedestrianMaxWidth = 1.0f;
-  
+
   // General constraints
   constexpr static float kMinPointDensity = 5.0f;     // points per m³
   constexpr static float kMaxPointDensity = 1000.0f;  // points per m³
@@ -447,4 +447,3 @@ ProjectionUtils::filterClustersByPhysicsConstraints(stats, clusters, 60.0, /* ..
 - **2D-3D IOU Paper**: https://arxiv.org/pdf/1908.03851
 
 ---
-
