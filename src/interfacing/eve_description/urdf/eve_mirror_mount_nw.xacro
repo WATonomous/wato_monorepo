@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Mirror mount macro - allows parent specification -->
+  <xacro:macro name="mirror_mount_ne" params="parent *origin">
+    <!-- Mirror mount for all sensors -->
+    <link name="mirror_mount_ne"/>
+    <joint name="mirror_mount_ne_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="mirror_mount_ne"/>
+      <xacro:insert_block name="origin"/>
+    </joint>
+
+    <!-- Right LiDAR -->
+    <link name="lidar_ne">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.1" length="0.15"/>
+        </geometry>
+        <material name="black">
+          <color rgba="0 0 0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.1" length="0.15"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="lidar_ne_mount_yaw" type="fixed">
+      <parent link="mirror_mount_ne"/>
+      <child link="lidar_ne"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,320 @@
+---
+services:
+#################### INFRASTRUCTURE SERVICES ####################
+  infrastructure_source:
+    profiles: ["infrastructure_pre"]
+    build:
+      context: ..
+      dockerfile: docker/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+
+  infrastructure_deps:
+    profiles: ["infrastructure_pre"]
+    build:
+      context: ..
+      dockerfile: docker/infrastructure.Dockerfile
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
+
+  infrastructure_bringup:
+    ulimits:
+      memlock: -1
+    ipc: host
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+        MODULE_DEPS: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
+      cache_from:
+        - "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:main"
+      target: deploy
+    image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
+    command: /bin/bash -c "ros2 launch infrastructure_bringup infrastructure.launch.yaml foxglove_port:=${FOXGLOVE_BRIDGE_PORT:?}"
+    environment:
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+
+  log_viewer:
+    container_name: watod_log_viewer
+    build:
+      context: ../watod_scripts/tools/log-viewer
+      dockerfile: Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${LOG_VIEWER__PORT}:8888"
+
+#################### INTERFACING SERVICE ####################
+  interfacing_source:
+    profiles: ["interfacing_pre"]
+    build:
+      context: ..
+      dockerfile: docker/interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${INTERFACING_IMAGE}:source_${TAG}"
+
+  interfacing_deps:
+    profiles: ["interfacing_pre"]
+    build:
+      context: ..
+      dockerfile: docker/interfacing.Dockerfile
+      cache_from:
+        - "${INTERFACING_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${INTERFACING_IMAGE}:deps_${TAG}"
+
+  interfacing_bringup:
+    ulimits:
+      memlock: -1
+    ipc: host
+    network_mode: host
+    pull_policy: never
+    build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${INTERFACING_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${INTERFACING_IMAGE}:deps_${TAG}"
+      cache_from:
+        - "${INTERFACING_IMAGE}:${TAG}"
+        - "${INTERFACING_IMAGE}:main"
+      target: deploy
+    image: "${INTERFACING_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_launch.yaml"
+    environment:
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+    depends_on:
+      infrastructure_bringup:
+        condition: service_started
+        required: false
+
+#################### PERCEPTION SERVICE ####################
+  perception_source:
+    profiles: ["perception_pre"]
+    build:
+      context: ..
+      dockerfile: docker/perception.Dockerfile
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
+
+  perception_deps:
+    profiles: ["perception_pre"]
+    build:
+      context: ..
+      dockerfile: docker/perception.Dockerfile
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+
+  perception_bringup:
+    ulimits:
+      memlock: -1
+    ipc: host
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${PERCEPTION_IMAGE:?}:source_${TAG}"
+        MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:${TAG}"
+        - "${PERCEPTION_IMAGE:?}:main"
+      target: deploy
+    image: "${PERCEPTION_IMAGE:?}:${TAG}"
+    command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
+    volumes:
+      - /mnt/wato-drive2/perception_models:/perception_models
+    environment:
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+    depends_on:
+      infrastructure_bringup:
+        condition: service_started
+        required: false
+
+#################### WORLD MODELING SERVICE ####################
+  world_modeling_source:
+    profiles: ["world_modeling_pre"]
+    build:
+      context: ..
+      dockerfile: docker/world_modeling.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
+
+  world_modeling_deps:
+    profiles: ["world_modeling_pre"]
+    build:
+      context: ..
+      dockerfile: docker/world_modeling.Dockerfile
+      cache_from:
+        - "${WORLD_MODELING_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
+
+  world_modeling_bringup:
+    ulimits:
+      memlock: -1
+    ipc: host
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${WORLD_MODELING_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
+      cache_from:
+        - "${WORLD_MODELING_IMAGE}:${TAG}"
+        - "${WORLD_MODELING_IMAGE}:main"
+      target: deploy
+    image: "${WORLD_MODELING_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.py"
+    environment:
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+    depends_on:
+      infrastructure_bringup:
+        condition: service_started
+        required: false
+
+#################### ACTION SERVICE ####################
+  action_source:
+    profiles: ["action_pre"]
+    build:
+      context: ..
+      dockerfile: docker/action.Dockerfile
+      cache_from:
+        - "${ACTION_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${ACTION_IMAGE}:source_${TAG}"
+
+  action_deps:
+    profiles: ["action_pre"]
+    build:
+      context: ..
+      dockerfile: docker/action.Dockerfile
+      cache_from:
+        - "${ACTION_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${ACTION_IMAGE}:deps_${TAG}"
+
+  action_bringup:
+    ulimits:
+      memlock: -1
+    ipc: host
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${ACTION_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${ACTION_IMAGE}:deps_${TAG}"
+      cache_from:
+        - "${ACTION_IMAGE}:${TAG}"
+        - "${ACTION_IMAGE}:main"
+      target: deploy
+    image: "${ACTION_IMAGE}:${TAG}"
+    command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
+    environment:
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+    depends_on:
+      infrastructure_bringup:
+        condition: service_started
+        required: false
+
+#################### SIMULATION SERVICES ####################
+  carla_sim:
+    image: carlasim/carla:0.10.0
+    runtime: nvidia
+    init: true
+    network_mode: host
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    command: /bin/bash -c "./CarlaUnreal.sh -nosound -RenderOffscreen -quality-level=Epic -carla-rpc-port=${CARLA_PORT}"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+
+  carla_sim_no_gpu:
+    image: carlasim/carla:0.10.0
+    init: true
+    network_mode: host
+    command: /bin/bash -c "./CarlaUnreal.sh -nosound -nullrhi -carla-rpc-port=${CARLA_PORT}"
+
+  simulation_source:
+    profiles: ["simulation_pre"]
+    build:
+      context: ..
+      dockerfile: docker/simulation.Dockerfile
+      cache_from:
+        - "${SIMULATION_IMAGE:?}:source_${TAG}"
+      target: source
+    image: "${SIMULATION_IMAGE}:source_${TAG}"
+
+  simulation_deps:
+    profiles: ["simulation_pre"]
+    build:
+      context: ..
+      dockerfile: docker/simulation.Dockerfile
+      cache_from:
+        - "${SIMULATION_IMAGE:?}:deps_${TAG}"
+      target: dependencies
+    image: "${SIMULATION_IMAGE}:deps_${TAG}"
+
+  simulation_bringup:
+    ulimits:
+      memlock: -1
+    ipc: host
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${SIMULATION_IMAGE}:source_${TAG}"
+        MODULE_DEPS: "${SIMULATION_IMAGE}:deps_${TAG}"
+      cache_from:
+        - "${SIMULATION_IMAGE:?}:${TAG}"
+        - "${SIMULATION_IMAGE:?}:main"
+      target: deploy
+    image: "${SIMULATION_IMAGE}:${TAG}"
+    environment:
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
+      - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+    command: /bin/bash -c "ros2 launch simulation_bringup simulation.launch.yaml carla_port:=${CARLA_PORT} pygame_hud_enabled:=${PYGAME_HUD_ENABLED} pygame_web_port:=${PYGAME_HUD_PORT}"
+    depends_on:
+      infrastructure_bringup:
+        condition: service_started
+        required: false

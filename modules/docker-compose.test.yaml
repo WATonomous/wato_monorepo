@@ -1,0 +1,51 @@
+---
+services:
+#################### INTERFACING SERVICE ####################
+  interfacing_bringup_test:
+    profiles: ["interfacing_test"]
+    extends:
+      file: docker-compose.yaml
+      service: interfacing_bringup
+    build:
+      target: build
+    image: "${INTERFACING_IMAGE:?}:test_${TAG}"
+
+#################### PERCEPTION SERVICE ####################
+  perception_bringup_test:
+    profiles: ["perception_test"]
+    extends:
+      file: docker-compose.yaml
+      service: perception_bringup
+    build:
+      target: build
+    image: "${PERCEPTION_IMAGE:?}:test_${TAG}"
+
+#################### WORLD MODELING SERVICE ####################
+  world_modeling_bringup_test:
+    profiles: ["world_modeling_test"]
+    extends:
+      file: docker-compose.yaml
+      service: world_modeling_bringup
+    build:
+      target: build
+    image: "${WORLD_MODELING_IMAGE:?}:test_${TAG}"
+
+#################### ACTION SERVICE ####################
+  action_bringup_test:
+    profiles: ["action_test"]
+    extends:
+      file: docker-compose.yaml
+      service: action_bringup
+    build:
+      target: build
+    image: "${ACTION_IMAGE:?}:test_${TAG}"
+
+#################### SIMULATION SERVICE ####################
+  simulation_bringup_test:
+    profiles: ["simulation_test"]
+    extends:
+      file: docker-compose.yaml
+      service: simulation_bringup
+    build:
+      target: build
+    image: "${SIMULATION_IMAGE:?}:test_${TAG}"

@@ -49,47 +49,26 @@ REGISTRY="${REGISTRY_URL%%/*}"
 REPOSITORY="${REGISTRY_URL#*/}"
 
 ################################ build matrix ##################################
-shopt -s lastpipe
-modules=$(find modules -maxdepth 1 -name 'docker-compose.*.ya*ml' | sort)
+# Determine which modules to process
+if [[ -n ${MODIFIED_MODULES:-} ]]; then
+  modules_to_process="$MODIFIED_MODULES"
+else
+  # Default: all modules
+  modules_to_process="infrastructure interfacing perception world_modeling action simulation"
+fi
 
-$DEBUG && { echo "▶ Compose files found:"; printf '  %s\n' "$modules"; }
+$DEBUG && { echo "▶ Modules to process:"; printf '  %s\n' "$modules_to_process"; }
 
-declare -A seen
+# Build matrix with one entry per module (watod will build entire module)
 declare -a json_rows
+for module in $modules_to_process; do
+  $DEBUG && echo "↳   $module" >&2
 
-for compose in $modules; do
-  module_out=$(sed -n 's|modules/docker-compose\.\(.*\)\.ya.*|\1|p' <<<"$compose")
-  [[ $module_out == simulation ]] && continue
-  if [[ -n ${MODIFIED_MODULES:-} ]] && [[ " ${MODIFIED_MODULES} " != *" $module_out "* ]]; then
-    continue
-  fi
-
-  cfg=$(docker compose -f "$compose" config --format json)
-
-  echo "$cfg" | jq -r '
-    .services | to_entries[] | select(.value.build?) | [ .key,
-      (.value.build.context // "."),
-      (if (.value.build|type)=="object" then (.value.build.dockerfile // "Dockerfile") else "Dockerfile" end)
-    ] | @tsv' | while IFS=$'\t' read -r svc ctx df_rel; do
-
-      case $svc in log_viewer) continue ;; esac
-
-      [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "$(dirname "$compose")/$ctx")"
-      [[ $df_rel = /* ]] && df_abs="$df_rel" || df_abs="$(realpath -m "$ctx_abs/$df_rel")"
-      df_repo_rel="$(realpath --relative-to=. "$df_abs")"
-
-      $DEBUG && echo "↳   $svc → $df_repo_rel" >&2
-
-      [[ -n ${seen[$df_repo_rel]:-} ]] && continue
-      seen[$df_repo_rel]=1
-      json_rows+=("$(jq -nc --arg module "$module_out" --arg service "$svc" --arg dockerfile "$df_repo_rel" '{module:$module,service:$service,dockerfile:$dockerfile}')")
-  done
-
+  json_rows+=("$(jq -nc --arg module "$module" '{module:$module}')")
 done
 
-# Build final matrix JSON – every row piped into jq -s to form an array
-matrix=$(printf '%s
-' "${json_rows[@]}" | jq -s '{include: .}' | jq -c .)
+# Build final matrix JSON
+matrix=$(printf '%s\n' "${json_rows[@]}" | jq -s '{include: .}' | jq -c .)
 # --------------------------- emit outputs ---------------------------
 echo "================ EMITTING OUTPUTS ================"
 emit "docker_matrix=$matrix"
@@ -98,14 +77,8 @@ emit "repository=$REPOSITORY"
 
 # --------------------------- debug report ---------------------------
 if $DEBUG; then
-  echo -e "
-================ DEBUG REPORT ================
-"
+  echo -e "\n================ DEBUG REPORT ================"
   jq <<<"$matrix"
-  echo -e "
-Unique Dockerfiles scheduled: ${#json_rows[@]}"
-  echo   "----------------------------------------------"
-  printf '%s
-' "${!seen[@]}" | sort
+  echo -e "\nModules to build: ${#json_rows[@]}"
   echo "=============================================="
 fi

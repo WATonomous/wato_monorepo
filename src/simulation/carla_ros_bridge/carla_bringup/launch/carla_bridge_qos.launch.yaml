@@ -1,0 +1,174 @@
+# Example launch file demonstrating QoS overrides
+#
+# This launch file shows how to apply custom QoS settings to CARLA bridge nodes.
+# The QoS overrides file (config/qos_overrides.yaml) configures reliability,
+# durability, and history settings for publishers and subscribers.
+#
+# Usage:
+#   ros2 launch carla_bringup carla_bridge_qos.launch.yaml
+#
+# To customize QoS settings, edit config/qos_overrides.yaml or provide your own file.
+
+launch:
+  # Launch arguments
+  - arg:
+      name: carla_port
+      default: "2000"
+      description: "CARLA server port"
+  - arg:
+      name: pygame_hud_enabled
+      default: "true"
+      description: "Enable the pygame HUD web visualizer"
+  - arg:
+      name: pygame_web_port
+      default: "5000"
+      description: "Port for the pygame HUD web server"
+
+  # Robot Description (TF tree for sensors)
+  - include:
+      file: $(find-pkg-share carla_sample_description)/launch/robot_description.launch.yaml
+
+  # Scenario Server Node (no QoS overrides needed - uses wall time)
+  - node:
+      pkg: carla_scenarios
+      exec: scenario_server
+      name: scenario_server
+      output: screen
+      param:
+        - name: use_sim_time
+          value: false
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+
+  # Lifecycle Manager (no QoS overrides needed)
+  - node:
+      pkg: carla_lifecycle
+      exec: lifecycle_manager
+      name: carla_lifecycle_manager
+      output: screen
+      param:
+        - name: use_sim_time
+          value: false
+        - name: scenario_server_name
+          value: scenario_server
+        - name: node_names
+          value:
+            - carla_localization
+            - carla_teleop
+            - ackermann_control
+            - lidar_publisher
+            - bbox_publisher
+            - pygame_hud
+        - name: service_timeout
+          value: 10.0
+        - name: startup_retry_interval
+          value: 5.0
+
+  # Localization Node
+  - node:
+      pkg: carla_localization
+      exec: localization
+      name: carla_localization
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+
+  # Teleop Node - with QoS overrides for cmd_vel subscription
+  - node:
+      pkg: carla_teleop
+      exec: teleop
+      name: carla_teleop
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+      ros_arguments:
+        - --qos-overrides-file
+        - $(find-pkg-share carla_bringup)/config/qos_overrides.yaml
+
+  # Ackermann Control Node - with QoS overrides for command subscription
+  - node:
+      pkg: carla_control
+      exec: ackermann_control
+      name: ackermann_control
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+      ros_arguments:
+        - --qos-overrides-file
+        - $(find-pkg-share carla_bringup)/config/qos_overrides.yaml
+
+  # LiDAR Publisher Node - with QoS overrides for point cloud publisher
+  - node:
+      pkg: carla_perception
+      exec: lidar_publisher
+      name: lidar_publisher
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+      ros_arguments:
+        - --qos-overrides-file
+        - $(find-pkg-share carla_bringup)/config/qos_overrides.yaml
+
+  # BBox Publisher Node - with QoS overrides for detections publisher
+  - node:
+      pkg: carla_perception
+      exec: bbox_publisher
+      name: bbox_publisher
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+      ros_arguments:
+        - --qos-overrides-file
+        - $(find-pkg-share carla_bringup)/config/qos_overrides.yaml
+
+  # Pygame HUD Node (web-based map visualizer)
+  - node:
+      pkg: carla_pygame
+      exec: pygame_hud
+      name: pygame_hud
+      output: screen
+      if: $(var pygame_hud_enabled)
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(find-pkg-share carla_bringup)/config/carla_bridge.yaml
+        - name: carla_port
+          value: $(var carla_port)
+        - name: web_port
+          value: $(var pygame_web_port)
+
+  # 3D Detection Visualization (converts Detection3DArray to MarkerArray)
+  - node:
+      pkg: vision_msgs_markers
+      exec: vision_msgs_markers_node
+      name: bbox_markers
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+      remap:
+        - from: detections_in
+          to: /bbox_publisher/detections_3d
+        - from: markers_out
+          to: /carla/bbox_markers

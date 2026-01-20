@@ -112,6 +112,10 @@ docker run --rm -t \
   --name watod_bag_recorder \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \
+  -e "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}" \
+  -e "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}" \
+  -e "ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}" \
+  -e "ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}" \
   "$INFRASTRUCTURE_IMAGE:$TAG" \
   ros2 bag "${ros2_bag_args[@]}" &
 

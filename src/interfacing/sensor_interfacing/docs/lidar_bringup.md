@@ -11,7 +11,7 @@ ros2 launch interfacing_bringup lidar_launch_vlp32.yaml
 To visualize in Foxglove without a URDF, we need a reference frame. This will be added in a future PR that contains publishers for sensor extrinsics.
 
 ```sh
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 1 lidar_top base_link
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 1 lidar_cc base_link
 ```
 
 ## Additional Links

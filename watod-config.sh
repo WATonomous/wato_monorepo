@@ -22,23 +22,21 @@
 
 ############################ ACTIVE MODULE CONFIGURATION ############################
 ## List of active modules to run, defined in docker-compose.yaml.
+## Add ":dev" suffix to run a module in development mode (with live code editing)
+##
 ## Possible values:
 ##   - interfacing          :   starts up interfacing nodes (CAN and sensor interfaces)
-##	 - perception			:	starts perception nodes (Object detection, tracking)
-##	 - world_modeling		:	starts world modeling nodes (HD map, localization)
-##	 - action				:	starts action nodes (local planning, control)
-##	 - simulation			:	starts simulation (carla)
+##   - perception           :   starts perception nodes (Object detection, tracking)
+##   - world_modeling       :   starts world modeling nodes (HD map, localization)
+##   - action               :   starts action nodes (local planning, control)
+##   - simulation           :   starts simulation (carla)
+##
+## Examples:
+##   - "interfacing"                      : Interfacing in deploy mode
+##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
+##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-
-# export ACTIVE_MODULES=""
-
-################################# MODE OF OPERATION #################################
-## Possible modes of operation when running watod.
-## Possible values:
-##	 - deploy (default)		:	runs production-grade containers (non-editable)
-##	 - develop   		    :	runs developer containers (editable)
-
-# export MODE_OF_OPERATION=""
+export ACTIVE_MODULES="interfacing:dev"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
@@ -54,6 +52,28 @@
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
 # export BAG_DIRECTORY=""
 
+############################### ROS 2 MIDDLEWARE SETTINGS ##############################
+## Middleware to use for interprocess communication. DEFAULT = "rmw_zenoh_cpp"
+# export RMW_IMPLEMENTATION=""
+
+## Zenoh configuration - enables zero-copy transport for local communication
+## Path to Zenoh router configuration. DEFAULT = "file:///opt/watonomous/rmw_zenoh_router_config.json5"
+# export ZENOH_ROUTER_CONFIG_URI=""
+
+## Path to Zenoh session configuration. DEFAULT ="file:///opt/watonomous/rmw_zenoh_session_config.json5"
+# export ZENOH_SESSION_CONFIG_URI=""
+
+
+## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
+## Each user gets a unique domain to prevent cross-talk on shared networks
+# export ROS_DOMAIN_ID=""
+
 ############################### FOXGLOVE SETTINGS ##################################
 ## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.
 # export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"
+
+############################### SIMULATION SETTINGS ################################
+## CARLA rendering mode: "gpu" for GPU-accelerated rendering, "no_gpu" for headless/software rendering
+## Use "no_gpu" when running on machines without a GPU or when GPU resources are limited
+## DEFAULT = "no_gpu"
+# export CARLA_RENDER_MODE="no_gpu"

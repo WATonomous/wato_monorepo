@@ -4,8 +4,11 @@
   <name>action_bringup</name>
   <version>0.0.0</version>
   <description>TODO(wato): Package description</description>
-  <maintainer email="e23zhou@uwaterloo.ca">bolty</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
+
+  <!-- To enable Shared Memory IPC -->
+  <depend>rmw_zenoh_cpp</depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

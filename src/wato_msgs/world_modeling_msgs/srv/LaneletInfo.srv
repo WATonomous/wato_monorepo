@@ -1,5 +1,0 @@
-# Request
-int64 request_id
----
-# Response
-string lanelet_ptr

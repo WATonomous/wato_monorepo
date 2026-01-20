@@ -1,0 +1,57 @@
+# QoS Override Configuration for CARLA ROS Bridge
+#
+# This file configures Quality of Service settings for publishers and subscribers.
+# Use best_effort for high-frequency sensor data (cameras, lidar) to avoid blocking.
+# Use reliable for control commands and low-frequency state data.
+#
+# To apply: pass --ros-args --qos-overrides-file <path> to nodes
+#
+# Available settings:
+#   reliability: reliable | best_effort
+#   durability: volatile | transient_local
+#   history: keep_last | keep_all
+#   depth: <integer>
+
+# LiDAR Publisher
+/lidar_publisher:
+  ros__parameters:
+    qos_overrides:
+      /lidar_publisher/point_cloud:
+        publisher:
+          reliability: best_effort
+          durability: volatile
+          history: keep_last
+          depth: 1
+
+# Bounding Box Publisher
+/bbox_publisher:
+  ros__parameters:
+    qos_overrides:
+      /bbox_publisher/detections_3d:
+        publisher:
+          reliability: best_effort
+          durability: volatile
+          history: keep_last
+          depth: 5
+
+# Teleop Node
+/carla_teleop:
+  ros__parameters:
+    qos_overrides:
+      /carla_teleop/cmd_vel:
+        subscription:
+          reliability: best_effort
+          durability: volatile
+          history: keep_last
+          depth: 1
+
+# Ackermann Control Node
+/ackermann_control:
+  ros__parameters:
+    qos_overrides:
+      /ackermann_control/command:
+        subscription:
+          reliability: reliable
+          durability: volatile
+          history: keep_last
+          depth: 10

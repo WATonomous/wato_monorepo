@@ -18,6 +18,12 @@ set -e
 # Outputs a list of modified modules by comparing changes between main and current commit
 # References previous GitHub workflow steps
 
+# Infrastructure changes affect all modules, so treat it like ALL_CHANGED
+if [ "$INFRASTRUCTURE_CHANGED" == 'true' ]; then
+    echo "::notice:: Detected infrastructure changes - testing all modules"
+    ALL_CHANGED='true'
+fi
+
 # Action
 if [ "$ACTION_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
     echo "Detected action changes"
@@ -34,12 +40,6 @@ fi
 if [ "$PERCEPTION_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
     echo "Detected perception changes"
     MODIFIED_MODULES+="perception "
-fi
-
-# Samples
-if [ "$SAMPLES_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
-    echo "Detected samples changes"
-    MODIFIED_MODULES+="samples "
 fi
 
 # Simulation

@@ -9,6 +9,9 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- To enable Shared Memory IPC -->
+  <depend>rmw_zenoh_cpp</depend>
+
   <exec_depend>sensor_interfacing</exec_depend>
   <exec_depend>eve_description</exec_depend>
 

@@ -1,0 +1,6 @@
+# Plugin class name, e.g., "carla_scenarios/HighwayScenario"
+string scenario_name
+---
+bool success
+string message
+string previous_scenario

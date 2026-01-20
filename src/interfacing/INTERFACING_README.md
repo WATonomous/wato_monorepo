@@ -2,9 +2,16 @@
 
 Directory of packages that have to do with interfacing. Information about each package can be found in their respective directory.
 
-## Sub-System Diagram
+To see general network bringup information, see [the inferfacing bringup readme](./interfacing_bringup/README.md)
 
-TODO
+## Sensor Placement and Naming Convention
+Eve's sensor placement follows cardinal directions as shown below. They are also mapped to specific indicies.
+
+![alt text](.img/image.png)
+
+This naming convention is used for all sensor setup and transforms.
+
+## Sub-System Diagram
 
 ## Custom messages
 

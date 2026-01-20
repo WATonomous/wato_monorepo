@@ -1,0 +1,103 @@
+From a8b151e1d1842b4a1229718d7da9da9050c1b5bf Mon Sep 17 00:00:00 2001
+From: khuang9 <k279huan@uwaterloo.ca>
+Date: Fri, 28 Nov 2025 12:50:53 -0500
+Subject: [PATCH] class id
+
+---
+ include/ByteTrack/STrack.h | 4 +++-
+ src/BYTETracker.cpp        | 2 +-
+ src/STrack.cpp             | 9 ++++++++-
+ 3 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/include/ByteTrack/STrack.h b/include/ByteTrack/STrack.h
+index 476ed11..fb0af0a 100644
+--- a/include/ByteTrack/STrack.h
++++ b/include/ByteTrack/STrack.h
+@@ -17,7 +17,7 @@ enum class STrackState {
+ class STrack
+ {
+ public:
+-    STrack(const Rect<float>& rect, const float& score);
++    STrack(const Rect<float>& rect, const float& score, const int& class_id);
+     ~STrack();
+
+     const Rect<float>& getRect() const;
+@@ -25,6 +25,7 @@ public:
+
+     const bool& isActivated() const;
+     const float& getScore() const;
++    const int& getClassId() const;
+     const size_t& getTrackId() const;
+     const size_t& getFrameId() const;
+     const size_t& getStartFrameId() const;
+@@ -49,6 +50,7 @@ private:
+
+     bool is_activated_;
+     float score_;
++    int class_id_;
+     size_t track_id_;
+     size_t frame_id_;
+     size_t start_frame_id_;
+diff --git a/src/BYTETracker.cpp b/src/BYTETracker.cpp
+index a02abc1..31ba5bf 100644
+--- a/src/BYTETracker.cpp
++++ b/src/BYTETracker.cpp
+@@ -37,7 +37,7 @@ std::vector<byte_track::BYTETracker::STrackPtr> byte_track::BYTETracker::update(
+
+     for (const auto &object : objects)
+     {
+-        const auto strack = std::make_shared<STrack>(object.rect, object.prob);
++        const auto strack = std::make_shared<STrack>(object.rect, object.prob, object.label);
+         if (object.prob >= track_thresh_)
+         {
+             det_stracks.push_back(strack);
+diff --git a/src/STrack.cpp b/src/STrack.cpp
+index 744b254..82c4ec5 100644
+--- a/src/STrack.cpp
++++ b/src/STrack.cpp
+@@ -2,7 +2,7 @@
+
+ #include <cstddef>
+
+-byte_track::STrack::STrack(const Rect<float>& rect, const float& score) :
++byte_track::STrack::STrack(const Rect<float>& rect, const float& score, const int& class_id) :
+     kalman_filter_(),
+     mean_(),
+     covariance_(),
+@@ -10,6 +10,7 @@ byte_track::STrack::STrack(const Rect<float>& rect, const float& score) :
+     state_(STrackState::New),
+     is_activated_(false),
+     score_(score),
++    class_id_(class_id),
+     track_id_(0),
+     frame_id_(0),
+     start_frame_id_(0),
+@@ -39,6 +40,10 @@ const float& byte_track::STrack::getScore() const
+ {
+     return score_;
+ }
++const int& byte_track::STrack::getClassId() const
++{
++    return class_id_;
++}
+
+ const size_t& byte_track::STrack::getTrackId() const
+ {
+@@ -86,6 +91,7 @@ void byte_track::STrack::reActivate(const STrack &new_track, const size_t &frame
+     state_ = STrackState::Tracked;
+     is_activated_ = true;
+     score_ = new_track.getScore();
++    class_id_ = new_track.getClassId();
+     if (0 <= new_track_id)
+     {
+         track_id_ = new_track_id;
+@@ -112,6 +118,7 @@ void byte_track::STrack::update(const STrack &new_track, const size_t &frame_id)
+     state_ = STrackState::Tracked;
+     is_activated_ = true;
+     score_ = new_track.getScore();
++    class_id_ = new_track.getClassId();
+     frame_id_ = frame_id;
+     tracklet_len_++;
+ }
+--
+2.34.1
