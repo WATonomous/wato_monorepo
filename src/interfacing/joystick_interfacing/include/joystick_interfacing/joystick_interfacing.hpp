@@ -69,11 +69,6 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr idle_state_pub_;
 
   int enable_axis_;  // index of enable axis (shoulder button)
-  int deadman_axis_;  // index of deadman axis (shoulder button)
-
-  // deadman arming latching flag
-  bool enable_prev_{false};
-  bool deadman_armed_{false};
 
   int steering_axis_;  // index of steering axis (left/right joystick)
   int throttle_axis_;  // index of throttle axis (left/right joystick)
