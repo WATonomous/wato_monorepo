@@ -13,29 +13,19 @@
 # limitations under the License.
 ---
 launch:
-#   # Sensor Configs
+  # GPS Configs
   - arg:
-      name: "lidar_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/velodyne_lidar_config.yaml"
-      description: "LiDAR configuration file"
+      name: "oem7_ip_addr"
+      default: "10.8.0.8"
+      description: "IP address of the OEM7 GPS receiver"
   - arg:
-      name: "camera_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/blackfly_cameras_config.yaml"
-      description: "Camera configuration file"
-
-  # # GPS Configs
-  # - arg:
-  #     name: "oem7_ip_addr"
-  #     default: "10.8.0.8"
-  #     description: "IP address of the OEM7 GPS receiver"
-  # - arg:
-  #     name: "oem7_port"
-  #     default: "3001"
-  #     description: "TCP or UDP port for OEM7 communication"
-  # - arg:
-  #     name: "oem7_if"
-  #     default: "Oem7ReceiverTcp"
-  #     description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
 
   # # GPS - Novatel OEM7
   # - include:
@@ -48,23 +38,17 @@ launch:
   #       - name: "oem7_if"
   #         value: "$(var oem7_if)"
 
-  # # LiDAR VLP-32 with config file
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/lidar_launch_composed.yaml"
-  #     arg:
-  #       - name: "lidar_config_file"
-  #         value: "$(var lidar_config_file)"
+  # LiDAR VLP-32 with config file
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
 
   # # Eve Robot Description
   # - include:
   #     file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
 
-  # # Hikrobot Cameras
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/panorama_cameras.yaml"
-
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/lower_cameras.yaml"
+  # Hikrobot Cameras
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
 
   # Joystick Node
   - include:

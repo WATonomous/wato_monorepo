@@ -1,9 +1,9 @@
 # Camera Bringup
 
-To publish raw frames from all three Blackfly cameras, run:
+To publish raw frames from all Hikrobot cameras, run:
 
 ```sh
-ros2 launch interfacing_bringup three_cameras.launch.py
+ros2 launch sensor_interfacing all_cameras_composed.yaml
 ```
 
 ## Computer specific

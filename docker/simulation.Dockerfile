@@ -10,7 +10,6 @@ WORKDIR ${AMENT_WS}/src
 
 COPY src/simulation simulation
 COPY src/infrastructure/vision_msgs_markers vision_msgs_markers
-COPY src/wato_msgs/interfacing_msgs interfacing_msgs
 COPY src/interfacing/eve_description eve_description
 
 ################################# Dependencies ################################

@@ -41,7 +41,6 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
   rclcpp::NodeOptions options;
   options.parameter_overrides(
     {{"enable_axis", 4},
-     {"deadman_axis", 5},
      {"steering_axis", 0},
      {"throttle_axis", 1},
      {"max_speed", 2.0},
@@ -67,11 +66,10 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
   // Wait for discovery
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  auto send_joy = [&](float enable, float deadman, float steer, float throttle) {
+  auto send_joy = [&](float enable, float steer, float throttle) {
     Joy msg;
     msg.axes.resize(6, 0.0);
     msg.axes[4] = enable;  // enable_axis
-    msg.axes[5] = deadman;  // deadman_axis
     msg.axes[0] = steer;  // steering
     msg.axes[1] = throttle;  // throttle
     joy_pub->publish(msg);
@@ -84,7 +82,7 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
     auto ack_future = ack_sub->expect_next_message();
 
     // Enable not pressed (0.0)
-    send_joy(0.0, 0.0, 1.0, 1.0);
+    send_joy(0.0, 1.0, 1.0);
 
     auto idle_msg = idle_future.get();
     REQUIRE(idle_msg.data == true);
@@ -98,10 +96,10 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
     auto idle_future = idle_sub->expect_next_message();
     auto ack_future = ack_sub->expect_next_message();
 
-    // Enable pressed (-1.0), Deadman pressed (-1.0)
+    // Enable pressed (-1.0)
     // Steer 1.0 -> max_steering_angle (0.5)
     // Throttle 1.0 -> max_speed (2.0)
-    send_joy(-1.0, -1.0, 1.0, 1.0);
+    send_joy(-1.0, 1.0, 1.0);
 
     auto idle_msg = idle_future.get();
     REQUIRE(idle_msg.data == false);  // Not idle

@@ -7,7 +7,7 @@ To see general network bringup information, see [the inferfacing bringup readme]
 ## Sensor Placement and Naming Convention
 Eve's sensor placement follows cardinal directions as shown below. They are also mapped to specific indicies.
 
-![alt text](img/image.png)
+![alt text](.img/image.png)
 
 This naming convention is used for all sensor setup and transforms.
 

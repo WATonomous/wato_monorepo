@@ -106,6 +106,10 @@ services:
       infrastructure_bringup:
         condition: service_started
         required: false
+    volumes:
+      - /dev/input:/dev/input
+      - /run/udev:/run/udev:ro
+    privileged: true
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
@@ -260,11 +264,8 @@ services:
     init: true
     network_mode: host
     environment:
-      - DISPLAY=${DISPLAY}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     command: /bin/bash -c "./CarlaUnreal.sh -nosound -RenderOffscreen -quality-level=Epic -carla-rpc-port=${CARLA_PORT}"
     deploy:
       resources:

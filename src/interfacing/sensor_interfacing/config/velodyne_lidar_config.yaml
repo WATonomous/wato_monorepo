@@ -1,5 +1,5 @@
 ---
-velodyne_driver_node_cc:
+velodyne_driver_node_lidar_cc:
   ros__parameters:
     device_ip: 10.8.0.88
     gps_time: false
@@ -14,7 +14,7 @@ velodyne_driver_node_cc:
     port: 2368
     timestamp_first_packet: false
 
-velodyne_driver_node_ne:
+velodyne_driver_node_lidar_ne:
   ros__parameters:
     device_ip: 10.8.0.89
     gps_time: false
@@ -29,7 +29,7 @@ velodyne_driver_node_ne:
     port: 2369
     timestamp_first_packet: false
 
-velodyne_driver_node_nw:
+velodyne_driver_node_lidar_nw:
   ros__parameters:
     device_ip: 10.8.0.90
     gps_time: false
