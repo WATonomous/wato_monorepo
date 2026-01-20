@@ -21,6 +21,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/MapVisualization.msg"
   "srv/GetRoute.srv"
   "srv/GetCorridor.srv"
+  "srv/GetLaneletsByRegElem.srv"
   DEPENDENCIES geometry_msgs std_msgs
 )
 
