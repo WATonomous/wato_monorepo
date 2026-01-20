@@ -21,7 +21,6 @@ The node is configured via a YAML file (see [config/joy_config.yaml](./config/jo
 ### Joystick Interfacing Node
 
 - `enable_axis`: Joystick axis index for the enable button (must be pressed ≤ -0.9)
-- `deadman_axis`: Joystick axis index for the deadman button (must be pressed ≤ -0.9)
 - `steering_axis`: Joystick axis index for steering control (left/right)
 - `throttle_axis`: Joystick axis index for throttle control (forward/backward)
 - `max_speed`: Maximum speed in m/s (default: 2.0)
@@ -54,7 +53,7 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
 
 1. **Hardware Input**: The `joy_node` reads raw joystick data from the USB device and publishes to `/joy`.
 
-2. **Safety Check**: The interfacing node requires both the enable and deadman axes to be pressed (value ≤ -0.9) simultaneously. If either is not pressed, a zero-velocity command is published and the idle state is set to `true`.
+2. **Safety Check**: The interfacing node requires the enable axis to be pressed (value ≤ -0.9). If not pressed, a zero-velocity command is published and the idle state is set to `true`.
 
 3. **Command Conversion**: When safety conditions are met:
 
