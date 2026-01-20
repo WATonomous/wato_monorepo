@@ -106,10 +106,6 @@ services:
       infrastructure_bringup:
         condition: service_started
         required: false
-    volumes:
-      - /dev/input:/dev/input
-      - /run/udev:/run/udev:ro
-    privileged: true
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
