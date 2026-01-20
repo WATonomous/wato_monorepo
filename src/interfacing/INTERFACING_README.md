@@ -56,6 +56,7 @@ dhcp-host=00:B0:9D:0A:50:F8,10.8.0.19   # Blackfly Cam 2 17453304
 dhcp-host=00:B0:9D:0A:51:05,10.8.0.20   # Blackfly Cam 3 18542606
 
 # Hikrobot MV-CU013-80GC
+# (Note, camera_aravis2 disables DHCP for these cameras on reboot)
 # panorama cameras
 dhcp-host=34:BD:20:79:38:D9,10.8.0.30    # 0: camera_pan_NN
 dhcp-host=34:BD:20:79:39:11,10.8.0.31    # 1: camera_pan_NE
