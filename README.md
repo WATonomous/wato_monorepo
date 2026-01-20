@@ -25,6 +25,10 @@ These steps are to setup the monorepo to work on your own PC. We utilize docker 
 
 `Simulation` Launches packages CARLA simulator. [see docs](src/simulation/CARLA_README.md)
 
+## System Architecture
+
+![](.img/system_arch.png)
+
 ## Contribute
 
 Information on contributing to the monorepo is given in [DEVELOPING.md](./DEVELOPING.md)
