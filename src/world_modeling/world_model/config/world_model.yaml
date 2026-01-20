@@ -1,0 +1,32 @@
+world_model:
+  ros__parameters:
+    # Map configuration
+    osm_map_path: ""
+    lat_origin: 0.0
+    lon_origin: 0.0
+
+    # Frame IDs
+    map_frame: "map"
+    base_link_frame: "base_link"
+
+    # Agent tracking
+    agent_history_duration_sec: 5.0
+    agent_prune_timeout_sec: 2.0
+
+    # Traffic light tracking
+    traffic_light_timeout_sec: 1.0
+
+    # Publisher rates
+    lane_context_publish_rate_hz: 10.0
+    map_viz_publish_rate_hz: 1.0
+    map_viz_radius_m: 100.0
+
+    # Topics - Subscriptions
+    detections_topic: "/perception/detections3d"
+    tl_detections_topic: "/perception/traffic_light/detections"
+    predictions_topic: "/prediction/predictions"
+    ego_pose_topic: "/localization/ego_pose"
+
+    # Topics - Publishers
+    lane_context_topic: "~/lane_context"
+    map_viz_topic: "~/map_visualization"

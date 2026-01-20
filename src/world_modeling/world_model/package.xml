@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>world_model</name>
+  <version>0.1.0</version>
+  <description>World model node providing lanelet services, agent tracking, and traffic light state</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache 2.0</license>
+
+  <!-- Build tool -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- ROS 2 Dependencies -->
+  <depend>rclcpp</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+
+  <!-- Message Dependencies -->
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>vision_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>lanelet_msgs</depend>
+  <depend>prediction_msgs</depend>
+
+  <!-- Lanelet2 Dependencies -->
+  <depend>lanelet2_core</depend>
+  <depend>lanelet2_io</depend>
+  <depend>lanelet2_projection</depend>
+  <depend>lanelet2_routing</depend>
+  <depend>lanelet2_traffic_rules</depend>
+
+  <!-- Test Dependencies -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
