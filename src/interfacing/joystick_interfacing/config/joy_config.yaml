@@ -4,9 +4,8 @@ joy_node:
 
 joystick_node:
   ros__parameters:
-    #left and right shoulder buttons
+    #left shoulder buttons
     enable_axis: 2
-    deadman_axis: 5
     #left and right joystick axes
     steering_axis: 0
     throttle_axis: 4

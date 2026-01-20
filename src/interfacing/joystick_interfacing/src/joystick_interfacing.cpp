@@ -34,7 +34,6 @@ void JoystickNode::configure()
 {
   // Declare parameters (no default values)
   this->declare_parameter<int>("enable_axis");
-  this->declare_parameter<int>("deadman_axis");
   this->declare_parameter<int>("steering_axis");
   this->declare_parameter<int>("throttle_axis");
 
@@ -46,8 +45,6 @@ void JoystickNode::configure()
 
   // Read parameters
   enable_axis_ = this->get_parameter("enable_axis").as_int();
-  deadman_axis_ = this->get_parameter("deadman_axis").as_int();
-
   steering_axis_ = this->get_parameter("steering_axis").as_int();
   throttle_axis_ = this->get_parameter("throttle_axis").as_int();
 
@@ -66,9 +63,8 @@ void JoystickNode::configure()
 
   RCLCPP_INFO(
     this->get_logger(),
-    "Configured: enable_axis=%d deadman_axis=%d steering_axis=%d throttle_axis=%d max_speed=%.3f max_steer=%.3f",
+    "Configured: enable_axis=%d steering_axis=%d throttle_axis=%d max_speed=%.3f max_steer=%.3f",
     enable_axis_,
-    deadman_axis_,
     steering_axis_,
     throttle_axis_,
     max_speed_,
@@ -108,40 +104,13 @@ void JoystickNode::publish_zero_command()
 void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
 {
   // Safety gating
-  // Two-stage: enable AND deadman must be held
+  // enable must be held
   const bool enable_pressed = get_axis(*msg, enable_axis_) <= -0.9;
-  const bool deadman_pressed = get_axis(*msg, deadman_axis_) <= -0.9;
 
   // If enable is not held, fully disarm and stop.
   if (!enable_pressed) {
-    deadman_armed_ = false;
-    enable_prev_ = false;
-
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 500, "Safety not met (enable_axis=false) -> publishing zero command");
-    publish_neutral_state(true);
-    return;
-  }
-
-  // Enable is held. If it was just pressed, reset arming requirement.
-  const bool enable_rising_edge = enable_pressed && !enable_prev_;
-  enable_prev_ = enable_pressed;
-  if (enable_rising_edge) {
-    deadman_armed_ = false;
-  }
-
-  // Arm once deadman is pressed while enable is held.
-  if (!deadman_armed_ && deadman_pressed) {
-    deadman_armed_ = true;
-  }
-
-  // Not armed yet -> stop.
-  if (!deadman_armed_) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      500,
-      "Safety not met (enable held, deadman not yet pressed) -> publishing zero command");
     publish_neutral_state(true);
     return;
   }

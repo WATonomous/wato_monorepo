@@ -13,6 +13,16 @@
 # limitations under the License.
 ---
 launch:
+  # Sensor Configs
+  - arg:
+      name: "lidar_config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/velodyne_lidar_config.yaml"
+      description: "LiDAR configuration file"
+  - arg:
+      name: "camera_config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/blackfly_cameras_config.yaml"
+      description: "Camera configuration file"
+
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
