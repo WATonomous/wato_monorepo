@@ -19,6 +19,7 @@ from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackRet
 from rcl_interfaces.msg import ParameterDescriptor
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
+from nav_msgs.msg import Odometry
 
 from carla_common import (
     connect_carla,
@@ -74,6 +75,15 @@ class LocalizationNode(LifecycleNode):
             50.0,
             ParameterDescriptor(description="TF publish rate in Hz"),
         )
+        # odometry topic
+        self.declare_parameter(
+            "odom_topic",
+            "/ego/odom",
+            ParameterDescriptor(
+                description="Odometry topic to publish ego linear velocity"
+            ),
+        )
+        self.odom_pub: Optional[object] = None
 
         # State
         self.carla_client: Optional[Any] = None
@@ -119,6 +129,9 @@ class LocalizationNode(LifecycleNode):
         # Create TF broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)
 
+        odom_topic = self.get_parameter("odom_topic").value
+        self.odom_pub = self.create_lifecycle_publisher(Odometry, odom_topic, 10)
+
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
 
@@ -150,6 +163,10 @@ class LocalizationNode(LifecycleNode):
         """Cleanup lifecycle callback."""
         self.get_logger().info("Cleaning up...")
 
+        if self.odom_pub:
+            self.destroy_publisher(self.odom_pub)
+            self.odom_pub = None
+
         # Release resources
         self.tf_broadcaster = None
         self.ego_vehicle = None
@@ -165,7 +182,7 @@ class LocalizationNode(LifecycleNode):
 
     def publish_tf_callback(self):
         """Publish TF transforms from CARLA ground truth."""
-        if not self.ego_vehicle or not self.tf_broadcaster:
+        if not self.ego_vehicle or self.tf_broadcaster is None or self.odom_pub is None:
             return
 
         try:
@@ -221,6 +238,29 @@ class LocalizationNode(LifecycleNode):
 
             # Broadcast both transforms
             self.tf_broadcaster.sendTransform([map_to_odom, odom_to_base])
+
+            # Publish Odometry
+            carla_vel = self.ego_vehicle.get_velocity()  # carla.Vector3D (m/s)
+
+            # Convert CARLA axes to ROS axes:
+            vx, vy, vz = carla_to_ros_position(carla_vel.x, carla_vel.y, carla_vel.z)
+
+            odom = Odometry()
+            odom.header.stamp = now
+            odom.header.frame_id = odom_frame
+            odom.child_frame_id = base_link_frame
+            odom.pose.pose.position.x = x
+            odom.pose.pose.position.y = y
+            odom.pose.pose.position.z = z
+            odom.pose.pose.orientation.x = qx
+            odom.pose.pose.orientation.y = qy
+            odom.pose.pose.orientation.z = qz
+            odom.pose.pose.orientation.w = qw
+            odom.twist.twist.linear.x = float(vx)
+            odom.twist.twist.linear.y = float(vy)
+            odom.twist.twist.linear.z = float(vz)
+
+            self.odom_pub.publish(odom)
 
         except Exception as e:
             self.get_logger().error(f"Error publishing TF: {e}")
