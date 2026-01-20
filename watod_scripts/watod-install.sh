@@ -14,21 +14,51 @@
 # limitations under the License.
 set -euo pipefail
 
-# watod-install.sh - Install watod to ~/.local/bin for global access
+# watod-install.sh - Install watod and bash completion for global access
 
 MONO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_BIN_DIR="/usr/local/bin"
 WATOD_PATH="$MONO_DIR/watod"
 
-# Check if watod already exists
-if [[ -e "$INSTALL_DIR/watod" ]]; then
-  echo "Error: watod is already installed at $INSTALL_DIR/watod" >&2
-  echo "Remove it first if you want to reinstall." >&2
-  exit 1
+echo "Checking watod installation..."
+
+# 1. Install/Update watod binary symlink
+if [[ -L "$INSTALL_BIN_DIR/watod" ]]; then
+  echo "Notice: watod symlink already exists at $INSTALL_BIN_DIR/watod. Updating."
+  sudo ln -sf "$WATOD_PATH" "$INSTALL_BIN_DIR/watod"
+elif [[ -e "$INSTALL_BIN_DIR/watod" ]]; then
+  echo "Notice: watod already exists at $INSTALL_BIN_DIR/watod. Skipping binary symlink creation."
+else
+  sudo ln -s "$WATOD_PATH" "$INSTALL_BIN_DIR/watod"
+  echo "✓ watod installed successfully to $INSTALL_BIN_DIR/watod"
 fi
 
-# Create symlink (requires sudo)
-sudo ln -s "$WATOD_PATH" "$INSTALL_DIR/watod"
-echo "✓ watod installed successfully to $INSTALL_DIR/watod"
+# 2. Install/Update bash completion
+COMPLETION_SRC="$MONO_DIR/watod_completion.bash"
+COMPLETION_INSTALLED=false
+
+echo "Checking bash completion..."
+
+for dir in "/usr/share/bash-completion/completions" "/etc/bash_completion.d"; do
+  if [[ -d "$dir" ]]; then
+    COMPLETION_DEST="$dir/watod"
+    if [[ -L "$COMPLETION_DEST" ]]; then
+      echo "Notice: Bash completion symlink already exists. Updating."
+      sudo ln -sf "$COMPLETION_SRC" "$COMPLETION_DEST"
+    elif [[ -e "$COMPLETION_DEST" ]]; then
+      echo "Notice: Bash completion already exists at $COMPLETION_DEST. Skipping."
+    else
+      sudo ln -s "$COMPLETION_SRC" "$COMPLETION_DEST"
+      echo "✓ Bash completion installed to $COMPLETION_DEST"
+    fi
+    COMPLETION_INSTALLED=true
+    break
+  fi
+done
+
+if [[ "$COMPLETION_INSTALLED" = false ]]; then
+  echo "Warning: Could not find bash-completion directory. Autocomplete not installed."
+fi
+
 echo ""
-echo "You can now run 'watod' from any directory within a monorepo!"
+echo "You can now run 'watod' from any directory within a monorepo with autocomplete!"
