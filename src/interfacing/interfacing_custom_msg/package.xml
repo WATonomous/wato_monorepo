@@ -1,31 +1,19 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>joystick_interfacing</name>
+  <name>interfacing_custom_msg</name>
   <version>0.0.0</version>
-  <description>Joystick interfacing node for Eve.</description>
+  <description>TODO: Package description</description>
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-
-  <!-- Build and runtime dependencies -->
-  <depend>rclcpp</depend>
-  <depend>rclcpp_components</depend>
-  <depend>sensor_msgs</depend>
-  <depend>ackermann_msgs</depend>
+  <build_depend>rosidl_default_generators</build_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
   <depend>std_msgs</depend>
-  <depend>interfacing_custom_msg</depend>
-
-  <!-- Runtime dependency for joy_node -->
-  <exec_depend>joy</exec_depend>
-
-
-  <test_depend>wato_test</test_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
     <build_type>ament_cmake</build_type>
   </export>
-
-
 </package>

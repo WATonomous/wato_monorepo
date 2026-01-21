@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
+#include <interfacing_custom_msg/msg/roscco.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <std_msgs/msg/bool.hpp>
@@ -46,6 +47,7 @@ private:
    * @brief Safe accessors (avoid out-of-range)
    */
   double get_axis(const sensor_msgs::msg::Joy & msg, int axis_index) const;
+  bool get_button(const sensor_msgs::msg::Joy & msg, int button_index) const;
 
   /**
    * @brief Publishes both the idle state and a zero-velocity command.
@@ -66,9 +68,11 @@ private:
   // ROS Interfaces
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_drive_stamped_pub_;
+  rclcpp::Publisher<interfacing_custom_msg::msg::Roscco>::SharedPtr roscco_joystick_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr idle_state_pub_;
 
   int enable_axis_;  // index of enable axis (shoulder button)
+  int toggle_button_;  // index of toggle button
 
   int steering_axis_;  // index of steering axis (left/right joystick)
   int throttle_axis_;  // index of throttle axis (left/right joystick)
@@ -78,5 +82,8 @@ private:
 
   bool invert_steering_;  // invert steering direction
   bool invert_throttle_;  // invert throttle direction
+
+  bool use_roscco_topic_{false};  // toggle between /joystick/ackermann and /joystick/roscco
+  bool prev_toggle_button_pressed_{false};  // previous state of toggle button for edge detection
 };
 }  // namespace joystick_node

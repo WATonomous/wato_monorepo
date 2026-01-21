@@ -6,6 +6,7 @@ ROS2 node that interfaces with physical joystick hardware and converts joystick 
 
 - **Hardware integration**: Uses the ROS `joy` package to read joystick input from USB devices
 - **Ackermann command conversion**: Maps joystick axes to steering angle and speed commands
+- **Output topic toggling**: Allows switching between standard Ackermann commands and ROSCCO commands via a joystick button
 - **Safety gating**: Requires both enable and deadman buttons to be pressed simultaneously for commands to be published
 - **Idle state tracking**: Publishes idle status for use by the ackermann mux
 - **Configurable mapping**: Supports custom axis assignments, max speeds, steering limits, and axis inversion
@@ -21,6 +22,7 @@ The node is configured via a YAML file (see [config/joy_config.yaml](./config/jo
 ### Joystick Interfacing Node
 
 - `enable_axis`: Joystick axis index for the enable button (must be pressed ≤ -0.9)
+- `toggle_button`: Joystick button index to toggle between Ackermann and ROSCCO output (default: 0)
 - `steering_axis`: Joystick axis index for steering control (left/right)
 - `throttle_axis`: Joystick axis index for throttle control (forward/backward)
 - `max_speed`: Maximum speed in m/s (default: 2.0)
@@ -47,6 +49,7 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
 ### Published
 
 - `/joystick/ackermann` (`ackermann_msgs/msg/AckermannDriveStamped`): Ackermann drive commands derived from joystick input
+- `/joystick/roscco` (`interfacing_custom_msg/msg/Roscco`): ROSCCO drive commands derived from joystick input (used when toggled)
 - `/joystick/is_idle` (`std_msgs/msg/Bool`): Idle state indicator (true when joystick is not active, used by ackermann mux for masking)
 
 ## How It Works
@@ -61,7 +64,9 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
    - Throttle axis is mapped to speed: `speed = clamp(axis_value, -1.0, 1.0) * max_speed`
    - Inversion flags are applied if configured
 
-4. **Output**: The converted Ackermann command is published with the current timestamp, and the idle state is set to `false`.
+4. **Topic Selection**: If the toggle button is pressed (rising edge), the node switches between publishing to `/joystick/ackermann` and `/joystick/roscco`.
+
+5. **Output**: The converted command (either Ackermann or ROSCCO) is published with the current timestamp, and the idle state is set to `false`.
 
 ## Finding Joystick Axis Indices
 
