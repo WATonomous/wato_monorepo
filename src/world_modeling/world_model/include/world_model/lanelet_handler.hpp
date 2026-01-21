@@ -18,6 +18,7 @@
 #include <lanelet2_core/LaneletMap.h>
 #include <lanelet2_core/primitives/Lanelet.h>
 #include <lanelet2_io/Io.h>
+#include <lanelet2_projection/LocalCartesian.h>
 #include <lanelet2_projection/UTM.h>
 #include <lanelet2_routing/RoutingGraph.h>
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
@@ -29,79 +30,122 @@
 
 #include "geometry_msgs/msg/point.hpp"
 #include "lanelet_msgs/msg/corridor.hpp"
-#include "lanelet_msgs/msg/current_lane_context.hpp"
+#include "lanelet_msgs/msg/corridor_lane.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
-#include "lanelet_msgs/msg/map_visualization.hpp"
 #include "lanelet_msgs/srv/get_corridor.hpp"
 #include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
 #include "lanelet_msgs/srv/get_route.hpp"
-#include "rclcpp/rclcpp.hpp"
 
 namespace world_model
 {
 
+/**
+ * @brief Wrapper around Lanelet2 map for queries and service implementations.
+ *
+ * Thread-safe for concurrent reads after loadMap() completes.
+ * Lanelet2 routing graph is immutable after construction.
+ */
 class LaneletHandler
 {
 public:
-  LaneletHandler();
+  LaneletHandler() = default;
   ~LaneletHandler() = default;
 
+  // Non-copyable, movable
+  LaneletHandler(const LaneletHandler &) = delete;
+  LaneletHandler & operator=(const LaneletHandler &) = delete;
+  LaneletHandler(LaneletHandler &&) = default;
+  LaneletHandler & operator=(LaneletHandler &&) = default;
+
   /**
-   * Load an OSM lanelet map with UTM projection.
+   * @brief Load an OSM lanelet map with configurable projection.
    *
    * @param osm_path Path to the .osm file
-   * @param lat_origin Latitude origin for UTM projection
-   * @param lon_origin Longitude origin for UTM projection
+   * @param utm_origin_x X offset from UTM origin to map frame origin (meters)
+   * @param utm_origin_y Y offset from UTM origin to map frame origin (meters)
+   * @param projector_type Projector type: "utm" or "local_cartesian"
    * @return true if map loaded successfully
    */
-  bool loadMap(const std::string & osm_path, double lat_origin, double lon_origin);
+  bool loadMap(
+    const std::string & osm_path,
+    double utm_origin_x,
+    double utm_origin_y,
+    const std::string & projector_type = "utm");
 
   /**
-   * Check if the map is loaded.
+   * @brief Check if the map is loaded.
    */
-  bool isMapLoaded() const;
+  bool isMapLoaded() const { return map_ != nullptr; }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Queries (all const, thread-safe for concurrent reads)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  std::optional<lanelet::ConstLanelet> findNearestLanelet(
+    const geometry_msgs::msg::Point & point) const;
+
+  std::optional<int64_t> findNearestLaneletId(
+    const geometry_msgs::msg::Point & point) const;
+
+  std::optional<lanelet::ConstLanelet> getLaneletById(int64_t id) const;
+
+  std::vector<lanelet::ConstLanelet> getLaneletsInRadius(
+    const geometry_msgs::msg::Point & center, double radius) const;
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // Service implementations
-  lanelet_msgs::srv::GetRoute::Response getRoute(int64_t from_id, int64_t to_id);
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  lanelet_msgs::srv::GetRoute::Response getRoute(int64_t from_id, int64_t to_id) const;
+
   lanelet_msgs::srv::GetCorridor::Response getCorridor(
     int64_t from_id, int64_t to_id, double max_length_m,
-    double sample_spacing_m, int32_t num_lanes_each_side);
-  lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id);
+    double sample_spacing_m) const;
 
-  // Query methods
-  std::optional<lanelet::ConstLanelet> findNearestLanelet(const geometry_msgs::msg::Point & point);
-  std::optional<lanelet::ConstLanelet> getLaneletById(int64_t id);
-  std::vector<lanelet::ConstLanelet> getLaneletsInRadius(
-    const geometry_msgs::msg::Point & center, double radius);
+  lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(
+    int64_t reg_elem_id) const;
 
-  // Conversion methods
-  lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Conversions
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
+
   lanelet_msgs::msg::Corridor toCorridorMsg(
     const std::vector<lanelet::ConstLanelet> & route_lanelets,
-    int32_t num_lanes_each_side, double sample_spacing_m, double max_length_m);
+    double sample_spacing_m, double max_length_m) const;
 
-  // Routing graph access
-  lanelet::routing::RoutingGraphConstPtr getRoutingGraph() const;
-  lanelet::traffic_rules::TrafficRulesPtr getTrafficRules() const;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Accessors
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  lanelet::routing::RoutingGraphConstPtr getRoutingGraph() const { return routing_graph_; }
+  lanelet::traffic_rules::TrafficRulesPtr getTrafficRules() const { return traffic_rules_; }
 
 private:
   lanelet::LaneletMapPtr map_;
   lanelet::routing::RoutingGraphPtr routing_graph_;
   lanelet::traffic_rules::TrafficRulesPtr traffic_rules_;
-  std::unique_ptr<lanelet::projection::UtmProjector> projector_;
+  std::unique_ptr<lanelet::Projector> projector_;
 
-  // Helper methods
+  // Helper methods for Lanelet message
   void populateLaneletSemantics(
-    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll);
-  void populateLaneletConnectivity(
-    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll);
-  void populateLaneletRegulatoryElements(
-    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll);
+    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
-  std::vector<geometry_msgs::msg::Point> sampleCenterline(
-    const lanelet::ConstLanelet & ll, double spacing_m);
-  uint8_t getTransitionType(
-    const lanelet::ConstLanelet & from, const lanelet::ConstLanelet & to);
+  void populateLaneletConnectivity(
+    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
+
+  void populateLaneletRegulatoryElements(
+    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
+
+  // Helper methods for Corridor message
+  lanelet_msgs::msg::CorridorLane buildCorridorLane(
+    const std::vector<lanelet::ConstLanelet> & lanelets,
+    double sample_spacing_m, double max_length_m) const;
+
+  uint8_t getBoundaryType(const lanelet::ConstLineString3d & boundary) const;
+
+  double getSpeedLimit(const lanelet::ConstLanelet & ll) const;
 };
 
 }  // namespace world_model

@@ -1,8 +1,8 @@
 # GetCorridor.srv
-# Get multi-lane driving corridor for motion planning.
+# Get planning corridor for lattice-based motion planning.
 #
-# Returns a sampled corridor including the route lane and adjacent
-# lanes for lane change maneuvers.
+# Returns a sampled corridor including the route lane and immediate
+# adjacent lanes (if crossable) for lane change maneuvers.
 
 # ===========================================================================
 # Request
@@ -18,10 +18,6 @@ float64 max_length_m
 # Recommended: 0.5m for lattice planners
 float64 sample_spacing_m
 
-# Number of adjacent lanes to include on each side
-# e.g., 1 = include one lane left and one lane right (if they exist)
-int32 num_lanes_each_side
-
 ---
 
 # ===========================================================================
@@ -34,5 +30,5 @@ bool success
 # Values: "lanelet_not_found", "no_route_exists", "map_not_loaded"
 string error_message
 
-# The driving corridor
+# The planning corridor
 Corridor corridor

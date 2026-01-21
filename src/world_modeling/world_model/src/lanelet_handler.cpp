@@ -15,7 +15,6 @@
 #include "world_model/lanelet_handler.hpp"
 
 #include <lanelet2_core/geometry/Lanelet.h>
-#include <lanelet2_core/primitives/RegulatoryElement.h>
 #include <lanelet2_routing/Route.h>
 
 #include <algorithm>
@@ -25,217 +24,126 @@
 namespace world_model
 {
 
-LaneletHandler::LaneletHandler()
-: map_(nullptr), routing_graph_(nullptr), traffic_rules_(nullptr), projector_(nullptr)
-{
-}
-
-bool LaneletHandler::loadMap(const std::string & osm_path, double lat_origin, double lon_origin)
+bool LaneletHandler::loadMap(
+  const std::string & osm_path,
+  double utm_origin_x,
+  double utm_origin_y,
+  const std::string & projector_type)
 {
   try {
-    // Create UTM projector with origin
-    lanelet::Origin origin({lat_origin, lon_origin});
-    projector_ = std::make_unique<lanelet::projection::UtmProjector>(origin);
+    if (projector_type == "local_cartesian") {
+      // Use LocalCartesianProjector for CARLA-style maps with local coordinates
+      lanelet::Origin origin({0.0, 0.0});
+      projector_ = std::make_unique<lanelet::projection::LocalCartesianProjector>(origin);
+      map_ = lanelet::load(osm_path, *projector_);
+    } else {
+      // Default: UTM projector with origin offset
+      // First load OSM to get reference GPS coordinate for UTM zone
+      auto temp_projector = lanelet::projection::UtmProjector(lanelet::Origin({0, 0}));
+      auto temp_map = lanelet::load(osm_path, temp_projector);
 
-    // Load the map
-    map_ = lanelet::load(osm_path, *projector_);
-    if (!map_) {
+      if (temp_map->pointLayer.empty()) {
+        return false;
+      }
+
+      // Get first point to determine UTM zone
+      auto first_point = *temp_map->pointLayer.begin();
+      double ref_lat = first_point.y();
+      double ref_lon = first_point.x();
+
+      // Create temporary projector to convert UTM offset to GPS
+      lanelet::Origin ref_origin({ref_lat, ref_lon});
+      lanelet::projection::UtmProjector temp_utm_projector(ref_origin);
+
+      // Reverse projection to find GPS at UTM offset
+      lanelet::BasicPoint3d utm_offset(utm_origin_x, utm_origin_y, 0);
+      lanelet::GPSPoint origin_gps = temp_utm_projector.reverse(utm_offset);
+
+      // Create actual projector with computed origin
+      lanelet::Origin actual_origin({origin_gps.lat, origin_gps.lon});
+      projector_ = std::make_unique<lanelet::projection::UtmProjector>(actual_origin);
+
+      // Load map with properly positioned projector
+      map_ = lanelet::load(osm_path, *projector_);
+    }
+
+    if (!map_ || map_->laneletLayer.empty()) {
       return false;
     }
 
     // Create traffic rules for vehicles
     traffic_rules_ = lanelet::traffic_rules::TrafficRulesFactory::create(
-      lanelet::Locations::Germany, lanelet::Participants::Vehicle);
+      lanelet::Locations::Germany,
+      lanelet::Participants::Vehicle);
 
     // Build routing graph
     routing_graph_ = lanelet::routing::RoutingGraph::build(*map_, *traffic_rules_);
 
     return true;
-  } catch (const std::exception & e) {
-    map_ = nullptr;
-    routing_graph_ = nullptr;
+  } catch (const std::exception &) {
     return false;
   }
 }
 
-bool LaneletHandler::isMapLoaded() const
-{
-  return map_ != nullptr && routing_graph_ != nullptr;
-}
-
-lanelet_msgs::srv::GetRoute::Response LaneletHandler::getRoute(int64_t from_id, int64_t to_id)
-{
-  lanelet_msgs::srv::GetRoute::Response response;
-
-  if (!isMapLoaded()) {
-    response.success = false;
-    response.error_message = "map_not_loaded";
-    return response;
-  }
-
-  // Get lanelets by ID
-  auto from_ll_opt = getLaneletById(from_id);
-  auto to_ll_opt = getLaneletById(to_id);
-
-  if (!from_ll_opt.has_value() || !to_ll_opt.has_value()) {
-    response.success = false;
-    response.error_message = "lanelet_not_found";
-    return response;
-  }
-
-  // Compute route
-  auto route = routing_graph_->getRoute(from_ll_opt.value(), to_ll_opt.value());
-  if (!route) {
-    response.success = false;
-    response.error_message = "no_route_exists";
-    return response;
-  }
-
-  // Get shortest path
-  auto shortest_path = route->shortestPath();
-
-  // Build response
-  response.success = true;
-  response.total_length_m = 0.0;
-
-  for (size_t i = 0; i < shortest_path.size(); ++i) {
-    const auto & ll = shortest_path[i];
-    response.lanelets.push_back(toLaneletMsg(ll));
-    response.total_length_m += lanelet::geometry::length2d(ll);
-
-    // Add transition type
-    if (i < shortest_path.size() - 1) {
-      response.transitions.push_back(getTransitionType(ll, shortest_path[i + 1]));
-    }
-  }
-
-  return response;
-}
-
-lanelet_msgs::srv::GetCorridor::Response LaneletHandler::getCorridor(
-  int64_t from_id, int64_t to_id, double max_length_m,
-  double sample_spacing_m, int32_t num_lanes_each_side)
-{
-  lanelet_msgs::srv::GetCorridor::Response response;
-
-  if (!isMapLoaded()) {
-    response.success = false;
-    response.error_message = "map_not_loaded";
-    return response;
-  }
-
-  auto from_ll_opt = getLaneletById(from_id);
-  auto to_ll_opt = getLaneletById(to_id);
-
-  if (!from_ll_opt.has_value() || !to_ll_opt.has_value()) {
-    response.success = false;
-    response.error_message = "lanelet_not_found";
-    return response;
-  }
-
-  auto route = routing_graph_->getRoute(from_ll_opt.value(), to_ll_opt.value());
-  if (!route) {
-    response.success = false;
-    response.error_message = "no_route_exists";
-    return response;
-  }
-
-  auto shortest_path = route->shortestPath();
-  std::vector<lanelet::ConstLanelet> route_lanelets(shortest_path.begin(), shortest_path.end());
-
-  response.success = true;
-  response.corridor = toCorridorMsg(route_lanelets, num_lanes_each_side, sample_spacing_m, max_length_m);
-
-  return response;
-}
-
-lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(
-  int64_t reg_elem_id)
-{
-  lanelet_msgs::srv::GetLaneletsByRegElem::Response response;
-
-  if (!isMapLoaded()) {
-    response.success = false;
-    response.error_message = "map_not_loaded";
-    return response;
-  }
-
-  // Find regulatory element
-  auto reg_elem = map_->regulatoryElementLayer.find(reg_elem_id);
-  if (reg_elem == map_->regulatoryElementLayer.end()) {
-    response.success = false;
-    response.error_message = "reg_elem_not_found";
-    return response;
-  }
-
-  response.success = true;
-
-  // Find all lanelets that reference this regulatory element
-  for (const auto & ll : map_->laneletLayer) {
-    for (const auto & re : ll.regulatoryElements()) {
-      if (re->id() == reg_elem_id) {
-        response.lanelets.push_back(toLaneletMsg(ll));
-        break;
-      }
-    }
-  }
-
-  return response;
-}
-
 std::optional<lanelet::ConstLanelet> LaneletHandler::findNearestLanelet(
-  const geometry_msgs::msg::Point & point)
+  const geometry_msgs::msg::Point & point) const
 {
-  if (!isMapLoaded()) {
+  if (!map_) {
     return std::nullopt;
   }
 
   lanelet::BasicPoint2d search_point(point.x, point.y);
   double min_dist = std::numeric_limits<double>::max();
-  lanelet::ConstLanelet nearest;
-  bool found = false;
+  std::optional<lanelet::ConstLanelet> nearest;
 
   for (const auto & ll : map_->laneletLayer) {
     double dist = lanelet::geometry::distance2d(ll, search_point);
     if (dist < min_dist) {
       min_dist = dist;
       nearest = ll;
-      found = true;
     }
   }
 
-  if (found) {
-    return nearest;
+  return nearest;
+}
+
+std::optional<int64_t> LaneletHandler::findNearestLaneletId(
+  const geometry_msgs::msg::Point & point) const
+{
+  auto nearest = findNearestLanelet(point);
+  if (nearest.has_value()) {
+    return nearest->id();
   }
   return std::nullopt;
 }
 
-std::optional<lanelet::ConstLanelet> LaneletHandler::getLaneletById(int64_t id)
+std::optional<lanelet::ConstLanelet> LaneletHandler::getLaneletById(int64_t id) const
 {
-  if (!isMapLoaded()) {
+  if (!map_) {
     return std::nullopt;
   }
 
-  auto it = map_->laneletLayer.find(id);
-  if (it != map_->laneletLayer.end()) {
-    return *it;
+  try {
+    return map_->laneletLayer.get(id);
+  } catch (const std::exception &) {
+    return std::nullopt;
   }
-  return std::nullopt;
 }
 
 std::vector<lanelet::ConstLanelet> LaneletHandler::getLaneletsInRadius(
-  const geometry_msgs::msg::Point & center, double radius)
+  const geometry_msgs::msg::Point & center, double radius) const
 {
   std::vector<lanelet::ConstLanelet> result;
 
-  if (!isMapLoaded()) {
+  if (!map_) {
     return result;
   }
 
   lanelet::BasicPoint2d center_pt(center.x, center.y);
 
   for (const auto & ll : map_->laneletLayer) {
-    if (lanelet::geometry::distance2d(ll, center_pt) <= radius) {
+    double dist = lanelet::geometry::distance2d(ll, center_pt);
+    if (dist <= radius) {
       result.push_back(ll);
     }
   }
@@ -243,12 +151,105 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getLaneletsInRadius(
   return result;
 }
 
-lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(const lanelet::ConstLanelet & ll)
+lanelet_msgs::srv::GetRoute::Response LaneletHandler::getRoute(
+  int64_t from_id, int64_t to_id) const
+{
+  lanelet_msgs::srv::GetRoute::Response response;
+  response.success = false;
+
+  if (!map_ || !routing_graph_) {
+    response.error_message = "Map not loaded";
+    return response;
+  }
+
+  auto from_ll = getLaneletById(from_id);
+  auto to_ll = getLaneletById(to_id);
+
+  if (!from_ll.has_value() || !to_ll.has_value()) {
+    response.error_message = "Invalid lanelet ID";
+    return response;
+  }
+
+  auto route = routing_graph_->getRoute(*from_ll, *to_ll, 0);
+  if (!route) {
+    response.error_message = "No route found";
+    return response;
+  }
+
+  auto shortest_path = route->shortestPath();
+  for (const auto & ll : shortest_path) {
+    response.lanelets.push_back(toLaneletMsg(ll));
+  }
+
+  response.success = true;
+  return response;
+}
+
+lanelet_msgs::srv::GetCorridor::Response LaneletHandler::getCorridor(
+  int64_t from_id, int64_t to_id, double max_length_m,
+  double sample_spacing_m) const
+{
+  lanelet_msgs::srv::GetCorridor::Response response;
+  response.success = false;
+
+  auto route_response = getRoute(from_id, to_id);
+  if (!route_response.success) {
+    response.error_message = route_response.error_message;
+    return response;
+  }
+
+  // Convert route lanelet IDs to lanelet objects
+  std::vector<lanelet::ConstLanelet> route_lanelets;
+  for (const auto & lanelet_msg : route_response.lanelets) {
+    auto ll = getLaneletById(lanelet_msg.id);
+    if (ll.has_value()) {
+      route_lanelets.push_back(*ll);
+    }
+  }
+
+  response.corridor = toCorridorMsg(route_lanelets, sample_spacing_m, max_length_m);
+  response.success = true;
+  return response;
+}
+
+lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(
+  int64_t reg_elem_id) const
+{
+  lanelet_msgs::srv::GetLaneletsByRegElem::Response response;
+  response.success = false;
+
+  if (!map_) {
+    response.error_message = "Map not loaded";
+    return response;
+  }
+
+  try {
+    auto reg_elem = map_->regulatoryElementLayer.get(reg_elem_id);
+
+    for (const auto & ll : map_->laneletLayer) {
+      for (const auto & re : ll.regulatoryElements()) {
+        if (re->id() == reg_elem_id) {
+          response.lanelets.push_back(toLaneletMsg(ll));
+          break;
+        }
+      }
+    }
+
+    response.success = true;
+  } catch (const std::exception & e) {
+    response.error_message = std::string("Regulatory element not found: ") + e.what();
+  }
+
+  return response;
+}
+
+lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(
+  const lanelet::ConstLanelet & ll) const
 {
   lanelet_msgs::msg::Lanelet msg;
   msg.id = ll.id();
 
-  // Geometry - left boundary
+  // Left boundary
   for (const auto & pt : ll.leftBound()) {
     geometry_msgs::msg::Point p;
     p.x = pt.x();
@@ -257,7 +258,7 @@ lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(const lanelet::ConstLane
     msg.left_boundary.push_back(p);
   }
 
-  // Geometry - right boundary
+  // Right boundary
   for (const auto & pt : ll.rightBound()) {
     geometry_msgs::msg::Point p;
     p.x = pt.x();
@@ -266,7 +267,7 @@ lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(const lanelet::ConstLane
     msg.right_boundary.push_back(p);
   }
 
-  // Geometry - centerline
+  // Centerline
   for (const auto & pt : ll.centerline()) {
     geometry_msgs::msg::Point p;
     p.x = pt.x();
@@ -275,7 +276,6 @@ lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(const lanelet::ConstLane
     msg.centerline.push_back(p);
   }
 
-  // Populate other fields
   populateLaneletSemantics(msg, ll);
   populateLaneletConnectivity(msg, ll);
   populateLaneletRegulatoryElements(msg, ll);
@@ -283,342 +283,264 @@ lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(const lanelet::ConstLane
   return msg;
 }
 
-lanelet_msgs::msg::Corridor LaneletHandler::toCorridorMsg(
-  const std::vector<lanelet::ConstLanelet> & route_lanelets,
-  int32_t num_lanes_each_side, double sample_spacing_m, double max_length_m)
-{
-  lanelet_msgs::msg::Corridor corridor;
-
-  if (route_lanelets.empty()) {
-    return corridor;
-  }
-
-  // Collect centerline points along route with sampling
-  std::vector<geometry_msgs::msg::Point> sampled_centerline;
-  double accumulated_length = 0.0;
-  double last_sample_length = -sample_spacing_m;  // Ensure first point is sampled
-
-  for (const auto & ll : route_lanelets) {
-    if (max_length_m > 0 && accumulated_length >= max_length_m) {
-      break;
-    }
-
-    for (const auto & pt : ll.centerline()) {
-      if (!sampled_centerline.empty()) {
-        const auto & last = sampled_centerline.back();
-        double dx = pt.x() - last.x;
-        double dy = pt.y() - last.y;
-        double dz = pt.z() - last.z;
-        accumulated_length += std::sqrt(dx * dx + dy * dy + dz * dz);
-      }
-
-      if (accumulated_length - last_sample_length >= sample_spacing_m) {
-        geometry_msgs::msg::Point p;
-        p.x = pt.x();
-        p.y = pt.y();
-        p.z = pt.z();
-        sampled_centerline.push_back(p);
-        last_sample_length = accumulated_length;
-      }
-
-      if (max_length_m > 0 && accumulated_length >= max_length_m) {
-        break;
-      }
-    }
-  }
-
-  // Build main lane path
-  lanelet_msgs::msg::LanePath main_lane;
-  for (const auto & ll : route_lanelets) {
-    main_lane.lanelet_ids.push_back(ll.id());
-  }
-  main_lane.centerline = sampled_centerline;
-
-  // Estimate widths (simplified - uses first lanelet width)
-  double avg_width = 3.5;  // Default
-  if (!route_lanelets.empty()) {
-    const auto & first_ll = route_lanelets[0];
-    if (!first_ll.leftBound().empty() && !first_ll.rightBound().empty()) {
-      auto left_pt = first_ll.leftBound().front();
-      auto right_pt = first_ll.rightBound().front();
-      avg_width = std::sqrt(
-        std::pow(left_pt.x() - right_pt.x(), 2) +
-        std::pow(left_pt.y() - right_pt.y(), 2));
-    }
-  }
-  main_lane.widths.resize(sampled_centerline.size(), avg_width);
-
-  // Set corridor fields
-  corridor.num_lanes = 1;  // Start with reference lane only
-  corridor.reference_lane_index = 0;
-  corridor.lanes.push_back(main_lane);
-
-  // Add adjacent lanes if requested
-  // Note: Full implementation would traverse left/right in routing graph
-  // For now, we just set up the structure
-
-  // Build arc length, heading, curvature arrays
-  corridor.arc_length.push_back(0.0);
-  for (size_t i = 1; i < sampled_centerline.size(); ++i) {
-    double dx = sampled_centerline[i].x - sampled_centerline[i - 1].x;
-    double dy = sampled_centerline[i].y - sampled_centerline[i - 1].y;
-    corridor.arc_length.push_back(corridor.arc_length.back() + std::sqrt(dx * dx + dy * dy));
-  }
-
-  // Compute headings
-  for (size_t i = 0; i < sampled_centerline.size(); ++i) {
-    double heading = 0.0;
-    if (i < sampled_centerline.size() - 1) {
-      double dx = sampled_centerline[i + 1].x - sampled_centerline[i].x;
-      double dy = sampled_centerline[i + 1].y - sampled_centerline[i].y;
-      heading = std::atan2(dy, dx);
-    } else if (i > 0) {
-      heading = corridor.heading.back();
-    }
-    corridor.heading.push_back(heading);
-  }
-
-  // Compute curvatures (simplified finite difference)
-  for (size_t i = 0; i < corridor.heading.size(); ++i) {
-    double curvature = 0.0;
-    if (i > 0 && i < corridor.heading.size() - 1) {
-      double dtheta = corridor.heading[i + 1] - corridor.heading[i - 1];
-      double ds = corridor.arc_length[i + 1] - corridor.arc_length[i - 1];
-      if (ds > 0.001) {
-        curvature = dtheta / ds;
-      }
-    }
-    corridor.curvature.push_back(curvature);
-  }
-
-  // Set outer boundaries (simplified - just use first and last lanelet bounds)
-  if (!route_lanelets.empty()) {
-    for (const auto & ll : route_lanelets) {
-      for (const auto & pt : ll.leftBound()) {
-        geometry_msgs::msg::Point p;
-        p.x = pt.x();
-        p.y = pt.y();
-        p.z = pt.z();
-        corridor.leftmost_boundary.push_back(p);
-      }
-      for (const auto & pt : ll.rightBound()) {
-        geometry_msgs::msg::Point p;
-        p.x = pt.x();
-        p.y = pt.y();
-        p.z = pt.z();
-        corridor.rightmost_boundary.push_back(p);
-      }
-    }
-  }
-
-  return corridor;
-}
-
-lanelet::routing::RoutingGraphConstPtr LaneletHandler::getRoutingGraph() const
-{
-  return routing_graph_;
-}
-
-lanelet::traffic_rules::TrafficRulesPtr LaneletHandler::getTrafficRules() const
-{
-  return traffic_rules_;
-}
-
 void LaneletHandler::populateLaneletSemantics(
-  lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll)
+  lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const
 {
-  // Lanelet type
+  // Get lanelet type from attributes
   if (ll.hasAttribute(lanelet::AttributeName::Subtype)) {
     msg.lanelet_type = ll.attribute(lanelet::AttributeName::Subtype).value();
-  } else {
-    msg.lanelet_type = "road";
   }
+
+  // Check if intersection
+  msg.is_intersection = ll.hasAttribute("turn_direction") ||
+    ll.hasAttribute(lanelet::AttributeName::Subtype) &&
+    ll.attribute(lanelet::AttributeName::Subtype).value() == "intersection";
 
   // Speed limit
   if (traffic_rules_) {
-    auto speed_limit = traffic_rules_->speedLimit(ll);
-    msg.speed_limit_mps = speed_limit.speedLimit.value();
-    msg.speed_limit_is_mandatory = speed_limit.isMandatory;
-  } else {
-    msg.speed_limit_mps = 0.0;
-    msg.speed_limit_is_mandatory = false;
+    auto speed = traffic_rules_->speedLimit(ll);
+    msg.speed_limit_mps = speed.speedLimit.value();
+  }
+}
+
+void LaneletHandler::populateLaneletConnectivity(
+  lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const
+{
+  if (!routing_graph_) {
+    return;
   }
 
-  // Intersection flags
-  msg.is_intersection = ll.hasAttribute("turn_direction") ||
-    msg.lanelet_type == "intersection";
-  msg.has_traffic_light = false;
-  msg.has_stop_line = false;
-  msg.has_yield_sign = false;
-  msg.must_yield = false;
+  // Successor lanelets (what comes after)
+  auto following = routing_graph_->following(ll);
+  for (const auto & foll : following) {
+    msg.successor_ids.push_back(foll.id());
+  }
 
-  // Check regulatory elements for flags
-  for (const auto & re : ll.regulatoryElements()) {
-    auto type = re->attribute(lanelet::AttributeName::Subtype);
-    if (type.value() == "traffic_light") {
+  // Left neighbor
+  auto left = routing_graph_->left(ll);
+  if (left) {
+    msg.left_lane_id = left->id();
+    msg.can_change_left = true;
+  } else {
+    msg.left_lane_id = -1;
+    msg.can_change_left = false;
+  }
+
+  // Right neighbor
+  auto right = routing_graph_->right(ll);
+  if (right) {
+    msg.right_lane_id = right->id();
+    msg.can_change_right = true;
+  } else {
+    msg.right_lane_id = -1;
+    msg.can_change_right = false;
+  }
+}
+
+void LaneletHandler::populateLaneletRegulatoryElements(
+  lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const
+{
+  for (const auto & reg_elem : ll.regulatoryElements()) {
+    // Check for specific types
+    if (!reg_elem->hasAttribute(lanelet::AttributeName::Subtype)) {
+      continue;
+    }
+    std::string subtype = reg_elem->attribute(lanelet::AttributeName::Subtype).value();
+
+    if (subtype == "traffic_light") {
       msg.has_traffic_light = true;
-    } else if (type.value() == "stop_line" || type.value() == "stop_sign") {
+    }
+    if (subtype == "stop_line") {
       msg.has_stop_line = true;
-    } else if (type.value() == "yield") {
+    }
+    if (subtype == "yield") {
       msg.has_yield_sign = true;
       msg.must_yield = true;
     }
   }
 }
 
-void LaneletHandler::populateLaneletConnectivity(
-  lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll)
+double LaneletHandler::getSpeedLimit(const lanelet::ConstLanelet & ll) const
 {
-  msg.left_lane_id = -1;
-  msg.right_lane_id = -1;
-  msg.can_change_left = false;
-  msg.can_change_right = false;
-
-  if (!routing_graph_) {
-    return;
+  if (traffic_rules_) {
+    auto speed = traffic_rules_->speedLimit(ll);
+    return speed.speedLimit.value();
   }
-
-  // Get adjacent lanelets
-  auto left = routing_graph_->left(ll);
-  auto right = routing_graph_->right(ll);
-
-  if (left) {
-    msg.left_lane_id = left->id();
-    msg.can_change_left = true;
-  }
-  if (right) {
-    msg.right_lane_id = right->id();
-    msg.can_change_right = true;
-  }
-
-  // Get successors
-  auto following = routing_graph_->following(ll);
-  for (const auto & succ : following) {
-    msg.successor_ids.push_back(succ.id());
-  }
+  return 0.0;
 }
 
-void LaneletHandler::populateLaneletRegulatoryElements(
-  lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll)
+uint8_t LaneletHandler::getBoundaryType(const lanelet::ConstLineString3d & boundary) const
 {
-  for (const auto & re : ll.regulatoryElements()) {
-    auto type = re->attribute(lanelet::AttributeName::Subtype);
+  // Check boundary attributes for type
+  if (boundary.hasAttribute("type")) {
+    std::string type = boundary.attribute("type").value();
+    if (type == "road_border" || type == "curbstone" || type == "guard_rail") {
+      return lanelet_msgs::msg::CorridorLane::BOUNDARY_ROAD_EDGE;
+    }
+    if (type == "solid" || type == "solid_solid") {
+      return lanelet_msgs::msg::CorridorLane::BOUNDARY_SOLID;
+    }
+    if (type == "dashed" || type == "dashed_dashed") {
+      return lanelet_msgs::msg::CorridorLane::BOUNDARY_DASHED;
+    }
+  }
+  // Default to solid if unknown
+  return lanelet_msgs::msg::CorridorLane::BOUNDARY_SOLID;
+}
 
-    if (type.value() == "traffic_light") {
-      lanelet_msgs::msg::TrafficLightInfo tl_info;
-      tl_info.id = re->id();
+lanelet_msgs::msg::CorridorLane LaneletHandler::buildCorridorLane(
+  const std::vector<lanelet::ConstLanelet> & lanelets,
+  double sample_spacing_m, double max_length_m) const
+{
+  lanelet_msgs::msg::CorridorLane lane;
 
-      // Get position from ref line if available
-      auto ref_lines = re->getParameters<lanelet::ConstLineString3d>("ref_line");
-      if (!ref_lines.empty() && !ref_lines[0].empty()) {
-        auto pt = ref_lines[0].front();
-        tl_info.position.x = pt.x();
-        tl_info.position.y = pt.y();
-        tl_info.position.z = pt.z();
-      }
+  if (lanelets.empty()) {
+    return lane;
+  }
 
-      // Get associated stop line
-      auto stop_lines = re->getParameters<lanelet::ConstLineString3d>("stop_line");
-      if (!stop_lines.empty()) {
-        tl_info.stop_line_id = stop_lines[0].id();
-      } else {
-        tl_info.stop_line_id = -1;
-      }
+  double total_arc_length = 0.0;
+  geometry_msgs::msg::Point prev_point;
+  bool has_prev = false;
 
-      msg.traffic_lights.push_back(tl_info);
+  for (const auto & ll : lanelets) {
+    if (total_arc_length >= max_length_m) {
+      break;
     }
 
-    // Handle stop lines
-    auto stop_lines = re->getParameters<lanelet::ConstLineString3d>("stop_line");
-    for (const auto & sl : stop_lines) {
-      lanelet_msgs::msg::StopLineInfo sl_info;
-      sl_info.id = sl.id();
+    auto centerline = ll.centerline();
+    auto left_bound = ll.leftBound();
+    auto right_bound = ll.rightBound();
 
-      for (const auto & pt : sl) {
-        geometry_msgs::msg::Point p;
-        p.x = pt.x();
-        p.y = pt.y();
-        p.z = pt.z();
-        sl_info.points.push_back(p);
-      }
+    if (centerline.empty()) {
+      continue;
+    }
 
-      // Calculate distance along lanelet (simplified)
-      sl_info.distance_along_lanelet_m = 0.0;
-      if (!ll.centerline().empty() && !sl.empty()) {
-        auto sl_center = sl.front();
-        for (size_t i = 0; i < ll.centerline().size() - 1; ++i) {
-          auto pt = ll.centerline()[i];
-          auto next_pt = ll.centerline()[i + 1];
-          double dx = next_pt.x() - pt.x();
-          double dy = next_pt.y() - pt.y();
-          sl_info.distance_along_lanelet_m += std::sqrt(dx * dx + dy * dy);
+    double speed_limit = getSpeedLimit(ll);
+    uint8_t left_type = getBoundaryType(left_bound);
+    uint8_t right_type = getBoundaryType(right_bound);
 
-          // Check if stop line is near this segment
-          double dist_to_sl = std::sqrt(
-            std::pow(pt.x() - sl_center.x(), 2) +
-            std::pow(pt.y() - sl_center.y(), 2));
-          if (dist_to_sl < 5.0) {
-            break;
-          }
+    // Sample along centerline
+    double accumulated_dist = 0.0;
+
+    for (size_t i = 0; i < centerline.size() && total_arc_length < max_length_m; ++i) {
+      // Check if we should emit a sample
+      bool emit_sample = false;
+      if (i == 0 && !has_prev) {
+        emit_sample = true;  // First point ever
+      } else if (has_prev) {
+        double dx = centerline[i].x() - prev_point.x;
+        double dy = centerline[i].y() - prev_point.y;
+        accumulated_dist += std::sqrt(dx * dx + dy * dy);
+        if (accumulated_dist >= sample_spacing_m) {
+          emit_sample = true;
+          accumulated_dist = 0.0;
         }
       }
 
-      msg.stop_lines.push_back(sl_info);
+      if (emit_sample) {
+        // Centerline point
+        geometry_msgs::msg::Point pt;
+        pt.x = centerline[i].x();
+        pt.y = centerline[i].y();
+        pt.z = centerline[i].z();
+        lane.centerline.push_back(pt);
+
+        // Arc length
+        if (has_prev) {
+          double dx = pt.x - prev_point.x;
+          double dy = pt.y - prev_point.y;
+          total_arc_length += std::sqrt(dx * dx + dy * dy);
+        }
+        lane.arc_length.push_back(total_arc_length);
+
+        // Heading (tangent direction)
+        double heading = 0.0;
+        if (i + 1 < centerline.size()) {
+          double dx = centerline[i + 1].x() - centerline[i].x();
+          double dy = centerline[i + 1].y() - centerline[i].y();
+          heading = std::atan2(dy, dx);
+        } else if (i > 0) {
+          double dx = centerline[i].x() - centerline[i - 1].x();
+          double dy = centerline[i].y() - centerline[i - 1].y();
+          heading = std::atan2(dy, dx);
+        }
+        lane.heading.push_back(heading);
+
+        // Curvature (simplified - would need more points for accurate calculation)
+        lane.curvature.push_back(0.0);
+
+        // Speed limit
+        lane.speed_limit.push_back(speed_limit);
+
+        // Boundary offsets - find closest point on each boundary
+        // Simplified: use same index ratio
+        double t = static_cast<double>(i) / std::max(1.0, static_cast<double>(centerline.size() - 1));
+        size_t left_idx = std::min(
+          static_cast<size_t>(t * (left_bound.size() - 1)), left_bound.size() - 1);
+        size_t right_idx = std::min(
+          static_cast<size_t>(t * (right_bound.size() - 1)), right_bound.size() - 1);
+
+        // Left offset (positive = left of centerline)
+        double left_dx = left_bound[left_idx].x() - centerline[i].x();
+        double left_dy = left_bound[left_idx].y() - centerline[i].y();
+        double left_offset = std::sqrt(left_dx * left_dx + left_dy * left_dy);
+        lane.left_offset.push_back(left_offset);
+        lane.left_boundary_type.push_back(left_type);
+
+        // Right offset (positive value, but represents right side)
+        double right_dx = right_bound[right_idx].x() - centerline[i].x();
+        double right_dy = right_bound[right_idx].y() - centerline[i].y();
+        double right_offset = std::sqrt(right_dx * right_dx + right_dy * right_dy);
+        lane.right_offset.push_back(right_offset);
+        lane.right_boundary_type.push_back(right_type);
+
+        prev_point = pt;
+        has_prev = true;
+      }
     }
   }
+
+  return lane;
 }
 
-std::vector<geometry_msgs::msg::Point> LaneletHandler::sampleCenterline(
-  const lanelet::ConstLanelet & ll, double spacing_m)
+lanelet_msgs::msg::Corridor LaneletHandler::toCorridorMsg(
+  const std::vector<lanelet::ConstLanelet> & route_lanelets,
+  double sample_spacing_m, double max_length_m) const
 {
-  std::vector<geometry_msgs::msg::Point> result;
+  lanelet_msgs::msg::Corridor corridor;
 
-  double accumulated = 0.0;
-  double last_sample = -spacing_m;
+  if (route_lanelets.empty() || !routing_graph_) {
+    return corridor;
+  }
 
-  for (size_t i = 0; i < ll.centerline().size(); ++i) {
-    const auto & pt = ll.centerline()[i];
+  // Build reference lane from route
+  corridor.reference = buildCorridorLane(route_lanelets, sample_spacing_m, max_length_m);
 
-    if (i > 0) {
-      const auto & prev = ll.centerline()[i - 1];
-      double dx = pt.x() - prev.x();
-      double dy = pt.y() - prev.y();
-      accumulated += std::sqrt(dx * dx + dy * dy);
-    }
-
-    if (accumulated - last_sample >= spacing_m || i == 0) {
-      geometry_msgs::msg::Point p;
-      p.x = pt.x();
-      p.y = pt.y();
-      p.z = pt.z();
-      result.push_back(p);
-      last_sample = accumulated;
+  // Build left adjacent lane if crossable
+  std::vector<lanelet::ConstLanelet> left_lanelets;
+  for (const auto & ll : route_lanelets) {
+    auto left = routing_graph_->left(ll);
+    if (left) {
+      left_lanelets.push_back(*left);
     }
   }
-
-  return result;
-}
-
-uint8_t LaneletHandler::getTransitionType(
-  const lanelet::ConstLanelet & from, const lanelet::ConstLanelet & to)
-{
-  if (!routing_graph_) {
-    return lanelet_msgs::srv::GetRoute::Response::TRANSITION_SUCCESSOR;
+  if (!left_lanelets.empty()) {
+    corridor.left_lane = buildCorridorLane(left_lanelets, sample_spacing_m, max_length_m);
   }
 
-  // Check if it's a lane change
-  auto left = routing_graph_->left(from);
-  if (left && left->id() == to.id()) {
-    return lanelet_msgs::srv::GetRoute::Response::TRANSITION_LEFT;
+  // Build right adjacent lane if crossable
+  std::vector<lanelet::ConstLanelet> right_lanelets;
+  for (const auto & ll : route_lanelets) {
+    auto right = routing_graph_->right(ll);
+    if (right) {
+      right_lanelets.push_back(*right);
+    }
+  }
+  if (!right_lanelets.empty()) {
+    corridor.right_lane = buildCorridorLane(right_lanelets, sample_spacing_m, max_length_m);
   }
 
-  auto right = routing_graph_->right(from);
-  if (right && right->id() == to.id()) {
-    return lanelet_msgs::srv::GetRoute::Response::TRANSITION_RIGHT;
-  }
-
-  // Otherwise it's a successor (following)
-  return lanelet_msgs::srv::GetRoute::Response::TRANSITION_SUCCESSOR;
+  return corridor;
 }
 
 }  // namespace world_model

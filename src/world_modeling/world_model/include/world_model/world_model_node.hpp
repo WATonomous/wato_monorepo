@@ -17,96 +17,81 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "lanelet_msgs/msg/current_lane_context.hpp"
-#include "prediction_msgs/msg/prediction_hypotheses_array.hpp"
-#include "lanelet_msgs/msg/map_visualization.hpp"
-#include "lanelet_msgs/srv/get_corridor.hpp"
-#include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
-#include "lanelet_msgs/srv/get_route.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
-#include "vision_msgs/msg/detection2_d_array.hpp"
-#include "vision_msgs/msg/detection3_d_array.hpp"
-#include "world_model/agent_tracker.hpp"
+
+#include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
-#include "world_model/traffic_light_tracker.hpp"
+#include "world_model/world_state.hpp"
 
 namespace world_model
 {
 
-class WorldModelNode : public rclcpp::Node
+/**
+ * @brief ROS2 Lifecycle Node that orchestrates the world model.
+ *
+ * This is a thin orchestrator that owns:
+ * - WorldState (entity storage with concurrency management)
+ * - LaneletHandler (map queries)
+ * - Interface components (publishers, subscribers, services)
+ *
+ * The node delegates all ROS communication to interface components
+ * and all data management to WorldState/LaneletHandler.
+ */
+class WorldModelNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
-  explicit WorldModelNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-  ~WorldModelNode() = default;
+  explicit WorldModelNode(const rclcpp::NodeOptions & options);
+  ~WorldModelNode() override = default;
+
+protected:
+  using CallbackReturn =
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  // Components
-  std::unique_ptr<LaneletHandler> lanelet_handler_;
-  std::unique_ptr<AgentTracker> agent_tracker_;
-  std::unique_ptr<TrafficLightTracker> tl_tracker_;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CORE COMPONENTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  std::unique_ptr<WorldState> world_state_;      // Entity storage
+  std::unique_ptr<LaneletHandler> lanelet_handler_;  // Map queries
 
-  // TF
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TF (for map loading - utm->map transform)
+  // ═══════════════════════════════════════════════════════════════════════════
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  // Services
-  rclcpp::Service<lanelet_msgs::srv::GetRoute>::SharedPtr route_srv_;
-  rclcpp::Service<lanelet_msgs::srv::GetCorridor>::SharedPtr corridor_srv_;
-  rclcpp::Service<lanelet_msgs::srv::GetLaneletsByRegElem>::SharedPtr reg_elem_srv_;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INTERFACE COMPONENTS (owned by node)
+  // ═══════════════════════════════════════════════════════════════════════════
+  std::vector<std::unique_ptr<InterfaceBase>> interfaces_;
 
-  // Publishers
-  rclcpp::Publisher<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr lane_context_pub_;
-  rclcpp::Publisher<lanelet_msgs::msg::MapVisualization>::SharedPtr map_viz_pub_;
-
-  // Subscriptions
-  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr detections_sub_;
-  rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr tl_detections_sub_;
-  rclcpp::Subscription<prediction_msgs::msg::PredictionHypothesesArray>::SharedPtr predictions_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
-
-  // Timers
-  rclcpp::TimerBase::SharedPtr lane_context_timer_;
-  rclcpp::TimerBase::SharedPtr map_viz_timer_;
-
-  // State
-  geometry_msgs::msg::PoseStamped current_ego_pose_;
-  bool ego_pose_received_;
-
-  // Parameters
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FRAMES AND MAP LOADING
+  // ═══════════════════════════════════════════════════════════════════════════
+  std::string osm_map_path_;
   std::string map_frame_;
-  std::string base_link_frame_;
-  double map_viz_radius_m_;
+  std::string base_frame_;
+  std::string utm_frame_;
+  std::string projector_type_;
+  rclcpp::TimerBase::SharedPtr map_init_timer_;
 
-  // Service callbacks
-  void handleGetRoute(
-    const std::shared_ptr<lanelet_msgs::srv::GetRoute::Request> request,
-    std::shared_ptr<lanelet_msgs::srv::GetRoute::Response> response);
+  void tryLoadMap();
 
-  void handleGetCorridor(
-    const std::shared_ptr<lanelet_msgs::srv::GetCorridor::Request> request,
-    std::shared_ptr<lanelet_msgs::srv::GetCorridor::Response> response);
-
-  void handleGetLaneletsByRegElem(
-    const std::shared_ptr<lanelet_msgs::srv::GetLaneletsByRegElem::Request> request,
-    std::shared_ptr<lanelet_msgs::srv::GetLaneletsByRegElem::Response> response);
-
-  // Subscription callbacks
-  void detectionsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
-  void tlDetectionsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
-  void predictionsCallback(const prediction_msgs::msg::PredictionHypothesesArray::SharedPtr msg);
-  void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-
-  // Timer callbacks
-  void publishLaneContext();
-  void publishMapVisualization();
-
-  // Helper methods
-  lanelet_msgs::msg::CurrentLaneContext buildLaneContext();
-  bool getEgoPoseFromTF(geometry_msgs::msg::PoseStamped & pose);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HELPER
+  // ═══════════════════════════════════════════════════════════════════════════
+  void createInterfaces();
 };
 
 }  // namespace world_model

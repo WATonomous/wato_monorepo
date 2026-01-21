@@ -1,0 +1,193 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef WORLD_MODEL__INTERFACES__PUBLISHERS__LANE_CONTEXT_PUBLISHER_HPP_
+#define WORLD_MODEL__INTERFACES__PUBLISHERS__LANE_CONTEXT_PUBLISHER_HPP_
+
+#include <chrono>
+#include <cmath>
+#include <optional>
+#include <string>
+
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "lanelet_msgs/msg/current_lane_context.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "tf2_ros/buffer.h"
+
+#include "world_model/interfaces/interface_base.hpp"
+
+namespace world_model
+{
+
+/**
+ * @brief Publishes current lane context at a fixed rate.
+ *
+ * Queries TF for ego pose and LaneletHandler for lane context
+ * (current lanelet, distances to events, etc.) and publishes periodically.
+ */
+class LaneContextPublisher : public InterfaceBase
+{
+public:
+  LaneContextPublisher(
+    rclcpp_lifecycle::LifecycleNode * node,
+    const LaneletHandler * lanelet_handler,
+    tf2_ros::Buffer * tf_buffer,
+    const std::string & map_frame,
+    const std::string & base_frame,
+    double rate_hz)
+  : node_(node),
+    lanelet_(lanelet_handler),
+    tf_buffer_(tf_buffer),
+    map_frame_(map_frame),
+    base_frame_(base_frame),
+    rate_hz_(rate_hz)
+  {
+    pub_ = node_->create_publisher<lanelet_msgs::msg::CurrentLaneContext>("lane_context", 10);
+  }
+
+  void activate() override
+  {
+    pub_->on_activate();
+
+    if (rate_hz_ > 0.0) {
+      auto period = std::chrono::duration<double>(1.0 / rate_hz_);
+      timer_ = node_->create_wall_timer(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+        std::bind(&LaneContextPublisher::publish, this));
+    }
+  }
+
+  void deactivate() override
+  {
+    if (timer_) {
+      timer_->cancel();
+      timer_.reset();
+    }
+    pub_->on_deactivate();
+  }
+
+private:
+  void publish()
+  {
+    if (!lanelet_.isMapLoaded()) {
+      return;
+    }
+
+    auto ego = getEgoPose();
+    if (!ego.has_value()) {
+      return;
+    }
+
+    geometry_msgs::msg::Point ego_point;
+    ego_point.x = ego->pose.position.x;
+    ego_point.y = ego->pose.position.y;
+    ego_point.z = ego->pose.position.z;
+
+    auto nearest_id = lanelet_.findNearestLaneletId(ego_point);
+    if (!nearest_id.has_value()) {
+      return;
+    }
+
+    // Check if lanelet changed - rebuild if so
+    if (!cached_lanelet_id_.has_value() || *cached_lanelet_id_ != *nearest_id) {
+      cached_lanelet_id_ = *nearest_id;
+      auto nearest_ll = lanelet_.getLaneletById(*nearest_id);
+      if (nearest_ll.has_value()) {
+        rebuildContext(*nearest_ll);
+      }
+    }
+
+    // Update dynamic values
+    updateDynamicContext(*ego);
+
+    pub_->publish(cached_context_);
+  }
+
+  std::optional<geometry_msgs::msg::PoseStamped> getEgoPose() const
+  {
+    try {
+      auto transform = tf_buffer_->lookupTransform(map_frame_, base_frame_, tf2::TimePointZero);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.stamp = transform.header.stamp;
+      pose.header.frame_id = map_frame_;
+      pose.pose.position.x = transform.transform.translation.x;
+      pose.pose.position.y = transform.transform.translation.y;
+      pose.pose.position.z = transform.transform.translation.z;
+      pose.pose.orientation = transform.transform.rotation;
+
+      return pose;
+    } catch (const tf2::TransformException &) {
+      return std::nullopt;
+    }
+  }
+
+  void rebuildContext(const lanelet::ConstLanelet & lanelet)
+  {
+    cached_context_ = lanelet_msgs::msg::CurrentLaneContext();
+    cached_context_.current_lanelet = lanelet_.toLaneletMsg(lanelet);
+
+    // Set distances to events based on regulatory elements
+    cached_context_.distance_to_intersection_m = -1.0;
+    cached_context_.distance_to_traffic_light_m = -1.0;
+    cached_context_.distance_to_stop_line_m = -1.0;
+    cached_context_.distance_to_yield_m = -1.0;
+
+    if (cached_context_.current_lanelet.has_traffic_light) {
+      cached_context_.distance_to_traffic_light_m = 0.0;
+    }
+    if (cached_context_.current_lanelet.has_stop_line) {
+      cached_context_.distance_to_stop_line_m = 0.0;
+    }
+    if (cached_context_.current_lanelet.is_intersection) {
+      cached_context_.distance_to_intersection_m = 0.0;
+    }
+  }
+
+  void updateDynamicContext(const geometry_msgs::msg::PoseStamped & ego)
+  {
+    cached_context_.header.stamp = node_->get_clock()->now();
+    cached_context_.header.frame_id = ego.header.frame_id;
+
+    // TODO: Calculate arc_length, lateral_offset, heading_error
+    cached_context_.arc_length = 0.0;
+    cached_context_.lateral_offset = 0.0;
+    cached_context_.heading_error = 0.0;
+
+    // Calculate distance to lanelet end (simplified)
+    if (!cached_context_.current_lanelet.centerline.empty()) {
+      const auto & last_pt = cached_context_.current_lanelet.centerline.back();
+      double dx = last_pt.x - ego.pose.position.x;
+      double dy = last_pt.y - ego.pose.position.y;
+      cached_context_.distance_to_lanelet_end_m = std::sqrt(dx * dx + dy * dy);
+    }
+  }
+
+  rclcpp_lifecycle::LifecycleNode * node_;
+  LaneletReader lanelet_;
+  tf2_ros::Buffer * tf_buffer_;
+  std::string map_frame_;
+  std::string base_frame_;
+  double rate_hz_;
+
+  rclcpp_lifecycle::LifecyclePublisher<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  std::optional<int64_t> cached_lanelet_id_;
+  lanelet_msgs::msg::CurrentLaneContext cached_context_;
+};
+
+}  // namespace world_model
+
+#endif  // WORLD_MODEL__INTERFACES__PUBLISHERS__LANE_CONTEXT_PUBLISHER_HPP_

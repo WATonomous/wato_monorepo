@@ -17,310 +17,250 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <chrono>
-#include <functional>
+#include <memory>
+
+// Publishers
+#include "world_model/interfaces/publishers/lane_context_publisher.hpp"
+#include "world_model/interfaces/publishers/map_viz_publisher.hpp"
+
+// Subscribers
+#include "world_model/interfaces/subscribers/detection_subscriber.hpp"
+#include "world_model/interfaces/subscribers/prediction_subscriber.hpp"
+#include "world_model/interfaces/subscribers/traffic_light_subscriber.hpp"
+
+// Services
+#include "world_model/interfaces/services/corridor_service.hpp"
+#include "world_model/interfaces/services/reg_elem_service.hpp"
+#include "world_model/interfaces/services/route_service.hpp"
+
+// Workers
+#include "world_model/interfaces/workers/cleanup_worker.hpp"
 
 namespace world_model
 {
 
 WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
-: Node("world_model", options),
-  ego_pose_received_(false)
+: LifecycleNode("world_model", options)
 {
   // Declare parameters
   this->declare_parameter<std::string>("osm_map_path", "");
-  this->declare_parameter<double>("lat_origin", 0.0);
-  this->declare_parameter<double>("lon_origin", 0.0);
   this->declare_parameter<std::string>("map_frame", "map");
-  this->declare_parameter<std::string>("base_link_frame", "base_link");
-  this->declare_parameter<double>("agent_history_duration_sec", 5.0);
-  this->declare_parameter<double>("agent_prune_timeout_sec", 2.0);
+  this->declare_parameter<std::string>("base_frame", "base_link");
+  this->declare_parameter<std::string>("utm_frame", "utm");
+  this->declare_parameter<std::string>("projector_type", "utm");
+  this->declare_parameter<double>("entity_history_duration_sec", 5.0);
+  this->declare_parameter<double>("entity_prune_timeout_sec", 2.0);
   this->declare_parameter<double>("traffic_light_timeout_sec", 1.0);
+  this->declare_parameter<double>("cleanup_interval_ms", 1000.0);
   this->declare_parameter<double>("lane_context_publish_rate_hz", 10.0);
   this->declare_parameter<double>("map_viz_publish_rate_hz", 1.0);
   this->declare_parameter<double>("map_viz_radius_m", 100.0);
-  this->declare_parameter<std::string>("detections_topic", "/perception/detections3d");
-  this->declare_parameter<std::string>("tl_detections_topic", "/perception/traffic_light/detections");
-  this->declare_parameter<std::string>("predictions_topic", "/prediction/predictions");
-  this->declare_parameter<std::string>("ego_pose_topic", "/localization/ego_pose");
-  this->declare_parameter<std::string>("lane_context_topic", "~/lane_context");
-  this->declare_parameter<std::string>("map_viz_topic", "~/map_visualization");
 
-  // Get parameters
-  std::string osm_map_path = this->get_parameter("osm_map_path").as_string();
-  double lat_origin = this->get_parameter("lat_origin").as_double();
-  double lon_origin = this->get_parameter("lon_origin").as_double();
+  RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
+}
+
+WorldModelNode::CallbackReturn WorldModelNode::on_configure(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Configuring...");
+
+  // Get frame parameters
+  osm_map_path_ = this->get_parameter("osm_map_path").as_string();
   map_frame_ = this->get_parameter("map_frame").as_string();
-  base_link_frame_ = this->get_parameter("base_link_frame").as_string();
-  double agent_history_sec = this->get_parameter("agent_history_duration_sec").as_double();
-  double agent_prune_sec = this->get_parameter("agent_prune_timeout_sec").as_double();
-  double tl_timeout_sec = this->get_parameter("traffic_light_timeout_sec").as_double();
-  double lane_context_rate = this->get_parameter("lane_context_publish_rate_hz").as_double();
-  double map_viz_rate = this->get_parameter("map_viz_publish_rate_hz").as_double();
-  map_viz_radius_m_ = this->get_parameter("map_viz_radius_m").as_double();
-
-  std::string detections_topic = this->get_parameter("detections_topic").as_string();
-  std::string tl_detections_topic = this->get_parameter("tl_detections_topic").as_string();
-  std::string predictions_topic = this->get_parameter("predictions_topic").as_string();
-  std::string ego_pose_topic = this->get_parameter("ego_pose_topic").as_string();
-  std::string lane_context_topic = this->get_parameter("lane_context_topic").as_string();
-  std::string map_viz_topic = this->get_parameter("map_viz_topic").as_string();
+  base_frame_ = this->get_parameter("base_frame").as_string();
+  utm_frame_ = this->get_parameter("utm_frame").as_string();
+  projector_type_ = this->get_parameter("projector_type").as_string();
 
   // Initialize TF
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  // Initialize lanelet handler
+  // Initialize core components
+  world_state_ = std::make_unique<WorldState>();
   lanelet_handler_ = std::make_unique<LaneletHandler>();
 
-  // Load map if path provided
-  if (!osm_map_path.empty()) {
-    RCLCPP_INFO(this->get_logger(), "Loading map from: %s", osm_map_path.c_str());
-    if (lanelet_handler_->loadMap(osm_map_path, lat_origin, lon_origin)) {
-      RCLCPP_INFO(this->get_logger(), "Map loaded successfully");
-    } else {
-      RCLCPP_ERROR(this->get_logger(), "Failed to load map");
-    }
+  // Create all interface components
+  createInterfaces();
+
+  RCLCPP_INFO(this->get_logger(), "Configured successfully");
+  return CallbackReturn::SUCCESS;
+}
+
+void WorldModelNode::createInterfaces()
+{
+  // Get parameters
+  double lane_context_rate_hz = this->get_parameter("lane_context_publish_rate_hz").as_double();
+  double map_viz_rate_hz = this->get_parameter("map_viz_publish_rate_hz").as_double();
+  double map_viz_radius_m = this->get_parameter("map_viz_radius_m").as_double();
+  double history_duration_sec = this->get_parameter("entity_history_duration_sec").as_double();
+  double entity_prune_timeout_sec = this->get_parameter("entity_prune_timeout_sec").as_double();
+  double traffic_light_timeout_sec = this->get_parameter("traffic_light_timeout_sec").as_double();
+  auto cleanup_interval = std::chrono::milliseconds(
+    static_cast<int64_t>(this->get_parameter("cleanup_interval_ms").as_double()));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Publishers (use TF buffer for ego pose, LaneletHandler for map queries)
+  // ─────────────────────────────────────────────────────────────────────────
+  interfaces_.push_back(std::make_unique<LaneContextPublisher>(
+    this, lanelet_handler_.get(), tf_buffer_.get(),
+    map_frame_, base_frame_, lane_context_rate_hz));
+
+  interfaces_.push_back(std::make_unique<MapVizPublisher>(
+    this, lanelet_handler_.get(), tf_buffer_.get(),
+    map_frame_, base_frame_, map_viz_rate_hz, map_viz_radius_m));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Subscribers (write to WorldState, enrich with lanelet context)
+  // ─────────────────────────────────────────────────────────────────────────
+  interfaces_.push_back(std::make_unique<DetectionSubscriber>(
+    this, world_state_.get(), lanelet_handler_.get(), history_duration_sec));
+
+  interfaces_.push_back(std::make_unique<TrafficLightSubscriber>(
+    this, world_state_.get()));
+
+  interfaces_.push_back(std::make_unique<PredictionSubscriber>(
+    this, world_state_.get()));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Services (query LaneletHandler)
+  // ─────────────────────────────────────────────────────────────────────────
+  interfaces_.push_back(std::make_unique<RouteService>(
+    this, lanelet_handler_.get()));
+
+  interfaces_.push_back(std::make_unique<CorridorService>(
+    this, lanelet_handler_.get()));
+
+  interfaces_.push_back(std::make_unique<RegElemService>(
+    this, lanelet_handler_.get()));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Workers (background processing)
+  // ─────────────────────────────────────────────────────────────────────────
+  interfaces_.push_back(std::make_unique<CleanupWorker>(
+    world_state_.get(), this->get_clock(), cleanup_interval,
+    entity_prune_timeout_sec, traffic_light_timeout_sec));
+}
+
+WorldModelNode::CallbackReturn WorldModelNode::on_activate(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Activating...");
+
+  // Activate all interface components (publishers, subscribers, services, workers)
+  for (auto & interface : interfaces_) {
+    interface->activate();
+  }
+
+  // Start map loading timer
+  if (!osm_map_path_.empty()) {
+    RCLCPP_INFO(this->get_logger(), "Waiting for %s -> %s transform to load map...",
+      utm_frame_.c_str(), map_frame_.c_str());
+    map_init_timer_ = this->create_wall_timer(
+      std::chrono::seconds(1),
+      std::bind(&WorldModelNode::tryLoadMap, this));
   } else {
     RCLCPP_WARN(this->get_logger(), "No map path provided, services will return errors");
   }
 
-  // Initialize trackers
-  agent_tracker_ = std::make_unique<AgentTracker>(
-    lanelet_handler_.get(), agent_history_sec, agent_prune_sec);
-  tl_tracker_ = std::make_unique<TrafficLightTracker>(
-    lanelet_handler_.get(), tl_timeout_sec);
+  RCLCPP_INFO(this->get_logger(), "Activated successfully");
+  return CallbackReturn::SUCCESS;
+}
 
-  // Create services
-  route_srv_ = this->create_service<lanelet_msgs::srv::GetRoute>(
-    "~/get_route",
-    std::bind(&WorldModelNode::handleGetRoute, this,
-    std::placeholders::_1, std::placeholders::_2));
+WorldModelNode::CallbackReturn WorldModelNode::on_deactivate(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Deactivating...");
 
-  corridor_srv_ = this->create_service<lanelet_msgs::srv::GetCorridor>(
-    "~/get_corridor",
-    std::bind(&WorldModelNode::handleGetCorridor, this,
-    std::placeholders::_1, std::placeholders::_2));
-
-  reg_elem_srv_ = this->create_service<lanelet_msgs::srv::GetLaneletsByRegElem>(
-    "~/get_lanelets_by_reg_elem",
-    std::bind(&WorldModelNode::handleGetLaneletsByRegElem, this,
-    std::placeholders::_1, std::placeholders::_2));
-
-  // Create publishers
-  lane_context_pub_ = this->create_publisher<lanelet_msgs::msg::CurrentLaneContext>(
-    lane_context_topic, 10);
-  map_viz_pub_ = this->create_publisher<lanelet_msgs::msg::MapVisualization>(
-    map_viz_topic, 10);
-
-  // Create subscriptions
-  detections_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    detections_topic, 10,
-    std::bind(&WorldModelNode::detectionsCallback, this, std::placeholders::_1));
-
-  tl_detections_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
-    tl_detections_topic, 10,
-    std::bind(&WorldModelNode::tlDetectionsCallback, this, std::placeholders::_1));
-
-  predictions_sub_ = this->create_subscription<prediction_msgs::msg::PredictionHypothesesArray>(
-    predictions_topic, 10,
-    std::bind(&WorldModelNode::predictionsCallback, this, std::placeholders::_1));
-
-  ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    ego_pose_topic, 10,
-    std::bind(&WorldModelNode::egoPoseCallback, this, std::placeholders::_1));
-
-  // Create timers
-  if (lane_context_rate > 0.0) {
-    auto period = std::chrono::duration<double>(1.0 / lane_context_rate);
-    lane_context_timer_ = this->create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-      std::bind(&WorldModelNode::publishLaneContext, this));
+  // Deactivate all interface components (publishers, subscribers, services, workers)
+  for (auto & interface : interfaces_) {
+    interface->deactivate();
   }
 
-  if (map_viz_rate > 0.0) {
-    auto period = std::chrono::duration<double>(1.0 / map_viz_rate);
-    map_viz_timer_ = this->create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-      std::bind(&WorldModelNode::publishMapVisualization, this));
+  // Cancel map init timer
+  if (map_init_timer_) {
+    map_init_timer_->cancel();
+    map_init_timer_.reset();
   }
 
-  RCLCPP_INFO(this->get_logger(), "WorldModelNode initialized");
+  RCLCPP_INFO(this->get_logger(), "Deactivated successfully");
+  return CallbackReturn::SUCCESS;
 }
 
-void WorldModelNode::handleGetRoute(
-  const std::shared_ptr<lanelet_msgs::srv::GetRoute::Request> request,
-  std::shared_ptr<lanelet_msgs::srv::GetRoute::Response> response)
+WorldModelNode::CallbackReturn WorldModelNode::on_cleanup(
+  const rclcpp_lifecycle::State & /*state*/)
 {
-  auto result = lanelet_handler_->getRoute(request->from_lanelet_id, request->to_lanelet_id);
-  *response = result;
+  RCLCPP_INFO(this->get_logger(), "Cleaning up...");
+
+  // Clear all interfaces
+  interfaces_.clear();
+
+  // Reset other resources
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  lanelet_handler_.reset();
+  world_state_.reset();
+
+  RCLCPP_INFO(this->get_logger(), "Cleaned up successfully");
+  return CallbackReturn::SUCCESS;
 }
 
-void WorldModelNode::handleGetCorridor(
-  const std::shared_ptr<lanelet_msgs::srv::GetCorridor::Request> request,
-  std::shared_ptr<lanelet_msgs::srv::GetCorridor::Response> response)
+WorldModelNode::CallbackReturn WorldModelNode::on_shutdown(
+  const rclcpp_lifecycle::State & /*state*/)
 {
-  auto result = lanelet_handler_->getCorridor(
-    request->from_lanelet_id,
-    request->to_lanelet_id,
-    request->max_length_m,
-    request->sample_spacing_m,
-    request->num_lanes_each_side);
-  *response = result;
+  RCLCPP_INFO(this->get_logger(), "Shutting down...");
+  return CallbackReturn::SUCCESS;
 }
 
-void WorldModelNode::handleGetLaneletsByRegElem(
-  const std::shared_ptr<lanelet_msgs::srv::GetLaneletsByRegElem::Request> request,
-  std::shared_ptr<lanelet_msgs::srv::GetLaneletsByRegElem::Response> response)
+void WorldModelNode::tryLoadMap()
 {
-  auto result = lanelet_handler_->getLaneletsByRegElem(request->reg_elem_id);
-  *response = result;
-}
-
-void WorldModelNode::detectionsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
-{
-  agent_tracker_->updateDetections(*msg, this->now());
-}
-
-void WorldModelNode::tlDetectionsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
-{
-  tl_tracker_->update(*msg, this->now());
-}
-
-void WorldModelNode::predictionsCallback(
-  const prediction_msgs::msg::PredictionHypothesesArray::SharedPtr msg)
-{
-  agent_tracker_->updatePredictions(*msg);
-}
-
-void WorldModelNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-{
-  current_ego_pose_ = *msg;
-  ego_pose_received_ = true;
-}
-
-void WorldModelNode::publishLaneContext()
-{
-  if (!lanelet_handler_->isMapLoaded()) {
+  if (lanelet_handler_->isMapLoaded()) {
+    map_init_timer_->cancel();
     return;
   }
 
-  auto context = buildLaneContext();
-  lane_context_pub_->publish(context);
-}
-
-void WorldModelNode::publishMapVisualization()
-{
-  if (!lanelet_handler_->isMapLoaded()) {
-    return;
-  }
-
-  geometry_msgs::msg::PoseStamped ego_pose;
-  if (!getEgoPoseFromTF(ego_pose) && !ego_pose_received_) {
-    return;
-  }
-
-  if (ego_pose_received_) {
-    ego_pose = current_ego_pose_;
-  }
-
-  lanelet_msgs::msg::MapVisualization msg;
-  msg.header.stamp = this->now();
-  msg.header.frame_id = map_frame_;
-
-  geometry_msgs::msg::Point center;
-  center.x = ego_pose.pose.position.x;
-  center.y = ego_pose.pose.position.y;
-  center.z = ego_pose.pose.position.z;
-
-  auto nearby_lanelets = lanelet_handler_->getLaneletsInRadius(center, map_viz_radius_m_);
-  for (const auto & ll : nearby_lanelets) {
-    msg.lanelets.push_back(lanelet_handler_->toLaneletMsg(ll));
-  }
-
-  map_viz_pub_->publish(msg);
-}
-
-lanelet_msgs::msg::CurrentLaneContext WorldModelNode::buildLaneContext()
-{
-  lanelet_msgs::msg::CurrentLaneContext context;
-  context.header.stamp = this->now();
-  context.header.frame_id = map_frame_;
-
-  // Get ego pose
-  geometry_msgs::msg::PoseStamped ego_pose;
-  if (!getEgoPoseFromTF(ego_pose)) {
-    if (ego_pose_received_) {
-      ego_pose = current_ego_pose_;
-    } else {
-      return context;  // No pose available
-    }
-  }
-
-  geometry_msgs::msg::Point ego_point;
-  ego_point.x = ego_pose.pose.position.x;
-  ego_point.y = ego_pose.pose.position.y;
-  ego_point.z = ego_pose.pose.position.z;
-
-  // Find nearest lanelet
-  auto nearest_ll = lanelet_handler_->findNearestLanelet(ego_point);
-  if (!nearest_ll.has_value()) {
-    return context;
-  }
-
-  context.current_lanelet = lanelet_handler_->toLaneletMsg(nearest_ll.value());
-
-  // Calculate arc length, lateral offset, and heading error
-  // These would require more sophisticated projection onto the centerline
-  // For now, provide placeholder values
-  context.arc_length = 0.0;
-  context.lateral_offset = 0.0;
-  context.heading_error = 0.0;
-
-  // Calculate distance to end of lanelet (simplified)
-  if (!nearest_ll->centerline().empty()) {
-    auto last_pt = nearest_ll->centerline().back();
-    double dx = last_pt.x() - ego_point.x;
-    double dy = last_pt.y() - ego_point.y;
-    context.distance_to_lanelet_end_m = std::sqrt(dx * dx + dy * dy);
-  }
-
-  // Set distance to events (placeholder - would need to traverse routing graph)
-  context.distance_to_intersection_m = -1.0;
-  context.distance_to_traffic_light_m = -1.0;
-  context.distance_to_stop_line_m = -1.0;
-  context.distance_to_yield_m = -1.0;
-
-  // Check current lanelet for regulatory elements
-  if (context.current_lanelet.has_traffic_light) {
-    context.distance_to_traffic_light_m = 0.0;  // In current lanelet
-  }
-  if (context.current_lanelet.has_stop_line) {
-    context.distance_to_stop_line_m = 0.0;
-  }
-  if (context.current_lanelet.is_intersection) {
-    context.distance_to_intersection_m = 0.0;
-  }
-
-  return context;
-}
-
-bool WorldModelNode::getEgoPoseFromTF(geometry_msgs::msg::PoseStamped & pose)
-{
   try {
     auto transform = tf_buffer_->lookupTransform(
-      map_frame_, base_link_frame_, tf2::TimePointZero);
+      map_frame_, utm_frame_, tf2::TimePointZero);
 
-    pose.header.stamp = transform.header.stamp;
-    pose.header.frame_id = map_frame_;
-    pose.pose.position.x = transform.transform.translation.x;
-    pose.pose.position.y = transform.transform.translation.y;
-    pose.pose.position.z = transform.transform.translation.z;
-    pose.pose.orientation = transform.transform.rotation;
+    // The translation represents where utm(0,0,0) is in the map frame
+    // We want the inverse: where map(0,0,0) is in utm frame
+    double utm_origin_x = -transform.transform.translation.x;
+    double utm_origin_y = -transform.transform.translation.y;
 
-    return true;
-  } catch (const tf2::TransformException & ex) {
-    return false;
+    RCLCPP_INFO(this->get_logger(), "Got %s -> %s transform. UTM origin offset: (%.2f, %.2f)",
+      utm_frame_.c_str(), map_frame_.c_str(), utm_origin_x, utm_origin_y);
+
+    RCLCPP_INFO(this->get_logger(), "Loading map from: %s (projector: %s)",
+      osm_map_path_.c_str(), projector_type_.c_str());
+    if (lanelet_handler_->loadMap(osm_map_path_, utm_origin_x, utm_origin_y, projector_type_)) {
+      RCLCPP_INFO(this->get_logger(), "Map loaded successfully");
+      map_init_timer_->cancel();
+    } else {
+      RCLCPP_ERROR(this->get_logger(), "Failed to load map");
+      map_init_timer_->cancel();
+    }
+
+  } catch (const tf2::TransformException &) {
+    // Transform not available yet, will retry
+    RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+      "Waiting for %s -> %s transform...", utm_frame_.c_str(), map_frame_.c_str());
   }
 }
 
 }  // namespace world_model
+
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
+
+  auto node = std::make_shared<world_model::WorldModelNode>(rclcpp::NodeOptions());
+
+  // Use MultiThreadedExecutor for callback groups to work properly
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+
+  executor.spin();
+
+  rclcpp::shutdown();
+  return 0;
+}

@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
 import os
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, EmitEvent, RegisterEventHandler
+from launch.events import matches_action
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import LifecycleNode
+from launch_ros.event_handlers import OnStateTransition
+from launch_ros.events.lifecycle import ChangeState
+from lifecycle_msgs.msg import Transition
 
 
 def generate_launch_description():
@@ -36,37 +41,48 @@ def generate_launch_description():
         description='Path to the OSM lanelet map file'
     )
 
-    lat_origin_arg = DeclareLaunchArgument(
-        'lat_origin',
-        default_value='0.0',
-        description='Latitude origin for UTM projection'
-    )
-
-    lon_origin_arg = DeclareLaunchArgument(
-        'lon_origin',
-        default_value='0.0',
-        description='Longitude origin for UTM projection'
-    )
-
-    world_model_node = Node(
+    world_model_node = LifecycleNode(
         package='world_model',
         executable='world_model_node',
         name='world_model',
+        namespace='',
         output='screen',
         parameters=[
             LaunchConfiguration('config_file'),
             {
                 'osm_map_path': LaunchConfiguration('osm_map_path'),
-                'lat_origin': LaunchConfiguration('lat_origin'),
-                'lon_origin': LaunchConfiguration('lon_origin'),
             }
         ],
+    )
+
+    # Automatically configure the node after it starts
+    configure_event = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(world_model_node),
+            transition_id=Transition.TRANSITION_CONFIGURE,
+        )
+    )
+
+    # Automatically activate after configure succeeds
+    activate_event_handler = RegisterEventHandler(
+        OnStateTransition(
+            target_lifecycle_node=world_model_node,
+            goal_state='inactive',
+            entities=[
+                EmitEvent(
+                    event=ChangeState(
+                        lifecycle_node_matcher=matches_action(world_model_node),
+                        transition_id=Transition.TRANSITION_ACTIVATE,
+                    )
+                )
+            ],
+        )
     )
 
     return LaunchDescription([
         config_file_arg,
         osm_map_path_arg,
-        lat_origin_arg,
-        lon_origin_arg,
         world_model_node,
+        configure_event,
+        activate_event_handler,
     ])

@@ -12,15 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
+#ifndef WORLD_MODEL__TYPES__ENTITY_TYPE_HPP_
+#define WORLD_MODEL__TYPES__ENTITY_TYPE_HPP_
 
-#include "rclcpp/rclcpp.hpp"
-#include "world_model/world_model_node.hpp"
+#include <cstdint>
 
-int main(int argc, char ** argv)
+namespace world_model
 {
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<world_model::WorldModelNode>());
-  rclcpp::shutdown();
-  return 0;
-}
+
+enum class EntityType : uint8_t {
+  UNKNOWN = 0,
+  CAR = 1,
+  HUMAN = 2,
+  BICYCLE = 3,
+  MOTORCYCLE = 4,
+  TRAFFIC_LIGHT = 5
+};
+
+}  // namespace world_model
+
+#endif  // WORLD_MODEL__TYPES__ENTITY_TYPE_HPP_
