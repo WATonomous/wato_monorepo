@@ -1,0 +1,9 @@
+launch:
+
+  - node:
+      pkg: "mppi_control"
+      exec: "mppi_node"
+      name: "mppi_node"
+      output: "screen"
+      param:
+        - "config/mppi_params.yaml"
