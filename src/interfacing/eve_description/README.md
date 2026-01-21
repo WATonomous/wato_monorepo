@@ -34,9 +34,9 @@ The camera frames are positioned on a circle around `roof_mount` and oriented to
 
 The 4 lower cameras are also defined in the URDF and published as TF frames (all lowercase):
 
-- `camera_low_ne`
-- `camera_low_se`
-- `camera_low_sw`
-- `camera_low_nw`
+- `camera_lower_ne`
+- `camera_lower_se`
+- `camera_lower_sw`
+- `camera_lower_nw`
 
 These transforms are **nominal placeholders** intended for early sensor integration. Update the `<origin xyz=... rpy=...>` blocks in `urdf/eve_roof_mount.xacro` (macro `lower_cameras`) once you have measured/calibrated values.
