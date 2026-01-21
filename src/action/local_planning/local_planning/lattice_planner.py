@@ -251,7 +251,7 @@ class LatticePlanner:
                             trajectory,
                             sample,
                             lane * -self.l_step_size,
-                            [(-15, 0.8796)],
+                            [(-15, 0.8796)], #TODO hard coded obstacle
                         )
                         if cost is False:
                             continue

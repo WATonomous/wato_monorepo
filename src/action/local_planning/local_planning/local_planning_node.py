@@ -120,7 +120,9 @@ class LocalPlanningNode(Node):
         target_lane = 0
         if self.curr_marker is not None:
             road, lane, s_p = self.curr_marker
+            # target lane is always the last lane in the might work cause we assume we are in middle lane and there are 3 lanes
             target_lane = -(len(self.roads[road]) - 1 - lane)
+            # sometimes the lanes might not be in order left to right so adjust for that
             if len(self.roads[road]) > 1:
                 vec1, pt1, _ = self.roads[road][0]
                 _, pt2, _ = self.roads[road][1]
@@ -135,7 +137,7 @@ class LocalPlanningNode(Node):
                 unit_perp = perp_vec / np.linalg.norm(perp_vec)
 
                 if np.linalg.norm(unit_perp + unit_side_vec) < 0.5:
-                    target_lane *= -1
+                    target_lane *= -1 
         self.get_logger().info(f"{target_lane}")
         res = self.planner.run(target_lane)
 

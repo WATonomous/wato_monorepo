@@ -37,7 +37,7 @@ setup(
             glob(os.path.join("config", "*.yaml")),
         ),
     ],
-    install_requires=["setuptools", "visualization_msgs", "geometry_msgs", "std_msgs"],
+    install_requires=["setuptools", "visualization_msgs", "geometry_msgs", "std_msgs", "nav_msgs"],
     zip_safe=True,
     maintainer="eddyzhou, aryanafrouzi",
     maintainer_email="e23zhou@watonomous.ca, aafrouzi@watonomous.ca",
@@ -46,7 +46,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "local_planning_node = local_planning.local_planning_node:main"
+            "local_planning_node = local_planning.planning_node:main"
         ],
     },
 )
