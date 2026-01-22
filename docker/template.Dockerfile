@@ -82,6 +82,7 @@ RUN apt-get update && \
     curl \
     wget \
     htop \
+    nano \
     tree
 
 # Make ament_ws owned by bolty
