@@ -25,7 +25,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(interfacing_custom_msg REQUIRED)
+find_package(roscco_msg REQUIRED)
 
 # Create shared library component
 add_library(joystick_interfacing SHARED
@@ -44,7 +44,7 @@ target_link_libraries(joystick_interfacing PUBLIC
   ${sensor_msgs_TARGETS}
   ${ackermann_msgs_TARGETS}
   ${std_msgs_TARGETS}
-  interfacing_custom_msg::interfacing_custom_msg__rosidl_typesupport_cpp
+  roscco_msg::roscco_msg__rosidl_typesupport_cpp
 )
 
 # Register component and automatically create standalone executable
@@ -82,7 +82,7 @@ if(BUILD_TESTING)
     ${ackermann_msgs_TARGETS}
     ${sensor_msgs_TARGETS}
     ${std_msgs_TARGETS}
-    interfacing_custom_msg::interfacing_custom_msg__rosidl_typesupport_cpp
+    roscco_msg::roscco_msg__rosidl_typesupport_cpp
   )
 endif()
 

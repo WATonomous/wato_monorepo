@@ -19,9 +19,10 @@
 #include <vector>
 
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
-#include <interfacing_custom_msg/msg/roscco.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <roscco_msg/msg/roscco.hpp>
 #include <sensor_msgs/msg/joy.hpp>
+#include <sensor_msgs/msg/joy_feedback.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/int8.hpp>
 
@@ -75,16 +76,30 @@ private:
   /**
    * @brief Publishes a zero-velocity AckermannDriveStamped command (coasting).
    */
-
   void publish_zero_command();
+
+  /**
+   * @brief Triggers a vibration sequence.
+   * @param count Number of vibration pulses.
+   */
+  void vibrate(int count);
+
+  /**
+   * @brief Handles the vibration sequence pulses.
+   */
+  void vibration_timer_callback();
 
   // ROS Interfaces
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_drive_stamped_pub_;
-  rclcpp::Publisher<interfacing_custom_msg::msg::Roscco>::SharedPtr roscco_joystick_pub_;
+  rclcpp::Publisher<roscco_msg::msg::Roscco>::SharedPtr roscco_joystick_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr idle_state_pub_;
   // state status
   rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr state_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JoyFeedback>::SharedPtr joy_feedback_pub_;
+
+  // Vibration timer
+  rclcpp::TimerBase::SharedPtr vibration_timer_;
 
   int enable_axis_;  // index of enable axis (shoulder button)
   int toggle_button_;  // index of toggle button
@@ -100,5 +115,13 @@ private:
 
   bool use_roscco_topic_{false};  // toggle between /joystick/ackermann and /joystick/roscco
   bool prev_toggle_button_pressed_{false};  // previous state of toggle button for edge detection
+
+  // Vibration parameters
+  double vibration_intensity_;
+  int vibration_duration_ms_;
+
+  // Vibration sequence state
+  int vibration_pulses_remaining_{0};
+  bool vibration_on_{false};
 };
 }  // namespace joystick_node
