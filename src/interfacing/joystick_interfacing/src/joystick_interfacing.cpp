@@ -34,6 +34,7 @@ void JoystickNode::configure()
 {
   // Declare parameters (no default values)
   this->declare_parameter<int>("enable_axis");
+  this->declare_parameter<int>("toggle_button", 0);
   this->declare_parameter<int>("steering_axis");
   this->declare_parameter<int>("throttle_axis");
 
@@ -43,8 +44,12 @@ void JoystickNode::configure()
   this->declare_parameter<bool>("invert_steering", false);
   this->declare_parameter<bool>("invert_throttle", false);
 
+  this->declare_parameter<double>("vibration_intensity", 0.5);
+  this->declare_parameter<int>("vibration_duration_ms", 100);
+
   // Read parameters
   enable_axis_ = this->get_parameter("enable_axis").as_int();
+  toggle_button_ = this->get_parameter("toggle_button").as_int();
   steering_axis_ = this->get_parameter("steering_axis").as_int();
   throttle_axis_ = this->get_parameter("throttle_axis").as_int();
 
@@ -54,10 +59,16 @@ void JoystickNode::configure()
   invert_steering_ = this->get_parameter("invert_steering").as_bool();
   invert_throttle_ = this->get_parameter("invert_throttle").as_bool();
 
+  vibration_intensity_ = this->get_parameter("vibration_intensity").as_double();
+  vibration_duration_ms_ = this->get_parameter("vibration_duration_ms").as_int();
+
   // Setup pubs/subs
   ackermann_drive_stamped_pub_ =
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/joystick/ackermann", rclcpp::QoS(10));
+  roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("/joystick/roscco", rclcpp::QoS(10));
   idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/joystick/is_idle", rclcpp::QoS(10));
+  state_pub_ = this->create_publisher<std_msgs::msg::Int8>("/joystick/state", rclcpp::QoS(10));
+  joy_feedback_pub_ = this->create_publisher<sensor_msgs::msg::JoyFeedback>("/joy/set_feedback", rclcpp::QoS(10));
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
     "/joy", rclcpp::QoS(10), std::bind(&JoystickNode::joy_callback, this, std::placeholders::_1));
 
@@ -79,9 +90,18 @@ double JoystickNode::get_axis(const sensor_msgs::msg::Joy & msg, int axis_index)
   return static_cast<double>(msg.axes[axis_index]);
 }
 
+bool JoystickNode::get_button(const sensor_msgs::msg::Joy & msg, int button_index) const
+{
+  if (button_index < 0 || static_cast<size_t>(button_index) >= msg.buttons.size()) {
+    return false;
+  }
+  return msg.buttons[button_index] != 0;
+}
+
 void JoystickNode::publish_neutral_state(bool is_idle)
 {
   publish_idle_state(is_idle);
+  publish_state(JoystickState::NULL_STATE);
   publish_zero_command();
 }
 
@@ -92,17 +112,93 @@ void JoystickNode::publish_idle_state(bool is_idle)
   idle_state_pub_->publish(msg);
 }
 
+void JoystickNode::publish_state(JoystickState state)
+{
+  std_msgs::msg::Int8 msg;
+  msg.data = static_cast<int8_t>(state);
+  state_pub_->publish(msg);
+}
+
 void JoystickNode::publish_zero_command()
 {
-  ackermann_msgs::msg::AckermannDriveStamped cmd;
-  cmd.header.stamp = this->now();
-  cmd.drive.speed = 0.0;
-  cmd.drive.steering_angle = 0.0;
-  ackermann_drive_stamped_pub_->publish(cmd);
+  if (use_roscco_topic_) {
+    roscco_msg::msg::Roscco cmd;
+    cmd.header.stamp = this->now();
+    cmd.forward = 0.0;
+    cmd.steering = 0.0;
+    roscco_joystick_pub_->publish(cmd);
+  } else {
+    ackermann_msgs::msg::AckermannDriveStamped cmd;
+    cmd.header.stamp = this->now();
+    cmd.drive.speed = 0.0;
+    cmd.drive.steering_angle = 0.0;
+    ackermann_drive_stamped_pub_->publish(cmd);
+  }
+}
+
+void JoystickNode::vibrate(int count)
+{
+  if (count <= 0) {
+    return;
+  }
+  if (vibration_timer_) {
+    vibration_timer_->cancel();
+  }
+  vibration_pulses_remaining_ = count;
+  vibration_on_ = false;  // Start by turning it ON in the callback
+  vibration_timer_callback();
+}
+
+void JoystickNode::vibration_timer_callback()
+{
+  if (vibration_timer_) {
+    vibration_timer_->cancel();
+  }
+
+  sensor_msgs::msg::JoyFeedback fb;
+  fb.type = sensor_msgs::msg::JoyFeedback::TYPE_RUMBLE;
+  fb.id = 0;
+
+  if (!vibration_on_) {
+    // Turn ON
+    vibration_on_ = true;
+    fb.intensity = static_cast<float>(vibration_intensity_);
+    joy_feedback_pub_->publish(fb);
+
+    vibration_timer_ = this->create_wall_timer(
+      std::chrono::milliseconds(vibration_duration_ms_), std::bind(&JoystickNode::vibration_timer_callback, this));
+  } else {
+    // Turn OFF
+    vibration_on_ = false;
+    fb.intensity = 0.0f;
+    joy_feedback_pub_->publish(fb);
+
+    vibration_pulses_remaining_--;
+    if (vibration_pulses_remaining_ > 0) {
+      // Pause between pulses
+      vibration_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(vibration_duration_ms_), std::bind(&JoystickNode::vibration_timer_callback, this));
+    }
+  }
 }
 
 void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
 {
+  // Toggle logic (rising edge)
+  const bool toggle_button_pressed = get_button(*msg, toggle_button_);
+  if (toggle_button_pressed && !prev_toggle_button_pressed_) {
+    // Send zero to the current topic before switching to avoid stale commands
+    publish_zero_command();
+
+    use_roscco_topic_ = !use_roscco_topic_;
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Toggled output topic to: %s",
+      use_roscco_topic_ ? "/joystick/roscco" : "/joystick/ackermann");
+    vibrate(use_roscco_topic_ ? 2 : 1);
+  }
+  prev_toggle_button_pressed_ = toggle_button_pressed;
+
   // Safety gating
   // enable must be held
   const bool enable_pressed = get_axis(*msg, enable_axis_) <= -0.9;
@@ -131,11 +227,21 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   const double steering_angle = std::clamp(steer, -1.0, 1.0) * max_steering_angle_;
   const double speed = std::clamp(throttle, -1.0, 1.0) * max_speed_;
 
-  ackermann_msgs::msg::AckermannDriveStamped cmd_stamped;
-  cmd_stamped.header.stamp = this->now();
-  cmd_stamped.drive.steering_angle = steering_angle;
-  cmd_stamped.drive.speed = speed;
-  ackermann_drive_stamped_pub_->publish(cmd_stamped);
+  if (use_roscco_topic_) {
+    roscco_msg::msg::Roscco cmd_stamped;
+    cmd_stamped.header.stamp = this->now();
+    cmd_stamped.steering = steering_angle;
+    cmd_stamped.forward = speed;
+    roscco_joystick_pub_->publish(cmd_stamped);
+  } else {
+    ackermann_msgs::msg::AckermannDriveStamped cmd_stamped;
+    cmd_stamped.header.stamp = this->now();
+    cmd_stamped.drive.steering_angle = steering_angle;
+    cmd_stamped.drive.speed = speed;
+    ackermann_drive_stamped_pub_->publish(cmd_stamped);
+  }
+
+  publish_state(use_roscco_topic_ ? JoystickNode::JoystickState::ROSSCO : JoystickNode::JoystickState::ACKERMANN);
   publish_idle_state(false);  // Joystick is active, so NOT idle
 }
 

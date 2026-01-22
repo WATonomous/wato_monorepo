@@ -6,6 +6,8 @@ joystick_node:
   ros__parameters:
     #left shoulder buttons
     enable_axis: 2
+    # button to toggle between /joystick/ackermann and /joystick/roscco
+    toggle_button: 1 #B on xbox
     #left and right joystick axes
     steering_axis: 0
     throttle_axis: 4
@@ -15,3 +17,7 @@ joystick_node:
     #invert steering and throttle
     invert_steering: false
     invert_throttle: false
+
+    #vibration feedback
+    vibration_intensity: 1.0
+    vibration_duration_ms: 150
