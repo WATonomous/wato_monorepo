@@ -23,6 +23,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/int8.hpp>
 
 namespace joystick_node
 {
@@ -30,6 +31,13 @@ namespace joystick_node
 class JoystickNode : public rclcpp::Node
 {
 public:
+  enum class JoystickState : int8_t
+  {
+    NULL_STATE = 0,
+    ACKERMANN = 1,
+    ROSSCO = 2
+  };
+
   explicit JoystickNode(const rclcpp::NodeOptions & options);
 
 private:
@@ -60,6 +68,11 @@ private:
   void publish_idle_state(bool is_idle);
 
   /**
+   * @brief Publishes the current joystick state.
+   */
+  void publish_state(JoystickState state);
+
+  /**
    * @brief Publishes a zero-velocity AckermannDriveStamped command (coasting).
    */
 
@@ -70,6 +83,8 @@ private:
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_drive_stamped_pub_;
   rclcpp::Publisher<interfacing_custom_msg::msg::Roscco>::SharedPtr roscco_joystick_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr idle_state_pub_;
+  // state status
+  rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr state_pub_;
 
   int enable_axis_;  // index of enable axis (shoulder button)
   int toggle_button_;  // index of toggle button

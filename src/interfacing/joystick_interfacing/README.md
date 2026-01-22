@@ -50,7 +50,8 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
 
 - `/joystick/ackermann` (`ackermann_msgs/msg/AckermannDriveStamped`): Ackermann drive commands derived from joystick input
 - `/joystick/roscco` (`interfacing_custom_msg/msg/Roscco`): ROSCCO drive commands derived from joystick input (used when toggled)
-- `/joystick/is_idle` (`std_msgs/msg/Bool`): Idle state indicator (true when joystick is not active, used by ackermann mux for masking)
+- `/joystick/is_idle` (`std_msgs/msg/Bool`): Idle state indicator (true when joystick is not active)
+- `/joystick/state` (`std_msgs/msg/Int8`): Current operation mode (0: NULL, 1: ACKERMANN, 2: ROSCCO)
 
 ## How It Works
 

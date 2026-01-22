@@ -24,6 +24,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/int8.hpp>
 
 #include "test_fixtures/test_executor_fixture.hpp"
 #include "test_nodes/publisher_test_node.hpp"
@@ -33,6 +34,8 @@ using ackermann_msgs::msg::AckermannDriveStamped;
 using roscco_msg = interfacing_custom_msg::msg::Roscco;
 using sensor_msgs::msg::Joy;
 using std_msgs::msg::Bool;
+using std_msgs::msg::Int8;
+using JoystickState = joystick_node::JoystickNode::JoystickState;
 using wato::test::PublisherTestNode;
 using wato::test::SubscriberTestNode;
 using wato::test::TestExecutorFixture;
@@ -62,9 +65,11 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
   auto ack_sub = std::make_shared<SubscriberTestNode<AckermannDriveStamped>>("/joystick/ackermann", "ack_sub");
   auto roscco_sub = std::make_shared<SubscriberTestNode<roscco_msg>>("/joystick/roscco", "roscco_sub");
   auto idle_sub = std::make_shared<SubscriberTestNode<Bool>>("/joystick/is_idle", "idle_sub");
+  auto state_sub = std::make_shared<SubscriberTestNode<Int8>>("/joystick/state", "state_sub");
   add_node(ack_sub);
   add_node(roscco_sub);
   add_node(idle_sub);
+  add_node(state_sub);
 
   start_spinning();
 
@@ -86,6 +91,7 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
   {
     // Queue expectations BEFORE action to avoid race condition
     auto idle_future = idle_sub->expect_next_message();
+    auto state_future = state_sub->expect_next_message();
     auto ack_future = ack_sub->expect_next_message();
 
     // Enable not pressed (0.0)
@@ -94,6 +100,9 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
     auto idle_msg = idle_future.get();
     REQUIRE(idle_msg.data == true);
 
+    auto state_msg = state_future.get();
+    REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::NULL_STATE));
+
     auto ack_msg = ack_future.get();
     REQUIRE(ack_msg.drive.speed == Catch::Approx(0.0));
   }
@@ -101,6 +110,7 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
   SECTION("Safety Engaged (Active)")
   {
     auto idle_future = idle_sub->expect_next_message();
+    auto state_future = state_sub->expect_next_message();
     auto ack_future = ack_sub->expect_next_message();
 
     // Enable pressed (-1.0)
@@ -111,6 +121,9 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
     auto idle_msg = idle_future.get();
     REQUIRE(idle_msg.data == false);  // Not idle
 
+    auto state_msg = state_future.get();
+    REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ACKERMANN));
+
     auto ack_msg = ack_future.get();
     REQUIRE(ack_msg.drive.steering_angle == Catch::Approx(0.5));
     REQUIRE(ack_msg.drive.speed == Catch::Approx(2.0));
@@ -120,56 +133,91 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
   {
     // Initially should be on /joystick/ackermann
     {
+      auto state_future = state_sub->expect_next_message();
       auto ack_future = ack_sub->expect_next_message();
       send_joy(-1.0, 0.5, 0.5, false);
+
+      auto state_msg = state_future.get();
+      REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ACKERMANN));
+
       auto ack_msg = ack_future.get();
       REQUIRE(ack_msg.drive.speed == Catch::Approx(1.0));
     }
 
     // Toggle to /joystick/roscco
     {
+      auto state_future = state_sub->expect_next_message();
       auto roscco_future = roscco_sub->expect_next_message();
       send_joy(-1.0, 0.5, 0.5, true);  // Rising edge toggles to /joystick/roscco
+
+      auto state_msg = state_future.get();
+      REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ROSSCO));
+
       auto roscco_msg = roscco_future.get();
       REQUIRE(roscco_msg.forward == Catch::Approx(1.0));
     }
 
     // Release toggle button
     {
+      auto state_future = state_sub->expect_next_message();
       auto roscco_future = roscco_sub->expect_next_message();
       send_joy(-1.0, 0.5, 0.5, false);
+
+      auto state_msg = state_future.get();
+      REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ROSSCO));
+
       auto roscco_msg = roscco_future.get();
       REQUIRE(roscco_msg.forward == Catch::Approx(1.0));
     }
 
     // Verify it publishes to /joystick/roscco with different values
     {
+      auto state_future = state_sub->expect_next_message();
       auto roscco_future = roscco_sub->expect_next_message();
       send_joy(-1.0, 0.8, 0.8, false);
+
+      auto state_msg = state_future.get();
+      REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ROSSCO));
+
       auto roscco_msg = roscco_future.get();
       REQUIRE(roscco_msg.forward == Catch::Approx(1.6));  // 0.8 * 2.0
     }
 
     // Toggle back to /joystick/ackermann
     {
+      auto state_future = state_sub->expect_next_message();
       auto ack_future = ack_sub->expect_next_message();
       send_joy(-1.0, 0.0, 0.0, true);
+
+      auto state_msg = state_future.get();
+      REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ACKERMANN));
+
       auto ack_msg = ack_future.get();
       REQUIRE(ack_msg.drive.speed == Catch::Approx(0.0));
     }
 
     // Release toggle button
     {
+      auto state_future = state_sub->expect_next_message();
       auto ack_future = ack_sub->expect_next_message();
       send_joy(-1.0, 0.0, 0.0, false);
+
+      auto state_msg = state_future.get();
+      REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ACKERMANN));
+
       auto ack_msg = ack_future.get();
       REQUIRE(ack_msg.drive.speed == Catch::Approx(0.0));
     }
 
     // Verify it's back on /joystick/ackermann
     {
+      auto state_future = state_sub->expect_next_message();
       auto ack_future = ack_sub->expect_next_message();
       send_joy(-1.0, 0.1, 0.1, false);
+
+      auto state_msg = state_future.get();
+      REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ACKERMANN));
+
       auto ack_msg = ack_future.get();
       REQUIRE(ack_msg.drive.speed == Catch::Approx(0.2));  // 0.1 * 2.0
     }

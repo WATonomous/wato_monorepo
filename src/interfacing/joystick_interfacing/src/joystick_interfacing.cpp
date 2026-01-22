@@ -62,6 +62,7 @@ void JoystickNode::configure()
   roscco_joystick_pub_ =
     this->create_publisher<interfacing_custom_msg::msg::Roscco>("/joystick/roscco", rclcpp::QoS(10));
   idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/joystick/is_idle", rclcpp::QoS(10));
+  state_pub_ = this->create_publisher<std_msgs::msg::Int8>("/joystick/state", rclcpp::QoS(10));
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
     "/joy", rclcpp::QoS(10), std::bind(&JoystickNode::joy_callback, this, std::placeholders::_1));
 
@@ -94,6 +95,7 @@ bool JoystickNode::get_button(const sensor_msgs::msg::Joy & msg, int button_inde
 void JoystickNode::publish_neutral_state(bool is_idle)
 {
   publish_idle_state(is_idle);
+  publish_state(JoystickState::NULL_STATE);
   publish_zero_command();
 }
 
@@ -102,6 +104,13 @@ void JoystickNode::publish_idle_state(bool is_idle)
   std_msgs::msg::Bool msg;
   msg.data = is_idle;
   idle_state_pub_->publish(msg);
+}
+
+void JoystickNode::publish_state(JoystickState state)
+{
+  std_msgs::msg::Int8 msg;
+  msg.data = static_cast<int8_t>(state);
+  state_pub_->publish(msg);
 }
 
 void JoystickNode::publish_zero_command()
@@ -176,6 +185,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
     ackermann_drive_stamped_pub_->publish(cmd_stamped);
   }
 
+  publish_state(use_roscco_topic_ ? JoystickNode::JoystickState::ROSSCO : JoystickNode::JoystickState::ACKERMANN);
   publish_idle_state(false);  // Joystick is active, so NOT idle
 }
 
