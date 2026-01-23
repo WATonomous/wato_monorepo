@@ -5,17 +5,15 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code needed for perception build
-COPY src/perception/perception_bringup perception_bringup
-COPY src/perception/patchwork patchwork
-COPY src/perception/tracking_2d tracking_2d
+# Copy in source code
+COPY src/perception perception
 COPY src/wato_msgs wato_msgs
 COPY src/wato_test wato_test
 
 # Bring in Patchwork++ third-party dependency (built later in dependencies stage)
 RUN git clone --depth 1 --branch master \
       https://github.com/url-kaist/patchwork-plusplus \
-      patchwork/patchwork-plusplus
+      perception/patchwork/patchwork-plusplus
 
 # Update CONTRIBUTING.md to pass ament_copyright test
 COPY src/wato_msgs/simulation/mit_contributing.txt ${AMENT_WS}/src/ros-carla-msgs/CONTRIBUTING.md
@@ -30,7 +28,6 @@ RUN apt-get -qq update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # INSTALL DEPENDENCIES HERE BEFORE THE ROSDEP
 # Only do this as a last resort. Utilize ROSDEP first
@@ -49,7 +46,7 @@ COPY --from=source ${AMENT_WS}/src src
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build and install Patchwork++
-WORKDIR ${AMENT_WS}/src/patchwork/patchwork-plusplus
+WORKDIR ${AMENT_WS}/src/perception/patchwork/patchwork-plusplus
 RUN cmake -S cpp -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr/local && \
@@ -67,7 +64,6 @@ RUN apt-get -qq autoremove -y && apt-get -qq autoclean && apt-get -qq clean && \
 
 ################################ Build ################################
 FROM dependencies AS build
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
@@ -84,7 +80,6 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
 ################################ Prod ################################
 FROM build AS deploy
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Source Cleanup and Security Setup
 RUN rm -rf "${AMENT_WS:?}"/*

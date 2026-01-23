@@ -1,0 +1,11 @@
+add_library(patchworkpp_vendor::ground_seg_cores STATIC IMPORTED)
+
+set_target_properties(patchworkpp_vendor::ground_seg_cores PROPERTIES
+    IMPORTED_LOCATION "@CMAKE_INSTALL_PREFIX@/opt/patchworkpp_vendor/lib/libground_seg_cores.a"
+    INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_INSTALL_PREFIX@/opt/patchworkpp_vendor/include"
+)
+
+find_package(Eigen3 3.3 QUIET)
+if(Eigen3_FOUND)
+  target_link_libraries(patchworkpp_vendor::ground_seg_cores INTERFACE Eigen3::Eigen)
+endif()

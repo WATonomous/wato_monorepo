@@ -53,11 +53,16 @@
 # export BAG_DIRECTORY=""
 
 ############################### ROS 2 MIDDLEWARE SETTINGS ##############################
-## Middleware to use for interprocess communication. DEFAULT = "rmw_cyclonedds_cpp"
+## Middleware to use for interprocess communication. DEFAULT = "rmw_zenoh_cpp"
 # export RMW_IMPLEMENTATION=""
 
-## Path to CycloneDDS configuration file. DEFAULT = "file:///opt/watonomous/dds_config.xml"
-# export CYCLONEDDS_URI=""
+## Zenoh configuration - enables zero-copy transport for local communication
+## Path to Zenoh router configuration. DEFAULT = "file:///opt/watonomous/rmw_zenoh_router_config.json5"
+# export ZENOH_ROUTER_CONFIG_URI=""
+
+## Path to Zenoh session configuration. DEFAULT ="file:///opt/watonomous/rmw_zenoh_session_config.json5"
+# export ZENOH_SESSION_CONFIG_URI=""
+
 
 ## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
 ## Each user gets a unique domain to prevent cross-talk on shared networks
@@ -66,3 +71,9 @@
 ############################### FOXGLOVE SETTINGS ##################################
 ## Size of the outgoing websocket buffer (bytes) for foxglove_bridge. Increase to prevent drops; default is 256 MiB.
 # export FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES="${FOXGLOVE_BRIDGE_SEND_BUFFER_LIMIT_BYTES:-268435456}"
+
+############################### SIMULATION SETTINGS ################################
+## CARLA rendering mode: "gpu" for GPU-accelerated rendering, "no_gpu" for headless/software rendering
+## Use "no_gpu" when running on machines without a GPU or when GPU resources are limited
+## DEFAULT = "no_gpu"
+# export CARLA_RENDER_MODE="no_gpu"
