@@ -40,7 +40,6 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
-      - ${MONO_DIR}/src/infrastructure/wato_lifecycle_manager:/home/bolty/ament_ws/src/wato_lifecycle_manager
       - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
 
 #################### ACTION SERVICE ####################
