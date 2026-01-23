@@ -62,22 +62,22 @@ launch:
   # LANELET VISUALIZATION MARKERS
   # ═══════════════════════════════════════════════════════════════════════════
   - node:
-      pkg: lanelet_viz_markers
+      pkg: lanelet_markers
       exec: map_viz_markers_node
       name: map_viz_markers_node
       namespace: ""
       output: screen
       param:
-        - from: $(find-pkg-share lanelet_viz_markers)/config/lanelet_viz_markers.yaml
+        - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
 
   - node:
-      pkg: lanelet_viz_markers
+      pkg: lanelet_markers
       exec: lane_context_markers_node
       name: lane_context_markers_node
       namespace: ""
       output: screen
       param:
-        - from: $(find-pkg-share lanelet_viz_markers)/config/lanelet_viz_markers.yaml
+        - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
 
   # ═══════════════════════════════════════════════════════════════════════════
   # LIFECYCLE MANAGER

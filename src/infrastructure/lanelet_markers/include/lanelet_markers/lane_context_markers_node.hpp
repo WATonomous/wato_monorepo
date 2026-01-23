@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef LANELET_VIZ_MARKERS__LANE_CONTEXT_MARKERS_NODE_HPP_
-#define LANELET_VIZ_MARKERS__LANE_CONTEXT_MARKERS_NODE_HPP_
+#ifndef lanelet_markers__LANE_CONTEXT_MARKERS_NODE_HPP_
+#define lanelet_markers__LANE_CONTEXT_MARKERS_NODE_HPP_
 
 #include <string>
 
@@ -21,7 +21,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
-namespace lanelet_viz_markers
+namespace lanelet_markers
 {
 
 class LaneContextMarkersNode : public rclcpp::Node
@@ -40,6 +40,6 @@ private:
   double centerline_line_width_;
 };
 
-}  // namespace lanelet_viz_markers
+}  // namespace lanelet_markers
 
-#endif  // LANELET_VIZ_MARKERS__LANE_CONTEXT_MARKERS_NODE_HPP_
+#endif  // lanelet_markers__LANE_CONTEXT_MARKERS_NODE_HPP_

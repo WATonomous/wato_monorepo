@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "lanelet_viz_markers/map_viz_markers_node.hpp"
+#include "lanelet_markers/map_viz_markers_node.hpp"
 
 #include <cmath>
 #include <iomanip>
@@ -21,9 +21,9 @@
 #include <string>
 
 #include "lanelet_msgs/msg/lanelet.hpp"
-#include "lanelet_viz_markers/marker_utils.hpp"
+#include "lanelet_markers/marker_utils.hpp"
 
-namespace lanelet_viz_markers
+namespace lanelet_markers
 {
 
 MapVizMarkersNode::MapVizMarkersNode(const rclcpp::NodeOptions & options)
@@ -293,12 +293,12 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
   publisher_->publish(marker_array);
 }
 
-}  // namespace lanelet_viz_markers
+}  // namespace lanelet_markers
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<lanelet_viz_markers::MapVizMarkersNode>();
+  auto node = std::make_shared<lanelet_markers::MapVizMarkersNode>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

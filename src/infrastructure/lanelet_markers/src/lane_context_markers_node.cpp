@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "lanelet_viz_markers/lane_context_markers_node.hpp"
+#include "lanelet_markers/lane_context_markers_node.hpp"
 
 #include <memory>
 #include <string>
 
-#include "lanelet_viz_markers/marker_utils.hpp"
+#include "lanelet_markers/marker_utils.hpp"
 
-namespace lanelet_viz_markers
+namespace lanelet_markers
 {
 
 LaneContextMarkersNode::LaneContextMarkersNode(const rclcpp::NodeOptions & options)
@@ -110,12 +110,12 @@ void LaneContextMarkersNode::laneContextCallback(const lanelet_msgs::msg::Curren
   publisher_->publish(marker_array);
 }
 
-}  // namespace lanelet_viz_markers
+}  // namespace lanelet_markers
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<lanelet_viz_markers::LaneContextMarkersNode>();
+  auto node = std::make_shared<lanelet_markers::LaneContextMarkersNode>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

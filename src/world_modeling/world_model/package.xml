@@ -36,7 +36,7 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>lifecycle_msgs</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
-  <exec_depend>lanelet_viz_markers</exec_depend>
+  <exec_depend>lanelet_markers</exec_depend>
 
   <!-- Testing -->
   <test_depend>wato_test</test_depend>

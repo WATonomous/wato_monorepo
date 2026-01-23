@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "lanelet_viz_markers/marker_utils.hpp"
+#include "lanelet_markers/marker_utils.hpp"
 
 #include <cmath>
 #include <string>
 #include <vector>
 
-namespace lanelet_viz_markers
+namespace lanelet_markers
 {
 
 std_msgs::msg::ColorRGBA makeColor(float r, float g, float b, float a)
@@ -302,4 +302,4 @@ visualization_msgs::msg::Marker createTriangleMarker(
   return marker;
 }
 
-}  // namespace lanelet_viz_markers
+}  // namespace lanelet_markers
