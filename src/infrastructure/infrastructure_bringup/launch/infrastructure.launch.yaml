@@ -1,0 +1,48 @@
+launch:
+  # Launch arguments
+  - arg:
+      name: foxglove_port
+      default: "8765"
+      description: "Port for Foxglove WebSocket server"
+
+  - arg:
+      name: foxglove_address
+      default: "0.0.0.0"
+      description: "Address for Foxglove WebSocket server"
+
+  - arg:
+      name: zenoh_router_enabled
+      default: "true"
+      description: "Enable the Zenoh router for shared memory IPC"
+
+  # Zenoh Router (for rmw_zenoh_cpp shared memory IPC)
+  - node:
+      pkg: rmw_zenoh_cpp
+      exec: rmw_zenohd
+      name: zenoh_router
+      output: screen
+      if: $(var zenoh_router_enabled)
+
+  # TF Relay (workaround for Foxglove tf issues)
+  - node:
+      pkg: topic_tools
+      exec: relay
+      name: tf_relay
+      output: screen
+      args: /tf /tf_new
+
+  # Foxglove Bridge
+  - node:
+      pkg: foxglove_bridge
+      exec: foxglove_bridge
+      name: foxglove_bridge
+      output: screen
+      param:
+        - name: port
+          value: $(var foxglove_port)
+        - name: address
+          value: $(var foxglove_address)
+        - name: send_buffer_limit
+          value: 100000000
+        - name: use_sim_time
+          value: false

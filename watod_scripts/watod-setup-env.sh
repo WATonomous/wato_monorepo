@@ -33,7 +33,14 @@ set -e
 # ------------------------------------------------------------------------------------
 
 ################################  Flag parsing  ######################################
-IS_CI=false
+# Auto-detect CI environment if not explicitly set
+if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then
+  IS_CI=true
+else
+  IS_CI=false
+fi
+
+# Allow explicit override via command-line flag
 for arg in "$@"; do
   case "$arg" in
     --is-ci) IS_CI=true ;;
@@ -47,17 +54,19 @@ if [ -f /.dockerenv ]; then
 fi
 
 ################################  Git branch  ########################################
-if command -v git >/dev/null 2>&1; then
+# In CI, git is in detached HEAD state, so use CI environment variables
+if $IS_CI && [[ -n ${SOURCE_BRANCH:-} ]]; then
+  BRANCH=${BRANCH:-$SOURCE_BRANCH}
+  echo "[setup-env] CI mode: using SOURCE_BRANCH → $BRANCH"
+elif command -v git >/dev/null 2>&1; then
   BRANCH=${BRANCH:-$(git branch --show-current)}
+  if [[ -z $BRANCH ]]; then
+    echo 'Error: git branch is empty (detached HEAD?). Set BRANCH or SOURCE_BRANCH environment variable.' >&2
+    exit 1
+  fi
 else
   echo 'Error: git is not installed.' >&2
-fi
-
-################################  Overrides hook  ####################################
-# shellcheck source=./watod-config.sh
-if [ -f "$(dirname "$0")/watod-config.sh" ]; then
-  # shellcheck disable=SC1091
-  . "$(dirname "$0")/watod-config.sh"
+  exit 1
 fi
 
 ################################  Paths & Layout  ####################################
@@ -85,18 +94,11 @@ REPOSITORY="${REGISTRY_URL##*/}"
 BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
 
 # ROS 2 Middleware configuration
-RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_cyclonedds_cpp"}
-CYCLONEDDS_URI=${CYCLONEDDS_URI:-"file:///opt/watonomous/dds_config.xml"}
+RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
 
-# Always append infrastructure to ACTIVE_MODULES if not already present
-if [[ -n ${ACTIVE_MODULES:-} ]]; then
-  # Check if infrastructure is already in the list
-  if [[ ! " ${ACTIVE_MODULES} " =~ " infrastructure " ]]; then
-    ACTIVE_MODULES="${ACTIVE_MODULES} infrastructure"
-  fi
-else
-  ACTIVE_MODULES="infrastructure"
-fi
+# Zenoh configuration URIs (paths inside Docker containers)
+ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_router_config.json5"}
+ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_session_config.json5"}
 
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
@@ -117,11 +119,7 @@ WORLD_MODELING_IMAGE=${WORLD_MODELING_IMAGE:-"$REGISTRY_URL/world_modeling/world
 ACTION_IMAGE=${ACTION_IMAGE:-"$REGISTRY_URL/action/action"}
 
 # Simulation
-SIMULATION_CARLA_IMAGE=${SIMULATION_CARLA_IMAGE:-"$REGISTRY_URL/simulation/carla_sim"}
-SIMULATION_CARLA_ROS_BRIDGE_IMAGE=${SIMULATION_CARLA_ROS_BRIDGE_IMAGE:-"$REGISTRY_URL/simulation/carla_ros_bridge"}
-SIMULATION_CARLAVIZ_IMAGE=${SIMULATION_CARLAVIZ_IMAGE:-"$REGISTRY_URL/simulation/carla_viz"}
-SIMULATION_CARLA_NOTEBOOKS_IMAGE=${SIMULATION_CARLA_NOTEBOOKS_IMAGE:-"$REGISTRY_URL/simulation/carla_notebooks"}
-SIMULATION_CARLA_SAMPLE_NODE_IMAGE=${SIMULATION_CARLA_SAMPLE_NODE_IMAGE:-"$REGISTRY_URL/simulation/carla_sample_node"}
+SIMULATION_IMAGE=${SIMULATION_IMAGE:-"$REGISTRY_URL/simulation/carla_sim"}
 
 # Interfacing
 INTERFACING_IMAGE=${INTERFACING_IMAGE:-"$REGISTRY_URL/interfacing/interfacing"}
@@ -134,10 +132,18 @@ SETGID=$(id -g)
 BASE_PORT=${BASE_PORT:-$((SETUID*20))}
 GUI_TOOLS_VNC_PORT=${GUI_TOOLS_VNC_PORT:-$((BASE_PORT+1))}
 FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT+2))}
-CARLAVIZ_PORT=${CARLAVIZ_PORT:-$((BASE_PORT+3))}
-CARLAVIZ_PORT_2=${CARLAVIZ_PORT_2:-$((BASE_PORT+4))}
-CARLA_NOTEBOOKS_PORT=${CARLA_NOTEBOOKS_PORT:-$((BASE_PORT+5))}
 LOG_VIEWER__PORT=${LOG_VIEWER__PORT:-$((BASE_PORT+6))}
+PYGAME_HUD_PORT=${PYGAME_HUD_PORT:-$((BASE_PORT+7))}
+CARLA_PORT=${CARLA_PORT:-$((BASE_PORT+8))}
+
+################################  Simulation  ########################################
+CARLA_RENDER_MODE=${CARLA_RENDER_MODE:-"no_gpu"}
+# Enable pygame HUD when running without GPU (provides web-based visualization fallback)
+if [[ "$CARLA_RENDER_MODE" == "no_gpu" ]]; then
+  PYGAME_HUD_ENABLED=${PYGAME_HUD_ENABLED:-"true"}
+else
+  PYGAME_HUD_ENABLED=${PYGAME_HUD_ENABLED:-"false"}
+fi
 
 ############################  ROS DOMAIN ID  #########################################
 ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-$((SETUID % 230))}
@@ -168,10 +174,13 @@ fi
 append "BASE_PORT" "$BASE_PORT"
 append "GUI_TOOLS_VNC_PORT" "$GUI_TOOLS_VNC_PORT"
 append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
-append "CARLAVIZ_PORT" "$CARLAVIZ_PORT"
-append "CARLAVIZ_PORT_2" "$CARLAVIZ_PORT_2"
-append "CARLA_NOTEBOOKS_PORT" "$CARLA_NOTEBOOKS_PORT"
 append "LOG_VIEWER__PORT" "$LOG_VIEWER__PORT"
+append "PYGAME_HUD_PORT" "$PYGAME_HUD_PORT"
+append "CARLA_PORT" "$CARLA_PORT"
+
+# Simulation
+append "CARLA_RENDER_MODE" "$CARLA_RENDER_MODE"
+append "PYGAME_HUD_ENABLED" "$PYGAME_HUD_ENABLED"
 
 append "REGISTRY" "$REGISTRY"
 append "REPOSITORY" "$REPOSITORY"
@@ -188,17 +197,17 @@ append "WORLD_MODELING_IMAGE" "$WORLD_MODELING_IMAGE"
 
 append "ACTION_IMAGE" "$ACTION_IMAGE"
 
-append "SIMULATION_CARLA_IMAGE" "$SIMULATION_CARLA_IMAGE"
-append "SIMULATION_CARLA_ROS_BRIDGE_IMAGE" "$SIMULATION_CARLA_ROS_BRIDGE_IMAGE"
-append "SIMULATION_CARLAVIZ_IMAGE" "$SIMULATION_CARLAVIZ_IMAGE"
-append "SIMULATION_CARLA_NOTEBOOKS_IMAGE" "$SIMULATION_CARLA_NOTEBOOKS_IMAGE"
-append "SIMULATION_CARLA_SAMPLE_NODE_IMAGE" "$SIMULATION_CARLA_SAMPLE_NODE_IMAGE"
+append "SIMULATION_IMAGE" "$SIMULATION_IMAGE"
 
 append "INTERFACING_IMAGE" "$INTERFACING_IMAGE"
 
 # ROS 2 Middleware
 append "RMW_IMPLEMENTATION" "$RMW_IMPLEMENTATION"
-append "CYCLONEDDS_URI" "$CYCLONEDDS_URI"
+
+# Zenoh configuration
+append "ZENOH_ROUTER_CONFIG_URI" "$ZENOH_ROUTER_CONFIG_URI"
+append "ZENOH_SESSION_CONFIG_URI" "$ZENOH_SESSION_CONFIG_URI"
+
 append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
 
 echo "[setup-env] .env generated at $ENV_FILE"

@@ -65,7 +65,7 @@ def generate_launch_description():
     )
     patchwork_cloud_topic = DeclareLaunchArgument(
         "patchwork_cloud_topic",
-        default_value="/LIDAR_TOP",
+        default_value="/lidar_cc",
         description="Input point cloud topic consumed by Patchwork++",
     )
     patchwork_ground_topic = DeclareLaunchArgument(

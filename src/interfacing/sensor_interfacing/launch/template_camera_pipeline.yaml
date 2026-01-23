@@ -1,0 +1,73 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Template launch file for a single camera pipeline with debayer and rectify
+# nodes in a composable container with intraprocess communication enabled.
+---
+launch:
+  - arg:
+      name: "camera_name"
+      description: "Name of the camera (e.g., camera_pano_nn)"
+
+  - arg:
+      name: "guid"
+      description: "Camera GUID identifier"
+
+  - arg:
+      name: "cameras_config_file"
+      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
+      description: "Hikrobot cameras configuration file"
+
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: $(var camera_name)_container
+      namespace: ""
+
+  - load_composable_node:
+      target: $(var camera_name)_container
+      composable_node:
+        - pkg: camera_aravis2
+          plugin: camera_aravis2::CameraDriverGv
+          name: $(var camera_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: $(var cameras_config_file)
+            - name: guid
+              value: "$(var guid)"
+            - name: frame_id
+              value: "$(var camera_name)"
+            - name: camera_info_urls
+              value: ["$(find-pkg-share camera_calib)/config/$(var camera_name).yaml"]
+
+        - pkg: image_proc
+          plugin: image_proc::DebayerNode
+          name: debayer_$(var camera_name)
+          namespace: $(var camera_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+
+        - pkg: image_proc
+          plugin: image_proc::RectifyNode
+          name: rectify_$(var camera_name)
+          namespace: $(var camera_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          remap:
+            - from: "image"
+              to: "image_color"

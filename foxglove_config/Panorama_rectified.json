@@ -1,0 +1,576 @@
+{
+  "configById": {
+    "3D!3ge91h": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 10.807201753236237,
+        "phi": 58.23927723333573,
+        "thetaOffset": -80.34970800951677,
+        "targetOffset": [
+          -2.3542316424569822,
+          2.8646768738784787,
+          3.939087762251183e-15
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "visible": true
+        }
+      },
+      "transforms": {
+        "frame:front_left_knuckle": {
+          "visible": false
+        },
+        "frame:front_right_knuckle": {
+          "visible": false
+        },
+        "frame:roof_mount": {
+          "visible": true
+        },
+        "frame:gps_imu_antenna": {
+          "visible": false
+        },
+        "frame:camera_pano_nn": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/lidar_top/scan": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 2
+        },
+        "/lidar_left/scan": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_right/scan": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_right/velodyne_points": {
+          "visible": false,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_left/velodyne_points": {
+          "visible": false,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_top/velodyne_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "5d084912-cfcf-427d-a62c-82a1b3ad04a0",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {}
+    },
+    "Image!86tfo": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_nw/image_rect",
+        "calibrationTopic": "/camera_pano_nw/camera_info",
+        "rectifyImage": false
+      }
+    },
+    "Image!3z6w4jw": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_ww/image_rect",
+        "calibrationTopic": "/camera_pano_ww/camera_info",
+        "rectifyImage": false
+      }
+    },
+    "Image!1ak5mku": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_sw/image_rect",
+        "calibrationTopic": "/camera_pano_sw/camera_info",
+        "rectifyImage": false
+      }
+    },
+    "Image!1ecj2t4": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_nn/image_rect",
+        "calibrationTopic": "/camera_pano_nn/camera_info",
+        "rectifyImage": false
+      }
+    },
+    "Plot!z727ch": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/novatel/oem7/imu/data_raw.angular_velocity.z",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "65354bfd-60db-4bbe-a287-7e2f37d4f198"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/novatel/oem7/imu/data_raw.linear_acceleration.x",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "525c227f-aa8a-477b-b851-ec7aed16311f"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/novatel/oem7/imu/data_raw.linear_acceleration.y",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "54152a4d-aeff-4b17-9aed-ab9799b78ff4"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Image!10fpgi4": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_ss/image_rect",
+        "calibrationTopic": "/camera_pano_ss/camera_info",
+        "rectifyImage": false
+      }
+    },
+    "Image!qkt94o": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_ne/image_rect",
+        "calibrationTopic": "/camera_pano_ne/camera_info",
+        "rectifyImage": false
+      }
+    },
+    "Image!enw2pg": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_ee/image_rect",
+        "calibrationTopic": "/camera_pano_ee/camera_info",
+        "rectifyImage": false
+      }
+    },
+    "Image!1wicozz": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_se/image_rect",
+        "calibrationTopic": "/camera_pano_se/camera_info",
+        "rectifyImage": false
+      }
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!3ge91h",
+    "second": {
+      "first": {
+        "first": {
+          "first": "Image!86tfo",
+          "second": {
+            "first": "Image!3z6w4jw",
+            "second": "Image!1ak5mku",
+            "direction": "column"
+          },
+          "direction": "column",
+          "splitPercentage": 35.43452370968013
+        },
+        "second": {
+          "first": {
+            "first": "Image!1ecj2t4",
+            "second": "Plot!z727ch",
+            "direction": "column",
+            "splitPercentage": 52.769208012562174
+          },
+          "second": "Image!10fpgi4",
+          "direction": "column",
+          "splitPercentage": 67.5568743818002
+        },
+        "direction": "row"
+      },
+      "second": {
+        "first": "Image!qkt94o",
+        "second": {
+          "first": "Image!enw2pg",
+          "second": "Image!1wicozz",
+          "direction": "column"
+        },
+        "direction": "column",
+        "splitPercentage": 35.410484668644905
+      },
+      "direction": "row",
+      "splitPercentage": 66.66666666666666
+    },
+    "splitPercentage": 20.956412522677585
+  }
+}

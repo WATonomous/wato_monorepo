@@ -1,0 +1,61 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Empty scenario - ego vehicle only, no NPCs."""
+
+from carla_scenarios.scenario_base import ScenarioBase
+
+try:
+    import carla
+except ImportError:
+    carla = None
+
+
+class EmptyScenario(ScenarioBase):
+    """Empty scenario with only the ego vehicle - useful for testing."""
+
+    SPAWN_POINT_INDEX = 10
+
+    def get_name(self) -> str:
+        return "Empty World"
+
+    def get_description(self) -> str:
+        return "Ego vehicle only, no NPC traffic - ideal for testing"
+
+    def initialize(self, client: "carla.Client") -> bool:
+        return self._initialize_carla(client)
+
+    def setup(self) -> bool:
+        if self.world is None:
+            return False
+
+        try:
+            self._load_map("Town10HD")
+
+            spawn_points = self.world.get_map().get_spawn_points()
+            if not spawn_points:
+                self._log("No spawn points available", "error")
+                return False
+
+            spawn_index = min(self.SPAWN_POINT_INDEX, len(spawn_points) - 1)
+            if not self.spawn_ego_vehicle(spawn_points[spawn_index]):
+                return False
+
+            self.world.set_weather(carla.WeatherParameters.ClearNoon)
+
+            self._log(f"Setup complete: {self.get_name()}")
+            return True
+
+        except Exception as e:
+            self._log(f"Failed to setup: {e}", "error")
+            return False

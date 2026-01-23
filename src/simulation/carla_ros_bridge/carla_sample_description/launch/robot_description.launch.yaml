@@ -1,0 +1,18 @@
+---
+launch:
+  - arg:
+      name: use_sim_time
+      default: "true"
+  - arg:
+      name: urdf_path
+      default: $(find-pkg-share carla_sample_description)/urdf/sample_vehicle.urdf
+
+  - node:
+      pkg: robot_state_publisher
+      exec: robot_state_publisher
+      name: robot_state_publisher
+      param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: robot_description
+          value: $(command 'cat $(var urdf_path)')

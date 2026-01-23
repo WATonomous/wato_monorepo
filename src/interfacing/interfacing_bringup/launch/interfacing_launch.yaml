@@ -13,16 +13,6 @@
 # limitations under the License.
 ---
 launch:
-  # Sensor Configs
-  - arg:
-      name: "lidar_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/VLP32C_lidar_config.yaml"
-      description: "LiDAR configuration file"
-  - arg:
-      name: "camera_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/blackfly_cameras_config.yaml"
-      description: "Camera configuration file"
-
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
@@ -50,18 +40,20 @@ launch:
 
   # LiDAR VLP-32 with config file
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/lidar_launch_vlp32.yaml"
-      arg:
-        - name: "lidar_config_file"
-          value: "$(var lidar_config_file)"
-
-  # Blackfly cameras
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/three_cameras.yaml"
-      arg:
-        - name: "camera_config_file"
-          value: "$(var camera_config_file)"
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
 
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
+  # Hikrobot Cameras
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+
+  # Joystick Node
+  - include:
+      file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
+
+  # ackerman_mux Node
+  - include:
+      file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"

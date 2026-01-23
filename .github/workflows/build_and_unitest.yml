@@ -29,12 +29,6 @@ jobs:
         id: get-module-changes
         uses: "./.github/templates/check_src_changes"
 
-      - name: Setup Watod Environment
-        run: |
-          MODULES_DIR="$GITHUB_WORKSPACE/modules"
-          . ./watod_scripts/watod-setup-env.sh
-        shell: bash
-
       - name: Generate Docker Context
         id: docker-context
         uses: "./.github/templates/docker_context"
@@ -61,23 +55,12 @@ jobs:
       matrix: ${{ fromJSON(needs.setup-environment.outputs.docker_matrix) }}
 
     concurrency:
-      group: ${{ matrix.service }}-${{ github.workflow }}-${{ github.ref }}
+      group: ${{ matrix.module }}-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Construct Registry URL
-        id: construct-registry-url
-        run: |
-          # Takes the path of the dockerfile and finds the basename
-          # eg. "docker/perception/tracking/tracking.Dockerfile" turns into "tracking" from tracking.Dockerfile
-          name=$(basename "${{ matrix.dockerfile }}")
-          name="${name%.Dockerfile}"
-
-          echo "url=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ matrix.module }}/${name}" \
-          >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -90,60 +73,25 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_PWD }}
 
-      - name: Prepare Image Dependencies
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: |
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
-          cache-from: |
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.TARGET_BRANCH }}
-          cache-to: type=inline
-          builder: ${{ steps.buildx.outputs.name }}
-          target: dependencies
+      - name: Configure Module to Build
+        run: |
+          # Create watod config to build only this module
+          # Watod will source this file and setup the environment when it runs
+          echo "ACTIVE_MODULES=${{ matrix.module }}" > watod-config.local.sh
+        shell: bash
 
-      - name: Build Image from Source
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: |
-            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
-          cache-from: |
-            ${{ steps.construct-registry-url.outputs.url }}:source_${{ env.SOURCE_BRANCH }}
-            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
-            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.TARGET_BRANCH }}
-          cache-to: type=inline
-          builder: ${{ steps.buildx.outputs.name }}
-          target: build
-
-      - name: Security Sanitation for Deployment
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: |
-            ${{ steps.construct-registry-url.outputs.url }}:${{ env.SOURCE_BRANCH }}
-          cache-from: |
-            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.SOURCE_BRANCH }}
-            ${{ steps.construct-registry-url.outputs.url }}:build_${{ env.TARGET_BRANCH }}
-          builder: ${{ steps.buildx.outputs.name }}
-          target: deploy
-
-      - name: Run testing suite
-        uses: "./.github/templates/test"
+      - name: Build and Test Module with Watod
         env:
           DOCKER_BUILDKIT: 1
-          COMPOSE_DOCKER_CLI_BUILD: 1
-          BUILDKIT_INLINE_CACHE: 1
-        with:
-          image: ${{ steps.construct-registry-url.outputs.url }}
-          tag: build_${{ env.SOURCE_BRANCH }}
+          COMPOSE_BAKE: true
+        run: |
+          if [[ "${{ matrix.module }}" == "infrastructure" ]]; then
+            echo "Infrastructure module: building only (no tests)"
+            ./watod build
+          else
+            echo "Testing module: ${{ matrix.module }}"
+            ./watod test
+          fi
 
   confirm-build-and-unittest-complete:
     name: Confirm Build and Unit Tests Completed

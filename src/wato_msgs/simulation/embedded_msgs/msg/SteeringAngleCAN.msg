@@ -1,4 +1,0 @@
-float64 steering_angle
-float64 steering_gradient
-int8 steering_availability_status
-bool driver_steering_interference_detected

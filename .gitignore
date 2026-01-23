@@ -1,3 +1,4 @@
+src/world_modeling/hd_map/src/hd_maps/ringroad.osm
 __pycache__/
 code_server_config/*/extensions
 code_server_config/*/start_code_server.sh
@@ -5,6 +6,7 @@ code_server_config/*/start_code_server.sh
 *.swp
 .env
 .vscode/
+.claude/
 ssh_config/
 .ruff_cache/
 
@@ -12,3 +14,6 @@ watod-config.local.sh
 watod-config.sh
 
 bags/
+build/
+install/
+log/

@@ -2,19 +2,25 @@
 <package format="3">
   <name>prediction</name>
   <version>0.0.1</version>
-  <description>World Modelling - Prediction (Kalman Filter Node)</description>
+  <description>Multi-modal trajectory prediction system with map-aware intent inference</description>
 
   <maintainer email="yashjoshi@watonomous.ca">Yash Joshi</maintainer>
-  <license>TODO(wato)</license>
+  <license>Apache-2.0</license>
 
   <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
-  <!--ROS 2 and Message Dependencies-->>
+  <!--ROS 2 and Message Dependencies-->
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>rclcpp</depend>
-  <depend>common_msgs</depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>vision_msgs</depend>
+  <depend>eigen</depend>
+
+  <!-- TODO: Add when message types are defined -->
+  <!-- <depend>world_modeling_msgs</depend> -->
+
   <test_depend>ament_cmake_gtest</test_depend>
 
   <!--https://www.ros.org/reps/rep-0149.html#export-->

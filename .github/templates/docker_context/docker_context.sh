@@ -49,67 +49,26 @@ REGISTRY="${REGISTRY_URL%%/*}"
 REPOSITORY="${REGISTRY_URL#*/}"
 
 ################################ build matrix ##################################
-shopt -s lastpipe
-compose_files=(-f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml)
-
-$DEBUG && echo "▶ Using compose files: ${compose_files[*]}"
-
-declare -A seen
-declare -a json_rows
-
-# Services to skip
-skip_services="log_viewer carla_sim carla_ros_bridge carla_viz carla_sample_node carla_notebooks"
-
 # Determine which modules to process
 if [[ -n ${MODIFIED_MODULES:-} ]]; then
   modules_to_process="$MODIFIED_MODULES"
 else
-  # Default: all modules except simulation
-  modules_to_process="infrastructure interfacing perception world_modeling action"
+  # Default: all modules
+  modules_to_process="infrastructure interfacing perception world_modeling action simulation"
 fi
 
 $DEBUG && { echo "▶ Modules to process:"; printf '  %s\n' "$modules_to_process"; }
 
+# Build matrix with one entry per module (watod will build entire module)
+declare -a json_rows
 for module in $modules_to_process; do
-  # Skip simulation
-  [[ $module == simulation ]] && continue
+  $DEBUG && echo "↳   $module" >&2
 
-  # Always include infrastructure profile as other services depend on it
-  cfg=$(docker compose "${compose_files[@]}" --profile infrastructure --profile "$module" config --format json)
-
-  echo "$cfg" | jq -r '
-    .services | to_entries[] | select(.value.build?) | [ .key,
-      (.value.build.context // "."),
-      (if (.value.build|type)=="object" then (.value.build.dockerfile // "Dockerfile") else "Dockerfile" end),
-      (.value.profiles[0] // "")
-    ] | @tsv' | while IFS=$'\t' read -r svc ctx df_rel svc_profile; do
-
-      # Skip services in skip list
-      if [[ " $skip_services " =~ \ $svc\  ]]; then
-        continue
-      fi
-
-      # Only process services that belong to the current module profile
-      if [[ "$svc_profile" != "$module" ]]; then
-        continue
-      fi
-
-      [[ $ctx = /* ]] && ctx_abs="$ctx" || ctx_abs="$(realpath -m "modules/$ctx")"
-      [[ $df_rel = /* ]] && df_abs="$df_rel" || df_abs="$(realpath -m "$ctx_abs/$df_rel")"
-      df_repo_rel="$(realpath --relative-to=. "$df_abs")"
-
-      $DEBUG && echo "↳   $module/$svc → $df_repo_rel" >&2
-
-      [[ -n ${seen[$df_repo_rel]:-} ]] && continue
-      seen[$df_repo_rel]=1
-      json_rows+=("$(jq -nc --arg module "$module" --arg service "$svc" --arg dockerfile "$df_repo_rel" '{module:$module,service:$service,dockerfile:$dockerfile}')")
-  done
-
+  json_rows+=("$(jq -nc --arg module "$module" '{module:$module}')")
 done
 
-# Build final matrix JSON – every row piped into jq -s to form an array
-matrix=$(printf '%s
-' "${json_rows[@]}" | jq -s '{include: .}' | jq -c .)
+# Build final matrix JSON
+matrix=$(printf '%s\n' "${json_rows[@]}" | jq -s '{include: .}' | jq -c .)
 # --------------------------- emit outputs ---------------------------
 echo "================ EMITTING OUTPUTS ================"
 emit "docker_matrix=$matrix"
@@ -118,14 +77,8 @@ emit "repository=$REPOSITORY"
 
 # --------------------------- debug report ---------------------------
 if $DEBUG; then
-  echo -e "
-================ DEBUG REPORT ================
-"
+  echo -e "\n================ DEBUG REPORT ================"
   jq <<<"$matrix"
-  echo -e "
-Unique Dockerfiles scheduled: ${#json_rows[@]}"
-  echo   "----------------------------------------------"
-  printf '%s
-' "${!seen[@]}" | sort
+  echo -e "\nModules to build: ${#json_rows[@]}"
   echo "=============================================="
 fi

@@ -1,31 +1,18 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <!-- Simplified sensor mount with yaw calibration -->
-  <xacro:macro name="sensor_yaw_mount" params="name parent_link child_link x y z roll pitch yaw">
-    <joint name="${name}_yaw" type="revolute">
-      <parent link="${parent_link}"/>
-      <child link="${child_link}"/>
-      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
-      <axis xyz="0 0 1"/>
-      <limit effort="0" velocity="0.01" lower="-0.2" upper="0.2"/>
-    </joint>
-  </xacro:macro>
-
   <!-- Roof mount macro - allows parent specification -->
   <xacro:macro name="roof_mount" params="parent *origin">
     <!-- Roof mount for all sensors -->
     <link name="roof_mount"/>
-    <joint name="roof_mount_joint" type="revolute">
+    <joint name="roof_mount_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="roof_mount"/>
       <xacro:insert_block name="origin"/>
-      <axis xyz="0 0 1"/>
-      <limit effort="0" velocity="0" lower="-0.0001" upper="0.0001"/>
     </joint>
 
     <!-- Top LiDAR -->
-    <link name="lidar_top">
+    <link name="lidar_cc">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -43,8 +30,11 @@
       </collision>
     </link>
 
-    <xacro:sensor_yaw_mount name="lidar_top_mount" parent_link="roof_mount" child_link="lidar_top"
-                            x="0" y="0" z="0.35" roll="0" pitch="0" yaw="0"/>
+    <joint name="lidar_cc_mount_yaw" type="fixed">
+      <parent link="roof_mount"/>
+      <child link="lidar_cc"/>
+      <origin xyz="0 0 0.35" rpy="0 0 0"/>
+    </joint>
 
 
     <!-- GPS/IMU Antenna -->
@@ -66,73 +56,99 @@
       </collision>
     </link>
 
-    <xacro:sensor_yaw_mount name="gps_imu_mount" parent_link="roof_mount" child_link="gps_imu_antenna"
-                            x="-0.5600" y="0" z="0" roll="0" pitch="0" yaw="0"/>
+    <joint name="gps_imu_mount_yaw" type="fixed">
+      <parent link="roof_mount"/>
+      <child link="gps_imu_antenna"/>
+      <origin xyz="-0.5600 0 0" rpy="0 0 0"/>
+    </joint>
 
-    <!-- Roof-Mounted Cameras -->
-    <link name="camera_front_center">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-        <material name="red">
-          <color rgba="1.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-      </collision>
-    </link>
+    <xacro:property name="camera_z" value="0.217"/>
+    <xacro:property name="pano_radius" value="0.240676"/>
+    <xacro:property name="pano_cameras" value="8"/>
+    <xacro:property name="angle_increment" value="${2*pi/pano_cameras}"/>
 
-    <xacro:sensor_yaw_mount name="camera_front_center_mount" parent_link="roof_mount" child_link="camera_front_center"
-                            x="0.2375" y="0" z="0.185" roll="0" pitch="0" yaw="0"/>
+    <xacro:macro name="create_camera" params="index name">
+      <xacro:property name="angle" value="${-pi/4 - index * angle_increment}"/>
+      <xacro:property name="cam_x" value="${pano_radius * cos(angle)}"/>
+      <xacro:property name="cam_y" value="${pano_radius * sin(angle)}"/>
 
-    <link name="camera_front_left">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-        <material name="red">
-          <color rgba="1.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-      </collision>
-    </link>
+      <link name="camera_pano_${name}">
+        <visual>
+          <origin xyz="0 0 0" rpy="${-pi/2.0} 0 ${-pi/2.0}"/>
+          <geometry>
+            <sphere radius="0.05"/>
+          </geometry>
+          <material name="red">
+            <color rgba="1.0 0.0 0.0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="${-pi/2.0} 0 ${-pi/2.0}"/>
+          <geometry>
+            <sphere radius="0.05"/>
+          </geometry>
+        </collision>
+      </link>
 
-    <xacro:sensor_yaw_mount name="camera_front_left_mount" parent_link="roof_mount" child_link="camera_front_left"
-                            x="0.1875" y="0.185" z="0.185" roll="0" pitch="0" yaw="${pi/4}"/>
+      <!-- the additional rotation of -pi/2 is to go from FLU to RDF coordinate systems -->
+      <joint name="camera_pano_${name}_mount" type="fixed">
+        <parent link="roof_mount"/>
+        <child link="camera_pano_${name}"/>
+        <origin xyz="${cam_x} ${cam_y} ${camera_z}" rpy="${-pi/2} 0 ${angle - pi/2}"/>
+      </joint>
+    </xacro:macro>
 
 
-    <link name="camera_front_right">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-        <material name="red">
-          <color rgba="1.0 0.0 0.0 1"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.05"/>
-        </geometry>
-      </collision>
-    </link>
+    <xacro:create_camera index="0" name="ne"/>
+    <xacro:create_camera index="1" name="ee"/>
+    <xacro:create_camera index="2" name="se"/>
+    <xacro:create_camera index="3" name="ss"/>
+    <xacro:create_camera index="4" name="sw"/>
+    <xacro:create_camera index="5" name="ww"/>
+    <xacro:create_camera index="6" name="nw"/>
+    <xacro:create_camera index="7" name="nn"/>
+  </xacro:macro>
 
-    <xacro:sensor_yaw_mount name="camera_front_right_mount" parent_link="roof_mount" child_link="camera_front_right"
-                            x="0.1875" y="-0.185" z="0.185" roll="0" pitch="0" yaw="-${pi/4}"/>
+
+  <!-- Lower cameras (nominal extrinsics; update xyz/rpy once measured) -->
+  <xacro:macro name="lower_cameras" params="parent">
+    <xacro:property name="low_cam_x" value="1.50"/>
+    <xacro:property name="low_cam_y" value="0.85"/>
+    <xacro:property name="low_cam_z" value="0.75"/>
+
+    <!-- Nominal yaws in the vehicle FLU frame (front=+x, left=+y), estimated from sensor_convention -->
+    <xacro:property name="yaw_ne" value="${-5*pi/6}"/>  <!-- ~ -150 deg -->
+    <xacro:property name="yaw_se" value="${-pi/6}"/>    <!-- ~ -30 deg -->
+    <xacro:property name="yaw_sw" value="${pi/6}"/>     <!-- ~ 30 deg -->
+    <xacro:property name="yaw_nw" value="${5*pi/6}"/>   <!-- ~ 150 deg -->
+
+    <link name="camera_lower_ne"/>
+    <joint name="camera_lower_ne_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_ne"/>
+      <origin xyz="${low_cam_x} ${-low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_ne - pi/2}"/>
+    </joint>
+
+    <link name="camera_lower_se"/>
+    <joint name="camera_lower_se_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_se"/>
+      <origin xyz="${-low_cam_x} ${-low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_se - pi/2}"/>
+    </joint>
+
+    <link name="camera_lower_sw"/>
+    <joint name="camera_lower_sw_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_sw"/>
+      <origin xyz="${-low_cam_x} ${low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_sw - pi/2}"/>
+    </joint>
+
+    <link name="camera_lower_nw"/>
+    <joint name="camera_lower_nw_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_nw"/>
+      <origin xyz="${low_cam_x} ${low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_nw - pi/2}"/>
+    </joint>
   </xacro:macro>
 
 </robot>
