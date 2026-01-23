@@ -528,7 +528,7 @@ TEST_CASE("Entity pruning based on timestamp", "[cleanup]")
 
   SECTION("Prune removes stale entities")
   {
-    rclcpp::Time now = rclcpp::Time(1000, 0);
+    rclcpp::Time now = rclcpp::Time(1000, 0, RCL_ROS_TIME);
 
     // Add entities with different timestamps
     for (int i = 0; i < 5; ++i) {

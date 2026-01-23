@@ -21,7 +21,6 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "tf2_ros/buffer.h"
-#include "world_model/lanelet_handler.hpp"
 #include "world_model/world_state.hpp"
 
 namespace world_model

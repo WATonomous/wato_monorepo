@@ -34,11 +34,12 @@ target_include_directories(${PROJECT_NAME}_lib PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(${PROJECT_NAME}_lib
-  PRIVATE
+  PUBLIC
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     ${lifecycle_msgs_TARGETS}
     ${std_srvs_TARGETS}
+  PRIVATE
     bondcpp::bondcpp
 )
 

@@ -1,5 +1,19 @@
 ---
 services:
+#################### INFRASTRUCTURE SERVICE ####################
+  infrastructure_bringup_dev:
+    profiles: ["infrastructure_dev"]
+    extends:
+      file: docker-compose.yaml
+      service: infrastructure_bringup
+    build:
+      target: develop
+    image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
+    command: sleep infinity
+    volumes:
+      - ${MONO_DIR}/src/infrastructure:/home/bolty/ament_ws/src/infrastructure
+      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+
 #################### INTERFACING SERVICE ####################
   interfacing_bringup_dev:
     profiles: ["interfacing_dev"]
@@ -8,7 +22,7 @@ services:
       service: interfacing_bringup
     build:
       target: develop
-    image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
+    image: "${INTERFACING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing

@@ -16,14 +16,20 @@
 #define WATO_LIFECYCLE_MANAGER__LIFECYCLE_MANAGER_HPP_
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
-#include "bondcpp/bond.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "lifecycle_msgs/srv/get_state.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/trigger.hpp"
+
+// Forward declaration for PIMPL - avoids exposing bondcpp in public header
+namespace bond
+{
+class Bond;
+}  // namespace bond
 
 namespace wato_lifecycle_manager
 {
