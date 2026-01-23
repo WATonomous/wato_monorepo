@@ -36,6 +36,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
 find_package(prediction_msgs REQUIRED)
+find_package(world_model_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED)
 find_package(lanelet2_io REQUIRED)
 find_package(lanelet2_projection REQUIRED)
@@ -52,8 +53,9 @@ add_library(${PROJECT_NAME}_lib SHARED
 )
 
 target_include_directories(${PROJECT_NAME}_lib
-  PRIVATE
-  include
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
 ament_target_dependencies(${PROJECT_NAME}_lib
@@ -66,6 +68,7 @@ ament_target_dependencies(${PROJECT_NAME}_lib
   vision_msgs
   lanelet_msgs
   prediction_msgs
+  world_model_msgs
   lanelet2_core
   lanelet2_io
   lanelet2_projection
@@ -94,6 +97,7 @@ ament_target_dependencies(world_model_node
   vision_msgs
   lanelet_msgs
   prediction_msgs
+  world_model_msgs
   lanelet2_core
   lanelet2_io
   lanelet2_projection
@@ -124,8 +128,18 @@ install(DIRECTORY config launch
 # ══════════════════════════════════════════════════════════════════════
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
+  find_package(wato_test REQUIRED)
+  include("${wato_test_DIR}/../../../share/wato_test/cmake/add_wato_test.cmake")
+
+  add_wato_test(test_world_model
+    test/test_world_model.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_lib
+      ${lanelet_msgs_TARGETS}
+      ${world_model_msgs_TARGETS}
+      ${vision_msgs_TARGETS}
+      ${geometry_msgs_TARGETS}
+  )
 endif()
 
 ament_package()

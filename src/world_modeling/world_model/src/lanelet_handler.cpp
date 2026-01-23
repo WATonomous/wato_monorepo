@@ -148,6 +148,131 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getLaneletsInRadius(
   return result;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Route Caching Implementation
+// ═══════════════════════════════════════════════════════════════════════════════
+
+bool LaneletHandler::setActiveRoute(int64_t from_id, int64_t to_id)
+{
+  if (!map_ || !routing_graph_) {
+    return false;
+  }
+
+  auto from_ll = getLaneletById(from_id);
+  auto to_ll = getLaneletById(to_id);
+
+  if (!from_ll.has_value() || !to_ll.has_value()) {
+    return false;
+  }
+
+  auto route = routing_graph_->getRoute(*from_ll, *to_ll, 0);
+  if (!route) {
+    return false;
+  }
+
+  auto shortest_path = route->shortestPath();
+
+  std::lock_guard<std::mutex> lock(route_mutex_);
+  active_route_.clear();
+  for (const auto & ll : shortest_path) {
+    active_route_.push_back(ll);
+  }
+  goal_lanelet_id_ = to_id;
+
+  return true;
+}
+
+bool LaneletHandler::hasActiveRoute() const
+{
+  std::lock_guard<std::mutex> lock(route_mutex_);
+  return !active_route_.empty();
+}
+
+void LaneletHandler::clearActiveRoute()
+{
+  std::lock_guard<std::mutex> lock(route_mutex_);
+  active_route_.clear();
+  goal_lanelet_id_ = -1;
+}
+
+int64_t LaneletHandler::getGoalLaneletId() const
+{
+  std::lock_guard<std::mutex> lock(route_mutex_);
+  return goal_lanelet_id_;
+}
+
+lanelet_msgs::srv::GetRoute::Response LaneletHandler::getRouteFromPosition(
+  const geometry_msgs::msg::Point & current_pos, double distance_m) const
+{
+  lanelet_msgs::srv::GetRoute::Response response;
+  response.success = false;
+  response.remaining_length_m = 0.0;
+
+  if (!map_ || !routing_graph_) {
+    response.error_message = "map_not_loaded";
+    return response;
+  }
+
+  std::lock_guard<std::mutex> lock(route_mutex_);
+
+  if (active_route_.empty()) {
+    response.error_message = "no_active_route";
+    return response;
+  }
+
+  // Find the nearest lanelet to current position on the route
+  lanelet::BasicPoint2d search_point(current_pos.x, current_pos.y);
+  double min_dist = std::numeric_limits<double>::max();
+  size_t current_idx = 0;
+
+  for (size_t i = 0; i < active_route_.size(); ++i) {
+    double dist = lanelet::geometry::distance2d(active_route_[i], search_point);
+    if (dist < min_dist) {
+      min_dist = dist;
+      current_idx = i;
+    }
+  }
+
+  // If too far from the route, return error
+  if (min_dist > 50.0) {  // 50m threshold
+    response.error_message = "ego_not_on_route";
+    return response;
+  }
+
+  // Calculate remaining distance to goal
+  double remaining_dist = 0.0;
+  for (size_t i = current_idx; i < active_route_.size(); ++i) {
+    remaining_dist += lanelet::geometry::length2d(active_route_[i]);
+  }
+  response.remaining_length_m = remaining_dist;
+
+  // Collect lanelets within the requested distance
+  double accumulated_dist = 0.0;
+  for (size_t i = current_idx; i < active_route_.size() && accumulated_dist < distance_m; ++i) {
+    response.lanelets.push_back(toLaneletMsg(active_route_[i]));
+
+    // Calculate transition type to next lanelet
+    if (i + 1 < active_route_.size() && accumulated_dist < distance_m) {
+      // Check if next lanelet is left, right, or successor
+      auto left = routing_graph_->left(active_route_[i]);
+      auto right = routing_graph_->right(active_route_[i]);
+
+      if (left && left->id() == active_route_[i + 1].id()) {
+        response.transitions.push_back(lanelet_msgs::srv::GetRoute::Response::TRANSITION_LEFT);
+      } else if (right && right->id() == active_route_[i + 1].id()) {
+        response.transitions.push_back(lanelet_msgs::srv::GetRoute::Response::TRANSITION_RIGHT);
+      } else {
+        response.transitions.push_back(lanelet_msgs::srv::GetRoute::Response::TRANSITION_SUCCESSOR);
+      }
+    }
+
+    accumulated_dist += lanelet::geometry::length2d(active_route_[i]);
+  }
+
+  response.success = true;
+  return response;
+}
+
 lanelet_msgs::srv::GetRoute::Response LaneletHandler::getRoute(int64_t from_id, int64_t to_id) const
 {
   lanelet_msgs::srv::GetRoute::Response response;

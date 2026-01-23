@@ -68,8 +68,18 @@ install(DIRECTORY launch/
 )
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
+  # Find wato_test for Catch2-based testing
+  find_package(wato_test REQUIRED)
+
+  # Include wato_test cmake functions
+  include("${wato_test_DIR}/../../../share/wato_test/cmake/add_wato_test.cmake")
+
+  # Add lifecycle manager tests
+  add_wato_test(test_lifecycle_manager
+    test/test_lifecycle_manager.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_lib
+  )
 endif()
 
 ament_export_include_directories(include)

@@ -24,6 +24,7 @@
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -90,6 +91,50 @@ public:
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // Route Caching (for SetRoute/GetRoute workflow)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * @brief Set and cache an active route from current to goal lanelet.
+   *
+   * Computes the shortest path and caches it for subsequent getRouteFromPosition() calls.
+   *
+   * @param from_id Starting lanelet ID (ego's current lanelet)
+   * @param to_id Destination lanelet ID (goal lanelet)
+   * @return true if route was computed and cached successfully
+   */
+  bool setActiveRoute(int64_t from_id, int64_t to_id);
+
+  /**
+   * @brief Check if an active route is cached.
+   */
+  bool hasActiveRoute() const;
+
+  /**
+   * @brief Clear the cached active route.
+   */
+  void clearActiveRoute();
+
+  /**
+   * @brief Get the goal lanelet ID of the active route.
+   * @return Goal lanelet ID, or -1 if no active route
+   */
+  int64_t getGoalLaneletId() const;
+
+  /**
+   * @brief Get route lanelets from current position within a distance.
+   *
+   * Finds ego's current position on the cached route and returns lanelets
+   * within the specified distance along the route.
+   *
+   * @param current_pos Current ego position
+   * @param distance_m Maximum distance along route to include
+   * @return GetRoute response with lanelets and remaining distance
+   */
+  lanelet_msgs::srv::GetRoute::Response getRouteFromPosition(
+    const geometry_msgs::msg::Point & current_pos, double distance_m) const;
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // Service implementations
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -128,6 +173,11 @@ private:
   lanelet::routing::RoutingGraphPtr routing_graph_;
   lanelet::traffic_rules::TrafficRulesPtr traffic_rules_;
   std::unique_ptr<lanelet::Projector> projector_;
+
+  // Route caching state (protected by mutex for thread safety)
+  mutable std::mutex route_mutex_;
+  std::vector<lanelet::ConstLanelet> active_route_;
+  int64_t goal_lanelet_id_ = -1;
 
   // Helper methods for Lanelet message
   void populateLaneletSemantics(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;

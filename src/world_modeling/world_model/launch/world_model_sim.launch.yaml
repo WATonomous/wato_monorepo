@@ -54,6 +54,9 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+      remap:
+        - from: "detections"
+          to: "/bbox_publisher/tracked_detections_3d"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # LANELET VISUALIZATION MARKERS

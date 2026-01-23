@@ -80,6 +80,44 @@ private:
 };
 
 /**
+ * @brief Read-write accessor for LaneletHandler route caching.
+ *
+ * Provides write access to route caching methods (setActiveRoute, clearActiveRoute).
+ * Map data itself remains immutable.
+ */
+class LaneletWriter
+{
+public:
+  explicit LaneletWriter(LaneletHandler * handler)
+  : handler_(handler)
+  {}
+
+  bool setActiveRoute(int64_t from_id, int64_t to_id)
+  {
+    return handler_->setActiveRoute(from_id, to_id);
+  }
+
+  void clearActiveRoute()
+  {
+    handler_->clearActiveRoute();
+  }
+
+  // Read methods also available
+  bool isMapLoaded() const
+  {
+    return handler_->isMapLoaded();
+  }
+
+  std::optional<int64_t> findNearestLaneletId(const geometry_msgs::msg::Point & point) const
+  {
+    return handler_->findNearestLaneletId(point);
+  }
+
+private:
+  LaneletHandler * handler_;
+};
+
+/**
  * @brief Read-only accessor for LaneletHandler.
  *
  * LaneletHandler is immutable after map load, so only read access is provided.
@@ -132,6 +170,23 @@ public:
   lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const
   {
     return handler_->getLaneletsByRegElem(reg_elem_id);
+  }
+
+  // Route caching methods
+  bool hasActiveRoute() const
+  {
+    return handler_->hasActiveRoute();
+  }
+
+  int64_t getGoalLaneletId() const
+  {
+    return handler_->getGoalLaneletId();
+  }
+
+  lanelet_msgs::srv::GetRoute::Response getRouteFromPosition(
+    const geometry_msgs::msg::Point & current_pos, double distance_m) const
+  {
+    return handler_->getRouteFromPosition(current_pos, distance_m);
   }
 
 private:

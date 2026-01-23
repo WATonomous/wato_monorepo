@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "builtin_interfaces/msg/time.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
@@ -54,20 +55,33 @@ private:
   {
     for (const auto & det : msg->detections) {
       EntityType type = classify(det);
-      int64_t id = std::stoll(det.id);
+
+      int64_t id;
+      try {
+        id = std::stoll(det.id);
+      } catch (const std::exception & e) {
+        RCLCPP_ERROR(
+          node_->get_logger(), "Failed to parse detection ID '%s': %s. Skipping detection.", det.id.c_str(), e.what());
+        continue;
+      }
+
+      // Use array header timestamp if individual detection header is empty
+      const auto & timestamp =
+        (det.header.stamp.sec == 0 && det.header.stamp.nanosec == 0) ? msg->header.stamp : det.header.stamp;
+      const auto & frame_id = det.header.frame_id.empty() ? msg->header.frame_id : det.header.frame_id;
 
       switch (type) {
         case EntityType::CAR:
-          updateEntity<Car>(id, det);
+          updateEntity<Car>(id, det, timestamp, frame_id);
           break;
         case EntityType::HUMAN:
-          updateEntity<Human>(id, det);
+          updateEntity<Human>(id, det, timestamp, frame_id);
           break;
         case EntityType::BICYCLE:
-          updateEntity<Bicycle>(id, det);
+          updateEntity<Bicycle>(id, det, timestamp, frame_id);
           break;
         case EntityType::MOTORCYCLE:
-          updateEntity<Motorcycle>(id, det);
+          updateEntity<Motorcycle>(id, det, timestamp, frame_id);
           break;
         default:
           break;
@@ -97,13 +111,21 @@ private:
   }
 
   template <typename EntityT>
-  void updateEntity(int64_t id, const vision_msgs::msg::Detection3D & det)
+  void updateEntity(
+    int64_t id,
+    const vision_msgs::msg::Detection3D & det,
+    const builtin_interfaces::msg::Time & timestamp,
+    const std::string & frame_id)
   {
     auto & buffer = world_state_.buffer<EntityT>();
 
     EntityT default_entity;
-    buffer.upsert(id, default_entity, [&det, this](EntityT & entity) {
-      entity.history.push_front(det);
+    buffer.upsert(id, default_entity, [&det, &timestamp, &frame_id, this](EntityT & entity) {
+      // Copy detection and stamp it properly
+      vision_msgs::msg::Detection3D stamped_det = det;
+      stamped_det.header.stamp = timestamp;
+      stamped_det.header.frame_id = frame_id;
+      entity.history.push_front(stamped_det);
 
       // Trim history by duration
       while (entity.history.size() > 1) {

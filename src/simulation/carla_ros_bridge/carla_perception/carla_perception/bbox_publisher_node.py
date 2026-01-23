@@ -103,6 +103,7 @@ class BBoxPublisherNode(LifecycleNode):
         # ROS interfaces (created in on_configure)
         self.detections_2d_publisher = None
         self.detections_3d_publisher = None
+        self.tracked_detections_3d_publisher = None
         self.publish_timer = None
 
         # TF2 for frame transforms
@@ -153,6 +154,10 @@ class BBoxPublisherNode(LifecycleNode):
             Detection3DArray, "~/detections_3d", 10
         )
 
+        self.tracked_detections_3d_publisher = self.create_lifecycle_publisher(
+            Detection3DArray, "~/tracked_detections_3d", 10
+        )
+
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
 
@@ -193,6 +198,10 @@ class BBoxPublisherNode(LifecycleNode):
         if self.detections_3d_publisher:
             self.destroy_publisher(self.detections_3d_publisher)
             self.detections_3d_publisher = None
+
+        if self.tracked_detections_3d_publisher:
+            self.destroy_publisher(self.tracked_detections_3d_publisher)
+            self.tracked_detections_3d_publisher = None
 
         # Release CARLA resources
         self.ego_vehicle = None
@@ -247,9 +256,12 @@ class BBoxPublisherNode(LifecycleNode):
             header.stamp = stamp
             header.frame_id = frame_id
 
-            # Create 3D detections
+            # Create 3D detections arrays
             detections_3d = Detection3DArray()
             detections_3d.header = header
+
+            tracked_detections_3d = Detection3DArray()
+            tracked_detections_3d.header = header
 
             # Check if we need TF transform (frame_id is not "map")
             transform = None
@@ -276,22 +288,43 @@ class BBoxPublisherNode(LifecycleNode):
                 if detection_3d:
                     detections_3d.detections.append(detection_3d)
 
+                    # Create tracked detection with actor ID for tracking
+                    tracked_detection = self._create_detection_3d(
+                        actor, stamp, transform, track_id=str(actor.id)
+                    )
+                    if tracked_detection:
+                        tracked_detections_3d.detections.append(tracked_detection)
+
             # Publish 3D detections
             self.detections_3d_publisher.publish(detections_3d)
+
+            # Publish tracked 3D detections
+            if self.tracked_detections_3d_publisher:
+                self.tracked_detections_3d_publisher.publish(tracked_detections_3d)
 
         except Exception as e:
             self.get_logger().error(f"Error publishing detections: {e}")
 
     def _create_detection_3d(
-        self, actor: "carla.Actor", stamp, transform
+        self, actor: "carla.Actor", stamp, transform, track_id: Optional[str] = None
     ) -> Optional[Detection3D]:
         """Create Detection3D message from CARLA actor.
 
         Coordinates are first computed in map frame (CARLA world -> ROS), then
         transformed to the target frame using TF2 if transform is provided.
+
+        Args:
+            actor: CARLA actor to create detection for.
+            stamp: ROS timestamp for the detection.
+            transform: TF2 transform to apply (None if frame_id is "map").
+            track_id: Optional tracking ID for the detection (e.g., actor ID).
         """
         try:
             detection = Detection3D()
+
+            # Set tracking ID if provided
+            if track_id is not None:
+                detection.id = track_id
 
             # Get actor's bounding box and transform
             bbox = actor.bounding_box

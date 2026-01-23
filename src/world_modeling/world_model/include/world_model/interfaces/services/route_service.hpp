@@ -15,28 +15,39 @@
 #ifndef WORLD_MODEL__INTERFACES__SERVICES__ROUTE_SERVICE_HPP_
 #define WORLD_MODEL__INTERFACES__SERVICES__ROUTE_SERVICE_HPP_
 
+#include <string>
 #include <utility>
 
 #include "lanelet_msgs/srv/get_route.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "tf2_ros/buffer.h"
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
 {
 
 /**
- * @brief Service to compute routes between lanelets.
+ * @brief Service to get route lanelets within a distance from ego position.
  *
- * Handles GetRoute requests by querying LaneletHandler for
- * the shortest route between two lanelet IDs.
+ * Requires SetRoute to be called first to establish the destination.
+ * Gets ego position from TF and returns lanelets along the cached route
+ * within the requested distance.
  */
 class RouteService : public InterfaceBase
 {
 public:
-  RouteService(rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler)
+  RouteService(
+    rclcpp_lifecycle::LifecycleNode * node,
+    const LaneletHandler * lanelet_handler,
+    tf2_ros::Buffer * tf_buffer,
+    const std::string & map_frame,
+    const std::string & base_frame)
   : node_(node)
   , lanelet_(lanelet_handler)
+  , tf_buffer_(tf_buffer)
+  , map_frame_(map_frame)
+  , base_frame_(base_frame)
   {
     srv_ = node_->create_service<lanelet_msgs::srv::GetRoute>(
       "get_route", std::bind(&RouteService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
@@ -47,12 +58,30 @@ private:
     lanelet_msgs::srv::GetRoute::Request::ConstSharedPtr request,
     lanelet_msgs::srv::GetRoute::Response::SharedPtr response)
   {
-    auto result = lanelet_.getRoute(request->from_lanelet_id, request->to_lanelet_id);
+    // Get ego pose from TF
+    geometry_msgs::msg::Point ego_point;
+    try {
+      auto transform = tf_buffer_->lookupTransform(map_frame_, base_frame_, tf2::TimePointZero);
+      ego_point.x = transform.transform.translation.x;
+      ego_point.y = transform.transform.translation.y;
+      ego_point.z = transform.transform.translation.z;
+    } catch (const tf2::TransformException & ex) {
+      response->success = false;
+      response->error_message = "tf_lookup_failed";
+      RCLCPP_WARN(node_->get_logger(), "GetRoute TF lookup failed: %s", ex.what());
+      return;
+    }
+
+    // Get route from current position
+    auto result = lanelet_.getRouteFromPosition(ego_point, request->distance_m);
     *response = std::move(result);
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;
   LaneletReader lanelet_;
+  tf2_ros::Buffer * tf_buffer_;
+  std::string map_frame_;
+  std::string base_frame_;
 
   rclcpp::Service<lanelet_msgs::srv::GetRoute>::SharedPtr srv_;
 };
