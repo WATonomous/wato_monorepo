@@ -109,4 +109,46 @@
     <xacro:create_camera index="7" name="nn"/>
   </xacro:macro>
 
+
+  <!-- Lower cameras (nominal extrinsics; update xyz/rpy once measured) -->
+  <xacro:macro name="lower_cameras" params="parent">
+    <xacro:property name="low_cam_x" value="1.50"/>
+    <xacro:property name="low_cam_y" value="0.85"/>
+    <xacro:property name="low_cam_z" value="0.75"/>
+
+    <!-- Nominal yaws in the vehicle FLU frame (front=+x, left=+y), estimated from sensor_convention -->
+    <xacro:property name="yaw_ne" value="${-5*pi/6}"/>  <!-- ~ -150 deg -->
+    <xacro:property name="yaw_se" value="${-pi/6}"/>    <!-- ~ -30 deg -->
+    <xacro:property name="yaw_sw" value="${pi/6}"/>     <!-- ~ 30 deg -->
+    <xacro:property name="yaw_nw" value="${5*pi/6}"/>   <!-- ~ 150 deg -->
+
+    <link name="camera_lower_ne"/>
+    <joint name="camera_lower_ne_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_ne"/>
+      <origin xyz="${low_cam_x} ${-low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_ne - pi/2}"/>
+    </joint>
+
+    <link name="camera_lower_se"/>
+    <joint name="camera_lower_se_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_se"/>
+      <origin xyz="${-low_cam_x} ${-low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_se - pi/2}"/>
+    </joint>
+
+    <link name="camera_lower_sw"/>
+    <joint name="camera_lower_sw_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_sw"/>
+      <origin xyz="${-low_cam_x} ${low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_sw - pi/2}"/>
+    </joint>
+
+    <link name="camera_lower_nw"/>
+    <joint name="camera_lower_nw_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_lower_nw"/>
+      <origin xyz="${low_cam_x} ${low_cam_y} ${low_cam_z}" rpy="${-pi/2} 0 ${yaw_nw - pi/2}"/>
+    </joint>
+  </xacro:macro>
+
 </robot>
