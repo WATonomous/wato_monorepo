@@ -4,18 +4,9 @@
 # Gets ego position from TF, finds nearest lanelet to ego and goal point,
 # computes and caches the full route for use by GetRoute.
 
-# ===========================================================================
-# Request
-# ===========================================================================
-
 geometry_msgs/Point goal_point
 
 ---
-
-# ===========================================================================
-# Response
-# ===========================================================================
-
 bool success
 
 # Error description if success is false

@@ -31,7 +31,7 @@ namespace wato_lifecycle_manager
 /**
  * @brief Manages lifecycle transitions for a set of ROS2 lifecycle nodes.
  *
- * Similar to Nav2's lifecycle_manager, this node:
+ * Responsibilities:
  * - Orchestrates startup/shutdown of multiple lifecycle nodes in order
  * - Uses bond connections to detect node crashes
  * - Provides services for manual control (startup, shutdown, reset)

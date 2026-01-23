@@ -180,7 +180,7 @@ class LidarPublisherNode(LifecycleNode):
                     return TransitionCallbackReturn.FAILURE
 
                 publisher = self.create_lifecycle_publisher(
-                    PointCloud2, f"~/{name}/points", 10
+                    PointCloud2, f"{name}/points", 10
                 )
                 self.lidars[name] = LidarInstance(config=config, publisher=publisher)
                 self.get_logger().info(

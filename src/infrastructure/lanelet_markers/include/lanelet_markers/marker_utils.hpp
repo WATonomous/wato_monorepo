@@ -25,10 +25,13 @@
 namespace lanelet_markers
 {
 
+/// Creates a ColorRGBA message from RGBA values (0.0-1.0 range).
 std_msgs::msg::ColorRGBA makeColor(float r, float g, float b, float a = 1.0f);
 
+/// Returns a color based on lanelet type (e.g., "road", "crosswalk").
 std_msgs::msg::ColorRGBA getColorForLaneletType(const std::string & lanelet_type);
 
+/// Creates a LINE_STRIP marker from a sequence of points.
 visualization_msgs::msg::Marker createLineStripMarker(
   const std::string & ns,
   int32_t id,
@@ -37,6 +40,7 @@ visualization_msgs::msg::Marker createLineStripMarker(
   const std_msgs::msg::ColorRGBA & color,
   double line_width);
 
+/// Creates a SPHERE marker at a given position.
 visualization_msgs::msg::Marker createSphereMarker(
   const std::string & ns,
   int32_t id,
@@ -45,10 +49,13 @@ visualization_msgs::msg::Marker createSphereMarker(
   const std_msgs::msg::ColorRGBA & color,
   double radius);
 
+/// Creates a DELETEALL marker to clear all markers in a namespace.
 visualization_msgs::msg::Marker createDeleteAllMarker(const std::string & ns, const std::string & frame_id = "map");
 
+/// Returns a color based on boundary type and color from lanelet message.
 std_msgs::msg::ColorRGBA getColorForBoundary(uint8_t boundary_type, uint8_t boundary_color);
 
+/// Creates a dashed line marker using LINE_LIST with alternating segments.
 visualization_msgs::msg::Marker createDashedLineMarker(
   const std::string & ns,
   int32_t id,
@@ -59,6 +66,7 @@ visualization_msgs::msg::Marker createDashedLineMarker(
   double dash_length = 1.0,
   double gap_length = 1.0);
 
+/// Creates an ARROW marker pointing from start to end position.
 visualization_msgs::msg::Marker createArrowMarker(
   const std::string & ns,
   int32_t id,
@@ -70,6 +78,7 @@ visualization_msgs::msg::Marker createArrowMarker(
   double head_diameter = 0.3,
   double head_length = 0.4);
 
+/// Creates a TEXT_VIEW_FACING marker at a given position.
 visualization_msgs::msg::Marker createTextMarker(
   const std::string & ns,
   int32_t id,
@@ -79,6 +88,7 @@ visualization_msgs::msg::Marker createTextMarker(
   const std_msgs::msg::ColorRGBA & color,
   double text_height);
 
+/// Creates a TRIANGLE_LIST marker (yield sign shape) at a given position.
 visualization_msgs::msg::Marker createTriangleMarker(
   const std::string & ns,
   int32_t id,

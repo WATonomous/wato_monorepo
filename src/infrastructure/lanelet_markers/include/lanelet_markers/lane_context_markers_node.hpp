@@ -24,6 +24,16 @@
 namespace lanelet_markers
 {
 
+/**
+ * @brief Converts CurrentLaneContext messages to visualization markers.
+ *
+ * Subscribes to lane context messages and publishes MarkerArray with:
+ * - Current lanelet boundaries (solid/dashed based on lane change rules)
+ * - Centerline with direction arrow
+ * - Lanelet info text (ID, speed limit, type)
+ * - Distance to upcoming events (traffic light, stop line, intersection)
+ * - Stop line and traffic light markers if present
+ */
 class LaneContextMarkersNode : public rclcpp::Node
 {
 public:

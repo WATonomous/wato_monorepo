@@ -33,45 +33,42 @@ target_include_directories(marker_utils PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-ament_target_dependencies(marker_utils
-  rclcpp
-  std_msgs
-  geometry_msgs
-  visualization_msgs
+target_link_libraries(marker_utils
+  PRIVATE
+    rclcpp::rclcpp
+    ${std_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
 )
 
 # MapVizMarkersNode executable
 add_executable(map_viz_markers_node
   src/map_viz_markers_node.cpp
 )
-target_include_directories(map_viz_markers_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-target_link_libraries(map_viz_markers_node marker_utils)
-ament_target_dependencies(map_viz_markers_node
-  rclcpp
-  std_msgs
-  geometry_msgs
-  visualization_msgs
-  lanelet_msgs
+target_include_directories(map_viz_markers_node PRIVATE include)
+target_link_libraries(map_viz_markers_node
+  PRIVATE
+    marker_utils
+    rclcpp::rclcpp
+    ${std_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
 )
 
 # LaneContextMarkersNode executable
 add_executable(lane_context_markers_node
   src/lane_context_markers_node.cpp
 )
-target_include_directories(lane_context_markers_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-target_link_libraries(lane_context_markers_node marker_utils)
-ament_target_dependencies(lane_context_markers_node
-  rclcpp
-  std_msgs
-  geometry_msgs
-  visualization_msgs
-  lanelet_msgs
+target_include_directories(lane_context_markers_node PRIVATE include)
+target_link_libraries(lane_context_markers_node
+  PRIVATE
+    marker_utils
+    rclcpp::rclcpp
+    ${std_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
 )
 
 # Install targets

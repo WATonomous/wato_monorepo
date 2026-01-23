@@ -44,9 +44,7 @@ public:
     const std::string & base_frame)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , tf_buffer_(tf_buffer)
-  , map_frame_(map_frame)
-  , base_frame_(base_frame)
+  , ego_pose_(tf_buffer, map_frame, base_frame)
   {
     srv_ = node_->create_service<lanelet_msgs::srv::SetRoute>(
       "set_route", std::bind(&SetRouteService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
@@ -61,43 +59,33 @@ private:
     response->current_lanelet_id = -1;
     response->goal_lanelet_id = -1;
 
-    // Check if map is loaded
-    if (!lanelet_.isMapLoaded()) {
+    if (!lanelet_->isMapLoaded()) {
       response->error_message = "map_not_loaded";
       return;
     }
 
-    // Get ego pose from TF
-    geometry_msgs::msg::Point ego_point;
-    try {
-      auto transform = tf_buffer_->lookupTransform(map_frame_, base_frame_, tf2::TimePointZero);
-      ego_point.x = transform.transform.translation.x;
-      ego_point.y = transform.transform.translation.y;
-      ego_point.z = transform.transform.translation.z;
-    } catch (const tf2::TransformException & ex) {
+    auto ego_point = ego_pose_.getEgoPoint();
+    if (!ego_point.has_value()) {
       response->error_message = "tf_lookup_failed";
-      RCLCPP_WARN(node_->get_logger(), "SetRoute TF lookup failed: %s", ex.what());
+      RCLCPP_WARN(node_->get_logger(), "SetRoute TF lookup failed");
       return;
     }
 
-    // Find nearest lanelet to ego position
-    auto ego_lanelet_id = lanelet_.findNearestLaneletId(ego_point);
+    auto ego_lanelet_id = lanelet_->findNearestLaneletId(*ego_point);
     if (!ego_lanelet_id.has_value()) {
       response->error_message = "ego_lanelet_not_found";
       return;
     }
     response->current_lanelet_id = *ego_lanelet_id;
 
-    // Find nearest lanelet to goal point
-    auto goal_lanelet_id = lanelet_.findNearestLaneletId(request->goal_point);
+    auto goal_lanelet_id = lanelet_->findNearestLaneletId(request->goal_point);
     if (!goal_lanelet_id.has_value()) {
       response->error_message = "goal_lanelet_not_found";
       return;
     }
     response->goal_lanelet_id = *goal_lanelet_id;
 
-    // Compute and cache the route
-    if (!lanelet_.setActiveRoute(*ego_lanelet_id, *goal_lanelet_id)) {
+    if (!lanelet_->setActiveRoute(*ego_lanelet_id, *goal_lanelet_id)) {
       response->error_message = "no_route_exists";
       return;
     }
@@ -108,10 +96,8 @@ private:
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;
-  LaneletWriter lanelet_;
-  tf2_ros::Buffer * tf_buffer_;
-  std::string map_frame_;
-  std::string base_frame_;
+  LaneletHandler * lanelet_;
+  EgoPoseHelper ego_pose_;
 
   rclcpp::Service<lanelet_msgs::srv::SetRoute>::SharedPtr srv_;
 };

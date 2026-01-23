@@ -47,13 +47,13 @@ private:
     lanelet_msgs::srv::GetCorridor::Request::ConstSharedPtr request,
     lanelet_msgs::srv::GetCorridor::Response::SharedPtr response)
   {
-    auto result = lanelet_.getCorridor(
+    auto result = lanelet_->getCorridor(
       request->from_lanelet_id, request->to_lanelet_id, request->max_length_m, request->sample_spacing_m);
     *response = std::move(result);
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;
-  LaneletReader lanelet_;
+  const LaneletHandler * lanelet_;
 
   rclcpp::Service<lanelet_msgs::srv::GetCorridor>::SharedPtr srv_;
 };

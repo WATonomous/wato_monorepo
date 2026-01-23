@@ -42,10 +42,6 @@ public:
   // Predicted future paths (from Prediction node)
   std::vector<prediction_msgs::msg::Prediction> predictions;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Convenience accessors (all reference history.front())
-  // ─────────────────────────────────────────────────────────────────────────
-
   bool empty() const
   {
     return history.empty();
@@ -87,9 +83,7 @@ public:
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // 3D Entity Subclasses (extend later if needed)
-// ═══════════════════════════════════════════════════════════════════════════
 
 class Car : public Entity3D
 {

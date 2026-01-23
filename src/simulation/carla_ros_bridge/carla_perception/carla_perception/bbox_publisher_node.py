@@ -147,15 +147,15 @@ class BBoxPublisherNode(LifecycleNode):
 
         # Create publishers
         self.detections_2d_publisher = self.create_lifecycle_publisher(
-            Detection2DArray, "~/detections_2d", 10
+            Detection2DArray, "detections_2d", 10
         )
 
         self.detections_3d_publisher = self.create_lifecycle_publisher(
-            Detection3DArray, "~/detections_3d", 10
+            Detection3DArray, "detections_3d", 10
         )
 
         self.tracked_detections_3d_publisher = self.create_lifecycle_publisher(
-            Detection3DArray, "~/tracked_detections_3d", 10
+            Detection3DArray, "tracked_detections_3d", 10
         )
 
         self.get_logger().info("Configuration complete")

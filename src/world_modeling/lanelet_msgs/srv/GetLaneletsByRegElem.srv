@@ -4,18 +4,9 @@
 # Returns lanelets that reference the given regulatory element
 # (e.g., all lanelets controlled by a specific traffic light).
 
-# ===========================================================================
-# Request
-# ===========================================================================
-
 int64 reg_elem_id
 
 ---
-
-# ===========================================================================
-# Response
-# ===========================================================================
-
 bool success
 
 # Error description if success is false

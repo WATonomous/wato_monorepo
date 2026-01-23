@@ -4,10 +4,7 @@
 # All arrays are sampled at the same arc-length intervals.
 # Arrays may be empty if this lane doesn't exist (e.g., no adjacent lane).
 
-# ===========================================================================
 # Path Geometry
-# ===========================================================================
-
 # Sampled centerline points in map frame
 geometry_msgs/Point[] centerline
 
@@ -23,12 +20,9 @@ float64[] curvature
 # Speed limit at each sample (m/s)
 float64[] speed_limit
 
-# ===========================================================================
 # Lane Boundaries
-# ===========================================================================
-# Boundaries are expressed as lateral offsets from centerline.
+# Expressed as lateral offsets from centerline.
 # Positive = left of centerline, Negative = right of centerline.
-
 # Boundary type constants
 uint8 BOUNDARY_DASHED=0     # Can cross (lane change allowed)
 uint8 BOUNDARY_SOLID=1      # Cannot cross (lane change prohibited)

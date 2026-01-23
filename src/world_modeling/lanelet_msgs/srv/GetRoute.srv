@@ -5,19 +5,10 @@
 # and cache the full route. Returns the next N meters along that
 # cached route from the ego's current position.
 
-# ===========================================================================
-# Request
-# ===========================================================================
-
 # Distance along route from current position (meters)
 float64 distance_m
 
 ---
-
-# ===========================================================================
-# Response
-# ===========================================================================
-
 # Transition types between successive lanelets
 uint8 TRANSITION_SUCCESSOR=0  # Following (collinear, no lane change)
 uint8 TRANSITION_LEFT=1       # Lane change to the left

@@ -102,9 +102,7 @@ void WorldModelNode::createInterfaces()
   auto cleanup_interval =
     std::chrono::milliseconds(static_cast<int64_t>(this->get_parameter("cleanup_interval_ms").as_double()));
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Publishers (use TF buffer for ego pose, LaneletHandler for map queries)
-  // ─────────────────────────────────────────────────────────────────────────
+  // Publishers
   interfaces_.push_back(std::make_unique<LaneContextPublisher>(
     this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_, lane_context_rate_hz));
 
@@ -114,9 +112,7 @@ void WorldModelNode::createInterfaces()
   interfaces_.push_back(
     std::make_unique<DynamicObjectsPublisher>(this, world_state_.get(), map_frame_, dynamic_objects_rate_hz));
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Subscribers (write to WorldState, enrich with lanelet context)
-  // ─────────────────────────────────────────────────────────────────────────
+  // Subscribers
   interfaces_.push_back(
     std::make_unique<DetectionSubscriber>(this, world_state_.get(), lanelet_handler_.get(), history_duration_sec));
 
@@ -124,9 +120,7 @@ void WorldModelNode::createInterfaces()
 
   interfaces_.push_back(std::make_unique<PredictionSubscriber>(this, world_state_.get()));
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Services (query LaneletHandler)
-  // ─────────────────────────────────────────────────────────────────────────
+  // Services
   interfaces_.push_back(
     std::make_unique<SetRouteService>(this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_));
 
@@ -137,9 +131,7 @@ void WorldModelNode::createInterfaces()
 
   interfaces_.push_back(std::make_unique<RegElemService>(this, lanelet_handler_.get()));
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Workers (background processing)
-  // ─────────────────────────────────────────────────────────────────────────
+  // Workers
   interfaces_.push_back(std::make_unique<CleanupWorker>(
     world_state_.get(), this->get_clock(), cleanup_interval, entity_prune_timeout_sec, traffic_light_timeout_sec));
 }

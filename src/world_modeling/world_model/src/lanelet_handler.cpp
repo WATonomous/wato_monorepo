@@ -148,9 +148,7 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getLaneletsInRadius(
   return result;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Route Caching Implementation
-// ═══════════════════════════════════════════════════════════════════════════════
 
 bool LaneletHandler::setActiveRoute(int64_t from_id, int64_t to_id)
 {

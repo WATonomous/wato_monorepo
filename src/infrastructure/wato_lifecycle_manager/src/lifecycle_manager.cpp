@@ -61,22 +61,22 @@ LifecycleManager::LifecycleManager(const rclcpp::NodeOptions & options)
 
   // Create services
   startup_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/startup", std::bind(&LifecycleManager::handleStartup, this, std::placeholders::_1, std::placeholders::_2));
+    "startup", std::bind(&LifecycleManager::handleStartup, this, std::placeholders::_1, std::placeholders::_2));
 
   shutdown_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/shutdown", std::bind(&LifecycleManager::handleShutdown, this, std::placeholders::_1, std::placeholders::_2));
+    "shutdown", std::bind(&LifecycleManager::handleShutdown, this, std::placeholders::_1, std::placeholders::_2));
 
   reset_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/reset", std::bind(&LifecycleManager::handleReset, this, std::placeholders::_1, std::placeholders::_2));
+    "reset", std::bind(&LifecycleManager::handleReset, this, std::placeholders::_1, std::placeholders::_2));
 
   is_active_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/is_active", std::bind(&LifecycleManager::handleIsActive, this, std::placeholders::_1, std::placeholders::_2));
+    "is_active", std::bind(&LifecycleManager::handleIsActive, this, std::placeholders::_1, std::placeholders::_2));
 
   pause_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/pause", std::bind(&LifecycleManager::handlePause, this, std::placeholders::_1, std::placeholders::_2));
+    "pause", std::bind(&LifecycleManager::handlePause, this, std::placeholders::_1, std::placeholders::_2));
 
   resume_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/resume", std::bind(&LifecycleManager::handleResume, this, std::placeholders::_1, std::placeholders::_2));
+    "resume", std::bind(&LifecycleManager::handleResume, this, std::placeholders::_1, std::placeholders::_2));
 
   RCLCPP_INFO(this->get_logger(), "Lifecycle manager initialized with %zu nodes", node_names_.size());
 

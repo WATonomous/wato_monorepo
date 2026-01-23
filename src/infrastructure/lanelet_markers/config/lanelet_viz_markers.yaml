@@ -1,7 +1,5 @@
 map_viz_markers_node:
   ros__parameters:
-    input_topic: "/map_visualization"
-    output_topic: "/map_viz_markers"
     frame_id: "map"
     show_centerlines: true
     show_stop_lines: true
@@ -21,8 +19,6 @@ map_viz_markers_node:
 
 lane_context_markers_node:
   ros__parameters:
-    input_topic: "/lane_context"
-    output_topic: "/lane_context_markers"
     frame_id: "map"
     boundary_line_width: 0.25
     centerline_line_width: 0.1

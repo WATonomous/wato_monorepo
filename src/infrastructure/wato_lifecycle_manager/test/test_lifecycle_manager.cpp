@@ -203,10 +203,6 @@ std::pair<bool, std::string> call_trigger_service(
   return {response->success, response->message};
 }
 
-// ============================================================================
-// Test Cases
-// ============================================================================
-
 TEST_CASE_METHOD(wato::test::MultiThreadedTestFixture, "LifecycleManager initialization", "[lifecycle_manager][init]")
 {
   SECTION("Manager initializes with no nodes")
@@ -679,10 +675,6 @@ TEST_CASE_METHOD(
     REQUIRE(success == true);
   }
 }
-
-// ============================================================================
-// Additional Test Cases - Autostart, Ordering, Timeouts, Idempotency
-// ============================================================================
 
 // NOTE: Autostart test removed - it requires waiting 1.5+ seconds for the autostart
 // timer to fire, which significantly slows down the test suite.

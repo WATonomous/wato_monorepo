@@ -20,8 +20,8 @@
 #include <sstream>
 #include <string>
 
-#include "lanelet_msgs/msg/lanelet.hpp"
 #include "lanelet_markers/marker_utils.hpp"
+#include "lanelet_msgs/msg/lanelet.hpp"
 
 namespace lanelet_markers
 {
@@ -30,8 +30,6 @@ MapVizMarkersNode::MapVizMarkersNode(const rclcpp::NodeOptions & options)
 : Node("map_viz_markers_node", options)
 {
   // Declare parameters
-  this->declare_parameter<std::string>("input_topic", "/map_visualization");
-  this->declare_parameter<std::string>("output_topic", "/map_viz_markers");
   this->declare_parameter<std::string>("frame_id", "map");
   this->declare_parameter<bool>("show_centerlines", true);
   this->declare_parameter<bool>("show_stop_lines", true);
@@ -50,8 +48,6 @@ MapVizMarkersNode::MapVizMarkersNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("yield_marker_size", 1.5);
 
   // Get parameters
-  auto input_topic = this->get_parameter("input_topic").as_string();
-  auto output_topic = this->get_parameter("output_topic").as_string();
   frame_id_ = this->get_parameter("frame_id").as_string();
   show_centerlines_ = this->get_parameter("show_centerlines").as_bool();
   show_stop_lines_ = this->get_parameter("show_stop_lines").as_bool();
@@ -69,18 +65,12 @@ MapVizMarkersNode::MapVizMarkersNode(const rclcpp::NodeOptions & options)
   speed_limit_text_height_ = this->get_parameter("speed_limit_text_height").as_double();
   yield_marker_size_ = this->get_parameter("yield_marker_size").as_double();
 
-  // Create publisher
-  publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(output_topic, 10);
-
-  // Create subscription
+  // Create publisher and subscription (use remaps to override topic names)
+  publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("markers", 10);
   subscription_ = this->create_subscription<lanelet_msgs::msg::MapVisualization>(
-    input_topic, 10, std::bind(&MapVizMarkersNode::mapVisualizationCallback, this, std::placeholders::_1));
+    "map_visualization", 10, std::bind(&MapVizMarkersNode::mapVisualizationCallback, this, std::placeholders::_1));
 
-  RCLCPP_INFO(
-    this->get_logger(),
-    "MapVizMarkersNode started: subscribing to '%s', publishing to '%s'",
-    input_topic.c_str(),
-    output_topic.c_str());
+  RCLCPP_INFO(this->get_logger(), "MapVizMarkersNode started");
 }
 
 void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVisualization::SharedPtr msg)

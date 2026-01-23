@@ -25,14 +25,6 @@ find_package(lifecycle_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(bondcpp REQUIRED)
 
-set(DEPENDENCIES
-  rclcpp
-  rclcpp_lifecycle
-  lifecycle_msgs
-  std_srvs
-  bondcpp
-)
-
 # Library
 add_library(${PROJECT_NAME}_lib SHARED
   src/lifecycle_manager.cpp
@@ -41,12 +33,22 @@ target_include_directories(${PROJECT_NAME}_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-ament_target_dependencies(${PROJECT_NAME}_lib ${DEPENDENCIES})
+target_link_libraries(${PROJECT_NAME}_lib
+  PRIVATE
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    ${lifecycle_msgs_TARGETS}
+    ${std_srvs_TARGETS}
+    bondcpp::bondcpp
+)
 
 # Executable
 add_executable(${PROJECT_NAME}_node src/lifecycle_manager_main.cpp)
-target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME}_lib)
-ament_target_dependencies(${PROJECT_NAME}_node ${DEPENDENCIES})
+target_link_libraries(${PROJECT_NAME}_node
+  PRIVATE
+    ${PROJECT_NAME}_lib
+    rclcpp::rclcpp
+)
 
 # Install
 install(TARGETS ${PROJECT_NAME}_lib
@@ -68,13 +70,8 @@ install(DIRECTORY launch/
 )
 
 if(BUILD_TESTING)
-  # Find wato_test for Catch2-based testing
   find_package(wato_test REQUIRED)
 
-  # Include wato_test cmake functions
-  include("${wato_test_DIR}/../../../share/wato_test/cmake/add_wato_test.cmake")
-
-  # Add lifecycle manager tests
   add_wato_test(test_lifecycle_manager
     test/test_lifecycle_manager.cpp
     LIBRARIES
@@ -84,6 +81,6 @@ endif()
 
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME}_lib)
-ament_export_dependencies(${DEPENDENCIES})
+ament_export_dependencies(rclcpp rclcpp_lifecycle lifecycle_msgs std_srvs bondcpp)
 
 ament_package()

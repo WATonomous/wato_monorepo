@@ -78,9 +78,7 @@ public:
     return map_ != nullptr;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Queries (all const, thread-safe for concurrent reads)
-  // ═══════════════════════════════════════════════════════════════════════════
 
   std::optional<lanelet::ConstLanelet> findNearestLanelet(const geometry_msgs::msg::Point & point) const;
 
@@ -90,9 +88,7 @@ public:
 
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Route Caching (for SetRoute/GetRoute workflow)
-  // ═══════════════════════════════════════════════════════════════════════════
 
   /**
    * @brief Set and cache an active route from current to goal lanelet.
@@ -134,9 +130,7 @@ public:
   lanelet_msgs::srv::GetRoute::Response getRouteFromPosition(
     const geometry_msgs::msg::Point & current_pos, double distance_m) const;
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Service implementations
-  // ═══════════════════════════════════════════════════════════════════════════
 
   lanelet_msgs::srv::GetRoute::Response getRoute(int64_t from_id, int64_t to_id) const;
 
@@ -145,18 +139,14 @@ public:
 
   lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const;
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Conversions
-  // ═══════════════════════════════════════════════════════════════════════════
 
   lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
 
   lanelet_msgs::msg::Corridor toCorridorMsg(
     const std::vector<lanelet::ConstLanelet> & route_lanelets, double sample_spacing_m, double max_length_m) const;
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Accessors
-  // ═══════════════════════════════════════════════════════════════════════════
 
   lanelet::routing::RoutingGraphConstPtr getRoutingGraph() const
   {

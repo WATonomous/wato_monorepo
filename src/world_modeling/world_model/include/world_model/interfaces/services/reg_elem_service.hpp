@@ -48,12 +48,12 @@ private:
     lanelet_msgs::srv::GetLaneletsByRegElem::Request::ConstSharedPtr request,
     lanelet_msgs::srv::GetLaneletsByRegElem::Response::SharedPtr response)
   {
-    auto result = lanelet_.getLaneletsByRegElem(request->reg_elem_id);
+    auto result = lanelet_->getLaneletsByRegElem(request->reg_elem_id);
     *response = std::move(result);
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;
-  LaneletReader lanelet_;
+  const LaneletHandler * lanelet_;
 
   rclcpp::Service<lanelet_msgs::srv::GetLaneletsByRegElem>::SharedPtr srv_;
 };

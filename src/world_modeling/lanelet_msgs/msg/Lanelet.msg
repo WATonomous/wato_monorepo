@@ -6,19 +6,12 @@
 
 int64 id
 
-# ===========================================================================
-# Geometry
-# ===========================================================================
-# Raw boundary points (not sampled, direct from map)
-
+# Geometry (raw boundary points, not sampled, direct from map)
 geometry_msgs/Point[] left_boundary
 geometry_msgs/Point[] right_boundary
 geometry_msgs/Point[] centerline
 
-# ===========================================================================
 # Boundary Attributes
-# ===========================================================================
-# Boundary type constants
 uint8 BOUNDARY_DASHED=0
 uint8 BOUNDARY_SOLID=1
 uint8 BOUNDARY_SOLID_SOLID=2
@@ -34,17 +27,10 @@ uint8 right_boundary_type
 uint8 left_boundary_color
 uint8 right_boundary_color
 
-# ===========================================================================
-# Type
-# ===========================================================================
-# Values: "road", "intersection", "crosswalk", "parking", "bicycle_lane"
-
+# Type: "road", "intersection", "crosswalk", "parking", "bicycle_lane"
 string lanelet_type
 
-# ===========================================================================
 # Semantics
-# ===========================================================================
-
 # Speed limit in meters per second
 float64 speed_limit_mps
 
@@ -64,10 +50,7 @@ int64[] yield_to_lanelet_ids
 # Lanelets that cross/conflict with this one
 int64[] conflicting_lanelet_ids
 
-# ===========================================================================
 # Connectivity
-# ===========================================================================
-
 # Lane change permissions
 bool can_change_left
 bool can_change_right
@@ -79,9 +62,6 @@ int64 right_lane_id
 # Successor lanelet IDs (what comes after this lanelet)
 int64[] successor_ids
 
-# ===========================================================================
 # Regulatory Elements
-# ===========================================================================
-
 TrafficLightInfo[] traffic_lights
 StopLineInfo[] stop_lines

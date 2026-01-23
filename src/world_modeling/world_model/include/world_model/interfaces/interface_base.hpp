@@ -15,17 +15,17 @@
 #ifndef WORLD_MODEL__INTERFACES__INTERFACE_BASE_HPP_
 #define WORLD_MODEL__INTERFACES__INTERFACE_BASE_HPP_
 
+#include <optional>
+#include <string>
 #include <vector>
 
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "tf2_ros/buffer.h"
 #include "world_model/lanelet_handler.hpp"
 #include "world_model/world_state.hpp"
 
 namespace world_model
 {
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ACCESS WRAPPERS
-// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * @brief Read-only accessor for WorldState.
@@ -80,122 +80,72 @@ private:
 };
 
 /**
- * @brief Read-write accessor for LaneletHandler route caching.
+ * @brief Helper for TF-based ego pose lookup.
  *
- * Provides write access to route caching methods (setActiveRoute, clearActiveRoute).
- * Map data itself remains immutable.
+ * Common utility for interfaces that need to get ego vehicle position
+ * from TF transforms. Encapsulates the TF buffer lookup and conversion
+ * to PoseStamped.
  */
-class LaneletWriter
+class EgoPoseHelper
 {
 public:
-  explicit LaneletWriter(LaneletHandler * handler)
-  : handler_(handler)
+  EgoPoseHelper(tf2_ros::Buffer * tf_buffer, const std::string & map_frame, const std::string & base_frame)
+  : tf_buffer_(tf_buffer)
+  , map_frame_(map_frame)
+  , base_frame_(base_frame)
   {}
 
-  bool setActiveRoute(int64_t from_id, int64_t to_id)
+  /**
+   * @brief Get the current ego pose in map frame.
+   * @return Ego pose if TF lookup succeeds, nullopt otherwise.
+   */
+  std::optional<geometry_msgs::msg::PoseStamped> getEgoPose() const
   {
-    return handler_->setActiveRoute(from_id, to_id);
+    try {
+      auto transform = tf_buffer_->lookupTransform(map_frame_, base_frame_, tf2::TimePointZero);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.stamp = transform.header.stamp;
+      pose.header.frame_id = map_frame_;
+      pose.pose.position.x = transform.transform.translation.x;
+      pose.pose.position.y = transform.transform.translation.y;
+      pose.pose.position.z = transform.transform.translation.z;
+      pose.pose.orientation = transform.transform.rotation;
+
+      return pose;
+    } catch (const tf2::TransformException &) {
+      return std::nullopt;
+    }
   }
 
-  void clearActiveRoute()
+  /**
+   * @brief Get ego position as a Point (convenience for lanelet queries).
+   * @return Ego position if TF lookup succeeds, nullopt otherwise.
+   */
+  std::optional<geometry_msgs::msg::Point> getEgoPoint() const
   {
-    handler_->clearActiveRoute();
+    auto pose = getEgoPose();
+    if (!pose.has_value()) {
+      return std::nullopt;
+    }
+    return pose->pose.position;
   }
 
-  // Read methods also available
-  bool isMapLoaded() const
+  const std::string & mapFrame() const
   {
-    return handler_->isMapLoaded();
+    return map_frame_;
   }
 
-  std::optional<int64_t> findNearestLaneletId(const geometry_msgs::msg::Point & point) const
+  const std::string & baseFrame() const
   {
-    return handler_->findNearestLaneletId(point);
+    return base_frame_;
   }
 
 private:
-  LaneletHandler * handler_;
+  tf2_ros::Buffer * tf_buffer_;
+  std::string map_frame_;
+  std::string base_frame_;
 };
-
-/**
- * @brief Read-only accessor for LaneletHandler.
- *
- * LaneletHandler is immutable after map load, so only read access is provided.
- */
-class LaneletReader
-{
-public:
-  explicit LaneletReader(const LaneletHandler * handler)
-  : handler_(handler)
-  {}
-
-  bool isMapLoaded() const
-  {
-    return handler_->isMapLoaded();
-  }
-
-  std::optional<int64_t> findNearestLaneletId(const geometry_msgs::msg::Point & point) const
-  {
-    return handler_->findNearestLaneletId(point);
-  }
-
-  std::optional<lanelet::ConstLanelet> getLaneletById(int64_t id) const
-  {
-    return handler_->getLaneletById(id);
-  }
-
-  std::vector<lanelet::ConstLanelet> getLaneletsInRadius(
-    const geometry_msgs::msg::Point & center, double radius_m) const
-  {
-    return handler_->getLaneletsInRadius(center, radius_m);
-  }
-
-  lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const
-  {
-    return handler_->toLaneletMsg(ll);
-  }
-
-  // Service methods
-  lanelet_msgs::srv::GetRoute::Response getRoute(int64_t from_id, int64_t to_id) const
-  {
-    return handler_->getRoute(from_id, to_id);
-  }
-
-  lanelet_msgs::srv::GetCorridor::Response getCorridor(
-    int64_t from_id, int64_t to_id, double max_length_m, double sample_spacing_m) const
-  {
-    return handler_->getCorridor(from_id, to_id, max_length_m, sample_spacing_m);
-  }
-
-  lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const
-  {
-    return handler_->getLaneletsByRegElem(reg_elem_id);
-  }
-
-  // Route caching methods
-  bool hasActiveRoute() const
-  {
-    return handler_->hasActiveRoute();
-  }
-
-  int64_t getGoalLaneletId() const
-  {
-    return handler_->getGoalLaneletId();
-  }
-
-  lanelet_msgs::srv::GetRoute::Response getRouteFromPosition(
-    const geometry_msgs::msg::Point & current_pos, double distance_m) const
-  {
-    return handler_->getRouteFromPosition(current_pos, distance_m);
-  }
-
-private:
-  const LaneletHandler * handler_;
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// BASE INTERFACE
-// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * @brief Base interface for all ROS interface components.
@@ -203,9 +153,10 @@ private:
  * Provides common lifecycle management for publishers, subscribers,
  * services, and workers.
  *
- * Derived classes should use the typed accessor wrappers (WorldStateReader,
- * WorldStateWriter, LaneletReader) to declare their access patterns at
- * construction time, enforcing concurrency safety at compile time.
+ * Derived classes should use:
+ * - WorldStateReader/WorldStateWriter for entity buffer access
+ * - const LaneletHandler* for read-only lanelet access (thread-safe after map load)
+ * - LaneletHandler* for write access (route caching)
  */
 class InterfaceBase
 {

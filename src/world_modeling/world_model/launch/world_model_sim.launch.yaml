@@ -15,9 +15,7 @@
 # Launch world_model lifecycle node with lifecycle manager.
 
 launch:
-  # ═══════════════════════════════════════════════════════════════════════════
   # ARGUMENTS
-  # ═══════════════════════════════════════════════════════════════════════════
   - arg:
       name: config_file
       default: $(find-pkg-share world_model)/config/world_model.yaml
@@ -43,9 +41,7 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
-  # ═══════════════════════════════════════════════════════════════════════════
   # WORLD MODEL (Lifecycle Node)
-  # ═══════════════════════════════════════════════════════════════════════════
   - node:
       pkg: world_model
       exec: world_model_node
@@ -58,9 +54,7 @@ launch:
         - from: "detections"
           to: "/bbox_publisher/tracked_detections_3d"
 
-  # ═══════════════════════════════════════════════════════════════════════════
   # LANELET VISUALIZATION MARKERS
-  # ═══════════════════════════════════════════════════════════════════════════
   - node:
       pkg: lanelet_markers
       exec: map_viz_markers_node
@@ -79,9 +73,7 @@ launch:
       param:
         - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
 
-  # ═══════════════════════════════════════════════════════════════════════════
   # LIFECYCLE MANAGER
-  # ═══════════════════════════════════════════════════════════════════════════
   - node:
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node

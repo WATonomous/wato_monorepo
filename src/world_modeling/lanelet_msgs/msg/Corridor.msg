@@ -15,17 +15,11 @@
 #     ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─   right_lane centerline
 #     [right_lane.right boundary]
 
-# ===========================================================================
 # Reference Lane (the route)
-# ===========================================================================
-
 CorridorLane reference
 
-# ===========================================================================
 # Adjacent Lanes (for lane changes)
-# ===========================================================================
-# Arrays are empty if no crossable adjacent lane exists.
+# Empty if no crossable adjacent lane exists.
 # May have fewer samples than reference if adjacent lane ends early.
-
 CorridorLane left_lane
 CorridorLane right_lane

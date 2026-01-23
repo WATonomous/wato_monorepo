@@ -139,19 +139,19 @@ private:
       }
 
       // Enrich with lanelet context
-      if (lanelet_.isMapLoaded() && !entity.empty()) {
+      if (lanelet_->isMapLoaded() && !entity.empty()) {
         geometry_msgs::msg::Point pt;
         pt.x = entity.pose().position.x;
         pt.y = entity.pose().position.y;
         pt.z = entity.pose().position.z;
-        entity.lanelet_id = lanelet_.findNearestLaneletId(pt);
+        entity.lanelet_id = lanelet_->findNearestLaneletId(pt);
       }
     });
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;
   WorldStateWriter world_state_;
-  LaneletReader lanelet_;
+  const LaneletHandler * lanelet_;
   double history_duration_;
 
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr sub_;

@@ -25,15 +25,15 @@
 #include "lanelet_msgs/srv/get_route.hpp"
 #include "lanelet_msgs/srv/set_route.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
+#include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
+#include "world_model/types/entity_2d.hpp"
 #include "world_model/types/entity_3d.hpp"
 #include "world_model/types/entity_buffer.hpp"
 #include "world_model/world_state.hpp"
 #include "world_model_msgs/msg/dynamic_object_array.hpp"
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Entity Buffer Tests
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
 {
@@ -125,9 +125,7 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // WorldState Tests
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("WorldState entity type access", "[world_state]")
 {
@@ -164,9 +162,7 @@ TEST_CASE("WorldState entity type access", "[world_state]")
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // LaneletHandler Route Caching Tests
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("LaneletHandler route caching", "[lanelet_handler]")
 {
@@ -205,9 +201,7 @@ TEST_CASE("LaneletHandler route caching", "[lanelet_handler]")
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Service Integration Tests (with ROS executor)
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE_METHOD(wato::test::TestExecutorFixture, "SetRoute and GetRoute services", "[services]")
 {
@@ -233,9 +227,7 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "SetRoute and GetRoute service
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // DynamicObjects Publisher Tests
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE_METHOD(wato::test::TestExecutorFixture, "DynamicObjects subscriber receives messages", "[dynamic_objects]")
 {
@@ -256,9 +248,7 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "DynamicObjects subscriber rec
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Detection Processing Tests
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("Detection3D to Entity conversion", "[detection]")
 {
@@ -315,9 +305,7 @@ TEST_CASE("Detection3D to Entity conversion", "[detection]")
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Entity Type Classification Tests
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("Entity type identification", "[entity_type]")
 {
@@ -346,9 +334,7 @@ TEST_CASE("Entity type identification", "[entity_type]")
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Thread Safety Tests
-// ═══════════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("EntityBuffer thread safety", "[thread_safety]")
 {
@@ -414,5 +400,269 @@ TEST_CASE("EntityBuffer thread safety", "[thread_safety]")
     }
 
     REQUIRE(successful_reads == num_readers * 100);
+  }
+}
+
+// WorldStateReader/Writer Tests
+
+TEST_CASE("WorldStateReader provides const access", "[world_state_accessor]")
+{
+  world_model::WorldState state;
+
+  // Populate via direct access
+  world_model::Car default_car;
+  state.buffer<world_model::Car>().upsert(1, default_car, [](world_model::Car & car) {
+    vision_msgs::msg::Detection3D det;
+    det.id = "1";
+    det.bbox.center.position.x = 42.0;
+    car.history.push_front(det);
+  });
+
+  world_model::WorldStateReader reader(&state);
+
+  SECTION("Reader can access buffers")
+  {
+    const auto & buffer = reader.buffer<world_model::Car>();
+    REQUIRE(buffer.size() == 1);
+
+    auto car = buffer.get(1);
+    REQUIRE(car.has_value());
+    REQUIRE(car->pose().position.x == Catch::Approx(42.0));
+  }
+
+  SECTION("Reader sees all entity types")
+  {
+    REQUIRE(reader.buffer<world_model::Human>().size() == 0);
+    REQUIRE(reader.buffer<world_model::Bicycle>().size() == 0);
+    REQUIRE(reader.buffer<world_model::TrafficLight>().size() == 0);
+  }
+}
+
+TEST_CASE("WorldStateWriter provides mutable access", "[world_state_accessor]")
+{
+  world_model::WorldState state;
+  world_model::WorldStateWriter writer(&state);
+
+  SECTION("Writer can modify buffers")
+  {
+    world_model::Human default_human;
+    writer.buffer<world_model::Human>().upsert(99, default_human, [](world_model::Human & human) {
+      vision_msgs::msg::Detection3D det;
+      det.id = "99";
+      det.bbox.center.position.y = 123.0;
+      human.history.push_front(det);
+    });
+
+    REQUIRE(writer.buffer<world_model::Human>().size() == 1);
+
+    auto human = writer.buffer<world_model::Human>().get(99);
+    REQUIRE(human.has_value());
+    REQUIRE(human->pose().position.y == Catch::Approx(123.0));
+  }
+
+  SECTION("Writer const access works")
+  {
+    const auto & const_buffer = const_cast<const world_model::WorldStateWriter &>(writer).buffer<world_model::Car>();
+    REQUIRE(const_buffer.size() == 0);
+  }
+}
+
+// TrafficLight Entity Tests
+
+TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
+{
+  world_model::EntityBuffer<world_model::TrafficLight> buffer;
+
+  SECTION("TrafficLight entity can be created")
+  {
+    world_model::TrafficLight default_tl;
+    buffer.upsert(500, default_tl, [](world_model::TrafficLight & tl) {
+      vision_msgs::msg::Detection2D det;
+      det.id = "500";
+      det.header.stamp.sec = 10;
+      tl.history.push_front(det);
+      tl.state = world_model::TrafficLightState::RED;
+      tl.confidence = 0.95;
+    });
+
+    REQUIRE(buffer.size() == 1);
+
+    auto retrieved = buffer.get(500);
+    REQUIRE(retrieved.has_value());
+    REQUIRE(retrieved->state == world_model::TrafficLightState::RED);
+    REQUIRE(retrieved->confidence == Catch::Approx(0.95));
+  }
+
+  SECTION("TrafficLight state can be updated")
+  {
+    world_model::TrafficLight default_tl;
+
+    // Initial: RED
+    buffer.upsert(600, default_tl, [](world_model::TrafficLight & tl) {
+      vision_msgs::msg::Detection2D det;
+      det.id = "600";
+      tl.history.push_front(det);
+      tl.state = world_model::TrafficLightState::RED;
+    });
+
+    // Update: GREEN
+    buffer.modify(600, [](world_model::TrafficLight & tl) {
+      vision_msgs::msg::Detection2D det;
+      det.id = "600";
+      tl.history.push_front(det);
+      tl.state = world_model::TrafficLightState::GREEN;
+    });
+
+    auto retrieved = buffer.get(600);
+    REQUIRE(retrieved.has_value());
+    REQUIRE(retrieved->state == world_model::TrafficLightState::GREEN);
+    REQUIRE(retrieved->history.size() == 2);
+  }
+}
+
+// Cleanup Logic Tests
+
+TEST_CASE("Entity pruning based on timestamp", "[cleanup]")
+{
+  world_model::EntityBuffer<world_model::Car> buffer;
+
+  SECTION("Prune removes stale entities")
+  {
+    rclcpp::Time now = rclcpp::Time(1000, 0);
+
+    // Add entities with different timestamps
+    for (int i = 0; i < 5; ++i) {
+      world_model::Car default_car;
+      buffer.upsert(i, default_car, [i](world_model::Car & car) {
+        vision_msgs::msg::Detection3D det;
+        det.id = std::to_string(i);
+        // Entity 0-2 are old, 3-4 are recent
+        det.header.stamp.sec = (i < 3) ? 990 : 999;
+        car.history.push_front(det);
+      });
+    }
+
+    REQUIRE(buffer.size() == 5);
+
+    // Prune entities older than 5 seconds
+    buffer.prune([&now](const world_model::Car & car) { return (now - car.timestamp()).seconds() > 5.0; });
+
+    REQUIRE(buffer.size() == 2);
+    REQUIRE_FALSE(buffer.get(0).has_value());
+    REQUIRE_FALSE(buffer.get(1).has_value());
+    REQUIRE_FALSE(buffer.get(2).has_value());
+    REQUIRE(buffer.get(3).has_value());
+    REQUIRE(buffer.get(4).has_value());
+  }
+}
+
+// Entity Empty State Tests
+
+TEST_CASE("Entity empty state", "[entity]")
+{
+  SECTION("Entity3D is empty without history")
+  {
+    world_model::Car car;
+    REQUIRE(car.empty());
+    REQUIRE(car.history.empty());
+  }
+
+  SECTION("Entity3D is not empty with history")
+  {
+    world_model::Car car;
+    vision_msgs::msg::Detection3D det;
+    det.id = "1";
+    car.history.push_front(det);
+
+    REQUIRE_FALSE(car.empty());
+  }
+
+  SECTION("Entity2D is empty without history")
+  {
+    world_model::TrafficLight tl;
+    REQUIRE(tl.empty());
+    REQUIRE(tl.history.empty());
+  }
+
+  SECTION("Entity2D is not empty with history")
+  {
+    world_model::TrafficLight tl;
+    vision_msgs::msg::Detection2D det;
+    det.id = "1";
+    tl.history.push_front(det);
+
+    REQUIRE_FALSE(tl.empty());
+  }
+}
+
+// ForEach Tests
+
+TEST_CASE("EntityBuffer forEach operations", "[entity_buffer]")
+{
+  world_model::EntityBuffer<world_model::Car> buffer;
+
+  // Populate
+  for (int i = 0; i < 3; ++i) {
+    world_model::Car default_car;
+    buffer.upsert(i, default_car, [i](world_model::Car & car) {
+      vision_msgs::msg::Detection3D det;
+      det.id = std::to_string(i);
+      det.bbox.center.position.x = static_cast<double>(i);
+      car.history.push_front(det);
+    });
+  }
+
+  SECTION("forEach modifies all entities")
+  {
+    buffer.forEach([](world_model::Car & car) { car.lanelet_id = 999; });
+
+    for (int i = 0; i < 3; ++i) {
+      auto car = buffer.get(i);
+      REQUIRE(car.has_value());
+      REQUIRE(car->lanelet_id.has_value());
+      REQUIRE(*car->lanelet_id == 999);
+    }
+  }
+
+  SECTION("forEachConst reads all entities")
+  {
+    int count = 0;
+    double sum = 0.0;
+
+    buffer.forEachConst([&count, &sum](const world_model::Car & car) {
+      count++;
+      sum += car.pose().position.x;
+    });
+
+    REQUIRE(count == 3);
+    REQUIRE(sum == Catch::Approx(3.0));  // 0 + 1 + 2
+  }
+}
+
+// GetByLanelet Tests
+
+TEST_CASE("EntityBuffer getByLanelet", "[entity_buffer]")
+{
+  world_model::EntityBuffer<world_model::Car> buffer;
+
+  SECTION("Returns entities on specified lanelet")
+  {
+    for (int i = 0; i < 5; ++i) {
+      world_model::Car default_car;
+      buffer.upsert(i, default_car, [i](world_model::Car & car) {
+        vision_msgs::msg::Detection3D det;
+        det.id = std::to_string(i);
+        car.history.push_front(det);
+        car.lanelet_id = (i % 2 == 0) ? 100 : 200;
+      });
+    }
+
+    auto on_lanelet_100 = buffer.getByLanelet(100);
+    auto on_lanelet_200 = buffer.getByLanelet(200);
+    auto on_lanelet_999 = buffer.getByLanelet(999);
+
+    REQUIRE(on_lanelet_100.size() == 3);  // 0, 2, 4
+    REQUIRE(on_lanelet_200.size() == 2);  // 1, 3
+    REQUIRE(on_lanelet_999.empty());
   }
 }

@@ -10,23 +10,6 @@ The world model aggregates data from multiple sources (perception, prediction, H
 - **Lanelet map queries**: Routes, corridors, regulatory elements
 - **Lane context**: Current lanelet, distances to events
 
-## Quick Start
-
-```bash
-# Build
-colcon build --packages-select world_model
-
-# Run
-ros2 run world_model world_model_node --ros-args \
-  -p osm_map_path:=/path/to/map.osm \
-  -p map_frame:=map \
-  -p base_frame:=base_link
-
-# Lifecycle management
-ros2 lifecycle set /world_model configure
-ros2 lifecycle set /world_model activate
-```
-
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -35,6 +18,7 @@ ros2 lifecycle set /world_model activate
 | `map_frame` | string | "map" | Map frame ID |
 | `base_frame` | string | "base_link" | Robot base frame ID |
 | `utm_frame` | string | "utm" | UTM frame for map loading |
+| `projector_type` | string | "utm" | Projector: "utm" or "local_cartesian" |
 | `entity_history_duration_sec` | double | 5.0 | How long to keep entity history |
 | `entity_prune_timeout_sec` | double | 2.0 | Prune entities not seen for this long |
 | `traffic_light_timeout_sec` | double | 1.0 | Traffic light prune timeout |
@@ -42,6 +26,7 @@ ros2 lifecycle set /world_model activate
 | `lane_context_publish_rate_hz` | double | 10.0 | Lane context publish rate |
 | `map_viz_publish_rate_hz` | double | 1.0 | Map visualization publish rate |
 | `map_viz_radius_m` | double | 100.0 | Radius for map visualization |
+| `dynamic_objects_publish_rate_hz` | double | 10.0 | Dynamic objects publish rate |
 
 ## Topics
 
@@ -57,18 +42,16 @@ ros2 lifecycle set /world_model activate
 |-------|------|-------------|
 | `lane_context` | `lanelet_msgs/CurrentLaneContext` | Current lane information |
 | `map_visualization` | `lanelet_msgs/MapVisualization` | Nearby lanelets for viz |
+| `dynamic_objects` | `world_model_msgs/DynamicObjectArray` | All tracked entities |
 
 ## Services
 
 | Service | Type | Description |
 |---------|------|-------------|
-| `get_route` | `lanelet_msgs/GetRoute` | Compute route between lanelets |
-| `get_corridor` | `lanelet_msgs/GetCorridor` | Get driving corridor |
+| `set_route` | `lanelet_msgs/SetRoute` | Set destination and cache route |
+| `get_route` | `lanelet_msgs/GetRoute` | Get cached route from current position |
+| `get_corridor` | `lanelet_msgs/GetCorridor` | Get driving corridor for planning |
 | `get_lanelets_by_reg_elem` | `lanelet_msgs/GetLaneletsByRegElem` | Find lanelets by regulatory element |
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation.
 
 ## License
 

@@ -37,10 +37,6 @@ public:
   // Detection history (front = most recent)
   std::deque<vision_msgs::msg::Detection2D> history;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Convenience accessors
-  // ─────────────────────────────────────────────────────────────────────────
-
   bool empty() const
   {
     return history.empty();
@@ -72,9 +68,7 @@ public:
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // 2D Entity Subclasses
-// ═══════════════════════════════════════════════════════════════════════════
 
 enum class TrafficLightState : uint8_t
 {

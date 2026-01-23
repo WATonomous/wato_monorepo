@@ -65,11 +65,4 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
 
 ## Finding Joystick Axis Indices
 
-To determine which axis indices correspond to your joystick buttons and sticks, you can use:
-
-```bash
-ros2 run joy joy_node
-ros2 topic echo /joy
-```
-
-Then press buttons and move sticks while observing the `axes` and `buttons` arrays in the output. Note that triggers are typically reported as axes, not buttons.
+To determine which axis indices correspond to your joystick buttons and sticks, run the joy_node and echo the /joy topic. Then press buttons and move sticks while observing the `axes` and `buttons` arrays in the output. Note that triggers are typically reported as axes, not buttons.

@@ -4,7 +4,7 @@
   <name>wato_lifecycle_manager</name>
   <version>0.1.0</version>
   <description>Lifecycle manager for orchestrating ROS2 lifecycle nodes</description>
-  <maintainer email="infra@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

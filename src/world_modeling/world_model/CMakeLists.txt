@@ -22,10 +22,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# ══════════════════════════════════════════════════════════════════════
-# Dependencies
-# ══════════════════════════════════════════════════════════════════════
-
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
@@ -43,10 +39,6 @@ find_package(lanelet2_projection REQUIRED)
 find_package(lanelet2_routing REQUIRED)
 find_package(lanelet2_traffic_rules REQUIRED)
 
-# ══════════════════════════════════════════════════════════════════════
-# Library
-# ══════════════════════════════════════════════════════════════════════
-
 add_library(${PROJECT_NAME}_lib SHARED
   src/lanelet_handler.cpp
   src/world_model_node.cpp
@@ -58,27 +50,24 @@ target_include_directories(${PROJECT_NAME}_lib
     $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(${PROJECT_NAME}_lib
-  rclcpp
-  rclcpp_lifecycle
-  tf2_ros
-  tf2_geometry_msgs
-  std_msgs
-  geometry_msgs
-  vision_msgs
-  lanelet_msgs
-  prediction_msgs
-  world_model_msgs
-  lanelet2_core
-  lanelet2_io
-  lanelet2_projection
-  lanelet2_routing
-  lanelet2_traffic_rules
+target_link_libraries(${PROJECT_NAME}_lib
+  PRIVATE
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
+    ${std_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${vision_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
+    ${prediction_msgs_TARGETS}
+    ${world_model_msgs_TARGETS}
+    lanelet2_core::lanelet2_core
+    lanelet2_io::lanelet2_io
+    lanelet2_projection::lanelet2_projection
+    lanelet2_routing::lanelet2_routing
+    lanelet2_traffic_rules::lanelet2_traffic_rules
 )
-
-# ══════════════════════════════════════════════════════════════════════
-# Executable
-# ══════════════════════════════════════════════════════════════════════
 
 add_executable(world_model_node
   src/world_model_node.cpp
@@ -87,27 +76,24 @@ add_executable(world_model_node
 
 target_include_directories(world_model_node PRIVATE include)
 
-ament_target_dependencies(world_model_node
-  rclcpp
-  rclcpp_lifecycle
-  tf2_ros
-  tf2_geometry_msgs
-  std_msgs
-  geometry_msgs
-  vision_msgs
-  lanelet_msgs
-  prediction_msgs
-  world_model_msgs
-  lanelet2_core
-  lanelet2_io
-  lanelet2_projection
-  lanelet2_routing
-  lanelet2_traffic_rules
+target_link_libraries(world_model_node
+  PRIVATE
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
+    ${std_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${vision_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
+    ${prediction_msgs_TARGETS}
+    ${world_model_msgs_TARGETS}
+    lanelet2_core::lanelet2_core
+    lanelet2_io::lanelet2_io
+    lanelet2_projection::lanelet2_projection
+    lanelet2_routing::lanelet2_routing
+    lanelet2_traffic_rules::lanelet2_traffic_rules
 )
-
-# ══════════════════════════════════════════════════════════════════════
-# Install
-# ══════════════════════════════════════════════════════════════════════
 
 install(TARGETS ${PROJECT_NAME}_lib
   ARCHIVE DESTINATION lib
@@ -123,13 +109,8 @@ install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
 
-# ══════════════════════════════════════════════════════════════════════
-# Testing
-# ══════════════════════════════════════════════════════════════════════
-
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
-  include("${wato_test_DIR}/../../../share/wato_test/cmake/add_wato_test.cmake")
 
   add_wato_test(test_world_model
     test/test_world_model.cpp

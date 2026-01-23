@@ -39,9 +39,7 @@ public:
   WorldState(WorldState &&) = delete;
   WorldState & operator=(WorldState &&) = delete;
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // GENERIC BUFFER ACCESS
-  // ═══════════════════════════════════════════════════════════════════════════
 
   template <typename T>
   EntityBuffer<T> & buffer();
@@ -56,9 +54,7 @@ private:
   EntityBuffer<TrafficLight> traffic_lights_;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // Template specializations for buffer access
-// ═══════════════════════════════════════════════════════════════════════════════
 
 template <>
 inline EntityBuffer<Car> & WorldState::buffer<Car>()

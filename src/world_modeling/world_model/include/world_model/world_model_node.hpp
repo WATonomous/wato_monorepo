@@ -57,26 +57,18 @@ protected:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  // ═══════════════════════════════════════════════════════════════════════════
   // CORE COMPONENTS
-  // ═══════════════════════════════════════════════════════════════════════════
   std::unique_ptr<WorldState> world_state_;  // Entity storage
   std::unique_ptr<LaneletHandler> lanelet_handler_;  // Map queries
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // TF (for map loading - utm->map transform)
-  // ═══════════════════════════════════════════════════════════════════════════
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // INTERFACE COMPONENTS (owned by node)
-  // ═══════════════════════════════════════════════════════════════════════════
   std::vector<std::unique_ptr<InterfaceBase>> interfaces_;
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // FRAMES AND MAP LOADING
-  // ═══════════════════════════════════════════════════════════════════════════
   std::string osm_map_path_;
   std::string map_frame_;
   std::string base_frame_;
@@ -86,9 +78,7 @@ private:
 
   void tryLoadMap();
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // HELPER
-  // ═══════════════════════════════════════════════════════════════════════════
   void createInterfaces();
 };
 
