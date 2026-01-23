@@ -35,9 +35,9 @@
 namespace wato
 {
 
-using namespace std::chrono_literals;
 using lifecycle_msgs::msg::State;
 using lifecycle_msgs::msg::Transition;
+using std::chrono::milliseconds;
 
 /**
  * @brief Mock Lifecycle Node that simulates lifecycle state machine behavior.
@@ -191,13 +191,12 @@ class ServiceClientHelper
 public:
   explicit ServiceClientHelper(rclcpp::Node::SharedPtr node)
   : node_(node)
-  {
-  }
+  {}
 
   /**
    * @brief Wait for a service to be available (used once at test setup)
    */
-  bool wait_for_service(const std::string & service_name, std::chrono::milliseconds timeout = 2s)
+  bool wait_for_service(const std::string & service_name, std::chrono::milliseconds timeout = milliseconds(2000))
   {
     auto client = get_or_create_client(service_name);
     return client->wait_for_service(timeout);
@@ -206,7 +205,8 @@ public:
   /**
    * @brief Call a Trigger service (assumes service is already discovered)
    */
-  std::pair<bool, std::string> call(const std::string & service_name, std::chrono::milliseconds timeout = 2s)
+  std::pair<bool, std::string> call(
+    const std::string & service_name, std::chrono::milliseconds timeout = milliseconds(2000))
   {
     auto client = get_or_create_client(service_name);
 
@@ -241,7 +241,9 @@ private:
  * @brief Helper to call a Trigger service synchronously (legacy, for simpler tests)
  */
 std::pair<bool, std::string> call_trigger_service(
-  rclcpp::Node::SharedPtr node, const std::string & service_name, std::chrono::milliseconds timeout = 2s)
+  rclcpp::Node::SharedPtr node,
+  const std::string & service_name,
+  std::chrono::milliseconds timeout = milliseconds(2000))
 {
   auto client = node->create_client<std_srvs::srv::Trigger>(service_name);
 
@@ -356,7 +358,7 @@ TEST_CASE_METHOD(
 
   // Create service client helper and wait for service discovery BEFORE sections
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Startup transitions nodes to active state")
   {
@@ -420,7 +422,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Shutdown transitions active nodes to unconfigured state")
   {
@@ -497,7 +499,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/is_active", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/is_active", milliseconds(5000)));
 
   SECTION("is_active returns false when nodes are not active")
   {
@@ -546,7 +548,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Pause deactivates nodes without cleanup")
   {
@@ -606,7 +608,7 @@ TEST_CASE_METHOD(wato::test::MultiThreadedTestFixture, "LifecycleManager reset s
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Reset performs shutdown then startup")
   {
@@ -660,7 +662,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Startup fails when node transition fails")
   {
@@ -706,7 +708,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Nodes start up in declaration order")
   {
@@ -739,7 +741,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Startup succeeds with empty node list")
   {
@@ -795,7 +797,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Shutdown deactivates nodes in reverse declaration order")
   {
@@ -864,7 +866,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("Calling startup twice succeeds and node remains active")
   {
@@ -973,7 +975,7 @@ TEST_CASE_METHOD(
   start_spinning();
 
   ServiceClientHelper services(client_node);
-  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", 5s));
+  REQUIRE(services.wait_for_service("/lifecycle_manager/startup", milliseconds(5000)));
 
   SECTION("First node activates before second node fails")
   {
