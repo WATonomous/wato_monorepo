@@ -19,7 +19,7 @@ COPY src/wato_test wato_test
 FROM ${BASE_IMAGE} AS dependencies
 
 # Download maps
-ENV MAPS_DIR="${AMENT_WS}/etc/maps/"
+ENV MAPS_DIR="${WATONOMOUS_INSTALL}/maps/"
 RUN apt-get update && \
     git clone https://github.com/WATonomous/map_data.git --depth 1 "${MAPS_DIR}" && \
     chmod -R 755 "${MAPS_DIR}" && \

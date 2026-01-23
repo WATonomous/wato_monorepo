@@ -23,7 +23,6 @@
 #include "lanelet_msgs/msg/map_visualization.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -46,13 +45,13 @@ public:
     const std::string & base_frame,
     double rate_hz,
     double radius_m)
-  : node_(node),
-    lanelet_(lanelet_handler),
-    tf_buffer_(tf_buffer),
-    map_frame_(map_frame),
-    base_frame_(base_frame),
-    rate_hz_(rate_hz),
-    radius_m_(radius_m)
+  : node_(node)
+  , lanelet_(lanelet_handler)
+  , tf_buffer_(tf_buffer)
+  , map_frame_(map_frame)
+  , base_frame_(base_frame)
+  , rate_hz_(rate_hz)
+  , radius_m_(radius_m)
   {
     pub_ = node_->create_publisher<lanelet_msgs::msg::MapVisualization>("map_visualization", 10);
   }
@@ -64,8 +63,7 @@ public:
     if (rate_hz_ > 0.0) {
       auto period = std::chrono::duration<double>(1.0 / rate_hz_);
       timer_ = node_->create_wall_timer(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-        std::bind(&MapVizPublisher::publish, this));
+        std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&MapVizPublisher::publish, this));
     }
   }
 
@@ -92,7 +90,7 @@ private:
 
     lanelet_msgs::msg::MapVisualization msg;
     msg.header.stamp = node_->get_clock()->now();
-    msg.header.frame_id = ego->header.frame_id;
+    msg.header.frame_id = map_frame_;
 
     geometry_msgs::msg::Point center;
     center.x = ego->pose.position.x;

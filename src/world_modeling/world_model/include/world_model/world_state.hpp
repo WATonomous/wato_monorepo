@@ -43,8 +43,10 @@ public:
   // GENERIC BUFFER ACCESS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  template<typename T> EntityBuffer<T> & buffer();
-  template<typename T> const EntityBuffer<T> & buffer() const;
+  template <typename T>
+  EntityBuffer<T> & buffer();
+  template <typename T>
+  const EntityBuffer<T> & buffer() const;
 
 private:
   EntityBuffer<Car> cars_;
@@ -58,17 +60,65 @@ private:
 // Template specializations for buffer access
 // ═══════════════════════════════════════════════════════════════════════════════
 
-template<> inline EntityBuffer<Car> & WorldState::buffer<Car>() { return cars_; }
-template<> inline EntityBuffer<Human> & WorldState::buffer<Human>() { return humans_; }
-template<> inline EntityBuffer<Bicycle> & WorldState::buffer<Bicycle>() { return bicycles_; }
-template<> inline EntityBuffer<Motorcycle> & WorldState::buffer<Motorcycle>() { return motorcycles_; }
-template<> inline EntityBuffer<TrafficLight> & WorldState::buffer<TrafficLight>() { return traffic_lights_; }
+template <>
+inline EntityBuffer<Car> & WorldState::buffer<Car>()
+{
+  return cars_;
+}
 
-template<> inline const EntityBuffer<Car> & WorldState::buffer<Car>() const { return cars_; }
-template<> inline const EntityBuffer<Human> & WorldState::buffer<Human>() const { return humans_; }
-template<> inline const EntityBuffer<Bicycle> & WorldState::buffer<Bicycle>() const { return bicycles_; }
-template<> inline const EntityBuffer<Motorcycle> & WorldState::buffer<Motorcycle>() const { return motorcycles_; }
-template<> inline const EntityBuffer<TrafficLight> & WorldState::buffer<TrafficLight>() const { return traffic_lights_; }
+template <>
+inline EntityBuffer<Human> & WorldState::buffer<Human>()
+{
+  return humans_;
+}
+
+template <>
+inline EntityBuffer<Bicycle> & WorldState::buffer<Bicycle>()
+{
+  return bicycles_;
+}
+
+template <>
+inline EntityBuffer<Motorcycle> & WorldState::buffer<Motorcycle>()
+{
+  return motorcycles_;
+}
+
+template <>
+inline EntityBuffer<TrafficLight> & WorldState::buffer<TrafficLight>()
+{
+  return traffic_lights_;
+}
+
+template <>
+inline const EntityBuffer<Car> & WorldState::buffer<Car>() const
+{
+  return cars_;
+}
+
+template <>
+inline const EntityBuffer<Human> & WorldState::buffer<Human>() const
+{
+  return humans_;
+}
+
+template <>
+inline const EntityBuffer<Bicycle> & WorldState::buffer<Bicycle>() const
+{
+  return bicycles_;
+}
+
+template <>
+inline const EntityBuffer<Motorcycle> & WorldState::buffer<Motorcycle>() const
+{
+  return motorcycles_;
+}
+
+template <>
+inline const EntityBuffer<TrafficLight> & WorldState::buffer<TrafficLight>() const
+{
+  return traffic_lights_;
+}
 
 }  // namespace world_model
 

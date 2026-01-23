@@ -23,7 +23,6 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
-
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
 #include "world_model/world_state.hpp"
@@ -49,8 +48,7 @@ public:
   ~WorldModelNode() override = default;
 
 protected:
-  using CallbackReturn =
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
@@ -62,7 +60,7 @@ private:
   // ═══════════════════════════════════════════════════════════════════════════
   // CORE COMPONENTS
   // ═══════════════════════════════════════════════════════════════════════════
-  std::unique_ptr<WorldState> world_state_;      // Entity storage
+  std::unique_ptr<WorldState> world_state_;  // Entity storage
   std::unique_ptr<LaneletHandler> lanelet_handler_;  // Map queries
 
   // ═══════════════════════════════════════════════════════════════════════════

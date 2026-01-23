@@ -21,7 +21,6 @@
 
 #include "rclcpp/time.hpp"
 #include "vision_msgs/msg/detection2_d.hpp"
-
 #include "world_model/types/entity.hpp"
 
 namespace world_model
@@ -42,7 +41,10 @@ public:
   // Convenience accessors
   // ─────────────────────────────────────────────────────────────────────────
 
-  bool empty() const { return history.empty(); }
+  bool empty() const
+  {
+    return history.empty();
+  }
 
   const vision_msgs::msg::Detection2D & detection() const
   {
@@ -74,7 +76,8 @@ public:
 // 2D Entity Subclasses
 // ═══════════════════════════════════════════════════════════════════════════
 
-enum class TrafficLightState : uint8_t {
+enum class TrafficLightState : uint8_t
+{
   UNKNOWN = 0,
   RED = 1,
   YELLOW = 2,
@@ -90,7 +93,10 @@ enum class TrafficLightState : uint8_t {
 class TrafficLight : public Entity2D
 {
 public:
-  EntityType type() const override { return EntityType::TRAFFIC_LIGHT; }
+  EntityType type() const override
+  {
+    return EntityType::TRAFFIC_LIGHT;
+  }
 
   // Interpreted state (parsed from detection.results)
   TrafficLightState state{TrafficLightState::UNKNOWN};

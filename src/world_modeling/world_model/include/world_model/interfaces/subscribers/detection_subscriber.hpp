@@ -20,7 +20,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -41,14 +40,13 @@ public:
     WorldState * world_state,
     const LaneletHandler * lanelet_handler,
     double history_duration_sec)
-  : node_(node),
-    world_state_(world_state),
-    lanelet_(lanelet_handler),
-    history_duration_(history_duration_sec)
+  : node_(node)
+  , world_state_(world_state)
+  , lanelet_(lanelet_handler)
+  , history_duration_(history_duration_sec)
   {
     sub_ = node_->create_subscription<vision_msgs::msg::Detection3DArray>(
-      "detections", 10,
-      std::bind(&DetectionSubscriber::onMessage, this, std::placeholders::_1));
+      "detections", 10, std::bind(&DetectionSubscriber::onMessage, this, std::placeholders::_1));
   }
 
 private:
@@ -98,7 +96,7 @@ private:
     return EntityType::UNKNOWN;
   }
 
-  template<typename EntityT>
+  template <typename EntityT>
   void updateEntity(int64_t id, const vision_msgs::msg::Detection3D & det)
   {
     auto & buffer = world_state_.buffer<EntityT>();

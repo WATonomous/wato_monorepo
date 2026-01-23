@@ -18,7 +18,7 @@ services:
     profiles: ["interfacing"]
     extends:
       file: docker-compose.yaml
-      service: interfacing_bringup 
+      service: interfacing_bringup
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup:

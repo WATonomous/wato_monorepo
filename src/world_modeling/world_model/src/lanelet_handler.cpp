@@ -20,15 +20,15 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace world_model
 {
 
 bool LaneletHandler::loadMap(
-  const std::string & osm_path,
-  double utm_origin_x,
-  double utm_origin_y,
-  const std::string & projector_type)
+  const std::string & osm_path, double utm_origin_x, double utm_origin_y, const std::string & projector_type)
 {
   try {
     if (projector_type == "local_cartesian") {
@@ -72,9 +72,8 @@ bool LaneletHandler::loadMap(
     }
 
     // Create traffic rules for vehicles
-    traffic_rules_ = lanelet::traffic_rules::TrafficRulesFactory::create(
-      lanelet::Locations::Germany,
-      lanelet::Participants::Vehicle);
+    traffic_rules_ =
+      lanelet::traffic_rules::TrafficRulesFactory::create(lanelet::Locations::Germany, lanelet::Participants::Vehicle);
 
     // Build routing graph
     routing_graph_ = lanelet::routing::RoutingGraph::build(*map_, *traffic_rules_);
@@ -85,8 +84,7 @@ bool LaneletHandler::loadMap(
   }
 }
 
-std::optional<lanelet::ConstLanelet> LaneletHandler::findNearestLanelet(
-  const geometry_msgs::msg::Point & point) const
+std::optional<lanelet::ConstLanelet> LaneletHandler::findNearestLanelet(const geometry_msgs::msg::Point & point) const
 {
   if (!map_) {
     return std::nullopt;
@@ -107,8 +105,7 @@ std::optional<lanelet::ConstLanelet> LaneletHandler::findNearestLanelet(
   return nearest;
 }
 
-std::optional<int64_t> LaneletHandler::findNearestLaneletId(
-  const geometry_msgs::msg::Point & point) const
+std::optional<int64_t> LaneletHandler::findNearestLaneletId(const geometry_msgs::msg::Point & point) const
 {
   auto nearest = findNearestLanelet(point);
   if (nearest.has_value()) {
@@ -151,8 +148,7 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getLaneletsInRadius(
   return result;
 }
 
-lanelet_msgs::srv::GetRoute::Response LaneletHandler::getRoute(
-  int64_t from_id, int64_t to_id) const
+lanelet_msgs::srv::GetRoute::Response LaneletHandler::getRoute(int64_t from_id, int64_t to_id) const
 {
   lanelet_msgs::srv::GetRoute::Response response;
   response.success = false;
@@ -186,8 +182,7 @@ lanelet_msgs::srv::GetRoute::Response LaneletHandler::getRoute(
 }
 
 lanelet_msgs::srv::GetCorridor::Response LaneletHandler::getCorridor(
-  int64_t from_id, int64_t to_id, double max_length_m,
-  double sample_spacing_m) const
+  int64_t from_id, int64_t to_id, double max_length_m, double sample_spacing_m) const
 {
   lanelet_msgs::srv::GetCorridor::Response response;
   response.success = false;
@@ -212,8 +207,7 @@ lanelet_msgs::srv::GetCorridor::Response LaneletHandler::getCorridor(
   return response;
 }
 
-lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(
-  int64_t reg_elem_id) const
+lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(int64_t reg_elem_id) const
 {
   lanelet_msgs::srv::GetLaneletsByRegElem::Response response;
   response.success = false;
@@ -243,8 +237,7 @@ lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByR
   return response;
 }
 
-lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(
-  const lanelet::ConstLanelet & ll) const
+lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(const lanelet::ConstLanelet & ll) const
 {
   lanelet_msgs::msg::Lanelet msg;
   msg.id = ll.id();
@@ -276,6 +269,12 @@ lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(
     msg.centerline.push_back(p);
   }
 
+  // Boundary attributes (type and color)
+  msg.left_boundary_type = getBoundaryTypeForVisualization(ll.leftBound());
+  msg.left_boundary_color = getBoundaryColor(ll.leftBound());
+  msg.right_boundary_type = getBoundaryTypeForVisualization(ll.rightBound());
+  msg.right_boundary_color = getBoundaryColor(ll.rightBound());
+
   populateLaneletSemantics(msg, ll);
   populateLaneletConnectivity(msg, ll);
   populateLaneletRegulatoryElements(msg, ll);
@@ -283,8 +282,7 @@ lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(
   return msg;
 }
 
-void LaneletHandler::populateLaneletSemantics(
-  lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const
+void LaneletHandler::populateLaneletSemantics(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const
 {
   // Get lanelet type from attributes
   if (ll.hasAttribute(lanelet::AttributeName::Subtype)) {
@@ -292,9 +290,9 @@ void LaneletHandler::populateLaneletSemantics(
   }
 
   // Check if intersection
-  msg.is_intersection = ll.hasAttribute("turn_direction") ||
-    ll.hasAttribute(lanelet::AttributeName::Subtype) &&
-    ll.attribute(lanelet::AttributeName::Subtype).value() == "intersection";
+  msg.is_intersection =
+    ll.hasAttribute("turn_direction") || ll.hasAttribute(lanelet::AttributeName::Subtype) &&
+                                           ll.attribute(lanelet::AttributeName::Subtype).value() == "intersection";
 
   // Speed limit
   if (traffic_rules_) {
@@ -349,10 +347,75 @@ void LaneletHandler::populateLaneletRegulatoryElements(
 
     if (subtype == "traffic_light") {
       msg.has_traffic_light = true;
+
+      // Extract traffic light positions from the regulatory element
+      // Traffic lights have a "refers" role pointing to the light linestrings
+      auto refers = reg_elem->getParameters<lanelet::ConstLineString3d>("refers");
+      for (const auto & light_ls : refers) {
+        lanelet_msgs::msg::TrafficLightInfo tl_info;
+        tl_info.id = light_ls.id();
+        tl_info.stop_line_id = -1;
+
+        // Use centroid of the linestring as position
+        if (!light_ls.empty()) {
+          double x = 0, y = 0, z = 0;
+          for (const auto & pt : light_ls) {
+            x += pt.x();
+            y += pt.y();
+            z += pt.z();
+          }
+          tl_info.position.x = x / light_ls.size();
+          tl_info.position.y = y / light_ls.size();
+          tl_info.position.z = z / light_ls.size();
+          msg.traffic_lights.push_back(tl_info);
+        }
+      }
+
+      // Check for associated stop line (ref_line role)
+      auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
+      for (const auto & stop_ls : ref_lines) {
+        lanelet_msgs::msg::StopLineInfo sl_info;
+        sl_info.id = stop_ls.id();
+        sl_info.distance_along_lanelet_m = 0.0;  // TODO(WATonomous): calculate actual distance
+
+        for (const auto & pt : stop_ls) {
+          geometry_msgs::msg::Point p;
+          p.x = pt.x();
+          p.y = pt.y();
+          p.z = pt.z();
+          sl_info.points.push_back(p);
+        }
+
+        if (!sl_info.points.empty()) {
+          msg.stop_lines.push_back(sl_info);
+          msg.has_stop_line = true;
+        }
+      }
     }
-    if (subtype == "stop_line") {
-      msg.has_stop_line = true;
+
+    if (subtype == "stop_sign" || subtype == "right_of_way") {
+      // Extract stop lines from stop signs and right-of-way elements
+      auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
+      for (const auto & stop_ls : ref_lines) {
+        lanelet_msgs::msg::StopLineInfo sl_info;
+        sl_info.id = stop_ls.id();
+        sl_info.distance_along_lanelet_m = 0.0;
+
+        for (const auto & pt : stop_ls) {
+          geometry_msgs::msg::Point p;
+          p.x = pt.x();
+          p.y = pt.y();
+          p.z = pt.z();
+          sl_info.points.push_back(p);
+        }
+
+        if (!sl_info.points.empty()) {
+          msg.stop_lines.push_back(sl_info);
+          msg.has_stop_line = true;
+        }
+      }
     }
+
     if (subtype == "yield") {
       msg.has_yield_sign = true;
       msg.must_yield = true;
@@ -388,9 +451,45 @@ uint8_t LaneletHandler::getBoundaryType(const lanelet::ConstLineString3d & bound
   return lanelet_msgs::msg::CorridorLane::BOUNDARY_SOLID;
 }
 
+uint8_t LaneletHandler::getBoundaryTypeForVisualization(const lanelet::ConstLineString3d & boundary) const
+{
+  // Check both "subtype" (OSM standard) and "type" attributes
+  std::string subtype;
+  if (boundary.hasAttribute("subtype")) {
+    subtype = boundary.attribute("subtype").value();
+  } else if (boundary.hasAttribute("type")) {
+    subtype = boundary.attribute("type").value();
+  }
+
+  if (subtype == "solid_solid") {
+    return lanelet_msgs::msg::Lanelet::BOUNDARY_SOLID_SOLID;
+  }
+  if (subtype == "solid") {
+    return lanelet_msgs::msg::Lanelet::BOUNDARY_SOLID;
+  }
+  if (subtype == "dashed" || subtype == "dashed_dashed") {
+    return lanelet_msgs::msg::Lanelet::BOUNDARY_DASHED;
+  }
+  if (subtype == "road_border" || subtype == "curbstone" || subtype == "guard_rail") {
+    return lanelet_msgs::msg::Lanelet::BOUNDARY_ROAD_EDGE;
+  }
+  // Default to solid
+  return lanelet_msgs::msg::Lanelet::BOUNDARY_SOLID;
+}
+
+uint8_t LaneletHandler::getBoundaryColor(const lanelet::ConstLineString3d & boundary) const
+{
+  if (boundary.hasAttribute("color")) {
+    std::string color = boundary.attribute("color").value();
+    if (color == "yellow") {
+      return lanelet_msgs::msg::Lanelet::COLOR_YELLOW;
+    }
+  }
+  return lanelet_msgs::msg::Lanelet::COLOR_WHITE;
+}
+
 lanelet_msgs::msg::CorridorLane LaneletHandler::buildCorridorLane(
-  const std::vector<lanelet::ConstLanelet> & lanelets,
-  double sample_spacing_m, double max_length_m) const
+  const std::vector<lanelet::ConstLanelet> & lanelets, double sample_spacing_m, double max_length_m) const
 {
   lanelet_msgs::msg::CorridorLane lane;
 
@@ -475,10 +574,8 @@ lanelet_msgs::msg::CorridorLane LaneletHandler::buildCorridorLane(
         // Boundary offsets - find closest point on each boundary
         // Simplified: use same index ratio
         double t = static_cast<double>(i) / std::max(1.0, static_cast<double>(centerline.size() - 1));
-        size_t left_idx = std::min(
-          static_cast<size_t>(t * (left_bound.size() - 1)), left_bound.size() - 1);
-        size_t right_idx = std::min(
-          static_cast<size_t>(t * (right_bound.size() - 1)), right_bound.size() - 1);
+        size_t left_idx = std::min(static_cast<size_t>(t * (left_bound.size() - 1)), left_bound.size() - 1);
+        size_t right_idx = std::min(static_cast<size_t>(t * (right_bound.size() - 1)), right_bound.size() - 1);
 
         // Left offset (positive = left of centerline)
         double left_dx = left_bound[left_idx].x() - centerline[i].x();
@@ -504,8 +601,7 @@ lanelet_msgs::msg::CorridorLane LaneletHandler::buildCorridorLane(
 }
 
 lanelet_msgs::msg::Corridor LaneletHandler::toCorridorMsg(
-  const std::vector<lanelet::ConstLanelet> & route_lanelets,
-  double sample_spacing_m, double max_length_m) const
+  const std::vector<lanelet::ConstLanelet> & route_lanelets, double sample_spacing_m, double max_length_m) const
 {
   lanelet_msgs::msg::Corridor corridor;
 

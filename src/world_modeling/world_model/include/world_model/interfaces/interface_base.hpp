@@ -15,6 +15,8 @@
 #ifndef WORLD_MODEL__INTERFACES__INTERFACE_BASE_HPP_
 #define WORLD_MODEL__INTERFACES__INTERFACE_BASE_HPP_
 
+#include <vector>
+
 #include "world_model/lanelet_handler.hpp"
 #include "world_model/world_state.hpp"
 
@@ -34,10 +36,15 @@ namespace world_model
 class WorldStateReader
 {
 public:
-  explicit WorldStateReader(const WorldState * state) : state_(state) {}
+  explicit WorldStateReader(const WorldState * state)
+  : state_(state)
+  {}
 
-  template<typename T>
-  const EntityBuffer<T> & buffer() const { return state_->buffer<T>(); }
+  template <typename T>
+  const EntityBuffer<T> & buffer() const
+  {
+    return state_->buffer<T>();
+  }
 
 private:
   const WorldState * state_;
@@ -52,13 +59,21 @@ private:
 class WorldStateWriter
 {
 public:
-  explicit WorldStateWriter(WorldState * state) : state_(state) {}
+  explicit WorldStateWriter(WorldState * state)
+  : state_(state)
+  {}
 
-  template<typename T>
-  EntityBuffer<T> & buffer() { return state_->buffer<T>(); }
+  template <typename T>
+  EntityBuffer<T> & buffer()
+  {
+    return state_->buffer<T>();
+  }
 
-  template<typename T>
-  const EntityBuffer<T> & buffer() const { return state_->buffer<T>(); }
+  template <typename T>
+  const EntityBuffer<T> & buffer() const
+  {
+    return state_->buffer<T>();
+  }
 
 private:
   WorldState * state_;
@@ -72,12 +87,16 @@ private:
 class LaneletReader
 {
 public:
-  explicit LaneletReader(const LaneletHandler * handler) : handler_(handler) {}
+  explicit LaneletReader(const LaneletHandler * handler)
+  : handler_(handler)
+  {}
 
-  bool isMapLoaded() const { return handler_->isMapLoaded(); }
+  bool isMapLoaded() const
+  {
+    return handler_->isMapLoaded();
+  }
 
-  std::optional<int64_t> findNearestLaneletId(
-    const geometry_msgs::msg::Point & point) const
+  std::optional<int64_t> findNearestLaneletId(const geometry_msgs::msg::Point & point) const
   {
     return handler_->findNearestLaneletId(point);
   }
@@ -105,8 +124,7 @@ public:
   }
 
   lanelet_msgs::srv::GetCorridor::Response getCorridor(
-    int64_t from_id, int64_t to_id, double max_length_m,
-    double sample_spacing_m) const
+    int64_t from_id, int64_t to_id, double max_length_m, double sample_spacing_m) const
   {
     return handler_->getCorridor(from_id, to_id, max_length_m, sample_spacing_m);
   }
@@ -142,12 +160,14 @@ public:
   /**
    * @brief Activate the interface (start publishing, subscribe, etc.)
    */
-  virtual void activate() {}
+  virtual void activate()
+  {}
 
   /**
    * @brief Deactivate the interface (stop timers, cancel subscriptions, etc.)
    */
-  virtual void deactivate() {}
+  virtual void deactivate()
+  {}
 };
 
 }  // namespace world_model

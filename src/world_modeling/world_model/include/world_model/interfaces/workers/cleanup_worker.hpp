@@ -22,7 +22,6 @@
 #include <thread>
 
 #include "rclcpp/clock.hpp"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -43,13 +42,12 @@ public:
     std::chrono::milliseconds interval,
     double entity_timeout_sec,
     double traffic_light_timeout_sec)
-  : world_state_(world_state),
-    clock_(clock),
-    interval_(interval),
-    entity_timeout_sec_(entity_timeout_sec),
-    traffic_light_timeout_sec_(traffic_light_timeout_sec)
-  {
-  }
+  : world_state_(world_state)
+  , clock_(clock)
+  , interval_(interval)
+  , entity_timeout_sec_(entity_timeout_sec)
+  , traffic_light_timeout_sec_(traffic_light_timeout_sec)
+  {}
 
   ~CleanupWorker() override
   {
@@ -119,13 +117,12 @@ private:
     world_state_.buffer<Motorcycle>().prune(should_prune_entity);
 
     // Traffic lights have separate timeout
-    world_state_.buffer<TrafficLight>().prune(
-      [&now, this](const TrafficLight & tl) {
-        if (tl.empty()) {
-          return true;
-        }
-        return (now - tl.timestamp()).seconds() > traffic_light_timeout_sec_;
-      });
+    world_state_.buffer<TrafficLight>().prune([&now, this](const TrafficLight & tl) {
+      if (tl.empty()) {
+        return true;
+      }
+      return (now - tl.timestamp()).seconds() > traffic_light_timeout_sec_;
+    });
   }
 
   WorldStateWriter world_state_;

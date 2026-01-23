@@ -20,7 +20,8 @@
 namespace world_model
 {
 
-enum class EntityType : uint8_t {
+enum class EntityType : uint8_t
+{
   UNKNOWN = 0,
   CAR = 1,
   HUMAN = 2,

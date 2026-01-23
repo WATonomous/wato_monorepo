@@ -101,14 +101,9 @@ private:
   void destroyBond(ManagedNode & node);
 
   // State transitions
-  bool changeState(
-    ManagedNode & node,
-    uint8_t transition_id,
-    const std::chrono::seconds & timeout);
+  bool changeState(ManagedNode & node, uint8_t transition_id, const std::chrono::seconds & timeout);
 
-  bool waitForService(
-    rclcpp::ClientBase::SharedPtr client,
-    const std::chrono::seconds & timeout);
+  bool waitForService(rclcpp::ClientBase::SharedPtr client, const std::chrono::seconds & timeout);
 
   uint8_t getNodeState(ManagedNode & node);
 
@@ -164,6 +159,9 @@ private:
 
   // Callback group for service calls (to avoid deadlock)
   rclcpp::CallbackGroup::SharedPtr callback_group_;
+
+  // Autostart timer (one-shot)
+  rclcpp::TimerBase::SharedPtr autostart_timer_;
 };
 
 }  // namespace wato_lifecycle_manager

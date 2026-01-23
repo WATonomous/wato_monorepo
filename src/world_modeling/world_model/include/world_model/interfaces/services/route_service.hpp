@@ -15,10 +15,11 @@
 #ifndef WORLD_MODEL__INTERFACES__SERVICES__ROUTE_SERVICE_HPP_
 #define WORLD_MODEL__INTERFACES__SERVICES__ROUTE_SERVICE_HPP_
 
+#include <utility>
+
 #include "lanelet_msgs/srv/get_route.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -33,16 +34,12 @@ namespace world_model
 class RouteService : public InterfaceBase
 {
 public:
-  RouteService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler)
-  : node_(node),
-    lanelet_(lanelet_handler)
+  RouteService(rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler)
+  : node_(node)
+  , lanelet_(lanelet_handler)
   {
     srv_ = node_->create_service<lanelet_msgs::srv::GetRoute>(
-      "get_route",
-      std::bind(&RouteService::handleRequest, this,
-        std::placeholders::_1, std::placeholders::_2));
+      "get_route", std::bind(&RouteService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:

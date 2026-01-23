@@ -199,7 +199,8 @@
           "layerId": "foxglove.Urdf",
           "sourceType": "topic",
           "url": "",
-          "filePath": "/home/eddy/code/watonomous/wato_monorepo/src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro",
+          "filePath":
+            "/home/eddy/code/watonomous/wato_monorepo/src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro",
           "parameter": "",
           "topic": "/robot_description_viz",
           "framePrefix": "",

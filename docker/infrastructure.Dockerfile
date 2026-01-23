@@ -13,6 +13,8 @@ COPY src/simulation/carla_ros_bridge/carla_msgs carla_msgs
 COPY src/wato_test wato_test
 COPY src/infrastructure/infrastructure_bringup infrastructure_bringup
 COPY src/infrastructure/vision_msgs_markers vision_msgs_markers
+COPY src/world_modeling/lanelet_msgs lanelet_msgs
+COPY src/world_modeling/prediction_msgs prediction_msgs
 COPY src/interfacing/eve_description eve_description
 
 ################################# Dependencies ################################

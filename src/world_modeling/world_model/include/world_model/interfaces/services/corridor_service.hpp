@@ -15,10 +15,11 @@
 #ifndef WORLD_MODEL__INTERFACES__SERVICES__CORRIDOR_SERVICE_HPP_
 #define WORLD_MODEL__INTERFACES__SERVICES__CORRIDOR_SERVICE_HPP_
 
+#include <utility>
+
 #include "lanelet_msgs/srv/get_corridor.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -33,16 +34,12 @@ namespace world_model
 class CorridorService : public InterfaceBase
 {
 public:
-  CorridorService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler)
-  : node_(node),
-    lanelet_(lanelet_handler)
+  CorridorService(rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler)
+  : node_(node)
+  , lanelet_(lanelet_handler)
   {
     srv_ = node_->create_service<lanelet_msgs::srv::GetCorridor>(
-      "get_corridor",
-      std::bind(&CorridorService::handleRequest, this,
-        std::placeholders::_1, std::placeholders::_2));
+      "get_corridor", std::bind(&CorridorService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
@@ -51,10 +48,7 @@ private:
     lanelet_msgs::srv::GetCorridor::Response::SharedPtr response)
   {
     auto result = lanelet_.getCorridor(
-      request->from_lanelet_id,
-      request->to_lanelet_id,
-      request->max_length_m,
-      request->sample_spacing_m);
+      request->from_lanelet_id, request->to_lanelet_id, request->max_length_m, request->sample_spacing_m);
     *response = std::move(result);
   }
 

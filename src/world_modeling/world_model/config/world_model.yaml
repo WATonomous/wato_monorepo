@@ -1,9 +1,9 @@
 world_model:
   ros__parameters:
     # Map configuration
-    osm_map_path: ""
+    osm_map_path: "/home/bolty/ament_ws/src/world_modeling/Town10HD_with_regulatory.osm"
     # Projector type: "utm" for real-world maps, "local_cartesian" for CARLA/simulation maps
-    projector_type: "utm"
+    projector_type: "local_cartesian"
 
     # Frame IDs
     map_frame: "map"

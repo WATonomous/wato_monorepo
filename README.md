@@ -2,6 +2,10 @@
 
 Dockerized monorepo for the WATonomous autonomous vehicle project (dubbed EVE).
 
+<video controls src=".img/20260122-0408-49.0660777.mp4" title="Title"></video>
+
+> This is our simulation stack using CARLA UE5. Real life autonomy coming soon!
+
 ## Prerequisite Installation
 These steps are to setup the monorepo to work on your own PC. We utilize docker to enable ease of reproducibility and deployability.
 

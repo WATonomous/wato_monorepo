@@ -21,10 +21,10 @@
  * Include this header to get all entity types and containers.
  */
 
-#include "world_model/types/entity_type.hpp"
 #include "world_model/types/entity.hpp"
 #include "world_model/types/entity_2d.hpp"
 #include "world_model/types/entity_3d.hpp"
 #include "world_model/types/entity_buffer.hpp"
+#include "world_model/types/entity_type.hpp"
 
 #endif  // WORLD_MODEL__TYPES__TYPES_HPP_

@@ -24,7 +24,6 @@
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -46,12 +45,12 @@ public:
     const std::string & map_frame,
     const std::string & base_frame,
     double rate_hz)
-  : node_(node),
-    lanelet_(lanelet_handler),
-    tf_buffer_(tf_buffer),
-    map_frame_(map_frame),
-    base_frame_(base_frame),
-    rate_hz_(rate_hz)
+  : node_(node)
+  , lanelet_(lanelet_handler)
+  , tf_buffer_(tf_buffer)
+  , map_frame_(map_frame)
+  , base_frame_(base_frame)
+  , rate_hz_(rate_hz)
   {
     pub_ = node_->create_publisher<lanelet_msgs::msg::CurrentLaneContext>("lane_context", 10);
   }
@@ -63,8 +62,7 @@ public:
     if (rate_hz_ > 0.0) {
       auto period = std::chrono::duration<double>(1.0 / rate_hz_);
       timer_ = node_->create_wall_timer(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-        std::bind(&LaneContextPublisher::publish, this));
+        std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&LaneContextPublisher::publish, this));
     }
   }
 
@@ -158,9 +156,9 @@ private:
   void updateDynamicContext(const geometry_msgs::msg::PoseStamped & ego)
   {
     cached_context_.header.stamp = node_->get_clock()->now();
-    cached_context_.header.frame_id = ego.header.frame_id;
+    cached_context_.header.frame_id = map_frame_;
 
-    // TODO: Calculate arc_length, lateral_offset, heading_error
+    // TODO(WATonomous): Calculate arc_length, lateral_offset, heading_error
     cached_context_.arc_length = 0.0;
     cached_context_.lateral_offset = 0.0;
     cached_context_.heading_error = 0.0;

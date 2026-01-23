@@ -15,10 +15,11 @@
 #ifndef WORLD_MODEL__INTERFACES__SUBSCRIBERS__PREDICTION_SUBSCRIBER_HPP_
 #define WORLD_MODEL__INTERFACES__SUBSCRIBERS__PREDICTION_SUBSCRIBER_HPP_
 
+#include <vector>
+
 #include "prediction_msgs/msg/prediction_hypotheses_array.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -32,15 +33,12 @@ namespace world_model
 class PredictionSubscriber : public InterfaceBase
 {
 public:
-  PredictionSubscriber(
-    rclcpp_lifecycle::LifecycleNode * node,
-    WorldState * world_state)
-  : node_(node),
-    world_state_(world_state)
+  PredictionSubscriber(rclcpp_lifecycle::LifecycleNode * node, WorldState * world_state)
+  : node_(node)
+  , world_state_(world_state)
   {
     sub_ = node_->create_subscription<prediction_msgs::msg::PredictionHypothesesArray>(
-      "predictions", 10,
-      std::bind(&PredictionSubscriber::onMessage, this, std::placeholders::_1));
+      "predictions", 10, std::bind(&PredictionSubscriber::onMessage, this, std::placeholders::_1));
   }
 
 private:
@@ -57,15 +55,11 @@ private:
     }
   }
 
-  template<typename EntityT>
-  bool tryUpdatePredictions(
-    int64_t id,
-    const std::vector<prediction_msgs::msg::Prediction> & preds)
+  template <typename EntityT>
+  bool tryUpdatePredictions(int64_t id, const std::vector<prediction_msgs::msg::Prediction> & preds)
   {
     auto & buffer = world_state_.buffer<EntityT>();
-    return buffer.modify(id, [&preds](EntityT & entity) {
-      entity.predictions = preds;
-    });
+    return buffer.modify(id, [&preds](EntityT & entity) { entity.predictions = preds; });
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;

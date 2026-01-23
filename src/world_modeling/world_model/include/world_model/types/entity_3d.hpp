@@ -22,7 +22,6 @@
 #include "prediction_msgs/msg/prediction.hpp"
 #include "rclcpp/time.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
-
 #include "world_model/types/entity.hpp"
 
 namespace world_model
@@ -47,7 +46,10 @@ public:
   // Convenience accessors (all reference history.front())
   // ─────────────────────────────────────────────────────────────────────────
 
-  bool empty() const { return history.empty(); }
+  bool empty() const
+  {
+    return history.empty();
+  }
 
   const vision_msgs::msg::Detection3D & detection() const
   {
@@ -92,28 +94,44 @@ public:
 class Car : public Entity3D
 {
 public:
-  EntityType type() const override { return EntityType::CAR; }
+  EntityType type() const override
+  {
+    return EntityType::CAR;
+  }
+
   // Future: turn signals, brake lights, etc.
 };
 
 class Human : public Entity3D
 {
 public:
-  EntityType type() const override { return EntityType::HUMAN; }
+  EntityType type() const override
+  {
+    return EntityType::HUMAN;
+  }
+
   // Future: skeleton keypoints, gesture, etc.
 };
 
 class Bicycle : public Entity3D
 {
 public:
-  EntityType type() const override { return EntityType::BICYCLE; }
+  EntityType type() const override
+  {
+    return EntityType::BICYCLE;
+  }
+
   // Future: rider info, cargo, etc.
 };
 
 class Motorcycle : public Entity3D
 {
 public:
-  EntityType type() const override { return EntityType::MOTORCYCLE; }
+  EntityType type() const override
+  {
+    return EntityType::MOTORCYCLE;
+  }
+
   // Future: rider count, helmet detection, etc.
 };
 

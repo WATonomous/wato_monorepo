@@ -67,30 +67,27 @@ public:
    * @return true if map loaded successfully
    */
   bool loadMap(
-    const std::string & osm_path,
-    double utm_origin_x,
-    double utm_origin_y,
-    const std::string & projector_type = "utm");
+    const std::string & osm_path, double utm_origin_x, double utm_origin_y, const std::string & projector_type = "utm");
 
   /**
    * @brief Check if the map is loaded.
    */
-  bool isMapLoaded() const { return map_ != nullptr; }
+  bool isMapLoaded() const
+  {
+    return map_ != nullptr;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Queries (all const, thread-safe for concurrent reads)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  std::optional<lanelet::ConstLanelet> findNearestLanelet(
-    const geometry_msgs::msg::Point & point) const;
+  std::optional<lanelet::ConstLanelet> findNearestLanelet(const geometry_msgs::msg::Point & point) const;
 
-  std::optional<int64_t> findNearestLaneletId(
-    const geometry_msgs::msg::Point & point) const;
+  std::optional<int64_t> findNearestLaneletId(const geometry_msgs::msg::Point & point) const;
 
   std::optional<lanelet::ConstLanelet> getLaneletById(int64_t id) const;
 
-  std::vector<lanelet::ConstLanelet> getLaneletsInRadius(
-    const geometry_msgs::msg::Point & center, double radius) const;
+  std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Service implementations
@@ -99,11 +96,9 @@ public:
   lanelet_msgs::srv::GetRoute::Response getRoute(int64_t from_id, int64_t to_id) const;
 
   lanelet_msgs::srv::GetCorridor::Response getCorridor(
-    int64_t from_id, int64_t to_id, double max_length_m,
-    double sample_spacing_m) const;
+    int64_t from_id, int64_t to_id, double max_length_m, double sample_spacing_m) const;
 
-  lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(
-    int64_t reg_elem_id) const;
+  lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Conversions
@@ -112,15 +107,21 @@ public:
   lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
 
   lanelet_msgs::msg::Corridor toCorridorMsg(
-    const std::vector<lanelet::ConstLanelet> & route_lanelets,
-    double sample_spacing_m, double max_length_m) const;
+    const std::vector<lanelet::ConstLanelet> & route_lanelets, double sample_spacing_m, double max_length_m) const;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Accessors
   // ═══════════════════════════════════════════════════════════════════════════
 
-  lanelet::routing::RoutingGraphConstPtr getRoutingGraph() const { return routing_graph_; }
-  lanelet::traffic_rules::TrafficRulesPtr getTrafficRules() const { return traffic_rules_; }
+  lanelet::routing::RoutingGraphConstPtr getRoutingGraph() const
+  {
+    return routing_graph_;
+  }
+
+  lanelet::traffic_rules::TrafficRulesPtr getTrafficRules() const
+  {
+    return traffic_rules_;
+  }
 
 private:
   lanelet::LaneletMapPtr map_;
@@ -129,21 +130,21 @@ private:
   std::unique_ptr<lanelet::Projector> projector_;
 
   // Helper methods for Lanelet message
-  void populateLaneletSemantics(
-    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
+  void populateLaneletSemantics(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
-  void populateLaneletConnectivity(
-    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
+  void populateLaneletConnectivity(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
-  void populateLaneletRegulatoryElements(
-    lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
+  void populateLaneletRegulatoryElements(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
   // Helper methods for Corridor message
   lanelet_msgs::msg::CorridorLane buildCorridorLane(
-    const std::vector<lanelet::ConstLanelet> & lanelets,
-    double sample_spacing_m, double max_length_m) const;
+    const std::vector<lanelet::ConstLanelet> & lanelets, double sample_spacing_m, double max_length_m) const;
 
   uint8_t getBoundaryType(const lanelet::ConstLineString3d & boundary) const;
+
+  uint8_t getBoundaryTypeForVisualization(const lanelet::ConstLineString3d & boundary) const;
+
+  uint8_t getBoundaryColor(const lanelet::ConstLineString3d & boundary) const;
 
   double getSpeedLimit(const lanelet::ConstLanelet & ll) const;
 };

@@ -35,11 +35,7 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>lifecycle_msgs</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
-
-  <!-- Test -->
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
-  <test_depend>ament_cmake_gtest</test_depend>
+  <exec_depend>lanelet_viz_markers</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

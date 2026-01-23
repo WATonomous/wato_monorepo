@@ -1,0 +1,16 @@
+launch:
+  - node:
+      pkg: lanelet_viz_markers
+      exec: map_viz_markers_node
+      name: map_viz_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share lanelet_viz_markers)/config/lanelet_viz_markers.yaml
+
+  - node:
+      pkg: lanelet_viz_markers
+      exec: lane_context_markers_node
+      name: lane_context_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share lanelet_viz_markers)/config/lanelet_viz_markers.yaml

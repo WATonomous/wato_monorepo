@@ -20,7 +20,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -34,15 +33,12 @@ namespace world_model
 class TrafficLightSubscriber : public InterfaceBase
 {
 public:
-  TrafficLightSubscriber(
-    rclcpp_lifecycle::LifecycleNode * node,
-    WorldState * world_state)
-  : node_(node),
-    world_state_(world_state)
+  TrafficLightSubscriber(rclcpp_lifecycle::LifecycleNode * node, WorldState * world_state)
+  : node_(node)
+  , world_state_(world_state)
   {
     sub_ = node_->create_subscription<vision_msgs::msg::Detection2DArray>(
-      "traffic_light_detections", 10,
-      std::bind(&TrafficLightSubscriber::onMessage, this, std::placeholders::_1));
+      "traffic_light_detections", 10, std::bind(&TrafficLightSubscriber::onMessage, this, std::placeholders::_1));
   }
 
 private:

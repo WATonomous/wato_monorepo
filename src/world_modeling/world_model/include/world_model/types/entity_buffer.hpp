@@ -18,6 +18,7 @@
 #include <optional>
 #include <shared_mutex>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace world_model
@@ -32,7 +33,7 @@ namespace world_model
  *
  * @tparam T Entity type (must have id() method returning int64_t)
  */
-template<typename T>
+template <typename T>
 class EntityBuffer
 {
 public:
@@ -81,11 +82,11 @@ public:
     return result;
   }
 
-  template<typename Predicate>
+  template <typename Predicate>
   void prune(Predicate should_remove)
   {
     std::unique_lock lock(mutex_);
-    for (auto it = entities_.begin(); it != entities_.end(); ) {
+    for (auto it = entities_.begin(); it != entities_.end();) {
       if (should_remove(it->second)) {
         it = entities_.erase(it);
       } else {
@@ -94,7 +95,7 @@ public:
     }
   }
 
-  template<typename Func>
+  template <typename Func>
   void forEach(Func func)
   {
     std::unique_lock lock(mutex_);
@@ -110,7 +111,7 @@ public:
    * @param modifier Function that modifies the entity in-place
    * @return true if entity existed and was modified, false otherwise
    */
-  template<typename Func>
+  template <typename Func>
   bool modify(int64_t id, Func modifier)
   {
     std::unique_lock lock(mutex_);
@@ -132,7 +133,7 @@ public:
    * @param default_entity Entity to insert if ID doesn't exist
    * @param modifier Function that modifies the entity in-place
    */
-  template<typename Func>
+  template <typename Func>
   void upsert(int64_t id, T default_entity, Func modifier)
   {
     std::unique_lock lock(mutex_);
@@ -140,7 +141,7 @@ public:
     modifier(it->second);
   }
 
-  template<typename Func>
+  template <typename Func>
   void forEachConst(Func func) const
   {
     std::shared_lock lock(mutex_);

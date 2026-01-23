@@ -16,6 +16,10 @@
 
 #include <chrono>
 #include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "lifecycle_msgs/msg/state.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
@@ -23,13 +27,13 @@
 namespace wato_lifecycle_manager
 {
 
-using namespace std::chrono_literals;
+using std::chrono_literals::operator""s;
 using lifecycle_msgs::msg::State;
 using lifecycle_msgs::msg::Transition;
 
 LifecycleManager::LifecycleManager(const rclcpp::NodeOptions & options)
-: Node("lifecycle_manager", options),
-  system_active_(false)
+: Node("lifecycle_manager", options)
+, system_active_(false)
 {
   // Declare parameters
   this->declare_parameter<std::vector<std::string>>("node_names", std::vector<std::string>{});
@@ -57,52 +61,38 @@ LifecycleManager::LifecycleManager(const rclcpp::NodeOptions & options)
 
   // Create services
   startup_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/startup",
-    std::bind(&LifecycleManager::handleStartup, this,
-      std::placeholders::_1, std::placeholders::_2));
+    "~/startup", std::bind(&LifecycleManager::handleStartup, this, std::placeholders::_1, std::placeholders::_2));
 
   shutdown_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/shutdown",
-    std::bind(&LifecycleManager::handleShutdown, this,
-      std::placeholders::_1, std::placeholders::_2));
+    "~/shutdown", std::bind(&LifecycleManager::handleShutdown, this, std::placeholders::_1, std::placeholders::_2));
 
   reset_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/reset",
-    std::bind(&LifecycleManager::handleReset, this,
-      std::placeholders::_1, std::placeholders::_2));
+    "~/reset", std::bind(&LifecycleManager::handleReset, this, std::placeholders::_1, std::placeholders::_2));
 
   is_active_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/is_active",
-    std::bind(&LifecycleManager::handleIsActive, this,
-      std::placeholders::_1, std::placeholders::_2));
+    "~/is_active", std::bind(&LifecycleManager::handleIsActive, this, std::placeholders::_1, std::placeholders::_2));
 
   pause_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/pause",
-    std::bind(&LifecycleManager::handlePause, this,
-      std::placeholders::_1, std::placeholders::_2));
+    "~/pause", std::bind(&LifecycleManager::handlePause, this, std::placeholders::_1, std::placeholders::_2));
 
   resume_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/resume",
-    std::bind(&LifecycleManager::handleResume, this,
-      std::placeholders::_1, std::placeholders::_2));
+    "~/resume", std::bind(&LifecycleManager::handleResume, this, std::placeholders::_1, std::placeholders::_2));
 
   RCLCPP_INFO(this->get_logger(), "Lifecycle manager initialized with %zu nodes", node_names_.size());
 
   // Autostart if configured
   if (autostart_ && !node_names_.empty()) {
     RCLCPP_INFO(this->get_logger(), "Autostart enabled, starting managed nodes...");
-    // Use a timer to allow node to fully initialize first
-    auto startup_timer = this->create_wall_timer(
-      1s,
-      [this]() {
-        if (startup()) {
-          RCLCPP_INFO(this->get_logger(), "Autostart completed successfully");
-        } else {
-          RCLCPP_ERROR(this->get_logger(), "Autostart failed");
-        }
-      });
-    // Cancel after first execution
-    startup_timer->cancel();
+    // Use a one-shot timer to allow node to fully initialize first
+    autostart_timer_ = this->create_wall_timer(1s, [this]() {
+      // Cancel timer first to make it one-shot
+      autostart_timer_->cancel();
+      if (startup()) {
+        RCLCPP_INFO(this->get_logger(), "Autostart completed successfully");
+      } else {
+        RCLCPP_ERROR(this->get_logger(), "Autostart failed");
+      }
+    });
   }
 }
 
@@ -122,14 +112,10 @@ void LifecycleManager::createManagedNodes()
 
     // Create lifecycle service clients
     node.change_state_client = this->create_client<lifecycle_msgs::srv::ChangeState>(
-      "/" + name + "/change_state",
-      rmw_qos_profile_services_default,
-      callback_group_);
+      "/" + name + "/change_state", rmw_qos_profile_services_default, callback_group_);
 
     node.get_state_client = this->create_client<lifecycle_msgs::srv::GetState>(
-      "/" + name + "/get_state",
-      rmw_qos_profile_services_default,
-      callback_group_);
+      "/" + name + "/get_state", rmw_qos_profile_services_default, callback_group_);
 
     nodes_.push_back(std::move(node));
     RCLCPP_DEBUG(this->get_logger(), "Created clients for managed node: %s", name.c_str());
@@ -144,16 +130,12 @@ void LifecycleManager::createBond(ManagedNode & node)
 
   RCLCPP_DEBUG(this->get_logger(), "Creating bond for node: %s", node.name.c_str());
 
-  node.bond = std::make_unique<bond::Bond>(
-    "/" + node.name + "/bond",
-    node.name,
-    shared_from_this());
+  node.bond = std::make_unique<bond::Bond>("/" + node.name + "/bond", node.name, shared_from_this());
 
   node.bond->setHeartbeatTimeout(bond_timeout_s_);
   node.bond->setHeartbeatPeriod(bond_timeout_s_ / 4.0);
 
-  node.bond->setBrokenCallback(
-    std::bind(&LifecycleManager::onBondBroken, this, node.name));
+  node.bond->setBrokenCallback(std::bind(&LifecycleManager::onBondBroken, this, node.name));
 
   node.bond->start();
 }
@@ -179,9 +161,7 @@ void LifecycleManager::onBondBroken(const std::string & node_name)
   }
 }
 
-bool LifecycleManager::waitForService(
-  rclcpp::ClientBase::SharedPtr client,
-  const std::chrono::seconds & timeout)
+bool LifecycleManager::waitForService(rclcpp::ClientBase::SharedPtr client, const std::chrono::seconds & timeout)
 {
   auto start = std::chrono::steady_clock::now();
   while (!client->wait_for_service(1s)) {
@@ -197,10 +177,7 @@ bool LifecycleManager::waitForService(
   return true;
 }
 
-bool LifecycleManager::changeState(
-  ManagedNode & node,
-  uint8_t transition_id,
-  const std::chrono::seconds & timeout)
+bool LifecycleManager::changeState(ManagedNode & node, uint8_t transition_id, const std::chrono::seconds & timeout)
 {
   if (!waitForService(node.change_state_client, timeout)) {
     RCLCPP_ERROR(this->get_logger(), "Service not available for node: %s", node.name.c_str());

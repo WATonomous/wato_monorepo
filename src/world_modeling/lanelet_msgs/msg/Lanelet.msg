@@ -16,6 +16,25 @@ geometry_msgs/Point[] right_boundary
 geometry_msgs/Point[] centerline
 
 # ===========================================================================
+# Boundary Attributes
+# ===========================================================================
+# Boundary type constants
+uint8 BOUNDARY_DASHED=0
+uint8 BOUNDARY_SOLID=1
+uint8 BOUNDARY_SOLID_SOLID=2
+uint8 BOUNDARY_ROAD_EDGE=3
+
+# Boundary color constants
+uint8 COLOR_WHITE=0
+uint8 COLOR_YELLOW=1
+
+# Boundary metadata (type and color for left/right boundaries)
+uint8 left_boundary_type
+uint8 right_boundary_type
+uint8 left_boundary_color
+uint8 right_boundary_color
+
+# ===========================================================================
 # Type
 # ===========================================================================
 # Values: "road", "intersection", "crosswalk", "parking", "bicycle_lane"

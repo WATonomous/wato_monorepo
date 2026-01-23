@@ -15,10 +15,11 @@
 #ifndef WORLD_MODEL__INTERFACES__SERVICES__REG_ELEM_SERVICE_HPP_
 #define WORLD_MODEL__INTERFACES__SERVICES__REG_ELEM_SERVICE_HPP_
 
+#include <utility>
+
 #include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-
 #include "world_model/interfaces/interface_base.hpp"
 
 namespace world_model
@@ -33,16 +34,13 @@ namespace world_model
 class RegElemService : public InterfaceBase
 {
 public:
-  RegElemService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler)
-  : node_(node),
-    lanelet_(lanelet_handler)
+  RegElemService(rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler)
+  : node_(node)
+  , lanelet_(lanelet_handler)
   {
     srv_ = node_->create_service<lanelet_msgs::srv::GetLaneletsByRegElem>(
       "get_lanelets_by_reg_elem",
-      std::bind(&RegElemService::handleRequest, this,
-        std::placeholders::_1, std::placeholders::_2));
+      std::bind(&RegElemService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
