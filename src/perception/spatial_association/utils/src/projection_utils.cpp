@@ -14,15 +14,17 @@
 
 #include "utils/projection_utils.hpp"
 
-#include <pcl/filters/voxel_grid.h>
-
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <Eigen/Dense>
+#include <functional>
 #include <iostream>
 #include <limits>
+#include <utility>
 #include <vector>
+
+#include "Eigen/Dense"
+#include "pcl/filters/voxel_grid.h"
 
 namespace
 {

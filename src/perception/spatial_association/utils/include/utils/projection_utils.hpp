@@ -29,6 +29,7 @@
 #include <optional>
 #include <random>
 #include <string>
+#include <vector>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <opencv2/opencv.hpp>

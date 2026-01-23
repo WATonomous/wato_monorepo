@@ -9,13 +9,13 @@ The `spatial_association` node is a ROS2 perception node that performs 3D object
 The node is structured in three main layers:
 
 ### 1. ROS2 Node Layer (`spatial_association`)
-- **File**: `src/spatial_association.cpp`, `include/spatial_association.hpp`
+- **File**: `src/spatial_association.cpp`, `include/spatial_association/spatial_association.hpp`
 - Handles ROS2 communication (subscribers, publishers, parameters)
 - Coordinates between LiDAR processing and camera detection matching
 - Manages TF transforms between sensor frames
 
 ### 2. Core Processing Layer (`SpatialAssociationCore`)
-- **File**: `src/spatial_association_core.cpp`, `include/spatial_association_core.hpp`
+- **File**: `src/spatial_association_core.cpp`, `include/spatial_association/spatial_association_core.hpp`
 - Performs point cloud downsampling (voxel grid)
 - Executes clustering pipeline (Euclidean clustering → filtering → merging)
 - Stateless, reusable library (no ROS dependencies)
@@ -75,7 +75,6 @@ The node is structured in three main layers:
                         │ Detections      │
                         └─────────────────┘
 ```
-
 
 ### Key Components
 
@@ -227,6 +226,7 @@ Computes oriented 3D bounding boxes:
 ### ROS2 Parameters (`config/params.yaml`)
 
 #### Euclidean Clustering
+
 ```yaml
 euclid_params:
   cluster_tolerance: 0.20        # Max distance between points in same cluster (m)
@@ -241,6 +241,7 @@ euclid_params:
 The `filterClustersByPhysicsConstraints()` function uses physics-based constraints defined in the code. These are configured through ROS2 parameters in `params.yaml` (see Other Parameters section).
 
 #### Other Parameters
+
 ```yaml
 merge_threshold: 0.30                    # Max distance between centroids to merge (m)
 object_detection_confidence: 0.40        # Min camera detection confidence
@@ -270,8 +271,9 @@ spatial_association/
 │   ├── spatial_association.cpp          # ROS2 node implementation
 │   └── spatial_association_core.cpp     # Core clustering logic
 ├── include/
-│   ├── spatial_association.hpp          # ROS2 node header
-│   └── spatial_association_core.hpp     # Core class header
+│   └── spatial_association/
+│       ├── spatial_association.hpp      # ROS2 node header
+│       └── spatial_association_core.hpp # Core class header
 ├── utils/
 │   ├── src/
 │   │   └── projection_utils.cpp         # Utility functions + filtering
@@ -318,6 +320,7 @@ When aspect ratio < 1.2 (nearly square):
 ### Enable Debug Logging
 
 Set in `params.yaml`:
+
 ```yaml
 debug_logging: true
 ```
@@ -340,6 +343,7 @@ ProjectionUtils::filterClusterByQuality(
 ```
 
 Output example:
+
 ```
 Cluster Filtering Results:
   Input: 45
@@ -353,6 +357,7 @@ Cluster Filtering Results:
 ### Visualization
 
 Enable visualization topics:
+
 ```yaml
 publish_visualization: true
 ```
@@ -396,6 +401,7 @@ Then visualize in RViz:
 ### Issue: Clusters Too Fragmented
 
 **Solution**: Increase cluster tolerance or use adaptive clustering:
+
 ```yaml
 euclid_params:
   cluster_tolerance: 0.25  # Increase from 0.20
@@ -415,6 +421,7 @@ euclid_params:
 ### Unit Testing
 
 Test individual components:
+
 ```cpp
 // Test filtering
 std::vector<ClusterStats> stats = ...;
@@ -426,12 +433,13 @@ ProjectionUtils::filterClustersByPhysicsConstraints(stats, clusters, 60.0, /* ..
 
 1. Launch node with test data
 2. Check output topics:
-   ```bash
+
+```bash
    ros2 topic echo /detection_3d
    ```
-3. Verify cluster counts match expectations
-4. Check for false positives/negatives
 
+1. Verify cluster counts match expectations
+2. Check for false positives/negatives
 
 ### Code Improvements
 

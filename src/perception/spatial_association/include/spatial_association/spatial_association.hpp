@@ -22,8 +22,10 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <opencv2/opencv.hpp>
@@ -35,7 +37,7 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-#include "spatial_association_core.hpp"
+#include "spatial_association/spatial_association_core.hpp"
 #include "utils/projection_utils.hpp"
 
 struct DetectionOutputs

@@ -11,12 +11,12 @@ launch:
 
   # Launch the Patchwork++ ground removal node
   - node:
-      pkg: wato_patchworkpp
+      pkg: patchworkpp
       exec: patchworkpp_node
       name: patchworkpp_node
       output: screen
       param:
-        - from: $(find-pkg-share wato_patchworkpp)/config/params.yaml
+        - from: $(find-pkg-share patchworkpp)/config/params.yaml
       remap:
         - from: input_cloud
           to: $(var cloud_topic)

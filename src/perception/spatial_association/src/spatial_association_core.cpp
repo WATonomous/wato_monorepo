@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "spatial_association_core.hpp"
+#include "spatial_association/spatial_association_core.hpp"
+
+#include <vector>
 
 SpatialAssociationCore::SpatialAssociationCore()
 {

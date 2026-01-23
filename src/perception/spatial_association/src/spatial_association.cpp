@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "spatial_association.hpp"
+#include "spatial_association/spatial_association.hpp"
+
+#include <memory>
+#include <string>
+#include <vector>
 
 spatial_association::spatial_association()
 : Node("spatial_association")
