@@ -206,12 +206,22 @@ void OsccInterfacingNode::configure()
     RCLCPP_ERROR(this->get_logger(), "Failed to open OSCC communication");
   } else {
     RCLCPP_INFO(this->get_logger(), "OSCC communication opened successfully");
+    if(oscc_subscribe_to_brake_reports(brake_report_callback) != OSCC_OK) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to brake reports");
+    }
+    if(oscc_subscribe_to_steering_reports(steering_report_callback) != OSCC_OK) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to steering reports");
+    }
+    if(oscc_subscribe_to_throttle_reports(throttle_report_callback) != OSCC_OK) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to throttle reports");
+    }
+    if(oscc_subscribe_to_fault_reports(fault_report_callback) != OSCC_OK) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to fault reports");
+    }
+    if(oscc_subscribe_to_obd_messages(obd_callback) != OSCC_OK) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to OBD messages");
+    }
   }
-  oscc_subscribe_to_brake_reports(brake_report_callback);
-  oscc_subscribe_to_steering_reports(steering_report_callback);
-  oscc_subscribe_to_throttle_reports(throttle_report_callback);
-  oscc_subscribe_to_fault_reports(fault_report_callback);
-  oscc_subscribe_to_obd_messages(obd_callback);
 
 }
 
