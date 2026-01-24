@@ -31,7 +31,10 @@ void brake_report_callback(oscc_brake_report_s *report)
   {
     RCLCPP_INFO(g_node_instance->get_logger(), "Brake Operator Override");
     if (oscc_disable() == OSCC_OK) {
-      g_node_instance->is_armed_ = false;
+      {
+        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
+        g_node_instance->is_armed_ = false;
+      }
       RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
     } else {
       RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
@@ -45,7 +48,10 @@ void throttle_report_callback(oscc_throttle_report_s *report)
   {
     RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Operator Override");
     if (oscc_disable() == OSCC_OK) {
-      g_node_instance->is_armed_ = false;
+      {
+        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
+        g_node_instance->is_armed_ = false;
+      }
       RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
     } else {
       RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
@@ -59,7 +65,10 @@ void steering_report_callback(oscc_steering_report_s *report)
   {
     RCLCPP_INFO(g_node_instance->get_logger(), "Steering Operator Override");
     if (oscc_disable() == OSCC_OK) {
-      g_node_instance->is_armed_ = false;
+      {
+        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
+        g_node_instance->is_armed_ = false;
+      }
       RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
     } else {
       RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
@@ -73,19 +82,19 @@ void obd_callback(struct can_frame *frame)
     return;
   }
   // this only passes if it is indeed a wheel speed msg
-  double SE;
-  if(get_wheel_speed_right_rear(frame, &data) == OSCC_OK){ 
-    double NE;
-    double NW;
-    double SW;
-    get_wheel_speed_left_front(frame, &NW);
-    get_wheel_speed_left_rear(frame, &SW);
-    get_wheel_speed_right_front(frame, &NE);
-    g_node_instance->publish_wheel_speed(static_cast<float>(NE), 
-    static_cast<float>(NW), static_cast<float>(data), static_cast<float>(SW));
+  double se;
+  if(get_wheel_speed_right_rear(frame, &se) == OSCC_OK){ 
+    double ne;
+    double nw;
+    double sw;
+    get_wheel_speed_left_front(frame, &nw);
+    get_wheel_speed_left_rear(frame, &sw);
+    get_wheel_speed_right_front(frame, &ne);
+    g_node_instance->publish_wheel_speeds(static_cast<float>(ne), 
+    static_cast<float>(nw), static_cast<float>(se), static_cast<float>(sw));
   } 
-  else if(get_steering_wheel_angle(frame, &SE) == OSCC_OK){
-    g_node_instance->publish_steering_wheel_angle(static_cast<float>(SE));
+  else if(get_steering_wheel_angle(frame, &se) == OSCC_OK){
+    g_node_instance->publish_steering_wheel_angle(static_cast<float>(se));
   }
 }
 
@@ -107,7 +116,10 @@ void fault_report_callback(oscc_fault_report_s *report)
     }
 
     if (oscc_disable() == OSCC_OK) {
-      g_node_instance->is_armed_ = false;
+      {
+        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
+        g_node_instance->is_armed_ = false;
+      }
       RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
     } else {
       RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
@@ -120,6 +132,17 @@ OsccInterfacingNode::OsccInterfacingNode(const rclcpp::NodeOptions & options)
 {
   configure();
   RCLCPP_INFO(this->get_logger(), "OsccInterfacingNode initialized");
+}
+
+OsccInterfacingNode::~OsccInterfacingNode()
+{
+  // Nullify global pointer to prevent callbacks from accessing deleted object
+  g_node_instance = nullptr;
+  std::lock_guard<std::mutex> lock(arm_mutex_);
+  if(is_armed_){
+    oscc_disable();
+  }
+  oscc_close(oscc_can_bus_);
 }
 
 void OsccInterfacingNode::configure()
@@ -168,7 +191,7 @@ void OsccInterfacingNode::configure()
 
   RCLCPP_INFO(
     this->get_logger(),
-    "OsccInterfacingNode configured: armed=, is_armed_publish_rate=%d Hz",
+    "OsccInterfacingNode configured: armed=%d, is_armed_publish_rate=%d Hz",
     is_armed_,
     is_armed_publish_rate_hz);
   
@@ -196,14 +219,17 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
 {
 
   // if not armed ignore
-  if(!is_armed_) {
-    RCLCPP_WARN(this->get_logger(), "Vehicle not armed, Ignoring roscco message");
-    return;
+  {
+    std::lock_guard<std::mutex> lock(arm_mutex_);
+    if(!is_armed_) {
+      RCLCPP_WARN(this->get_logger(), "Vehicle not armed, Ignoring roscco message");
+      return;
+    }
   }
 
   // Check if at least 40ms has passed since last message
   // To not overload CAN (targeting 20HZ, 50-40=10ms leeway)
-  auto now = rclcpp::Clock().now();
+  rclcpp::Time now = rclcpp::Clock().now();
   if ((now - last_message_time_).nanoseconds() < 40000000) {  // 40ms in nanoseconds
     RCLCPP_WARN(this->get_logger(), "Message too soon, Ignoring roscco message to avoid CAN overload");
     return;
@@ -231,7 +257,7 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   if (forward > 0.0 && last_forward_ < 0.0) {
     // Transitioning from brake to throttle 
     // first reduce brake, then apply throttle
-    handle_any_errors(oscc_publish_brake_pressure(brake));
+    handle_any_errors(oscc_publish_brake_position(brake));
     handle_any_errors(oscc_publish_throttle_position(throttle));
 
   } else {
@@ -240,8 +266,11 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
 
     // Also handles base case of no transition
     handle_any_errors(oscc_publish_throttle_position(throttle));
-    handle_any_errors(oscc_publish_brake_pressure(brake));
+    handle_any_errors(oscc_publish_brake_position(brake));
   }
+
+  // always pub steering
+  handle_any_errors(oscc_publish_steering_torque(steering));
 
   last_forward_ = forward;
 }
@@ -253,7 +282,10 @@ void OsccInterfacingNode::arm_service_callback(
   if (request->data) { // data is the boolean, true = arm, false = disarm
     // Arm the vehicle
     if (oscc_enable() == OSCC_OK) {
-      is_armed_ = true;
+      {
+        std::lock_guard<std::mutex> lock(arm_mutex_);
+        is_armed_ = true;
+      }
       response->success = true;
       response->message = "Vehicle armed successfully";
       RCLCPP_INFO(get_logger(), "Vehicle armed");
@@ -265,7 +297,10 @@ void OsccInterfacingNode::arm_service_callback(
   } else {
     // Disarm the vehicle
     if (oscc_disable() == OSCC_OK) {
-      is_armed_ = false;
+      {
+        std::lock_guard<std::mutex> lock(arm_mutex_);
+        is_armed_ = false;
+      }
       response->success = true;
       response->message = "Vehicle disarmed successfully";
       RCLCPP_INFO(get_logger(), "Vehicle disarmed");
@@ -280,17 +315,20 @@ void OsccInterfacingNode::arm_service_callback(
 void OsccInterfacingNode::is_armed_timer_callback()
 {
   std_msgs::msg::Bool msg;
-  msg.data = is_armed_;
+  {
+    std::lock_guard<std::mutex> lock(arm_mutex_);
+    msg.data = is_armed_;
+  }
   is_armed_pub_->publish(msg);
 }
 
-void OsccInterfacingNode::publish_wheel_speed(float NE, float NW, float SE, float SW)
+void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, float SW)
 {
   roscco_msg::msg::WheelSpeeds msg;
-  msg.NE = NE;
-  msg.NW = NW;
-  msg.SE = SE;
-  msg.SW = SW;
+  msg.ne = NE;
+  msg.nw = NW;
+  msg.se = SE;
+  msg.sw = SW;
   wheel_speeds_pub_->publish(msg);
 }
 
@@ -306,7 +344,10 @@ oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
   if(result == OSCC_OK) {
     return OSCC_OK;
   }
-  is_armed_ = false;
+  {
+    std::lock_guard<std::mutex> lock(arm_mutex_);
+    is_armed_ = false;
+  }
   RCLCPP_ERROR(this->get_logger(), "Error from OSCC API: %d, ATTEMPTING TO DISARM ALL BOARDS", result);
   // Attempt to disarm all boards
   if(oscc_disable() != OSCC_OK) {

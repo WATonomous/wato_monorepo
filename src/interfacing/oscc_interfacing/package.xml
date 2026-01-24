@@ -15,6 +15,7 @@
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>roscco_msg</depend>
+  <depend>std_srvs</depend>
 
 
   <test_depend>wato_test</test_depend>

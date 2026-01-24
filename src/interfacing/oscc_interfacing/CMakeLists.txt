@@ -25,6 +25,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(roscco_msg REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # Create shared library component
 add_library(oscc_interfacing SHARED
@@ -34,6 +35,7 @@ add_library(oscc_interfacing SHARED
 target_include_directories(oscc_interfacing PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/oscc/api/include>
 )
 
 # Link dependencies to library
@@ -43,12 +45,13 @@ target_link_libraries(oscc_interfacing PUBLIC
   ${sensor_msgs_TARGETS}
   ${std_msgs_TARGETS}
   roscco_msg::roscco_msg__rosidl_typesupport_cpp
+  std_srvs::std_srvs__rosidl_typesupport_cpp
 )
 
 # Register component and automatically create standalone executable
 # This replaces the need for manual add_executable and main() function
 rclcpp_components_register_node(oscc_interfacing
-  PLUGIN "oscc_node::osccNode"
+  PLUGIN "oscc_interfacing::OsccInterfacingNode"
   EXECUTABLE oscc_interfacing_node
 )
 
@@ -80,6 +83,7 @@ if(BUILD_TESTING)
     ${sensor_msgs_TARGETS}
     ${std_msgs_TARGETS}
     roscco_msg::roscco_msg__rosidl_typesupport_cpp
+    std_srvs::std_srvs__rosidl_typesupport_cpp
   )
 endif()
 

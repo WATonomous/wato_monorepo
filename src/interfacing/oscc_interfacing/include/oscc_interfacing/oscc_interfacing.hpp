@@ -17,6 +17,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -57,6 +58,20 @@ class OsccInterfacingNode : public rclcpp::Node
 {
 public:
   explicit OsccInterfacingNode(const rclcpp::NodeOptions & options);
+  ~OsccInterfacingNode();
+
+  std::mutex arm_mutex_;
+  bool is_armed_{false};
+
+  /**
+   * @brief Publishes wheel speeds (4 floats)
+   */
+  void publish_wheel_speeds(float NE, float NW, float SE, float SW);
+
+  /**
+   * @brief Publishes steering wheel angle in degrees
+   */
+  void publish_steering_wheel_angle(float angle_degrees);
 
 private:
   /**
@@ -83,20 +98,10 @@ private:
   void is_armed_timer_callback();
 
   /**
-   * @brief Publishes wheel speeds (4 floats)
-   */
-  void publish_wheel_speeds(const std::vector<float> & speeds);
-
-  /**
-   * @brief Publishes steering wheel angle in degrees
-   */
-  void publish_steering_wheel_angle(float angle_degrees);
-
-  /**
    * @brief Handles fatal errors from OSCC API calls
    * Attempts to disarm all boards
    */
-  void handle_any_errors(oscc_result_t result);
+  oscc_result_t handle_any_errors(oscc_result_t result);
 
   // ROS Interfaces
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
@@ -109,12 +114,13 @@ private:
   rclcpp::TimerBase::SharedPtr is_armed_timer_;
 
   // Status tracking
-  bool is_armed_{false};
   int is_armed_publish_rate_hz;
   int oscc_can_bus_;
 
   float last_forward_{0.0};
-  float last_message_time_{0.0};
+  rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};
+
+  
 
 };
 

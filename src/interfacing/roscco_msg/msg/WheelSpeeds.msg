@@ -1,8 +1,8 @@
 std_msgs/Header header
-float32 NE
-float32 NW
-float32 SE
-float32 SW
+float32 ne
+float32 nw
+float32 se
+float32 sw
 
 # 4 separate floats and not an array 
 # because you need to model each front wheel
