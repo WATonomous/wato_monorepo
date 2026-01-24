@@ -61,6 +61,8 @@ Commands
                               If no SERVICE specified, runs in all services
   bag <ros2-bag-args>...      Run ros2 bag commands (record/play/info/etc)
                               Runs in ./bags directory with auto-mounting
+  run <profile>               Launch preconfigured recording profiles
+                              Profiles: all_sensors, camera_only, lidar_only
 
 Examples
   watod up                              # docker compose up
@@ -76,6 +78,9 @@ Examples
   watod bag record -a                   # record all topics (auto-saves to ./bags)
   watod bag play my_bag                 # play bag from ./bags directory
   watod bag info my_bag                 # show bag info
+  watod run all_sensors                 # record with all_sensors profile
+  watod run camera_only                 # record cameras only (no LiDAR)
+  watod run --list                      # list available recording profiles
 
 More info: https://docs.docker.com/compose/reference/overview/
 EOF
@@ -229,6 +234,12 @@ while [[ $# -gt 0 ]]; do
       # Pass all remaining arguments to watod-bag.sh
       BAG_ARGS=( "$@" )
       break ;;
+    run)
+      RUN_PROFILE=1
+      shift
+      # Pass all remaining arguments to watod-run.sh
+      RUN_ARGS=( "$@" )
+      break ;;
     *)  # first non‑option → rest is docker‑compose cmd
       break ;;
   esac
@@ -308,6 +319,17 @@ if [[ -n ${RUN_BAG:-} ]]; then
   export RMW_IMPLEMENTATION ROS_DOMAIN_ID COMPOSE_PROJECT_NAME
   export ZENOH_ROUTER_CONFIG_URI ZENOH_SESSION_CONFIG_URI
   "$MONO_DIR/watod_scripts/watod-bag.sh" "${BAG_ARGS[@]}"
+  exit $?
+fi
+
+# ────────────────────────────── Run Profile Recording ──────────────────────────────
+
+if [[ -n ${RUN_PROFILE:-} ]]; then
+  # Export variables needed by watod-run.sh
+  export MONO_DIR MODULES_DIR BAG_DIRECTORY INFRASTRUCTURE_IMAGE TAG
+  export RMW_IMPLEMENTATION ROS_DOMAIN_ID COMPOSE_PROJECT_NAME
+  export ZENOH_ROUTER_CONFIG_URI ZENOH_SESSION_CONFIG_URI
+  "$MONO_DIR/watod_scripts/watod-run.sh" "${RUN_ARGS[@]}"
   exit $?
 fi
 

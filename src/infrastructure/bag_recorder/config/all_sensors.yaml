@@ -1,0 +1,71 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Recording profile: all_sensors
+# Records all rectified camera images, all LiDAR point clouds, GPS, and IMU
+# Excludes raw/mono/color images to reduce bandwidth
+
+bag_recorder:
+  ros__parameters:
+    record:
+      all_topics: true
+      is_discovery_disabled: false
+      compression_mode: "none"
+      exclude_topics:
+        # Exclude raw, mono, color images (keep only image_rect)
+        - /camera_pano_nn/image_raw
+        - /camera_pano_nn/image_mono
+        - /camera_pano_nn/image_color
+        - /camera_pano_ne/image_raw
+        - /camera_pano_ne/image_mono
+        - /camera_pano_ne/image_color
+        - /camera_pano_ee/image_raw
+        - /camera_pano_ee/image_mono
+        - /camera_pano_ee/image_color
+        - /camera_pano_se/image_raw
+        - /camera_pano_se/image_mono
+        - /camera_pano_se/image_color
+        - /camera_pano_ss/image_raw
+        - /camera_pano_ss/image_mono
+        - /camera_pano_ss/image_color
+        - /camera_pano_sw/image_raw
+        - /camera_pano_sw/image_mono
+        - /camera_pano_sw/image_color
+        - /camera_pano_ww/image_raw
+        - /camera_pano_ww/image_mono
+        - /camera_pano_ww/image_color
+        - /camera_pano_nw/image_raw
+        - /camera_pano_nw/image_mono
+        - /camera_pano_nw/image_color
+        - /camera_lower_ne/image_raw
+        - /camera_lower_ne/image_mono
+        - /camera_lower_ne/image_color
+        - /camera_lower_se/image_raw
+        - /camera_lower_se/image_mono
+        - /camera_lower_se/image_color
+        - /camera_lower_sw/image_raw
+        - /camera_lower_sw/image_mono
+        - /camera_lower_sw/image_color
+        - /camera_lower_nw/image_raw
+        - /camera_lower_nw/image_mono
+        - /camera_lower_nw/image_color
+        # Exclude raw lidar packets (keep points and scan)
+        - /lidar_cc/velodyne_packets
+        - /lidar_nw/velodyne_packets
+        - /lidar_ne/velodyne_packets
+        # Exclude system/debug topics
+        - /rosout
+        - /parameter_events
+        - /diagnostics
+        - /clicked_point
+        - /initialpose
+        - /move_base_simple/goal
+        - /robot_description
+        - /robot_description_viz
+        - /tf_new
+        - /joint_states
+
+    storage:
+      storage_id: "mcap"
+      max_bagfile_size: 21474836480  # 20 GB
+      max_cache_size: 209715200  # 200 MB
