@@ -11,21 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+cmake_minimum_required(VERSION 3.8)
+project(behaviour_msgs)
 
-behaviour_node:
-  ros__parameters:
-    # Behavior tree XML file (relative to trees/ directory)
-    bt_tree_file: "test_tree.xml"
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-    # How often to tick the tree (Hz)
-    rate_hz: 10.0
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
-    # How often to update ego pose from TF (Hz)
-    ego_pose_rate_hz: 20.0
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/ExecuteBehaviour.action"
+)
 
-    # Frame parameters
-    map_frame: "map"
-    base_frame: "base_link"
-
-    # Logging options
-    enable_console_logging: true
+ament_package()

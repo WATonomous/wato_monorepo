@@ -12,71 +12,64 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
-#define BEHAVIOUR__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
+#ifndef BEHAVIOUR__SET_ROUTE_SERVICE_HPP_
+#define BEHAVIOUR__SET_ROUTE_SERVICE_HPP_
 
-#include <memory>
 #include <string>
-#include <utility>
 
 #include <behaviortree_ros2/bt_service_node.hpp>
 
 #include "behaviour/utils/utils.hpp"
-#include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
+#include "lanelet_msgs/srv/set_route.hpp"
 
 namespace behaviour
 {
-
 /**
-   * @class GetLaneletsByRegElemService
-   * @brief BT node to fetch lanelets associated with a regulatory element.
+   * @class GetRouteService
+   * @brief BT node to request a global route between two lanelets.
    */
-class GetLaneletsByRegElemService : public BT::RosServiceNode<lanelet_msgs::srv::GetLaneletsByRegElem>
+class SetRouteService : public BT::RosServiceNode<lanelet_msgs::srv::SetRoute>
 {
 public:
-  GetLaneletsByRegElemService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
-  : BT::RosServiceNode<lanelet_msgs::srv::GetLaneletsByRegElem>(name, conf, params)
+  SetRouteService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosServiceNode<lanelet_msgs::srv::SetRoute>(name, conf, params)
   {}
 
   static BT::PortsList providedPorts()
   {
-    return providedBasicPorts(
-      {BT::InputPort<int64_t>("id", "ID of the regulatory element"),
-       BT::OutputPort<types::LaneletArrayPtr>("lanelets_id", "Pointer to the list of lanelets")});
+    return providedBasicPorts({
+      BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point"),
+      BT::OutputPort<bool>("goal_updated"),  // Port to clear the flag
+      BT::OutputPort<std::string>("error_message"),
+    });
   }
 
   bool setRequest(Request::SharedPtr & request) override
   {
-    int64_t id;
-    try {
-      id = ports::get<int64_t>(*this, "id");
-    } catch (const BT::RuntimeError & e) {
-      return false;
-    }
+    auto goal_point = ports::getPtr<geometry_msgs::msg::Point>(*this, "goal_point");
 
-    request->reg_elem_id = id;
+    request->goal_point = *goal_point;
     return true;
   }
 
   BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
   {
     if (!response->success) {
+      setOutput("error_message", response->error_message);
       return BT::NodeStatus::FAILURE;
     }
 
-    auto lanelets_ptr = std::make_shared<types::LaneletArray>(std::move(response->lanelets));
-
-    setOutput("lanelets", lanelets_ptr);
-
+    RCLCPP_INFO(logger(), "Route set: lanelet %ld -> %ld", response->current_lanelet_id, response->goal_lanelet_id);
+    setOutput("goal_updated", false);
     return BT::NodeStatus::SUCCESS;
   }
 
   BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
   {
-    (void)error;
+    RCLCPP_ERROR(logger(), "SetRoute service failed: %d", error);
     return BT::NodeStatus::FAILURE;
   }
 };
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
+#endif  // BEHAVIOUR__SET_ROUTE_SERVICE_HPP_

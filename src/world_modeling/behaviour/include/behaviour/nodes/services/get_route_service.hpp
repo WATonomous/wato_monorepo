@@ -15,75 +15,64 @@
 #ifndef BEHAVIOUR__GET_ROUTE_SERVICE_HPP_
 #define BEHAVIOUR__GET_ROUTE_SERVICE_HPP_
 
+#include <memory>
+#include <string>
+#include <utility>
+
 #include <behaviortree_ros2/bt_service_node.hpp>
 
-// srv
-#include "world_modeling_msgs/srv/get_route.hpp"
+#include "behaviour/utils/utils.hpp"
+#include "lanelet_msgs/srv/get_route.hpp"
 
 namespace behaviour
 {
-  using GetRoute = world_modeling_msgs::srv::GetRoute;
-
-  /**
+/**
    * @class GetRouteService
    * @brief BT node to request a global route between two lanelets.
    */
-  class GetRouteService : public BT::RosServiceNode<GetRoute>
+class GetRouteService : public BT::RosServiceNode<lanelet_msgs::srv::GetRoute>
+{
+public:
+  GetRouteService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosServiceNode<lanelet_msgs::srv::GetRoute>(name, conf, params)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    GetRouteService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
-        : BT::RosServiceNode<GetRoute>(name, conf, params)
-    {
-    }
+    return providedBasicPorts({
+      BT::InputPort<double>("distance_m"),
+      BT::OutputPort<types::PathPtr>("path"),
+      BT::OutputPort<std::string>("error_message"),
+    });
+  }
 
-    static BT::PortsList providedPorts()
-    {
-      return providedBasicPorts(
-          {
-              BT::InputPort<int64_t>("from_lanelet_id", "Starting lanelet ID"),
-              BT::InputPort<int64_t>("to_lanelet_id", "Destination lanelet ID"),
-              BT::OutputPort<std::shared_ptr<std::vector<world_modeling_msgs::msg::Lanelet>>>("route"),
-              BT::OutputPort<std::shared_ptr<std::vector<uint8_t>>>("transitions"),
-          });
-    }
+  bool setRequest(Request::SharedPtr & request) override
+  {
+    auto distance_m = ports::get<double>(*this, "distance_m");
 
-    bool setRequest(Request::SharedPtr &request) override
-    {
-      auto from_lanelet_id = getInput<int64_t>("from_lanelet_id");
-      auto to_lanelet_id = getInput<int64_t>("to_lanelet_id");
+    request->distance_m = distance_m;
+    return true;
+  }
 
-      if (!from_lanelet_id || !to_lanelet_id)
-      {
-        return false;
-      }
-
-      request->from_lanelet_id = from_lanelet_id.value();
-      request->to_lanelet_id = to_lanelet_id.value();
-      return true;
-    }
-
-    BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
-    {
-      if (!response->success)
-      {
-        return BT::NodeStatus::FAILURE;
-      }
-
-      auto lanelets_ptr = std::make_shared<std::vector<world_modeling_msgs::msg::Lanelet>>(std::move(response->lanelets));
-      auto transitions_ptr = std::make_shared<std::vector<uint8_t>>(std::move(response->transitions));
-
-      setOutput("route", lanelets_ptr);
-      setOutput("transitions", transitions_ptr);
-
-      return BT::NodeStatus::SUCCESS;
-    }
-
-    BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-    {
-      (void)error;
+  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
+  {
+    if (!response->success) {
+      setOutput("error_message", response->error_message);
       return BT::NodeStatus::FAILURE;
     }
-  };
-} // namespace behaviour
 
-#endif // BEHAVIOUR__GET_ROUTE_SERVICE_HPP_
+    auto path_ptr = std::make_shared<types::Path>(std::move(*response));
+    setOutput("path", path_ptr);
+
+    return BT::NodeStatus::SUCCESS;
+  }
+
+  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+  {
+    RCLCPP_ERROR(logger(), "GetRoute service failed: %d", error);
+    return BT::NodeStatus::FAILURE;
+  }
+};
+}  // namespace behaviour
+
+#endif  // BEHAVIOUR__GET_ROUTE_SERVICE_HPP_

@@ -1,35 +1,44 @@
-<?xml version="1.0"?>
-<!--
-  Copyright (c) 2025-present WATonomous. All rights reserved.
-
-  Skeleton for intersection logic.
-  TODO(wato): handle the different types of regulatory elements (traffic light, stop sign, yield)
-
--->
 <root BTCPP_format="4">
-  <BehaviorTree ID="Intersection">
-        <Sequence name="intersection_logic">
-        <DetermineRegElem
-            lane_context="{current_lane_context}"
-            lookahead_distance="30.0"
-            is_approaching_reg_elem="{approaching_event}"
-            reg_elem_type="{event_type}"
-            distance_to_reg_elem="{event_dist}" />
+  <BehaviorTree ID="intersection">
+    <Sequence name="intersection_sequence">
+      <!-- 1. Extract all upcoming regulatory elements from the planned path -->
+      <GetRegElemContext
+          path="{global_path}"
+          lanelet_context="{current_lane_context}"
+          reg_elems="{upcoming_reg_elems}" />
 
-        <Condition ID="CheckApproaching" value="{approaching_event}" />
+      <!-- 2. Check if we have reached the first regulatory element (threshold 5.0m) -->
+      <!-- If successful, it captures the element into {active_reg_elem} -->
+      <RegElemReached
+          reg_elems="{upcoming_reg_elems}"
+          threshold_m="5.0"
+          selected_reg_elem="{active_reg_elem}" />
 
-        <!-- Logic for specific element types -->
-        <Switch variable="{event_type}">
-            <Case value="traffic_light">
-            <SubTree ID="HandleTrafficLight" distance="{event_dist}" />
-            </Case>
-            <Case value="stop_line">
-            <SubTree ID="HandleStopLine" distance="{event_dist}" />
-            </Case>
-            <Default>
-            <AlwaysSuccess />
-            </Default>
-        </Switch>
+      <!-- 3. Branch based on the type of the reached regulatory element -->
+      <Fallback name="reg_elem_handler_selector">
+
+        <!-- Stop Sign Branch -->
+        <Sequence name="stop_sign_branch">
+          <RegElemType value="{active_reg_elem}" expected="stop_sign" />
+          <!-- TODO(wato): improve yield when better world model services are implemented -->
+          <SubTree ID="stop_sign" active_elem="{active_reg_elem}" />
         </Sequence>
-    </BehaviorTree>
+
+        <!-- Traffic Light Branch -->
+        <Sequence name="traffic_light_branch">
+          <RegElemType value="{active_reg_elem}" expected="traffic_light" />
+          <!-- TODO(wato): Implement traffic_light subtree (see traffic_light.xml) -->
+          <AlwaysSuccess />
+        </Sequence>
+
+        <!-- Yield Branch -->
+        <Sequence name="yield_branch">
+          <RegElemType value="{active_reg_elem}" expected="yield" />
+          <!-- TODO(wato): improve yield when better world model services are implemented -->
+          <SubTree ID="yield" active_elem="{active_reg_elem}" />
+        </Sequence>
+
+      </Fallback>
+    </Sequence>
+  </BehaviorTree>
 </root>

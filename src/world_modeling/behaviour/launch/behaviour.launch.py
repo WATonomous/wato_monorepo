@@ -15,9 +15,13 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, EmitEvent, RegisterEventHandler
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import LifecycleNode, Node
+from launch.events import matches_action
+from launch_ros.actions import LifecycleNode
+from launch_ros.event_handlers import OnStateTransition
+from launch_ros.events.lifecycle import ChangeState
+from lifecycle_msgs.msg import Transition
 
 
 def generate_launch_description():
@@ -43,35 +47,35 @@ def generate_launch_description():
         output="screen",
     )
 
-    # When the node reaches 'inactive' (after configuring), transition to 'activate'
-    # configure_event = RegisterEventHandler(
-    #     OnStateTransition(
-    #         target_lifecycle_node=behaviour_node,
-    #         goal_state="inactive",
-    #         entities=[
-    #             EmitEvent(
-    #                 event=ChangeState(
-    #                     lifecycle_node_matcher=matches_action(behaviour_node),
-    #                     transition_id=Transition.TRANSITION_ACTIVATE,
-    #                 )
-    #             )
-    #         ],
-    #     )
-    # )
+    # 2. Transition to 'configure'
+    configure_event = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(behaviour_node),
+            transition_id=Transition.TRANSITION_CONFIGURE,
+        )
+    )
 
-    # # Emit configure event on startup to move from 'unconfigured' to 'inactive'
-    # startup_event = EmitEvent(
-    #     event=ChangeState(
-    #         lifecycle_node_matcher=matches_action(behaviour_node),
-    #         transition_id=Transition.TRANSITION_CONFIGURE,
-    #     )
-    # )
+    # 3. When 'inactive', transition to 'activate'
+    activate_event = RegisterEventHandler(
+        OnStateTransition(
+            target_lifecycle_node=behaviour_node,
+            goal_state="inactive",
+            entities=[
+                EmitEvent(
+                    event=ChangeState(
+                        lifecycle_node_matcher=matches_action(behaviour_node),
+                        transition_id=Transition.TRANSITION_ACTIVATE,
+                    )
+                )
+            ],
+        )
+    )
 
     return LaunchDescription(
         [
             behaviour_param,
             behaviour_node,
-            # configure_event,
-            # startup_event,
+            configure_event,
+            activate_event,
         ]
     )

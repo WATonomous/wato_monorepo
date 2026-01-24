@@ -12,45 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__IS_EGO_STATE_CONDITION_HPP_
-#define BEHAVIOUR__IS_EGO_STATE_CONDITION_HPP_
+#ifndef BEHAVIOUR__HAS_GOAL_CONDTION_HPP_
+#define BEHAVIOUR__HAS_GOAL_CONDTION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "bvehicle_states.hpp"
+#include <iostream>
+#include <string>
 
-namespace wato::world_modeling::behaviour
+#include "geometry_msgs/msg/point.hpp"
+
+namespace behaviour
 {
-class IsEgoStateCondition : public BT::ConditionNode
+class HasGoalCondition : public BT::ConditionNode
 {
 public:
-  IsEgoStateCondition(const std::string & name, const BT::NodeConfig & config)
+  HasGoalCondition(const std::string & name, const BT::NodeConfig & config)
   : BT::ConditionNode(name, config)
   {}
 
   static BT::PortsList providedPorts()
   {
-    return {BT::InputPort<VehicleState>("state"), BT::InputPort<VehicleState>("expected")};
+    return {BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point")};
   }
 
   BT::NodeStatus tick() override
   {
-    // TODO(wato): maybe make a port validator to validate all ports for a node in the future
-    auto state = getInput<VehicleState>("state");  // from a future subscriber node?
-    auto expected = getInput<VehicleState>("expected");
-
-    // validate port
-    if (!state || !expected) {
+    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    if (gp == nullptr) {
+      std::cout << "HasGoal: Missing goal point." << std::endl;
       return BT::NodeStatus::FAILURE;
     }
-
-    // logic
-    if (state.value() == expected.value()) {
-      return BT::NodeStatus::SUCCESS;
-    }
-
-    return BT::NodeStatus::FAILURE;
+    return BT::NodeStatus::SUCCESS;
   }
 };
-}  // namespace wato::world_modeling::behaviour
+}  // namespace behaviour
 #endif

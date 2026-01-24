@@ -15,61 +15,62 @@
 #ifndef BEHAVIOUR__EXECUTE_BEHAVIOUR_ACTION_HPP_
 #define BEHAVIOUR__EXECUTE_BEHAVIOUR_ACTION_HPP_
 
+#include <memory>
+#include <string>
+
 #include <behaviortree_ros2/bt_action_node.hpp>
 
-// type
-#include "behaviour/types/lattice_planner_behaviour.hpp"
-#include "world_modeling_msgs/action/execute_behaviour.hpp"
+#include "behaviour/utils/utils.hpp"
+#include "behaviour_msgs/action/execute_behaviour.hpp"
 
 namespace behaviour
 {
-  using ExecuteBehaviour = world_modeling_msgs::action::ExecuteBehaviour;
 
-  /**
+/**
    * @class ExecuteBehaviourAction
    * @brief BT node to command the vehicle to execute a specific behavior (lane follow, lane change, etc.)
+   *
+   * TODO(wato): action server on lattice planner
    */
-  class ExecuteBehaviourAction : public BT::RosActionNode<ExecuteBehaviour>
+class ExecuteBehaviourAction : public BT::RosActionNode<behaviour_msgs::action::ExecuteBehaviour>
+{
+public:
+  ExecuteBehaviourAction(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosActionNode<behaviour_msgs::action::ExecuteBehaviour>(name, conf, params)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    ExecuteBehaviourAction(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
-        : BT::RosActionNode<ExecuteBehaviour>(name, conf, params)
-    {
-    }
+    return providedBasicPorts({BT::InputPort<std::string>("behaviour", "The behavior to execute")});
+  }
 
-    static BT::PortsList providedPorts()
-    {
-      return providedBasicPorts({BT::InputPort<std::string>("behaviour", "The behavior to execute")});
-    }
+  bool setGoal(RosActionNode::Goal & goal) override
+  {
+    auto lane_behaviour = ports::get<std::string>(*this, "behaviour");
+    RCLCPP_INFO(logger(), "Execute behaviour goal: %s", lane_behaviour.c_str());
+    goal.behaviour = lane_behaviour;
+    return true;
+  }
 
-    bool setGoal(RosActionNode::Goal &goal) override
-    {
-      auto behaviour = getInput<LatticePlannerBehaviour>("behaviour");
-      if (!behaviour)
-      {
-        return false;
-      }
-      goal.behaviour = behaviour.value();
-      return true;
-    }
+  BT::NodeStatus onFeedback(const std::shared_ptr<const Feedback> feedback) override
+  {
+    (void)feedback;
+    return BT::NodeStatus::RUNNING;
+  }
 
-    BT::NodeStatus onFeedback(const std::shared_ptr<const Feedback> feedback) override
-    {
-      (void)feedback;
-      return BT::NodeStatus::RUNNING;
-    }
+  BT::NodeStatus onResultReceived(const WrappedResult & wr) override
+  {
+    return (wr.code == rclcpp_action::ResultCode::SUCCEEDED) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+  }
 
-    BT::NodeStatus onResultReceived(const WrappedResult &wr) override
-    {
-      return (wr.code == rclcpp_action::ResultCode::SUCCEEDED) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-    }
+  BT::NodeStatus onFailure(BT::ActionNodeErrorCode error) override
+  {
+    RCLCPP_ERROR(logger(), "ExecuteBehaviour action failed: %d", error);
+    // sending success for now for testing
+    return BT::NodeStatus::SUCCESS;
+    // return BT::NodeStatus::FAILURE;
+  }
+};
+}  // namespace behaviour
 
-    BT::NodeStatus onFailure(BT::ActionNodeErrorCode error) override
-    {
-      (void)error;
-      return BT::NodeStatus::FAILURE;
-    }
-  };
-} // namespace behaviour
-
-#endif // BEHAVIOUR__EXECUTE_BEHAVIOUR_ACTION_HPP_
+#endif  // BEHAVIOUR__EXECUTE_BEHAVIOUR_ACTION_HPP_

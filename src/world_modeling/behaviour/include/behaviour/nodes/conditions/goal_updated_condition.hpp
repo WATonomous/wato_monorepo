@@ -12,32 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__IS_EGO_STATE_CONDITION_HPP_
-#define BEHAVIOUR__IS_EGO_STATE_CONDITION_HPP_
+#ifndef BEHAVIOUR__GOAL_UPDATED_CONDTION_HPP_
+#define BEHAVIOUR__GOAL_UPDATED_CONDTION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <string>
+
+#include "behaviour/utils/utils.hpp"
+
 namespace behaviour
 {
-  // when we need to know what current state of the vehicle is
-  enum class VehicleState
+class GoalUpdatedCondition : public BT::ConditionNode
+{
+public:
+  GoalUpdatedCondition(const std::string & name, const BT::NodeConfig & config)
+  : BT::ConditionNode(name, config)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-    STOPPED = 0,
-    DRIVING = 1,
-    EMERGENCY = 2
+    return {BT::InputPort<bool>("goal_updated")};
   };
 
-  // This is the "magic" function BT.CPP looks for
-  inline VehicleState convertFromString(BT::StringView str)
+  BT::NodeStatus tick() override
   {
-    if (str == "STOPPED")
-      return VehicleState::STOPPED;
-    if (str == "DRIVING")
-      return VehicleState::DRIVING;
-    if (str == "EMERGENCY")
-      return VehicleState::EMERGENCY;
-    throw BT::RuntimeError("Invalid VehicleState: ", str.data());
-  }
-} // namespace behaviour
+    auto goal_updated = ports::get<bool>(*this, "goal_updated");
 
+    if (goal_updated) {
+      return BT::NodeStatus::SUCCESS;
+    }
+
+    return BT::NodeStatus::FAILURE;
+  }
+};
+}  // namespace behaviour
 #endif

@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__IS_MANEUVER_CONDITION_HPP_
-#define BEHAVIOUR__IS_MANEUVER_CONDITION_HPP_
+#ifndef BEHAVIOUR__ERROR_MESSAGE_CONDITION_HPP_
+#define BEHAVIOUR__ERROR_MESSAGE_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
 #include <string>
+
+#include "behaviour/utils/utils.hpp"
 
 namespace behaviour
 {
@@ -25,18 +27,16 @@ namespace behaviour
    * @class IsManeuverCondition
    * @brief Checks if the current maneuver matches an expected type.
    */
-class IsManeuverCondition : public BT::ConditionNode
+class ErrorMessageCondition : public BT::ConditionNode
 {
 public:
-  IsManeuverCondition(const std::string & name, const BT::NodeConfig & config)
+  ErrorMessageCondition(const std::string & name, const BT::NodeConfig & config)
   : BT::ConditionNode(name, config)
   {}
 
   static BT::PortsList providedPorts()
   {
-    return {
-      BT::InputPort<std::string>("maneuver", "Current maneuver from ComputeManeuver"),
-      BT::InputPort<std::string>("expected", "Expected maneuver type to match")};
+    return {BT::InputPort<std::string>("value"), BT::InputPort<std::string>("expected")};
   }
 
   /**
@@ -45,19 +45,14 @@ public:
      */
   BT::NodeStatus tick() override
   {
-    auto maneuver = getInput<std::string>("maneuver");
-    auto expected = getInput<std::string>("expected");
+    auto value = ports::get<std::string>(*this, "value");
+    auto expected = ports::get<std::string>(*this, "expected");
 
-    // validate port
-    if (!maneuver || !expected) {
+    if (value == expected) {
+      return BT::NodeStatus::SUCCESS;
+    } else {
       return BT::NodeStatus::FAILURE;
     }
-
-    if (maneuver.value() == expected.value()) {
-      return BT::NodeStatus::SUCCESS;
-    }
-
-    return BT::NodeStatus::FAILURE;
   }
 };
 }  // namespace behaviour

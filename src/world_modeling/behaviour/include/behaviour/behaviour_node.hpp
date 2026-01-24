@@ -15,47 +15,67 @@
 #ifndef BEHAVIOUR__BEHAVIOUR_NODE_HPP_
 #define BEHAVIOUR__BEHAVIOUR_NODE_HPP_
 
-#include <behaviortree_cpp/bt_factory.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 
-#include "world_modeling_msgs/msg/current_lane_context.hpp"
+#include "behaviour/behaviour_tree.hpp"
+#include "behaviour/dynamic_object_store.hpp"
+#include "behaviour/interfaces/interface_base.hpp"
 
+namespace behaviour
+{
 /**
- * @class BehaviourNode
- * @brief A standard ROS 2 node that manages Eve's behavior tree.
- * The tree immediately upon construction.
- */
-class BehaviourNode : public rclcpp::Node
+   * @class BehaviourNode
+   * @brief A lifecycle node that manages Eve's behavior tree.
+   *
+   * TODO(wato): Modify the behaviortree_ros2 library to allow BT::RosNodeParams::nh
+   * to accept a rclcpp_lifecycle::LifecycleNode::SharedPtr directly, removing the
+   * need for the secondhand 'ros_node_' workaround.
+   *
+   * Lifecycle order:
+   *   on_configure: Create TF, ros_node_, BehaviourTree, then interfaces
+   *   on_activate: Activate all interfaces (subscribers start, timers start)
+   *   on_deactivate: Deactivate all interfaces
+   *   on_cleanup: Clear interfaces and reset tree
+   */
+class BehaviourNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   explicit BehaviourNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
   ~BehaviourNode() override;
 
-  /**
-   * @brief Initializes the Behavior Tree.
-   * Must be called after the node is created as a shared_ptr but before spinning.
-   */
-  void setup_tree();
-
-  BT::Tree & get_tree()
+  rclcpp::Node::SharedPtr get_ros_node() const
   {
-    return tree_;
+    return ros_node_;
   }
 
-private:
-  /**
-   * @brief Main tick function called by the wall timer.
-   */
-  void timer_callback();
+protected:
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
-  rclcpp::TimerBase::SharedPtr timer_;
-  BT::Blackboard::Ptr blackboard_;
-  BT::Tree tree_;
-  BT::BehaviorTreeFactory factory_;
+private:
+  void createInterfaces();
+
+  rclcpp::Node::SharedPtr ros_node_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::string map_frame_;
+  std::string base_frame_;
+
+  std::shared_ptr<BehaviourTree> tree_;
+  std::shared_ptr<DynamicObjectStore> dynamic_object_store_;
+  std::vector<std::unique_ptr<interfaces::InterfaceBase>> interfaces_;
 };
+}  // namespace behaviour
 
 #endif  // BEHAVIOUR__BEHAVIOUR_NODE_HPP_

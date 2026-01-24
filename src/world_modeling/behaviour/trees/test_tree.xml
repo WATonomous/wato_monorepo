@@ -1,14 +1,21 @@
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
   <include path="subtrees/navigation.xml" />
-  <include path="subtrees/intersection.xml" />
-  <include path="subtrees/stop_sign.xml" />
-  <include path="subtrees/yield.xml" />
 
   <BehaviorTree ID="MainTree">
     <ReactiveFallback name="root_fallback">
+      <!-- 1. Do we have a goal -->
+
+      <Sequence name="goal_reached_sequence">
+        <Inverter>
+          <HasGoal goal_point="{goal_point}" />
+        </Inverter>
+        <ExecuteBehaviour action_name="execute_behaviour" behaviour="standby" />
+      </Sequence>
 
       <!-- 1. Goal Reached Check -->
+
       <Sequence name="goal_reached_sequence">
+
         <GoalReached
           current_point="{current_point}"
           goal_point="{goal_point}"
@@ -16,7 +23,7 @@
         <ExecuteBehaviour action_name="execute_behaviour" behaviour="standby" />
       </Sequence>
 
-      <!-- 2. Main mission logic -->
+      <!-- 2. Main mission logic (Simplified for testing) -->
       <Sequence name="main_behaviour">
         <Fallback name="route_management">
           <!-- Try to get the current route -->
@@ -27,19 +34,8 @@
             service_name="get_route"
           />
 
-          <!-- If GetRoute fails, check why and try to set a new route -->
+          <!-- If GetRoute fails, try to set a new route -->
           <Sequence name="set_route_sequence">
-            <Fallback name="route_error_check">
-              <ErrorMessageCondition
-                  value="{get_route_error_msg}"
-                  expected="ego_not_on_route"
-              />
-              <ErrorMessageCondition
-                  value="{get_route_error_msg}"
-                  expected="no_active_route"
-              />
-            </Fallback>
-
             <RetryUntilSuccessful num_attempts="5">
               <SetRoute
                   goal_point="{goal_point}"
@@ -56,29 +52,13 @@
               service_name="get_route"
             />
           </Sequence>
-          <ExecuteBehaviour action_name="execute_behaviour" behaviour="standby" />
-
         </Fallback>
 
-        <!-- 3. Parallel Execution of Navigation and Intersection Handling -->
-        <Parallel success_count="1" failure_count="1">
-
-          <!-- Lane Navigation Logic -->
-          <SubTree ID="Navigation"
-                   global_path="{global_path}"
-                   current_lane_context="{current_lane_context}"
-                   current_point="{current_point}" />
-
-          <!-- Intersection/Regulatory Logic -->
-          <Fallback name="intersection_guard">
-            <SubTree ID="intersection"
-                     global_path="{global_path}"
-                     current_lane_context="{current_lane_context}"
-                     current_point="{current_point}" />
-            <AlwaysSuccess />
-          </Fallback>
-
-        </Parallel>
+        <!-- Lane Navigation Logic -->
+        <SubTree ID="Navigation"
+                 global_path="{global_path}"
+                 current_lane_context="{current_lane_context}"
+                 current_point="{current_point}" />
       </Sequence>
     </ReactiveFallback>
   </BehaviorTree>

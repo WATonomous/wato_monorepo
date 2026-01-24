@@ -5,71 +5,38 @@
 <root BTCPP_format="4">
 
   <BehaviorTree ID="Navigation">
-    <Sequence name="navigation_sequence">
+    <Sequence name="navigation_logic">
 
-      <!-- 1. Get/Update Route at 1Hz -->
-      <RateController hz="1.0">
-        <GetRoute
-            service_name="get_route"
-            from_lanelet_id="{current_lanelet_id}"
-            to_lanelet_id="{goal_lanelet_id}"
-            route="{global_path}" 
-            transitions="{transitions}"/>
-            
-      </RateController>
+      <!-- 1. Determine what to do based on path and current context -->
+      <DetermineLaneBehaviour
+          lanelet_context="{current_lane_context}"
+          path="{global_path}"
+          behaviour="{next_behaviour}"
+          target_lanelet="{target_lanelet}" />
 
-      <!-- 2. Main Navigation Fallback (Reactive: re-checks route status every tick) -->
-      <ReactiveFallback name="navigation_fallback">
+      <!-- 2. Safety Checks for the target lanelet -->
+      <Sequence name="safety_checks">
+        <GetObjectsByLanelet
+            lanelet_id="{target_lanelet.id}"
+            objects="{nearby_objects}" />
 
-        <!-- Branch A: Route Exists - Execute Navigation -->
-        <ReactiveSequence name="route_exists_sequence">
-          <!-- This condition is re-checked every tick -->
-          <IsRouteValid global_path="{global_path}" />
-          <ReactiveSequence name="execute_route_sequence">
-            <!-- 1. Determine what to do -->
-            <ComputeManeuver
-                current_lanelet_id="{current_lanelet_id}"
-                path="{global_path}"
-                transitions="{transitions}"
-                maneuver="{next_maneuver}"
-                target_lanelet_id="{target_lanelet_id}" />
+        <SafeProximity
+            objects="{nearby_objects}"
+            current_point="{current_point}"
+            radius="15.0" />
 
-            <!-- 2. Modular Safety (Only runs if next_maneuver is a lane change) -->
-            <SubTree ID="ManeuverSafe"
-              maneuver="{next_maneuver}"
-              target_lanelet_id="{target_lanelet_id}" />
+        <SafePrediction
+            objects="{nearby_objects}"
+            current_point="{current_point}"
+            radius="20.0" />
+      </Sequence>
 
-            <!-- 3. Execute whatever maneuver was computed -->
-            <ExecuteBehaviour
-                action_name="execute_behaviour"
-                behaviour="{next_maneuver}" />
-          </ReactiveSequence>
-        </ReactiveSequence>
-
-        <ExecuteBehaviour
+      <!-- 3. Execute the determined behaviour -->
+      <ExecuteBehaviour
           action_name="execute_behaviour"
-          behaviour="standby" />
+          behaviour="{next_behaviour}" />
 
-      </ReactiveFallback>
     </Sequence>
   </BehaviorTree>
-
-  <!-- Lane Change Safety Subtree (Reactive: continuously checks safety) -->
-<BehaviorTree ID="ManeuverSafe">
-  <Fallback name="safety_logic_selector">
-    <!-- If we are just following the lane, safety is "Always Success" (for now) -->
-    <IsManeuver maneuver="{maneuver}" expected="follow_ego_lane" />
-
-    <!-- Otherwise, run the full lane-change safety checks -->
-    <Sequence name="lane_change_safety_checks">
-      <GetObjectsByLanelet
-          service_name="get_objects_by_lanelet"
-          lanelet_id="{target_lanelet_id}"
-          objects="{nearby_objects}" />
-      <CheckProximity objects="{nearby_objects}" radius="15.0" />
-      <CheckPredicted objects="{nearby_objects}" radius="5" />
-    </Sequence>
-  </Fallback>
-</BehaviorTree>
 
 </root>

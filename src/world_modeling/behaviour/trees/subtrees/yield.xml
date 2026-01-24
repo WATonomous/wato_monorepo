@@ -1,0 +1,36 @@
+<root BTCPP_format="4">
+  <BehaviorTree ID="yield">
+    <Sequence name="yield_sequence">
+      <!-- 1. Spawn a virtual wall at the stop line (command=1) -->
+      <SetWall
+          stop_line_id="{active_elem.stop_line_id}"
+          command="1"
+          service_name="set_wall" />
+
+      <!-- 2. Get conflicting lanelets -->
+      <GetLaneletsByRegElem
+          id="{active_elem.id}"
+          lanelet_ids="{conflicting_lanelets}"
+          service_name="get_lanelets_by_reg_elem" />
+
+      <!-- 3. Wait until no objects are within a safe radius on conflicting lanes -->
+      <RetryUntilSuccessful num_attempts="-1">
+        <Sequence>
+          <GetObjectsByLanelets
+              lanelet_ids="{conflicting_lanelets}"
+              objects="{current_objects}" />
+          <SafeProximity
+              objects="{current_objects}"
+              current_point="{current_point}"
+              radius="20.0" />
+        </Sequence>
+      </RetryUntilSuccessful>
+
+      <!-- 4. Despawn the wall and proceed (command=0) -->
+      <SetWall
+          stop_line_id="{active_elem.stop_line_id}"
+          command="0"
+          service_name="set_wall" />
+    </Sequence>
+  </BehaviorTree>
+</root>

@@ -35,14 +35,21 @@ find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(behaviortree_cpp REQUIRED)
 find_package(behaviortree_ros2 REQUIRED)
-find_package(world_modeling_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(world_model_msgs REQUIRED)
+find_package(behaviour_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(lanelet_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 # ══════════════════════════════════════════════════════════════════════
 # Library
 # ══════════════════════════════════════════════════════════════════════
 
 add_library(${PROJECT_NAME}_lib SHARED
-  src/behaviour_lc_node.cpp
+  src/behaviour_node.cpp
+  src/behaviour_tree.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_lib
@@ -59,7 +66,13 @@ ament_target_dependencies(${PROJECT_NAME}_lib
   std_srvs
   behaviortree_cpp
   behaviortree_ros2
-  world_modeling_msgs
+  world_model_msgs
+  behaviour_msgs
+  geometry_msgs
+  nav_msgs
+  lanelet_msgs
+  tf2_ros
+  tf2_geometry_msgs
 )
 
 # ══════════════════════════════════════════════════════════════════════
@@ -67,7 +80,7 @@ ament_target_dependencies(${PROJECT_NAME}_lib
 # ══════════════════════════════════════════════════════════════════════
 
 add_executable(behaviour_node
-  src/behaviour_lc_node.cpp
+  src/behaviour_node.cpp
 )
 
 target_include_directories(behaviour_node PRIVATE include)
@@ -85,7 +98,13 @@ ament_target_dependencies(behaviour_node
   std_srvs
   behaviortree_cpp
   behaviortree_ros2
-  world_modeling_msgs
+  world_model_msgs
+  behaviour_msgs
+  geometry_msgs
+  nav_msgs
+  lanelet_msgs
+  tf2_ros
+  tf2_geometry_msgs
 )
 
 # ══════════════════════════════════════════════════════════════════════
@@ -100,7 +119,6 @@ install(TARGETS ${PROJECT_NAME}_lib
 
 install(TARGETS
   behaviour_node
-  dummy_action_server
   DESTINATION lib/${PROJECT_NAME}
 )
 

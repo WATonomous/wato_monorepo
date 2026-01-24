@@ -38,34 +38,35 @@ namespace behaviour
 {
 
 /**
-     * @brief A BT::DecoratorNode that ticks its child at a specified rate.
-     *
-     * This decorator limits how often its child node gets ticked. It's useful for
-     * rate-limiting expensive operations like path planning or sensor processing.
-     *
-     * Usage in XML:
-     *   <RateController hz="1.0">
-     *       <ExpensiveOperation/>
-     *   </RateController>
-     *
-     * @note Adapted from Nav2 nav2_behavior_tree::RateController
-     */
+   * @brief A BT::DecoratorNode that ticks its child at a specified rate.
+   *
+   * This decorator limits how often its child node gets ticked. It's useful for
+   * rate-limiting expensive operations like path planning or sensor processing.
+   *
+   * Usage in XML:
+   *   <RateController hz="1.0">
+   *       <ExpensiveOperation/>
+   *   </RateController>
+   *
+   * @note Adapted from Nav2 nav2_behavior_tree::RateController
+   */
 class RateController : public BT::DecoratorNode
 {
 public:
   /**
-         * @brief A constructor for behaviour::RateController
-         * @param name Name for the XML tag for this node
-         * @param conf BT node configuration
-         */
+     * @brief A constructor for behaviour::RateController
+     * @param name Name for the XML tag for this node
+     * @param conf BT node configuration
+     */
   RateController(const std::string & name, const BT::NodeConfiguration & conf)
-  : period_(1.0)
+  : BT::DecoratorNode(name, conf)
+  , period_(1.0)
   , first_time_(true)
   {}
 
   /**
-         * @brief Function to read parameters and initialize class variables
-         */
+     * @brief Function to read parameters and initialize class variables
+     */
   void initialize()
   {
     double hz = 1.0;
@@ -74,9 +75,9 @@ public:
   }
 
   /**
-         * @brief Creates list of BT ports
-         * @return BT::PortsList Containing node-specific ports
-         */
+     * @brief Creates list of BT ports
+     * @return BT::PortsList Containing node-specific ports
+     */
   static BT::PortsList providedPorts()
   {
     return {BT::InputPort<double>("hz", 10.0, "Rate in Hz to tick child node")};
@@ -84,9 +85,9 @@ public:
 
 private:
   /**
-         * @brief The main override required by a BT action
-         * @return BT::NodeStatus Status of tick execution
-         */
+     * @brief The main override required by a BT action
+     * @return BT::NodeStatus Status of tick execution
+     */
   BT::NodeStatus tick()
   {
     if (!BT::isStatusActive(status())) {
