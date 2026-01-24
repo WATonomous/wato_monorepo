@@ -96,10 +96,10 @@ I would like to thank the following people for contributing to **Arduino CMake**
 * `getSurreal`_
 * Sebastian Zaffarano (`szaffarano`_)
 * `cheshirekow`_
-* Logan Engstrom (`meadowstream`_) 
+* Logan Engstrom (`meadowstream`_)
 * Francisco Ramírez (`franramirez688`_)
 * Brendan Shillingford (`bshillingford`_)
-* Mike Purvis (`mikepurvis`_) 
+* Mike Purvis (`mikepurvis`_)
 * Steffen Hanikel (`hanikesn`_)
 * Tomasz Bogdal (`queezythegreat`_) (original author of arduino-cmake)
 * Jonas (`JonasProgrammer`_)
@@ -209,13 +209,13 @@ In short you can get up and running using the following commands::
 For a more detailed explanation, please read on...
 
 1. Toolchain file
-   
+
    In order to build firmware for the Arduino you have to specify a toolchain file to enable cross-compilation. There are two ways of specifying the file, either at the command line or from within the *CMakeLists.txt* configuration files. The bundled example uses the second approach like so::
 
         set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/ArduinoToolchain.cmake)
 
    Please note that this must be before the ``project(...)`` command.
-   
+
    If you would like to specify it from the command line, heres how::
 
         cmake -DCMAKE_TOOLCHAIN_FILE=../path/to/toolchain/file.cmake PATH_TO_SOURCE_DIR
@@ -574,7 +574,7 @@ The previous example will generate the following two target::
 
     blink_example
     blink_example-upload
-    
+
 **Note:** The above example will work perfectly fine even if the ``Basics`` category hadn't been passed.
 
 Arduino Libraries
@@ -598,11 +598,11 @@ To incorporate a library into your firmware, you can do one of three things:
 1. Place the library next to the default Arduino libraries (located at **${ARDUINO_SDK}/libraries**)
 2. Place the library next to the firmware configuration file (same directory as the **CMakeLists.txt**)
 3. Place the library in a separate folder and tell **Arduino CMake** the path to that directory.
-   
+
    To tell CMake where to search for libraries use the `link_directories` command. The command has to be used before defining any firmware or libraries requiring those libraries.
-   
+
    For example::
-     
+
       link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
       link_directories(/home/username/arduino_libraries)
 
@@ -697,7 +697,7 @@ Set these option either before the `project()` like so::
     set(ARDUINO_C_FLAGS      "-ffunction-sections -fdata-sections")
     set(ARDUINO_CXX_FLAGS    "${ARDUINO_C_FLAGS} -fno-exceptions")
     set(ARDUINO_LINKER_FLAGS "-Wl,--gc-sections")
-    
+
     project(ArduinoExample C CXX)
 
 or when configuring the project::
@@ -708,7 +708,7 @@ or when configuring the project::
 Programmers
 ~~~~~~~~~~~
 
-**Arduino CMake** fully supports programmers for burning firmware and bootloader images directly onto the Arduino. 
+**Arduino CMake** fully supports programmers for burning firmware and bootloader images directly onto the Arduino.
 If you have a programmer that is supported by the *Arduino SDK*, everything should work out of the box.
 As of version 1.0 of the *Arduino SDK*, the following programmers are supported:
 
@@ -832,12 +832,12 @@ Where **${TARGET_NAME}** is the name of you target and **${OPTION_NAME}** is the
 
 Register Custom Hardware Platforms
 ~~~~~~~~~~~~~~~~
-Arduino development may involve the use of additional hardware platforms that behave differently, 
+Arduino development may involve the use of additional hardware platforms that behave differently,
 such as the Sagnuino e.g.
-Arduino CMake allows you to register those platforms without the need to copy their files locally, 
+Arduino CMake allows you to register those platforms without the need to copy their files locally,
 exactly as you would register the default Arduino platform. In fact, this is what happens behind the scenes:
 
-1. Platform's path is determined. By default it's Arduino's path. 
+1. Platform's path is determined. By default it's Arduino's path.
    See: `Arduino Platforms PRE 1.5`_ and `Arduino Platforms 1.5`_.
 
 2. Platform's architecture is determined. By default it's avr.
@@ -853,18 +853,18 @@ If one would like to specify a custom platform and/or architecuture, it should s
 +--------------------------------+---------------------------------------------------+
 
 **Note:** If variables are to be used, they MUST be set before including the Toolchain file.
-  
+
 A valid Hardware Platform is a directory containing the following::
-  
+
       HARDWARE_PLATFORM_PATH/
           |-- bootloaders/
           |-- cores/
           |-- variants/
           |-- boards.txt
           `-- programmers.txt
-  
+
 The ``board.txt`` describes the target boards and bootloaders, While ``programmers.txt`` the programmer defintions.
-  
+
 A good example of a *Hardware Platform* is in the Arduino SDK: ``${ARDUINO_SDK_PATH}/hardware/arduino/``
 .. _Arduino Platforms PRE 1.5: http://code.google.com/p/arduino/wiki/Platforms
 .. _Arduino Platforms 1.5: http://code.google.com/p/arduino/wiki/Platforms1
@@ -935,22 +935,22 @@ Miscellaneous Functions
 This section will outlines some of the additional miscellaneous functions available to the user.
 
 * **print_board_list()**:
-  
+
   Print list of detected Arduino Boards.
 * **print_programmer_list()**:
-  
+
   Print list of detected Programmers.
 * **print_programmer_settings(PROGRAMMER)**:
-  
+
      *PROGRAMMER* - programmer id
-  
+
   Print the detected Programmer settings.
 * **print_board_settings(BOARD_NAME)**:
-  
+
     *BOARD_NAME* - Board name (nano, uno, mega...)
-  
+
   Print the detected Arduino board settings.
-  
+
 Bundling Arduino CMake
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -976,25 +976,25 @@ Running the *Arduino SDK* on Linux is a little bit more involved, because not ev
 To get **Arduino CMake** up and running follow these steps:
 
 1. Install the following packages using your package manager:
-    
+
    * ``gcc-avr``      - AVR GNU GCC compiler
    * ``binutils-avr`` - AVR binary tools
    * ``avr-libc``     - AVR C library
    * ``avrdude``      - Firmware uploader
-    
+
 2. Install the *Arduino SDK*.
-    
+
    Depending on your distribution, the *Arduino SDK* may or may not be available.
-    
+
    If it is available please install it using your packages manager otherwise do:
-    
+
    1. Download the `Arduino SDK`_
    2. Extract it into ``/usr/share``
-    
+
    NOTE: Arduino version **0.19** or newer is required!
 
 3. Install CMake:
-    
+
    * Using the package manager or
    * Using the `CMake installer`_
 
@@ -1049,10 +1049,10 @@ The *Arduino SDK*, as on Windows, is self contained and has everything needed fo
    3. Install ``FTDIUSBSerialDrviver*`` (for FTDI USB Serial)
 
 2. Install CMake
-   
+
    1. Download `CMake`_
    2. Install ``cmake-*.pkg``
-        
+
       NOTE: Make sure to click on **`Install Command Line Links`**
 
 Mac Serial Naming
@@ -1063,7 +1063,7 @@ When specifying the serial port name on Mac OS X, use the following names (where
     /dev/tty.usbmodemXXX
     /dev/tty.usbserialXXX
 
-Where ``tty.usbmodemXXX`` is for new **Uno** and **Mega** Arduino's, while ``tty.usbserialXXX`` are the older ones. 
+Where ``tty.usbmodemXXX`` is for new **Uno** and **Mega** Arduino's, while ``tty.usbserialXXX`` are the older ones.
 
 CMake configuration example::
 
@@ -1098,15 +1098,15 @@ Windows Environment
 On Windows the *Arduino SDK* is self contained and has everything needed for building. To setup the environment do the following:
 
 1. Place the `Arduino SDK`_ either
-   
+
    * into  **Program Files**, or
    * onto the **System Path**
-    
+
    NOTE: Don't change the default *Arduino SDK* directory name, otherwise auto detection will no work properly!
 
 2. Add to the **System Path**: ``${ARDUINO_SDK_PATH}/hardware/tools/avr/utils/bin``
 3. Install `CMake 2.8`_
-   
+
    NOTE: Make sure you check the option to add CMake to the **System Path**.
 
 
@@ -1178,7 +1178,7 @@ On most Linux distribution you can install Eclipse + CDT using your package mana
 Once you have Eclipse, here is how to generate a project using CMake:
 
 1. Create a build directory that is next to your source directory, like this::
-   
+
        build_directory/
        source_directory/
 
@@ -1220,10 +1220,10 @@ undefined reference to `__cxa_pure_virtual'
 When linking you'r firmware image you may encounter this error on some systems. An easy fix is to add the following to your firmware source code::
 
     extern "C" void __cxa_pure_virtual(void);
-    void __cxa_pure_virtual(void) { while(1); } 
+    void __cxa_pure_virtual(void) { while(1); }
 
 
-The contents of the ``__cxa_pure_virtual`` function can be any error handling code; this function will be called whenever a pure virtual function is called. 
+The contents of the ``__cxa_pure_virtual`` function can be any error handling code; this function will be called whenever a pure virtual function is called.
 
 * `What is the purpose of `cxa_pure_virtual``_
 
@@ -1322,7 +1322,7 @@ Here are some resources you might find useful in getting started.
 .. _CMake Reference: http://www.cmake.org/cmake/help/cmake-2-8-docs.html
 
 2. Arduino:
-   
+
    * `Getting Started`_ - Introduction to Arduino
    * `Playground`_ - User contributed documentation and help
    * `Arduino Forums`_ - Official forums

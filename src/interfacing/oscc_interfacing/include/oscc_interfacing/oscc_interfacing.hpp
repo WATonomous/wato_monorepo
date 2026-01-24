@@ -15,21 +15,21 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
-
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/wheel_speeds.hpp>
-
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32.hpp>
-
 #include <std_srvs/srv/set_bool.hpp>
 
+extern "C"
+{
 #include <oscc.h>
+}
 
 /*
 
@@ -119,9 +119,6 @@ private:
 
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};
-
-  
-
 };
 
 }  // namespace oscc_interfacing

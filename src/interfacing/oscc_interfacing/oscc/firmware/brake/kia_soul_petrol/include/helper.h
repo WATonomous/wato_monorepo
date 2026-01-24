@@ -1,29 +1,39 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @file helper.h
  * @brief Helper functions.
  *
  */
 
-
 #ifndef _OSCC_BRAKE_HELPER_H_
 #define _OSCC_BRAKE_HELPER_H_
 
-
 #include <stdint.h>
-
 
 /*
  * @brief Scalar for converting voltage to pressure.
  *
  */
-#define VOLTAGE_TO_PRESSURE_SCALAR ( 2.4 )
+#define VOLTAGE_TO_PRESSURE_SCALAR (2.4)
 
 /*
  * @brief Offset for converting voltage to pressure.
  *
  */
-#define VOLTAGE_TO_PRESSURE_OFFSET ( -252.1 )
-
+#define VOLTAGE_TO_PRESSURE_OFFSET (-252.1)
 
 /**
  * @brief Range of interpolation values.
@@ -33,15 +43,14 @@
  */
 typedef struct
 {
-    float input_min; /* Minimum input. */
+  float input_min; /* Minimum input. */
 
-    float input_max; /* Maximum input. */
+  float input_max; /* Maximum input. */
 
-    float output_min; /* Minimum output. */
+  float output_min; /* Minimum output. */
 
-    float output_max; /* Maximum output. */
+  float output_max; /* Maximum output. */
 } interpolate_range_s;
-
 
 // ****************************************************************************
 // Function:    interpolate
@@ -62,10 +71,7 @@ typedef struct
 //              [out] range - structure that defines the input and output ranges
 //
 // ****************************************************************************
-float interpolate(
-    const float input,
-    const interpolate_range_s * const range );
-
+float interpolate(const float input, const interpolate_range_s * const range);
 
 // ****************************************************************************
 // Function:    raw_adc_to_pressure
@@ -90,8 +96,6 @@ float interpolate(
 // Parameters:  [in] input - raw ADC reading
 //
 // ****************************************************************************
-float raw_adc_to_pressure(
-    const int input );
-
+float raw_adc_to_pressure(const int input);
 
 #endif /* _OSCC_BRAKE_HELPER_H_ */

@@ -1,18 +1,29 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @file can.h
  * @brief CAN interface.
  *
  */
 
-
 #ifndef _OSCC_CAN_H_
 #define _OSCC_CAN_H_
-
 
 #include <stdint.h>
 
 #include "mcp_can.h"
-
 
 /*
  * @brief CAN baudrate.
@@ -38,20 +49,18 @@
  */
 #define CAN_STANDARD (0)
 
-
 /*
  * @brief Return values when checking for a received can frame.
  *
  */
 typedef enum
 {
-    CAN_RX_FRAME_AVAILABLE = 0, /* CAN frame available on bus. */
+  CAN_RX_FRAME_AVAILABLE = 0, /* CAN frame available on bus. */
 
-    CAN_RX_FRAME_UNAVAILABLE, /* No CAN frame on bus. */
+  CAN_RX_FRAME_UNAVAILABLE, /* No CAN frame on bus. */
 
-    CAN_RX_FRAME_UNKNOWN /* CAN frame status unknown. */
+  CAN_RX_FRAME_UNKNOWN /* CAN frame status unknown. */
 } can_status_t;
-
 
 /*
  * @brief Standard CAN frame.
@@ -59,15 +68,14 @@ typedef enum
  */
 typedef struct
 {
-    uint32_t id; /* CAN frame ID. */
+  uint32_t id; /* CAN frame ID. */
 
-    uint8_t dlc; /* CAN frame data length. */
+  uint8_t dlc; /* CAN frame data length. */
 
-    uint32_t timestamp; /* Timestamp when CAN frame was received. */
+  uint32_t timestamp; /* Timestamp when CAN frame was received. */
 
-    uint8_t data[CAN_FRAME_DLC_MAX]; /* CAN frame data. */
+  uint8_t data[CAN_FRAME_DLC_MAX]; /* CAN frame data. */
 } can_frame_s;
-
 
 // ****************************************************************************
 // Function:    init_can
@@ -80,9 +88,7 @@ typedef struct
 // Parameters:  [in] can - An MCP_CAN object.
 //
 // ****************************************************************************
-void init_can(
-    MCP_CAN &can );
-
+void init_can(MCP_CAN & can);
 
 // ****************************************************************************
 // Function:    check_for_rx_frame
@@ -98,9 +104,6 @@ void init_can(
 //                            frame.
 //
 // ****************************************************************************
-can_status_t check_for_rx_frame(
-    MCP_CAN &can,
-    can_frame_s * const frame );
-
+can_status_t check_for_rx_frame(MCP_CAN & can, can_frame_s * const frame);
 
 #endif /* _OSCC_CAN_H_ */

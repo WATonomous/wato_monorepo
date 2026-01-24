@@ -18,17 +18,17 @@
 #include <cmath>
 
 #include <rclcpp_components/register_node_macro.hpp>
+
 namespace oscc_interfacing
 {
 
 // Static pointer to the node instance for free function callbacks
-static OsccInterfacingNode* g_node_instance = nullptr;
+static OsccInterfacingNode * g_node_instance = nullptr;
 
 // Free function callbacks for OSCC library
-void brake_report_callback(oscc_brake_report_s *report)
+void brake_report_callback(oscc_brake_report_s * report)
 {
-  if (report->operator_override && g_node_instance)
-  {
+  if (report->operator_override && g_node_instance) {
     RCLCPP_INFO(g_node_instance->get_logger(), "Brake Operator Override");
     if (oscc_disable() == OSCC_OK) {
       {
@@ -42,10 +42,9 @@ void brake_report_callback(oscc_brake_report_s *report)
   }
 }
 
-void throttle_report_callback(oscc_throttle_report_s *report)
+void throttle_report_callback(oscc_throttle_report_s * report)
 {
-  if (report->operator_override && g_node_instance)
-  {
+  if (report->operator_override && g_node_instance) {
     RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Operator Override");
     if (oscc_disable() == OSCC_OK) {
       {
@@ -59,10 +58,9 @@ void throttle_report_callback(oscc_throttle_report_s *report)
   }
 }
 
-void steering_report_callback(oscc_steering_report_s *report)
+void steering_report_callback(oscc_steering_report_s * report)
 {
-  if (report->operator_override && g_node_instance)
-  {
+  if (report->operator_override && g_node_instance) {
     RCLCPP_INFO(g_node_instance->get_logger(), "Steering Operator Override");
     if (oscc_disable() == OSCC_OK) {
       {
@@ -76,43 +74,36 @@ void steering_report_callback(oscc_steering_report_s *report)
   }
 }
 
-void obd_callback(struct can_frame *frame)
+void obd_callback(struct can_frame * frame)
 {
   if (!g_node_instance) {
     return;
   }
   // this only passes if it is indeed a wheel speed msg
   double se;
-  if(get_wheel_speed_right_rear(frame, &se) == OSCC_OK){ 
+  if (get_wheel_speed_right_rear(frame, &se) == OSCC_OK) {
     double ne;
     double nw;
     double sw;
     get_wheel_speed_left_front(frame, &nw);
     get_wheel_speed_left_rear(frame, &sw);
     get_wheel_speed_right_front(frame, &ne);
-    g_node_instance->publish_wheel_speeds(static_cast<float>(ne), 
-    static_cast<float>(nw), static_cast<float>(se), static_cast<float>(sw));
-  } 
-  else if(get_steering_wheel_angle(frame, &se) == OSCC_OK){
+    g_node_instance->publish_wheel_speeds(
+      static_cast<float>(ne), static_cast<float>(nw), static_cast<float>(se), static_cast<float>(sw));
+  } else if (get_steering_wheel_angle(frame, &se) == OSCC_OK) {
     g_node_instance->publish_steering_wheel_angle(static_cast<float>(se));
   }
 }
 
-void fault_report_callback(oscc_fault_report_s *report)
+void fault_report_callback(oscc_fault_report_s * report)
 {
-  if (g_node_instance)
-  {
-    if ( report->fault_origin_id == FAULT_ORIGIN_BRAKE )
-    {
-        RCLCPP_INFO(g_node_instance->get_logger(), "Brake Fault");
-    }
-    else if ( report->fault_origin_id == FAULT_ORIGIN_STEERING )
-    {
-        RCLCPP_INFO(g_node_instance->get_logger(), "Steering Fault");
-    }
-    else if ( report->fault_origin_id == FAULT_ORIGIN_THROTTLE )
-    {
-        RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Fault");
+  if (g_node_instance) {
+    if (report->fault_origin_id == FAULT_ORIGIN_BRAKE) {
+      RCLCPP_INFO(g_node_instance->get_logger(), "Brake Fault");
+    } else if (report->fault_origin_id == FAULT_ORIGIN_STEERING) {
+      RCLCPP_INFO(g_node_instance->get_logger(), "Steering Fault");
+    } else if (report->fault_origin_id == FAULT_ORIGIN_THROTTLE) {
+      RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Fault");
     }
 
     if (oscc_disable() == OSCC_OK) {
@@ -139,7 +130,7 @@ OsccInterfacingNode::~OsccInterfacingNode()
   // Nullify global pointer to prevent callbacks from accessing deleted object
   g_node_instance = nullptr;
   std::lock_guard<std::mutex> lock(arm_mutex_);
-  if(is_armed_){
+  if (is_armed_) {
     oscc_disable();
   }
   oscc_close(oscc_can_bus_);
@@ -161,22 +152,16 @@ void OsccInterfacingNode::configure()
 
   // Create subscription to /joystick/roscco
   roscco_sub_ = this->create_subscription<roscco_msg::msg::Roscco>(
-    "/joystick/roscco",
-    rclcpp::QoS(1),
-    std::bind(&OsccInterfacingNode::roscco_callback, this, std::placeholders::_1));
+    "/joystick/roscco", rclcpp::QoS(1), std::bind(&OsccInterfacingNode::roscco_callback, this, std::placeholders::_1));
 
   // Create publishers
-  is_armed_pub_ = this->create_publisher<std_msgs::msg::Bool>(
-    "/oscc_interfacing/is_armed",
-    rclcpp::QoS(1));
+  is_armed_pub_ = this->create_publisher<std_msgs::msg::Bool>("/oscc_interfacing/is_armed", rclcpp::QoS(1));
 
-  wheel_speeds_pub_ = this->create_publisher<roscco_msg::msg::WheelSpeeds>(
-    "/oscc_interfacing/wheel_speeds",
-    rclcpp::QoS(1));
+  wheel_speeds_pub_ =
+    this->create_publisher<roscco_msg::msg::WheelSpeeds>("/oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
 
-  steering_wheel_angle_pub_ = this->create_publisher<std_msgs::msg::Float32>(
-    "/oscc_interfacing/steering_wheel_angle",
-    rclcpp::QoS(1));
+  steering_wheel_angle_pub_ =
+    this->create_publisher<std_msgs::msg::Float32>("/oscc_interfacing/steering_wheel_angle", rclcpp::QoS(1));
 
   // Create arm service
   arm_service_ = this->create_service<std_srvs::srv::SetBool>(
@@ -185,16 +170,14 @@ void OsccInterfacingNode::configure()
 
   // Create 100Hz timer for is_armed publication
   std::chrono::milliseconds interval(1000 / is_armed_publish_rate_hz);
-  is_armed_timer_ = this->create_wall_timer(
-    interval,
-    std::bind(&OsccInterfacingNode::is_armed_timer_callback, this));
+  is_armed_timer_ = this->create_wall_timer(interval, std::bind(&OsccInterfacingNode::is_armed_timer_callback, this));
 
   RCLCPP_INFO(
     this->get_logger(),
     "OsccInterfacingNode configured: armed=%d, is_armed_publish_rate=%d Hz",
     is_armed_,
     is_armed_publish_rate_hz);
-  
+
   // we dont use autodetect can
   // if (oscc_init() != OSCC_OK) {
   //   RCLCPP_ERROR(this->get_logger(), "Failed to initialize OSCC library");
@@ -206,32 +189,30 @@ void OsccInterfacingNode::configure()
     RCLCPP_ERROR(this->get_logger(), "Failed to open OSCC communication");
   } else {
     RCLCPP_INFO(this->get_logger(), "OSCC communication opened successfully");
-    if(oscc_subscribe_to_brake_reports(brake_report_callback) != OSCC_OK) {
+    if (oscc_subscribe_to_brake_reports(brake_report_callback) != OSCC_OK) {
       RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to brake reports");
     }
-    if(oscc_subscribe_to_steering_reports(steering_report_callback) != OSCC_OK) {
+    if (oscc_subscribe_to_steering_reports(steering_report_callback) != OSCC_OK) {
       RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to steering reports");
     }
-    if(oscc_subscribe_to_throttle_reports(throttle_report_callback) != OSCC_OK) {
+    if (oscc_subscribe_to_throttle_reports(throttle_report_callback) != OSCC_OK) {
       RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to throttle reports");
     }
-    if(oscc_subscribe_to_fault_reports(fault_report_callback) != OSCC_OK) {
+    if (oscc_subscribe_to_fault_reports(fault_report_callback) != OSCC_OK) {
       RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to fault reports");
     }
-    if(oscc_subscribe_to_obd_messages(obd_callback) != OSCC_OK) {
+    if (oscc_subscribe_to_obd_messages(obd_callback) != OSCC_OK) {
       RCLCPP_ERROR(this->get_logger(), "Failed to subscribe to OBD messages");
     }
   }
-
 }
 
 void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSharedPtr msg)
 {
-
   // if not armed ignore
   {
     std::lock_guard<std::mutex> lock(arm_mutex_);
-    if(!is_armed_) {
+    if (!is_armed_) {
       RCLCPP_WARN(this->get_logger(), "Vehicle not armed, Ignoring roscco message");
       return;
     }
@@ -252,7 +233,7 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   float steering = msg->steering;
 
   // If forward is positive, set throttle; if negative, set brake
-  if(forward >= 0.0) {
+  if (forward >= 0.0) {
     throttle = forward;
     brake = 0.0;
   } else {
@@ -265,7 +246,7 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
    * between throttle and brake
    */
   if (forward > 0.0 && last_forward_ < 0.0) {
-    // Transitioning from brake to throttle 
+    // Transitioning from brake to throttle
     // first reduce brake, then apply throttle
     handle_any_errors(oscc_publish_brake_position(brake));
     handle_any_errors(oscc_publish_throttle_position(throttle));
@@ -289,7 +270,7 @@ void OsccInterfacingNode::arm_service_callback(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
-  if (request->data) { // data is the boolean, true = arm, false = disarm
+  if (request->data) {  // data is the boolean, true = arm, false = disarm
     // Arm the vehicle
     if (oscc_enable() == OSCC_OK) {
       {
@@ -351,7 +332,7 @@ void OsccInterfacingNode::publish_steering_wheel_angle(float angle_degrees)
 
 oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
 {
-  if(result == OSCC_OK) {
+  if (result == OSCC_OK) {
     return OSCC_OK;
   }
   {
@@ -360,7 +341,7 @@ oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
   }
   RCLCPP_ERROR(this->get_logger(), "Error from OSCC API: %d, ATTEMPTING TO DISARM ALL BOARDS", result);
   // Attempt to disarm all boards
-  if(oscc_disable() != OSCC_OK) {
+  if (oscc_disable() != OSCC_OK) {
     RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
     RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
     RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
@@ -370,11 +351,9 @@ oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
   } else {
     RCLCPP_INFO(this->get_logger(), "All boards disarmed successfully after error");
   }
-  return result; // pass error up
+  return result;  // pass error up
 }
 
 }  // namespace oscc_interfacing
-
-
 
 RCLCPP_COMPONENTS_REGISTER_NODE(oscc_interfacing::OsccInterfacingNode)

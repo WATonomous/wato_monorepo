@@ -120,7 +120,7 @@ setPortWrite(bool)
 	It's roughly 30 times faster than digitalWrite in my measurements for this code.
 	(That doesn't mean that the entire code is 30 times faster, but changing a pin value is.)
 
-	In order to use the faster method e.g. on the Arduino Uno, you must use pin 7 on the Uno for the LDAC pin, 
+	In order to use the faster method e.g. on the Arduino Uno, you must use pin 7 on the Uno for the LDAC pin,
 	and pin 10 for the CS pin. Anything else won't work. If these pins are busy doing something else, you can't use this speed-up
 	without modifying the code.
 

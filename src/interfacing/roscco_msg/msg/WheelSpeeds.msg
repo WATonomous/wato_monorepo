@@ -4,7 +4,7 @@ float32 nw
 float32 se
 float32 sw
 
-# 4 separate floats and not an array 
+# 4 separate floats and not an array
 # because you need to model each front wheel
 # differently through ackermann frames in junction
 # with your steering angle to determine odom

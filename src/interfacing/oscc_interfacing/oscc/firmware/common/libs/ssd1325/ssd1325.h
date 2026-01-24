@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /*********************************************************************
 This is a library for our Monochrome OLEDs based on SSD1325 drivers
 
@@ -16,28 +30,32 @@ BSD license, check license.txt for more information
 All text above, and the splash screen must be included in any redistribution
 *********************************************************************/
 
-
 #if ARDUINO >= 100
- #include "Arduino.h"
+  #include "Arduino.h"
 #else
- #include "WProgram.h"
+  #include "WProgram.h"
 #endif
 
 #ifdef __arm__
-#define _BV(b) (1<<(b))
+  #define _BV(b) (1 << (b))
 #endif
 
 #include "gfx.h"
 
 #ifndef gfx_swap
-#define gfx_swap(a, b) { uint8_t t = a; a = b; b = t; }
+  #define gfx_swap(a, b) \
+    {                    \
+      uint8_t t = a;     \
+      a = b;             \
+      b = t;             \
+    }
 #endif
 
 #define BLACK 0
 #define WHITE 1
 
-#define SSD1325_LCDWIDTH                  128
-#define SSD1325_LCDHEIGHT                 64
+#define SSD1325_LCDWIDTH 128
+#define SSD1325_LCDHEIGHT 64
 
 #define SSD1325_SETCOLADDR 0x15
 #define SSD1325_SETROWADDR 0x75
@@ -70,28 +88,32 @@ All text above, and the splash screen must be included in any redistribution
 #define SSD1325_DRAWRECT 0x24
 #define SSD1325_COPY 0x25
 
-class SSD1325 : public GFX {
-    public:
-        SSD1325(int8_t CS) : GFX(128,64), cs(CS) {}
+class SSD1325 : public GFX
+{
+public:
+  SSD1325(int8_t CS)
+  : GFX(128, 64)
+  , cs(CS)
+  {}
 
-        void begin(void);
-        void eraseBuffer(void);
-        void sendBuffer(void);
-        void drawPixel(int16_t x, int16_t y, uint16_t color);
-        bool readButton(void);
-        void enableRedLed(void);
-        void enableYellowLed(void);
-        void enableGreenLed(void);
-        void disableLeds(void);
+  void begin(void);
+  void eraseBuffer(void);
+  void sendBuffer(void);
+  void drawPixel(int16_t x, int16_t y, uint16_t color);
+  bool readButton(void);
+  void enableRedLed(void);
+  void enableYellowLed(void);
+  void enableGreenLed(void);
+  void disableLeds(void);
 
-    private:
-        int8_t cs;
-        uint8_t shift_register_data;
+private:
+  int8_t cs;
+  uint8_t shift_register_data;
 
-        void setDC(uint8_t value);
-        void setRes(uint8_t value);
-        void startSendCommand(void);
-        void stopSendCommand(void);
-        void startSendData(void);
-        void stopSendData(void);
+  void setDC(uint8_t value);
+  void setRes(uint8_t value);
+  void startSendCommand(void);
+  void stopSendCommand(void);
+  void startSendData(void);
+  void stopSendData(void);
 };

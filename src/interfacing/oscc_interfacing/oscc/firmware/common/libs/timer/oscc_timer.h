@@ -1,98 +1,109 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @file oscc_timer.h
  * @brief Timer utilities.
  *
  */
 
-
 #ifndef _OSCC_TIMER_H_
 #define _OSCC_TIMER_H_
-
 
 /*
  * @brief Maximum value that timer1 counter can contain.
  *
  */
-#define TIMER1_SIZE ( 65535 )
+#define TIMER1_SIZE (65535)
 
 /*
  * @brief Necessary bitshifts for a timer1 prescaler of 1.
  *
  */
-#define TIMER1_PRESCALER_1 ( (_BV(CS10)) )
+#define TIMER1_PRESCALER_1 ((_BV(CS10)))
 
 /*
  * @brief Necessary bitshifts for a timer1 prescaler of 8.
  *
  */
-#define TIMER1_PRESCALER_8 ( (_BV(CS11)) )
+#define TIMER1_PRESCALER_8 ((_BV(CS11)))
 
 /*
  * @brief Necessary bitshifts for a timer1 prescaler of 64.
  *
  */
-#define TIMER1_PRESCALER_64 ( (_BV(CS11) | _BV(CS10)) )
+#define TIMER1_PRESCALER_64 ((_BV(CS11) | _BV(CS10)))
 
 /*
  * @brief Necessary bitshifts for a timer1 prescaler of 256.
  *
  */
-#define TIMER1_PRESCALER_256 ( (_BV(CS12)) )
+#define TIMER1_PRESCALER_256 ((_BV(CS12)))
 
 /*
  * @brief Necessary bitshifts for a timer1 prescaler of 1024.
  *
  */
-#define TIMER1_PRESCALER_1024 ( (_BV(CS12) | _BV(CS10)) )
+#define TIMER1_PRESCALER_1024 ((_BV(CS12) | _BV(CS10)))
 
 /*
  * @brief Maximum value that timer2 counter can contain.
  *
  */
-#define TIMER2_SIZE ( 255 )
+#define TIMER2_SIZE (255)
 
 /*
  * @brief Necessary bitshifts for a timer2 prescaler of 1.
  *
  */
-#define TIMER2_PRESCALER_1 ( (_BV(CS20)) )
+#define TIMER2_PRESCALER_1 ((_BV(CS20)))
 
 /*
  * @brief Necessary bitshifts for a timer2 prescaler of 8.
  *
  */
-#define TIMER2_PRESCALER_8 ( (_BV(CS21)) )
+#define TIMER2_PRESCALER_8 ((_BV(CS21)))
 
 /*
  * @brief Necessary bitshifts for a timer2 prescaler of 32.
  *
  */
-#define TIMER2_PRESCALER_32 ( (_BV(CS21) | _BV(CS20)) )
+#define TIMER2_PRESCALER_32 ((_BV(CS21) | _BV(CS20)))
 
 /*
  * @brief Necessary bitshifts for a timer2 prescaler of 64.
  *
  */
-#define TIMER2_PRESCALER_64 ( (_BV(CS22)) )
+#define TIMER2_PRESCALER_64 ((_BV(CS22)))
 
 /*
  * @brief Necessary bitshifts for a timer2 prescaler of 128.
  *
  */
-#define TIMER2_PRESCALER_128 ( (_BV(CS22) | _BV(CS20)) )
+#define TIMER2_PRESCALER_128 ((_BV(CS22) | _BV(CS20)))
 
 /*
  * @brief Necessary bitshifts for a timer2 prescaler of 256.
  *
  */
-#define TIMER2_PRESCALER_256 ( (_BV(CS22) | _BV(CS21)) )
+#define TIMER2_PRESCALER_256 ((_BV(CS22) | _BV(CS21)))
 
 /*
  * @brief Necessary bitshifts for a timer2 prescaler of 1024.
  *
  */
-#define TIMER2_PRESCALER_1024 ( (_BV(CS22) | _BV(CS21) | _BV(CS20)) )
-
+#define TIMER2_PRESCALER_1024 ((_BV(CS22) | _BV(CS21) | _BV(CS20)))
 
 // ****************************************************************************
 // Function:    timer1_init
@@ -109,9 +120,7 @@
 //                         interrupt
 //
 // ****************************************************************************
-void timer1_init(
-    float frequency,
-    void (*isr)(void) );
+void timer1_init(float frequency, void (*isr)(void));
 
 #ifndef __AVR_ATmega32U4__
 // ****************************************************************************
@@ -129,10 +138,7 @@ void timer1_init(
 //                         interrupt
 //
 // ****************************************************************************
-void timer2_init(
-    float frequency,
-    void (*isr)(void) );
+void timer2_init(float frequency, void (*isr)(void));
 #endif
-
 
 #endif /* _OSCC_TIMER_H_ */

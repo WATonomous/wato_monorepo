@@ -17,12 +17,10 @@ module using the screw terminals and verify the blink tutorial runs.
 
 4. Upload the test firmware to Arduino and connect the test harness. Run
 the interactive tests which test:
-  - Power
-  - DAC
-  - Signal interrupt switch relay
-  - CAN send/receive
-
-
+- Power
+- DAC
+- Signal interrupt switch relay
+- CAN send/receive
 
 ## Installation Testing
 These tests are to be run while the Steering Control module is connected
@@ -32,17 +30,17 @@ the ground so that the wheels can turn freely.
 1. Install the Steering Control module into the vehicle.
 
 2. Initiate the in-vehicle test routine to test:
- - Power
- - Signal interrupt switching
- - Steering spoofing
- - Steering sensing
+- Power
+- Signal interrupt switching
+- Steering spoofing
+- Steering sensing
 
-3. Upload the Steering Control firmware.
+1. Upload the Steering Control firmware.
 
-4. Using a laptop, command the vehicle to steer. Turn the steering wheel and ensure
+2. Using a laptop, command the vehicle to steer. Turn the steering wheel and ensure
 that the steering module disables control.
 
-5. While the control modules is steering the vehicle, press the emergency stop button and
+3. While the control modules is steering the vehicle, press the emergency stop button and
 check that normal steering is possible.
 
 ## Integration Testing
