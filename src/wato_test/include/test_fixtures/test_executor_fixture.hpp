@@ -93,4 +93,61 @@ protected:
   std::vector<std::shared_ptr<rclcpp_lifecycle::LifecycleNode>> lifecycle_nodes_;
 };
 
+/**
+ * @brief Multi-threaded Test Executor Fixture
+ *
+ * Catch2 test fixture that manages a multi-threaded executor for spinning
+ * multiple test nodes. Use this when tests involve service calls between
+ * nodes that would deadlock on a single-threaded executor.
+ */
+class MultiThreadedTestFixture : private ROS2Initializer
+{
+public:
+  /**
+   * @brief Constructor - initializes ROS and creates multi-threaded executor
+   */
+  MultiThreadedTestFixture();
+
+  /**
+   * @brief Destructor - stops executor and shuts down ROS
+   */
+  ~MultiThreadedTestFixture();
+
+  /**
+   * @brief Start spinning the executor in a background thread
+   * Call this after adding all nodes to the executor
+   */
+  void start_spinning();
+
+  /**
+   * @brief Add a templated test node to be spun by this executor
+   *
+   * @tparam T The test node type (must inherit from rclcpp::Node or rclcpp_lifecycle::LifecycleNode)
+   * @param node The test node to add
+   */
+  template <typename T>
+  void add_node(std::shared_ptr<T> node)
+  {
+    static_assert(
+      std::is_base_of_v<rclcpp::Node, T> || std::is_base_of_v<rclcpp_lifecycle::LifecycleNode, T>,
+      "T must inherit from rclcpp::Node or rclcpp_lifecycle::LifecycleNode");
+
+    executor_.add_node(node->get_node_base_interface());
+
+    // Keep nodes alive to prevent destruction from CATCH2 while executor is running
+    nodes_.push_back(node->get_node_base_interface());
+
+    // Track lifecycle nodes for cleanup
+    if constexpr (std::is_base_of_v<rclcpp_lifecycle::LifecycleNode, T>) {
+      lifecycle_nodes_.push_back(std::static_pointer_cast<rclcpp_lifecycle::LifecycleNode>(node));
+    }
+  }
+
+protected:
+  rclcpp::executors::MultiThreadedExecutor executor_;
+  std::thread spin_thread_;
+  std::vector<rclcpp::node_interfaces::NodeBaseInterface::SharedPtr> nodes_;
+  std::vector<std::shared_ptr<rclcpp_lifecycle::LifecycleNode>> lifecycle_nodes_;
+};
+
 }  // namespace wato::test

@@ -1,0 +1,32 @@
+# GetRoute.srv
+# Get route lanelets within a distance from current ego position.
+#
+# Requires SetRoute to be called first to establish the destination
+# and cache the full route. Returns the next N meters along that
+# cached route from the ego's current position.
+
+# Distance along route from current position (meters)
+float64 distance_m
+
+---
+# Transition types between successive lanelets
+uint8 TRANSITION_SUCCESSOR=0  # Following (collinear, no lane change)
+uint8 TRANSITION_LEFT=1       # Lane change to the left
+uint8 TRANSITION_RIGHT=2      # Lane change to the right
+
+bool success
+
+# Error description if success is false
+# Values: "no_active_route", "map_not_loaded", "tf_lookup_failed", "ego_not_on_route"
+string error_message
+
+# Distance remaining to goal (meters)
+float64 remaining_length_m
+
+# Lanelets along the route within requested distance (in traversal order)
+Lanelet[] lanelets
+
+# Transition type between each pair of successive lanelets.
+# Length is lanelets.size() - 1 (empty if path has 0 or 1 lanelets).
+# transitions[i] describes how to get from lanelets[i] to lanelets[i+1].
+uint8[] transitions

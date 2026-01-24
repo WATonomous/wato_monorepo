@@ -234,7 +234,15 @@ if [[ "$SHOW_STATUS_PANEL" == "true" ]]; then
   echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
   printf "${BLUE}║${RESET}  ${GREEN}Foxglove:${RESET}    ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${foxglove_url}"
   printf "${BLUE}║${RESET}  ${GREEN}Log Viewer:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${log_viewer_url}"
-  if [[ "${PYGAME_HUD_ENABLED:-}" == "true" ]]; then
+  # Only show pygame HUD if enabled AND simulation is running
+  simulation_running=false
+  for container in "${containers[@]}"; do
+    if [[ "$container" == *"simulation"* || "$container" == *"carla"* ]]; then
+      simulation_running=true
+      break
+    fi
+  done
+  if [[ "${PYGAME_HUD_ENABLED:-}" == "true" && "$simulation_running" == "true" ]]; then
     printf "${BLUE}║${RESET}  ${GREEN}Pygame HUD:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${pygame_hud_url}"
   fi
   echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"

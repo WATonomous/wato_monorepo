@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>wato_lifecycle_manager</name>
+  <version>0.1.0</version>
+  <description>Lifecycle manager for orchestrating ROS2 lifecycle nodes</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>bondcpp</depend>
+
+  <test_depend>wato_test</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

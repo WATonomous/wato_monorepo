@@ -29,6 +29,12 @@
 namespace joystick_node
 {
 
+/**
+ * @brief Converts joystick input to Ackermann drive commands.
+ *
+ * Subscribes to raw joystick data and publishes AckermannDriveStamped
+ * commands. Includes safety gating via enable axis and idle state tracking.
+ */
 class JoystickNode : public rclcpp::Node
 {
 public:
