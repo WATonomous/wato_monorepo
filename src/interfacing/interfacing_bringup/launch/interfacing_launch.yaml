@@ -57,3 +57,7 @@ launch:
   # ackerman_mux Node
   - include:
       file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
+
+  # OSCC interfacing Node
+  - include:
+      file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
