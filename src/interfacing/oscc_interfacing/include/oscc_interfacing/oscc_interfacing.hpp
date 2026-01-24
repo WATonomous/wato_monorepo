@@ -92,6 +92,13 @@ private:
    */
   void publish_steering_wheel_angle(float angle_degrees);
 
+  /**
+   * @brief Handles fatal errors from OSCC API calls
+   * Attempts to disarm all boards
+   */
+  void handle_any_errors(oscc_result_t result);
+
+
   // ROS Interfaces
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
@@ -105,6 +112,10 @@ private:
   // Status tracking
   bool is_armed_{false};
   int is_armed_publish_rate_hz;
+  int oscc_can_bus_;
+
+  float last_forward_{0.0};
+  float last_message_time_{0.0};
 
 };
 

@@ -32,10 +32,12 @@ void OsccInterfacingNode::configure()
 {
   // Declare parameters
   this->declare_parameter<int>("is_armed_publish_rate_hz", 100);
+  this->declare_parameter<int>("oscc_can_bus", 0);
 
   // Read parameters
   is_armed_ = false;
   is_armed_publish_rate_hz = this->get_parameter("is_armed_publish_rate_hz").as_int();
+  oscc_can_bus_ = this->get_parameter("oscc_can_bus").as_int();
 
   // Create subscription to /joystick/roscco
   roscco_sub_ = this->create_subscription<roscco_msg::msg::Roscco>(
@@ -72,25 +74,111 @@ void OsccInterfacingNode::configure()
     "OsccInterfacingNode configured: armed=, is_armed_publish_rate=%d Hz",
     is_armed_,
     is_armed_publish_rate_hz);
+  
+  if (oscc_init() != OSCC_OK) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to initialize OSCC library");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "OSCC library initialized successfully");
+  }
+
+  if (oscc_open(0) != OSCC_OK) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to open OSCC communication");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "OSCC communication opened successfully");
+  }
+
 }
 
 void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSharedPtr msg)
 {
-  // TODO: Process joystick input and publish wheel speeds/steering angle
+
+  // if not armed ignore
+  if(!is_armed_) {
+    RCLCPP_WARN(this->get_logger(), "Vehicle not armed, Ignoring roscco message");
+    return;
+  }
+
+  // Check if at least 40ms has passed since last message
+  // To not overload CAN (targeting 20HZ, 50-40=10ms leeway)
+  auto now = rclcpp::Clock().now();
+  if ((now - last_message_time_).nanoseconds() < 40000000) {  // 40ms in nanoseconds
+    RCLCPP_WARN(this->get_logger(), "Message too soon, Ignoring roscco message to avoid CAN overload");
+    return;
+  }
+  last_message_time_ = now;
+
+  float brake = 0.0;
+  float throttle = 0.0;
+  float forward = msg->forward;
+  float steering = msg->steering;
+
+  // If forward is positive, set throttle; if negative, set brake
+  if(forward >= 0.0) {
+    throttle = forward;
+    brake = 0.0;
+  } else {
+    throttle = 0.0;
+    brake = -forward;
+  }
+
+  /**
+   * @brief Check against past values for a smooth transition order
+   * between throttle and brake
+   */
+  if (forward > 0.0 && last_forward_ < 0.0) {
+    // Transitioning from brake to throttle 
+    // first reduce brake, then apply throttle
+    handle_any_errors(oscc_publish_brake_pressure(brake));
+    handle_any_errors(oscc_publish_throttle_position(throttle));
+
+  } else {
+    // Transitioning from throttle to brake
+    // first reduce throttle, then apply brake
+
+    // Also handles base case of no transition
+    handle_any_errors(oscc_publish_throttle_position(throttle));
+    handle_any_errors(oscc_publish_brake_pressure(brake));
+  }
+
+  last_forward_ = forward;
 }
 
 void OsccInterfacingNode::arm_service_callback(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
-  // TODO: Handle arm/disarm request (request->data = true/false)
-  // TODO: Set is_armed_ accordingly
-  // TODO: Fill response with success and message
+  if (request->data) { // data is the boolean, true = arm, false = disarm
+    // Arm the vehicle
+    if (oscc_enable() == OSCC_OK) {
+      is_armed_ = true;
+      response->success = true;
+      response->message = "Vehicle armed successfully";
+      RCLCPP_INFO(get_logger(), "Vehicle armed");
+    } else {
+      response->success = false;
+      response->message = "Failed to arm vehicle";
+      RCLCPP_ERROR(get_logger(), "Failed to arm vehicle");
+    }
+  } else {
+    // Disarm the vehicle
+    if (oscc_disable() == OSCC_OK) {
+      is_armed_ = false;
+      response->success = true;
+      response->message = "Vehicle disarmed successfully";
+      RCLCPP_INFO(get_logger(), "Vehicle disarmed");
+    } else {
+      response->success = false;
+      response->message = "Failed to disarm vehicle";
+      RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
 }
 
 void OsccInterfacingNode::is_armed_timer_callback()
 {
-  // TODO: Publish is_armed_ status
+  std_msgs::msg::Bool msg;
+  msg.data = is_armed_;
+  is_armed_pub_->publish(msg);
 }
 
 void OsccInterfacingNode::publish_wheel_speeds(const std::vector<float> & speeds)
@@ -101,6 +189,27 @@ void OsccInterfacingNode::publish_wheel_speeds(const std::vector<float> & speeds
 void OsccInterfacingNode::publish_steering_wheel_angle(float angle_degrees)
 {
   // TODO: Create and publish steering wheel angle message
+}
+
+oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
+{
+  if(result == OSCC_OK) {
+    return OSCC_OK;
+  }
+  is_armed_ = false;
+  RCLCPP_ERROR(this->get_logger(), "Error from OSCC API: %d, ATTEMPTING TO DISARM ALL BOARDS", result);
+  // Attempt to disarm all boards
+  if(oscc_disable() != OSCC_OK) {
+    RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
+    RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
+    RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
+    RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
+    RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
+    RCLCPP_FATAL(this->get_logger(), "!! FAILED TO DISARM ALL BOARDS, MANUAL INTERVENTION REQUIRED !!");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "All boards disarmed successfully after error");
+  }
+  return result; // pass error up
 }
 
 }  // namespace oscc_interfacing
