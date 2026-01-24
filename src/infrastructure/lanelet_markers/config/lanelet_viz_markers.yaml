@@ -1,0 +1,24 @@
+map_viz_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    show_centerlines: true
+    show_stop_lines: true
+    show_traffic_lights: true
+    show_direction_arrows: true
+    show_speed_limits: false
+    show_yield_markers: true
+    use_boundary_colors: true
+    boundary_line_width: 0.15
+    centerline_line_width: 0.05
+    stop_line_width: 0.3
+    traffic_light_radius: 0.5
+    direction_arrow_spacing: 15.0
+    direction_arrow_size: 0.8
+    speed_limit_text_height: 1.0
+    yield_marker_size: 1.5
+
+lane_context_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    boundary_line_width: 0.25
+    centerline_line_width: 0.1

@@ -1,0 +1,244 @@
+{
+  "configById": {
+    "CallService!25pwqml": {
+      "requestPayload": "{\n  \"data\": true\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/carla_teleop/set_autonomy"
+    },
+    "CallService!3k192jd": {
+      "requestPayload": "{\n  \"scenario_name\": \"carla_scenarios.scenarios.default_scenario\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 20,
+      "serviceName": "/scenario_server/switch_scenario"
+    },
+    "CallService!trma13": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/scenario_server/get_available_scenarios"
+    },
+    "3D!30zmknt": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 72.10076346704196,
+        "phi": 56.95454414344024,
+        "thetaOffset": -118.47617525504222,
+        "targetOffset": [
+          -3.748259751174079,
+          -3.2605907432247356,
+          -0.004221776912882451
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "enableStats": false,
+        "transforms": {
+          "labelSize": 0.04
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/velodyne_points": {
+          "visible": false,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "rainbow"
+        },
+        "/robot_description": {
+          "visible": false
+        },
+        "/lidar_top/velodyne_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_top/scan": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_left/velodyne_points": {
+          "visible": false,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_NW/velodyne_points": {
+          "visible": true
+        },
+        "/lidar_CC/velodyne_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_NE/velodyne_points": {
+          "visible": true
+        },
+        "/lidar_ne/velodyne_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "flatColor": "#e3ed80ff",
+          "pointSize": 1.8
+        },
+        "/lidar_nw/velodyne_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 1.8
+        },
+        "/lidar_cc/velodyne_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "flatColor": "#ed808fff"
+        },
+        "/hd_route_map": {
+          "visible": true
+        },
+        "/hd_map_viz": {
+          "visible": true
+        },
+        "/hd_map_start_lanelet": {
+          "visible": true
+        },
+        "/hd_map_end_lanelet": {
+          "visible": true
+        },
+        "/hd_map_desired_lane": {
+          "visible": true
+        },
+        "/hd_map_current_lane": {
+          "visible": true
+        },
+        "/camera_publisher/camera_info": {
+          "visible": false
+        },
+        "/camera_publisher/image_raw": {
+          "visible": true,
+          "frameLocked": true,
+          "cameraInfoTopic": "/camera_publisher/camera_info",
+          "distance": 1,
+          "planarProjectionFactor": 0,
+          "color": "#ffffff"
+        },
+        "/lidar_publisher/top_lidar/points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "decayTime": 0
+        },
+        "/carla/bbox_markers": {
+          "visible": true
+        },
+        "/camera_pano_ss/image_rect": {
+          "visible": false,
+          "frameLocked": true,
+          "cameraInfoTopic": "/camera_pano_ss/camera_info",
+          "distance": 1,
+          "planarProjectionFactor": 0,
+          "color": "#ffffff"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "06c1c74f-ecd4-4a93-bb3c-91295451c7c2",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "b278370c-35a1-4d82-ab6a-028ce85869b1": {
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": true,
+          "opacity": 0.77,
+          "visible": true,
+          "frameLocked": true,
+          "instanceId": "b278370c-35a1-4d82-ab6a-028ce85869b1",
+          "label": "URDF",
+          "layerId": "foxglove.Urdf",
+          "sourceType": "topic",
+          "url": "",
+          "filePath":
+            "/home/eddy/code/watonomous/wato_monorepo/src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro",
+          "parameter": "",
+          "topic": "/robot_description_viz",
+          "framePrefix": "",
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "base_link"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": {
+      "first": "CallService!25pwqml",
+      "second": {
+        "first": "CallService!3k192jd",
+        "second": "CallService!trma13",
+        "direction": "column",
+        "splitPercentage": 41.80064308681671
+      },
+      "direction": "column",
+      "splitPercentage": 31.346578366445915
+    },
+    "second": "3D!30zmknt",
+    "splitPercentage": 24.42515738646782
+  }
+}

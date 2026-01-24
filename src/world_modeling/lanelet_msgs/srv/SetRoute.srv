@@ -1,0 +1,21 @@
+# SetRoute.srv
+# Set a route destination and resolve lanelet IDs.
+#
+# Gets ego position from TF, finds nearest lanelet to ego and goal point,
+# computes and caches the full route for use by GetRoute.
+
+geometry_msgs/Point goal_point
+
+---
+bool success
+
+# Error description if success is false
+# Values: "map_not_loaded", "ego_lanelet_not_found", "goal_lanelet_not_found",
+#         "no_route_exists", "tf_lookup_failed"
+string error_message
+
+# Lanelet ID where ego is currently located
+int64 current_lanelet_id
+
+# Lanelet ID where the goal point is located
+int64 goal_lanelet_id
