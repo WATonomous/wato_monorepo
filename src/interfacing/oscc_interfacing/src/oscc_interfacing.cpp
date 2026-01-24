@@ -21,6 +21,100 @@
 namespace oscc_interfacing
 {
 
+// Static pointer to the node instance for free function callbacks
+static OsccInterfacingNode* g_node_instance = nullptr;
+
+// Free function callbacks for OSCC library
+void brake_report_callback(oscc_brake_report_s *report)
+{
+  if (report->operator_override && g_node_instance)
+  {
+    RCLCPP_INFO(g_node_instance->get_logger(), "Brake Operator Override");
+    if (oscc_disable() == OSCC_OK) {
+      g_node_instance->is_armed_ = false;
+      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
+}
+
+void throttle_report_callback(oscc_throttle_report_s *report)
+{
+  if (report->operator_override && g_node_instance)
+  {
+    RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Operator Override");
+    if (oscc_disable() == OSCC_OK) {
+      g_node_instance->is_armed_ = false;
+      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
+}
+
+void steering_report_callback(oscc_steering_report_s *report)
+{
+  if (report->operator_override && g_node_instance)
+  {
+    RCLCPP_INFO(g_node_instance->get_logger(), "Steering Operator Override");
+    if (oscc_disable() == OSCC_OK) {
+      g_node_instance->is_armed_ = false;
+      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
+}
+
+void obd_callback(struct can_frame *frame)
+{
+  if (!g_node_instance) {
+    return;
+  }
+  // this only passes if it is indeed a wheel speed msg
+  double SE;
+  if(get_wheel_speed_right_rear(frame, &data) == OSCC_OK){ 
+    double NE;
+    double NW;
+    double SW;
+    get_wheel_speed_left_front(frame, &NW);
+    get_wheel_speed_left_rear(frame, &SW);
+    get_wheel_speed_right_front(frame, &NE);
+    g_node_instance->publish_wheel_speed(static_cast<float>(NE), 
+    static_cast<float>(NW), static_cast<float>(data), static_cast<float>(SW));
+  } 
+  else if(get_steering_wheel_angle(frame, &SE) == OSCC_OK){
+    g_node_instance->publish_steering_wheel_angle(static_cast<float>(SE));
+  }
+}
+
+void fault_report_callback(oscc_fault_report_s *report)
+{
+  if (g_node_instance)
+  {
+    if ( report->fault_origin_id == FAULT_ORIGIN_BRAKE )
+    {
+        RCLCPP_INFO(g_node_instance->get_logger(), "Brake Fault");
+    }
+    else if ( report->fault_origin_id == FAULT_ORIGIN_STEERING )
+    {
+        RCLCPP_INFO(g_node_instance->get_logger(), "Steering Fault");
+    }
+    else if ( report->fault_origin_id == FAULT_ORIGIN_THROTTLE )
+    {
+        RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Fault");
+    }
+
+    if (oscc_disable() == OSCC_OK) {
+      g_node_instance->is_armed_ = false;
+      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
+}
+
 OsccInterfacingNode::OsccInterfacingNode(const rclcpp::NodeOptions & options)
 : Node("oscc_interfacing_node", options)
 {
@@ -30,6 +124,9 @@ OsccInterfacingNode::OsccInterfacingNode(const rclcpp::NodeOptions & options)
 
 void OsccInterfacingNode::configure()
 {
+  // Set static pointer for free function callbacks
+  g_node_instance = this;
+
   // Declare parameters
   this->declare_parameter<int>("is_armed_publish_rate_hz", 100);
   this->declare_parameter<int>("oscc_can_bus", 0);
@@ -75,17 +172,23 @@ void OsccInterfacingNode::configure()
     is_armed_,
     is_armed_publish_rate_hz);
   
-  if (oscc_init() != OSCC_OK) {
-    RCLCPP_ERROR(this->get_logger(), "Failed to initialize OSCC library");
-  } else {
-    RCLCPP_INFO(this->get_logger(), "OSCC library initialized successfully");
-  }
+  // we dont use autodetect can
+  // if (oscc_init() != OSCC_OK) {
+  //   RCLCPP_ERROR(this->get_logger(), "Failed to initialize OSCC library");
+  // } else {
+  //   RCLCPP_INFO(this->get_logger(), "OSCC library initialized successfully");
+  // }
 
-  if (oscc_open(0) != OSCC_OK) {
+  if (oscc_open(oscc_can_bus_) != OSCC_OK) {
     RCLCPP_ERROR(this->get_logger(), "Failed to open OSCC communication");
   } else {
     RCLCPP_INFO(this->get_logger(), "OSCC communication opened successfully");
   }
+  oscc_subscribe_to_brake_reports(brake_report_callback);
+  oscc_subscribe_to_steering_reports(steering_report_callback);
+  oscc_subscribe_to_throttle_reports(throttle_report_callback);
+  oscc_subscribe_to_fault_reports(fault_report_callback);
+  oscc_subscribe_to_obd_messages(obd_callback);
 
 }
 
@@ -181,14 +284,21 @@ void OsccInterfacingNode::is_armed_timer_callback()
   is_armed_pub_->publish(msg);
 }
 
-void OsccInterfacingNode::publish_wheel_speeds(const std::vector<float> & speeds)
+void OsccInterfacingNode::publish_wheel_speed(float NE, float NW, float SE, float SW)
 {
-  // TODO: Create and publish wheel speeds message
+  roscco_msg::msg::WheelSpeeds msg;
+  msg.NE = NE;
+  msg.NW = NW;
+  msg.SE = SE;
+  msg.SW = SW;
+  wheel_speeds_pub_->publish(msg);
 }
 
 void OsccInterfacingNode::publish_steering_wheel_angle(float angle_degrees)
 {
-  // TODO: Create and publish steering wheel angle message
+  std_msgs::msg::Float32 msg;
+  msg.data = angle_degrees;
+  steering_wheel_angle_pub_->publish(msg);
 }
 
 oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
@@ -213,5 +323,7 @@ oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
 }
 
 }  // namespace oscc_interfacing
+
+
 
 RCLCPP_COMPONENTS_REGISTER_NODE(oscc_interfacing::OsccInterfacingNode)

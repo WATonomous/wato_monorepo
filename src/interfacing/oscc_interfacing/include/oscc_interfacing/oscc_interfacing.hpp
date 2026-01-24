@@ -98,7 +98,6 @@ private:
    */
   void handle_any_errors(oscc_result_t result);
 
-
   // ROS Interfaces
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
