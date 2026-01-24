@@ -2,7 +2,7 @@ launch:
   # Arguments ( no config yet not needed)
   # - arg:
   #     name: "config_file"
-  #     default: "$(find-pkg-share joystick_interfacing)/config/joy_config.yaml"
+  #     default: "$(find-pkg-share oscc_interfacing)/config/oscc_interfacing_config.yaml"
   #     description: "Path to the joystick configuration file"
 
   # Oscc node 
