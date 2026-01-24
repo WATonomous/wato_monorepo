@@ -5,7 +5,7 @@ launch:
   #     default: "$(find-pkg-share oscc_interfacing)/config/oscc_interfacing_config.yaml"
   #     description: "Path to the joystick configuration file"
 
-  # Oscc node 
+  # Oscc node
   - node:
       pkg: "oscc_interfacing"
       exec: "oscc_interfacing_node"

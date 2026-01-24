@@ -1,10 +1,23 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef CONSTRAINT_SYNTAX_HELPERS_HEADER
 #define CONSTRAINT_SYNTAX_HELPERS_HEADER
 
-
 #include <cgreen/constraint.h>
 #ifdef __cplusplus
-#include <cgreen/cpp_constraint.h>
+  #include <cgreen/cpp_constraint.h>
 #endif
 #include <stdint.h>
 
@@ -22,8 +35,10 @@
 #define is_greater_than(value) create_greater_than_value_constraint((intptr_t)value, #value)
 #define is_less_than(value) create_less_than_value_constraint((intptr_t)value, #value)
 
-#define is_equal_to_contents_of(pointer, size_of_contents) create_equal_to_contents_constraint((void *)pointer, size_of_contents, #pointer)
-#define is_not_equal_to_contents_of(pointer, size_of_contents) create_not_equal_to_contents_constraint((void *)pointer, size_of_contents, #pointer)
+#define is_equal_to_contents_of(pointer, size_of_contents) \
+  create_equal_to_contents_constraint((void *)pointer, size_of_contents, #pointer)
+#define is_not_equal_to_contents_of(pointer, size_of_contents) \
+  create_not_equal_to_contents_constraint((void *)pointer, size_of_contents, #pointer)
 
 #define is_equal_to_string(value) create_equal_to_string_constraint(value, #value)
 #define is_not_equal_to_string(value) create_not_equal_to_string_constraint(value, #value)
@@ -40,33 +55,33 @@
 #define is_less_than_double(value) create_less_than_double_constraint(value, #value)
 #define is_greater_than_double(value) create_greater_than_double_constraint(value, #value)
 
-
 #define will_return(value) create_return_value_constraint((intptr_t)value)
 #define will_return_double(value) create_return_double_value_constraint(value)
-#define will_set_contents_of_parameter(parameter_name, value, size) create_set_parameter_value_constraint(#parameter_name, (intptr_t)value, (size_t)size)
-
+#define will_set_contents_of_parameter(parameter_name, value, size) \
+  create_set_parameter_value_constraint(#parameter_name, (intptr_t)value, (size_t)size)
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-/* these constraints don't take arguments, and we don't want to force
+  /* these constraints don't take arguments, and we don't want to force
  * users to put "()" on the end of every usage.  we also want to avoid
  * macros when practical, for the namespacing and confusing symbol
  * collision issues, so we use singleton instances.
  */
-extern Constraint static_non_null_constraint;
-extern Constraint *is_non_null;
+  extern Constraint static_non_null_constraint;
+  extern Constraint * is_non_null;
 #define is_not_null (is_non_null)
 
-extern Constraint static_null_constraint;
-extern Constraint *is_null;
+  extern Constraint static_null_constraint;
+  extern Constraint * is_null;
 
-extern Constraint static_false_constraint;
-extern Constraint *is_false;
+  extern Constraint static_false_constraint;
+  extern Constraint * is_false;
 
-extern Constraint static_true_constraint;
-extern Constraint *is_true;
+  extern Constraint static_true_constraint;
+  extern Constraint * is_true;
 
 #ifdef __cplusplus
 }

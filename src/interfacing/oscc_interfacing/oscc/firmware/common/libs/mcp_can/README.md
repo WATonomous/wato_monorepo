@@ -2,8 +2,6 @@ CAN BUS Shield
 ---------------------------------------------------------
 [![CAN BUS Shield](https://github.com/SeeedDocument/CAN_BUS_Shield/blob/master/image/Can_bus_shield_all.jpg?raw=true)](http://www.seeedstudio.com/depot/CANBUS-Shield-p-2256.html?cPath=19_88)
 
-
-
 <br>
 CAN-BUS is a common industrial bus because of its long travel distance, medium communication speed and high reliability. It is commonly found on modern machine tools and as an automotive diagnostic bus. This CAN-BUS Shield adopts MCP2515 CAN Bus controller with SPI interface and MCP2551 CAN transceiver to give your Arduino/Seeeduino CAN-BUS capability. With an OBD-II converter cable added on and the OBD-II library imported, you are ready to build an onboard diagnostic device or data logger.
 
@@ -14,26 +12,20 @@ CAN-BUS is a common industrial bus because of its long travel distance, medium c
 - Industrial standard 9 pin sub-D connector
 - Two LED indicators
 
-
-
 <br>
 # Installation:
 
-	git clone https://github.com/Seeed-Studio/CAN_BUS_Shield.git
+    git clone https://github.com/Seeed-Studio/CAN_BUS_Shield.git
 
 or download the zip.
 
 <br>
 # Usage:
 
-
-
 Simply copy the CAN_BUS_Shield folder to your Arduino library collection.  For example,
 arduino-1.6.12/libraries.  Next time you run the Arduino IDE, you'll have a new option
-in Sketch -> Include Library -> CAN_BUS_Shield.  Review the included examples in 
+in Sketch -> Include Library -> CAN_BUS_Shield.  Review the included examples in
 CAN_BUS_Shield/examples.
-
-
 
 ## 1. Set the BaudRate
 
@@ -41,25 +33,24 @@ This function is used to initialize the baudrate of the CAN Bus system.
 
 The available baudrates are listed as follows:
 
-	#define CAN_5KBPS    1
-	#define CAN_10KBPS   2
-	#define CAN_20KBPS   3
-	#define CAN_25KBPS   4 
-	#define CAN_31K25BPS 5
-	#define CAN_33KBPS   6
-	#define CAN_40KBPS   7
-	#define CAN_50KBPS   8
-	#define CAN_80KBPS   9
-	#define CAN_83K3BPS  10
-	#define CAN_95KBPS   11
-	#define CAN_100KBPS  12
-	#define CAN_125KBPS  13
-	#define CAN_200KBPS  14
-	#define CAN_250KBPS  15
-	#define CAN_500KBPS  16
-	#define CAN_666kbps  17
-	#define CAN_1000KBPS 18
-
+    #define CAN_5KBPS    1
+    #define CAN_10KBPS   2
+    #define CAN_20KBPS   3
+    #define CAN_25KBPS   4
+    #define CAN_31K25BPS 5
+    #define CAN_33KBPS   6
+    #define CAN_40KBPS   7
+    #define CAN_50KBPS   8
+    #define CAN_80KBPS   9
+    #define CAN_83K3BPS  10
+    #define CAN_95KBPS   11
+    #define CAN_100KBPS  12
+    #define CAN_125KBPS  13
+    #define CAN_200KBPS  14
+    #define CAN_250KBPS  15
+    #define CAN_500KBPS  16
+    #define CAN_666kbps  17
+    #define CAN_1000KBPS 18
 
 <br>
 
@@ -78,8 +69,6 @@ We provide two functions for you to utilize these mask and filter registers. The
 
 **ulData** represents the content of the mask of filter.
 
-
-
 <br>
 ## 3. Check Receive
 The MCP2515 can operate in either a polled mode, where the software checks for a received frame, or using additional pins to signal that a frame has been received or transmit completed.  Use the following function to poll for received frames.
@@ -88,16 +77,12 @@ The MCP2515 can operate in either a polled mode, where the software checks for a
 
 The function will return 1 if a frame arrives, and 0 if nothing arrives.
 
-
-
 <br>
 ## 4. Get CAN ID
 
 When some data arrives, you can use the following function to get the CAN ID of the "send" node.
 
     INT32U MCP_CAN::getCanId(void);
-
-
 
 <br>
 ## 5. Send Data
@@ -116,13 +101,11 @@ This is a function to send data onto the bus. In which:
 
 For example, In the 'send' example, we have:
 
-<pre>  
+<pre>
 unsigned char stmp[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 
 CAN.sendMsgBuf(0x00, 0, 8, stmp); //send out the message 'stmp' to the bus and tell other devices this is a standard frame from 0x00.
 </pre>
-
-
 
 <br>
 ## 6. Receive Data
@@ -147,11 +130,9 @@ When frame is received you may check whether it was remote request and whether i
 
 **return value** is '0' for a negative response and '1' for a positive
 
-
 <br>
 For more information, please refer to [wiki page](http://www.seeedstudio.com/wiki/CAN-BUS_Shield).
 
-    
 ----
 
 This software is written by loovee ([luweicong@seeed.cc](luweicong@seeed.cc "luweicong@seeed.cc")) for seeed studio<br>
@@ -167,13 +148,7 @@ Benefiting from local manufacture power and convenient global logistic system, <
 we integrate resources to serve new era of innovation. Seeed also works with <br>
 global distributors and partners to push open hardware movement.<br>
 
-
-
-
-
-
 [![Analytics](https://ga-beacon.appspot.com/UA-46589105-3/CAN_BUS_Shield)](https://github.com/igrigorik/ga-beacon)
-
 
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){

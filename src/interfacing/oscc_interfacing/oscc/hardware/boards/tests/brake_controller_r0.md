@@ -17,13 +17,11 @@ module using the screw terminals and verify the blink tutorial runs.
 
 4. Upload the test firmware to Arduino and connect the test harness. Run the
 interactive tests which test:
-  - Power
-  - PWM drivers
-  - Pump relay
-  - Brake light switch relay
-  - CAN send/receive
-
-
+- Power
+- PWM drivers
+- Pump relay
+- Brake light switch relay
+- CAN send/receive
 
 ## Installation Testing
 These tests are to be run while the Brake Control module is connected to a computer
@@ -33,17 +31,17 @@ so that the wheels can turn freely.
 1. Install the Brake Control module into the vehicle.
 
 2. Initiate the in-vehicle test routine to test:
- - Power
- - Accumulator pressure
- - Brake pressure control
- - Brake pedal input sensing
+- Power
+- Accumulator pressure
+- Brake pressure control
+- Brake pedal input sensing
 
-3. Upload the Brake control firmware.
+1. Upload the Brake control firmware.
 
-4. Using a laptop, command the vehicle to brake. Press on the brake pedal and ensure
+2. Using a laptop, command the vehicle to brake. Press on the brake pedal and ensure
 that the brake module disables control.
 
-5. While the control modules is braking the vehicle, press the emergency stop button and
+3. While the control modules is braking the vehicle, press the emergency stop button and
 check that normal braking is possible.
 
 ## Integration Testing

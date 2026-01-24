@@ -1,14 +1,30 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef CUKE_WIRESERVER_HPP_
 #define CUKE_WIRESERVER_HPP_
-
-#include "ProtocolHandler.hpp"
 
 #include <string>
 
 #include <boost/asio.hpp>
 
-namespace cucumber {
-namespace internal {
+#include "ProtocolHandler.hpp"
+
+namespace cucumber
+{
+namespace internal
+{
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -19,99 +35,101 @@ using namespace boost::asio::local;
 /**
  * Socket server that calls a protocol handler line by line
  */
-class SocketServer {
+class SocketServer
+{
 public:
-    /**
+  /**
       * Constructor for DI
       */
-    SocketServer(const ProtocolHandler *protocolHandler);
+  SocketServer(const ProtocolHandler * protocolHandler);
 
-    /**
+  /**
      * Accept one connection
      */
-    virtual void acceptOnce() = 0;
+  virtual void acceptOnce() = 0;
 
 protected:
-    const ProtocolHandler *protocolHandler;
-    io_service ios;
+  const ProtocolHandler * protocolHandler;
+  io_service ios;
 
-    template <typename Protocol, typename Service>
-    void doListen(basic_socket_acceptor<Protocol, Service>& acceptor,
-            const typename Protocol::endpoint& endpoint);
-    template <typename Protocol, typename Service>
-    void doAcceptOnce(basic_socket_acceptor<Protocol, Service>& acceptor);
-    void processStream(std::iostream &stream);
+  template <typename Protocol, typename Service>
+  void doListen(basic_socket_acceptor<Protocol, Service> & acceptor, const typename Protocol::endpoint & endpoint);
+  template <typename Protocol, typename Service>
+  void doAcceptOnce(basic_socket_acceptor<Protocol, Service> & acceptor);
+  void processStream(std::iostream & stream);
 };
 
 /**
  * Socket server that calls a protocol handler line by line
  */
-class TCPSocketServer : public SocketServer {
+class TCPSocketServer : public SocketServer
+{
 public:
-    /**
+  /**
      * Type definition for TCP port
      */
-    typedef unsigned short port_type;
+  typedef unsigned short port_type;
 
-    /**
+  /**
       * Constructor for DI
       */
-    TCPSocketServer(const ProtocolHandler *protocolHandler);
+  TCPSocketServer(const ProtocolHandler * protocolHandler);
 
-    /**
+  /**
      * Bind and listen to a TCP port
      */
-    void listen(const port_type port);
+  void listen(const port_type port);
 
-    /**
+  /**
      * Endpoint (IP address and port number) that this server is currently
      * listening on.
      *
      * @throw boost::system::system_error when not listening on any socket or
      *        the endpoint cannot be determined.
      */
-    tcp::endpoint listenEndpoint() const;
+  tcp::endpoint listenEndpoint() const;
 
-    virtual void acceptOnce();
+  virtual void acceptOnce();
 
 private:
-    tcp::acceptor acceptor;
+  tcp::acceptor acceptor;
 };
 
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
 /**
  * Socket server that calls a protocol handler line by line
  */
-class UnixSocketServer : public SocketServer {
+class UnixSocketServer : public SocketServer
+{
 public:
-    /**
+  /**
       * Constructor for DI
       */
-    UnixSocketServer(const ProtocolHandler *protocolHandler);
+  UnixSocketServer(const ProtocolHandler * protocolHandler);
 
-    /**
+  /**
      * Bind and listen on a local stream socket
      */
-    void listen(const std::string& unixPath);
+  void listen(const std::string & unixPath);
 
-    /**
+  /**
      * Port number that this server is currently listening on.
      *
      * @throw boost::system::system_error when not listening on any socket or
      *        the endpoint cannot be determined.
      */
-    stream_protocol::endpoint listenEndpoint() const;
+  stream_protocol::endpoint listenEndpoint() const;
 
-    virtual void acceptOnce();
+  virtual void acceptOnce();
 
-    ~UnixSocketServer();
+  ~UnixSocketServer();
 
 private:
-    stream_protocol::acceptor acceptor;
+  stream_protocol::acceptor acceptor;
 };
 #endif
 
-}
-}
+}  // namespace internal
+}  // namespace cucumber
 
 #endif /* CUKE_WIRESERVER_HPP_ */

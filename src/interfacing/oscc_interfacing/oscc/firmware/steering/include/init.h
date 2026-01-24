@@ -1,13 +1,25 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @file init.h
  * @brief Initialization functionality.
  *
  */
 
-
 #ifndef _OSCC_STEERING_INIT_H_
 #define _OSCC_STEERING_INIT_H_
-
 
 // ****************************************************************************
 // Function:    init_globals
@@ -19,8 +31,7 @@
 // Parameters:  void
 //
 // ****************************************************************************
-void init_globals( void );
-
+void init_globals(void);
 
 // ****************************************************************************
 // Function:    init_devices
@@ -32,8 +43,7 @@ void init_globals( void );
 // Parameters:  void
 //
 // ****************************************************************************
-void init_devices( void );
-
+void init_devices(void);
 
 // ****************************************************************************
 // Function:    init_communication_interfaces
@@ -45,8 +55,7 @@ void init_devices( void );
 // Parameters:  void
 //
 // ****************************************************************************
-void init_communication_interfaces( void );
-
+void init_communication_interfaces(void);
 
 // ****************************************************************************
 // Function:    start_timers
@@ -58,7 +67,6 @@ void init_communication_interfaces( void );
 // Parameters:  void
 //
 // ****************************************************************************
-void start_timers( void );
-
+void start_timers(void);
 
 #endif

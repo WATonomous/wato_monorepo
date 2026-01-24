@@ -1,8 +1,21 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @file main.cpp
  *
  */
-
 
 #include <avr/wdt.h>
 
@@ -12,27 +25,25 @@
 #include "init.h"
 #include "timer.h"
 
-
-int main( void )
+int main(void)
 {
-    init_arduino( );
+  init_arduino();
 
-    init_globals( );
+  init_globals();
 
-    init_communication_interfaces( );
+  init_communication_interfaces();
 
-    start_timer( );
+  start_timer();
 
-    wdt_enable( WDTO_250MS );
+  wdt_enable(WDTO_250MS);
 
-    DEBUG_PRINTLN( "init complete" );
+  DEBUG_PRINTLN("init complete");
 
-    while( true )
-    {
-        wdt_reset();
+  while (true) {
+    wdt_reset();
 
-        check_for_module_reports( );
+    check_for_module_reports();
 
-        republish_obd_frames_to_control_can_bus( );
-    }
+    republish_obd_frames_to_control_can_bus();
+  }
 }

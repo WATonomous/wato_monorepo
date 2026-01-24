@@ -1,82 +1,90 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @file globals.h
  * @brief Module globals.
  *
  */
 
-
 #ifndef _OSCC_BRAKE_GLOBALS_H_
 #define _OSCC_BRAKE_GLOBALS_H_
-
 
 #include "brake_control.h"
 #include "DAC_MCP49xx.h"
 #include "mcp_can.h"
 
-
 /*
  * @brief Chip select pin of the DAC IC.
  *
  */
-#define PIN_DAC_CHIP_SELECT ( 9 )
+#define PIN_DAC_CHIP_SELECT (9)
 
 /*
  * @brief Chip select pin of the CAN IC.
  *
  */
-#define PIN_CAN_CHIP_SELECT ( 10 )
+#define PIN_CAN_CHIP_SELECT (10)
 
 /*
  * @brief High signal pin of the brake pedal position sensor.
  *
  */
-#define PIN_BRAKE_PEDAL_POSITION_SENSOR_HIGH ( A0 )
+#define PIN_BRAKE_PEDAL_POSITION_SENSOR_HIGH (A0)
 
 /*
  * @brief Low signal pin of the brake pedal position sensor.
  *
  */
-#define PIN_BRAKE_PEDAL_POSITION_SENSOR_LOW ( A1 )
+#define PIN_BRAKE_PEDAL_POSITION_SENSOR_LOW (A1)
 
 /*
  * @brief High signal pin of the brake pedal position spoof output.
  *
  */
-#define PIN_BRAKE_PEDAL_POSITION_SPOOF_HIGH ( A2 )
+#define PIN_BRAKE_PEDAL_POSITION_SPOOF_HIGH (A2)
 
 /*
  * @brief Low signal pin of the brake pedal position spoof output.
  *
  */
-#define PIN_BRAKE_PEDAL_POSITION_SPOOF_LOW ( A3 )
+#define PIN_BRAKE_PEDAL_POSITION_SPOOF_LOW (A3)
 
 /*
  * @brief Relay enable pin for the spoof output.
  *
  */
-#define PIN_SPOOF_ENABLE ( 6 )
+#define PIN_SPOOF_ENABLE (6)
 
 /*
  * @brief Relay enable pin for the brake lights.
  *
  */
-#define PIN_BRAKE_LIGHT_ENABLE ( 5 )
-
+#define PIN_BRAKE_LIGHT_ENABLE (5)
 
 #ifdef GLOBAL_DEFINED
-    DAC_MCP49xx g_dac( DAC_MCP49xx::MCP4922, PIN_DAC_CHIP_SELECT );
-    MCP_CAN g_control_can( PIN_CAN_CHIP_SELECT );
+DAC_MCP49xx g_dac(DAC_MCP49xx::MCP4922, PIN_DAC_CHIP_SELECT);
+MCP_CAN g_control_can(PIN_CAN_CHIP_SELECT);
 
-    #define EXTERN
+  #define EXTERN
 #else
-    extern DAC_MCP49xx g_dac;
-    extern MCP_CAN g_control_can;
+extern DAC_MCP49xx g_dac;
+extern MCP_CAN g_control_can;
 
-    #define EXTERN extern
+  #define EXTERN extern
 #endif
 
-
 EXTERN volatile brake_control_state_s g_brake_control_state;
-
 
 #endif /* _OSCC_BRAKE_GLOBALS_H_ */

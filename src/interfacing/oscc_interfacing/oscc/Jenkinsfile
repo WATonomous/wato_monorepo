@@ -19,7 +19,7 @@ node {
             node {
                 try {
                     checkout scm
-                    
+
                     image = docker.build("cmake-build:${env.BUILD_ID}")
 
                     stage("Build ${platform}") {

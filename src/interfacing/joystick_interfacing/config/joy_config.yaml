@@ -12,10 +12,10 @@ joystick_node:
     steering_axis: 0
     throttle_axis: 4
     #max speed and steering angle
-    max_speed: 2.0
-    max_steering_angle: 0.5
+    max_speed: 1.0
+    max_steering_angle: 0.3
     #invert steering and throttle
-    invert_steering: false
+    invert_steering: true
     invert_throttle: false
 
     #vibration feedback

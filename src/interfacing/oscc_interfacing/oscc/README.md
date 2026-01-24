@@ -1,6 +1,5 @@
 <img src="https://raw.githubusercontent.com/wiki/PolySync/OSCC/images/oscc_logo_title.png">
 
-
 Open Source Car Control (OSCC) is an assemblage of software and hardware designs that enable computer control of modern cars in order to facilitate the development of autonomous vehicle technology. It is a modular and stable way of using software to interface with a vehicle’s communications network and control systems.
 
 OSCC enables developers to send control commands to the vehicle, read control messages from the vehicle’s OBD-II CAN network, and forward reports for current vehicle control state. Such as steering angle & wheel speeds. Control commands are issued to the vehicle component ECUs via the steering wheel torque sensor, throttle position sensor, and brake position sensor. (Because the gas-powered Kia Soul isn’t brake by-wire capable, an auxiliary actuator is added to enable braking.) This low-level interface means that OSCC offers full-range control of the vehicle without altering the factory safety-case, spoofing CAN messages, or hacking ADAS features.
@@ -69,6 +68,7 @@ sudo apt install build-essential cmake
 ```
 
 A manual Arduino install is required since the debian package is older than 1.8.5
+
 ```
 sudo apt-get purge arduino arduino-core
 wget http://arduino.cc/download.php?f=/arduino-1.8.5-linux64.tar.xz -O arduino-1.8.5.tar.xz
@@ -101,7 +101,6 @@ appropriate build flag:
 | Kia Soul Petrol | -DVEHICLE=kia_soul    |
 | Kia Soul EV     | -DVEHICLE=kia_soul_ev |
 | Kia Niro        | -DVEHICLE=kia_niro    |
-
 
 For example, if you want to build firmware for the petrol Kia Soul:
 
@@ -460,7 +459,6 @@ add a `cmake` option to choose your new header when compiling the API.
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-
 # License Information
 
 Hardware source materials (e.g. schematics, board layouts, wiring diagrams, data sheets, physical
@@ -471,7 +469,6 @@ Firmware  and software source for the OSCC (Open Source Car Control) Project is 
 MIT License (MIT) unless otherwise noted (e.g. 3rd party dependencies, etc.).
 
 Please see [LICENSE.md](LICENSE.md) for more details.
-
 
 # Contact Information
 
