@@ -57,6 +57,7 @@ Options
 
 Commands
   install                     Install watod to /usr/local/bin (requires sudo)
+  down                        Stop ACTIVE_MODULES containers + infrastructure
   down all                    Stop all watod containers (all modules/profiles)
   test [SERVICE]...           Run colcon test in specified service(s)
                               If no SERVICE specified, runs in all services
@@ -68,8 +69,9 @@ Examples
   watod ps --services                   # docker compose ps --services
   watod -m all up                       # start all modules in deploy mode
   watod -m all:dev up                   # start all modules in dev mode
+  watod down                            # stop ACTIVE_MODULES + infrastructure
   watod down all                        # stop all watod containers
-  watod -m perception down              # stop only perception module
+  watod -m perception down              # stop only perception module (no infrastructure)
   watod -m perception -m action up      # start only perception and action
   watod -m perception:dev up            # start perception in dev mode
   watod -t perception                   # open a shell in the 'perception' service
@@ -96,11 +98,31 @@ get_all_modules() {
 # Parse ACTIVE_MODULES and build profile arrays
 # Input: ACTIVE_MODULES can contain "module", "module:dev", "all", or "all:dev"
 # Output: ALL_PROFILES, PRE_PROFILES arrays
+# Args:
+#   $1 - blacklist: space-separated list of modules to exclude (optional)
+#   $2 - all_variants: if "true", include both dev and non-dev profiles for all modules
 build_profile_arrays() {
-  local blacklist=${1:-""}  # optional: space-separated list of modules to exclude
+  local blacklist=${1:-""}
+  local all_variants=${2:-"false"}
 
   ALL_PROFILES=()
   PRE_PROFILES=()
+
+  # If all_variants is true, build profiles for all modules (both dev and non-dev)
+  if [[ "$all_variants" == "true" ]]; then
+    for module in $(get_all_modules); do
+      PRE_PROFILES+=( "${module}_pre" )
+      ALL_PROFILES+=( "$module" )
+      ALL_PROFILES+=( "${module}_dev" )
+    done
+    # Add infrastructure profiles
+    PRE_PROFILES+=( "infrastructure_pre" )
+    ALL_PROFILES+=( "infrastructure" )
+    # Add both carla profiles
+    ALL_PROFILES+=( "carla_gpu" )
+    ALL_PROFILES+=( "carla_no_gpu" )
+    return
+  fi
 
   # Check if "all" or "all:dev" is in ACTIVE_MODULES
   local has_all=false
@@ -260,42 +282,41 @@ COMPOSE_CMD=( "$@" )
 if [[ -n ${RUN_DOWN:-} ]]; then
   cd "$MONO_DIR"
 
-  # Check if "all" was specified
   if [[ ${#DOWN_SERVICES[@]} -gt 0 && "${DOWN_SERVICES[0]}" == "all" ]]; then
-    # Build all possible profiles (both dev and non-dev for each module, plus infrastructure and carla)
-    ALL_DOWN_PROFILES=()
-    for module in $(get_all_modules); do
-      ALL_DOWN_PROFILES+=("--profile" "${module}")
-      ALL_DOWN_PROFILES+=("--profile" "${module}_dev")
-      ALL_DOWN_PROFILES+=("--profile" "${module}_pre")
-    done
-    # Add infrastructure profiles
-    ALL_DOWN_PROFILES+=("--profile" "infrastructure")
-    ALL_DOWN_PROFILES+=("--profile" "infrastructure_pre")
-    # Add carla profiles
-    ALL_DOWN_PROFILES+=("--profile" "carla_gpu")
-    ALL_DOWN_PROFILES+=("--profile" "carla_no_gpu")
-
-    docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${ALL_DOWN_PROFILES[@]}" down
+    # "watod down all" - stop everything (all modules, all variants)
+    build_profile_arrays "" "true"
   elif [[ ${#CLI_MODULES[@]} -gt 0 ]]; then
-    # Modules specified via -m flag, build profiles for those modules
+    # "watod -m <module> down" - stop only the specified module (no infrastructure)
     ACTIVE_MODULES=("${CLI_MODULES[@]}")
-    build_profile_arrays ""
-
-    # Convert to --profile flags
-    DOWN_PROFILE_FLAGS=()
-    for p in "${ALL_PROFILES[@]}"; do
-      DOWN_PROFILE_FLAGS+=("--profile" "$p")
-    done
-
-    docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${DOWN_PROFILE_FLAGS[@]}" down
+    build_profile_arrays "infrastructure"
   else
-    echo "Error: 'watod down' requires specifying 'all' or using 'watod -m <module> down'" >&2
-    echo "Examples:" >&2
-    echo "  watod down all              # stop all watod containers" >&2
-    echo "  watod -m perception down    # stop only perception module" >&2
-    exit 1
+    # "watod down" - stop modules from ACTIVE_MODULES config + infrastructure
+    # Need to determine ACTIVE_MODULES from config (already sourced above)
+    if [[ -z ${ACTIVE_MODULES+x} ]]; then
+      ACTIVE_MODULES=()
+    elif [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
+      # ACTIVE_MODULES is set but not an array, convert it
+      # shellcheck disable=SC2128
+      read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
+    fi
+
+    if [[ ${#ACTIVE_MODULES[@]} -eq 0 ]]; then
+      echo "Error: No modules to stop. Set ACTIVE_MODULES in watod-config.sh or use:" >&2
+      echo "  watod down all              # stop all watod containers" >&2
+      echo "  watod -m perception down    # stop only perception module" >&2
+      exit 1
+    fi
+
+    build_profile_arrays ""
   fi
+
+  # Convert to --profile flags
+  DOWN_PROFILE_FLAGS=()
+  for p in "${ALL_PROFILES[@]}"; do
+    DOWN_PROFILE_FLAGS+=("--profile" "$p")
+  done
+
+  docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${DOWN_PROFILE_FLAGS[@]}" down
   exit $?
 fi
 
