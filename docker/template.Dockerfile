@@ -66,8 +66,8 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
 FROM build AS deploy
 
 # Source Cleanup, Security Setup, and Workspace Setup
-RUN rm -rf "${AMENT_WS:?}"/*
-USER ${USER}
+RUN rm -rf "${AMENT_WS:?}"/* && \
+    chown -R "${USER}":"${USER}" "${AMENT_WS}"
 
 ################################ Develop ################################
 FROM rosdep_install AS develop
@@ -83,11 +83,6 @@ RUN apt-get update && \
     htop \
     nano \
     tree
-
-# Make ament_ws owned by bolty
-# TODO(wato): (dont make ament_ws be owned bolty or it will clash with user permissions on watcloud)
-# RUN chown -R "${USER}":"${USER}" "${AMENT_WS}"
-# USER ${USER}
 
 # Install Claude Code natively
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
