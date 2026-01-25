@@ -8,7 +8,7 @@ Teleoperation control for CARLA vehicles.
 
 Receives `Twist` commands (compatible with Foxglove teleop panel, `teleop_twist_keyboard`, joystick drivers, etc.) and converts them to CARLA vehicle control. `linear.x` maps to throttle/brake and `angular.z` maps to steering.
 
-The node also provides a `~/set_autonomy` service to toggle CARLA's built-in autopilot. When autonomy is enabled, teleop commands are ignored and the vehicle follows CARLA's Traffic Manager AI.
+The node also provides a `set_autonomy` service to toggle CARLA's built-in autopilot. When autonomy is enabled, teleop commands are ignored and the vehicle follows CARLA's Traffic Manager AI.
 
 If no command is received within the `command_timeout`, the vehicle automatically brakes to a stop.
 
@@ -16,9 +16,9 @@ If no command is received within the `command_timeout`, the vehicle automaticall
 ros2 run carla_teleop teleop
 ```
 
-**Subscriptions:** `~/cmd_vel` (`geometry_msgs/Twist`)
+**Subscriptions:** `cmd_vel` (`geometry_msgs/Twist`)
 
-**Services:** `~/set_autonomy` (`std_srvs/SetBool`) - Enable/disable CARLA autopilot
+**Services:** `set_autonomy` (`std_srvs/SetBool`) - Enable/disable CARLA autopilot
 
 **Parameters:**
 

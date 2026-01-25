@@ -97,10 +97,10 @@ Change maps, traffic density, or weather without restarting:
 
 ```bash
 # List available scenarios
-ros2 service call /scenario_server/get_available_scenarios carla_msgs/srv/GetAvailableScenarios
+ros2 service call /carla/scenario_server/get_available_scenarios carla_msgs/srv/GetAvailableScenarios
 
 # Switch to heavy traffic
-ros2 service call /scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
+ros2 service call /carla/scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
   "{scenario_name: 'carla_scenarios.scenarios.heavy_traffic_scenario'}"
 ```
 
@@ -115,10 +115,10 @@ Toggle CARLA's built-in autopilot via the teleop node:
 
 ```bash
 # Enable autopilot (vehicle follows Traffic Manager AI)
-ros2 service call /carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: true}"
+ros2 service call /carla/carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: true}"
 
 # Disable autopilot (return to manual/teleop control)
-ros2 service call /carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: false}"
+ros2 service call /carla/carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: false}"
 ```
 
 ### Manual Control
@@ -127,10 +127,45 @@ When autonomy is disabled, control the vehicle via Twist commands:
 
 ```bash
 # Using teleop_twist_keyboard
-ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/carla_teleop/cmd_vel
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/carla/cmd_vel
 ```
 
-Or use Foxglove's teleop panel publishing to `/carla_teleop/cmd_vel`.
+Or use Foxglove's teleop panel publishing to `/carla/cmd_vel`.
+
+### Namespace Convention
+
+The provided launch files configure all CARLA bridge nodes to run in the `/carla` namespace. This keeps simulation topics and services organized and avoids conflicts with other modules. Without a namespace, topics default to `/<topic_name>`.
+
+To change the namespace, modify the `namespace:` field for each node in the launch file. When customizing namespaces, ensure these connections remain consistent:
+
+| Parameter | Must Match |
+|-----------|------------|
+| `lifecycle_manager.scenario_server_name` | Fully qualified name of `scenario_server` (e.g., `/carla/scenario_server`) |
+| `lifecycle_manager.node_names` | Fully qualified names of all managed nodes (e.g., `/carla/lidar_publisher`) |
+
+The lifecycle manager supports both absolute (`/carla/lidar_publisher`) and relative (`carla/lidar_publisher`) node name formats.
+
+Example: Moving all nodes to `/sim` namespace:
+```yaml
+# All nodes get namespace: sim
+- node:
+    name: scenario_server
+    namespace: sim
+    ...
+
+# Update lifecycle_manager references
+- node:
+    name: carla_lifecycle_manager
+    namespace: sim
+    param:
+      - name: scenario_server_name
+        value: /sim/scenario_server
+      - name: node_names
+        value:
+          - /sim/lidar_publisher
+          - /sim/bbox_publisher
+          ...
+```
 
 ### Key Topics
 
@@ -138,14 +173,15 @@ Or use Foxglove's teleop panel publishing to `/carla_teleop/cmd_vel`.
 |-------|------|-------------|
 | `/clock` | `rosgraph_msgs/Clock` | Simulation time from CARLA |
 | `/tf` | `tf2_msgs/TFMessage` | Transform tree (map → odom → base_link → sensors) |
-| `/lidar_publisher/*/points` | `sensor_msgs/PointCloud2` | LiDAR point clouds |
-| `/bbox_publisher/detections_3d` | `vision_msgs/Detection3DArray` | Ground truth 3D bounding boxes |
-| `/carla_teleop/cmd_vel` | `geometry_msgs/Twist` | Vehicle control input |
+| `/carla/*/points` | `sensor_msgs/PointCloud2` | LiDAR point clouds |
+| `/carla/detections_3d` | `vision_msgs/Detection3DArray` | Ground truth 3D bounding boxes |
+| `/carla/cmd_vel` | `geometry_msgs/Twist` | Vehicle control input (teleop) |
+| `/carla/command` | `ackermann_msgs/AckermannDriveStamped` | Vehicle control input (ackermann) |
 
 ### Key Services
 
 | Service | Type | Description |
 |---------|------|-------------|
-| `/scenario_server/switch_scenario` | `carla_msgs/SwitchScenario` | Load a different scenario |
-| `/scenario_server/get_available_scenarios` | `carla_msgs/GetAvailableScenarios` | List available scenarios |
-| `/carla_teleop/set_autonomy` | `std_srvs/SetBool` | Enable/disable CARLA autopilot |
+| `/carla/scenario_server/switch_scenario` | `carla_msgs/SwitchScenario` | Load a different scenario |
+| `/carla/scenario_server/get_available_scenarios` | `carla_msgs/GetAvailableScenarios` | List available scenarios |
+| `/carla/carla_teleop/set_autonomy` | `std_srvs/SetBool` | Enable/disable CARLA autopilot |
