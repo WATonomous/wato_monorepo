@@ -47,6 +47,3 @@ RUN apt-get update && \
     echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
     apt-get install -y --no-install-recommends  apt-fast && \
     rm -rf /var/lib/apt/lists/*
-
-# sources ament_ws automatically when we start a terminal inside the container
-RUN echo "source /home/$USER/ament_ws/install/setup.bash" >> ~/.bashrc
