@@ -51,8 +51,11 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
      {"steering_axis", 0},
      {"throttle_axis", 1},
      {"toggle_button", 0},
-     {"max_speed", 2.0},
-     {"max_steering_angle", 0.5},
+     {"arming_button", 5},
+     {"ackermann_max_speed", 2.0},
+     {"ackermann_max_steering_angle", 0.5},
+     {"roscco_max_speed", 2.0},
+     {"roscco_max_steering_angle", 0.5},
      {"invert_steering", false},
      {"invert_throttle", false}});
 
@@ -82,8 +85,8 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
 
   auto send_joy = [&](float enable, float steer, float throttle, bool toggle = false) {
     Joy msg;
+    msg.buttons.resize(6, 0);
     msg.axes.resize(6, 0.0);
-    msg.buttons.resize(1, 0);
     msg.axes[4] = enable;  // enable_axis
     msg.axes[0] = steer;  // steering
     msg.axes[1] = throttle;  // throttle
