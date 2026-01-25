@@ -85,10 +85,9 @@ RUN apt-get update && \
     tree
 
 # Make ament_ws owned by bolty
-# TODO(wato): (dont make ament_ws be owned bolty or it will clash with user permissions)
-
-RUN chown -R "${USER}":"${USER}" "${AMENT_WS}"
-USER ${USER}
+# TODO(wato): (dont make ament_ws be owned bolty or it will clash with user permissions on watcloud)
+# RUN chown -R "${USER}":"${USER}" "${AMENT_WS}"
+# USER ${USER}
 
 # Install Claude Code natively
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
