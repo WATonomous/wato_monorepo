@@ -8,6 +8,10 @@ services:
       service: infrastructure_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -22,6 +26,10 @@ services:
       service: interfacing_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${INTERFACING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -36,6 +44,10 @@ services:
       service: perception_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -50,6 +62,10 @@ services:
       service: world_modeling_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${WORLD_MODELING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -64,6 +80,10 @@ services:
       service: action_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${ACTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -90,6 +110,10 @@ services:
       service: simulation_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${SIMULATION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:

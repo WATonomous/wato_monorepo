@@ -66,12 +66,29 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
 FROM build AS deploy
 
 # Source Cleanup, Security Setup, and Workspace Setup
-RUN rm -rf "${AMENT_WS:?}"/* && \
-    chown -R "${USER}":"${USER}" "${AMENT_WS}"
-USER ${USER}
+RUN rm -rf "${AMENT_WS:?}"/*
 
 ################################ Develop ################################
 FROM rosdep_install AS develop
+ARG USERNAME
+ARG USER_GID
+ARG USER_UID
+
+# Set user in container to developer's user
+# hadolint ignore=SC2086
+RUN groupadd --gid ${USER_GID} ${USERNAME} \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} -m $USERNAME --shell /bin/bash \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends sudo \
+    && echo $USERNAME ALL=\(ALL\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && cp /etc/skel/.bashrc /home/$USERNAME/.bashrc \
+    && cp /etc/skel/.profile /home/$USERNAME/.profile \
+    && chown $USERNAME:$USERNAME /home/$USERNAME/.bashrc /home/$USERNAME/.profile \
+    && chown -R "${USERNAME}":"${USERNAME}" "${AMENT_WS}" \
+    && rm -rf /var/lib/apt/lists/*
+
+USER $USERNAME
 
 # Update Sources and Install Useful Developer Tools
 # hadolint ignore=DL3009
