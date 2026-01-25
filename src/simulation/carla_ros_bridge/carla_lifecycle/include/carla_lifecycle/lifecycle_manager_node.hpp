@@ -62,6 +62,7 @@ private:
   bool changeState(const std::string & node_name, uint8_t transition_id);
   int getNodeState(const std::string & node_name);
   std::string stateName(int state_id);
+  std::string toAbsoluteName(const std::string & name);
 
   // Parameters
   bool autostart_;

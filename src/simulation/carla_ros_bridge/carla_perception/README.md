@@ -16,7 +16,7 @@ Camera intrinsics (K, P matrices) are published alongside images for use with im
 ros2 run carla_perception camera_publisher
 ```
 
-**Publications:** `~/<camera_name>/image_raw` (`sensor_msgs/Image`), `~/<camera_name>/camera_info` (`sensor_msgs/CameraInfo`)
+**Publications:** `<camera_name>/image_raw` (`sensor_msgs/Image`), `<camera_name>/camera_info` (`sensor_msgs/CameraInfo`)
 
 **Parameters:**
 
@@ -51,7 +51,7 @@ Point clouds are accumulated over a full rotation before publishing, ensuring ea
 ros2 run carla_perception lidar_publisher
 ```
 
-**Publications:** `~/<lidar_name>/points` (`sensor_msgs/PointCloud2`)
+**Publications:** `<lidar_name>/points` (`sensor_msgs/PointCloud2`)
 
 **Parameters:**
 
@@ -86,7 +86,7 @@ Publishes ground truth 3D bounding boxes for all vehicles and pedestrians in the
 ros2 run carla_perception bbox_publisher
 ```
 
-**Publications:** `~/detections_3d` (`vision_msgs/Detection3DArray`), `~/detections_2d` (`vision_msgs/Detection2DArray`)
+**Publications:** `detections_3d` (`vision_msgs/Detection3DArray`), `detections_2d` (`vision_msgs/Detection2DArray`)
 
 **Parameters:**
 
