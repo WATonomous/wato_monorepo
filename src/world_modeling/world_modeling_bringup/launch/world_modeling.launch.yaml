@@ -80,4 +80,3 @@ launch:
           value: 4.0
         - name: bond_enabled
           value: $(var bond_enabled)
-
