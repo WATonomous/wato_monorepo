@@ -146,6 +146,7 @@ To change the namespace, modify the `namespace:` field for each node in the laun
 The lifecycle manager supports both absolute (`/carla/lidar_publisher`) and relative (`carla/lidar_publisher`) node name formats.
 
 Example: Moving all nodes to `/sim` namespace:
+
 ```yaml
 # All nodes get namespace: sim
 - node:

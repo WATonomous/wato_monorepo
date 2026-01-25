@@ -42,9 +42,11 @@ using lifecycle_msgs::msg::Transition;
 class MockLifecycleNode : public rclcpp::Node
 {
 public:
-  MockLifecycleNode(const std::string & node_name, const std::string & ns = "")
-  : Node(node_name, rclcpp::NodeOptions().arguments(ns.empty() ? std::vector<std::string>{} :
-      std::vector<std::string>{"--ros-args", "-r", "__ns:=/" + ns}))
+  explicit MockLifecycleNode(const std::string & node_name, const std::string & ns = "")
+  : Node(
+      node_name,
+      rclcpp::NodeOptions().arguments(
+        ns.empty() ? std::vector<std::string>{} : std::vector<std::string>{"--ros-args", "-r", "__ns:=/" + ns}))
   , current_state_(State::PRIMARY_STATE_UNCONFIGURED)
   {
     // Build the service prefix based on namespace
@@ -248,11 +250,13 @@ TEST_CASE_METHOD(
   // Mix of relative, absolute, and namespaced names
   rclcpp::NodeOptions options;
   options.parameter_overrides({
-    rclcpp::Parameter("node_names", std::vector<std::string>{
-      "node_a",                  // relative, no namespace
-      "/carla/node_b",           // absolute, with namespace
-      "carla/node_c",            // relative, with namespace
-    }),
+    rclcpp::Parameter(
+      "node_names",
+      std::vector<std::string>{
+        "node_a",  // relative, no namespace
+        "/carla/node_b",  // absolute, with namespace
+        "carla/node_c",  // relative, with namespace
+      }),
     rclcpp::Parameter("autostart", false),
     rclcpp::Parameter("scenario_server_name", "scenario_server"),
     rclcpp::Parameter("service_timeout", 5.0),
