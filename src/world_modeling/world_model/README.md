@@ -27,6 +27,8 @@ The world model aggregates data from multiple sources (perception, prediction, H
 | `map_viz_publish_rate_hz` | double | 1.0 | Map visualization publish rate |
 | `map_viz_radius_m` | double | 100.0 | Radius for map visualization |
 | `dynamic_objects_publish_rate_hz` | double | 10.0 | Dynamic objects publish rate |
+| `route_ahead_publish_rate_hz` | double | 10.0 | Route ahead publish rate |
+| `route_ahead_lookahead_m` | double | 100.0 | Lookahead distance for route lanelets |
 
 ## Topics
 
@@ -40,7 +42,8 @@ The world model aggregates data from multiple sources (perception, prediction, H
 ### Published
 | Topic | Type | Description |
 |-------|------|-------------|
-| `lane_context` | `lanelet_msgs/CurrentLaneContext` | Current lane information |
+| `lane_context` | `lanelet_msgs/CurrentLaneContext` | Current lane information (route-aware) |
+| `route_ahead` | `lanelet_msgs/RouteAhead` | Route lanelets ahead within lookahead distance |
 | `map_visualization` | `lanelet_msgs/MapVisualization` | Nearby lanelets for viz |
 | `dynamic_objects` | `world_model_msgs/DynamicObjectArray` | All tracked entities |
 
@@ -49,8 +52,7 @@ The world model aggregates data from multiple sources (perception, prediction, H
 | Service | Type | Description |
 |---------|------|-------------|
 | `set_route` | `lanelet_msgs/SetRoute` | Set destination and cache route |
-| `get_route` | `lanelet_msgs/GetShortestRoute` | Get cached route from current position |
-| `get_corridor` | `lanelet_msgs/GetCorridor` | Get driving corridor for planning |
+| `get_shortest_route` | `lanelet_msgs/GetShortestRoute` | Get entire shortest route from ego to goal |
 | `get_lanelets_by_reg_elem` | `lanelet_msgs/GetLaneletsByRegElem` | Find lanelets by regulatory element |
 
 ## License
