@@ -35,43 +35,79 @@ launch:
       pkg: world_model
       exec: world_model_node
       name: world_model
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
         - from: $(var config_file)
       remap:
         - from: "detections"
-          to: "/bbox_publisher/tracked_detections_3d"
+          to: "/carla/tracked_detections_3d"
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "map_visualization"
+          to: "lanelet/map_visualization"
+        - from: "route_ahead"
+          to: "lanelet/route_ahead"
 
   # Lanelet Visualization Markers
   - node:
       pkg: lanelet_markers
       exec: map_viz_markers_node
       name: map_viz_markers_node
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "map_visualization"
+          to: "lanelet/map_visualization"
+        - from: "markers"
+          to: "lanelet/map_viz_markers"
 
   - node:
       pkg: lanelet_markers
       exec: lane_context_markers_node
       name: lane_context_markers_node
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "markers"
+          to: "lanelet/lane_context_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: route_ahead_markers_node
+      name: route_ahead_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "route_ahead"
+          to: "lanelet/route_ahead"
+        - from: "markers"
+          to: "lanelet/route_ahead_markers"
 
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node
       name: world_modeling_lifecycle_manager
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
         - name: node_names
-          value: ["world_model"]
+          value:
+            - /world_modeling/world_model
+            - /world_modeling/map_viz_markers_node
+            - /world_modeling/lane_context_markers_node
+            - /world_modeling/route_ahead_markers_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

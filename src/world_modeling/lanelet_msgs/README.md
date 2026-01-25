@@ -21,7 +21,7 @@ ROS2 message and service definitions for Lanelet2 map queries.
 | Service | Description |
 |---------|-------------|
 | `SetRoute` | Set destination and resolve lanelet IDs for routing |
-| `GetRoute` | Get route lanelets from current position within a distance |
+| `GetShortestRoute` | Get route lanelets from current position within a distance |
 | `GetCorridor` | Get sampled driving corridor for lattice planners |
 | `GetLaneletsByRegElem` | Find lanelets associated with a regulatory element |
 

@@ -49,7 +49,7 @@ The world model aggregates data from multiple sources (perception, prediction, H
 | Service | Type | Description |
 |---------|------|-------------|
 | `set_route` | `lanelet_msgs/SetRoute` | Set destination and cache route |
-| `get_route` | `lanelet_msgs/GetRoute` | Get cached route from current position |
+| `get_route` | `lanelet_msgs/GetShortestRoute` | Get cached route from current position |
 | `get_corridor` | `lanelet_msgs/GetCorridor` | Get driving corridor for planning |
 | `get_lanelets_by_reg_elem` | `lanelet_msgs/GetLaneletsByRegElem` | Find lanelets by regulatory element |
 

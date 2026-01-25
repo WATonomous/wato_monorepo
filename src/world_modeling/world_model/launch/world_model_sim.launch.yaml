@@ -73,6 +73,15 @@ launch:
       param:
         - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
 
+  - node:
+      pkg: lanelet_markers
+      exec: route_ahead_markers_node
+      name: route_ahead_markers_node
+      namespace: ""
+      output: screen
+      param:
+        - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
+
   # LIFECYCLE MANAGER
   - node:
       pkg: wato_lifecycle_manager
@@ -82,7 +91,11 @@ launch:
       output: screen
       param:
         - name: node_names
-          value: ["world_model"]
+          value:
+            - world_model
+            - map_viz_markers_node
+            - lane_context_markers_node
+            - route_ahead_markers_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

@@ -9,7 +9,7 @@ This document describes the improvements made to the `world_model` package to ma
 | Component | Action |
 |-----------|--------|
 | Corridor | DELETE - Remove all corridor-related code |
-| GetRoute | RENAME to GetShortestRoute (returns entire shortest path) |
+| GetShortestRoute | RENAME to GetShortestRoute (returns entire shortest path) |
 | RouteAhead | CREATE - New topic publishing route lanelets ahead |
 | LaneContext | MODIFY - Route-aware + heading-aligned fallback |
 | RouteAhead Visualization | CREATE - RViz markers for route visualization |
@@ -36,7 +36,7 @@ This document describes the improvements made to the `world_model` package to ma
 
 ---
 
-## Phase 2: Rename GetRoute to GetShortestRoute
+## Phase 2: Rename GetShortestRoute to GetShortestRoute
 
 ### New Files
 
@@ -65,12 +65,12 @@ uint8[] transitions
 - No distance parameter - returns ALL lanelets to goal
 
 ### Deleted Files
-- `lanelet_msgs/srv/GetRoute.srv`
+- `lanelet_msgs/srv/GetShortestRoute.srv`
 - `world_model/interfaces/services/route_service.hpp`
 
 ### Modified Files
-- `lanelet_msgs/CMakeLists.txt` - Replaced GetRoute.srv with GetShortestRoute.srv
-- `world_model/lanelet_handler.hpp` - Renamed `getRouteFromPosition()` to `getShortestRoute()`
+- `lanelet_msgs/CMakeLists.txt` - Replaced GetShortestRoute.srv with GetShortestRoute.srv
+- `world_model/lanelet_handler.hpp` - Renamed `GetShortestRouteFromPosition()` to `getShortestRoute()`
 - `world_model/lanelet_handler.cpp` - Updated implementation to return ALL lanelets
 - `world_model/world_model_node.cpp` - Uses `ShortestRouteService`
 
@@ -101,8 +101,8 @@ bool has_active_route
 
 ### Modified Files
 - `lanelet_msgs/CMakeLists.txt` - Added RouteAhead.msg
-- `world_model/lanelet_handler.hpp` - Added `getRouteAhead()` declaration
-- `world_model/lanelet_handler.cpp` - Implemented `getRouteAhead()`
+- `world_model/lanelet_handler.hpp` - Added `GetShortestRouteAhead()` declaration
+- `world_model/lanelet_handler.cpp` - Implemented `GetShortestRouteAhead()`
 - `world_model/world_model_node.cpp` - Added parameters and RouteAheadPublisher
 
 ### New Parameters

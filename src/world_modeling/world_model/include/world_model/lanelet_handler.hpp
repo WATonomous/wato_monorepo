@@ -105,7 +105,7 @@ public:
 
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
 
-  // Route Caching (for SetRoute/GetRoute workflow)
+  // Route Caching (for SetRoute/GetShortestRoute workflow)
 
   /**
    * @brief Set and cache an active route from current to goal lanelet.

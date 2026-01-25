@@ -31,7 +31,7 @@ namespace world_model
  * @brief Service to set a route destination.
  *
  * Gets ego position from TF, finds nearest lanelets to ego and goal,
- * computes the route, and caches it in LaneletHandler for GetRoute queries.
+ * computes the route, and caches it in LaneletHandler for GetShortestRoute queries.
  */
 class SetRouteService : public InterfaceBase
 {

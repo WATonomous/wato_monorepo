@@ -2,7 +2,7 @@
 # Complete data for a single lanelet (atomic road segment).
 #
 # Contains geometry, semantics, connectivity, and regulatory elements.
-# Used in GetRoute responses, CurrentLaneContext, and MapVisualization.
+# Used in GetShortestRoute responses, CurrentLaneContext, and MapVisualization.
 
 int64 id
 
