@@ -30,12 +30,10 @@
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
-#include "lanelet_msgs/msg/corridor.hpp"
-#include "lanelet_msgs/msg/corridor_lane.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
-#include "lanelet_msgs/srv/get_corridor.hpp"
+#include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
-#include "lanelet_msgs/srv/get_route.hpp"
+#include "lanelet_msgs/srv/get_shortest_route.hpp"
 
 namespace world_model
 {
@@ -84,6 +82,25 @@ public:
 
   std::optional<int64_t> findNearestLaneletId(const geometry_msgs::msg::Point & point) const;
 
+  /**
+   * @brief Find current lanelet using smart selection.
+   *
+   * Priority:
+   * 1. If active route exists, return route lanelet that ego is on
+   * 2. Otherwise, find lanelet whose centerline is most aligned with ego heading
+   *
+   * @param point Ego position
+   * @param heading_rad Ego heading (yaw) in radians
+   * @param route_priority_threshold_m Max distance to consider ego "on" a route lanelet
+   * @param heading_search_radius_m Radius to search for heading-aligned lanelets
+   * @return Lanelet ID if found
+   */
+  std::optional<int64_t> findCurrentLaneletId(
+    const geometry_msgs::msg::Point & point,
+    double heading_rad,
+    double route_priority_threshold_m = 10.0,
+    double heading_search_radius_m = 15.0) const;
+
   std::optional<lanelet::ConstLanelet> getLaneletById(int64_t id) const;
 
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
@@ -93,7 +110,7 @@ public:
   /**
    * @brief Set and cache an active route from current to goal lanelet.
    *
-   * Computes the shortest path and caches it for subsequent getRouteFromPosition() calls.
+   * Computes the shortest path and caches it for subsequent getShortestRoute() calls.
    *
    * @param from_id Starting lanelet ID (ego's current lanelet)
    * @param to_id Destination lanelet ID (goal lanelet)
@@ -118,33 +135,36 @@ public:
   int64_t getGoalLaneletId() const;
 
   /**
-   * @brief Get route lanelets from current position within a distance.
+   * @brief Get the entire shortest route from current position to goal.
    *
-   * Finds ego's current position on the cached route and returns lanelets
-   * within the specified distance along the route.
+   * Finds ego's current position on the cached route and returns ALL lanelets
+   * from that position to the goal.
    *
    * @param current_pos Current ego position
-   * @param distance_m Maximum distance along route to include
-   * @return GetRoute response with lanelets and remaining distance
+   * @return GetShortestRoute response with all lanelets to goal
    */
-  lanelet_msgs::srv::GetRoute::Response getRouteFromPosition(
-    const geometry_msgs::msg::Point & current_pos, double distance_m) const;
+  lanelet_msgs::srv::GetShortestRoute::Response getShortestRoute(const geometry_msgs::msg::Point & current_pos) const;
+
+  /**
+   * @brief Get route lanelets ahead of ego within a lookahead distance.
+   *
+   * Finds ego's current position on the cached route and returns lanelets
+   * within the specified lookahead distance. Used by RouteAhead publisher.
+   *
+   * @param current_pos Current ego position
+   * @param lookahead_distance_m Maximum distance along route to include
+   * @return RouteAhead message with lanelets within lookahead distance
+   */
+  lanelet_msgs::msg::RouteAhead getRouteAhead(
+    const geometry_msgs::msg::Point & current_pos, double lookahead_distance_m) const;
 
   // Service implementations
-
-  lanelet_msgs::srv::GetRoute::Response getRoute(int64_t from_id, int64_t to_id) const;
-
-  lanelet_msgs::srv::GetCorridor::Response getCorridor(
-    int64_t from_id, int64_t to_id, double max_length_m, double sample_spacing_m) const;
 
   lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const;
 
   // Conversions
 
   lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
-
-  lanelet_msgs::msg::Corridor toCorridorMsg(
-    const std::vector<lanelet::ConstLanelet> & route_lanelets, double sample_spacing_m, double max_length_m) const;
 
   // Accessors
 
@@ -175,12 +195,6 @@ private:
   void populateLaneletConnectivity(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
   void populateLaneletRegulatoryElements(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
-
-  // Helper methods for Corridor message
-  lanelet_msgs::msg::CorridorLane buildCorridorLane(
-    const std::vector<lanelet::ConstLanelet> & lanelets, double sample_spacing_m, double max_length_m) const;
-
-  uint8_t getBoundaryType(const lanelet::ConstLineString3d & boundary) const;
 
   uint8_t getBoundaryTypeForVisualization(const lanelet::ConstLineString3d & boundary) const;
 

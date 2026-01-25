@@ -1,12 +1,7 @@
-# GetRoute.srv
-# Get route lanelets within a distance from current ego position.
-#
-# Requires SetRoute to be called first to establish the destination
-# and cache the full route. Returns the next N meters along that
-# cached route from the ego's current position.
-
-# Distance along route from current position (meters)
-float64 distance_m
+# GetShortestRoute.srv
+# Returns the ENTIRE shortest route from ego to goal.
+# Requires SetRoute to be called first to establish the destination.
+# Returns ALL lanelets from ego's current position to the goal.
 
 ---
 # Transition types between successive lanelets
@@ -20,10 +15,10 @@ bool success
 # Values: "no_active_route", "map_not_loaded", "tf_lookup_failed", "ego_not_on_route"
 string error_message
 
-# Distance remaining to goal (meters)
-float64 remaining_length_m
+# Total route distance to goal (meters)
+float64 total_length_m
 
-# Lanelets along the route within requested distance (in traversal order)
+# ALL lanelets along the route from ego to goal (in traversal order)
 Lanelet[] lanelets
 
 # Transition type between each pair of successive lanelets.

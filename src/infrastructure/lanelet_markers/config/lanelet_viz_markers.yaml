@@ -22,3 +22,10 @@ lane_context_markers_node:
     frame_id: "map"
     boundary_line_width: 0.25
     centerline_line_width: 0.1
+
+route_ahead_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    centerline_line_width: 0.4
+    show_lanelet_ids: false
+    show_route_info: true
