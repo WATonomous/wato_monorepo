@@ -57,6 +57,7 @@ Options
 
 Commands
   install                     Install watod to /usr/local/bin (requires sudo)
+  down all                    Stop all watod containers (all modules/profiles)
   test [SERVICE]...           Run colcon test in specified service(s)
                               If no SERVICE specified, runs in all services
   bag <ros2-bag-args>...      Run ros2 bag commands (record/play/info/etc)
@@ -67,7 +68,8 @@ Examples
   watod ps --services                   # docker compose ps --services
   watod -m all up                       # start all modules in deploy mode
   watod -m all:dev up                   # start all modules in dev mode
-  watod -m all down                     # stop all containers
+  watod down all                        # stop all watod containers
+  watod -m perception down              # stop only perception module
   watod -m perception -m action up      # start only perception and action
   watod -m perception:dev up            # start perception in dev mode
   watod -t perception                   # open a shell in the 'perception' service
@@ -229,6 +231,16 @@ while [[ $# -gt 0 ]]; do
       # Pass all remaining arguments to watod-bag.sh
       BAG_ARGS=( "$@" )
       break ;;
+    down)
+      RUN_DOWN=1
+      shift
+      # Collect service names if provided
+      declare -a DOWN_SERVICES=()
+      while [[ $# -gt 0 && ! "$1" =~ ^- ]]; do
+        DOWN_SERVICES+=("$1")
+        shift
+      done
+      break ;;
     *)  # first non‑option → rest is docker‑compose cmd
       break ;;
   esac
@@ -242,6 +254,50 @@ COMPOSE_CMD=( "$@" )
 # Config files (local overrides main)
 [[ -f "$MONO_DIR/watod-config.sh"       ]] && source "$MONO_DIR/watod-config.sh"
 [[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
+
+# ────────────────────────────── Run Down ─────────────────────────────────
+# Handle 'down' command
+if [[ -n ${RUN_DOWN:-} ]]; then
+  cd "$MONO_DIR"
+
+  # Check if "all" was specified
+  if [[ ${#DOWN_SERVICES[@]} -gt 0 && "${DOWN_SERVICES[0]}" == "all" ]]; then
+    # Build all possible profiles (both dev and non-dev for each module, plus infrastructure and carla)
+    ALL_DOWN_PROFILES=()
+    for module in $(get_all_modules); do
+      ALL_DOWN_PROFILES+=("--profile" "${module}")
+      ALL_DOWN_PROFILES+=("--profile" "${module}_dev")
+      ALL_DOWN_PROFILES+=("--profile" "${module}_pre")
+    done
+    # Add infrastructure profiles
+    ALL_DOWN_PROFILES+=("--profile" "infrastructure")
+    ALL_DOWN_PROFILES+=("--profile" "infrastructure_pre")
+    # Add carla profiles
+    ALL_DOWN_PROFILES+=("--profile" "carla_gpu")
+    ALL_DOWN_PROFILES+=("--profile" "carla_no_gpu")
+
+    docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${ALL_DOWN_PROFILES[@]}" down
+  elif [[ ${#CLI_MODULES[@]} -gt 0 ]]; then
+    # Modules specified via -m flag, build profiles for those modules
+    ACTIVE_MODULES=("${CLI_MODULES[@]}")
+    build_profile_arrays ""
+
+    # Convert to --profile flags
+    DOWN_PROFILE_FLAGS=()
+    for p in "${ALL_PROFILES[@]}"; do
+      DOWN_PROFILE_FLAGS+=("--profile" "$p")
+    done
+
+    docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${DOWN_PROFILE_FLAGS[@]}" down
+  else
+    echo "Error: 'watod down' requires specifying 'all' or using 'watod -m <module> down'" >&2
+    echo "Examples:" >&2
+    echo "  watod down all              # stop all watod containers" >&2
+    echo "  watod -m perception down    # stop only perception module" >&2
+    exit 1
+  fi
+  exit $?
+fi
 
 # Determine ACTIVE_MODULES: CLI flags take precedence over config
 if [[ ${#CLI_MODULES[@]} -gt 0 ]]; then
