@@ -5,8 +5,8 @@
 export TERM=xterm-256color
 force_color_prompt=yes
 
-# Colored prompt
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+# Colored prompt - clearly indicates we're in a container
+PS1='\[\033[01;35m\][container]\[\033[00m\] \[\033[01;32m\]\u\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 
 # Enable color support for ls and grep
 alias ls='ls --color=auto'
