@@ -1,33 +1,33 @@
 {
   "configById": {
     "CallService!25pwqml": {
-      "requestPayload": "{\n  \"data\": true\n}",
+      "requestPayload": "{\n  \"data\": false\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/carla_teleop/set_autonomy"
+      "serviceName": "/carla/carla_teleop/set_autonomy"
     },
     "CallService!3k192jd": {
-      "requestPayload": "{\n  \"scenario_name\": \"carla_scenarios.scenarios.default_scenario\"\n}",
+      "requestPayload": "{\n  \"scenario_name\": \"\"\n}",
       "layout": "vertical",
       "timeoutSeconds": 20,
-      "serviceName": "/scenario_server/switch_scenario"
+      "serviceName": "/carla/scenario_server/switch_scenario"
     },
     "CallService!trma13": {
       "requestPayload": "{}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/scenario_server/get_available_scenarios"
+      "serviceName": "/carla/scenario_server/get_available_scenarios"
     },
     "3D!30zmknt": {
       "cameraState": {
         "perspective": true,
-        "distance": 72.10076346704196,
-        "phi": 56.95454414344024,
-        "thetaOffset": -118.47617525504222,
+        "distance": 303.16489823921995,
+        "phi": 37.910249490750395,
+        "thetaOffset": -175.03458706347416,
         "targetOffset": [
-          -3.748259751174079,
-          -3.2605907432247356,
-          -0.004221776912882451
+          -14.943707806875626,
+          -2.8390289580784405,
+          -1.7533513681107051
         ],
         "target": [
           0,
@@ -160,6 +160,24 @@
           "distance": 1,
           "planarProjectionFactor": 0,
           "color": "#ffffff"
+        },
+        "/map_viz_markers": {
+          "visible": true
+        },
+        "/lane_context_markers": {
+          "visible": false
+        },
+        "/top_lidar/points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/carla/top_lidar/points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
         }
       },
       "layers": {
@@ -226,19 +244,18 @@
     "speed": 1
   },
   "layout": {
-    "direction": "row",
     "first": {
       "first": "CallService!25pwqml",
       "second": {
         "first": "CallService!3k192jd",
         "second": "CallService!trma13",
-        "direction": "column",
-        "splitPercentage": 41.80064308681671
+        "direction": "column"
       },
       "direction": "column",
-      "splitPercentage": 31.346578366445915
+      "splitPercentage": 27.461607949412826
     },
     "second": "3D!30zmknt",
-    "splitPercentage": 24.42515738646782
+    "direction": "row",
+    "splitPercentage": 26.693967361408227
   }
 }
