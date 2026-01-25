@@ -127,6 +127,7 @@ INTERFACING_IMAGE=${INTERFACING_IMAGE:-"$REGISTRY_URL/interfacing/interfacing"}
 ################################  UID / GID  #########################################
 SETUID=$(id -u)
 SETGID=$(id -g)
+USERNAME=${USERNAME:-$USER}
 
 ################################  Ports  #############################################
 BASE_PORT=${BASE_PORT:-$((SETUID*20))}
@@ -169,6 +170,7 @@ append "TAG" "$TAG"
 if ! $IS_CI; then
   append "SETUID" "$SETUID"
   append "SETGID" "$SETGID"
+  append "USERNAME" "$USERNAME"
 fi
 
 append "BASE_PORT" "$BASE_PORT"
