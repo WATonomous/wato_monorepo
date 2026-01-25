@@ -68,6 +68,7 @@ FROM build AS deploy
 # Source Cleanup, Security Setup, and Workspace Setup
 RUN rm -rf "${AMENT_WS:?}"/* && \
     chown -R "${USER}":"${USER}" "${AMENT_WS}"
+USER ${USER}
 
 ################################ Develop ################################
 FROM rosdep_install AS develop
