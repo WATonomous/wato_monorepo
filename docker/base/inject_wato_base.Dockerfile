@@ -47,4 +47,3 @@ RUN apt-get update && \
     echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
     apt-get install -y --no-install-recommends  apt-fast && \
     rm -rf /var/lib/apt/lists/*
-
