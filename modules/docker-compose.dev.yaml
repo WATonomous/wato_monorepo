@@ -15,8 +15,8 @@ services:
     image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/infrastructure:/home/bolty/ament_ws/src/infrastructure
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/infrastructure:/ws/src/infrastructure
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### INTERFACING SERVICE ####################
   interfacing_bringup_dev:
@@ -33,8 +33,8 @@ services:
     image: "${INTERFACING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/interfacing:/ws/src/interfacing
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup_dev:
@@ -51,8 +51,8 @@ services:
     image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/perception:/ws/src/perception
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### WORLD_MODELING SERVICE ####################
   world_modeling_bringup_dev:
@@ -69,8 +69,8 @@ services:
     image: "${WORLD_MODELING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### ACTION SERVICE ####################
   action_bringup_dev:
@@ -87,8 +87,8 @@ services:
     image: "${ACTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/action:/home/bolty/ament_ws/src/action
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/action:/ws/src/action
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### SIMULATION SERVICE ####################
   carla_sim:
@@ -117,5 +117,5 @@ services:
     image: "${SIMULATION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/simulation:/home/bolty/ament_ws/src/simulation
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/simulation:/ws/src/simulation
+      - ${MONO_DIR}/bags:/ws/bags

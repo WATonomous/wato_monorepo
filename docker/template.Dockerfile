@@ -74,9 +74,23 @@ ARG USERNAME
 ARG USER_GID
 ARG USER_UID
 
+# Update Sources and Install Useful Developer Tools
+# hadolint ignore=DL3009
+RUN apt-get update && \
+    apt-fast install -qq -y --no-install-recommends \
+    tmux \
+    git \
+    curl \
+    wget \
+    htop \
+    nano \
+    tree
+
 # Set user in container to developer's user
 # hadolint ignore=SC2086
-RUN groupadd --gid ${USER_GID} ${USERNAME} \
+RUN existing_user=$(getent passwd ${USER_UID} | cut -d: -f1) \
+    && if [ -n "$existing_user" ]; then userdel -r "$existing_user" 2>/dev/null || true; fi \
+    && if ! getent group ${USER_GID} >/dev/null; then groupadd --gid ${USER_GID} ${USERNAME}; fi \
     && useradd --uid ${USER_UID} --gid ${USER_GID} -m $USERNAME --shell /bin/bash \
     && apt-get update \
     && apt-get install -y --no-install-recommends sudo \
@@ -89,18 +103,6 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} \
     && rm -rf /var/lib/apt/lists/*
 
 USER $USERNAME
-
-# Update Sources and Install Useful Developer Tools
-# hadolint ignore=DL3009
-RUN apt-get update && \
-    apt-fast install -qq -y --no-install-recommends \
-    tmux \
-    git \
-    curl \
-    wget \
-    htop \
-    nano \
-    tree
 
 # Install Claude Code natively
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
