@@ -65,11 +65,12 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
 
   // Initialize all service clients upfront
   auto init_clients = [this](const std::string & node_name) {
+    std::string abs_name = toAbsoluteName(node_name);
     NodeClients nc;
     nc.change_state = this->create_client<lifecycle_msgs::srv::ChangeState>(
-      "/" + node_name + "/change_state", rclcpp::ServicesQoS(), service_cb_group_);
+      abs_name + "/change_state", rclcpp::ServicesQoS(), service_cb_group_);
     nc.get_state = this->create_client<lifecycle_msgs::srv::GetState>(
-      "/" + node_name + "/get_state", rclcpp::ServicesQoS(), service_cb_group_);
+      abs_name + "/get_state", rclcpp::ServicesQoS(), service_cb_group_);
     clients_[node_name] = nc;
   };
 
@@ -83,7 +84,7 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
 
   // Subscribe to scenario status
   scenario_sub_ = this->create_subscription<carla_msgs::msg::ScenarioStatus>(
-    "/" + scenario_server_name_ + "/scenario_status",
+    toAbsoluteName(scenario_server_name_) + "/scenario_status",
     10,
     std::bind(&LifecycleManagerNode::scenarioStatusCallback, this, std::placeholders::_1));
 
@@ -320,6 +321,17 @@ std::string LifecycleManagerNode::stateName(int state_id)
     default:
       return std::to_string(state_id);
   }
+}
+
+std::string LifecycleManagerNode::toAbsoluteName(const std::string & name)
+{
+  if (name.empty()) {
+    return "/";
+  }
+  if (name[0] == '/') {
+    return name;
+  }
+  return "/" + name;
 }
 
 }  // namespace carla_lifecycle

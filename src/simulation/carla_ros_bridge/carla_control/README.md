@@ -14,7 +14,7 @@ If no command is received within the `command_timeout`, the vehicle automaticall
 ros2 run carla_control ackermann_control
 ```
 
-**Subscriptions:** `~/command` (`ackermann_msgs/AckermannDriveStamped`)
+**Subscriptions:** `command` (`ackermann_msgs/AckermannDriveStamped`)
 
 **Parameters:**
 

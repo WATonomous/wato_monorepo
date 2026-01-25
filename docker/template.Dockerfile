@@ -85,10 +85,6 @@ RUN apt-get update && \
     nano \
     tree
 
-# Make ament_ws owned by bolty
-RUN chown -R "${USER}":"${USER}" "${AMENT_WS}"
-USER ${USER}
-
 # Install Claude Code natively
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -fsSL https://claude.ai/install.sh | bash

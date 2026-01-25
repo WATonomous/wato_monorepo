@@ -2,7 +2,7 @@
 
 # Scenario Server Configuration
 # See https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/ for timing settings
-scenario_server:
+/**/scenario_server:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
@@ -17,7 +17,7 @@ scenario_server:
     max_substeps: 10                  # Max physics substeps per frame
 
 # Ackermann Control Configuration
-ackermann_control:
+/**/ackermann_control:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
@@ -27,7 +27,7 @@ ackermann_control:
 
 # Camera Publisher Configuration
 # Supports multiple cameras - each camera publishes to ~/{name}/image_raw and ~/{name}/camera_info
-camera_publisher:
+/**/camera_publisher:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
@@ -60,7 +60,7 @@ camera_publisher:
 # LiDAR Publisher Configuration
 # Supports multiple LiDARs - each LiDAR publishes to ~/{name}/points
 # All per-LiDAR fields are required
-lidar_publisher:
+/**/lidar_publisher:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
@@ -87,7 +87,7 @@ lidar_publisher:
     top_lidar.noise_stddev: 0.0               # Distance noise std dev (0.0 = no noise)
 
 # BBox Publisher Configuration
-bbox_publisher:
+/**/bbox_publisher:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
@@ -99,7 +99,7 @@ bbox_publisher:
     max_distance: -1.0  # Max distance from ego vehicle in meters (-1 = no limit)
 
 # Localization Configuration (TF publisher)
-carla_localization:
+/**/carla_localization:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
@@ -111,7 +111,7 @@ carla_localization:
     publish_rate: 50.0  # Hz
 
 # Teleop Configuration (Foxglove compatible)
-carla_teleop:
+/**/carla_teleop:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
@@ -124,7 +124,7 @@ carla_teleop:
     control_rate: 50.0
 
 # Pygame HUD Configuration (web-based map visualizer)
-pygame_hud:
+/**/pygame_hud:
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
