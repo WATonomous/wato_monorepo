@@ -12,8 +12,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get install -y --no-install-recommends curl sudo && \
     rm -rf /var/lib/apt/lists/*
 
-ENV USER="bolty"
-ENV AMENT_WS=/home/${USER}/ament_ws
+ENV AMENT_WS=/ws
 ENV WATONOMOUS_INSTALL=/opt/watonomous
 
 # Setup WATonomous Install Directory
@@ -23,15 +22,6 @@ RUN mkdir -p "${WATONOMOUS_INSTALL}"
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get install -y --no-install-recommends curl sudo && \
     rm -rf /var/lib/apt/lists/*
-
-# Add a user so that created files in the docker container are owned by a non-root user (for prod)
-ARG USER_PASSWD
-# hadolint ignore=SC2046
-RUN addgroup --gid 1000 ${USER} || groupmod -n ${USER} $(getent group 1000 | cut -d: -f1) && \
-    useradd -rm -d /home/${USER} -s /bin/bash -g ${USER} -G sudo -u 1000 ${USER} -p "$(openssl passwd -6 $USER_PASSWD)" || \
-    usermod -l ${USER} -d /home/${USER} -m $(getent passwd 1000 | cut -d: -f1) && \
-    usermod -aG sudo ${USER} && \
-    usermod -p "$(openssl passwd -6 $USER_PASSWD)" ${USER}
 
 # install apt-fast
 RUN apt-get update && \
