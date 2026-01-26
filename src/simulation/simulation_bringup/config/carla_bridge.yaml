@@ -7,7 +7,6 @@
     carla_host: "localhost"
     carla_timeout: 10.0
     initial_scenario: "carla_scenarios.scenarios.light_traffic_scenario"
-    lifecycle_manager_name: "carla_lifecycle_manager"
     # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
     carla_fps: 60.0                  # Sets fixed_delta_seconds = 1/fps
     synchronous_mode: true           # Server waits for client tick

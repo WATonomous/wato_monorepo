@@ -114,18 +114,30 @@ LifecycleManager::~LifecycleManager()
   }
 }
 
+std::string LifecycleManager::getServicePrefix(const std::string & node_name) const
+{
+  // If the node name already starts with '/', it's an absolute name - use as-is
+  // Otherwise, prepend '/' to make it absolute
+  if (!node_name.empty() && node_name[0] == '/') {
+    return node_name;
+  }
+  return "/" + node_name;
+}
+
 void LifecycleManager::createManagedNodes()
 {
   for (const auto & name : node_names_) {
     ManagedNode node;
     node.name = name;
 
+    std::string prefix = getServicePrefix(name);
+
     // Create lifecycle service clients
     node.change_state_client = this->create_client<lifecycle_msgs::srv::ChangeState>(
-      "/" + name + "/change_state", rmw_qos_profile_services_default, callback_group_);
+      prefix + "/change_state", rmw_qos_profile_services_default, callback_group_);
 
     node.get_state_client = this->create_client<lifecycle_msgs::srv::GetState>(
-      "/" + name + "/get_state", rmw_qos_profile_services_default, callback_group_);
+      prefix + "/get_state", rmw_qos_profile_services_default, callback_group_);
 
     nodes_.push_back(std::move(node));
     RCLCPP_DEBUG(this->get_logger(), "Created clients for managed node: %s", name.c_str());
@@ -140,7 +152,8 @@ void LifecycleManager::createBond(ManagedNode & node)
 
   RCLCPP_DEBUG(this->get_logger(), "Creating bond for node: %s", node.name.c_str());
 
-  node.bond = std::make_unique<bond::Bond>("/" + node.name + "/bond", node.name, shared_from_this());
+  std::string prefix = getServicePrefix(node.name);
+  node.bond = std::make_unique<bond::Bond>(prefix + "/bond", node.name, shared_from_this());
 
   node.bond->setHeartbeatTimeout(bond_timeout_s_);
   node.bond->setHeartbeatPeriod(bond_timeout_s_ / 4.0);

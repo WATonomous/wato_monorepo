@@ -58,6 +58,7 @@ Options
 Commands
   install                     Install watod to /usr/local/bin (requires sudo)
   down                        Stop ACTIVE_MODULES containers + infrastructure
+  down <service>              Stop only the specified service(s)
   down all                    Stop all watod containers (all modules/profiles)
   test [SERVICE]...           Run colcon test in specified service(s)
                               If no SERVICE specified, runs in all services
@@ -70,6 +71,7 @@ Examples
   watod -m all up                       # start all modules in deploy mode
   watod -m all:dev up                   # start all modules in dev mode
   watod down                            # stop ACTIVE_MODULES + infrastructure
+  watod down foxglove                   # stop only the foxglove service
   watod down all                        # stop all watod containers
   watod -m perception down              # stop only perception module (no infrastructure)
   watod -m perception -m action up      # start only perception and action
@@ -289,6 +291,19 @@ if [[ -n ${RUN_DOWN:-} ]]; then
     # "watod -m <module> down" - stop only the specified module (no infrastructure)
     ACTIVE_MODULES=("${CLI_MODULES[@]}")
     build_profile_arrays "infrastructure"
+  elif [[ ${#DOWN_SERVICES[@]} -gt 0 ]]; then
+    # "watod down <service_name>" - stop only specific service(s)
+    # Build all profiles so docker compose can find the service
+    build_profile_arrays "" "true"
+
+    # Convert to --profile flags
+    DOWN_PROFILE_FLAGS=()
+    for p in "${ALL_PROFILES[@]}"; do
+      DOWN_PROFILE_FLAGS+=("--profile" "$p")
+    done
+
+    docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml "${DOWN_PROFILE_FLAGS[@]}" down "${DOWN_SERVICES[@]}"
+    exit $?
   else
     # "watod down" - stop modules from ACTIVE_MODULES config + infrastructure
     # Need to determine ACTIVE_MODULES from config (already sourced above)
@@ -302,6 +317,7 @@ if [[ -n ${RUN_DOWN:-} ]]; then
 
     if [[ ${#ACTIVE_MODULES[@]} -eq 0 ]]; then
       echo "Error: No modules to stop. Set ACTIVE_MODULES in watod-config.sh or use:" >&2
+      echo "  watod down <service>        # stop a specific service" >&2
       echo "  watod down all              # stop all watod containers" >&2
       echo "  watod -m perception down    # stop only perception module" >&2
       exit 1

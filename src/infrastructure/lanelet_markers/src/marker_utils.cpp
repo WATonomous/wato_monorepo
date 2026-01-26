@@ -200,6 +200,73 @@ visualization_msgs::msg::Marker createDashedLineMarker(
   return marker;
 }
 
+visualization_msgs::msg::Marker createDottedLineMarker(
+  const std::string & ns,
+  int32_t id,
+  const std::string & frame_id,
+  const std::vector<geometry_msgs::msg::Point> & points,
+  const std_msgs::msg::ColorRGBA & color,
+  double dot_size,
+  double dot_spacing)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header.frame_id = frame_id;
+  marker.ns = ns;
+  marker.id = id;
+  marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+  marker.pose.orientation.w = 1.0;
+  marker.scale.x = dot_size;
+  marker.scale.y = dot_size;
+  marker.scale.z = dot_size;
+  marker.color = color;
+
+  if (points.size() < 2) {
+    return marker;
+  }
+
+  // Add first point
+  marker.points.push_back(points[0]);
+
+  // Walk along the polyline and place dots at regular intervals
+  double accumulated = 0.0;
+
+  for (size_t i = 1; i < points.size(); ++i) {
+    double dx = points[i].x - points[i - 1].x;
+    double dy = points[i].y - points[i - 1].y;
+    double dz = points[i].z - points[i - 1].z;
+    double segment_len = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+    if (segment_len < 1e-6) {
+      continue;
+    }
+
+    double pos = 0.0;
+    while (pos < segment_len) {
+      double remaining_to_next_dot = dot_spacing - accumulated;
+      double remaining_in_segment = segment_len - pos;
+
+      if (remaining_in_segment >= remaining_to_next_dot) {
+        // Place a dot within this segment
+        double t = (pos + remaining_to_next_dot) / segment_len;
+        geometry_msgs::msg::Point pt;
+        pt.x = points[i - 1].x + t * dx;
+        pt.y = points[i - 1].y + t * dy;
+        pt.z = points[i - 1].z + t * dz;
+        marker.points.push_back(pt);
+
+        accumulated = 0.0;
+        pos += remaining_to_next_dot;
+      } else {
+        accumulated += remaining_in_segment;
+        pos = segment_len;
+      }
+    }
+  }
+
+  return marker;
+}
+
 visualization_msgs::msg::Marker createArrowMarker(
   const std::string & ns,
   int32_t id,

@@ -89,8 +89,9 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
     std::bind(&LifecycleManagerNode::scenarioStatusCallback, this, std::placeholders::_1));
 
   // Service for scenario_server to request node cleanup before switching
+  // Uses namespace-relative path so scenario_server can find it without knowing node name
   prepare_switch_service_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/prepare_for_scenario_switch",
+    "prepare_for_scenario_switch",
     std::bind(&LifecycleManagerNode::prepareForSwitchCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Autostart timer - retries until scenario_server connects to CARLA

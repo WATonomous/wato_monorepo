@@ -73,6 +73,17 @@ public:
   }
 
 private:
+  /**
+   * @brief Extract yaw (heading) from quaternion orientation.
+   */
+  static double extractYaw(const geometry_msgs::msg::Quaternion & q)
+  {
+    // yaw = atan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))
+    double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);
+    double cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
+    return std::atan2(siny_cosp, cosy_cosp);
+  }
+
   void publish()
   {
     if (!lanelet_->isMapLoaded()) {
@@ -85,17 +96,22 @@ private:
     }
 
     auto ego_point = ego_pose_.getEgoPoint();
-    auto nearest_id = lanelet_->findNearestLaneletId(*ego_point);
-    if (!nearest_id.has_value()) {
+
+    // Extract yaw from quaternion for heading-aligned lanelet finding
+    double yaw = extractYaw(ego->pose.orientation);
+
+    // Use route-aware + heading-aligned lanelet finding
+    auto current_id = lanelet_->findCurrentLaneletId(*ego_point, yaw);
+    if (!current_id.has_value()) {
       return;
     }
 
     // Check if lanelet changed - rebuild if so
-    if (!cached_lanelet_id_.has_value() || *cached_lanelet_id_ != *nearest_id) {
-      cached_lanelet_id_ = *nearest_id;
-      auto nearest_ll = lanelet_->getLaneletById(*nearest_id);
-      if (nearest_ll.has_value()) {
-        rebuildContext(*nearest_ll);
+    if (!cached_lanelet_id_.has_value() || *cached_lanelet_id_ != *current_id) {
+      cached_lanelet_id_ = *current_id;
+      auto current_ll = lanelet_->getLaneletById(*current_id);
+      if (current_ll.has_value()) {
+        rebuildContext(*current_ll);
       }
     }
 

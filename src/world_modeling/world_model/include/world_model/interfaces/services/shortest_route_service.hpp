@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef WORLD_MODEL__INTERFACES__SERVICES__ROUTE_SERVICE_HPP_
-#define WORLD_MODEL__INTERFACES__SERVICES__ROUTE_SERVICE_HPP_
+#ifndef WORLD_MODEL__INTERFACES__SERVICES__SHORTEST_ROUTE_SERVICE_HPP_
+#define WORLD_MODEL__INTERFACES__SERVICES__SHORTEST_ROUTE_SERVICE_HPP_
 
 #include <string>
 #include <utility>
 
-#include "lanelet_msgs/srv/get_route.hpp"
+#include "lanelet_msgs/srv/get_shortest_route.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
@@ -28,16 +28,16 @@ namespace world_model
 {
 
 /**
- * @brief Service to get route lanelets within a distance from ego position.
+ * @brief Service to get the entire shortest route from ego to goal.
  *
  * Requires SetRoute to be called first to establish the destination.
- * Gets ego position from TF and returns lanelets along the cached route
- * within the requested distance.
+ * Gets ego position from TF and returns ALL lanelets along the cached route
+ * from ego's current position to the goal.
  */
-class RouteService : public InterfaceBase
+class ShortestRouteService : public InterfaceBase
 {
 public:
-  RouteService(
+  ShortestRouteService(
     rclcpp_lifecycle::LifecycleNode * node,
     const LaneletHandler * lanelet_handler,
     tf2_ros::Buffer * tf_buffer,
@@ -47,24 +47,25 @@ public:
   , lanelet_(lanelet_handler)
   , ego_pose_(tf_buffer, map_frame, base_frame)
   {
-    srv_ = node_->create_service<lanelet_msgs::srv::GetRoute>(
-      "get_route", std::bind(&RouteService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
+    srv_ = node_->create_service<lanelet_msgs::srv::GetShortestRoute>(
+      "get_shortest_route",
+      std::bind(&ShortestRouteService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
   void handleRequest(
-    lanelet_msgs::srv::GetRoute::Request::ConstSharedPtr request,
-    lanelet_msgs::srv::GetRoute::Response::SharedPtr response)
+    lanelet_msgs::srv::GetShortestRoute::Request::ConstSharedPtr /*request*/,
+    lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr response)
   {
     auto ego_point = ego_pose_.getEgoPoint();
     if (!ego_point.has_value()) {
       response->success = false;
       response->error_message = "tf_lookup_failed";
-      RCLCPP_WARN(node_->get_logger(), "GetRoute TF lookup failed");
+      RCLCPP_WARN(node_->get_logger(), "GetShortestRoute TF lookup failed");
       return;
     }
 
-    auto result = lanelet_->getRouteFromPosition(*ego_point, request->distance_m);
+    auto result = lanelet_->getShortestRoute(*ego_point);
     *response = std::move(result);
   }
 
@@ -72,9 +73,9 @@ private:
   const LaneletHandler * lanelet_;
   EgoPoseHelper ego_pose_;
 
-  rclcpp::Service<lanelet_msgs::srv::GetRoute>::SharedPtr srv_;
+  rclcpp::Service<lanelet_msgs::srv::GetShortestRoute>::SharedPtr srv_;
 };
 
 }  // namespace world_model
 
-#endif  // WORLD_MODEL__INTERFACES__SERVICES__ROUTE_SERVICE_HPP_
+#endif  // WORLD_MODEL__INTERFACES__SERVICES__SHORTEST_ROUTE_SERVICE_HPP_

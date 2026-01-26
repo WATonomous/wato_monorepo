@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # World Model configuration for simulation
-world_model:
+/**/world_model:
   ros__parameters:
     # Map configuration
     osm_map_path: "/opt/watonomous/maps/osm/Town10HD_with_regulatory.osm"
@@ -39,3 +39,35 @@ world_model:
     lane_context_publish_rate_hz: 10.0
     map_viz_publish_rate_hz: 1.0
     map_viz_radius_m: 100.0
+
+/**/map_viz_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    show_centerlines: true
+    show_stop_lines: true
+    show_traffic_lights: true
+    show_direction_arrows: true
+    show_speed_limits: false
+    show_yield_markers: true
+    use_boundary_colors: true
+    boundary_line_width: 0.15
+    centerline_line_width: 0.05
+    stop_line_width: 0.3
+    traffic_light_radius: 0.5
+    direction_arrow_spacing: 15.0
+    direction_arrow_size: 0.8
+    speed_limit_text_height: 1.0
+    yield_marker_size: 1.5
+
+/**/lane_context_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    boundary_line_width: 0.25
+    centerline_line_width: 0.1
+
+/**/route_ahead_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    centerline_line_width: 0.4
+    show_lanelet_ids: false
+    show_route_info: true
