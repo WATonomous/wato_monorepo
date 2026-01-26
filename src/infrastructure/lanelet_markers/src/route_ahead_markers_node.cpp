@@ -80,8 +80,8 @@ void RouteAheadMarkersNode::routeAheadCallback(const lanelet_msgs::msg::RouteAhe
   }
 
   // Create separate markers for each lanelet (centerline and boundaries)
-  auto centerline_color = makeColor(0.0f, 0.8f, 1.0f, 0.7f);   // Bright cyan
-  auto boundary_color = makeColor(0.0f, 0.8f, 1.0f, 0.5f);     // Cyan, slightly transparent
+  auto centerline_color = makeColor(0.0f, 0.8f, 1.0f, 0.7f);  // Bright cyan
+  auto boundary_color = makeColor(0.0f, 0.8f, 1.0f, 0.5f);  // Cyan, slightly transparent
 
   for (const auto & lanelet : msg->lanelets) {
     // Centerline marker for this lanelet
@@ -92,20 +92,30 @@ void RouteAheadMarkersNode::routeAheadCallback(const lanelet_msgs::msg::RouteAhe
       marker_array.markers.push_back(centerline_marker);
     }
 
-    // Dashed boundary markers
+    // Dotted boundary markers
     if (show_boundaries_) {
       if (lanelet.left_boundary.size() >= 2) {
-        auto left_marker = createDashedLineMarker(
-          "route_left_boundaries", marker_id++, frame_id_, lanelet.left_boundary, boundary_color, boundary_line_width_,
-          1.5, 1.5);
+        auto left_marker = createDottedLineMarker(
+          "route_left_boundaries",
+          marker_id++,
+          frame_id_,
+          lanelet.left_boundary,
+          boundary_color,
+          boundary_line_width_ * 2.0,
+          1.5);
         left_marker.header.stamp = stamp;
         marker_array.markers.push_back(left_marker);
       }
 
       if (lanelet.right_boundary.size() >= 2) {
-        auto right_marker = createDashedLineMarker(
-          "route_right_boundaries", marker_id++, frame_id_, lanelet.right_boundary, boundary_color, boundary_line_width_,
-          1.5, 1.5);
+        auto right_marker = createDottedLineMarker(
+          "route_right_boundaries",
+          marker_id++,
+          frame_id_,
+          lanelet.right_boundary,
+          boundary_color,
+          boundary_line_width_ * 2.0,
+          1.5);
         right_marker.header.stamp = stamp;
         marker_array.markers.push_back(right_marker);
       }
