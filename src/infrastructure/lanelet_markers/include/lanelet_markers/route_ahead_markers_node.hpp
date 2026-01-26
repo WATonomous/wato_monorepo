@@ -44,8 +44,10 @@ private:
 
   std::string frame_id_;
   double centerline_line_width_;
+  double boundary_line_width_;
   bool show_lanelet_ids_;
   bool show_route_info_;
+  bool show_boundaries_;
 };
 
 }  // namespace lanelet_markers

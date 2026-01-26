@@ -71,6 +71,7 @@ services:
     volumes:
       - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
       - ${MONO_DIR}/src/infrastructure/wato_lifecycle_manager:/ws/src/wato_lifecycle_manager
+      - ${MONO_DIR}/src/infrastructure/lanelet_markers:/ws/src/lanelet_markers
       - ${MONO_DIR}/bags:/ws/bags
 
 #################### ACTION SERVICE ####################

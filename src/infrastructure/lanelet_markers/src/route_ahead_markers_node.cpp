@@ -32,14 +32,18 @@ RouteAheadMarkersNode::RouteAheadMarkersNode(const rclcpp::NodeOptions & options
   // Declare parameters
   this->declare_parameter<std::string>("frame_id", "map");
   this->declare_parameter<double>("centerline_line_width", 0.4);
+  this->declare_parameter<double>("boundary_line_width", 0.15);
   this->declare_parameter<bool>("show_lanelet_ids", false);
   this->declare_parameter<bool>("show_route_info", true);
+  this->declare_parameter<bool>("show_boundaries", true);
 
   // Get parameters
   frame_id_ = this->get_parameter("frame_id").as_string();
   centerline_line_width_ = this->get_parameter("centerline_line_width").as_double();
+  boundary_line_width_ = this->get_parameter("boundary_line_width").as_double();
   show_lanelet_ids_ = this->get_parameter("show_lanelet_ids").as_bool();
   show_route_info_ = this->get_parameter("show_route_info").as_bool();
+  show_boundaries_ = this->get_parameter("show_boundaries").as_bool();
 
   // Create publisher and subscription
   publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("markers", 10);
@@ -61,7 +65,8 @@ void RouteAheadMarkersNode::routeAheadCallback(const lanelet_msgs::msg::RouteAhe
   }
 
   // Delete all previous markers
-  std::vector<std::string> namespaces = {"route_path", "route_info", "route_ids"};
+  std::vector<std::string> namespaces = {
+    "route_path", "route_info", "route_ids", "route_left_boundaries", "route_right_boundaries"};
   for (const auto & ns : namespaces) {
     auto delete_marker = createDeleteAllMarker(ns, frame_id_);
     delete_marker.header.stamp = stamp;
@@ -74,26 +79,53 @@ void RouteAheadMarkersNode::routeAheadCallback(const lanelet_msgs::msg::RouteAhe
     return;
   }
 
-  // Collect all centerline points into one continuous path
-  std::vector<geometry_msgs::msg::Point> route_path;
+  // Create separate markers for each lanelet (centerline and boundaries)
+  auto centerline_color = makeColor(0.0f, 0.8f, 1.0f, 0.7f);   // Bright cyan
+  auto boundary_color = makeColor(0.0f, 0.8f, 1.0f, 0.5f);     // Cyan, slightly transparent
+
   for (const auto & lanelet : msg->lanelets) {
-    for (const auto & pt : lanelet.centerline) {
-      route_path.push_back(pt);
+    // Centerline marker for this lanelet
+    if (lanelet.centerline.size() >= 2) {
+      auto centerline_marker = createLineStripMarker(
+        "route_path", marker_id++, frame_id_, lanelet.centerline, centerline_color, centerline_line_width_);
+      centerline_marker.header.stamp = stamp;
+      marker_array.markers.push_back(centerline_marker);
+    }
+
+    // Dashed boundary markers
+    if (show_boundaries_) {
+      if (lanelet.left_boundary.size() >= 2) {
+        auto left_marker = createDashedLineMarker(
+          "route_left_boundaries", marker_id++, frame_id_, lanelet.left_boundary, boundary_color, boundary_line_width_,
+          1.5, 1.5);
+        left_marker.header.stamp = stamp;
+        marker_array.markers.push_back(left_marker);
+      }
+
+      if (lanelet.right_boundary.size() >= 2) {
+        auto right_marker = createDashedLineMarker(
+          "route_right_boundaries", marker_id++, frame_id_, lanelet.right_boundary, boundary_color, boundary_line_width_,
+          1.5, 1.5);
+        right_marker.header.stamp = stamp;
+        marker_array.markers.push_back(right_marker);
+      }
     }
   }
 
-  // Route path overlay (bright cyan color)
-  if (!route_path.empty()) {
-    auto path_color = makeColor(0.0f, 0.8f, 1.0f, 0.7f);
-    auto path_marker =
-      createLineStripMarker("route_path", marker_id++, frame_id_, route_path, path_color, centerline_line_width_);
-    path_marker.header.stamp = stamp;
-    marker_array.markers.push_back(path_marker);
+  // Get first centerline point for route info text position
+  geometry_msgs::msg::Point first_point;
+  bool has_first_point = false;
+  for (const auto & lanelet : msg->lanelets) {
+    if (!lanelet.centerline.empty()) {
+      first_point = lanelet.centerline.front();
+      has_first_point = true;
+      break;
+    }
   }
 
   // Route info text at the first lanelet
-  if (show_route_info_ && !route_path.empty()) {
-    geometry_msgs::msg::Point text_pos = route_path.front();
+  if (show_route_info_ && has_first_point) {
+    geometry_msgs::msg::Point text_pos = first_point;
     text_pos.z += 2.5;
 
     std::ostringstream oss;
