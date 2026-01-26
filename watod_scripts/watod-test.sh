@@ -110,7 +110,7 @@ run_tests() {
   test_output=$(docker run --rm \
     -e ROS_DOMAIN_ID="$TEST_ROS_DOMAIN_ID" \
     --name "${service}_test_$$" \
-    -w /home/bolty/ament_ws \
+    -w /ws \
     "$image" \
     /bin/bash -c "source /opt/watonomous/setup.bash && colcon test --event-handlers console_direct+ && colcon test-result --verbose" 2>&1)
 

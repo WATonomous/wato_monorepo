@@ -301,8 +301,8 @@ To run the test executable directly with verbose output:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-source /home/bolty/ament_ws/install/setup.bash
-/home/bolty/ament_ws/build/patchworkpp/test_ground_removal -s
+source /ws/install/setup.bash
+/ws/build/patchworkpp/test_ground_removal -s
 ```
 
 #### Re-run Failed Tests

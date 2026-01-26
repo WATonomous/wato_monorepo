@@ -24,6 +24,7 @@
 #include "world_model/interfaces/publishers/dynamic_objects_publisher.hpp"
 #include "world_model/interfaces/publishers/lane_context_publisher.hpp"
 #include "world_model/interfaces/publishers/map_viz_publisher.hpp"
+#include "world_model/interfaces/publishers/route_ahead_publisher.hpp"
 
 // Subscribers
 #include "world_model/interfaces/subscribers/detection_subscriber.hpp"
@@ -31,10 +32,9 @@
 #include "world_model/interfaces/subscribers/traffic_light_subscriber.hpp"
 
 // Services
-#include "world_model/interfaces/services/corridor_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
-#include "world_model/interfaces/services/route_service.hpp"
 #include "world_model/interfaces/services/set_route_service.hpp"
+#include "world_model/interfaces/services/shortest_route_service.hpp"
 
 // Workers
 #include "world_model/interfaces/workers/cleanup_worker.hpp"
@@ -59,6 +59,8 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("map_viz_publish_rate_hz", 1.0);
   this->declare_parameter<double>("map_viz_radius_m", 100.0);
   this->declare_parameter<double>("dynamic_objects_publish_rate_hz", 10.0);
+  this->declare_parameter<double>("route_ahead_publish_rate_hz", 10.0);
+  this->declare_parameter<double>("route_ahead_lookahead_m", 100.0);
 
   RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
 }
@@ -96,6 +98,8 @@ void WorldModelNode::createInterfaces()
   double map_viz_rate_hz = this->get_parameter("map_viz_publish_rate_hz").as_double();
   double map_viz_radius_m = this->get_parameter("map_viz_radius_m").as_double();
   double dynamic_objects_rate_hz = this->get_parameter("dynamic_objects_publish_rate_hz").as_double();
+  double route_ahead_rate_hz = this->get_parameter("route_ahead_publish_rate_hz").as_double();
+  double route_ahead_lookahead_m = this->get_parameter("route_ahead_lookahead_m").as_double();
   double history_duration_sec = this->get_parameter("entity_history_duration_sec").as_double();
   double entity_prune_timeout_sec = this->get_parameter("entity_prune_timeout_sec").as_double();
   double traffic_light_timeout_sec = this->get_parameter("traffic_light_timeout_sec").as_double();
@@ -112,6 +116,15 @@ void WorldModelNode::createInterfaces()
   interfaces_.push_back(
     std::make_unique<DynamicObjectsPublisher>(this, world_state_.get(), map_frame_, dynamic_objects_rate_hz));
 
+  interfaces_.push_back(std::make_unique<RouteAheadPublisher>(
+    this,
+    lanelet_handler_.get(),
+    tf_buffer_.get(),
+    map_frame_,
+    base_frame_,
+    route_ahead_rate_hz,
+    route_ahead_lookahead_m));
+
   // Subscribers
   interfaces_.push_back(
     std::make_unique<DetectionSubscriber>(this, world_state_.get(), lanelet_handler_.get(), history_duration_sec));
@@ -125,9 +138,7 @@ void WorldModelNode::createInterfaces()
     std::make_unique<SetRouteService>(this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_));
 
   interfaces_.push_back(
-    std::make_unique<RouteService>(this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_));
-
-  interfaces_.push_back(std::make_unique<CorridorService>(this, lanelet_handler_.get()));
+    std::make_unique<ShortestRouteService>(this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_));
 
   interfaces_.push_back(std::make_unique<RegElemService>(this, lanelet_handler_.get()));
 
