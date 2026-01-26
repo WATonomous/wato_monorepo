@@ -1,13 +1,13 @@
 {
   "configById": {
     "CallService!25pwqml": {
-      "requestPayload": "{\n  \"data\": false\n}",
+      "requestPayload": "{\n  \"data\": true\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
       "serviceName": "/carla/carla_teleop/set_autonomy"
     },
     "CallService!3k192jd": {
-      "requestPayload": "{\n  \"scenario_name\": \"\"\n}",
+      "requestPayload": "{\n  \"scenario_name\": \"carla_scenarios.scenarios.heavy_traffic_scenario\"\n}",
       "layout": "vertical",
       "timeoutSeconds": 20,
       "serviceName": "/carla/scenario_server/switch_scenario"
@@ -18,16 +18,22 @@
       "timeoutSeconds": 10,
       "serviceName": "/carla/scenario_server/get_available_scenarios"
     },
+    "CallService!3mbbmci": {
+      "requestPayload": "{\n  \"goal_point\": {\n    \"x\": 0,\n    \"y\": 0,\n    \"z\": 0\n  }\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 20,
+      "serviceName": "/world_modeling/set_route"
+    },
     "3D!30zmknt": {
       "cameraState": {
         "perspective": true,
-        "distance": 303.16489823921995,
-        "phi": 37.910249490750395,
-        "thetaOffset": -175.03458706347416,
+        "distance": 259.9260046275298,
+        "phi": 36.56092415342824,
+        "thetaOffset": 154.4706603128317,
         "targetOffset": [
-          -14.943707806875626,
-          -2.8390289580784405,
-          -1.7533513681107051
+          -73.98744835285055,
+          -87.54224579102564,
+          -1.7533513681107087
         ],
         "target": [
           0,
@@ -178,6 +184,18 @@
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo"
+        },
+        "/markers": {
+          "visible": false
+        },
+        "/world_modeling/lanelet/lane_context_markers": {
+          "visible": false
+        },
+        "/world_modeling/lanelet/map_viz_markers": {
+          "visible": true
+        },
+        "/world_modeling/lanelet/route_ahead_markers": {
+          "visible": true
         }
       },
       "layers": {
@@ -235,7 +253,15 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "base_link"
+      "followTf": "map"
+    },
+    "RawMessages!gwbiuj": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/world_modeling/lanelet/route_ahead_markers",
+      "fontSize": 12
     }
   },
   "globalVariables": {},
@@ -248,13 +274,23 @@
       "first": "CallService!25pwqml",
       "second": {
         "first": "CallService!3k192jd",
-        "second": "CallService!trma13",
-        "direction": "column"
+        "second": {
+          "first": "CallService!trma13",
+          "second": "CallService!3mbbmci",
+          "direction": "column"
+        },
+        "direction": "column",
+        "splitPercentage": 30.768220928472832
       },
       "direction": "column",
       "splitPercentage": 27.461607949412826
     },
-    "second": "3D!30zmknt",
+    "second": {
+      "first": "3D!30zmknt",
+      "second": "RawMessages!gwbiuj",
+      "direction": "row",
+      "splitPercentage": 63.0248366997647
+    },
     "direction": "row",
     "splitPercentage": 26.693967361408227
   }

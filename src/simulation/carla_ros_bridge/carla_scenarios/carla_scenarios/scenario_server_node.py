@@ -88,14 +88,6 @@ class ScenarioServerNode(LifecycleNode):
             10,
             ParameterDescriptor(description="Max number of physics substeps per frame"),
         )
-        # Lifecycle manager coordination
-        self.declare_parameter(
-            "lifecycle_manager_name",
-            "carla_lifecycle_manager",
-            ParameterDescriptor(
-                description="Name of the lifecycle manager node for coordination"
-            ),
-        )
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -203,11 +195,11 @@ class ScenarioServerNode(LifecycleNode):
         )
 
         # Create client for lifecycle manager's prepare_for_scenario_switch service
-        lifecycle_manager_name = self.get_parameter("lifecycle_manager_name").value
+        # Uses namespace-relative path - both nodes share the same namespace
         self.client_cb_group = rclpy.callback_groups.MutuallyExclusiveCallbackGroup()
         self.prepare_switch_client = self.create_client(
             Trigger,
-            f"/{lifecycle_manager_name}/prepare_for_scenario_switch",
+            "prepare_for_scenario_switch",
             callback_group=self.client_cb_group,
         )
 

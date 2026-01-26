@@ -116,6 +116,9 @@ private:
   // Bond callbacks
   void onBondBroken(const std::string & node_name);
 
+  // Helper to get service prefix from node name (handles absolute vs relative names)
+  std::string getServicePrefix(const std::string & node_name) const;
+
   // Service callbacks
   void handleStartup(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,

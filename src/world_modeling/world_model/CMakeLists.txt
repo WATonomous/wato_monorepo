@@ -106,7 +106,7 @@ install(TARGETS world_model_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY config launch
+install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 

@@ -22,7 +22,7 @@
 #include <wato_test/wato_test.hpp>
 
 #include "geometry_msgs/msg/point.hpp"
-#include "lanelet_msgs/srv/get_route.hpp"
+#include "lanelet_msgs/srv/get_shortest_route.hpp"
 #include "lanelet_msgs/srv/set_route.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
 #include "world_model/interfaces/interface_base.hpp"
@@ -188,13 +188,13 @@ TEST_CASE("LaneletHandler route caching", "[lanelet_handler]")
     REQUIRE(handler.getGoalLaneletId() == -1);
   }
 
-  SECTION("getRouteFromPosition returns error without active route")
+  SECTION("getShortestRoute returns error without loaded map")
   {
     geometry_msgs::msg::Point pt;
     pt.x = 0.0;
     pt.y = 0.0;
 
-    auto response = handler.getRouteFromPosition(pt, 100.0);
+    auto response = handler.getShortestRoute(pt);
 
     REQUIRE_FALSE(response.success);
     REQUIRE(response.error_message == "map_not_loaded");
@@ -203,7 +203,7 @@ TEST_CASE("LaneletHandler route caching", "[lanelet_handler]")
 
 // Service Integration Tests (with ROS executor)
 
-TEST_CASE_METHOD(wato::test::TestExecutorFixture, "SetRoute and GetRoute services", "[services]")
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "SetRoute and GetShortestRoute services", "[services]")
 {
   // Create client nodes
   auto set_route_client = std::make_shared<rclcpp::Node>("set_route_client");
@@ -214,14 +214,14 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "SetRoute and GetRoute service
   start_spinning();
 
   auto set_route_cli = set_route_client->create_client<lanelet_msgs::srv::SetRoute>("set_route");
-  auto get_route_cli = get_route_client->create_client<lanelet_msgs::srv::GetRoute>("get_route");
+  auto get_route_cli = get_route_client->create_client<lanelet_msgs::srv::GetShortestRoute>("get_route");
 
   SECTION("SetRoute service client can be created")
   {
     REQUIRE(set_route_cli != nullptr);
   }
 
-  SECTION("GetRoute service client can be created")
+  SECTION("GetShortestRoute service client can be created")
   {
     REQUIRE(get_route_cli != nullptr);
   }

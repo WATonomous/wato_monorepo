@@ -60,7 +60,7 @@ To setup a DevContainer:
     1. **Terminal Access** Access a devcontainer through your terminal with `watod -t $DEVCONTAINER_NAME`. Replace `$DEVCONTAINER_NAME` with the name of the container that was denoted as `(DevContainer)` when you ran `watod up`
     1. **VSCode Access** Install the DevContainer extension on vscode. Then do `Ctrl+Shift+P` and select `Dev Containers: Attach to Running Container...`. Then select the container prepended with `_dev` as the container you want to connect VSCode into.
 
-1. Once you are inside a DevContainer, make sure you work in `~/ament_ws/`. All `src` files relevant to the module will be mounted from the monorepo to `~/ament_ws/src`. This means that any changes you make in `~/ament_ws/src` will reflect out to the `wato_monorepo`. `~/ament_ws` is a default ROS2 workspace where you can run commands like `colcon`.
+1. Once you are inside a DevContainer, make sure you work in `/ws/`. All `src` files relevant to the module will be mounted from the monorepo to `/ws/src`. This means that any changes you make in `/ws/src` will reflect out to the `wato_monorepo`. `/ws` is a default ROS2 workspace where you can run commands like `colcon`.
 1. Manage git changes outside of the devcontainer.
 
 ## Pre-commit

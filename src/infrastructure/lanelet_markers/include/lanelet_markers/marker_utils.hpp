@@ -66,6 +66,16 @@ visualization_msgs::msg::Marker createDashedLineMarker(
   double dash_length = 1.0,
   double gap_length = 1.0);
 
+/// Creates a dotted line marker using SPHERE_LIST with dots at regular intervals.
+visualization_msgs::msg::Marker createDottedLineMarker(
+  const std::string & ns,
+  int32_t id,
+  const std::string & frame_id,
+  const std::vector<geometry_msgs::msg::Point> & points,
+  const std_msgs::msg::ColorRGBA & color,
+  double dot_size,
+  double dot_spacing = 1.0);
+
 /// Creates an ARROW marker pointing from start to end position.
 visualization_msgs::msg::Marker createArrowMarker(
   const std::string & ns,
