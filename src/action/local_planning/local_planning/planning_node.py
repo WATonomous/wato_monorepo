@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rcl_interfaces.msg import ParameterDescriptor
 
 from typing import Any, Optional
 
@@ -7,10 +8,11 @@ from nav_msgs.msg import Path
 from nav_msgs.msg import Odometry
 
 from geometry_msgs.msg import PoseStamped
-from rcl_interfaces.msg import ParameterDescriptor
+from visualization_msgs.msg import MarkerArray
+from visualization_msgs.msg import Marker
 
 from lanelet_msgs.srv import GetRoute, GetCorridor
-from lanelet_msgs.msg import Lanelet, Corridor
+from lanelet_msgs.msg import Lanelet, Corridor, CurrentLaneContext, Lanelet, CorridorLane
 
 from local_planning.lattice_planner import (
     PlannerConverter,
@@ -35,8 +37,8 @@ class PlanningNode(LifecycleNode):
         )
 
         self.declare_parameter(
-            "lanelet_namespace",
-            "/world_modeling",
+            "lane_context_topic",
+            "/lane_context",
             ParameterDescriptor(
                 description="namespace for lanelet service nodes"
             ),
@@ -55,6 +57,7 @@ class PlanningNode(LifecycleNode):
         self.odom_recieved = None
 
         # Lane Data
+        self.ahead_lanelet_ids = None
         self.lanelet_corridor_cli: Optional[Any] = None
         self.lanelet_corridor_req: Optional[Any] = None
         self.lanelet_corridor = None
@@ -65,11 +68,13 @@ class PlanningNode(LifecycleNode):
 
         # Input Subscribers
         self.odom_subscriber_: Optional[object] = None
+        self.lane_context_subscriber_: Optional[object] = None
         self.lanelet_corridor_subscriber_ = None
         self.lanelet_routing_graph_subscriber_ = None
         self.lanelet_costmap_subscriber_ = None
 
         # Path Publisher
+        self.path_marker_publisher_ = None
         self.path_publisher_ = None
 
         self.get_logger().info(f"{node_name} initialized")
@@ -80,10 +85,9 @@ class PlanningNode(LifecycleNode):
         # Needed Services
         self.service_timeout = float(self.get_parameter("service_timeout").value)
 
-        lanelet_namespace =  self.get_parameter("lanelet_namespace").value
         lanelet_corridor_srv_name = "/get_corridor"
 
-        self.lanelet_corridor_cli = self.create_client(GetCorridor, lanelet_namespace+lanelet_corridor_srv_name) 
+        self.lanelet_corridor_cli = self.create_client(GetCorridor, lanelet_corridor_srv_name) 
         self.lanelet_corridor_req = GetCorridor.Request()
         self.lanelet_corridor = Corridor()
 
@@ -96,17 +100,28 @@ class PlanningNode(LifecycleNode):
         # TODO Create all subscriptions needed at time of configure
 
         odom_topic = self.get_parameter("odom_topic").value
+        lane_context_topic = self.get_parameter("lane_context_topic").value
+
         self.odom_subscriber_ = self.create_subscription(
             Odometry,
             odom_topic,
             self.odom_callback,
             10
         )
+
+        self.lane_context_subscriber_ = self.create_subscription(
+            CurrentLaneContext,
+            lane_context_topic,
+            self.lane_context_callback,
+            10
+        )
+
         self.lanelet_corridor_subscriber_ = None
         self.lanelet_routing_graph_subscriber_ = None
         self.lanelet_costmap_subscriber_ = None    
 
         self.path_publisher_ = self.create_lifecycle_publisher(Path, "/action/local_planning/Path", 10)
+        self.path_marker_publisher_ = self.create_lifecycle_publisher(MarkerArray, "/action/local_planning/Path_Markers", 10)
 
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
@@ -174,25 +189,35 @@ class PlanningNode(LifecycleNode):
         self.car_pose.pose = msg.pose.pose
         self.car_pose.header = msg.header
         self.odom_recieved = True
-    
-    def request_lanelet_corridor(self):
-        self.lanelet_corridor_req.from_lanelet_id = 0
-        self.lanelet_corridor_req.to_lanelet_id = 0
-        # Maximum corridor length (meters). Use 0 for full route.
-        self.lanelet_corridor_req.max_length_m = 0
-        # Recommended: 0.5m for lattice planners
-        self.lanelet_corridor_req.sample_spacing_m = 0.5
-        # e.g., 1 = include one lane left and one lane right (if they exist)
-        self.lanelet_corridor_req.num_lanes_each_side = 1
 
+    def lane_context_callback(self, msg):
+        self.ahead_lanelet_ids = []
+        self.ahead_lanelet_ids.append(msg.current_lanelet.id)
+        self.get_logger().info(f"current lanelet id: {msg.current_lanelet.successor_ids}")
+        self.ahead_lanelet_ids.extend(msg.current_lanelet.successor_ids)
+    
+    def corridor_marker_publish(self):
+        pass
+
+    def request_lanelet_corridor(self):
+
+        if not self.ahead_lanelet_ids or len(self.ahead_lanelet_ids) < 1:
+            self.get_logger().warn("no current lane lanelet data available")
+            return 
+        
         if not self.lanelet_corridor_cli.wait_for_service(timeout_sec=self.service_timeout):
             self.get_logger().warn("get_corridor service not available")
             return None
+
+        self.get_logger().info(f"From Lanelet: {self.ahead_lanelet_ids[0]} to Lanelet: {self.ahead_lanelet_ids[-1]}")
+
+        self.lanelet_corridor_req.from_lanelet_id = self.ahead_lanelet_ids[0]
+        self.lanelet_corridor_req.to_lanelet_id = self.ahead_lanelet_ids[-1]
+        self.lanelet_corridor_req.max_length_m = 0.0
+        self.lanelet_corridor_req.sample_spacing_m = 0.5
             
         future = self.lanelet_corridor_cli.call_async(self.lanelet_corridor_req)
         
-        # rclpy.spin_until_future_complete(self, self.future)
-        # return self.future.result()
         return future
 
     def corridor_update(self):
@@ -203,9 +228,16 @@ class PlanningNode(LifecycleNode):
 
         if not self.lanelet_corridor_fut.done():
             return
+        
+        if not self.lanelet_corridor_fut.result().success:
+            self.get_logger().error(f"Lanelet service result has failed: {self.lanelet_corridor_fut.result().error_message}")
+
 
         self.lanelet_corridor = self.lanelet_corridor_fut.result()
         self.lanelet_corridor_fut = None
+
+        self.get_logger().info(f"Reference Lane centre line:" f"{len(self.lanelet_corridor.corridor.right_lane.centerline)}")
+
 
         # TODO Process corridor
         
