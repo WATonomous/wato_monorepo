@@ -89,7 +89,7 @@ RUN apt-get update && \
 # Set user in container to developer's user
 # hadolint ignore=SC2086
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN existing_user=$(getent passwd ${USER_UID} | cut -d: -f1) \
+RUN existing_user=$(getent passwd ${USER_UID} | cut -d: -f1 || true) \
     && if [ -n "$existing_user" ]; then userdel -r "$existing_user" 2>/dev/null || true; fi \
     && if ! getent group ${USER_GID} >/dev/null; then groupadd --gid ${USER_GID} ${USERNAME}; fi \
     && useradd --uid ${USER_UID} --gid ${USER_GID} -m $USERNAME --shell /bin/bash \
