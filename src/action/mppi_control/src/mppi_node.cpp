@@ -18,7 +18,7 @@ public:
         RCLCPP_INFO(this->get_logger(), "MPPI Node has been started.");
 
         //topic parameter
-        this->declare_parameter<std::string>("odom_topic", "/odom");
+        this->declare_parameter<std::string>("odom_topic", "/ego/odom");
         this->declare_parameter<std::string>("trajectory_topic", "/trajectory");
         this->declare_parameter<std::string>("tf_topic", "/tf");
         this->declare_parameter<std::string>("occupancy_grid_topic", "/occupancy_grid");
@@ -57,27 +57,35 @@ public:
         control_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(100),
             std::bind(&MppiNode::publish_control_command, this) );
+        //control publisher
+        control_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDrive>(control_topic_, 10);
 
     }
 
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-        RCLCPP_DEBUG(this->get_logger(), "Odom received");
+        //RCLCPP_INFO(this->get_logger(), "Odom received");
     }
 
     void trajectory_callback(const trajectory_msgs::msg::JointTrajectory::SharedPtr msg) {
-        RCLCPP_DEBUG(this->get_logger(), "Trajectory received");
+        //RCLCPP_INFO(this->get_logger(), "Trajectory received");
     }
 
     void tf_callback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
-        RCLCPP_DEBUG(this->get_logger(), "TF received");
+        RCLCPP_INFO(this->get_logger(), "TF received");
     }
 
     void occupancy_grid_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
-        RCLCPP_DEBUG(this->get_logger(), "Occupancy Grid received");
+        RCLCPP_INFO(this->get_logger(), "Occupancy Grid received");
     }
 
     void publish_control_command() {
-        // Publish control command
+        auto control_msg = ackermann_msgs::msg::AckermannDrive();
+        control_msg.steering_angle = 0.0; // Placeholder value
+        control_msg.acceleration = 0.1; // Placeholder value
+
+        control_pub_->publish(control_msg);
+
+        RCLCPP_INFO(this->get_logger(), "Control command published");
     }
 
 
@@ -92,6 +100,9 @@ private:
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_sub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_sub_;
     rclcpp::TimerBase::SharedPtr control_timer_;
+
+    //control publisher
+    rclcpp::Publisher<ackermann_msgs::msg::AckermannDrive>::SharedPtr control_pub_;
 
 };
 

@@ -19,5 +19,5 @@ launch:
       name: mppi_node
       output: screen
       param:
-        - from: $(find-pkg-share mppi)/config/mppi_params.yaml
+        - from: $(find-pkg-share mppi_control)/config/mppi_params.yaml
 
