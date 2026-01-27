@@ -61,6 +61,16 @@ install(DIRECTORY config launch
 )
 
 if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+  add_wato_test(pid_control_node_test test/pid_control_node_test.cpp
+    LIBRARIES pid_control_component
+  )
+  target_link_libraries(pid_control_node_test
+    rclcpp::rclcpp
+    ${ackermann_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    roscco_msg::roscco_msg__rosidl_typesupport_cpp
+  )
 endif()
 
 ament_package()

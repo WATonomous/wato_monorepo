@@ -26,34 +26,66 @@
 namespace pid_control
 {
 
+/**
+ * @brief Node for dual-loop PID control of steering and velocity.
+ */
 class PidControlNode : public rclcpp::Node
 {
 public:
   explicit PidControlNode(const rclcpp::NodeOptions & options);
 
 private:
+  /**
+   * @brief Callback for incoming Ackermann setpoints.
+   *
+   * @param msg The desired steering angle and speed.
+   */
   void ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg);
-  void feedback_callback(const std_msgs::msg::Float64::SharedPtr msg);
+
+  /**
+   * @brief Callback for steering angle measurement feedback.
+   *
+   * @param msg The current steering angle in radians.
+   */
+  void steering_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg);
+
+  /**
+   * @brief Callback for velocity measurement feedback.
+   *
+   * @param msg The current vehicle speed in m/s.
+   */
+  void velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg);
+
+  /**
+   * @brief The main control loop that computes and publishes PID commands.
+   */
   void control_loop();
 
   // Subscriptions
   rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_sub_;
-  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr feedback_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr steering_meas_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr velocity_meas_sub_;
 
   // Publisher
   rclcpp::Publisher<roscco_msg::msg::Roscco>::SharedPtr roscco_pub_;
 
   // PID
-  std::shared_ptr<control_toolbox::PidROS> pid_ros_;
+  std::shared_ptr<control_toolbox::PidROS> steering_pid_ros_;
+  std::shared_ptr<control_toolbox::PidROS> velocity_pid_ros_;
 
   // Timer
   rclcpp::TimerBase::SharedPtr timer_;
 
   // Internal state
-  double setpoint_{0.0};
-  double feedback_{0.0};
-  bool setpoint_received_{false};
-  bool feedback_received_{false};
+  double steering_setpoint_{0.0};
+  double steering_meas_{0.0};
+
+  double velocity_setpoint_{0.0};
+  double velocity_meas_{0.0};
+
+  bool ackermann_received_{false};
+  bool steering_meas_received_{false};
+  bool velocity_meas_received_{false};
 
   rclcpp::Time last_time_;
 };
