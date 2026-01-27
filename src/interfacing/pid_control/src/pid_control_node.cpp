@@ -25,33 +25,53 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 : Node("pid_control_node", options)
 {
   // Declare topics
-  this->declare_parameter<std::string>("ackermann_topic", "/ackermann");
-  this->declare_parameter<std::string>("feedback_topic", "/steering_meas");  // TODO(shawn): change to actual topic
-  this->declare_parameter<std::string>("roscco_topic", "/roscco");  // TODO(shawn): change to actual topic
+  this->declare_parameter<std::string>("ackermann_topic", "/joystick/ackermann");
+  this->declare_parameter<std::string>("steering_feedback_topic", "/steering_meas");
+  this->declare_parameter<std::string>("velocity_feedback_topic", "/velocity_meas");
+  this->declare_parameter<std::string>("roscco_topic", "/joystick/roscco");
   this->declare_parameter<double>("update_rate", 100.0);
 
   std::string ackermann_topic = this->get_parameter("ackermann_topic").as_string();
-  std::string feedback_topic = this->get_parameter("feedback_topic").as_string();
+  std::string steering_feedback_topic = this->get_parameter("steering_feedback_topic").as_string();
+  std::string velocity_feedback_topic = this->get_parameter("velocity_feedback_topic").as_string();
   std::string roscco_topic = this->get_parameter("roscco_topic").as_string();
   double update_rate = this->get_parameter("update_rate").as_double();
 
-  // Initialize PID
-  pid_ros_ = std::make_shared<control_toolbox::PidROS>(
+  // Initialize Steering PID
+  steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
     this->get_node_base_interface(),
     this->get_node_logging_interface(),
     this->get_node_parameters_interface(),
     this->get_node_topics_interface(),
-    "pid_control",
-    "/pid_state",
+    "steering_pid",
+    "/steering_pid_state",
     true);
-  pid_ros_->initialize_from_ros_parameters();
+  steering_pid_ros_->initialize_from_ros_parameters();
+
+  // Initialize Velocity PID
+  velocity_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
+    this->get_node_base_interface(),
+    this->get_node_logging_interface(),
+    this->get_node_parameters_interface(),
+    this->get_node_topics_interface(),
+    "velocity_pid",
+    "/velocity_pid_state",
+    true);
+  velocity_pid_ros_->initialize_from_ros_parameters();
 
   // Subscriptions
   ackermann_sub_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
     ackermann_topic, rclcpp::QoS(10), std::bind(&PidControlNode::ackermann_callback, this, std::placeholders::_1));
 
-  feedback_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    feedback_topic, rclcpp::QoS(10), std::bind(&PidControlNode::feedback_callback, this, std::placeholders::_1));
+  steering_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+    steering_feedback_topic,
+    rclcpp::QoS(10),
+    std::bind(&PidControlNode::steering_feedback_callback, this, std::placeholders::_1));
+
+  velocity_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+    velocity_feedback_topic,
+    rclcpp::QoS(10),
+    std::bind(&PidControlNode::velocity_feedback_callback, this, std::placeholders::_1));
 
   // Publisher
   roscco_pub_ = this->create_publisher<roscco_msg::msg::Roscco>(roscco_topic, rclcpp::QoS(10));
@@ -67,14 +87,21 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 
 void PidControlNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
 {
-  setpoint_ = msg->drive.steering_angle;
-  setpoint_received_ = true;
+  steering_setpoint_ = msg->drive.steering_angle;
+  velocity_setpoint_ = msg->drive.speed;
+  ackermann_received_ = true;
 }
 
-void PidControlNode::feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
+void PidControlNode::steering_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
-  feedback_ = msg->data;
-  feedback_received_ = true;
+  steering_meas_ = msg->data;
+  steering_meas_received_ = true;
+}
+
+void PidControlNode::velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
+{
+  velocity_meas_ = msg->data;
+  velocity_meas_received_ = true;
 }
 
 void PidControlNode::control_loop()
@@ -87,18 +114,35 @@ void PidControlNode::control_loop()
     return;
   }
 
-  if (!setpoint_received_ || !feedback_received_) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for setpoint and feedback signals...");
+  if (!ackermann_received_) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for ackermann setpoint...");
     return;
   }
 
-  double error = setpoint_ - feedback_;
-  double command = pid_ros_->compute_command(error, dt);
+  if (!steering_meas_received_ || !velocity_meas_received_) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "Waiting for feedback signals (steering: %s, velocity: %s)...",
+      steering_meas_received_ ? "OK" : "MISSING",
+      velocity_meas_received_ ? "OK" : "MISSING");
+    return;
+  }
 
+  // Compute Steering Command (Torque)
+  double steering_error = steering_setpoint_ - steering_meas_;
+  double steering_command = steering_pid_ros_->compute_command(steering_error, dt);
+
+  // Compute Velocity Command
+  double velocity_error = velocity_setpoint_ - velocity_meas_;
+  double velocity_command = velocity_pid_ros_->compute_command(velocity_error, dt);
+
+  // Publish Roscco message
   roscco_msg::msg::Roscco msg;
   msg.header.stamp = now;
-  msg.steering = static_cast<float>(command);
-  msg.forward = 0.0f;
+  msg.steering = static_cast<float>(steering_command);
+  msg.forward = static_cast<float>(velocity_command);
 
   roscco_pub_->publish(msg);
 }
