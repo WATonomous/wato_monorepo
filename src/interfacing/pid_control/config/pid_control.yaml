@@ -1,0 +1,14 @@
+pid_control_node:
+  ros__parameters:
+    ackermann_topic: "/joystick/ackermann"
+    feedback_topic: "/steering_meas"
+    roscco_topic: "/joystick/roscco"
+    update_rate: 100.0
+
+    pid_control:
+      p: 1.0
+      i: 0.1
+      d: 0.01
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      antiwindup: true
