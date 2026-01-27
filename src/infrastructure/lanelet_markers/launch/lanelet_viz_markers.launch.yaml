@@ -1,0 +1,39 @@
+launch:
+  - node:
+      pkg: lanelet_markers
+      exec: map_viz_markers_node
+      name: map_viz_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share lanelet_markers)/config/lanelet_viz_markers.yaml
+      remap:
+        - from: map_visualization
+          to: /map_visualization
+        - from: markers
+          to: /map_viz_markers
+
+  - node:
+      pkg: lanelet_markers
+      exec: lane_context_markers_node
+      name: lane_context_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share lanelet_markers)/config/lanelet_viz_markers.yaml
+      remap:
+        - from: lane_context
+          to: /lane_context
+        - from: markers
+          to: /lane_context_markers
+
+  - node:
+      pkg: lanelet_markers
+      exec: route_ahead_markers_node
+      name: route_ahead_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share lanelet_markers)/config/lanelet_viz_markers.yaml
+      remap:
+        - from: route_ahead
+          to: /route_ahead
+        - from: markers
+          to: /route_ahead_markers

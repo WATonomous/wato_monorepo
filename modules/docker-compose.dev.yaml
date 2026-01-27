@@ -1,5 +1,23 @@
 ---
 services:
+#################### INFRASTRUCTURE SERVICE ####################
+  infrastructure_bringup_dev:
+    profiles: ["infrastructure_dev"]
+    extends:
+      file: docker-compose.yaml
+      service: infrastructure_bringup
+    build:
+      target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
+    image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
+    command: sleep infinity
+    volumes:
+      - ${MONO_DIR}/src/infrastructure:/ws/src/infrastructure
+      - ${MONO_DIR}/bags:/ws/bags
+
 #################### INTERFACING SERVICE ####################
   interfacing_bringup_dev:
     profiles: ["interfacing_dev"]
@@ -8,11 +26,15 @@ services:
       service: interfacing_bringup
     build:
       target: develop
-    image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
+    image: "${INTERFACING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/interfacing:/home/bolty/ament_ws/src/interfacing
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/interfacing:/ws/src/interfacing
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup_dev:
@@ -22,11 +44,15 @@ services:
       service: perception_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/perception:/home/bolty/ament_ws/src/perception
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/perception:/ws/src/perception
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### WORLD_MODELING SERVICE ####################
   world_modeling_bringup_dev:
@@ -36,11 +62,17 @@ services:
       service: world_modeling_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${WORLD_MODELING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/world_modeling:/home/bolty/ament_ws/src/world_modeling
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
+      - ${MONO_DIR}/src/infrastructure/wato_lifecycle_manager:/ws/src/wato_lifecycle_manager
+      - ${MONO_DIR}/src/infrastructure/lanelet_markers:/ws/src/lanelet_markers
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### ACTION SERVICE ####################
   action_bringup_dev:
@@ -50,11 +82,15 @@ services:
       service: action_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${ACTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/action:/home/bolty/ament_ws/src/action
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/action:/ws/src/action
+      - ${MONO_DIR}/bags:/ws/bags
 
 #################### SIMULATION SERVICE ####################
   carla_sim:
@@ -76,8 +112,12 @@ services:
       service: simulation_bringup
     build:
       target: develop
+      args:
+        USERNAME: "${USERNAME}"
+        USER_UID: "${SETUID}"
+        USER_GID: "${SETGID}"
     image: "${SIMULATION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
-      - ${MONO_DIR}/src/simulation:/home/bolty/ament_ws/src/simulation
-      - ${MONO_DIR}/bags:/home/bolty/ament_ws/bags
+      - ${MONO_DIR}/src/simulation:/ws/src/simulation
+      - ${MONO_DIR}/bags:/ws/bags

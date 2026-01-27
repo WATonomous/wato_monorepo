@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <chrono>
+#include <future>
 #include <memory>
 #include <string>
 #include <thread>
@@ -25,6 +26,9 @@
 
 namespace wato
 {
+
+using std::chrono_literals::operator""ms;
+using std::chrono_literals::operator""s;
 
 TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Using TestExecutorFixture from wato_test", "[deep_fixture]")
 {
@@ -45,54 +49,70 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Using TestExecutorFixture fro
 
   SECTION("Can create publishers and subscribers")
   {
-    bool message_received = false;
-    std::string received_data;
+    // Use promise/future for event-driven message receipt
+    std::promise<std::string> message_promise;
+    auto message_future = message_promise.get_future();
 
-    // Create subscriber
+    // Create subscriber that fulfills promise on first message
     auto sub = test_node->create_subscription<std_msgs::msg::String>(
-      "test_topic", 10, [&message_received, &received_data](const std_msgs::msg::String::SharedPtr msg) {
-        message_received = true;
-        received_data = msg->data;
+      "test_topic", 10, [&message_promise](const std_msgs::msg::String::SharedPtr msg) {
+        try {
+          message_promise.set_value(msg->data);
+        } catch (const std::future_error &) {
+          // Promise already satisfied, ignore subsequent messages
+        }
       });
 
     // Create publisher
     auto pub = test_node->create_publisher<std_msgs::msg::String>("test_topic", 10);
 
-    // Wait for connection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // Wait for pub/sub connection (event-driven: check subscriber count)
+    auto start = std::chrono::steady_clock::now();
+    while (pub->get_subscription_count() == 0) {
+      if (std::chrono::steady_clock::now() - start > 1s) {
+        FAIL("Timed out waiting for subscriber connection");
+      }
+      std::this_thread::sleep_for(1ms);
+    }
 
     // Publish a message
     std_msgs::msg::String msg;
     msg.data = "Hello from wato_test fixture!";
     pub->publish(msg);
 
-    // Wait for message to be received
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    REQUIRE(message_received == true);
-    REQUIRE(received_data == "Hello from wato_test fixture!");
+    // Wait for message with timeout (event-driven via future)
+    auto status = message_future.wait_for(1s);
+    REQUIRE(status == std::future_status::ready);
+    REQUIRE(message_future.get() == "Hello from wato_test fixture!");
   }
 
   SECTION("Can create and use services")
   {
-    bool service_called = false;
+    std::promise<bool> service_called_promise;
+    auto service_called_future = service_called_promise.get_future();
 
     // Create service
     auto service = test_node->create_service<std_srvs::srv::SetBool>(
       "test_service",
-      [&service_called](
+      [&service_called_promise](
         const std::shared_ptr<std_srvs::srv::SetBool::Request> & request,
         std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
-        service_called = true;
         response->success = request->data;
         response->message = request->data ? "Service enabled" : "Service disabled";
+        try {
+          service_called_promise.set_value(true);
+        } catch (const std::future_error &) {
+          // Already set
+        }
       });
 
     // Create client
     auto client = test_node->create_client<std_srvs::srv::SetBool>("test_service");
 
-    // Wait for service to be available
-    REQUIRE(client->wait_for_service(std::chrono::seconds(1)));
+    // Wait for service to be available with shorter timeout
+    if (!client->wait_for_service(500ms)) {
+      FAIL("Service not available within timeout");
+    }
 
     // Call the service
     auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
@@ -100,12 +120,14 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Using TestExecutorFixture fro
 
     auto future = client->async_send_request(request);
 
-    // Wait for response
-    if (future.wait_for(std::chrono::seconds(1)) == std::future_status::ready) {
+    // Wait for response with reasonable timeout
+    if (future.wait_for(500ms) == std::future_status::ready) {
       auto response = future.get();
       REQUIRE(response->success == true);
       REQUIRE(response->message == "Service enabled");
-      REQUIRE(service_called == true);
+
+      // Verify service was actually called
+      REQUIRE(service_called_future.wait_for(100ms) == std::future_status::ready);
     } else {
       FAIL("Service call timed out");
     }

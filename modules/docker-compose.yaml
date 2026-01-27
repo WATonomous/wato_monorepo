@@ -98,14 +98,14 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-    depends_on:
-      infrastructure_bringup:
-        condition: service_started
-        required: false
     volumes:
       - /dev/input:/dev/input
       - /run/udev:/run/udev:ro
     privileged: true
+    depends_on:
+      infrastructure_bringup:
+        condition: service_started
+        required: false
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
@@ -194,7 +194,7 @@ services:
         - "${WORLD_MODELING_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.py"
+    command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.yaml"
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
