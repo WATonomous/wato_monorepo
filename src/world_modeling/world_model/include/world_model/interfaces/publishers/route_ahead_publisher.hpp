@@ -76,11 +76,13 @@ private:
   void publish()
   {
     if (!lanelet_->isMapLoaded()) {
+        RCLCPP_ERROR(this->get_logger(), "Map Not Found");
       return;
     }
 
     auto ego_point = ego_pose_.getEgoPoint();
     if (!ego_point.has_value()) {
+      RCLCPP_ERROR(this->get_logger(), "Ego point has no value");
       return;
     }
 
