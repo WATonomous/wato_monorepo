@@ -115,13 +115,8 @@ public:
    * @param add_noise Whether to add Gaussian noise
    * @return Vector of poses along trajectory
    */
-  std::vector<geometry_msgs::msg::PoseStamped> generateTrajectory(
-    const KinematicState & initial_state,
-    double horizon,
-    double dt,
-    bool add_noise,
-    const rclcpp::Time & start_time,
-    const std::string & frame_id);
+  std::vector<geometry_msgs::msg::Pose> generateTrajectory(
+    const KinematicState & initial_state, double horizon, double dt, bool add_noise = false);
 
 private:
   double position_noise_std_;  // Standard deviation for position noise
