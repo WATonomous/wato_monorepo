@@ -93,6 +93,9 @@ REPOSITORY="${REGISTRY_URL##*/}"
 # Bags directory
 BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
 
+# Recording profile for bag recording mode (all_sensors, camera_only, lidar_only)
+RECORDING_PROFILE=${RECORDING_PROFILE:-"all_sensors"}
+
 # ROS 2 Middleware configuration
 RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
 
@@ -211,5 +214,9 @@ append "ZENOH_ROUTER_CONFIG_URI" "$ZENOH_ROUTER_CONFIG_URI"
 append "ZENOH_SESSION_CONFIG_URI" "$ZENOH_SESSION_CONFIG_URI"
 
 append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
+
+# Bag recording
+append "BAG_DIRECTORY" "$BAG_DIRECTORY"
+append "RECORDING_PROFILE" "$RECORDING_PROFILE"
 
 echo "[setup-env] .env generated at $ENV_FILE"

@@ -1,0 +1,241 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Launch file for interfacing with bag recording support.
+# All cameras and the bag recorder run in a single component container
+# with intra-process communication for zero-copy image transfer.
+---
+launch:
+  # Recording arguments
+  - arg:
+      name: "recording_profile"
+      default: "all_sensors"
+      description: "Recording profile (all_sensors, camera_only, lidar_only)"
+
+  - arg:
+      name: "bag_path"
+      default: "/bags"
+      description: "Output directory for bag files"
+
+  - arg:
+      name: "cameras_config_file"
+      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
+      description: "Hikrobot cameras configuration file"
+
+  # GPS Configs
+  - arg:
+      name: "oem7_ip_addr"
+      default: "10.8.0.8"
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+
+  # GPS - Novatel OEM7 (separate process)
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+      arg:
+        - name: "oem7_ip_addr"
+          value: "$(var oem7_ip_addr)"
+        - name: "oem7_port"
+          value: "$(var oem7_port)"
+        - name: "oem7_if"
+          value: "$(var oem7_if)"
+
+  # LiDAR (separate process, recorder subscribes via Zenoh SHM)
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
+
+  # TF and other nodes
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+  - include:
+      file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
+  - include:
+      file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
+
+  # ===========================================================================
+  # Single component container for all cameras + bag recorder (intra-process)
+  # ===========================================================================
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container_mt
+      name: cameras_and_recorder
+      namespace: ""
+
+  # Load all 12 cameras into the shared container
+  # Panorama cameras (8)
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_nn"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386098"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_ne"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386154"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_ee"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386084"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_se"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386152"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_ss"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386134"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_sw"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386093"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_ww"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386110"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_pano_nw"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386109"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  # Lower cameras (4)
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_lower_ne"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386132"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_lower_se"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386083"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_lower_sw"
+        - name: "guid"
+          value: "GEV-MV-CU013-80GC-DA8434466"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_and_recorder"
+        - name: "camera_name"
+          value: "camera_lower_nw"
+        - name: "guid"
+          value: "GEV-MV-CU013-80GC-DA8434479"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+
+  # ===========================================================================
+  # Bag recorder (intra-process with cameras, inter-process with LiDAR)
+  # ===========================================================================
+  - load_composable_node:
+      target: cameras_and_recorder
+      composable_node:
+        - pkg: rosbag2_transport
+          plugin: rosbag2_transport::Recorder
+          name: bag_recorder
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: "$(find-pkg-share interfacing_bringup)/config/bag_recorder/$(var recording_profile).yaml"
+            - name: storage.uri
+              value: "$(var bag_path)"
