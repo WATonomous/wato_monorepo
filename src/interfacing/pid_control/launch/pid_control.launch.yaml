@@ -4,5 +4,14 @@ launch:
       exec: "pid_control_node"
       name: "pid_control_node"
       output: "screen"
+      remap:
+        - from: "ackermann"
+          to: "/joystick/ackermann"
+        - from: "steering_feedback"
+          to: "/steering_feedback"
+        - from: "velocity_feedback"
+          to: "/velocity_feedback"
+        - from: "roscco"
+          to: "/joystick/roscco"
       param:
         - from: "$(find-pkg-share pid_control)/config/pid_control.yaml"

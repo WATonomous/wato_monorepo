@@ -39,12 +39,18 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
 {
   // System Under Test (SUT)
   rclcpp::NodeOptions options;
+  options.arguments(
+    {"--ros-args",
+     "-r",
+     "ackermann:=/joystick/ackermann",
+     "-r",
+     "steering_feedback:=/steering_meas",
+     "-r",
+     "velocity_feedback:=/velocity_meas",
+     "-r",
+     "roscco:=/joystick/roscco"});
   options.parameter_overrides(
-    {{"ackermann_topic", "/joystick/ackermann"},
-     {"steering_feedback_topic", "/steering_meas"},
-     {"velocity_feedback_topic", "/velocity_meas"},
-     {"roscco_topic", "/joystick/roscco"},
-     {"update_rate", 10.0},
+    {{"update_rate", 10.0},
      {"steering_pid.p", 1.0},
      {"steering_pid.i", 0.0},
      {"steering_pid.d", 0.0},
@@ -79,6 +85,13 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     pid_node->set_parameter(rclcpp::Parameter("steering_pid.p", 0.5));
     pid_node->set_parameter(rclcpp::Parameter("velocity_pid.p", 0.5));
 
+    // Wait for parameter update to propagate
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Expect Roscco message
+    // Since P=0.5, and error is 0.5 and 1.0, we expect steering torque ~0.25 and forward ~0.5
+    auto roscco_future = roscco_sub->expect_next_message();
+
     // Send Ackermann setpoint (Steering: 0.5, Speed: 1.0)
     AckermannDriveStamped ack_msg;
     ack_msg.drive.steering_angle = 0.5;
@@ -94,9 +107,6 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     vel_msg.data = 0.0;
     velocity_meas_pub->publish(vel_msg);
 
-    // Expect Roscco message
-    // Since P=0.5, and error is 0.5 and 1.0, we expect steering torque ~0.25 and forward ~0.5
-    auto roscco_future = roscco_sub->expect_next_message();
     auto result_msg = roscco_future.get();
 
     REQUIRE(result_msg.steering == Catch::Approx(0.25));
@@ -111,6 +121,9 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     pid_node->set_parameter(rclcpp::Parameter("velocity_pid.p", 0.0));
     pid_node->set_parameter(rclcpp::Parameter("velocity_pid.i", 1.0));
 
+    // Get two consecutive messages and check if the second one has a larger command
+    auto future1 = roscco_sub->expect_next_message();
+
     // Send setpoints and constant measurements
     AckermannDriveStamped ack_msg;
     ack_msg.drive.steering_angle = 1.0;
@@ -122,8 +135,6 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     steering_meas_pub->publish(meas_msg);
     velocity_meas_pub->publish(meas_msg);
 
-    // Get two consecutive messages and check if the second one has a larger command
-    auto future1 = roscco_sub->expect_next_message();
     auto msg1 = future1.get();
 
     // Wait a bit to let the integrator accumulate
@@ -158,12 +169,13 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     auto future1 = roscco_sub->expect_next_message();
     future1.get();  // Flush initial zero command
 
+    auto future2 = roscco_sub->expect_next_message();
+
     // Suddenly change measurement to 1.0 (Error change: 0 -> -1.0)
     // Derivative term D * (dError/dt) should be negative
     meas_msg.data = 1.0;
     steering_meas_pub->publish(meas_msg);
 
-    auto future2 = roscco_sub->expect_next_message();
     auto msg2 = future2.get();
 
     REQUIRE(msg2.steering < 0.0);
@@ -189,6 +201,8 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     pid_node->set_parameter(rclcpp::Parameter("velocity_pid.antiwindup", true));
     pid_node->set_parameter(rclcpp::Parameter("velocity_pid.antiwindup_strategy", "conditional_integration"));
 
+    auto future = roscco_sub->expect_next_message();
+
     // Send constant error
     AckermannDriveStamped ack_msg;
     ack_msg.drive.steering_angle = 1.0;
@@ -203,7 +217,6 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     // Integrate for 0.2s. 10.0/s * 0.2s = 2.0 (unclamped)
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    auto future = roscco_sub->expect_next_message();
     auto result_msg = future.get();
 
     // Verify clamping

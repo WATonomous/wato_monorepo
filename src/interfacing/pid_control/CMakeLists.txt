@@ -30,18 +30,22 @@ find_package(control_toolbox REQUIRED)
 add_library(pid_control_component SHARED
   src/pid_control_node.cpp
 )
+
 target_include_directories(pid_control_component PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-ament_target_dependencies(pid_control_component
-  rclcpp
-  rclcpp_components
-  std_msgs
-  ackermann_msgs
-  roscco_msg
-  control_toolbox
+
+# Link dependencies to library
+target_link_libraries(pid_control_component PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  ${std_msgs_TARGETS}
+  ${ackermann_msgs_TARGETS}
+  roscco_msg::roscco_msg__rosidl_typesupport_cpp
+  control_toolbox::control_toolbox
 )
+
 rclcpp_components_register_node(pid_control_component
   PLUGIN "pid_control::PidControlNode"
   EXECUTABLE pid_control_node
@@ -64,12 +68,6 @@ if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
   add_wato_test(pid_control_node_test test/pid_control_node_test.cpp
     LIBRARIES pid_control_component
-  )
-  target_link_libraries(pid_control_node_test
-    rclcpp::rclcpp
-    ${ackermann_msgs_TARGETS}
-    ${std_msgs_TARGETS}
-    roscco_msg::roscco_msg__rosidl_typesupport_cpp
   )
 endif()
 
