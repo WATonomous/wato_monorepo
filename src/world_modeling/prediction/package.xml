@@ -16,10 +16,8 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>vision_msgs</depend>
+  <depend>lanelet_msgs</depend>
   <depend>eigen</depend>
-
-  <!-- TODO: Add when message types are defined -->
-  <!-- <depend>world_modeling_msgs</depend> -->
 
   <test_depend>ament_cmake_gtest</test_depend>
 

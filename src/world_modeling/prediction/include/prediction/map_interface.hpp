@@ -14,7 +14,8 @@
 
 /**
  * @file map_interface.hpp
- * @brief HD MAP QUERY WRAPPER - Provides map information to trajectory generation
+ * @brief HD MAP QUERY WRAPPER - Provides map information to trajectory
+ * generation
  * * WHAT THIS FILE DOES:
  * - Wraps service calls to the lanelet map server
  * - Finds nearest lanelet to object position
@@ -23,34 +24,39 @@
  * - Checks for crosswalks (important for pedestrians and cyclists)
  * - Gets speed limits and regulatory elements
  * * WHO WORKS ON THIS:
- * - Currently using PLACEHOLDERS (no map service required)
- * - When map services available: shared integration task
- * - John needs centerlines for vehicle path following
- * - Girish needs crosswalk detection for pedestrian goals
- * - Aruhant needs crosswalk detection to switch between models
+ * - Sean Yang
  * * CURRENT STATUS:
- * - Running in PLACEHOLDER MODE
- * - Returns synthetic data for development/testing
- * - Replace with real service calls when world database is ready
+ * - First draft complete
+ * - Currently does not have tests
  */
 
 #ifndef PREDICTION__MAP_INTERFACE_HPP_
 #define PREDICTION__MAP_INTERFACE_HPP_
 
+#include <cmath>
+#include <limits>
+#include <list>
 #include <memory>
+#include <mutex>
+#include <optional>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "lanelet_msgs/msg/current_lane_context.hpp"
+#include "lanelet_msgs/msg/lanelet.hpp"
+#include "lanelet_msgs/msg/route_ahead.hpp"
+#include "lanelet_msgs/srv/get_shortest_route.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-namespace prediction
-{
+namespace prediction {
 
 /**
  * @brief Lanelet information structure
  */
-struct LaneletInfo
-{
+struct LaneletInfo {
   int64_t id;
   std::vector<geometry_msgs::msg::Point> centerline;
   double speed_limit;
@@ -66,28 +72,28 @@ struct LaneletInfo
  * - Computing route connectivity
  * - Getting regulatory elements
  */
-class MapInterface
-{
+class MapInterface {
 public:
   /**
    * @brief Construct a new Map Interface
    * @param node ROS node pointer for service clients
    */
-  explicit MapInterface(rclcpp::Node * node);
+  explicit MapInterface(rclcpp::Node *node);
 
   /**
    * @brief Find nearest lanelet to a point
    * @param point Query point
-   * @return Lanelet ID of nearest lanelet
+   * @return Lanelet ID of nearest lanelet, or nullopt if none found
    */
-  int64_t findNearestLanelet(const geometry_msgs::msg::Point & point);
+  std::optional<int64_t>
+  findNearestLanelet(const geometry_msgs::msg::Point &point);
 
   /**
    * @brief Get lanelet information by ID
    * @param lanelet_id Lanelet ID
-   * @return LaneletInfo structure
+   * @return LaneletInfo structure, or nullopt if not found
    */
-  LaneletInfo getLaneletById(int64_t lanelet_id);
+  std::optional<LaneletInfo> getLaneletById(int64_t lanelet_id);
 
   /**
    * @brief Get possible future lanelets from current lanelet
@@ -95,14 +101,15 @@ public:
    * @param max_depth Maximum search depth
    * @return Vector of possible future lanelet IDs
    */
-  std::vector<int64_t> getPossibleFutureLanelets(int64_t current_lanelet_id, int max_depth = 3);
+  std::vector<int64_t> getPossibleFutureLanelets(int64_t current_lanelet_id,
+                                                 int max_depth = 3);
 
   /**
    * @brief Get speed limit for a lanelet
    * @param lanelet_id Lanelet ID
-   * @return Speed limit in m/s
+   * @return Speed limit in m/s, or nullopt if not found
    */
-  double getSpeedLimit(int64_t lanelet_id);
+  std::optional<double> getSpeedLimit(int64_t lanelet_id);
 
   /**
    * @brief Check if a crosswalk is near a point
@@ -110,12 +117,74 @@ public:
    * @param radius Search radius
    * @return True if crosswalk nearby
    */
-  bool isCrosswalkNearby(const geometry_msgs::msg::Point & point, double radius);
+  bool isCrosswalkNearby(const geometry_msgs::msg::Point &point, double radius);
 
 private:
-  rclcpp::Node * node_;
+  /**
+   * @brief Callback for lane context topic
+   * @param msg CurrentLaneContext message
+   */
+  void laneContextCallback(
+      const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
+
+  /**
+   * @brief Callback for route ahead topic
+   * @param msg RouteAhead message
+   */
+  void routeAheadCallback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);
+
+  /**
+   * @brief Cache a lanelet message
+   * @param lanelet Lanelet message to cache
+   */
+  void cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet);
+
+  /**
+   * @brief Cache multiple lanelet messages
+   * @param lanelets Vector of Lanelet messages to cache
+   */
+  void cacheLanelets(const std::vector<lanelet_msgs::msg::Lanelet> &lanelets);
+
+  /**
+   * @brief Convert lanelet_msgs::Lanelet to LaneletInfo
+   * @param lanelet Lanelet message
+   * @return LaneletInfo structure
+   */
+  LaneletInfo laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet) const;
+
+  /**
+   * @brief Compute distance from a point to a lanelet centerline
+   * @param point Query point
+   * @param lanelet Lanelet to check
+   * @return Minimum distance to centerline
+   */
+  double distanceToLanelet(const geometry_msgs::msg::Point &point,
+                           const lanelet_msgs::msg::Lanelet &lanelet) const;
+
+  rclcpp::Node *node_;
+
+  // Subscriptions
+  rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr
+      lane_context_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr
+      route_ahead_sub_;
+
+  // Cached data
+  // Store pair of Lanelet and iterator to LRU list
+  struct CachedLanelet {
+    lanelet_msgs::msg::Lanelet lanelet;
+    std::list<int64_t>::iterator lru_iterator;
+  };
+  std::unordered_map<int64_t, CachedLanelet> lanelet_cache_;
+  std::list<int64_t> lru_list_;
+  static constexpr size_t MAX_CACHE_SIZE = 1000;
+  mutable std::mutex cache_mutex_;
+
+  // Current lane context
+  lanelet_msgs::msg::CurrentLaneContext::SharedPtr current_lane_context_;
+  mutable std::mutex context_mutex_;
 };
 
-}  // namespace prediction
+} // namespace prediction
 
-#endif  // PREDICTION__MAP_INTERFACE_HPP_
+#endif // PREDICTION__MAP_INTERFACE_HPP_

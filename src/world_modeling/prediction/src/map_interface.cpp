@@ -14,103 +14,297 @@
 
 #include "prediction/map_interface.hpp"
 
-#include <vector>  // for std::vector
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <queue>
+#include <unordered_set>
+#include <vector>
 
-namespace prediction
-{
+namespace {
+double distancePointToSegment(const geometry_msgs::msg::Point &p,
+                              const geometry_msgs::msg::Point &a,
+                              const geometry_msgs::msg::Point &b) {
+  double dx_ba = b.x - a.x;
+  double dy_ba = b.y - a.y;
+  double l2 = dx_ba * dx_ba + dy_ba * dy_ba;
 
-MapInterface::MapInterface(rclcpp::Node * node)
-: node_(node)
-{
-  RCLCPP_INFO(node_->get_logger(), "MapInterface initialized (using placeholders until map services are available)");
+  if (l2 == 0.0) {
+    double dx_pa = p.x - a.x;
+    double dy_pa = p.y - a.y;
+    return std::sqrt(dx_pa * dx_pa + dy_pa * dy_pa);
+  }
+
+  double t = ((p.x - a.x) * dx_ba + (p.y - a.y) * dy_ba) / l2;
+  t = std::max(0.0, std::min(1.0, t));
+
+  double closest_x = a.x + t * dx_ba;
+  double closest_y = a.y + t * dy_ba;
+  double dx = p.x - closest_x;
+  double dy = p.y - closest_y;
+
+  return std::sqrt(dx * dx + dy * dy);
+}
+} // namespace
+
+namespace prediction {
+
+MapInterface::MapInterface(rclcpp::Node *node) : node_(node) {
+  // Subscribe to lane context topic
+  lane_context_sub_ =
+      node_->create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
+          "lane_context", rclcpp::QoS(1).best_effort(),
+          std::bind(&MapInterface::laneContextCallback, this,
+                    std::placeholders::_1));
+
+  // Subscribe to route ahead topic
+  route_ahead_sub_ = node_->create_subscription<lanelet_msgs::msg::RouteAhead>(
+      "route_ahead", rclcpp::QoS(1).best_effort(),
+      std::bind(&MapInterface::routeAheadCallback, this,
+                std::placeholders::_1));
+
+  RCLCPP_INFO(node_->get_logger(),
+              "MapInterface initialized with lanelet subscriptions");
 }
 
-int64_t MapInterface::findNearestLanelet(const geometry_msgs::msg::Point & point)
-{
-  // PLACEHOLDER: Return mock lanelet ID until map services are available
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder lanelet ID (map services not available)");
+void MapInterface::laneContextCallback(
+    const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg) {
+  {
+    std::lock_guard<std::mutex> lock(context_mutex_);
+    current_lane_context_ = msg;
+  }
 
-  // Return a deterministic lanelet ID based on grid position
-  int64_t grid_x = static_cast<int64_t>(std::floor(point.x / 10.0));
-  int64_t grid_y = static_cast<int64_t>(std::floor(point.y / 10.0));
-  return 1000 + grid_x * 100 + grid_y;
+  // Cache the current lanelet
+  cacheLanelet(msg->current_lanelet);
 }
 
-LaneletInfo MapInterface::getLaneletById(int64_t lanelet_id)
-{
-  // PLACEHOLDER: Return mock lanelet info with straight centerline
+void MapInterface::routeAheadCallback(
+    const lanelet_msgs::msg::RouteAhead::SharedPtr msg) {
+  // Cache all lanelets in the route ahead
+  cacheLanelets(msg->lanelets);
+}
+
+void MapInterface::cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet) {
+  cacheLanelets({lanelet});
+}
+
+void MapInterface::cacheLanelets(
+    const std::vector<lanelet_msgs::msg::Lanelet> &lanelets) {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+
+  for (const auto &lanelet : lanelets) {
+    auto it = lanelet_cache_.find(lanelet.id);
+    if (it != lanelet_cache_.end()) {
+      // Exist: Update data and move to front of LRU
+      it->second.lanelet = lanelet;
+      lru_list_.erase(it->second.lru_iterator);
+      lru_list_.push_front(lanelet.id);
+      it->second.lru_iterator = lru_list_.begin();
+    } else {
+      // New: Check size capacity
+      if (lanelet_cache_.size() >= MAX_CACHE_SIZE) {
+        int64_t last_id = lru_list_.back();
+        lru_list_.pop_back();
+        lanelet_cache_.erase(last_id);
+      }
+      lru_list_.push_front(lanelet.id);
+      lanelet_cache_.insert({lanelet.id, {lanelet, lru_list_.begin()}});
+    }
+  }
+}
+
+LaneletInfo MapInterface::laneletMsgToInfo(
+    const lanelet_msgs::msg::Lanelet &lanelet) const {
   LaneletInfo info;
-  info.id = lanelet_id;
+  info.id = lanelet.id;
+  info.centerline = lanelet.centerline;
+  info.speed_limit = lanelet.speed_limit_mps;
+  info.following_lanelets = lanelet.successor_ids;
 
-  // Generate a simple straight centerline based on lanelet ID
-  for (int i = 0; i < 10; ++i) {
-    geometry_msgs::msg::Point point;
-    point.x = (lanelet_id % 100) * 10.0 + i * 5.0;
-    point.y = ((lanelet_id / 100) % 100) * 10.0;
-    point.z = 0.0;
-    info.centerline.push_back(point);
-  }
+  // Note: previous_lanelets would require reverse lookup which isn't directly
+  // available in the message. For now, leave it empty - could be computed from
+  // cached data if needed.
 
-  info.speed_limit = 13.4;  // ~30 mph default
-
-  // Mock following lanelets (straight continuation)
-  info.following_lanelets.push_back(lanelet_id + 1);
-
-  // Mock previous lanelets
-  if (lanelet_id > 1000) {
-    info.previous_lanelets.push_back(lanelet_id - 1);
-  }
-
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder lanelet info (map services not available)");
   return info;
 }
 
-std::vector<int64_t> MapInterface::getPossibleFutureLanelets(int64_t current_lanelet_id, int max_depth)
-{
-  // PLACEHOLDER: Return simple linear sequence until map graph is available
-  std::vector<int64_t> possible_lanelets;
-
-  // Current lanelet
-  possible_lanelets.push_back(current_lanelet_id);
-
-  // Generate forward lanelets (straight continuation)
-  for (int i = 1; i <= max_depth; ++i) {
-    possible_lanelets.push_back(current_lanelet_id + i);
+double MapInterface::distanceToLanelet(
+    const geometry_msgs::msg::Point &point,
+    const lanelet_msgs::msg::Lanelet &lanelet) const {
+  if (lanelet.centerline.empty()) {
+    return std::numeric_limits<double>::max();
   }
 
-  // Add lane change options at depth 1
-  if (max_depth >= 1) {
-    possible_lanelets.push_back(current_lanelet_id + 100);  // Left lane
-    possible_lanelets.push_back(current_lanelet_id - 100);  // Right lane
+  if (lanelet.centerline.size() == 1) {
+    double dx = point.x - lanelet.centerline[0].x;
+    double dy = point.y - lanelet.centerline[0].y;
+    return std::sqrt(dx * dx + dy * dy);
   }
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder future lanelets (map services not available)");
+  double min_sq_distance = std::numeric_limits<double>::max();
 
-  return possible_lanelets;
+  for (size_t i = 0; i < lanelet.centerline.size() - 1; ++i) {
+    const auto &p1 = lanelet.centerline[i];
+    const auto &p2 = lanelet.centerline[i + 1];
+
+    double dist = distancePointToSegment(point, p1, p2);
+    if (dist < min_sq_distance) {
+      min_sq_distance = dist;
+    }
+  }
+
+  return min_sq_distance;
 }
 
-double MapInterface::getSpeedLimit(int64_t lanelet_id)
-{
-  // PLACEHOLDER: Return default speed limit
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder speed limit (map services not available)");
+std::optional<int64_t>
+MapInterface::findNearestLanelet(const geometry_msgs::msg::Point &point) {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
 
-  // Vary speed limit slightly based on lanelet ID for testing
-  double base_speed = 13.4;  // ~30 mph
-  double variation = (lanelet_id % 3) * 2.2;  // 0, 2.2, or 4.4 m/s variation
-  return base_speed + variation;
+  if (lanelet_cache_.empty()) {
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+                         "No lanelets cached yet, cannot find nearest lanelet");
+    return std::nullopt;
+  }
+
+  int64_t nearest_id = -1;
+  double min_distance = std::numeric_limits<double>::max();
+
+  for (const auto &[id, cached_lanelet] : lanelet_cache_) {
+    double distance = distanceToLanelet(point, cached_lanelet.lanelet);
+    if (distance < min_distance) {
+      min_distance = distance;
+      nearest_id = id;
+    }
+  }
+
+  if (nearest_id == -1) {
+    return std::nullopt;
+  }
+
+  return nearest_id;
 }
 
-bool MapInterface::isCrosswalkNearby(const geometry_msgs::msg::Point & point, double radius)
-{
-  // PLACEHOLDER: Simple grid-based crosswalk detection
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder crosswalk detection (map services not available)");
+std::optional<LaneletInfo> MapInterface::getLaneletById(int64_t lanelet_id) {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
 
-  // Simulate crosswalks at intersection-like grid positions
-  int grid_x = static_cast<int>(std::floor(point.x / 20.0));
-  int grid_y = static_cast<int>(std::floor(point.y / 20.0));
+  auto it = lanelet_cache_.find(lanelet_id);
+  if (it != lanelet_cache_.end()) {
+    // Update LRU - access makes it "fresh"
+    lru_list_.erase(it->second.lru_iterator);
+    lru_list_.push_front(lanelet_id);
+    it->second.lru_iterator = lru_list_.begin();
 
-  // Crosswalk every 100m at grid intersections
-  return (grid_x % 5 == 0 && grid_y % 5 == 0);
+    return laneletMsgToInfo(it->second.lanelet);
+  }
+
+  RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+                       "Lanelet ID %ld not found in cache", lanelet_id);
+
+  return std::nullopt;
 }
 
-}  // namespace prediction
+std::vector<int64_t>
+MapInterface::getPossibleFutureLanelets(int64_t current_lanelet_id,
+                                        int max_depth) {
+  std::vector<int64_t> result;
+  std::unordered_set<int64_t> visited;
+  std::queue<std::pair<int64_t, int>> bfs_queue; // (lanelet_id, depth)
+
+  bfs_queue.push({current_lanelet_id, 0});
+  visited.insert(current_lanelet_id);
+
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+
+  while (!bfs_queue.empty()) {
+    auto [id, depth] = bfs_queue.front();
+    bfs_queue.pop();
+
+    result.push_back(id);
+
+    if (depth >= max_depth) {
+      continue;
+    }
+
+    auto it = lanelet_cache_.find(id);
+    if (it == lanelet_cache_.end()) {
+      continue;
+    }
+
+    // Update LRU for traversed nodes? Maybe too expensive. Let's skip modifying
+    // LRU for breadth search to avoid thrashing.
+    const auto &lanelet = it->second.lanelet;
+
+    // Add successors
+    for (int64_t successor_id : lanelet.successor_ids) {
+      if (visited.find(successor_id) == visited.end()) {
+        visited.insert(successor_id);
+        bfs_queue.push({successor_id, depth + 1});
+      }
+    }
+
+    // Add lane change options if available
+    if (lanelet.can_change_left && lanelet.left_lane_id != -1) {
+      if (visited.find(lanelet.left_lane_id) == visited.end()) {
+        visited.insert(lanelet.left_lane_id);
+        bfs_queue.push({lanelet.left_lane_id, depth + 1});
+      }
+    }
+
+    if (lanelet.can_change_right && lanelet.right_lane_id != -1) {
+      if (visited.find(lanelet.right_lane_id) == visited.end()) {
+        visited.insert(lanelet.right_lane_id);
+        bfs_queue.push({lanelet.right_lane_id, depth + 1});
+      }
+    }
+  }
+
+  if (result.empty()) {
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+                         "No future lanelets found for lanelet ID %ld",
+                         current_lanelet_id);
+  }
+
+  return result;
+}
+
+std::optional<double> MapInterface::getSpeedLimit(int64_t lanelet_id) {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+
+  auto it = lanelet_cache_.find(lanelet_id);
+  if (it != lanelet_cache_.end()) {
+    // Update LRU
+    lru_list_.erase(it->second.lru_iterator);
+    lru_list_.push_front(lanelet_id);
+    it->second.lru_iterator = lru_list_.begin();
+
+    return it->second.lanelet.speed_limit_mps;
+  }
+
+  RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+                       "Lanelet ID %ld not found in cache", lanelet_id);
+
+  return std::nullopt;
+}
+
+bool MapInterface::isCrosswalkNearby(const geometry_msgs::msg::Point &point,
+                                     double radius) {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+
+  for (const auto &[id, cached_lanelet] : lanelet_cache_) {
+    const auto &lanelet = cached_lanelet.lanelet;
+    // Check if this lanelet is a crosswalk
+    if (lanelet.lanelet_type != "crosswalk") {
+      continue;
+    }
+
+    // Check if the crosswalk is within the search radius
+    double distance = distanceToLanelet(point, lanelet);
+    if (distance <= radius) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+} // namespace prediction
