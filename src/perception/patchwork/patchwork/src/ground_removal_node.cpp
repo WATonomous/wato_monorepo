@@ -24,6 +24,7 @@
 #include <lifecycle_msgs/msg/state.hpp>
 #include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/qos.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
@@ -137,6 +138,11 @@ void GroundRemovalNode::declareParameters(patchwork::Params & params)
 
 void GroundRemovalNode::removeGround(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg)
 {
+  // Check if shutdown has been requested, return early to allow quick shutdown
+  if (!rclcpp::ok()) {
+    return;
+  }
+
   Eigen::MatrixX3f cloud;
   try {
     cloud = GroundRemovalCore::pointCloud2ToEigen(msg);
@@ -161,11 +167,21 @@ void GroundRemovalNode::removeGround(const sensor_msgs::msg::PointCloud2::ConstS
     return;
   }
 
+  // Check again before expensive processing
+  if (!rclcpp::ok()) {
+    return;
+  }
+
   try {
     core_->process(filtered_cloud);
   } catch (const std::exception & e) {
     RCLCPP_ERROR_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "Error during ground removal processing: %s", e.what());
+    return;
+  }
+
+  // Check again before publishing (processing may have taken time)
+  if (!rclcpp::ok()) {
     return;
   }
 
