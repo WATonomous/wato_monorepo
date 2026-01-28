@@ -14,9 +14,13 @@
 
 #include "prediction/trajectory_predictor.hpp"
 
-#include <cmath>
+#include <cmath>  // for std::atan2, std::sin, std::cos
 #include <memory>  // for std::make_unique
+#include <string>  // for std::string
 #include <vector>  // for std::vector
+
+#include "prediction/map_interface.hpp"  // for HD map queries
+#include "rclcpp/rclcpp.hpp"  // Add this for rclcpp::Duration
 
 namespace prediction
 {
@@ -101,10 +105,43 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
-  // Create a simple "continue straight" hypothesis
-  TrajectoryHypothesis straight_hyp;
-  straight_hyp.intent = Intent::CONTINUE_STRAIGHT;
-  straight_hyp.probability = 0.0;  // Will be set by classifier
+  if (possible_lanelets.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "No possible lanelets provided, cannot generate vehicle hypotheses");
+    return hypotheses;
+  }
+
+  // Get current time and frame for timestamps
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
+
+  // Extract initial state, velocity and heading from detection
+  KinematicState initial_state;
+  initial_state.x = detection.bbox.center.position.x;
+  initial_state.y = detection.bbox.center.position.y;
+
+  if (!detection.results.empty() && detection.results[0].hypothesis.score > 0.0) {
+    initial_state.v = detection.results[0].hypothesis.score;
+  } else {
+    initial_state.v = 5.0;
+  }
+
+  const auto & heading = detection.bbox.center.orientation;
+  initial_state.theta = std::atan2(
+    2.0 * (heading.w * heading.z + heading.x * heading.y), 1.0 - 2.0 * (heading.y * heading.y + heading.z * heading.z));
+
+  initial_state.a = 0.0;
+  initial_state.delta = 0.0;
+
+  MapInterface map_interface(node_);
+
+  // HYPOTHESES GENERATION
+  // ==== Continue Straight ====
+  if (!possible_lanelets.empty()) {
+    TrajectoryHypothesis straight_hyp;
+    straight_hyp.header.stamp = current_time;
+    straight_hyp.header.frame_id = frame_id;
+    straight_hyp.intent = Intent::CONTINUE_STRAIGHT;
+    straight_hyp.probability = 0.0;  // Will be set by classifier
 
   // Extract state from detection
   double current_x = detection.bbox.center.position.x;
@@ -126,7 +163,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
 
   hypotheses.push_back(straight_hyp);
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Vehicle prediction: constant velocity");
+  RCLCPP_INFO(node_->get_logger(), "Generated %zu vehicle trajectory hypotheses", hypotheses.size());
 
   return hypotheses;
 }
