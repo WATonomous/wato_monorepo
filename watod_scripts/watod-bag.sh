@@ -34,6 +34,7 @@ if [[ $# -gt 0 && "$1" == "record" ]]; then
   has_output=false
   has_storage=false
   has_max_bag_size=false
+  has_compression=false
   for arg in "${@}"; do
     if [[ "$arg" == "-o" || "$arg" == "--output" ]]; then
       has_output=true
@@ -43,6 +44,9 @@ if [[ $# -gt 0 && "$1" == "record" ]]; then
     fi
     if [[ "$arg" == "-b" || "$arg" == "--max-bag-size" ]]; then
       has_max_bag_size=true
+    fi
+    if [[ "$arg" == "--compression-mode" ]]; then
+      has_compression=true
     fi
   done
 
@@ -65,6 +69,13 @@ if [[ $# -gt 0 && "$1" == "record" ]]; then
   if [[ "$has_max_bag_size" == "false" ]]; then
     echo "splitting bags by 20GB"
     ros2_bag_args+=("--max-bag-size" "21474836480")
+  fi
+
+  # Disable compression by default for maximum throughput with high-bandwidth sensors
+  # Use --compression-mode file --compression-format lz4 if you need compression
+  if [[ "$has_compression" == "false" ]]; then
+    echo "Compression disabled for maximum throughput"
+    ros2_bag_args+=("--compression-mode" "none")
   fi
 fi
 

@@ -643,24 +643,26 @@
           /// In the case of the transport link MTU being smaller than the ZN_BATCH_SIZE,
           /// then amount of memory being allocated for each queue is SIZE_XXX * LINK_MTU.
           /// If qos is false, then only the DATA priority will be allocated.
+          /// WATonomous setting: increased queue sizes to handle 12 cameras + 3 LiDARs publishing simultaneously
           size: {
             control: 2,
-            real_time: 2,
-            interactive_high: 2,
-            interactive_low: 2,
-            data_high: 2,
-            data: 2,
-            data_low: 2,
+            real_time: 16,
+            interactive_high: 8,
+            interactive_low: 8,
+            data_high: 16,
+            data: 16,
+            data_low: 4,
             background: 2,
           },
           /// Congestion occurs when the queue is empty (no available batch).
           congestion_control: {
             /// Behavior pushing CongestionControl::Drop messages to the queue.
+            /// WATonomous setting: increased timeouts to handle large fragmented messages (images ~3.75 MB = ~60 fragments)
             drop: {
               /// The maximum time in microseconds to wait for an available batch before dropping a droppable message if still no batch is available.
-              wait_before_drop: 1000,
+              wait_before_drop: 10000,
               /// The maximum deadline limit for multi-fragment messages.
-              max_wait_before_drop_fragments: 50000,
+              max_wait_before_drop_fragments: 200000,
             },
             /// Behavior pushing CongestionControl::Block messages to the queue.
             block: {
@@ -696,7 +698,8 @@
         /// For very high throughput scenarios, the rx_buffer_size can be increased to accommodate
         /// more in-flight data. This is particularly relevant when dealing with large messages.
         /// E.g. for 16MiB rx_buffer_size set the value to: 16777216.
-        buffer_size: 65535,
+        /// WATonomous setting: 16 MB to handle large camera images (~3.75 MB each) without excessive fragmentation
+        buffer_size: 16777216,
         /// Maximum size of the defragmentation buffer at receiver end.
         /// Fragmented messages that are larger than the configured size will be dropped.
         /// The default value is 1GiB. This would work in most scenarios.
@@ -735,15 +738,13 @@
         /// Configure TCP write buffer size (bytes)
         // so_sndbuf: 123456,
       },
-      // // Configure optional TCP link specific parameters
-      // tcp: {
-      //   /// Optional configuration for TCP system buffers sizes for TCP links
-      //   ///
-      //   /// Configure TCP read buffer size (bytes)
-      //   // so_rcvbuf: 123456,
-      //   /// Configure TCP write buffer size (bytes)
-      //   // so_sndbuf: 123456,
-      // },
+      /// WATonomous setting: TCP buffer sizes for high-throughput sensor data
+      tcp: {
+        /// Configure TCP read buffer size (bytes)
+        so_rcvbuf: 16777216,
+        /// Configure TCP write buffer size (bytes)
+        so_sndbuf: 16777216,
+      },
     },
     /// Shared memory configuration.
     /// NOTE: shared memory can be used only if zenoh is compiled with "shared-memory" feature, otherwise
@@ -770,7 +771,8 @@
           /// Implicitly puts large messages into shared memory for transports with SHM-compatible connection.
           enabled: true,
           /// SHM memory size in bytes used for transport optimization (default `48 * 1024 * 1024`).
-          pool_size: 50331648,
+          /// WATonomous setting: 512 MB to handle 12 cameras × 3.75 MB with headroom for bursts
+          pool_size: 536870912,
           /// Allow optimization for messages equal or larger than this threshold in bytes (default `1024`).
           message_size_threshold: 1024,
       },
