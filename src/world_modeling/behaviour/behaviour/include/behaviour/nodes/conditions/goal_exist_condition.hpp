@@ -24,10 +24,10 @@
 
 namespace behaviour
 {
-class HasGoalCondition : public BT::ConditionNode
+class GoalExistCondition : public BT::ConditionNode
 {
 public:
-  HasGoalCondition(const std::string & name, const BT::NodeConfig & config)
+  GoalExistCondition(const std::string & name, const BT::NodeConfig & config)
   : BT::ConditionNode(name, config)
   {}
 
@@ -40,7 +40,7 @@ public:
   {
     auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
     if (gp == nullptr) {
-      std::cout << "HasGoal: Missing goal point." << std::endl;
+      std::cout << "[GoalExist]: No goal point" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
     return BT::NodeStatus::SUCCESS;

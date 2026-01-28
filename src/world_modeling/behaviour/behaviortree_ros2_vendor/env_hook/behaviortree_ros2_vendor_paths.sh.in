@@ -1,2 +1,1 @@
-# ament_dsv hook to prepend the library path
-export LD_LIBRARY_PATH="@BT_ROS2_VENDOR_INSTALL_PREFIX@/lib:$LD_LIBRARY_PATH"
+TODO(wato): fill this in

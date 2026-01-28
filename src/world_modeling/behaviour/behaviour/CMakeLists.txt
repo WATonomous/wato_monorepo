@@ -33,8 +33,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
-# find_package(behaviortree_cpp REQUIRED)
-find_package(behaviortree_ros2_vendor REQUIRED)
+find_package(behaviortree_ros2 REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(behaviour_msgs REQUIRED)
@@ -63,7 +62,6 @@ target_link_libraries(${PROJECT_NAME}_lib
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     rclcpp_action::rclcpp_action
-    # behaviortree_cpp::behaviortree_cpp
     behaviortree_ros2::behaviortree_ros2
     ${behaviour_msgs_TARGETS}
     ${world_model_msgs_TARGETS}
