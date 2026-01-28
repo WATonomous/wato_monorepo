@@ -48,9 +48,12 @@
 #define PREDICTION__MOTION_MODELS_HPP_
 
 #include <Eigen/Dense>
+#include <string>
 #include <vector>
 
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 namespace prediction
 {
@@ -93,10 +96,17 @@ public:
    * @param path_points Points along desired path
    * @param horizon Time horizon
    * @param dt Time step
-   * @return Vector of poses along trajectory
+   * @param start_time ROS timestamp for first waypoint
+   * @param frame_id Coordinate frame ID
+   * @return Vector of PoseStamped along trajectory
    */
-  std::vector<geometry_msgs::msg::Pose> generateTrajectory(
-    const KinematicState & initial_state, const std::vector<Eigen::Vector2d> & path_points, double horizon, double dt);
+  std::vector<geometry_msgs::msg::PoseStamped> generateTrajectory(
+    const KinematicState & initial_state,
+    const std::vector<Eigen::Vector2d> & path_points,
+    double horizon,
+    double dt,
+    const rclcpp::Time & start_time,
+    const std::string & frame_id);
 
 private:
   double max_steering_angle_;  // Maximum steering angle (rad)
