@@ -1,24 +1,20 @@
-#include <vector>
-#include <cmath>
-#include <algorithm>
-#include <vector>
-#include <rclcpp/rclcpp.hpp>
-//goal - no ROS dependencies
-#include <random>
+#include "mppi_core.hpp"
 
-double gaussian_noise(double sigma)
+MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
+                   double L, double a_noise_std, double delta_noise_std)
+  : num_samples_(num_samples),
+    time_horizon_(time_horizon),
+    dt_(time_horizon / num_time_step),
+    num_time_step_(num_time_step),
+    a_noise_std_(a_noise_std),
+    delta_noise_std_(delta_noise_std),
+    L_(L),
+    control_sequences_(num_samples, num_time_step)
 {
-    static std::mt19937 gen(std::random_device{}());
-    static std::normal_distribution<double> dist(0.0, 1.0);
-
-    return dist(gen) * sigma;
 }
 
-class MppiCore
-{
-struct State { double x, y, yaw, delta, v };
 
-inline State step_bicycle(const State& s, double a, double delta_dot, double dt, double L) {
+State MppiCore::step_bicycle(const State& s, double a, double delta_dot, double dt, double L) {
     State ns = s;
 
     //clamp inputs here: a, delta_dot
@@ -39,50 +35,15 @@ inline State step_bicycle(const State& s, double a, double delta_dot, double dt,
     return ns;
 }
 
-
-struct ControlSequences {
-    int K;   // num_samples
-    int T;   // num_time_step
-    // size K*T
-    std::vector<double> a; 
-    std::vector<double> delta;  
-
-    ControlSequences(int K_, int T_)
-      : K(K_), T(T_), a((size_t)K_*T_), delta((size_t)K_*T_) {}
-
-    inline size_t idx(int k, int t) const { return (size_t)k*T + t; }
-
-    inline double& A(int k, int t) { return a[idx(k,t)]; }
-    inline double& D(int k, int t) { return delta[idx(k,t)]; }
-    inline const double& A(int k, int t) const { return a[idx(k,t)]; }
-    inline const double& D(int k, int t) const { return delta[idx(k,t)]; }
-};
-
-public:
-    MppiCore(int num_samples, double time_horizon, int num_time_step, double L, double a_noise_std, double delta_noise_std){
-         // make into get from parameter 
-        num_samples_ = num_samples;
-        time_horizon_ = time_horizon;
-        num_time_step_ = num_time_step; 
-        dt_ = time_horizon_ / num_time_step_;
-        a_noise_std_ = a_noise_std;
-        delta_noise_std_ = delta_noise_std;
-        L_ = L;
-
-
-        control_sequences_ = ControlSequences(num_samples_, num_time_step_);
-
-
-    }
-
-    void computeControl(){    
+Control_Output MppiCore::computeControl(){    
         add_noise_to_control_sequences();
         eval_trajectories_scores();
         compute_weights();
         aggregate_controls();
-    }
+        return Control_Output{0.5, 0.0};
+    };
 
-    void add_noise_to_control_sequences(){
+void MppiCore::add_noise_to_control_sequences(){
         // add noise to control sequences
         for(int k=0; k<num_samples_; k++){
             for(int t=0; t<num_time_step_; t++){
@@ -94,9 +55,12 @@ public:
                 control_sequences_.D(k, t) += delta_noise;
             }
         }
-    }
+    };
+double MppiCore::compute_costs(const State& old_state, const State& new_state, double a, double delta_dot){
+    return 1.0;
+};
 
-    std::vector<double> eval_trajectories_scores(){
+std::vector<double> MppiCore::eval_trajectories_scores(){
         std::vector<double> trajectory_costs(num_samples_);
         // simulate trajectories based on control sequences
         for (int k=0; k<num_samples_; k++){
@@ -111,46 +75,6 @@ public:
 
             }
         }
+        return trajectory_costs;
         
-    }
-
-
-    double compute_costs(const State& old_state, const State& new_state, double a, double delta_dot){
-        state reference_state;
-        
-    }
-
-    void compute_weights(){}
-
-    void aggregate_controls(){}
-
-
-
-    void update_pose(double x, double y, double yaw){
-        current_state_.x = x;
-        current_state_.y = y;
-        current_state_.yaw = yaw;
-    }
-    void update_velocity(double v){
-        current_state_.v = v;
-    } 
-    //void update_trajectory(const std::vector<State>& traj){    }
-
-private:
-    State current_state_;
-
-    int num_samples_;
-    double time_horizon_;
-    double dt_;
-    double num_time_step_;
-
-
-    double a_noise_std_ ;
-    double delta_noise_std_ ;
-
-    // wheelbase length
-    double L_;
-    ControlSequences control_sequences_;
 };
-
-//consider: lifecycle node

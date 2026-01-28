@@ -8,13 +8,17 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <tf2_msgs/msg/tf_message.hpp>
-#include <ackermann_msgs/msg/ackermann_drive.hpp>
+#include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <trajectory_msgs/msg/joint_trajectory.hpp> 
+#include "mppi_core.hpp"
 
 
 class MppiNode : public rclcpp::Node {
 public:
     MppiNode() : Node("mppi_node") {
+
+        mppi_core_ = std::make_unique<MppiCore>(100, 1.0, 10, 2.5, 0.1, 0.1);
+
         RCLCPP_INFO(this->get_logger(), "MPPI Node has been started.");
 
         //topic parameter
@@ -22,7 +26,7 @@ public:
         this->declare_parameter<std::string>("trajectory_topic", "/trajectory");
         this->declare_parameter<std::string>("tf_topic", "/tf");
         this->declare_parameter<std::string>("occupancy_grid_topic", "/occupancy_grid");
-        this->declare_parameter<std::string>("control_topic", "/ackermann_control");
+        this->declare_parameter<std::string>("control_topic", "/carla/ackermann_control/command");
 
         //get parameters
         this->get_parameter("odom_topic", odom_topic_);
@@ -58,12 +62,12 @@ public:
             std::chrono::milliseconds(100),
             std::bind(&MppiNode::publish_control_command, this) );
         //control publisher
-        control_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDrive>(control_topic_, 10);
+        control_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(control_topic_, 10);
 
     }
 
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-        //RCLCPP_INFO(this->get_logger(), "Odom received");
+        RCLCPP_INFO(this->get_logger(), "Odom received");
     }
 
     void trajectory_callback(const trajectory_msgs::msg::JointTrajectory::SharedPtr msg) {
@@ -79,9 +83,14 @@ public:
     }
 
     void publish_control_command() {
-        auto control_msg = ackermann_msgs::msg::AckermannDrive();
-        control_msg.steering_angle = 0.0; // Placeholder value
-        control_msg.acceleration = 0.1; // Placeholder value
+        auto control_msg = ackermann_msgs::msg::AckermannDriveStamped();
+        Control_Output control_output = mppi_core_->computeControl();
+
+        control_msg.header.stamp = this->now();
+
+        control_msg.drive.steering_angle = control_output.delta_dot; // Placeholder value
+        control_msg.drive.acceleration = control_output.a; // Placeholder value
+        //control_msg.drive.speed = 0.1; // Placeholder value
 
         control_pub_->publish(control_msg);
 
@@ -90,6 +99,7 @@ public:
 
 
 private:
+    std::unique_ptr<MppiCore> mppi_core_;
     std::string odom_topic_;
     std::string trajectory_topic_;
     std::string tf_topic_;
@@ -102,7 +112,7 @@ private:
     rclcpp::TimerBase::SharedPtr control_timer_;
 
     //control publisher
-    rclcpp::Publisher<ackermann_msgs::msg::AckermannDrive>::SharedPtr control_pub_;
+    rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr control_pub_;
 
 };
 
