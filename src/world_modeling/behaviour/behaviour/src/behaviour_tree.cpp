@@ -21,9 +21,6 @@
 #include <behaviortree_ros2/bt_action_node.hpp>
 #include <behaviortree_ros2/bt_service_node.hpp>
 
-#include "behaviour/dynamic_object_store.hpp"
-#include "behaviour/utils/utils.hpp"
-
 // Actions
 #include "behaviour/nodes/actions/determine_lane_behaviour.hpp"
 #include "behaviour/nodes/actions/determine_reg_elem_node.hpp"
@@ -53,39 +50,33 @@
 #include "behaviour/nodes/services/get_route_service.hpp"
 #include "behaviour/nodes/services/set_route_service.hpp"
 
-// #include "behaviour/nodes/services/set_wall_service.hpp"
-
 namespace behaviour
 {
 
+/**
+ * @brief Initialize the BT manager by registering custom nodes and loading the XML.
+ */
 BehaviourTree::BehaviourTree(
-  rclcpp_lifecycle::LifecycleNode::SharedPtr lifecycle_node,
-  rclcpp::Node::SharedPtr ros_node,
-  const std::string & tree_file_path,
-  std::shared_ptr<DynamicObjectStore> store)
-: lifecycle_node_(std::move(lifecycle_node))
-, ros_node_(std::move(ros_node))
-, store_(std::move(store))
+  rclcpp::Node::SharedPtr node,
+  const std::string & tree_file_path)
+: node_(std::move(node))
 {
   registerNodes();
   buildTree(tree_file_path);
 }
 
+/**
+ * @brief Register all custom BT nodes (Actions, Conditions, Decorators, Services).
+ */
 void BehaviourTree::registerNodes()
 {
-  if (!store_) {
-    throw std::runtime_error("DynamicObjectStore is null!");
+  if (!node_) {
+    throw std::runtime_error("ROS node provided to BehaviourTree is null!");
   }
 
-  if (!ros_node_) {
-    throw std::runtime_error("Ros node is null!");
-  }
-
+  // Setup parameters for ROS-linked BT nodes
   BT::RosNodeParams params;
-  params.nh = ros_node_;
-
-  // TODO(wato): Figure out how to register enums with btcpp
-  // factory_.registerScriptingEnums<types::LaneBehaviour>();
+  params.nh = node_;
 
   // Decorators
   factory_.registerNodeType<RateController>("RateController");
@@ -104,7 +95,6 @@ void BehaviourTree::registerNodes()
   factory_.registerNodeType<GetLaneletsByRegElemService>("GetLaneletsByRegElem", params);
   factory_.registerNodeType<GetRouteService>("GetRoute", params);
   factory_.registerNodeType<SetRouteService>("SetRoute", params);
-  // factory_.registerNodeType<SetWallService>("SetWall", params);
 
   // Conditions
   factory_.registerNodeType<ComparatorCondition>("Comparator");
@@ -118,15 +108,23 @@ void BehaviourTree::registerNodes()
   factory_.registerNodeType<HasGoalCondition>("HasGoal");
 }
 
+/**
+ * @brief Create the blackboard and build the tree structure from the XML file.
+ */
 void BehaviourTree::buildTree(const std::string & tree_file_path)
 {
   blackboard_ = BT::Blackboard::create();
-  blackboard_->set<rclcpp_lifecycle::LifecycleNode::SharedPtr>("node", lifecycle_node_);
+  
+  // Set the node on the blackboard so custom nodes can access it
+  blackboard_->set<rclcpp::Node::SharedPtr>("node", node_);
 
-  RCLCPP_INFO(lifecycle_node_->get_logger(), "Loading Behavior Tree from: %s", tree_file_path.c_str());
+  RCLCPP_INFO(node_->get_logger(), "Loading Behavior Tree from: %s", tree_file_path.c_str());
   tree_ = factory_.createTreeFromFile(tree_file_path, blackboard_);
 }
 
+/**
+ * @brief Tick the tree logic.
+ */
 void BehaviourTree::tick()
 {
   tree_.tickOnce();

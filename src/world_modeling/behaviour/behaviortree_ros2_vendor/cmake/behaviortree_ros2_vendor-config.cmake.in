@@ -1,0 +1,28 @@
+# - Config file for the behaviortree_ros2_vendor package
+# It defines the following variables
+#  behaviortree_ros2_vendor_INCLUDE_DIRS - include directories
+#  behaviortree_ros2_vendor_LIBRARIES    - libraries to link against
+
+get_filename_component(behaviortree_ros2_vendor_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
+set(behaviortree_ros2_vendor_INCLUDE_DIRS "@BT_ROS2_VENDOR_INSTALL_PREFIX@/include")
+set(behaviortree_ros2_vendor_LIBRARY_DIR "@BT_ROS2_VENDOR_INSTALL_PREFIX@/lib")
+
+# Find the library explicitly if needed, or just add the dir
+# BT.ROS2 produces 'libbehaviortree_ros2.so' (or similar)
+find_library(behaviortree_ros2_vendor_LIBRARY 
+    NAMES behaviortree_ros2
+    PATHS ${behaviortree_ros2_vendor_LIBRARY_DIR}
+    NO_DEFAULT_PATH
+)
+
+set(behaviortree_ros2_vendor_LIBRARIES ${behaviortree_ros2_vendor_LIBRARY})
+
+# Create an imported target for modern CMake usage
+if(NOT TARGET behaviortree_ros2::behaviortree_ros2)
+  add_library(behaviortree_ros2::behaviortree_ros2 UNKNOWN IMPORTED)
+  set_target_properties(behaviortree_ros2::behaviortree_ros2 PROPERTIES
+    IMPORTED_LOCATION "${behaviortree_ros2_vendor_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${behaviortree_ros2_vendor_INCLUDE_DIRS}"
+  )
+endif()

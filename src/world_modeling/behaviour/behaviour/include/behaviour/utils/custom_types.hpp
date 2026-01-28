@@ -29,10 +29,6 @@
 #include "lanelet_msgs/srv/get_route.hpp"
 #include "world_model_msgs/msg/dynamic_object.hpp"
 
-namespace behaviour
-{
-class DynamicObjectStore;  // Forward declaration
-}
 
 namespace behaviour::types
 {

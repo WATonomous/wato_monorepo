@@ -33,8 +33,8 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
-find_package(behaviortree_cpp REQUIRED)
-find_package(behaviortree_ros2 REQUIRED)
+# find_package(behaviortree_cpp REQUIRED)
+find_package(behaviortree_ros2_vendor REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(behaviour_msgs REQUIRED)
@@ -53,26 +53,29 @@ add_library(${PROJECT_NAME}_lib SHARED
 )
 
 target_include_directories(${PROJECT_NAME}_lib
-  PRIVATE
-  include
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(${PROJECT_NAME}_lib
-  ament_index_cpp
-  rclcpp
-  rclcpp_lifecycle
-  rclcpp_action
-  std_msgs
-  std_srvs
-  behaviortree_cpp
-  behaviortree_ros2
-  world_model_msgs
-  behaviour_msgs
-  geometry_msgs
-  nav_msgs
-  lanelet_msgs
-  tf2_ros
-  tf2_geometry_msgs
+target_link_libraries(${PROJECT_NAME}_lib
+  PUBLIC
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    rclcpp_action::rclcpp_action
+    # behaviortree_cpp::behaviortree_cpp
+    behaviortree_ros2::behaviortree_ros2
+    ${behaviour_msgs_TARGETS}
+    ${world_model_msgs_TARGETS}
+  PRIVATE
+    ament_index_cpp::ament_index_cpp
+    tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
+    ${std_msgs_TARGETS}
+    ${std_srvs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
 )
 
 # ══════════════════════════════════════════════════════════════════════
@@ -86,25 +89,23 @@ add_executable(behaviour_node
 target_include_directories(behaviour_node PRIVATE include)
 
 target_link_libraries(behaviour_node
-  ${PROJECT_NAME}_lib
-)
-
-ament_target_dependencies(behaviour_node
-  ament_index_cpp
-  rclcpp
-  rclcpp_lifecycle
-  rclcpp_action
-  std_msgs
-  std_srvs
-  behaviortree_cpp
-  behaviortree_ros2
-  world_model_msgs
-  behaviour_msgs
-  geometry_msgs
-  nav_msgs
-  lanelet_msgs
-  tf2_ros
-  tf2_geometry_msgs
+  PRIVATE
+    ${PROJECT_NAME}_lib
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    rclcpp_action::rclcpp_action
+    tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
+    # behaviortree_cpp::behaviortree_cpp
+    behaviortree_ros2::behaviortree_ros2
+    ament_index_cpp::ament_index_cpp
+    ${std_msgs_TARGETS}
+    ${std_srvs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${world_model_msgs_TARGETS}
+    ${behaviour_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
 )
 
 # ══════════════════════════════════════════════════════════════════════
@@ -130,9 +131,14 @@ install(DIRECTORY config launch trees
 # Testing
 # ══════════════════════════════════════════════════════════════════════
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
+if(BUILD_TESTING)  
+  # TODO(wato): add behaviour unit testing
+  # find_package(wato_test REQUIRED)
+  # add_wato_test(test_behaviour
+  #   test/test_behaviour.cpp
+  #   LIBRARIES
+  #     ${PROJECT_NAME}_lib
+  # )
 endif()
 
 ament_package()
