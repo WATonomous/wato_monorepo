@@ -10,25 +10,21 @@ The `pid_control_node` subscribes to desired vehicle states (steering angle and 
 
 ### Subscriptions
 
-| Topic | Message Type | Description |
-| :--- | :--- | :--- |
-| `/joystick/ackermann` | `ackermann_msgs/msg/AckermannDriveStamped` | Desired steering angle and speed setpoints. |
-| `/steering_meas` | `std_msgs/msg/Float64` | Current steering angle feedback. |
-| `/velocity_meas` | `std_msgs/msg/Float64` | Current vehicle velocity feedback. |
+| Internal Name | Message Type | Default Remap Topic | Description |
+| :--- | :--- | :--- | :--- |
+| `ackermann` | `ackermann_msgs/msg/AckermannDriveStamped` | `/joystick/ackermann` | Desired steering angle and speed setpoints. |
+| `steering_feedback` | `std_msgs/msg/Float64` | `/steering_feedback` | Current steering angle feedback. |
+| `velocity_feedback` | `std_msgs/msg/Float64` | `/velocity_feedback` | Current vehicle velocity feedback. |
 
 ### Publishers
 
-| Topic | Message Type | Description |
-| :--- | :--- | :--- |
-| `/joystick/roscco` | `roscco_msg/msg/Roscco` | Combined control output (steering torque and forward command). |
+| Internal Name | Message Type | Default Remap Topic | Description |
+| :--- | :--- | :--- | :--- |
+| `roscco` | `roscco_msg/msg/Roscco` | `/joystick/roscco` | Combined control output (steering torque and forward command). |
 
 ### Parameters
 
 #### General
-- `ackermann_topic` (string, default: `/joystick/ackermann`): Topic for desired setpoints.
-- `steering_feedback_topic` (string, default: `/steering_meas`): Topic for steering feedback.
-- `velocity_feedback_topic` (string, default: `/velocity_meas`): Topic for velocity feedback.
-- `roscco_topic` (string, default: `/joystick/roscco`): Output topic for OSCC commands.
 - `update_rate` (double, default: `100.0`): Frequency (Hz) of the PID control loop.
 
 #### PID Configuration (`steering_pid` and `velocity_pid` namespaces)

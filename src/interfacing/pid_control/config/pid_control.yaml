@@ -1,9 +1,5 @@
 pid_control_node:
   ros__parameters:
-    ackermann_topic: "/joystick/ackermann"
-    steering_feedback_topic: "/steering_meas"
-    velocity_feedback_topic: "/velocity_meas"
-    roscco_topic: "/joystick/roscco"
     update_rate: 100.0
 
     steering_pid:

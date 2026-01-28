@@ -25,16 +25,8 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 : Node("pid_control_node", options)
 {
   // Declare topics
-  this->declare_parameter<std::string>("ackermann_topic", "/joystick/ackermann");
-  this->declare_parameter<std::string>("steering_feedback_topic", "/steering_meas");
-  this->declare_parameter<std::string>("velocity_feedback_topic", "/velocity_meas");
-  this->declare_parameter<std::string>("roscco_topic", "/joystick/roscco");
   this->declare_parameter<double>("update_rate", 100.0);
 
-  std::string ackermann_topic = this->get_parameter("ackermann_topic").as_string();
-  std::string steering_feedback_topic = this->get_parameter("steering_feedback_topic").as_string();
-  std::string velocity_feedback_topic = this->get_parameter("velocity_feedback_topic").as_string();
-  std::string roscco_topic = this->get_parameter("roscco_topic").as_string();
   double update_rate = this->get_parameter("update_rate").as_double();
 
   // Initialize Steering PID
@@ -61,20 +53,20 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 
   // Subscriptions
   ackermann_sub_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
-    ackermann_topic, rclcpp::QoS(10), std::bind(&PidControlNode::ackermann_callback, this, std::placeholders::_1));
+    "ackermann", rclcpp::QoS(10), std::bind(&PidControlNode::ackermann_callback, this, std::placeholders::_1));
 
   steering_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    steering_feedback_topic,
+    "steering_feedback",
     rclcpp::QoS(10),
     std::bind(&PidControlNode::steering_feedback_callback, this, std::placeholders::_1));
 
   velocity_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    velocity_feedback_topic,
+    "velocity_feedback",
     rclcpp::QoS(10),
     std::bind(&PidControlNode::velocity_feedback_callback, this, std::placeholders::_1));
 
   // Publisher
-  roscco_pub_ = this->create_publisher<roscco_msg::msg::Roscco>(roscco_topic, rclcpp::QoS(10));
+  roscco_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(10));
 
   // Timer
   last_time_ = this->now();
