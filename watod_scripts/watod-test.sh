@@ -15,7 +15,7 @@
 set -euo pipefail
 
 # watod-test.sh - Builds test images and runs tests
-# Usage: watod-test.sh --pre-profiles <profiles...> --all-profiles <profiles...> [service names...]
+# Usage: watod-test.sh --pre-profiles <profiles...> --all-profiles <profiles...> [--services <services...>] [--packages <packages...>]
 
 # Get monorepo directory
 MONO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,6 +28,7 @@ declare -a TEST_PRE_PROFILES=()
 declare -a TEST_ALL_PROFILES=()
 declare -a PROFILE_MODULES=()
 declare -a TEST_SERVICES=()
+declare -a FILTER_PACKAGES=()
 
 # Parse profile arguments
 while [[ $# -gt 0 ]]; do
@@ -46,10 +47,23 @@ while [[ $# -gt 0 ]]; do
         shift
       done
       ;;
-    *)
-      # Remaining arguments are service names
-      TEST_SERVICES+=("$1")
+    --packages)
       shift
+      while [[ $# -gt 0 && "$1" != --* ]]; do
+        FILTER_PACKAGES+=("$1")
+        shift
+      done
+      ;;
+    --services)
+      shift
+      while [[ $# -gt 0 && "$1" != --* ]]; do
+        TEST_SERVICES+=("$1")
+        shift
+      done
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
       ;;
   esac
 done
@@ -89,6 +103,12 @@ run_tests() {
   local service=$1
   local test_service="${service}_test"
 
+  # Build colcon test command
+  local colcon_cmd="colcon test --event-handlers console_direct+"
+  if [[ ${#FILTER_PACKAGES[@]} -gt 0 ]]; then
+    colcon_cmd+=" --packages-select ${FILTER_PACKAGES[*]}"
+  fi
+
   # Capture test output
   local test_output
   test_output=$( "$MONO_DIR/watod_scripts/watod-compose.sh" run \
@@ -100,7 +120,7 @@ run_tests() {
     --name "${service}_test_$$" \
     -w /ws \
     "$test_service" \
-    /bin/bash -c "source /opt/watonomous/setup.bash && colcon test --event-handlers console_direct+ && colcon test-result --verbose" 2>&1)
+    /bin/bash -c "source /opt/watonomous/setup.bash && $colcon_cmd && colcon test-result --verbose" 2>&1)
 
   local exit_code=$?
   echo "$test_output"
@@ -108,7 +128,7 @@ run_tests() {
   # Extract summary information
   local packages
   local tests
-  packages=$(echo "$test_output" | grep -oP "Summary: \K\d+(?= packages finished)" | tail -1)
+  packages=$(echo "$test_output" | grep -oP "Summary: \K\d+(?= packages? finished)" | tail -1)
   tests=$(echo "$test_output" | grep -oP "Summary: \K\d+(?= tests)" | tail -1)
 
   # Store results
@@ -140,8 +160,12 @@ fi
 
 # Main logic
 if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
-  # Test specific services
+  # Test specific services (convert module name to bringup service name)
   for service in "${TEST_SERVICES[@]}"; do
+    # If service doesn't end with _bringup, append it (e.g., world_modeling -> world_modeling_bringup)
+    if [[ ! "$service" =~ _bringup$ ]]; then
+      service="${service}_bringup"
+    fi
     run_tests "$service" || exit 1
   done
 else
@@ -225,7 +249,10 @@ for i in "${!TESTED_SERVICES[@]}"; do
 done
 
 echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
-printf "${BLUE}║${RESET}  ${YELLOW}${BOLD}Total: %s packages, %s tests${RESET}%-29s${BLUE}║${RESET}\n" "$total_packages" "$total_tests" ""
+# Calculate dynamic padding for the Total line (box content width is 57 chars after "  ")
+total_text="Total: ${total_packages} packages, ${total_tests} tests"
+padding=$((57 - ${#total_text}))
+printf "${BLUE}║${RESET}  ${YELLOW}${BOLD}%s${RESET}%${padding}s${BLUE}║${RESET}\n" "$total_text" ""
 if $all_passed; then
   echo -e "${BLUE}║${RESET}  ${GREEN}${BOLD}Status: ALL TESTS PASSED${RESET}                                 ${BLUE}║${RESET}"
 else
