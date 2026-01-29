@@ -82,6 +82,14 @@ fi
 
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
+# WATCloud mode: use watcloud compose file as the base for extends
+WATCLOUD_MODE=${WATCLOUD_MODE:-false}
+if [[ "$WATCLOUD_MODE" == "true" ]]; then
+  COMPOSE_EXTEND_FILE="docker-compose.watcloud.yaml"
+else
+  COMPOSE_EXTEND_FILE="docker-compose.yaml"
+fi
+
 # Tag for docker images – convert slashes to dashes
 TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 
@@ -172,6 +180,7 @@ append "MONO_DIR" "$MONO_DIR"
 
 append "COMPOSE_DOCKER_CLI_BUILD" "1"
 append "COMPOSE_PROJECT_NAME" "$COMPOSE_PROJECT_NAME"
+append "COMPOSE_EXTEND_FILE" "$COMPOSE_EXTEND_FILE"
 
 append "TAG" "$TAG"
 

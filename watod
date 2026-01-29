@@ -288,6 +288,15 @@ COMPOSE_CMD=( "$@" )
 [[ -f "$MONO_DIR/watod-config.sh"       ]] && source "$MONO_DIR/watod-config.sh"
 [[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
 
+# Export WATCLOUD_MODE so watod-compose.sh and watod-test.sh can use it
+export WATCLOUD_MODE="${WATCLOUD_MODE:-false}"
+
+# Build compose file list for direct docker compose calls
+WATCLOUD_COMPOSE_ARGS=()
+if [[ "$WATCLOUD_MODE" == "true" ]]; then
+  WATCLOUD_COMPOSE_ARGS=("-f" "modules/docker-compose.watcloud.yaml")
+fi
+
 # ────────────────────────────── Run Down ─────────────────────────────────
 # Handle 'down' command
 if [[ -n ${RUN_DOWN:-} ]]; then
@@ -311,7 +320,7 @@ if [[ -n ${RUN_DOWN:-} ]]; then
       DOWN_PROFILE_FLAGS+=("--profile" "$p")
     done
 
-    docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml -f modules/docker-compose.bag.yaml "${DOWN_PROFILE_FLAGS[@]}" down "${DOWN_SERVICES[@]}"
+    docker compose --env-file modules/.env -f modules/docker-compose.yaml "${WATCLOUD_COMPOSE_ARGS[@]}" -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml -f modules/docker-compose.bag.yaml "${DOWN_PROFILE_FLAGS[@]}" down "${DOWN_SERVICES[@]}"
     exit $?
   else
     # "watod down" - stop modules from ACTIVE_MODULES config + infrastructure
@@ -341,7 +350,7 @@ if [[ -n ${RUN_DOWN:-} ]]; then
     DOWN_PROFILE_FLAGS+=("--profile" "$p")
   done
 
-  docker compose --env-file modules/.env -f modules/docker-compose.yaml -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml -f modules/docker-compose.bag.yaml "${DOWN_PROFILE_FLAGS[@]}" down
+  docker compose --env-file modules/.env -f modules/docker-compose.yaml "${WATCLOUD_COMPOSE_ARGS[@]}" -f modules/docker-compose.dep.yaml -f modules/docker-compose.dev.yaml -f modules/docker-compose.bag.yaml "${DOWN_PROFILE_FLAGS[@]}" down
   exit $?
 fi
 

@@ -39,6 +39,12 @@
 # export ACTIVE_MODULES=""
 
 ############################## ADVANCED CONFIGURATIONS ##############################
+## Enable WATCloud mode for rootless Docker environments.
+## Adds a shared network namespace container so services can communicate
+## without requiring network_mode: host.
+## DEFAULT = "false"
+# export WATCLOUD_MODE="false"
+
 ## Name to append to docker containers. DEFAULT = "<your_watcloud_username>"
 # export COMPOSE_PROJECT_NAME=""
 

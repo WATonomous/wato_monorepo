@@ -4,7 +4,7 @@ services:
   interfacing_bringup_bag:
     profiles: ["interfacing_bag"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: interfacing_bringup
     command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_bag_launch.yaml recording_profile:=${RECORDING_PROFILE:-all_sensors} bag_path:=/bags/recording_$(date +%Y%m%d_%H%M%S)"
     volumes:
