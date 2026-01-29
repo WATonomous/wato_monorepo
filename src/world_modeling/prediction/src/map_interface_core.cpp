@@ -23,9 +23,10 @@
 
 namespace prediction {
 
-double MapInterfaceCore::distancePointToSegment(
-    const geometry_msgs::msg::Point &p, const geometry_msgs::msg::Point &a,
-    const geometry_msgs::msg::Point &b) {
+double
+MapInterfaceCore::distancePointToSegment(const geometry_msgs::msg::Point &p,
+                                         const geometry_msgs::msg::Point &a,
+                                         const geometry_msgs::msg::Point &b) {
   double dx_ba = b.x - a.x;
   double dy_ba = b.y - a.y;
   double l2 = dx_ba * dx_ba + dy_ba * dy_ba;
@@ -76,8 +77,8 @@ void MapInterfaceCore::cacheLanelets(
   }
 }
 
-LaneletInfo MapInterfaceCore::laneletMsgToInfo(
-    const lanelet_msgs::msg::Lanelet &lanelet) {
+LaneletInfo
+MapInterfaceCore::laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet) {
   LaneletInfo info;
   info.id = lanelet.id;
   info.centerline = lanelet.centerline;
@@ -86,9 +87,9 @@ LaneletInfo MapInterfaceCore::laneletMsgToInfo(
   return info;
 }
 
-double MapInterfaceCore::distanceToLanelet(
-    const geometry_msgs::msg::Point &point,
-    const lanelet_msgs::msg::Lanelet &lanelet) {
+double
+MapInterfaceCore::distanceToLanelet(const geometry_msgs::msg::Point &point,
+                                    const lanelet_msgs::msg::Lanelet &lanelet) {
   if (lanelet.centerline.empty()) {
     return std::numeric_limits<double>::max();
   }
@@ -140,7 +141,8 @@ MapInterfaceCore::findNearestLanelet(const geometry_msgs::msg::Point &point) {
   return nearest_id;
 }
 
-std::optional<LaneletInfo> MapInterfaceCore::getLaneletById(int64_t lanelet_id) {
+std::optional<LaneletInfo>
+MapInterfaceCore::getLaneletById(int64_t lanelet_id) {
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   auto it = lanelet_cache_.find(lanelet_id);

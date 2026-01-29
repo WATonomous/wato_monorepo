@@ -140,7 +140,8 @@ public:
    * @param lanelet Lanelet message
    * @return LaneletInfo structure
    */
-  static LaneletInfo laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet);
+  static LaneletInfo
+  laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet);
 
   /**
    * @brief Compute distance from a point to a lanelet centerline
