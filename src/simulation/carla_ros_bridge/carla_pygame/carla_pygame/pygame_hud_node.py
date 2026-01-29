@@ -283,14 +283,14 @@ class PygameHudNode(LifecycleNode):
         self._server_shutdown_event.clear()
         try:
             self._server.serve_forever()
-        except Exception:
-            pass
+        except Exception as e:
+            self.get_logger().error(f"Web server error: {e}")
         finally:
             # Ensure socket is closed
             try:
                 self._server.server_close()
-            except Exception:
-                pass
+            except Exception as e:
+                self.get_logger().warn(f"Error closing server socket: {e}")
             self._server_shutdown_event.set()
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
