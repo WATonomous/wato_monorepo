@@ -12,77 +12,62 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.8)
-project(joystick_interfacing)
+project(pid_control)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Find dependencies
+# find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(ackermann_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
+find_package(ackermann_msgs REQUIRED)
 find_package(roscco_msg REQUIRED)
+find_package(control_toolbox REQUIRED)
 
-# Create shared library component
-add_library(joystick_interfacing SHARED
-  src/joystick_interfacing.cpp
+add_library(pid_control_component SHARED
+  src/pid_control_node.cpp
 )
 
-target_include_directories(joystick_interfacing PUBLIC
+target_include_directories(pid_control_component PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
 # Link dependencies to library
-target_link_libraries(joystick_interfacing PUBLIC
+target_link_libraries(pid_control_component PUBLIC
   rclcpp::rclcpp
   rclcpp_components::component
-  ${sensor_msgs_TARGETS}
-  ${ackermann_msgs_TARGETS}
   ${std_msgs_TARGETS}
-  ${std_srvs_TARGETS}
+  ${ackermann_msgs_TARGETS}
   roscco_msg::roscco_msg__rosidl_typesupport_cpp
+  control_toolbox::control_toolbox
 )
 
-# Register component and automatically create standalone executable
-# This replaces the need for manual add_executable and main() function
-rclcpp_components_register_node(joystick_interfacing
-  PLUGIN "joystick_node::JoystickNode"
-  EXECUTABLE joystick_interfacing_node
+rclcpp_components_register_node(pid_control_component
+  PLUGIN "pid_control::PidControlNode"
+  EXECUTABLE pid_control_node
 )
 
-# Install library and auto-generated executable
-install(TARGETS joystick_interfacing
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
+install(TARGETS
+  pid_control_component
+  DESTINATION lib
 )
 
-# Install header files
 install(DIRECTORY include/
   DESTINATION include
 )
 
-# Install launch and config files
-install(DIRECTORY
-  config
-  launch
-  DESTINATION share/${PROJECT_NAME}/
+install(DIRECTORY config launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
-  add_wato_test(joystick_interfacing_test test/joystick_interfacing_test.cpp
-    LIBRARIES joystick_interfacing
-  )
-
-  add_wato_test(joystick_arming_test test/joystick_arming_test.cpp
-    LIBRARIES joystick_interfacing
+  add_wato_test(pid_control_node_test test/pid_control_node_test.cpp
+    LIBRARIES pid_control_component
   )
 endif()
 
