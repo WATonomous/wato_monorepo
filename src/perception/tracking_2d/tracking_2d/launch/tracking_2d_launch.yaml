@@ -15,7 +15,7 @@ launch:
   # Declare launch arguments for pub and sub topics
   - arg:
       name: detections_topic
-      default: /camera_object_detections
+      default: /carla/detections_3d
       description: 2D detection topic being subscribed to
   - arg:
       name: tracks_topic

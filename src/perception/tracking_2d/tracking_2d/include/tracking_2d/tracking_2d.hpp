@@ -24,7 +24,9 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/header.hpp>
-#include <vision_msgs/msg/detection2_d_array.hpp>
+#include <vision_msgs/msg/detection3_d_array.hpp>
+#include <tf2/utils.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 class tracking_2d : public rclcpp::Node
 {
@@ -52,7 +54,7 @@ private:
    *
    * @param msg The received detections.
   */
-  void detectionsCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
+  void detectionsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
 
   // Helper functions
   /**
@@ -94,7 +96,7 @@ private:
    *
    * @note Done prior to each tracker update.
    */
-  std::vector<byte_track::Object> detsToObjects(const vision_msgs::msg::Detection2DArray::SharedPtr dets);
+  std::vector<byte_track::Object> detsToObjects(const vision_msgs::msg::Detection3DArray::SharedPtr dets);
 
   /**
    * @brief Converts STrackPtr tracks output by the ByteTrack tracker back into Detection2DArray messages.
@@ -112,14 +114,14 @@ private:
    *
    * @note Done after each tracker update.
    */
-  vision_msgs::msg::Detection2DArray STracksToTracks(
+  vision_msgs::msg::Detection3DArray STracksToTracks(
     const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header);
 
   // Subscribers
-  rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr dets_sub_;
+  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr dets_sub_;
 
   // Publishers
-  rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr tracked_dets_pub_;
+  rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_dets_pub_;
 
   // ByteTrack parameters
   int frame_rate_;

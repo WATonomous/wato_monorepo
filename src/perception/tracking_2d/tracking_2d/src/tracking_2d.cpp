@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "tracking_2d/tracking_2d.hpp"
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,11 +23,11 @@ tracking_2d::tracking_2d()
   initializeParams();
 
   // Subscribers
-  dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
+  dets_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
     kDetectionsTopic, 10, std::bind(&tracking_2d::detectionsCallback, this, std::placeholders::_1));
 
   // Publishers
-  tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection2DArray>(kTracksTopic, 10);
+  tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kTracksTopic, 10);
 
   // ByteTrack tracker
   tracker_ =
@@ -38,11 +37,11 @@ tracking_2d::tracking_2d()
 void tracking_2d::initializeParams()
 {
   // Declare parameters
-  frame_rate_ = this->declare_parameter<int>("frame_rate", 30);
+  frame_rate_ = this->declare_parameter<int>("frame_rate", 2);
   track_buffer_ = this->declare_parameter<int>("track_buffer", 30);
   track_thresh_ = static_cast<float>(this->declare_parameter<double>("track_thresh", 0.5));
   high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
-  match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 0.8));
+  match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 1.0));
 
   class_map_ = {
     {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4},
@@ -79,38 +78,41 @@ std::string tracking_2d::reverseClassLookup(int class_id)
 }
 
 // Convert from ros msgs to bytetrack's required format
-std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::msg::Detection2DArray::SharedPtr dets)
+std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::msg::Detection3DArray::SharedPtr dets)
 {
   std::vector<byte_track::Object> objs;
   objs.reserve(dets->detections.size());
 
   for (const auto & det : dets->detections) {
     // Convert from Detection2D to byte_track::Object
-    float width = det.bbox.size_x;
-    float height = det.bbox.size_y;
-    float x = det.bbox.center.position.x - width / 2;
-    float y = det.bbox.center.position.y - height / 2;
+    float length = det.bbox.size.x;
+    float width = det.bbox.size.y;
+    float height = det.bbox.size.z;
+    float yaw = tf2::getYaw(det.bbox.center.orientation);
+    float x = det.bbox.center.position.x;
+    float y = det.bbox.center.position.y;
+    float z = det.bbox.center.position.z;
 
-    byte_track::Rect<float> rect{x, y, width, height};
-    int label;
-    float prob;
+    byte_track::Rect<float> rect{x, y, z, yaw, length, width, height};
+    int label = 0;
+    float prob = 1.0;
 
     // Get highest scored hypothesis
-    auto best_hyp = std::max_element(
-      det.results.begin(),
-      det.results.end(),
-      [](const vision_msgs::msg::ObjectHypothesisWithPose & a, const vision_msgs::msg::ObjectHypothesisWithPose & b) {
-        return a.hypothesis.score < b.hypothesis.score;
-      });
+    // auto best_hyp = std::max_element(
+    //   det.results.begin(),
+    //   det.results.end(),
+    //   [](const vision_msgs::msg::ObjectHypothesisWithPose & a, const vision_msgs::msg::ObjectHypothesisWithPose & b) {
+    //     return a.hypothesis.score < b.hypothesis.score;
+    //   });
 
-    if (best_hyp == det.results.end()) {
-      RCLCPP_WARN(this->get_logger(), "det.results must be non-empty, falling back to dummy values");
-      label = -1;
-      prob = 0.0;
-    } else {
-      label = classLookup(best_hyp->hypothesis.class_id);
-      prob = best_hyp->hypothesis.score;
-    }
+    // if (best_hyp == det.results.end()) {
+    //   RCLCPP_WARN(this->get_logger(), "det.results must be non-empty, falling back to dummy values");
+    //   label = -1;
+    //   prob = 0.0;
+    // } else {
+    //   label = classLookup(best_hyp->hypothesis.class_id);
+    //   prob = best_hyp->hypothesis.score;
+    // }
 
     byte_track::Object obj(rect, label, prob);
     objs.push_back(obj);
@@ -120,14 +122,18 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::ms
 }
 
 // Convert from bytetrack format back to ros msgs
-vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
+vision_msgs::msg::Detection3DArray tracking_2d::STracksToTracks(
   const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header)
 {
   // Use same header as detections for same time stamps
-  vision_msgs::msg::Detection2DArray trks;
+  vision_msgs::msg::Detection3DArray trks;
   trks.header.frame_id = header.frame_id;
   trks.header.stamp = header.stamp;
-
+  // std_msgs::msg::ColorRGBA col;
+  // col.r = 0.0;
+  // col.b = 0.0;
+  // col.g = 1.0;
+  // col.a = 1.0;
   for (const auto & strk_ptr : strk_ptrs) {
     // Convert STrackPtr to Detection2D
     auto rect = strk_ptr->getRect();
@@ -135,7 +141,7 @@ vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
     auto trk_id = strk_ptr->getTrackId();
     auto class_id = strk_ptr->getClassId();
 
-    vision_msgs::msg::Detection2D trk;
+    vision_msgs::msg::Detection3D trk;
     trk.header.frame_id = header.frame_id;
     trk.header.stamp = header.stamp;
 
@@ -144,12 +150,18 @@ vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
     hyp.hypothesis.class_id = reverseClassLookup(class_id);
     trk.results.push_back(hyp);
 
-    trk.bbox.center.position.x = rect.x() + rect.width() / 2;
-    trk.bbox.center.position.y = rect.y() + rect.height() / 2;
-    trk.bbox.size_x = rect.width();
-    trk.bbox.size_y = rect.height();
+    trk.bbox.center.position.x = rect.x();
+    trk.bbox.center.position.y = rect.y();
+    trk.bbox.center.position.z = rect.z();
+    trk.bbox.center.orientation = tf2::toMsg(tf2::Quaternion(0, 0, std::sin(rect.yaw()/2), std::cos(rect.yaw()/2)));
+    trk.bbox.size.x = rect.length();
+    trk.bbox.size.y = rect.width();
+    trk.bbox.size.z = rect.height();
 
-    trk.id = std::to_string(trk_id);
+    trk.id = trk_id;
+    // trk.type = trk.CUBE;
+    // trk.color = col;
+    // trk.action = trk.ADD;
 
     trks.detections.push_back(trk);
   }
@@ -157,20 +169,20 @@ vision_msgs::msg::Detection2DArray tracking_2d::STracksToTracks(
   return trks;
 }
 
-void tracking_2d::detectionsCallback(vision_msgs::msg::Detection2DArray::SharedPtr msg)
+void tracking_2d::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
   // Run bytetrack on detections
   auto objs = detsToObjects(msg);
   auto stracks = tracker_->update(objs);
-  auto tracked_dets = STracksToTracks(stracks, msg->header);
+  auto tracked_dets = STracksToTracks(stracks, msg->detections[0].header);
 
-  RCLCPP_DEBUG(this->get_logger(), "Publishing tracked detections...");
+  RCLCPP_INFO(this->get_logger(), "Received %zd dets, publishing %zd tracks...", msg->detections.size(), tracked_dets.detections.size());
   tracked_dets_pub_->publish(tracked_dets);
-  RCLCPP_DEBUG(
-    this->get_logger(),
-    "First track - Class: '%s'; ID: %d",
-    tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),
-    std::stoi(tracked_dets.detections[0].id));
+  // RCLCPP_DEBUG(
+  //   this->get_logger(),
+  //   "First track - Class: '%s'; ID: %d",
+  //   tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),
+  //   std::stoi(tracked_dets.detections[0].id));
 }
 
 int main(int argc, char ** argv)
