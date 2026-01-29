@@ -9,25 +9,35 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
     a_noise_std_(a_noise_std),
     delta_noise_std_(delta_noise_std),
     L_(L),
-    control_sequences_(num_samples, num_time_step)
+    control_sequences_(num_samples, num_time_step),
+    optimal_control_sequence_(1, num_time_step)
 {
+    // initialize control sequences to zero
+    for (int k = 0; k < num_samples_; k++) {
+        for (int t = 0; t < num_time_step_; t++) {
+            control_sequences_.A(k, t) = 0.0;
+            control_sequences_.D(k, t) = 0.0;
+        }
+    }
+    // initialize optimal control sequence to zero
+    for (int t = 0; t < num_time_step_; t++) {
+        optimal_control_sequence_.A(0, t) = 0.0;
+        optimal_control_sequence_.D(0, t) = 0.0;
+    }
 }
 
 
-State MppiCore::step_bicycle(const State& s, double a, double delta_dot, double dt, double L) {
+State MppiCore::step_bicycle(const State& s, double a, double delta, double dt, double L) {
     State ns = s;
 
-    //clamp inputs here: a, delta_dot
+    //clamp inputs here: a, delta
 
     a = std::clamp(a, -1.0, 1.0);
-    delta_dot = std::clamp(delta_dot, -1.0, 1.0);
-
-    ns.delta = s.delta + delta_dot * dt;
-    ns.delta = std::clamp(ns.delta, -1.0, 1.0);
+    delta = std::clamp(delta, -1.0, 1.0);
 
     ns.x   = s.x   + s.v * std::cos(s.yaw) * dt;
     ns.y   = s.y   + s.v * std::sin(s.yaw) * dt;
-    ns.yaw = s.yaw + (s.v / L) * std::tan(s.delta) * dt;
+    ns.yaw = s.yaw + (s.v / L) * std::tan(delta) * dt;
     ns.v   = s.v   + a * dt;
 
     // clamp states here: ns.v, ns.delta
@@ -35,13 +45,26 @@ State MppiCore::step_bicycle(const State& s, double a, double delta_dot, double 
     return ns;
 }
 
-Control_Output MppiCore::computeControl(){    
+Control_Output MppiCore::computeControl(){
+        warm_start_control_sequences();
         add_noise_to_control_sequences();
         eval_trajectories_scores();
         compute_weights();
-        aggregate_controls();
-        return Control_Output{0.5, 0.0};
+        weighted_average_controls();
+        return Control_Output{optimal_control_sequence_.A(0, 0), optimal_control_sequence_.D(0, 0)};
     };
+void MppiCore::warm_start_control_sequences(){
+    //shift optimal control sequence to control sequences
+    for(int k=0; k<num_samples_; k++){
+        for(int t=0; t<num_time_step_-1; t++){
+            control_sequences_.A(k, t) = optimal_control_sequence_.A(0, t+1);
+            control_sequences_.D(k, t) = optimal_control_sequence_.D(0, t+1);
+        }
+        //last time step set to zero
+        control_sequences_.A(k, num_time_step_-1) = 0.0;
+        control_sequences_.D(k, num_time_step_-1) = 0.0;
+    }
+};
 
 void MppiCore::add_noise_to_control_sequences(){
         // add noise to control sequences
@@ -56,7 +79,7 @@ void MppiCore::add_noise_to_control_sequences(){
             }
         }
     };
-double MppiCore::compute_costs(const State& old_state, const State& new_state, double a, double delta_dot){
+double MppiCore::compute_costs(const State& old_state, const State& new_state, double u_a, double u_delta){
     return 1.0;
 };
 
@@ -66,15 +89,20 @@ std::vector<double> MppiCore::eval_trajectories_scores(){
         for (int k=0; k<num_samples_; k++){
             State sim_state = current_state_;
             for(int t=0; t<num_time_step_; t++){
-                double a = control_sequences_.A(k, t);
-                double delta_dot = control_sequences_.D(k, t);
+                double u_a = control_sequences_.A(k, t);
+                double u_delta = control_sequences_.D(k, t);
                 State old_state = sim_state;
-                State sim_state = step_bicycle(sim_state, a, delta_dot, dt_, L_);
+                State sim_state = step_bicycle(sim_state, u_a, u_delta, dt_, L_);
                 // store sim_state if needed
-                trajectory_costs[k] += compute_costs(old_state, sim_state, a, delta_dot); //add prev control commands also
-
+                trajectory_costs[k] += compute_costs(old_state, sim_state, u_a, u_delta); //add prev control commands also
             }
         }
         return trajectory_costs;
         
 };
+
+//weighted average controls
+void MppiCore::weighted_average_controls(){}
+
+//compute weights
+void MppiCore::compute_weights(){}

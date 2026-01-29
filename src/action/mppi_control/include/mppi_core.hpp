@@ -13,15 +13,15 @@ inline double gaussian_noise(double sigma)
     return dist(gen) * sigma;
 }
 
-struct State { double x, y, yaw, delta, v;};
+struct State { double x, y, yaw, v;};
 
-struct Control_Output { double a, delta_dot; };
+struct Control_Output { double a, delta; };
 
 class MppiCore
 {
 
 
-State step_bicycle(const State& s, double a, double delta_dot, double dt, double L);
+State step_bicycle(const State& s, double a, double delta, double dt, double L);
 
 
 struct ControlSequences {
@@ -52,13 +52,13 @@ public:
     std::vector<double> eval_trajectories_scores();
 
 
-    double compute_costs(const State& old_state, const State& new_state, double a, double delta_dot);
+    double compute_costs(const State& old_state, const State& new_state, double a, double delta);
 
     void compute_weights(){}
 
-    void aggregate_controls(){}
+    void weighted_average_controls(){}
 
-
+    void warm_start_control_sequences();
     /*
     void update_pose(double x, double y, double yaw){
         current_state_.x = x;
@@ -85,6 +85,10 @@ private:
     // wheelbase length
     double L_;
     ControlSequences control_sequences_;
+
+    //optimal control sequence
+    ControlSequences optimal_control_sequence_;
+
 };
 
 //consider: lifecycle node
