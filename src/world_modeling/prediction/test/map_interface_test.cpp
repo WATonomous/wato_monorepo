@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include <cmath>
+#include <limits>
+#include <vector>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -264,7 +266,8 @@ TEST_CASE("MapInterfaceCore getSpeedLimit", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore getPossibleFutureLanelets", "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore getPossibleFutureLanelets",
+          "[map_interface_core]") {
   MapInterfaceCore core;
 
   SECTION("Non-existent lanelet returns empty vector") {
@@ -416,7 +419,7 @@ TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]") {
     // Add lanelet 4, should now evict lanelet 2 (oldest)
     core.cacheLanelet(makeLanelet(4, 30.0, 40.0));
 
-    REQUIRE(core.getLaneletById(1).has_value()); // Still present
+    REQUIRE(core.getLaneletById(1).has_value());       // Still present
     REQUIRE_FALSE(core.getLaneletById(2).has_value()); // Evicted
     REQUIRE(core.getLaneletById(3).has_value());
     REQUIRE(core.getLaneletById(4).has_value());
@@ -435,7 +438,7 @@ TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]") {
     // Add lanelet 4
     core.cacheLanelet(makeLanelet(4, 30.0, 40.0));
 
-    REQUIRE(core.getLaneletById(1).has_value()); // Still present
+    REQUIRE(core.getLaneletById(1).has_value());       // Still present
     REQUIRE_FALSE(core.getLaneletById(2).has_value()); // Evicted
   }
 
@@ -484,7 +487,8 @@ TEST_CASE("MapInterfaceCore custom cache size", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore diagonal segment distance", "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore diagonal segment distance",
+          "[map_interface_core]") {
   SECTION("Point perpendicular to 45-degree segment") {
     // Segment from (0,0) to (10,10), point at (5,5) + perpendicular offset
     auto a = makePoint(0.0, 0.0);

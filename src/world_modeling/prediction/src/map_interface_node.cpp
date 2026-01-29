@@ -14,12 +14,13 @@
 
 #include "prediction/map_interface_node.hpp"
 
+#include <vector>
+
 namespace prediction {
 
 MapInterfaceNode::MapInterfaceNode(rclcpp::Node *node)
-    : node_(node),
-      core_(static_cast<size_t>(
-          node_->declare_parameter("lanelet_cache_size", 1000))),
+    : node_(node), core_(static_cast<size_t>(
+                       node_->declare_parameter("lanelet_cache_size", 1000))),
       max_lanelet_search_depth_(
           node_->declare_parameter("max_lanelet_search_depth", 3)) {
   // Subscribe to lane context topic
