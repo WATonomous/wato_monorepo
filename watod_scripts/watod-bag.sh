@@ -89,7 +89,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${infra_container}$"; then
   exit 1
 fi
 
-docker run --rm -t \
+docker run --rm \
   --ulimit memlock=-1 \
   --ipc host \
   --network host \
