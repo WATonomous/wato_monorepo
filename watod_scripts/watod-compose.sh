@@ -132,7 +132,7 @@ done
 # If build, run PRE-BUILD stage (source and dependency stages)
 if [[ "${COMPOSE_CMD[0]}" == "build" && ${#PRE_PROFILES[@]} -gt 0 ]]; then
   echo "RUNNING PRE-BUILD"
-  run_docker_compose "${PRE_COMPOSE_FILES[@]}" "${PRE_PROFILE_FLAGS[@]}" build
+  run_docker_compose "${PRE_COMPOSE_FILES[@]}" "${PRE_PROFILE_FLAGS[@]}" build "${EXTRA_COMPOSE_ARGS[@]}"
 
   # In CI, push PRE-BUILD images to registry
   if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then
