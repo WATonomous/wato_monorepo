@@ -13,6 +13,7 @@ map_interface.cpp         → Adapter for HD map services (currently placeholder
 ```
 
 **Why this structure?**
+
 - **Separation of concerns**: Each file has one responsibility
 - **Parallel work**: Person 1, 2, 3 modify different functions (no conflicts)
 - **Testability**: Components tested independently
@@ -23,6 +24,7 @@ map_interface.cpp         → Adapter for HD map services (currently placeholder
 ### Placeholder Mode
 
 Map services not required during development. Placeholders return:
+
 - Deterministic lanelet IDs based on grid position
 - Synthetic straight centerlines
 - Mock crosswalk locations at grid intersections
@@ -35,8 +37,8 @@ All trajectory generators must return `std::vector<TrajectoryHypothesis>`:
 
 ```cpp
 TrajectoryHypothesis hyp;
-hyp.waypoints = /* std::vector<geometry_msgs::msg::Pose> */;
-hyp.timestamps = /* std::vector<double> matching waypoints length */;
+hyp.header = /* std_msgs::msg::Header */
+hyp.poses = /* std::vector<geometry_msgs::msg::PoseStamped> */
 hyp.intent = Intent::CONTINUE_STRAIGHT;  // or other intent enum
 hyp.probability = 0.0;  // Classifier sets this later
 ```
@@ -78,6 +80,7 @@ ros2 topic pub /perception/detections_3D_tracked vision_msgs/msg/Detection3DArra
 ## Adding Dependencies
 
 Follow monorepo guidelines in `/tmp/wato_monorepo/DEVELOPING.md`:
+
 1. Prefer ROSdep dependencies (add to `package.xml`)
 2. System packages only if no ROSdep key exists
 3. Consider contributing to rosdistro for missing packages

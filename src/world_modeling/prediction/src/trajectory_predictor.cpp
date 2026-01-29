@@ -110,7 +110,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
   initial_state.y = detection.bbox.center.position.y;
 
   if (!detection.results.empty() && detection.results[0].hypothesis.score > 0.0) {
-    initial_state.v = detection.results[0].hypothesis.score;
+    initial_state.v = detection.results[0].hypothesis.score;  // Using score as a placeholder for velocity for now
   } else {
     initial_state.v = 5.0;
   }
@@ -241,11 +241,17 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & /*possible_lanelets*/
+)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
+
   TrajectoryHypothesis walk_hyp;
+  walk_hyp.header.stamp = current_time;
+  walk_hyp.header.frame_id = frame_id;
   walk_hyp.intent = Intent::CONTINUE_STRAIGHT;
   walk_hyp.probability = 0.0;
 
@@ -255,14 +261,15 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
   double heading = 0.0;
 
   for (double t = 0.0; t <= prediction_horizon_; t += time_step_) {
-    geometry_msgs::msg::Pose waypoint;
-    waypoint.position.x = current_x + velocity * std::cos(heading) * t;
-    waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = 0.0;
-    waypoint.orientation.w = 1.0;
+    geometry_msgs::msg::PoseStamped pose_stamped;
+    pose_stamped.header.stamp = current_time + rclcpp::Duration::from_seconds(t);
+    pose_stamped.header.frame_id = frame_id;
+    pose_stamped.pose.position.x = current_x + velocity * std::cos(heading) * t;
+    pose_stamped.pose.position.y = current_y + velocity * std::sin(heading) * t;
+    pose_stamped.pose.position.z = 0.0;
+    pose_stamped.pose.orientation.w = 1.0;
 
-    walk_hyp.waypoints.push_back(waypoint);
-    walk_hyp.timestamps.push_back(t);
+    walk_hyp.poses.push_back(pose_stamped);
   }
 
   hypotheses.push_back(walk_hyp);
@@ -273,11 +280,17 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & /*possible_lanelets*/
+)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
+
   TrajectoryHypothesis cycle_hyp;
+  cycle_hyp.header.stamp = current_time;
+  cycle_hyp.header.frame_id = frame_id;
   cycle_hyp.intent = Intent::CONTINUE_STRAIGHT;
   cycle_hyp.probability = 0.0;
 
@@ -287,14 +300,15 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
   double heading = 0.0;
 
   for (double t = 0.0; t <= prediction_horizon_; t += time_step_) {
-    geometry_msgs::msg::Pose waypoint;
-    waypoint.position.x = current_x + velocity * std::cos(heading) * t;
-    waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = 0.0;
-    waypoint.orientation.w = 1.0;
+    geometry_msgs::msg::PoseStamped pose_stamped;
+    pose_stamped.header.stamp = current_time + rclcpp::Duration::from_seconds(t);
+    pose_stamped.header.frame_id = frame_id;
+    pose_stamped.pose.position.x = current_x + velocity * std::cos(heading) * t;
+    pose_stamped.pose.position.y = current_y + velocity * std::sin(heading) * t;
+    pose_stamped.pose.position.z = 0.0;
+    pose_stamped.pose.orientation.w = 1.0;
 
-    cycle_hyp.waypoints.push_back(waypoint);
-    cycle_hyp.timestamps.push_back(t);
+    cycle_hyp.poses.push_back(pose_stamped);
   }
 
   hypotheses.push_back(cycle_hyp);

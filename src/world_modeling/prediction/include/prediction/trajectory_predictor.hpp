@@ -49,8 +49,8 @@
  * All three functions MUST return: std::vector<TrajectoryHypothesis>
  *
  * TrajectoryHypothesis structure (defined below):
- * - waypoints: std::vector<geometry_msgs::msg::Pose>  (x,y,z positions)
- * - timestamps: std::vector<double>  (time for each waypoint)
+ * - header: std_msgs::msg::Header  (with timestamp and frame_id)
+ * - poses: std::vector<geometry_msgs::msg::PoseStamped>  (x,y,z positions with timestamps)
  * - intent: Intent enum (CONTINUE_STRAIGHT, TURN_LEFT, etc.)
  * - probability: double (will be set by IntentClassifier, start at 0.0)
  *
