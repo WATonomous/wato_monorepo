@@ -120,7 +120,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
   initial_state.y = detection.bbox.center.position.y;
 
   if (!detection.results.empty() && detection.results[0].hypothesis.score > 0.0) {
-    initial_state.v = detection.results[0].hypothesis.score;
+    initial_state.v = detection.results[0].hypothesis.score;  // Using score as a placeholder for velocity for now
   } else {
     initial_state.v = 5.0;
   }
@@ -173,7 +173,12 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
+
   TrajectoryHypothesis walk_hyp;
+  walk_hyp.header.stamp = current_time;
+  walk_hyp.header.frame_id = frame_id;
   walk_hyp.intent = Intent::CONTINUE_STRAIGHT;
   walk_hyp.probability = 0.0;
 
@@ -190,8 +195,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
     waypoint.position.z = current_z;
     waypoint.orientation = detection.bbox.center.orientation;
 
-    walk_hyp.waypoints.push_back(waypoint);
-    walk_hyp.timestamps.push_back(t);
+    walk_hyp.poses.push_back(pose_stamped);
   }
 
   hypotheses.push_back(walk_hyp);
@@ -206,7 +210,12 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
+
   TrajectoryHypothesis cycle_hyp;
+  cycle_hyp.header.stamp = current_time;
+  cycle_hyp.header.frame_id = frame_id;
   cycle_hyp.intent = Intent::CONTINUE_STRAIGHT;
   cycle_hyp.probability = 0.0;
 
@@ -223,8 +232,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
     waypoint.position.z = current_z;
     waypoint.orientation = detection.bbox.center.orientation;
 
-    cycle_hyp.waypoints.push_back(waypoint);
-    cycle_hyp.timestamps.push_back(t);
+    cycle_hyp.poses.push_back(pose_stamped);
   }
 
   hypotheses.push_back(cycle_hyp);

@@ -65,7 +65,7 @@ public:
    * @param wheelbase Vehicle wheelbase
    * @return New kinematic state after dt
    */
-  KinematicState propagate(const KinematicState & initial_state, double dt, double wheelbase = 2.5);
+  KinematicState propagate(const KinematicState & initial_state, double dt);
 
   /**
    * @brief Generate trajectory following a path
@@ -87,6 +87,7 @@ public:
 
 private:
   double max_steering_angle_;  // Maximum steering angle (rad)
+  double wheelbase_;
 };
 
 /**
@@ -115,8 +116,13 @@ public:
    * @param add_noise Whether to add Gaussian noise
    * @return Vector of poses along trajectory
    */
-  std::vector<geometry_msgs::msg::Pose> generateTrajectory(
-    const KinematicState & initial_state, double horizon, double dt, bool add_noise = false);
+  std::vector<geometry_msgs::msg::PoseStamped> generateTrajectory(
+    const KinematicState & initial_state,
+    double horizon,
+    double dt,
+    bool add_noise = false,
+    const rclcpp::Time & start_time = rclcpp::Time(0),
+    const std::string & frame_id = "map");
 
 private:
   double position_noise_std_;  // Standard deviation for position noise

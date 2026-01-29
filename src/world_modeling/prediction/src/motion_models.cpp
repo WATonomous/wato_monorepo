@@ -31,9 +31,10 @@ namespace prediction
 
 BicycleModel::BicycleModel()
 : max_steering_angle_(M_PI / 4.0)  // 45 degrees
+, wheelbase_(2.5)  // Default wheelbase
 {}
 
-KinematicState BicycleModel::propagate(const KinematicState & initial_state, double dt, double wheelbase)
+KinematicState BicycleModel::propagate(const KinematicState & initial_state, double dt)
 {
   KinematicState next_state;
 
@@ -44,12 +45,11 @@ KinematicState BicycleModel::propagate(const KinematicState & initial_state, dou
 
   next_state.x = initial_state.x + initial_state.v * std::cos(initial_state.theta) * dt;
   next_state.y = initial_state.y + initial_state.v * std::sin(initial_state.theta) * dt;
-  next_state.theta = initial_state.theta + initial_state.v * std::tan(initial_state.delta) / wheelbase * dt;
+  next_state.theta = initial_state.theta + initial_state.v * std::tan(initial_state.delta) / wheelbase_ * dt;
 
   // ========== Forward Backward Solver ==========
   // Ensures deceleration before sharp corner
-  double curvature = std::abs(std::tan(initial_state.delta) / wheelbase);
-
+  double curvature = std::abs(std::tan(initial_state.delta) / wheelbase_);
   const double max_lateral_a = 4.0;  // default, TBD
   const double speed_limit = 15.0;
   const double max_a = 2.0;  // max acceleration
@@ -98,7 +98,6 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
 
   KinematicState current_state = initial_state;
   double t = 0.0;
-  const double wheelbase = 2.5;  // Default wheelbase
   const double lookahead_distance = 3.0;
 
   while (t < horizon) {
@@ -152,12 +151,12 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
     while (alpha > M_PI) alpha -= 2.0 * M_PI;
     while (alpha < -M_PI) alpha += 2.0 * M_PI;
 
-    current_state.delta = std::atan2(2.0 * wheelbase * std::sin(alpha), ld);
+    current_state.delta = std::atan2(2.0 * wheelbase_ * std::sin(alpha), ld);
     current_state.delta = std::max(
       -max_steering_angle_, std::min(max_steering_angle_, current_state.delta));  // clamp steering angle to limits
 
     // propagate state by dt in seconds
-    current_state = propagate(current_state, dt, wheelbase);
+    current_state = propagate(current_state, dt);
 
     // ========== Create PoseStamped with embedded timestamp ==========
     geometry_msgs::msg::PoseStamped pose_stamped;
@@ -204,10 +203,15 @@ KinematicState ConstantVelocityModel::propagate(const KinematicState & initial_s
   return next_state;
 }
 
-std::vector<geometry_msgs::msg::Pose> ConstantVelocityModel::generateTrajectory(
-  const KinematicState & initial_state, double horizon, double dt, bool add_noise)
+std::vector<geometry_msgs::msg::PoseStamped> ConstantVelocityModel::generateTrajectory(
+  const KinematicState & initial_state,
+  double horizon,
+  double dt,
+  bool add_noise,
+  const rclcpp::Time & start_time,
+  const std::string & frame_id)
 {
-  std::vector<geometry_msgs::msg::Pose> trajectory;
+  std::vector<geometry_msgs::msg::PoseStamped> trajectory;
 
   KinematicState current_state = initial_state;
   double t = 0.0;
@@ -215,18 +219,21 @@ std::vector<geometry_msgs::msg::Pose> ConstantVelocityModel::generateTrajectory(
   while (t < horizon) {
     current_state = propagate(current_state, dt);
 
-    geometry_msgs::msg::Pose pose;
-    pose.position.x = current_state.x;
-    pose.position.y = current_state.y;
-    pose.position.z = 0.0;
+    geometry_msgs::msg::PoseStamped pose_stamped;
+    pose_stamped.header.frame_id = frame_id;
+    pose_stamped.header.stamp = start_time + rclcpp::Duration::from_seconds(t);
+
+    pose_stamped.pose.position.x = current_state.x;
+    pose_stamped.pose.position.y = current_state.y;
+    pose_stamped.pose.position.z = 0.0;
 
     // Convert heading to quaternion
-    pose.orientation.w = std::cos(current_state.theta / 2.0);
-    pose.orientation.x = 0.0;
-    pose.orientation.y = 0.0;
-    pose.orientation.z = std::sin(current_state.theta / 2.0);
+    pose_stamped.pose.orientation.w = std::cos(current_state.theta / 2.0);
+    pose_stamped.pose.orientation.x = 0.0;
+    pose_stamped.pose.orientation.y = 0.0;
+    pose_stamped.pose.orientation.z = std::sin(current_state.theta / 2.0);
 
-    trajectory.push_back(pose);
+    trajectory.push_back(pose_stamped);
     t += dt;
   }
 
