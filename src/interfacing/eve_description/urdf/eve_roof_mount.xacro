@@ -1,15 +1,8 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <!-- Roof mount macro - allows parent specification -->
-  <xacro:macro name="roof_mount" params="parent *origin">
-    <!-- Roof mount for all sensors -->
-    <link name="roof_mount"/>
-    <joint name="roof_mount_joint" type="fixed">
-      <parent link="${parent}"/>
-      <child link="roof_mount"/>
-      <xacro:insert_block name="origin"/>
-    </joint>
+  <!-- Roof mount macro - attaches sensors to the provided parent link -->
+  <xacro:macro name="roof_mount" params="parent">
 
     <!-- Top LiDAR -->
     <link name="lidar_cc">
@@ -31,7 +24,7 @@
     </link>
 
     <joint name="lidar_cc_mount_yaw" type="fixed">
-      <parent link="roof_mount"/>
+      <parent link="${parent}"/>
       <child link="lidar_cc"/>
       <origin xyz="0 0 0.35" rpy="0 0 0"/>
     </joint>
@@ -57,7 +50,7 @@
     </link>
 
     <joint name="gps_imu_mount_yaw" type="fixed">
-      <parent link="roof_mount"/>
+      <parent link="${parent}"/>
       <child link="gps_imu_antenna"/>
       <origin xyz="-0.5600 0 0" rpy="0 0 0"/>
     </joint>
@@ -92,7 +85,7 @@
 
       <!-- the additional rotation of -pi/2 is to go from FLU to RDF coordinate systems -->
       <joint name="camera_pano_${name}_mount" type="fixed">
-        <parent link="roof_mount"/>
+        <parent link="${parent}"/>
         <child link="camera_pano_${name}"/>
         <origin xyz="${cam_x} ${cam_y} ${camera_z}" rpy="${-pi/2} 0 ${angle - pi/2}"/>
       </joint>
