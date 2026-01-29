@@ -4,6 +4,7 @@ services:
 #################### NETWORK NAMESPACE SERVICE ####################
   network_namespace:
     image: busybox:latest
+    init: true
     container_name: watod_network_namespace
     command: sleep infinity
     restart: unless-stopped
