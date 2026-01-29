@@ -17,7 +17,7 @@ class MppiNode : public rclcpp::Node {
 public:
     MppiNode() : Node("mppi_node") {
 
-        mppi_core_ = std::make_unique<MppiCore>(100, 1.0, 10, 2.5, 0.1, 0.1);
+        mppi_core_ = std::make_unique<MppiCore>(100, 1.0, 10, 2.5, 0.1, 0.1, 2.0, 0.5, 1.0);
 
         RCLCPP_INFO(this->get_logger(), "MPPI Node has been started.");
 
@@ -88,7 +88,7 @@ public:
 
         control_msg.header.stamp = this->now();
 
-        control_msg.drive.steering_angle = control_output.delta_dot; // Placeholder value
+        control_msg.drive.steering_angle = control_output.delta; // Placeholder value
         control_msg.drive.acceleration = control_output.a; // Placeholder value
         //control_msg.drive.speed = 0.1; // Placeholder value
 

@@ -43,7 +43,8 @@ struct ControlSequences {
 };
 
 public:
-    MppiCore(int num_samples, double time_horizon, int num_time_step, double L, double a_noise_std, double delta_noise_std);
+    MppiCore(int num_samples, double time_horizon, int num_time_step, double L, double a_noise_std, 
+        double delta_noise_std,double accel_max, double steer_angle_max, double lambda);
 
     Control_Output computeControl();
 
@@ -54,9 +55,9 @@ public:
 
     double compute_costs(const State& old_state, const State& new_state, double a, double delta);
 
-    void compute_weights(){}
+    void compute_weights();
 
-    void weighted_average_controls(){}
+    void weighted_average_controls();
 
     void warm_start_control_sequences();
     /*
@@ -78,7 +79,7 @@ private:
     double dt_;
     double num_time_step_;
 
-
+    
     double a_noise_std_ ;
     double delta_noise_std_ ;
 
@@ -89,6 +90,13 @@ private:
     //optimal control sequence
     ControlSequences optimal_control_sequence_;
 
+    //trajectory costs
+    std::vector<double> trajectory_costs_;
+    std::vector<double> trajectory_weights_;
+
+    double lambda_ = 1.0;
+    double accel_max_ = 1.0;
+    double steer_angle_max_ = 1.0;
 };
 
 //consider: lifecycle node
