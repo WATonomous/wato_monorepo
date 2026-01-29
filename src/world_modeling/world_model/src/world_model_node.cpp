@@ -15,14 +15,19 @@
 #include "world_model/world_model_node.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // Publishers
+#include "world_model/interfaces/publishers/area_occupancy_publisher.hpp"
 #include "world_model/interfaces/publishers/dynamic_objects_publisher.hpp"
 #include "world_model/interfaces/publishers/lane_context_publisher.hpp"
+#include "world_model/interfaces/publishers/lanelet_ahead_publisher.hpp"
 #include "world_model/interfaces/publishers/map_viz_publisher.hpp"
 #include "world_model/interfaces/publishers/route_ahead_publisher.hpp"
 
@@ -32,12 +37,16 @@
 #include "world_model/interfaces/subscribers/traffic_light_subscriber.hpp"
 
 // Services
+#include "world_model/interfaces/services/get_objects_by_lanelet_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
 #include "world_model/interfaces/services/set_route_service.hpp"
 #include "world_model/interfaces/services/shortest_route_service.hpp"
 
 // Workers
 #include "world_model/interfaces/workers/cleanup_worker.hpp"
+
+// Types
+#include "world_model/types/detection_area.hpp"
 
 namespace world_model
 {
@@ -61,6 +70,11 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("dynamic_objects_publish_rate_hz", 10.0);
   this->declare_parameter<double>("route_ahead_publish_rate_hz", 10.0);
   this->declare_parameter<double>("route_ahead_lookahead_m", 100.0);
+  this->declare_parameter<double>("lanelet_ahead_publish_rate_hz", 10.0);
+  this->declare_parameter<double>("lanelet_ahead_radius_m", 100.0);
+  this->declare_parameter<double>("area_occupancy_publish_rate_hz", 20.0);
+  this->declare_parameter<std::string>("area_occupancy_frame", "base_link");
+  this->declare_parameter<std::vector<std::string>>("occupancy_areas", std::vector<std::string>{});
 
   RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
 }
@@ -100,11 +114,18 @@ void WorldModelNode::createInterfaces()
   double dynamic_objects_rate_hz = this->get_parameter("dynamic_objects_publish_rate_hz").as_double();
   double route_ahead_rate_hz = this->get_parameter("route_ahead_publish_rate_hz").as_double();
   double route_ahead_lookahead_m = this->get_parameter("route_ahead_lookahead_m").as_double();
+  double lanelet_ahead_rate_hz = this->get_parameter("lanelet_ahead_publish_rate_hz").as_double();
+  double lanelet_ahead_radius_m = this->get_parameter("lanelet_ahead_radius_m").as_double();
+  double area_occupancy_rate_hz = this->get_parameter("area_occupancy_publish_rate_hz").as_double();
+  std::string area_occupancy_frame = this->get_parameter("area_occupancy_frame").as_string();
   double history_duration_sec = this->get_parameter("entity_history_duration_sec").as_double();
   double entity_prune_timeout_sec = this->get_parameter("entity_prune_timeout_sec").as_double();
   double traffic_light_timeout_sec = this->get_parameter("traffic_light_timeout_sec").as_double();
   auto cleanup_interval =
     std::chrono::milliseconds(static_cast<int64_t>(this->get_parameter("cleanup_interval_ms").as_double()));
+
+  // Parse occupancy areas from YAML configuration
+  std::vector<DetectionArea> occupancy_areas = parseOccupancyAreas();
 
   // Publishers
   interfaces_.push_back(std::make_unique<LaneContextPublisher>(
@@ -125,6 +146,24 @@ void WorldModelNode::createInterfaces()
     route_ahead_rate_hz,
     route_ahead_lookahead_m));
 
+  interfaces_.push_back(std::make_unique<LaneletAheadPublisher>(
+    this,
+    lanelet_handler_.get(),
+    tf_buffer_.get(),
+    map_frame_,
+    base_frame_,
+    lanelet_ahead_rate_hz,
+    lanelet_ahead_radius_m));
+
+  interfaces_.push_back(std::make_unique<AreaOccupancyPublisher>(
+    this,
+    world_state_.get(),
+    tf_buffer_.get(),
+    map_frame_,
+    area_occupancy_frame,
+    area_occupancy_rate_hz,
+    std::move(occupancy_areas)));
+
   // Subscribers
   interfaces_.push_back(
     std::make_unique<DetectionSubscriber>(this, world_state_.get(), lanelet_handler_.get(), history_duration_sec));
@@ -141,6 +180,9 @@ void WorldModelNode::createInterfaces()
     std::make_unique<ShortestRouteService>(this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_));
 
   interfaces_.push_back(std::make_unique<RegElemService>(this, lanelet_handler_.get()));
+
+  interfaces_.push_back(
+    std::make_unique<GetObjectsByLaneletService>(this, world_state_.get(), lanelet_handler_.get(), map_frame_));
 
   // Workers
   interfaces_.push_back(std::make_unique<CleanupWorker>(
@@ -209,6 +251,64 @@ WorldModelNode::CallbackReturn WorldModelNode::on_shutdown(const rclcpp_lifecycl
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down...");
   return CallbackReturn::SUCCESS;
+}
+
+std::vector<DetectionArea> WorldModelNode::parseOccupancyAreas()
+{
+  std::vector<DetectionArea> areas;
+
+  // Declare area-specific parameters dynamically
+  // Each area is defined as a separate namespace in YAML
+  auto area_names = this->get_parameter("occupancy_areas").as_string_array();
+
+  for (const auto & area_name : area_names) {
+    std::string prefix = "occupancy_area." + area_name + ".";
+
+    // Declare parameters for this area if not already declared
+    if (!this->has_parameter(prefix + "type")) {
+      this->declare_parameter<std::string>(prefix + "type", "circle");
+      this->declare_parameter<double>(prefix + "center_x", 0.0);
+      this->declare_parameter<double>(prefix + "center_y", 0.0);
+      this->declare_parameter<double>(prefix + "radius", 0.0);
+      this->declare_parameter<double>(prefix + "start_angle_deg", 0.0);
+      this->declare_parameter<double>(prefix + "end_angle_deg", 360.0);
+      this->declare_parameter<double>(prefix + "length", 0.0);
+      this->declare_parameter<double>(prefix + "width", 0.0);
+    }
+
+    std::string type_str = this->get_parameter(prefix + "type").as_string();
+    double center_x = this->get_parameter(prefix + "center_x").as_double();
+    double center_y = this->get_parameter(prefix + "center_y").as_double();
+    double radius = this->get_parameter(prefix + "radius").as_double();
+    double start_angle_deg = this->get_parameter(prefix + "start_angle_deg").as_double();
+    double end_angle_deg = this->get_parameter(prefix + "end_angle_deg").as_double();
+    double length = this->get_parameter(prefix + "length").as_double();
+    double width = this->get_parameter(prefix + "width").as_double();
+
+    // Convert degrees to radians
+    double start_angle = start_angle_deg * M_PI / 180.0;
+    double end_angle = end_angle_deg * M_PI / 180.0;
+
+    DetectionArea::Type type;
+    if (type_str == "rectangle") {
+      type = DetectionArea::Type::Rectangle;
+    } else if (type_str == "partial_circle") {
+      type = DetectionArea::Type::PartialCircle;
+    } else {
+      type = DetectionArea::Type::Circle;
+    }
+
+    areas.emplace_back(area_name, type, center_x, center_y, radius, start_angle, end_angle, length, width);
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Loaded occupancy area '%s' (type: %s, center: [%.1f, %.1f])",
+      area_name.c_str(),
+      type_str.c_str(),
+      center_x,
+      center_y);
+  }
+
+  return areas;
 }
 
 void WorldModelNode::tryLoadMap()

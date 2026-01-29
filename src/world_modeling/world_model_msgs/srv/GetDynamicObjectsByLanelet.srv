@@ -1,0 +1,8 @@
+# GetDynamicObjectsByLanelet.srv
+# Service to retrieve all dynamic objects currently on a specific lanelet.
+
+int64 lanelet_id
+---
+bool success
+string error_message
+DynamicObject[] objects

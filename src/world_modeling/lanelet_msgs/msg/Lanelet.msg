@@ -37,18 +37,8 @@ float64 speed_limit_mps
 # True if mandatory (legal limit), false if advisory
 bool speed_limit_is_mandatory
 
-# Intersection flags
+# Intersection flag
 bool is_intersection
-bool has_traffic_light
-bool has_stop_line
-bool has_yield_sign
-bool must_yield
-
-# Lanelets this one must yield to
-int64[] yield_to_lanelet_ids
-
-# Lanelets that cross/conflict with this one
-int64[] conflicting_lanelet_ids
 
 # Connectivity
 # Lane change permissions
@@ -62,6 +52,5 @@ int64 right_lane_id
 # Successor lanelet IDs (what comes after this lanelet)
 int64[] successor_ids
 
-# Regulatory Elements
-TrafficLightInfo[] traffic_lights
-StopLineInfo[] stop_lines
+# Regulatory Elements (generic array - check subtype for specific types)
+RegulatoryElement[] regulatory_elements

@@ -28,7 +28,14 @@ find_package(prediction_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DynamicObject.msg"
   "msg/DynamicObjectArray.msg"
+  "msg/AreaDefinition.msg"
+  "msg/AreaOccupancyInfo.msg"
+  "msg/AreaOccupancy.msg"
+  "srv/GetDynamicObjectsByLanelet.srv"
   DEPENDENCIES std_msgs geometry_msgs builtin_interfaces prediction_msgs
 )
+
+# Export dependency on generated interfaces for downstream packages
+ament_export_dependencies(rosidl_default_runtime)
 
 ament_package()

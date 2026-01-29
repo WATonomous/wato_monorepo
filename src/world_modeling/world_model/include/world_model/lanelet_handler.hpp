@@ -31,6 +31,7 @@
 
 #include "geometry_msgs/msg/point.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
@@ -157,6 +158,20 @@ public:
    */
   lanelet_msgs::msg::RouteAhead getRouteAhead(
     const geometry_msgs::msg::Point & current_pos, double lookahead_distance_m) const;
+
+  /**
+   * @brief Get all lanelets within a radius from ego position.
+   *
+   * Unlike getRouteAhead which returns lanelets ON THE ACTIVE ROUTE,
+   * this returns ALL lanelets within the specified radius for general awareness.
+   *
+   * @param current_pos Current ego position
+   * @param heading_rad Current ego heading (yaw) in radians for current lanelet detection
+   * @param radius_m Radius to search for lanelets
+   * @return LaneletAhead message with all lanelets within radius
+   */
+  lanelet_msgs::msg::LaneletAhead getLaneletAhead(
+    const geometry_msgs::msg::Point & current_pos, double heading_rad, double radius_m) const;
 
   // Service implementations
 

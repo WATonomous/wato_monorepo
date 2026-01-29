@@ -25,6 +25,7 @@
 #include "tf2_ros/transform_listener.h"
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
+#include "world_model/types/detection_area.hpp"
 #include "world_model/world_state.hpp"
 
 namespace world_model
@@ -80,6 +81,7 @@ private:
 
   // HELPER
   void createInterfaces();
+  std::vector<DetectionArea> parseOccupancyAreas();
 };
 
 }  // namespace world_model
