@@ -94,7 +94,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: service:network_namespace 
+    network_mode: service:network_namespace
     pull_policy: never
     build:
       context: ..
@@ -150,7 +150,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: service:network_namespace 
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -203,7 +203,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: service:network_namespace 
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -254,7 +254,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: service:network_namespace 
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -335,7 +335,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: service:network_namespace 
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile

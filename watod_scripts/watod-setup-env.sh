@@ -103,7 +103,7 @@ ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_
 # Docker socket path (needed for log viewer)
 # DOCKER_HOST should be automaticall set in any WATCloud SLURM session
 DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
-DOCKER_SOCKET_PATH=${DOCKER_HOST#unix://} # strip the "unix://" prefix to get path 
+DOCKER_SOCKET_PATH=${DOCKER_HOST#unix://} # strip the "unix://" prefix to get path
 
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>

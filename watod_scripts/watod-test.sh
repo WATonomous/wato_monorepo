@@ -70,7 +70,7 @@ TEST_PRE_PROFILES=("${PRE_PROFILES[@]}")
 TEST_ROS_DOMAIN_ID=${TEST_ROS_DOMAIN_ID:-99}
 
 # Services to skip (non-ROS services that don't have colcon tests)
-SKIP_SERVICES=("log_viewer", "network_namespace")
+SKIP_SERVICES=("log_viewer"  "network_namespace")
 
 # Track test results
 declare -a TESTED_SERVICES=()
