@@ -40,7 +40,8 @@ add_library(prediction_lib
   src/trajectory_predictor.cpp
   src/intent_classifier.cpp
   src/motion_models.cpp
-  src/map_interface.cpp
+  src/map_interface_core.cpp
+  src/map_interface_node.cpp
 )
 
 set_target_properties(prediction_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -76,5 +77,12 @@ install(DIRECTORY
   config
   launch
   DESTINATION share/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+  add_wato_test(map_interface_test test/map_interface_test.cpp
+    LIBRARIES prediction_lib
+  )
+endif()
 
 ament_package()

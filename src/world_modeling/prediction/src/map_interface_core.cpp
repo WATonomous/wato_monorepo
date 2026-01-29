@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "prediction/map_interface.hpp"
+#include "prediction/map_interface_core.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -21,10 +21,11 @@
 #include <unordered_set>
 #include <vector>
 
-namespace {
-double distancePointToSegment(const geometry_msgs::msg::Point &p,
-                              const geometry_msgs::msg::Point &a,
-                              const geometry_msgs::msg::Point &b) {
+namespace prediction {
+
+double MapInterfaceCore::distancePointToSegment(
+    const geometry_msgs::msg::Point &p, const geometry_msgs::msg::Point &a,
+    const geometry_msgs::msg::Point &b) {
   double dx_ba = b.x - a.x;
   double dy_ba = b.y - a.y;
   double l2 = dx_ba * dx_ba + dy_ba * dy_ba;
@@ -45,50 +46,12 @@ double distancePointToSegment(const geometry_msgs::msg::Point &p,
 
   return std::sqrt(dx * dx + dy * dy);
 }
-} // namespace
 
-namespace prediction {
-
-MapInterface::MapInterface(rclcpp::Node *node) : node_(node) {
-  // Subscribe to lane context topic
-  lane_context_sub_ =
-      node_->create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
-          "lane_context", rclcpp::QoS(1).best_effort(),
-          std::bind(&MapInterface::laneContextCallback, this,
-                    std::placeholders::_1));
-
-  // Subscribe to route ahead topic
-  route_ahead_sub_ = node_->create_subscription<lanelet_msgs::msg::RouteAhead>(
-      "route_ahead", rclcpp::QoS(1).best_effort(),
-      std::bind(&MapInterface::routeAheadCallback, this,
-                std::placeholders::_1));
-
-  RCLCPP_INFO(node_->get_logger(),
-              "MapInterface initialized with lanelet subscriptions");
-}
-
-void MapInterface::laneContextCallback(
-    const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg) {
-  {
-    std::lock_guard<std::mutex> lock(context_mutex_);
-    current_lane_context_ = msg;
-  }
-
-  // Cache the current lanelet
-  cacheLanelet(msg->current_lanelet);
-}
-
-void MapInterface::routeAheadCallback(
-    const lanelet_msgs::msg::RouteAhead::SharedPtr msg) {
-  // Cache all lanelets in the route ahead
-  cacheLanelets(msg->lanelets);
-}
-
-void MapInterface::cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet) {
+void MapInterfaceCore::cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet) {
   cacheLanelets({lanelet});
 }
 
-void MapInterface::cacheLanelets(
+void MapInterfaceCore::cacheLanelets(
     const std::vector<lanelet_msgs::msg::Lanelet> &lanelets) {
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
@@ -102,7 +65,7 @@ void MapInterface::cacheLanelets(
       it->second.lru_iterator = lru_list_.begin();
     } else {
       // New: Check size capacity
-      if (lanelet_cache_.size() >= MAX_CACHE_SIZE) {
+      if (lanelet_cache_.size() >= max_cache_size_) {
         int64_t last_id = lru_list_.back();
         lru_list_.pop_back();
         lanelet_cache_.erase(last_id);
@@ -113,24 +76,19 @@ void MapInterface::cacheLanelets(
   }
 }
 
-LaneletInfo MapInterface::laneletMsgToInfo(
-    const lanelet_msgs::msg::Lanelet &lanelet) const {
+LaneletInfo MapInterfaceCore::laneletMsgToInfo(
+    const lanelet_msgs::msg::Lanelet &lanelet) {
   LaneletInfo info;
   info.id = lanelet.id;
   info.centerline = lanelet.centerline;
   info.speed_limit = lanelet.speed_limit_mps;
   info.following_lanelets = lanelet.successor_ids;
-
-  // Note: previous_lanelets would require reverse lookup which isn't directly
-  // available in the message. For now, leave it empty - could be computed from
-  // cached data if needed.
-
   return info;
 }
 
-double MapInterface::distanceToLanelet(
+double MapInterfaceCore::distanceToLanelet(
     const geometry_msgs::msg::Point &point,
-    const lanelet_msgs::msg::Lanelet &lanelet) const {
+    const lanelet_msgs::msg::Lanelet &lanelet) {
   if (lanelet.centerline.empty()) {
     return std::numeric_limits<double>::max();
   }
@@ -141,28 +99,26 @@ double MapInterface::distanceToLanelet(
     return std::sqrt(dx * dx + dy * dy);
   }
 
-  double min_sq_distance = std::numeric_limits<double>::max();
+  double min_distance = std::numeric_limits<double>::max();
 
   for (size_t i = 0; i < lanelet.centerline.size() - 1; ++i) {
     const auto &p1 = lanelet.centerline[i];
     const auto &p2 = lanelet.centerline[i + 1];
 
     double dist = distancePointToSegment(point, p1, p2);
-    if (dist < min_sq_distance) {
-      min_sq_distance = dist;
+    if (dist < min_distance) {
+      min_distance = dist;
     }
   }
 
-  return min_sq_distance;
+  return min_distance;
 }
 
 std::optional<int64_t>
-MapInterface::findNearestLanelet(const geometry_msgs::msg::Point &point) {
+MapInterfaceCore::findNearestLanelet(const geometry_msgs::msg::Point &point) {
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   if (lanelet_cache_.empty()) {
-    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-                         "No lanelets cached yet, cannot find nearest lanelet");
     return std::nullopt;
   }
 
@@ -184,7 +140,7 @@ MapInterface::findNearestLanelet(const geometry_msgs::msg::Point &point) {
   return nearest_id;
 }
 
-std::optional<LaneletInfo> MapInterface::getLaneletById(int64_t lanelet_id) {
+std::optional<LaneletInfo> MapInterfaceCore::getLaneletById(int64_t lanelet_id) {
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   auto it = lanelet_cache_.find(lanelet_id);
@@ -197,15 +153,12 @@ std::optional<LaneletInfo> MapInterface::getLaneletById(int64_t lanelet_id) {
     return laneletMsgToInfo(it->second.lanelet);
   }
 
-  RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-                       "Lanelet ID %ld not found in cache", lanelet_id);
-
   return std::nullopt;
 }
 
 std::vector<int64_t>
-MapInterface::getPossibleFutureLanelets(int64_t current_lanelet_id,
-                                        int max_depth) {
+MapInterfaceCore::getPossibleFutureLanelets(int64_t current_lanelet_id,
+                                            int max_depth) {
   std::vector<int64_t> result;
   std::unordered_set<int64_t> visited;
   std::queue<std::pair<int64_t, int>> bfs_queue; // (lanelet_id, depth)
@@ -230,8 +183,6 @@ MapInterface::getPossibleFutureLanelets(int64_t current_lanelet_id,
       continue;
     }
 
-    // Update LRU for traversed nodes? Maybe too expensive. Let's skip modifying
-    // LRU for breadth search to avoid thrashing.
     const auto &lanelet = it->second.lanelet;
 
     // Add successors
@@ -258,16 +209,10 @@ MapInterface::getPossibleFutureLanelets(int64_t current_lanelet_id,
     }
   }
 
-  if (result.empty()) {
-    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-                         "No future lanelets found for lanelet ID %ld",
-                         current_lanelet_id);
-  }
-
   return result;
 }
 
-std::optional<double> MapInterface::getSpeedLimit(int64_t lanelet_id) {
+std::optional<double> MapInterfaceCore::getSpeedLimit(int64_t lanelet_id) {
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   auto it = lanelet_cache_.find(lanelet_id);
@@ -280,14 +225,11 @@ std::optional<double> MapInterface::getSpeedLimit(int64_t lanelet_id) {
     return it->second.lanelet.speed_limit_mps;
   }
 
-  RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-                       "Lanelet ID %ld not found in cache", lanelet_id);
-
   return std::nullopt;
 }
 
-bool MapInterface::isCrosswalkNearby(const geometry_msgs::msg::Point &point,
-                                     double radius) {
+bool MapInterfaceCore::isCrosswalkNearby(const geometry_msgs::msg::Point &point,
+                                         double radius) {
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   for (const auto &[id, cached_lanelet] : lanelet_cache_) {
@@ -305,6 +247,22 @@ bool MapInterface::isCrosswalkNearby(const geometry_msgs::msg::Point &point,
   }
 
   return false;
+}
+
+bool MapInterfaceCore::isCacheEmpty() const {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  return lanelet_cache_.empty();
+}
+
+size_t MapInterfaceCore::getCacheSize() const {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  return lanelet_cache_.size();
+}
+
+void MapInterfaceCore::clearCache() {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  lanelet_cache_.clear();
+  lru_list_.clear();
 }
 
 } // namespace prediction

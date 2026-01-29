@@ -9,6 +9,7 @@ prediction_node:
     # Map constraints
     use_map_constraints: true    # whether to constrain predictions to HD map
     max_lanelet_search_depth: 3  # max depth when searching future lanelets
+    lanelet_cache_size: 1000     # number of lanelets to cache for performance
 
     # Motion model parameters
     vehicle_wheelbase: 2.5       # meters - typical vehicle wheelbase

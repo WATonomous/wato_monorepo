@@ -43,7 +43,7 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "prediction/intent_classifier.hpp"
-#include "prediction/map_interface.hpp"
+#include "prediction/map_interface_node.hpp"
 #include "prediction/trajectory_predictor.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
@@ -96,7 +96,7 @@ private:
   // Core components
   std::unique_ptr<TrajectoryPredictor> trajectory_predictor_;
   std::unique_ptr<IntentClassifier> intent_classifier_;
-  std::unique_ptr<MapInterface> map_interface_;
+  std::unique_ptr<MapInterfaceNode> map_interface_;
 
   // State
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;

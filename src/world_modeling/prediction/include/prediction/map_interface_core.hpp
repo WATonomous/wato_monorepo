@@ -13,30 +13,24 @@
 // limitations under the License.
 
 /**
- * @file map_interface.hpp
- * @brief HD MAP QUERY WRAPPER - Provides map information to trajectory
- * generation
- * * WHAT THIS FILE DOES:
- * - Wraps service calls to the lanelet map server
- * - Finds nearest lanelet to object position
- * - Gets lanelet centerlines (path points for trajectory following)
- * - Gets possible future lanelets (for generating multiple hypotheses)
- * - Checks for crosswalks (important for pedestrians and cyclists)
- * - Gets speed limits and regulatory elements
- * * WHO WORKS ON THIS:
- * - Sean Yang
- * * CURRENT STATUS:
- * - First draft complete
- * - Currently does not have tests
+ * @file map_interface_core.hpp
+ * @brief Core logic for HD MAP queries - separated from ROS2 dependencies
+ *
+ * This file contains the pure business logic for map interface operations:
+ * - LRU caching of lanelets
+ * - Distance calculations
+ * - Finding nearest lanelets
+ * - BFS for future lanelet exploration
+ *
+ * The separation allows for unit testing without ROS2 infrastructure.
  */
 
-#ifndef PREDICTION__MAP_INTERFACE_HPP_
-#define PREDICTION__MAP_INTERFACE_HPP_
+#ifndef PREDICTION__MAP_INTERFACE_CORE_HPP_
+#define PREDICTION__MAP_INTERFACE_CORE_HPP_
 
 #include <cmath>
 #include <limits>
 #include <list>
-#include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -45,11 +39,7 @@
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
-#include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
-#include "lanelet_msgs/msg/route_ahead.hpp"
-#include "lanelet_msgs/srv/get_shortest_route.hpp"
-#include "rclcpp/rclcpp.hpp"
 
 namespace prediction {
 
@@ -65,25 +55,34 @@ struct LaneletInfo {
 };
 
 /**
- * @brief Interface to HD map for lanelet queries
- * * Wraps service calls to the lanelet map server for:
- * - Finding nearest lanelets
- * - Querying lanelet information
- * - Computing route connectivity
- * - Getting regulatory elements
+ * @brief Core logic for HD map interface operations
+ *
+ * This class contains the pure business logic without ROS2 dependencies,
+ * enabling unit testing without spinning up ROS2 nodes.
  */
-class MapInterface {
+class MapInterfaceCore {
 public:
+  static constexpr size_t DEFAULT_MAX_CACHE_SIZE = 1000;
+
+  explicit MapInterfaceCore(size_t max_cache_size = DEFAULT_MAX_CACHE_SIZE)
+      : max_cache_size_(max_cache_size) {}
+
   /**
-   * @brief Construct a new Map Interface
-   * @param node ROS node pointer for service clients
+   * @brief Cache a lanelet message
+   * @param lanelet Lanelet message to cache
    */
-  explicit MapInterface(rclcpp::Node *node);
+  void cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet);
+
+  /**
+   * @brief Cache multiple lanelet messages
+   * @param lanelets Vector of Lanelet messages to cache
+   */
+  void cacheLanelets(const std::vector<lanelet_msgs::msg::Lanelet> &lanelets);
 
   /**
    * @brief Find nearest lanelet to a point
    * @param point Query point
-   * @return Lanelet ID of nearest lanelet, or nullopt if none found
+   * @return Lanelet ID of nearest lanelet, or nullopt if cache is empty
    */
   std::optional<int64_t>
   findNearestLanelet(const geometry_msgs::msg::Point &point);
@@ -119,38 +118,29 @@ public:
    */
   bool isCrosswalkNearby(const geometry_msgs::msg::Point &point, double radius);
 
-private:
   /**
-   * @brief Callback for lane context topic
-   * @param msg CurrentLaneContext message
+   * @brief Check if cache is empty
+   * @return True if no lanelets are cached
    */
-  void laneContextCallback(
-      const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
+  bool isCacheEmpty() const;
 
   /**
-   * @brief Callback for route ahead topic
-   * @param msg RouteAhead message
+   * @brief Get the number of cached lanelets
+   * @return Number of lanelets in cache
    */
-  void routeAheadCallback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);
+  size_t getCacheSize() const;
 
   /**
-   * @brief Cache a lanelet message
-   * @param lanelet Lanelet message to cache
+   * @brief Clear all cached lanelets
    */
-  void cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet);
-
-  /**
-   * @brief Cache multiple lanelet messages
-   * @param lanelets Vector of Lanelet messages to cache
-   */
-  void cacheLanelets(const std::vector<lanelet_msgs::msg::Lanelet> &lanelets);
+  void clearCache();
 
   /**
    * @brief Convert lanelet_msgs::Lanelet to LaneletInfo
    * @param lanelet Lanelet message
    * @return LaneletInfo structure
    */
-  LaneletInfo laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet) const;
+  static LaneletInfo laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet);
 
   /**
    * @brief Compute distance from a point to a lanelet centerline
@@ -158,33 +148,38 @@ private:
    * @param lanelet Lanelet to check
    * @return Minimum distance to centerline
    */
-  double distanceToLanelet(const geometry_msgs::msg::Point &point,
-                           const lanelet_msgs::msg::Lanelet &lanelet) const;
+  static double distanceToLanelet(const geometry_msgs::msg::Point &point,
+                                  const lanelet_msgs::msg::Lanelet &lanelet);
 
-  rclcpp::Node *node_;
+  /**
+   * @brief Compute distance from a point to a line segment
+   * @param p Query point
+   * @param a Segment start point
+   * @param b Segment end point
+   * @return Distance from point to segment
+   */
+  static double distancePointToSegment(const geometry_msgs::msg::Point &p,
+                                       const geometry_msgs::msg::Point &a,
+                                       const geometry_msgs::msg::Point &b);
 
-  // Subscriptions
-  rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr
-      lane_context_sub_;
-  rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr
-      route_ahead_sub_;
+  /**
+   * @brief Get the maximum cache size
+   * @return Maximum number of lanelets that can be cached
+   */
+  size_t getMaxCacheSize() const { return max_cache_size_; }
 
-  // Cached data
-  // Store pair of Lanelet and iterator to LRU list
+private:
   struct CachedLanelet {
     lanelet_msgs::msg::Lanelet lanelet;
     std::list<int64_t>::iterator lru_iterator;
   };
+
+  size_t max_cache_size_;
   std::unordered_map<int64_t, CachedLanelet> lanelet_cache_;
   std::list<int64_t> lru_list_;
-  static constexpr size_t MAX_CACHE_SIZE = 1000;
   mutable std::mutex cache_mutex_;
-
-  // Current lane context
-  lanelet_msgs::msg::CurrentLaneContext::SharedPtr current_lane_context_;
-  mutable std::mutex context_mutex_;
 };
 
 } // namespace prediction
 
-#endif // PREDICTION__MAP_INTERFACE_HPP_
+#endif // PREDICTION__MAP_INTERFACE_CORE_HPP_

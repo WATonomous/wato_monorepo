@@ -48,7 +48,7 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
 
   intent_classifier_ = std::make_unique<IntentClassifier>(this);
 
-  map_interface_ = std::make_unique<MapInterface>(this);
+  map_interface_ = std::make_unique<MapInterfaceNode>(this);
   RCLCPP_INFO(this->get_logger(), "Prediction node initialized successfully");
 }
 
@@ -78,9 +78,14 @@ void PredictionNode::processObject(const vision_msgs::msg::Detection3D & detecti
 
   try {
     geometry_msgs::msg::Point center = detection.bbox.center.position;
-    int64_t current_lanelet = map_interface_->findNearestLanelet(center);
+    auto current_lanelet_opt = map_interface_->findNearestLanelet(center);
+    if (!current_lanelet_opt.has_value()) {
+      RCLCPP_DEBUG(this->get_logger(), "No lanelet found for object %s", detection.id.c_str());
+      return;
+    }
+    int64_t current_lanelet = current_lanelet_opt.value();
 
-    auto future_lanelets = map_interface_->getPossibleFutureLanelets(current_lanelet, 3);
+    auto future_lanelets = map_interface_->getPossibleFutureLanelets(current_lanelet);
 
     auto hypotheses = trajectory_predictor_->generateHypotheses(detection, future_lanelets);
 
