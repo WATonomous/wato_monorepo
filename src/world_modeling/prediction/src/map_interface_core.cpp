@@ -21,12 +21,12 @@
 #include <unordered_set>
 #include <vector>
 
-namespace prediction {
+namespace prediction
+{
 
-double
-MapInterfaceCore::distancePointToSegment(const geometry_msgs::msg::Point &p,
-                                         const geometry_msgs::msg::Point &a,
-                                         const geometry_msgs::msg::Point &b) {
+double MapInterfaceCore::distancePointToSegment(
+  const geometry_msgs::msg::Point & p, const geometry_msgs::msg::Point & a, const geometry_msgs::msg::Point & b)
+{
   double dx_ba = b.x - a.x;
   double dy_ba = b.y - a.y;
   double l2 = dx_ba * dx_ba + dy_ba * dy_ba;
@@ -48,15 +48,16 @@ MapInterfaceCore::distancePointToSegment(const geometry_msgs::msg::Point &p,
   return std::sqrt(dx * dx + dy * dy);
 }
 
-void MapInterfaceCore::cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet) {
+void MapInterfaceCore::cacheLanelet(const lanelet_msgs::msg::Lanelet & lanelet)
+{
   cacheLanelets({lanelet});
 }
 
-void MapInterfaceCore::cacheLanelets(
-    const std::vector<lanelet_msgs::msg::Lanelet> &lanelets) {
+void MapInterfaceCore::cacheLanelets(const std::vector<lanelet_msgs::msg::Lanelet> & lanelets)
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
-  for (const auto &lanelet : lanelets) {
+  for (const auto & lanelet : lanelets) {
     auto it = lanelet_cache_.find(lanelet.id);
     if (it != lanelet_cache_.end()) {
       // Exist: Update data and move to front of LRU
@@ -77,8 +78,8 @@ void MapInterfaceCore::cacheLanelets(
   }
 }
 
-LaneletInfo
-MapInterfaceCore::laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet) {
+LaneletInfo MapInterfaceCore::laneletMsgToInfo(const lanelet_msgs::msg::Lanelet & lanelet)
+{
   LaneletInfo info;
   info.id = lanelet.id;
   info.centerline = lanelet.centerline;
@@ -87,9 +88,9 @@ MapInterfaceCore::laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet) {
   return info;
 }
 
-double
-MapInterfaceCore::distanceToLanelet(const geometry_msgs::msg::Point &point,
-                                    const lanelet_msgs::msg::Lanelet &lanelet) {
+double MapInterfaceCore::distanceToLanelet(
+  const geometry_msgs::msg::Point & point, const lanelet_msgs::msg::Lanelet & lanelet)
+{
   if (lanelet.centerline.empty()) {
     return std::numeric_limits<double>::max();
   }
@@ -103,8 +104,8 @@ MapInterfaceCore::distanceToLanelet(const geometry_msgs::msg::Point &point,
   double min_distance = std::numeric_limits<double>::max();
 
   for (size_t i = 0; i < lanelet.centerline.size() - 1; ++i) {
-    const auto &p1 = lanelet.centerline[i];
-    const auto &p2 = lanelet.centerline[i + 1];
+    const auto & p1 = lanelet.centerline[i];
+    const auto & p2 = lanelet.centerline[i + 1];
 
     double dist = distancePointToSegment(point, p1, p2);
     if (dist < min_distance) {
@@ -115,8 +116,8 @@ MapInterfaceCore::distanceToLanelet(const geometry_msgs::msg::Point &point,
   return min_distance;
 }
 
-std::optional<int64_t>
-MapInterfaceCore::findNearestLanelet(const geometry_msgs::msg::Point &point) {
+std::optional<int64_t> MapInterfaceCore::findNearestLanelet(const geometry_msgs::msg::Point & point)
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   if (lanelet_cache_.empty()) {
@@ -126,7 +127,7 @@ MapInterfaceCore::findNearestLanelet(const geometry_msgs::msg::Point &point) {
   int64_t nearest_id = -1;
   double min_distance = std::numeric_limits<double>::max();
 
-  for (const auto &[id, cached_lanelet] : lanelet_cache_) {
+  for (const auto & [id, cached_lanelet] : lanelet_cache_) {
     double distance = distanceToLanelet(point, cached_lanelet.lanelet);
     if (distance < min_distance) {
       min_distance = distance;
@@ -141,8 +142,8 @@ MapInterfaceCore::findNearestLanelet(const geometry_msgs::msg::Point &point) {
   return nearest_id;
 }
 
-std::optional<LaneletInfo>
-MapInterfaceCore::getLaneletById(int64_t lanelet_id) {
+std::optional<LaneletInfo> MapInterfaceCore::getLaneletById(int64_t lanelet_id)
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   auto it = lanelet_cache_.find(lanelet_id);
@@ -158,12 +159,11 @@ MapInterfaceCore::getLaneletById(int64_t lanelet_id) {
   return std::nullopt;
 }
 
-std::vector<int64_t>
-MapInterfaceCore::getPossibleFutureLanelets(int64_t current_lanelet_id,
-                                            int max_depth) {
+std::vector<int64_t> MapInterfaceCore::getPossibleFutureLanelets(int64_t current_lanelet_id, int max_depth)
+{
   std::vector<int64_t> result;
   std::unordered_set<int64_t> visited;
-  std::queue<std::pair<int64_t, int>> bfs_queue; // (lanelet_id, depth)
+  std::queue<std::pair<int64_t, int>> bfs_queue;  // (lanelet_id, depth)
 
   bfs_queue.push({current_lanelet_id, 0});
   visited.insert(current_lanelet_id);
@@ -185,7 +185,7 @@ MapInterfaceCore::getPossibleFutureLanelets(int64_t current_lanelet_id,
       continue;
     }
 
-    const auto &lanelet = it->second.lanelet;
+    const auto & lanelet = it->second.lanelet;
 
     // Add successors
     for (int64_t successor_id : lanelet.successor_ids) {
@@ -214,7 +214,8 @@ MapInterfaceCore::getPossibleFutureLanelets(int64_t current_lanelet_id,
   return result;
 }
 
-std::optional<double> MapInterfaceCore::getSpeedLimit(int64_t lanelet_id) {
+std::optional<double> MapInterfaceCore::getSpeedLimit(int64_t lanelet_id)
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
   auto it = lanelet_cache_.find(lanelet_id);
@@ -230,12 +231,12 @@ std::optional<double> MapInterfaceCore::getSpeedLimit(int64_t lanelet_id) {
   return std::nullopt;
 }
 
-bool MapInterfaceCore::isCrosswalkNearby(const geometry_msgs::msg::Point &point,
-                                         double radius) {
+bool MapInterfaceCore::isCrosswalkNearby(const geometry_msgs::msg::Point & point, double radius)
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
 
-  for (const auto &[id, cached_lanelet] : lanelet_cache_) {
-    const auto &lanelet = cached_lanelet.lanelet;
+  for (const auto & [id, cached_lanelet] : lanelet_cache_) {
+    const auto & lanelet = cached_lanelet.lanelet;
     // Check if this lanelet is a crosswalk
     if (lanelet.lanelet_type != "crosswalk") {
       continue;
@@ -251,20 +252,23 @@ bool MapInterfaceCore::isCrosswalkNearby(const geometry_msgs::msg::Point &point,
   return false;
 }
 
-bool MapInterfaceCore::isCacheEmpty() const {
+bool MapInterfaceCore::isCacheEmpty() const
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
   return lanelet_cache_.empty();
 }
 
-size_t MapInterfaceCore::getCacheSize() const {
+size_t MapInterfaceCore::getCacheSize() const
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
   return lanelet_cache_.size();
 }
 
-void MapInterfaceCore::clearCache() {
+void MapInterfaceCore::clearCache()
+{
   std::lock_guard<std::mutex> lock(cache_mutex_);
   lanelet_cache_.clear();
   lru_list_.clear();
 }
 
-} // namespace prediction
+}  // namespace prediction

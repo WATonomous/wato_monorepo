@@ -43,7 +43,8 @@
 #include "prediction/map_interface_core.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-namespace prediction {
+namespace prediction
+{
 
 /**
  * @brief ROS2 node interface to HD map for lanelet queries
@@ -55,21 +56,21 @@ namespace prediction {
  * - max_lanelet_search_depth: Maximum depth for BFS lanelet search (default: 3)
  * - lanelet_cache_size: Maximum number of lanelets to cache (default: 1000)
  */
-class MapInterfaceNode {
+class MapInterfaceNode
+{
 public:
   /**
    * @brief Construct a new Map Interface Node
    * @param node ROS node pointer for subscriptions, logging, and parameters
    */
-  explicit MapInterfaceNode(rclcpp::Node *node);
+  explicit MapInterfaceNode(rclcpp::Node * node);
 
   /**
    * @brief Find nearest lanelet to a point
    * @param point Query point
    * @return Lanelet ID of nearest lanelet, or nullopt if none found
    */
-  std::optional<int64_t>
-  findNearestLanelet(const geometry_msgs::msg::Point &point);
+  std::optional<int64_t> findNearestLanelet(const geometry_msgs::msg::Point & point);
 
   /**
    * @brief Get lanelet information by ID
@@ -92,8 +93,7 @@ public:
    * @param max_depth Maximum search depth (overrides parameter)
    * @return Vector of possible future lanelet IDs
    */
-  std::vector<int64_t> getPossibleFutureLanelets(int64_t current_lanelet_id,
-                                                 int max_depth);
+  std::vector<int64_t> getPossibleFutureLanelets(int64_t current_lanelet_id, int max_depth);
 
   /**
    * @brief Get speed limit for a lanelet
@@ -108,22 +108,28 @@ public:
    * @param radius Search radius
    * @return True if crosswalk nearby
    */
-  bool isCrosswalkNearby(const geometry_msgs::msg::Point &point, double radius);
+  bool isCrosswalkNearby(const geometry_msgs::msg::Point & point, double radius);
 
   /**
    * @brief Get access to the underlying core for testing
    * @return Reference to the MapInterfaceCore
    */
-  MapInterfaceCore &getCore() { return core_; }
-  const MapInterfaceCore &getCore() const { return core_; }
+  MapInterfaceCore & getCore()
+  {
+    return core_;
+  }
+
+  const MapInterfaceCore & getCore() const
+  {
+    return core_;
+  }
 
 private:
   /**
    * @brief Callback for lane context topic
    * @param msg CurrentLaneContext message
    */
-  void laneContextCallback(
-      const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
+  void laneContextCallback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
 
   /**
    * @brief Callback for route ahead topic
@@ -131,23 +137,21 @@ private:
    */
   void routeAheadCallback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);
 
-  rclcpp::Node *node_;
+  rclcpp::Node * node_;
   MapInterfaceCore core_;
 
   // Parameters
   int max_lanelet_search_depth_;
 
   // Subscriptions
-  rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr
-      lane_context_sub_;
-  rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr
-      route_ahead_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr lane_context_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
 
   // Current lane context (for future use)
   lanelet_msgs::msg::CurrentLaneContext::SharedPtr current_lane_context_;
   mutable std::mutex context_mutex_;
 };
 
-} // namespace prediction
+}  // namespace prediction
 
-#endif // PREDICTION__MAP_INTERFACE_NODE_HPP_
+#endif  // PREDICTION__MAP_INTERFACE_NODE_HPP_

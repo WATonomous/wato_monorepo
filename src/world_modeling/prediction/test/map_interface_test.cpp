@@ -24,10 +24,12 @@
 using prediction::LaneletInfo;
 using prediction::MapInterfaceCore;
 
-namespace {
+namespace
+{
 
 // Helper to create a point
-geometry_msgs::msg::Point makePoint(double x, double y, double z = 0.0) {
+geometry_msgs::msg::Point makePoint(double x, double y, double z = 0.0)
+{
   geometry_msgs::msg::Point p;
   p.x = x;
   p.y = y;
@@ -36,8 +38,8 @@ geometry_msgs::msg::Point makePoint(double x, double y, double z = 0.0) {
 }
 
 // Helper to create a simple lanelet
-lanelet_msgs::msg::Lanelet makeLanelet(int64_t id, double x_start, double x_end,
-                                       double y = 0.0) {
+lanelet_msgs::msg::Lanelet makeLanelet(int64_t id, double x_start, double x_end, double y = 0.0)
+{
   lanelet_msgs::msg::Lanelet lanelet;
   lanelet.id = id;
   lanelet.centerline.push_back(makePoint(x_start, y));
@@ -51,10 +53,12 @@ lanelet_msgs::msg::Lanelet makeLanelet(int64_t id, double x_start, double x_end,
   return lanelet;
 }
 
-} // namespace
+}  // namespace
 
-TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]") {
-  SECTION("distancePointToSegment - point on segment") {
+TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]")
+{
+  SECTION("distancePointToSegment - point on segment")
+  {
     auto p = makePoint(5.0, 0.0);
     auto a = makePoint(0.0, 0.0);
     auto b = makePoint(10.0, 0.0);
@@ -63,7 +67,8 @@ TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]") {
     REQUIRE(dist == Catch::Approx(0.0));
   }
 
-  SECTION("distancePointToSegment - point perpendicular to segment") {
+  SECTION("distancePointToSegment - point perpendicular to segment")
+  {
     auto p = makePoint(5.0, 3.0);
     auto a = makePoint(0.0, 0.0);
     auto b = makePoint(10.0, 0.0);
@@ -72,7 +77,8 @@ TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]") {
     REQUIRE(dist == Catch::Approx(3.0));
   }
 
-  SECTION("distancePointToSegment - point beyond segment end") {
+  SECTION("distancePointToSegment - point beyond segment end")
+  {
     auto p = makePoint(15.0, 0.0);
     auto a = makePoint(0.0, 0.0);
     auto b = makePoint(10.0, 0.0);
@@ -81,7 +87,8 @@ TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]") {
     REQUIRE(dist == Catch::Approx(5.0));
   }
 
-  SECTION("distancePointToSegment - point before segment start") {
+  SECTION("distancePointToSegment - point before segment start")
+  {
     auto p = makePoint(-5.0, 0.0);
     auto a = makePoint(0.0, 0.0);
     auto b = makePoint(10.0, 0.0);
@@ -90,16 +97,18 @@ TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]") {
     REQUIRE(dist == Catch::Approx(5.0));
   }
 
-  SECTION("distancePointToSegment - zero length segment") {
+  SECTION("distancePointToSegment - zero length segment")
+  {
     auto p = makePoint(3.0, 4.0);
     auto a = makePoint(0.0, 0.0);
     auto b = makePoint(0.0, 0.0);
 
     double dist = MapInterfaceCore::distancePointToSegment(p, a, b);
-    REQUIRE(dist == Catch::Approx(5.0)); // 3-4-5 triangle
+    REQUIRE(dist == Catch::Approx(5.0));  // 3-4-5 triangle
   }
 
-  SECTION("distanceToLanelet - empty centerline") {
+  SECTION("distanceToLanelet - empty centerline")
+  {
     lanelet_msgs::msg::Lanelet lanelet;
     lanelet.id = 1;
     // No centerline points
@@ -109,17 +118,19 @@ TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]") {
     REQUIRE(dist == std::numeric_limits<double>::max());
   }
 
-  SECTION("distanceToLanelet - single point centerline") {
+  SECTION("distanceToLanelet - single point centerline")
+  {
     lanelet_msgs::msg::Lanelet lanelet;
     lanelet.id = 1;
     lanelet.centerline.push_back(makePoint(3.0, 4.0));
 
     auto p = makePoint(0.0, 0.0);
     double dist = MapInterfaceCore::distanceToLanelet(p, lanelet);
-    REQUIRE(dist == Catch::Approx(5.0)); // 3-4-5 triangle
+    REQUIRE(dist == Catch::Approx(5.0));  // 3-4-5 triangle
   }
 
-  SECTION("distanceToLanelet - multi-segment centerline") {
+  SECTION("distanceToLanelet - multi-segment centerline")
+  {
     lanelet_msgs::msg::Lanelet lanelet;
     lanelet.id = 1;
     lanelet.centerline.push_back(makePoint(0.0, 0.0));
@@ -138,15 +149,18 @@ TEST_CASE("MapInterfaceCore distance calculations", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore caching", "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore caching", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("Initial state is empty") {
+  SECTION("Initial state is empty")
+  {
     REQUIRE(core.isCacheEmpty());
     REQUIRE(core.getCacheSize() == 0);
   }
 
-  SECTION("Cache single lanelet") {
+  SECTION("Cache single lanelet")
+  {
     auto lanelet = makeLanelet(1, 0.0, 10.0);
     core.cacheLanelet(lanelet);
 
@@ -154,7 +168,8 @@ TEST_CASE("MapInterfaceCore caching", "[map_interface_core]") {
     REQUIRE(core.getCacheSize() == 1);
   }
 
-  SECTION("Cache multiple lanelets") {
+  SECTION("Cache multiple lanelets")
+  {
     std::vector<lanelet_msgs::msg::Lanelet> lanelets;
     lanelets.push_back(makeLanelet(1, 0.0, 10.0));
     lanelets.push_back(makeLanelet(2, 10.0, 20.0));
@@ -165,7 +180,8 @@ TEST_CASE("MapInterfaceCore caching", "[map_interface_core]") {
     REQUIRE(core.getCacheSize() == 3);
   }
 
-  SECTION("Update existing lanelet") {
+  SECTION("Update existing lanelet")
+  {
     auto lanelet1 = makeLanelet(1, 0.0, 10.0);
     lanelet1.speed_limit_mps = 10.0;
     core.cacheLanelet(lanelet1);
@@ -181,7 +197,8 @@ TEST_CASE("MapInterfaceCore caching", "[map_interface_core]") {
     REQUIRE(speed.value() == Catch::Approx(20.0));
   }
 
-  SECTION("Clear cache") {
+  SECTION("Clear cache")
+  {
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
     core.cacheLanelet(makeLanelet(2, 10.0, 20.0));
     REQUIRE(core.getCacheSize() == 2);
@@ -192,15 +209,18 @@ TEST_CASE("MapInterfaceCore caching", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore findNearestLanelet", "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore findNearestLanelet", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("Empty cache returns nullopt") {
+  SECTION("Empty cache returns nullopt")
+  {
     auto result = core.findNearestLanelet(makePoint(0.0, 0.0));
     REQUIRE_FALSE(result.has_value());
   }
 
-  SECTION("Find nearest from single lanelet") {
+  SECTION("Find nearest from single lanelet")
+  {
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
 
     auto result = core.findNearestLanelet(makePoint(5.0, 2.0));
@@ -208,7 +228,8 @@ TEST_CASE("MapInterfaceCore findNearestLanelet", "[map_interface_core]") {
     REQUIRE(result.value() == 1);
   }
 
-  SECTION("Find nearest from multiple lanelets") {
+  SECTION("Find nearest from multiple lanelets")
+  {
     // Lanelet 1: y = 0
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0, 0.0));
     // Lanelet 2: y = 10
@@ -223,15 +244,18 @@ TEST_CASE("MapInterfaceCore findNearestLanelet", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore getLaneletById", "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore getLaneletById", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("Non-existent lanelet returns nullopt") {
+  SECTION("Non-existent lanelet returns nullopt")
+  {
     auto result = core.getLaneletById(999);
     REQUIRE_FALSE(result.has_value());
   }
 
-  SECTION("Get existing lanelet") {
+  SECTION("Get existing lanelet")
+  {
     auto lanelet = makeLanelet(42, 0.0, 10.0);
     lanelet.speed_limit_mps = 15.5;
     lanelet.successor_ids = {43, 44};
@@ -247,15 +271,18 @@ TEST_CASE("MapInterfaceCore getLaneletById", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore getSpeedLimit", "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore getSpeedLimit", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("Non-existent lanelet returns nullopt") {
+  SECTION("Non-existent lanelet returns nullopt")
+  {
     auto result = core.getSpeedLimit(999);
     REQUIRE_FALSE(result.has_value());
   }
 
-  SECTION("Get speed limit") {
+  SECTION("Get speed limit")
+  {
     auto lanelet = makeLanelet(1, 0.0, 10.0);
     lanelet.speed_limit_mps = 25.0;
     core.cacheLanelet(lanelet);
@@ -266,18 +293,20 @@ TEST_CASE("MapInterfaceCore getSpeedLimit", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore getPossibleFutureLanelets",
-          "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore getPossibleFutureLanelets", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("Non-existent lanelet returns empty vector") {
+  SECTION("Non-existent lanelet returns empty vector")
+  {
     auto result = core.getPossibleFutureLanelets(999);
     // Should still contain the starting ID even if not in cache
     REQUIRE(result.size() == 1);
     REQUIRE(result[0] == 999);
   }
 
-  SECTION("Linear chain of lanelets") {
+  SECTION("Linear chain of lanelets")
+  {
     // Create chain: 1 -> 2 -> 3 -> 4
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.successor_ids = {2};
@@ -298,7 +327,8 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets",
     REQUIRE(result3.size() == 4);
   }
 
-  SECTION("Branching lanelets") {
+  SECTION("Branching lanelets")
+  {
     // Create branch: 1 -> {2, 3}
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.successor_ids = {2, 3};
@@ -311,7 +341,8 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets",
     REQUIRE(result.size() == 3);
   }
 
-  SECTION("Lane change options") {
+  SECTION("Lane change options")
+  {
     // Create: 1 with left lane 2
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.can_change_left = true;
@@ -325,17 +356,20 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets",
   }
 }
 
-TEST_CASE("MapInterfaceCore isCrosswalkNearby", "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore isCrosswalkNearby", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("No crosswalks returns false") {
+  SECTION("No crosswalks returns false")
+  {
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
 
     auto result = core.isCrosswalkNearby(makePoint(5.0, 0.0), 5.0);
     REQUIRE_FALSE(result);
   }
 
-  SECTION("Crosswalk within radius returns true") {
+  SECTION("Crosswalk within radius returns true")
+  {
     auto crosswalk = makeLanelet(1, 0.0, 5.0);
     crosswalk.lanelet_type = "crosswalk";
     core.cacheLanelet(crosswalk);
@@ -344,7 +378,8 @@ TEST_CASE("MapInterfaceCore isCrosswalkNearby", "[map_interface_core]") {
     REQUIRE(result);
   }
 
-  SECTION("Crosswalk outside radius returns false") {
+  SECTION("Crosswalk outside radius returns false")
+  {
     auto crosswalk = makeLanelet(1, 0.0, 5.0);
     crosswalk.lanelet_type = "crosswalk";
     core.cacheLanelet(crosswalk);
@@ -354,13 +389,15 @@ TEST_CASE("MapInterfaceCore isCrosswalkNearby", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore laneletMsgToInfo", "[map_interface_core]") {
-  SECTION("Full lanelet conversion") {
+TEST_CASE("MapInterfaceCore laneletMsgToInfo", "[map_interface_core]")
+{
+  SECTION("Full lanelet conversion")
+  {
     lanelet_msgs::msg::Lanelet lanelet;
     lanelet.id = 123;
     lanelet.centerline.push_back(makePoint(0.0, 0.0));
     lanelet.centerline.push_back(makePoint(10.0, 0.0));
-    lanelet.speed_limit_mps = 13.89; // 50 km/h
+    lanelet.speed_limit_mps = 13.89;  // 50 km/h
     lanelet.successor_ids = {124, 125};
 
     auto info = MapInterfaceCore::laneletMsgToInfo(lanelet);
@@ -373,7 +410,8 @@ TEST_CASE("MapInterfaceCore laneletMsgToInfo", "[map_interface_core]") {
     REQUIRE(info.following_lanelets[1] == 125);
   }
 
-  SECTION("Empty centerline and no successors") {
+  SECTION("Empty centerline and no successors")
+  {
     lanelet_msgs::msg::Lanelet lanelet;
     lanelet.id = 1;
     lanelet.speed_limit_mps = 0.0;
@@ -387,9 +425,11 @@ TEST_CASE("MapInterfaceCore laneletMsgToInfo", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]") {
-  SECTION("Evicts least recently used when cache is full") {
-    MapInterfaceCore core(3); // Small cache of 3
+TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]")
+{
+  SECTION("Evicts least recently used when cache is full")
+  {
+    MapInterfaceCore core(3);  // Small cache of 3
 
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
     core.cacheLanelet(makeLanelet(2, 10.0, 20.0));
@@ -400,13 +440,14 @@ TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]") {
     core.cacheLanelet(makeLanelet(4, 30.0, 40.0));
 
     REQUIRE(core.getCacheSize() == 3);
-    REQUIRE_FALSE(core.getLaneletById(1).has_value()); // Evicted
+    REQUIRE_FALSE(core.getLaneletById(1).has_value());  // Evicted
     REQUIRE(core.getLaneletById(2).has_value());
     REQUIRE(core.getLaneletById(3).has_value());
     REQUIRE(core.getLaneletById(4).has_value());
   }
 
-  SECTION("Accessing lanelet updates LRU order") {
+  SECTION("Accessing lanelet updates LRU order")
+  {
     MapInterfaceCore core(3);
 
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
@@ -419,13 +460,14 @@ TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]") {
     // Add lanelet 4, should now evict lanelet 2 (oldest)
     core.cacheLanelet(makeLanelet(4, 30.0, 40.0));
 
-    REQUIRE(core.getLaneletById(1).has_value());       // Still present
-    REQUIRE_FALSE(core.getLaneletById(2).has_value()); // Evicted
+    REQUIRE(core.getLaneletById(1).has_value());  // Still present
+    REQUIRE_FALSE(core.getLaneletById(2).has_value());  // Evicted
     REQUIRE(core.getLaneletById(3).has_value());
     REQUIRE(core.getLaneletById(4).has_value());
   }
 
-  SECTION("getSpeedLimit updates LRU order") {
+  SECTION("getSpeedLimit updates LRU order")
+  {
     MapInterfaceCore core(3);
 
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
@@ -438,11 +480,12 @@ TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]") {
     // Add lanelet 4
     core.cacheLanelet(makeLanelet(4, 30.0, 40.0));
 
-    REQUIRE(core.getLaneletById(1).has_value());       // Still present
-    REQUIRE_FALSE(core.getLaneletById(2).has_value()); // Evicted
+    REQUIRE(core.getLaneletById(1).has_value());  // Still present
+    REQUIRE_FALSE(core.getLaneletById(2).has_value());  // Evicted
   }
 
-  SECTION("Re-caching existing lanelet updates LRU order") {
+  SECTION("Re-caching existing lanelet updates LRU order")
+  {
     MapInterfaceCore core(3);
 
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
@@ -463,18 +506,22 @@ TEST_CASE("MapInterfaceCore LRU eviction", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore custom cache size", "[map_interface_core]") {
-  SECTION("Default cache size") {
+TEST_CASE("MapInterfaceCore custom cache size", "[map_interface_core]")
+{
+  SECTION("Default cache size")
+  {
     MapInterfaceCore core;
     REQUIRE(core.getMaxCacheSize() == MapInterfaceCore::DEFAULT_MAX_CACHE_SIZE);
   }
 
-  SECTION("Custom cache size") {
+  SECTION("Custom cache size")
+  {
     MapInterfaceCore core(500);
     REQUIRE(core.getMaxCacheSize() == 500);
   }
 
-  SECTION("Cache size of 1") {
+  SECTION("Cache size of 1")
+  {
     MapInterfaceCore core(1);
 
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0));
@@ -487,40 +534,40 @@ TEST_CASE("MapInterfaceCore custom cache size", "[map_interface_core]") {
   }
 }
 
-TEST_CASE("MapInterfaceCore diagonal segment distance",
-          "[map_interface_core]") {
-  SECTION("Point perpendicular to 45-degree segment") {
+TEST_CASE("MapInterfaceCore diagonal segment distance", "[map_interface_core]")
+{
+  SECTION("Point perpendicular to 45-degree segment")
+  {
     // Segment from (0,0) to (10,10), point at (5,5) + perpendicular offset
     auto a = makePoint(0.0, 0.0);
     auto b = makePoint(10.0, 10.0);
 
     // Point on the line
     auto p_on_line = makePoint(5.0, 5.0);
-    REQUIRE(MapInterfaceCore::distancePointToSegment(p_on_line, a, b) ==
-            Catch::Approx(0.0).margin(1e-9));
+    REQUIRE(MapInterfaceCore::distancePointToSegment(p_on_line, a, b) == Catch::Approx(0.0).margin(1e-9));
 
     // Point perpendicular to midpoint (offset by sqrt(2) perpendicular)
-    auto p_offset = makePoint(6.0, 4.0); // sqrt(2) away perpendicular
+    auto p_offset = makePoint(6.0, 4.0);  // sqrt(2) away perpendicular
     double expected_dist = std::sqrt(2.0);
-    REQUIRE(MapInterfaceCore::distancePointToSegment(p_offset, a, b) ==
-            Catch::Approx(expected_dist).margin(1e-9));
+    REQUIRE(MapInterfaceCore::distancePointToSegment(p_offset, a, b) == Catch::Approx(expected_dist).margin(1e-9));
   }
 
-  SECTION("Vertical segment") {
+  SECTION("Vertical segment")
+  {
     auto a = makePoint(5.0, 0.0);
     auto b = makePoint(5.0, 10.0);
 
     auto p = makePoint(8.0, 5.0);
-    REQUIRE(MapInterfaceCore::distancePointToSegment(p, a, b) ==
-            Catch::Approx(3.0));
+    REQUIRE(MapInterfaceCore::distancePointToSegment(p, a, b) == Catch::Approx(3.0));
   }
 }
 
-TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
-          "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("Depth 0 returns only starting lanelet") {
+  SECTION("Depth 0 returns only starting lanelet")
+  {
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.successor_ids = {2, 3};
     core.cacheLanelet(l1);
@@ -532,7 +579,8 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
     REQUIRE(result[0] == 1);
   }
 
-  SECTION("Right lane change option") {
+  SECTION("Right lane change option")
+  {
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.can_change_right = true;
     l1.right_lane_id = 2;
@@ -544,7 +592,8 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
     REQUIRE(result.size() == 2);
   }
 
-  SECTION("Both left and right lane change options") {
+  SECTION("Both left and right lane change options")
+  {
     auto l1 = makeLanelet(1, 0.0, 10.0, 0.0);
     l1.can_change_left = true;
     l1.left_lane_id = 2;
@@ -560,14 +609,15 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
     REQUIRE(result.size() == 3);
   }
 
-  SECTION("Handles cycles in lanelet graph") {
+  SECTION("Handles cycles in lanelet graph")
+  {
     // Create a cycle: 1 -> 2 -> 3 -> 1
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.successor_ids = {2};
     auto l2 = makeLanelet(2, 10.0, 20.0);
     l2.successor_ids = {3};
     auto l3 = makeLanelet(3, 20.0, 30.0);
-    l3.successor_ids = {1}; // Back to 1
+    l3.successor_ids = {1};  // Back to 1
 
     core.cacheLanelets({l1, l2, l3});
 
@@ -576,10 +626,11 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
     REQUIRE(result.size() == 3);
   }
 
-  SECTION("Lane change with invalid ID (-1) is ignored") {
+  SECTION("Lane change with invalid ID (-1) is ignored")
+  {
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.can_change_left = true;
-    l1.left_lane_id = -1; // Invalid
+    l1.left_lane_id = -1;  // Invalid
 
     core.cacheLanelet(l1);
 
@@ -588,7 +639,8 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
     REQUIRE(result[0] == 1);
   }
 
-  SECTION("Lane change flag false with valid ID is not followed") {
+  SECTION("Lane change flag false with valid ID is not followed")
+  {
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.can_change_left = false;
     l1.left_lane_id = 2;
@@ -598,10 +650,11 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
     core.cacheLanelets({l1, l2});
 
     auto result = core.getPossibleFutureLanelets(1, 1);
-    REQUIRE(result.size() == 1); // Only lanelet 1
+    REQUIRE(result.size() == 1);  // Only lanelet 1
   }
 
-  SECTION("Complex multi-path scenario") {
+  SECTION("Complex multi-path scenario")
+  {
     // Create: 1 -> {2, 3}, 2 -> 4, 3 -> 4 (diamond pattern)
     auto l1 = makeLanelet(1, 0.0, 10.0);
     l1.successor_ids = {2, 3};
@@ -617,15 +670,16 @@ TEST_CASE("MapInterfaceCore getPossibleFutureLanelets advanced",
     core.cacheLanelets({l1, l2, l3, l4});
 
     auto result = core.getPossibleFutureLanelets(1, 2);
-    REQUIRE(result.size() == 4); // All 4 lanelets, 4 visited once
+    REQUIRE(result.size() == 4);  // All 4 lanelets, 4 visited once
   }
 }
 
-TEST_CASE("MapInterfaceCore findNearestLanelet edge cases",
-          "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore findNearestLanelet edge cases", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("All lanelets have empty centerlines returns nullopt") {
+  SECTION("All lanelets have empty centerlines returns nullopt")
+  {
     lanelet_msgs::msg::Lanelet l1;
     l1.id = 1;
     lanelet_msgs::msg::Lanelet l2;
@@ -638,7 +692,8 @@ TEST_CASE("MapInterfaceCore findNearestLanelet edge cases",
     REQUIRE_FALSE(result.has_value());
   }
 
-  SECTION("Point equidistant from two lanelets") {
+  SECTION("Point equidistant from two lanelets")
+  {
     // Two parallel lanelets at y = 5 and y = -5
     core.cacheLanelet(makeLanelet(1, 0.0, 10.0, 5.0));
     core.cacheLanelet(makeLanelet(2, 0.0, 10.0, -5.0));
@@ -650,7 +705,8 @@ TEST_CASE("MapInterfaceCore findNearestLanelet edge cases",
     REQUIRE((result.value() == 1 || result.value() == 2));
   }
 
-  SECTION("Negative coordinates") {
+  SECTION("Negative coordinates")
+  {
     core.cacheLanelet(makeLanelet(1, -20.0, -10.0, -5.0));
 
     auto result = core.findNearestLanelet(makePoint(-15.0, -3.0));
@@ -659,11 +715,12 @@ TEST_CASE("MapInterfaceCore findNearestLanelet edge cases",
   }
 }
 
-TEST_CASE("MapInterfaceCore isCrosswalkNearby edge cases",
-          "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore isCrosswalkNearby edge cases", "[map_interface_core]")
+{
   MapInterfaceCore core;
 
-  SECTION("Mixed lanelet types - only detects crosswalks") {
+  SECTION("Mixed lanelet types - only detects crosswalks")
+  {
     auto road = makeLanelet(1, 0.0, 10.0, 0.0);
     road.lanelet_type = "road";
 
@@ -679,7 +736,8 @@ TEST_CASE("MapInterfaceCore isCrosswalkNearby edge cases",
     REQUIRE(core.isCrosswalkNearby(makePoint(10.0, 8.0), 5.0));
   }
 
-  SECTION("Multiple crosswalks - returns true if any nearby") {
+  SECTION("Multiple crosswalks - returns true if any nearby")
+  {
     auto cw1 = makeLanelet(1, 0.0, 5.0, 0.0);
     cw1.lanelet_type = "crosswalk";
     auto cw2 = makeLanelet(2, 100.0, 105.0, 0.0);
@@ -692,7 +750,8 @@ TEST_CASE("MapInterfaceCore isCrosswalkNearby edge cases",
     REQUIRE_FALSE(core.isCrosswalkNearby(makePoint(50.0, 0.0), 5.0));
   }
 
-  SECTION("Radius of 0 - only exact matches") {
+  SECTION("Radius of 0 - only exact matches")
+  {
     auto crosswalk = makeLanelet(1, 0.0, 10.0);
     crosswalk.lanelet_type = "crosswalk";
     core.cacheLanelet(crosswalk);
@@ -704,15 +763,17 @@ TEST_CASE("MapInterfaceCore isCrosswalkNearby edge cases",
     REQUIRE_FALSE(core.isCrosswalkNearby(makePoint(5.0, 0.001), 0.0));
   }
 
-  SECTION("Empty cache returns false") {
+  SECTION("Empty cache returns false")
+  {
     REQUIRE_FALSE(core.isCrosswalkNearby(makePoint(0.0, 0.0), 100.0));
   }
 }
 
-TEST_CASE("MapInterfaceCore distanceToLanelet with 3D points",
-          "[map_interface_core]") {
+TEST_CASE("MapInterfaceCore distanceToLanelet with 3D points", "[map_interface_core]")
+{
   // The implementation only uses x,y - verify z is ignored
-  SECTION("Z coordinate is ignored in distance calculation") {
+  SECTION("Z coordinate is ignored in distance calculation")
+  {
     lanelet_msgs::msg::Lanelet lanelet;
     lanelet.id = 1;
     lanelet.centerline.push_back(makePoint(0.0, 0.0, 0.0));

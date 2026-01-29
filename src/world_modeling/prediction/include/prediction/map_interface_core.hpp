@@ -41,12 +41,14 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 
-namespace prediction {
+namespace prediction
+{
 
 /**
  * @brief Lanelet information structure
  */
-struct LaneletInfo {
+struct LaneletInfo
+{
   int64_t id;
   std::vector<geometry_msgs::msg::Point> centerline;
   double speed_limit;
@@ -60,32 +62,33 @@ struct LaneletInfo {
  * This class contains the pure business logic without ROS2 dependencies,
  * enabling unit testing without spinning up ROS2 nodes.
  */
-class MapInterfaceCore {
+class MapInterfaceCore
+{
 public:
   static constexpr size_t DEFAULT_MAX_CACHE_SIZE = 1000;
 
   explicit MapInterfaceCore(size_t max_cache_size = DEFAULT_MAX_CACHE_SIZE)
-      : max_cache_size_(max_cache_size) {}
+  : max_cache_size_(max_cache_size)
+  {}
 
   /**
    * @brief Cache a lanelet message
    * @param lanelet Lanelet message to cache
    */
-  void cacheLanelet(const lanelet_msgs::msg::Lanelet &lanelet);
+  void cacheLanelet(const lanelet_msgs::msg::Lanelet & lanelet);
 
   /**
    * @brief Cache multiple lanelet messages
    * @param lanelets Vector of Lanelet messages to cache
    */
-  void cacheLanelets(const std::vector<lanelet_msgs::msg::Lanelet> &lanelets);
+  void cacheLanelets(const std::vector<lanelet_msgs::msg::Lanelet> & lanelets);
 
   /**
    * @brief Find nearest lanelet to a point
    * @param point Query point
    * @return Lanelet ID of nearest lanelet, or nullopt if cache is empty
    */
-  std::optional<int64_t>
-  findNearestLanelet(const geometry_msgs::msg::Point &point);
+  std::optional<int64_t> findNearestLanelet(const geometry_msgs::msg::Point & point);
 
   /**
    * @brief Get lanelet information by ID
@@ -100,8 +103,7 @@ public:
    * @param max_depth Maximum search depth
    * @return Vector of possible future lanelet IDs
    */
-  std::vector<int64_t> getPossibleFutureLanelets(int64_t current_lanelet_id,
-                                                 int max_depth = 3);
+  std::vector<int64_t> getPossibleFutureLanelets(int64_t current_lanelet_id, int max_depth = 3);
 
   /**
    * @brief Get speed limit for a lanelet
@@ -116,7 +118,7 @@ public:
    * @param radius Search radius
    * @return True if crosswalk nearby
    */
-  bool isCrosswalkNearby(const geometry_msgs::msg::Point &point, double radius);
+  bool isCrosswalkNearby(const geometry_msgs::msg::Point & point, double radius);
 
   /**
    * @brief Check if cache is empty
@@ -140,8 +142,7 @@ public:
    * @param lanelet Lanelet message
    * @return LaneletInfo structure
    */
-  static LaneletInfo
-  laneletMsgToInfo(const lanelet_msgs::msg::Lanelet &lanelet);
+  static LaneletInfo laneletMsgToInfo(const lanelet_msgs::msg::Lanelet & lanelet);
 
   /**
    * @brief Compute distance from a point to a lanelet centerline
@@ -149,8 +150,7 @@ public:
    * @param lanelet Lanelet to check
    * @return Minimum distance to centerline
    */
-  static double distanceToLanelet(const geometry_msgs::msg::Point &point,
-                                  const lanelet_msgs::msg::Lanelet &lanelet);
+  static double distanceToLanelet(const geometry_msgs::msg::Point & point, const lanelet_msgs::msg::Lanelet & lanelet);
 
   /**
    * @brief Compute distance from a point to a line segment
@@ -159,18 +159,21 @@ public:
    * @param b Segment end point
    * @return Distance from point to segment
    */
-  static double distancePointToSegment(const geometry_msgs::msg::Point &p,
-                                       const geometry_msgs::msg::Point &a,
-                                       const geometry_msgs::msg::Point &b);
+  static double distancePointToSegment(
+    const geometry_msgs::msg::Point & p, const geometry_msgs::msg::Point & a, const geometry_msgs::msg::Point & b);
 
   /**
    * @brief Get the maximum cache size
    * @return Maximum number of lanelets that can be cached
    */
-  size_t getMaxCacheSize() const { return max_cache_size_; }
+  size_t getMaxCacheSize() const
+  {
+    return max_cache_size_;
+  }
 
 private:
-  struct CachedLanelet {
+  struct CachedLanelet
+  {
     lanelet_msgs::msg::Lanelet lanelet;
     std::list<int64_t>::iterator lru_iterator;
   };
@@ -181,6 +184,6 @@ private:
   mutable std::mutex cache_mutex_;
 };
 
-} // namespace prediction
+}  // namespace prediction
 
-#endif // PREDICTION__MAP_INTERFACE_CORE_HPP_
+#endif  // PREDICTION__MAP_INTERFACE_CORE_HPP_
