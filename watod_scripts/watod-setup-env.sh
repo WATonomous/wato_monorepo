@@ -100,6 +100,11 @@ RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
 ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_router_config.json5"}
 ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_session_config.json5"}
 
+# Docker socket path (needed for log viewer)
+# DOCKER_HOST should be automaticall set in any WATCloud SLURM session
+DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
+DOCKER_SOCKET_PATH=${DOCKER_HOST#unix://} # strip the "unix://" prefix to get path
+
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
 
@@ -211,5 +216,8 @@ append "ZENOH_ROUTER_CONFIG_URI" "$ZENOH_ROUTER_CONFIG_URI"
 append "ZENOH_SESSION_CONFIG_URI" "$ZENOH_SESSION_CONFIG_URI"
 
 append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
+
+# Docker socket (needed for log viewer)
+append "DOCKER_SOCKET_PATH" "$DOCKER_SOCKET_PATH"
 
 echo "[setup-env] .env generated at $ENV_FILE"

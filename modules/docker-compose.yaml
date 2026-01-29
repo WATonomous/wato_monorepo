@@ -1,5 +1,16 @@
 ---
 services:
+
+#################### NETWORK NAMESPACE SERVICE ####################
+  network_namespace:
+    image: busybox:latest
+    container_name: watod_network_namespace
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "${FOXGLOVE_BRIDGE_PORT:?}:${FOXGLOVE_BRIDGE_PORT:?}"
+      - "${PYGAME_HUD_PORT:?}:${PYGAME_HUD_PORT:?}"
+
 #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
     profiles: ["infrastructure_pre"]
@@ -25,7 +36,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: host
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -43,6 +54,10 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+    depends_on:
+      network_namespace:
+        condition: service_started
+        required: true
 
   log_viewer:
     container_name: watod_log_viewer
@@ -50,7 +65,7 @@ services:
       context: ../watod_scripts/tools/log-viewer
       dockerfile: Dockerfile
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_SOCKET_PATH}:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
 
@@ -79,7 +94,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: host
+    network_mode: service:network_namespace
     pull_policy: never
     build:
       context: ..
@@ -106,6 +121,9 @@ services:
       infrastructure_bringup:
         condition: service_started
         required: false
+      network_namespace:
+        condition: service_started
+        required: true
 
 #################### PERCEPTION SERVICE ####################
   perception_source:
@@ -132,7 +150,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: host
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -156,6 +174,9 @@ services:
       infrastructure_bringup:
         condition: service_started
         required: false
+      network_namespace:
+        condition: service_started
+        required: true
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
@@ -182,7 +203,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: host
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -204,6 +225,9 @@ services:
       infrastructure_bringup:
         condition: service_started
         required: false
+      network_namespace:
+        condition: service_started
+        required: true
 
 #################### ACTION SERVICE ####################
   action_source:
@@ -230,7 +254,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: host
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -252,13 +276,16 @@ services:
       infrastructure_bringup:
         condition: service_started
         required: false
+      network_namespace:
+        condition: service_started
+        required: true
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
     image: carlasim/carla:0.10.0
     runtime: nvidia
     init: true
-    network_mode: host
+    network_mode: service:network_namespace
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
@@ -269,12 +296,20 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+    depends_on:
+      network_namespace:
+        condition: service_started
+        required: true
 
   carla_sim_no_gpu:
     image: carlasim/carla:0.10.0
     init: true
-    network_mode: host
+    network_mode: service:network_namespace
     command: /bin/bash -c "./CarlaUnreal.sh -nosound -nullrhi -carla-rpc-port=${CARLA_PORT}"
+    depends_on:
+      network_namespace:
+        condition: service_started
+        required: true
 
   simulation_source:
     profiles: ["simulation_pre"]
@@ -300,7 +335,7 @@ services:
     ulimits:
       memlock: -1
     ipc: host
-    network_mode: host
+    network_mode: service:network_namespace
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -322,3 +357,6 @@ services:
       infrastructure_bringup:
         condition: service_started
         required: false
+      network_namespace:
+        condition: service_started
+        required: true
