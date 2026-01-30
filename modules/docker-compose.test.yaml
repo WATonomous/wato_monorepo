@@ -4,7 +4,7 @@ services:
   infrastructure_bringup_test:
     profiles: ["infrastructure_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: infrastructure_bringup
     build:
       target: build
@@ -14,7 +14,7 @@ services:
   interfacing_bringup_test:
     profiles: ["interfacing_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: interfacing_bringup
     build:
       target: build
@@ -24,7 +24,7 @@ services:
   perception_bringup_test:
     profiles: ["perception_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: perception_bringup
     build:
       target: build
@@ -34,7 +34,7 @@ services:
   world_modeling_bringup_test:
     profiles: ["world_modeling_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: world_modeling_bringup
     build:
       target: build
@@ -44,7 +44,7 @@ services:
   action_bringup_test:
     profiles: ["action_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: action_bringup
     build:
       target: build
@@ -54,7 +54,7 @@ services:
   simulation_bringup_test:
     profiles: ["simulation_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: simulation_bringup
     build:
       target: build

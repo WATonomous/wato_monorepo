@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# High-level launch file for all 12 cameras with debayer and rectify pipelines.
-# Each camera runs in its own composable container with intraprocess communication.
+# High-level launch file for loading all 12 cameras with debayer and rectify
+# pipelines into an existing component container.
 ---
 launch:
+  - arg:
+      name: "container_name"
+      description: "Name of the target component container to load cameras into"
+
   - arg:
       name: "cameras_config_file"
       default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
@@ -24,8 +28,10 @@ launch:
   # Panorama Cameras (8 cameras)
   # camera 0 - pano NN
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_nn"
         - name: "guid"
@@ -35,8 +41,10 @@ launch:
 
   # camera 1 - pano NE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_ne"
         - name: "guid"
@@ -46,8 +54,10 @@ launch:
 
   # camera 2 - pano EE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_ee"
         - name: "guid"
@@ -57,8 +67,10 @@ launch:
 
   # camera 3 - pano SE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_se"
         - name: "guid"
@@ -68,8 +80,10 @@ launch:
 
   # camera 4 - pano SS
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_ss"
         - name: "guid"
@@ -79,8 +93,10 @@ launch:
 
   # camera 5 - pano SW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_sw"
         - name: "guid"
@@ -90,8 +106,10 @@ launch:
 
   # camera 6 - pano WW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_ww"
         - name: "guid"
@@ -101,8 +119,10 @@ launch:
 
   # camera 7 - pano NW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_pano_nw"
         - name: "guid"
@@ -113,8 +133,10 @@ launch:
   # Lower Cameras (4 cameras)
   # camera 8 - lower NE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_lower_ne"
         - name: "guid"
@@ -124,8 +146,10 @@ launch:
 
   # camera 9 - lower SE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_lower_se"
         - name: "guid"
@@ -135,8 +159,10 @@ launch:
 
   # camera 10 - lower SW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_lower_sw"
         - name: "guid"
@@ -146,8 +172,10 @@ launch:
 
   # camera 11 - lower NW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_pipeline.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
       arg:
+        - name: "container_name"
+          value: "$(var container_name)"
         - name: "camera_name"
           value: "camera_lower_nw"
         - name: "guid"
