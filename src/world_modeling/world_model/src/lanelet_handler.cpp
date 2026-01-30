@@ -492,9 +492,7 @@ lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
 }
 
 std::vector<lanelet::ConstLanelet> LaneletHandler::getReachableLaneletsInRadius(
-  const lanelet::ConstLanelet & start,
-  const lanelet::BasicPoint2d & center,
-  double radius) const
+  const lanelet::ConstLanelet & start, const lanelet::BasicPoint2d & center, double radius) const
 {
   std::vector<lanelet::ConstLanelet> result;
   std::queue<lanelet::ConstLanelet> queue;
@@ -600,6 +598,34 @@ lanelet_msgs::msg::Lanelet LaneletHandler::toLaneletMsg(const lanelet::ConstLane
     p.y = pt.y();
     p.z = pt.z();
     msg.centerline.push_back(p);
+  }
+
+  // Curvature at each centerline point via Menger curvature (signed)
+  {
+    const auto & cl = msg.centerline;
+    size_t n = cl.size();
+    msg.centerline_curvature.resize(n, 0.0);
+    for (size_t i = 1; i + 1 < n; ++i) {
+      double ax = cl[i].x - cl[i - 1].x;
+      double ay = cl[i].y - cl[i - 1].y;
+      double bx = cl[i + 1].x - cl[i].x;
+      double by = cl[i + 1].y - cl[i].y;
+      double cx = cl[i + 1].x - cl[i - 1].x;
+      double cy = cl[i + 1].y - cl[i - 1].y;
+      double cross = ax * by - ay * bx;  // signed: positive = curving left
+      double la = std::sqrt(ax * ax + ay * ay);
+      double lb = std::sqrt(bx * bx + by * by);
+      double lc = std::sqrt(cx * cx + cy * cy);
+      double denom = la * lb * lc;
+      if (denom > 1e-9) {
+        msg.centerline_curvature[i] = 2.0 * cross / denom;
+      }
+    }
+    // Copy neighbor values to endpoints
+    if (n >= 3) {
+      msg.centerline_curvature[0] = msg.centerline_curvature[1];
+      msg.centerline_curvature[n - 1] = msg.centerline_curvature[n - 2];
+    }
   }
 
   // Boundary attributes (type and color)

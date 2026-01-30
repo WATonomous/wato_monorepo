@@ -239,9 +239,7 @@ private:
    * @return Vector of reachable lanelets within radius
    */
   std::vector<lanelet::ConstLanelet> getReachableLaneletsInRadius(
-    const lanelet::ConstLanelet & start,
-    const lanelet::BasicPoint2d & center,
-    double radius) const;
+    const lanelet::ConstLanelet & start, const lanelet::BasicPoint2d & center, double radius) const;
 };
 
 }  // namespace world_model

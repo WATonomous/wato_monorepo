@@ -48,14 +48,12 @@ LaneletAheadMarkersNode::LaneletAheadMarkersNode(const rclcpp::NodeOptions & opt
   // Create publisher and subscription
   publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("markers", 10);
   subscription_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
-    "lanelet_ahead", 10,
-    std::bind(&LaneletAheadMarkersNode::laneletAheadCallback, this, std::placeholders::_1));
+    "lanelet_ahead", 10, std::bind(&LaneletAheadMarkersNode::laneletAheadCallback, this, std::placeholders::_1));
 
   RCLCPP_INFO(this->get_logger(), "LaneletAheadMarkersNode started");
 }
 
-void LaneletAheadMarkersNode::laneletAheadCallback(
-  const lanelet_msgs::msg::LaneletAhead::SharedPtr msg)
+void LaneletAheadMarkersNode::laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg)
 {
   visualization_msgs::msg::MarkerArray marker_array;
   int32_t marker_id = 0;
@@ -68,8 +66,11 @@ void LaneletAheadMarkersNode::laneletAheadCallback(
 
   // Delete all previous markers
   std::vector<std::string> namespaces = {
-    "lanelet_ahead_path", "lanelet_ahead_info", "lanelet_ahead_ids",
-    "lanelet_ahead_left_boundaries", "lanelet_ahead_right_boundaries"};
+    "lanelet_ahead_path",
+    "lanelet_ahead_info",
+    "lanelet_ahead_ids",
+    "lanelet_ahead_left_boundaries",
+    "lanelet_ahead_right_boundaries"};
   for (const auto & ns : namespaces) {
     auto delete_marker = createDeleteAllMarker(ns, frame_id_);
     delete_marker.header.stamp = stamp;
@@ -83,9 +84,9 @@ void LaneletAheadMarkersNode::laneletAheadCallback(
   }
 
   // Create separate markers for each lanelet (centerline and boundaries)
-  auto centerline_color = makeColor(0.8f, 0.5f, 1.0f, 0.7f);   // Purple
-  auto boundary_color = makeColor(0.8f, 0.5f, 1.0f, 0.5f);      // Purple, slightly transparent
-  auto current_color = makeColor(0.2f, 1.0f, 0.4f, 0.9f);       // Green for current lanelet
+  auto centerline_color = makeColor(0.8f, 0.5f, 1.0f, 0.7f);  // Purple
+  auto boundary_color = makeColor(0.8f, 0.5f, 1.0f, 0.5f);  // Purple, slightly transparent
+  auto current_color = makeColor(0.2f, 1.0f, 0.4f, 0.9f);  // Green for current lanelet
 
   for (const auto & lanelet : msg->lanelets) {
     bool is_current = (lanelet.id == msg->current_lanelet_id);
@@ -94,8 +95,7 @@ void LaneletAheadMarkersNode::laneletAheadCallback(
     // Centerline marker for this lanelet
     if (lanelet.centerline.size() >= 2) {
       auto centerline_marker = createLineStripMarker(
-        "lanelet_ahead_path", marker_id++, frame_id_, lanelet.centerline, cl_color,
-        centerline_line_width_);
+        "lanelet_ahead_path", marker_id++, frame_id_, lanelet.centerline, cl_color, centerline_line_width_);
       centerline_marker.header.stamp = stamp;
       marker_array.markers.push_back(centerline_marker);
     }
@@ -104,16 +104,26 @@ void LaneletAheadMarkersNode::laneletAheadCallback(
     if (show_boundaries_) {
       if (lanelet.left_boundary.size() >= 2) {
         auto left_marker = createDottedLineMarker(
-          "lanelet_ahead_left_boundaries", marker_id++, frame_id_, lanelet.left_boundary,
-          boundary_color, boundary_line_width_ * 2.0, 1.5);
+          "lanelet_ahead_left_boundaries",
+          marker_id++,
+          frame_id_,
+          lanelet.left_boundary,
+          boundary_color,
+          boundary_line_width_ * 2.0,
+          1.5);
         left_marker.header.stamp = stamp;
         marker_array.markers.push_back(left_marker);
       }
 
       if (lanelet.right_boundary.size() >= 2) {
         auto right_marker = createDottedLineMarker(
-          "lanelet_ahead_right_boundaries", marker_id++, frame_id_, lanelet.right_boundary,
-          boundary_color, boundary_line_width_ * 2.0, 1.5);
+          "lanelet_ahead_right_boundaries",
+          marker_id++,
+          frame_id_,
+          lanelet.right_boundary,
+          boundary_color,
+          boundary_line_width_ * 2.0,
+          1.5);
         right_marker.header.stamp = stamp;
         marker_array.markers.push_back(right_marker);
       }
@@ -137,13 +147,12 @@ void LaneletAheadMarkersNode::laneletAheadCallback(
     text_pos.z += 2.5;
 
     std::ostringstream oss;
-    oss << "Nearby: " << msg->lanelets.size() << " lanelets | " << std::fixed
-        << std::setprecision(0) << msg->radius_m << "m radius";
+    oss << "Nearby: " << msg->lanelets.size() << " lanelets | " << std::fixed << std::setprecision(0) << msg->radius_m
+        << "m radius";
 
     auto info_color = makeColor(0.9f, 0.6f, 1.0f, 0.95f);
     auto info_marker =
-      createTextMarker("lanelet_ahead_info", marker_id++, frame_id_, text_pos, oss.str(),
-        info_color, 0.8);
+      createTextMarker("lanelet_ahead_info", marker_id++, frame_id_, text_pos, oss.str(), info_color, 0.8);
     info_marker.header.stamp = stamp;
     marker_array.markers.push_back(info_marker);
   }
@@ -158,8 +167,7 @@ void LaneletAheadMarkersNode::laneletAheadCallback(
 
         auto id_color = makeColor(0.9f, 0.7f, 1.0f, 0.8f);
         auto id_marker = createTextMarker(
-          "lanelet_ahead_ids", marker_id++, frame_id_, text_pos, std::to_string(lanelet.id),
-          id_color, 0.5);
+          "lanelet_ahead_ids", marker_id++, frame_id_, text_pos, std::to_string(lanelet.id), id_color, 0.5);
         id_marker.header.stamp = stamp;
         marker_array.markers.push_back(id_marker);
       }
