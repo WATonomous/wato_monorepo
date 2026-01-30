@@ -19,56 +19,85 @@
 #include <memory>
 #include <string>
 
-#include <ament_index_cpp/get_package_share_directory.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-
 namespace behaviour
 {
 
 /**
  * @brief Constructor for BehaviourNode.
- * Handles parameter declaration, core utility initialization, and BT setup.
  */
+
 BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
 : Node("behaviour_node", options)
 {
-  // 1. Declare and retrieve parameters
+  // Declare parameters
   this->declare_parameter("bt_tree_file", "main_tree.xml");
   this->declare_parameter("rate_hz", 10.0);
   this->declare_parameter("ego_state_rate_hz", 20.0);
   this->declare_parameter("map_frame", "map");
   this->declare_parameter("base_frame", "base_link");
-  
+  this->declare_parameter("enable_console_logging", false);
+
+  // Init TF
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+}
+
+/**
+ * @brief Separate init function to pass node to behaviour tree after construction.
+ */
+
+void BehaviourNode::init()
+{
   map_frame_ = this->get_parameter("map_frame").as_string();
   base_frame_ = this->get_parameter("base_frame").as_string();
   double tick_rate_hz = this->get_parameter("rate_hz").as_double();
   double ego_rate_hz = this->get_parameter("ego_state_rate_hz").as_double();
+  bool enable_console_logging = this->get_parameter("enable_console_logging").as_bool();
 
-  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
-  // 3. Setup Behaviour Tree path
+  // behaviour tree file path
   std::string package_share_directory = ament_index_cpp::get_package_share_directory("behaviour");
   std::string bt_xml_name = this->get_parameter("bt_tree_file").as_string();
   std::filesystem::path tree_path = std::filesystem::path(package_share_directory) / "trees" / bt_xml_name;
 
-  // 4. Initialize the Behaviour Tree
-  // We pass 'this->shared_from_this()' so the BT can access node capabilities
-  tree_ = std::make_shared<BehaviourTree>(
-    this->shared_from_this(),
-    tree_path.string(),
-    std::make_shared<DynamicObjectStore>());
+  // create the tree
+  tree_ = std::make_shared<BehaviourTree>(this->shared_from_this(), tree_path.string(), enable_console_logging);
+  dynamic_objects_store_ = std::make_shared<behaviour::DynamicObjectStore>();
 
-  // 5. Initialize Timers
+
   auto tick_period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / tick_rate_hz));
+  auto ego_period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / ego_rate_hz));
+
+  // timer to tick the behaviour tree
   tick_tree_timer_ = this->create_wall_timer(
     tick_period, std::bind(&BehaviourNode::tickTreeTimerCallback, this));
 
-  auto ego_period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / ego_rate_hz));
-  ego_state_timer_ = this->create_wall_timer(
-    ego_period, std::bind(&BehaviourNode::egoStateTimerCallback, this));
+  // timer to update ego state on blackboard
+  tf_timer_ = this->create_wall_timer(
+    ego_period, std::bind(&BehaviourNode::tfTimerCallback, this));
+  
+  // subscribers
+  goal_point_sub_ = this->create_subscription<geometry_msgs::msg::Point>(
+    "goal_point", 10, 
+    [this](const geometry_msgs::msg::Point::SharedPtr msg) {
+      tree_->updateBlackboard("goal_point", msg);
+      RCLCPP_INFO(this->get_logger(), "New goal received: x=%.2f, y=%.2f", msg->x, msg->y);
+  });
 
-  RCLCPP_INFO(this->get_logger(), "BehaviourNode has been initialized.");
+  current_lane_context_sub_ = this->create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
+    "current_lane_context", 10,
+    [this](const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg) {
+      tree_->updateBlackboard("lane_ctx", msg);
+      RCLCPP_INFO(this->get_logger(), "Current lane context updated with %zu lanelets", msg->lanelets.size());
+  });
+
+  dynamic_objects_sub_ = this->create_subscription<world_model_msgs::msg::DynamicObjectArray>(
+      "dynamic_objects", rclcpp::QoS(10),
+      [this](world_model_msgs::msg::DynamicObjectArray::ConstSharedPtr msg) {
+        dynamic_objects_store_->update(msg);
+        RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Dynamic objects updated: %zu", msg->objects.size());
+  });
+
+  RCLCPP_INFO(this->get_logger(), "BehaviourNode has been fully initialized.");
 }
 
 /**
@@ -77,6 +106,7 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
 void BehaviourNode::tickTreeTimerCallback()
 {
   try {
+    tree_->updateBlackboard("dynamic_objects.snapshot", dynamic_objects_store_->snapshot());
     tree_->tick();
   } catch (const std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "Behavior Tree tick failed: %s", e.what());
@@ -86,71 +116,62 @@ void BehaviourNode::tickTreeTimerCallback()
 /**
  * @brief Fetches latest TF transform and updates the BT blackboard with ego state.
  */
-void BehaviourNode::egoStateTimerCallback()
+void BehaviourNode::tfTimerCallback()
 {
   try {
-    // Lookup latest transform
-    const auto tf =
-      tf_buffer_->lookupTransform(map_frame_, base_frame_, tf2::TimePointZero);
-
+    const auto tf = tf_buffer_->lookupTransform(map_frame_, base_frame_, tf2::TimePointZero);
     const rclcpp::Time current_time = tf.header.stamp;
 
-    // ego_point
-    geometry_msgs::msg::PointStamped ego_point;
-    ego_point.header = tf.header;
-    ego_point.point.x = tf.transform.translation.x;
-    ego_point.point.y = tf.transform.translation.y;
-    ego_point.point.z = tf.transform.translation.z;
+    // 1. Extract Position as geometry_msgs::msg::Point
+    geometry_msgs::msg::Point::SharedPtr ego_point = std::make_shared<geometry_msgs::msg::Point>();
+    ego_point->x = tf.transform.translation.x;
+    ego_point->y = tf.transform.translation.y;
+    ego_point->z = tf.transform.translation.z;
 
-    tf2::Vector3 current_pos(
-      ego_point.point.x,
-      ego_point.point.y,
-      ego_point.point.z);
+    // Convert to TF2 types for math
+    tf2::Vector3 current_position(ego_point->x, ego_point->y, ego_point->z);
+    tf2::Quaternion current_orientation;
+    tf2::fromMsg(tf.transform.rotation, current_orientation);
 
-    tf2::Quaternion current_rot;
-    tf2::fromMsg(tf.transform.rotation, current_rot);
+    // 2. Calculate Velocity (Twist)
+    geometry_msgs::msg::Twist::SharedPtr ego_velocity = std::make_shared<geometry_msgs::msg::Twist>();
 
-    // --- Ego velocity ---
-    geometry_msgs::msg::TwistStamped ego_velocity;
-    ego_velocity.header = tf.header;
-
-    if (has_last_tf_) {
+    // Only calculate if we have a valid previous state AND the time sources match
+    if (has_last_tf_ && current_time.get_clock_type() == last_time_.get_clock_type()) {
       const double dt = (current_time - last_time_).seconds();
 
-      if (dt > 1e-3) {
-        // linear velocity
-        tf2::Vector3 world_vel = (current_pos - last_pos_) / dt;
+      if (dt > 0.001) {
+        // World-frame linear velocity
+        tf2::Vector3 world_vel = (current_position - last_position_) / dt;
 
-        // Convert to body frame
-        tf2::Vector3 local_vel =
-          tf2::quatRotate(current_rot.inverse(), world_vel);
+        // Convert to body-frame (Local) velocity
+        // 
+        tf2::Vector3 local_vel = tf2::quatRotate(current_orientation.inverse(), world_vel);
+        ego_velocity->linear.x = local_vel.x();
+        ego_velocity->linear.y = local_vel.y();
+        ego_velocity->linear.z = local_vel.z();
 
-        ego_velocity.twist.linear.x = local_vel.x();
-        ego_velocity.twist.linear.y = local_vel.y();
-        ego_velocity.twist.linear.z = local_vel.z();
-
-        // angular velocity
-        tf2::Quaternion dq = last_rot_.inverse() * current_rot;
+        // Calculate Yaw rate (Angular Z)
+        tf2::Quaternion dq = last_orientation_.inverse() * current_orientation;
         dq.normalize();
-
         double roll, pitch, yaw;
         tf2::Matrix3x3(dq).getRPY(roll, pitch, yaw);
-
-        ego_velocity.twist.angular.z = yaw / dt;
+        ego_velocity->angular.z = yaw / dt;
       }
     }
 
-    // update blackboard
+    // 3. Update Blackboard
     tree_->updateBlackboard("ego_point", ego_point);
     tree_->updateBlackboard("ego_velocity", ego_velocity);
 
-    last_pos_ = current_pos;
-    last_rot_ = current_rot;
+    // 4. Update State for next calculation
+    last_position_ = current_position;
+    last_orientation_ = current_orientation;
     last_time_ = current_time;
     has_last_tf_ = true;
 
-  } catch (const tf2::TransformException &ex) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Ego TF lookup failed: %s", ex.what());
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "TF lookup failed: %s", ex.what());
   }
 }
 
@@ -163,6 +184,8 @@ int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<behaviour::BehaviourNode>();
+  node->init();
+  
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

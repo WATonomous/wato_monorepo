@@ -1,5 +1,54 @@
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
+    <Fallback name="Root Fallback">
+      
+      <Sequence name="Core Navigation Sequence">
+        <!-- Ensure goal exists -->
+        <GoalExist point="{goal_point}"/>
 
+        <!-- Ensure goal is not reached -->
+        <Inverter>
+          <GoalReached current_point="{ego_point}" goal_point="{goal_point}" threshold_m="1.0"/>
+        </Inverter>
+
+        <!-- Ensure path exists -->
+        <Fallback name="Ensure Route">
+          
+          <Sequence name="IsGlobalRouteValid">
+            <GlobalRouteExist route="{global_route}" />
+            <CarOnRoute route="{global_route}" lane_ctx="{current_lane_ctx}"/>
+          </Sequence>
+
+          <Fallback name="Get Route">
+            
+            <GetShortestRoute route="{global_path}" error_message="{get_shortest_route_error_msg}" service_name="get_shortest_route"/>
+
+            <Sequence name="Set Route">
+              
+              <Fallback name="CheckSpecificErrors">
+                <ErrorMessage msg="{get_shortest_route_error_msg}" expected="ego_not_on_route"/>
+                <ErrorMessage msg="{get_shortest_route_error_msg}" expected="no_active_route"/>
+              </Fallback>
+
+              <RetryUntilSuccessful num_attempts="10">
+                <RateController hz="1.0">
+                  <SetRoute goal_point="{goal_point}" service_name="set_route"/>
+                </RateController>
+              </RetryUntilSuccessful>
+              
+              <GetShortestRoute route="{global_path}" error_message="{get_shortest_route_error_msg}" service_name="get_shortest_route"/>
+              
+            </Sequence>
+          </Fallback>
+
+        </Fallback>
+
+        <ExecuteBehaviour behaviour="navigate" topic_name="/execute_behaviour"/>
+      </Sequence>
+
+      <!-- If no goal exists or goal is reached or we failed to get route -->
+      <ExecuteBehaviour behaviour="standby" topic_name="/execute_behaviour"/>
+
+    </Fallback>
   </BehaviorTree>
 </root>

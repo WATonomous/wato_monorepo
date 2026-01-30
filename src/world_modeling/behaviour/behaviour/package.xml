@@ -16,7 +16,7 @@
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <!-- <depend>behaviortree_cpp</depend> -->
-  <depend>behaviortree_ros2_vendor</depend>
+  <depend>behaviortree_ros2</depend>
   <depend>world_model_msgs</depend>
   <depend>behaviour_msgs</depend>
   <depend>geometry_msgs</depend>

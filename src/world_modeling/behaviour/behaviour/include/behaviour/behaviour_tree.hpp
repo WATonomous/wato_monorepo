@@ -1,12 +1,15 @@
 #ifndef BEHAVIOUR__BEHAVIOUR_TREE_HPP_
 #define BEHAVIOUR__BEHAVIOUR_TREE_HPP_
 
-#include <behaviortree_cpp/bt_factory.h>
+
 #include <memory>
 #include <string>
-#include <rclcpp/rclcpp.hpp>
 
-#include "behaviour/dynamic_object_store.hpp"
+#include <rclcpp/rclcpp.hpp>
+#include <behaviortree_cpp/bt_factory.h>
+#include <behaviortree_cpp/loggers/bt_cout_logger.h>
+#include <behaviortree_ros2/bt_action_node.hpp>
+#include <behaviortree_ros2/bt_service_node.hpp>
 
 namespace behaviour
 {
@@ -22,7 +25,8 @@ public:
    */
   BehaviourTree(
     rclcpp::Node::SharedPtr node,
-    const std::string & tree_file_path);
+    const std::string & tree_file_path,
+    bool logging = false);
 
   /** @brief Performs a single tick of the behavior tree. */
   void tick();
@@ -48,6 +52,8 @@ private:
   /** @brief Loads the XML file and creates the internal tree. */
   void buildTree(const std::string & tree_file_path);
 
+  std::unique_ptr<BT::StdCoutLogger> cout_logger_;
+  
   rclcpp::Node::SharedPtr node_;
 
   BT::BehaviorTreeFactory factory_;

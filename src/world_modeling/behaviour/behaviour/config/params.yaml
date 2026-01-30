@@ -28,4 +28,4 @@ behaviour_node:
     base_frame: "base_link"
 
     # Logging options
-    enable_console_logging: true
+    enable_console_logging: false

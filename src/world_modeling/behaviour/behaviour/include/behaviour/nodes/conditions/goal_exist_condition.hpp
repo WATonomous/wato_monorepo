@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__HAS_GOAL_CONDTION_HPP_
-#define BEHAVIOUR__HAS_GOAL_CONDTION_HPP_
+#ifndef BEHAVIOUR__GOAL_EXIST_CONDITION_HPP_
+#define BEHAVIOUR__GOAL_EXIST_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
@@ -33,12 +33,12 @@ public:
 
   static BT::PortsList providedPorts()
   {
-    return {BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point")};
+    return {BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("point")};
   }
 
   BT::NodeStatus tick() override
   {
-    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "point");
     if (gp == nullptr) {
       std::cout << "[GoalExist]: No goal point" << std::endl;
       return BT::NodeStatus::FAILURE;
@@ -47,4 +47,4 @@ public:
   }
 };
 }  // namespace behaviour
-#endif
+#endif // BEHAVIOUR__GOAL_EXIST_CONDITION_HPP_

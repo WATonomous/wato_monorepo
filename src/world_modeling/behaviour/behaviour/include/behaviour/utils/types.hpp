@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__UTILS__UTILS_HPP_
-#define BEHAVIOUR__UTILS__UTILS_HPP_
+#ifndef BEHAVIOUR__UTILS__TYPES_HPP_
+#define BEHAVIOUR__UTILS__TYPES_HPP_
 
-// Aggregator header that includes all utility headers
+namespace behaviour::types
+{
+enum class LaneTransition : uint8_t {
+    SUCCESSOR = 0,
+    LEFT = 1,
+    RIGHT = 2,
+};
+}  // namespace behaviour::types
 
-#include "behaviour/utils/ports.hpp"
-#include "behaviour/utils/types.hpp"
-
-
-#endif  // BEHAVIOUR__UTILS__UTILS_HPP_
+#endif  // BEHAVIOUR__UTILS__TYPES_HPP_

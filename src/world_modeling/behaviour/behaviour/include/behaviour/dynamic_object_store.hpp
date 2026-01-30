@@ -1,22 +1,21 @@
-// Copyright (c) 2025-present WATonomous. All rights reserved.
+// dynamic_object_store.hpp
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// Thread-safe DynamicObjectStore with snapshot semantics.
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+// - Subscriber thread calls: store.update(msg)
+// - Tick thread sets BB:      bb["snap.dyn"] = store.snapshot()
+// - BT nodes read snap.dyn and call snapshot methods.
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Returned object pointers remain valid as long as the Snapshot shared_ptr
+// is kept alive (because Snapshot holds objects_snapshot_).
 
-#ifndef BEHAVIOUR__UTILS__DYNAMIC_OBJECT_STORE_HPP_
-#define BEHAVIOUR__UTILS__DYNAMIC_OBJECT_STORE_HPP_
+#ifndef BEHAVIOUR__DYNAMIC_OBJECT_STORE_HPP_
+#define BEHAVIOUR__DYNAMIC_OBJECT_STORE_HPP_
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
-#include <mutex>  // Back to standard mutex
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -25,77 +24,105 @@
 
 namespace behaviour
 {
+
 class DynamicObjectStore
 {
 public:
-  using DynamicObject = world_model_msgs::msg::DynamicObject;
-  using DynamicObjectPtr = std::shared_ptr<DynamicObject>;
-  using DynamicObjectArray = world_model_msgs::msg::DynamicObjectArray;
-
-  /**
-     * @brief Update the store with a new array of objects.
-     */
-  void update(const DynamicObjectArray::SharedPtr msg)
+  struct Snapshot
   {
-    std::lock_guard<std::mutex> lock(mutex_);  // Simple exclusive lock
-    objects_by_id_.clear();
-    objects_by_lanelet_.clear();
+    world_model_msgs::msg::DynamicObjectArray::ConstSharedPtr objects_snapshot_;
 
-    for (const auto & obj : msg->objects) {
-      objects_by_id_[obj.id] = obj;
-      if (obj.lanelet_id != -1) {
-        objects_by_lanelet_[obj.lanelet_id].push_back(obj.id);
+    // lanelet_id -> indices -> objects_snapshot_->objects[index]
+    std::unordered_map<int64_t, std::vector<size_t>> cars_by_lanelet_;
+
+    // object_id -> index -> objects_snapshot_->objects[index]
+    std::unordered_map<int64_t, size_t> cars_by_id_;
+
+    const world_model_msgs::msg::DynamicObject* getCarsById(const int64_t id) const
+    {
+      if (!objects_snapshot_) return nullptr;
+
+      auto it = cars_by_id_.find(id);
+      if (it == cars_by_id_.end()) return nullptr;
+
+      const size_t idx = it->second;
+      if (idx >= objects_snapshot_->objects.size()) return nullptr;  // defensive
+
+      return &objects_snapshot_->objects[idx];
+    }
+
+    // Returns indices (no copying of objects)
+    const std::vector<size_t>& getCarIndicesInLanelet(const int64_t lanelet_id) const
+    {
+      static const std::vector<size_t> kEmpty{};
+      auto it = cars_by_lanelet_.find(lanelet_id);
+      return (it == cars_by_lanelet_.end()) ? kEmpty : it->second;
+    }
+
+    // Optional convenience: materialize pointers for callers
+    std::vector<const world_model_msgs::msg::DynamicObject*> getCarsInLanelet(const int64_t lanelet_id) const
+    {
+      std::vector<const world_model_msgs::msg::DynamicObject*> out;
+      if (!objects_snapshot_) return out;
+
+      const auto& idxs = getCarIndicesInLanelet(lanelet_id);
+      out.reserve(idxs.size());
+      for (size_t idx : idxs) {
+        if (idx < objects_snapshot_->objects.size()) {
+          out.push_back(&objects_snapshot_->objects[idx]);
+        }
       }
+      return out;
+    }
+  };
+
+
+  // Build and publish a new snapshot.
+  void update(world_model_msgs::msg::DynamicObjectArray::ConstSharedPtr msg)
+  {
+    auto snap = std::make_shared<Snapshot>();
+    snap->objects_snapshot_ = std::move(msg);
+
+    if (!snap->objects_snapshot_) {
+      std::lock_guard<std::mutex> lock(mutex_);
+      snapshot_ = std::move(snap);
+      return;
+    }
+
+    const auto& objs = snap->objects_snapshot_->objects;
+    snap->cars_by_lanelet_.reserve(objs.size());
+    snap->cars_by_id_.reserve(objs.size());
+
+    for (size_t i = 0; i < snap->objects_snapshot_->objects.size(); ++i) {
+      const auto& o = snap->objects_snapshot_->objects[i];
+
+      if (o.entity_type == world_model_msgs::msg::DynamicObject::TYPE_CAR) {
+        snap->cars_by_id_[o.id] = i;
+  
+        if (o.lanelet_id != -1) {
+          snap->cars_by_lanelet_[o.lanelet_id].push_back(i);
+        }
+      };
+    }
+    // Publish snapshot (swap under lock)
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      snapshot_ = std::move(snap);
     }
   }
 
-  /**
-     * @brief Get all objects on a lanelet.
-     */
-  std::vector<DynamicObject> getObjectsOnLanelet(int64_t lanelet_id) const
-  {
-    std::lock_guard lock(mutex_);
-    std::vector<DynamicObject> result;
-
-    if (objects_by_lanelet_.count(lanelet_id)) {
-      for (int64_t id : objects_by_lanelet_.at(lanelet_id)) {
-        result.push_back(objects_by_id_.at(id));  // Copies object into the vector
-      }
-    }
-    return result;
-  }
-
-  /**
-     * @brief Get an object by its ID.
-     * @return The object if found. Returns an empty object or throws if not.
-     */
-  DynamicObject getObjectById(int64_t id) const
-  {
-    std::lock_guard lock(mutex_);
-    // We return a copy. The compiler will likely optimize this away (NRVO).
-    return objects_by_id_.at(id);
-  }
-
-  /**
-     * @brief Get all objects in the store.
-     */
-  std::vector<DynamicObject> getAllObjects() const
+  // Get the latest snapshot pointer (cheap shared_ptr copy).
+  std::shared_ptr<const Snapshot> snapshot() const
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<DynamicObject> result;
-    result.reserve(objects_by_id_.size());
-    for (const auto & [id, obj] : objects_by_id_) {
-      result.push_back(obj);
-    }
-    return result;
+    return snapshot_;
   }
 
 private:
-  mutable std::mutex mutex_;  // Simple mutex
-  std::unordered_map<int64_t, world_model_msgs::msg::DynamicObject> objects_by_id_;
-  std::unordered_map<int64_t, std::vector<int64_t>> objects_by_lanelet_;
+  mutable std::mutex mutex_;
+  std::shared_ptr<const Snapshot> snapshot_;
 };
 
 }  // namespace behaviour
 
-#endif
+#endif  // BEHAVIOUR__DYNAMIC_OBJECT_STORE_HPP_

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__ERROR_MESSAGE_CONDITION_HPP_
-#define BEHAVIOUR__ERROR_MESSAGE_CONDITION_HPP_
+#ifndef BEHAVIOUR__IS_ERROR_MESSAGE_CONDITION_HPP_
+#define BEHAVIOUR__IS_ERROR_MESSAGE_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
@@ -24,31 +24,36 @@
 namespace behaviour
 {
 /**
-   * @class IsManeuverCondition
-   * @brief Checks if the current maneuver matches an expected type.
+   * @class IsErrorMessageCondition
+   * @brief Compares an error message against an expected value.
    */
-class ErrorMessageCondition : public BT::ConditionNode
+class IsErrorMessageCondition : public BT::ConditionNode
 {
 public:
-  ErrorMessageCondition(const std::string & name, const BT::NodeConfig & config)
+  IsIsErrorMessageCondition(const std::string & name, const BT::NodeConfig & config)
   : BT::ConditionNode(name, config)
   {}
 
   static BT::PortsList providedPorts()
   {
-    return {BT::InputPort<std::string>("value"), BT::InputPort<std::string>("expected")};
+    return {BT::InputPort<std::string>("msg"), BT::InputPort<std::string>("expected")};
   }
 
   /**
-     * @brief Compares current maneuver against expected value.
+     * @brief Compares current error message against expected value.
      * @return SUCCESS if they match, FAILURE otherwise.
      */
   BT::NodeStatus tick() override
   {
-    auto value = ports::get<std::string>(*this, "value");
-    auto expected = ports::get<std::string>(*this, "expected");
+    auto msg = ports::tryGet<std::string>(*this, "msg");
+    auto expected = ports::tryGet<std::string>(*this, "expected");
 
-    if (value == expected) {
+    if (!msg || !expected) {
+      std::cout << "[IsErrorMessageCondition]: Missing msg or expected input" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+
+    if (msg == expected) {
       return BT::NodeStatus::SUCCESS;
     } else {
       return BT::NodeStatus::FAILURE;

@@ -21,13 +21,14 @@
 #include <string>
 
 #include "behaviour/utils/utils.hpp"
+#include "geometry_msgs/msg/point.hpp"
 
 namespace behaviour
 {
-class GoalReachedConditon : public BT::ConditionNode
+class GoalReachedCondition : public BT::ConditionNode
 {
 public:
-  GoalReachedConditon(const std::string & name, const BT::NodeConfig & config)
+  GoalReachedCondition(const std::string & name, const BT::NodeConfig & config)
   : BT::ConditionNode(name, config)
   {}
 
@@ -41,29 +42,29 @@ public:
 
   BT::NodeStatus tick() override
   {
-    geometry_msgs::msg::Point::SharedPtr gp;
-    geometry_msgs::msg::Point::SharedPtr cp;
+    geometry_msgs::msg::Point::SharedPtr gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    geometry_msgs::msg::Point::SharedPtr cp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "current_point");
 
-    try {
-      gp = ports::getPtr<geometry_msgs::msg::Point>(*this, "goal_point");
-      cp = ports::getPtr<geometry_msgs::msg::Point>(*this, "current_point");
-    } catch (const BT::RuntimeError & e) {
-      std::cout << "GoalReachedCondition: Missing goal point or current point." << std::endl;
+    if (gp == nullptr || cp == nullptr) {
+      std::cout << "[GoalReached]: Missing current or goal point" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
-    double threshold = ports::get<double>(*this, "threshold_m");
+    double threshold = ports::tryGet<double>(*this, "threshold_m").value_or(1.0);
 
-    // Calculate 2D distance (ignoring z)
+
+    // Calculate 2D distance
     double dx = gp->x - cp->x;
     double dy = gp->y - cp->y;
     double distance = std::sqrt(dx * dx + dy * dy);
 
     // Check if within threshold
     if (distance <= threshold) {
+      std::cout << "[GoalReached]: Distance " << distance << " is within threshold " << threshold << std::endl;
       return BT::NodeStatus::SUCCESS;
     }
 
+    std::cout << "[GoalReached]: Distance " << distance << " is outside threshold " << threshold << std::endl;
     return BT::NodeStatus::FAILURE;
   }
 };

@@ -39,16 +39,20 @@ public:
   {
     return providedBasicPorts({
       BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point"),
-      BT::OutputPort<bool>("goal_updated"),  // Port to clear the flag
       BT::OutputPort<std::string>("error_message"),
     });
   }
 
   bool setRequest(Request::SharedPtr & request) override
   {
-    auto goal_point = ports::getPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
 
-    request->goal_point = *goal_point;
+    if (gp == nullptr) {
+      RCLCPP_WARN(logger(), "[%s] No goal point provided on port", name().c_str());
+      return false;
+    }
+
+    request->goal_point = *gp;
     return true;
   }
 
@@ -60,7 +64,6 @@ public:
     }
 
     RCLCPP_INFO(logger(), "Route set: lanelet %ld -> %ld", response->current_lanelet_id, response->goal_lanelet_id);
-    setOutput("goal_updated", false);
     return BT::NodeStatus::SUCCESS;
   }
 
