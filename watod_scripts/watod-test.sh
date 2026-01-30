@@ -70,7 +70,7 @@ TEST_PRE_PROFILES=("${PRE_PROFILES[@]}")
 TEST_ROS_DOMAIN_ID=${TEST_ROS_DOMAIN_ID:-99}
 
 # Services to skip (non-ROS services that don't have colcon tests)
-SKIP_SERVICES=("log_viewer")
+SKIP_SERVICES=("log_viewer" "network_namespace")
 
 # Track test results
 declare -a TESTED_SERVICES=()
@@ -80,38 +80,31 @@ declare -a TEST_COUNTS=()
 
 # Compose files for testing
 # PRE-BUILD uses standard dep files to build source/deps stages
-declare -a TEST_PRE_COMPOSE_FILES=("modules/docker-compose.yaml" "modules/docker-compose.dep.yaml")
+declare -a WATCLOUD_COMPOSE_FILES=()
+if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
+  WATCLOUD_COMPOSE_FILES=("modules/docker-compose.watcloud.yaml")
+fi
+
+declare -a TEST_PRE_COMPOSE_FILES=("modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "modules/docker-compose.dep.yaml")
 # Main BUILD uses dep files (for profile assignments) + test files (for test service overrides)
-declare -a TEST_ALL_COMPOSE_FILES=("modules/docker-compose.yaml" "modules/docker-compose.dep.yaml" "modules/docker-compose.test.yaml")
+declare -a TEST_ALL_COMPOSE_FILES=("modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "modules/docker-compose.dep.yaml" "modules/docker-compose.test.yaml")
 
 # Run tests for a service
 run_tests() {
   local service=$1
   local test_service="${service}_test"
-  local image
-
-  echo "Getting image for test service: $test_service"
-  # Use watod-compose.sh for config command
-  image=$("$MONO_DIR/watod_scripts/watod-compose.sh" config \
-    --pre-profiles "${TEST_PRE_PROFILES[@]}" \
-    --all-profiles "${TEST_ALL_PROFILES[@]}" \
-    --compose-files "${TEST_ALL_COMPOSE_FILES[@]}" \
-    --images "$test_service" 2>/dev/null | head -n1)
-
-  if [[ -z "$image" ]]; then
-    echo "Error: Could not find image for service $test_service" >&2
-    return 1
-  fi
-
-  echo "Testing $service (image: $image)"
 
   # Capture test output
   local test_output
-  test_output=$(docker run --rm \
+  test_output=$( "$MONO_DIR/watod_scripts/watod-compose.sh" run \
+    --pre-profiles "${TEST_PRE_PROFILES[@]}" \
+    --all-profiles "${TEST_ALL_PROFILES[@]}" \
+    --compose-files "${TEST_ALL_COMPOSE_FILES[@]}" \
+    --rm \
     -e ROS_DOMAIN_ID="$TEST_ROS_DOMAIN_ID" \
     --name "${service}_test_$$" \
     -w /ws \
-    "$image" \
+    "$test_service" \
     /bin/bash -c "source /opt/watonomous/setup.bash && colcon test --event-handlers console_direct+ && colcon test-result --verbose" 2>&1)
 
   local exit_code=$?
