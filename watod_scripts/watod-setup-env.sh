@@ -82,6 +82,14 @@ fi
 
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
+# WATCloud mode: use watcloud compose file as the base for extends
+WATCLOUD_MODE=${WATCLOUD_MODE:-false}
+if [[ "$WATCLOUD_MODE" == "true" ]]; then
+  COMPOSE_EXTEND_FILE="docker-compose.watcloud.yaml"
+else
+  COMPOSE_EXTEND_FILE="docker-compose.yaml"
+fi
+
 # Tag for docker images – convert slashes to dashes
 TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 
@@ -92,6 +100,9 @@ REPOSITORY="${REGISTRY_URL##*/}"
 
 # Bags directory
 BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
+
+# Recording profile for bag recording mode (all_sensors, camera_only, lidar_only)
+RECORDING_PROFILE=${RECORDING_PROFILE:-"all_sensors"}
 
 # ROS 2 Middleware configuration
 RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
@@ -169,6 +180,7 @@ append "MONO_DIR" "$MONO_DIR"
 
 append "COMPOSE_DOCKER_CLI_BUILD" "1"
 append "COMPOSE_PROJECT_NAME" "$COMPOSE_PROJECT_NAME"
+append "COMPOSE_EXTEND_FILE" "$COMPOSE_EXTEND_FILE"
 
 append "TAG" "$TAG"
 
@@ -216,6 +228,10 @@ append "ZENOH_ROUTER_CONFIG_URI" "$ZENOH_ROUTER_CONFIG_URI"
 append "ZENOH_SESSION_CONFIG_URI" "$ZENOH_SESSION_CONFIG_URI"
 
 append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
+
+# Bag recording
+append "BAG_DIRECTORY" "$BAG_DIRECTORY"
+append "RECORDING_PROFILE" "$RECORDING_PROFILE"
 
 # Docker socket (needed for log viewer)
 append "DOCKER_SOCKET_PATH" "$DOCKER_SOCKET_PATH"
