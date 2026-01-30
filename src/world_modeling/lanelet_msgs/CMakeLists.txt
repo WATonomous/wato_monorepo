@@ -29,7 +29,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RefLine.msg"
   "msg/RegulatoryElement.msg"
   "msg/Lanelet.msg"
-  "msg/LaneletAhead.msg"
   "msg/CurrentLaneContext.msg"
   "msg/MapVisualization.msg"
   "msg/RouteAhead.msg"

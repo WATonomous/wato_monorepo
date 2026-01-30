@@ -408,34 +408,6 @@ lanelet_msgs::msg::RouteAhead LaneletHandler::getRouteAhead(
   return msg;
 }
 
-lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
-  const geometry_msgs::msg::Point & current_pos, double heading_rad, double radius_m) const
-{
-  lanelet_msgs::msg::LaneletAhead msg;
-  msg.current_lanelet_id = -1;
-  msg.radius_m = radius_m;
-
-  if (!map_) {
-    return msg;
-  }
-
-  // Get all lanelets within radius
-  auto nearby_lanelets = getLaneletsInRadius(current_pos, radius_m);
-
-  // Find current lanelet using heading-based selection
-  auto current_id = findCurrentLaneletId(current_pos, heading_rad);
-  if (current_id.has_value()) {
-    msg.current_lanelet_id = *current_id;
-  }
-
-  // Convert all nearby lanelets to messages
-  for (const auto & ll : nearby_lanelets) {
-    msg.lanelets.push_back(toLaneletMsg(ll));
-  }
-
-  return msg;
-}
-
 lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(int64_t reg_elem_id) const
 {
   lanelet_msgs::srv::GetLaneletsByRegElem::Response response;
