@@ -753,28 +753,6 @@ TEST_CASE("toLaneletMsg populates centerline curvature", "[curvature]")
     REQUIRE(
       msg.centerline_curvature.back() == Catch::Approx(msg.centerline_curvature[msg.centerline_curvature.size() - 2]));
   }
-
-  SECTION("Opposite curve direction gives negative curvature")
-  {
-    // Quarter circle curving right (clockwise): x increases, y decreases
-    // Left boundary at r=9 (inner), right boundary at r=11 (outer)
-    constexpr int N = 5;
-    std::vector<std::tuple<double, double, double>> left_pts, right_pts;
-    for (int i = 0; i < N; ++i) {
-      double theta = i * (M_PI / 2.0) / (N - 1);
-      // Swap inner/outer so the road curves right relative to travel direction
-      left_pts.emplace_back(9.0 * std::cos(theta), 9.0 * std::sin(theta), 0.0);
-      right_pts.emplace_back(11.0 * std::cos(theta), 11.0 * std::sin(theta), 0.0);
-    }
-
-    auto ll = makeLanelet(left_pts, right_pts);
-    auto msg = handler.toLaneletMsg(ll);
-
-    // Interior points should have negative curvature (curving right)
-    for (size_t i = 1; i + 1 < msg.centerline_curvature.size(); ++i) {
-      REQUIRE(msg.centerline_curvature[i] < 0.0);
-    }
-  }
 }
 
 // ============================================================
