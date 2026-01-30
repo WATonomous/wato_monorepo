@@ -48,6 +48,8 @@ launch:
           to: "lanelet/map_visualization"
         - from: "route_ahead"
           to: "lanelet/route_ahead"
+        - from: "lanelet_ahead"
+          to: "lanelet/lanelet_ahead"
 
   # Lanelet Visualization Markers
   - node:
@@ -94,6 +96,20 @@ launch:
         - from: "markers"
           to: "lanelet/route_ahead_markers"
 
+  - node:
+      pkg: lanelet_markers
+      exec: lanelet_ahead_markers_node
+      name: lanelet_ahead_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "lanelet_ahead"
+          to: "lanelet/lanelet_ahead"
+        - from: "markers"
+          to: "lanelet/lanelet_ahead_markers"
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -108,6 +124,7 @@ launch:
             - /world_modeling/map_viz_markers_node
             - /world_modeling/lane_context_markers_node
             - /world_modeling/route_ahead_markers_node
+            - /world_modeling/lanelet_ahead_markers_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

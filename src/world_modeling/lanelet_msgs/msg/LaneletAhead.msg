@@ -1,8 +1,9 @@
 # LaneletAhead.msg
-# All lanelets within a configurable radius from ego, regardless of route.
+# Legally reachable lanelets ahead of ego within a configurable radius.
 #
-# Unlike RouteAhead which returns lanelets ON THE ACTIVE ROUTE,
-# this returns ALL lanelets within the configured radius for general awareness.
+# Uses BFS through the routing graph (successors + legal lane changes) from
+# the current lanelet. Only includes forward-reachable, same-direction,
+# legally-connected lanelets within the configured radius.
 
 std_msgs/Header header
 
