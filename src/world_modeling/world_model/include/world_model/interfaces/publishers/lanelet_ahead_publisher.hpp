@@ -89,8 +89,7 @@ private:
     // Extract heading from quaternion
     double heading_rad = tf2::getYaw(ego_pose->pose.orientation);
 
-    auto lanelet_ahead =
-      lanelet_->getLaneletAhead(ego_pose->pose.position, heading_rad, radius_m_, cached_lanelet_id_);
+    auto lanelet_ahead = lanelet_->getLaneletAhead(ego_pose->pose.position, heading_rad, radius_m_, cached_lanelet_id_);
     lanelet_ahead.header.stamp = node_->get_clock()->now();
     lanelet_ahead.header.frame_id = ego_pose_.mapFrame();
 

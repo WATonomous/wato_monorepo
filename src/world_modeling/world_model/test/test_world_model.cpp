@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_core/primitives/LineString.h>
+#include <lanelet2_core/primitives/Point.h>
+
 #include <chrono>
 #include <cmath>
 #include <memory>
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <lanelet2_core/primitives/Lanelet.h>
-#include <lanelet2_core/primitives/LineString.h>
-#include <lanelet2_core/primitives/Point.h>
 
 #include <catch2/catch_all.hpp>
 #include <wato_test/wato_test.hpp>
@@ -702,9 +702,8 @@ TEST_CASE("toLaneletMsg populates centerline curvature", "[curvature]")
 
   SECTION("Curvature array length matches centerline length")
   {
-    auto ll = makeLanelet(
-      {{0, 1, 0}, {10, 1, 0}, {20, 1, 0}, {30, 1, 0}},
-      {{0, -1, 0}, {10, -1, 0}, {20, -1, 0}, {30, -1, 0}});
+    auto ll =
+      makeLanelet({{0, 1, 0}, {10, 1, 0}, {20, 1, 0}, {30, 1, 0}}, {{0, -1, 0}, {10, -1, 0}, {20, -1, 0}, {30, -1, 0}});
 
     auto msg = handler.toLaneletMsg(ll);
 
@@ -751,8 +750,8 @@ TEST_CASE("toLaneletMsg populates centerline curvature", "[curvature]")
 
     // Endpoints copy neighbor values
     REQUIRE(msg.centerline_curvature.front() == Catch::Approx(msg.centerline_curvature[1]));
-    REQUIRE(msg.centerline_curvature.back() ==
-            Catch::Approx(msg.centerline_curvature[msg.centerline_curvature.size() - 2]));
+    REQUIRE(
+      msg.centerline_curvature.back() == Catch::Approx(msg.centerline_curvature[msg.centerline_curvature.size() - 2]));
   }
 
   SECTION("Opposite curve direction gives negative curvature")
@@ -808,8 +807,7 @@ TEST_CASE("Arc-length distance computation", "[arc_length]")
 {
   SECTION("Straight line arc-length equals Euclidean distance")
   {
-    std::vector<geometry_msgs::msg::Point> cl = {
-      makePoint(0, 0), makePoint(10, 0), makePoint(20, 0), makePoint(30, 0)};
+    std::vector<geometry_msgs::msg::Point> cl = {makePoint(0, 0), makePoint(10, 0), makePoint(20, 0), makePoint(30, 0)};
 
     // From start: total length = 30
     REQUIRE(computeArcLength(cl, 0) == Catch::Approx(30.0));
