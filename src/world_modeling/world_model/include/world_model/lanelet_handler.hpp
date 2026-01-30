@@ -26,11 +26,14 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
@@ -87,19 +90,24 @@ public:
    *
    * Priority:
    * 1. If active route exists, return route lanelet that ego is on
-   * 2. Otherwise, find lanelet whose centerline is most aligned with ego heading
+   * 2. If previous_lanelet_id is provided and a routing graph exists,
+   *    BFS 1-level from previous lanelet (following, left, right + self),
+   *    score by heading alignment, return if a good candidate is found
+   * 3. Fallback: brute-force radius search with heading alignment
    *
    * @param point Ego position
    * @param heading_rad Ego heading (yaw) in radians
    * @param route_priority_threshold_m Max distance to consider ego "on" a route lanelet
    * @param heading_search_radius_m Radius to search for heading-aligned lanelets
+   * @param previous_lanelet_id Optional hint: last known lanelet for BFS neighbor search
    * @return Lanelet ID if found
    */
   std::optional<int64_t> findCurrentLaneletId(
     const geometry_msgs::msg::Point & point,
     double heading_rad,
     double route_priority_threshold_m = 10.0,
-    double heading_search_radius_m = 15.0) const;
+    double heading_search_radius_m = 15.0,
+    std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
 
   std::optional<lanelet::ConstLanelet> getLaneletById(int64_t id) const;
 
@@ -158,6 +166,27 @@ public:
   lanelet_msgs::msg::RouteAhead getRouteAhead(
     const geometry_msgs::msg::Point & current_pos, double lookahead_distance_m) const;
 
+  /**
+   * @brief Get legally reachable lanelets ahead of ego within a radius.
+   *
+   * Uses BFS through the routing graph starting from the current lanelet,
+   * expanding via following (successors) and left/right (legal lane changes).
+   * Only returns forward-reachable, same-direction, legally-connected lanelets
+   * within the specified radius. Falls back to just the current lanelet if
+   * no routing graph is available.
+   *
+   * @param current_pos Current ego position
+   * @param heading_rad Current ego heading (yaw) in radians for current lanelet detection
+   * @param radius_m Radius bound for BFS expansion
+   * @param previous_lanelet_id Optional hint: last known lanelet for BFS neighbor search
+   * @return LaneletAhead message with reachable lanelets within radius
+   */
+  lanelet_msgs::msg::LaneletAhead getLaneletAhead(
+    const geometry_msgs::msg::Point & current_pos,
+    double heading_rad,
+    double radius_m,
+    std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
+
   // Service implementations
 
   lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const;
@@ -201,6 +230,20 @@ private:
   uint8_t getBoundaryColor(const lanelet::ConstLineString3d & boundary) const;
 
   double getSpeedLimit(const lanelet::ConstLanelet & ll) const;
+
+  /**
+   * @brief BFS through routing graph to find reachable lanelets within radius.
+   *
+   * Expands via following() (successors), left(), and right() (legal lane changes).
+   * Visited set prevents infinite loops on circular roads.
+   *
+   * @param start Starting lanelet for BFS
+   * @param center Center point for radius check
+   * @param radius Maximum distance from center for a lanelet to be included
+   * @return Vector of reachable lanelets within radius
+   */
+  std::vector<lanelet::ConstLanelet> getReachableLaneletsInRadius(
+    const lanelet::ConstLanelet & start, const lanelet::BasicPoint2d & center, double radius) const;
 };
 
 }  // namespace world_model

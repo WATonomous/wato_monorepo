@@ -27,6 +27,7 @@
 #include "world_model/interfaces/publishers/area_occupancy_publisher.hpp"
 #include "world_model/interfaces/publishers/dynamic_objects_publisher.hpp"
 #include "world_model/interfaces/publishers/lane_context_publisher.hpp"
+#include "world_model/interfaces/publishers/lanelet_ahead_publisher.hpp"
 #include "world_model/interfaces/publishers/map_viz_publisher.hpp"
 #include "world_model/interfaces/publishers/route_ahead_publisher.hpp"
 
@@ -72,6 +73,8 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("area_occupancy_publish_rate_hz", 20.0);
   this->declare_parameter<std::string>("area_occupancy_frame", "base_link");
   this->declare_parameter<std::vector<std::string>>("occupancy_areas", std::vector<std::string>{});
+  this->declare_parameter<double>("lanelet_ahead_publish_rate_hz", 10.0);
+  this->declare_parameter<double>("lanelet_ahead_radius_m", 100.0);
 
   RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
 }
@@ -113,6 +116,8 @@ void WorldModelNode::createInterfaces()
   double route_ahead_lookahead_m = this->get_parameter("route_ahead_lookahead_m").as_double();
   double area_occupancy_rate_hz = this->get_parameter("area_occupancy_publish_rate_hz").as_double();
   std::string area_occupancy_frame = this->get_parameter("area_occupancy_frame").as_string();
+  double lanelet_ahead_rate_hz = this->get_parameter("lanelet_ahead_publish_rate_hz").as_double();
+  double lanelet_ahead_radius_m = this->get_parameter("lanelet_ahead_radius_m").as_double();
   double history_duration_sec = this->get_parameter("entity_history_duration_sec").as_double();
   double entity_prune_timeout_sec = this->get_parameter("entity_prune_timeout_sec").as_double();
   double traffic_light_timeout_sec = this->get_parameter("traffic_light_timeout_sec").as_double();
@@ -149,6 +154,15 @@ void WorldModelNode::createInterfaces()
     area_occupancy_frame,
     area_occupancy_rate_hz,
     std::move(occupancy_areas)));
+
+  interfaces_.push_back(std::make_unique<LaneletAheadPublisher>(
+    this,
+    lanelet_handler_.get(),
+    tf_buffer_.get(),
+    map_frame_,
+    base_frame_,
+    lanelet_ahead_rate_hz,
+    lanelet_ahead_radius_m));
 
   // Subscribers
   interfaces_.push_back(

@@ -37,3 +37,16 @@ launch:
           to: /route_ahead
         - from: markers
           to: /route_ahead_markers
+
+  - node:
+      pkg: lanelet_markers
+      exec: lanelet_ahead_markers_node
+      name: lanelet_ahead_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share lanelet_markers)/config/lanelet_viz_markers.yaml
+      remap:
+        - from: lanelet_ahead
+          to: /lanelet_ahead
+        - from: markers
+          to: /lanelet_ahead_markers

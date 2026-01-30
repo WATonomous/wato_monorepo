@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <string>
 
@@ -100,8 +101,8 @@ private:
     // Extract yaw from quaternion for heading-aligned lanelet finding
     double yaw = extractYaw(ego->pose.orientation);
 
-    // Use route-aware + heading-aligned lanelet finding
-    auto current_id = lanelet_->findCurrentLaneletId(*ego_point, yaw);
+    // Use route-aware + heading-aligned lanelet finding (pass cached lanelet as BFS hint)
+    auto current_id = lanelet_->findCurrentLaneletId(*ego_point, yaw, 10.0, 15.0, cached_lanelet_id_);
     if (!current_id.has_value()) {
       return;
     }
@@ -155,12 +156,28 @@ private:
     cached_context_.lateral_offset = 0.0;
     cached_context_.heading_error = 0.0;
 
-    // Calculate distance to lanelet end (simplified)
-    if (!cached_context_.current_lanelet.centerline.empty()) {
-      const auto & last_pt = cached_context_.current_lanelet.centerline.back();
-      double dx = last_pt.x - ego.pose.position.x;
-      double dy = last_pt.y - ego.pose.position.y;
-      cached_context_.distance_to_lanelet_end_m = std::sqrt(dx * dx + dy * dy);
+    // Calculate distance to lanelet end using arc length along centerline
+    const auto & cl = cached_context_.current_lanelet.centerline;
+    if (cl.size() >= 2) {
+      double min_dist_sq = std::numeric_limits<double>::max();
+      size_t closest_idx = 0;
+      for (size_t i = 0; i < cl.size(); ++i) {
+        double dx = cl[i].x - ego.pose.position.x;
+        double dy = cl[i].y - ego.pose.position.y;
+        double d = dx * dx + dy * dy;
+        if (d < min_dist_sq) {
+          min_dist_sq = d;
+          closest_idx = i;
+        }
+      }
+      // Sum arc length from closest point to end
+      double arc_len = 0.0;
+      for (size_t i = closest_idx; i + 1 < cl.size(); ++i) {
+        double dx = cl[i + 1].x - cl[i].x;
+        double dy = cl[i + 1].y - cl[i].y;
+        arc_len += std::sqrt(dx * dx + dy * dy);
+      }
+      cached_context_.distance_to_lanelet_end_m = arc_len;
     }
   }
 
