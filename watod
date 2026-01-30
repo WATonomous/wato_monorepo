@@ -61,8 +61,10 @@ Commands
   down                        Stop ACTIVE_MODULES containers + infrastructure
   down <service>              Stop only the specified service(s)
   down all                    Stop all watod containers (all modules/profiles)
-  test [SERVICE]...           Run colcon test in specified service(s)
-                              If no SERVICE specified, runs in all services
+  test [MODULE] [PACKAGE...]  Run colcon test in specified module
+                              If MODULE specified, tests only that module
+                              If PACKAGE(s) specified, tests only those packages
+                              If nothing specified, runs tests in all modules
   bag <ros2-bag-args>...      Run ros2 bag commands (record/play/info/etc)
                               Runs in ./bags directory with auto-mounting
 
@@ -79,8 +81,9 @@ Examples
   watod -m perception:dev up            # start perception in dev mode
   watod -m interfacing:bag up           # start interfacing with intra-process bag recorder
   watod -t perception                   # open a shell in the 'perception' service
-  watod test                            # run tests in all services
-  watod test perception                 # run tests only in perception service
+  watod test                            # run tests in all modules
+  watod test perception                 # run tests only in perception module
+  watod test world_modeling prediction  # run tests only for prediction package
   watod bag record -a                   # record all topics (auto-saves to ./bags)
   watod bag play my_bag                 # play bag from ./bags directory
   watod bag info my_bag                 # show bag info
@@ -251,12 +254,20 @@ while [[ $# -gt 0 ]]; do
     test)
       RUN_TESTS=1
       shift
-      # Collect service names if provided
+      # Collect service name and optional packages
+      # Usage: watod test [module] [package...]
       declare -a TEST_SERVICES=()
-      while [[ $# -gt 0 && ! "$1" =~ ^- ]]; do
+      declare -a TEST_PACKAGES=()
+      # First non-flag arg is the module/service
+      if [[ $# -gt 0 && ! "$1" =~ ^- ]]; then
         TEST_SERVICES+=("$1")
         shift
-      done
+        # Remaining non-flag args are package names
+        while [[ $# -gt 0 && ! "$1" =~ ^- ]]; do
+          TEST_PACKAGES+=("$1")
+          shift
+        done
+      fi
       break ;;
     bag)
       RUN_BAG=1
@@ -400,11 +411,14 @@ if [[ -n ${RUN_TESTS:-} ]]; then
   build_profile_arrays ""
 
   # Call the test script with profiles as arguments
+  declare -a TEST_ARGS=("--pre-profiles" "${PRE_PROFILES[@]}" "--all-profiles" "${ALL_PROFILES[@]}")
   if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
-    "$MONO_DIR/watod_scripts/watod-test.sh" --pre-profiles "${PRE_PROFILES[@]}" --all-profiles "${ALL_PROFILES[@]}" "${TEST_SERVICES[@]}"
-  else
-    "$MONO_DIR/watod_scripts/watod-test.sh" --pre-profiles "${PRE_PROFILES[@]}" --all-profiles "${ALL_PROFILES[@]}"
+    TEST_ARGS+=("--services" "${TEST_SERVICES[@]}")
   fi
+  if [[ ${#TEST_PACKAGES[@]} -gt 0 ]]; then
+    TEST_ARGS+=("--packages" "${TEST_PACKAGES[@]}")
+  fi
+  "$MONO_DIR/watod_scripts/watod-test.sh" "${TEST_ARGS[@]}"
 
   # Restore ACTIVE_MODULES
   ACTIVE_MODULES=("${SAVED_ACTIVE_MODULES[@]}")
