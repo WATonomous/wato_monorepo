@@ -55,17 +55,15 @@
     # Area definitions
     occupancy_area:
       front_near:
-        type: "rectangle"
-        center_x: 10.0
+        type: "circle"
+        center_x: 0.0
         center_y: 0.0
-        length: 20.0
-        width: 4.0
+        radius: 15.0
       front_far:
-        type: "rectangle"
-        center_x: 35.0
+        type: "circle"
+        center_x: 0.0
         center_y: 0.0
-        length: 30.0
-        width: 6.0
+        radius: 50.0
       left_blind_spot:
         type: "partial_circle"
         center_x: -2.0

@@ -16,6 +16,7 @@
 #define WORLD_MODEL__INTERFACES__SUBSCRIBERS__DETECTION_SUBSCRIBER_HPP_
 
 #include <string>
+#include <vector>
 
 #include "builtin_interfaces/msg/time.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -45,17 +46,29 @@ public:
   , world_state_(world_state)
   , lanelet_(lanelet_handler)
   , history_duration_(history_duration_sec)
+  , cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant))
   {
+    rclcpp::SubscriptionOptions opts;
+    opts.callback_group = cb_group_;
     sub_ = node_->create_subscription<vision_msgs::msg::Detection3DArray>(
-      "detections", 10, std::bind(&DetectionSubscriber::onMessage, this, std::placeholders::_1));
+      "detections", 10, std::bind(&DetectionSubscriber::onMessage, this, std::placeholders::_1), opts);
   }
 
 private:
+  struct ParsedDetection
+  {
+    int64_t id;
+    const vision_msgs::msg::Detection3D * det;
+    builtin_interfaces::msg::Time timestamp;
+    std::string frame_id;
+  };
+
   void onMessage(vision_msgs::msg::Detection3DArray::ConstSharedPtr msg)
   {
-    for (const auto & det : msg->detections) {
-      EntityType type = classify(det);
+    // Classify detections into per-type buckets so each buffer is copied once
+    std::vector<ParsedDetection> cars, humans, bicycles, motorcycles;
 
+    for (const auto & det : msg->detections) {
       int64_t id;
       try {
         id = std::stoll(det.id);
@@ -65,28 +78,32 @@ private:
         continue;
       }
 
-      // Use array header timestamp if individual detection header is empty
       const auto & timestamp =
         (det.header.stamp.sec == 0 && det.header.stamp.nanosec == 0) ? msg->header.stamp : det.header.stamp;
       const auto & frame_id = det.header.frame_id.empty() ? msg->header.frame_id : det.header.frame_id;
 
-      switch (type) {
+      switch (classify(det)) {
         case EntityType::CAR:
-          updateEntity<Car>(id, det, timestamp, frame_id);
+          cars.push_back({id, &det, timestamp, frame_id});
           break;
         case EntityType::HUMAN:
-          updateEntity<Human>(id, det, timestamp, frame_id);
+          humans.push_back({id, &det, timestamp, frame_id});
           break;
         case EntityType::BICYCLE:
-          updateEntity<Bicycle>(id, det, timestamp, frame_id);
+          bicycles.push_back({id, &det, timestamp, frame_id});
           break;
         case EntityType::MOTORCYCLE:
-          updateEntity<Motorcycle>(id, det, timestamp, frame_id);
+          motorcycles.push_back({id, &det, timestamp, frame_id});
           break;
         default:
           break;
       }
     }
+
+    if (!cars.empty()) applyBatch<Car>(cars);
+    if (!humans.empty()) applyBatch<Human>(humans);
+    if (!bicycles.empty()) applyBatch<Bicycle>(bicycles);
+    if (!motorcycles.empty()) applyBatch<Motorcycle>(motorcycles);
   }
 
   EntityType classify(const vision_msgs::msg::Detection3D & det) const
@@ -111,40 +128,39 @@ private:
   }
 
   template <typename EntityT>
-  void updateEntity(
-    int64_t id,
-    const vision_msgs::msg::Detection3D & det,
-    const builtin_interfaces::msg::Time & timestamp,
-    const std::string & frame_id)
+  void applyBatch(const std::vector<ParsedDetection> & detections)
   {
     auto & buffer = world_state_.buffer<EntityT>();
 
-    EntityT default_entity;
-    buffer.upsert(id, default_entity, [&det, &timestamp, &frame_id, this](EntityT & entity) {
-      // Copy detection and stamp it properly
-      vision_msgs::msg::Detection3D stamped_det = det;
-      stamped_det.header.stamp = timestamp;
-      stamped_det.header.frame_id = frame_id;
-      entity.history.push_front(stamped_det);
+    buffer.batch([&](std::unordered_map<int64_t, EntityT> & map) {
+      for (const auto & pd : detections) {
+        auto [it, inserted] = map.try_emplace(pd.id, EntityT{});
+        EntityT & entity = it->second;
 
-      // Trim history by duration
-      while (entity.history.size() > 1) {
-        auto oldest = rclcpp::Time(entity.history.back().header.stamp);
-        auto newest = rclcpp::Time(entity.history.front().header.stamp);
-        if ((newest - oldest).seconds() > history_duration_) {
-          entity.history.pop_back();
-        } else {
-          break;
+        vision_msgs::msg::Detection3D stamped_det = *pd.det;
+        stamped_det.header.stamp = pd.timestamp;
+        stamped_det.header.frame_id = pd.frame_id;
+        entity.history.push_front(stamped_det);
+
+        // Trim history by duration
+        while (entity.history.size() > 1) {
+          auto oldest = rclcpp::Time(entity.history.back().header.stamp);
+          auto newest = rclcpp::Time(entity.history.front().header.stamp);
+          if ((newest - oldest).seconds() > history_duration_) {
+            entity.history.pop_back();
+          } else {
+            break;
+          }
         }
-      }
 
-      // Enrich with lanelet context
-      if (lanelet_->isMapLoaded() && !entity.empty()) {
-        geometry_msgs::msg::Point pt;
-        pt.x = entity.pose().position.x;
-        pt.y = entity.pose().position.y;
-        pt.z = entity.pose().position.z;
-        entity.lanelet_id = lanelet_->findNearestLaneletId(pt);
+        // Enrich with lanelet context
+        if (lanelet_->isMapLoaded() && !entity.empty()) {
+          geometry_msgs::msg::Point pt;
+          pt.x = entity.pose().position.x;
+          pt.y = entity.pose().position.y;
+          pt.z = entity.pose().position.z;
+          entity.lanelet_id = lanelet_->findNearestLaneletId(pt);
+        }
       }
     });
   }
@@ -154,6 +170,7 @@ private:
   const LaneletHandler * lanelet_;
   double history_duration_;
 
+  rclcpp::CallbackGroup::SharedPtr cb_group_;
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr sub_;
 };
 

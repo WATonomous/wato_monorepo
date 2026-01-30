@@ -592,7 +592,54 @@ void LaneletHandler::populateLaneletRegulatoryElements(
     auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
     for (const auto & ref_ls : ref_lines) {
       lanelet_msgs::msg::RefLine ref_line_msg;
-      ref_line_msg.distance_along_lanelet_m = 0.0;  // TODO(Eddy): calculate actual distance
+
+      // Calculate distance along lanelet centerline to the ref_line (stop line)
+      auto centerline = ll.centerline2d();
+      if (centerline.size() >= 2 && !ref_ls.empty()) {
+        // Compute centroid of the ref_line
+        double ref_cx = 0.0, ref_cy = 0.0;
+        for (const auto & pt : ref_ls) {
+          ref_cx += pt.x();
+          ref_cy += pt.y();
+        }
+        ref_cx /= static_cast<double>(ref_ls.size());
+        ref_cy /= static_cast<double>(ref_ls.size());
+
+        // Find the closest point on the centerline and compute arc length to it
+        double min_dist_sq = std::numeric_limits<double>::max();
+        double best_arc_length = 0.0;
+        double accumulated_length = 0.0;
+
+        for (size_t i = 0; i + 1 < centerline.size(); ++i) {
+          double ax = centerline[i].x(), ay = centerline[i].y();
+          double bx = centerline[i + 1].x(), by = centerline[i + 1].y();
+          double dx = bx - ax, dy = by - ay;
+          double seg_len_sq = dx * dx + dy * dy;
+
+          // Project ref_line centroid onto this centerline segment
+          double t = 0.0;
+          if (seg_len_sq > 1e-12) {
+            t = ((ref_cx - ax) * dx + (ref_cy - ay) * dy) / seg_len_sq;
+            t = std::clamp(t, 0.0, 1.0);
+          }
+
+          double proj_x = ax + t * dx;
+          double proj_y = ay + t * dy;
+          double dist_sq =
+            (ref_cx - proj_x) * (ref_cx - proj_x) + (ref_cy - proj_y) * (ref_cy - proj_y);
+
+          if (dist_sq < min_dist_sq) {
+            min_dist_sq = dist_sq;
+            best_arc_length = accumulated_length + t * std::sqrt(seg_len_sq);
+          }
+
+          accumulated_length += std::sqrt(seg_len_sq);
+        }
+
+        ref_line_msg.distance_along_lanelet_m = best_arc_length;
+      } else {
+        ref_line_msg.distance_along_lanelet_m = 0.0;
+      }
 
       for (const auto & pt : ref_ls) {
         geometry_msgs::msg::Point p;

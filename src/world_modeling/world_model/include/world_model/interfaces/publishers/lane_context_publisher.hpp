@@ -132,11 +132,13 @@ private:
     cached_context_.distance_to_stop_line_m = -1.0;
     cached_context_.distance_to_yield_m = -1.0;
 
-    if (cached_context_.current_lanelet.has_traffic_light) {
-      cached_context_.distance_to_traffic_light_m = 0.0;
-    }
-    if (cached_context_.current_lanelet.has_stop_line) {
-      cached_context_.distance_to_stop_line_m = 0.0;
+    for (const auto & reg_elem : cached_context_.current_lanelet.regulatory_elements) {
+      if (reg_elem.subtype == "traffic_light") {
+        cached_context_.distance_to_traffic_light_m = 0.0;
+      }
+      if (!reg_elem.ref_lines.empty()) {
+        cached_context_.distance_to_stop_line_m = 0.0;
+      }
     }
     if (cached_context_.current_lanelet.is_intersection) {
       cached_context_.distance_to_intersection_m = 0.0;

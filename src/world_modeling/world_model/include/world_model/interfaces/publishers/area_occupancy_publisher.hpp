@@ -22,7 +22,6 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "tf2_ros/buffer.h"
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/types/detection_area.hpp"
 #include "world_model_msgs/msg/area_occupancy.hpp"
@@ -43,18 +42,17 @@ public:
   AreaOccupancyPublisher(
     rclcpp_lifecycle::LifecycleNode * node,
     const WorldState * world_state,
-    tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame,
+    tf2_ros::Buffer * /*tf_buffer*/,
+    const std::string & /*map_frame*/,
     const std::string & area_frame,
     double rate_hz,
     std::vector<DetectionArea> areas)
   : node_(node)
   , world_state_(world_state)
-  , tf_buffer_(tf_buffer)
-  , map_frame_(map_frame)
   , area_frame_(area_frame)
   , rate_hz_(rate_hz)
   , areas_(std::move(areas))
+  , timer_cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
   {
     pub_ = node_->create_publisher<world_model_msgs::msg::AreaOccupancy>("area_occupancy", 10);
   }
@@ -67,7 +65,8 @@ public:
       auto period = std::chrono::duration<double>(1.0 / rate_hz_);
       timer_ = node_->create_wall_timer(
         std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-        std::bind(&AreaOccupancyPublisher::publish, this));
+        std::bind(&AreaOccupancyPublisher::publish, this),
+        timer_cb_group_);
     }
   }
 
@@ -83,14 +82,6 @@ public:
 private:
   void publish()
   {
-    // Get transform from map to area frame (typically base_link)
-    geometry_msgs::msg::TransformStamped transform;
-    try {
-      transform = tf_buffer_->lookupTransform(area_frame_, map_frame_, tf2::TimePointZero);
-    } catch (const tf2::TransformException &) {
-      return;  // Transform not available yet
-    }
-
     world_model_msgs::msg::AreaOccupancy msg;
     msg.header.stamp = node_->get_clock()->now();
     msg.header.frame_id = area_frame_;
@@ -101,14 +92,15 @@ private:
       area_info.header.stamp = msg.header.stamp;
       area_info.header.frame_id = area_frame_;
       area_info.name = area.name();
+      area_info.area = area.toMsg();
       area_info.is_occupied = false;
 
       // Check all entity types
-      checkEntitiesInArea<Car>(area, transform, world_model_msgs::msg::DynamicObject::TYPE_CAR, area_info);
-      checkEntitiesInArea<Human>(area, transform, world_model_msgs::msg::DynamicObject::TYPE_HUMAN, area_info);
-      checkEntitiesInArea<Bicycle>(area, transform, world_model_msgs::msg::DynamicObject::TYPE_BICYCLE, area_info);
+      checkEntitiesInArea<Car>(area, world_model_msgs::msg::DynamicObject::TYPE_CAR, area_info);
+      checkEntitiesInArea<Human>(area, world_model_msgs::msg::DynamicObject::TYPE_HUMAN, area_info);
+      checkEntitiesInArea<Bicycle>(area, world_model_msgs::msg::DynamicObject::TYPE_BICYCLE, area_info);
       checkEntitiesInArea<Motorcycle>(
-        area, transform, world_model_msgs::msg::DynamicObject::TYPE_MOTORCYCLE, area_info);
+        area, world_model_msgs::msg::DynamicObject::TYPE_MOTORCYCLE, area_info);
 
       msg.areas.push_back(area_info);
     }
@@ -119,77 +111,52 @@ private:
   template <typename EntityType>
   void checkEntitiesInArea(
     const DetectionArea & area,
-    const geometry_msgs::msg::TransformStamped & transform,
     uint8_t entity_type,
     world_model_msgs::msg::AreaOccupancyInfo & area_info)
   {
-    auto entities = world_state_.buffer<EntityType>().getAll();
-    for (const auto & entity : entities) {
-      if (entity.empty()) {
-        continue;
-      }
-
-      // Transform object position to area frame
-      geometry_msgs::msg::Point obj_pos = entity.pose().position;
-      double local_x = obj_pos.x * transform.transform.rotation.w * transform.transform.rotation.w +
-                       obj_pos.y * 2 * transform.transform.rotation.w * transform.transform.rotation.z +
-                       transform.transform.translation.x;
-      double local_y = obj_pos.y * transform.transform.rotation.w * transform.transform.rotation.w -
-                       obj_pos.x * 2 * transform.transform.rotation.w * transform.transform.rotation.z +
-                       transform.transform.translation.y;
-
-      // Simplified transform: apply full transform
-      // For proper transform, we should use tf2::doTransform, but for efficiency
-      // we'll use the simplified version assuming small rotation
-      double tx = transform.transform.translation.x;
-      double ty = transform.transform.translation.y;
-      double qw = transform.transform.rotation.w;
-      double qz = transform.transform.rotation.z;
-
-      // 2D rotation: cos(theta) = qw^2 - qz^2, sin(theta) = 2*qw*qz
-      double cos_theta = qw * qw - qz * qz;
-      double sin_theta = 2 * qw * qz;
-
-      local_x = cos_theta * obj_pos.x + sin_theta * obj_pos.y + tx;
-      local_y = -sin_theta * obj_pos.x + cos_theta * obj_pos.y + ty;
-
-      if (area.contains(local_x, local_y)) {
-        area_info.is_occupied = true;
-
-        // Create DynamicObject message
-        world_model_msgs::msg::DynamicObject obj;
-        obj.header.stamp = node_->get_clock()->now();
-        obj.header.frame_id = entity.frameId();
-        obj.id = entity.id();
-        obj.entity_type = entity_type;
-        obj.pose = entity.pose();
-        obj.size = entity.size();
-        obj.lanelet_id = entity.lanelet_id.value_or(-1);
-        obj.detection_timestamp = entity.detection().header.stamp;
-        obj.predictions = entity.predictions;
-
-        // Populate historical path from detection history
-        for (const auto & det : entity.history) {
-          geometry_msgs::msg::PoseStamped pose_stamped;
-          pose_stamped.header = det.header;
-          pose_stamped.pose = det.bbox.center;
-          obj.history.push_back(pose_stamped);
+    world_state_.buffer<EntityType>().forEachConst(
+      [&](const EntityType & entity) {
+        if (entity.empty()) {
+          return;
         }
 
-        area_info.objects.push_back(obj);
-      }
-    }
+        // Entity poses are already in the area frame (base_link) — no transform needed
+        const geometry_msgs::msg::Point & obj_pos = entity.pose().position;
+
+        if (area.contains(obj_pos.x, obj_pos.y)) {
+          area_info.is_occupied = true;
+
+          world_model_msgs::msg::DynamicObject obj;
+          obj.header.stamp = node_->get_clock()->now();
+          obj.header.frame_id = entity.frameId();
+          obj.id = entity.id();
+          obj.entity_type = entity_type;
+          obj.pose = entity.pose();
+          obj.size = entity.size();
+          obj.lanelet_id = entity.lanelet_id.value_or(-1);
+          obj.detection_timestamp = entity.detection().header.stamp;
+          obj.predictions = entity.predictions;
+
+          for (const auto & det : entity.history) {
+            geometry_msgs::msg::PoseStamped pose_stamped;
+            pose_stamped.header = det.header;
+            pose_stamped.pose = det.bbox.center;
+            obj.history.push_back(pose_stamped);
+          }
+
+          area_info.objects.push_back(obj);
+        }
+      });
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;
   WorldStateReader world_state_;
-  tf2_ros::Buffer * tf_buffer_;
-  std::string map_frame_;
   std::string area_frame_;
   double rate_hz_;
   std::vector<DetectionArea> areas_;
 
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::AreaOccupancy>::SharedPtr pub_;
+  rclcpp::CallbackGroup::SharedPtr timer_cb_group_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

@@ -94,6 +94,20 @@ launch:
         - from: "markers"
           to: "lanelet/route_ahead_markers"
 
+  - node:
+      pkg: lanelet_markers
+      exec: area_occupancy_markers_node
+      name: area_occupancy_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "area_occupancy"
+          to: "area_occupancy"
+        - from: "markers"
+          to: "area_occupancy_markers"
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
