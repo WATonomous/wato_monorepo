@@ -10,10 +10,12 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
-#include "behaviour/behaviour_tree.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+
+#include "behaviour/behaviour_tree.hpp"
+#include "behaviour/dynamic_object_store.hpp"
 
 namespace behaviour
 {

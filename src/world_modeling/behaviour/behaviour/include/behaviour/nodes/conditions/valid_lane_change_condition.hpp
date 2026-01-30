@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "lanelet_msgs/msg/current_lane_context.hpp"
+
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
@@ -57,20 +59,20 @@ public:
         return BT::NodeStatus::FAILURE;
     }
 
-    if (!ctx) {
+    if (!lane_ctx) {
         std::cout << "[ValidLaneChange]: Missing lane context" << std::endl;
         return BT::NodeStatus::FAILURE;
     }
 
     // Check if in intersection
-
-    if (lane_ctx->is_intersection) {
+    lanelet_msgs::msg::Lanelet current_lanelet = lane_ctx->current_lanelet;
+    if (current_lanelet.is_intersection) {
         std::cout << "[ValidLaneChange]: Not valid, currently in intersection" << std::endl;
         return BT::NodeStatus::FAILURE;
     }
 
-    bool can_change_left = lane_ctx->can_change_left;
-    bool can_change_right = lane_ctx->can_change_right;
+    bool can_change_left = current_lanelet.can_change_left;
+    bool can_change_right = current_lanelet.can_change_right;
 
     switch(transition.value()) {
 

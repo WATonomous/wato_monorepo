@@ -15,6 +15,10 @@
 #ifndef BEHAVIOUR__UTILS__TYPES_HPP_
 #define BEHAVIOUR__UTILS__TYPES_HPP_
 
+#include <cstdint>
+
+#include <behaviortree_cpp/basic_types.h>
+
 namespace behaviour::types
 {
 enum class LaneTransition : uint8_t {
@@ -23,5 +27,17 @@ enum class LaneTransition : uint8_t {
     RIGHT = 2,
 };
 }  // namespace behaviour::types
+
+namespace BT
+{
+template <>
+inline behaviour::types::LaneTransition convertFromString(StringView str)
+{
+  if (str == "SUCCESSOR") return behaviour::types::LaneTransition::SUCCESSOR;
+  if (str == "LEFT") return behaviour::types::LaneTransition::LEFT;
+  if (str == "RIGHT") return behaviour::types::LaneTransition::RIGHT;
+  throw BT::RuntimeError("Can't convert string [", str, "] to LaneTransition");
+}
+}  // namespace BT
 
 #endif  // BEHAVIOUR__UTILS__TYPES_HPP_

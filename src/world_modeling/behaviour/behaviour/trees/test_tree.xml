@@ -16,18 +16,18 @@
           
           <Sequence name="IsGlobalRouteValid">
             <GlobalRouteExist route="{global_route}" />
-            <CarOnRoute route="{global_route}" lane_ctx="{current_lane_ctx}"/>
+            <CarOnRoute route_index_map="{global_route_index_map}" lane_ctx="{current_lane_ctx}"/>
           </Sequence>
 
           <Fallback name="Get Route">
             
-            <GetShortestRoute route="{global_path}" error_message="{get_shortest_route_error_msg}" service_name="get_shortest_route"/>
+            <GetShortestRoute route="{global_path}" route_index_map="{global_route_index_map}" error_message="{get_shortest_route_error_msg}" service_name="get_shortest_route"/>
 
             <Sequence name="Set Route">
               
               <Fallback name="CheckSpecificErrors">
-                <ErrorMessage msg="{get_shortest_route_error_msg}" expected="ego_not_on_route"/>
-                <ErrorMessage msg="{get_shortest_route_error_msg}" expected="no_active_route"/>
+                <IsErrorMessage msg="{get_shortest_route_error_msg}" expected="ego_not_on_route"/>
+                <IsErrorMessage msg="{get_shortest_route_error_msg}" expected="no_active_route"/>
               </Fallback>
 
               <RetryUntilSuccessful num_attempts="10">
@@ -36,13 +36,38 @@
                 </RateController>
               </RetryUntilSuccessful>
               
-              <GetShortestRoute route="{global_path}" error_message="{get_shortest_route_error_msg}" service_name="get_shortest_route"/>
+              <GetShortestRoute route="{global_path}" route_index_map="{global_route_index_map}" error_message="{get_shortest_route_error_msg}" service_name="get_shortest_route"/>
               
             </Sequence>
           </Fallback>
 
         </Fallback>
 
+        <Fallback name="Execute Navigation">
+          <Sequence>
+            <GetRouteContext route="{global_route}" route_index_map="{global_route_index_map}" lane_ctx="{current_lane_ctx}" out_lane_transition="{upcoming_lane_transition}" out_next_lanelet="{target_lanelet}"/>
+            <Fallback name="Lane Transition Handling">
+              <Sequence name="Handle SUCCESSOR Transition">
+                <IsLaneTransition transition="{upcoming_lane_transition}" expected="SUCCESSOR" />
+                <ExecuteBehaviour behaviour="follow route" topic_name="/execute_behaviour"/>
+              </Sequence>
+              
+              <Sequence name="Handle RIGHT Transition">
+                <IsLaneTransition transition="{upcoming_lane_transition}" expected="RIGHT" />
+                <ValidLaneChange transition="{upcoming_lane_transition" lane_ctx="{current_lane_ctx}"/>
+                <ExecuteBehaviour behaviour="lane change right" topic_name="/execute_behaviour"/>
+              </Sequence>
+              
+              <Sequence name="Handle LEFT Transition">
+                <IsLaneTransition transition="{upcoming_lane_transition}" expected="LEFT" />
+                <ValidLaneChange transition="{upcoming_lane_transition" lane_ctx="{current_lane_ctx}"/>
+                <ExecuteBehaviour behaviour="lane change left" topic_name="/execute_behaviour"/>
+              </Sequence>
+              
+            </Fallback>
+          </Sequence>
+          <ExecuteBehaviour behaviour="follow lane" preferred_lanelet_ids="{current_lanelet_ctx.upcoming_lanelet_ids}" topic_name="/execute_behaviour"/>
+        </Fallback>
         <ExecuteBehaviour behaviour="navigate" topic_name="/execute_behaviour"/>
       </Sequence>
 

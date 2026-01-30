@@ -30,7 +30,7 @@ namespace behaviour
 class IsErrorMessageCondition : public BT::ConditionNode
 {
 public:
-  IsIsErrorMessageCondition(const std::string & name, const BT::NodeConfig & config)
+  IsErrorMessageCondition(const std::string & name, const BT::NodeConfig & config)
   : BT::ConditionNode(name, config)
   {}
 

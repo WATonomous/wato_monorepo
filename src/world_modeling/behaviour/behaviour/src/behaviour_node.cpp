@@ -87,8 +87,8 @@ void BehaviourNode::init()
     "current_lane_context", 10,
     [this](const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg) {
       tree_->updateBlackboard("lane_ctx", msg);
-      RCLCPP_INFO(this->get_logger(), "Current lane context updated with %zu lanelets", msg->lanelets.size());
-  });
+    });
+    RCLCPP_INFO(this->get_logger(), "Current lane context updated.");
 
   dynamic_objects_sub_ = this->create_subscription<world_model_msgs::msg::DynamicObjectArray>(
       "dynamic_objects", rclcpp::QoS(10),

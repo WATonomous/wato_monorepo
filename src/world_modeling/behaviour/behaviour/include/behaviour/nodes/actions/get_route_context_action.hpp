@@ -32,7 +32,7 @@ public:
       BT::InputPort<std::shared_ptr<lanelet_msgs::srv::GetShortestRoute::Response>>("route"),
       BT::InputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("route_index_map"),
       BT::InputPort<std::shared_ptr<lanelet_msgs::msg::CurrentLaneContext>>("lane_ctx"),
-      BT::OutputPort<types::LaneTransition>("out_transition"),
+      BT::OutputPort<types::LaneTransition>("out_lane_transition"),
       BT::OutputPort<std::shared_ptr<lanelet_msgs::msg::Lanelet>>("out_next_lanelet")};
   }
 
@@ -56,7 +56,7 @@ public:
     const std::size_t current_idx = current_it->second;
     if (current_idx >= route->lanelets.size() - 1) {
       // At last lanelet, no further transitions
-      setOutput("out_transition", types::LaneTransition::SUCCESSOR);
+      setOutput("out_lane_transition", types::LaneTransition::SUCCESSOR);
       setOutput("out_next_lanelet", nullptr);
       return BT::NodeStatus::SUCCESS;
     }
@@ -65,7 +65,7 @@ public:
     const uint8_t transition = route->transitions[current_idx];
     const std::shared_ptr<lanelet_msgs::msg::Lanelet> next_lanelet = std::make_shared<lanelet_msgs::msg::Lanelet>(route->lanelets[current_idx + 1]);
 
-    setOutput("out_transition", static_cast<types::LaneTransition>(transition));
+    setOutput("out_lane_transition", static_cast<types::LaneTransition>(transition));
     setOutput("out_next_lanelet", next_lanelet);
 
     return BT::NodeStatus::SUCCESS;

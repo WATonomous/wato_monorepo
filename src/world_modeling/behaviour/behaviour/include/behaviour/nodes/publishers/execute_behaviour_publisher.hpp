@@ -36,20 +36,19 @@ public:
     auto behaviour = ports::tryGet<std::string>(*this, "behaviour");
     auto preferred_lanelet_ids = ports::tryGet<std::vector<int64_t>>(*this, "preferred_lanelet_ids"); 
     if (!behaviour) {
-      RCLCPP_WARN(logger(), "[%s] No behaviour provided on port", name().c_str());
+      RCLCPP_WARN(node_->get_logger(), "[%s] No behaviour provided on port", name().c_str());
       return false;
     }
 
     if (!preferred_lanelet_ids) {
-      RCLCPP_WARN(logger(), "[%s] No preferred lanelet IDs provided on port", name().c_str());
-      return false;
+      RCLCPP_WARN(node_->get_logger(), "[%s] No preferred lanelet IDs provided on port", name().c_str());;
     }
 
     msg.behaviour = behaviour.value();
-    msg.preferred_lanelet_ids = preferred_lanelet_ids.value();
+    msg.preferred_lanelet_ids = preferred_lanelet_ids.has_value() ? preferred_lanelet_ids.value() : std::vector<int64_t>{};
     
-    RCLCPP_INFO(logger(), "Publishing new behaviour: %s", msg.behaviour.c_str());
-    RCLCPP_INFO(logger(), "Preferred lanelet IDs count: %zu", msg.preferred_lanelet_ids.size());
+    RCLCPP_INFO(node_->get_logger(), "Publishing new behaviour: %s", msg.behaviour.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Preferred lanelet IDs count: %zu", msg.preferred_lanelet_ids.size());
     return true;
   }
 };

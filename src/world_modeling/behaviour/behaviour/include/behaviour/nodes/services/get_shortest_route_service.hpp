@@ -61,7 +61,7 @@ public:
     auto route = std::make_shared<lanelet_msgs::srv::GetShortestRoute::Response>(std::move(*response));
     
     // 2. Build the Index Map (Lanelet ID -> Index in Vector)
-    auto index_map = std::make_shared<std::unordered_map<int64_t, size_t>>>();
+    auto index_map = std::make_shared<std::unordered_map<int64_t, size_t>>();
     for (size_t i = 0; i < route->lanelets.size(); ++i) {
       // Map the lanelet ID to its sequence position
       (*index_map)[route->lanelets[i].id] = i;

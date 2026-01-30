@@ -18,10 +18,13 @@
 #include <string>
 #include <utility>
 
+#include "behaviour/utils/utils.hpp"
+
 // Actions
 // #include "behaviour/nodes/actions/determine_lane_behaviour.hpp"
 // #include "behaviour/nodes/actions/determine_reg_elem_node.hpp"
 #include "behaviour/nodes/publishers/execute_behaviour_publisher.hpp"
+#include "behaviour/nodes/actions/get_route_context_action.hpp"
 // #include "behaviour/nodes/actions/get_objects_by_lanelet_action.hpp"
 // #include "behaviour/nodes/actions/get_objects_by_lanelets_action.hpp"
 // #include "behaviour/nodes/actions/get_reg_elem_context_action.hpp"
@@ -31,11 +34,14 @@
 // Conditions
 // #include "behaviour/nodes/conditions/comparator_condition.hpp"
 #include "behaviour/nodes/conditions/is_error_message_condition.hpp"
+#include "behaviour/nodes/conditions/is_lane_transition_condition.hpp"
+
 #include "behaviour/nodes/conditions/goal_reached_condition.hpp"
+#include "behaviour/nodes/conditions/valid_lane_change_condition.hpp"
 // #include "behaviour/nodes/conditions/goal_updated_condition.hpp"
 #include "behaviour/nodes/conditions/goal_exist_condition.hpp"
 #include "behaviour/nodes/conditions/global_route_exist_condition.hpp"
-#include "behaviour/nodes/conditions/car_on_route_condition.cpp"
+#include "behaviour/nodes/conditions/car_on_route_condition.hpp"
 // #include "behaviour/nodes/conditions/reg_elem_type_condition.hpp"
 // #include "behaviour/nodes/conditions/safe_prediction_condition.hpp"
 // #include "behaviour/nodes/conditions/safe_proximity_condition.hpp"
@@ -48,7 +54,6 @@
 // #include "behaviour/nodes/services/get_lanelets_by_reg_elem_service.hpp"
 #include "behaviour/nodes/services/get_shortest_route_service.hpp"
 #include "behaviour/nodes/services/set_route_service.hpp"
-
 namespace behaviour
 {
 
@@ -83,19 +88,16 @@ void BehaviourTree::registerNodes()
   BT::RosNodeParams params;
   params.nh = node_;
 
-  factory.registerEnum<behaviour::types::LaneTransition>("LaneTransition", {
-    {"SUCCESSOR", behaviour::types::LaneTransition::SUCCESSOR},
-    {"LEFT",      behaviour::types::LaneTransition::LEFT},
-    {"RIGHT",     behaviour::types::LaneTransition::RIGHT}
-});
-
   // Decorators
   factory_.registerNodeType<RateController>("RateController");
+  
+  // Publishers
+  factory_.registerNodeType<ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
 
   // Actions
   // factory_.registerNodeType<DetermineLaneBehaviourAction>("DetermineLaneBehaviour");
   // factory_.registerNodeType<DetermineRegElemAction>("DetermineRegElem");
-  factory_.registerNodeType<ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
+  factory_.registerNodeType<GetRouteContextAction>("GetRouteContext");
   // factory_.registerNodeType<GetObjectsByLaneletAction>("GetObjectsByLanelet");
   // factory_.registerNodeType<GetObjectsByLaneletsAction>("GetObjectsByLanelets");
   // factory_.registerNodeType<GetRegElemContextAction>("GetRegElemContext");
@@ -111,6 +113,8 @@ void BehaviourTree::registerNodes()
   // factory_.registerNodeType<ComparatorCondition>("Comparator");
   
   factory_.registerNodeType<IsErrorMessageCondition>("IsErrorMessage");
+  factory_.registerNodeType<IsLaneTransitionCondition>("IsLaneTransition");
+  factory_.registerNodeType<ValidLaneChangeCondition>("ValidLaneChange");
   factory_.registerNodeType<GoalReachedCondition>("GoalReached");
   factory_.registerNodeType<GoalExistCondition>("GoalExist");
   factory_.registerNodeType<GlobalRouteExistCondition>("GlobalRouteExist");
