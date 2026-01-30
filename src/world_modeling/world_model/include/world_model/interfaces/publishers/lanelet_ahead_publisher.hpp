@@ -16,6 +16,7 @@
 #define WORLD_MODEL__INTERFACES__PUBLISHERS__LANELET_AHEAD_PUBLISHER_HPP_
 
 #include <chrono>
+#include <optional>
 #include <string>
 
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
@@ -88,9 +89,15 @@ private:
     // Extract heading from quaternion
     double heading_rad = tf2::getYaw(ego_pose->pose.orientation);
 
-    auto lanelet_ahead = lanelet_->getLaneletAhead(ego_pose->pose.position, heading_rad, radius_m_);
+    auto lanelet_ahead =
+      lanelet_->getLaneletAhead(ego_pose->pose.position, heading_rad, radius_m_, cached_lanelet_id_);
     lanelet_ahead.header.stamp = node_->get_clock()->now();
     lanelet_ahead.header.frame_id = ego_pose_.mapFrame();
+
+    // Cache the current lanelet for next tick's BFS hint
+    if (lanelet_ahead.current_lanelet_id >= 0) {
+      cached_lanelet_id_ = lanelet_ahead.current_lanelet_id;
+    }
 
     pub_->publish(lanelet_ahead);
   }
@@ -103,6 +110,8 @@ private:
 
   rclcpp_lifecycle::LifecyclePublisher<lanelet_msgs::msg::LaneletAhead>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;
+
+  std::optional<int64_t> cached_lanelet_id_;
 };
 
 }  // namespace world_model

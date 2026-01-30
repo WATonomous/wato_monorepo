@@ -451,7 +451,10 @@ lanelet_msgs::msg::RouteAhead LaneletHandler::getRouteAhead(
 }
 
 lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
-  const geometry_msgs::msg::Point & current_pos, double heading_rad, double radius_m) const
+  const geometry_msgs::msg::Point & current_pos,
+  double heading_rad,
+  double radius_m,
+  std::optional<int64_t> previous_lanelet_id) const
 {
   lanelet_msgs::msg::LaneletAhead msg;
   msg.current_lanelet_id = -1;
@@ -461,8 +464,8 @@ lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
     return msg;
   }
 
-  // Find current lanelet using heading-based selection
-  auto current_id = findCurrentLaneletId(current_pos, heading_rad);
+  // Find current lanelet using heading-based selection (with BFS hint if available)
+  auto current_id = findCurrentLaneletId(current_pos, heading_rad, 10.0, 15.0, previous_lanelet_id);
   if (!current_id.has_value()) {
     return msg;  // Can't determine reachability without a starting point
   }

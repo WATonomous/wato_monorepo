@@ -178,10 +178,14 @@ public:
    * @param current_pos Current ego position
    * @param heading_rad Current ego heading (yaw) in radians for current lanelet detection
    * @param radius_m Radius bound for BFS expansion
+   * @param previous_lanelet_id Optional hint: last known lanelet for BFS neighbor search
    * @return LaneletAhead message with reachable lanelets within radius
    */
   lanelet_msgs::msg::LaneletAhead getLaneletAhead(
-    const geometry_msgs::msg::Point & current_pos, double heading_rad, double radius_m) const;
+    const geometry_msgs::msg::Point & current_pos,
+    double heading_rad,
+    double radius_m,
+    std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
 
   // Service implementations
 

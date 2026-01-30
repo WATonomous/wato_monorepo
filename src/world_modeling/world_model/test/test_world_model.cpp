@@ -13,15 +13,22 @@
 // limitations under the License.
 
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_core/primitives/LineString.h>
+#include <lanelet2_core/primitives/Point.h>
+
 #include <catch2/catch_all.hpp>
 #include <wato_test/wato_test.hpp>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "lanelet_msgs/msg/lanelet.hpp"
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
 #include "lanelet_msgs/srv/set_route.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
@@ -664,5 +671,256 @@ TEST_CASE("EntityBuffer getByLanelet", "[entity_buffer]")
     REQUIRE(on_lanelet_100.size() == 3);  // 0, 2, 4
     REQUIRE(on_lanelet_200.size() == 2);  // 1, 3
     REQUIRE(on_lanelet_999.empty());
+  }
+}
+
+// ============================================================
+// Curvature Computation Tests
+// ============================================================
+
+// Helper: build a lanelet::Lanelet from left/right boundary point lists
+static lanelet::Lanelet makeLanelet(
+  const std::vector<std::tuple<double, double, double>> & left_pts,
+  const std::vector<std::tuple<double, double, double>> & right_pts)
+{
+  lanelet::Points3d left, right;
+  for (const auto & [x, y, z] : left_pts) {
+    left.emplace_back(lanelet::utils::getId(), x, y, z);
+  }
+  for (const auto & [x, y, z] : right_pts) {
+    right.emplace_back(lanelet::utils::getId(), x, y, z);
+  }
+
+  lanelet::LineString3d left_ls(lanelet::utils::getId(), left);
+  lanelet::LineString3d right_ls(lanelet::utils::getId(), right);
+  return lanelet::Lanelet(lanelet::utils::getId(), left_ls, right_ls);
+}
+
+TEST_CASE("toLaneletMsg populates centerline curvature", "[curvature]")
+{
+  world_model::LaneletHandler handler;  // no map loaded — toLaneletMsg is still callable
+
+  SECTION("Curvature array length matches centerline length")
+  {
+    auto ll = makeLanelet(
+      {{0, 1, 0}, {10, 1, 0}, {20, 1, 0}, {30, 1, 0}},
+      {{0, -1, 0}, {10, -1, 0}, {20, -1, 0}, {30, -1, 0}});
+
+    auto msg = handler.toLaneletMsg(ll);
+
+    REQUIRE_FALSE(msg.centerline.empty());
+    REQUIRE(msg.centerline_curvature.size() == msg.centerline.size());
+  }
+
+  SECTION("Straight lanelet has near-zero curvature")
+  {
+    auto ll = makeLanelet(
+      {{0, 1, 0}, {10, 1, 0}, {20, 1, 0}, {30, 1, 0}, {40, 1, 0}},
+      {{0, -1, 0}, {10, -1, 0}, {20, -1, 0}, {30, -1, 0}, {40, -1, 0}});
+
+    auto msg = handler.toLaneletMsg(ll);
+
+    for (size_t i = 0; i < msg.centerline_curvature.size(); ++i) {
+      REQUIRE(std::abs(msg.centerline_curvature[i]) < 1e-6);
+    }
+  }
+
+  SECTION("Curved lanelet has non-zero curvature with consistent sign")
+  {
+    // Quarter circle curving left, radius ~10 for centerline
+    // Left boundary at r=11, right boundary at r=9
+    constexpr int N = 5;
+    std::vector<std::tuple<double, double, double>> left_pts, right_pts;
+    for (int i = 0; i < N; ++i) {
+      double theta = i * (M_PI / 2.0) / (N - 1);
+      left_pts.emplace_back(11.0 * std::cos(theta), 11.0 * std::sin(theta), 0.0);
+      right_pts.emplace_back(9.0 * std::cos(theta), 9.0 * std::sin(theta), 0.0);
+    }
+
+    auto ll = makeLanelet(left_pts, right_pts);
+    auto msg = handler.toLaneletMsg(ll);
+
+    REQUIRE(msg.centerline_curvature.size() == msg.centerline.size());
+
+    // Interior points should have positive curvature (curving left)
+    for (size_t i = 1; i + 1 < msg.centerline_curvature.size(); ++i) {
+      REQUIRE(msg.centerline_curvature[i] > 0.0);
+      // Approximate check: curvature should be near 1/10 = 0.1
+      REQUIRE(msg.centerline_curvature[i] == Catch::Approx(0.1).margin(0.02));
+    }
+
+    // Endpoints copy neighbor values
+    REQUIRE(msg.centerline_curvature.front() == Catch::Approx(msg.centerline_curvature[1]));
+    REQUIRE(msg.centerline_curvature.back() ==
+            Catch::Approx(msg.centerline_curvature[msg.centerline_curvature.size() - 2]));
+  }
+
+  SECTION("Opposite curve direction gives negative curvature")
+  {
+    // Quarter circle curving right (clockwise): x increases, y decreases
+    // Left boundary at r=9 (inner), right boundary at r=11 (outer)
+    constexpr int N = 5;
+    std::vector<std::tuple<double, double, double>> left_pts, right_pts;
+    for (int i = 0; i < N; ++i) {
+      double theta = i * (M_PI / 2.0) / (N - 1);
+      // Swap inner/outer so the road curves right relative to travel direction
+      left_pts.emplace_back(9.0 * std::cos(theta), 9.0 * std::sin(theta), 0.0);
+      right_pts.emplace_back(11.0 * std::cos(theta), 11.0 * std::sin(theta), 0.0);
+    }
+
+    auto ll = makeLanelet(left_pts, right_pts);
+    auto msg = handler.toLaneletMsg(ll);
+
+    // Interior points should have negative curvature (curving right)
+    for (size_t i = 1; i + 1 < msg.centerline_curvature.size(); ++i) {
+      REQUIRE(msg.centerline_curvature[i] < 0.0);
+    }
+  }
+}
+
+// ============================================================
+// Arc-Length Distance Tests
+// ============================================================
+
+// Helper: compute arc-length from closest_idx to end of centerline
+// (mirrors the logic in lane_context_publisher.hpp updateDynamicContext)
+static double computeArcLength(const std::vector<geometry_msgs::msg::Point> & cl, size_t closest_idx)
+{
+  double arc_len = 0.0;
+  for (size_t i = closest_idx; i + 1 < cl.size(); ++i) {
+    double dx = cl[i + 1].x - cl[i].x;
+    double dy = cl[i + 1].y - cl[i].y;
+    arc_len += std::sqrt(dx * dx + dy * dy);
+  }
+  return arc_len;
+}
+
+static geometry_msgs::msg::Point makePoint(double x, double y)
+{
+  geometry_msgs::msg::Point p;
+  p.x = x;
+  p.y = y;
+  p.z = 0.0;
+  return p;
+}
+
+TEST_CASE("Arc-length distance computation", "[arc_length]")
+{
+  SECTION("Straight line arc-length equals Euclidean distance")
+  {
+    std::vector<geometry_msgs::msg::Point> cl = {
+      makePoint(0, 0), makePoint(10, 0), makePoint(20, 0), makePoint(30, 0)};
+
+    // From start: total length = 30
+    REQUIRE(computeArcLength(cl, 0) == Catch::Approx(30.0));
+    // From index 1: remaining = 20
+    REQUIRE(computeArcLength(cl, 1) == Catch::Approx(20.0));
+    // From index 2: remaining = 10
+    REQUIRE(computeArcLength(cl, 2) == Catch::Approx(10.0));
+  }
+
+  SECTION("Arc-length from last point is zero")
+  {
+    std::vector<geometry_msgs::msg::Point> cl = {makePoint(0, 0), makePoint(5, 0), makePoint(10, 0)};
+
+    REQUIRE(computeArcLength(cl, 2) == Catch::Approx(0.0));
+  }
+
+  SECTION("L-shaped path arc-length exceeds straight-line distance")
+  {
+    // Path goes right 10m then up 10m — arc-length = 20, Euclidean end-to-end ~14.14
+    std::vector<geometry_msgs::msg::Point> cl = {makePoint(0, 0), makePoint(10, 0), makePoint(10, 10)};
+
+    double arc = computeArcLength(cl, 0);
+    REQUIRE(arc == Catch::Approx(20.0));
+
+    // Euclidean from start to end
+    double euclidean = std::sqrt(10.0 * 10.0 + 10.0 * 10.0);
+    REQUIRE(arc > euclidean);
+  }
+
+  SECTION("Curved path arc-length exceeds chord distance")
+  {
+    // Quarter circle r=10: arc-length = pi*10/2 ≈ 15.71
+    constexpr int N = 50;  // enough points for good approximation
+    std::vector<geometry_msgs::msg::Point> cl;
+    for (int i = 0; i < N; ++i) {
+      double theta = i * (M_PI / 2.0) / (N - 1);
+      cl.push_back(makePoint(10.0 * std::cos(theta), 10.0 * std::sin(theta)));
+    }
+
+    double arc = computeArcLength(cl, 0);
+    double expected = M_PI * 10.0 / 2.0;  // ≈ 15.708
+
+    REQUIRE(arc == Catch::Approx(expected).margin(0.05));
+
+    // Chord distance from (10,0) to (0,10)
+    double chord = std::sqrt(10.0 * 10.0 + 10.0 * 10.0);
+    REQUIRE(arc > chord);
+  }
+}
+
+// ============================================================
+// findCurrentLaneletId with BFS Hint Tests
+// ============================================================
+
+TEST_CASE("findCurrentLaneletId with BFS hint", "[lanelet_handler][bfs_hint]")
+{
+  world_model::LaneletHandler handler;  // no map loaded
+
+  geometry_msgs::msg::Point pt;
+  pt.x = 0.0;
+  pt.y = 0.0;
+
+  SECTION("Returns nullopt without map — no hint")
+  {
+    auto result = handler.findCurrentLaneletId(pt, 0.0);
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("Returns nullopt without map — with hint")
+  {
+    auto result = handler.findCurrentLaneletId(pt, 0.0, 10.0, 15.0, 42);
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("Returns nullopt without map — nullopt hint explicit")
+  {
+    auto result = handler.findCurrentLaneletId(pt, 0.0, 10.0, 15.0, std::nullopt);
+    REQUIRE_FALSE(result.has_value());
+  }
+}
+
+// ============================================================
+// getLaneletAhead with BFS Hint Tests
+// ============================================================
+
+TEST_CASE("getLaneletAhead with BFS hint", "[lanelet_handler][bfs_hint]")
+{
+  world_model::LaneletHandler handler;  // no map loaded
+
+  geometry_msgs::msg::Point pt;
+  pt.x = 0.0;
+  pt.y = 0.0;
+
+  SECTION("Returns default result without map — no hint")
+  {
+    auto msg = handler.getLaneletAhead(pt, 0.0, 50.0);
+    REQUIRE(msg.current_lanelet_id == -1);
+    REQUIRE(msg.lanelets.empty());
+  }
+
+  SECTION("Returns default result without map — with hint")
+  {
+    auto msg = handler.getLaneletAhead(pt, 0.0, 50.0, 42);
+    REQUIRE(msg.current_lanelet_id == -1);
+    REQUIRE(msg.lanelets.empty());
+  }
+
+  SECTION("Returns default result without map — nullopt hint explicit")
+  {
+    auto msg = handler.getLaneletAhead(pt, 0.0, 50.0, std::nullopt);
+    REQUIRE(msg.current_lanelet_id == -1);
+    REQUIRE(msg.lanelets.empty());
   }
 }
