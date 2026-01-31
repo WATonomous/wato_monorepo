@@ -26,6 +26,8 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/TrafficLightInfo.msg"
   "msg/StopLineInfo.msg"
+  "msg/RefLine.msg"
+  "msg/RegulatoryElement.msg"
   "msg/Lanelet.msg"
   "msg/LaneletAhead.msg"
   "msg/CurrentLaneContext.msg"

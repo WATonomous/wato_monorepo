@@ -31,14 +31,11 @@
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
 #include "lanelet_msgs/srv/set_route.hpp"
-#include "vision_msgs/msg/detection3_d_array.hpp"
-#include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
-#include "world_model/types/entity_2d.hpp"
 #include "world_model/types/entity_3d.hpp"
 #include "world_model/types/entity_buffer.hpp"
 #include "world_model/world_state.hpp"
-#include "world_model_msgs/msg/dynamic_object_array.hpp"
+#include "world_model_msgs/msg/world_object_array.hpp"
 
 // Entity Buffer Tests
 
@@ -234,19 +231,19 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "SetRoute and GetShortestRoute
   }
 }
 
-// DynamicObjects Publisher Tests
+// WorldObjects Publisher Tests
 
-TEST_CASE_METHOD(wato::test::TestExecutorFixture, "DynamicObjects subscriber receives messages", "[dynamic_objects]")
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "WorldObjects subscriber receives messages", "[world_objects]")
 {
-  auto sub_node = std::make_shared<wato::test::SubscriberTestNode<world_model_msgs::msg::DynamicObjectArray>>(
-    "dynamic_objects", "dynamic_objects_subscriber");
+  auto sub_node = std::make_shared<wato::test::SubscriberTestNode<world_model_msgs::msg::WorldObjectArray>>(
+    "world_objects", "world_objects_subscriber");
 
   add_node(sub_node);
   start_spinning();
 
   SECTION("Subscriber node is created")
   {
-    REQUIRE(sub_node->get_name() == std::string("dynamic_objects_subscriber"));
+    REQUIRE(sub_node->get_name() == std::string("world_objects_subscriber"));
   }
 
   SECTION("No messages received initially")
@@ -484,7 +481,7 @@ TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
   {
     world_model::TrafficLight default_tl;
     buffer.upsert(500, default_tl, [](world_model::TrafficLight & tl) {
-      vision_msgs::msg::Detection2D det;
+      vision_msgs::msg::Detection3D det;
       det.id = "500";
       det.header.stamp.sec = 10;
       tl.history.push_front(det);
@@ -506,7 +503,7 @@ TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
 
     // Initial: RED
     buffer.upsert(600, default_tl, [](world_model::TrafficLight & tl) {
-      vision_msgs::msg::Detection2D det;
+      vision_msgs::msg::Detection3D det;
       det.id = "600";
       tl.history.push_front(det);
       tl.state = world_model::TrafficLightState::RED;
@@ -514,7 +511,7 @@ TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
 
     // Update: GREEN
     buffer.modify(600, [](world_model::TrafficLight & tl) {
-      vision_msgs::msg::Detection2D det;
+      vision_msgs::msg::Detection3D det;
       det.id = "600";
       tl.history.push_front(det);
       tl.state = world_model::TrafficLightState::GREEN;
@@ -584,17 +581,17 @@ TEST_CASE("Entity empty state", "[entity]")
     REQUIRE_FALSE(car.empty());
   }
 
-  SECTION("Entity2D is empty without history")
+  SECTION("TrafficLight is empty without history")
   {
     world_model::TrafficLight tl;
     REQUIRE(tl.empty());
     REQUIRE(tl.history.empty());
   }
 
-  SECTION("Entity2D is not empty with history")
+  SECTION("TrafficLight is not empty with history")
   {
     world_model::TrafficLight tl;
-    vision_msgs::msg::Detection2D det;
+    vision_msgs::msg::Detection3D det;
     det.id = "1";
     tl.history.push_front(det);
 

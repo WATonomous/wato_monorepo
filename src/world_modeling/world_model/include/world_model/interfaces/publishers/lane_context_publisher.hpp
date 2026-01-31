@@ -39,17 +39,15 @@ class LaneContextPublisher : public InterfaceBase
 {
 public:
   LaneContextPublisher(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame,
-    const std::string & base_frame,
-    double rate_hz)
+    rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer, map_frame, base_frame)
-  , rate_hz_(rate_hz)
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
+    rate_hz_ = node_->declare_parameter<double>("lane_context_publish_rate_hz", 10.0);
+    route_priority_threshold_m_ = node_->declare_parameter<double>("lane_context_route_priority_threshold_m", 10.0);
+    heading_search_radius_m_ = node_->declare_parameter<double>("lane_context_heading_search_radius_m", 15.0);
+
     pub_ = node_->create_publisher<lanelet_msgs::msg::CurrentLaneContext>("lane_context", 10);
   }
 
@@ -85,6 +83,14 @@ private:
     return std::atan2(siny_cosp, cosy_cosp);
   }
 
+  /**
+   * @brief Timer callback that publishes current lane context.
+   *
+   * Looks up ego pose via TF, finds the current lanelet using heading-aligned
+   * search with a BFS hint from the previous tick, and publishes lane context
+   * including distances to upcoming events. Caches the lanelet and rebuilds
+   * the static context only when the current lanelet changes.
+   */
   void publish()
   {
     if (!lanelet_->isMapLoaded()) {
@@ -102,7 +108,8 @@ private:
     double yaw = extractYaw(ego->pose.orientation);
 
     // Use route-aware + heading-aligned lanelet finding (pass cached lanelet as BFS hint)
-    auto current_id = lanelet_->findCurrentLaneletId(*ego_point, yaw, 10.0, 15.0, cached_lanelet_id_);
+    auto current_id = lanelet_->findCurrentLaneletId(
+      *ego_point, yaw, route_priority_threshold_m_, heading_search_radius_m_, cached_lanelet_id_);
     if (!current_id.has_value()) {
       return;
     }
@@ -122,6 +129,14 @@ private:
     pub_->publish(cached_context_);
   }
 
+  /**
+   * @brief Rebuilds the cached lane context for a new lanelet.
+   *
+   * Converts the lanelet to a message and initializes event distances
+   * (traffic light, stop line, intersection, yield) from its regulatory elements.
+   *
+   * @param lanelet The new current lanelet to build context from.
+   */
   void rebuildContext(const lanelet::ConstLanelet & lanelet)
   {
     cached_context_ = lanelet_msgs::msg::CurrentLaneContext();
@@ -133,17 +148,27 @@ private:
     cached_context_.distance_to_stop_line_m = -1.0;
     cached_context_.distance_to_yield_m = -1.0;
 
-    if (cached_context_.current_lanelet.has_traffic_light) {
-      cached_context_.distance_to_traffic_light_m = 0.0;
-    }
-    if (cached_context_.current_lanelet.has_stop_line) {
-      cached_context_.distance_to_stop_line_m = 0.0;
+    for (const auto & reg_elem : cached_context_.current_lanelet.regulatory_elements) {
+      if (reg_elem.subtype == "traffic_light") {
+        cached_context_.distance_to_traffic_light_m = 0.0;
+      }
+      if (!reg_elem.ref_lines.empty()) {
+        cached_context_.distance_to_stop_line_m = 0.0;
+      }
     }
     if (cached_context_.current_lanelet.is_intersection) {
       cached_context_.distance_to_intersection_m = 0.0;
     }
   }
 
+  /**
+   * @brief Updates frame-by-frame dynamic fields in the cached context.
+   *
+   * Sets the message timestamp and computes the distance from ego to the
+   * end of the current lanelet by measuring arc length along the centerline.
+   *
+   * @param ego Current ego pose in the map frame.
+   */
   void updateDynamicContext(const geometry_msgs::msg::PoseStamped & ego)
   {
     cached_context_.header.stamp = node_->get_clock()->now();
@@ -183,6 +208,8 @@ private:
   const LaneletHandler * lanelet_;
   EgoPoseHelper ego_pose_;
   double rate_hz_;
+  double route_priority_threshold_m_;
+  double heading_search_radius_m_;
 
   rclcpp_lifecycle::LifecyclePublisher<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;
