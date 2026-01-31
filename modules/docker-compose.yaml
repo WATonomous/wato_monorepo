@@ -1,5 +1,6 @@
 ---
 services:
+
 #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
     profiles: ["infrastructure_pre"]
@@ -50,7 +51,7 @@ services:
       context: ../watod_scripts/tools/log-viewer
       dockerfile: Dockerfile
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_SOCKET_PATH}:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
 
@@ -80,7 +81,6 @@ services:
       memlock: -1
     ipc: host
     network_mode: host
-    pull_policy: never
     build:
       context: ..
       dockerfile: docker/template.Dockerfile

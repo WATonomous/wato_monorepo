@@ -1,0 +1,85 @@
+# WATCloud networking overlay.
+# Adds a shared network namespace container for rootless Docker environments
+# where network_mode: host is not available.
+#
+# Each service extends from docker-compose.yaml and adds shared networking.
+# Set COMPOSE_EXTEND_FILE=docker-compose.watcloud.yaml to use this as the
+# base for dep/dev/test/bag compose files.
+---
+x-watcloud-network: &watcloud-network
+  network_mode: service:network_namespace
+  depends_on:
+    network_namespace:
+      condition: service_started
+      required: true
+
+services:
+#################### NETWORK NAMESPACE SERVICE ####################
+  network_namespace:
+    image: busybox:latest
+    init: true
+    container_name: watod_network_namespace
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "${FOXGLOVE_BRIDGE_PORT:?}:${FOXGLOVE_BRIDGE_PORT:?}"
+      - "${PYGAME_HUD_PORT:?}:${PYGAME_HUD_PORT:?}"
+
+#################### INFRASTRUCTURE SERVICES ####################
+  log_viewer:
+    extends:
+      file: docker-compose.yaml
+      service: log_viewer
+
+  infrastructure_bringup:
+    extends:
+      file: docker-compose.yaml
+      service: infrastructure_bringup
+    <<: *watcloud-network
+
+#################### INTERFACING SERVICE ####################
+  interfacing_bringup:
+    extends:
+      file: docker-compose.yaml
+      service: interfacing_bringup
+    <<: *watcloud-network
+
+#################### PERCEPTION SERVICE ####################
+  perception_bringup:
+    extends:
+      file: docker-compose.yaml
+      service: perception_bringup
+    <<: *watcloud-network
+
+#################### WORLD MODELING SERVICE ####################
+  world_modeling_bringup:
+    extends:
+      file: docker-compose.yaml
+      service: world_modeling_bringup
+    <<: *watcloud-network
+
+#################### ACTION SERVICE ####################
+  action_bringup:
+    extends:
+      file: docker-compose.yaml
+      service: action_bringup
+    <<: *watcloud-network
+
+#################### SIMULATION SERVICES ####################
+  carla_sim:
+    extends:
+      file: docker-compose.yaml
+      service: carla_sim
+    <<: *watcloud-network
+
+  carla_sim_no_gpu:
+    extends:
+      file: docker-compose.yaml
+      service: carla_sim_no_gpu
+    <<: *watcloud-network
+
+  simulation_bringup:
+    extends:
+      file: docker-compose.yaml
+      service: simulation_bringup
+    <<: *watcloud-network
