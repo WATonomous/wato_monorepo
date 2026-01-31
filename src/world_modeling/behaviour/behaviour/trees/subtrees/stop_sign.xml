@@ -1,0 +1,45 @@
+<root BTCPP_format="4">
+  <BehaviorTree ID="stop_sign">
+    <Sequence name="stop_sign_sequence">
+      <!-- 1. Spawn a virtual wall at the stop line (command=1) -->
+      <SetWall
+          stop_line_id="{active_elem.stop_line_id}"
+          command="1"
+          service_name="set_wall" />
+
+      <!-- 2. Wait until the vehicle has completely stopped (ego_velocity populated by OdometrySubscriber) -->
+      <RetryUntilSuccessful num_attempts="-1">
+        <Comparator left="{ego_velocity}" operator="&lt;=" right="0.1" />
+      </RetryUntilSuccessful>
+
+      <!-- 3. Identify and capture the initial objects on conflicting lanes -->
+      <Sequence name="capture_initial_objects">
+        <GetLaneletsByRegElem
+            id="{active_elem.id}"
+            lanelet_ids="{conflicting_lanelets}"
+            service_name="get_lanelets_by_reg_elem" />
+        <GetObjectsByLanelets
+            lanelet_ids="{conflicting_lanelets}"
+            objects="{initial_objects}" />
+      </Sequence>
+
+      <!-- 4. Wait until all initial objects have cleared the intersection -->
+      <RetryUntilSuccessful num_attempts="-1">
+        <Sequence>
+          <GetObjectsByLanelets
+              lanelet_ids="{conflicting_lanelets}"
+              objects="{current_objects}" />
+          <TurnToGo initial_objects="{initial_objects}" current_objects="{current_objects}" />
+        </Sequence>
+      </RetryUntilSuccessful>
+
+      <!-- 5. Despawn the wall and proceed (command=0) -->
+      <SetWall
+          stop_line_id="{active_elem.stop_line_id}"
+          command="0"
+          service_name="set_wall" />
+
+      <!-- 6. Optional: Wait until we clear the current lanelet to prevent re-triggering -->
+    </Sequence>
+  </BehaviorTree>
+</root>

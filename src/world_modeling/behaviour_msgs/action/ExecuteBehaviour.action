@@ -1,0 +1,9 @@
+# Request
+string behaviour
+---
+# Result
+string success
+string error_message
+---
+# Feedback
+string feedback_message
