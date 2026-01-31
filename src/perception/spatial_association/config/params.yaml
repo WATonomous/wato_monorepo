@@ -1,0 +1,72 @@
+spatial_association:
+  ros__parameters:
+    # subscribers
+
+    camera_info_topic_front_: /CAM_FRONT/camera_info
+    camera_info_topic_right_: /CAM_FRONT_RIGHT/camera_info
+    camera_info_topic_left_: /CAM_FRONT_LEFT/camera_info
+
+    lidar_topic: /LIDAR_TOP
+    non_ground_cloud_topic: /non_ground_cloud
+    detections_topic: /batched_camera_message
+
+    # publishers
+    filtered_lidar_topic: /filtered_lidar
+    cluster_centroid_topic: /cluster_centroid
+    bounding_box_topic: /bounding_box
+    detection_3d_topic: /detection_3d
+    # lidar frames
+    lidar_top_frame: LIDAR_TOP
+
+    #camera detections
+    cam_front_detections: /CAM_FRONT/detections
+    cam_front_right_detections: /CAM_FRONT_RIGHT/detections
+    cam_front_left_detections: /CAM_FRONT_LEFT/detections
+
+    # filtering parameters
+
+    euclid_params:
+      cluster_tolerance: 0.20
+      #This defines the maximum distance between two points for them to be considered part of the same cluster
+      min_cluster_size: 20 # small values create more noise
+      max_cluster_size: 800 # big values slightly slow down performance
+      use_adaptive_clustering: true  # Use larger tolerance for closer points to prevent fragmentation
+      close_threshold: 10.0  # Distance (m) threshold for close objects
+      close_tolerance_mult: 1.5  # Multiplier for close objects (e.g., 1.5x = 0.30m for close objects)
+
+    density_filter_params:
+    # filter out clusters that are too sparse and too far away, on a scale of 0 to 1
+      density_weight: 0.6 # increase to filter out more sparse clusters, least important
+      size_weight: 0.8 # increase to filter out more large clusters, most important
+      distance_weight: 0.4 # increase to filter out more far away clusters, moderately important
+      score_threshold: 0.6 # threshold score for a cluster to be considered as a valid cluster, increase to keep more clusters
+
+    merge_threshold: 0.30
+    # the threshold distance between two clusters centroids for them to be merged into one cluster
+
+    object_detection_confidence: 0.40
+
+    # Voxel downsampling parameter
+    voxel_size: 0.1  # Fixed voxel size (meters) for downsampling
+
+    # Quality filtering parameters (improved physics-based filtering)
+    quality_filter_params:
+      max_distance: 60.0  # Maximum detection distance in meters
+      min_points: 5  # Minimum points for viable object
+      min_height: 0.15  # Minimum height in meters
+      min_points_default: 10  # Default minimum points
+      min_points_far: 8  # Minimum points at far distance (> 30m)
+      min_points_medium: 12  # Minimum points at medium distance (> 20m)
+      min_points_large: 30  # Minimum points for large objects
+      distance_threshold_far: 30.0  # Distance threshold for far objects (m)
+      distance_threshold_medium: 20.0  # Distance threshold for medium objects (m)
+      volume_threshold_large: 8.0  # Volume threshold for large objects (m³)
+      min_density: 5.0  # Minimum point density (points per m³)
+      max_density: 1000.0  # Maximum point density (points per m³)
+      max_dimension: 15.0  # Maximum object dimension in meters
+      max_aspect_ratio: 15.0  # Maximum aspect ratio (length/width or length/height)
+
+    publish_visualization: false
+
+    # Enable verbose point-cloud debug logs
+    debug_logging: false
