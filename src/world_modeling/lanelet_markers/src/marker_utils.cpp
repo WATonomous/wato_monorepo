@@ -369,4 +369,28 @@ visualization_msgs::msg::Marker createTriangleMarker(
   return marker;
 }
 
+visualization_msgs::msg::Marker createCubeMarker(
+  const std::string & ns,
+  int32_t id,
+  const std::string & frame_id,
+  const geometry_msgs::msg::Pose & pose,
+  const geometry_msgs::msg::Vector3 & size,
+  const std_msgs::msg::ColorRGBA & color)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header.frame_id = frame_id;
+  marker.ns = ns;
+  marker.id = id;
+  marker.type = visualization_msgs::msg::Marker::CUBE;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  marker.pose = pose;
+  marker.scale.x = size.x;
+  marker.scale.y = size.y;
+  marker.scale.z = size.z;
+  marker.color = color;
+
+  return marker;
+}
+
 }  // namespace lanelet_markers

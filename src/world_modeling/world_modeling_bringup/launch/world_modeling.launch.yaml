@@ -30,7 +30,22 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
-  # World Model (Lifecycle Node)
+  # Simple Prediction - bridges Detection3DArray to WorldObjectArray
+  - node:
+      pkg: simple_prediction
+      exec: simple_prediction_node
+      name: simple_prediction_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share simple_prediction)/config/params.yaml
+      remap:
+        - from: tracks_3d
+          to: /carla/tracked_detections_3d
+        - from: world_objects
+          to: /world_modeling/world_objects
+
+  # World Model
   - node:
       pkg: world_model
       exec: world_model_node
@@ -41,7 +56,7 @@ launch:
         - from: $(var config_file)
       remap:
         - from: "detections"
-          to: "/carla/tracked_detections_3d"
+          to: "/world_modeling/world_objects"
         - from: "lane_context"
           to: "lanelet/lane_context"
         - from: "map_visualization"
@@ -124,6 +139,35 @@ launch:
         - from: "markers"
           to: "lanelet/lanelet_ahead_markers"
 
+  # World Model Visualization Markers
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: world_objects_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "world_objects"
+          to: "/world_modeling/world_objects"
+        - from: "markers"
+          to: "world_objects_markers"
+
+  - node:
+      pkg: world_model_markers
+      exec: dynamic_objects_markers_node
+      name: dynamic_objects_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "dynamic_objects"
+          to: "dynamic_objects"
+        - from: "markers"
+          to: "dynamic_objects_markers"
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -134,6 +178,7 @@ launch:
       param:
         - name: node_names
           value:
+            - /world_modeling/simple_prediction_node
             - /world_modeling/world_model
             - /world_modeling/map_viz_markers_node
             - /world_modeling/lane_context_markers_node

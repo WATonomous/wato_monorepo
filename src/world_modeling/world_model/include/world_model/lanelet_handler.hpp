@@ -187,6 +187,15 @@ public:
     double radius_m,
     std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
 
+  /**
+   * @brief Find the nearest traffic light regulatory element to a point.
+   *
+   * Iterates all regulatory elements with subtype "traffic_light",
+   * computes distance from their "refers" positions to the query point,
+   * and returns the ID of the closest one.
+   */
+  std::optional<int64_t> findNearestTrafficLightRegElemId(const geometry_msgs::msg::Point & point) const;
+
   // Service implementations
 
   lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const;

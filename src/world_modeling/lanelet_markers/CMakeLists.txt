@@ -120,6 +120,7 @@ target_link_libraries(lanelet_ahead_markers_node
 # Install targets
 install(TARGETS
   marker_utils
+  EXPORT export_marker_utils
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -144,6 +145,15 @@ install(DIRECTORY config/
 
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
+)
+
+ament_export_targets(export_marker_utils)
+ament_export_include_directories(include)
+ament_export_dependencies(
+  rclcpp
+  std_msgs
+  geometry_msgs
+  visualization_msgs
 )
 
 if(BUILD_TESTING)

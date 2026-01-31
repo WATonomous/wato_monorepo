@@ -15,32 +15,39 @@
 #ifndef WORLD_MODEL__TYPES__ENTITY_3D_HPP_
 #define WORLD_MODEL__TYPES__ENTITY_3D_HPP_
 
+#include <cstdint>
 #include <deque>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "prediction_msgs/msg/prediction.hpp"
+#include "world_model_msgs/msg/prediction.hpp"
 #include "rclcpp/time.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
-#include "world_model/types/entity.hpp"
+#include "world_model/types/entity_type.hpp"
 
 namespace world_model
 {
 
 /**
- * @brief Base class for 3D tracked entities (mobile objects).
+ * @brief Base class for all tracked entities.
  *
  * Stores detection history with most recent at front.
- * Can hold predicted future paths from Prediction node.
+ * Can hold predicted future paths and lanelet context.
  */
-class Entity3D : public Entity
+class Entity3D
 {
 public:
+  virtual ~Entity3D() = default;
+  virtual EntityType type() const = 0;
+
+  // Lanelet context (enriched by LaneletEnricher)
+  std::optional<int64_t> lanelet_id;
   // Detection history (front = most recent)
   std::deque<vision_msgs::msg::Detection3D> history;
 
   // Predicted future paths (from Prediction node)
-  std::vector<prediction_msgs::msg::Prediction> predictions;
+  std::vector<world_model_msgs::msg::Prediction> predictions;
 
   bool empty() const
   {
@@ -83,7 +90,16 @@ public:
   }
 };
 
-// 3D Entity Subclasses (extend later if needed)
+// 3D Entity Subclasses
+
+class Unknown : public Entity3D
+{
+public:
+  EntityType type() const override
+  {
+    return EntityType::UNKNOWN;
+  }
+};
 
 class Car : public Entity3D
 {
@@ -127,6 +143,38 @@ public:
   }
 
   // Future: rider count, helmet detection, etc.
+};
+
+// TrafficLight (3D entity with state interpretation)
+
+enum class TrafficLightState : uint8_t
+{
+  UNKNOWN = 0,
+  RED = 1,
+  YELLOW = 2,
+  GREEN = 3
+};
+
+/**
+ * @brief Traffic light entity with state interpretation.
+ *
+ * Extends Entity3D with traffic light specific fields:
+ * interpreted state, confidence, and lanelet regulatory element ID.
+ */
+class TrafficLight : public Entity3D
+{
+public:
+  EntityType type() const override
+  {
+    return EntityType::TRAFFIC_LIGHT;
+  }
+
+  // Interpreted state (parsed from detection.results)
+  TrafficLightState state{TrafficLightState::UNKNOWN};
+  float confidence{0.0f};
+
+  // Lanelet regulatory element ID (links to map)
+  int64_t reg_elem_id{-1};
 };
 
 }  // namespace world_model

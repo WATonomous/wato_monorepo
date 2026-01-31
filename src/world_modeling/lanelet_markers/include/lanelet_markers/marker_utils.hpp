@@ -19,6 +19,8 @@
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/vector3.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
@@ -106,6 +108,15 @@ visualization_msgs::msg::Marker createTriangleMarker(
   const geometry_msgs::msg::Point & position,
   const std_msgs::msg::ColorRGBA & color,
   double size);
+
+/// Creates a CUBE marker with given pose and size (oriented bounding box).
+visualization_msgs::msg::Marker createCubeMarker(
+  const std::string & ns,
+  int32_t id,
+  const std::string & frame_id,
+  const geometry_msgs::msg::Pose & pose,
+  const geometry_msgs::msg::Vector3 & size,
+  const std_msgs::msg::ColorRGBA & color);
 
 }  // namespace lanelet_markers
 

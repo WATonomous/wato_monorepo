@@ -124,3 +124,18 @@
     show_lanelet_ids: false
     show_info: true
     show_boundaries: true
+
+/**/world_objects_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    box_alpha: 0.6
+    label_text_height: 0.5
+    prediction_line_width: 0.08
+
+/**/dynamic_objects_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    box_alpha: 0.6
+    label_text_height: 0.5
+    history_line_width: 0.1
+    prediction_line_width: 0.08

@@ -96,11 +96,14 @@ private:
       area_info.is_occupied = false;
 
       // Check all entity types
+      checkEntitiesInArea<Unknown>(area, world_model_msgs::msg::DynamicObject::TYPE_UNKNOWN, area_info);
       checkEntitiesInArea<Car>(area, world_model_msgs::msg::DynamicObject::TYPE_CAR, area_info);
       checkEntitiesInArea<Human>(area, world_model_msgs::msg::DynamicObject::TYPE_HUMAN, area_info);
       checkEntitiesInArea<Bicycle>(area, world_model_msgs::msg::DynamicObject::TYPE_BICYCLE, area_info);
       checkEntitiesInArea<Motorcycle>(
         area, world_model_msgs::msg::DynamicObject::TYPE_MOTORCYCLE, area_info);
+      checkEntitiesInArea<TrafficLight>(
+        area, world_model_msgs::msg::DynamicObject::TYPE_TRAFFIC_LIGHT, area_info);
 
       msg.areas.push_back(area_info);
     }

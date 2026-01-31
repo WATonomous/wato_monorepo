@@ -79,10 +79,12 @@ private:
     msg.header.frame_id = frame_id_;
 
     // Collect from all entity types
+    collectEntities<Unknown>(world_model_msgs::msg::DynamicObject::TYPE_UNKNOWN, msg.objects);
     collectEntities<Car>(world_model_msgs::msg::DynamicObject::TYPE_CAR, msg.objects);
     collectEntities<Human>(world_model_msgs::msg::DynamicObject::TYPE_HUMAN, msg.objects);
     collectEntities<Bicycle>(world_model_msgs::msg::DynamicObject::TYPE_BICYCLE, msg.objects);
     collectEntities<Motorcycle>(world_model_msgs::msg::DynamicObject::TYPE_MOTORCYCLE, msg.objects);
+    collectEntities<TrafficLight>(world_model_msgs::msg::DynamicObject::TYPE_TRAFFIC_LIGHT, msg.objects);
 
     pub_->publish(msg);
   }

@@ -23,6 +23,7 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
+#include "world_model/world_model_writer.hpp"
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
 #include "world_model/types/detection_area.hpp"
@@ -37,7 +38,8 @@ namespace world_model
  * This is a thin orchestrator that owns:
  * - WorldState (entity storage with concurrency management)
  * - LaneletHandler (map queries)
- * - Interface components (publishers, subscribers, services)
+ * - WorldModelWriter (single inbound subscription)
+ * - Interface components (publishers, services)
  *
  * The node delegates all ROS communication to interface components
  * and all data management to WorldState/LaneletHandler.
@@ -66,7 +68,10 @@ private:
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  // INTERFACE COMPONENTS (owned by node)
+  // SINGLE INBOUND SUBSCRIBER
+  std::unique_ptr<WorldModelWriter> writer_;
+
+  // INTERFACE COMPONENTS
   std::vector<std::unique_ptr<InterfaceBase>> interfaces_;
 
   // FRAMES AND MAP LOADING

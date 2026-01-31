@@ -12,6 +12,7 @@ uint8 TYPE_CAR=1
 uint8 TYPE_HUMAN=2
 uint8 TYPE_BICYCLE=3
 uint8 TYPE_MOTORCYCLE=4
+uint8 TYPE_TRAFFIC_LIGHT=5
 
 uint8 entity_type
 
@@ -29,4 +30,4 @@ builtin_interfaces/Time detection_timestamp
 geometry_msgs/PoseStamped[] history
 
 # Predictions (from prediction node)
-prediction_msgs/Prediction[] predictions
+Prediction[] predictions

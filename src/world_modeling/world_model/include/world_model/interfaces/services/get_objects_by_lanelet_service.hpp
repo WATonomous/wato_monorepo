@@ -68,12 +68,15 @@ private:
     }
 
     // Query all entity buffers
+    collectEntities<Unknown>(request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_UNKNOWN, response->objects);
     collectEntities<Car>(request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_CAR, response->objects);
     collectEntities<Human>(request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_HUMAN, response->objects);
     collectEntities<Bicycle>(
       request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_BICYCLE, response->objects);
     collectEntities<Motorcycle>(
       request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_MOTORCYCLE, response->objects);
+    collectEntities<TrafficLight>(
+      request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_TRAFFIC_LIGHT, response->objects);
 
     response->success = true;
   }

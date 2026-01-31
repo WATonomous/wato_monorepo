@@ -542,6 +542,57 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getReachableLaneletsInRadius(
   return result;
 }
 
+std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(
+  const geometry_msgs::msg::Point & point) const
+{
+  if (!map_) {
+    return std::nullopt;
+  }
+
+  double best_dist_sq = std::numeric_limits<double>::max();
+  std::optional<int64_t> best_id;
+
+  for (const auto & reg_elem : map_->regulatoryElementLayer) {
+    if (!reg_elem->hasAttribute(lanelet::AttributeName::Subtype) ||
+        reg_elem->attribute(lanelet::AttributeName::Subtype).value() != "traffic_light")
+    {
+      continue;
+    }
+
+    // Check linestring-based refers (centroid)
+    for (const auto & ls : reg_elem->getParameters<lanelet::ConstLineString3d>("refers")) {
+      if (ls.empty()) {
+        continue;
+      }
+      double cx = 0, cy = 0;
+      for (const auto & pt : ls) {
+        cx += pt.x();
+        cy += pt.y();
+      }
+      cx /= ls.size();
+      cy /= ls.size();
+      double dx = cx - point.x, dy = cy - point.y;
+      double dist_sq = dx * dx + dy * dy;
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_id = reg_elem->id();
+      }
+    }
+
+    // Check point-based refers
+    for (const auto & pt : reg_elem->getParameters<lanelet::ConstPoint3d>("refers")) {
+      double dx = pt.x() - point.x, dy = pt.y() - point.y;
+      double dist_sq = dx * dx + dy * dy;
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_id = reg_elem->id();
+      }
+    }
+  }
+
+  return best_id;
+}
+
 lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(int64_t reg_elem_id) const
 {
   lanelet_msgs::srv::GetLaneletsByRegElem::Response response;
