@@ -56,7 +56,8 @@ private:
    * @brief Generate constant-velocity predictions for a single detection.
    */
   std::vector<world_model_msgs::msg::Prediction> generatePredictions(
-    const vision_msgs::msg::Detection3D & detection);
+    const vision_msgs::msg::Detection3D & detection,
+    const std::string & frame_id);
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;

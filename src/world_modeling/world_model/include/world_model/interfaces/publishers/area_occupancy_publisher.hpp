@@ -22,6 +22,8 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2_ros/buffer.h"
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/types/detection_area.hpp"
 #include "world_model_msgs/msg/area_occupancy.hpp"
@@ -42,13 +44,15 @@ public:
   AreaOccupancyPublisher(
     rclcpp_lifecycle::LifecycleNode * node,
     const WorldState * world_state,
-    tf2_ros::Buffer * /*tf_buffer*/,
-    const std::string & /*map_frame*/,
+    tf2_ros::Buffer * tf_buffer,
+    const std::string & map_frame,
     const std::string & area_frame,
     double rate_hz,
     std::vector<DetectionArea> areas)
   : node_(node)
   , world_state_(world_state)
+  , tf_buffer_(tf_buffer)
+  , map_frame_(map_frame)
   , area_frame_(area_frame)
   , rate_hz_(rate_hz)
   , areas_(std::move(areas))
@@ -82,6 +86,19 @@ public:
 private:
   void publish()
   {
+    // Cache the map → area_frame transform once per publish cycle
+    if (map_frame_ != area_frame_) {
+      try {
+        cached_tf_ = tf_buffer_->lookupTransform(area_frame_, map_frame_, tf2::TimePointZero);
+        tf_valid_ = true;
+      } catch (const tf2::TransformException &) {
+        tf_valid_ = false;
+        return;
+      }
+    } else {
+      tf_valid_ = true;
+    }
+
     world_model_msgs::msg::AreaOccupancy msg;
     msg.header.stamp = node_->get_clock()->now();
     msg.header.frame_id = area_frame_;
@@ -123,10 +140,20 @@ private:
           return;
         }
 
-        // Entity poses are already in the area frame (base_link) — no transform needed
-        const geometry_msgs::msg::Point & obj_pos = entity.pose().position;
+        // Transform entity pose from map frame to area frame for containment check
+        geometry_msgs::msg::Point area_pos;
+        if (map_frame_ == area_frame_) {
+          area_pos = entity.pose().position;
+        } else {
+          geometry_msgs::msg::PoseStamped pose_in;
+          pose_in.header = entity.detection().header;
+          pose_in.pose = entity.pose();
+          geometry_msgs::msg::PoseStamped pose_out;
+          tf2::doTransform(pose_in, pose_out, cached_tf_);
+          area_pos = pose_out.pose.position;
+        }
 
-        if (area.contains(obj_pos.x, obj_pos.y)) {
+        if (area.contains(area_pos.x, area_pos.y)) {
           area_info.is_occupied = true;
 
           world_model_msgs::msg::DynamicObject obj;
@@ -154,9 +181,14 @@ private:
 
   rclcpp_lifecycle::LifecycleNode * node_;
   WorldStateReader world_state_;
+  tf2_ros::Buffer * tf_buffer_;
+  std::string map_frame_;
   std::string area_frame_;
   double rate_hz_;
   std::vector<DetectionArea> areas_;
+
+  geometry_msgs::msg::TransformStamped cached_tf_;
+  bool tf_valid_{false};
 
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::AreaOccupancy>::SharedPtr pub_;
   rclcpp::CallbackGroup::SharedPtr timer_cb_group_;

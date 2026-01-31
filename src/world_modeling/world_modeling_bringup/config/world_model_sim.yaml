@@ -58,26 +58,26 @@
         type: "circle"
         center_x: 0.0
         center_y: 0.0
-        radius: 15.0
+        radius: 10.0
       front_far:
         type: "circle"
-        center_x: 0.0
+        center_x: 15.0
         center_y: 0.0
-        radius: 50.0
+        radius: 20.0
       left_blind_spot:
         type: "partial_circle"
         center_x: -2.0
         center_y: 2.0
-        radius: 5.0
-        start_angle_deg: 90.0
+        radius: 10.0
+        start_angle_deg: 110.0
         end_angle_deg: 180.0
       right_blind_spot:
         type: "partial_circle"
         center_x: -2.0
         center_y: -2.0
-        radius: 5.0
+        radius: 10.0
         start_angle_deg: 180.0
-        end_angle_deg: 270.0
+        end_angle_deg: 250.0
 
     # LaneletAhead publisher (all lanelets within radius, regardless of route)
     lanelet_ahead_publish_rate_hz: 10.0

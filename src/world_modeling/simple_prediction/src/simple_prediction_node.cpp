@@ -101,10 +101,12 @@ void SimplePredictionNode::trackedObjectsCallback(
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
 
+  const std::string & frame_id = msg->header.frame_id;
+
   for (const auto & detection : msg->detections) {
     world_model_msgs::msg::WorldObject obj;
     obj.detection = detection;
-    obj.predictions = generatePredictions(detection);
+    obj.predictions = generatePredictions(detection, frame_id);
     output.objects.push_back(obj);
   }
 
@@ -112,7 +114,8 @@ void SimplePredictionNode::trackedObjectsCallback(
 }
 
 std::vector<world_model_msgs::msg::Prediction> SimplePredictionNode::generatePredictions(
-  const vision_msgs::msg::Detection3D & detection)
+  const vision_msgs::msg::Detection3D & detection,
+  const std::string & frame_id)
 {
   std::vector<world_model_msgs::msg::Prediction> predictions;
 
@@ -132,12 +135,12 @@ std::vector<world_model_msgs::msg::Prediction> SimplePredictionNode::generatePre
 
   // Single constant-velocity hypothesis (continue straight)
   world_model_msgs::msg::Prediction pred;
-  pred.header.frame_id = "map";
+  pred.header.frame_id = frame_id;
   pred.conf = 1.0;
 
   for (double t = prediction_time_step_; t <= prediction_horizon_; t += prediction_time_step_) {
     geometry_msgs::msg::PoseStamped ps;
-    ps.header.frame_id = "map";
+    ps.header.frame_id = frame_id;
     ps.pose.position.x = x + speed * std::cos(yaw) * t;
     ps.pose.position.y = y + speed * std::sin(yaw) * t;
     ps.pose.position.z = z;

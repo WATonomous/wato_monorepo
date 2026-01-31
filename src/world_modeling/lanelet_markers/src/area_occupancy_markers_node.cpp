@@ -168,8 +168,9 @@ void AreaOccupancyMarkersNode::areaOccupancyCallback(
     // Sphere marker for each dynamic object in this area
     auto object_color = makeColor(1.0f, 0.6f, 0.0f, 0.8f);
     for (const auto & obj : area_info.objects) {
+      std::string obj_frame = obj.header.frame_id.empty() ? frame_id : obj.header.frame_id;
       auto obj_marker = createSphereMarker(
-        "area_objects", marker_id++, frame_id, obj.pose.position, object_color,
+        "area_objects", marker_id++, obj_frame, obj.pose.position, object_color,
         object_marker_radius_);
       obj_marker.header.stamp = stamp;
       marker_array.markers.push_back(obj_marker);

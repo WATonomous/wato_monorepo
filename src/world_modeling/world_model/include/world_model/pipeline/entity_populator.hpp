@@ -43,8 +43,13 @@ public:
     const std_msgs::msg::Header & msg_header)
   {
     for (const auto * obj : objects) {
-      EntityT & entity = upsertBase(map, *obj, msg_header);
-      customize(entity, obj->detection);
+      try {
+        EntityT & entity = upsertBase(map, *obj, msg_header);
+        customize(entity, obj->detection);
+      } catch (const std::exception &) {
+        // Skip detections with non-numeric or empty IDs
+        continue;
+      }
     }
   }
 

@@ -81,7 +81,12 @@ private:
       }
     }
 
-    auto now = clock_->now();
+    // Use the message timestamp for permanence checks instead of the node clock.
+    // This avoids sim-time vs wall-time mismatches that would cause entities to be
+    // instantly pruned when use_sim_time is not configured.
+    auto now = (msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0)
+      ? clock_->now()
+      : rclcpp::Time(msg->header.stamp);
     enricher_.updateTransform(msg->header.frame_id);
 
     runPipeline<Unknown>(unknowns, msg->header, now);
