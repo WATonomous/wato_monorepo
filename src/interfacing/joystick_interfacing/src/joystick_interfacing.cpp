@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 #include <rclcpp_components/register_node_macro.hpp>
 
@@ -36,31 +37,40 @@ void JoystickNode::configure()
   this->declare_parameter<int>("enable_axis");
   this->declare_parameter<int>("toggle_button", 0);
   this->declare_parameter<int>("steering_axis");
-  this->declare_parameter<int>("throttle_axis");
 
-  this->declare_parameter<double>("max_speed", 2.0);
-  this->declare_parameter<double>("max_steering_angle", 0.5);
+  this->declare_parameter<int>("throttle_axis");
+  this->declare_parameter<int>("arming_button", 0);
+
+  this->declare_parameter<double>("ackermann_max_speed", 2.0);
+  this->declare_parameter<double>("ackermann_max_steering_angle", 0.5);
+
+  this->declare_parameter<double>("roscco_max_speed", 1.0);
+  this->declare_parameter<double>("roscco_max_steering_angle", 0.3);
 
   this->declare_parameter<bool>("invert_steering", false);
   this->declare_parameter<bool>("invert_throttle", false);
 
-  this->declare_parameter<double>("vibration_intensity", 0.5);
-  this->declare_parameter<int>("vibration_duration_ms", 100);
+  this->declare_parameter<double>("toggle_vibration_intensity", 0.5);
+  this->declare_parameter<int>("toggle_vibration_duration_ms", 100);
 
   // Read parameters
   enable_axis_ = this->get_parameter("enable_axis").as_int();
   toggle_button_ = this->get_parameter("toggle_button").as_int();
+  arming_button_ = this->get_parameter("arming_button").as_int();
   steering_axis_ = this->get_parameter("steering_axis").as_int();
   throttle_axis_ = this->get_parameter("throttle_axis").as_int();
 
-  max_speed_ = this->get_parameter("max_speed").as_double();
-  max_steering_angle_ = this->get_parameter("max_steering_angle").as_double();
+  ackermann_max_speed_ = this->get_parameter("ackermann_max_speed").as_double();
+  ackermann_max_steering_angle_ = this->get_parameter("ackermann_max_steering_angle").as_double();
+
+  roscco_max_speed_ = this->get_parameter("roscco_max_speed").as_double();
+  roscco_max_steering_angle_ = this->get_parameter("roscco_max_steering_angle").as_double();
 
   invert_steering_ = this->get_parameter("invert_steering").as_bool();
   invert_throttle_ = this->get_parameter("invert_throttle").as_bool();
 
-  vibration_intensity_ = this->get_parameter("vibration_intensity").as_double();
-  vibration_duration_ms_ = this->get_parameter("vibration_duration_ms").as_int();
+  toggle_vibration_intensity_ = this->get_parameter("toggle_vibration_intensity").as_double();
+  toggle_vibration_duration_ms_ = this->get_parameter("toggle_vibration_duration_ms").as_int();
 
   // Setup pubs/subs
   ackermann_drive_stamped_pub_ =
@@ -68,18 +78,29 @@ void JoystickNode::configure()
   roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("/joystick/roscco", rclcpp::QoS(10));
   idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/joystick/is_idle", rclcpp::QoS(10));
   state_pub_ = this->create_publisher<std_msgs::msg::Int8>("/joystick/state", rclcpp::QoS(10));
+
   joy_feedback_pub_ = this->create_publisher<sensor_msgs::msg::JoyFeedback>("/joy/set_feedback", rclcpp::QoS(10));
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
     "/joy", rclcpp::QoS(10), std::bind(&JoystickNode::joy_callback, this, std::placeholders::_1));
 
+  // Arming interface
+  arm_client_ = this->create_client<std_srvs::srv::SetBool>("/oscc_interfacing/arm");
+  is_armed_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "/oscc_interfacing/is_armed",
+    rclcpp::QoS(10),
+    std::bind(&JoystickNode::is_armed_callback, this, std::placeholders::_1));
+
   RCLCPP_INFO(
     this->get_logger(),
-    "Configured: enable_axis=%d steering_axis=%d throttle_axis=%d max_speed=%.3f max_steer=%.3f",
+    "Configured: enable_axis=%d steering_axis=%d throttle_axis=%d ackermann_max_speed=%.3f ackermann_max_steer=%.3f "
+    "roscco_max_speed=%.3f roscco_max_steer=%.3f ",
     enable_axis_,
     steering_axis_,
     throttle_axis_,
-    max_speed_,
-    max_steering_angle_);
+    ackermann_max_speed_,
+    ackermann_max_steering_angle_,
+    roscco_max_speed_,
+    roscco_max_steering_angle_);
 }
 
 double JoystickNode::get_axis(const sensor_msgs::msg::Joy & msg, int axis_index) const
@@ -136,7 +157,12 @@ void JoystickNode::publish_zero_command()
   }
 }
 
-void JoystickNode::vibrate(int count)
+void JoystickNode::is_armed_callback(const std_msgs::msg::Bool::ConstSharedPtr msg)
+{
+  is_armed_ = msg->data;
+}
+
+void JoystickNode::vibrate(int count, int duration_ms)
 {
   if (count <= 0) {
     return;
@@ -144,6 +170,7 @@ void JoystickNode::vibrate(int count)
   if (vibration_timer_) {
     vibration_timer_->cancel();
   }
+  current_vibration_duration_ms_ = duration_ms;
   vibration_pulses_remaining_ = count;
   vibration_on_ = false;  // Start by turning it ON in the callback
   vibration_timer_callback();
@@ -162,11 +189,12 @@ void JoystickNode::vibration_timer_callback()
   if (!vibration_on_) {
     // Turn ON
     vibration_on_ = true;
-    fb.intensity = static_cast<float>(vibration_intensity_);
+    fb.intensity = static_cast<float>(toggle_vibration_intensity_);
     joy_feedback_pub_->publish(fb);
 
     vibration_timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(vibration_duration_ms_), std::bind(&JoystickNode::vibration_timer_callback, this));
+      std::chrono::milliseconds(current_vibration_duration_ms_),
+      std::bind(&JoystickNode::vibration_timer_callback, this));
   } else {
     // Turn OFF
     vibration_on_ = false;
@@ -177,7 +205,8 @@ void JoystickNode::vibration_timer_callback()
     if (vibration_pulses_remaining_ > 0) {
       // Pause between pulses
       vibration_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(vibration_duration_ms_), std::bind(&JoystickNode::vibration_timer_callback, this));
+        std::chrono::milliseconds(current_vibration_duration_ms_),
+        std::bind(&JoystickNode::vibration_timer_callback, this));
     }
   }
 }
@@ -195,9 +224,47 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
       this->get_logger(),
       "Toggled output topic to: %s",
       use_roscco_topic_ ? "/joystick/roscco" : "/joystick/ackermann");
-    vibrate(use_roscco_topic_ ? 2 : 1);
+    vibrate(use_roscco_topic_ ? 2 : 1, toggle_vibration_duration_ms_);
   }
   prev_toggle_button_pressed_ = toggle_button_pressed;
+
+  // Arming logic (rising edge)
+  const bool arming_button_pressed = get_button(*msg, arming_button_);
+  if (arming_button_pressed && !prev_arming_button_pressed_) {
+    if (arm_client_->service_is_ready()) {
+      auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+      // if is_armed_ is true, we want to disarm (false)
+      // if is_armed_ is false, we want to arm (true)
+      const bool target_state = !is_armed_;
+      request->data = target_state;
+
+      RCLCPP_INFO(this->get_logger(), "Requesting arm state: %s", target_state ? "ARM" : "DISARM");
+
+      using ServiceResponseFuture = rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture;
+      auto response_received_callback = [this, target_state](ServiceResponseFuture future) {
+        try {
+          auto result = future.get();
+          if (result->success) {
+            if (target_state) {
+              // Turing ON (Arming) -> Double vibrate
+              vibrate(2, toggle_vibration_duration_ms_);  // Use default duration or maybe shorter? keeping default
+            } else {
+              // Turing OFF (Disarming) -> Long vibrate
+              vibrate(1, 500);  // 500ms long pulse
+            }
+          } else {
+            RCLCPP_WARN(this->get_logger(), "Arming service failed: %s", result->message.c_str());
+          }
+        } catch (const std::exception & e) {
+          RCLCPP_ERROR(this->get_logger(), "Service call failed: %s", e.what());
+        }
+      };
+      arm_client_->async_send_request(request, response_received_callback);
+    } else {
+      RCLCPP_WARN(this->get_logger(), "Arming service not ready!");
+    }
+  }
+  prev_arming_button_pressed_ = arming_button_pressed;
 
   // Safety gating
   // enable must be held
@@ -223,17 +290,20 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
     throttle = -throttle;
   }
 
-  // Scale to physical commands
-  const double steering_angle = std::clamp(steer, -1.0, 1.0) * max_steering_angle_;
-  const double speed = std::clamp(throttle, -1.0, 1.0) * max_speed_;
-
   if (use_roscco_topic_) {
+    // Scale to physical commands
+    const double steering_angle = std::clamp(steer, -1.0, 1.0) * roscco_max_steering_angle_;
+    const double speed = std::clamp(throttle, -1.0, 1.0) * roscco_max_speed_;
+
     roscco_msg::msg::Roscco cmd_stamped;
     cmd_stamped.header.stamp = this->now();
     cmd_stamped.steering = steering_angle;
     cmd_stamped.forward = speed;
     roscco_joystick_pub_->publish(cmd_stamped);
   } else {
+    // Scale to physical commands
+    const double steering_angle = std::clamp(steer, -1.0, 1.0) * ackermann_max_steering_angle_;
+    const double speed = std::clamp(throttle, -1.0, 1.0) * ackermann_max_speed_;
     ackermann_msgs::msg::AckermannDriveStamped cmd_stamped;
     cmd_stamped.header.stamp = this->now();
     cmd_stamped.drive.steering_angle = steering_angle;
