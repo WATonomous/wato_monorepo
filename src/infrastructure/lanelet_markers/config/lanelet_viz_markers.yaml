@@ -31,3 +31,12 @@ route_ahead_markers_node:
     show_lanelet_ids: false
     show_route_info: true
     show_boundaries: true
+
+lanelet_ahead_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    centerline_line_width: 0.4
+    boundary_line_width: 0.15
+    show_lanelet_ids: false
+    show_info: true
+    show_boundaries: true
