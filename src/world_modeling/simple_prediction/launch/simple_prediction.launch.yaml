@@ -15,5 +15,5 @@ launch:
       remap:
         - from: tracks_3d
           to: /carla/tracked_detections_3d
-        - from: world_objects
-          to: /world_modeling/world_objects
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds

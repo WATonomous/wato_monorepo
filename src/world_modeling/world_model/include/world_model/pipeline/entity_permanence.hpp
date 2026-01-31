@@ -38,7 +38,10 @@ public:
   {}
 
   /// @brief Returns the configured entity timeout in seconds.
-  double timeoutSec() const { return timeout_sec_; }
+  double timeoutSec() const
+  {
+    return timeout_sec_;
+  }
 
   /**
    * @brief Trim old history entries and prune stale entities.

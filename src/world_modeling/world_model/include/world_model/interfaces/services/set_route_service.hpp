@@ -36,15 +36,10 @@ namespace world_model
 class SetRouteService : public InterfaceBase
 {
 public:
-  SetRouteService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer)
+  SetRouteService(rclcpp_lifecycle::LifecycleNode * node, LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer,
-              node->get_parameter("map_frame").as_string(),
-              node->get_parameter("base_frame").as_string())
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     srv_ = node_->create_service<lanelet_msgs::srv::SetRoute>(
       "set_route", std::bind(&SetRouteService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));

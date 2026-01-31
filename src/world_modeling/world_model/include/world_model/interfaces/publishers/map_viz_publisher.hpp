@@ -36,14 +36,10 @@ class MapVizPublisher : public InterfaceBase
 {
 public:
   MapVizPublisher(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer)
+    rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer,
-              node->get_parameter("map_frame").as_string(),
-              node->get_parameter("base_frame").as_string())
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     rate_hz_ = node_->declare_parameter<double>("map_viz_publish_rate_hz", 1.0);
     radius_m_ = node_->declare_parameter<double>("map_viz_radius_m", 100.0);

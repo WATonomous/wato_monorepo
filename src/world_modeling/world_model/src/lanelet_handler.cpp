@@ -455,7 +455,9 @@ lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
   const geometry_msgs::msg::Point & current_pos,
   double heading_rad,
   double radius_m,
-  std::optional<int64_t> previous_lanelet_id) const
+  std::optional<int64_t> previous_lanelet_id,
+  double route_priority_threshold_m,
+  double heading_search_radius_m) const
 {
   lanelet_msgs::msg::LaneletAhead msg;
   msg.current_lanelet_id = -1;
@@ -466,7 +468,8 @@ lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
   }
 
   // Find current lanelet using heading-based selection (with BFS hint if available)
-  auto current_id = findCurrentLaneletId(current_pos, heading_rad, 10.0, 15.0, previous_lanelet_id);
+  auto current_id = findCurrentLaneletId(
+    current_pos, heading_rad, route_priority_threshold_m, heading_search_radius_m, previous_lanelet_id);
   if (!current_id.has_value()) {
     return msg;  // Can't determine reachability without a starting point
   }
@@ -542,8 +545,7 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getReachableLaneletsInRadius(
   return result;
 }
 
-std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(
-  const geometry_msgs::msg::Point & point) const
+std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(const geometry_msgs::msg::Point & point) const
 {
   if (!map_) {
     return std::nullopt;
@@ -553,8 +555,9 @@ std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(
   std::optional<int64_t> best_id;
 
   for (const auto & reg_elem : map_->regulatoryElementLayer) {
-    if (!reg_elem->hasAttribute(lanelet::AttributeName::Subtype) ||
-        reg_elem->attribute(lanelet::AttributeName::Subtype).value() != "traffic_light")
+    if (
+      !reg_elem->hasAttribute(lanelet::AttributeName::Subtype) ||
+      reg_elem->attribute(lanelet::AttributeName::Subtype).value() != "traffic_light")
     {
       continue;
     }
@@ -838,8 +841,7 @@ void LaneletHandler::populateLaneletRegulatoryElements(
 
           double proj_x = ax + t * dx;
           double proj_y = ay + t * dy;
-          double dist_sq =
-            (ref_cx - proj_x) * (ref_cx - proj_x) + (ref_cy - proj_y) * (ref_cy - proj_y);
+          double dist_sq = (ref_cx - proj_x) * (ref_cx - proj_x) + (ref_cy - proj_y) * (ref_cy - proj_y);
 
           if (dist_sq < min_dist_sq) {
             min_dist_sq = dist_sq;

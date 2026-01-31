@@ -81,40 +81,30 @@ WorldModelNode::CallbackReturn WorldModelNode::on_configure(const rclcpp_lifecyc
 void WorldModelNode::createInterfaces()
 {
   // Publishers
-  interfaces_.push_back(std::make_unique<LaneContextPublisher>(
-    this, lanelet_handler_.get(), tf_buffer_.get()));
+  interfaces_.push_back(std::make_unique<LaneContextPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(std::make_unique<MapVizPublisher>(
-    this, lanelet_handler_.get(), tf_buffer_.get()));
+  interfaces_.push_back(std::make_unique<MapVizPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(std::make_unique<DynamicObjectsPublisher>(
-    this, world_state_.get()));
+  interfaces_.push_back(std::make_unique<DynamicObjectsPublisher>(this, world_state_.get(), lanelet_handler_.get()));
 
-  interfaces_.push_back(std::make_unique<RouteAheadPublisher>(
-    this, lanelet_handler_.get(), tf_buffer_.get()));
+  interfaces_.push_back(std::make_unique<RouteAheadPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(std::make_unique<AreaOccupancyPublisher>(
-    this, world_state_.get(), tf_buffer_.get()));
+  interfaces_.push_back(
+    std::make_unique<AreaOccupancyPublisher>(this, world_state_.get(), tf_buffer_.get(), lanelet_handler_.get()));
 
-  interfaces_.push_back(std::make_unique<LaneletAheadPublisher>(
-    this, lanelet_handler_.get(), tf_buffer_.get()));
+  interfaces_.push_back(std::make_unique<LaneletAheadPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
   // Services
-  interfaces_.push_back(std::make_unique<SetRouteService>(
-    this, lanelet_handler_.get(), tf_buffer_.get()));
+  interfaces_.push_back(std::make_unique<SetRouteService>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(std::make_unique<ShortestRouteService>(
-    this, lanelet_handler_.get(), tf_buffer_.get()));
+  interfaces_.push_back(std::make_unique<ShortestRouteService>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(std::make_unique<RegElemService>(
-    this, lanelet_handler_.get()));
+  interfaces_.push_back(std::make_unique<RegElemService>(this, lanelet_handler_.get()));
 
-  interfaces_.push_back(std::make_unique<GetObjectsByLaneletService>(
-    this, world_state_.get(), lanelet_handler_.get()));
+  interfaces_.push_back(std::make_unique<GetObjectsByLaneletService>(this, world_state_.get(), lanelet_handler_.get()));
 
   // Single inbound subscriber
-  writer_ = std::make_unique<WorldModelWriter>(
-    this, world_state_.get(), lanelet_handler_.get(), tf_buffer_.get());
+  writer_ = std::make_unique<WorldModelWriter>(this, world_state_.get(), lanelet_handler_.get(), tf_buffer_.get());
 }
 
 WorldModelNode::CallbackReturn WorldModelNode::on_activate(const rclcpp_lifecycle::State & /*state*/)

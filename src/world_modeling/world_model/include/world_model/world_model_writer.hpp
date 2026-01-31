@@ -18,13 +18,13 @@
 #include <string>
 #include <vector>
 
-#include "world_model_msgs/msg/world_object_array.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "world_model/pipeline/entity_permanence.hpp"
 #include "world_model/pipeline/entity_populator.hpp"
 #include "world_model/pipeline/lanelet_enricher.hpp"
 #include "world_model/world_state.hpp"
+#include "world_model_msgs/msg/world_object_array.hpp"
 
 namespace world_model
 {
@@ -49,16 +49,22 @@ public:
   : node_(node)
   , world_state_(world_state)
   , clock_(node->get_clock())
-  , enricher_(lanelet_handler, tf_buffer, node->get_parameter("map_frame").as_string())
+  , enricher_(
+      lanelet_handler,
+      tf_buffer,
+      node->get_parameter("map_frame").as_string(),
+      node->declare_parameter<double>("enricher_route_priority_threshold_m", 10.0),
+      node->declare_parameter<double>("enricher_heading_search_radius_m", 15.0))
   , permanence_(
       node->declare_parameter<double>("entity_history_duration_sec", 5.0),
       node->declare_parameter<double>("entity_prune_timeout_sec", 2.0))
+  , hypothesis_idx_(node->declare_parameter<int64_t>("entity_class_hypothesis_index", 0))
   , cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant))
   {
     rclcpp::SubscriptionOptions opts;
     opts.callback_group = cb_group_;
     sub_ = node_->create_subscription<world_model_msgs::msg::WorldObjectArray>(
-      "detections", 10, std::bind(&WorldModelWriter::onMessage, this, std::placeholders::_1), opts);
+      "world_object_seeds", 10, std::bind(&WorldModelWriter::onMessage, this, std::placeholders::_1), opts);
   }
 
 private:
@@ -79,21 +85,32 @@ private:
 
     for (const auto & obj : msg->objects) {
       switch (classify(obj.detection)) {
-        case EntityType::UNKNOWN:        unknowns.push_back(&obj); break;
-        case EntityType::CAR:            cars.push_back(&obj); break;
-        case EntityType::HUMAN:          humans.push_back(&obj); break;
-        case EntityType::BICYCLE:        bicycles.push_back(&obj); break;
-        case EntityType::MOTORCYCLE:     motorcycles.push_back(&obj); break;
-        case EntityType::TRAFFIC_LIGHT:  traffic_lights.push_back(&obj); break;
+        case EntityType::UNKNOWN:
+          unknowns.push_back(&obj);
+          break;
+        case EntityType::CAR:
+          cars.push_back(&obj);
+          break;
+        case EntityType::HUMAN:
+          humans.push_back(&obj);
+          break;
+        case EntityType::BICYCLE:
+          bicycles.push_back(&obj);
+          break;
+        case EntityType::MOTORCYCLE:
+          motorcycles.push_back(&obj);
+          break;
+        case EntityType::TRAFFIC_LIGHT:
+          traffic_lights.push_back(&obj);
+          break;
       }
     }
 
     // Use the message timestamp for permanence checks instead of the node clock.
     // This avoids sim-time vs wall-time mismatches that would cause entities to be
     // instantly pruned when use_sim_time is not configured.
-    auto now = (msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0)
-      ? clock_->now()
-      : rclcpp::Time(msg->header.stamp);
+    auto now =
+      (msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0) ? clock_->now() : rclcpp::Time(msg->header.stamp);
     enricher_.updateTransform(msg->header.frame_id);
 
     runPipeline<Unknown>(unknowns, msg->header, now);
@@ -112,10 +129,7 @@ private:
    * is already empty (nothing to prune).
    */
   template <typename EntityT>
-  void runPipeline(
-    const ObjectPtrs & objects,
-    const std_msgs::msg::Header & msg_header,
-    const rclcpp::Time & now)
+  void runPipeline(const ObjectPtrs & objects, const std_msgs::msg::Header & msg_header, const rclcpp::Time & now)
   {
     auto & buffer = world_state_.buffer<EntityT>();
 
@@ -126,9 +140,7 @@ private:
         permanence_.apply(map, now);
       });
     } else if (!buffer.empty()) {
-      buffer.batch([&](std::unordered_map<int64_t, EntityT> & map) {
-        permanence_.apply(map, now);
-      });
+      buffer.batch([&](std::unordered_map<int64_t, EntityT> & map) { permanence_.apply(map, now); });
     }
   }
 
@@ -141,13 +153,13 @@ private:
    * @param det Detection containing classification results.
    * @return Corresponding EntityType for the detection's class ID.
    */
-  static EntityType classify(const vision_msgs::msg::Detection3D & det)
+  EntityType classify(const vision_msgs::msg::Detection3D & det) const
   {
-    if (det.results.empty()) {
+    if (det.results.empty() || static_cast<size_t>(hypothesis_idx_) >= det.results.size()) {
       return EntityType::UNKNOWN;
     }
 
-    const std::string & class_id = det.results[0].hypothesis.class_id;
+    const std::string & class_id = det.results[hypothesis_idx_].hypothesis.class_id;
 
     if (class_id == "car" || class_id == "vehicle" || class_id == "truck") {
       return EntityType::CAR;
@@ -172,6 +184,7 @@ private:
   EntityPopulator populator_;
   LaneletEnricher enricher_;
   EntityPermanence permanence_;
+  int64_t hypothesis_idx_;
 
   rclcpp::CallbackGroup::SharedPtr cb_group_;
   rclcpp::Subscription<world_model_msgs::msg::WorldObjectArray>::SharedPtr sub_;

@@ -15,6 +15,9 @@
 #include "simple_prediction/simple_prediction_node.hpp"
 
 #include <cmath>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace simple_prediction
 {
@@ -28,31 +31,25 @@ SimplePredictionNode::SimplePredictionNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "SimplePredictionNode created (unconfigured)");
 }
 
-SimplePredictionNode::CallbackReturn SimplePredictionNode::on_configure(
-  const rclcpp_lifecycle::State & /*state*/)
+SimplePredictionNode::CallbackReturn SimplePredictionNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Configuring...");
 
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
 
-  world_objects_pub_ =
-    this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_objects", 10);
+  world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
-  RCLCPP_INFO(
-    this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs)",
-    prediction_horizon_, prediction_time_step_);
+  RCLCPP_INFO(this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs)", prediction_horizon_, prediction_time_step_);
   return CallbackReturn::SUCCESS;
 }
 
-SimplePredictionNode::CallbackReturn SimplePredictionNode::on_activate(
-  const rclcpp_lifecycle::State & /*state*/)
+SimplePredictionNode::CallbackReturn SimplePredictionNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Activating...");
 
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    "tracks_3d", 10,
-    std::bind(&SimplePredictionNode::trackedObjectsCallback, this, std::placeholders::_1));
+    "tracks_3d", 10, std::bind(&SimplePredictionNode::trackedObjectsCallback, this, std::placeholders::_1));
 
   world_objects_pub_->on_activate();
 
@@ -60,8 +57,7 @@ SimplePredictionNode::CallbackReturn SimplePredictionNode::on_activate(
   return CallbackReturn::SUCCESS;
 }
 
-SimplePredictionNode::CallbackReturn SimplePredictionNode::on_deactivate(
-  const rclcpp_lifecycle::State & /*state*/)
+SimplePredictionNode::CallbackReturn SimplePredictionNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating...");
 
@@ -72,8 +68,7 @@ SimplePredictionNode::CallbackReturn SimplePredictionNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-SimplePredictionNode::CallbackReturn SimplePredictionNode::on_cleanup(
-  const rclcpp_lifecycle::State & /*state*/)
+SimplePredictionNode::CallbackReturn SimplePredictionNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up...");
 
@@ -84,8 +79,7 @@ SimplePredictionNode::CallbackReturn SimplePredictionNode::on_cleanup(
   return CallbackReturn::SUCCESS;
 }
 
-SimplePredictionNode::CallbackReturn SimplePredictionNode::on_shutdown(
-  const rclcpp_lifecycle::State & /*state*/)
+SimplePredictionNode::CallbackReturn SimplePredictionNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down...");
 
@@ -95,8 +89,7 @@ SimplePredictionNode::CallbackReturn SimplePredictionNode::on_shutdown(
   return CallbackReturn::SUCCESS;
 }
 
-void SimplePredictionNode::trackedObjectsCallback(
-  const vision_msgs::msg::Detection3DArray::SharedPtr msg)
+void SimplePredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
@@ -114,8 +107,7 @@ void SimplePredictionNode::trackedObjectsCallback(
 }
 
 std::vector<world_model_msgs::msg::Prediction> SimplePredictionNode::generatePredictions(
-  const vision_msgs::msg::Detection3D & detection,
-  const std::string & frame_id)
+  const vision_msgs::msg::Detection3D & detection, const std::string & frame_id)
 {
   std::vector<world_model_msgs::msg::Prediction> predictions;
 

@@ -42,8 +42,8 @@ launch:
       remap:
         - from: tracks_3d
           to: /carla/tracked_detections_3d
-        - from: world_objects
-          to: /world_modeling/world_objects
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
 
   # World Model
   - node:
@@ -55,8 +55,8 @@ launch:
       param:
         - from: $(var config_file)
       remap:
-        - from: "detections"
-          to: "/world_modeling/world_objects"
+        - from: "world_object_seeds"
+          to: "/world_modeling/world_object_seeds"
         - from: "lane_context"
           to: "lanelet/lane_context"
         - from: "map_visualization"
@@ -140,6 +140,22 @@ launch:
           to: "lanelet/lanelet_ahead_markers"
 
   # World Model Visualization Markers
+  # Pre-enrichment: subscribes to world_object_seeds (from simple_prediction)
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: world_objects_markers_seed_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "world_objects"
+          to: "/world_modeling/world_object_seeds"
+        - from: "markers"
+          to: "world_objects_markers"
+
+  # Post-enrichment: subscribes to world_objects (from world model)
   - node:
       pkg: world_model_markers
       exec: world_objects_markers_node
@@ -151,20 +167,6 @@ launch:
       remap:
         - from: "world_objects"
           to: "/world_modeling/world_objects"
-        - from: "markers"
-          to: "world_objects_markers"
-
-  - node:
-      pkg: world_model_markers
-      exec: dynamic_objects_markers_node
-      name: dynamic_objects_markers_node
-      namespace: "world_modeling"
-      output: screen
-      param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
-      remap:
-        - from: "dynamic_objects"
-          to: "dynamic_objects"
         - from: "markers"
           to: "dynamic_objects_markers"
 

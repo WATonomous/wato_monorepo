@@ -46,10 +46,14 @@ public:
   LaneletEnricher(
     const LaneletHandler * lanelet_handler,
     tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame)
+    const std::string & map_frame,
+    double route_priority_threshold_m = 10.0,
+    double heading_search_radius_m = 15.0)
   : lanelet_(lanelet_handler)
   , tf_buffer_(tf_buffer)
   , map_frame_(map_frame)
+  , route_priority_threshold_m_(route_priority_threshold_m)
+  , heading_search_radius_m_(heading_search_radius_m)
   {}
 
   /**
@@ -100,9 +104,13 @@ public:
 
 private:
   /// @brief No enrichment for Unknown entities.
-  void enrich(Unknown & /*entity*/) {}
+  void enrich(Unknown & /*entity*/)
+  {}
+
   /// @brief No enrichment for Human entities.
-  void enrich(Human & /*entity*/) {}
+  void enrich(Human & /*entity*/)
+  {}
+
   /**
    * @brief TrafficLight: match to nearest traffic light regulatory element.
    */
@@ -122,11 +130,22 @@ private:
    * lane assignment is stable across frames, especially at intersections.
    */
   /// @brief Vehicles use tracked lane finding with BFS hint.
-  void enrich(Car & entity) { enrichTracked(entity); }
+  void enrich(Car & entity)
+  {
+    enrichTracked(entity);
+  }
+
   /// @copydoc enrich(Car&)
-  void enrich(Bicycle & entity) { enrichTracked(entity); }
+  void enrich(Bicycle & entity)
+  {
+    enrichTracked(entity);
+  }
+
   /// @copydoc enrich(Car&)
-  void enrich(Motorcycle & entity) { enrichTracked(entity); }
+  void enrich(Motorcycle & entity)
+  {
+    enrichTracked(entity);
+  }
 
   /**
    * @brief Tracked lane finding for vehicle-type entities.
@@ -144,7 +163,7 @@ private:
     auto map_pose = toMapFrame(entity);
     double yaw = extractYaw(map_pose.pose.orientation);
     entity.lanelet_id = lanelet_->findCurrentLaneletId(
-      map_pose.pose.position, yaw, 10.0, 15.0, entity.lanelet_id);
+      map_pose.pose.position, yaw, route_priority_threshold_m_, heading_search_radius_m_, entity.lanelet_id);
   }
 
   /**
@@ -183,6 +202,8 @@ private:
   const LaneletHandler * lanelet_;
   tf2_ros::Buffer * tf_buffer_;
   std::string map_frame_;
+  double route_priority_threshold_m_;
+  double heading_search_radius_m_;
 
   geometry_msgs::msg::TransformStamped cached_tf_;
   bool tf_valid_{false};

@@ -274,8 +274,8 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
       if (show_traffic_lights_ && reg_elem.subtype == "traffic_light") {
         for (const auto & position : reg_elem.refers_positions) {
           auto tl_color = makeColor(1.0f, 1.0f, 0.0f);  // Yellow
-          auto tl_marker = createSphereMarker(
-            "traffic_lights", marker_id++, frame_id_, position, tl_color, traffic_light_radius_);
+          auto tl_marker =
+            createSphereMarker("traffic_lights", marker_id++, frame_id_, position, tl_color, traffic_light_radius_);
           tl_marker.header.stamp = stamp;
           marker_array.markers.push_back(tl_marker);
         }

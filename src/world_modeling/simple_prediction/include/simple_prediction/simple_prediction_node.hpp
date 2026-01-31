@@ -16,6 +16,7 @@
 #define SIMPLE_PREDICTION__SIMPLE_PREDICTION_NODE_HPP_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -43,10 +44,15 @@ public:
 protected:
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
+  /// Read parameters and create publisher.
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  /// Create subscription and activate publisher.
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  /// Reset subscription and deactivate publisher.
   CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  /// Release all resources.
   CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  /// Release all resources (terminal state).
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
@@ -62,21 +68,27 @@ private:
 
   /**
    * @brief Generate constant-velocity predictions for a single detection.
+   *
+   * Extracts position and heading from the detection, estimates speed from
+   * bounding-box length, and propagates a straight-line trajectory at fixed
+   * time steps up to the prediction horizon.
+   *
+   * @param detection 3D detection with pose and bounding box.
+   * @param frame_id Coordinate frame for the predicted poses.
+   * @return Single-hypothesis prediction trajectory.
    */
   std::vector<world_model_msgs::msg::Prediction> generatePredictions(
-    const vision_msgs::msg::Detection3D & detection,
-    const std::string & frame_id);
+    const vision_msgs::msg::Detection3D & detection, const std::string & frame_id);
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
 
   // Publisher
-  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr
-    world_objects_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
 
   // Parameters
-  double prediction_horizon_;   // seconds
-  double prediction_time_step_; // seconds
+  double prediction_horizon_;  // seconds
+  double prediction_time_step_;  // seconds
 };
 
 }  // namespace simple_prediction

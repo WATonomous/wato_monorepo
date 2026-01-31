@@ -43,8 +43,7 @@ class EntityBuffer
 public:
   EntityBuffer()
   : data_(std::make_shared<const Map>())
-  {
-  }
+  {}
 
   /**
    * @brief Insert or replace an entity by its ID.

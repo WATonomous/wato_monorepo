@@ -26,6 +26,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(lanelet_markers REQUIRED)
+find_package(lanelet_msgs REQUIRED)
 
 # WorldObjectsMarkersNode executable
 add_executable(world_objects_markers_node
@@ -41,27 +42,12 @@ target_link_libraries(world_objects_markers_node
     ${visualization_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${world_model_msgs_TARGETS}
-)
-
-# DynamicObjectsMarkersNode executable
-add_executable(dynamic_objects_markers_node
-  src/dynamic_objects_markers_node.cpp
-)
-target_include_directories(dynamic_objects_markers_node PRIVATE include)
-target_link_libraries(dynamic_objects_markers_node
-  PRIVATE
-    lanelet_markers::marker_utils
-    rclcpp::rclcpp
-    ${std_msgs_TARGETS}
-    ${geometry_msgs_TARGETS}
-    ${visualization_msgs_TARGETS}
-    ${world_model_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
 )
 
 # Install targets
 install(TARGETS
   world_objects_markers_node
-  dynamic_objects_markers_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

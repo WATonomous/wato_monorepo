@@ -207,13 +207,17 @@ public:
    * @param heading_rad Current ego heading (yaw) in radians for current lanelet detection
    * @param radius_m Radius bound for BFS expansion
    * @param previous_lanelet_id Optional hint: last known lanelet for BFS neighbor search
+   * @param route_priority_threshold_m Max distance to prefer a route lanelet
+   * @param heading_search_radius_m Radius to search for heading-aligned lanelets
    * @return LaneletAhead message with reachable lanelets within radius
    */
   lanelet_msgs::msg::LaneletAhead getLaneletAhead(
     const geometry_msgs::msg::Point & current_pos,
     double heading_rad,
     double radius_m,
-    std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
+    std::optional<int64_t> previous_lanelet_id = std::nullopt,
+    double route_priority_threshold_m = 10.0,
+    double heading_search_radius_m = 15.0) const;
 
   /**
    * @brief Find the nearest traffic light regulatory element to a point.

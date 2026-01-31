@@ -16,6 +16,7 @@
   <depend>vision_msgs</depend>
   <depend>world_model_msgs</depend>
   <depend>lanelet_markers</depend>
+  <depend>lanelet_msgs</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

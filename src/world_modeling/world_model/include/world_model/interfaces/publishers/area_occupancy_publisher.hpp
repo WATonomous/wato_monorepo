@@ -26,9 +26,10 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/buffer.h"
 #include "world_model/interfaces/interface_base.hpp"
+#include "world_model/lanelet_handler.hpp"
 #include "world_model/types/detection_area.hpp"
 #include "world_model_msgs/msg/area_occupancy.hpp"
-#include "world_model_msgs/msg/dynamic_object.hpp"
+#include "world_model_msgs/msg/world_object.hpp"
 
 namespace world_model
 {
@@ -45,15 +46,18 @@ public:
   AreaOccupancyPublisher(
     rclcpp_lifecycle::LifecycleNode * node,
     const WorldState * world_state,
-    tf2_ros::Buffer * tf_buffer)
+    tf2_ros::Buffer * tf_buffer,
+    const LaneletHandler * lanelet_handler)
   : node_(node)
   , world_state_(world_state)
   , tf_buffer_(tf_buffer)
+  , lanelet_handler_(lanelet_handler)
   , timer_cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
   {
     map_frame_ = node_->get_parameter("map_frame").as_string();
     area_frame_ = node_->declare_parameter<std::string>("area_occupancy_frame", "base_link");
     rate_hz_ = node_->declare_parameter<double>("area_occupancy_publish_rate_hz", 20.0);
+    radius_m_ = node_->declare_parameter<double>("area_occupancy_lanelet_ahead_radius_m", 30.0);
     areas_ = parseOccupancyAreas();
 
     pub_ = node_->create_publisher<world_model_msgs::msg::AreaOccupancy>("area_occupancy", 10);
@@ -82,6 +86,11 @@ public:
   }
 
 private:
+  static double extractYaw(const geometry_msgs::msg::Quaternion & q)
+  {
+    return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  }
+
   /**
    * @brief Timer callback that evaluates all detection areas and publishes occupancy.
    *
@@ -117,14 +126,12 @@ private:
       area_info.is_occupied = false;
 
       // Check all entity types
-      checkEntitiesInArea<Unknown>(area, world_model_msgs::msg::DynamicObject::TYPE_UNKNOWN, area_info);
-      checkEntitiesInArea<Car>(area, world_model_msgs::msg::DynamicObject::TYPE_CAR, area_info);
-      checkEntitiesInArea<Human>(area, world_model_msgs::msg::DynamicObject::TYPE_HUMAN, area_info);
-      checkEntitiesInArea<Bicycle>(area, world_model_msgs::msg::DynamicObject::TYPE_BICYCLE, area_info);
-      checkEntitiesInArea<Motorcycle>(
-        area, world_model_msgs::msg::DynamicObject::TYPE_MOTORCYCLE, area_info);
-      checkEntitiesInArea<TrafficLight>(
-        area, world_model_msgs::msg::DynamicObject::TYPE_TRAFFIC_LIGHT, area_info);
+      checkEntitiesInArea<Unknown>(area, area_info);
+      checkEntitiesInArea<Car>(area, area_info);
+      checkEntitiesInArea<Human>(area, area_info);
+      checkEntitiesInArea<Bicycle>(area, area_info);
+      checkEntitiesInArea<Motorcycle>(area, area_info);
+      checkEntitiesInArea<TrafficLight>(area, area_info);
 
       msg.areas.push_back(area_info);
     }
@@ -141,66 +148,62 @@ private:
    *
    * @tparam EntityType Entity class (e.g. Car, Human, Bicycle).
    * @param area Detection area to test against.
-   * @param entity_type DynamicObject type constant for the output message.
    * @param area_info Output area info to populate with matching objects.
    */
   template <typename EntityType>
-  void checkEntitiesInArea(
-    const DetectionArea & area,
-    uint8_t entity_type,
-    world_model_msgs::msg::AreaOccupancyInfo & area_info)
+  void checkEntitiesInArea(const DetectionArea & area, world_model_msgs::msg::AreaOccupancyInfo & area_info)
   {
-    world_state_.buffer<EntityType>().forEachConst(
-      [&](const EntityType & entity) {
-        if (entity.empty()) {
-          return;
+    world_state_.buffer<EntityType>().forEachConst([&](const EntityType & entity) {
+      if (entity.empty()) {
+        return;
+      }
+
+      // Transform entity pose from map frame to area frame for containment check
+      geometry_msgs::msg::Point area_pos;
+      if (map_frame_ == area_frame_) {
+        area_pos = entity.pose().position;
+      } else {
+        geometry_msgs::msg::PoseStamped pose_in;
+        pose_in.header = entity.detection().header;
+        pose_in.pose = entity.pose();
+        geometry_msgs::msg::PoseStamped pose_out;
+        tf2::doTransform(pose_in, pose_out, cached_tf_);
+        area_pos = pose_out.pose.position;
+      }
+
+      if (area.contains(area_pos.x, area_pos.y)) {
+        area_info.is_occupied = true;
+
+        world_model_msgs::msg::WorldObject obj;
+        obj.header.stamp = node_->get_clock()->now();
+        obj.header.frame_id = entity.frameId();
+        obj.detection = entity.detection();
+        obj.predictions = entity.predictions;
+
+        // Populate lanelet_ahead from entity's cached lanelet_id
+        if (entity.lanelet_id.has_value()) {
+          double heading = extractYaw(entity.pose().orientation);
+          obj.lanelet_ahead =
+            lanelet_handler_->getLaneletAhead(entity.pose().position, heading, radius_m_, entity.lanelet_id);
         }
 
-        // Transform entity pose from map frame to area frame for containment check
-        geometry_msgs::msg::Point area_pos;
-        if (map_frame_ == area_frame_) {
-          area_pos = entity.pose().position;
-        } else {
-          geometry_msgs::msg::PoseStamped pose_in;
-          pose_in.header = entity.detection().header;
-          pose_in.pose = entity.pose();
-          geometry_msgs::msg::PoseStamped pose_out;
-          tf2::doTransform(pose_in, pose_out, cached_tf_);
-          area_pos = pose_out.pose.position;
+        for (const auto & det : entity.history) {
+          geometry_msgs::msg::PoseStamped pose_stamped;
+          pose_stamped.header = det.header;
+          pose_stamped.pose = det.bbox.center;
+          obj.history.push_back(pose_stamped);
         }
 
-        if (area.contains(area_pos.x, area_pos.y)) {
-          area_info.is_occupied = true;
-
-          world_model_msgs::msg::DynamicObject obj;
-          obj.header.stamp = node_->get_clock()->now();
-          obj.header.frame_id = entity.frameId();
-          obj.id = entity.id();
-          obj.entity_type = entity_type;
-          obj.pose = entity.pose();
-          obj.size = entity.size();
-          obj.lanelet_id = entity.lanelet_id.value_or(-1);
-          obj.detection_timestamp = entity.detection().header.stamp;
-          obj.predictions = entity.predictions;
-
-          for (const auto & det : entity.history) {
-            geometry_msgs::msg::PoseStamped pose_stamped;
-            pose_stamped.header = det.header;
-            pose_stamped.pose = det.bbox.center;
-            obj.history.push_back(pose_stamped);
-          }
-
-          area_info.objects.push_back(obj);
-        }
-      });
+        area_info.objects.push_back(obj);
+      }
+    });
   }
 
   std::vector<DetectionArea> parseOccupancyAreas()
   {
     std::vector<DetectionArea> areas;
 
-    auto area_names = node_->declare_parameter<std::vector<std::string>>(
-      "occupancy_areas", std::vector<std::string>{});
+    auto area_names = node_->declare_parameter<std::vector<std::string>>("occupancy_areas", std::vector<std::string>{});
 
     for (const auto & area_name : area_names) {
       std::string prefix = "occupancy_area." + area_name + ".";
@@ -253,9 +256,11 @@ private:
   rclcpp_lifecycle::LifecycleNode * node_;
   WorldStateReader world_state_;
   tf2_ros::Buffer * tf_buffer_;
+  const LaneletHandler * lanelet_handler_;
   std::string map_frame_;
   std::string area_frame_;
   double rate_hz_;
+  double radius_m_;
   std::vector<DetectionArea> areas_;
 
   geometry_msgs::msg::TransformStamped cached_tf_;

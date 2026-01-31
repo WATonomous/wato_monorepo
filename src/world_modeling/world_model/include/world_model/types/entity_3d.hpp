@@ -21,10 +21,10 @@
 #include <string>
 #include <vector>
 
-#include "world_model_msgs/msg/prediction.hpp"
 #include "rclcpp/time.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 #include "world_model/types/entity_type.hpp"
+#include "world_model_msgs/msg/prediction.hpp"
 
 namespace world_model
 {

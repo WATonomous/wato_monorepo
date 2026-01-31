@@ -15,55 +15,62 @@
 #ifndef WORLD_MODEL__INTERFACES__SERVICES__GET_OBJECTS_BY_LANELET_SERVICE_HPP_
 #define WORLD_MODEL__INTERFACES__SERVICES__GET_OBJECTS_BY_LANELET_SERVICE_HPP_
 
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "world_model/interfaces/interface_base.hpp"
-#include "world_model_msgs/msg/dynamic_object.hpp"
-#include "world_model_msgs/srv/get_dynamic_objects_by_lanelet.hpp"
+#include "world_model/lanelet_handler.hpp"
+#include "world_model_msgs/msg/world_object.hpp"
+#include "world_model_msgs/srv/get_objects_by_lanelet.hpp"
 
 namespace world_model
 {
 
 /**
- * @brief Service to get dynamic objects by lanelet ID.
+ * @brief Service to get objects by lanelet ID.
  *
- * Queries all entity buffers (Car, Human, Bicycle, Motorcycle)
+ * Queries all entity buffers (Car, Human, Bicycle, Motorcycle, etc.)
  * and returns objects currently on the specified lanelet.
  */
 class GetObjectsByLaneletService : public InterfaceBase
 {
 public:
   GetObjectsByLaneletService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const WorldState * world_state,
-    const LaneletHandler * lanelet_handler)
+    rclcpp_lifecycle::LifecycleNode * node, const WorldState * world_state, const LaneletHandler * lanelet_handler)
   : node_(node)
   , world_state_(world_state)
   , lanelet_(lanelet_handler)
   , frame_id_(node->get_parameter("map_frame").as_string())
+  , radius_m_(node->declare_parameter<double>("get_objects_lanelet_ahead_radius_m", 30.0))
   {
-    srv_ = node_->create_service<world_model_msgs::srv::GetDynamicObjectsByLanelet>(
+    srv_ = node_->create_service<world_model_msgs::srv::GetObjectsByLanelet>(
       "get_objects_by_lanelet",
       std::bind(&GetObjectsByLaneletService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
+  static double extractYaw(const geometry_msgs::msg::Quaternion & q)
+  {
+    return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  }
+
   /**
-   * @brief Handles a GetDynamicObjectsByLanelet service request.
+   * @brief Handles a GetObjectsByLanelet service request.
    *
    * Validates the lanelet ID exists on the map, then queries all entity type
    * buffers for objects whose lanelet_id matches the requested ID.
    *
    * @param request Contains the lanelet_id to query.
-   * @param response Populated with matching DynamicObject messages and success flag.
+   * @param response Populated with matching WorldObject messages and success flag.
    */
   void handleRequest(
-    world_model_msgs::srv::GetDynamicObjectsByLanelet::Request::ConstSharedPtr request,
-    world_model_msgs::srv::GetDynamicObjectsByLanelet::Response::SharedPtr response)
+    world_model_msgs::srv::GetObjectsByLanelet::Request::ConstSharedPtr request,
+    world_model_msgs::srv::GetObjectsByLanelet::Response::SharedPtr response)
   {
     // Validate lanelet exists
     if (lanelet_->isMapLoaded()) {
@@ -76,15 +83,12 @@ private:
     }
 
     // Query all entity buffers
-    collectEntities<Unknown>(request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_UNKNOWN, response->objects);
-    collectEntities<Car>(request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_CAR, response->objects);
-    collectEntities<Human>(request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_HUMAN, response->objects);
-    collectEntities<Bicycle>(
-      request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_BICYCLE, response->objects);
-    collectEntities<Motorcycle>(
-      request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_MOTORCYCLE, response->objects);
-    collectEntities<TrafficLight>(
-      request->lanelet_id, world_model_msgs::msg::DynamicObject::TYPE_TRAFFIC_LIGHT, response->objects);
+    collectEntities<Unknown>(request->lanelet_id, response->objects);
+    collectEntities<Car>(request->lanelet_id, response->objects);
+    collectEntities<Human>(request->lanelet_id, response->objects);
+    collectEntities<Bicycle>(request->lanelet_id, response->objects);
+    collectEntities<Motorcycle>(request->lanelet_id, response->objects);
+    collectEntities<TrafficLight>(request->lanelet_id, response->objects);
 
     response->success = true;
   }
@@ -94,12 +98,10 @@ private:
    *
    * @tparam EntityType Entity class to query (e.g. Car, Human).
    * @param lanelet_id Lanelet ID to filter entities by.
-   * @param entity_type DynamicObject type constant for the output message.
-   * @param objects Output vector to append matching DynamicObject messages to.
+   * @param objects Output vector to append matching WorldObject messages to.
    */
   template <typename EntityType>
-  void collectEntities(
-    int64_t lanelet_id, uint8_t entity_type, std::vector<world_model_msgs::msg::DynamicObject> & objects)
+  void collectEntities(int64_t lanelet_id, std::vector<world_model_msgs::msg::WorldObject> & objects)
   {
     auto entities = world_state_.buffer<EntityType>().getByLanelet(lanelet_id);
     for (const auto & entity : entities) {
@@ -107,16 +109,17 @@ private:
         continue;
       }
 
-      world_model_msgs::msg::DynamicObject obj;
+      world_model_msgs::msg::WorldObject obj;
       obj.header.stamp = node_->get_clock()->now();
       obj.header.frame_id = entity.frameId();
-      obj.id = entity.id();
-      obj.entity_type = entity_type;
-      obj.pose = entity.pose();
-      obj.size = entity.size();
-      obj.lanelet_id = entity.lanelet_id.value_or(-1);
-      obj.detection_timestamp = entity.detection().header.stamp;
+      obj.detection = entity.detection();
       obj.predictions = entity.predictions;
+
+      // Populate lanelet_ahead from entity's cached lanelet_id
+      if (entity.lanelet_id.has_value()) {
+        double heading = extractYaw(entity.pose().orientation);
+        obj.lanelet_ahead = lanelet_->getLaneletAhead(entity.pose().position, heading, radius_m_, entity.lanelet_id);
+      }
 
       // Populate historical path from detection history
       for (const auto & det : entity.history) {
@@ -134,8 +137,9 @@ private:
   WorldStateReader world_state_;
   const LaneletHandler * lanelet_;
   std::string frame_id_;
+  double radius_m_;
 
-  rclcpp::Service<world_model_msgs::srv::GetDynamicObjectsByLanelet>::SharedPtr srv_;
+  rclcpp::Service<world_model_msgs::srv::GetObjectsByLanelet>::SharedPtr srv_;
 };
 
 }  // namespace world_model

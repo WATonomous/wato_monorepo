@@ -36,14 +36,10 @@ class RouteAheadPublisher : public InterfaceBase
 {
 public:
   RouteAheadPublisher(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer)
+    rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer,
-              node->get_parameter("map_frame").as_string(),
-              node->get_parameter("base_frame").as_string())
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     rate_hz_ = node_->declare_parameter<double>("route_ahead_publish_rate_hz", 10.0);
     lookahead_m_ = node_->declare_parameter<double>("route_ahead_lookahead_m", 100.0);

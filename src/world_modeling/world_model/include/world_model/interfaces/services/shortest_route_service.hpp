@@ -38,14 +38,10 @@ class ShortestRouteService : public InterfaceBase
 {
 public:
   ShortestRouteService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer)
+    rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer,
-              node->get_parameter("map_frame").as_string(),
-              node->get_parameter("base_frame").as_string())
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     srv_ = node_->create_service<lanelet_msgs::srv::GetShortestRoute>(
       "get_shortest_route",

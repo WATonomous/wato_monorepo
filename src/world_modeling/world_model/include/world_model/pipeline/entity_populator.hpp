@@ -19,9 +19,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "world_model_msgs/msg/world_object.hpp"
 #include "rclcpp/time.hpp"
 #include "world_model/types/entity_3d.hpp"
+#include "world_model_msgs/msg/world_object.hpp"
 
 namespace world_model
 {
@@ -67,15 +67,24 @@ public:
 
 private:
   /// @brief Per-entity customization hook (no-op for most types).
-  static void customize(Unknown & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  static void customize(Unknown & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/)
+  {}
+
   /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
-  static void customize(Car & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  static void customize(Car & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/)
+  {}
+
   /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
-  static void customize(Human & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  static void customize(Human & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/)
+  {}
+
   /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
-  static void customize(Bicycle & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  static void customize(Bicycle & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/)
+  {}
+
   /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
-  static void customize(Motorcycle & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  static void customize(Motorcycle & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/)
+  {}
 
   /**
    * @brief Customize a TrafficLight entity after upsert.

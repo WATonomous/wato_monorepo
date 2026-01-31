@@ -40,14 +40,12 @@ AreaOccupancyMarkersNode::AreaOccupancyMarkersNode(const rclcpp::NodeOptions & o
 
   publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("markers", 10);
   subscription_ = this->create_subscription<world_model_msgs::msg::AreaOccupancy>(
-    "area_occupancy", 10,
-    std::bind(&AreaOccupancyMarkersNode::areaOccupancyCallback, this, std::placeholders::_1));
+    "area_occupancy", 10, std::bind(&AreaOccupancyMarkersNode::areaOccupancyCallback, this, std::placeholders::_1));
 
   RCLCPP_INFO(this->get_logger(), "AreaOccupancyMarkersNode started");
 }
 
-void AreaOccupancyMarkersNode::areaOccupancyCallback(
-  const world_model_msgs::msg::AreaOccupancy::SharedPtr msg)
+void AreaOccupancyMarkersNode::areaOccupancyCallback(const world_model_msgs::msg::AreaOccupancy::SharedPtr msg)
 {
   visualization_msgs::msg::MarkerArray marker_array;
   int32_t marker_id = 0;
@@ -72,9 +70,7 @@ void AreaOccupancyMarkersNode::areaOccupancyCallback(
     const auto & area = area_info.area;
 
     // Choose color based on occupancy: green=free, red=occupied
-    auto boundary_color = area_info.is_occupied
-      ? makeColor(1.0f, 0.0f, 0.0f, 0.6f)
-      : makeColor(0.0f, 1.0f, 0.0f, 0.6f);
+    auto boundary_color = area_info.is_occupied ? makeColor(1.0f, 0.0f, 0.0f, 0.6f) : makeColor(0.0f, 1.0f, 0.0f, 0.6f);
 
     // Build boundary points based on area type
     std::vector<geometry_msgs::msg::Point> boundary_points;
@@ -86,16 +82,21 @@ void AreaOccupancyMarkersNode::areaOccupancyCallback(
       geometry_msgs::msg::Point p;
       p.z = 0.0;
 
-      p.x = area.center_x + half_l; p.y = area.center_y + half_w;
+      p.x = area.center_x + half_l;
+      p.y = area.center_y + half_w;
       boundary_points.push_back(p);
-      p.x = area.center_x - half_l; p.y = area.center_y + half_w;
+      p.x = area.center_x - half_l;
+      p.y = area.center_y + half_w;
       boundary_points.push_back(p);
-      p.x = area.center_x - half_l; p.y = area.center_y - half_w;
+      p.x = area.center_x - half_l;
+      p.y = area.center_y - half_w;
       boundary_points.push_back(p);
-      p.x = area.center_x + half_l; p.y = area.center_y - half_w;
+      p.x = area.center_x + half_l;
+      p.y = area.center_y - half_w;
       boundary_points.push_back(p);
       // Close the rectangle
-      p.x = area.center_x + half_l; p.y = area.center_y + half_w;
+      p.x = area.center_x + half_l;
+      p.y = area.center_y + half_w;
       boundary_points.push_back(p);
 
     } else if (area.area_type == world_model_msgs::msg::AreaDefinition::TYPE_CIRCLE) {
@@ -143,8 +144,7 @@ void AreaOccupancyMarkersNode::areaOccupancyCallback(
 
     if (!boundary_points.empty()) {
       auto boundary_marker = createLineStripMarker(
-        "area_boundaries", marker_id++, frame_id, boundary_points, boundary_color,
-        boundary_line_width_);
+        "area_boundaries", marker_id++, frame_id, boundary_points, boundary_color, boundary_line_width_);
       boundary_marker.header.stamp = stamp;
       marker_array.markers.push_back(boundary_marker);
     }
@@ -155,13 +155,11 @@ void AreaOccupancyMarkersNode::areaOccupancyCallback(
     label_pos.y = area.center_y;
     label_pos.z = 0.0;
 
-    std::string label_text = area_info.name + "\n" +
-      (area_info.is_occupied ? "OCCUPIED" : "FREE");
+    std::string label_text = area_info.name + "\n" + (area_info.is_occupied ? "OCCUPIED" : "FREE");
 
     auto label_color = makeColor(1.0f, 1.0f, 1.0f, 0.9f);
-    auto label_marker = createTextMarker(
-      "area_labels", marker_id++, frame_id, label_pos, label_text, label_color,
-      label_text_height_);
+    auto label_marker =
+      createTextMarker("area_labels", marker_id++, frame_id, label_pos, label_text, label_color, label_text_height_);
     label_marker.header.stamp = stamp;
     marker_array.markers.push_back(label_marker);
 
@@ -170,7 +168,11 @@ void AreaOccupancyMarkersNode::areaOccupancyCallback(
     for (const auto & obj : area_info.objects) {
       std::string obj_frame = obj.header.frame_id.empty() ? frame_id : obj.header.frame_id;
       auto obj_marker = createSphereMarker(
-        "area_objects", marker_id++, obj_frame, obj.pose.position, object_color,
+        "area_objects",
+        marker_id++,
+        obj_frame,
+        obj.detection.bbox.center.position,
+        object_color,
         object_marker_radius_);
       obj_marker.header.stamp = stamp;
       marker_array.markers.push_back(obj_marker);

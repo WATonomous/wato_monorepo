@@ -38,17 +38,15 @@ class LaneletAheadPublisher : public InterfaceBase
 {
 public:
   LaneletAheadPublisher(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer)
+    rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer,
-              node->get_parameter("map_frame").as_string(),
-              node->get_parameter("base_frame").as_string())
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     rate_hz_ = node_->declare_parameter<double>("lanelet_ahead_publish_rate_hz", 10.0);
     radius_m_ = node_->declare_parameter<double>("lanelet_ahead_radius_m", 100.0);
+    route_priority_threshold_m_ = node_->declare_parameter<double>("lanelet_ahead_route_priority_threshold_m", 10.0);
+    heading_search_radius_m_ = node_->declare_parameter<double>("lanelet_ahead_heading_search_radius_m", 15.0);
 
     pub_ = node_->create_publisher<lanelet_msgs::msg::LaneletAhead>("lanelet_ahead", 10);
   }
@@ -96,7 +94,13 @@ private:
     // Extract heading from quaternion
     double heading_rad = tf2::getYaw(ego_pose->pose.orientation);
 
-    auto lanelet_ahead = lanelet_->getLaneletAhead(ego_pose->pose.position, heading_rad, radius_m_, cached_lanelet_id_);
+    auto lanelet_ahead = lanelet_->getLaneletAhead(
+      ego_pose->pose.position,
+      heading_rad,
+      radius_m_,
+      cached_lanelet_id_,
+      route_priority_threshold_m_,
+      heading_search_radius_m_);
     lanelet_ahead.header.stamp = node_->get_clock()->now();
     lanelet_ahead.header.frame_id = ego_pose_.mapFrame();
 
@@ -113,6 +117,8 @@ private:
   EgoPoseHelper ego_pose_;
   double rate_hz_;
   double radius_m_;
+  double route_priority_threshold_m_;
+  double heading_search_radius_m_;
 
   rclcpp_lifecycle::LifecyclePublisher<lanelet_msgs::msg::LaneletAhead>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;

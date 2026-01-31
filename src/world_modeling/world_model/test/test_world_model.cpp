@@ -35,7 +35,7 @@
 #include "world_model/types/entity_3d.hpp"
 #include "world_model/types/entity_buffer.hpp"
 #include "world_model/world_state.hpp"
-#include "world_model_msgs/msg/dynamic_object_array.hpp"
+#include "world_model_msgs/msg/world_object_array.hpp"
 
 // Entity Buffer Tests
 
@@ -231,19 +231,19 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "SetRoute and GetShortestRoute
   }
 }
 
-// DynamicObjects Publisher Tests
+// WorldObjects Publisher Tests
 
-TEST_CASE_METHOD(wato::test::TestExecutorFixture, "DynamicObjects subscriber receives messages", "[dynamic_objects]")
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "WorldObjects subscriber receives messages", "[world_objects]")
 {
-  auto sub_node = std::make_shared<wato::test::SubscriberTestNode<world_model_msgs::msg::DynamicObjectArray>>(
-    "dynamic_objects", "dynamic_objects_subscriber");
+  auto sub_node = std::make_shared<wato::test::SubscriberTestNode<world_model_msgs::msg::WorldObjectArray>>(
+    "world_objects", "world_objects_subscriber");
 
   add_node(sub_node);
   start_spinning();
 
   SECTION("Subscriber node is created")
   {
-    REQUIRE(sub_node->get_name() == std::string("dynamic_objects_subscriber"));
+    REQUIRE(sub_node->get_name() == std::string("world_objects_subscriber"));
   }
 
   SECTION("No messages received initially")

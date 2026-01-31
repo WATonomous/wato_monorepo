@@ -2,7 +2,7 @@
 <package format="3">
   <name>simple_prediction</name>
   <version>0.0.1</version>
-  <description>Lightweight bridge: Detection3DArray to WorldObjectArray with constant-velocity trajectory propagation</description>
+  <description>Detection3DArray to WorldObjectArray with constant-velocity trajectory propagation</description>
 
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>

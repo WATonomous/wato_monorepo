@@ -230,8 +230,8 @@ void LaneContextMarkersNode::laneContextCallback(const lanelet_msgs::msg::Curren
     for (const auto & ref_line : reg_elem.ref_lines) {
       if (!ref_line.points.empty()) {
         auto stop_color = makeColor(1.0f, 0.0f, 0.0f, 0.9f);
-        auto stop_marker = createLineStripMarker(
-          "stop_lines", marker_id++, frame_id_, ref_line.points, stop_color, 0.3);
+        auto stop_marker =
+          createLineStripMarker("stop_lines", marker_id++, frame_id_, ref_line.points, stop_color, 0.3);
         stop_marker.header.stamp = stamp;
         marker_array.markers.push_back(stop_marker);
       }
@@ -241,8 +241,7 @@ void LaneContextMarkersNode::laneContextCallback(const lanelet_msgs::msg::Curren
     if (reg_elem.subtype == "traffic_light") {
       for (const auto & position : reg_elem.refers_positions) {
         auto tl_color = makeColor(1.0f, 1.0f, 0.0f, 0.9f);
-        auto tl_marker = createSphereMarker(
-          "traffic_lights", marker_id++, frame_id_, position, tl_color, 0.5);
+        auto tl_marker = createSphereMarker("traffic_lights", marker_id++, frame_id_, position, tl_color, 0.5);
         tl_marker.header.stamp = stamp;
         marker_array.markers.push_back(tl_marker);
       }

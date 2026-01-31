@@ -39,16 +39,14 @@ class LaneContextPublisher : public InterfaceBase
 {
 public:
   LaneContextPublisher(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer)
+    rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer,
-              node->get_parameter("map_frame").as_string(),
-              node->get_parameter("base_frame").as_string())
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     rate_hz_ = node_->declare_parameter<double>("lane_context_publish_rate_hz", 10.0);
+    route_priority_threshold_m_ = node_->declare_parameter<double>("lane_context_route_priority_threshold_m", 10.0);
+    heading_search_radius_m_ = node_->declare_parameter<double>("lane_context_heading_search_radius_m", 15.0);
 
     pub_ = node_->create_publisher<lanelet_msgs::msg::CurrentLaneContext>("lane_context", 10);
   }
@@ -110,7 +108,8 @@ private:
     double yaw = extractYaw(ego->pose.orientation);
 
     // Use route-aware + heading-aligned lanelet finding (pass cached lanelet as BFS hint)
-    auto current_id = lanelet_->findCurrentLaneletId(*ego_point, yaw, 10.0, 15.0, cached_lanelet_id_);
+    auto current_id = lanelet_->findCurrentLaneletId(
+      *ego_point, yaw, route_priority_threshold_m_, heading_search_radius_m_, cached_lanelet_id_);
     if (!current_id.has_value()) {
       return;
     }
@@ -209,6 +208,8 @@ private:
   const LaneletHandler * lanelet_;
   EgoPoseHelper ego_pose_;
   double rate_hz_;
+  double route_priority_threshold_m_;
+  double heading_search_radius_m_;
 
   rclcpp_lifecycle::LifecyclePublisher<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;
