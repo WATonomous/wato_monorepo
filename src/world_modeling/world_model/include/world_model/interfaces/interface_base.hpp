@@ -27,58 +27,6 @@ namespace world_model
 {
 
 /**
- * @brief Read-only accessor for WorldState.
- *
- * Provides const-only access to entity buffers. The underlying EntityBuffer
- * handles reader locking internally (shared_lock).
- */
-class WorldStateReader
-{
-public:
-  explicit WorldStateReader(const WorldState * state)
-  : state_(state)
-  {}
-
-  template <typename T>
-  const EntityBuffer<T> & buffer() const
-  {
-    return state_->buffer<T>();
-  }
-
-private:
-  const WorldState * state_;
-};
-
-/**
- * @brief Read-write accessor for WorldState.
- *
- * Provides full access to entity buffers. The underlying EntityBuffer
- * handles writer locking internally (unique_lock).
- */
-class WorldStateWriter
-{
-public:
-  explicit WorldStateWriter(WorldState * state)
-  : state_(state)
-  {}
-
-  template <typename T>
-  EntityBuffer<T> & buffer()
-  {
-    return state_->buffer<T>();
-  }
-
-  template <typename T>
-  const EntityBuffer<T> & buffer() const
-  {
-    return state_->buffer<T>();
-  }
-
-private:
-  WorldState * state_;
-};
-
-/**
  * @brief Helper for TF-based ego pose lookup.
  *
  * Common utility for interfaces that need to get ego vehicle position
@@ -152,10 +100,9 @@ private:
  * Provides common lifecycle management for publishers, subscribers,
  * services, and workers.
  *
- * Derived classes should use:
- * - WorldStateReader/WorldStateWriter for entity buffer access
- * - const LaneletHandler* for read-only lanelet access (thread-safe after map load)
- * - LaneletHandler* for write access (route caching)
+ * Derived classes use WorldStateReader/WorldStateWriter for entity buffer access,
+ * const LaneletHandler* for read-only lanelet access (thread-safe after map load),
+ * and LaneletHandler* for write access (route caching).
  */
 class InterfaceBase
 {

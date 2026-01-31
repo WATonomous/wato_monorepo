@@ -11,7 +11,6 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code
 COPY src/world_modeling world_modeling
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
-COPY src/infrastructure/lanelet_markers lanelet_markers
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################

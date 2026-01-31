@@ -92,7 +92,7 @@
     carla_timeout: 10.0
     # Publishing settings
     publish_rate: 10.0
-    frame_id: "base_link"
+    frame_id: "map"
     include_vehicles: true
     include_pedestrians: true
     max_distance: -1.0  # Max distance from ego vehicle in meters (-1 = no limit)

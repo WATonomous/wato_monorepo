@@ -23,12 +23,21 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-find_package(prediction_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
+find_package(lanelet_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/DynamicObject.msg"
-  "msg/DynamicObjectArray.msg"
-  DEPENDENCIES std_msgs geometry_msgs builtin_interfaces prediction_msgs
+  "msg/Prediction.msg"
+  "msg/WorldObject.msg"
+  "msg/WorldObjectArray.msg"
+  "msg/AreaDefinition.msg"
+  "msg/AreaOccupancyInfo.msg"
+  "msg/AreaOccupancy.msg"
+  "srv/GetObjectsByLanelet.srv"
+  DEPENDENCIES std_msgs geometry_msgs builtin_interfaces vision_msgs lanelet_msgs
 )
+
+# Export dependency on generated interfaces for downstream packages
+ament_export_dependencies(rosidl_default_runtime)
 
 ament_package()

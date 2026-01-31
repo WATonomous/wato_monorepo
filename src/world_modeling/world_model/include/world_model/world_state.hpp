@@ -39,14 +39,21 @@ public:
   WorldState(WorldState &&) = delete;
   WorldState & operator=(WorldState &&) = delete;
 
-  // GENERIC BUFFER ACCESS
-
+  /**
+   * @brief Get a mutable reference to the entity buffer for type T.
+   *
+   * @tparam T Entity type (Unknown, Car, Human, Bicycle, Motorcycle, TrafficLight).
+   * @return Mutable reference to the corresponding EntityBuffer.
+   */
   template <typename T>
   EntityBuffer<T> & buffer();
+
+  /// @copydoc buffer()
   template <typename T>
   const EntityBuffer<T> & buffer() const;
 
 private:
+  EntityBuffer<Unknown> unknowns_;
   EntityBuffer<Car> cars_;
   EntityBuffer<Human> humans_;
   EntityBuffer<Bicycle> bicycles_;
@@ -55,6 +62,12 @@ private:
 };
 
 // Template specializations for buffer access
+
+template <>
+inline EntityBuffer<Unknown> & WorldState::buffer<Unknown>()
+{
+  return unknowns_;
+}
 
 template <>
 inline EntityBuffer<Car> & WorldState::buffer<Car>()
@@ -87,6 +100,12 @@ inline EntityBuffer<TrafficLight> & WorldState::buffer<TrafficLight>()
 }
 
 template <>
+inline const EntityBuffer<Unknown> & WorldState::buffer<Unknown>() const
+{
+  return unknowns_;
+}
+
+template <>
 inline const EntityBuffer<Car> & WorldState::buffer<Car>() const
 {
   return cars_;
@@ -115,6 +134,58 @@ inline const EntityBuffer<TrafficLight> & WorldState::buffer<TrafficLight>() con
 {
   return traffic_lights_;
 }
+
+/**
+ * @brief Read-only accessor for WorldState.
+ *
+ * Provides const-only access to entity buffers. The underlying EntityBuffer
+ * handles reader locking internally (shared_lock).
+ */
+class WorldStateReader
+{
+public:
+  explicit WorldStateReader(const WorldState * state)
+  : state_(state)
+  {}
+
+  template <typename T>
+  const EntityBuffer<T> & buffer() const
+  {
+    return state_->buffer<T>();
+  }
+
+private:
+  const WorldState * state_;
+};
+
+/**
+ * @brief Read-write accessor for WorldState.
+ *
+ * Provides full access to entity buffers. The underlying EntityBuffer
+ * handles writer locking internally (unique_lock).
+ */
+class WorldStateWriter
+{
+public:
+  explicit WorldStateWriter(WorldState * state)
+  : state_(state)
+  {}
+
+  template <typename T>
+  EntityBuffer<T> & buffer()
+  {
+    return state_->buffer<T>();
+  }
+
+  template <typename T>
+  const EntityBuffer<T> & buffer() const
+  {
+    return state_->buffer<T>();
+  }
+
+private:
+  WorldState * state_;
+};
 
 }  // namespace world_model
 

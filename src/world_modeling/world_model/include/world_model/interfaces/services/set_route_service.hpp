@@ -36,21 +36,26 @@ namespace world_model
 class SetRouteService : public InterfaceBase
 {
 public:
-  SetRouteService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame,
-    const std::string & base_frame)
+  SetRouteService(rclcpp_lifecycle::LifecycleNode * node, LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer, map_frame, base_frame)
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     srv_ = node_->create_service<lanelet_msgs::srv::SetRoute>(
       "set_route", std::bind(&SetRouteService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
+  /**
+   * @brief Handles a SetRoute service request.
+   *
+   * Looks up ego position via TF, finds the nearest lanelet to ego and to the
+   * requested goal point, computes the shortest route between them, and caches
+   * it in LaneletHandler for subsequent GetShortestRoute and RouteAhead queries.
+   *
+   * @param request Contains the goal_point position.
+   * @param response Populated with current/goal lanelet IDs and success flag.
+   */
   void handleRequest(
     lanelet_msgs::srv::SetRoute::Request::ConstSharedPtr request,
     lanelet_msgs::srv::SetRoute::Response::SharedPtr response)

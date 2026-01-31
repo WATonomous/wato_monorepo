@@ -38,14 +38,10 @@ class ShortestRouteService : public InterfaceBase
 {
 public:
   ShortestRouteService(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame,
-    const std::string & base_frame)
+    rclcpp_lifecycle::LifecycleNode * node, const LaneletHandler * lanelet_handler, tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer, map_frame, base_frame)
+  , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     srv_ = node_->create_service<lanelet_msgs::srv::GetShortestRoute>(
       "get_shortest_route",
@@ -53,6 +49,16 @@ public:
   }
 
 private:
+  /**
+   * @brief Handles a GetShortestRoute service request.
+   *
+   * Looks up ego position via TF and delegates to LaneletHandler::getShortestRoute
+   * to return all lanelets from ego's current position to the cached goal, along
+   * with transition types (successor, left, right) and total route length.
+   *
+   * @param request Unused (ego position is obtained from TF).
+   * @param response Populated with route lanelets, transitions, and total distance.
+   */
   void handleRequest(
     lanelet_msgs::srv::GetShortestRoute::Request::ConstSharedPtr /*request*/,
     lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr response)

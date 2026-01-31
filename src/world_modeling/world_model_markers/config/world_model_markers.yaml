@@ -1,0 +1,37 @@
+world_objects_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    box_alpha: 0.6
+    label_text_height: 0.5
+    history_line_width: 0.1
+    prediction_line_width: 0.08
+    lanelet_boundary_line_width: 0.2
+    lanelet_centerline_line_width: 0.1
+    lanelet_boundary_color_r: 0.2
+    lanelet_boundary_color_g: 0.4
+    lanelet_boundary_color_b: 1.0
+    lanelet_boundary_alpha: 0.3
+    lanelet_centerline_color_r: 0.3
+    lanelet_centerline_color_g: 0.5
+    lanelet_centerline_color_b: 0.8
+    lanelet_centerline_alpha: 0.2
+    entity_class_hypothesis_index: 0
+
+dynamic_objects_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    box_alpha: 0.6
+    label_text_height: 0.5
+    history_line_width: 0.1
+    prediction_line_width: 0.08
+    lanelet_boundary_line_width: 0.2
+    lanelet_centerline_line_width: 0.1
+    lanelet_boundary_color_r: 0.2
+    lanelet_boundary_color_g: 0.4
+    lanelet_boundary_color_b: 1.0
+    lanelet_boundary_alpha: 0.3
+    lanelet_centerline_color_r: 0.3
+    lanelet_centerline_color_g: 0.5
+    lanelet_centerline_color_b: 0.8
+    lanelet_centerline_alpha: 0.2
+    entity_class_hypothesis_index: 0
