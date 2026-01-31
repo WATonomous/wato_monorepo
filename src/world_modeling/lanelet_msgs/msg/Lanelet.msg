@@ -11,11 +11,6 @@ geometry_msgs/Point[] left_boundary
 geometry_msgs/Point[] right_boundary
 geometry_msgs/Point[] centerline
 
-# Curvature at each centerline point (1/m, same length as centerline).
-# Positive = curving left, negative = curving right.
-# Computed via Menger curvature on three consecutive centerline points.
-float64[] centerline_curvature
-
 # Boundary Attributes
 uint8 BOUNDARY_DASHED=0
 uint8 BOUNDARY_SOLID=1

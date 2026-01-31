@@ -86,21 +86,6 @@ target_link_libraries(route_ahead_markers_node
     ${lanelet_msgs_TARGETS}
 )
 
-# LaneletAheadMarkersNode executable
-add_executable(lanelet_ahead_markers_node
-  src/lanelet_ahead_markers_node.cpp
-)
-target_include_directories(lanelet_ahead_markers_node PRIVATE include)
-target_link_libraries(lanelet_ahead_markers_node
-  PRIVATE
-    marker_utils
-    rclcpp::rclcpp
-    ${std_msgs_TARGETS}
-    ${geometry_msgs_TARGETS}
-    ${visualization_msgs_TARGETS}
-    ${lanelet_msgs_TARGETS}
-)
-
 # Install targets
 install(TARGETS
   marker_utils
@@ -113,7 +98,6 @@ install(TARGETS
   map_viz_markers_node
   lane_context_markers_node
   route_ahead_markers_node
-  lanelet_ahead_markers_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

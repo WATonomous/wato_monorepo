@@ -39,13 +39,6 @@
     lane_context_publish_rate_hz: 10.0
     map_viz_publish_rate_hz: 1.0
     map_viz_radius_m: 100.0
-    dynamic_objects_publish_rate_hz: 10.0
-    route_ahead_publish_rate_hz: 10.0
-    route_ahead_lookahead_m: 100.0
-
-    # LaneletAhead publisher (all lanelets within radius, regardless of route)
-    lanelet_ahead_publish_rate_hz: 10.0
-    lanelet_ahead_radius_m: 30.0
 
 /**/map_viz_markers_node:
   ros__parameters:
@@ -75,16 +68,6 @@
 /**/route_ahead_markers_node:
   ros__parameters:
     frame_id: "map"
-    centerline_line_width: 0.2
-    boundary_line_width: 0.2
+    centerline_line_width: 0.4
     show_lanelet_ids: false
     show_route_info: true
-
-/**/lanelet_ahead_markers_node:
-  ros__parameters:
-    frame_id: "map"
-    centerline_line_width: 0.2
-    boundary_line_width: 0.2
-    show_lanelet_ids: false
-    show_info: true
-    show_boundaries: true

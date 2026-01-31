@@ -27,7 +27,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/TrafficLightInfo.msg"
   "msg/StopLineInfo.msg"
   "msg/Lanelet.msg"
-  "msg/LaneletAhead.msg"
   "msg/CurrentLaneContext.msg"
   "msg/MapVisualization.msg"
   "msg/RouteAhead.msg"
