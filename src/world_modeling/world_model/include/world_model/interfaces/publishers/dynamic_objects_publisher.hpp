@@ -39,14 +39,13 @@ class DynamicObjectsPublisher : public InterfaceBase
 public:
   DynamicObjectsPublisher(
     rclcpp_lifecycle::LifecycleNode * node,
-    const WorldState * world_state,
-    const std::string & frame_id,
-    double rate_hz)
+    const WorldState * world_state)
   : node_(node)
   , world_state_(world_state)
-  , frame_id_(frame_id)
-  , rate_hz_(rate_hz)
   {
+    frame_id_ = node_->get_parameter("map_frame").as_string();
+    rate_hz_ = node_->declare_parameter<double>("dynamic_objects_publish_rate_hz", 10.0);
+
     pub_ = node_->create_publisher<world_model_msgs::msg::DynamicObjectArray>("dynamic_objects", 10);
   }
 

@@ -40,12 +40,11 @@ public:
   GetObjectsByLaneletService(
     rclcpp_lifecycle::LifecycleNode * node,
     const WorldState * world_state,
-    const LaneletHandler * lanelet_handler,
-    const std::string & frame_id)
+    const LaneletHandler * lanelet_handler)
   : node_(node)
   , world_state_(world_state)
   , lanelet_(lanelet_handler)
-  , frame_id_(frame_id)
+  , frame_id_(node->get_parameter("map_frame").as_string())
   {
     srv_ = node_->create_service<world_model_msgs::srv::GetDynamicObjectsByLanelet>(
       "get_objects_by_lanelet",

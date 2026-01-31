@@ -40,17 +40,16 @@ public:
   LaneletAheadPublisher(
     rclcpp_lifecycle::LifecycleNode * node,
     const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame,
-    const std::string & base_frame,
-    double rate_hz,
-    double radius_m)
+    tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , lanelet_(lanelet_handler)
-  , ego_pose_(tf_buffer, map_frame, base_frame)
-  , rate_hz_(rate_hz)
-  , radius_m_(radius_m)
+  , ego_pose_(tf_buffer,
+              node->get_parameter("map_frame").as_string(),
+              node->get_parameter("base_frame").as_string())
   {
+    rate_hz_ = node_->declare_parameter<double>("lanelet_ahead_publish_rate_hz", 10.0);
+    radius_m_ = node_->declare_parameter<double>("lanelet_ahead_radius_m", 100.0);
+
     pub_ = node_->create_publisher<lanelet_msgs::msg::LaneletAhead>("lanelet_ahead", 10);
   }
 

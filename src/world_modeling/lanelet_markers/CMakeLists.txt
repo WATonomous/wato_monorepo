@@ -87,7 +87,6 @@ target_link_libraries(route_ahead_markers_node
     ${lanelet_msgs_TARGETS}
 )
 
-<<<<<<< HEAD:src/world_modeling/lanelet_markers/CMakeLists.txt
 # AreaOccupancyMarkersNode executable
 add_executable(area_occupancy_markers_node
   src/area_occupancy_markers_node.cpp
@@ -102,9 +101,6 @@ target_link_libraries(area_occupancy_markers_node
     ${visualization_msgs_TARGETS}
     ${world_model_msgs_TARGETS}
 )
-
-=======
->>>>>>> a1dbd7a0140832192bb5b27a8ad43be49ee31d06:src/infrastructure/lanelet_markers/CMakeLists.txt
 # LaneletAheadMarkersNode executable
 add_executable(lanelet_ahead_markers_node
   src/lanelet_ahead_markers_node.cpp
@@ -133,10 +129,7 @@ install(TARGETS
   map_viz_markers_node
   lane_context_markers_node
   route_ahead_markers_node
-<<<<<<< HEAD:src/world_modeling/lanelet_markers/CMakeLists.txt
   area_occupancy_markers_node
-=======
->>>>>>> a1dbd7a0140832192bb5b27a8ad43be49ee31d06:src/infrastructure/lanelet_markers/CMakeLists.txt
   lanelet_ahead_markers_node
   DESTINATION lib/${PROJECT_NAME}
 )

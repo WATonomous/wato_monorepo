@@ -45,16 +45,14 @@ public:
     rclcpp_lifecycle::LifecycleNode * node,
     WorldState * world_state,
     const LaneletHandler * lanelet_handler,
-    tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame,
-    double history_duration_sec,
-    rclcpp::Clock::SharedPtr clock,
-    double entity_timeout_sec)
+    tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , world_state_(world_state)
-  , clock_(clock)
-  , enricher_(lanelet_handler, tf_buffer, map_frame)
-  , permanence_(history_duration_sec, entity_timeout_sec)
+  , clock_(node->get_clock())
+  , enricher_(lanelet_handler, tf_buffer, node->get_parameter("map_frame").as_string())
+  , permanence_(
+      node->declare_parameter<double>("entity_history_duration_sec", 5.0),
+      node->declare_parameter<double>("entity_prune_timeout_sec", 2.0))
   , cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant))
   {
     rclcpp::SubscriptionOptions opts;

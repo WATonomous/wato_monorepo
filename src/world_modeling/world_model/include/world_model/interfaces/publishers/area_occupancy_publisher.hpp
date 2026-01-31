@@ -16,6 +16,7 @@
 #define WORLD_MODEL__INTERFACES__PUBLISHERS__AREA_OCCUPANCY_PUBLISHER_HPP_
 
 #include <chrono>
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
@@ -44,20 +45,17 @@ public:
   AreaOccupancyPublisher(
     rclcpp_lifecycle::LifecycleNode * node,
     const WorldState * world_state,
-    tf2_ros::Buffer * tf_buffer,
-    const std::string & map_frame,
-    const std::string & area_frame,
-    double rate_hz,
-    std::vector<DetectionArea> areas)
+    tf2_ros::Buffer * tf_buffer)
   : node_(node)
   , world_state_(world_state)
   , tf_buffer_(tf_buffer)
-  , map_frame_(map_frame)
-  , area_frame_(area_frame)
-  , rate_hz_(rate_hz)
-  , areas_(std::move(areas))
   , timer_cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
   {
+    map_frame_ = node_->get_parameter("map_frame").as_string();
+    area_frame_ = node_->declare_parameter<std::string>("area_occupancy_frame", "base_link");
+    rate_hz_ = node_->declare_parameter<double>("area_occupancy_publish_rate_hz", 20.0);
+    areas_ = parseOccupancyAreas();
+
     pub_ = node_->create_publisher<world_model_msgs::msg::AreaOccupancy>("area_occupancy", 10);
   }
 
@@ -195,6 +193,61 @@ private:
           area_info.objects.push_back(obj);
         }
       });
+  }
+
+  std::vector<DetectionArea> parseOccupancyAreas()
+  {
+    std::vector<DetectionArea> areas;
+
+    auto area_names = node_->declare_parameter<std::vector<std::string>>(
+      "occupancy_areas", std::vector<std::string>{});
+
+    for (const auto & area_name : area_names) {
+      std::string prefix = "occupancy_area." + area_name + ".";
+
+      if (!node_->has_parameter(prefix + "type")) {
+        node_->declare_parameter<std::string>(prefix + "type", "circle");
+        node_->declare_parameter<double>(prefix + "center_x", 0.0);
+        node_->declare_parameter<double>(prefix + "center_y", 0.0);
+        node_->declare_parameter<double>(prefix + "radius", 0.0);
+        node_->declare_parameter<double>(prefix + "start_angle_deg", 0.0);
+        node_->declare_parameter<double>(prefix + "end_angle_deg", 360.0);
+        node_->declare_parameter<double>(prefix + "length", 0.0);
+        node_->declare_parameter<double>(prefix + "width", 0.0);
+      }
+
+      std::string type_str = node_->get_parameter(prefix + "type").as_string();
+      double center_x = node_->get_parameter(prefix + "center_x").as_double();
+      double center_y = node_->get_parameter(prefix + "center_y").as_double();
+      double radius = node_->get_parameter(prefix + "radius").as_double();
+      double start_angle_deg = node_->get_parameter(prefix + "start_angle_deg").as_double();
+      double end_angle_deg = node_->get_parameter(prefix + "end_angle_deg").as_double();
+      double length = node_->get_parameter(prefix + "length").as_double();
+      double width = node_->get_parameter(prefix + "width").as_double();
+
+      double start_angle = start_angle_deg * M_PI / 180.0;
+      double end_angle = end_angle_deg * M_PI / 180.0;
+
+      DetectionArea::Type type;
+      if (type_str == "rectangle") {
+        type = DetectionArea::Type::Rectangle;
+      } else if (type_str == "partial_circle") {
+        type = DetectionArea::Type::PartialCircle;
+      } else {
+        type = DetectionArea::Type::Circle;
+      }
+
+      areas.emplace_back(area_name, type, center_x, center_y, radius, start_angle, end_angle, length, width);
+      RCLCPP_INFO(
+        node_->get_logger(),
+        "Loaded occupancy area '%s' (type: %s, center: [%.1f, %.1f])",
+        area_name.c_str(),
+        type_str.c_str(),
+        center_x,
+        center_y);
+    }
+
+    return areas;
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;

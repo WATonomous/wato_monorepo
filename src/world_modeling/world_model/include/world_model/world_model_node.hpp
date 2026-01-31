@@ -26,7 +26,6 @@
 #include "world_model/world_model_writer.hpp"
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
-#include "world_model/types/detection_area.hpp"
 #include "world_model/world_state.hpp"
 
 namespace world_model
@@ -92,20 +91,10 @@ private:
   /**
    * @brief Create all interface components (publishers, services, subscriber).
    *
-   * Reads publish rates and other parameters, then instantiates and registers
-   * all publisher, service, and subscriber interface objects.
+   * Instantiates and registers all publisher, service, and subscriber interface
+   * objects. Each interface reads its own parameters from the node.
    */
   void createInterfaces();
-
-  /**
-   * @brief Parse occupancy area definitions from ROS parameters.
-   *
-   * Reads the "occupancy_areas" string array parameter and for each area name,
-   * declares and reads its type, center, radius, angle, and dimension parameters.
-   *
-   * @return Vector of parsed DetectionArea objects.
-   */
-  std::vector<DetectionArea> parseOccupancyAreas();
 };
 
 }  // namespace world_model
