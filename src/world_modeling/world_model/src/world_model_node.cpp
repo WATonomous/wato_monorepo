@@ -165,6 +165,22 @@ void WorldModelNode::createInterfaces()
     lanelet_ahead_rate_hz,
     lanelet_ahead_radius_m));
 
+  // Subscribers
+  interfaces_.push_back(std::make_unique<DetectionSubscriber>(
+    this, 
+    world_state_.get(), 
+    lanelet_handler_.get(), 
+    history_duration_sec));
+
+  interfaces_.push_back(std::make_unique<LaneletAheadPublisher>(
+    this,
+    lanelet_handler_.get(),
+    tf_buffer_.get(),
+    map_frame_,
+    base_frame_,
+    lanelet_ahead_rate_hz,
+    lanelet_ahead_radius_m));
+
   // Services
   interfaces_.push_back(std::make_unique<SetRouteService>(
     this, 
