@@ -42,6 +42,7 @@ public:
     return providedBasicPorts({
       BT::OutputPort<lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr>("route"),
       BT::OutputPort<std::shared_ptr<std::unordered_map<int64_t, size_t>>>("route_index_map"), // New Map Port
+      BT::OutputPort<std::vector<int64_t>>("route_lanelet_ids"), // New Vector Port
       BT::OutputPort<std::string>("error_message"),
     });
   }
@@ -62,20 +63,30 @@ public:
     
     // 2. Build the Index Map (Lanelet ID -> Index in Vector)
     auto index_map = std::make_shared<std::unordered_map<int64_t, size_t>>();
+    index_map->reserve(route->lanelets.size());
+
+    auto lanelet_ids = std::vector<int64_t>();
+    lanelet_ids.reserve(route->lanelets.size());
+
     for (size_t i = 0; i < route->lanelets.size(); ++i) {
       // Map the lanelet ID to its sequence position
       (*index_map)[route->lanelets[i].id] = i;
+
+      // Populate the lanelet IDs vector
+      lanelet_ids.push_back(route->lanelets[i].id);
     }
 
     // 3. Set the Blackboard outputs
     setOutput("route", route);
     setOutput("route_index_map", index_map);
+    setOutput("route_lanelet_ids", lanelet_ids);
 
     return BT::NodeStatus::SUCCESS;
   }
 
   BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
   {
+    setOutput("error_message", std::string(BT::toStr(error)));
     RCLCPP_ERROR(logger(), "GetShortestRoute service failed: %d", error);
     return BT::NodeStatus::FAILURE;
   }

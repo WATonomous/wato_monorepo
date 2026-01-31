@@ -42,7 +42,18 @@ public:
     auto map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_index_map");
     auto current_lane_context = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
 
-    if (!route || !map || !current_lane_context) {
+    if (!route) {
+      std::cout << "[GetRouteContextAction]: Missing route input" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+
+    if (!map) {
+      std::cout << "[GetRouteContextAction]: Missing route index map input" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+
+    if (!current_lane_context) {
+      std::cout << "[GetRouteContextAction]: Missing current lane context input" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
@@ -50,14 +61,16 @@ public:
     auto current_it = map->find(current_id);
     if (current_it == map->end()) {
       // Current lanelet not found on route
+      std::cout << "[GetRouteContextAction]: Current lanelet ID " << current_id << " not found on route" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
     const std::size_t current_idx = current_it->second;
     if (current_idx >= route->lanelets.size() - 1) {
+
       // At last lanelet, no further transitions
       setOutput("out_lane_transition", types::LaneTransition::SUCCESSOR);
-      setOutput("out_next_lanelet", nullptr);
+      setOutput("out_next_lanelet", current_lane_context->current_lanelet);
       return BT::NodeStatus::SUCCESS;
     }
 

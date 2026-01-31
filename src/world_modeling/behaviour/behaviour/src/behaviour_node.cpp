@@ -84,17 +84,19 @@ void BehaviourNode::init()
   });
 
   current_lane_context_sub_ = this->create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
-    "current_lane_context", 10,
+    "/world_modeling/lanelet/lane_context", 10,
     [this](const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg) {
-      tree_->updateBlackboard("lane_ctx", msg);
-    });
-    RCLCPP_INFO(this->get_logger(), "Current lane context updated.");
+      RCLCPP_INFO_THROTTLE(
+        this->get_logger(), *this->get_clock(), 2000,
+        "Current lanelet ID: %ld", msg->current_lanelet.id);
+      tree_->updateBlackboard("current_lane_ctx", msg);
+  });
 
   dynamic_objects_sub_ = this->create_subscription<world_model_msgs::msg::DynamicObjectArray>(
-      "dynamic_objects", rclcpp::QoS(10),
+      "/world_modeling/dynamic_objects", rclcpp::QoS(10),
       [this](world_model_msgs::msg::DynamicObjectArray::ConstSharedPtr msg) {
         dynamic_objects_store_->update(msg);
-        RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Dynamic objects updated: %zu", msg->objects.size());
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Dynamic objects updated: %zu", msg->objects.size());
   });
 
   RCLCPP_INFO(this->get_logger(), "BehaviourNode has been fully initialized.");

@@ -53,6 +53,8 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
+    std::cout << "[IsErrorMessageCondition]: Comparing msg='" << *msg << "' to expected='" << *expected << "'" << std::endl;
+
     if (msg == expected) {
       return BT::NodeStatus::SUCCESS;
     } else {

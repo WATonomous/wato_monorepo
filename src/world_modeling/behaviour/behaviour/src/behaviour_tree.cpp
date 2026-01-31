@@ -15,6 +15,7 @@
 #include "behaviour/behaviour_tree.hpp"
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -25,6 +26,8 @@
 // #include "behaviour/nodes/actions/determine_reg_elem_node.hpp"
 #include "behaviour/nodes/publishers/execute_behaviour_publisher.hpp"
 #include "behaviour/nodes/actions/get_route_context_action.hpp"
+#include "behaviour/nodes/actions/get_lane_change_preferred_lanelets_action.hpp"
+#include "behaviour/nodes/actions/get_follow_lane_preferred_lanelets_action.hpp"
 // #include "behaviour/nodes/actions/get_objects_by_lanelet_action.hpp"
 // #include "behaviour/nodes/actions/get_objects_by_lanelets_action.hpp"
 // #include "behaviour/nodes/actions/get_reg_elem_context_action.hpp"
@@ -38,6 +41,7 @@
 
 #include "behaviour/nodes/conditions/goal_reached_condition.hpp"
 #include "behaviour/nodes/conditions/valid_lane_change_condition.hpp"
+#include "behaviour/nodes/conditions/safe_lane_change_condition.hpp"
 // #include "behaviour/nodes/conditions/goal_updated_condition.hpp"
 #include "behaviour/nodes/conditions/goal_exist_condition.hpp"
 #include "behaviour/nodes/conditions/global_route_exist_condition.hpp"
@@ -84,9 +88,18 @@ void BehaviourTree::registerNodes()
     throw std::runtime_error("ROS node provided to BehaviourTree is null!");
   }
 
-  // Setup parameters for ROS-linked BT nodes
+ // Default params for most ROS-linked BT nodes
   BT::RosNodeParams params;
   params.nh = node_;
+  // leave defaults: server_timeout=1000ms, wait_for_server_timeout=500ms
+
+  // Route services can be slow; give them a bigger timeout
+  BT::RosNodeParams get_shortest_route_params = params;
+  get_shortest_route_params.server_timeout = std::chrono::milliseconds(50000);        // 50s response timeout
+  get_shortest_route_params.wait_for_server_timeout = std::chrono::milliseconds(2000); // 2s wait for service availability
+
+  BT::RosNodeParams set_route_params = params;
+  set_route_params.server_timeout = std::chrono::milliseconds(50000);
 
   // Decorators
   factory_.registerNodeType<RateController>("RateController");
@@ -98,6 +111,8 @@ void BehaviourTree::registerNodes()
   // factory_.registerNodeType<DetermineLaneBehaviourAction>("DetermineLaneBehaviour");
   // factory_.registerNodeType<DetermineRegElemAction>("DetermineRegElem");
   factory_.registerNodeType<GetRouteContextAction>("GetRouteContext");
+  factory_.registerNodeType<GetLaneChangePreferredLaneletsAction>("GetLaneChangePreferredLanelets");
+  factory_.registerNodeType<GetFollowLanePreferredLaneletsAction>("GetFollowLanePreferredLanelets");
   // factory_.registerNodeType<GetObjectsByLaneletAction>("GetObjectsByLanelet");
   // factory_.registerNodeType<GetObjectsByLaneletsAction>("GetObjectsByLanelets");
   // factory_.registerNodeType<GetRegElemContextAction>("GetRegElemContext");
@@ -106,8 +121,8 @@ void BehaviourTree::registerNodes()
 
   // Services
   // factory_.registerNodeType<GetLaneletsByRegElemService>("GetLaneletsByRegElem", params);
-  factory_.registerNodeType<GetShortestRouteService>("GetShortestRoute", params);
-  factory_.registerNodeType<SetRouteService>("SetRoute", params);
+  factory_.registerNodeType<GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
+  factory_.registerNodeType<SetRouteService>("SetRoute", set_route_params);
   
   // Conditions
   // factory_.registerNodeType<ComparatorCondition>("Comparator");
@@ -115,6 +130,7 @@ void BehaviourTree::registerNodes()
   factory_.registerNodeType<IsErrorMessageCondition>("IsErrorMessage");
   factory_.registerNodeType<IsLaneTransitionCondition>("IsLaneTransition");
   factory_.registerNodeType<ValidLaneChangeCondition>("ValidLaneChange");
+  factory_.registerNodeType<SafeLaneChangeCondition>("SafeLaneChange");
   factory_.registerNodeType<GoalReachedCondition>("GoalReached");
   factory_.registerNodeType<GoalExistCondition>("GoalExist");
   factory_.registerNodeType<GlobalRouteExistCondition>("GlobalRouteExist");

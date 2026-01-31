@@ -23,7 +23,7 @@ public:
   static BT::PortsList providedPorts() {
     return { 
       BT::InputPort<std::shared_ptr<std::unordered_map<int64_t, size_t>>>("route_index_map"),
-      BT::InputPort<std::shared_ptr<lanelet_msgs::msg::CurrentLaneContext>>("lane_ctx") 
+      BT::InputPort<std::shared_ptr<lanelet_msgs::msg::CurrentLaneContext>>("lane_ctx")
     };
   }
 
@@ -33,12 +33,12 @@ public:
     
     // If either pointer is missing, we cannot verify position, so return failure
     if (!route_index_map) {
-      std::cout << "[IsCarOnRoute]: Missing route index map" << std::endl;
+      std::cout << "[CarOnRoute]: Missing route index map" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
     if (!ctx) {
-      std::cout << "[IsCarOnRoute]: Missing lane context" << std::endl;
+      std::cout << "[CarOnRoute]: Missing lane context" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
