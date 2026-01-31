@@ -66,6 +66,15 @@ public:
 private:
   using ObjectPtrs = std::vector<const world_model_msgs::msg::WorldObject *>;
 
+  /**
+   * @brief Subscription callback for incoming WorldObjectArray messages.
+   *
+   * Classifies each detection by entity type, then runs the three-stage
+   * pipeline (populate, enrich, permanence) for each type in a single COW batch.
+   * Uses the message timestamp for permanence checks to avoid sim-time mismatches.
+   *
+   * @param msg Incoming array of world objects with detections and predictions.
+   */
   void onMessage(world_model_msgs::msg::WorldObjectArray::ConstSharedPtr msg)
   {
     ObjectPtrs unknowns, cars, humans, bicycles, motorcycles, traffic_lights;
@@ -125,6 +134,15 @@ private:
     }
   }
 
+  /**
+   * @brief Classify a detection into an entity type based on its class ID.
+   *
+   * Maps class ID strings (e.g. "car", "pedestrian", "bicycle") to EntityType
+   * enum values. Returns UNKNOWN for unrecognized or empty class IDs.
+   *
+   * @param det Detection containing classification results.
+   * @return Corresponding EntityType for the detection's class ID.
+   */
   static EntityType classify(const vision_msgs::msg::Detection3D & det)
   {
     if (det.results.empty()) {

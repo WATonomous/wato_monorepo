@@ -26,14 +26,6 @@ namespace lanelet_markers
 
 /**
  * @brief Converts MapVisualization messages to visualization markers.
- *
- * Subscribes to map visualization messages and publishes MarkerArray with:
- * - Lane boundaries (solid/dashed based on boundary type and lane change rules)
- * - Centerlines (optional)
- * - Direction arrows along lanes (optional)
- * - Stop lines and traffic light markers
- * - Speed limit text (optional)
- * - Yield sign markers (optional)
  */
 class MapVizMarkersNode : public rclcpp::Node
 {
@@ -41,6 +33,15 @@ public:
   explicit MapVizMarkersNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
+  /**
+   * @brief Callback for incoming MapVisualization messages.
+   *
+   * Clears previous markers, then creates lane boundary, centerline,
+   * direction arrow, stop line, traffic light, speed limit, and yield
+   * sign markers for all lanelets in the visualization message.
+   *
+   * @param msg Map visualization data containing lanelets with geometry and regulatory elements.
+   */
   void mapVisualizationCallback(const lanelet_msgs::msg::MapVisualization::SharedPtr msg);
 
   rclcpp::Subscription<lanelet_msgs::msg::MapVisualization>::SharedPtr subscription_;

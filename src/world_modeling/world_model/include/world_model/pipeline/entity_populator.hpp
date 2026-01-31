@@ -36,6 +36,18 @@ namespace world_model
 class EntityPopulator
 {
 public:
+  /**
+   * @brief Upsert a batch of world objects into the entity map.
+   *
+   * For each object, parses the tracking ID, creates or updates the entity,
+   * pushes the detection onto history, stores predictions, and applies
+   * per-entity type customization (e.g. traffic light state parsing).
+   *
+   * @tparam EntityT Entity class (e.g. Car, Human, TrafficLight).
+   * @param map Entity map to insert/update into.
+   * @param objects Pointers to WorldObject messages to process.
+   * @param msg_header Message header used as fallback for stamp/frame_id.
+   */
   template <typename EntityT>
   void populate(
     std::unordered_map<int64_t, EntityT> & map,
@@ -54,14 +66,26 @@ public:
   }
 
 private:
-  // --- Per-entity customization (called after common upsert) ---
-
+  /// @brief Per-entity customization hook (no-op for most types).
   static void customize(Unknown & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
   static void customize(Car & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
   static void customize(Human & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
   static void customize(Bicycle & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
+  /// @copydoc customize(Unknown&, const vision_msgs::msg::Detection3D&)
   static void customize(Motorcycle & /*entity*/, const vision_msgs::msg::Detection3D & /*det*/) {}
 
+  /**
+   * @brief Customize a TrafficLight entity after upsert.
+   *
+   * Parses the detection class ID to set the traffic light state
+   * (RED, YELLOW, GREEN, UNKNOWN) and confidence score.
+   *
+   * @param tl TrafficLight entity to customize.
+   * @param det Detection with classification results.
+   */
   static void customize(TrafficLight & tl, const vision_msgs::msg::Detection3D & det)
   {
     if (!det.results.empty()) {

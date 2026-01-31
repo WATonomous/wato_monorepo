@@ -73,6 +73,13 @@ public:
   }
 
 private:
+  /**
+   * @brief Timer callback that publishes lanelets along the active route within lookahead.
+   *
+   * Looks up ego position via TF and queries LaneletHandler for route lanelets
+   * ahead of ego within the configured lookahead distance. Publishes an empty
+   * message with has_active_route=false if no route is set.
+   */
   void publish()
   {
     if (!lanelet_->isMapLoaded()) {

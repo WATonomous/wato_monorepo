@@ -39,10 +39,16 @@ public:
   WorldState(WorldState &&) = delete;
   WorldState & operator=(WorldState &&) = delete;
 
-  // GENERIC BUFFER ACCESS
-
+  /**
+   * @brief Get a mutable reference to the entity buffer for type T.
+   *
+   * @tparam T Entity type (Unknown, Car, Human, Bicycle, Motorcycle, TrafficLight).
+   * @return Mutable reference to the corresponding EntityBuffer.
+   */
   template <typename T>
   EntityBuffer<T> & buffer();
+
+  /// @copydoc buffer()
   template <typename T>
   const EntityBuffer<T> & buffer() const;
 

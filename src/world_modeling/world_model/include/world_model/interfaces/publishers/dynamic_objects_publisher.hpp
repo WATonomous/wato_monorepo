@@ -72,6 +72,12 @@ public:
   }
 
 private:
+  /**
+   * @brief Timer callback that collects all tracked entities and publishes them.
+   *
+   * Iterates over all entity type buffers (Unknown, Car, Human, Bicycle, Motorcycle,
+   * TrafficLight), converts each to a DynamicObject message, and publishes the array.
+   */
   void publish()
   {
     world_model_msgs::msg::DynamicObjectArray msg;
@@ -89,6 +95,16 @@ private:
     pub_->publish(msg);
   }
 
+  /**
+   * @brief Collects all entities of a given type into the output vector.
+   *
+   * Reads a snapshot of the entity buffer, converts each entity to a DynamicObject
+   * message with pose, size, lanelet ID, history, and predictions.
+   *
+   * @tparam EntityType Entity class (e.g. Car, Human).
+   * @param entity_type DynamicObject type constant for the output message.
+   * @param objects Output vector to append DynamicObject messages to.
+   */
   template <typename EntityType>
   void collectEntities(uint8_t entity_type, std::vector<world_model_msgs::msg::DynamicObject> & objects)
   {

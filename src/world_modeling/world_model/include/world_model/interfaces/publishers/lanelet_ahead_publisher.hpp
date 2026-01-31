@@ -75,6 +75,14 @@ public:
   }
 
 private:
+  /**
+   * @brief Timer callback that publishes nearby reachable lanelets.
+   *
+   * Looks up ego pose via TF, extracts heading, and queries LaneletHandler
+   * for all legally reachable lanelets within the configured radius using BFS
+   * through the routing graph. Caches the current lanelet ID as a BFS hint
+   * for the next tick.
+   */
   void publish()
   {
     if (!lanelet_->isMapLoaded()) {

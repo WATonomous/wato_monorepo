@@ -100,10 +100,9 @@ private:
  * Provides common lifecycle management for publishers, subscribers,
  * services, and workers.
  *
- * Derived classes should use:
- * - WorldStateReader/WorldStateWriter for entity buffer access
- * - const LaneletHandler* for read-only lanelet access (thread-safe after map load)
- * - LaneletHandler* for write access (route caching)
+ * Derived classes use WorldStateReader/WorldStateWriter for entity buffer access,
+ * const LaneletHandler* for read-only lanelet access (thread-safe after map load),
+ * and LaneletHandler* for write access (route caching).
  */
 class InterfaceBase
 {

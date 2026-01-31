@@ -81,8 +81,23 @@ public:
 
   // Queries (all const, thread-safe for concurrent reads)
 
+  /**
+   * @brief Find the nearest lanelet to a point by 2D distance.
+   *
+   * Iterates all lanelets in the map and returns the one with the smallest
+   * 2D distance to the query point.
+   *
+   * @param point Query position in the map frame.
+   * @return Nearest lanelet, or nullopt if no map is loaded.
+   */
   std::optional<lanelet::ConstLanelet> findNearestLanelet(const geometry_msgs::msg::Point & point) const;
 
+  /**
+   * @brief Find the ID of the nearest lanelet to a point.
+   *
+   * @param point Query position in the map frame.
+   * @return Nearest lanelet ID, or nullopt if no map is loaded.
+   */
   std::optional<int64_t> findNearestLaneletId(const geometry_msgs::msg::Point & point) const;
 
   /**
@@ -109,8 +124,21 @@ public:
     double heading_search_radius_m = 15.0,
     std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
 
+  /**
+   * @brief Retrieve a lanelet by its unique ID.
+   *
+   * @param id Lanelet ID to look up.
+   * @return The lanelet if found, or nullopt if the ID doesn't exist or no map is loaded.
+   */
   std::optional<lanelet::ConstLanelet> getLaneletById(int64_t id) const;
 
+  /**
+   * @brief Find all lanelets within a given radius of a point.
+   *
+   * @param center Center position in the map frame.
+   * @param radius Search radius in meters.
+   * @return Vector of lanelets whose 2D distance to center is within the radius.
+   */
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
 
   // Route Caching (for SetRoute/GetShortestRoute workflow)
@@ -198,19 +226,36 @@ public:
 
   // Service implementations
 
+  /**
+   * @brief Find all lanelets that reference a given regulatory element.
+   *
+   * @param reg_elem_id Regulatory element ID to search for.
+   * @return Response with matching lanelet messages and success flag.
+   */
   lanelet_msgs::srv::GetLaneletsByRegElem::Response getLaneletsByRegElem(int64_t reg_elem_id) const;
 
   // Conversions
 
+  /**
+   * @brief Convert a Lanelet2 ConstLanelet to a ROS lanelet message.
+   *
+   * Populates boundaries, centerline, curvature, boundary attributes,
+   * semantics, connectivity, and regulatory elements.
+   *
+   * @param ll Source lanelet from the Lanelet2 map.
+   * @return Fully populated lanelet message.
+   */
   lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
 
   // Accessors
 
+  /// @brief Returns the routing graph (may be null if map not loaded).
   lanelet::routing::RoutingGraphConstPtr getRoutingGraph() const
   {
     return routing_graph_;
   }
 
+  /// @brief Returns the traffic rules used for speed limits and lane changes.
   lanelet::traffic_rules::TrafficRulesPtr getTrafficRules() const
   {
     return traffic_rules_;
@@ -227,17 +272,57 @@ private:
   std::vector<lanelet::ConstLanelet> active_route_;
   int64_t goal_lanelet_id_ = -1;
 
-  // Helper methods for Lanelet message
+  /**
+   * @brief Populate lanelet type, intersection flag, and speed limit fields.
+   *
+   * @param msg Output lanelet message to populate.
+   * @param ll Source lanelet to extract attributes from.
+   */
   void populateLaneletSemantics(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
+  /**
+   * @brief Populate successor, left, and right lane connectivity fields.
+   *
+   * Uses the routing graph to determine legal lane connections.
+   *
+   * @param msg Output lanelet message to populate.
+   * @param ll Source lanelet to query connectivity for.
+   */
   void populateLaneletConnectivity(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
+  /**
+   * @brief Populate regulatory element fields (traffic lights, stop lines, yield).
+   *
+   * Extracts referred geometry positions, reference lines with arc-length distances,
+   * yield/right-of-way relationships, and generic attributes from each regulatory element.
+   *
+   * @param msg Output lanelet message to populate.
+   * @param ll Source lanelet to extract regulatory elements from.
+   */
   void populateLaneletRegulatoryElements(lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const;
 
+  /**
+   * @brief Map a boundary linestring's subtype to a visualization type constant.
+   *
+   * @param boundary Lanelet boundary linestring with "subtype" or "type" attribute.
+   * @return Boundary type constant (BOUNDARY_SOLID, BOUNDARY_DASHED, etc.).
+   */
   uint8_t getBoundaryTypeForVisualization(const lanelet::ConstLineString3d & boundary) const;
 
+  /**
+   * @brief Map a boundary linestring's color attribute to a color constant.
+   *
+   * @param boundary Lanelet boundary linestring with optional "color" attribute.
+   * @return COLOR_YELLOW if color is "yellow", COLOR_WHITE otherwise.
+   */
   uint8_t getBoundaryColor(const lanelet::ConstLineString3d & boundary) const;
 
+  /**
+   * @brief Get the speed limit for a lanelet using traffic rules.
+   *
+   * @param ll Lanelet to query speed limit for.
+   * @return Speed limit in m/s, or 0.0 if no traffic rules are available.
+   */
   double getSpeedLimit(const lanelet::ConstLanelet & ll) const;
 
   /**

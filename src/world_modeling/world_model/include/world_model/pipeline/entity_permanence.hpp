@@ -37,6 +37,7 @@ public:
   , timeout_sec_(timeout_sec)
   {}
 
+  /// @brief Returns the configured entity timeout in seconds.
   double timeoutSec() const { return timeout_sec_; }
 
   /**
@@ -56,6 +57,15 @@ public:
   }
 
 private:
+  /**
+   * @brief Remove history entries that exceed the configured duration.
+   *
+   * Pops from the back (oldest) while the time span between newest and
+   * oldest entries exceeds history_duration_, keeping at least one entry.
+   *
+   * @tparam EntityT Entity type with history deque.
+   * @param entity Entity whose history to trim.
+   */
   template <typename EntityT>
   void trimHistory(EntityT & entity) const
   {
@@ -70,6 +80,14 @@ private:
     }
   }
 
+  /**
+   * @brief Check if an entity is stale (empty or not updated within timeout).
+   *
+   * @tparam EntityT Entity type with empty() and timestamp() methods.
+   * @param entity Entity to check.
+   * @param now Current time for staleness comparison.
+   * @return true if the entity should be pruned.
+   */
   template <typename EntityT>
   bool isStale(const EntityT & entity, const rclcpp::Time & now) const
   {

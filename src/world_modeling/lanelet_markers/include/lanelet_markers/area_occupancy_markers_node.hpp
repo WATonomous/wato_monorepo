@@ -26,11 +26,6 @@ namespace lanelet_markers
 
 /**
  * @brief Converts AreaOccupancy messages to visualization markers.
- *
- * Subscribes to area occupancy messages and publishes MarkerArray with:
- * - Area boundary outlines (green=free, red=occupied)
- * - Text labels with area name and occupancy status
- * - Sphere markers for each dynamic object in an area
  */
 class AreaOccupancyMarkersNode : public rclcpp::Node
 {
@@ -38,6 +33,14 @@ public:
   explicit AreaOccupancyMarkersNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
+  /**
+   * @brief Callback for incoming AreaOccupancy messages.
+   *
+   * Clears previous markers, then creates boundary outlines, text labels,
+   * and object sphere markers for each area in the message.
+   *
+   * @param msg Area occupancy data containing area definitions and their objects.
+   */
   void areaOccupancyCallback(const world_model_msgs::msg::AreaOccupancy::SharedPtr msg);
 
   rclcpp::Subscription<world_model_msgs::msg::AreaOccupancy>::SharedPtr subscription_;

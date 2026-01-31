@@ -26,11 +26,6 @@ namespace lanelet_markers
 
 /**
  * @brief Converts LaneletAhead messages to visualization markers.
- *
- * Subscribes to lanelet_ahead messages and publishes MarkerArray with:
- * - Lanelet centerlines for all nearby lanelets
- * - Lanelet boundaries
- * - Radius info text (lanelet count, query radius)
  */
 class LaneletAheadMarkersNode : public rclcpp::Node
 {
@@ -38,6 +33,15 @@ public:
   explicit LaneletAheadMarkersNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
+  /**
+   * @brief Callback for incoming LaneletAhead messages.
+   *
+   * Clears previous markers, then creates centerline, boundary, info text,
+   * and optional lanelet ID markers for all nearby lanelets. The current
+   * lanelet is highlighted with a distinct color.
+   *
+   * @param msg Nearby lanelets with centerlines, boundaries, and current lanelet ID.
+   */
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr subscription_;

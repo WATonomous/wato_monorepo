@@ -26,10 +26,6 @@ namespace lanelet_markers
 
 /**
  * @brief Converts RouteAhead messages to visualization markers.
- *
- * Subscribes to route_ahead messages and publishes MarkerArray with:
- * - Route path overlay (highlighted centerline)
- * - Route info text (lanelet count, total distance)
  */
 class RouteAheadMarkersNode : public rclcpp::Node
 {
@@ -37,6 +33,15 @@ public:
   explicit RouteAheadMarkersNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
+  /**
+   * @brief Callback for incoming RouteAhead messages.
+   *
+   * Clears previous markers, then creates centerline, boundary,
+   * info text, and optional lanelet ID markers for all lanelets
+   * along the active route within the lookahead distance.
+   *
+   * @param msg Route ahead data with lanelets, total distance, and active route flag.
+   */
   void routeAheadCallback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);
 
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr subscription_;

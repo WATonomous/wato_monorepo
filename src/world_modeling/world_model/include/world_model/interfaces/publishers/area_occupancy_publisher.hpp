@@ -84,6 +84,12 @@ public:
   }
 
 private:
+  /**
+   * @brief Timer callback that evaluates all detection areas and publishes occupancy.
+   *
+   * Caches the map-to-area-frame transform once, then iterates over all configured
+   * detection areas, checking which entities fall within each area's geometry.
+   */
   void publish()
   {
     // Cache the map → area_frame transform once per publish cycle
@@ -128,6 +134,18 @@ private:
     pub_->publish(msg);
   }
 
+  /**
+   * @brief Checks all entities of a given type for containment within a detection area.
+   *
+   * Transforms each entity's position from map frame to the area frame using the
+   * cached transform, then tests containment against the area geometry. Matching
+   * entities are added to the area_info output.
+   *
+   * @tparam EntityType Entity class (e.g. Car, Human, Bicycle).
+   * @param area Detection area to test against.
+   * @param entity_type DynamicObject type constant for the output message.
+   * @param area_info Output area info to populate with matching objects.
+   */
   template <typename EntityType>
   void checkEntitiesInArea(
     const DetectionArea & area,

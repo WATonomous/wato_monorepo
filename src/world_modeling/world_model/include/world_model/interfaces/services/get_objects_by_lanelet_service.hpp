@@ -53,6 +53,15 @@ public:
   }
 
 private:
+  /**
+   * @brief Handles a GetDynamicObjectsByLanelet service request.
+   *
+   * Validates the lanelet ID exists on the map, then queries all entity type
+   * buffers for objects whose lanelet_id matches the requested ID.
+   *
+   * @param request Contains the lanelet_id to query.
+   * @param response Populated with matching DynamicObject messages and success flag.
+   */
   void handleRequest(
     world_model_msgs::srv::GetDynamicObjectsByLanelet::Request::ConstSharedPtr request,
     world_model_msgs::srv::GetDynamicObjectsByLanelet::Response::SharedPtr response)
@@ -81,6 +90,14 @@ private:
     response->success = true;
   }
 
+  /**
+   * @brief Collects entities of a given type that are on the specified lanelet.
+   *
+   * @tparam EntityType Entity class to query (e.g. Car, Human).
+   * @param lanelet_id Lanelet ID to filter entities by.
+   * @param entity_type DynamicObject type constant for the output message.
+   * @param objects Output vector to append matching DynamicObject messages to.
+   */
   template <typename EntityType>
   void collectEntities(
     int64_t lanelet_id, uint8_t entity_type, std::vector<world_model_msgs::msg::DynamicObject> & objects)

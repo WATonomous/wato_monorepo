@@ -74,6 +74,15 @@ public:
     }
   }
 
+  /**
+   * @brief Enrich all entities in a map with lanelet context.
+   *
+   * Iterates each entity and dispatches to the type-specific enrich()
+   * overload. Requires updateTransform() to have been called first.
+   *
+   * @tparam EntityT Entity class to enrich.
+   * @param map Entity map to enrich in-place.
+   */
   template <typename EntityT>
   void enrich(std::unordered_map<int64_t, EntityT> & map)
   {
@@ -90,10 +99,9 @@ public:
   }
 
 private:
-  // --- Per-entity enrichment strategies ---
-
-  // Default: no enrichment.
+  /// @brief No enrichment for Unknown entities.
   void enrich(Unknown & /*entity*/) {}
+  /// @brief No enrichment for Human entities.
   void enrich(Human & /*entity*/) {}
   /**
    * @brief TrafficLight: match to nearest traffic light regulatory element.
@@ -113,12 +121,23 @@ private:
    * Uses the entity's existing lanelet_id as a BFS hint so that
    * lane assignment is stable across frames, especially at intersections.
    */
+  /// @brief Vehicles use tracked lane finding with BFS hint.
   void enrich(Car & entity) { enrichTracked(entity); }
+  /// @copydoc enrich(Car&)
   void enrich(Bicycle & entity) { enrichTracked(entity); }
+  /// @copydoc enrich(Car&)
   void enrich(Motorcycle & entity) { enrichTracked(entity); }
 
-  // --- Shared implementation ---
-
+  /**
+   * @brief Tracked lane finding for vehicle-type entities.
+   *
+   * Transforms the entity pose to map frame, extracts heading, and uses
+   * heading-aligned lanelet search with the entity's previous lanelet_id
+   * as a BFS hint for frame-to-frame stability.
+   *
+   * @tparam EntityT Vehicle entity type (Car, Bicycle, Motorcycle).
+   * @param entity Entity to enrich with a lanelet_id.
+   */
   template <typename EntityT>
   void enrichTracked(EntityT & entity)
   {
@@ -148,6 +167,12 @@ private:
     return pose_out;
   }
 
+  /**
+   * @brief Extract yaw (heading) angle from a quaternion orientation.
+   *
+   * @param q Quaternion to extract yaw from.
+   * @return Yaw angle in radians.
+   */
   static double extractYaw(const geometry_msgs::msg::Quaternion & q)
   {
     double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);

@@ -73,6 +73,13 @@ public:
   }
 
 private:
+  /**
+   * @brief Timer callback that publishes nearby lanelet geometry for map visualization.
+   *
+   * Looks up ego position via TF and queries LaneletHandler for all lanelets
+   * within the configured radius, converting each to a message with full
+   * boundary, centerline, and regulatory element data.
+   */
   void publish()
   {
     if (!lanelet_->isMapLoaded()) {

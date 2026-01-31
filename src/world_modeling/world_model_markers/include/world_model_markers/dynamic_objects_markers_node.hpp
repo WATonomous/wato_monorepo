@@ -26,15 +26,42 @@
 namespace world_model_markers
 {
 
+/**
+ * @brief Converts DynamicObjectArray messages to visualization markers.
+ *
+ * Subscribes to world-model-processed dynamic objects and publishes
+ * bounding box, label, history trail, and prediction line markers for each object.
+ */
 class DynamicObjectsMarkersNode : public rclcpp::Node
 {
 public:
   DynamicObjectsMarkersNode();
 
 private:
+  /**
+   * @brief Callback for incoming DynamicObjectArray messages.
+   *
+   * Clears previous markers, then creates a bounding box, label, history trail,
+   * and prediction line strip for each tracked object in the message.
+   *
+   * @param msg Array of dynamic objects with pose, history, and prediction data.
+   */
   void dynamicObjectsCallback(const world_model_msgs::msg::DynamicObjectArray::SharedPtr msg);
 
+  /**
+   * @brief Maps an entity type enum value to a visualization color.
+   *
+   * @param entity_type DynamicObject entity type constant (e.g. TYPE_CAR).
+   * @return RGBA color for the given type; gray for TYPE_UNKNOWN.
+   */
   std_msgs::msg::ColorRGBA getColorForEntityType(uint8_t entity_type) const;
+
+  /**
+   * @brief Maps an entity type enum value to a human-readable string.
+   *
+   * @param entity_type DynamicObject entity type constant.
+   * @return Display name (e.g. "CAR", "HUMAN").
+   */
   std::string getEntityTypeName(uint8_t entity_type) const;
 
   rclcpp::Subscription<world_model_msgs::msg::DynamicObjectArray>::SharedPtr subscription_;

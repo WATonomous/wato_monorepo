@@ -28,9 +28,9 @@ namespace world_model
 /**
  * @brief Thread-safe container for entities of a single type.
  *
- * Uses a copy-on-write pattern with an atomic shared pointer:
- * - Readers atomically load a snapshot and iterate without any lock
- * - Writers hold a mutex, copy the map, mutate the copy, then atomically swap
+ * Uses a copy-on-write pattern with an atomic shared pointer.
+ * Readers atomically load a snapshot and iterate without any lock.
+ * Writers hold a mutex, copy the map, mutate the copy, then atomically swap.
  *
  * @tparam T Entity type (must have id() method returning int64_t)
  */
@@ -46,6 +46,13 @@ public:
   {
   }
 
+  /**
+   * @brief Insert or replace an entity by its ID.
+   *
+   * Copies the internal map, updates the entry, and atomically swaps.
+   *
+   * @param entity Entity to insert or replace; entity.id() is used as the key.
+   */
   void update(const T & entity)
   {
     std::lock_guard<std::mutex> lock(write_mutex_);
@@ -54,6 +61,11 @@ public:
     std::atomic_store(&data_, MapPtr(std::move(copy)));
   }
 
+  /**
+   * @brief Remove an entity by ID. No-op if the ID is not present.
+   *
+   * @param id Entity ID to remove.
+   */
   void remove(int64_t id)
   {
     std::lock_guard<std::mutex> lock(write_mutex_);
@@ -66,6 +78,12 @@ public:
     std::atomic_store(&data_, MapPtr(std::move(copy)));
   }
 
+  /**
+   * @brief Look up an entity by ID.
+   *
+   * @param id Entity ID to look up.
+   * @return Copy of the entity if found, nullopt otherwise.
+   */
   std::optional<T> get(int64_t id) const
   {
     auto snapshot = std::atomic_load(&data_);
@@ -76,6 +94,11 @@ public:
     return std::nullopt;
   }
 
+  /**
+   * @brief Returns a snapshot of all entities as a vector.
+   *
+   * @return Vector of all entities in the buffer (order is unspecified).
+   */
   std::vector<T> getAll() const
   {
     auto snapshot = std::atomic_load(&data_);
@@ -87,6 +110,12 @@ public:
     return result;
   }
 
+  /**
+   * @brief Returns all entities whose lanelet_id matches the given ID.
+   *
+   * @param lanelet_id Lanelet ID to filter by.
+   * @return Vector of matching entities.
+   */
   std::vector<T> getByLanelet(int64_t lanelet_id) const
   {
     auto snapshot = std::atomic_load(&data_);
@@ -99,6 +128,15 @@ public:
     return result;
   }
 
+  /**
+   * @brief Remove all entities for which the predicate returns true.
+   *
+   * First checks without a lock whether any pruning is needed. If so,
+   * takes the write lock, re-reads the map, and removes matching entries.
+   *
+   * @tparam Predicate Callable taking const T& and returning bool.
+   * @param should_remove Predicate that returns true for entities to remove.
+   */
   template <typename Predicate>
   void prune(Predicate should_remove)
   {
@@ -129,6 +167,14 @@ public:
     std::atomic_store(&data_, MapPtr(std::move(copy)));
   }
 
+  /**
+   * @brief Apply a mutating function to every entity under the write lock.
+   *
+   * Copies the map, applies func to each entry, then atomically swaps.
+   *
+   * @tparam Func Callable taking T& (mutable reference to each entity).
+   * @param func Mutation function applied to each entity.
+   */
   template <typename Func>
   void forEach(Func func)
   {
@@ -140,6 +186,14 @@ public:
     std::atomic_store(&data_, MapPtr(std::move(copy)));
   }
 
+  /**
+   * @brief Modify a single entity by ID under the write lock.
+   *
+   * @tparam Func Callable taking T& (mutable reference to the entity).
+   * @param id Entity ID to modify.
+   * @param modifier Mutation function applied to the entity.
+   * @return true if the entity was found and modified, false otherwise.
+   */
   template <typename Func>
   bool modify(int64_t id, Func modifier)
   {
@@ -155,6 +209,17 @@ public:
     return false;
   }
 
+  /**
+   * @brief Insert-or-update an entity by ID, then apply a modifier.
+   *
+   * If the ID doesn't exist, inserts default_entity first. Then applies
+   * modifier to the entry (new or existing).
+   *
+   * @tparam Func Callable taking T& (mutable reference to the entity).
+   * @param id Entity ID to upsert.
+   * @param default_entity Default entity to insert if the ID is not present.
+   * @param modifier Mutation function applied after insert-or-lookup.
+   */
   template <typename Func>
   void upsert(int64_t id, T default_entity, Func modifier)
   {
@@ -182,6 +247,14 @@ public:
     std::atomic_store(&data_, MapPtr(std::move(copy)));
   }
 
+  /**
+   * @brief Iterate over all entities with read-only access (no lock).
+   *
+   * Atomically loads a snapshot and iterates. Safe for concurrent readers.
+   *
+   * @tparam Func Callable taking const T&.
+   * @param func Function applied to each entity.
+   */
   template <typename Func>
   void forEachConst(Func func) const
   {
@@ -191,18 +264,21 @@ public:
     }
   }
 
+  /// @brief Returns the number of entities in the buffer.
   size_t size() const
   {
     auto snapshot = std::atomic_load(&data_);
     return snapshot->size();
   }
 
+  /// @brief Returns true if the buffer contains no entities.
   bool empty() const
   {
     auto snapshot = std::atomic_load(&data_);
     return snapshot->empty();
   }
 
+  /// @brief Removes all entities from the buffer.
   void clear()
   {
     std::lock_guard<std::mutex> lock(write_mutex_);

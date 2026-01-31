@@ -35,14 +35,11 @@ namespace world_model
 /**
  * @brief ROS2 Lifecycle Node that orchestrates the world model.
  *
- * This is a thin orchestrator that owns:
- * - WorldState (entity storage with concurrency management)
- * - LaneletHandler (map queries)
- * - WorldModelWriter (single inbound subscription)
- * - Interface components (publishers, services)
- *
- * The node delegates all ROS communication to interface components
- * and all data management to WorldState/LaneletHandler.
+ * Thin orchestrator that owns WorldState (entity storage), LaneletHandler
+ * (map queries), WorldModelWriter (single inbound subscription), and the
+ * set of interface components (publishers, services). Delegates all ROS
+ * communication to interface components and all data management to
+ * WorldState/LaneletHandler.
  */
 class WorldModelNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -82,10 +79,32 @@ private:
   std::string projector_type_;
   rclcpp::TimerBase::SharedPtr map_init_timer_;
 
+  /**
+   * @brief Attempt to load the lanelet map using TF-derived UTM origin.
+   *
+   * Called by a wall timer after activation. For UTM projector, waits for the
+   * utm-to-map transform to determine the origin offset. For local_cartesian
+   * projector (simulation), loads immediately with zero offset. Cancels the
+   * timer after success or failure.
+   */
   void tryLoadMap();
 
-  // HELPER
+  /**
+   * @brief Create all interface components (publishers, services, subscriber).
+   *
+   * Reads publish rates and other parameters, then instantiates and registers
+   * all publisher, service, and subscriber interface objects.
+   */
   void createInterfaces();
+
+  /**
+   * @brief Parse occupancy area definitions from ROS parameters.
+   *
+   * Reads the "occupancy_areas" string array parameter and for each area name,
+   * declares and reads its type, center, radius, angle, and dimension parameters.
+   *
+   * @return Vector of parsed DetectionArea objects.
+   */
   std::vector<DetectionArea> parseOccupancyAreas();
 };
 

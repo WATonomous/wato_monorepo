@@ -25,14 +25,34 @@
 namespace world_model_markers
 {
 
+/**
+ * @brief Converts WorldObjectArray messages to visualization markers.
+ *
+ * Subscribes to raw world object detections (before world model processing)
+ * and publishes bounding box, label, and prediction trail markers for each object.
+ */
 class WorldObjectsMarkersNode : public rclcpp::Node
 {
 public:
   WorldObjectsMarkersNode();
 
 private:
+  /**
+   * @brief Callback for incoming WorldObjectArray messages.
+   *
+   * Clears previous markers, then creates a bounding box, label, and
+   * prediction line strip for each detection in the message.
+   *
+   * @param msg Array of world objects with detection and prediction data.
+   */
   void worldObjectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
 
+  /**
+   * @brief Maps a detection class ID string to a visualization color.
+   *
+   * @param class_id Detection class (e.g. "car", "pedestrian", "bicycle").
+   * @return RGBA color for the given class; gray for unknown classes.
+   */
   std_msgs::msg::ColorRGBA getColorForClassId(const std::string & class_id) const;
 
   rclcpp::Subscription<world_model_msgs::msg::WorldObjectArray>::SharedPtr subscription_;

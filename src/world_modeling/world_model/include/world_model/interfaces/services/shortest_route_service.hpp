@@ -53,6 +53,16 @@ public:
   }
 
 private:
+  /**
+   * @brief Handles a GetShortestRoute service request.
+   *
+   * Looks up ego position via TF and delegates to LaneletHandler::getShortestRoute
+   * to return all lanelets from ego's current position to the cached goal, along
+   * with transition types (successor, left, right) and total route length.
+   *
+   * @param request Unused (ego position is obtained from TF).
+   * @param response Populated with route lanelets, transitions, and total distance.
+   */
   void handleRequest(
     lanelet_msgs::srv::GetShortestRoute::Request::ConstSharedPtr /*request*/,
     lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr response)

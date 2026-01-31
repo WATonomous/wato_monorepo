@@ -50,6 +50,14 @@ protected:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
+  /**
+   * @brief Callback for incoming Detection3DArray messages from the tracker.
+   *
+   * Converts each detection to a WorldObject, generates constant-velocity
+   * predictions, and publishes the resulting WorldObjectArray.
+   *
+   * @param msg Array of tracked 3D detections.
+   */
   void trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
 
   /**

@@ -44,6 +44,15 @@ public:
   }
 
 private:
+  /**
+   * @brief Handles a GetLaneletsByRegElem service request.
+   *
+   * Delegates to LaneletHandler::getLaneletsByRegElem to find all lanelets
+   * that reference the given regulatory element ID.
+   *
+   * @param request Contains the reg_elem_id to query.
+   * @param response Populated with matching lanelet messages and success flag.
+   */
   void handleRequest(
     lanelet_msgs::srv::GetLaneletsByRegElem::Request::ConstSharedPtr request,
     lanelet_msgs::srv::GetLaneletsByRegElem::Response::SharedPtr response)

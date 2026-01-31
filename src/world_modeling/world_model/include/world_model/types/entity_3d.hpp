@@ -39,51 +39,60 @@ class Entity3D
 {
 public:
   virtual ~Entity3D() = default;
+
+  /// @brief Returns the concrete entity type (CAR, HUMAN, etc.).
   virtual EntityType type() const = 0;
 
-  // Lanelet context (enriched by LaneletEnricher)
+  /// Lanelet context (enriched by LaneletEnricher).
   std::optional<int64_t> lanelet_id;
-  // Detection history (front = most recent)
+  /// Detection history ordered newest-first (front = most recent).
   std::deque<vision_msgs::msg::Detection3D> history;
-
-  // Predicted future paths (from Prediction node)
+  /// Predicted future paths (from Prediction node).
   std::vector<world_model_msgs::msg::Prediction> predictions;
 
+  /// @brief Returns true if no detections have been recorded yet.
   bool empty() const
   {
     return history.empty();
   }
 
+  /// @brief Returns the most recent detection.
   const vision_msgs::msg::Detection3D & detection() const
   {
     return history.front();
   }
 
+  /// @brief Returns the tracking ID parsed from the most recent detection.
   int64_t id() const
   {
     return std::stoll(history.front().id);
   }
 
+  /// @brief Returns the timestamp of the most recent detection.
   rclcpp::Time timestamp() const
   {
     return rclcpp::Time(history.front().header.stamp);
   }
 
+  /// @brief Returns the TF frame ID of the most recent detection.
   const std::string & frameId() const
   {
     return history.front().header.frame_id;
   }
 
+  /// @brief Returns the pose (position + orientation) from the most recent detection.
   const geometry_msgs::msg::Pose & pose() const
   {
     return history.front().bbox.center;
   }
 
+  /// @brief Returns the bounding box dimensions from the most recent detection.
   const geometry_msgs::msg::Vector3 & size() const
   {
     return history.front().bbox.size;
   }
 
+  /// @brief Returns the full 3D bounding box from the most recent detection.
   const vision_msgs::msg::BoundingBox3D & bbox() const
   {
     return history.front().bbox;

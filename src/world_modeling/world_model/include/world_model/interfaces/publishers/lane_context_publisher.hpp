@@ -85,6 +85,14 @@ private:
     return std::atan2(siny_cosp, cosy_cosp);
   }
 
+  /**
+   * @brief Timer callback that publishes current lane context.
+   *
+   * Looks up ego pose via TF, finds the current lanelet using heading-aligned
+   * search with a BFS hint from the previous tick, and publishes lane context
+   * including distances to upcoming events. Caches the lanelet and rebuilds
+   * the static context only when the current lanelet changes.
+   */
   void publish()
   {
     if (!lanelet_->isMapLoaded()) {
@@ -122,6 +130,14 @@ private:
     pub_->publish(cached_context_);
   }
 
+  /**
+   * @brief Rebuilds the cached lane context for a new lanelet.
+   *
+   * Converts the lanelet to a message and initializes event distances
+   * (traffic light, stop line, intersection, yield) from its regulatory elements.
+   *
+   * @param lanelet The new current lanelet to build context from.
+   */
   void rebuildContext(const lanelet::ConstLanelet & lanelet)
   {
     cached_context_ = lanelet_msgs::msg::CurrentLaneContext();
@@ -146,6 +162,14 @@ private:
     }
   }
 
+  /**
+   * @brief Updates frame-by-frame dynamic fields in the cached context.
+   *
+   * Sets the message timestamp and computes the distance from ego to the
+   * end of the current lanelet by measuring arc length along the centerline.
+   *
+   * @param ego Current ego pose in the map frame.
+   */
   void updateDynamicContext(const geometry_msgs::msg::PoseStamped & ego)
   {
     cached_context_.header.stamp = node_->get_clock()->now();

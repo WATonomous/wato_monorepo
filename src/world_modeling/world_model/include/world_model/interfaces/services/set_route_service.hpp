@@ -51,6 +51,16 @@ public:
   }
 
 private:
+  /**
+   * @brief Handles a SetRoute service request.
+   *
+   * Looks up ego position via TF, finds the nearest lanelet to ego and to the
+   * requested goal point, computes the shortest route between them, and caches
+   * it in LaneletHandler for subsequent GetShortestRoute and RouteAhead queries.
+   *
+   * @param request Contains the goal_point position.
+   * @param response Populated with current/goal lanelet IDs and success flag.
+   */
   void handleRequest(
     lanelet_msgs::srv::SetRoute::Request::ConstSharedPtr request,
     lanelet_msgs::srv::SetRoute::Response::SharedPtr response)

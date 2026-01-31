@@ -21,11 +21,8 @@
 #include <cmath>
 #include <limits>
 #include <memory>
-<<<<<<< HEAD
-#include <set>
-=======
->>>>>>> a1dbd7a0140832192bb5b27a8ad43be49ee31d06
 #include <queue>
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -545,7 +542,6 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getReachableLaneletsInRadius(
   return result;
 }
 
-<<<<<<< HEAD
 std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(
   const geometry_msgs::msg::Point & point) const
 {
@@ -597,8 +593,6 @@ std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(
   return best_id;
 }
 
-=======
->>>>>>> a1dbd7a0140832192bb5b27a8ad43be49ee31d06
 lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(int64_t reg_elem_id) const
 {
   lanelet_msgs::srv::GetLaneletsByRegElem::Response response;

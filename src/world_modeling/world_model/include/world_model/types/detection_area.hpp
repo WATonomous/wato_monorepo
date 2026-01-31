@@ -26,10 +26,8 @@ namespace world_model
 /**
  * @brief Geometric area for occupancy detection.
  *
- * Supports three area types:
- * - Circle: center (x,y), radius
- * - PartialCircle: center (x,y), radius, start_angle, end_angle
- * - Rectangle: center (x,y), length (x-dim), width (y-dim)
+ * Supports three area types: Circle (center, radius), PartialCircle (center,
+ * radius, angular bounds), and Rectangle (center, length, width).
  *
  * All coordinates are relative to a reference frame (typically base_link).
  */
@@ -109,16 +107,23 @@ public:
     }
   }
 
+  /// @brief Returns the area name.
   const std::string & name() const
   {
     return name_;
   }
 
+  /// @brief Returns the area type (Circle, PartialCircle, Rectangle).
   Type type() const
   {
     return type_;
   }
 
+  /**
+   * @brief Convert this DetectionArea to a ROS AreaDefinition message.
+   *
+   * @return Populated AreaDefinition message with all geometric parameters.
+   */
   world_model_msgs::msg::AreaDefinition toMsg() const
   {
     world_model_msgs::msg::AreaDefinition msg;
@@ -147,6 +152,7 @@ public:
   }
 
 private:
+  /// @brief Circle containment test: checks if (x,y) is within the radius.
   bool containsCircle(double x, double y) const
   {
     double dx = x - center_x_;
@@ -155,6 +161,7 @@ private:
     return dist_sq <= radius_ * radius_;
   }
 
+  /// @brief Partial circle containment test: checks radius and angular bounds.
   bool containsPartialCircle(double x, double y) const
   {
     double dx = x - center_x_;
@@ -193,6 +200,7 @@ private:
     }
   }
 
+  /// @brief Rectangle containment test: checks axis-aligned half-extents.
   bool containsRectangle(double x, double y) const
   {
     // Transform point to rectangle's local frame (centered at rectangle center)
