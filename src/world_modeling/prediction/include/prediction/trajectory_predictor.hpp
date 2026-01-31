@@ -49,8 +49,8 @@
  * All three functions MUST return: std::vector<TrajectoryHypothesis>
  *
  * TrajectoryHypothesis structure (defined below):
- * - waypoints: std::vector<geometry_msgs::msg::Pose>  (x,y,z positions)
- * - timestamps: std::vector<double>  (time for each waypoint)
+ * - header: std_msgs::msg::Header  (with timestamp and frame_id)
+ * - poses: std::vector<geometry_msgs::msg::PoseStamped>  (x,y,z positions with timestamps)
  * - intent: Intent enum (CONTINUE_STRAIGHT, TURN_LEFT, etc.)
  * - probability: double (will be set by IntentClassifier, start at 0.0)
  *
@@ -67,8 +67,10 @@
 #include <string>
 #include <vector>
 
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "prediction/motion_models.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/header.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 
 namespace prediction
@@ -104,10 +106,10 @@ enum class Intent
  */
 struct TrajectoryHypothesis
 {
-  std::vector<geometry_msgs::msg::Pose> waypoints;
-  std::vector<double> timestamps;
+  std_msgs::msg::Header header;
+  std::vector<geometry_msgs::msg::PoseStamped> poses;
   Intent intent;
-  double probability;  // Will be set by IntentClassifier
+  double probability;
 };
 
 /**
