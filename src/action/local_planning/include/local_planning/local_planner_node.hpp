@@ -2,17 +2,30 @@
 
 #include <iostream>
 #include <vector>
+#include <optional>
 
 #include "local_planning/local_planner_core.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "rclcpp_lifecycle/lifecycle_publisher.hpp"
+
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 
 #include "nav_msgs/msg/odometry.hpp"
 
 #include "lanelet_msgs/msg/route_ahead.hpp"
+
+
+struct FrenetPath{
+  std::vector<FrenetPoint> path;
+  int target_lanelet_id;
+  double lateral_dist_from_goal_lane;
+  double cost;
+};
 
 class LocalPlannerNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -49,12 +62,22 @@ private:
 
   FrenetPoint corridor_terminals[num_horizons][lateral_samples] = {};
 
-  geometry_msgs::msg::PoseStamped car_pose;
+  std::optional<geometry_msgs::msg::PoseStamped> car_pose;
+  std::optional<FrenetPoint> car_frenet_point;
+
+  double distance_along_first_lanelet(const lanelet_msgs::msg::Lanelet & ll);
 
   void create_corridor(const lanelet_msgs::msg::RouteAhead::ConstSharedPtr & msg);
   void update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
+  void timer_callback();
+  void publish_paths_vis(std::vector<FrenetPath> paths);
   
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_vis_pub_;
+
+  rclcpp::TimerBase::SharedPtr timer_;
   
 };

@@ -13,6 +13,8 @@ ssh_config/
 watod-config.local.sh
 watod-config.sh
 
+local_planning_copy
+
 bags/
 build/
 install/
