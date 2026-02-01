@@ -24,9 +24,9 @@ namespace prediction
 PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
 : Node("prediction_node", options)
 {
-  // Declare parameters
-  this->declare_parameter("prediction_horizon", 5.0);
-  this->declare_parameter("prediction_time_step", 0.1);
+  // Declare parameters (defaults match simple_prediction for drop-in compatibility)
+  this->declare_parameter("prediction_horizon", 3.0);
+  this->declare_parameter("prediction_time_step", 0.2);
 
   // Get parameters
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
@@ -54,12 +54,6 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
 
 void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
-  if (!ego_pose_) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 1000, "Ego pose not received yet, skipping prediction");
-    return;
-  }
-
   RCLCPP_DEBUG(this->get_logger(), "Processing %zu tracked objects", msg->detections.size());
 
   world_model_msgs::msg::WorldObjectArray output;
