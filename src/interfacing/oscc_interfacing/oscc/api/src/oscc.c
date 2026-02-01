@@ -101,7 +101,7 @@ oscc_result_t oscc_open(unsigned int channel)
   return result;
 }
 
-oscc_result_t oscc_close(unsigned int channel)
+oscc_result_t oscc_close()
 {
   bool closed_channel = false;
   bool close_errored = false;
@@ -720,7 +720,7 @@ oscc_result_t construct_interfaces_list(device_names_s * const names_ptr)
 
     names_ptr->name = (char **)malloc(lines * sizeof(char *));
 
-    uint i;
+    int i;
 
     for (i = 0; i < lines; i++) {
       names_ptr->name[i] = (char *)malloc(IFNAMSIZ * sizeof(char));
@@ -740,7 +740,7 @@ oscc_result_t construct_interfaces_list(device_names_s * const names_ptr)
   }
 
   if (result == OSCC_OK) {
-    uint size = 0;
+    int size = 0;
 
     while (size < lines && fgets(buffer, sizeof(buffer), file_handler)) {
       result = get_device_name(buffer, socket_name);

@@ -78,12 +78,10 @@ oscc_result_t oscc_open(unsigned int channel);
  * @brief Use provided CAN channel to close communications
  *        to CAN bus connected to the OSCC modules.
  *
- * @param [in] channel - CAN channel connected to OSCC modules.
- *
  * @return OSCC_ERROR or OSCC_OK
  *
  */
-oscc_result_t oscc_close(unsigned int channel);
+oscc_result_t oscc_close();
 
 /**
  * @brief Send enable commands to all OSCC modules.
