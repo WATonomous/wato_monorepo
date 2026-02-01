@@ -9,10 +9,10 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Behaviour Tree ROS2
-RUN git clone https://github.com/BehaviorTree/BehaviorTree.ROS2.git --branch humble behaviortree_ros2
-WORKDIR ${AMENT_WS}/src/behaviortree_ros2
-RUN git checkout 6c6aa078ee7bc52fec98984bed4964556abf5beb
-WORKDIR ${AMENT_WS}/src
+# RUN git clone https://github.com/BehaviorTree/BehaviorTree.ROS2.git --branch humble behaviortree_ros2
+# WORKDIR ${AMENT_WS}/src/behaviortree_ros2
+# RUN git checkout 6c6aa078ee7bc52fec98984bed4964556abf5beb
+# WORKDIR ${AMENT_WS}/src
 
 # Copy in source code needed for world modeling build
 COPY src/world_modeling world_modeling
@@ -24,6 +24,11 @@ COPY src/wato_test wato_test
 # NOTE: You should be relying on ROSDEP as much as possible
 # Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
+
+# Install BehaviorTree.CPP library for BehaviorTree.ROS2 to be vendored
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-jazzy-behaviortree-cpp \
+ && rm -rf /var/lib/apt/lists/*
 
 # Download maps (ADD fetches GitHub API to bust cache when repo updates)
 ADD https://api.github.com/repos/WATonomous/map_data/git/refs/heads/master /tmp/map_version.json

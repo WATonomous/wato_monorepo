@@ -94,7 +94,7 @@ target_link_libraries(behaviour_node
     rclcpp_action::rclcpp_action
     tf2_ros::tf2_ros
     tf2_geometry_msgs::tf2_geometry_msgs
-    # behaviortree_cpp::behaviortree_cpp
+    # behaviortree_cpp::behaviortree_cpp2
     behaviortree_ros2::behaviortree_ros2
     ament_index_cpp::ament_index_cpp
     ${std_msgs_TARGETS}

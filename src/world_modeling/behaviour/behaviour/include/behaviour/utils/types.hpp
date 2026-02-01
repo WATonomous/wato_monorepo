@@ -16,28 +16,83 @@
 #define BEHAVIOUR__UTILS__TYPES_HPP_
 
 #include <cstdint>
+#include <memory>
 
 #include <behaviortree_cpp/basic_types.h>
 
 namespace behaviour::types
 {
-enum class LaneTransition : uint8_t {
+  enum class LaneTransition : uint8_t
+  {
     SUCCESSOR = 0,
     LEFT = 1,
     RIGHT = 2,
-};
-}  // namespace behaviour::types
+  };
+
+  inline const char *toString(LaneTransition value)
+  {
+    switch (value)
+    {
+    case LaneTransition::SUCCESSOR:
+      return "SUCCESSOR";
+    case LaneTransition::LEFT:
+      return "LEFT";
+    case LaneTransition::RIGHT:
+      return "RIGHT";
+    default:
+      return "UNKNOWN";
+    }
+  }
+
+  enum class TrafficControlElementType : uint8_t
+  {
+    TRAFFIC_LIGHT = 0,
+    STOP_SIGN = 1,
+    YIELD = 2,
+  };
+
+  inline const char *toString(TrafficControlElementType value)
+  {
+    switch (value)
+    {
+    case TrafficControlElementType::TRAFFIC_LIGHT:
+      return "TRAFFIC_LIGHT";
+    case TrafficControlElementType::STOP_SIGN:
+      return "STOP_SIGN";
+    case TrafficControlElementType::YIELD:
+      return "YIELD";
+    default:
+      return "UNKNOWN";
+    }
+  }
+
+}
 
 namespace BT
 {
-template <>
-inline behaviour::types::LaneTransition convertFromString(StringView str)
-{
-  if (str == "SUCCESSOR") return behaviour::types::LaneTransition::SUCCESSOR;
-  if (str == "LEFT") return behaviour::types::LaneTransition::LEFT;
-  if (str == "RIGHT") return behaviour::types::LaneTransition::RIGHT;
-  throw BT::RuntimeError("Can't convert string [", str, "] to LaneTransition");
-}
-}  // namespace BT
+  template <>
+  inline behaviour::types::LaneTransition convertFromString(StringView str)
+  {
+    if (str == "SUCCESSOR")
+      return behaviour::types::LaneTransition::SUCCESSOR;
+    if (str == "LEFT")
+      return behaviour::types::LaneTransition::LEFT;
+    if (str == "RIGHT")
+      return behaviour::types::LaneTransition::RIGHT;
+    throw BT::RuntimeError("Can't convert string [", str, "] to LaneTransition");
+  }
 
-#endif  // BEHAVIOUR__UTILS__TYPES_HPP_
+  template <>
+  inline behaviour::types::TrafficControlElementType convertFromString(StringView str)
+  {
+    if (str == "TRAFFIC_LIGHT")
+      return behaviour::types::TrafficControlElementType::TRAFFIC_LIGHT;
+    if (str == "STOP_SIGN")
+      return behaviour::types::TrafficControlElementType::STOP_SIGN;
+    if (str == "YIELD")
+      return behaviour::types::TrafficControlElementType::YIELD;
+    throw BT::RuntimeError("Can't convert string [", str, "] to TrafficControlElementType");
+  }
+} // namespace BT
+
+#endif // BEHAVIOUR__UTILS__TYPES_HPP_

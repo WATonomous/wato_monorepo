@@ -4,6 +4,7 @@
 #include <behaviortree_cpp/action_node.h>
 
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -42,24 +43,27 @@ public:
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
     if (!lane_ctx) {
         setOutput("error_message", "missing_lane_context");
+        std::cout << "[GetLaneChangePreferredLanelets]: Missing lane_ctx input" << std::endl;
         return BT::NodeStatus::FAILURE;
     }
     
     const auto target_lanelet = ports::tryGetPtr<lanelet_msgs::msg::Lanelet>(*this, "target_lanelet");
     if (!target_lanelet) {
       setOutput("error_message", "missing_target_lanelet");
+      std::cout << "[GetLaneChangePreferredLanelets]: Missing target_lanelet input" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
-    auto preferred = std::make_shared<std::vector<int64_t>>();
-
-    preferred->push_back(target_lanelet->id);
-    preferred->push_back(lane_ctx->current_lanelet.id);
-    for (const auto& id: target_lanelet->successor_ids) {
-      preferred->push_back(id);
+    std::vector<int64_t> preferred;
+    preferred.push_back(target_lanelet->id);
+    preferred.push_back(lane_ctx->current_lanelet.id);
+    for (const auto & id : target_lanelet->successor_ids) {
+      preferred.push_back(id);
     }
 
     setOutput("out_preferred_lanelet_ids", preferred);
+    std::cout << "[GetLaneChangePreferredLanelets]: Result=SUCCESS (preferred_ids_count="
+              << preferred.size() << ")" << std::endl;
     return BT::NodeStatus::SUCCESS;
   }
 };

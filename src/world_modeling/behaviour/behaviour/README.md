@@ -2,12 +2,7 @@
 
 To ensure consistency and maintainability across Eve's behavior engine, all new Behavior Tree (BT) nodes must follow these standards.
 
-## 1. Directory Structure
-Nodes are categorized by their underlying BehaviorTree.CPP class type and their ROS interaction.
+# Nodes Folder structure
 
-include/behaviour/
-├── actions/      # BT::RosActionNode (Async ROS 2 Actions)
-├── services/     # BT::RosServiceNode (Sync ROS 2 Services)
-├── conditions/   # BT::ConditionNode (State checks)
-├── nodes/        # BT::SyncActionNode (Internal C++ logic)
-└── decorators/   # BT::DecoratorNode (Child modifiers)
+- if ever you think a node could be use else where you can rename it and register it under the common subdirectory
+- this folder structure is soley for readibility. hopefully we can get this feature in soon that way our node registrar can be even cleaner

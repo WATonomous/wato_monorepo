@@ -41,20 +41,22 @@ public:
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
     if (!lane_ctx) {
       setOutput("error_message", "missing_lane_context");
+      std::cout << "[GetFollowLanePreferredLanelets]: Missing lane_ctx input" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
     // Allows for right turn and any lanelets successor ids
     // This only disallows lane changes
 
-    auto preferred = std::make_shared<std::vector<int64_t>>();
-
-    preferred->push_back(lane_ctx->current_lanelet.id);
-    for (const auto& id : lane_ctx->current_lanelet.successor_ids) {
-      preferred->push_back(id);
+    std::vector<int64_t> preferred;
+    preferred.push_back(lane_ctx->current_lanelet.id);
+    for (const auto & id : lane_ctx->current_lanelet.successor_ids) {
+      preferred.push_back(id);
     }
 
     setOutput("out_preferred_lanelet_ids", preferred);
+    std::cout << "[GetFollowLanePreferredLanelets]: Result=SUCCESS (preferred_ids_count="
+              << preferred.size() << ")" << std::endl;
     return BT::NodeStatus::SUCCESS;
   }
 };

@@ -9,6 +9,9 @@
   <!-- TODO(wato): vendor package for behaviour tree ros2 -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>behaviortree_cpp</depend>
+  <depend>generate_parameter_library</depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

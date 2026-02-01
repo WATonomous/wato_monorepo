@@ -19,149 +19,76 @@
 #include <string>
 #include <utility>
 
-#include "behaviour/utils/utils.hpp"
+#include "behaviour/nodes/common/registrar.hpp"
+// #include "behaviour/nodes/intersection/registrar.hpp"
+#include "behaviour/nodes/lane_navigation/registrar.hpp"
 
-// Actions
-// #include "behaviour/nodes/actions/determine_lane_behaviour.hpp"
-// #include "behaviour/nodes/actions/determine_reg_elem_node.hpp"
-#include "behaviour/nodes/publishers/execute_behaviour_publisher.hpp"
-#include "behaviour/nodes/actions/get_route_context_action.hpp"
-#include "behaviour/nodes/actions/get_lane_change_preferred_lanelets_action.hpp"
-#include "behaviour/nodes/actions/get_follow_lane_preferred_lanelets_action.hpp"
-// #include "behaviour/nodes/actions/get_objects_by_lanelet_action.hpp"
-// #include "behaviour/nodes/actions/get_objects_by_lanelets_action.hpp"
-// #include "behaviour/nodes/actions/get_reg_elem_context_action.hpp"
-// #include "behaviour/nodes/actions/get_traffic_light_state_action.hpp"
-// #include "behaviour/nodes/actions/reg_elem_reached_action.hpp"
-
-// Conditions
-// #include "behaviour/nodes/conditions/comparator_condition.hpp"
-#include "behaviour/nodes/conditions/is_error_message_condition.hpp"
-#include "behaviour/nodes/conditions/is_lane_transition_condition.hpp"
-
-#include "behaviour/nodes/conditions/goal_reached_condition.hpp"
-#include "behaviour/nodes/conditions/valid_lane_change_condition.hpp"
-#include "behaviour/nodes/conditions/safe_lane_change_condition.hpp"
-// #include "behaviour/nodes/conditions/goal_updated_condition.hpp"
-#include "behaviour/nodes/conditions/goal_exist_condition.hpp"
-#include "behaviour/nodes/conditions/global_route_exist_condition.hpp"
-#include "behaviour/nodes/conditions/car_on_route_condition.hpp"
-// #include "behaviour/nodes/conditions/reg_elem_type_condition.hpp"
-// #include "behaviour/nodes/conditions/safe_prediction_condition.hpp"
-// #include "behaviour/nodes/conditions/safe_proximity_condition.hpp"
-// #include "behaviour/nodes/conditions/turn_to_go_condition.hpp"
-
-// Decorators
-#include "behaviour/nodes/decorators/rate_controller.hpp"
-
-// Services
-// #include "behaviour/nodes/services/get_lanelets_by_reg_elem_service.hpp"
-#include "behaviour/nodes/services/get_shortest_route_service.hpp"
-#include "behaviour/nodes/services/set_route_service.hpp"
 namespace behaviour
 {
 
-/**
- * @brief Initialize the BT manager by registering custom nodes and loading the XML.
- */
-BehaviourTree::BehaviourTree(
-  rclcpp::Node::SharedPtr node,
-  const std::string & tree_file_path,
-  bool logging)
-: node_(std::move(node))
-{
-  registerNodes();
-  buildTree(tree_file_path);
-  
-  if (logging) {
-    // This logger prints state transitions [IDLE -> RUNNING -> SUCCESS] to terminal
-    cout_logger_ = std::make_unique<BT::StdCoutLogger>(tree_);
-  }
-}
+  /**
+   * @brief Initialize the BT manager by registering custom nodes and loading the XML.
+   */
+  BehaviourTree::BehaviourTree(
+      rclcpp::Node::SharedPtr node,
+      const std::string &tree_file_path,
+      bool logging)
+      : node_(std::move(node))
+  {
+    registerNodes();
+    buildTree(tree_file_path);
 
-/**
- * @brief Register all custom BT nodes (Actions, Conditions, Decorators, Services).
- */
-void BehaviourTree::registerNodes()
-{
-  if (!node_) {
-    throw std::runtime_error("ROS node provided to BehaviourTree is null!");
+    if (logging)
+    {
+      // This logger prints state transitions [IDLE -> RUNNING -> SUCCESS] to terminal
+      cout_logger_ = std::make_unique<BT::StdCoutLogger>(tree_);
+    }
   }
 
- // Default params for most ROS-linked BT nodes
-  BT::RosNodeParams params;
-  params.nh = node_;
-  // leave defaults: server_timeout=1000ms, wait_for_server_timeout=500ms
+  /**
+   * @brief Register all custom BT nodes (Actions, Conditions, Decorators, Services).
+   */
+  void BehaviourTree::registerNodes()
+  {
+    if (!node_)
+    {
+      throw std::runtime_error("ROS node provided to BehaviourTree is null!");
+    }
 
-  // Route services can be slow; give them a bigger timeout
-  BT::RosNodeParams get_shortest_route_params = params;
-  get_shortest_route_params.server_timeout = std::chrono::milliseconds(50000);        // 50s response timeout
-  get_shortest_route_params.wait_for_server_timeout = std::chrono::milliseconds(2000); // 2s wait for service availability
+    // Default params for most ROS-linked BT nodes
+    BT::RosNodeParams params;
+    params.nh = node_;
 
-  BT::RosNodeParams set_route_params = params;
-  set_route_params.server_timeout = std::chrono::milliseconds(50000);
+    // load all the node registrars
+    CommonNodeRegistrar common_registrar;
+    // IntersectionNodeRegistrar intersection_registrar;
+    LaneNavigationNodeRegistrar lane_navigation_registrar;
 
-  // Decorators
-  factory_.registerNodeType<RateController>("RateController");
-  
-  // Publishers
-  factory_.registerNodeType<ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
+    common_registrar.register_nodes(factory_, params);
+    // intersection_registrar.register_nodes(factory_, params);
+    lane_navigation_registrar.register_nodes(factory_, params);
+  }
 
-  // Actions
-  // factory_.registerNodeType<DetermineLaneBehaviourAction>("DetermineLaneBehaviour");
-  // factory_.registerNodeType<DetermineRegElemAction>("DetermineRegElem");
-  factory_.registerNodeType<GetRouteContextAction>("GetRouteContext");
-  factory_.registerNodeType<GetLaneChangePreferredLaneletsAction>("GetLaneChangePreferredLanelets");
-  factory_.registerNodeType<GetFollowLanePreferredLaneletsAction>("GetFollowLanePreferredLanelets");
-  // factory_.registerNodeType<GetObjectsByLaneletAction>("GetObjectsByLanelet");
-  // factory_.registerNodeType<GetObjectsByLaneletsAction>("GetObjectsByLanelets");
-  // factory_.registerNodeType<GetRegElemContextAction>("GetRegElemContext");
-  // factory_.registerNodeType<GetTrafficLightStateAction>("GetTrafficLightState");
-  // factory_.registerNodeType<RegElemReachedAction>("RegElemReached");
+  /**
+   * @brief Create the blackboard and build the tree structure from the XML file.
+   */
+  void BehaviourTree::buildTree(const std::string &tree_file_path)
+  {
+    blackboard_ = BT::Blackboard::create();
 
-  // Services
-  // factory_.registerNodeType<GetLaneletsByRegElemService>("GetLaneletsByRegElem", params);
-  factory_.registerNodeType<GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
-  factory_.registerNodeType<SetRouteService>("SetRoute", set_route_params);
-  
-  // Conditions
-  // factory_.registerNodeType<ComparatorCondition>("Comparator");
-  
-  factory_.registerNodeType<IsErrorMessageCondition>("IsErrorMessage");
-  factory_.registerNodeType<IsLaneTransitionCondition>("IsLaneTransition");
-  factory_.registerNodeType<ValidLaneChangeCondition>("ValidLaneChange");
-  factory_.registerNodeType<SafeLaneChangeCondition>("SafeLaneChange");
-  factory_.registerNodeType<GoalReachedCondition>("GoalReached");
-  factory_.registerNodeType<GoalExistCondition>("GoalExist");
-  factory_.registerNodeType<GlobalRouteExistCondition>("GlobalRouteExist");
-  factory_.registerNodeType<CarOnRouteCondition>("CarOnRoute");
-  // factory_.registerNodeType<GoalUpdatedCondition>("GoalUpdated");
-  // factory_.registerNodeType<RegElemTypeCondition>("RegElemType");
-  // factory_.registerNodeType<SafePredictionCondition>("SafePrediction");
-  // factory_.registerNodeType<SafeProximityCondition>("SafeProximity");
-  // factory_.registerNodeType<TurnToGoCondition>("TurnToGo");
-}
+    // Set the node on the blackboard so custom nodes can access it
+    blackboard_->set<rclcpp::Node::SharedPtr>("node", node_);
 
-/**
- * @brief Create the blackboard and build the tree structure from the XML file.
- */
-void BehaviourTree::buildTree(const std::string & tree_file_path)
-{
-  blackboard_ = BT::Blackboard::create();
-  
-  // Set the node on the blackboard so custom nodes can access it
-  blackboard_->set<rclcpp::Node::SharedPtr>("node", node_);
+    RCLCPP_INFO(node_->get_logger(), "Loading Behavior Tree from: %s", tree_file_path.c_str());
+    tree_ = factory_.createTreeFromFile(tree_file_path, blackboard_);
+  }
 
-  RCLCPP_INFO(node_->get_logger(), "Loading Behavior Tree from: %s", tree_file_path.c_str());
-  tree_ = factory_.createTreeFromFile(tree_file_path, blackboard_);
-}
+  /**
+   * @brief Tick the tree logic.
+   */
+  void BehaviourTree::tick()
+  {
+    tree_.tickOnce();
+  }
 
-/**
- * @brief Tick the tree logic.
- */
-void BehaviourTree::tick()
-{
-  tree_.tickOnce();
-}
-
-}  // namespace behaviour
+} // namespace behaviour

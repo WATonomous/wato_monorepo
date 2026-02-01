@@ -1,0 +1,55 @@
+#ifndef BEHAVIOUR__NODES__COMMON_NODE__REGISTRAR_HPP_
+#define BEHAVIOUR__NODES__COMMON_NODE__REGISTRAR_HPP_
+
+#include <behaviortree_cpp/bt_factory.h>
+#include <behaviortree_ros2/ros_node_params.hpp>
+
+#include "behaviour/nodes/node_registrar_base.hpp"
+
+// actions
+#include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
+#include "behaviour/nodes/common/actions/set_route_service.hpp"
+// #include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
+
+#include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
+
+// conditions
+#include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
+#include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
+#include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
+#include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
+#include "behaviour/nodes/common/conditions/car_on_route_condition.hpp"
+
+// decorators
+#include "behaviour/nodes/common/decorators/rate_controller.hpp"
+
+class CommonNodeRegistrar : public NodeRegistrarBase
+{
+public:
+    void register_nodes(BT::BehaviorTreeFactory &factory, const BT::RosNodeParams &params) override
+    {
+        BT::RosNodeParams get_shortest_route_params = params;
+        get_shortest_route_params.server_timeout = std::chrono::milliseconds(50000); // 50s response timeout
+
+        BT::RosNodeParams set_route_params = params;
+        set_route_params.server_timeout = std::chrono::milliseconds(50000);
+
+        // actions
+        factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
+        factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
+        // factory.registerNodeType<behaviour::GetLaneletsByRegElemService>("GetLaneletsByRegElem");
+        factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
+
+        // conditions
+        factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage");
+        factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
+        factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
+        factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
+        factory.registerNodeType<behaviour::CarOnRouteCondition>("CarOnRoute");
+
+        // decorators
+        factory.registerNodeType<behaviour::RateController>("RateController");
+    }
+};
+
+#endif // BEHAVIOUR__NODES__COMMON_NODE__REGISTRAR_HPP_

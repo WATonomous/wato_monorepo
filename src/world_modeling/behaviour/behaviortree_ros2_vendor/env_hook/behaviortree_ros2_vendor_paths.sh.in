@@ -1,1 +1,4 @@
-TODO(wato): fill this in
+_vendor_prefix="@CMAKE_INSTALL_PREFIX@/opt/behaviortree_ros2_vendor"
+ament_prepend_unique_value AMENT_PREFIX_PATH "${_vendor_prefix}"
+ament_prepend_unique_value CMAKE_PREFIX_PATH "${_vendor_prefix}"
+ament_prepend_unique_value LD_LIBRARY_PATH "${_vendor_prefix}/lib"

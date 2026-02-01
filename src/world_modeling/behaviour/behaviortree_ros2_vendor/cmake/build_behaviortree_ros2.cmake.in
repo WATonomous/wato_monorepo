@@ -1,0 +1,15 @@
+# Runs the external colcon build in a controlled shell.
+
+execute_process(
+  COMMAND bash -lc
+    "set -e;
+     source /opt/ros/jazzy/setup.bash;
+     cd '@SOURCE_DIR@';
+     colcon build --base-paths . --packages-select behaviortree_ros2 btcpp_ros2_interfaces --merge-install --install-base '@BT_ROS2_INSTALL_DIR@' --build-base '@CMAKE_CURRENT_BINARY_DIR@/bt_ros2_build' --cmake-args -DCMAKE_BUILD_TYPE=@bt_ros2_build_type@;
+     test -f '@BT_ROS2_INSTALL_DIR@/share/behaviortree_ros2/cmake/behaviortree_ros2Config.cmake' -o -f '@BT_ROS2_INSTALL_DIR@/share/behaviortree_ros2/cmake/behaviortree_ros2-config.cmake'"
+  RESULT_VARIABLE _res
+)
+
+if(NOT _res EQUAL 0)
+  message(FATAL_ERROR "BehaviorTree.ROS2 vendor build failed with code ${_res}")
+endif()
