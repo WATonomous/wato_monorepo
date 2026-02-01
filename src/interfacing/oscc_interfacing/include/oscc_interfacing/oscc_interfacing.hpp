@@ -116,6 +116,7 @@ private:
   // Status tracking
   int is_armed_publish_rate_hz;
   int oscc_can_bus_;
+  float steering_scaling_{1.0};
 
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};

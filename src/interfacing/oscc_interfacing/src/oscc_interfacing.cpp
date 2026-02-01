@@ -144,11 +144,20 @@ void OsccInterfacingNode::configure()
   // Declare parameters
   this->declare_parameter<int>("is_armed_publish_rate_hz", 100);
   this->declare_parameter<int>("oscc_can_bus", 0);
+  this->declare_parameter<float>("steering_scaling", 1);
 
   // Read parameters
   is_armed_ = false;
   is_armed_publish_rate_hz = this->get_parameter("is_armed_publish_rate_hz").as_int();
   oscc_can_bus_ = this->get_parameter("oscc_can_bus").as_int();
+  steering_scaling_ = this->get_parameter("steering_scaling").as_double();
+
+  if ( steering_scaling_ > 1.0 || steering_scaling_ <= 0.0 ) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Steering scaling parameter out of range (0.0, 1.0], resetting to 1.0");
+    steering_scaling_ = 1.0;
+  }
 
   // Create subscription to /joystick/roscco
   roscco_sub_ = this->create_subscription<roscco_msg::msg::Roscco>(
@@ -232,6 +241,15 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   float forward = msg->forward;
   float steering = msg->steering;
 
+  if (std::abs(forward) > 1.0) {
+    RCLCPP_ERROR(this->get_logger(), "Forward command out of range [-1, 1], this should not happen! Ignoring message.");
+    return;
+  }
+  if (std::abs(steering) > 1.0) {
+    RCLCPP_ERROR(this->get_logger(), "Steering command out of range [-1, 1], this should not happen! Ignoring message.");
+    return;
+  }
+
   // If forward is positive, set throttle; if negative, set brake
   if (forward >= 0.0) {
     throttle = forward;
@@ -261,7 +279,7 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   }
 
   // always pub steering
-  handle_any_errors(oscc_publish_steering_torque(steering));
+  handle_any_errors(oscc_publish_steering_torque(steering*steering_scaling_));
 
   last_forward_ = forward;
 }
