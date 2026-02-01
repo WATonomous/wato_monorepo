@@ -1,0 +1,1081 @@
+From 6f7c2f057d3d39aa07fff4d18b05a326f5472c29 Mon Sep 17 00:00:00 2001
+From: khuang9 <k279huan@uwaterloo.ca>
+Date: Sun, 1 Feb 2026 04:23:56 -0500
+Subject: [PATCH] 3d-version-nocv2
+
+---
+ CMakeLists.txt                   |   2 +-
+ include/ByteTrack/KalmanFilter.h |  26 ++--
+ include/ByteTrack/Rect.h         |  34 +++-
+ include/ByteTrack/STrack.h       |  10 +-
+ include/ByteTrack/iou_utils.h    |  40 +++++
+ src/BYTETracker.cpp              |   2 +-
+ src/KalmanFilter.cpp             |  66 ++++----
+ src/Rect.cpp                     | 257 ++++++++++++++++++++++++-------
+ src/STrack.cpp                   |  54 +++++--
+ src/iou_utils.cpp                | 199 ++++++++++++++++++++++++
+ 10 files changed, 563 insertions(+), 127 deletions(-)
+ create mode 100644 include/ByteTrack/iou_utils.h
+ create mode 100644 src/iou_utils.cpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7ccd9b3..9cb4744 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -32,7 +32,6 @@ if(NOT EIGEN3_FOUND)
+   FetchContent_MakeAvailable(eigen)
+   unset(BUILD_TESTING CACHE)
+ endif()
+-
+ add_library(${PROJECT_NAME} SHARED
+   ${CMAKE_CURRENT_SOURCE_DIR}/src/BYTETracker.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/src/KalmanFilter.cpp
+@@ -40,6 +39,7 @@ add_library(${PROJECT_NAME} SHARED
+   ${CMAKE_CURRENT_SOURCE_DIR}/src/Object.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/src/Rect.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/src/STrack.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/iou_utils.cpp
+   )
+ target_include_directories(${PROJECT_NAME} PUBLIC
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+diff --git a/include/ByteTrack/KalmanFilter.h b/include/ByteTrack/KalmanFilter.h
+index 18842a7..d557666 100644
+--- a/include/ByteTrack/KalmanFilter.h
++++ b/include/ByteTrack/KalmanFilter.h
+@@ -9,31 +9,35 @@ namespace byte_track
+ class KalmanFilter
+ {
+ public:
+-    using DetectBox = Xyah<float>;
++    using DetectBox = Xyzolwh<float>;
+ 
+-    using StateMean = Eigen::Matrix<float, 1, 8, Eigen::RowMajor>;
+-    using StateCov = Eigen::Matrix<float, 8, 8, Eigen::RowMajor>;
++    using StateMean = Eigen::Matrix<float, 1, 10, Eigen::RowMajor>;
++    using StateCov = Eigen::Matrix<float, 10, 10, Eigen::RowMajor>;
+ 
+-    using StateHMean = Eigen::Matrix<float, 1, 4, Eigen::RowMajor>;
+-    using StateHCov = Eigen::Matrix<float, 4, 4, Eigen::RowMajor>;
++    using StateHMean = Eigen::Matrix<float, 1, 7, Eigen::RowMajor>;
++    using StateHCov = Eigen::Matrix<float, 7, 7, Eigen::RowMajor>;
+ 
+-    KalmanFilter(const float& std_weight_position = 1. / 20,
+-                 const float& std_weight_velocity = 1. / 160);
++    KalmanFilter(const float& std_weight_position = 1.,
++                 const float& std_weight_velocity = 1.,
++                 const float& alpha = 1.,
++                 const float& beta = 2.);
+ 
+     void initiate(StateMean& mean, StateCov& covariance, const DetectBox& measurement);
+ 
+     void predict(StateMean& mean, StateCov& covariance);
+ 
+-    void update(StateMean& mean, StateCov& covariance, const DetectBox& measurement);
++    void update(StateMean& mean, StateCov& covariance, const DetectBox& measurement, const float& confidence);
+ 
+ private:
+     float std_weight_position_;
+     float std_weight_velocity_;
++    float alpha_;
++    float beta_;
+ 
+-    Eigen::Matrix<float, 8, 8, Eigen::RowMajor> motion_mat_;
+-    Eigen::Matrix<float, 4, 8, Eigen::RowMajor> update_mat_;
++    Eigen::Matrix<float, 10, 10, Eigen::RowMajor> motion_mat_;
++    Eigen::Matrix<float, 7, 10, Eigen::RowMajor> update_mat_;
+ 
+     void project(StateHMean &projected_mean, StateHCov &projected_covariance,
+-                 const StateMean& mean, const StateCov& covariance);
++                 const StateMean& mean, const StateCov& covariance, const float& confidence);
+ };
+ }
+\ No newline at end of file
+diff --git a/include/ByteTrack/Rect.h b/include/ByteTrack/Rect.h
+index b5ab291..3a286ed 100644
+--- a/include/ByteTrack/Rect.h
++++ b/include/ByteTrack/Rect.h
+@@ -1,6 +1,9 @@
+ #pragma once
+ 
+ #include "Eigen/Dense"
++#include "ByteTrack/iou_utils.h"
++// #include <opencv2/opencv.hpp>
++#include <math.h>
+ 
+ namespace byte_track
+ {
+@@ -13,36 +16,51 @@ using Tlbr = Eigen::Matrix<T, 1, 4, Eigen::RowMajor>;
+ template<typename T>
+ using Xyah = Eigen::Matrix<T, 1, 4, Eigen::RowMajor>;
+ 
++template<typename T>
++using Xyzolwh = Eigen::Matrix<T, 1, 7, Eigen::RowMajor>;
++
+ template<typename T>
+ class Rect
+ {
+     public:
+-    Tlwh<T> tlwh;
++    Xyzolwh<T> xyzolwh;
+ 
+     Rect() = default;
+-    Rect(const T &x, const T &y, const T &width, const T &height);
++    Rect(const T &x, const T &y, const T &z, const T &yaw, const T &length, const T &width, const T &height);
+ 
+     ~Rect();
+ 
+     const T &x() const;
+     const T &y() const;
++    const T &z() const;
++    const T &yaw() const;
++    const T &length() const;
+     const T &width() const;
+     const T &height() const;
+ 
+     T &x();
+     T &y();
++    T &z();
++    T &yaw();
++    T &length();
+     T &width();
+     T &height();
+ 
+-    const T &tl_x() const;
+-    const T &tl_y() const;
+-    T br_x() const;
+-    T br_y() const;
++    // const T &tl_x() const;
++    // const T &tl_y() const;
++    // T br_x() const;
++    // T br_y() const;
+ 
+-    Tlbr<T> getTlbr() const;
+-    Xyah<T> getXyah() const;
++    // Tlbr<T> getTlbr() const;
++    // Xyah<T> getXyah() const;
++    Xyzolwh<T> getXyzolwh() const;
+ 
++    // cv::Point2f rotated(const float &dx, const float &dy) const;
++    float minEnclosingBoxDiag(const Rect<T>& other) const;
++    float calcBEVIntersection(const Rect<T>& other) const;
+     float calcIoU(const Rect<T>& other) const;
++    float calcDIoU(const Rect<T>& other) const;
++    float calcCIoU(const Rect<T>& other, float alpha = 0.3f) const;
+ };
+ 
+ template<typename T>
+diff --git a/include/ByteTrack/STrack.h b/include/ByteTrack/STrack.h
+index 476ed11..6aa99ae 100644
+--- a/include/ByteTrack/STrack.h
++++ b/include/ByteTrack/STrack.h
+@@ -17,7 +17,7 @@ enum class STrackState {
+ class STrack
+ {
+ public:
+-    STrack(const Rect<float>& rect, const float& score);
++    STrack(const Rect<float>& rect, const float& score, const int& class_id);
+     ~STrack();
+ 
+     const Rect<float>& getRect() const;
+@@ -25,11 +25,14 @@ public:
+ 
+     const bool& isActivated() const;
+     const float& getScore() const;
++    const int& getClassId() const;
++    const std::unordered_map<int, int>& getClassCount() const;
+     const size_t& getTrackId() const;
+     const size_t& getFrameId() const;
+     const size_t& getStartFrameId() const;
+     const size_t& getTrackletLength() const;
+ 
++    void updateClass(int new_class_id);
+     void activate(const size_t& frame_id, const size_t& track_id);
+     void reActivate(const STrack &new_track, const size_t &frame_id, const int &new_track_id = -1);
+ 
+@@ -49,11 +52,14 @@ private:
+ 
+     bool is_activated_;
+     float score_;
++    int class_id_;
+     size_t track_id_;
+     size_t frame_id_;
+     size_t start_frame_id_;
+     size_t tracklet_len_;
+ 
++    std::unordered_map<int, int> class_count_;
++
+     void updateRect();
+ };
+-}
+\ No newline at end of file
++}
+diff --git a/include/ByteTrack/iou_utils.h b/include/ByteTrack/iou_utils.h
+new file mode 100644
+index 0000000..8588be8
+--- /dev/null
++++ b/include/ByteTrack/iou_utils.h
+@@ -0,0 +1,40 @@
++#pragma once
++
++#include <vector>
++#include <cmath>
++#include <algorithm>
++#include <iostream>
++#include <limits>
++
++struct Point {
++    double x, y;
++};
++
++struct Box {
++    Point c;
++    double w, h;
++    double yaw;
++};
++
++struct Edge {
++    Point a, b;
++};
++
++Point vector(const Point &a, const Point &b);
++double cross(const Point &u, const Point &v);
++bool inside(const Edge &e, const Point &p);
++bool ccw(const Point &a, const Point &b, const Point &c);
++double dist(const Point &a, const Point &b);
++double dot(const Point &a, const Point &b);
++double proj_norm(const Point &p, const Point &v);
++
++Point intersect(const Edge &e, const Edge &f);
++Point rotatedPoint(const Point &p, const Point &offset, double yaw);
++std::vector<Point> boxToPoints(const Box &b);
++
++std::vector<Point> suthodg(const Box &a, const Box &b);
++double polygonArea(const std::vector<Point> &polygon);
++double boxIntersectArea(const Box &a, const Box &b);
++
++std::vector<Point> convexHull(const std::vector<Point> &pts);
++double minAreaBoxDiagSquared(const Box &a, const Box &b);
+\ No newline at end of file
+diff --git a/src/BYTETracker.cpp b/src/BYTETracker.cpp
+index a02abc1..31ba5bf 100644
+--- a/src/BYTETracker.cpp
++++ b/src/BYTETracker.cpp
+@@ -37,7 +37,7 @@ std::vector<byte_track::BYTETracker::STrackPtr> byte_track::BYTETracker::update(
+ 
+     for (const auto &object : objects)
+     {
+-        const auto strack = std::make_shared<STrack>(object.rect, object.prob);
++        const auto strack = std::make_shared<STrack>(object.rect, object.prob, object.label);
+         if (object.prob >= track_thresh_)
+         {
+             det_stracks.push_back(strack);
+diff --git a/src/KalmanFilter.cpp b/src/KalmanFilter.cpp
+index a425bd2..054c523 100644
+--- a/src/KalmanFilter.cpp
++++ b/src/KalmanFilter.cpp
+@@ -1,38 +1,39 @@
+ #include "ByteTrack/KalmanFilter.h"
+ 
++#include <cmath>
+ #include <cstddef>
+ 
+ byte_track::KalmanFilter::KalmanFilter(const float& std_weight_position,
+-                                       const float& std_weight_velocity) :
++                                       const float& std_weight_velocity,
++                                       const float& alpha,
++                                       const float& beta) :
+     std_weight_position_(std_weight_position),
+-    std_weight_velocity_(std_weight_velocity)
++    std_weight_velocity_(std_weight_velocity),
++    alpha_(alpha),
++    beta_(beta)
+ {
+-    constexpr size_t ndim = 4;
++    constexpr size_t ndim = 3;
+     constexpr float dt = 1;
+ 
+-    motion_mat_ = Eigen::MatrixXf::Identity(8, 8);
+-    update_mat_ = Eigen::MatrixXf::Identity(4, 8);
++    motion_mat_ = Eigen::MatrixXf::Identity(10, 10);
++    update_mat_ = Eigen::MatrixXf::Identity(7, 10);
+ 
+     for (size_t i = 0; i < ndim; i++)
+     {
+-        motion_mat_(i, ndim + i) = dt;
++        motion_mat_(i, 4 + ndim + i) = dt;
+     }
+ }
+ 
+ void byte_track::KalmanFilter::initiate(StateMean &mean, StateCov &covariance, const DetectBox &measurement)
+ {
+-    mean.block<1, 4>(0, 0) = measurement.block<1, 4>(0, 0);
+-    mean.block<1, 4>(0, 4) = Eigen::Vector4f::Zero();
++    mean.block<1, 7>(0, 0) = measurement.block<1, 7>(0, 0);
++    mean.block<1, 3>(0, 7) = Eigen::Vector3f::Zero();
+ 
+     StateMean std;
+-    std(0) = 2 * std_weight_position_ * measurement[3];
+-    std(1) = 2 * std_weight_position_ * measurement[3];
+-    std(2) = 1e-2;
+-    std(3) = 2 * std_weight_position_ * measurement[3];
+-    std(4) = 10 * std_weight_velocity_ * measurement[3];
+-    std(5) = 10 * std_weight_velocity_ * measurement[3];
+-    std(6) = 1e-5;
+-    std(7) = 10 * std_weight_velocity_ * measurement[3];
++    for (int i = 0; i < 7; ++i)
++        std(i) = 10 * std_weight_position_;
++    for (int i = 7; i < 10; ++i)
++        std(i) = 10000 * std_weight_velocity_;
+ 
+     StateMean tmp = std.array().square();
+     covariance = tmp.asDiagonal();
+@@ -41,14 +42,10 @@ void byte_track::KalmanFilter::initiate(StateMean &mean, StateCov &covariance, c
+ void byte_track::KalmanFilter::predict(StateMean &mean, StateCov &covariance)
+ {
+     StateMean std;
+-    std(0) = std_weight_position_ * mean(3);
+-    std(1) = std_weight_position_ * mean(3);
+-    std(2) = 1e-2;
+-    std(3) = std_weight_position_ * mean(3);
+-    std(4) = std_weight_velocity_ * mean(3);
+-    std(5) = std_weight_velocity_ * mean(3);
+-    std(6) = 1e-5;
+-    std(7) = std_weight_velocity_ * mean(3);
++    for (int i = 0; i < 7; ++i)
++        std(i) = std_weight_position_;
++    for (int i = 7; i < 10; ++i)
++        std(i) = 0.01 * std_weight_velocity_;
+ 
+     StateMean tmp = std.array().square();
+     StateCov motion_cov = tmp.asDiagonal();
+@@ -57,15 +54,15 @@ void byte_track::KalmanFilter::predict(StateMean &mean, StateCov &covariance)
+     covariance = motion_mat_ * covariance * (motion_mat_.transpose()) + motion_cov;
+ }
+ 
+-void byte_track::KalmanFilter::update(StateMean &mean, StateCov &covariance, const DetectBox &measurement)
++void byte_track::KalmanFilter::update(StateMean &mean, StateCov &covariance, const DetectBox &measurement, const float &confidence)
+ {
+     StateHMean projected_mean;
+     StateHCov projected_cov;
+-    project(projected_mean, projected_cov, mean, covariance);
++    project(projected_mean, projected_cov, mean, covariance, confidence);
+ 
+-    Eigen::Matrix<float, 4, 8> B = (covariance * (update_mat_.transpose())).transpose();
+-    Eigen::Matrix<float, 8, 4> kalman_gain = (projected_cov.llt().solve(B)).transpose();
+-    Eigen::Matrix<float, 1, 4> innovation = measurement - projected_mean;
++    Eigen::Matrix<float, 7, 10> B = (covariance * (update_mat_.transpose())).transpose();
++    Eigen::Matrix<float, 10, 7> kalman_gain = (projected_cov.llt().solve(B)).transpose();
++    Eigen::Matrix<float, 1, 7> innovation = measurement - projected_mean;
+ 
+     const auto tmp = innovation * (kalman_gain.transpose());
+     mean = (mean.array() + tmp.array()).matrix();
+@@ -73,17 +70,16 @@ void byte_track::KalmanFilter::update(StateMean &mean, StateCov &covariance, con
+ }
+ 
+ void byte_track::KalmanFilter::project(StateHMean &projected_mean, StateHCov &projected_covariance,
+-                                       const StateMean& mean, const StateCov& covariance)
++                                       const StateMean& mean, const StateCov& covariance, const float &confidence)
+ {
+     DetectBox std;
+-    std << std_weight_position_ * mean(3),
+-           std_weight_position_ * mean(3),
+-           1e-1,
+-           std_weight_position_ * mean(3);
++    for (int i = 0; i < 7; ++i)
++        std(i) = std_weight_position_;
+ 
+     projected_mean = update_mat_ * mean.transpose();
+     projected_covariance = update_mat_ * covariance * (update_mat_.transpose());
+ 
+-    Eigen::Matrix<float, 4, 4> diag = std.asDiagonal();
++    Eigen::Matrix<float, 7, 7> diag = (1 + alpha_*std::pow(1 - confidence, beta_)) * (std.asDiagonal());
+     projected_covariance += diag.array().square().matrix();
+ }
++ 
+diff --git a/src/Rect.cpp b/src/Rect.cpp
+index 48d1691..48733aa 100644
+--- a/src/Rect.cpp
++++ b/src/Rect.cpp
+@@ -1,10 +1,13 @@
+ #include "ByteTrack/Rect.h"
++// #include "ByteTrack/iou_utils.h"
+ 
+ #include <algorithm>
++#include <cmath>
++// #include <opencv2/opencv.hpp>
+ 
+ template <typename T>
+-byte_track::Rect<T>::Rect(const T &x, const T &y, const T &width, const T &height) :
+-    tlwh({x, y, width, height})
++byte_track::Rect<T>::Rect(const T &x, const T &y, const T &z, const T &yaw, const T &length, const T &width, const T &height) :
++    xyzolwh({x, y, z, yaw, length, width, height})
+ {
+ }
+ 
+@@ -16,134 +19,274 @@ byte_track::Rect<T>::~Rect()
+ template <typename T>
+ const T& byte_track::Rect<T>::x() const
+ {
+-    return tlwh[0];
++    return xyzolwh[0];
+ }
+ 
+ template <typename T>
+ const T& byte_track::Rect<T>::y() const
+ {
+-    return tlwh[1];
++    return xyzolwh[1];
++}
++
++template <typename T>
++const T& byte_track::Rect<T>::z() const
++{
++    return xyzolwh[2];
++}
++
++template <typename T>
++const T& byte_track::Rect<T>::yaw() const
++{
++    return xyzolwh[3];
++}
++
++template <typename T>
++const T& byte_track::Rect<T>::length() const
++{
++    return xyzolwh[4];
+ }
+ 
+ template <typename T>
+ const T& byte_track::Rect<T>::width() const
+ {
+-    return tlwh[2];
++    return xyzolwh[5];
+ }
+ 
+ template <typename T>
+ const T& byte_track::Rect<T>::height() const
+ {
+-    return tlwh[3];
++    return xyzolwh[6];
+ }
+ 
+ template <typename T>
+ T& byte_track::Rect<T>::x()
+ {
+-    return tlwh[0];
++    return xyzolwh[0];
+ }
+ 
+ template <typename T>
+ T& byte_track::Rect<T>::y()
+ {
+-    return tlwh[1];
++    return xyzolwh[1];
+ }
+ 
+ template <typename T>
+-T& byte_track::Rect<T>::width()
++T& byte_track::Rect<T>::z()
+ {
+-    return tlwh[2];
++    return xyzolwh[2];
+ }
+ 
+ template <typename T>
+-T& byte_track::Rect<T>::height()
++T& byte_track::Rect<T>::yaw()
+ {
+-    return tlwh[3];
++    return xyzolwh[3];
+ }
+ 
+ template <typename T>
+-const T& byte_track::Rect<T>::tl_x() const
++T& byte_track::Rect<T>::length()
+ {
+-    return tlwh[0];
++    return xyzolwh[4];
+ }
+ 
+ template <typename T>
+-const T& byte_track::Rect<T>::tl_y() const
++T& byte_track::Rect<T>::width()
+ {
+-    return tlwh[1];
++    return xyzolwh[5];
+ }
+ 
+ template <typename T>
+-T byte_track::Rect<T>::br_x() const
++T& byte_track::Rect<T>::height()
+ {
+-    return tlwh[0] + tlwh[2];
++    return xyzolwh[6];
+ }
+ 
++// template <typename T>
++// const T& byte_track::Rect<T>::tl_x() const
++// {
++//     return tlwh[0];
++// }
++
++// template <typename T>
++// const T& byte_track::Rect<T>::tl_y() const
++// {
++//     return tlwh[1];
++// }
++
++// template <typename T>
++// T byte_track::Rect<T>::br_x() const
++// {
++//     return tlwh[0] + tlwh[2];
++// }
++
++// template <typename T>
++// T byte_track::Rect<T>::br_y() const
++// {
++//     return tlwh[1] + tlwh[3];
++// }
++
++// template <typename T>
++// byte_track::Tlbr<T> byte_track::Rect<T>::getTlbr() const
++// {
++//     return {
++//         tlwh[0],
++//         tlwh[1],
++//         tlwh[0] + tlwh[2],
++//         tlwh[1] + tlwh[3],
++//     };
++// }
++
++// template <typename T>
++// byte_track::Xyah<T> byte_track::Rect<T>::getXyah() const
++// {
++//     return {
++//         tlwh[0] + tlwh[2] / 2,
++//         tlwh[1] + tlwh[3] / 2,
++//         tlwh[2] / tlwh[3],
++//         tlwh[3],
++//     };
++// }
++
+ template <typename T>
+-T byte_track::Rect<T>::br_y() const
++byte_track::Xyzolwh<T> byte_track::Rect<T>::getXyzolwh() const
+ {
+-    return tlwh[1] + tlwh[3];
++    return {
++        xyzolwh[0],
++        xyzolwh[1],
++        xyzolwh[2],
++        xyzolwh[3],
++        xyzolwh[4],
++        xyzolwh[5],
++        xyzolwh[6],
++    };
+ }
+ 
+-template <typename T>
+-byte_track::Tlbr<T> byte_track::Rect<T>::getTlbr() const
++// template<typename T>
++// cv::Point2f byte_track::Rect<T>::rotated(const float &dx, const float &dy) const
++// {
++//     float yaw = xyzolwh[3];
++//     return cv::Point2f(
++//         xyzolwh[0] + dx * std::cos(yaw) - dy * std::sin(yaw),
++//         xyzolwh[1] + dx * std::sin(yaw) + dy * std::cos(yaw)
++//     );
++// }
++
++template<typename T>
++float byte_track::Rect<T>::minEnclosingBoxDiag(const Rect<T>& other) const
+ {
+-    return {
+-        tlwh[0],
+-        tlwh[1],
+-        tlwh[0] + tlwh[2],
+-        tlwh[1] + tlwh[3],
++    Box rrect{
++        Point{static_cast<double>(xyzolwh[0]), static_cast<double>(xyzolwh[1])},
++        static_cast<double>(xyzolwh[4]),
++        static_cast<double>(xyzolwh[5]),
++        static_cast<double>(xyzolwh[3])
+     };
++    Box other_rrect{
++        Point{static_cast<double>(other.xyzolwh[0]), static_cast<double>(other.xyzolwh[1])},
++        static_cast<double>(other.xyzolwh[4]),
++        static_cast<double>(other.xyzolwh[5]),
++        static_cast<double>(other.xyzolwh[3])
++    };
++
++    float min_diag_sq = minAreaBoxDiagSquared(rrect, other_rrect);
++    float max_z = std::max(xyzolwh[2] + xyzolwh[6] / 2, other.xyzolwh[2] + other.xyzolwh[6] / 2);
++    float min_z = std::min(xyzolwh[2] - xyzolwh[6] / 2, other.xyzolwh[2] - other.xyzolwh[6] / 2);
++    float height = max_z - min_z;
++
++    return std::sqrt(min_diag_sq + height*height);
+ }
+ 
+-template <typename T>
+-byte_track::Xyah<T> byte_track::Rect<T>::getXyah() const
++template<typename T>
++float byte_track::Rect<T>::calcBEVIntersection(const Rect<T>& other) const
+ {
+-    return {
+-        tlwh[0] + tlwh[2] / 2,
+-        tlwh[1] + tlwh[3] / 2,
+-        tlwh[2] / tlwh[3],
+-        tlwh[3],
++    Box rrect{
++        Point{static_cast<double>(xyzolwh[0]), static_cast<double>(xyzolwh[1])},
++        static_cast<double>(xyzolwh[4]),
++        static_cast<double>(xyzolwh[5]),
++        static_cast<double>(xyzolwh[3])
++    };
++    Box other_rrect{
++        Point{static_cast<double>(other.xyzolwh[0]), static_cast<double>(other.xyzolwh[1])},
++        static_cast<double>(other.xyzolwh[4]),
++        static_cast<double>(other.xyzolwh[5]),
++        static_cast<double>(other.xyzolwh[3])
+     };
++    
++    return boxIntersectArea(rrect, other_rrect);
++    // float area = length * width;
++    // float other_area = other_length * other_width;
++    // float un = area + other_area - inter;
++
++    // if (un <= 0.0f) return 0.0f;
++    // else return inter / un;
+ }
+ 
+ template<typename T>
+ float byte_track::Rect<T>::calcIoU(const Rect<T>& other) const
+ {
+-    const float box_area = (other.tlwh[2] + 1) * (other.tlwh[3] + 1);
+-    const float iw = std::min(tlwh[0] + tlwh[2], other.tlwh[0] + other.tlwh[2]) - std::max(tlwh[0], other.tlwh[0]) + 1;
+-    float iou = 0;
+-    if (iw > 0)
+-    {
+-        const float ih = std::min(tlwh[1] + tlwh[3], other.tlwh[1] + other.tlwh[3]) - std::max(tlwh[1], other.tlwh[1]) + 1;
+-        if (ih > 0)
+-        {
+-            const float ua = (tlwh[0] + tlwh[2] - tlwh[0] + 1) * (tlwh[1] + tlwh[3] - tlwh[1] + 1) + box_area - iw * ih;
+-            iou = iw * ih / ua;
+-        }
+-    }
+-    return iou;
++    float z_top = std::min(xyzolwh[6]/2, other.xyzolwh[6]/2);
++    float z_bot = std::max(-xyzolwh[6]/2, -other.xyzolwh[6]/2);
++    float z_inter = std::max(0.0f, z_top - z_bot);
++
++    float vol = xyzolwh[4] * xyzolwh[5] * xyzolwh[6];
++    float other_vol = other.xyzolwh[4] * other.xyzolwh[5] * other.xyzolwh[6];
++    float inter_vol = z_inter * calcBEVIntersection(other);
++    float union_vol = vol + other_vol - inter_vol;
++
++    if (union_vol <= 0.0f) return 0.0f;
++    else return inter_vol / union_vol;
++    // const float box_area = (other.tlwh[2] + 1) * (other.tlwh[3] + 1);
++    // const float iw = std::min(tlwh[0] + tlwh[2], other.tlwh[0] + other.tlwh[2]) - std::max(tlwh[0], other.tlwh[0]) + 1;
++    // float iou = 0;
++    // if (iw > 0)
++    // {
++    //     const float ih = std::min(tlwh[1] + tlwh[3], other.tlwh[1] + other.tlwh[3]) - std::max(tlwh[1], other.tlwh[1]) + 1;
++    //     if (ih > 0)
++    //     {
++    //         const float ua = (tlwh[0] + tlwh[2] - tlwh[0] + 1) * (tlwh[1] + tlwh[3] - tlwh[1] + 1) + box_area - iw * ih;
++    //         iou = iw * ih / ua;
++    //     }
++    // }
++    // return iou;
+ }
+ 
+ template<typename T>
+-byte_track::Rect<T> byte_track::generate_rect_by_tlbr(const byte_track::Tlbr<T>& tlbr)
++float byte_track::Rect<T>::calcDIoU(const Rect<T>& other) const
+ {
+-    return byte_track::Rect<T>(tlbr[0], tlbr[1], tlbr[2] - tlbr[0], tlbr[3] - tlbr[1]);
++    float dx = xyzolwh[0] - other.xyzolwh[0];
++    float dy = xyzolwh[1] - other.xyzolwh[1];
++    float dz = xyzolwh[2] - other.xyzolwh[2];
++    float d = std::sqrt(dx*dx + dy*dy + dz*dz);
++    float c = minEnclosingBoxDiag(other);
++    return calcIoU(other) - (d*d) / c*c;
+ }
+ 
+ template<typename T>
+-byte_track::Rect<T> byte_track::generate_rect_by_xyah(const byte_track::Xyah<T>& xyah)
++float byte_track::Rect<T>::calcCIoU(const Rect<T>& other, float alpha) const
+ {
+-    const auto width = xyah[2] * xyah[3];
+-    return byte_track::Rect<T>(xyah[0] - width / 2, xyah[1] - xyah[3] / 2, width, xyah[3]);
++    float theta_1 = std::atan2(xyzolwh[4], xyzolwh[5]) - std::atan2(other.xyzolwh[4], xyzolwh[5]);
++    float theta_2    = std::atan2(xyzolwh[4], xyzolwh[6]) - std::atan2(other.xyzolwh[4], xyzolwh[6]);
++    float pi = std::acos(-1.0);
++    float v = 2*(theta_1*theta_1 + theta_2*theta_2) / (pi*pi);
++    return calcDIoU(other) - alpha*v;
+ }
++// template<typename T>
++// byte_track::Rect<T> byte_track::generate_rect_by_tlbr(const byte_track::Tlbr<T>& tlbr)
++// {
++//     return byte_track::Rect<T>(tlbr[0], tlbr[1], tlbr[2] - tlbr[0], tlbr[3] - tlbr[1]);
++// }
++
++// template<typename T>
++// byte_track::Rect<T> byte_track::generate_rect_by_xyah(const byte_track::Xyah<T>& xyah)
++// {
++//     const auto width = xyah[2] * xyah[3];
++//     return byte_track::Rect<T>(xyah[0] - width / 2, xyah[1] - xyah[3] / 2, width, xyah[3]);
++// }
+ 
+-// explicit instantiation
++// // explicit instantiation
+ template class byte_track::Rect<int>;
+ template class byte_track::Rect<float>;
+ 
+-template byte_track::Rect<int> byte_track::generate_rect_by_tlbr<int>(const byte_track::Tlbr<int>&);
+-template byte_track::Rect<float> byte_track::generate_rect_by_tlbr<float>(const byte_track::Tlbr<float>&);
++// template byte_track::Rect<int> byte_track::generate_rect_by_tlbr<int>(const byte_track::Tlbr<int>&);
++// template byte_track::Rect<float> byte_track::generate_rect_by_tlbr<float>(const byte_track::Tlbr<float>&);
+ 
+-template byte_track::Rect<int> byte_track::generate_rect_by_xyah<int>(const byte_track::Xyah<int>&);
+-template byte_track::Rect<float> byte_track::generate_rect_by_xyah<float>(const byte_track::Xyah<float>&);
++// template byte_track::Rect<int> byte_track::generate_rect_by_xyah<int>(const byte_track::Xyah<int>&);
++// template byte_track::Rect<float> byte_track::generate_rect_by_xyah<float>(const byte_track::Xyah<float>&);
+diff --git a/src/STrack.cpp b/src/STrack.cpp
+index 744b254..7d9dd79 100644
+--- a/src/STrack.cpp
++++ b/src/STrack.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include <cstddef>
+ 
+-byte_track::STrack::STrack(const Rect<float>& rect, const float& score) :
++byte_track::STrack::STrack(const Rect<float>& rect, const float& score, const int& class_id) :
+     kalman_filter_(),
+     mean_(),
+     covariance_(),
+@@ -10,11 +10,13 @@ byte_track::STrack::STrack(const Rect<float>& rect, const float& score) :
+     state_(STrackState::New),
+     is_activated_(false),
+     score_(score),
++    class_id_(class_id),
+     track_id_(0),
+     frame_id_(0),
+     start_frame_id_(0),
+     tracklet_len_(0)
+ {
++    class_count_[class_id] = 1;
+ }
+ 
+ byte_track::STrack::~STrack()
+@@ -39,6 +41,14 @@ const float& byte_track::STrack::getScore() const
+ {
+     return score_;
+ }
++const int& byte_track::STrack::getClassId() const
++{
++    return class_id_;
++}
++const std::unordered_map<int, int>& byte_track::STrack::getClassCount() const
++{
++    return class_count_;
++}
+ 
+ const size_t& byte_track::STrack::getTrackId() const
+ {
+@@ -60,9 +70,24 @@ const size_t& byte_track::STrack::getTrackletLength() const
+     return tracklet_len_;
+ }
+ 
++void byte_track::STrack::updateClass(int new_class_id)
++{
++    if (new_class_id == class_id_) {
++        ++class_count_[class_id_];
++        return;
++    }
++
++    auto it = class_count_.find(new_class_id);
++    if (it == class_count_.end()) class_count_[new_class_id] = 1;
++    else {
++        ++it->second;
++        if (it->second > class_count_[class_id_]) class_id_ = new_class_id;
++    }
++}
++
+ void byte_track::STrack::activate(const size_t& frame_id, const size_t& track_id)
+ {
+-    kalman_filter_.initiate(mean_, covariance_, rect_.getXyah());
++    kalman_filter_.initiate(mean_, covariance_, rect_.getXyzolwh());
+ 
+     updateRect();
+ 
+@@ -79,13 +104,14 @@ void byte_track::STrack::activate(const size_t& frame_id, const size_t& track_id
+ 
+ void byte_track::STrack::reActivate(const STrack &new_track, const size_t &frame_id, const int &new_track_id)
+ {
+-    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyah());
++    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyzolwh(), new_track.getScore());
+ 
+     updateRect();
+ 
+     state_ = STrackState::Tracked;
+     is_activated_ = true;
+     score_ = new_track.getScore();
++    updateClass(new_track.getClassId());
+     if (0 <= new_track_id)
+     {
+         track_id_ = new_track_id;
+@@ -96,22 +122,23 @@ void byte_track::STrack::reActivate(const STrack &new_track, const size_t &frame
+ 
+ void byte_track::STrack::predict()
+ {
+-    if (state_ != STrackState::Tracked)
+-    {
+-        mean_[7] = 0;
+-    }
++    // if (state_ != STrackState::Tracked)
++    // {
++    //     mean_[7] = 0;
++    // }
+     kalman_filter_.predict(mean_, covariance_);
+ }
+ 
+ void byte_track::STrack::update(const STrack &new_track, const size_t &frame_id)
+ {
+-    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyah());
++    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyzolwh(), new_track.getScore());
+ 
+     updateRect();
+ 
+     state_ = STrackState::Tracked;
+     is_activated_ = true;
+     score_ = new_track.getScore();
++    updateClass(new_track.getClassId());
+     frame_id_ = frame_id;
+     tracklet_len_++;
+ }
+@@ -128,8 +155,11 @@ void byte_track::STrack::markAsRemoved()
+ 
+ void byte_track::STrack::updateRect()
+ {
+-    rect_.width() = mean_[2] * mean_[3];
+-    rect_.height() = mean_[3];
+-    rect_.x() = mean_[0] - rect_.width() / 2;
+-    rect_.y() = mean_[1] - rect_.height() / 2;
++    rect_.length() = mean_[4];
++    rect_.width() = mean_[5];
++    rect_.height() = mean_[6];
++    rect_.x() = mean_[0];
++    rect_.y() = mean_[1];
++    rect_.z() = mean_[2];
++    rect_.yaw() = mean_[3];
+ }
+diff --git a/src/iou_utils.cpp b/src/iou_utils.cpp
+new file mode 100644
+index 0000000..12000f8
+--- /dev/null
++++ b/src/iou_utils.cpp
+@@ -0,0 +1,199 @@
++#include "ByteTrack/iou_utils.h"
++
++double EPS = 1e-6;
++
++Point vector(const Point &a, const Point &b) {
++    return Point{b.x - a.x, b.y - a.y};
++}
++double cross(const Point &u, const Point &v) {
++    return u.x * v.y - u.y * v.x;
++}
++
++bool inside(const Edge &e, const Point &p) {
++    // std::cout << cross(vector(e.a, e.b), vector(e.a, p)) << "\n";
++    return cross(vector(e.a, e.b), vector(e.a, p)) >= -EPS;
++}
++
++bool ccw(const Point &a, const Point &b, const Point &c) {
++    return cross(vector(a, b), vector(a, c)) > -EPS;
++}
++
++double dist(const Point &a, const Point &b) {
++    double dx = b.x - a.x, dy = b.y - a.y;
++    return std::sqrt(dx*dx + dy*dy);
++}
++
++double dot(const Point &a, const Point &b) {
++    return a.x * b.x + a.y * b.y;
++}
++
++double proj_norm(const Point &p, const Point &v) {
++    return std::abs(dot(p, v)) / std::sqrt(dot(v, v));
++}
++
++Point intersect(const Edge &e, const Edge &f) {
++    double edx = e.a.x - e.b.x, edy = e.a.y - e.b.y;
++    double fdx = f.a.x - f.b.x, fdy = f.a.y - f.b.y;
++    double e_crs = cross(e.a, e.b), f_crs = cross(f.a, f.b);
++    double denom = edx*fdy - edy*fdx;
++    return Point{
++        (e_crs*fdx - edx*f_crs) / denom,
++        (e_crs*fdy - edy*f_crs) / denom
++    };
++}
++
++Point rotatedPoint(const Point &p, const Point &offset, double yaw) {
++    double sin_th = std::sin(yaw), cos_th = std::cos(yaw);
++    return Point{
++        p.x*cos_th - p.y*sin_th + offset.x,
++        p.x*sin_th + p.y*cos_th + offset.y
++    };
++}
++
++std::vector<Point> boxToPoints(const Box &b) {
++    return std::vector<Point>{
++        rotatedPoint(Point{-b.w/2, -b.h/2}, b.c, b.yaw),
++        rotatedPoint(Point{b.w/2, -b.h/2}, b.c, b.yaw),
++        rotatedPoint(Point{b.w/2, b.h/2}, b.c, b.yaw),
++        rotatedPoint(Point{-b.w/2, b.h/2}, b.c, b.yaw)
++    };
++}
++
++std::vector<Point> suthodg(const Box &a, const Box &b) {
++    std::vector<Point> pts_a = boxToPoints(a);
++    std::vector<Point> pts_b = boxToPoints(b);
++    std::vector<Point> temp;
++
++    // for (const auto & p : pts_a) {
++    //     std::cout << "(" << p.x << ", " << p.y << ")\n";
++    // }
++    // for (const auto & p : pts_b) {
++    //     std::cout << "(" << p.x << ", " << p.y << ")\n";
++    // }
++
++    for (size_t i = 0; i < pts_a.size(); ++i) {
++        Edge e = Edge{pts_a[i], pts_a[(i+1) % pts_a.size()]};
++        for (size_t j = 0; j < pts_b.size(); ++j) {
++            Edge f = Edge{pts_b[j], pts_b[(j+1) % pts_b.size()]};
++            bool fa_in = inside(e, f.a), fb_in = inside(e, f.b);
++            // std::cout << "(" << f.b.x << ", " << f.b.y << "), " << fb_in << "\n";
++            // std::cout << "(" << e.a.x << ", " << e.a.y << "), (" << e.b.x << ", " << e.b.y << ")\n";
++            if (fb_in) {
++                if (!fa_in) temp.push_back(intersect(e, f));
++                temp.push_back(f.b);
++            } else if (fa_in) {
++                temp.push_back(intersect(e, f));
++            }
++        }
++        pts_b = temp;
++        temp.clear();
++    }
++
++    return pts_b;
++}
++
++double polygonArea(const std::vector<Point> &polygon) {
++    if (polygon.size() <= 2) return 0.0f;
++    double area = 0;
++    for (size_t i = 0; i < polygon.size(); ++i) {
++        Point curr = polygon[i], next = polygon[(i+1) % polygon.size()];
++        area += cross(curr, next);
++    }
++
++    return std::abs(area) / 2.0f;
++}
++
++double boxIntersectArea(const Box &a, const Box &b) {
++    if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return 0.0f;
++    return polygonArea(suthodg(a, b));
++}
++
++std::vector<Point> convexHull(std::vector<Point> &pts) {
++    Point anchor;
++    auto min_it = std::min_element(
++        pts.begin(),
++        pts.end(),
++        [](const Point &p, const Point &q) {
++            if (p.y != q.y) return p.y < q.y;
++            else return p.x < q.x;
++        }
++    );
++
++    if (min_it == pts.end()) {
++        return std::vector<Point>{};
++    } else {
++        anchor = *min_it;
++    }
++
++    pts.erase(min_it);
++
++    std::sort(
++        pts.begin(),
++        pts.end(),
++        [&](Point p, Point q) {
++            double c = cross(vector(anchor, p), vector(anchor, q));
++            if (c != 0) return c > 0;
++            else return dist(anchor, p) < dist(anchor, q);
++        }
++    );
++
++    std::vector<Point> stack = {anchor};
++    for (const auto &pt : pts) {
++        while (stack.size() > 1 && !ccw(stack[stack.size() - 2], stack.back(), pt)) {
++            stack.pop_back();
++        }
++        stack.push_back(pt);
++    }
++
++    return stack;
++}
++
++double minAreaBoxDiagSquared(const Box &a, const Box &b) {
++    std::vector<Point> pts_a = boxToPoints(a);
++    std::vector<Point> pts_b = boxToPoints(b);
++    pts_a.insert(pts_a.end(), pts_b.begin(), pts_b.end());
++    std::vector<Point> cvex_hull = convexHull(pts_a);
++
++    // for (const auto & p : cvex_hull) std::cout << "(" << p.x << ", " << p.y << ")\n";
++    // assumes ccw hull
++    if (cvex_hull.size() <= 1) return 0.0f;
++    if (cvex_hull.size() == 2) return dist(cvex_hull[0], cvex_hull[1]);
++
++    double min_area = std::numeric_limits<double>::max();
++    double min_box_diag = 0.0f;
++
++    for (size_t i = 0; i < cvex_hull.size(); ++i) {
++        Point curr = cvex_hull[i];
++        Point next = cvex_hull[(i+1) % cvex_hull.size()];
++        Point base = vector(curr, next);
++        Point perp = {-base.y, base.x};
++        // std::cout << i << " " << "(" << base.x << ", " << base.y << ")\n";
++        // std::cout << i << " " << "(" << perp.x << ", " << perp.y << ")\n";
++
++        auto max_base = *(std::max_element(
++            cvex_hull.begin(), cvex_hull.end(),
++            [&](const Point &p, const Point &q) {
++                return dot(vector(curr, p), base) < dot(vector(curr, q), base);
++            }
++        ));
++        auto max_perp = *(std::max_element(
++            cvex_hull.begin(), cvex_hull.end(),
++            [&](const Point &p, const Point &q) {
++                return dot(vector(curr, p), perp) < dot(vector(curr, q), perp);
++            }
++        ));
++        // std::cout << i << " " << "(" << vector(curr, max_base).x << ", " << vector(curr, max_base).y << ")\n";
++        // std::cout << i << " " << "(" << vector(curr, max_perp).x << ", " << vector(curr, max_perp).y << ")\n";
++
++        double w = proj_norm(vector(curr, max_base), base), h = proj_norm(vector(curr, max_perp), perp);
++        // std::cout << i << " " << w << "\n";
++        // std::cout << i << " " << h << "\n";
++        double area = w * h;
++
++        if (area < min_area) {
++            min_area = area;
++            min_box_diag = w*w + h*h;
++        }
++    }
++    return min_box_diag;
++}
+-- 
+2.34.1
+

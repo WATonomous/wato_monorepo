@@ -30,8 +30,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
-# find_package(Eigen3 REQUIRED)
-find_package(OpenCV REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -44,15 +42,12 @@ add_executable(tracking_2d_node src/tracking_2d.cpp)
 target_include_directories(tracking_2d_node
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    # ${BYTETRACK_DIR}/include
-    # ${EIGEN3_INCLUDE_DIR}
     ${tf2_INCLUDE_DIRS}
 )
 
 # Link libraries
 target_link_libraries(tracking_2d_node
     PRIVATE
-    # ${BYTETRACK_DIR}/build/libbytetrack.so
     bytetrack_cpp_vendor::bytetrack
     rclcpp::rclcpp
     ${std_msgs_TARGETS}
@@ -60,8 +55,6 @@ target_link_libraries(tracking_2d_node
     ${tf2_LIBRARIES}
     ${tf2_ros_TARGETS}
     ${tf2_geometry_msgs_TARGETS}
-    # Eigen3::Eigen
-    ${OpenCV_LIBS}
 )
 
 # Install the executable
