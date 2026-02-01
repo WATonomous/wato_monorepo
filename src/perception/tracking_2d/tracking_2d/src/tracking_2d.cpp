@@ -18,7 +18,9 @@
 #include <vector>
 
 tracking_2d::tracking_2d()
-: Node("tracking_2d")
+: Node("tracking_2d"),
+  tf_buffer_(this->get_clock()),
+  tf_listener_(tf_buffer_)
 {
   initializeParams();
 
@@ -42,9 +44,10 @@ void tracking_2d::initializeParams()
   track_thresh_ = static_cast<float>(this->declare_parameter<double>("track_thresh", 0.5));
   high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 1.0));
+  output_frame_ = this->declare_parameter<std::string>("output_frame", "map");
 
   class_map_ = {
-    {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4},
+    {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4}, {"vehicle", 5},
     // etc...
   };
 
@@ -78,13 +81,13 @@ std::string tracking_2d::reverseClassLookup(int class_id)
 }
 
 // Convert from ros msgs to bytetrack's required format
-std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::msg::Detection3DArray::SharedPtr dets)
+std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::msg::Detection3DArray & dets)
 {
   std::vector<byte_track::Object> objs;
-  objs.reserve(dets->detections.size());
+  objs.reserve(dets.detections.size());
 
-  for (const auto & det : dets->detections) {
-    // Convert from Detection2D to byte_track::Object
+  for (const auto & det : dets.detections) {
+    // Convert from Detection3D to byte_track::Object
     float length = det.bbox.size.x;
     float width = det.bbox.size.y;
     float height = det.bbox.size.z;
@@ -98,21 +101,21 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::ms
     float prob = 1.0;
 
     // Get highest scored hypothesis
-    // auto best_hyp = std::max_element(
-    //   det.results.begin(),
-    //   det.results.end(),
-    //   [](const vision_msgs::msg::ObjectHypothesisWithPose & a, const vision_msgs::msg::ObjectHypothesisWithPose & b) {
-    //     return a.hypothesis.score < b.hypothesis.score;
-    //   });
+    auto best_hyp = std::max_element(
+      det.results.begin(),
+      det.results.end(),
+      [](const vision_msgs::msg::ObjectHypothesisWithPose & a, const vision_msgs::msg::ObjectHypothesisWithPose & b) {
+        return a.hypothesis.score < b.hypothesis.score;
+      });
 
-    // if (best_hyp == det.results.end()) {
-    //   RCLCPP_WARN(this->get_logger(), "det.results must be non-empty, falling back to dummy values");
-    //   label = -1;
-    //   prob = 0.0;
-    // } else {
-    //   label = classLookup(best_hyp->hypothesis.class_id);
-    //   prob = best_hyp->hypothesis.score;
-    // }
+    if (best_hyp == det.results.end()) {
+      RCLCPP_WARN(this->get_logger(), "det.results must be non-empty, falling back to dummy values");
+      label = -1;
+      prob = 0.0;
+    } else {
+      label = classLookup(best_hyp->hypothesis.class_id);
+      prob = best_hyp->hypothesis.score;
+    }
 
     byte_track::Object obj(rect, label, prob);
     objs.push_back(obj);
@@ -129,11 +132,7 @@ vision_msgs::msg::Detection3DArray tracking_2d::STracksToTracks(
   vision_msgs::msg::Detection3DArray trks;
   trks.header.frame_id = header.frame_id;
   trks.header.stamp = header.stamp;
-  // std_msgs::msg::ColorRGBA col;
-  // col.r = 0.0;
-  // col.b = 0.0;
-  // col.g = 1.0;
-  // col.a = 1.0;
+
   for (const auto & strk_ptr : strk_ptrs) {
     // Convert STrackPtr to Detection2D
     auto rect = strk_ptr->getRect();
@@ -150,18 +149,18 @@ vision_msgs::msg::Detection3DArray tracking_2d::STracksToTracks(
     hyp.hypothesis.class_id = reverseClassLookup(class_id);
     trk.results.push_back(hyp);
 
+    tf2::Quaternion q;
+    q.setRPY(0, 0, rect.yaw());
+
     trk.bbox.center.position.x = rect.x();
     trk.bbox.center.position.y = rect.y();
     trk.bbox.center.position.z = rect.z();
-    trk.bbox.center.orientation = tf2::toMsg(tf2::Quaternion(0, 0, std::sin(rect.yaw()/2), std::cos(rect.yaw()/2)));
+    trk.bbox.center.orientation = tf2::toMsg(q);
     trk.bbox.size.x = rect.length();
     trk.bbox.size.y = rect.width();
     trk.bbox.size.z = rect.height();
 
-    trk.id = trk_id;
-    // trk.type = trk.CUBE;
-    // trk.color = col;
-    // trk.action = trk.ADD;
+    trk.id = std::to_string(trk_id);
 
     trks.detections.push_back(trk);
   }
@@ -171,18 +170,50 @@ vision_msgs::msg::Detection3DArray tracking_2d::STracksToTracks(
 
 void tracking_2d::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
-  // Run bytetrack on detections
-  auto objs = detsToObjects(msg);
-  auto stracks = tracker_->update(objs);
-  auto tracked_dets = STracksToTracks(stracks, msg->detections[0].header);
+  // Get newest frame transform
+  geometry_msgs::msg::TransformStamped tf_stamped;
+  try {
+      tf_stamped = tf_buffer_.lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
+  } catch (const tf2::TransformException & ex) {
+      RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s", ex.what());
+      RCLCPP_WARN(this->get_logger(), "Falling back to identity transform");
+      // Fall back to identity
+      tf_stamped.header.stamp = msg->header.stamp;
+      tf_stamped.header.frame_id = output_frame_;
+      tf_stamped.child_frame_id = msg->header.frame_id;
+      tf_stamped.transform.translation.x = 0.0;
+      tf_stamped.transform.translation.y = 0.0;
+      tf_stamped.transform.translation.z = 0.0;
+      tf_stamped.transform.rotation.x = 0.0;
+      tf_stamped.transform.rotation.y = 0.0;
+      tf_stamped.transform.rotation.z = 0.0;
+      tf_stamped.transform.rotation.w = 1.0;
+  }
+  
+  vision_msgs::msg::Detection3DArray tf_msg;
+  tf_msg.header.frame_id = output_frame_;
+  tf_msg.header.stamp = msg->header.stamp;
 
-  RCLCPP_INFO(this->get_logger(), "Received %zd dets, publishing %zd tracks...", msg->detections.size(), tracked_dets.detections.size());
+  // Transform all dets
+  for (const auto & det : msg->detections) {
+    vision_msgs::msg::Detection3D tf_det = det;
+    tf_det.header.frame_id = output_frame_;
+    tf2::doTransform(det.bbox.center, tf_det.bbox.center, tf_stamped);
+    tf_msg.detections.push_back(tf_det);
+  }
+
+  // Run bytetrack on detections
+  auto objs = detsToObjects(tf_msg);
+  auto stracks = tracker_->update(objs);
+  auto tracked_dets = STracksToTracks(stracks, tf_msg.header);
+
+  RCLCPP_INFO(this->get_logger(), "Received %zd dets, transformed to %zd dets, publishing %zd tracks...", msg->detections.size(), tf_msg.detections.size(), tracked_dets.detections.size());
   tracked_dets_pub_->publish(tracked_dets);
-  // RCLCPP_DEBUG(
-  //   this->get_logger(),
-  //   "First track - Class: '%s'; ID: %d",
-  //   tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),
-  //   std::stoi(tracked_dets.detections[0].id));
+  RCLCPP_INFO(
+    this->get_logger(),
+    "First track - Class: '%s'; ID: %d",
+    tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),
+    std::stoi(tracked_dets.detections[0].id));
 }
 
 int main(int argc, char ** argv)

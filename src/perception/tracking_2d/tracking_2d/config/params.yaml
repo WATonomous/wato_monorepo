@@ -5,3 +5,4 @@ tracking_2d:
     track_thresh: 0.5
     high_thresh: 0.6
     match_thresh: 0.8
+    output_frame: "map"

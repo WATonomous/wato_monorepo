@@ -33,6 +33,7 @@ find_package(vision_msgs REQUIRED)
 # find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(bytetrack_cpp_vendor REQUIRED)
 
@@ -57,6 +58,7 @@ target_link_libraries(tracking_2d_node
     ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${tf2_LIBRARIES}
+    ${tf2_ros_TARGETS}
     ${tf2_geometry_msgs_TARGETS}
     # Eigen3::Eigen
     ${OpenCV_LIBS}

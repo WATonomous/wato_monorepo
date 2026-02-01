@@ -26,6 +26,8 @@
 #include <std_msgs/msg/header.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <tf2/utils.hpp>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 class tracking_2d : public rclcpp::Node
@@ -96,7 +98,7 @@ private:
    *
    * @note Done prior to each tracker update.
    */
-  std::vector<byte_track::Object> detsToObjects(const vision_msgs::msg::Detection3DArray::SharedPtr dets);
+  std::vector<byte_track::Object> detsToObjects(const vision_msgs::msg::Detection3DArray & dets);
 
   /**
    * @brief Converts STrackPtr tracks output by the ByteTrack tracker back into Detection2DArray messages.
@@ -129,11 +131,15 @@ private:
   float track_thresh_;
   float high_thresh_;
   float match_thresh_;
+  std::string output_frame_;
 
   std::unordered_map<std::string, int> class_map_;
   std::unordered_map<int, std::string> reverse_class_map_;
 
   std::unique_ptr<byte_track::BYTETracker> tracker_;
+
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
 };
 
 #endif
