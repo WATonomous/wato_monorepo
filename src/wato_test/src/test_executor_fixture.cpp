@@ -63,4 +63,38 @@ void TestExecutorFixture::start_spinning()
   }
 }
 
+MultiThreadedTestFixture::MultiThreadedTestFixture()
+: ROS2Initializer()
+{}
+
+MultiThreadedTestFixture::~MultiThreadedTestFixture()
+{
+  // Deactivate all lifecycle nodes to ensure proper cleanup
+  for (auto & node : lifecycle_nodes_) {
+    if (node && node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+      try {
+        node->deactivate();
+      } catch (const std::exception & e) {
+        // Log but don't throw during destruction
+        RCLCPP_WARN(
+          rclcpp::get_logger("MultiThreadedTestFixture"), "Failed to deactivate node during cleanup: %s", e.what());
+      }
+    }
+  }
+
+  // Cancel executor and wait for thread to finish
+  executor_.cancel();
+
+  if (spin_thread_.joinable()) {
+    spin_thread_.join();
+  }
+}
+
+void MultiThreadedTestFixture::start_spinning()
+{
+  if (!spin_thread_.joinable()) {
+    spin_thread_ = std::thread([this]() { executor_.spin(); });
+  }
+}
+
 }  // namespace wato::test

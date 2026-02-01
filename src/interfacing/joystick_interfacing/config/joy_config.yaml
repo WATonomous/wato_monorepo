@@ -6,12 +6,31 @@ joystick_node:
   ros__parameters:
     #left shoulder buttons
     enable_axis: 2
+
+
+    # button to toggle between /joystick/ackermann and /joystick/roscco
+    toggle_button: 1 #B on xbox
+
+    # OSCC board arming button
+    arming_button: 0 #A on xbox
+
     #left and right joystick axes
     steering_axis: 0
     throttle_axis: 4
-    #max speed and steering angle
-    max_speed: 2.0
-    max_steering_angle: 0.5
+
+    #ACKERMAN SCALLING ---- max speed and steering angle
+    ackermann_max_speed: 2.0
+    ackermann_max_steering_angle: 0.5
+
+    #ROSCCO SCALLING ---- max speed and steering angle
+    roscco_max_speed: 1.0
+    roscco_max_steering_angle: 0.3
+
     #invert steering and throttle
-    invert_steering: false
+    invert_steering: true
     invert_throttle: false
+
+
+    #vibration feedback
+    toggle_vibration_intensity: 1.0
+    toggle_vibration_duration_ms: 150

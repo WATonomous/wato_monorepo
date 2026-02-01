@@ -12,7 +12,6 @@ scenario_server:
   ros__parameters:
     <<: *carla_connection
     initial_scenario: "carla_scenarios.scenarios.light_traffic_scenario"
-    lifecycle_manager_name: "carla_lifecycle_manager"
     # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
     carla_fps: 60.0                  # Sets fixed_delta_seconds = 1/fps
     synchronous_mode: true           # Server waits for client tick
@@ -94,7 +93,7 @@ bbox_publisher:
     <<: *carla_connection
     # Publishing settings
     publish_rate: 10.0
-    frame_id: "base_link"
+    frame_id: "map"
     include_vehicles: true
     include_pedestrians: true
     max_distance: -1.0  # Max distance from ego vehicle in meters (-1 = no limit)

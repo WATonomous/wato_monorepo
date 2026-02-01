@@ -20,6 +20,9 @@
     <origin xyz="0 0 1.76" rpy="0 0 0"/>
   </xacro:roof_mount>
 
+  <!-- Nominal lower camera extrinsics (placeholder values; update once measured) -->
+  <xacro:lower_cameras parent="base_link"/>
+
   <!-- Include mirror mounts and sensors -->
   <xacro:include filename="eve_mirror_mount_nw.xacro"/>
   <xacro:include filename="eve_mirror_mount_ne.xacro"/>

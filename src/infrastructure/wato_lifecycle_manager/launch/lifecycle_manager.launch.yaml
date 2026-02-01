@@ -1,0 +1,42 @@
+launch:
+  - arg:
+      name: node_names
+      default: "[]"
+      description: "List of lifecycle node names to manage"
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: "Automatically start managed nodes on launch"
+
+  - arg:
+      name: transition_timeout_s
+      default: "10.0"
+      description: "Timeout for lifecycle transitions in seconds"
+
+  - arg:
+      name: bond_timeout_s
+      default: "4.0"
+      description: "Bond heartbeat timeout in seconds"
+
+  - arg:
+      name: bond_enabled
+      default: "true"
+      description: "Enable bond-based crash detection"
+
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value: $(var node_names)
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: $(var transition_timeout_s)
+        - name: bond_timeout_s
+          value: $(var bond_timeout_s)
+        - name: bond_enabled
+          value: $(var bond_enabled)

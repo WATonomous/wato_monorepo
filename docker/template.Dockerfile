@@ -66,12 +66,13 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
 FROM build AS deploy
 
 # Source Cleanup, Security Setup, and Workspace Setup
-RUN rm -rf "${AMENT_WS:?}"/* && \
-    chown -R "${USER}":"${USER}" "${AMENT_WS}"
-USER ${USER}
+RUN rm -rf "${AMENT_WS:?}"/*
 
 ################################ Develop ################################
 FROM rosdep_install AS develop
+ARG USERNAME
+ARG USER_GID
+ARG USER_UID
 
 # Update Sources and Install Useful Developer Tools
 # hadolint ignore=DL3009
@@ -85,9 +86,24 @@ RUN apt-get update && \
     nano \
     tree
 
-# Make ament_ws owned by bolty
-RUN chown -R "${USER}":"${USER}" "${AMENT_WS}"
-USER ${USER}
+# Set user in container to developer's user
+# hadolint ignore=SC2086
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN existing_user=$(getent passwd ${USER_UID} | cut -d: -f1 || true) \
+    && if [ -n "$existing_user" ]; then userdel -r "$existing_user" 2>/dev/null || true; fi \
+    && if ! getent group ${USER_GID} >/dev/null; then groupadd --gid ${USER_GID} ${USERNAME}; fi \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} -m $USERNAME --shell /bin/bash \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends sudo \
+    && echo $USERNAME ALL=\(ALL\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && cp /etc/skel/.bashrc /home/$USERNAME/.bashrc \
+    && cp /etc/skel/.profile /home/$USERNAME/.profile \
+    && chown $USERNAME:$USERNAME /home/$USERNAME/.bashrc /home/$USERNAME/.profile \
+    && chown -R "${USERNAME}":"${USERNAME}" "${AMENT_WS}" \
+    && rm -rf /var/lib/apt/lists/*
+
+USER $USERNAME
 
 # Install Claude Code natively
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

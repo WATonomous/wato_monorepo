@@ -4,7 +4,7 @@ Scenario management for CARLA simulation.
 
 The `scenario_server` is the central coordinator for the CARLA simulation. It connects to the CARLA server, configures simulation timing settings, and loads scenarios that define the world state - which map to use, where to spawn the ego vehicle, and what traffic to generate.
 
-When a scenario is switched via the `~/switch_scenario` service, the server first notifies the `lifecycle_manager` to clean up all managed nodes, then unloads the current scenario (destroying all actors), and finally loads the new scenario. This triggers the lifecycle manager to bring nodes back up with the new world state.
+When a scenario is switched via the `switch_scenario` service, the server first notifies the `lifecycle_manager` to clean up all managed nodes, then unloads the current scenario (destroying all actors), and finally loads the new scenario. This triggers the lifecycle manager to bring nodes back up with the new world state.
 
 The server also publishes `/clock` from CARLA's simulation time.
 
@@ -16,9 +16,9 @@ The server also publishes `/clock` from CARLA's simulation time.
 ros2 run carla_scenarios scenario_server
 ```
 
-**Publications:** `~/scenario_status` (`carla_msgs/ScenarioStatus`), `/clock` (`rosgraph_msgs/Clock`)
+**Publications:** `scenario_status` (`carla_msgs/ScenarioStatus`), `/clock` (`rosgraph_msgs/Clock`)
 
-**Services:** `~/switch_scenario` (`carla_msgs/SwitchScenario`), `~/get_available_scenarios` (`carla_msgs/GetAvailableScenarios`)
+**Services:** `switch_scenario` (`carla_msgs/SwitchScenario`), `get_available_scenarios` (`carla_msgs/GetAvailableScenarios`)
 
 **Parameters:**
 
