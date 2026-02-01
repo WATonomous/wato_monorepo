@@ -14,7 +14,7 @@
 
 /**
  * @file intent_classifier.hpp
- * @brief PROBABILITY ASSIGNMENT - Assigns probabilities to trajectory hypotheses
+ * @brief Assigns probabilities to trajectory hypotheses based on intent.
  */
 
 #ifndef PREDICTION__INTENT_CLASSIFIER_HPP_
@@ -73,11 +73,9 @@ public:
   /**
    * @brief Extract features for intent classification
    * @param detection Tracked object detection
-   * @param lanelet_info Lanelet information from map
    * @return IntentFeatures Feature vector for classification
    */
-  IntentFeatures extractFeatures(
-    const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets);
+  IntentFeatures extractFeatures(const vision_msgs::msg::Detection3D & detection);
 
 private:
   /**

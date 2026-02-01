@@ -32,6 +32,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
+find_package(world_model_msgs REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 
@@ -56,6 +57,7 @@ target_link_libraries(prediction_lib
   ${std_msgs_TARGETS}
   ${geometry_msgs_TARGETS}
   ${vision_msgs_TARGETS}
+  ${world_model_msgs_TARGETS}
   Eigen3::Eigen
   )
 

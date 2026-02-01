@@ -14,48 +14,36 @@
 
 /**
  * @file prediction_node.hpp
- * @brief MAIN ORCHESTRATOR NODE - Coordinates the entire prediction pipeline
+ * @brief Node that generates seed WorldObjects from tracked objects.
  *
- * WHAT THIS FILE DOES:
- * - Subscribes to tracked objects from perception
- * - Subscribes to ego vehicle pose from localization
- * - For each tracked object, orchestrates the prediction pipeline:
- *   1. Query map for current/future lanelets
- *   2. Call trajectory predictor to generate hypotheses
- *   3. Call intent classifier to assign probabilities
- *   4. Publish multi-modal predictions
- *
- * WHO WORKS ON THIS:
- * - Integration work (all team members coordinate here)
- * - No person-specific tasks, this just calls the other modules
- *
- * WHEN TO MODIFY:
- * - When adding new message publishers
- * - When changing the pipeline flow
- * - When integrating new predictor types
+ * Subscribes to tracked objects from perception, generates trajectory
+ * predictions, and publishes seed WorldObjects for the world model.
  */
 
 #ifndef PREDICTION__PREDICTION_NODE_HPP_
 #define PREDICTION__PREDICTION_NODE_HPP_
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "prediction/intent_classifier.hpp"
-#include "prediction/map_interface.hpp"
 #include "prediction/trajectory_predictor.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
+#include "world_model_msgs/msg/world_object.hpp"
+#include "world_model_msgs/msg/world_object_array.hpp"
 
 namespace prediction
 {
 
 /**
- * @brief Main prediction node that coordinates the multi-modal trajectory prediction pipeline
+ * @brief Generates seed WorldObjects from tracked objects with trajectory predictions.
  *
- * This node subscribes to tracked objects and ego pose, queries the HD map,
- * generates trajectory hypotheses, classifies intents, and publishes multi-modal predictions.
+ * Subscribes to tracked objects, generates trajectory predictions, and publishes
+ * seed WorldObjects for consumption by the world model.
  */
 class PredictionNode : public rclcpp::Node
 {
@@ -84,19 +72,24 @@ private:
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
   /**
-   * @brief Process a single tracked object and generate predictions
+   * @brief Process a single tracked object and generate a seed WorldObject
    * @param detection The tracked object to predict
+   * @param frame_id Coordinate frame for the predictions
+   * @return WorldObject with predictions, or nullopt if generation failed
    */
-  void processObject(const vision_msgs::msg::Detection3D & detection);
+  std::optional<world_model_msgs::msg::WorldObject> processObject(
+    const vision_msgs::msg::Detection3D & detection, const std::string & frame_id);
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
 
+  // Publishers
+  rclcpp::Publisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
+
   // Core components
   std::unique_ptr<TrajectoryPredictor> trajectory_predictor_;
   std::unique_ptr<IntentClassifier> intent_classifier_;
-  std::unique_ptr<MapInterface> map_interface_;
 
   // State
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
@@ -104,8 +97,6 @@ private:
   // Parameters
   double prediction_horizon_;  // seconds
   double prediction_time_step_;  // seconds
-  bool use_map_constraints_;
-  bool enable_visualization_;
 };
 
 }  // namespace prediction

@@ -15,6 +15,8 @@
 #include "prediction/prediction_node.hpp"
 
 #include <memory>  // for std::make_unique
+#include <optional>
+#include <string>
 
 namespace prediction
 {
@@ -25,14 +27,10 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   // Declare parameters
   this->declare_parameter("prediction_horizon", 5.0);
   this->declare_parameter("prediction_time_step", 0.1);
-  this->declare_parameter("use_map_constraints", true);
-  this->declare_parameter("enable_visualization", false);
 
   // Get parameters
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
-  use_map_constraints_ = this->get_parameter("use_map_constraints").as_bool();
-  enable_visualization_ = this->get_parameter("enable_visualization").as_bool();
 
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds", prediction_horizon_);
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
@@ -44,11 +42,13 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
     "ego_pose", 10, std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1));
 
-  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_);
+  // Initialize publisher
+  world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
+  // Initialize components
+  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_);
   intent_classifier_ = std::make_unique<IntentClassifier>(this);
 
-  map_interface_ = std::make_unique<MapInterface>(this);
   RCLCPP_INFO(this->get_logger(), "Prediction node initialized successfully");
 }
 
@@ -62,9 +62,17 @@ void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DA
 
   RCLCPP_DEBUG(this->get_logger(), "Processing %zu tracked objects", msg->detections.size());
 
+  world_model_msgs::msg::WorldObjectArray output;
+  output.header = msg->header;
+
   for (const auto & detection : msg->detections) {
-    processObject(detection);
+    auto world_obj = processObject(detection, msg->header.frame_id);
+    if (world_obj.has_value()) {
+      output.objects.push_back(world_obj.value());
+    }
   }
+
+  world_objects_pub_->publish(output);
 }
 
 void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -72,30 +80,48 @@ void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::Shar
   ego_pose_ = msg;
 }
 
-void PredictionNode::processObject(const vision_msgs::msg::Detection3D & detection)
+std::optional<world_model_msgs::msg::WorldObject> PredictionNode::processObject(
+  const vision_msgs::msg::Detection3D & detection, const std::string & frame_id)
 {
   RCLCPP_DEBUG(this->get_logger(), "Processing object with ID: %s", detection.id.c_str());
 
   try {
-    geometry_msgs::msg::Point center = detection.bbox.center.position;
-    int64_t current_lanelet = map_interface_->findNearestLanelet(center);
-
-    auto future_lanelets = map_interface_->getPossibleFutureLanelets(current_lanelet, 3);
-
-    auto hypotheses = trajectory_predictor_->generateHypotheses(detection, future_lanelets);
+    auto hypotheses = trajectory_predictor_->generateHypotheses(detection);
 
     if (hypotheses.empty()) {
       RCLCPP_DEBUG(this->get_logger(), "No hypotheses generated for object %s", detection.id.c_str());
-      return;
+      return std::nullopt;
     }
 
-    auto features = intent_classifier_->extractFeatures(detection, future_lanelets);
+    auto features = intent_classifier_->extractFeatures(detection);
     intent_classifier_->assignProbabilities(detection, hypotheses, features);
+
+    // Build WorldObject with predictions
+    world_model_msgs::msg::WorldObject world_obj;
+    world_obj.detection = detection;
+
+    for (const auto & hypothesis : hypotheses) {
+      world_model_msgs::msg::Prediction pred;
+      pred.header.frame_id = frame_id;
+      pred.conf = hypothesis.probability;
+
+      for (size_t i = 0; i < hypothesis.waypoints.size(); ++i) {
+        geometry_msgs::msg::PoseStamped ps;
+        ps.header.frame_id = frame_id;
+        ps.pose = hypothesis.waypoints[i];
+        pred.poses.push_back(ps);
+      }
+
+      world_obj.predictions.push_back(pred);
+    }
 
     RCLCPP_DEBUG(
       this->get_logger(), "Generated %zu predictions for object %s", hypotheses.size(), detection.id.c_str());
+
+    return world_obj;
   } catch (const std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "Error processing object %s: %s", detection.id.c_str(), e.what());
+    return std::nullopt;
   }
 }
 

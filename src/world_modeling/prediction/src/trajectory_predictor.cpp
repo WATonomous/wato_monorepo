@@ -33,7 +33,7 @@ TrajectoryPredictor::TrajectoryPredictor(rclcpp::Node * node, double prediction_
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   ObjectType obj_type = classifyObjectType(detection);
 
@@ -41,13 +41,13 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
 
   switch (obj_type) {
     case ObjectType::VEHICLE:
-      hypotheses = generateVehicleHypotheses(detection, possible_lanelets);
+      hypotheses = generateVehicleHypotheses(detection);
       break;
     case ObjectType::PEDESTRIAN:
-      hypotheses = generatePedestrianHypotheses(detection, possible_lanelets);
+      hypotheses = generatePedestrianHypotheses(detection);
       break;
     case ObjectType::CYCLIST:
-      hypotheses = generateCyclistHypotheses(detection, possible_lanelets);
+      hypotheses = generateCyclistHypotheses(detection);
       break;
     default:
       RCLCPP_WARN(node_->get_logger(), "Unknown object type, skipping prediction");
@@ -86,13 +86,9 @@ ObjectType TrajectoryPredictor::classifyObjectType(const vision_msgs::msg::Detec
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
-
-  if (possible_lanelets.empty()) {
-    return hypotheses;
-  }
 
   // Create a simple "continue straight" hypothesis
   TrajectoryHypothesis straight_hyp;
@@ -124,7 +120,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
@@ -156,7 +152,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
