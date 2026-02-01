@@ -133,7 +133,7 @@ OsccInterfacingNode::~OsccInterfacingNode()
   if (is_armed_) {
     oscc_disable();
   }
-  oscc_close(oscc_can_bus_);
+  oscc_close();
 }
 
 void OsccInterfacingNode::configure()

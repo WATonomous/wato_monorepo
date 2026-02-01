@@ -1,9 +1,9 @@
 launch:
-  # Arguments ( no config yet not needed)
-  # - arg:
-  #     name: "config_file"
-  #     default: "$(find-pkg-share oscc_interfacing)/config/oscc_interfacing_config.yaml"
-  #     description: "Path to the joystick configuration file"
+  # Arguments
+  - arg:
+      name: "config_file"
+      default: "$(find-pkg-share oscc_interfacing)/config/oscc_interfacing_config.yaml"
+      description: "Path to the OSCC interfacing configuration file"
 
   # Oscc node
   - node:
@@ -11,5 +11,5 @@ launch:
       exec: "oscc_interfacing_node"
       name: "oscc_interfacing_node"
       namespace: ""
-      # param:
-      #   - from: "$(var config_file)"
+      param:
+        - from: "$(var config_file)"
