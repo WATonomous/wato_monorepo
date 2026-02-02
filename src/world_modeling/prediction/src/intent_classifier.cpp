@@ -22,7 +22,7 @@
 namespace prediction
 {
 
-IntentClassifier::IntentClassifier(rclcpp::Node * node)
+IntentClassifier::IntentClassifier(rclcpp_lifecycle::LifecycleNode * node)
 : node_(node)
 {
   weights_.velocity_weight = 0.3;
@@ -54,8 +54,7 @@ void IntentClassifier::assignProbabilities(
   RCLCPP_DEBUG(node_->get_logger(), "Assigned probabilities to %zu hypotheses", hypotheses.size());
 }
 
-IntentFeatures IntentClassifier::extractFeatures(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+IntentFeatures IntentClassifier::extractFeatures(const vision_msgs::msg::Detection3D & detection)
 {
   // PLACEHOLDER: Extract basic features (needs tracking history for velocity)
   IntentFeatures features;
@@ -66,18 +65,18 @@ IntentFeatures IntentClassifier::extractFeatures(
   // Estimate heading from detection orientation
   features.heading = 0.0;  // Placeholder
 
-  // Distance to intersection (would query map)
+  // Distance to intersection (would query map via LaneletHandler)
   features.distance_to_intersection = 50.0;  // Placeholder: 50m
 
-  // Lateral offset from lane centerline (would use map query)
+  // Lateral offset from lane centerline (would use LaneletHandler)
   features.lateral_offset = 0.0;  // Placeholder: centered
 
   // Turn signals (would come from CAN bus or visual detection)
   features.turn_signal_left = false;
   features.turn_signal_right = false;
 
-  // Number of possible future paths
-  features.num_possible_lanelets = static_cast<int>(possible_lanelets.size());
+  // Number of possible future paths (would use LaneletHandler)
+  features.num_possible_lanelets = 1;  // Placeholder
 
   // Time in lane (would track from history)
   features.time_in_lane = 2.0;  // Placeholder: 2 seconds

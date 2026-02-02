@@ -25,6 +25,7 @@
 #include "tf2_ros/transform_listener.h"
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
+#include "world_model/world_model_writer.hpp"
 #include "world_model/world_state.hpp"
 
 namespace world_model
@@ -33,13 +34,11 @@ namespace world_model
 /**
  * @brief ROS2 Lifecycle Node that orchestrates the world model.
  *
- * This is a thin orchestrator that owns:
- * - WorldState (entity storage with concurrency management)
- * - LaneletHandler (map queries)
- * - Interface components (publishers, subscribers, services)
- *
- * The node delegates all ROS communication to interface components
- * and all data management to WorldState/LaneletHandler.
+ * Thin orchestrator that owns WorldState (entity storage), LaneletHandler
+ * (map queries), WorldModelWriter (single inbound subscription), and the
+ * set of interface components (publishers, services). Delegates all ROS
+ * communication to interface components and all data management to
+ * WorldState/LaneletHandler.
  */
 class WorldModelNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -65,7 +64,10 @@ private:
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  // INTERFACE COMPONENTS (owned by node)
+  // SINGLE INBOUND SUBSCRIBER
+  std::unique_ptr<WorldModelWriter> writer_;
+
+  // INTERFACE COMPONENTS
   std::vector<std::unique_ptr<InterfaceBase>> interfaces_;
 
   // FRAMES AND MAP LOADING
@@ -76,9 +78,22 @@ private:
   std::string projector_type_;
   rclcpp::TimerBase::SharedPtr map_init_timer_;
 
+  /**
+   * @brief Attempt to load the lanelet map using TF-derived UTM origin.
+   *
+   * Called by a wall timer after activation. For UTM projector, waits for the
+   * utm-to-map transform to determine the origin offset. For local_cartesian
+   * projector (simulation), loads immediately with zero offset. Cancels the
+   * timer after success or failure.
+   */
   void tryLoadMap();
 
-  // HELPER
+  /**
+   * @brief Create all interface components (publishers, services, subscriber).
+   *
+   * Instantiates and registers all publisher, service, and subscriber interface
+   * objects. Each interface reads its own parameters from the node.
+   */
   void createInterfaces();
 };
 

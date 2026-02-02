@@ -12,31 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Launch multi-modal trajectory prediction node.
-
 launch:
   - arg:
       name: prediction_param_file
       default: $(find-pkg-share prediction)/config/params.yaml
       description: Path to config file for prediction node
 
-  - node_container:
-      pkg: rclcpp_components
-      exec: component_container
-      name: prediction_container
+  - node:
+      pkg: prediction
+      exec: prediction_node
+      name: prediction_node
       namespace: ''
-      composable_node:
-        - pkg: prediction
-          plugin: prediction::PredictionNode
-          name: prediction_node
-          param:
-            - from: $(var prediction_param_file)
-              to: ''
-          remap:
-            - from: tracks_3d
-              to: /perception/detections_3D_tracked
-            - from: ego_pose
-              to: /localization/pose
-            - from: predicted_paths
-              to: /world_modeling/prediction/predicted_paths
       output: screen
+      param:
+        - from: $(var prediction_param_file)
+      remap:
+        - from: tracks_3d
+          to: /perception/detections_3D_tracked
+        - from: ego_pose
+          to: /localization/pose
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds

@@ -12,33 +12,88 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# World Model configuration for simulation
+# =============================================================================
+# World Model Node
+# =============================================================================
 /**/world_model:
   ros__parameters:
-    # Map configuration
+    # Map
     osm_map_path: "/opt/watonomous/maps/osm/Town10HD_with_regulatory.osm"
-    # Projector type: "utm" for real-world maps, "local_cartesian" for CARLA/simulation maps
-    projector_type: "local_cartesian"
+    projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
 
-    # Frame IDs
+    # Frames
     map_frame: "map"
     utm_frame: "utm"
 
     # Entity tracking
     entity_history_duration_sec: 5.0
     entity_prune_timeout_sec: 2.0
-
-    # Traffic light tracking
     traffic_light_timeout_sec: 1.0
 
-    # Background worker intervals
+    # Background workers
     cleanup_interval_ms: 1000.0
     enrichment_interval_ms: 100.0
 
-    # Publisher rates
-    lane_context_publish_rate_hz: 10.0
+    # --- Publishers ---
+
+    # Lane context
+    lane_context_publish_rate_hz: 20.0
+
+    # Map visualization
     map_viz_publish_rate_hz: 1.0
     map_viz_radius_m: 100.0
+
+    # Dynamic objects (world_objects topic)
+    dynamic_objects_publish_rate_hz: 20.0
+    dynamic_objects_lanelet_ahead_radius_m: 15.0
+
+    # Route ahead
+    route_ahead_publish_rate_hz: 20.0
+    route_ahead_lookahead_m: 100.0
+
+    # Lanelet ahead (all lanelets within radius, regardless of route)
+    lanelet_ahead_publish_rate_hz: 10.0
+    lanelet_ahead_radius_m: 30.0
+
+    # --- Area occupancy ---
+
+    area_occupancy_publish_rate_hz: 20.0
+    area_occupancy_frame: "base_link"
+    occupancy_areas:
+      - "front_near"
+      - "front_far"
+      - "left_blind_spot"
+      - "right_blind_spot"
+
+    occupancy_area:
+      front_near:
+        type: "circle"
+        center_x: 0.0
+        center_y: 0.0
+        radius: 10.0
+      front_far:
+        type: "circle"
+        center_x: 15.0
+        center_y: 0.0
+        radius: 20.0
+      left_blind_spot:
+        type: "partial_circle"
+        center_x: -2.0
+        center_y: 2.0
+        radius: 10.0
+        start_angle_deg: 110.0
+        end_angle_deg: 180.0
+      right_blind_spot:
+        type: "partial_circle"
+        center_x: -2.0
+        center_y: -2.0
+        radius: 10.0
+        start_angle_deg: 180.0
+        end_angle_deg: 250.0
+
+# =============================================================================
+# Lanelet Marker Nodes
+# =============================================================================
 
 /**/map_viz_markers_node:
   ros__parameters:
@@ -68,6 +123,60 @@
 /**/route_ahead_markers_node:
   ros__parameters:
     frame_id: "map"
-    centerline_line_width: 0.4
+    boundary_line_width: 0.2
+    centerline_line_width: 0.2
     show_lanelet_ids: false
     show_route_info: true
+
+/**/lanelet_ahead_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    boundary_line_width: 0.2
+    centerline_line_width: 0.2
+    show_lanelet_ids: false
+    show_info: true
+    show_boundaries: true
+
+# =============================================================================
+# World Object Marker Nodes
+# =============================================================================
+
+# Pre-enrichment (subscribes to world_object_seeds from simple_prediction)
+/**/world_objects_markers_seed_node:
+  ros__parameters:
+    frame_id: "map"
+    box_alpha: 0.6
+    label_text_height: 0.5
+    history_line_width: 0.1
+    prediction_line_width: 0.08
+    lanelet_boundary_line_width: 0.25
+    lanelet_centerline_line_width: 0.15
+    lanelet_boundary_color_r: 0.2
+    lanelet_boundary_color_g: 0.4
+    lanelet_boundary_color_b: 1.0
+    lanelet_boundary_alpha: 0.3
+    lanelet_centerline_color_r: 0.3
+    lanelet_centerline_color_g: 0.5
+    lanelet_centerline_color_b: 0.8
+    lanelet_centerline_alpha: 0.2
+    entity_class_hypothesis_index: 0
+
+# Post-enrichment (subscribes to world_objects from world model)
+/**/world_objects_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    box_alpha: 0.6
+    label_text_height: 0.5
+    history_line_width: 0.1
+    prediction_line_width: 0.08
+    lanelet_boundary_line_width: 0.25
+    lanelet_centerline_line_width: 0.15
+    lanelet_boundary_color_r: 0.2
+    lanelet_boundary_color_g: 0.4
+    lanelet_boundary_color_b: 1.0
+    lanelet_boundary_alpha: 0.3
+    lanelet_centerline_color_r: 0.3
+    lanelet_centerline_color_g: 0.5
+    lanelet_centerline_color_b: 0.8
+    lanelet_centerline_alpha: 0.2
+    entity_class_hypothesis_index: 0
