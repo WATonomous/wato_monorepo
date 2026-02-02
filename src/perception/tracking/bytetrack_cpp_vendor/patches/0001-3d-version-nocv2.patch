@@ -48,42 +48,42 @@ index 18842a7..d557666 100644
  public:
 -    using DetectBox = Xyah<float>;
 +    using DetectBox = Xyzolwh<float>;
- 
+
 -    using StateMean = Eigen::Matrix<float, 1, 8, Eigen::RowMajor>;
 -    using StateCov = Eigen::Matrix<float, 8, 8, Eigen::RowMajor>;
 +    using StateMean = Eigen::Matrix<float, 1, 10, Eigen::RowMajor>;
 +    using StateCov = Eigen::Matrix<float, 10, 10, Eigen::RowMajor>;
- 
+
 -    using StateHMean = Eigen::Matrix<float, 1, 4, Eigen::RowMajor>;
 -    using StateHCov = Eigen::Matrix<float, 4, 4, Eigen::RowMajor>;
 +    using StateHMean = Eigen::Matrix<float, 1, 7, Eigen::RowMajor>;
 +    using StateHCov = Eigen::Matrix<float, 7, 7, Eigen::RowMajor>;
- 
+
 -    KalmanFilter(const float& std_weight_position = 1. / 20,
 -                 const float& std_weight_velocity = 1. / 160);
 +    KalmanFilter(const float& std_weight_position = 1.,
 +                 const float& std_weight_velocity = 1.,
 +                 const float& alpha = 1.,
 +                 const float& beta = 2.);
- 
+
      void initiate(StateMean& mean, StateCov& covariance, const DetectBox& measurement);
- 
+
      void predict(StateMean& mean, StateCov& covariance);
- 
+
 -    void update(StateMean& mean, StateCov& covariance, const DetectBox& measurement);
 +    void update(StateMean& mean, StateCov& covariance, const DetectBox& measurement, const float& confidence);
- 
+
  private:
      float std_weight_position_;
      float std_weight_velocity_;
 +    float alpha_;
 +    float beta_;
- 
+
 -    Eigen::Matrix<float, 8, 8, Eigen::RowMajor> motion_mat_;
 -    Eigen::Matrix<float, 4, 8, Eigen::RowMajor> update_mat_;
 +    Eigen::Matrix<float, 10, 10, Eigen::RowMajor> motion_mat_;
 +    Eigen::Matrix<float, 7, 10, Eigen::RowMajor> update_mat_;
- 
+
      void project(StateHMean &projected_mean, StateHCov &projected_covariance,
 -                 const StateMean& mean, const StateCov& covariance);
 +                 const StateMean& mean, const StateCov& covariance, const float& confidence);
@@ -96,18 +96,18 @@ index b5ab291..3a286ed 100644
 +++ b/include/ByteTrack/Rect.h
 @@ -1,6 +1,9 @@
  #pragma once
- 
+
  #include "Eigen/Dense"
 +#include "ByteTrack/iou_utils.h"
 +// #include <opencv2/opencv.hpp>
 +#include <math.h>
- 
+
  namespace byte_track
  {
 @@ -13,36 +16,51 @@ using Tlbr = Eigen::Matrix<T, 1, 4, Eigen::RowMajor>;
  template<typename T>
  using Xyah = Eigen::Matrix<T, 1, 4, Eigen::RowMajor>;
- 
+
 +template<typename T>
 +using Xyzolwh = Eigen::Matrix<T, 1, 7, Eigen::RowMajor>;
 +
@@ -117,13 +117,13 @@ index b5ab291..3a286ed 100644
      public:
 -    Tlwh<T> tlwh;
 +    Xyzolwh<T> xyzolwh;
- 
+
      Rect() = default;
 -    Rect(const T &x, const T &y, const T &width, const T &height);
 +    Rect(const T &x, const T &y, const T &z, const T &yaw, const T &length, const T &width, const T &height);
- 
+
      ~Rect();
- 
+
      const T &x() const;
      const T &y() const;
 +    const T &z() const;
@@ -131,7 +131,7 @@ index b5ab291..3a286ed 100644
 +    const T &length() const;
      const T &width() const;
      const T &height() const;
- 
+
      T &x();
      T &y();
 +    T &z();
@@ -139,7 +139,7 @@ index b5ab291..3a286ed 100644
 +    T &length();
      T &width();
      T &height();
- 
+
 -    const T &tl_x() const;
 -    const T &tl_y() const;
 -    T br_x() const;
@@ -148,13 +148,13 @@ index b5ab291..3a286ed 100644
 +    // const T &tl_y() const;
 +    // T br_x() const;
 +    // T br_y() const;
- 
+
 -    Tlbr<T> getTlbr() const;
 -    Xyah<T> getXyah() const;
 +    // Tlbr<T> getTlbr() const;
 +    // Xyah<T> getXyah() const;
 +    Xyzolwh<T> getXyzolwh() const;
- 
+
 +    // cv::Point2f rotated(const float &dx, const float &dy) const;
 +    float minEnclosingBoxDiag(const Rect<T>& other) const;
 +    float calcBEVIntersection(const Rect<T>& other) const;
@@ -162,7 +162,7 @@ index b5ab291..3a286ed 100644
 +    float calcDIoU(const Rect<T>& other) const;
 +    float calcCIoU(const Rect<T>& other, float alpha = 0.3f) const;
  };
- 
+
  template<typename T>
 diff --git a/include/ByteTrack/STrack.h b/include/ByteTrack/STrack.h
 index 476ed11..6aa99ae 100644
@@ -175,10 +175,10 @@ index 476ed11..6aa99ae 100644
 -    STrack(const Rect<float>& rect, const float& score);
 +    STrack(const Rect<float>& rect, const float& score, const int& class_id);
      ~STrack();
- 
+
      const Rect<float>& getRect() const;
 @@ -25,11 +25,14 @@ public:
- 
+
      const bool& isActivated() const;
      const float& getScore() const;
 +    const int& getClassId() const;
@@ -187,13 +187,13 @@ index 476ed11..6aa99ae 100644
      const size_t& getFrameId() const;
      const size_t& getStartFrameId() const;
      const size_t& getTrackletLength() const;
- 
+
 +    void updateClass(int new_class_id);
      void activate(const size_t& frame_id, const size_t& track_id);
      void reActivate(const STrack &new_track, const size_t &frame_id, const int &new_track_id = -1);
- 
+
 @@ -49,11 +52,14 @@ private:
- 
+
      bool is_activated_;
      float score_;
 +    int class_id_;
@@ -201,7 +201,7 @@ index 476ed11..6aa99ae 100644
      size_t frame_id_;
      size_t start_frame_id_;
      size_t tracklet_len_;
- 
+
 +    std::unordered_map<int, int> class_count_;
 +
      void updateRect();
@@ -261,7 +261,7 @@ index a02abc1..31ba5bf 100644
 --- a/src/BYTETracker.cpp
 +++ b/src/BYTETracker.cpp
 @@ -37,7 +37,7 @@ std::vector<byte_track::BYTETracker::STrackPtr> byte_track::BYTETracker::update(
- 
+
      for (const auto &object : objects)
      {
 -        const auto strack = std::make_shared<STrack>(object.rect, object.prob);
@@ -275,10 +275,10 @@ index a425bd2..054c523 100644
 +++ b/src/KalmanFilter.cpp
 @@ -1,38 +1,39 @@
  #include "ByteTrack/KalmanFilter.h"
- 
+
 +#include <cmath>
  #include <cstddef>
- 
+
  byte_track::KalmanFilter::KalmanFilter(const float& std_weight_position,
 -                                       const float& std_weight_velocity) :
 +                                       const float& std_weight_velocity,
@@ -293,26 +293,26 @@ index a425bd2..054c523 100644
 -    constexpr size_t ndim = 4;
 +    constexpr size_t ndim = 3;
      constexpr float dt = 1;
- 
+
 -    motion_mat_ = Eigen::MatrixXf::Identity(8, 8);
 -    update_mat_ = Eigen::MatrixXf::Identity(4, 8);
 +    motion_mat_ = Eigen::MatrixXf::Identity(10, 10);
 +    update_mat_ = Eigen::MatrixXf::Identity(7, 10);
- 
+
      for (size_t i = 0; i < ndim; i++)
      {
 -        motion_mat_(i, ndim + i) = dt;
 +        motion_mat_(i, 4 + ndim + i) = dt;
      }
  }
- 
+
  void byte_track::KalmanFilter::initiate(StateMean &mean, StateCov &covariance, const DetectBox &measurement)
  {
 -    mean.block<1, 4>(0, 0) = measurement.block<1, 4>(0, 0);
 -    mean.block<1, 4>(0, 4) = Eigen::Vector4f::Zero();
 +    mean.block<1, 7>(0, 0) = measurement.block<1, 7>(0, 0);
 +    mean.block<1, 3>(0, 7) = Eigen::Vector3f::Zero();
- 
+
      StateMean std;
 -    std(0) = 2 * std_weight_position_ * measurement[3];
 -    std(1) = 2 * std_weight_position_ * measurement[3];
@@ -326,7 +326,7 @@ index a425bd2..054c523 100644
 +        std(i) = 10 * std_weight_position_;
 +    for (int i = 7; i < 10; ++i)
 +        std(i) = 10000 * std_weight_velocity_;
- 
+
      StateMean tmp = std.array().square();
      covariance = tmp.asDiagonal();
 @@ -41,14 +42,10 @@ void byte_track::KalmanFilter::initiate(StateMean &mean, StateCov &covariance, c
@@ -345,13 +345,13 @@ index a425bd2..054c523 100644
 +        std(i) = std_weight_position_;
 +    for (int i = 7; i < 10; ++i)
 +        std(i) = 0.01 * std_weight_velocity_;
- 
+
      StateMean tmp = std.array().square();
      StateCov motion_cov = tmp.asDiagonal();
 @@ -57,15 +54,15 @@ void byte_track::KalmanFilter::predict(StateMean &mean, StateCov &covariance)
      covariance = motion_mat_ * covariance * (motion_mat_.transpose()) + motion_cov;
  }
- 
+
 -void byte_track::KalmanFilter::update(StateMean &mean, StateCov &covariance, const DetectBox &measurement)
 +void byte_track::KalmanFilter::update(StateMean &mean, StateCov &covariance, const DetectBox &measurement, const float &confidence)
  {
@@ -359,19 +359,19 @@ index a425bd2..054c523 100644
      StateHCov projected_cov;
 -    project(projected_mean, projected_cov, mean, covariance);
 +    project(projected_mean, projected_cov, mean, covariance, confidence);
- 
+
 -    Eigen::Matrix<float, 4, 8> B = (covariance * (update_mat_.transpose())).transpose();
 -    Eigen::Matrix<float, 8, 4> kalman_gain = (projected_cov.llt().solve(B)).transpose();
 -    Eigen::Matrix<float, 1, 4> innovation = measurement - projected_mean;
 +    Eigen::Matrix<float, 7, 10> B = (covariance * (update_mat_.transpose())).transpose();
 +    Eigen::Matrix<float, 10, 7> kalman_gain = (projected_cov.llt().solve(B)).transpose();
 +    Eigen::Matrix<float, 1, 7> innovation = measurement - projected_mean;
- 
+
      const auto tmp = innovation * (kalman_gain.transpose());
      mean = (mean.array() + tmp.array()).matrix();
 @@ -73,17 +70,16 @@ void byte_track::KalmanFilter::update(StateMean &mean, StateCov &covariance, con
  }
- 
+
  void byte_track::KalmanFilter::project(StateHMean &projected_mean, StateHCov &projected_covariance,
 -                                       const StateMean& mean, const StateCov& covariance)
 +                                       const StateMean& mean, const StateCov& covariance, const float &confidence)
@@ -383,15 +383,15 @@ index a425bd2..054c523 100644
 -           std_weight_position_ * mean(3);
 +    for (int i = 0; i < 7; ++i)
 +        std(i) = std_weight_position_;
- 
+
      projected_mean = update_mat_ * mean.transpose();
      projected_covariance = update_mat_ * covariance * (update_mat_.transpose());
- 
+
 -    Eigen::Matrix<float, 4, 4> diag = std.asDiagonal();
 +    Eigen::Matrix<float, 7, 7> diag = (1 + alpha_*std::pow(1 - confidence, beta_)) * (std.asDiagonal());
      projected_covariance += diag.array().square().matrix();
  }
-+ 
++
 diff --git a/src/Rect.cpp b/src/Rect.cpp
 index 48d1691..48733aa 100644
 --- a/src/Rect.cpp
@@ -399,11 +399,11 @@ index 48d1691..48733aa 100644
 @@ -1,10 +1,13 @@
  #include "ByteTrack/Rect.h"
 +// #include "ByteTrack/iou_utils.h"
- 
+
  #include <algorithm>
 +#include <cmath>
 +// #include <opencv2/opencv.hpp>
- 
+
  template <typename T>
 -byte_track::Rect<T>::Rect(const T &x, const T &y, const T &width, const T &height) :
 -    tlwh({x, y, width, height})
@@ -411,7 +411,7 @@ index 48d1691..48733aa 100644
 +    xyzolwh({x, y, z, yaw, length, width, height})
  {
  }
- 
+
 @@ -16,134 +19,274 @@ byte_track::Rect<T>::~Rect()
  template <typename T>
  const T& byte_track::Rect<T>::x() const
@@ -419,7 +419,7 @@ index 48d1691..48733aa 100644
 -    return tlwh[0];
 +    return xyzolwh[0];
  }
- 
+
  template <typename T>
  const T& byte_track::Rect<T>::y() const
  {
@@ -444,35 +444,35 @@ index 48d1691..48733aa 100644
 +{
 +    return xyzolwh[4];
  }
- 
+
  template <typename T>
  const T& byte_track::Rect<T>::width() const
  {
 -    return tlwh[2];
 +    return xyzolwh[5];
  }
- 
+
  template <typename T>
  const T& byte_track::Rect<T>::height() const
  {
 -    return tlwh[3];
 +    return xyzolwh[6];
  }
- 
+
  template <typename T>
  T& byte_track::Rect<T>::x()
  {
 -    return tlwh[0];
 +    return xyzolwh[0];
  }
- 
+
  template <typename T>
  T& byte_track::Rect<T>::y()
  {
 -    return tlwh[1];
 +    return xyzolwh[1];
  }
- 
+
  template <typename T>
 -T& byte_track::Rect<T>::width()
 +T& byte_track::Rect<T>::z()
@@ -480,7 +480,7 @@ index 48d1691..48733aa 100644
 -    return tlwh[2];
 +    return xyzolwh[2];
  }
- 
+
  template <typename T>
 -T& byte_track::Rect<T>::height()
 +T& byte_track::Rect<T>::yaw()
@@ -488,7 +488,7 @@ index 48d1691..48733aa 100644
 -    return tlwh[3];
 +    return xyzolwh[3];
  }
- 
+
  template <typename T>
 -const T& byte_track::Rect<T>::tl_x() const
 +T& byte_track::Rect<T>::length()
@@ -496,7 +496,7 @@ index 48d1691..48733aa 100644
 -    return tlwh[0];
 +    return xyzolwh[4];
  }
- 
+
  template <typename T>
 -const T& byte_track::Rect<T>::tl_y() const
 +T& byte_track::Rect<T>::width()
@@ -504,7 +504,7 @@ index 48d1691..48733aa 100644
 -    return tlwh[1];
 +    return xyzolwh[5];
  }
- 
+
  template <typename T>
 -T byte_track::Rect<T>::br_x() const
 +T& byte_track::Rect<T>::height()
@@ -512,7 +512,7 @@ index 48d1691..48733aa 100644
 -    return tlwh[0] + tlwh[2];
 +    return xyzolwh[6];
  }
- 
+
 +// template <typename T>
 +// const T& byte_track::Rect<T>::tl_x() const
 +// {
@@ -574,7 +574,7 @@ index 48d1691..48733aa 100644
 +        xyzolwh[6],
 +    };
  }
- 
+
 -template <typename T>
 -byte_track::Tlbr<T> byte_track::Rect<T>::getTlbr() const
 +// template<typename T>
@@ -615,7 +615,7 @@ index 48d1691..48733aa 100644
 +
 +    return std::sqrt(min_diag_sq + height*height);
  }
- 
+
 -template <typename T>
 -byte_track::Xyah<T> byte_track::Rect<T>::getXyah() const
 +template<typename T>
@@ -638,7 +638,7 @@ index 48d1691..48733aa 100644
 +        static_cast<double>(other.xyzolwh[5]),
 +        static_cast<double>(other.xyzolwh[3])
      };
-+    
++
 +    return boxIntersectArea(rrect, other_rrect);
 +    // float area = length * width;
 +    // float other_area = other_length * other_width;
@@ -647,7 +647,7 @@ index 48d1691..48733aa 100644
 +    // if (un <= 0.0f) return 0.0f;
 +    // else return inter / un;
  }
- 
+
  template<typename T>
  float byte_track::Rect<T>::calcIoU(const Rect<T>& other) const
  {
@@ -689,7 +689,7 @@ index 48d1691..48733aa 100644
 +    // }
 +    // return iou;
  }
- 
+
  template<typename T>
 -byte_track::Rect<T> byte_track::generate_rect_by_tlbr(const byte_track::Tlbr<T>& tlbr)
 +float byte_track::Rect<T>::calcDIoU(const Rect<T>& other) const
@@ -702,7 +702,7 @@ index 48d1691..48733aa 100644
 +    float c = minEnclosingBoxDiag(other);
 +    return calcIoU(other) - (d*d) / c*c;
  }
- 
+
  template<typename T>
 -byte_track::Rect<T> byte_track::generate_rect_by_xyah(const byte_track::Xyah<T>& xyah)
 +float byte_track::Rect<T>::calcCIoU(const Rect<T>& other, float alpha) const
@@ -727,17 +727,17 @@ index 48d1691..48733aa 100644
 +//     const auto width = xyah[2] * xyah[3];
 +//     return byte_track::Rect<T>(xyah[0] - width / 2, xyah[1] - xyah[3] / 2, width, xyah[3]);
 +// }
- 
+
 -// explicit instantiation
 +// // explicit instantiation
  template class byte_track::Rect<int>;
  template class byte_track::Rect<float>;
- 
+
 -template byte_track::Rect<int> byte_track::generate_rect_by_tlbr<int>(const byte_track::Tlbr<int>&);
 -template byte_track::Rect<float> byte_track::generate_rect_by_tlbr<float>(const byte_track::Tlbr<float>&);
 +// template byte_track::Rect<int> byte_track::generate_rect_by_tlbr<int>(const byte_track::Tlbr<int>&);
 +// template byte_track::Rect<float> byte_track::generate_rect_by_tlbr<float>(const byte_track::Tlbr<float>&);
- 
+
 -template byte_track::Rect<int> byte_track::generate_rect_by_xyah<int>(const byte_track::Xyah<int>&);
 -template byte_track::Rect<float> byte_track::generate_rect_by_xyah<float>(const byte_track::Xyah<float>&);
 +// template byte_track::Rect<int> byte_track::generate_rect_by_xyah<int>(const byte_track::Xyah<int>&);
@@ -747,9 +747,9 @@ index 744b254..7d9dd79 100644
 --- a/src/STrack.cpp
 +++ b/src/STrack.cpp
 @@ -2,7 +2,7 @@
- 
+
  #include <cstddef>
- 
+
 -byte_track::STrack::STrack(const Rect<float>& rect, const float& score) :
 +byte_track::STrack::STrack(const Rect<float>& rect, const float& score, const int& class_id) :
      kalman_filter_(),
@@ -767,7 +767,7 @@ index 744b254..7d9dd79 100644
  {
 +    class_count_[class_id] = 1;
  }
- 
+
  byte_track::STrack::~STrack()
 @@ -39,6 +41,14 @@ const float& byte_track::STrack::getScore() const
  {
@@ -781,13 +781,13 @@ index 744b254..7d9dd79 100644
 +{
 +    return class_count_;
 +}
- 
+
  const size_t& byte_track::STrack::getTrackId() const
  {
 @@ -60,9 +70,24 @@ const size_t& byte_track::STrack::getTrackletLength() const
      return tracklet_len_;
  }
- 
+
 +void byte_track::STrack::updateClass(int new_class_id)
 +{
 +    if (new_class_id == class_id_) {
@@ -807,18 +807,18 @@ index 744b254..7d9dd79 100644
  {
 -    kalman_filter_.initiate(mean_, covariance_, rect_.getXyah());
 +    kalman_filter_.initiate(mean_, covariance_, rect_.getXyzolwh());
- 
+
      updateRect();
- 
+
 @@ -79,13 +104,14 @@ void byte_track::STrack::activate(const size_t& frame_id, const size_t& track_id
- 
+
  void byte_track::STrack::reActivate(const STrack &new_track, const size_t &frame_id, const int &new_track_id)
  {
 -    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyah());
 +    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyzolwh(), new_track.getScore());
- 
+
      updateRect();
- 
+
      state_ = STrackState::Tracked;
      is_activated_ = true;
      score_ = new_track.getScore();
@@ -827,7 +827,7 @@ index 744b254..7d9dd79 100644
      {
          track_id_ = new_track_id;
 @@ -96,22 +122,23 @@ void byte_track::STrack::reActivate(const STrack &new_track, const size_t &frame
- 
+
  void byte_track::STrack::predict()
  {
 -    if (state_ != STrackState::Tracked)
@@ -840,14 +840,14 @@ index 744b254..7d9dd79 100644
 +    // }
      kalman_filter_.predict(mean_, covariance_);
  }
- 
+
  void byte_track::STrack::update(const STrack &new_track, const size_t &frame_id)
  {
 -    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyah());
 +    kalman_filter_.update(mean_, covariance_, new_track.getRect().getXyzolwh(), new_track.getScore());
- 
+
      updateRect();
- 
+
      state_ = STrackState::Tracked;
      is_activated_ = true;
      score_ = new_track.getScore();
@@ -856,7 +856,7 @@ index 744b254..7d9dd79 100644
      tracklet_len_++;
  }
 @@ -128,8 +155,11 @@ void byte_track::STrack::markAsRemoved()
- 
+
  void byte_track::STrack::updateRect()
  {
 -    rect_.width() = mean_[2] * mean_[3];
@@ -1076,6 +1076,5 @@ index 0000000..12000f8
 +    }
 +    return min_box_diag;
 +}
--- 
+--
 2.34.1
-

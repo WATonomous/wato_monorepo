@@ -13,8 +13,10 @@
 // limitations under the License.
 
 #include "tracking/tracking.hpp"
+
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <tf2/utils.hpp>
@@ -30,16 +32,14 @@ std::unordered_map<std::string, int> tracking::class_map_ = {
 };
 std::unordered_map<int, std::string> tracking::reverse_class_map_ = [] {
   std::unordered_map<int, std::string> m;
-  for (const auto & [k, v] : tracking::class_map_)
-    m[v] = k;
+  for (const auto & [k, v] : tracking::class_map_) m[v] = k;
   return m;
 }();
 
-
 tracking::tracking()
-: Node("tracking"),
-  tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_)
+: Node("tracking")
+, tf_buffer_(this->get_clock())
+, tf_listener_(tf_buffer_)
 {
   initializeParams();
 
@@ -185,23 +185,23 @@ void tracking::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr 
   // Get newest frame transform
   geometry_msgs::msg::TransformStamped tf_stamped;
   try {
-      tf_stamped = tf_buffer_.lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
+    tf_stamped = tf_buffer_.lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s", ex.what());
-      RCLCPP_WARN(this->get_logger(), "Falling back to identity transform");
-      // Fall back to identity
-      tf_stamped.header.stamp = msg->header.stamp;
-      tf_stamped.header.frame_id = output_frame_;
-      tf_stamped.child_frame_id = msg->header.frame_id;
-      tf_stamped.transform.translation.x = 0.0;
-      tf_stamped.transform.translation.y = 0.0;
-      tf_stamped.transform.translation.z = 0.0;
-      tf_stamped.transform.rotation.x = 0.0;
-      tf_stamped.transform.rotation.y = 0.0;
-      tf_stamped.transform.rotation.z = 0.0;
-      tf_stamped.transform.rotation.w = 1.0;
+    RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s", ex.what());
+    RCLCPP_WARN(this->get_logger(), "Falling back to identity transform");
+    // Fall back to identity
+    tf_stamped.header.stamp = msg->header.stamp;
+    tf_stamped.header.frame_id = output_frame_;
+    tf_stamped.child_frame_id = msg->header.frame_id;
+    tf_stamped.transform.translation.x = 0.0;
+    tf_stamped.transform.translation.y = 0.0;
+    tf_stamped.transform.translation.z = 0.0;
+    tf_stamped.transform.rotation.x = 0.0;
+    tf_stamped.transform.rotation.y = 0.0;
+    tf_stamped.transform.rotation.z = 0.0;
+    tf_stamped.transform.rotation.w = 1.0;
   }
-  
+
   vision_msgs::msg::Detection3DArray tf_msg;
   tf_msg.header.frame_id = output_frame_;
   tf_msg.header.stamp = msg->header.stamp;
@@ -219,9 +219,14 @@ void tracking::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr 
   auto stracks = tracker_->update(objs);
   auto tracked_dets = STracksToTracks(stracks, tf_msg.header);
 
-  RCLCPP_INFO(this->get_logger(), "Received %zd dets, transformed to %zd dets, publishing %zd tracks...", msg->detections.size(), tf_msg.detections.size(), tracked_dets.detections.size());
+  RCLCPP_DEBUG(
+    this->get_logger(),
+    "Received %zd dets, transformed to %zd dets, publishing %zd tracks...",
+    msg->detections.size(),
+    tf_msg.detections.size(),
+    tracked_dets.detections.size());
   tracked_dets_pub_->publish(tracked_dets);
-  RCLCPP_INFO(
+  RCLCPP_DEBUG(
     this->get_logger(),
     "First track - Class: '%s'; ID: %d",
     tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),

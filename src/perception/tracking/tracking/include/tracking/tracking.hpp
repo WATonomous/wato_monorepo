@@ -24,9 +24,9 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/header.hpp>
-#include <vision_msgs/msg/detection3_d_array.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
+#include <vision_msgs/msg/detection3_d_array.hpp>
 
 class tracking : public rclcpp::Node
 {
