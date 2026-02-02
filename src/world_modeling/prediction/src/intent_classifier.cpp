@@ -22,7 +22,7 @@
 namespace prediction
 {
 
-IntentClassifier::IntentClassifier(rclcpp::Node * node)
+IntentClassifier::IntentClassifier(rclcpp_lifecycle::LifecycleNode * node)
 : node_(node)
 {
   weights_.velocity_weight = 0.3;

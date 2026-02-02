@@ -32,6 +32,7 @@
 #include "prediction/intent_classifier.hpp"
 #include "prediction/trajectory_predictor.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 #include "world_model_msgs/msg/world_object_array.hpp"
@@ -45,7 +46,7 @@ namespace prediction
  * Subscribes to tracked objects, generates trajectory predictions, and publishes
  * seed WorldObjects for consumption by the world model.
  */
-class PredictionNode : public rclcpp::Node
+class PredictionNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   /**
@@ -57,6 +58,15 @@ public:
    * @brief Destroy the Prediction Node
    */
   ~PredictionNode() override = default;
+
+protected:
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
   /**
@@ -85,7 +95,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
 
   // Publishers
-  rclcpp::Publisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
 
   // Core components
   std::unique_ptr<TrajectoryPredictor> trajectory_predictor_;

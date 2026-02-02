@@ -27,6 +27,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
 
 # ---- Msg Packages
 find_package(std_msgs REQUIRED)
@@ -54,6 +55,7 @@ target_include_directories(prediction_lib
 target_link_libraries(prediction_lib
   rclcpp::rclcpp
   rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
   ${std_msgs_TARGETS}
   ${geometry_msgs_TARGETS}
   ${vision_msgs_TARGETS}
@@ -61,16 +63,16 @@ target_link_libraries(prediction_lib
   Eigen3::Eigen
   )
 
-add_library(prediction_node SHARED src/prediction_node.cpp)
+add_executable(prediction_node src/prediction_node.cpp)
 target_link_libraries(prediction_node prediction_lib)
-rclcpp_components_register_nodes(prediction_node "prediction::PredictionNode")
 
-install(TARGETS
-  prediction_lib
-  prediction_node
+install(TARGETS prediction_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+
+install(TARGETS prediction_node
+  DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
   config

@@ -29,6 +29,7 @@
 
 #include "prediction/motion_models.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 
 namespace prediction
@@ -85,7 +86,7 @@ public:
    * @param prediction_horizon Time horizon for predictions (seconds)
    * @param time_step Time step between waypoints (seconds)
    */
-  TrajectoryPredictor(rclcpp::Node * node, double prediction_horizon, double time_step);
+  TrajectoryPredictor(rclcpp_lifecycle::LifecycleNode * node, double prediction_horizon, double time_step);
 
   /**
    * @brief Generate trajectory hypotheses for a tracked object
@@ -117,7 +118,7 @@ private:
    */
   std::vector<TrajectoryHypothesis> generateCyclistHypotheses(const vision_msgs::msg::Detection3D & detection);
 
-  rclcpp::Node * node_;
+  rclcpp_lifecycle::LifecycleNode * node_;
   double prediction_horizon_;
   double time_step_;
 

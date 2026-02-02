@@ -25,6 +25,7 @@
 
 #include "prediction/trajectory_predictor.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 
 namespace prediction
@@ -57,7 +58,7 @@ public:
    * @brief Construct a new Intent Classifier
    * @param node ROS node pointer for logging
    */
-  explicit IntentClassifier(rclcpp::Node * node);
+  explicit IntentClassifier(rclcpp_lifecycle::LifecycleNode * node);
 
   /**
    * @brief Assign probabilities to trajectory hypotheses
@@ -92,7 +93,7 @@ private:
    */
   void normalizeProbabilities(std::vector<TrajectoryHypothesis> & hypotheses);
 
-  rclcpp::Node * node_;
+  rclcpp_lifecycle::LifecycleNode * node_;
 
   // Classifier parameters (could be learned weights)
   struct ClassifierWeights

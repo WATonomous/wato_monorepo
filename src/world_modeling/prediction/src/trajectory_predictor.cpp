@@ -30,7 +30,8 @@ double extractYaw(const geometry_msgs::msg::Quaternion & q)
 }
 }  // namespace
 
-TrajectoryPredictor::TrajectoryPredictor(rclcpp::Node * node, double prediction_horizon, double time_step)
+TrajectoryPredictor::TrajectoryPredictor(
+  rclcpp_lifecycle::LifecycleNode * node, double prediction_horizon, double time_step)
 : node_(node)
 , prediction_horizon_(prediction_horizon)
 , time_step_(time_step)
