@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.10)
-project(tracking_2d)
+project(tracking)
 
 # Set C++ standard
 if(NOT CMAKE_CXX_STANDARD)
@@ -36,7 +36,7 @@ find_package(bytetrack_cpp_vendor REQUIRED)
 
 # Add library
 add_library(${PROJECT_NAME}_lib SHARED
-    src/tracking_2d.cpp
+    src/tracking.cpp
 )
 
 # Include directories

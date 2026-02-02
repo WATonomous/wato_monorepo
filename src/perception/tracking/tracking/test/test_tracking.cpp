@@ -16,12 +16,12 @@
 #include <chrono>
 #include <cmath>
 #include <future>
-#include <iostream>
+// #include <iostream>
 #include <memory>
-#include <optional>
+// #include <optional>
 #include <string>
-#include <thread>
-#include <utility>
+// #include <thread>
+// #include <utility>
 #include <vector>
 
 #include <catch2/catch_all.hpp>
@@ -31,7 +31,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <wato_test/wato_test.hpp>
 
-#include "tracking_2d/tracking_2d.hpp"
+#include "tracking/tracking.hpp"
 
 // [cx, cy, cz, yaw, l, w, h, score]
 vision_msgs::msg::Detection3DArray arraysToDetection3DArray(const std::vector<std::array<float, 8>> & det_info, const std::vector<std::string> & class_ids)
@@ -113,7 +113,7 @@ TEST_CASE("Detection3DArray to Object conversion working", "[conv_1]")
   std::vector<std::string> class_ids = {"car", "bus", "truck", "bicycle", "pedestrian"};
   vision_msgs::msg::Detection3DArray msg = arraysToDetection3DArray(det_info, class_ids);
 
-  std::vector<byte_track::Object> objs = tracking_2d::detsToObjects(msg);
+  std::vector<byte_track::Object> objs = tracking::detsToObjects(msg);
 
   SECTION("No detections missed") {
     REQUIRE(objs.size() == det_info.size());
@@ -134,7 +134,7 @@ TEST_CASE("Detection3DArray to Object conversion working", "[conv_1]")
         }
       }
       REQUIRE_THAT(obj.prob, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(obj.label == tracking_2d::classLookup(class_ids[i]));
+      REQUIRE(obj.label == tracking::classLookup(class_ids[i]));
     }
   }
 }
@@ -181,7 +181,7 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
   std::vector<int> class_ids = {0, 3, 2, 4, 1};
   auto strks = arraysToSTrackPtrs(det_info, class_ids);
 
-  vision_msgs::msg::Detection3DArray trks = tracking_2d::STracksToTracks(strks, h);
+  vision_msgs::msg::Detection3DArray trks = tracking::STracksToTracks(strks, h);
 
   SECTION("No tracks missed") {
     REQUIRE(trks.detections.size() == det_info.size());
@@ -211,7 +211,7 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
       REQUIRE_THAT(trk_box.size.z, Catch::Matchers::WithinRel(exp[6]));
 
       REQUIRE_THAT(trk.results[0].hypothesis.score, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(trk.results[0].hypothesis.class_id == tracking_2d::reverseClassLookup(class_ids[i]));
+      REQUIRE(trk.results[0].hypothesis.class_id == tracking::reverseClassLookup(class_ids[i]));
       
       REQUIRE(trk.header.stamp == h.stamp);
       REQUIRE(trk.header.frame_id == h.frame_id);
@@ -238,14 +238,14 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Node tests", "[ros]") {
   };
   std::vector<vision_msgs::msg::Detection3DArray> msgs = getTestInput(vdet_info, vclass_ids);
 
-  auto node = std::make_shared<tracking_2d>();
+  auto node = std::make_shared<tracking>();
   add_node(node);
 
   auto test_pub = std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(
-    tracking_2d::kDetectionsTopic
+    tracking::kDetectionsTopic
   );
   auto test_sub = std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(
-    tracking_2d::kTracksTopic
+    tracking::kTracksTopic
   );
 
   add_node(test_pub);

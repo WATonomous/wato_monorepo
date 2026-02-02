@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tracking_2d/tracking_2d.hpp"
+#include "tracking/tracking.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -21,23 +21,23 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // static logger for static logging
-rclcpp::Logger tracking_2d::static_logger_ = rclcpp::get_logger("tracking_2d_stc");
+rclcpp::Logger tracking::static_logger_ = rclcpp::get_logger("tracking_stc");
 
 // class maps
-std::unordered_map<std::string, int> tracking_2d::class_map_ = {
+std::unordered_map<std::string, int> tracking::class_map_ = {
   {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4}, {"vehicle", 5},
   // etc...
 };
-std::unordered_map<int, std::string> tracking_2d::reverse_class_map_ = [] {
+std::unordered_map<int, std::string> tracking::reverse_class_map_ = [] {
   std::unordered_map<int, std::string> m;
-  for (const auto & [k, v] : tracking_2d::class_map_)
+  for (const auto & [k, v] : tracking::class_map_)
     m[v] = k;
   return m;
 }();
 
 
-tracking_2d::tracking_2d()
-: Node("tracking_2d"),
+tracking::tracking()
+: Node("tracking"),
   tf_buffer_(this->get_clock()),
   tf_listener_(tf_buffer_)
 {
@@ -45,7 +45,7 @@ tracking_2d::tracking_2d()
 
   // Subscribers
   dets_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    kDetectionsTopic, 10, std::bind(&tracking_2d::detectionsCallback, this, std::placeholders::_1));
+    kDetectionsTopic, 10, std::bind(&tracking::detectionsCallback, this, std::placeholders::_1));
 
   // Publishers
   tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kTracksTopic, 10);
@@ -55,7 +55,7 @@ tracking_2d::tracking_2d()
     std::make_unique<byte_track::BYTETracker>(frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_);
 }
 
-void tracking_2d::initializeParams()
+void tracking::initializeParams()
 {
   // Declare parameters
   frame_rate_ = this->declare_parameter<int>("frame_rate", 2);
@@ -69,7 +69,7 @@ void tracking_2d::initializeParams()
 }
 
 // Get class id from class_map_ using class name
-int tracking_2d::classLookup(const std::string & class_name)
+int tracking::classLookup(const std::string & class_name)
 {
   auto it = class_map_.find(class_name);
   if (it != class_map_.end())
@@ -81,7 +81,7 @@ int tracking_2d::classLookup(const std::string & class_name)
 }
 
 // Get class name from reverse_class_map_ using class id
-std::string tracking_2d::reverseClassLookup(int class_id)
+std::string tracking::reverseClassLookup(int class_id)
 {
   auto it = reverse_class_map_.find(class_id);
   if (it != reverse_class_map_.end())
@@ -93,7 +93,7 @@ std::string tracking_2d::reverseClassLookup(int class_id)
 }
 
 // Convert from ros msgs to bytetrack's required format
-std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::msg::Detection3DArray & dets)
+std::vector<byte_track::Object> tracking::detsToObjects(const vision_msgs::msg::Detection3DArray & dets)
 {
   std::vector<byte_track::Object> objs;
   objs.reserve(dets.detections.size());
@@ -137,7 +137,7 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::ms
 }
 
 // Convert from bytetrack format back to ros msgs
-vision_msgs::msg::Detection3DArray tracking_2d::STracksToTracks(
+vision_msgs::msg::Detection3DArray tracking::STracksToTracks(
   const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header)
 {
   // Use same header as detections for same time stamps
@@ -180,7 +180,7 @@ vision_msgs::msg::Detection3DArray tracking_2d::STracksToTracks(
   return trks;
 }
 
-void tracking_2d::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr msg)
+void tracking::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
   // Get newest frame transform
   geometry_msgs::msg::TransformStamped tf_stamped;

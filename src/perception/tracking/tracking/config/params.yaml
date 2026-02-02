@@ -1,4 +1,4 @@
-tracking_2d:
+tracking:
   ros__parameters:
     frame_rate: 30
     track_buffer: 30

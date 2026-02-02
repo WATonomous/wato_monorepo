@@ -1,7 +1,7 @@
 # ByteTrack 2D Tracking — Developer Guide
 
 ## Overview
-The `tracking_2d` package serves as a ROS 2 wrapper for ByteTrack. It associates and tracks 2D detection bounding boxes in the image frame.
+The `tracking` package serves as a ROS 2 wrapper for ByteTrack. It associates and tracks 2D detection bounding boxes in the image frame.
 ## Dependencies
 This package depends on the C++ ByteTrack implementation at https://github.com/Vertical-Beach/ByteTrack-cpp.
 <br><br>Other dependencies:
@@ -17,7 +17,7 @@ watod build perception_bringup
 Alternatively, run
 
 ```bash
-colcon build --packages-select bytetrack_cpp_vendor tracking_2d
+colcon build --packages-select bytetrack_cpp_vendor tracking
 ```
 
 to debug without creating a container.
@@ -39,13 +39,13 @@ bash -c "ros2 launch perception_bringup perception_bringup_launch.yaml"
 **If launching just the tracker:**
 
 ```bash
-bash -c "ros2 launch tracking_2d tracking_2d_launch.yaml"
+bash -c "ros2 launch tracking tracking_launch.yaml"
 ```
 
 **If launching the tracker with visualization:**
 
 ```bash
-bash -c "ros2 launch tracking_2d tracking_2d_launch.yaml & ros2 launch track_viz_2d track_viz_2d_launch.yaml"
+bash -c "ros2 launch tracking tracking_launch.yaml & ros2 launch track_viz_2d track_viz_2d_launch.yaml"
 ```
 
 ## High Level Flow
