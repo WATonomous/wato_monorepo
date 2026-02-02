@@ -26,7 +26,6 @@ endif()
 # ---- General ROS 2 Packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 
 # ---- Msg Packages
@@ -41,7 +40,6 @@ add_library(prediction_lib
   src/trajectory_predictor.cpp
   src/intent_classifier.cpp
   src/motion_models.cpp
-  src/map_interface.cpp
 )
 
 set_target_properties(prediction_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -54,7 +52,6 @@ target_include_directories(prediction_lib
 # Link ROS2 dependencies required by package
 target_link_libraries(prediction_lib
   rclcpp::rclcpp
-  rclcpp_components::component
   rclcpp_lifecycle::rclcpp_lifecycle
   ${std_msgs_TARGETS}
   ${geometry_msgs_TARGETS}
