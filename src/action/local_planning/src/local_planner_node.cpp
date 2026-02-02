@@ -1,6 +1,6 @@
 #include "local_planning/local_planner_node.hpp"
 
-#include <map>
+#include <unordered_map>
 #include <limits>
 #include <chrono>
 
@@ -92,12 +92,16 @@ double LocalPlannerNode::distance_along_first_lanelet(const lanelet_msgs::msg::L
   const geometry_msgs::msg::Point * prev_point = nullptr;
   double arc_dist = 0.0;
 
+  if (!car_pose){
+    RCLCPP_WARN(this->get_logger(), "Car Pose has not been received yet");
+    return -1.0; 
+  }   
+
+  geometry_msgs::msg::Point car_pos = car_pose->pose.position;
+
   for (const auto & pt : ll.centerline) {
-    if (!car_pose){
-      RCLCPP_WARN(this->get_logger(), "Car Pose has not been received yet");
-      return 0.0; // TODO fix this for error handling
-    }   
-    double dist = core_.get_euc_dist(pt.x, pt.y,car_pose->pose.position.x, car_pose->pose.position.y);
+
+    double dist = core_.get_euc_dist(pt.x, pt.y, car_pos.x, car_pos.y);
 
     if (dist < prev_dist) {
       if (prev_point) {
@@ -113,6 +117,110 @@ double LocalPlannerNode::distance_along_first_lanelet(const lanelet_msgs::msg::L
   return arc_dist;
 }
 
+void LocalPlannerNode::get_terminal_points(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg){
+
+  std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> lanelets;
+  std::vector<std::vector<int64_t>> id_order(3);
+
+  int64_t curr_id = msg->current_lanelet_id;
+
+  // Generate unordered map of all lanelets in the msg
+  for(auto lanelet: msg->lanelets){
+    lanelets[lanelet.id] = lanelet;
+  }
+
+  // Create order array of ids for each lane
+  auto it_curr = lanelets.find(curr_id);
+  if (it_curr == lanelets.end()) return;
+
+  const auto & curr_ll = it_curr->second;
+  const int64_t first_lanelet_id[3] = {curr_ll.left_lane_id, curr_ll.id, curr_ll.right_lane_id};
+
+  for (int i = 0; i < 3; i++) {
+    const int64_t start_id = first_lanelet_id[i];
+    if (start_id < 0) continue;
+
+    auto it = lanelets.find(start_id);
+    if (it == lanelets.end()) continue;
+
+    id_order[i].push_back(start_id);
+
+    for (const auto succ_id : it->second.successor_ids) {
+      if (lanelets.find(succ_id) != lanelets.end()) {
+        id_order[i].push_back(succ_id);
+      }
+    }
+  }
+
+  // Search lanes for terminal points at horizons
+  if(id_order[1].empty()) return;
+  
+  auto it_init = lanelets.find(id_order[1][0]);
+  if (it_init == lanelets.end()) return;
+  
+  double init_dist = distance_along_first_lanelet(it_init->second);
+  // Clear previous teriminals
+  for (auto & horizon : corridor_terminals) {
+    for (auto & terminal : horizon) {
+      terminal = {FrenetPoint{}, -1};
+    }
+  }
+
+  for(size_t lane_idx = 0; lane_idx < id_order.size(); lane_idx++){
+    const auto & lane = id_order[lane_idx];
+    double arc_length = -init_dist;
+    int curr_horizon = 0;
+    const geometry_msgs::msg::Point * prev_pt = nullptr;
+
+    for(const int64_t ll_id: lane){
+      const auto & centerline = lanelets[ll_id].centerline;
+      for(size_t pt_idx = 0; pt_idx < centerline.size(); pt_idx++){
+        const auto & pt = centerline[pt_idx];
+        if(arc_length < lookahead_s_m[curr_horizon]){
+          if(prev_pt){
+            arc_length += core_.get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
+          }
+          prev_pt = &pt;
+        }
+        else{
+          // TODO find angle
+          double curvature = (pt_idx < lanelets[ll_id].centerline_curvature.size()) 
+                    ? lanelets[ll_id].centerline_curvature[pt_idx] 
+                    : 0.0;
+          FrenetPoint t_pt = {pt.x, pt.y, 0.0, curvature};
+          std::pair<FrenetPoint, int64_t> terminal = {t_pt, ll_id};
+          corridor_terminals[curr_horizon][lane_idx] = terminal;
+          curr_horizon ++;
+          if(curr_horizon >= num_horizons) break;
+        }
+      }
+      if(curr_horizon >= num_horizons) break;
+    }
+  }
+  for (auto & horizon : corridor_terminals) {
+    for (auto & terminal : horizon) {
+      RCLCPP_INFO(this->get_logger(), "Terminal Point: x: %f, y: %f, theta: %f, kappa: %f", terminal.first.x, terminal.first.y, terminal.first.theta, terminal.first.kappa);
+    }
+  }
+  rclcpp::sleep_for(std::chrono::milliseconds(1500));
+
+  // std::vector<FrenetPath> paths;
+
+  // if (!car_frenet_point) {
+  //   RCLCPP_WARN(get_logger(), "Car frenet point not available, skipping path generation");
+  //   return;  // or publish empty paths
+  // } 
+
+  // for (auto & horizon : corridor_terminals) {
+  //   for (auto & terminal : horizon) {
+  //     if(terminal.second >= 0){
+  //       FrenetPath path {core_.generate_path(car_frenet_point.value(), terminal.first), terminal.second, 0, 0};
+  //       paths.push_back(path);
+  //     }
+  //   }
+  // }
+  // publish_paths_vis(paths);
+}
 
 
 void LocalPlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg){
@@ -130,11 +238,10 @@ void LocalPlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstS
     fp = FrenetPoint{p.x, p.y, tf2::getYaw(q), 0.0};
   }
   else{
-    double dt = rclcpp::Time(msg->header.stamp).seconds() - rclcpp::Time(car_pose->header.stamp).seconds();
-    double kappa = (tf2::getYaw(q) - car_frenet_point->theta)/dt;
+    double ds = core_.get_euc_dist(p.x, p.y, car_pose->pose.position.x, car_pose->pose.position.y);
+    double kappa = ds > 0.001 ? (tf2::getYaw(q) - car_frenet_point->theta)/ds : 0.0;
     fp = FrenetPoint{p.x, p.y, tf2::getYaw(q), kappa};
   }
-
   car_pose = ps;
   car_frenet_point = fp;
 }
@@ -144,7 +251,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Configuring Local Planning node");
   path_vis_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("planned_path", 10);
-  timer_ = this->create_wall_timer(500ms, std::bind(&LocalPlannerNode::timer_callback, this));
+  // timer_ = this->create_wall_timer(500ms, std::bind(&LocalPlannerNode::timer_callback, this));
 
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -155,6 +262,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Activating Local Planning node");
   // route_ahead_sub_ = create_subscription<lanelet_msgs::msg::RouteAhead>(route_ahead_topic, 10, std::bind(&LocalPlannerNode::create_corridor, this, std::placeholders::_1));
+  lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(lanelet_ahead_topic, 10, std::bind(&LocalPlannerNode::get_terminal_points, this, std::placeholders::_1));
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(odom_topic, 10, std::bind(&LocalPlannerNode::update_vehicle_odom, this, std::placeholders::_1));
   path_vis_pub_->on_activate();   RCLCPP_INFO(this->get_logger(), "Node Activated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -165,6 +273,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating Local Planning node");
   // route_ahead_sub_.reset();
+  // lanelet_ahead_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -174,6 +283,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up Local Planning node");
   // route_ahead_sub_.reset();
+  // lanelet_ahead_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -183,6 +293,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down Local Planning node");
   // route_ahead_sub_.reset();
+  // lanelet_ahead_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
