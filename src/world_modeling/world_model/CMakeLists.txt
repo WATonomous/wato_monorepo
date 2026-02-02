@@ -96,6 +96,7 @@ target_link_libraries(world_model_node
 )
 
 install(TARGETS ${PROJECT_NAME}_lib
+  EXPORT ${PROJECT_NAME}_targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -105,8 +106,20 @@ install(TARGETS world_model_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY
-  DESTINATION share/${PROJECT_NAME}
+install(DIRECTORY include/
+  DESTINATION include
+)
+
+# Export targets for other packages to use
+ament_export_targets(${PROJECT_NAME}_targets HAS_LIBRARY_TARGET)
+ament_export_dependencies(
+  rclcpp
+  rclcpp_lifecycle
+  tf2_ros
+  geometry_msgs
+  world_model_msgs
+  lanelet2_core
+  lanelet2_routing
 )
 
 if(BUILD_TESTING)
