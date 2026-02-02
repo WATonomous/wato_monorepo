@@ -66,14 +66,22 @@ target_link_libraries(${PROJECT_NAME}_node
     PRIVATE ${PROJECT_NAME}_lib
 )
 
+# Install library
+install(TARGETS ${PROJECT_NAME}_lib
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
 # Install the executable
-install(TARGETS ${PROJECT_NAME}_node RUNTIME DESTINATION lib/${PROJECT_NAME})
+install(TARGETS ${PROJECT_NAME}_node RUNTIME
+    DESTINATION lib/${PROJECT_NAME}
+)
 
-# Install launch files
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-
-# Install config
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+# Install launch and config files
+install(DIRECTORY launch config
+    DESTINATION share/${PROJECT_NAME}
+)
 
 # Testing option
 # option(BUILD_TESTING "Enable testing" OFF)
