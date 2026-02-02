@@ -24,12 +24,12 @@ launch:
 
   # Launch the 2D tracking node
   - node:
-      pkg: tracking_2d
-      exec: tracking_2d_node
-      name: tracking_2d_node
+      pkg: tracking
+      exec: tracking_node
+      name: tracking_node
       output: screen
       param:
-        - from: $(find-pkg-share tracking_2d)/config/params.yaml
+        - from: $(find-pkg-share tracking)/config/params.yaml
       remap:
         - from: input_detections
           to: $(var detections_topic)

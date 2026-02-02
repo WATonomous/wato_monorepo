@@ -1,11 +1,11 @@
 #include <memory>
 
-#include "tracking_2d/tracking_2d.hpp"
+#include "tracking/tracking.hpp"
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<tracking_2d>());
+  rclcpp::spin(std::make_shared<tracking>());
   rclcpp::shutdown();
   return 0;
 }

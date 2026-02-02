@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TRACKING_2D_HPP
-#define TRACKING_2D_HPP
+#ifndef TRACKING_HPP
+#define TRACKING_HPP
 
 #include <ByteTrack/BYTETracker.h>
 
@@ -28,10 +28,10 @@
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 
-class tracking_2d : public rclcpp::Node
+class tracking : public rclcpp::Node
 {
 public:
-  tracking_2d();
+  tracking();
 
   static constexpr auto kDetectionsTopic = "input_detections";
   static constexpr auto kTracksTopic = "output_tracks";
