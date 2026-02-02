@@ -14,13 +14,24 @@
 
 #include "prediction/trajectory_predictor.hpp"
 
+#include <cmath>
 #include <memory>  // for std::make_unique
 #include <vector>  // for std::vector
 
 namespace prediction
 {
 
-TrajectoryPredictor::TrajectoryPredictor(rclcpp::Node * node, double prediction_horizon, double time_step)
+namespace
+{
+// Extract yaw from quaternion
+double extractYaw(const geometry_msgs::msg::Quaternion & q)
+{
+  return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+}
+}  // namespace
+
+TrajectoryPredictor::TrajectoryPredictor(
+  rclcpp_lifecycle::LifecycleNode * node, double prediction_horizon, double time_step)
 : node_(node)
 , prediction_horizon_(prediction_horizon)
 , time_step_(time_step)
@@ -33,7 +44,7 @@ TrajectoryPredictor::TrajectoryPredictor(rclcpp::Node * node, double prediction_
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   ObjectType obj_type = classifyObjectType(detection);
 
@@ -41,13 +52,13 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
 
   switch (obj_type) {
     case ObjectType::VEHICLE:
-      hypotheses = generateVehicleHypotheses(detection, possible_lanelets);
+      hypotheses = generateVehicleHypotheses(detection);
       break;
     case ObjectType::PEDESTRIAN:
-      hypotheses = generatePedestrianHypotheses(detection, possible_lanelets);
+      hypotheses = generatePedestrianHypotheses(detection);
       break;
     case ObjectType::CYCLIST:
-      hypotheses = generateCyclistHypotheses(detection, possible_lanelets);
+      hypotheses = generateCyclistHypotheses(detection);
       break;
     default:
       RCLCPP_WARN(node_->get_logger(), "Unknown object type, skipping prediction");
@@ -86,31 +97,28 @@ ObjectType TrajectoryPredictor::classifyObjectType(const vision_msgs::msg::Detec
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
-
-  if (possible_lanelets.empty()) {
-    return hypotheses;
-  }
 
   // Create a simple "continue straight" hypothesis
   TrajectoryHypothesis straight_hyp;
   straight_hyp.intent = Intent::CONTINUE_STRAIGHT;
   straight_hyp.probability = 0.0;  // Will be set by classifier
 
-  // Generate waypoints using constant velocity assumption
+  // Extract state from detection
   double current_x = detection.bbox.center.position.x;
   double current_y = detection.bbox.center.position.y;
-  double velocity = 5.0;  // Assume 5 m/s for now
-  double heading = 0.0;  // Assume heading forward for now
+  double current_z = detection.bbox.center.position.z;
+  double heading = extractYaw(detection.bbox.center.orientation);
+  double velocity = 5.0;  // Vehicle speed ~5 m/s
 
-  for (double t = 0.0; t <= prediction_horizon_; t += time_step_) {
+  for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
     geometry_msgs::msg::Pose waypoint;
     waypoint.position.x = current_x + velocity * std::cos(heading) * t;
     waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = 0.0;
-    waypoint.orientation.w = 1.0;
+    waypoint.position.z = current_z;
+    waypoint.orientation = detection.bbox.center.orientation;
 
     straight_hyp.waypoints.push_back(waypoint);
     straight_hyp.timestamps.push_back(t);
@@ -118,13 +126,13 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
 
   hypotheses.push_back(straight_hyp);
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder vehicle trajectories (simple straight-line)");
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Vehicle prediction: constant velocity");
 
   return hypotheses;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
@@ -134,15 +142,16 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
 
   double current_x = detection.bbox.center.position.x;
   double current_y = detection.bbox.center.position.y;
+  double current_z = detection.bbox.center.position.z;
+  double heading = extractYaw(detection.bbox.center.orientation);
   double velocity = 1.4;  // Typical walking speed ~1.4 m/s
-  double heading = 0.0;
 
-  for (double t = 0.0; t <= prediction_horizon_; t += time_step_) {
+  for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
     geometry_msgs::msg::Pose waypoint;
     waypoint.position.x = current_x + velocity * std::cos(heading) * t;
     waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = 0.0;
-    waypoint.orientation.w = 1.0;
+    waypoint.position.z = current_z;
+    waypoint.orientation = detection.bbox.center.orientation;
 
     walk_hyp.waypoints.push_back(waypoint);
     walk_hyp.timestamps.push_back(t);
@@ -150,13 +159,13 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
 
   hypotheses.push_back(walk_hyp);
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder pedestrian trajectories (simple constant velocity)");
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Pedestrian prediction: constant velocity");
 
   return hypotheses;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
-  const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets)
+  const vision_msgs::msg::Detection3D & detection)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
@@ -166,15 +175,16 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
 
   double current_x = detection.bbox.center.position.x;
   double current_y = detection.bbox.center.position.y;
+  double current_z = detection.bbox.center.position.z;
+  double heading = extractYaw(detection.bbox.center.orientation);
   double velocity = 4.5;  // Typical cycling speed ~4.5 m/s
-  double heading = 0.0;
 
-  for (double t = 0.0; t <= prediction_horizon_; t += time_step_) {
+  for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
     geometry_msgs::msg::Pose waypoint;
     waypoint.position.x = current_x + velocity * std::cos(heading) * t;
     waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = 0.0;
-    waypoint.orientation.w = 1.0;
+    waypoint.position.z = current_z;
+    waypoint.orientation = detection.bbox.center.orientation;
 
     cycle_hyp.waypoints.push_back(waypoint);
     cycle_hyp.timestamps.push_back(t);
@@ -182,7 +192,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
 
   hypotheses.push_back(cycle_hyp);
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Using placeholder cyclist trajectories (simple constant velocity)");
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Cyclist prediction: constant velocity");
 
   return hypotheses;
 }
