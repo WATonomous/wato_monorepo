@@ -251,6 +251,11 @@ while [[ $# -gt 0 ]]; do
       "$MONO_DIR/watod_scripts/watod-install.sh"
       exit $?
       ;;
+    -s|--setup-dev-env)
+      shift
+      "$MONO_DIR/watod_scripts/watod-setup-dev-env.sh" "$@"
+      exit $?
+      ;;
     test)
       RUN_TESTS=1
       shift
