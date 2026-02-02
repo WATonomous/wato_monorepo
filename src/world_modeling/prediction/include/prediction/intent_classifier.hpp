@@ -14,7 +14,7 @@
 
 /**
  * @file intent_classifier.hpp
- * @brief PROBABILITY ASSIGNMENT - Assigns probabilities to trajectory hypotheses
+ * @brief Assigns probabilities to trajectory hypotheses based on intent.
  */
 
 #ifndef PREDICTION__INTENT_CLASSIFIER_HPP_
@@ -25,6 +25,7 @@
 
 #include "prediction/trajectory_predictor.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 
 namespace prediction
@@ -57,7 +58,7 @@ public:
    * @brief Construct a new Intent Classifier
    * @param node ROS node pointer for logging
    */
-  explicit IntentClassifier(rclcpp::Node * node);
+  explicit IntentClassifier(rclcpp_lifecycle::LifecycleNode * node);
 
   /**
    * @brief Assign probabilities to trajectory hypotheses
@@ -73,11 +74,9 @@ public:
   /**
    * @brief Extract features for intent classification
    * @param detection Tracked object detection
-   * @param lanelet_info Lanelet information from map
    * @return IntentFeatures Feature vector for classification
    */
-  IntentFeatures extractFeatures(
-    const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets);
+  IntentFeatures extractFeatures(const vision_msgs::msg::Detection3D & detection);
 
 private:
   /**
@@ -94,7 +93,7 @@ private:
    */
   void normalizeProbabilities(std::vector<TrajectoryHypothesis> & hypotheses);
 
-  rclcpp::Node * node_;
+  rclcpp_lifecycle::LifecycleNode * node_;
 
   // Classifier parameters (could be learned weights)
   struct ClassifierWeights

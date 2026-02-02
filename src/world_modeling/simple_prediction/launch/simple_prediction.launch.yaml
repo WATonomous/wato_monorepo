@@ -1,0 +1,19 @@
+launch:
+  - arg:
+      name: param_file
+      default: $(find-pkg-share simple_prediction)/config/params.yaml
+      description: Path to config file for simple_prediction node
+
+  - node:
+      pkg: simple_prediction
+      exec: simple_prediction_node
+      name: simple_prediction_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var param_file)
+      remap:
+        - from: tracks_3d
+          to: /carla/tracked_detections_3d
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds

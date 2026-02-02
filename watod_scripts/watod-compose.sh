@@ -86,8 +86,13 @@ MONO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$MONO_DIR"
 
 # Standard compose file sets
-declare -a DEFAULT_PRE_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "-f" "modules/docker-compose.dep.yaml")
-declare -a DEFAULT_ALL_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "-f" "modules/docker-compose.dep.yaml" "-f" "modules/docker-compose.dev.yaml")
+declare -a WATCLOUD_COMPOSE_FILES=()
+if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
+  WATCLOUD_COMPOSE_FILES=("-f" "modules/docker-compose.watcloud.yaml")
+fi
+
+declare -a DEFAULT_PRE_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "-f" "modules/docker-compose.dep.yaml")
+declare -a DEFAULT_ALL_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "-f" "modules/docker-compose.dep.yaml" "-f" "modules/docker-compose.dev.yaml" "-f" "modules/docker-compose.bag.yaml")
 
 # Use custom compose files if provided, otherwise use defaults
 if [[ ${#CUSTOM_PRE_COMPOSE_FILES[@]} -gt 0 ]]; then
@@ -132,7 +137,7 @@ done
 # If build, run PRE-BUILD stage (source and dependency stages)
 if [[ "${COMPOSE_CMD[0]}" == "build" && ${#PRE_PROFILES[@]} -gt 0 ]]; then
   echo "RUNNING PRE-BUILD"
-  run_docker_compose "${PRE_COMPOSE_FILES[@]}" "${PRE_PROFILE_FLAGS[@]}" build
+  run_docker_compose "${PRE_COMPOSE_FILES[@]}" "${PRE_PROFILE_FLAGS[@]}" build "${EXTRA_COMPOSE_ARGS[@]}"
 
   # In CI, push PRE-BUILD images to registry
   if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then
@@ -234,7 +239,15 @@ if [[ "$SHOW_STATUS_PANEL" == "true" ]]; then
   echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
   printf "${BLUE}║${RESET}  ${GREEN}Foxglove:${RESET}    ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${foxglove_url}"
   printf "${BLUE}║${RESET}  ${GREEN}Log Viewer:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${log_viewer_url}"
-  if [[ "${PYGAME_HUD_ENABLED:-}" == "true" ]]; then
+  # Only show pygame HUD if enabled AND simulation is running
+  simulation_running=false
+  for container in "${containers[@]}"; do
+    if [[ "$container" == *"simulation"* || "$container" == *"carla"* ]]; then
+      simulation_running=true
+      break
+    fi
+  done
+  if [[ "${PYGAME_HUD_ENABLED:-}" == "true" && "$simulation_running" == "true" ]]; then
     printf "${BLUE}║${RESET}  ${GREEN}Pygame HUD:${RESET}  ${CYAN}%-43s${RESET} ${BLUE}║${RESET}\n" "${pygame_hud_url}"
   fi
   echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"

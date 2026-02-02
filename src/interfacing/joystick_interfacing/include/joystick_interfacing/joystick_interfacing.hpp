@@ -25,10 +25,17 @@
 #include <sensor_msgs/msg/joy_feedback.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/int8.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 
 namespace joystick_node
 {
 
+/**
+ * @brief Converts joystick input to Ackermann drive commands.
+ *
+ * Subscribes to raw joystick data and publishes AckermannDriveStamped
+ * commands. Includes safety gating via enable axis and idle state tracking.
+ */
 class JoystickNode : public rclcpp::Node
 {
 public:
@@ -81,13 +88,19 @@ private:
   /**
    * @brief Triggers a vibration sequence.
    * @param count Number of vibration pulses.
+   * @param duration_ms Duration of each pulse in ms.
    */
-  void vibrate(int count);
+  void vibrate(int count, int duration_ms);
 
   /**
    * @brief Handles the vibration sequence pulses.
    */
   void vibration_timer_callback();
+
+  /**
+   * @brief Updates local is_armed state.
+   */
+  void is_armed_callback(const std_msgs::msg::Bool::ConstSharedPtr msg);
 
   // ROS Interfaces
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
@@ -98,17 +111,25 @@ private:
   rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr state_pub_;
   rclcpp::Publisher<sensor_msgs::msg::JoyFeedback>::SharedPtr joy_feedback_pub_;
 
+  // Arming interface
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_armed_sub_;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr arm_client_;
+
   // Vibration timer
   rclcpp::TimerBase::SharedPtr vibration_timer_;
 
   int enable_axis_;  // index of enable axis (shoulder button)
   int toggle_button_;  // index of toggle button
+  int arming_button_;  // index of arming button
 
   int steering_axis_;  // index of steering axis (left/right joystick)
   int throttle_axis_;  // index of throttle axis (left/right joystick)
 
-  double max_speed_;  // maximum speed
-  double max_steering_angle_;  // maximum steering angle
+  double ackermann_max_speed_;  // maximum speed
+  double ackermann_max_steering_angle_;  // maximum steering angle
+
+  double roscco_max_speed_;  // maximum speed
+  double roscco_max_steering_angle_;  // maximum steering angle
 
   bool invert_steering_;  // invert steering direction
   bool invert_throttle_;  // invert throttle direction
@@ -116,9 +137,16 @@ private:
   bool use_roscco_topic_{false};  // toggle between /joystick/ackermann and /joystick/roscco
   bool prev_toggle_button_pressed_{false};  // previous state of toggle button for edge detection
 
+  // Arming state
+  bool is_armed_{false};
+  bool prev_arming_button_pressed_{false};
+
   // Vibration parameters
-  double vibration_intensity_;
-  int vibration_duration_ms_;
+  double toggle_vibration_intensity_;
+  int toggle_vibration_duration_ms_;
+
+  // Current vibration settings
+  int current_vibration_duration_ms_{100};
 
   // Vibration sequence state
   int vibration_pulses_remaining_{0};

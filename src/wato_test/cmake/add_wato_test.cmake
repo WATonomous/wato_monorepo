@@ -67,7 +67,7 @@ function(add_wato_test TEST_NAME TEST_SOURCE)
     COMMAND "$<TARGET_FILE:${TEST_NAME}>"
       -r junit
       -o test_results/${PROJECT_NAME}/${TEST_NAME}_output.xml
-    ENV CATCH_CONFIG_CONSOLE_WIDTH=120
+    ENV CATCH_CONFIG_CONSOLE_WIDTH=120 NO_COLOR=1
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
   )
 endfunction()

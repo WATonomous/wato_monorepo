@@ -14,50 +14,10 @@
 
 /**
  * @file trajectory_predictor.hpp
- * @brief TRAJECTORY GENERATION - Creates multiple trajectory hypotheses for each object
+ * @brief Trajectory generation for seed WorldObjects.
  *
- * WHAT THIS FILE DOES:
- * - Classifies objects as vehicle/pedestrian/cyclist
- * - Generates multiple trajectory hypotheses (different intents/paths)
- * - Uses motion models to create realistic trajectories
- * - Returns trajectories as sequences of waypoints with timestamps
- *
- * ========== TASK ASSIGNMENTS ==========
- *
- * PERSON 1 - PEDESTRIAN PREDICTION:
- * - Implement: generatePedestrianHypotheses() in trajectory_predictor.cpp
- * - Use: ConstantVelocityModel from motion_models.hpp
- * - Add: Goal-directed behavior toward crosswalks
- * - Add: Multiple samples with noise for uncertainty
- * - Output: Vector of TrajectoryHypothesis with waypoints + timestamps
- *
- * PERSON 2 - VEHICLE PREDICTION (BICYCLE KINEMATICS):
- * - Implement: generateVehicleHypotheses() in trajectory_predictor.cpp
- * - Implement: BicycleModel path following in motion_models.cpp
- * - Generate hypotheses for: straight, left turn, right turn, lane changes
- * - Constrain trajectories to follow lanelet centerlines
- * - Output: Vector of TrajectoryHypothesis with waypoints + timestamps
- *
- * PERSON 3 - CYCLIST PREDICTION (HYBRID MODEL):
- * - Implement: generateCyclistHypotheses() in trajectory_predictor.cpp
- * - Research: Cyclist behavior at crosswalks vs roads
- * - Use: Pedestrian model near crosswalks, vehicle model otherwise
- * - Coordinate: Ensure output format matches Person 1 & 2
- * - Output: Vector of TrajectoryHypothesis with waypoints + timestamps
- *
- * ========== COORDINATION NOTES ==========
- * All three functions MUST return: std::vector<TrajectoryHypothesis>
- *
- * TrajectoryHypothesis structure (defined below):
- * - waypoints: std::vector<geometry_msgs::msg::Pose>  (x,y,z positions)
- * - timestamps: std::vector<double>  (time for each waypoint)
- * - intent: Intent enum (CONTINUE_STRAIGHT, TURN_LEFT, etc.)
- * - probability: double (will be set by IntentClassifier, start at 0.0)
- *
- * IMPORTANT: All team members use the same:
- * - prediction_horizon_ (from config, default 5.0 seconds)
- * - time_step_ (from config, default 0.1 seconds)
- * - Same coordinate frame (ego vehicle frame or global frame - TBD)
+ * Generates trajectory predictions for tracked objects to populate seed
+ * WorldObjects. Uses motion models to propagate object state forward in time.
  */
 
 #ifndef PREDICTION__TRAJECTORY_PREDICTOR_HPP_
@@ -69,6 +29,7 @@
 
 #include "prediction/motion_models.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 
 namespace prediction
@@ -125,16 +86,14 @@ public:
    * @param prediction_horizon Time horizon for predictions (seconds)
    * @param time_step Time step between waypoints (seconds)
    */
-  TrajectoryPredictor(rclcpp::Node * node, double prediction_horizon, double time_step);
+  TrajectoryPredictor(rclcpp_lifecycle::LifecycleNode * node, double prediction_horizon, double time_step);
 
   /**
    * @brief Generate trajectory hypotheses for a tracked object
    * @param detection Tracked object detection
-   * @param lanelet_info Information about current and possible future lanelets
    * @return Vector of trajectory hypotheses
    */
-  std::vector<TrajectoryHypothesis> generateHypotheses(
-    const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets);
+  std::vector<TrajectoryHypothesis> generateHypotheses(const vision_msgs::msg::Detection3D & detection);
 
   /**
    * @brief Classify object type based on detection information
@@ -147,22 +106,19 @@ private:
   /**
    * @brief Generate hypotheses for vehicle objects
    */
-  std::vector<TrajectoryHypothesis> generateVehicleHypotheses(
-    const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets);
+  std::vector<TrajectoryHypothesis> generateVehicleHypotheses(const vision_msgs::msg::Detection3D & detection);
 
   /**
    * @brief Generate hypotheses for pedestrian objects
    */
-  std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(
-    const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets);
+  std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(const vision_msgs::msg::Detection3D & detection);
 
   /**
    * @brief Generate hypotheses for cyclist objects
    */
-  std::vector<TrajectoryHypothesis> generateCyclistHypotheses(
-    const vision_msgs::msg::Detection3D & detection, const std::vector<int64_t> & possible_lanelets);
+  std::vector<TrajectoryHypothesis> generateCyclistHypotheses(const vision_msgs::msg::Detection3D & detection);
 
-  rclcpp::Node * node_;
+  rclcpp_lifecycle::LifecycleNode * node_;
   double prediction_horizon_;
   double time_step_;
 

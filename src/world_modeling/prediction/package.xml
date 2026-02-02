@@ -2,9 +2,9 @@
 <package format="3">
   <name>prediction</name>
   <version>0.0.1</version>
-  <description>Multi-modal trajectory prediction system with map-aware intent inference</description>
+  <description>Generates Multi-modal trajectory predictions from tracked objects as WorldObjects</description>
 
-  <maintainer email="yashjoshi@watonomous.ca">Yash Joshi</maintainer>
+  <maintainer email="r6lei@watonomous.ca">Ryan Lei</maintainer>
   <license>Apache-2.0</license>
 
   <!--https://www.ros.org/reps/rep-0149.html#dependency-tags-->
@@ -12,14 +12,12 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <depend>rclcpp_components</depend>
+  <depend>rclcpp_lifecycle</depend>
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>vision_msgs</depend>
+  <depend>world_model_msgs</depend>
   <depend>eigen</depend>
-
-  <!-- TODO: Add when message types are defined -->
-  <!-- <depend>world_modeling_msgs</depend> -->
 
   <test_depend>ament_cmake_gtest</test_depend>
 

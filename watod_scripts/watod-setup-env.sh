@@ -82,6 +82,14 @@ fi
 
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-watod_$USER}
 
+# WATCloud mode: use watcloud compose file as the base for extends
+WATCLOUD_MODE=${WATCLOUD_MODE:-false}
+if [[ "$WATCLOUD_MODE" == "true" ]]; then
+  COMPOSE_EXTEND_FILE="docker-compose.watcloud.yaml"
+else
+  COMPOSE_EXTEND_FILE="docker-compose.yaml"
+fi
+
 # Tag for docker images – convert slashes to dashes
 TAG=$(echo "${TAG:-$BRANCH}" | tr '/' '-')
 
@@ -93,12 +101,20 @@ REPOSITORY="${REGISTRY_URL##*/}"
 # Bags directory
 BAG_DIRECTORY=${BAG_DIRECTORY:-"$MONO_DIR/bags"}
 
+# Recording profile for bag recording mode (all_sensors, camera_only, lidar_only)
+RECORDING_PROFILE=${RECORDING_PROFILE:-"all_sensors"}
+
 # ROS 2 Middleware configuration
 RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
 
 # Zenoh configuration URIs (paths inside Docker containers)
 ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_router_config.json5"}
 ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_session_config.json5"}
+
+# Docker socket path (needed for log viewer)
+# DOCKER_HOST should be automaticall set in any WATCloud SLURM session
+DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
+DOCKER_SOCKET_PATH=${DOCKER_HOST#unix://} # strip the "unix://" prefix to get path
 
 ################################  Image names  #######################################
 # NOTE: ALL IMAGE NAMES MUST BE IN THE FORMAT <COMPOSE_FILE>_<SERVICE>
@@ -127,6 +143,7 @@ INTERFACING_IMAGE=${INTERFACING_IMAGE:-"$REGISTRY_URL/interfacing/interfacing"}
 ################################  UID / GID  #########################################
 SETUID=$(id -u)
 SETGID=$(id -g)
+USERNAME=${USERNAME:-$USER}
 
 ################################  Ports  #############################################
 BASE_PORT=${BASE_PORT:-$((SETUID*20))}
@@ -163,12 +180,14 @@ append "MONO_DIR" "$MONO_DIR"
 
 append "COMPOSE_DOCKER_CLI_BUILD" "1"
 append "COMPOSE_PROJECT_NAME" "$COMPOSE_PROJECT_NAME"
+append "COMPOSE_EXTEND_FILE" "$COMPOSE_EXTEND_FILE"
 
 append "TAG" "$TAG"
 
 if ! $IS_CI; then
   append "SETUID" "$SETUID"
   append "SETGID" "$SETGID"
+  append "USERNAME" "$USERNAME"
 fi
 
 append "BASE_PORT" "$BASE_PORT"
@@ -209,5 +228,12 @@ append "ZENOH_ROUTER_CONFIG_URI" "$ZENOH_ROUTER_CONFIG_URI"
 append "ZENOH_SESSION_CONFIG_URI" "$ZENOH_SESSION_CONFIG_URI"
 
 append "ROS_DOMAIN_ID" "$ROS_DOMAIN_ID"
+
+# Bag recording
+append "BAG_DIRECTORY" "$BAG_DIRECTORY"
+append "RECORDING_PROFILE" "$RECORDING_PROFILE"
+
+# Docker socket (needed for log viewer)
+append "DOCKER_SOCKET_PATH" "$DOCKER_SOCKET_PATH"
 
 echo "[setup-env] .env generated at $ENV_FILE"

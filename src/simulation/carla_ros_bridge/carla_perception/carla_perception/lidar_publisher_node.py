@@ -117,6 +117,9 @@ class LidarPublisherNode(LifecycleNode):
         self.tf_buffer: Optional[Buffer] = None
         self.tf_listener: Optional[TransformListener] = None
 
+        # Timer for retrying LiDAR spawn when TF is not ready
+        self.spawn_retry_timer = None
+
         self.get_logger().info(f"{node_name} initialized")
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -177,7 +180,7 @@ class LidarPublisherNode(LifecycleNode):
                     return TransitionCallbackReturn.FAILURE
 
                 publisher = self.create_lifecycle_publisher(
-                    PointCloud2, f"~/{name}/points", 10
+                    PointCloud2, f"{name}/points", 10
                 )
                 self.lidars[name] = LidarInstance(config=config, publisher=publisher)
                 self.get_logger().info(
@@ -288,18 +291,60 @@ class LidarPublisherNode(LifecycleNode):
         """Activate lifecycle callback."""
         self.get_logger().info("Activating...")
 
-        # Spawn all LiDAR sensors
-        for name, lidar in self.lidars.items():
-            if not self._spawn_lidar(lidar):
-                self.get_logger().error(f"Failed to spawn LiDAR sensor '{name}'")
-                return TransitionCallbackReturn.FAILURE
+        # Check if all TFs are available before spawning any LiDARs
+        if self._all_tfs_available():
+            self._spawn_all_lidars()
+        else:
+            # Start retry timer to wait for TFs
+            self.spawn_retry_timer = self.create_timer(1.0, self._tf_wait_callback)
+            self.get_logger().info(
+                "Waiting for TF frames to become available before spawning LiDARs..."
+            )
 
         self.get_logger().info("Activation complete")
         return super().on_activate(state)
 
+    def _all_tfs_available(self) -> bool:
+        """Check if all required TF frames are available."""
+        for name, lidar in self.lidars.items():
+            frame_id = lidar.config.frame_id
+            try:
+                self.tf_buffer.lookup_transform(
+                    "base_link", frame_id, rclpy.time.Time()
+                )
+            except TransformException:
+                return False
+        return True
+
+    def _spawn_all_lidars(self):
+        """Spawn all LiDAR sensors. Should only be called when all TFs are ready."""
+        for name, lidar in self.lidars.items():
+            if lidar.sensor is None:
+                if self._spawn_lidar(lidar):
+                    self.get_logger().info(
+                        f"LiDAR sensor '{name}' spawned successfully"
+                    )
+                else:
+                    self.get_logger().error(f"Failed to spawn LiDAR sensor '{name}'")
+
+    def _tf_wait_callback(self):
+        """Timer callback to wait for all TFs before spawning LiDARs."""
+        if self._all_tfs_available():
+            # All TFs ready, spawn LiDARs and stop timer
+            if self.spawn_retry_timer:
+                self.destroy_timer(self.spawn_retry_timer)
+                self.spawn_retry_timer = None
+            self.get_logger().info("All TF frames available, spawning LiDARs...")
+            self._spawn_all_lidars()
+
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         """Deactivate lifecycle callback."""
         self.get_logger().info("Deactivating...")
+
+        # Stop retry timer if running
+        if self.spawn_retry_timer:
+            self.destroy_timer(self.spawn_retry_timer)
+            self.spawn_retry_timer = None
 
         # Destroy all LiDAR sensors
         for name, lidar in self.lidars.items():
@@ -344,15 +389,19 @@ class LidarPublisherNode(LifecycleNode):
 
     def _spawn_lidar(self, lidar: LidarInstance) -> bool:
         """Spawn a CARLA LiDAR sensor."""
+        config = lidar.config
+
+        # Get transform from TF
+        lidar_transform = self._get_transform_from_tf(config.frame_id)
+        if lidar_transform is None:
+            return False
+
         try:
             world = self.carla_client.get_world()
             blueprint_library = world.get_blueprint_library()
 
             # Get LiDAR blueprint
             lidar_bp = blueprint_library.find("sensor.lidar.ray_cast")
-
-            # Set LiDAR attributes
-            config = lidar.config
 
             # Calculate points_per_second from typical LiDAR specs
             # points_per_second = points_per_channel * channels * rotation_frequency
@@ -385,11 +434,6 @@ class LidarPublisherNode(LifecycleNode):
                 "atmosphere_attenuation_rate", str(config.atmosphere_attenuation_rate)
             )
             lidar_bp.set_attribute("noise_stddev", str(config.noise_stddev))
-
-            # Get transform from TF
-            lidar_transform = self._get_transform_from_tf(config.frame_id)
-            if lidar_transform is None:
-                return False
 
             # Spawn sensor
             lidar.sensor = world.spawn_actor(
