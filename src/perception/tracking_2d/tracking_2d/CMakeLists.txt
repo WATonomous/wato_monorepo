@@ -24,7 +24,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# set(BYTETRACK_DIR "/home/k279huan/ByteTrack-cpp-3d")
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -35,36 +34,62 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(bytetrack_cpp_vendor REQUIRED)
 
-# Add the executable for the tracking_2d node
-add_executable(tracking_2d_node src/tracking_2d.cpp)
+# Add library
+add_library(${PROJECT_NAME}_lib SHARED
+    src/tracking_2d.cpp
+)
 
 # Include directories
-target_include_directories(tracking_2d_node
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${tf2_INCLUDE_DIRS}
+target_include_directories(${PROJECT_NAME}_lib
+    PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
 # Link libraries
-target_link_libraries(tracking_2d_node
-    PRIVATE
+target_link_libraries(${PROJECT_NAME}_lib
+    PUBLIC
     bytetrack_cpp_vendor::bytetrack
     rclcpp::rclcpp
     ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}
-    ${tf2_LIBRARIES}
     ${tf2_ros_TARGETS}
+    PRIVATE
+    ${tf2_LIBRARIES}
     ${tf2_geometry_msgs_TARGETS}
 )
 
+# Add the executable
+add_executable(${PROJECT_NAME}_node src/main.cpp)
+
+target_link_libraries(${PROJECT_NAME}_node
+    PRIVATE ${PROJECT_NAME}_lib
+)
+
 # Install the executable
-install(TARGETS tracking_2d_node RUNTIME DESTINATION lib/${PROJECT_NAME})
+install(TARGETS ${PROJECT_NAME}_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 # Install launch files
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 # Install config
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+
+# Testing option
+# option(BUILD_TESTING "Enable testing" OFF)
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+
+  add_wato_test(test_tracking
+    test/test_tracking.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_lib
+      ${vision_msgs_TARGETS}
+      ${std_msgs_TARGETS}
+      ${tf2_LIBRARIES}
+      ${tf2_geometry_msgs_TARGETS}
+  )
+endif()
 
 # Export dependencies
 ament_package()

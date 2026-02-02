@@ -17,6 +17,25 @@
 #include <string>
 #include <vector>
 
+#include <tf2/utils.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+// static logger for static logging
+rclcpp::Logger tracking_2d::static_logger_ = rclcpp::get_logger("tracking_2d_stc");
+
+// class maps
+std::unordered_map<std::string, int> tracking_2d::class_map_ = {
+  {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4}, {"vehicle", 5},
+  // etc...
+};
+std::unordered_map<int, std::string> tracking_2d::reverse_class_map_ = [] {
+  std::unordered_map<int, std::string> m;
+  for (const auto & [k, v] : tracking_2d::class_map_)
+    m[v] = k;
+  return m;
+}();
+
+
 tracking_2d::tracking_2d()
 : Node("tracking_2d"),
   tf_buffer_(this->get_clock()),
@@ -46,13 +65,6 @@ void tracking_2d::initializeParams()
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 1.0));
   output_frame_ = this->declare_parameter<std::string>("output_frame", "map");
 
-  class_map_ = {
-    {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4}, {"vehicle", 5},
-    // etc...
-  };
-
-  for (const auto & [key, val] : class_map_) reverse_class_map_[val] = key;
-
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
@@ -63,7 +75,7 @@ int tracking_2d::classLookup(const std::string & class_name)
   if (it != class_map_.end())
     return it->second;
   else {  // Class name key not in map
-    RCLCPP_WARN(this->get_logger(), "Class '%s' not found, defaulting to -1 as id", class_name.c_str());
+    RCLCPP_WARN(static_logger_, "Class '%s' not found, defaulting to -1 as id", class_name.c_str());
     return -1;
   }
 }
@@ -75,7 +87,7 @@ std::string tracking_2d::reverseClassLookup(int class_id)
   if (it != reverse_class_map_.end())
     return it->second;
   else {  // Class id key not in reverse map
-    RCLCPP_WARN(this->get_logger(), "Class %d not found, defaulting to '[unknown]' class", class_id);
+    RCLCPP_WARN(static_logger_, "Class %d not found, defaulting to '[unknown]' class", class_id);
     return "[unknown]";
   }
 }
@@ -109,7 +121,7 @@ std::vector<byte_track::Object> tracking_2d::detsToObjects(const vision_msgs::ms
       });
 
     if (best_hyp == det.results.end()) {
-      RCLCPP_WARN(this->get_logger(), "det.results must be non-empty, falling back to dummy values");
+      RCLCPP_WARN(static_logger_, "det.results must be non-empty, falling back to dummy values");
       label = -1;
       prob = 0.0;
     } else {
@@ -214,12 +226,4 @@ void tracking_2d::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedP
     "First track - Class: '%s'; ID: %d",
     tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),
     std::stoi(tracked_dets.detections[0].id));
-}
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<tracking_2d>());
-  rclcpp::shutdown();
-  return 0;
 }

@@ -14,7 +14,9 @@
 
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <future>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -23,55 +25,34 @@
 #include <vector>
 
 #include <catch2/catch_all.hpp>
-#include <lifecycle_msgs/msg/state.hpp>
-#include <rclcpp/node_options.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <std_msgs/msg/header.hpp>
+#include <vision_msgs/msg/detection3_d_array.hpp>
+#include <tf2/utils.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <wato_test/wato_test.hpp>
 
 #include "tracking_2d/tracking_2d.hpp"
 
-// using wato::perception::patchworkpp::GroundRemovalCore;
-// using wato::perception::patchworkpp::GroundRemovalNode;
-
-namespace
-{
-
-struct RclcppGuard
-{
-  RclcppGuard()
-  {
-    if (!rclcpp::ok()) {
-      rclcpp::init(0, nullptr);
-    }
-  }
-
-  ~RclcppGuard()
-  {
-    if (rclcpp::ok()) {
-      rclcpp::shutdown();
-    }
-  }
-};
-
 // [cx, cy, cz, yaw, l, w, h, score]
-sensor_msgs::msg::PointCloud2 vectsToDetection3DArray(const std::vector<std::array<float, 8>> & det_info, const std::vector<std::string> & class_ids)
+vision_msgs::msg::Detection3DArray arraysToDetection3DArray(const std::vector<std::array<float, 8>> & det_info, const std::vector<std::string> & class_ids)
 {
   vision_msgs::msg::Detection3DArray dets;
-  cloud.header.frame_id = "test_frame";
-  cloud.header.stamp = rclcpp::Clock().now();
+  dets.header.frame_id = "base_link";
+  dets.header.stamp = rclcpp::Clock().now();
 
   dets.detections.resize(det_info.size());
 
-  for (int i = 0; i < det_info.size(); ++i) {
+  for (size_t i = 0; i < det_info.size(); ++i) {
     const auto & d = det_info[i];
     auto & det = dets.detections[i];
+
+    tf2::Quaternion q;
+    q.setRPY(0, 0, d[3]);
+
     det.bbox.center.position.x = d[0];
     det.bbox.center.position.y = d[1];
     det.bbox.center.position.z = d[2];
-    det.bbox.center.orientation = tf2::toMsg(
-        tf2::Quaternion(0, 0, std::sin(d[3]/2), std::cos(d[3]/2))
-    );
+    det.bbox.center.orientation = tf2::toMsg(q);
     det.bbox.size.x = d[4];
     det.bbox.size.y = d[5];
     det.bbox.size.z = d[6];
@@ -83,62 +64,225 @@ sensor_msgs::msg::PointCloud2 vectsToDetection3DArray(const std::vector<std::arr
   return dets;
 }
 
-template <typename Predicate>
-bool waitForCondition(Predicate && condition, std::chrono::milliseconds timeout, std::chrono::milliseconds interval)
+std::vector<vision_msgs::msg::Detection3DArray> getTestInput(
+  const std::vector<std::vector<std::array<float, 8>>> &det_info,
+  const std::vector<std::vector<std::string>> &class_ids)
 {
-  const auto deadline = std::chrono::steady_clock::now() + timeout;
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (condition()) {
-      return true;
-    }
-    std::this_thread::sleep_for(interval);
+  std::vector<vision_msgs::msg::Detection3DArray> test_case;
+  for (size_t i = 0; i < class_ids.size(); ++i) {
+    test_case.push_back(arraysToDetection3DArray(det_info[i], class_ids[i]));
   }
-  return condition();
+  return test_case;
 }
 
-template <typename MessageType>
-std::optional<MessageType> waitForFuture(std::future<MessageType> future, std::chrono::milliseconds timeout)
+// [cx, cy, cz, yaw, l, w, h, score]
+std::vector<byte_track::BYTETracker::STrackPtr> arraysToSTrackPtrs(const std::vector<std::array<float, 8>> & det_info, const std::vector<int> & class_ids)
 {
-  if (future.wait_for(timeout) == std::future_status::ready) {
-    return future.get();
+  std::vector<byte_track::BYTETracker::STrackPtr> strks;
+
+  strks.reserve(det_info.size());
+
+  for (size_t i = 0; i < det_info.size(); ++i) {
+    const auto & d = det_info[i];
+    byte_track::Rect<float> rect(d[0], d[1], d[2], d[3], d[4], d[5], d[6]);
+    strks.push_back(
+      std::make_shared<byte_track::STrack>(rect, d[7], class_ids[i])
+    );
   }
-  return std::nullopt;
+
+  return strks;
 }
 
-}  // namespace
+float principleAngle(float a) {
+  static const float PI_2 = 2.0f * std::acos(-1.0f);
+  a = std::fmod(a, PI_2);
+  if (a < 0) a += PI_2;
+  return a;
+}
 
-// =============================================================================
-// TEST 1: Detection3DArray to Object conversion
-// WHY: This conversion is required for ByteTrack to function.
-// =============================================================================
-TEST_CASE("Detection3DArray to Object conversion works", "[core][fast]")
+// Test 1: Detection3DArray to Object conversion
+TEST_CASE("Detection3DArray to Object conversion working", "[conv_1]")
 {
   std::vector<std::array<float, 8>> det_info = {
     {1.0f, 2.0f, 3.0f, 0.0f, 4.0f, 5.0f, 6.0f, 0.8f},
-    {9.3f, -2.4f, 0.1f, 3.14159f, 1.0f, 1.0f, 1.0f, 0.5f}
+    {9.3f, -2.4f, 0.1f, 3.14159f, 1.0f, 1.0f, 1.0f, 0.5f},
+    {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {-5.5f, -1.2f, -3.3f, 2.28f, 2.0f, 2.0f, 1.5f, 0.9f},
+    {0.0f, -20.0f, 0.0f, 0.5f, 1.0f, 1.0f, 0.5f, 0.7f}
   };
-  std::vector<std::string> class_ids = {"car", "bus"};
-  auto msg = std::make_shared<vision_msgs::msg::Detection3DArray>(vectToDetection3DArray(det_info));
+  std::vector<std::string> class_ids = {"car", "bus", "truck", "bicycle", "pedestrian"};
+  vision_msgs::msg::Detection3DArray msg = arraysToDetection3DArray(det_info, class_ids);
 
   std::vector<byte_track::Object> objs = tracking_2d::detsToObjects(msg);
 
-  REQUIRE(objs.size() == 2);
-  REQUIRE_THAT(objs[0].rect.xyzolwh[0], Catch::Matchers::WithinRel(1.0f));
-  REQUIRE_THAT(objs[0].rect.xyzolwh[1], Catch::Matchers::WithinRel(2.0f));
-  REQUIRE_THAT(objs[0].rect.xyzolwh[2], Catch::Matchers::WithinRel(3.0f));
-  REQUIRE_THAT(objs[0].rect.xyzolwh[3], Catch::Matchers::WithinRel(0.0f));
-  REQUIRE_THAT(objs[0].rect.xyzolwh[4], Catch::Matchers::WithinRel(4.0f));
-  REQUIRE_THAT(objs[0].rect.xyzolwh[5], Catch::Matchers::WithinRel(5.0f));
-  REQUIRE_THAT(objs[0].rect.xyzolwh[6], Catch::Matchers::WithinRel(6.0f));
-  REQUIRE_THAT(objs[0].label, Catch::Matchers::WithinRel(0));
-  REQUIRE_THAT(objs[0].score, Catch::Matchers::WithinRel(0.8f));
-  REQUIRE_THAT(objs[1].rect.xyzolwh[0], Catch::Matchers::WithinRel(9.3f));
-  REQUIRE_THAT(objs[1].rect.xyzolwh[1], Catch::Matchers::WithinRel(-2.4f));
-  REQUIRE_THAT(objs[1].rect.xyzolwh[2], Catch::Matchers::WithinRel(0.1f));
-  REQUIRE_THAT(objs[1].rect.xyzolwh[3], Catch::Matchers::WithinRel(3.14159f));
-  REQUIRE_THAT(objs[1].rect.xyzolwh[4], Catch::Matchers::WithinRel(1.0f));
-  REQUIRE_THAT(objs[1].rect.xyzolwh[5], Catch::Matchers::WithinRel(1.0f));
-  REQUIRE_THAT(objs[1].rect.xyzolwh[6], Catch::Matchers::WithinRel(1.0f));
-  REQUIRE_THAT(objs[0].label, Catch::Matchers::WithinRel(4));
-  REQUIRE_THAT(objs[0].score, Catch::Matchers::WithinRel(0.5f));
+  SECTION("No detections missed") {
+    REQUIRE(objs.size() == det_info.size());
+  }
+
+  SECTION("Required data matches") {
+    for (size_t i = 0; i < objs.size(); ++i) {
+      const auto &obj = objs[i];
+      const auto &exp = det_info[i];
+      for (size_t j = 0; j < 7; ++j) {
+        if (j == 3) {
+          REQUIRE_THAT(
+            principleAngle(obj.rect.xyzolwh[j]),
+            Catch::Matchers::WithinRel(principleAngle(exp[j]))
+          );
+        } else {
+          REQUIRE_THAT(obj.rect.xyzolwh[j], Catch::Matchers::WithinRel(exp[j]));
+        }
+      }
+      REQUIRE_THAT(obj.prob, Catch::Matchers::WithinRel(exp[7]));
+      REQUIRE(obj.label == tracking_2d::classLookup(class_ids[i]));
+    }
+  }
+}
+
+std::vector<vision_msgs::msg::Detection3DArray> runTrackingNode(
+  const std::shared_ptr<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>> &test_pub,
+  const std::shared_ptr<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>> &test_sub,
+  const std::vector<vision_msgs::msg::Detection3DArray> &test_case,
+  const std::string & timeout_flag = "timeout")
+{
+  using namespace std::literals::chrono_literals;
+
+  std::vector<vision_msgs::msg::Detection3DArray> results;
+
+  for (size_t i = 0; i < test_case.size(); ++i) {
+    auto future = test_sub->expect_next_message();
+    test_pub->publish(test_case[i]);
+
+    if (future.wait_for(1s) == std::future_status::ready) {
+      results.push_back(future.get());
+    } else {
+      vision_msgs::msg::Detection3DArray dummy;
+      dummy.header.frame_id = timeout_flag;
+      results.push_back(dummy);
+    }
+  }
+  return results;
+}
+
+// Test 2: STrack to Detection3DArray conversion
+TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
+{
+  std_msgs::msg::Header h;
+  h.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  h.frame_id = "map";
+
+  std::vector<std::array<float, 8>> det_info = {
+    {1.0f, 2.0f, 3.0f, 0.0f, 4.0f, 5.0f, 6.0f, 0.8f},
+    {9.3f, -2.4f, 0.1f, 3.14159f, 1.0f, 1.0f, 1.0f, 0.5f},
+    {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {-5.5f, -1.2f, -3.3f, 2.28f, 2.0f, 2.0f, 1.5f, 0.9f},
+    {0.0f, -20.0f, 0.0f, 0.5f, 1.0f, 1.0f, 0.5f, 0.7f}
+  };
+  std::vector<int> class_ids = {0, 3, 2, 4, 1};
+  auto strks = arraysToSTrackPtrs(det_info, class_ids);
+
+  vision_msgs::msg::Detection3DArray trks = tracking_2d::STracksToTracks(strks, h);
+
+  SECTION("No tracks missed") {
+    REQUIRE(trks.detections.size() == det_info.size());
+  }
+
+  SECTION("Header matches") {
+    REQUIRE(trks.header.stamp == h.stamp);
+    REQUIRE(trks.header.frame_id == h.frame_id);
+  }
+
+  SECTION("Required data matches") {
+    for (size_t i = 0; i < trks.detections.size(); ++i) {
+      const auto &trk = trks.detections[i];
+      const auto &trk_box = trk.bbox;
+      const auto &trk_pos = trk_box.center;
+      const auto &exp = det_info[i];
+      
+      REQUIRE_THAT(trk_pos.position.x, Catch::Matchers::WithinRel(exp[0]));
+      REQUIRE_THAT(trk_pos.position.y, Catch::Matchers::WithinRel(exp[1]));
+      REQUIRE_THAT(trk_pos.position.z, Catch::Matchers::WithinRel(exp[2]));
+      REQUIRE_THAT(
+        principleAngle(tf2::getYaw(trk_pos.orientation)),
+        Catch::Matchers::WithinRel(principleAngle(exp[3]))
+      );
+      REQUIRE_THAT(trk_box.size.x, Catch::Matchers::WithinRel(exp[4]));
+      REQUIRE_THAT(trk_box.size.y, Catch::Matchers::WithinRel(exp[5]));
+      REQUIRE_THAT(trk_box.size.z, Catch::Matchers::WithinRel(exp[6]));
+
+      REQUIRE_THAT(trk.results[0].hypothesis.score, Catch::Matchers::WithinRel(exp[7]));
+      REQUIRE(trk.results[0].hypothesis.class_id == tracking_2d::reverseClassLookup(class_ids[i]));
+      
+      REQUIRE(trk.header.stamp == h.stamp);
+      REQUIRE(trk.header.frame_id == h.frame_id);
+    }
+  }
+}
+
+// Test 3: Tracking node
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Node tests", "[ros]") {
+  std::string timeout_flag = "timeout";
+  std::vector<std::vector<std::array<float, 8>>> vdet_info = {
+    {{1.0f, 2.0f, 3.0f, 0.0f, 4.0f, 5.0f, 6.0f, 0.8f}, {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f}},
+    {{-1.0f, 3.0f, 3.1f, 0.2f, 4.05f, 4.9f, 6.1f, 0.77f}, {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f}},
+    {{-2.0f, 5.0f, 3.0f, 0.4f, 4.02f, 5.01f, 6.0f, 0.82f}, {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f}},
+    {{-2.0f, 7.0f, 3.1f, 0.5f, 4.0f, 5.02f, 6.7f, 0.81f}, {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f}},
+    {{-1.0f, 9.0f, 3.2f, 0.5f, 4.06f, 5.03f, 6.0f, 0.82f}, {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f}}
+  };
+  std::vector<std::vector<std::string>> vclass_ids = {
+    {"car", "car"},
+    {"car", "car"},
+    {"bus", "car"},
+    {"car", "car"},
+    {"car", "car"}
+  };
+  std::vector<vision_msgs::msg::Detection3DArray> msgs = getTestInput(vdet_info, vclass_ids);
+
+  auto node = std::make_shared<tracking_2d>();
+  add_node(node);
+
+  auto test_pub = std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(
+    tracking_2d::kDetectionsTopic
+  );
+  auto test_sub = std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(
+    tracking_2d::kTracksTopic
+  );
+
+  add_node(test_pub);
+  add_node(test_sub);
+  start_spinning();
+
+  // Node initialized
+  REQUIRE_FALSE(!node);
+
+  std::vector<vision_msgs::msg::Detection3DArray> trks;
+
+  for (size_t i = 0; i < msgs.size(); ++i) {
+    auto future = test_sub->expect_next_message();
+    test_pub->publish(msgs[i]);
+
+    if (future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::ready) {
+      trks.push_back(future.get());
+    } else {
+      vision_msgs::msg::Detection3DArray dummy;
+      dummy.header.frame_id = timeout_flag;
+      trks.push_back(dummy);
+    }
+  }
+
+  SECTION("Non-empty tracks; No timeouts; IDs are unique and stay constant") {
+    for (size_t i = 0; i < trks.size(); ++i) {
+      REQUIRE(!trks[i].detections.empty());
+      REQUIRE(trks[i].header.frame_id != timeout_flag);
+      if (trks[i].detections.size() >= 2) {
+        REQUIRE(trks[i].detections[0].id != trks[i].detections[1].id);
+        if (i > 0) {
+          if (trks[i-1].detections.size() >= 2) {
+            REQUIRE(trks[i].detections[0].id == trks[i-1].detections[0].id);
+            REQUIRE(trks[i].detections[1].id == trks[i-1].detections[1].id);
+          }
+        }
+      }
+    }
+  }
 }

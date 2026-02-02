@@ -25,10 +25,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
-#include <tf2/utils.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 class tracking_2d : public rclcpp::Node
 {
@@ -37,6 +35,66 @@ public:
 
   static constexpr auto kDetectionsTopic = "input_detections";
   static constexpr auto kTracksTopic = "output_tracks";
+
+  /**
+   * @brief Looks up the numerical id corresponding to a class.
+   *
+   * Looks up the name of the class in the unordered_map of classes.
+   * If the name exists in the unordered_map, the corresonding
+   * numerical id is returned.
+   * If the name does not exist, then the default value 0 is returned
+   * and a warning is given.
+   *
+   * @param class_name The name of the required class.
+   * @return int The numerical id corresponding to the class.
+   */
+  static int classLookup(const std::string & class_name);
+
+  /**
+   * @brief Looks up the class name corresponding to a numerical id.
+   *
+   * Same logic as classLookup.
+   *
+   * @param class_id The id of the required class.
+   * @return std::string The class name corresponding to the id.
+   */
+  static std::string reverseClassLookup(int class_id);
+
+  /**
+   * @brief Converts Detection2DArray messages to ByteTrack Object format.
+   *
+   * Initializes and populates a vector of ByteTrack Objects using the given
+   * Detection2DArray message.
+   *
+   * For each Detection2D in the Detection2DArray, an Object is populated using:
+   * (1) the detection's center xy coordinates, width, and height in pixels; and
+   * (2) the label and confidence score of the detection.
+   *
+   * @param dets The detections to be converted into ByteTrack Objects.
+   * @return std::vector<byte_track::Object> The converted ByteTrack Objects.
+   *
+   * @note Done prior to each tracker update.
+   */
+  static std::vector<byte_track::Object> detsToObjects(const vision_msgs::msg::Detection3DArray & dets);
+
+  /**
+   * @brief Converts STrackPtr tracks output by the ByteTrack tracker back into Detection2DArray messages.
+   *
+   * Initializes and populates a Detection2DArray message containing information on
+   * the associated tracks using the given STrackPtr tracks.
+   *
+   * For each STrackPtr, a Detection2D is populated using:
+   * (1) the track's top-left xy coordinates, width, and height in pixels; and
+   * (2) the label and confidence score of the track.
+   *
+   * @param strk_ptrs The Strack shared_ptrs to be converted into a DetectionArray2D ROS2 message.
+   * @param header The same header of the detections these tracks are being associated with.
+   * @return vision_msgs::msg::Detection2DArray The converted ROS2 message.
+   *
+   * @note Done after each tracker update.
+   */
+  static vision_msgs::msg::Detection3DArray STracksToTracks(
+    const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header);
 
 private:
   /**
@@ -58,67 +116,6 @@ private:
   */
   void detectionsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
 
-  // Helper functions
-  /**
-   * @brief Looks up the numerical id corresponding to a class.
-   *
-   * Looks up the name of the class in the unordered_map of classes.
-   * If the name exists in the unordered_map, the corresonding
-   * numerical id is returned.
-   * If the name does not exist, then the default value 0 is returned
-   * and a warning is given.
-   *
-   * @param class_name The name of the required class.
-   * @return int The numerical id corresponding to the class.
-   */
-  int classLookup(const std::string & class_name);
-
-  /**
-   * @brief Looks up the class name corresponding to a numerical id.
-   *
-   * Same logic as classLookup.
-   *
-   * @param class_id The id of the required class.
-   * @return std::string The class name corresponding to the id.
-   */
-  std::string reverseClassLookup(int class_id);
-
-  /**
-   * @brief Converts Detection2DArray messages to ByteTrack Object format.
-   *
-   * Initializes and populates a vector of ByteTrack Objects using the given
-   * Detection2DArray message.
-   *
-   * For each Detection2D in the Detection2DArray, an Object is populated using:
-   * (1) the detection's center xy coordinates, width, and height in pixels; and
-   * (2) the label and confidence score of the detection.
-   *
-   * @param dets The detections to be converted into ByteTrack Objects.
-   * @return std::vector<byte_track::Object> The converted ByteTrack Objects.
-   *
-   * @note Done prior to each tracker update.
-   */
-  std::vector<byte_track::Object> detsToObjects(const vision_msgs::msg::Detection3DArray & dets);
-
-  /**
-   * @brief Converts STrackPtr tracks output by the ByteTrack tracker back into Detection2DArray messages.
-   *
-   * Initializes and populates a Detection2DArray message containing information on
-   * the associated tracks using the given STrackPtr tracks.
-   *
-   * For each STrackPtr, a Detection2D is populated using:
-   * (1) the track's top-left xy coordinates, width, and height in pixels; and
-   * (2) the label and confidence score of the track.
-   *
-   * @param strk_ptrs The Strack shared_ptrs to be converted into a DetectionArray2D ROS2 message.
-   * @param header The same header of the detections these tracks are being associated with.
-   * @return vision_msgs::msg::Detection2DArray The converted ROS2 message.
-   *
-   * @note Done after each tracker update.
-   */
-  vision_msgs::msg::Detection3DArray STracksToTracks(
-    const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header);
-
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr dets_sub_;
 
@@ -133,13 +130,15 @@ private:
   float match_thresh_;
   std::string output_frame_;
 
-  std::unordered_map<std::string, int> class_map_;
-  std::unordered_map<int, std::string> reverse_class_map_;
+  static std::unordered_map<std::string, int> class_map_;
+  static std::unordered_map<int, std::string> reverse_class_map_;
 
   std::unique_ptr<byte_track::BYTETracker> tracker_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
+
+  static rclcpp::Logger static_logger_;
 };
 
 #endif
