@@ -85,10 +85,11 @@ private:
    * @brief Process a single tracked object and generate a seed WorldObject
    * @param detection The tracked object to predict
    * @param frame_id Coordinate frame for the predictions
+   * @param timestamp Current timestamp in seconds
    * @return WorldObject with predictions, or nullopt if generation failed
    */
   std::optional<world_model_msgs::msg::WorldObject> processObject(
-    const vision_msgs::msg::Detection3D & detection, const std::string & frame_id);
+    const vision_msgs::msg::Detection3D & detection, const std::string & frame_id, double timestamp);
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;

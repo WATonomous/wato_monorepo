@@ -14,9 +14,10 @@
 
 #include "prediction/prediction_node.hpp"
 
-#include <memory>  // for std::make_unique
+#include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace prediction
 {
@@ -27,6 +28,9 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   // Declare parameters (defaults match simple_prediction for drop-in compatibility)
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
+  this->declare_parameter("max_lanelet_search_depth", 3);
+  this->declare_parameter("cyclist_speed_range", std::vector<double>{2.0, 8.0});
+  this->declare_parameter("lanelet_proximity_threshold", 5.0);
 
   RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
 }
@@ -39,14 +43,33 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
 
+  // Build cyclist params from ROS params
+  TrajectoryPredictor::CyclistParams cyclist_params;
+  cyclist_params.max_lanelet_search_depth = this->get_parameter("max_lanelet_search_depth").as_int();
+  cyclist_params.lanelet_proximity_threshold = this->get_parameter("lanelet_proximity_threshold").as_double();
+
+  auto speed_range = this->get_parameter("cyclist_speed_range").as_double_array();
+  if (speed_range.size() >= 2) {
+    cyclist_params.min_speed = speed_range[0];
+    cyclist_params.max_speed = speed_range[1];
+  }
+
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds", prediction_horizon_);
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Cyclist params: speed=[%.1f, %.1f] m/s, lanelet_threshold=%.1f m, max_depth=%d",
+    cyclist_params.min_speed,
+    cyclist_params.max_speed,
+    cyclist_params.lanelet_proximity_threshold,
+    cyclist_params.max_lanelet_search_depth);
 
   // Initialize publisher
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
   // Initialize components
-  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_);
+  trajectory_predictor_ =
+    std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_, cyclist_params);
   intent_classifier_ = std::make_unique<IntentClassifier>(this);
 
   RCLCPP_INFO(this->get_logger(), "Configured successfully");
@@ -128,8 +151,11 @@ void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DA
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
 
+  // Extract timestamp from header
+  double timestamp = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
+
   for (const auto & detection : msg->detections) {
-    auto world_obj = processObject(detection, msg->header.frame_id);
+    auto world_obj = processObject(detection, msg->header.frame_id, timestamp);
     if (world_obj.has_value()) {
       output.objects.push_back(world_obj.value());
     }
@@ -144,12 +170,12 @@ void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::Shar
 }
 
 std::optional<world_model_msgs::msg::WorldObject> PredictionNode::processObject(
-  const vision_msgs::msg::Detection3D & detection, const std::string & frame_id)
+  const vision_msgs::msg::Detection3D & detection, const std::string & frame_id, double timestamp)
 {
   RCLCPP_DEBUG(this->get_logger(), "Processing object with ID: %s", detection.id.c_str());
 
   try {
-    auto hypotheses = trajectory_predictor_->generateHypotheses(detection);
+    auto hypotheses = trajectory_predictor_->generateHypotheses(detection, timestamp);
 
     if (hypotheses.empty()) {
       RCLCPP_DEBUG(this->get_logger(), "No hypotheses generated for object %s", detection.id.c_str());
