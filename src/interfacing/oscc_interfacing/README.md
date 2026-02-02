@@ -17,5 +17,3 @@ This node does these things:
   - Attempt to either arm or disarm.
   - SetBool service: true = attempt to arm, false = attempt to disarm
   - Returns success/fail (message empty)
-
-~ More documentation to come
