@@ -36,7 +36,7 @@ colcon test-result --all --verbose
 ## Launching
 
 ```bash
-source install/setup,bash
+source install/setup.bash
 ros2 launch tracking tracking_launch.yaml
 ```
 
