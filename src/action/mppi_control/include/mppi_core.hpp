@@ -4,6 +4,9 @@
 #include <vector>
 //goal - no ROS dependencies
 #include <random>
+#include "helpers.hpp"
+#include "critics.hpp"
+
 
 inline double gaussian_noise(double sigma)
 {
@@ -13,7 +16,6 @@ inline double gaussian_noise(double sigma)
     return dist(gen) * sigma;
 }
 
-struct State { double x, y, yaw, v;};
 
 struct Control_Output { double a, delta; };
 
@@ -44,7 +46,7 @@ struct ControlSequences {
 
 public:
     MppiCore(int num_samples, double time_horizon, int num_time_step, double L, double a_noise_std, 
-        double delta_noise_std,double accel_max, double steer_angle_max, double lambda);
+        double delta_noise_std,double accel_max, double steer_angle_max,  double lambda);
 
     Control_Output computeControl();
 
@@ -53,27 +55,22 @@ public:
     std::vector<double> eval_trajectories_scores();
 
 
-    double compute_costs(const State& old_state, const State& new_state, double a, double delta);
+    double compute_costs(const State& old_state, const State& new_state, double a, double delta, double prev_a, double prev_delta);
 
     void compute_weights();
 
     void weighted_average_controls();
 
     void warm_start_control_sequences();
-    /*
-    void update_pose(double x, double y, double yaw){
-        current_state_.x = x;
-        current_state_.y = y;
-        current_state_.yaw = yaw;
-    }
-    void update_velocity(double v){
-        current_state_.v = v;
-    } */
-    //void update_trajectory(const std::vector<State>& traj){    }
+    
+    void update_pose(double x, double y, double yaw);
+    void update_velocity(double v);
+
+    void update_trajectory(const std::vector<State>& traj);
 
 private:
     State current_state_;
-
+    std::vector<State> desired_trajectory_;
     int num_samples_;
     double time_horizon_;
     double dt_;
@@ -97,6 +94,8 @@ private:
     double lambda_ = 1.0;
     double accel_max_ = 1.0;
     double steer_angle_max_ = 1.0;
+    
+    critic::MppiCritic critic_;
 };
 
 //consider: lifecycle node

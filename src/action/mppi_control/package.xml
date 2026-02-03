@@ -11,11 +11,18 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <build_depend>rosidl_default_generators</build_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
   <depend>rclcpp</depend>
   <depend>trajectory_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>ackermann_msgs</depend>
   <depend>tf2_msgs</depend>
+  <depend>std_msgs</depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

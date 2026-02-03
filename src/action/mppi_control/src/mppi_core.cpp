@@ -1,5 +1,6 @@
 #include "mppi_core.hpp"
 
+
 MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
                    double L, double a_noise_std, double delta_noise_std,double accel_max, double steer_angle_max, double lambda)
   : num_samples_(num_samples),
@@ -14,6 +15,7 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
     lambda_(lambda),
     accel_max_(accel_max),
     steer_angle_max_(steer_angle_max)
+    
 {
     // initialize control sequences to zero
     for (int k = 0; k < num_samples_; k++) {
@@ -27,6 +29,8 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
         optimal_control_sequence_.A(0, t) = 0.0;
         optimal_control_sequence_.D(0, t) = 0.0;
     }
+    critic_ = critic::MppiCritic();
+    
 }
 
 
@@ -43,8 +47,7 @@ State MppiCore::step_bicycle(const State& s, double a, double delta, double dt, 
     ns.yaw = s.yaw + (s.v / L) * std::tan(delta) * dt;
     ns.v   = s.v   + a * dt;
 
-    // clamp states here: ns.v, ns.delta
-    ns.v = std::clamp(ns.v, -1.0, 1.0);
+
     return ns;
 }
 
@@ -84,22 +87,30 @@ void MppiCore::add_noise_to_control_sequences(){
             }
         }
     };
-double MppiCore::compute_costs(const State& old_state, const State& new_state, double u_a, double u_delta){
-    return 1.0;
+double MppiCore::compute_costs(const State& old_state, const State& new_state, double u_a, double u_delta, double prev_u_a, double prev_u_delta){
+        //use critic to compute costs
+        std::vector<double> state_vec = {new_state.x, new_state.y, new_state.yaw, new_state.v};
+        std::vector<double> action_vec = {u_a, u_delta};
+        std::vector<double> prev_action_vec = {prev_u_a, prev_u_delta};
+        double cost = critic_.evaluate(state_vec, action_vec, prev_action_vec);
+    return cost;
 };
 
 std::vector<double> MppiCore::eval_trajectories_scores(){
-        std::vector<double> trajectory_costs(num_samples_);
+        std::vector<double> trajectory_costs(num_samples_, 0.0);
         // simulate trajectories based on control sequences
         for (int k=0; k<num_samples_; k++){
             State sim_state = current_state_;
             for(int t=0; t<num_time_step_; t++){
                 double u_a = control_sequences_.A(k, t);
                 double u_delta = control_sequences_.D(k, t);
+                double prev_u_a = (t==0) ? 0.0 : control_sequences_.A(k, t-1);
+                double prev_u_delta = (t==0) ? 0.0 : control_sequences_.D(k, t-1);
+
                 State old_state = sim_state;
                 sim_state = step_bicycle(sim_state, u_a, u_delta, dt_, L_);
                 // store sim_state if needed
-                trajectory_costs[k] += compute_costs(old_state, sim_state, u_a, u_delta); //add prev control commands also
+                trajectory_costs[k] += compute_costs(old_state, sim_state, u_a, u_delta, prev_u_a, prev_u_delta);
             }
         }
         return trajectory_costs;
@@ -160,11 +171,26 @@ void MppiCore::weighted_average_controls() {
             d_bar += w * control_sequences_.D(k, t);
         }
 
-        
-        a_bar = std::clamp(a_bar, -1.0, 1.0);
-        d_bar = std::clamp(d_bar, -1.0, 1.0);
+        a_bar = std::clamp(a_bar, -1.0*accel_max_, accel_max_);
+        d_bar = std::clamp(d_bar, -1.0*steer_angle_max_, steer_angle_max_);
 
         optimal_control_sequence_.A(0, t) = a_bar;
         optimal_control_sequence_.D(0, t) = d_bar;
     }
+}
+
+//update pose
+void MppiCore::update_pose(double x, double y, double yaw){
+    current_state_.x = x;
+    current_state_.y = y;
+    current_state_.yaw = yaw;
+}
+void MppiCore::update_velocity(double v){
+    current_state_.v = v;
+}
+//update trajectory
+void MppiCore::update_trajectory(const std::vector<State>& traj){
+    //assume traj is valid
+    critic_.set_trajectory(traj);
+    //desired_trajectory_ = traj; 
 }

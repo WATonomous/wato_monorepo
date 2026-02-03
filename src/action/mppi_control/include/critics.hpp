@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <cstddef>
+#include "helpers.hpp"
 
 namespace critic{
 
@@ -11,10 +12,11 @@ class MppiCritic{
 
 public:
     MppiCritic() = default;
-    virtual ~MppiCritic() = default;
 
-    virtual double evaluate(const std::vector<double>& state,
-                            const std::vector<double>& action) = 0;
+    double evaluate(const std::vector<double>& state,
+                            const std::vector<double>& action,
+                            const std::vector<double>& prev_action);
+    void set_trajectory(const std::vector<struct State>& traj);
 
     struct Params{
         // -- Progress Cost -- 
@@ -37,9 +39,12 @@ public:
         // smoothen steering rate changes
         double w_steering_rate = 1.0;
     };
+private:
+    Params params_;
 
+    std::vector<struct State> desired_trajectory_;
     
-}
+};
 
 
 }

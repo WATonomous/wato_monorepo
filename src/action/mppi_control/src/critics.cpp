@@ -1,11 +1,13 @@
 
-/*/
-Class CostCritic {
-public:
-    CostCritic(double weight) : weight_(weight) {}
+#include "critics.hpp"
 
-    double compute_costs(const State& old_state, const State& new_state, double a, double delta_dot);
+double critic::MppiCritic::evaluate(const std::vector<double>& state,
+                                    const std::vector<double>& action,
+                                    const std::vector<double>& prev_action) {
+    // temp implementation
+    return 0.0;
+}
 
-private:
-    double weight_;
-};*/
+void critic::MppiCritic::set_trajectory(const std::vector<struct State>& traj){
+    desired_trajectory_ = traj; 
+}
