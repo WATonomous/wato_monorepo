@@ -74,6 +74,12 @@ install(TARGETS
 # Install headers if you have include/
 install(DIRECTORY include/ DESTINATION include)
 
+# Install config files (so params YAML exists in install space)
+install(
+  DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
 # Export the library so other packages can link against it (optional but correct)
 ament_export_libraries(mppi_core)
 ament_export_include_directories(include)

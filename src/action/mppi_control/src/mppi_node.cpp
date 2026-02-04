@@ -24,7 +24,7 @@ class MppiNode : public rclcpp::Node {
 public:
     MppiNode() : Node("mppi_node") {
 
-        mppi_core_ = std::make_unique<MppiCore>(100, 1.0, 10, 2.5, 0.1, 0.1, 2.0, 0.5, 1.0);
+        
 
         RCLCPP_INFO(this->get_logger(), "MPPI Node has been started.");
 
@@ -34,6 +34,16 @@ public:
         this->declare_parameter<std::string>("tf_topic", "/tf");
         this->declare_parameter<std::string>("occupancy_grid_topic", "/occupancy_grid");
         this->declare_parameter<std::string>("control_topic", "/carla/ackermann_control/command");
+        //core parameters: int num_samples, double time_horizon, int num_time_step, double L, double a_noise_std, double delta_noise_std,double accel_max, double steer_angle_max, double lambda
+        this->declare_parameter<int>("num_samples", 100);
+        this->declare_parameter<double>("time_horizon", 1.0);
+        this->declare_parameter<int>("num_time_step", 10);
+        this->declare_parameter<double>("L", 2.5);
+        this->declare_parameter<double>("a_noise_std", 0.1);
+        this->declare_parameter<double>("delta_noise_std", 0.1);
+        this->declare_parameter<double>("accel_max", 2.0);
+        this->declare_parameter<double>("steer_angle_max", 0.5);
+        this->declare_parameter<double>("lambda", 1.0);
 
         //get parameters
         this->get_parameter("odom_topic", odom_topic_);
@@ -42,6 +52,18 @@ public:
         this->get_parameter("occupancy_grid_topic", occupancy_grid_topic_);
         this->get_parameter("control_topic", control_topic_);
 
+        //get core parameters
+        int num_samples = this->get_parameter("num_samples").as_int();
+        double time_horizon = this->get_parameter("time_horizon").as_double();
+        int num_time_step = this->get_parameter("num_time_step").as_int();
+        double L = this->get_parameter("L").as_double();
+        double a_noise_std = this->get_parameter("a_noise_std").as_double();
+        double delta_noise_std = this->get_parameter("delta_noise_std").as_double();
+        double accel_max = this->get_parameter("accel_max").as_double();
+        double steer_angle_max = this->get_parameter("steer_angle_max").as_double();
+        double lambda = this->get_parameter("lambda").as_double();
+        mppi_core_ = std::make_unique<MppiCore>(num_samples, time_horizon, num_time_step, 
+            L, a_noise_std, delta_noise_std, accel_max, steer_angle_max, lambda);
         //subscriptions
 
         //odom subscriber - nav_msgs/msg/Odometry

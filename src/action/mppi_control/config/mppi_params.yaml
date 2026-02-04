@@ -1,5 +1,18 @@
-odom_topic: "/ego/odom"
-trajectory_topic: "/trajectory"
-tf_topic: "/tf"
-occupancy_grid_topic: "/occupancy_grid"
-control_topic: "carla/ackermann_control/command"
+mppi_node:
+  ros__parameters:
+    odom_topic: "/ego/odom"
+    trajectory_topic: "/trajectory"
+    tf_topic: "/tf"
+    occupancy_grid_topic: "/occupancy_grid"
+    control_topic: "carla/ackermann_control/command"
+
+    #mppi core parameters
+    num_samples: 100
+    time_horizon: 1.0
+    num_time_step: 10
+    L: 2.5
+    a_noise_std: 0.1
+    delta_noise_std: 0.1
+    accel_max: 2.0
+    steer_angle_max: 0.5
+    lambda: 1.0
