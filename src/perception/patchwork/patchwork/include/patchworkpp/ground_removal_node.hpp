@@ -15,6 +15,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <Eigen/Core>
 
@@ -30,8 +32,6 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 
 #include "patchworkpp/ground_removal_core.hpp"
 // clang-format on

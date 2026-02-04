@@ -18,6 +18,8 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "costmap/layers/objects_layer.hpp"
 #include "costmap/layers/pointcloud_layer.hpp"
@@ -27,9 +29,7 @@
 namespace costmap
 {
 
-static const std::unordered_map<
-  std::string,
-  std::function<std::unique_ptr<CostmapLayer>()>> kLayerFactory = {
+static const std::unordered_map<std::string, std::function<std::unique_ptr<CostmapLayer>()>> kLayerFactory = {
   {"objects", [] { return std::make_unique<ObjectsLayer>(); }},
   {"pointcloud", [] { return std::make_unique<PointCloudLayer>(); }},
   {"virtual_wall", [] { return std::make_unique<VirtualWallLayer>(); }},
@@ -47,8 +47,7 @@ CostmapNode::CostmapNode(const rclcpp::NodeOptions & options)
   declare_parameter("layers", std::vector<std::string>{"objects", "virtual_wall"});
 }
 
-CostmapNode::CallbackReturn CostmapNode::on_configure(
-  const rclcpp_lifecycle::State & /*state*/)
+CostmapNode::CallbackReturn CostmapNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   costmap_frame_ = get_parameter("costmap_frame").as_string();
   map_frame_ = get_parameter("map_frame").as_string();
@@ -75,14 +74,18 @@ CostmapNode::CallbackReturn CostmapNode::on_configure(
   }
 
   RCLCPP_INFO(
-    get_logger(), "Configured with %zu layers, %.2f Hz, %.1f x %.1f m @ %.2f m/cell",
-    layers_.size(), publish_rate_hz_, grid_width_m_, grid_height_m_, resolution_);
+    get_logger(),
+    "Configured with %zu layers, %.2f Hz, %.1f x %.1f m @ %.2f m/cell",
+    layers_.size(),
+    publish_rate_hz_,
+    grid_width_m_,
+    grid_height_m_,
+    resolution_);
 
   return CallbackReturn::SUCCESS;
 }
 
-CostmapNode::CallbackReturn CostmapNode::on_activate(
-  const rclcpp_lifecycle::State & /*state*/)
+CostmapNode::CallbackReturn CostmapNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   costmap_pub_->on_activate();
 
@@ -92,15 +95,13 @@ CostmapNode::CallbackReturn CostmapNode::on_activate(
 
   const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
   publish_timer_ = create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-    std::bind(&CostmapNode::publishCostmap, this));
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&CostmapNode::publishCostmap, this));
 
   RCLCPP_INFO(get_logger(), "Activated");
   return CallbackReturn::SUCCESS;
 }
 
-CostmapNode::CallbackReturn CostmapNode::on_deactivate(
-  const rclcpp_lifecycle::State & /*state*/)
+CostmapNode::CallbackReturn CostmapNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   publish_timer_.reset();
 
@@ -114,8 +115,7 @@ CostmapNode::CallbackReturn CostmapNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-CostmapNode::CallbackReturn CostmapNode::on_cleanup(
-  const rclcpp_lifecycle::State & /*state*/)
+CostmapNode::CallbackReturn CostmapNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   for (auto & layer : layers_) {
     layer->cleanup();
@@ -131,8 +131,7 @@ CostmapNode::CallbackReturn CostmapNode::on_cleanup(
   return CallbackReturn::SUCCESS;
 }
 
-CostmapNode::CallbackReturn CostmapNode::on_shutdown(
-  const rclcpp_lifecycle::State & /*state*/)
+CostmapNode::CallbackReturn CostmapNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   publish_timer_.reset();
   for (auto & layer : layers_) {
@@ -152,11 +151,9 @@ void CostmapNode::publishCostmap()
 {
   geometry_msgs::msg::TransformStamped map_to_costmap;
   try {
-    map_to_costmap = tf_buffer_->lookupTransform(
-      costmap_frame_, map_frame_, tf2::TimePointZero);
+    map_to_costmap = tf_buffer_->lookupTransform(costmap_frame_, map_frame_, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000, "TF lookup failed: %s", ex.what());
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "TF lookup failed: %s", ex.what());
     return;
   }
 

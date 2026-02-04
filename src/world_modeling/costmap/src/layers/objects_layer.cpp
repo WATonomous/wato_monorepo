@@ -14,7 +14,9 @@
 
 #include "costmap/layers/objects_layer.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <string>
 
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
@@ -22,9 +24,7 @@ namespace costmap
 {
 
 void ObjectsLayer::configure(
-  rclcpp_lifecycle::LifecycleNode * node,
-  const std::string & layer_name,
-  tf2_ros::Buffer * tf_buffer)
+  rclcpp_lifecycle::LifecycleNode * node, const std::string & layer_name, tf2_ros::Buffer * tf_buffer)
 {
   node_ = node;
   layer_name_ = layer_name;
@@ -34,19 +34,15 @@ void ObjectsLayer::configure(
   node_->declare_parameter("layers." + layer_name_ + ".prediction_inflation_m", 0.3);
   node_->declare_parameter("layers." + layer_name_ + ".prediction_cost_decay", 0.8);
 
-  bbox_inflation_m_ =
-    node_->get_parameter("layers." + layer_name_ + ".bbox_inflation_m").as_double();
-  prediction_inflation_m_ =
-    node_->get_parameter("layers." + layer_name_ + ".prediction_inflation_m").as_double();
-  prediction_cost_decay_ =
-    node_->get_parameter("layers." + layer_name_ + ".prediction_cost_decay").as_double();
+  bbox_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".bbox_inflation_m").as_double();
+  prediction_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".prediction_inflation_m").as_double();
+  prediction_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".prediction_cost_decay").as_double();
 }
 
 void ObjectsLayer::activate()
 {
   objects_sub_ = node_->create_subscription<world_model_msgs::msg::WorldObjectArray>(
-    "world_objects", rclcpp::QoS(10),
-    std::bind(&ObjectsLayer::objectsCallback, this, std::placeholders::_1));
+    "world_objects", rclcpp::QoS(10), std::bind(&ObjectsLayer::objectsCallback, this, std::placeholders::_1));
 }
 
 void ObjectsLayer::deactivate()
@@ -60,18 +56,15 @@ void ObjectsLayer::cleanup()
   latest_objects_.reset();
 }
 
-void ObjectsLayer::objectsCallback(
-  const world_model_msgs::msg::WorldObjectArray::SharedPtr msg)
+void ObjectsLayer::objectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg)
 {
   std::lock_guard<std::mutex> lock(data_mutex_);
   latest_objects_ = msg;
 }
 
 void ObjectsLayer::markBox(
-  nav_msgs::msg::OccupancyGrid & grid,
-  double cx, double cy, double yaw,
-  double half_x, double half_y,
-  int8_t cost) const
+  nav_msgs::msg::OccupancyGrid & grid, double cx, double cy, double yaw, double half_x, double half_y, int8_t cost)
+  const
 {
   const auto & info = grid.info;
   const double ox = info.origin.position.x;
@@ -84,12 +77,7 @@ void ObjectsLayer::markBox(
   const double sin_yaw = std::sin(yaw);
 
   // Corners in local frame
-  double corners_local[4][2] = {
-    {-half_x, -half_y},
-    { half_x, -half_y},
-    { half_x,  half_y},
-    {-half_x,  half_y}
-  };
+  double corners_local[4][2] = {{-half_x, -half_y}, {half_x, -half_y}, {half_x, half_y}, {-half_x, half_y}};
 
   // Transform corners to grid frame and find bounding box
   double min_gx = 1e9, max_gx = -1e9, min_gy = 1e9, max_gy = -1e9;
@@ -128,14 +116,11 @@ void ObjectsLayer::markBox(
 
 static double yawFromQuat(const geometry_msgs::msg::Quaternion & q)
 {
-  return std::atan2(
-    2.0 * (q.w * q.z + q.x * q.y),
-    1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 }
 
 void ObjectsLayer::update(
-  nav_msgs::msg::OccupancyGrid & grid,
-  const geometry_msgs::msg::TransformStamped & /*map_to_costmap*/)
+  nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & /*map_to_costmap*/)
 {
   world_model_msgs::msg::WorldObjectArray::SharedPtr objects;
   {
@@ -150,12 +135,10 @@ void ObjectsLayer::update(
   // Look up transform from the objects' frame to costmap frame
   geometry_msgs::msg::TransformStamped obj_to_costmap;
   try {
-    obj_to_costmap = tf_buffer_->lookupTransform(
-      grid.header.frame_id, objects->header.frame_id, tf2::TimePointZero);
+    obj_to_costmap = tf_buffer_->lookupTransform(grid.header.frame_id, objects->header.frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
-      node_->get_logger(), *node_->get_clock(), 2000,
-      "ObjectsLayer TF lookup failed: %s", ex.what());
+      node_->get_logger(), *node_->get_clock(), 2000, "ObjectsLayer TF lookup failed: %s", ex.what());
     return;
   }
 
@@ -171,8 +154,14 @@ void ObjectsLayer::update(
     double half_x = bbox.size.x / 2.0 + bbox_inflation_m_;
     double half_y = bbox.size.y / 2.0 + bbox_inflation_m_;
 
-    markBox(grid, pose_out.pose.position.x, pose_out.pose.position.y,
-            yawFromQuat(pose_out.pose.orientation), half_x, half_y, 100);
+    markBox(
+      grid,
+      pose_out.pose.position.x,
+      pose_out.pose.position.y,
+      yawFromQuat(pose_out.pose.orientation),
+      half_x,
+      half_y,
+      100);
 
     // Project prediction poses with decaying cost
     for (const auto & prediction : obj.predictions) {
@@ -185,8 +174,14 @@ void ObjectsLayer::update(
         tf2::doTransform(ps, pred_out, obj_to_costmap);
 
         double pred_half = prediction_inflation_m_;
-        markBox(grid, pred_out.pose.position.x, pred_out.pose.position.y,
-                yawFromQuat(pred_out.pose.orientation), pred_half, pred_half, pred_cost);
+        markBox(
+          grid,
+          pred_out.pose.position.x,
+          pred_out.pose.position.y,
+          yawFromQuat(pred_out.pose.orientation),
+          pred_half,
+          pred_half,
+          pred_cost);
       }
     }
   }

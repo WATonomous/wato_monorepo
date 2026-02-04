@@ -31,17 +31,14 @@ public:
   virtual ~CostmapLayer() = default;
 
   virtual void configure(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const std::string & layer_name,
-    tf2_ros::Buffer * tf_buffer) = 0;
+    rclcpp_lifecycle::LifecycleNode * node, const std::string & layer_name, tf2_ros::Buffer * tf_buffer) = 0;
 
   virtual void activate() = 0;
   virtual void deactivate() = 0;
   virtual void cleanup() = 0;
 
   virtual void update(
-    nav_msgs::msg::OccupancyGrid & grid,
-    const geometry_msgs::msg::TransformStamped & map_to_costmap) = 0;
+    nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & map_to_costmap) = 0;
 };
 
 }  // namespace costmap

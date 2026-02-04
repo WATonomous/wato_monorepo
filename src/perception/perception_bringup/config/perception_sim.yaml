@@ -43,4 +43,3 @@
     qos_publisher_reliability: "reliable"      # Options: "reliable", "best_effort"
     qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
     qos_publisher_depth: 10                    # Queue depth for outgoing messages
-

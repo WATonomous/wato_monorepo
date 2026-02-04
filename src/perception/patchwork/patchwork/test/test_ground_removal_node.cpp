@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <tf2_ros/static_transform_broadcaster.h>
+
 #include <array>
 #include <chrono>
 #include <future>
@@ -22,12 +24,11 @@
 #include <vector>
 
 #include <catch2/catch_all.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
 #include <rclcpp/node_options.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <wato_test/wato_test.hpp>
 
 #include "patchworkpp/ground_removal_core.hpp"

@@ -29,26 +29,21 @@ class ObjectsLayer : public CostmapLayer
 {
 public:
   void configure(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const std::string & layer_name,
-    tf2_ros::Buffer * tf_buffer) override;
+    rclcpp_lifecycle::LifecycleNode * node, const std::string & layer_name, tf2_ros::Buffer * tf_buffer) override;
 
   void activate() override;
   void deactivate() override;
   void cleanup() override;
 
   void update(
-    nav_msgs::msg::OccupancyGrid & grid,
-    const geometry_msgs::msg::TransformStamped & map_to_costmap) override;
+    nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & map_to_costmap) override;
 
 private:
   void objectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
 
   void markBox(
-    nav_msgs::msg::OccupancyGrid & grid,
-    double cx, double cy, double yaw,
-    double half_x, double half_y,
-    int8_t cost) const;
+    nav_msgs::msg::OccupancyGrid & grid, double cx, double cy, double yaw, double half_x, double half_y, int8_t cost)
+    const;
 
   rclcpp_lifecycle::LifecycleNode * node_{nullptr};
   tf2_ros::Buffer * tf_buffer_{nullptr};

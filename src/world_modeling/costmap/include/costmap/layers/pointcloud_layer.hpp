@@ -29,17 +29,14 @@ class PointCloudLayer : public CostmapLayer
 {
 public:
   void configure(
-    rclcpp_lifecycle::LifecycleNode * node,
-    const std::string & layer_name,
-    tf2_ros::Buffer * tf_buffer) override;
+    rclcpp_lifecycle::LifecycleNode * node, const std::string & layer_name, tf2_ros::Buffer * tf_buffer) override;
 
   void activate() override;
   void deactivate() override;
   void cleanup() override;
 
   void update(
-    nav_msgs::msg::OccupancyGrid & grid,
-    const geometry_msgs::msg::TransformStamped & map_to_costmap) override;
+    nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & map_to_costmap) override;
 
 private:
   void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
