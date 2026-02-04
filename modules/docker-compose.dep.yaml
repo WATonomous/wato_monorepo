@@ -4,58 +4,58 @@ services:
   infrastructure_bringup:
     profiles: ["infrastructure"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: infrastructure_bringup
 
   log_viewer:
     profiles: ["infrastructure"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: log_viewer
 
 #################### INTERFACING SERVICE ####################
   interfacing_bringup:
     profiles: ["interfacing"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: interfacing_bringup
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup:
     profiles: ["perception"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: perception_bringup
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_bringup:
     profiles: ["world_modeling"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: world_modeling_bringup
 
 #################### ACTION SERVICE ####################
   action_bringup:
     profiles: ["action"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: action_bringup
 
 #################### SIMULATION SERVICES ####################
   carla_sim:
     profiles: ["carla_gpu"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: carla_sim
 
   carla_sim_no_gpu:
     profiles: ["carla_no_gpu"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: carla_sim_no_gpu
 
   simulation_bringup:
     profiles: ["simulation"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: simulation_bringup

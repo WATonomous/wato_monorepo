@@ -16,7 +16,7 @@ ros2 run carla_lifecycle lifecycle_manager
 
 **Subscriptions:** `/<scenario_server>/scenario_status` (`carla_msgs/ScenarioStatus`)
 
-**Services:** `~/prepare_for_scenario_switch` (`std_srvs/Trigger`)
+**Services:** `prepare_for_scenario_switch` (`std_srvs/Trigger`)
 
 **Parameters:**
 

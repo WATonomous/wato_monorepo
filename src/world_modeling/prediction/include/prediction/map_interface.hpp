@@ -14,24 +14,12 @@
 
 /**
  * @file map_interface.hpp
- * @brief HD MAP QUERY WRAPPER - Provides map information to trajectory generation
- * * WHAT THIS FILE DOES:
- * - Wraps service calls to the lanelet map server
- * - Finds nearest lanelet to object position
- * - Gets lanelet centerlines (path points for trajectory following)
- * - Gets possible future lanelets (for generating multiple hypotheses)
- * - Checks for crosswalks (important for pedestrians and cyclists)
- * - Gets speed limits and regulatory elements
- * * WHO WORKS ON THIS:
- * - Currently using PLACEHOLDERS (no map service required)
- * - When map services available: shared integration task
- * - John needs centerlines for vehicle path following
- * - Girish needs crosswalk detection for pedestrian goals
- * - Aruhant needs crosswalk detection to switch between models
- * * CURRENT STATUS:
- * - Running in PLACEHOLDER MODE
- * - Returns synthetic data for development/testing
- * - Replace with real service calls when world database is ready
+ * @brief DEPRECATED - Use world_model::LaneletHandler instead.
+ *
+ * This interface is obsolete. Lanelet information should be obtained from
+ * world_model::LaneletHandler or by subscribing to lanelet_ahead/route_ahead topics.
+ *
+ * @see world_model/lanelet_handler.hpp
  */
 
 #ifndef PREDICTION__MAP_INTERFACE_HPP_
@@ -59,12 +47,9 @@ struct LaneletInfo
 };
 
 /**
- * @brief Interface to HD map for lanelet queries
- * * Wraps service calls to the lanelet map server for:
- * - Finding nearest lanelets
- * - Querying lanelet information
- * - Computing route connectivity
- * - Getting regulatory elements
+ * @brief DEPRECATED - Interface to HD map for lanelet queries.
+ *
+ * This class is obsolete. Use Lanelet messages directly instead.
  */
 class MapInterface
 {

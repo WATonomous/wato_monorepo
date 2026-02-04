@@ -1,0 +1,98 @@
+{
+  "configById": {
+    "Plot!steering": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/joystick/ackermann.drive.steering_angle",
+          "enabled": true,
+          "color": "#4e98e2",
+          "label": "Setpoint"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/steering_feedback.data",
+          "enabled": true,
+          "color": "#f5774d",
+          "label": "Feedback"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/joystick/roscco.steering",
+          "enabled": true,
+          "color": "#f7df71",
+          "label": "Output (Torque)"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "title": "Steering PID",
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "steering "
+    },
+    "Plot!velocity": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/joystick/ackermann.drive.speed",
+          "enabled": true,
+          "color": "#4e98e2",
+          "label": "Setpoint"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/velocity_feedback.data",
+          "enabled": true,
+          "color": "#f5774d",
+          "label": "Feedback"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/joystick/roscco.forward",
+          "enabled": true,
+          "color": "#f7df71",
+          "label": "Output (force)"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "title": "Velocity PID",
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "velocity"
+    },
+    "RawMessages!state": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/joystick/state",
+      "fontSize": 12
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "column",
+    "first": "Plot!steering",
+    "second": {
+      "direction": "row",
+      "first": "Plot!velocity",
+      "second": "RawMessages!state",
+      "splitPercentage": 70
+    },
+    "splitPercentage": 50
+  }
+}

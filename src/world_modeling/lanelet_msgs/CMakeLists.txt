@@ -26,13 +26,14 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/TrafficLightInfo.msg"
   "msg/StopLineInfo.msg"
+  "msg/RefLine.msg"
+  "msg/RegulatoryElement.msg"
   "msg/Lanelet.msg"
-  "msg/CorridorLane.msg"
-  "msg/Corridor.msg"
+  "msg/LaneletAhead.msg"
   "msg/CurrentLaneContext.msg"
   "msg/MapVisualization.msg"
-  "srv/GetRoute.srv"
-  "srv/GetCorridor.srv"
+  "msg/RouteAhead.msg"
+  "srv/GetShortestRoute.srv"
   "srv/GetLaneletsByRegElem.srv"
   "srv/SetRoute.srv"
   DEPENDENCIES geometry_msgs std_msgs

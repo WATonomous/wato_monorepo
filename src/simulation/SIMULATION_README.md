@@ -70,10 +70,10 @@ Once `watod up` completes, the simulation is running with the default scenario (
 
 ```bash
 # List available scenarios
-ros2 service call /scenario_server/get_available_scenarios carla_msgs/srv/GetAvailableScenarios
+ros2 service call /carla/scenario_server/get_available_scenarios carla_msgs/srv/GetAvailableScenarios
 
 # Switch to a different scenario
-ros2 service call /scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
+ros2 service call /carla/scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
   "{scenario_name: 'carla_scenarios.scenarios.heavy_traffic_scenario'}"
 ```
 
@@ -89,22 +89,22 @@ Toggle CARLA's built-in autopilot to let the ego vehicle drive itself:
 
 ```bash
 # Enable autopilot
-ros2 service call /carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: true}"
+ros2 service call /carla/carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: true}"
 
 # Disable autopilot (return to manual/teleop control)
-ros2 service call /carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: false}"
+ros2 service call /carla/carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: false}"
 ```
 
 #### Manual Control
 
-When autonomy is disabled, control the vehicle via the `/carla_teleop/cmd_vel` topic:
+When autonomy is disabled, control the vehicle via the `/carla/cmd_vel` topic:
 
 ```bash
 # Using teleop_twist_keyboard
-ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/carla_teleop/cmd_vel
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/carla/cmd_vel
 ```
 
-Or use the Foxglove teleop panel connected to `/carla_teleop/cmd_vel`.
+Or use the Foxglove teleop panel connected to `/carla/cmd_vel`.
 
 ### Integration with Other Modules
 
@@ -116,9 +116,9 @@ export ACTIVE_MODULES="simulation perception world_modeling action"
 ```
 
 The simulation provides:
-- `/lidar_publisher/top_lidar/points` - PointCloud2 from simulated LiDAR
-- `/bbox_publisher/detections_3d` - Ground truth 3D bounding boxes
-- `/carla_localization` TF tree - Ground truth pose (map → odom → base_link)
+- `/carla/top_lidar/points` - PointCloud2 from simulated LiDAR
+- `/carla/detections_3d` - Ground truth 3D bounding boxes
+- TF tree - Ground truth pose (map → odom → base_link)
 
 Your modules can subscribe to these topics and publish control commands to test the full autonomy stack.
 
@@ -129,9 +129,9 @@ Your modules can subscribe to these topics and publish control commands to test 
 1. Ensure `infrastructure` is in your active modules
 2. Connect Foxglove to `ws://localhost:<FOXGLOVE_BRIDGE_PORT>`
 3. Add panels for:
-   - 3D view with `/lidar_publisher/top_lidar/points` and `/carla/bbox_markers`
+   - 3D view with `/carla/top_lidar/points` and `/carla/bbox_markers`
    - Image view with camera topics
-   - Teleop panel publishing to `/carla_teleop/cmd_vel`
+   - Teleop panel publishing to `/carla/cmd_vel`
 
 ### Pygame HUD (No-GPU Mode)
 
@@ -165,8 +165,9 @@ When `CARLA_RENDER_MODE=no_gpu` (the default), a web-based bird's-eye view is au
                                     │    ROS2 Topics      │
                                     │  /clock             │
                                     │  /tf                │
-                                    │  /lidar/.../points  │
-                                    │  /carla/bbox_markers│
+                                    │  /carla/*/points    │
+                                    │  /carla/detections  │
+                                    │  /carla/cmd_vel     │
                                     └─────────────────────┘
 ```
 
@@ -217,7 +218,7 @@ To improve performance:
 Check that the lifecycle manager has activated all nodes:
 
 ```bash
-ros2 lifecycle list /lidar_publisher
+ros2 lifecycle list /carla/lidar_publisher
 ```
 
 All nodes should be in the `active` state. If stuck in `inactive`, check the scenario_server connection to CARLA.

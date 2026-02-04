@@ -24,19 +24,31 @@ find_package(lifecycle_msgs REQUIRED)
 find_package(carla_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 
-add_executable(lifecycle_manager
+# Library
+add_library(${PROJECT_NAME}_lib SHARED
   src/lifecycle_manager_node.cpp
-  src/main.cpp
 )
-target_include_directories(lifecycle_manager PUBLIC
+target_include_directories(${PROJECT_NAME}_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(lifecycle_manager
+target_link_libraries(${PROJECT_NAME}_lib
   rclcpp::rclcpp
   ${lifecycle_msgs_TARGETS}
   ${carla_msgs_TARGETS}
   ${std_srvs_TARGETS}
+)
+
+# Executable
+add_executable(lifecycle_manager src/main.cpp)
+target_link_libraries(lifecycle_manager
+  ${PROJECT_NAME}_lib
+)
+
+install(TARGETS ${PROJECT_NAME}_lib
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 install(TARGETS lifecycle_manager
@@ -46,5 +58,15 @@ install(TARGETS lifecycle_manager
 install(DIRECTORY include/
   DESTINATION include
 )
+
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+
+  add_wato_test(test_lifecycle_manager_node
+    test/test_lifecycle_manager_node.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_lib
+  )
+endif()
 
 ament_package()

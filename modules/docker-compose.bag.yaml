@@ -1,0 +1,14 @@
+---
+services:
+#################### INTERFACING SERVICE (BAG RECORDING) ####################
+  interfacing_bringup_bag:
+    profiles: ["interfacing_bag"]
+    extends:
+      file: ${COMPOSE_EXTEND_FILE}
+      service: interfacing_bringup
+    command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_bag_launch.yaml recording_profile:=${RECORDING_PROFILE:-all_sensors} bag_path:=/bags/recording_$(date +%Y%m%d_%H%M%S)"
+    volumes:
+      - /dev/input:/dev/input
+      - /run/udev:/run/udev:ro
+      - ${BAG_DIRECTORY}:/bags
+    privileged: true

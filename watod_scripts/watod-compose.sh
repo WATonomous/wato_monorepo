@@ -86,8 +86,13 @@ MONO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$MONO_DIR"
 
 # Standard compose file sets
-declare -a DEFAULT_PRE_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "-f" "modules/docker-compose.dep.yaml")
-declare -a DEFAULT_ALL_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "-f" "modules/docker-compose.dep.yaml" "-f" "modules/docker-compose.dev.yaml")
+declare -a WATCLOUD_COMPOSE_FILES=()
+if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
+  WATCLOUD_COMPOSE_FILES=("-f" "modules/docker-compose.watcloud.yaml")
+fi
+
+declare -a DEFAULT_PRE_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "-f" "modules/docker-compose.dep.yaml")
+declare -a DEFAULT_ALL_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "-f" "modules/docker-compose.dep.yaml" "-f" "modules/docker-compose.dev.yaml" "-f" "modules/docker-compose.bag.yaml")
 
 # Use custom compose files if provided, otherwise use defaults
 if [[ ${#CUSTOM_PRE_COMPOSE_FILES[@]} -gt 0 ]]; then
@@ -132,7 +137,7 @@ done
 # If build, run PRE-BUILD stage (source and dependency stages)
 if [[ "${COMPOSE_CMD[0]}" == "build" && ${#PRE_PROFILES[@]} -gt 0 ]]; then
   echo "RUNNING PRE-BUILD"
-  run_docker_compose "${PRE_COMPOSE_FILES[@]}" "${PRE_PROFILE_FLAGS[@]}" build
+  run_docker_compose "${PRE_COMPOSE_FILES[@]}" "${PRE_PROFILE_FLAGS[@]}" build "${EXTRA_COMPOSE_ARGS[@]}"
 
   # In CI, push PRE-BUILD images to registry
   if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then

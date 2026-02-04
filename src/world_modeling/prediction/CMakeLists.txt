@@ -26,12 +26,13 @@ endif()
 # ---- General ROS 2 Packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
 
 # ---- Msg Packages
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
+find_package(world_model_msgs REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 
@@ -39,7 +40,6 @@ add_library(prediction_lib
   src/trajectory_predictor.cpp
   src/intent_classifier.cpp
   src/motion_models.cpp
-  src/map_interface.cpp
 )
 
 set_target_properties(prediction_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -52,23 +52,24 @@ target_include_directories(prediction_lib
 # Link ROS2 dependencies required by package
 target_link_libraries(prediction_lib
   rclcpp::rclcpp
-  rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
   ${std_msgs_TARGETS}
   ${geometry_msgs_TARGETS}
   ${vision_msgs_TARGETS}
+  ${world_model_msgs_TARGETS}
   Eigen3::Eigen
   )
 
-add_library(prediction_node SHARED src/prediction_node.cpp)
+add_executable(prediction_node src/prediction_node.cpp)
 target_link_libraries(prediction_node prediction_lib)
-rclcpp_components_register_nodes(prediction_node "prediction::PredictionNode")
 
-install(TARGETS
-  prediction_lib
-  prediction_node
+install(TARGETS prediction_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+
+install(TARGETS prediction_node
+  DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
   config

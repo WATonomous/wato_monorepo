@@ -30,48 +30,162 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
-  # World Model (Lifecycle Node)
+  # Simple Prediction - bridges Detection3DArray to WorldObjectArray
+  - node:
+      pkg: simple_prediction
+      exec: simple_prediction_node
+      name: simple_prediction_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share simple_prediction)/config/params.yaml
+      remap:
+        - from: tracks_3d
+          to: /carla/tracked_detections_3d
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
+
+  # World Model
   - node:
       pkg: world_model
       exec: world_model_node
       name: world_model
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
         - from: $(var config_file)
       remap:
-        - from: "detections"
-          to: "/bbox_publisher/tracked_detections_3d"
+        - from: "world_object_seeds"
+          to: "/world_modeling/world_object_seeds"
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "map_visualization"
+          to: "lanelet/map_visualization"
+        - from: "route_ahead"
+          to: "lanelet/route_ahead"
+        - from: "lanelet_ahead"
+          to: "lanelet/lanelet_ahead"
 
   # Lanelet Visualization Markers
   - node:
       pkg: lanelet_markers
       exec: map_viz_markers_node
       name: map_viz_markers_node
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "map_visualization"
+          to: "lanelet/map_visualization"
+        - from: "markers"
+          to: "lanelet/map_viz_markers"
 
   - node:
       pkg: lanelet_markers
       exec: lane_context_markers_node
       name: lane_context_markers_node
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share lanelet_markers)/config/lanelet_markers.yaml
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "markers"
+          to: "lanelet/lane_context_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: route_ahead_markers_node
+      name: route_ahead_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "route_ahead"
+          to: "lanelet/route_ahead"
+        - from: "markers"
+          to: "lanelet/route_ahead_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: area_occupancy_markers_node
+      name: area_occupancy_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "area_occupancy"
+          to: "area_occupancy"
+        - from: "markers"
+          to: "area_occupancy_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: lanelet_ahead_markers_node
+      name: lanelet_ahead_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "lanelet_ahead"
+          to: "lanelet/lanelet_ahead"
+        - from: "markers"
+          to: "lanelet/lanelet_ahead_markers"
+
+  # World Model Visualization Markers
+  # Pre-enrichment: subscribes to world_object_seeds (from simple_prediction)
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: world_objects_markers_seed_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "world_objects"
+          to: "/world_modeling/world_object_seeds"
+        - from: "markers"
+          to: "world_objects_markers"
+
+  # Post-enrichment: subscribes to world_objects (from world model)
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: world_objects_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      remap:
+        - from: "world_objects"
+          to: "/world_modeling/world_objects"
+        - from: "markers"
+          to: "dynamic_objects_markers"
 
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node
       name: world_modeling_lifecycle_manager
-      namespace: ""
+      namespace: "world_modeling"
       output: screen
       param:
         - name: node_names
-          value: ["world_model"]
+          value:
+            - /world_modeling/simple_prediction_node
+            - /world_modeling/world_model
+            - /world_modeling/map_viz_markers_node
+            - /world_modeling/lane_context_markers_node
+            - /world_modeling/route_ahead_markers_node
+            - /world_modeling/lanelet_ahead_markers_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

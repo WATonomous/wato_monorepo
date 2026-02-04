@@ -23,6 +23,7 @@ launch:
       pkg: carla_scenarios
       exec: scenario_server
       name: scenario_server
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
@@ -37,20 +38,21 @@ launch:
       pkg: carla_lifecycle
       exec: lifecycle_manager
       name: carla_lifecycle_manager
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
           value: false
         - name: scenario_server_name
-          value: scenario_server
+          value: /carla/scenario_server
         - name: node_names
           value:
-            - carla_localization
-            - carla_teleop
-            - ackermann_control
-            - lidar_publisher
-            - bbox_publisher
-            - pygame_hud
+            - /carla/carla_localization
+            - /carla/carla_teleop
+            - /carla/ackermann_control
+            - /carla/lidar_publisher
+            - /carla/bbox_publisher
+            - /carla/pygame_hud
         - name: service_timeout
           value: 10.0
         - name: startup_retry_interval
@@ -61,6 +63,7 @@ launch:
       pkg: carla_localization
       exec: localization
       name: carla_localization
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
@@ -74,6 +77,7 @@ launch:
       pkg: carla_teleop
       exec: teleop
       name: carla_teleop
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
@@ -87,6 +91,7 @@ launch:
       pkg: carla_control
       exec: ackermann_control
       name: ackermann_control
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
@@ -100,6 +105,7 @@ launch:
       pkg: carla_perception
       exec: lidar_publisher
       name: lidar_publisher
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
@@ -113,6 +119,7 @@ launch:
       pkg: carla_perception
       exec: bbox_publisher
       name: bbox_publisher
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
@@ -126,6 +133,7 @@ launch:
       pkg: carla_pygame
       exec: pygame_hud
       name: pygame_hud
+      namespace: carla
       output: screen
       if: $(var pygame_hud_enabled)
       param:
@@ -142,12 +150,13 @@ launch:
       pkg: vision_msgs_markers
       exec: vision_msgs_markers_node
       name: bbox_markers
+      namespace: carla
       output: screen
       param:
         - name: use_sim_time
           value: true
       remap:
         - from: detections_in
-          to: /bbox_publisher/detections_3d
+          to: /carla/detections_3d
         - from: markers_out
           to: /carla/bbox_markers

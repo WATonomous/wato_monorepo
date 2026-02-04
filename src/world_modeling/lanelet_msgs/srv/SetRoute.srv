@@ -2,7 +2,7 @@
 # Set a route destination and resolve lanelet IDs.
 #
 # Gets ego position from TF, finds nearest lanelet to ego and goal point,
-# computes and caches the full route for use by GetRoute.
+# computes and caches the full route for use by GetShortestRoute.
 
 geometry_msgs/Point goal_point
 

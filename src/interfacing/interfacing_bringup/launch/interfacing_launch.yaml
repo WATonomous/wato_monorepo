@@ -47,8 +47,17 @@ launch:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
 
   # Hikrobot Cameras
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container_mt
+      name: cameras_container
+      namespace: ""
+
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_container"
 
   # Joystick Node
   - include:
@@ -61,3 +70,6 @@ launch:
   # OSCC interfacing Node
   - include:
       file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
+  # PID Control Node
+  - include:
+      file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"

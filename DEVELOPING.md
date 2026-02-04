@@ -27,6 +27,7 @@ watod --help
   - Note: for full DevContainer experience, run `watod -t` on a container that is denoted as a `DevContainer`. More information about DevContainers [here](#devcontainers)
 - **Testing**: Run colcon tests across $ACTIVE_MODULES with (`watod test`)
 - **ROS bag management**: Record and play ROS2 bags with automatic mounting (`watod bag <command>`)
+- **VSCode Setup**: Configure local VSCode IntelliSense by extracting headers from containers (`watod -s`)
 
 To begin using `watod`, edit the [`watod-config.sh`](./watod-config.sh) or create a copy called `watod-config.local.sh` to configure important settings for `watod` like $ACTIVE_MODULES which defines which docker services to start.
 
@@ -60,8 +61,23 @@ To setup a DevContainer:
     1. **Terminal Access** Access a devcontainer through your terminal with `watod -t $DEVCONTAINER_NAME`. Replace `$DEVCONTAINER_NAME` with the name of the container that was denoted as `(DevContainer)` when you ran `watod up`
     1. **VSCode Access** Install the DevContainer extension on vscode. Then do `Ctrl+Shift+P` and select `Dev Containers: Attach to Running Container...`. Then select the container prepended with `_dev` as the container you want to connect VSCode into.
 
-1. Once you are inside a DevContainer, make sure you work in `~/ament_ws/`. All `src` files relevant to the module will be mounted from the monorepo to `~/ament_ws/src`. This means that any changes you make in `~/ament_ws/src` will reflect out to the `wato_monorepo`. `~/ament_ws` is a default ROS2 workspace where you can run commands like `colcon`.
+1. Once you are inside a DevContainer, make sure you work in `/ws/`. All `src` files relevant to the module will be mounted from the monorepo to `/ws/src`. This means that any changes you make in `/ws/src` will reflect out to the `wato_monorepo`. `/ws` is a default ROS2 workspace where you can run commands like `colcon`.
 1. Manage git changes outside of the devcontainer.
+
+## VSCode Setup (Local Development)
+
+If you strictly develop locally (not using DevContainers) but want IntelliSense to work with ROS dependencies, you can use `watod -s`.
+
+```bash
+watod -s [module_name] # defaults to infrastructure if no module specified or "all"
+```
+
+This command:
+1. Starts a temporary container for the specified module
+1. Extracts ROS headers and other dependencies to `/tmp/deps`
+1. Generates/Updates `.vscode/c_cpp_properties.json` and `.vscode/settings.json` to point to these headers
+
+**Note:** You must run this command whenever you switch branches or update dependencies to keep your intellisense up to date.
 
 ## Pre-commit
 
@@ -98,7 +114,17 @@ More on bags can be found here: https://docs.ros.org/en/humble/Tutorials/Beginne
 #### To Use
 [**Download rosbags for local development here!**](https://drive.google.com/drive/folders/127Kw3o7Org474rkK1wwMDRZKiYHaR0Db)
 
-We expose `ros2 bag` CLI through watod with some hardcoded constraints (mcap bag format and 20GB bag splitting).
+We expose `ros2 bag` CLI through watod with defaults optimized for high-bandwidth sensor recording:
+- **MCAP format** (efficient columnar storage)
+- **20GB bag splitting** (reduces single-file write pressure)
+- **Compression disabled** (maximizes write throughput for ~1.5 GB/s sensor data)
+
+To enable compression if needed (e.g., for smaller files at the cost of CPU):
+
+```bash
+watod bag record --compression-mode file --compression-format lz4 -a  # LZ4 is fast
+watod bag record --compression-mode file --compression-format zstd -a # zstd is smaller but slower
+```
 
 To view all possible commands, run the following:
 
@@ -142,6 +168,40 @@ If you are using WATcloud, play-only bags exist in:
 /mnt/wato-drive2/rosbags2 # Old rosbag recordings
 ```
 
+### Recording with Profiles (`watod run`)
+
+For production recording with preconfigured sensor sets, use `watod run` which launches the rosbag2 recorder as a node with optimized settings.
+
+**Available profiles:**
+
+| Profile | Description |
+|---------|-------------|
+| `all_sensors` | All cameras (rect only), all LiDARs, GPS, IMU |
+| `camera_only` | All cameras (rect only), GPS, IMU (no LiDAR) |
+| `lidar_only` | All LiDARs, GPS, IMU (no cameras) |
+
+**Usage:**
+
+```bash
+watod run all_sensors              # Record with all_sensors profile
+watod run camera_only              # Record cameras only
+watod run lidar_only               # Record LiDARs only
+watod run all_sensors -o my_bag    # Custom output name
+watod run --list                   # List available profiles
+```
+
+**Adding new profiles:**
+
+Create a new YAML file in `src/infrastructure/bag_recorder/config/` following the existing format. The profile will automatically be available via `watod run <profile_name>`.
+
+**Tab completion:**
+
+Tab completion is installed automatically with `watod install`. To enable manually:
+
+```bash
+source ./watod_scripts/watod_completion.bash
+```
+
 ## Simulation
 
 Eve uses Carla Simulator for offline tests. See [CARLA_README.md](src/simulation/CARLA_README.md).
@@ -182,6 +242,25 @@ Click the link to bringup a page containing all the logs of each of the containe
 To facilitate efficient interprocess communication, we utilize the [Zenoh middleware (rmw_zenoh)](https://github.com/ros2/rmw_zenoh/tree/rolling) with [shared memory support](https://zenoh.io/docs/manual/abstractions/#shared-memory).
 
 What this means is, in the context of ROS2 messages, topics are discovered and routed through Zenoh's peer-to-peer protocol, with large messages automatically passed through shared memory for zero-copy data transfer between processes on the same machine.
+
+### Zenoh High-Throughput Tuning
+
+The Zenoh configs in `docker/config/` have been tuned for high-bandwidth sensor data (12 cameras at 1024×1280, 3 LiDARs). Key settings:
+
+| Setting | Default | Tuned | Purpose |
+|---------|---------|-------|---------|
+| `rx.buffer_size` | 64 KB | 16 MB | Reduces fragmentation for ~3.75 MB images |
+| `queue.size.*` | 2 | 8-16 | Handles concurrent sensor publishers |
+| `drop.wait_before_drop` | 1 ms | 10 ms | More time for large message batching |
+| `drop.max_wait_before_drop_fragments` | 50 ms | 200 ms | Accommodates ~60 fragments per image |
+| `tcp.so_rcvbuf/so_sndbuf` | OS default | 16 MB | Larger TCP socket buffers |
+| `shared_memory.pool_size` | 48 MB | 512 MB | Fits 12 cameras with burst headroom |
+
+**Memory impact:** These settings increase memory usage to ~1.5 GB for the router and ~2 GB across all nodes (~3.5 GB total). Requires 16+ GB system RAM.
+
+**Config files:**
+- `docker/config/rmw_zenoh_router_config.json5` - Router settings
+- `docker/config/rmw_zenoh_session_config.json5` - Node/session settings
 
 ## ROS2 Intraprocess Communication
 While Zenoh's shared memory support provides efficient zero-copy message passing, we can achieve even faster communication by using [rclcpp_components](https://github.com/ros2/rclcpp/tree/master/rclcpp_components) to form component containers where multiple nodes share the same process.
