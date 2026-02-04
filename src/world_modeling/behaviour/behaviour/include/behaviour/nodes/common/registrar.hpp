@@ -9,7 +9,7 @@
 // actions
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
-// #include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
+#include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
 
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
 
@@ -31,14 +31,17 @@ public:
     {
         BT::RosNodeParams get_shortest_route_params = params;
         BT::RosNodeParams set_route_params = params;
+        BT::RosNodeParams get_lanelets_by_reg_elem_params = params;
+
         // TODO(wato): adjust timeouts as needed
         get_shortest_route_params.server_timeout = std::chrono::milliseconds(50000); // 50s response timeout
         set_route_params.server_timeout = std::chrono::milliseconds(50000);
+        get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(5000);
 
         // actions
         factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
         factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
-        // factory.registerNodeType<behaviour::GetLaneletsByRegElemService>("GetLaneletsByRegElem");
+        factory.registerNodeType<behaviour::GetLaneletsByRegElemService>("GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
         factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
 
         // conditions

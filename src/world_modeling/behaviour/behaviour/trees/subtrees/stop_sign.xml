@@ -1,38 +1,46 @@
-<BehaviorTree ID="YieldSubTree">
-    <Sequence name="Handle Stop Sign">
-        <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="STOP_SIGN" />
+<root BTCPP_format="4" main_tree_to_execute="StopSignSubTree">
 
-        <SetWallService stop_line_id="{active_traffic_control_lanelet_id}" command="1"
-            service_name="/world_modeling/spawn_wall" />
+    <BehaviorTree ID="StopSignSubTree">
+        <Sequence name="Handle Stop Sign">
+            <!-- PLACEHOLDER for WALL OF DOOM -->
+            <ExecuteBehaviour behaviour="spawn_wall" topic_name="/execute_behaviour" />
 
-        <EgoStopped ego_velocity="{ego_state.velocity_mps}" threshold_velocity="0.10" />
+            <EgoStopped ego_velocity="{ego_velocity}" threshold_velocity="0.10" />
 
-        <GetStopSignCars
-            active_traffic_control_element="{active_traffic_control_element}"
-            dynamic_objects_snapshot="{dynamic_objects.snapshot}"
-            include_right_of_way="true"
-            out_car_ids="{stop_sign.car_ids}" />
+            <!-- Fetch lanelets controlled by this regulatory element -->
+            <ReactiveSequence>
+                <GetLaneletsByRegElem reg_elem_id="{active_traffic_control_element_id}"
+                    lanelets="{stop_sign.lanelets}"
+                    error_message="{get_lanelets_by_reg_elem_error_msg}" />
 
-        <SetStopSignLatchedCars
-            active_traffic_control_element="{active_traffic_control_element}"
-            in_current_ids="{stop_sign.car_ids}"
-            out_baseline_ids="{stop_sign.latched_ids}" />
+                <!-- Current cars near stop line(s) on yield lanelets -->
+                <GetStopSignCars stop_sign="{active_traffic_control_element}"
+                    lanelets="{stop_sign.lanelets}"
+                    threshold_m="8.0"
+                    dynamic_objects_snapshot="{dynamic_objects.snapshot}"
+                    out_stop_sign_car_ids="{stop_sign.current_ids}" />
 
-        <!-- gap timer lives here -->
-        <StopSignCanProceed
-            active_traffic_control_element="{active_traffic_control_element}"
-            in_current_ids="{stop_sign.car_ids}"
-            in_baseline_ids="{stop_sign.latched_ids}"
-            gap_time_s="1.5" />
+                <!-- Latch baseline priority set (wire output back into the same BB key) -->
+                <SetStopSignPriorityCars
+                    current_car_ids="{stop_sign.current_ids}"
+                    priority_car_ids="{stop_sign.priority_ids}"
+                    priority_latched="{stop_sign.priority_latched}"
+                    out_priority_car_ids="{stop_sign.priority_ids}"
+                    out_priority_latched="{stop_sign.priority_latched}"
+                />
 
-        <SetWallService stop_line_id="{active_traffic_control_lanelet_id}" command="0"
-            service_name="/world_modeling/despawn_wall" />
+                <!-- Can proceed if priority ids no longer appear in current ids -->
+                <StopSignCanProceed priority_ids="{stop_sign.priority_ids}"
+                    current_ids="{stop_sign.current_ids}" />
+            </ReactiveSequence>
 
-        <!-- TODO: Add condition to see if passed intersection -->
+            <!-- PLACEHOLDER for WALL OF DOOM -->
+            <ExecuteBehaviour behaviour="despawn_wall" topic_name="/execute_behaviour" />
 
-        <ClearActiveTrafficControlElement
-            active_traffic_control_element="{active_traffic_control_element}" />
+            <ClearStopSignPriorityCarsAction
+                priority_car_ids="{stop_sign.priority_ids}"
+                priority_latched="{stop_sign.priority_latched}" />
 
-        <ClearStopSignLatchedCars out_baseline_ids="{stop_sign.latched_ids}" />
-    </Sequence>
-</BehaviorTree>
+        </Sequence>
+    </BehaviorTree>
+</root>

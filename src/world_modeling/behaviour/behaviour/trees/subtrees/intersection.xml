@@ -1,8 +1,8 @@
-<root BTCPP_format="4" main_tree_to_execute="IntersectionTree">
-  <include path="subtrees/yield.xml" />
-  <include path="subtrees/stop_sign.xml" />
-  <include path="subtrees/traffic_light.xml" />
-  <BehaviorTree ID="IntersectionTree">
+<root BTCPP_format="4" main_tree_to_execute="IntersectionSubTree">
+  <include path="yield.xml" />
+  <include path="stop_sign.xml" />
+  <!-- <include path="traffic_light.xml" /> -->
+  <BehaviorTree ID="IntersectionSubTree">
     <Sequence>
       <GetIntersectionContext
         lane_ctx="{current_lane_ctx}"
@@ -22,20 +22,34 @@
           <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="STOP_SIGN" />
 
           <!-- subtree to handle stop sign -->
+          <SubTree
+            ID="StopSignSubTree"
+            stop_sign="{active_traffic_control_element}"
+            stop_sign_id="{active_traffic_control_element_id}"
+          />
 
+          <ClearActiveTrafficControlElement
+            active_traffic_control_element="{active_traffic_control_element}" />
         </Sequence>
         <Sequence name="Handle TRAFFIC_LIGHT Element">
           <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
             expected="TRAFFIC_LIGHT" />
 
           <!-- subtree to handle traffic light -->
+          <!-- todo -->
 
         </Sequence>
         <Sequence name="Handle YIELD Element">
           <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="YIELD" />
 
-          <!-- subtree to handle yield -->
+          <SubTree
+            ID="YieldSubTree"
+            yield_sign="{active_traffic_control_element}"
+            yield_sign_id="{active_traffic_control_element_id}"
+          />
 
+          <ClearActiveTrafficControlElement
+            active_traffic_control_element="{active_traffic_control_element}" />
         </Sequence>
       </Fallback>
     </Sequence>

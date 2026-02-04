@@ -20,7 +20,7 @@
 #include <utility>
 
 #include "behaviour/nodes/common/registrar.hpp"
-// #include "behaviour/nodes/intersection/registrar.hpp"
+#include "behaviour/nodes/intersection/registrar.hpp"
 #include "behaviour/nodes/lane_navigation/registrar.hpp"
 
 namespace behaviour
@@ -61,11 +61,11 @@ namespace behaviour
 
     // load all the node registrars
     CommonNodeRegistrar common_registrar;
-    // IntersectionNodeRegistrar intersection_registrar;
+    IntersectionNodeRegistrar intersection_registrar;
     LaneNavigationNodeRegistrar lane_navigation_registrar;
 
     common_registrar.register_nodes(factory_, params);
-    // intersection_registrar.register_nodes(factory_, params);
+    intersection_registrar.register_nodes(factory_, params);
     lane_navigation_registrar.register_nodes(factory_, params);
   }
 

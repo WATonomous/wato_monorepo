@@ -39,14 +39,14 @@ namespace behaviour
     {
       return {
           BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("reg_elem"),
-          BT::InputPort<types::TrafficControlType>("expected"),
+          BT::InputPort<std::string>("expected"),
       };
     }
 
     BT::NodeStatus tick() override
     {
       auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
-      auto expected = ports::tryGet<types::TrafficControlType>(*this, "expected");
+      auto expected = ports::tryGet<std::string>(*this, "expected");
 
       if (!reg_elem)
       {
@@ -60,7 +60,7 @@ namespace behaviour
         return BT::NodeStatus::FAILURE;
       }
 
-      std::cout << "[IsRegulatoryElementTypeCondition]: Comparing msg='" << reg_elem->subtype << "' to expected='" << *expected << "'" << std::endl;
+      std::cout << "[IsRegulatoryElementTypeCondition]: Comparing msg='" << reg_elem->subtype << "' to expected='" << expected.value() << "'" << std::endl;
       return (reg_elem->subtype == expected.value()) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
     }
   };

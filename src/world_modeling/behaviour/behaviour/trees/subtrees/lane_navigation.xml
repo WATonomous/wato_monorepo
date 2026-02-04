@@ -1,5 +1,5 @@
-<root BTCPP_format="4" main_tree_to_execute="NavigationTree">
-  <BehaviorTree ID="NavigationTree">
+<root BTCPP_format="4" main_tree_to_execute="LaneNavigationSubTree">
+  <BehaviorTree ID="LaneNavigationSubTree">
     <Fallback name="Execute Navigation">
       <Sequence>
         <GetRouteContext route="{global_route}" route_index_map="{global_route_index_map}"

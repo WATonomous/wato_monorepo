@@ -1,34 +1,20 @@
-<BehaviorTree ID="YieldSubTree">
-    <Sequence name="Handle Yield">
-        <!-- Preconditions -->
-        <ActiveTrafficControlElementExist
-            active_traffic_control_element="{active_traffic_control_element}" />
-        <IsRegulatoryElementType
-            active_traffic_control_element="{active_traffic_control_element}"
-            expected="yield" />
+<root BTCPP_format="4" main_tree_to_execute="YieldSubTree">
 
-        <!-- Wall of doom: spawn immediately (placeholder service semantics) -->
-        <SetWallService
-            stop_line_id="{active_traffic_control_lanelet_id}"
-            command="1"
-            service_name="/world_modeling/spawn_wall" />
+    <BehaviorTree ID="YieldSubTree">
+        <Sequence name="Handle Yield">
+            <!-- PLACEHOLDER for WALL OF DOOM -->
+            <ExecuteBehaviour behaviour="spawn_wall" topic_name="/execute_behaviour" />
 
-        <!-- Wait until yield lanes are clear for a gap -->
-        <YieldCanProceed
-            active_traffic_control_element="{active_traffic_control_element}"
-            dynamic_objects_snapshot="{dynamic_objects.snapshot}"
-        />
+            <!-- Wait until yield lanes are clear for a gap -->
+            <YieldCanProceed
+                active_traffic_control_element="{yield_sign}"
+                dynamic_objects_snapshot="{dynamic_objects.snapshot}"
+            />
+            <!-- PLACEHOLDER for WALL OF DOOM -->
+            <ExecuteBehaviour behaviour="despawn_wall" topic_name="/execute_behaviour" />
 
-        <!-- Despawn wall -->
-        <SetWallService
-            stop_line_id="{active_traffic_control_lanelet_id}"
-            command="0"
-            service_name="/world_modeling/despawn_wall" />
 
-        <!-- TODO: Add condition to see if passed intersection -->
-
-        <!-- Clear the latched element so we can detect the next one -->
-        <ClearActiveTrafficControlElement
-            active_traffic_control_element="{active_traffic_control_element}" />
-    </Sequence>
-</BehaviorTree>
+            <!-- TODO: Add condition to see if passed intersection -->
+        </Sequence>
+    </BehaviorTree>
+</root>

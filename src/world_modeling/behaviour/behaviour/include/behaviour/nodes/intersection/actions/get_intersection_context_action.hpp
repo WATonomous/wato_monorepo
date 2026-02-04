@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__ACTIONS__GET_INTERSECTION_CONTEXT_ACTION_HPP_
-#define BEHAVIOUR__NODES__ACTIONS__GET_INTERSECTION_CONTEXT_ACTION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_INTERSECTION_CONTEXT_ACTION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_INTERSECTION_CONTEXT_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
 
@@ -57,11 +57,11 @@ namespace behaviour
           BT::InputPort<lanelet_msgs::msg::CurrentLaneContext::SharedPtr>("lane_ctx"),
           BT::InputPort<lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr>("route"),
           BT::InputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("route_index_map"),
-          BT::InputPort<int>("k_lookahead_lanelet", 5),
-          BT::InputPort<double>("lookahead_threshold_m", 40.0),
+          BT::InputPort<double>("lookahead_threshold_m"),
           BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("in_active_traffic_control_element"),
           BT::OutputPort<int64_t>("out_active_traffic_control_lanelet_id"),
           BT::OutputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("out_active_traffic_control_element"),
+          BT::OutputPort<int64_t>("out_active_traffic_control_element_id"),
       };
     }
 
@@ -77,7 +77,7 @@ namespace behaviour
       auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
       auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
       auto route_index_map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_index_map");
-      auto lookahead_threshold_m = ports::tryGet<int>(*this, "lookahead_threshold_m").value_or(20);
+      auto lookahead_threshold_m = ports::tryGet<double>(*this, "lookahead_threshold_m").value_or(40.0);
 
       if (!lane_ctx)
       {
@@ -121,7 +121,7 @@ namespace behaviour
         const double dist = lane_ctx->upcoming_lanelet_distances_m[i];
         if (dist < 0.0)
           continue; // if your msg ever uses -1
-        if (dist > lookahead_distance_m)
+        if (dist > lookahead_threshold_m)
           break; // distances are increasing in order
 
         const int64_t lanelet_id = lane_ctx->upcoming_lanelet_ids[i];
@@ -136,6 +136,7 @@ namespace behaviour
         {
           setOutput("out_active_traffic_control_lanelet_id", lanelet_id);
           setOutput("out_active_traffic_control_element", elem);
+          setOutput("out_active_traffic_control_element_id", elem->id);
           return BT::NodeStatus::SUCCESS;
         }
       }
@@ -193,4 +194,4 @@ namespace behaviour
 
 } // namespace behaviour
 
-#endif // BEHAVIOUR__NODES__ACTIONS__GET_INTERSECTION_CONTEXT_ACTION_HPP_
+#endif // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_INTERSECTION_CONTEXT_ACTION_HPP_

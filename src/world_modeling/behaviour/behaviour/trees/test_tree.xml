@@ -59,7 +59,7 @@
                 </Fallback>
 
                 <!-- navigation and intersection behaviour run in parallel -->
-                <Parallel>
+                <ParallelAll max_failures="-1">
 
                     <!-- NAVIGATION -->
                     <SubTree ID="LaneNavigationSubTree"
@@ -71,10 +71,13 @@
 
                     <!-- INTERSECTION -->
 
-                    <!-- intersection subtree -->
+                    <SubTree ID="IntersectionSubTree"
+                        global_route="{global_route}"
+                        global_route_index_map="{global_route_index_map}"
+                    />
 
                     <!-- INTERSECTION -->
-                </Parallel>
+                </ParallelAll>
 
             </ReactiveSequence>
 
