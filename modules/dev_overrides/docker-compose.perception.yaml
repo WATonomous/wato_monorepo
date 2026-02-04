@@ -21,3 +21,5 @@ services:
     command: tail -F anything
     volumes:
       - ${MONO_DIR}/src/perception/camera_object_detection:/home/bolty/ament_ws/src/camera_object_detection
+      - ${MONO_DIR}/src/wato_msgs/perception_msgs/camera_object_detection_msgs:/home/bolty/ament_ws/src/camera_object_detection_msgs
+      - ${MONO_DIR}:/perception_models

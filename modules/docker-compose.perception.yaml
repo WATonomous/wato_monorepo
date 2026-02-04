@@ -21,7 +21,7 @@ services:
       cache_from:
         - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_${TAG}"
         - "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:build_main"
-      target: develop
+      target: build
     image: "${PERCEPTION_CAMERA_OBJECT_DETECTION_IMAGE:?}:${TAG}"
     shm_size: 8G
     deploy:
@@ -33,5 +33,5 @@ services:
               capabilities: [gpu]
     command: /bin/bash -c "ros2 launch camera_object_detection nuscenes.launch.py"
     volumes:
-      - /mnt/wato-drive/perception_models:/perception_models
+      - /home/watonomous/brianzheng/wato_monorepo:/perception_models
       - /mnt/wato-drive/nuscenes:/home/bolty/ament_ws/nuscenes

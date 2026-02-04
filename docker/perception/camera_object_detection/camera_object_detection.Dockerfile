@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:humble-ubuntu22.04
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
 
 ################################ Source ################################
 FROM ${BASE_IMAGE} AS source
@@ -32,7 +32,7 @@ RUN apt-get update && \
 RUN set -eux; \
     apt-get update -qq && apt-get install -qq -y --no-install-recommends \
         ca-certificates gnupg wget; \
-    wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb; \
+    wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb; \
     dpkg -i cuda-keyring_1.1-1_all.deb; \
     rm -f cuda-keyring_1.1-1_all.deb; \
     apt-get update -qq && apt-get install -qq -y --no-install-recommends \
@@ -44,13 +44,13 @@ RUN set -eux; \
 # Python packages
 WORKDIR /tmp
 COPY src/perception/camera_object_detection/requirements.txt ./requirements.txt
-RUN python3 -m pip install --no-cache-dir -r requirements.txt && rm requirements.txt
+RUN python3 -m pip install --no-cache-dir --ignore-installed -r requirements.txt && rm requirements.txt
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
 RUN apt-get update -qq && \
     xargs -a /tmp/colcon_install_list apt-fast install -qq -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*v
+    rm -rf /var/lib/apt/lists/*
 
 # Extra runtime ROS package
 RUN apt-get update && \
@@ -77,10 +77,11 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 # RMW Configurations
-COPY docker/dds_config.xml ${WATONOMOUS_INSTALL}/dds_config.xml
+COPY docker/config/rmw_zenoh_router_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_router_config.json5
+COPY docker/config/rmw_zenoh_session_config.json5 ${WATONOMOUS_INSTALL}/rmw_zenoh_session_config.json5
 
 # Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
-COPY docker/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+COPY docker/config/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
 ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 
 ################################ Prod ################################

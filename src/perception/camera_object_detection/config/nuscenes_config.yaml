@@ -7,6 +7,8 @@ camera_object_detection_node:
     publish_vis_topic: false
     publish_obstacle_topic: /obstacles
     model_path: /perception_models/yolov8m.pt
+    onnx_model_path: /perception_models/yolov8m.onnx
+    tensorRT_model_path: /perception_models/yolov8m.engine
     image_size: 640
     nuscenes: true
     compressed: true
