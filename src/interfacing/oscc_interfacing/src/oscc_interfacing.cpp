@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 #include <rclcpp_components/register_node_macro.hpp>
 
@@ -152,10 +153,8 @@ void OsccInterfacingNode::configure()
   oscc_can_bus_ = this->get_parameter("oscc_can_bus").as_int();
   steering_scaling_ = this->get_parameter("steering_scaling").as_double();
 
-  if ( steering_scaling_ > 1.0 || steering_scaling_ <= 0.0 ) {
-    RCLCPP_ERROR(
-      this->get_logger(),
-      "Steering scaling parameter out of range (0.0, 1.0], resetting to 1.0");
+  if (steering_scaling_ > 1.0 || steering_scaling_ <= 0.0) {
+    RCLCPP_ERROR(this->get_logger(), "Steering scaling parameter out of range (0.0, 1.0], resetting to 1.0");
     steering_scaling_ = 1.0;
   }
 
@@ -246,7 +245,8 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
     return;
   }
   if (std::abs(steering) > 1.0) {
-    RCLCPP_ERROR(this->get_logger(), "Steering command out of range [-1, 1], this should not happen! Ignoring message.");
+    RCLCPP_ERROR(
+      this->get_logger(), "Steering command out of range [-1, 1], this should not happen! Ignoring message.");
     return;
   }
 
@@ -279,7 +279,7 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   }
 
   // always pub steering
-  handle_any_errors(oscc_publish_steering_torque(steering*steering_scaling_));
+  handle_any_errors(oscc_publish_steering_torque(steering * steering_scaling_));
 
   last_forward_ = forward;
 }

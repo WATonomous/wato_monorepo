@@ -14,6 +14,11 @@
 
 #pragma once
 
+extern "C"
+{
+#include <oscc.h>
+}
+
 #include <memory>
 #include <mutex>
 #include <string>
@@ -21,15 +26,10 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <roscco_msg/msg/roscco.hpp>
+#include <roscco_msg/msg/steering_angle.hpp>
 #include <roscco_msg/msg/wheel_speeds.hpp>
 #include <std_msgs/msg/bool.hpp>
-#include <roscco_msg/msg/steering_angle.hpp>
 #include <std_srvs/srv/set_bool.hpp>
-
-extern "C"
-{
-#include <oscc.h>
-}
 
 /*
 
