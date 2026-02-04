@@ -1,0 +1,7 @@
+geometry_msgs/Pose pose
+float64 length
+float64 width
+---
+bool success
+int64 wall_id
+string error_message

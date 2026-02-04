@@ -26,6 +26,8 @@
 #include <rclcpp/node_options.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <wato_test/wato_test.hpp>
 
 #include "patchworkpp/ground_removal_core.hpp"
@@ -157,9 +159,23 @@ TEST_CASE_METHOD(
   wato::test::TestExecutorFixture, "Node segments point cloud into ground and non-ground", "[node][integration]")
 {
   rclcpp::NodeOptions options;
-  options.append_parameter_override("sensor_height", 1.5);
+  options.append_parameter_override("base_frame", "base_link");
   auto node = std::make_shared<GroundRemovalNode>(options);
   add_node(node);
+
+  // Publish a static transform: base_link -> test_frame with z=1.5 (sensor height)
+  auto tf_node = std::make_shared<rclcpp::Node>("tf_broadcaster_test_node");
+  add_node(tf_node);
+  auto tf_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(tf_node);
+  geometry_msgs::msg::TransformStamped tf_msg;
+  tf_msg.header.stamp = rclcpp::Clock().now();
+  tf_msg.header.frame_id = "base_link";
+  tf_msg.child_frame_id = "test_frame";
+  tf_msg.transform.translation.x = 0.0;
+  tf_msg.transform.translation.y = 0.0;
+  tf_msg.transform.translation.z = 1.5;
+  tf_msg.transform.rotation.w = 1.0;
+  tf_broadcaster->sendTransform(tf_msg);
 
   auto ground_sub =
     std::make_shared<wato::test::SubscriberTestNode<sensor_msgs::msg::PointCloud2>>(GroundRemovalNode::kGroundTopic);

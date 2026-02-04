@@ -1,0 +1,195 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "costmap/costmap_node.hpp"
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+#include "costmap/layers/objects_layer.hpp"
+#include "costmap/layers/pointcloud_layer.hpp"
+#include "costmap/layers/virtual_wall_layer.hpp"
+#include "rclcpp/rclcpp.hpp"
+
+namespace costmap
+{
+
+static const std::unordered_map<
+  std::string,
+  std::function<std::unique_ptr<CostmapLayer>()>> kLayerFactory = {
+  {"objects", [] { return std::make_unique<ObjectsLayer>(); }},
+  {"pointcloud", [] { return std::make_unique<PointCloudLayer>(); }},
+  {"virtual_wall", [] { return std::make_unique<VirtualWallLayer>(); }},
+};
+
+CostmapNode::CostmapNode(const rclcpp::NodeOptions & options)
+: rclcpp_lifecycle::LifecycleNode("costmap_node", options)
+{
+  declare_parameter("costmap_frame", "base_link");
+  declare_parameter("map_frame", "map");
+  declare_parameter("publish_rate_hz", 20.0);
+  declare_parameter("grid_width_m", 60.0);
+  declare_parameter("grid_height_m", 60.0);
+  declare_parameter("resolution", 0.25);
+  declare_parameter("layers", std::vector<std::string>{"objects", "virtual_wall"});
+}
+
+CostmapNode::CallbackReturn CostmapNode::on_configure(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  costmap_frame_ = get_parameter("costmap_frame").as_string();
+  map_frame_ = get_parameter("map_frame").as_string();
+  publish_rate_hz_ = get_parameter("publish_rate_hz").as_double();
+  grid_width_m_ = get_parameter("grid_width_m").as_double();
+  grid_height_m_ = get_parameter("grid_height_m").as_double();
+  resolution_ = get_parameter("resolution").as_double();
+  layer_names_ = get_parameter("layers").as_string_array();
+
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+  costmap_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>("costmap", rclcpp::QoS(10));
+
+  for (const auto & name : layer_names_) {
+    auto it = kLayerFactory.find(name);
+    if (it == kLayerFactory.end()) {
+      RCLCPP_ERROR(get_logger(), "Unknown layer type: '%s'", name.c_str());
+      return CallbackReturn::FAILURE;
+    }
+    auto layer = it->second();
+    layer->configure(this, name, tf_buffer_.get());
+    layers_.push_back(std::move(layer));
+  }
+
+  RCLCPP_INFO(
+    get_logger(), "Configured with %zu layers, %.2f Hz, %.1f x %.1f m @ %.2f m/cell",
+    layers_.size(), publish_rate_hz_, grid_width_m_, grid_height_m_, resolution_);
+
+  return CallbackReturn::SUCCESS;
+}
+
+CostmapNode::CallbackReturn CostmapNode::on_activate(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  costmap_pub_->on_activate();
+
+  for (auto & layer : layers_) {
+    layer->activate();
+  }
+
+  const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
+  publish_timer_ = create_wall_timer(
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+    std::bind(&CostmapNode::publishCostmap, this));
+
+  RCLCPP_INFO(get_logger(), "Activated");
+  return CallbackReturn::SUCCESS;
+}
+
+CostmapNode::CallbackReturn CostmapNode::on_deactivate(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  publish_timer_.reset();
+
+  for (auto & layer : layers_) {
+    layer->deactivate();
+  }
+
+  costmap_pub_->on_deactivate();
+
+  RCLCPP_INFO(get_logger(), "Deactivated");
+  return CallbackReturn::SUCCESS;
+}
+
+CostmapNode::CallbackReturn CostmapNode::on_cleanup(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  for (auto & layer : layers_) {
+    layer->cleanup();
+  }
+  layers_.clear();
+  layer_names_.clear();
+
+  costmap_pub_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+
+  RCLCPP_INFO(get_logger(), "Cleaned up");
+  return CallbackReturn::SUCCESS;
+}
+
+CostmapNode::CallbackReturn CostmapNode::on_shutdown(
+  const rclcpp_lifecycle::State & /*state*/)
+{
+  publish_timer_.reset();
+  for (auto & layer : layers_) {
+    layer->cleanup();
+  }
+  layers_.clear();
+
+  costmap_pub_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+
+  RCLCPP_INFO(get_logger(), "Shut down");
+  return CallbackReturn::SUCCESS;
+}
+
+void CostmapNode::publishCostmap()
+{
+  geometry_msgs::msg::TransformStamped map_to_costmap;
+  try {
+    map_to_costmap = tf_buffer_->lookupTransform(
+      costmap_frame_, map_frame_, tf2::TimePointZero);
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000, "TF lookup failed: %s", ex.what());
+    return;
+  }
+
+  nav_msgs::msg::OccupancyGrid grid;
+  grid.header.stamp = now();
+  grid.header.frame_id = costmap_frame_;
+  grid.info.resolution = static_cast<float>(resolution_);
+  grid.info.width = static_cast<uint32_t>(grid_width_m_ / resolution_);
+  grid.info.height = static_cast<uint32_t>(grid_height_m_ / resolution_);
+
+  // Center grid on the costmap frame origin
+  grid.info.origin.position.x = -grid_width_m_ / 2.0;
+  grid.info.origin.position.y = -grid_height_m_ / 2.0;
+  grid.info.origin.orientation.w = 1.0;
+
+  grid.data.assign(grid.info.width * grid.info.height, 0);
+
+  for (auto & layer : layers_) {
+    layer->update(grid, map_to_costmap);
+  }
+
+  costmap_pub_->publish(grid);
+}
+
+}  // namespace costmap
+
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<costmap::CostmapNode>();
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  executor.spin();
+  rclcpp::shutdown();
+  return 0;
+}

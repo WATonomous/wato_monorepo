@@ -170,6 +170,27 @@ launch:
         - from: "markers"
           to: "dynamic_objects_markers"
 
+  # Costmap Node
+  - node:
+      pkg: costmap
+      exec: costmap_node
+      name: costmap_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: world_objects
+          to: /world_modeling/world_objects
+        - from: costmap
+          to: /world_modeling/costmap
+        - from: pointcloud
+          to: /perception/non_ground_cloud
+        - from: spawn_wall
+          to: /world_modeling/spawn_wall
+        - from: despawn_wall
+          to: /world_modeling/despawn_wall
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -182,6 +203,7 @@ launch:
           value:
             - /world_modeling/simple_prediction_node
             - /world_modeling/world_model
+            - /world_modeling/costmap_node
             - /world_modeling/map_viz_markers_node
             - /world_modeling/lane_context_markers_node
             - /world_modeling/route_ahead_markers_node

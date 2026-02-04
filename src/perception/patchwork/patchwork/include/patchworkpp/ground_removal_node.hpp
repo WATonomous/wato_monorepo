@@ -30,6 +30,8 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include "patchworkpp/ground_removal_core.hpp"
 // clang-format on
@@ -175,6 +177,12 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr nonground_publisher_;
 
   std::unique_ptr<GroundRemovalCore> core_;
+
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;  ///< TF2 buffer for transform lookups
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;  ///< TF2 transform listener
+  std::string base_frame_;  ///< Base frame for sensor height calculation
+  patchwork::Params patchwork_params_;  ///< Stored params for deferred core construction
+  bool sensor_height_resolved_{false};  ///< Whether sensor height has been resolved via TF
 
   rclcpp::QoS subscriber_qos_;  ///< QoS profile for point cloud subscriber (configured in on_configure)
   rclcpp::QoS publisher_qos_;  ///< QoS profile for publishers (configured in on_configure)
