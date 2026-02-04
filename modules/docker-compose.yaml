@@ -144,7 +144,7 @@ services:
         - "${PERCEPTION_IMAGE:?}:main"
       target: deploy
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
-    command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
+    command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
     volumes:
       - /mnt/wato-drive2/perception_models:/perception_models
     environment:

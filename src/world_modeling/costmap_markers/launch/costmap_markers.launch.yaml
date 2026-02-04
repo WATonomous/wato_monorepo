@@ -11,20 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.8)
-project(perception_bringup)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
-# find dependencies
-find_package(ament_cmake REQUIRED)
-
-install(DIRECTORY
-  config
-  launch
-  DESTINATION share/${PROJECT_NAME}/
-)
-
-ament_package()
+launch:
+  - node:
+      pkg: costmap_markers
+      exec: costmap_markers_node
+      name: costmap_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share costmap_markers)/config/params.yaml
+      remap:
+        - from: footprint
+          to: /world_modeling/costmap_footprint
+        - from: markers
+          to: /world_modeling/costmap_footprint_markers
