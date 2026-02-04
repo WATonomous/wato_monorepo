@@ -47,7 +47,6 @@ KinematicState BicycleModel::propagate(const KinematicState & initial_state, dou
   next_state.y = initial_state.y + initial_state.v * std::sin(initial_state.theta) * dt;
   next_state.theta = initial_state.theta + initial_state.v * std::tan(initial_state.delta) / wheelbase_ * dt;
 
-  // ========== Forward Backward Solver ==========
   // Ensures deceleration before sharp corner
   double curvature = std::abs(std::tan(initial_state.delta) / wheelbase_);
   const double max_lateral_a = 4.0;  // default, TBD
@@ -101,7 +100,7 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
   const double lookahead_distance = 3.0;
 
   while (t < horizon) {
-    // ========== Pure Pursuit Logic ==========
+    // compute heading with pure pursuit logic
     double min_distance = std::numeric_limits<double>::max();
     size_t closest_idx = 0;
 
@@ -158,7 +157,7 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
     // propagate state by dt in seconds
     current_state = propagate(current_state, dt);
 
-    // ========== Create PoseStamped with embedded timestamp ==========
+    // create PoseStamped for current state
     geometry_msgs::msg::PoseStamped pose_stamped;
     pose_stamped.header.frame_id = frame_id;
     pose_stamped.header.stamp = start_time + rclcpp::Duration::from_seconds(t);
