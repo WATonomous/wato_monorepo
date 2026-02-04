@@ -23,7 +23,7 @@
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/wheel_speeds.hpp>
 #include <std_msgs/msg/bool.hpp>
-#include <std_msgs/msg/float32.hpp>
+#include <roscco_msg/msg/steering_angle.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 
 extern "C"
@@ -107,7 +107,7 @@ private:
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
   rclcpp::Publisher<roscco_msg::msg::WheelSpeeds>::SharedPtr wheel_speeds_pub_;
-  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr steering_wheel_angle_pub_;
+  rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr steering_wheel_angle_pub_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr arm_service_;
 
   // Timer for 100Hz is_armed publication

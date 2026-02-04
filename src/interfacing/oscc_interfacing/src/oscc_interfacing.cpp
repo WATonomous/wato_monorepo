@@ -170,7 +170,7 @@ void OsccInterfacingNode::configure()
     this->create_publisher<roscco_msg::msg::WheelSpeeds>("/oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
 
   steering_wheel_angle_pub_ =
-    this->create_publisher<std_msgs::msg::Float32>("/oscc_interfacing/steering_wheel_angle", rclcpp::QoS(1));
+    this->create_publisher<roscco_msg::msg::SteeringAngle>("/oscc_interfacing/steering_wheel_angle", rclcpp::QoS(1));
 
   // Create arm service
   arm_service_ = this->create_service<std_srvs::srv::SetBool>(
@@ -338,13 +338,15 @@ void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, flo
   msg.nw = NW;
   msg.se = SE;
   msg.sw = SW;
+  msg.header.stamp = this->now();
   wheel_speeds_pub_->publish(msg);
 }
 
 void OsccInterfacingNode::publish_steering_wheel_angle(float angle_degrees)
 {
-  std_msgs::msg::Float32 msg;
-  msg.data = angle_degrees;
+  roscco_msg::msg::SteeringAngle msg;
+  msg.angle = angle_degrees;
+  msg.header.stamp = this->now();
   steering_wheel_angle_pub_->publish(msg);
 }
 

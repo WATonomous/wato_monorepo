@@ -46,7 +46,7 @@ target_include_directories(oscc_interfacing PUBLIC
 )
 
 # Link dependencies to library
-target_link_libraries(oscc_interfacing PUBLIC
+target_link_libraries(oscc_interfacing
   rclcpp::rclcpp
   rclcpp_components::component
   ${sensor_msgs_TARGETS}
