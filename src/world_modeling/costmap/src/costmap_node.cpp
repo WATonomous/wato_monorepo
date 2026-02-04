@@ -17,6 +17,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
@@ -25,8 +26,8 @@ namespace costmap
 {
 
 CostmapNode::CostmapNode(const rclcpp::NodeOptions & options)
-: rclcpp_lifecycle::LifecycleNode("costmap_node", options),
-  layer_loader_("costmap", "costmap::CostmapLayer")
+: rclcpp_lifecycle::LifecycleNode("costmap_node", options)
+, layer_loader_("costmap", "costmap::CostmapLayer")
 {
   declare_parameter("costmap_frame", "base_link");
   declare_parameter("map_frame", "map");

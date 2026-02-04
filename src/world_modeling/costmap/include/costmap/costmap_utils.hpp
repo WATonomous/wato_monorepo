@@ -41,8 +41,7 @@ void markBox(
 /**
  * @brief Inflate a single grid cell with a decaying cost kernel.
  */
-void inflateCell(
-  nav_msgs::msg::OccupancyGrid & grid, int row, int col, double inflation_m, double cost_decay);
+void inflateCell(nav_msgs::msg::OccupancyGrid & grid, int row, int col, double inflation_m, double cost_decay);
 
 }  // namespace costmap
 

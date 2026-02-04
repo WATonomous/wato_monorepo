@@ -103,7 +103,11 @@ void VirtualWallLayer::update(
       tf2::doTransform(wall.pose, pose_out, tf);
     } catch (const tf2::TransformException & ex) {
       RCLCPP_WARN_THROTTLE(
-        node_->get_logger(), *node_->get_clock(), 2000, "VirtualWallLayer TF lookup failed for wall %d: %s", id,
+        node_->get_logger(),
+        *node_->get_clock(),
+        2000,
+        "VirtualWallLayer TF lookup failed for wall %d: %s",
+        id,
         ex.what());
       continue;
     }

@@ -71,8 +71,7 @@ void markBox(
   }
 }
 
-void inflateCell(
-  nav_msgs::msg::OccupancyGrid & grid, int row, int col, double inflation_m, double cost_decay)
+void inflateCell(nav_msgs::msg::OccupancyGrid & grid, int row, int col, double inflation_m, double cost_decay)
 {
   const auto & info = grid.info;
   const double res = info.resolution;
