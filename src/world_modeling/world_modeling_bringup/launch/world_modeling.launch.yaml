@@ -186,10 +186,27 @@ launch:
           to: /world_modeling/costmap
         - from: pointcloud
           to: /perception/non_ground_cloud
+        - from: footprint
+          to: /world_modeling/costmap_footprint
         - from: spawn_wall
           to: /world_modeling/spawn_wall
         - from: despawn_wall
           to: /world_modeling/despawn_wall
+
+  # Costmap Footprint Markers
+  - node:
+      pkg: costmap_markers
+      exec: costmap_markers_node
+      name: costmap_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: footprint
+          to: /world_modeling/costmap_footprint
+        - from: markers
+          to: /world_modeling/costmap_footprint_markers
 
   # Lifecycle Manager
   - node:

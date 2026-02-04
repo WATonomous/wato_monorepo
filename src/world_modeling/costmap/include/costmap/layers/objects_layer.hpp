@@ -55,6 +55,7 @@ private:
   world_model_msgs::msg::WorldObjectArray::SharedPtr latest_objects_;
 
   double bbox_inflation_m_{0.5};
+  double bbox_cost_decay_{1.0};
   double prediction_inflation_m_{0.3};
   double prediction_cost_decay_{0.8};
 };

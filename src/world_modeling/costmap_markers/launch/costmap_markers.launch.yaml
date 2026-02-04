@@ -13,29 +13,15 @@
 # limitations under the License.
 
 launch:
-  - arg:
-      name: config_file
-      default: $(find-pkg-share costmap)/config/params.yaml
-      description: Path to the costmap configuration file
-
   - node:
-      pkg: costmap
-      exec: costmap_node
-      name: costmap_node
-      namespace: "world_modeling"
+      pkg: costmap_markers
+      exec: costmap_markers_node
+      name: costmap_markers_node
       output: screen
       param:
-        - from: $(var config_file)
+        - from: $(find-pkg-share costmap_markers)/config/params.yaml
       remap:
-        - from: world_objects
-          to: /world_modeling/world_objects
-        - from: costmap
-          to: /world_modeling/costmap
-        - from: pointcloud
-          to: /perception/non_ground_cloud
         - from: footprint
           to: /world_modeling/costmap_footprint
-        - from: spawn_wall
-          to: /world_modeling/spawn_wall
-        - from: despawn_wall
-          to: /world_modeling/despawn_wall
+        - from: markers
+          to: /world_modeling/costmap_footprint_markers

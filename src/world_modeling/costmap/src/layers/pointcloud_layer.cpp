@@ -15,6 +15,7 @@
 #include "costmap/layers/pointcloud_layer.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -34,9 +35,14 @@ void PointCloudLayer::configure(
 
   node_->declare_parameter("layers." + layer_name_ + ".max_height_m", 0.0);
   node_->declare_parameter("layers." + layer_name_ + ".min_height_m", 0.0);
-
+  node_->declare_parameter("layers." + layer_name_ + ".inflation_m", 0.0);
+  node_->declare_parameter("layers." + layer_name_ + ".cost_decay", 0.0);
   max_height_m_ = node_->get_parameter("layers." + layer_name_ + ".max_height_m").as_double();
   min_height_m_ = node_->get_parameter("layers." + layer_name_ + ".min_height_m").as_double();
+  inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".inflation_m").as_double();
+  cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".cost_decay").as_double();
+  footprint_front_left_ = node_->get_parameter("footprint_front_left").as_double_array();
+  footprint_rear_right_ = node_->get_parameter("footprint_rear_right").as_double_array();
 }
 
 void PointCloudLayer::activate()
@@ -140,6 +146,24 @@ void PointCloudLayer::update(
       continue;
     }
 
+    // Exclude points inside the robot footprint (front_left / rear_right corners)
+    if (
+      footprint_front_left_.size() == 2 && footprint_rear_right_.size() == 2 &&
+      (footprint_front_left_[0] != footprint_rear_right_[0] || footprint_front_left_[1] != footprint_rear_right_[1]))
+    {
+      double fl_x = footprint_front_left_[0];
+      double fl_y = footprint_front_left_[1];
+      double rr_x = footprint_rear_right_[0];
+      double rr_y = footprint_rear_right_[1];
+      double min_x = std::min(fl_x, rr_x);
+      double max_x = std::max(fl_x, rr_x);
+      double min_y = std::min(fl_y, rr_y);
+      double max_y = std::max(fl_y, rr_y);
+      if (pt_out.point.x >= min_x && pt_out.point.x <= max_x && pt_out.point.y >= min_y && pt_out.point.y <= max_y) {
+        continue;
+      }
+    }
+
     // Compute grid cell
     int col = static_cast<int>((pt_out.point.x - ox) / res);
     int row = static_cast<int>((pt_out.point.y - oy) / res);
@@ -148,8 +172,32 @@ void PointCloudLayer::update(
       continue;
     }
 
-    int idx = row * w + col;
-    grid.data[idx] = std::max(grid.data[idx], static_cast<int8_t>(100));
+    // Mark center cell at full cost
+    grid.data[row * w + col] = std::max(grid.data[row * w + col], static_cast<int8_t>(100));
+
+    // Inflate surrounding cells with decaying cost
+    if (inflation_m_ > 0.0 && cost_decay_ > 0.0) {
+      int inf_cells = static_cast<int>(std::ceil(inflation_m_ / res));
+      for (int dr = -inf_cells; dr <= inf_cells; ++dr) {
+        for (int dc = -inf_cells; dc <= inf_cells; ++dc) {
+          if (dr == 0 && dc == 0) {
+            continue;
+          }
+          int nr = row + dr;
+          int nc = col + dc;
+          if (nr < 0 || nr >= h || nc < 0 || nc >= w) {
+            continue;
+          }
+          double dist = std::sqrt(static_cast<double>(dr * dr + dc * dc)) * res;
+          if (dist > inflation_m_) {
+            continue;
+          }
+          int8_t cost = static_cast<int8_t>(std::max(1.0, 100.0 * std::pow(cost_decay_, dist / res)));
+          int idx = nr * w + nc;
+          grid.data[idx] = std::max(grid.data[idx], cost);
+        }
+      }
+    }
   }
 }
 

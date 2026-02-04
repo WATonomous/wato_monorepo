@@ -45,6 +45,8 @@ CostmapNode::CostmapNode(const rclcpp::NodeOptions & options)
   declare_parameter("grid_height_m", 60.0);
   declare_parameter("resolution", 0.25);
   declare_parameter("layers", std::vector<std::string>{"objects", "virtual_wall"});
+  declare_parameter("footprint_front_left", std::vector<double>{0.0, 0.0});
+  declare_parameter("footprint_rear_right", std::vector<double>{0.0, 0.0});
 }
 
 CostmapNode::CallbackReturn CostmapNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
@@ -56,11 +58,14 @@ CostmapNode::CallbackReturn CostmapNode::on_configure(const rclcpp_lifecycle::St
   grid_height_m_ = get_parameter("grid_height_m").as_double();
   resolution_ = get_parameter("resolution").as_double();
   layer_names_ = get_parameter("layers").as_string_array();
+  footprint_front_left_ = get_parameter("footprint_front_left").as_double_array();
+  footprint_rear_right_ = get_parameter("footprint_rear_right").as_double_array();
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   costmap_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>("costmap", rclcpp::QoS(10));
+  footprint_pub_ = create_publisher<geometry_msgs::msg::PolygonStamped>("footprint", rclcpp::QoS(10));
 
   for (const auto & name : layer_names_) {
     auto it = kLayerFactory.find(name);
@@ -88,6 +93,7 @@ CostmapNode::CallbackReturn CostmapNode::on_configure(const rclcpp_lifecycle::St
 CostmapNode::CallbackReturn CostmapNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   costmap_pub_->on_activate();
+  footprint_pub_->on_activate();
 
   for (auto & layer : layers_) {
     layer->activate();
@@ -110,6 +116,7 @@ CostmapNode::CallbackReturn CostmapNode::on_deactivate(const rclcpp_lifecycle::S
   }
 
   costmap_pub_->on_deactivate();
+  footprint_pub_->on_deactivate();
 
   RCLCPP_INFO(get_logger(), "Deactivated");
   return CallbackReturn::SUCCESS;
@@ -176,6 +183,42 @@ void CostmapNode::publishCostmap()
   }
 
   costmap_pub_->publish(grid);
+
+  // Publish footprint polygon (front_left and rear_right define opposite corners)
+  if (
+    footprint_front_left_.size() == 2 && footprint_rear_right_.size() == 2 &&
+    (footprint_front_left_[0] != footprint_rear_right_[0] || footprint_front_left_[1] != footprint_rear_right_[1]))
+  {
+    geometry_msgs::msg::PolygonStamped footprint;
+    footprint.header.stamp = grid.header.stamp;
+    footprint.header.frame_id = costmap_frame_;
+
+    const auto fl_x = static_cast<float>(footprint_front_left_[0]);
+    const auto fl_y = static_cast<float>(footprint_front_left_[1]);
+    const auto rr_x = static_cast<float>(footprint_rear_right_[0]);
+    const auto rr_y = static_cast<float>(footprint_rear_right_[1]);
+
+    geometry_msgs::msg::Point32 pt;
+    pt.z = 0.0f;
+
+    pt.x = fl_x;
+    pt.y = fl_y;
+    footprint.polygon.points.push_back(pt);  // Front-left
+
+    pt.x = fl_x;
+    pt.y = rr_y;
+    footprint.polygon.points.push_back(pt);  // Front-right
+
+    pt.x = rr_x;
+    pt.y = rr_y;
+    footprint.polygon.points.push_back(pt);  // Rear-right
+
+    pt.x = rr_x;
+    pt.y = fl_y;
+    footprint.polygon.points.push_back(pt);  // Rear-left
+
+    footprint_pub_->publish(footprint);
+  }
 }
 
 }  // namespace costmap

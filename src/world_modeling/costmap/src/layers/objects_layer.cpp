@@ -31,10 +31,12 @@ void ObjectsLayer::configure(
   tf_buffer_ = tf_buffer;
 
   node_->declare_parameter("layers." + layer_name_ + ".bbox_inflation_m", 0.5);
+  node_->declare_parameter("layers." + layer_name_ + ".bbox_cost_decay", 1.0);
   node_->declare_parameter("layers." + layer_name_ + ".prediction_inflation_m", 0.3);
   node_->declare_parameter("layers." + layer_name_ + ".prediction_cost_decay", 0.8);
 
   bbox_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".bbox_inflation_m").as_double();
+  bbox_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".bbox_cost_decay").as_double();
   prediction_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".prediction_inflation_m").as_double();
   prediction_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".prediction_cost_decay").as_double();
 }
@@ -151,17 +153,24 @@ void ObjectsLayer::update(
     pose_in.pose = bbox.center;
     tf2::doTransform(pose_in, pose_out, obj_to_costmap);
 
-    double half_x = bbox.size.x / 2.0 + bbox_inflation_m_;
-    double half_y = bbox.size.y / 2.0 + bbox_inflation_m_;
+    double obj_yaw = yawFromQuat(pose_out.pose.orientation);
+    double base_half_x = bbox.size.x / 2.0;
+    double base_half_y = bbox.size.y / 2.0;
 
-    markBox(
-      grid,
-      pose_out.pose.position.x,
-      pose_out.pose.position.y,
-      yawFromQuat(pose_out.pose.orientation),
-      half_x,
-      half_y,
-      100);
+    // Mark inflated region at decayed cost, then original bbox at full cost
+    if (bbox_inflation_m_ > 0.0) {
+      int8_t inflated_cost = static_cast<int8_t>(std::max(1.0, 100.0 * bbox_cost_decay_));
+      markBox(
+        grid,
+        pose_out.pose.position.x,
+        pose_out.pose.position.y,
+        obj_yaw,
+        base_half_x + bbox_inflation_m_,
+        base_half_y + bbox_inflation_m_,
+        inflated_cost);
+    }
+
+    markBox(grid, pose_out.pose.position.x, pose_out.pose.position.y, obj_yaw, base_half_x, base_half_y, 100);
 
     // Project prediction poses with decaying cost
     for (const auto & prediction : obj.predictions) {

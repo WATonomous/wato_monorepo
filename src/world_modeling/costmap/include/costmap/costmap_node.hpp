@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "costmap/costmap_layer.hpp"
+#include "geometry_msgs/msg/polygon_stamped.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -52,11 +53,14 @@ private:
   double grid_width_m_;
   double grid_height_m_;
   double resolution_;
+  std::vector<double> footprint_front_left_;
+  std::vector<double> footprint_rear_right_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PolygonStamped>::SharedPtr footprint_pub_;
   rclcpp::TimerBase::SharedPtr publish_timer_;
 
   std::vector<std::string> layer_names_;

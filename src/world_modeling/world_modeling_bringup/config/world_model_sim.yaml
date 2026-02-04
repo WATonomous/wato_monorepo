@@ -99,19 +99,24 @@
     costmap_frame: "base_link"
     map_frame: "map"
     publish_rate_hz: 30.0
-    grid_width_m: 60.0
-    grid_height_m: 60.0
-    resolution: 0.25
+    grid_width_m: 100.0
+    grid_height_m: 100.0
+    resolution: 0.1
+    footprint_front_left: [2.5, 1.0]
+    footprint_rear_right: [-1.5, -1.0]
     layers: ["objects", "pointcloud", "virtual_wall"]
 
     # ObjectsLayer params
-    layers.objects.bbox_inflation_m: 0.5
+    layers.objects.bbox_inflation_m: 0.2
+    layers.objects.bbox_cost_decay: 0.3
     layers.objects.prediction_inflation_m: 0.3
-    layers.objects.prediction_cost_decay: 0.8
+    layers.objects.prediction_cost_decay: 0.3
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 2.0
     layers.pointcloud.min_height_m: 0.1
+    layers.pointcloud.inflation_m: 0.3
+    layers.pointcloud.cost_decay: 0.1
 
     # VirtualWallLayer has no params (walls managed via services)
 
@@ -184,6 +189,16 @@
     lanelet_centerline_color_b: 0.8
     lanelet_centerline_alpha: 0.2
     entity_class_hypothesis_index: 0
+
+# =============================================================================
+# Costmap Footprint Marker Node
+# =============================================================================
+
+/**/costmap_markers_node:
+  ros__parameters:
+    frame_id: "base_link"
+    footprint_color: [0.5, 0.0, 1.0, 0.8]
+    footprint_line_width: 0.1
 
 # Post-enrichment (subscribes to world_objects from world model)
 /**/world_objects_markers_node:

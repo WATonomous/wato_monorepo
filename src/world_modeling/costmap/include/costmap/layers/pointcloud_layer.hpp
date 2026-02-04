@@ -17,6 +17,7 @@
 
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "costmap/costmap_layer.hpp"
 #include "rclcpp/subscription.hpp"
@@ -52,6 +53,10 @@ private:
 
   double max_height_m_{0.0};
   double min_height_m_{0.0};
+  double inflation_m_{0.0};
+  double cost_decay_{0.0};
+  std::vector<double> footprint_front_left_;
+  std::vector<double> footprint_rear_right_;
 };
 
 }  // namespace costmap
