@@ -5,7 +5,7 @@
   <BehaviorTree ID="IntersectionSubTree">
     <Sequence>
       <GetIntersectionContext
-        lane_ctx="{current_lane_ctx}"
+        lane_ctx="{@current_lane_ctx}"
         route="{global_route}"
         route_index_map="{global_route_index_map}"
         lookahead_threshold_m="40.0"
@@ -19,7 +19,7 @@
 
       <Fallback name="Handle Traffic Control Element">
         <Sequence name="Handle STOP_SIGN Element">
-          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="STOP_SIGN" />
+          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="stop_sign" />
 
           <!-- subtree to handle stop sign -->
           <SubTree
@@ -33,14 +33,14 @@
         </Sequence>
         <Sequence name="Handle TRAFFIC_LIGHT Element">
           <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
-            expected="TRAFFIC_LIGHT" />
+            expected="traffic_light" />
 
           <!-- subtree to handle traffic light -->
           <!-- todo -->
 
         </Sequence>
         <Sequence name="Handle YIELD Element">
-          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="YIELD" />
+          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="yield" />
 
           <SubTree
             ID="YieldSubTree"

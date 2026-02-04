@@ -17,7 +17,7 @@
                 <GetStopSignCars stop_sign="{active_traffic_control_element}"
                     lanelets="{stop_sign.lanelets}"
                     threshold_m="8.0"
-                    dynamic_objects_snapshot="{dynamic_objects.snapshot}"
+                    dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
                     out_stop_sign_car_ids="{stop_sign.current_ids}" />
 
                 <!-- Latch baseline priority set (wire output back into the same BB key) -->

@@ -8,7 +8,7 @@
             <!-- Wait until yield lanes are clear for a gap -->
             <YieldCanProceed
                 active_traffic_control_element="{yield_sign}"
-                dynamic_objects_snapshot="{dynamic_objects.snapshot}"
+                dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
             />
             <!-- PLACEHOLDER for WALL OF DOOM -->
             <ExecuteBehaviour behaviour="despawn_wall" topic_name="/execute_behaviour" />

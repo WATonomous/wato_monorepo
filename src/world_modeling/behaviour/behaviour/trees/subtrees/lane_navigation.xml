@@ -3,7 +3,7 @@
     <Fallback name="Execute Navigation">
       <Sequence>
         <GetRouteContext route="{global_route}" route_index_map="{global_route_index_map}"
-          lane_ctx="{current_lane_ctx}" out_lane_transition="{upcoming_lane_transition}"
+          lane_ctx="{@current_lane_ctx}" out_lane_transition="{upcoming_lane_transition}"
           out_next_lanelet="{target_lanelet}" />
         <Fallback name="Lane Transition Handling">
           <Sequence name="Handle SUCCESSOR Transition">
@@ -20,17 +20,16 @@
             <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
               transition="{upcoming_lane_transition}"
-              lane_ctx="{current_lane_ctx}" />
+              lane_ctx="{@current_lane_ctx}" />
 
-            <!-- TODO(wato): Improve the safe lane change -->
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{area_occupancy.snapshot}" />
+              area_occupancy_snapshot="{@area_occupancy.snapshot}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->
             <GetLaneChangePreferredLanelets
-              lane_ctx="{current_lane_ctx}"
+              lane_ctx="{@current_lane_ctx}"
               target_lanelet="{target_lanelet}"
               out_preferred_lanelet_ids="{right_lane_change_preferred_lanelet_ids}" />
             <ExecuteBehaviour
@@ -45,17 +44,16 @@
             <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
               transition="{upcoming_lane_transition}"
-              lane_ctx="{current_lane_ctx}" />
+              lane_ctx="{@current_lane_ctx}" />
 
-            <!-- TODO(wato): Improve the safe lane change -->
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{area_occupancy.snapshot}" />
+              area_occupancy_snapshot="{@area_occupancy.snapshot}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->
             <GetLaneChangePreferredLanelets
-              lane_ctx="{current_lane_ctx}"
+              lane_ctx="{@current_lane_ctx}"
               target_lanelet="{target_lanelet}"
               out_preferred_lanelet_ids="{left_lane_change_preferred_lanelet_ids}" />
             <ExecuteBehaviour
@@ -68,7 +66,7 @@
       </Sequence>
       <Sequence>
         <GetFollowLanePreferredLanelets
-          lane_ctx="{current_lane_ctx}"
+          lane_ctx="{@current_lane_ctx}"
           out_preferred_lanelet_ids="{follow_lane_preferred_lanelet_ids}" />
         <ExecuteBehaviour
           behaviour="follow lane"

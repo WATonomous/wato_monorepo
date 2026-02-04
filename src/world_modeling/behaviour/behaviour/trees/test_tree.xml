@@ -67,6 +67,7 @@
                         global_route_index_map="{global_route_index_map}"
                         global_route_lanelet_ids="{global_route_lanelet_ids}"
                     />
+
                     <!-- NAVIGATION -->
 
                     <!-- INTERSECTION -->
