@@ -1,0 +1,28 @@
+costmap_node:
+  ros__parameters:
+    costmap_frame: "base_link"
+    map_frame: "map"
+    publish_rate_hz: 20.0
+    grid_width_m: 60.0
+    grid_height_m: 60.0
+    resolution: 0.25
+    footprint_front_left: [0.0, 0.0]
+    footprint_rear_right: [0.0, 0.0]
+    layers: ["objects", "pointcloud", "virtual_wall"]
+
+    # Layer plugin types
+    layers.objects.type: "costmap::ObjectsLayer"
+    layers.pointcloud.type: "costmap::PointCloudLayer"
+    layers.virtual_wall.type: "costmap::VirtualWallLayer"
+
+    # ObjectsLayer params
+    layers.objects.bbox_inflation_m: 0.5
+    layers.objects.bbox_cost_decay: 1.0
+    layers.objects.prediction_inflation_m: 0.3
+    layers.objects.prediction_cost_decay: 0.8
+
+    # PointCloudLayer params
+    layers.pointcloud.max_height_m: 0.0
+    layers.pointcloud.min_height_m: 0.0
+    layers.pointcloud.inflation_m: 0.0
+    layers.pointcloud.cost_decay: 0.0

@@ -32,6 +32,9 @@ find_package(diagnostic_updater REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(patchworkpp_vendor REQUIRED)
@@ -75,6 +78,9 @@ target_link_libraries(${PROJECT_NAME}_node
     diagnostic_updater::diagnostic_updater
     ${sensor_msgs_TARGETS}
     ${std_msgs_TARGETS}
+    tf2::tf2
+    tf2_ros::tf2_ros
+    ${geometry_msgs_TARGETS}
     ${PROJECT_NAME}_core
   PRIVATE
     rclcpp_components::component
@@ -145,6 +151,9 @@ ament_export_dependencies(
   diagnostic_msgs
   sensor_msgs
   std_msgs
+  tf2
+  tf2_ros
+  geometry_msgs
   Eigen3
   patchworkpp_vendor
 )
@@ -154,6 +163,9 @@ if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
   find_package(lifecycle_msgs REQUIRED)
 
+  find_package(tf2_ros REQUIRED)
+  find_package(geometry_msgs REQUIRED)
+
   add_wato_test(test_ground_removal
     test/test_ground_removal_node.cpp
     LIBRARIES
@@ -161,6 +173,8 @@ if(BUILD_TESTING)
       ${PROJECT_NAME}_node
       ${lifecycle_msgs_TARGETS}
       ${sensor_msgs_TARGETS}
+      tf2_ros::tf2_ros
+      ${geometry_msgs_TARGETS}
   )
 
   set_tests_properties(test_ground_removal PROPERTIES TIMEOUT 60)

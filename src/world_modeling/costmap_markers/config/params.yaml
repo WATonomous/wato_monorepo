@@ -1,0 +1,5 @@
+costmap_markers_node:
+  ros__parameters:
+    frame_id: "base_link"
+    footprint_color: [0.0, 1.0, 0.0, 0.8]
+    footprint_line_width: 0.05
