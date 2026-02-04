@@ -1,2 +1,2 @@
 #pragma once
-struct State { double x, y, yaw, v;};
+struct State { double x, y, yaw, v, time;};

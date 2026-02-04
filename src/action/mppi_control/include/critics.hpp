@@ -17,6 +17,7 @@ public:
                             const std::vector<double>& action,
                             const std::vector<double>& prev_action);
     void set_trajectory(const std::vector<struct State>& traj);
+    double terminal_cost(double x, double y, double yaw, double v);
 
     struct Params{
         // -- Progress Cost -- 

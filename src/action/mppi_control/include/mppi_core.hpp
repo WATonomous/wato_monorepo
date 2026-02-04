@@ -82,7 +82,7 @@ private:
 
     // wheelbase length
     double L_;
-    ControlSequences control_sequences_;
+    ControlSequences noise_samples_;
 
     //optimal control sequence
     ControlSequences optimal_control_sequence_;

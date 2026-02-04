@@ -11,3 +11,8 @@ double critic::MppiCritic::evaluate(const std::vector<double>& state,
 void critic::MppiCritic::set_trajectory(const std::vector<struct State>& traj){
     desired_trajectory_ = traj; 
 }
+
+double critic::MppiCritic::terminal_cost(double x, double y, double yaw, double v){
+    // temp implementation
+    return 0.0;
+}

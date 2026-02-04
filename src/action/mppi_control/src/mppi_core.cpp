@@ -10,7 +10,7 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
     a_noise_std_(a_noise_std),
     delta_noise_std_(delta_noise_std),
     L_(L),
-    control_sequences_(num_samples, num_time_step),
+    noise_samples_(num_samples, num_time_step),
     optimal_control_sequence_(1, num_time_step),
     lambda_(lambda),
     accel_max_(accel_max),
@@ -20,8 +20,8 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
     // initialize control sequences to zero
     for (int k = 0; k < num_samples_; k++) {
         for (int t = 0; t < num_time_step_; t++) {
-            control_sequences_.A(k, t) = 0.0;
-            control_sequences_.D(k, t) = 0.0;
+            noise_samples_.A(k, t) = 0.0;
+            noise_samples_.D(k, t) = 0.0;
         }
     }
     // initialize optimal control sequence to zero
@@ -37,7 +37,7 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
 State MppiCore::step_bicycle(const State& s, double a, double delta, double dt, double L) {
     State ns = s;
 
-    //clamp inputs here: a, delta
+    //sampling noise from truncated guassian(adding clamps) - consider clamps only on nominal control inputs
 
     a = std::clamp(a, -1.0*accel_max_, accel_max_);
     delta = std::clamp(delta, -1.0*steer_angle_max_,steer_angle_max_);
@@ -59,31 +59,29 @@ Control_Output MppiCore::computeControl(){
         weighted_average_controls();
         return Control_Output{optimal_control_sequence_.A(0, 0), optimal_control_sequence_.D(0, 0)};
     };
-void MppiCore::warm_start_control_sequences(){
-    //shift optimal control sequence to control sequences
-    for(int k=0; k<num_samples_; k++){
-        for(int t=0; t<num_time_step_-1; t++){
-            control_sequences_.A(k, t) = optimal_control_sequence_.A(0, t+1);
-            control_sequences_.D(k, t) = optimal_control_sequence_.D(0, t+1);
-        }
-        //last time step set to zero
-        control_sequences_.A(k, num_time_step_-1) = 0.0;
-        control_sequences_.D(k, num_time_step_-1) = 0.0;
+void MppiCore::warm_start_control_sequences() {
+    // Shift the nominal (optimal) control sequence forward
+    for (int t = 0; t < num_time_step_ - 1; t++) {
+        optimal_control_sequence_.A(0, t) =
+            optimal_control_sequence_.A(0, t + 1);
+
+        optimal_control_sequence_.D(0, t) =
+            optimal_control_sequence_.D(0, t + 1);
     }
-};
+
+    // last time step: repeat the last control
+    optimal_control_sequence_.A(0, num_time_step_ - 1) = optimal_control_sequence_.A(0, num_time_step_ - 2);
+    optimal_control_sequence_.D(0, num_time_step_ - 1) = optimal_control_sequence_.D(0, num_time_step_ - 2);
+
+}
 
 void MppiCore::add_noise_to_control_sequences(){
         // add noise to control sequences
         for(int k=0; k<num_samples_; k++){
             for(int t=0; t<num_time_step_; t++){
-                // simple gaussian noise
-
-                double a_noise = gaussian_noise(a_noise_std_);
-                double delta_noise = gaussian_noise(delta_noise_std_);
-                //change to clamped values
-
-                control_sequences_.A(k, t) = std::clamp(control_sequences_.A(k, t) + a_noise, -1.0*accel_max_, accel_max_);
-                control_sequences_.D(k, t) = std::clamp(control_sequences_.D(k, t) + delta_noise, -1.0*steer_angle_max_, steer_angle_max_);
+                // simple gaussian noise, consider clamps
+                noise_samples_.A(k, t) = gaussian_noise(a_noise_std_);
+                noise_samples_.D(k, t) = gaussian_noise(delta_noise_std_);
             }
         }
     };
@@ -101,20 +99,33 @@ std::vector<double> MppiCore::eval_trajectories_scores(){
         // simulate trajectories based on control sequences
         for (int k=0; k<num_samples_; k++){
             State sim_state = current_state_;
+            double prev_u_a = optimal_control_sequence_.A(0, 0);
+            double prev_u_delta = optimal_control_sequence_.D(0, 0);
+
             for(int t=0; t<num_time_step_; t++){
-                double u_a = control_sequences_.A(k, t);
-                double u_delta = control_sequences_.D(k, t);
-                double prev_u_a = (t==0) ? 0.0 : control_sequences_.A(k, t-1);
-                double prev_u_delta = (t==0) ? 0.0 : control_sequences_.D(k, t-1);
+                double u_a = optimal_control_sequence_.A(0, t) + noise_samples_.A(k, t);
+                double u_delta = optimal_control_sequence_.D(0, t) + noise_samples_.D(k, t);
 
                 State old_state = sim_state;
                 sim_state = step_bicycle(sim_state, u_a, u_delta, dt_, L_);
                 // store sim_state if needed
                 trajectory_costs[k] += compute_costs(old_state, sim_state, u_a, u_delta, prev_u_a, prev_u_delta);
+                // MPPI noise quadratic term (REQUIRED)
+                trajectory_costs[k] +=
+                    0.5 *
+                    ( (noise_samples_.A(k, t) * noise_samples_.A(k, t)) /
+                        (a_noise_std_ * a_noise_std_) +
+                    (noise_samples_.D(k, t) * noise_samples_.D(k, t)) /
+                        (delta_noise_std_ * delta_noise_std_) );
+
+
+
+                prev_u_a = u_a;
+                prev_u_delta = u_delta;
             }
+            trajectory_costs[k] += critic_.terminal_cost(sim_state.x, sim_state.y, sim_state.yaw, sim_state.v);
         }
-        return trajectory_costs;
-        
+        return trajectory_costs;        
 };
 
 
@@ -157,25 +168,22 @@ void MppiCore::compute_weights() {
 
 void MppiCore::weighted_average_controls() {
     if (trajectory_weights_.size() != static_cast<size_t>(num_samples_)) {
-        //throw error
         return;
     }
 
     for (int t = 0; t < num_time_step_; t++) {
-        double a_bar = 0.0;
-        double d_bar = 0.0;
+        double delta_a = 0.0;
+        double delta_d = 0.0;
 
         for (int k = 0; k < num_samples_; k++) {
             const double w = trajectory_weights_[k];
-            a_bar += w * control_sequences_.A(k, t);
-            d_bar += w * control_sequences_.D(k, t);
+            delta_a += w * noise_samples_.A(k, t);
+            delta_d += w * noise_samples_.D(k, t);
         }
 
-        a_bar = std::clamp(a_bar, -1.0*accel_max_, accel_max_);
-        d_bar = std::clamp(d_bar, -1.0*steer_angle_max_, steer_angle_max_);
-
-        optimal_control_sequence_.A(0, t) = a_bar;
-        optimal_control_sequence_.D(0, t) = d_bar;
+        // MPPI update: add noise correction
+        optimal_control_sequence_.A(0, t) += delta_a;
+        optimal_control_sequence_.D(0, t) += delta_d;
     }
 }
 
