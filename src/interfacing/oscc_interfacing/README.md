@@ -4,7 +4,7 @@ ROS2 node that interfaces with the physical OSCC boards through OSCC CAN API
 
 This node does these things:
 
-- Subscribes to /joystick/roscco
+- Subscribes to /roscco
 
 - Publishes to /oscc_interfacing/is_armed (Just a bool, 100HZ)
 

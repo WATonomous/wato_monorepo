@@ -18,6 +18,8 @@ COPY src/world_modeling/lanelet_msgs lanelet_msgs
 COPY src/world_modeling/world_model_msgs world_model_msgs
 
 COPY src/interfacing/eve_description eve_description
+COPY src/interfacing/roscco_msg roscco_msg
+
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible

@@ -11,3 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#include <catch2/catch_test_macros.hpp>
+
+TEST_CASE("oscc_interfacing placeholder", "[oscc_interfacing]")
+{
+  REQUIRE(true);
+}

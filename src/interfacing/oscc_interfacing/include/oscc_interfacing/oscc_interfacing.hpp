@@ -35,7 +35,7 @@ extern "C"
 
 This node does these things:
 
-- Subscribes to /joystick/roscco
+- Subscribes to /roscco
 
 - Publishes to /oscc_interfacing/is_armed (Just a bool, 100HZ)
 

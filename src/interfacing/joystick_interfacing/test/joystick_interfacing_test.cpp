@@ -68,7 +68,7 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
 
   // Output
   auto ack_sub = std::make_shared<SubscriberTestNode<AckermannDriveStamped>>("/joystick/ackermann", "ack_sub");
-  auto roscco_sub = std::make_shared<SubscriberTestNode<RosccoMsg>>("/joystick/roscco", "roscco_sub");
+  auto roscco_sub = std::make_shared<SubscriberTestNode<RosccoMsg>>("/roscco", "roscco_sub");
   auto idle_sub = std::make_shared<SubscriberTestNode<Bool>>("/joystick/is_idle", "idle_sub");
   auto state_sub = std::make_shared<SubscriberTestNode<Int8>>("/joystick/state", "state_sub");
   auto feedback_sub = std::make_shared<SubscriberTestNode<JoyFeedback>>("/joy/set_feedback", "feedback_sub");

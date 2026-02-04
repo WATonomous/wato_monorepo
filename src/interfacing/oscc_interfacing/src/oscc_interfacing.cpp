@@ -158,9 +158,9 @@ void OsccInterfacingNode::configure()
     steering_scaling_ = 1.0;
   }
 
-  // Create subscription to /joystick/roscco
+  // Create subscription to /roscco
   roscco_sub_ = this->create_subscription<roscco_msg::msg::Roscco>(
-    "/joystick/roscco", rclcpp::QoS(1), std::bind(&OsccInterfacingNode::roscco_callback, this, std::placeholders::_1));
+    "/roscco", rclcpp::QoS(1), std::bind(&OsccInterfacingNode::roscco_callback, this, std::placeholders::_1));
 
   // Create publishers
   is_armed_pub_ = this->create_publisher<std_msgs::msg::Bool>("/oscc_interfacing/is_armed", rclcpp::QoS(1));
