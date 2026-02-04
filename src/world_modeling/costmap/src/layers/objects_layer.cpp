@@ -18,6 +18,7 @@
 #include <cmath>
 #include <string>
 
+#include "costmap/costmap_utils.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace costmap
@@ -62,63 +63,6 @@ void ObjectsLayer::objectsCallback(const world_model_msgs::msg::WorldObjectArray
 {
   std::lock_guard<std::mutex> lock(data_mutex_);
   latest_objects_ = msg;
-}
-
-void ObjectsLayer::markBox(
-  nav_msgs::msg::OccupancyGrid & grid, double cx, double cy, double yaw, double half_x, double half_y, int8_t cost)
-  const
-{
-  const auto & info = grid.info;
-  const double ox = info.origin.position.x;
-  const double oy = info.origin.position.y;
-  const double res = info.resolution;
-  const int w = static_cast<int>(info.width);
-  const int h = static_cast<int>(info.height);
-
-  const double cos_yaw = std::cos(yaw);
-  const double sin_yaw = std::sin(yaw);
-
-  // Corners in local frame
-  double corners_local[4][2] = {{-half_x, -half_y}, {half_x, -half_y}, {half_x, half_y}, {-half_x, half_y}};
-
-  // Transform corners to grid frame and find bounding box
-  double min_gx = 1e9, max_gx = -1e9, min_gy = 1e9, max_gy = -1e9;
-  for (auto & c : corners_local) {
-    double gx = cx + cos_yaw * c[0] - sin_yaw * c[1];
-    double gy = cy + sin_yaw * c[0] + cos_yaw * c[1];
-    min_gx = std::min(min_gx, gx);
-    max_gx = std::max(max_gx, gx);
-    min_gy = std::min(min_gy, gy);
-    max_gy = std::max(max_gy, gy);
-  }
-
-  int min_col = std::max(0, static_cast<int>((min_gx - ox) / res));
-  int max_col = std::min(w - 1, static_cast<int>((max_gx - ox) / res));
-  int min_row = std::max(0, static_cast<int>((min_gy - oy) / res));
-  int max_row = std::min(h - 1, static_cast<int>((max_gy - oy) / res));
-
-  for (int row = min_row; row <= max_row; ++row) {
-    for (int col = min_col; col <= max_col; ++col) {
-      double wx = ox + (col + 0.5) * res;
-      double wy = oy + (row + 0.5) * res;
-
-      // Transform to box-local frame
-      double dx = wx - cx;
-      double dy = wy - cy;
-      double lx = cos_yaw * dx + sin_yaw * dy;
-      double ly = -sin_yaw * dx + cos_yaw * dy;
-
-      if (std::abs(lx) <= half_x && std::abs(ly) <= half_y) {
-        int idx = row * w + col;
-        grid.data[idx] = std::max(grid.data[idx], cost);
-      }
-    }
-  }
-}
-
-static double yawFromQuat(const geometry_msgs::msg::Quaternion & q)
-{
-  return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 }
 
 void ObjectsLayer::update(
@@ -197,3 +141,6 @@ void ObjectsLayer::update(
 }
 
 }  // namespace costmap
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(costmap::ObjectsLayer, costmap::CostmapLayer)

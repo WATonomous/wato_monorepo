@@ -25,12 +25,20 @@
 namespace costmap_markers
 {
 
+/**
+ * @brief Converts a PolygonStamped footprint into a LINE_STRIP MarkerArray.
+ *
+ * Subscribes to a footprint polygon (published by costmap_node) and
+ * re-publishes it as a visualization_msgs MarkerArray for rviz2 / Foxglove.
+ * Color and line width are configurable via ROS parameters.
+ */
 class CostmapMarkersNode : public rclcpp::Node
 {
 public:
   CostmapMarkersNode();
 
 private:
+  /** @brief Build a closed LINE_STRIP marker from the polygon and publish. */
   void footprintCallback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg);
 
   rclcpp::Subscription<geometry_msgs::msg::PolygonStamped>::SharedPtr subscription_;

@@ -18,8 +18,11 @@
   <depend>world_model_msgs</depend>
   <depend>costmap_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp_components</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
+    <costmap plugin="${prefix}/plugins.xml"/>
   </export>
 </package>

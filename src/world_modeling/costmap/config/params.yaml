@@ -10,6 +10,11 @@ costmap_node:
     footprint_rear_right: [0.0, 0.0]
     layers: ["objects", "pointcloud", "virtual_wall"]
 
+    # Layer plugin types
+    layers.objects.type: "costmap::ObjectsLayer"
+    layers.pointcloud.type: "costmap::PointCloudLayer"
+    layers.virtual_wall.type: "costmap::VirtualWallLayer"
+
     # ObjectsLayer params
     layers.objects.bbox_inflation_m: 0.5
     layers.objects.bbox_cost_decay: 1.0

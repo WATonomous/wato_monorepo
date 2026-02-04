@@ -20,6 +20,7 @@
 #include <cstring>
 #include <string>
 
+#include "costmap/costmap_utils.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
@@ -177,28 +178,12 @@ void PointCloudLayer::update(
 
     // Inflate surrounding cells with decaying cost
     if (inflation_m_ > 0.0 && cost_decay_ > 0.0) {
-      int inf_cells = static_cast<int>(std::ceil(inflation_m_ / res));
-      for (int dr = -inf_cells; dr <= inf_cells; ++dr) {
-        for (int dc = -inf_cells; dc <= inf_cells; ++dc) {
-          if (dr == 0 && dc == 0) {
-            continue;
-          }
-          int nr = row + dr;
-          int nc = col + dc;
-          if (nr < 0 || nr >= h || nc < 0 || nc >= w) {
-            continue;
-          }
-          double dist = std::sqrt(static_cast<double>(dr * dr + dc * dc)) * res;
-          if (dist > inflation_m_) {
-            continue;
-          }
-          int8_t cost = static_cast<int8_t>(std::max(1.0, 100.0 * std::pow(cost_decay_, dist / res)));
-          int idx = nr * w + nc;
-          grid.data[idx] = std::max(grid.data[idx], cost);
-        }
-      }
+      inflateCell(grid, row, col, inflation_m_, cost_decay_);
     }
   }
 }
 
 }  // namespace costmap
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(costmap::PointCloudLayer, costmap::CostmapLayer)

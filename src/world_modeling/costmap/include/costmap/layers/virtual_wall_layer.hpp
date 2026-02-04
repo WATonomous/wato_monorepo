@@ -22,7 +22,7 @@
 #include "costmap/costmap_layer.hpp"
 #include "costmap_msgs/srv/despawn_wall.hpp"
 #include "costmap_msgs/srv/spawn_wall.hpp"
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "rclcpp/service.hpp"
 
 namespace costmap
@@ -30,7 +30,7 @@ namespace costmap
 
 struct Wall
 {
-  geometry_msgs::msg::Pose pose;
+  geometry_msgs::msg::PoseStamped pose;
   double length;
   double width;
 };
@@ -57,10 +57,6 @@ private:
     const costmap_msgs::srv::DespawnWall::Request::SharedPtr request,
     costmap_msgs::srv::DespawnWall::Response::SharedPtr response);
 
-  void markBox(
-    nav_msgs::msg::OccupancyGrid & grid, double cx, double cy, double yaw, double half_x, double half_y, int8_t cost)
-    const;
-
   rclcpp_lifecycle::LifecycleNode * node_{nullptr};
   tf2_ros::Buffer * tf_buffer_{nullptr};
   std::string layer_name_;
@@ -69,8 +65,8 @@ private:
   rclcpp::Service<costmap_msgs::srv::DespawnWall>::SharedPtr despawn_srv_;
 
   std::mutex walls_mutex_;
-  std::unordered_map<int64_t, Wall> walls_;
-  int64_t next_wall_id_{1};
+  std::unordered_map<int32_t, Wall> walls_;
+  int32_t next_wall_id_{1};
 };
 
 }  // namespace costmap

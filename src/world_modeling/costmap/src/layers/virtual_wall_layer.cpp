@@ -18,6 +18,7 @@
 #include <cmath>
 #include <string>
 
+#include "costmap/costmap_utils.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace costmap
@@ -66,7 +67,7 @@ void VirtualWallLayer::spawnWallCallback(
   wall.length = request->length;
   wall.width = request->width;
 
-  int64_t id = next_wall_id_++;
+  int32_t id = next_wall_id_++;
   walls_[id] = wall;
 
   response->success = true;
@@ -89,81 +90,33 @@ void VirtualWallLayer::despawnWallCallback(
   }
 }
 
-void VirtualWallLayer::markBox(
-  nav_msgs::msg::OccupancyGrid & grid, double cx, double cy, double yaw, double half_x, double half_y, int8_t cost)
-  const
-{
-  const auto & info = grid.info;
-  const double ox = info.origin.position.x;
-  const double oy = info.origin.position.y;
-  const double res = info.resolution;
-  const int w = static_cast<int>(info.width);
-  const int h = static_cast<int>(info.height);
-
-  const double cos_yaw = std::cos(yaw);
-  const double sin_yaw = std::sin(yaw);
-
-  double corners_local[4][2] = {{-half_x, -half_y}, {half_x, -half_y}, {half_x, half_y}, {-half_x, half_y}};
-
-  double min_gx = 1e9, max_gx = -1e9, min_gy = 1e9, max_gy = -1e9;
-  for (auto & c : corners_local) {
-    double gx = cx + cos_yaw * c[0] - sin_yaw * c[1];
-    double gy = cy + sin_yaw * c[0] + cos_yaw * c[1];
-    min_gx = std::min(min_gx, gx);
-    max_gx = std::max(max_gx, gx);
-    min_gy = std::min(min_gy, gy);
-    max_gy = std::max(max_gy, gy);
-  }
-
-  int min_col = std::max(0, static_cast<int>((min_gx - ox) / res));
-  int max_col = std::min(w - 1, static_cast<int>((max_gx - ox) / res));
-  int min_row = std::max(0, static_cast<int>((min_gy - oy) / res));
-  int max_row = std::min(h - 1, static_cast<int>((max_gy - oy) / res));
-
-  for (int row = min_row; row <= max_row; ++row) {
-    for (int col = min_col; col <= max_col; ++col) {
-      double wx = ox + (col + 0.5) * res;
-      double wy = oy + (row + 0.5) * res;
-
-      double dx = wx - cx;
-      double dy = wy - cy;
-      double lx = cos_yaw * dx + sin_yaw * dy;
-      double ly = -sin_yaw * dx + cos_yaw * dy;
-
-      if (std::abs(lx) <= half_x && std::abs(ly) <= half_y) {
-        int idx = row * w + col;
-        grid.data[idx] = std::max(grid.data[idx], cost);
-      }
-    }
-  }
-}
-
 void VirtualWallLayer::update(
-  nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & map_to_costmap)
+  nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & /*map_to_costmap*/)
 {
   std::lock_guard<std::mutex> lock(walls_mutex_);
 
-  const double tx = map_to_costmap.transform.translation.x;
-  const double ty = map_to_costmap.transform.translation.y;
-  const auto & q = map_to_costmap.transform.rotation;
-  const double tf_yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-  const double cos_tf = std::cos(tf_yaw);
-  const double sin_tf = std::sin(tf_yaw);
-
   for (const auto & [id, wall] : walls_) {
-    double map_x = wall.pose.position.x;
-    double map_y = wall.pose.position.y;
-    double map_yaw = std::atan2(
-      2.0 * (wall.pose.orientation.w * wall.pose.orientation.z + wall.pose.orientation.x * wall.pose.orientation.y),
-      1.0 -
-        2.0 * (wall.pose.orientation.y * wall.pose.orientation.y + wall.pose.orientation.z * wall.pose.orientation.z));
+    // Transform the wall pose from its source frame into the costmap frame
+    geometry_msgs::msg::PoseStamped pose_out;
+    try {
+      auto tf = tf_buffer_->lookupTransform(grid.header.frame_id, wall.pose.header.frame_id, tf2::TimePointZero);
+      tf2::doTransform(wall.pose, pose_out, tf);
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_WARN_THROTTLE(
+        node_->get_logger(), *node_->get_clock(), 2000, "VirtualWallLayer TF lookup failed for wall %d: %s", id,
+        ex.what());
+      continue;
+    }
 
-    double cx = cos_tf * map_x + sin_tf * map_y + tx;
-    double cy = -sin_tf * map_x + cos_tf * map_y + ty;
-    double wall_yaw = map_yaw + tf_yaw;
+    double cx = pose_out.pose.position.x;
+    double cy = pose_out.pose.position.y;
+    double wall_yaw = yawFromQuat(pose_out.pose.orientation);
 
     markBox(grid, cx, cy, wall_yaw, wall.length / 2.0, wall.width / 2.0, 100);
   }
 }
 
 }  // namespace costmap
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(costmap::VirtualWallLayer, costmap::CostmapLayer)

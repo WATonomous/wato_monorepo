@@ -17,26 +17,16 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <utility>
 #include <vector>
 
-#include "costmap/layers/objects_layer.hpp"
-#include "costmap/layers/pointcloud_layer.hpp"
-#include "costmap/layers/virtual_wall_layer.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace costmap
 {
 
-static const std::unordered_map<std::string, std::function<std::unique_ptr<CostmapLayer>()>> kLayerFactory = {
-  {"objects", [] { return std::make_unique<ObjectsLayer>(); }},
-  {"pointcloud", [] { return std::make_unique<PointCloudLayer>(); }},
-  {"virtual_wall", [] { return std::make_unique<VirtualWallLayer>(); }},
-};
-
 CostmapNode::CostmapNode(const rclcpp::NodeOptions & options)
-: rclcpp_lifecycle::LifecycleNode("costmap_node", options)
+: rclcpp_lifecycle::LifecycleNode("costmap_node", options),
+  layer_loader_("costmap", "costmap::CostmapLayer")
 {
   declare_parameter("costmap_frame", "base_link");
   declare_parameter("map_frame", "map");
@@ -68,14 +58,23 @@ CostmapNode::CallbackReturn CostmapNode::on_configure(const rclcpp_lifecycle::St
   footprint_pub_ = create_publisher<geometry_msgs::msg::PolygonStamped>("footprint", rclcpp::QoS(10));
 
   for (const auto & name : layer_names_) {
-    auto it = kLayerFactory.find(name);
-    if (it == kLayerFactory.end()) {
-      RCLCPP_ERROR(get_logger(), "Unknown layer type: '%s'", name.c_str());
+    std::string type_param = "layers." + name + ".type";
+    if (!has_parameter(type_param)) {
+      declare_parameter(type_param, "");
+    }
+    std::string plugin_type = get_parameter(type_param).as_string();
+    if (plugin_type.empty()) {
+      RCLCPP_ERROR(get_logger(), "No plugin type specified for layer '%s'", name.c_str());
       return CallbackReturn::FAILURE;
     }
-    auto layer = it->second();
-    layer->configure(this, name, tf_buffer_.get());
-    layers_.push_back(std::move(layer));
+    try {
+      auto layer = layer_loader_.createSharedInstance(plugin_type);
+      layer->configure(this, name, tf_buffer_.get());
+      layers_.push_back(std::move(layer));
+    } catch (const pluginlib::PluginlibException & ex) {
+      RCLCPP_ERROR(get_logger(), "Failed to load layer plugin '%s': %s", plugin_type.c_str(), ex.what());
+      return CallbackReturn::FAILURE;
+    }
   }
 
   RCLCPP_INFO(
@@ -223,13 +222,5 @@ void CostmapNode::publishCostmap()
 
 }  // namespace costmap
 
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<costmap::CostmapNode>();
-  rclcpp::executors::SingleThreadedExecutor executor;
-  executor.add_node(node->get_node_base_interface());
-  executor.spin();
-  rclcpp::shutdown();
-  return 0;
-}
+#include "rclcpp_components/register_node_macro.hpp"
+RCLCPP_COMPONENTS_REGISTER_NODE(costmap::CostmapNode)

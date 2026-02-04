@@ -26,6 +26,13 @@
 namespace costmap
 {
 
+/**
+ * @brief Marks cells occupied by LiDAR points within a height band.
+ *
+ * Subscribes to a PointCloud2 topic, transforms each point into the costmap
+ * frame, filters by min/max height, excludes points inside the vehicle
+ * footprint, and inflates occupied cells with a decaying cost kernel.
+ */
 class PointCloudLayer : public CostmapLayer
 {
 public:

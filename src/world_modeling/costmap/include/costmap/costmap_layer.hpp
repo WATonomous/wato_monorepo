@@ -25,11 +25,21 @@
 namespace costmap
 {
 
+/**
+ * @brief Abstract base class for costmap layers.
+ *
+ * Each layer is configured, activated, and deactivated by the CostmapNode
+ * lifecycle. On every publish cycle the node calls update() and each layer
+ * writes obstacle costs into the shared OccupancyGrid.
+ */
 class CostmapLayer
 {
 public:
   virtual ~CostmapLayer() = default;
 
+  /**
+   * @brief One-time setup: declare parameters, store node/tf pointers.
+   */
   virtual void configure(
     rclcpp_lifecycle::LifecycleNode * node, const std::string & layer_name, tf2_ros::Buffer * tf_buffer) = 0;
 
@@ -37,6 +47,11 @@ public:
   virtual void deactivate() = 0;
   virtual void cleanup() = 0;
 
+  /**
+   * @brief Write obstacle costs into @p grid.
+   * @param grid            The occupancy grid being composed by all layers.
+   * @param map_to_costmap  Transform from map frame to costmap frame.
+   */
   virtual void update(
     nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & map_to_costmap) = 0;
 };

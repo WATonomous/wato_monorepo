@@ -25,6 +25,13 @@
 namespace costmap
 {
 
+/**
+ * @brief Marks cells occupied by tracked world objects and their predictions.
+ *
+ * Subscribes to a WorldObjectArray topic, projects each bounding box and
+ * predicted trajectory into the costmap frame, and stamps inflated costs with
+ * configurable decay.
+ */
 class ObjectsLayer : public CostmapLayer
 {
 public:
@@ -40,10 +47,6 @@ public:
 
 private:
   void objectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
-
-  void markBox(
-    nav_msgs::msg::OccupancyGrid & grid, double cx, double cy, double yaw, double half_x, double half_y, int8_t cost)
-    const;
 
   rclcpp_lifecycle::LifecycleNode * node_{nullptr};
   tf2_ros::Buffer * tf_buffer_{nullptr};

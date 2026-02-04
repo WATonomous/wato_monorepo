@@ -7,7 +7,7 @@
       "serviceName": "/carla/carla_teleop/set_autonomy"
     },
     "CallService!3k192jd": {
-      "requestPayload": "{\n  \"scenario_name\": \"carla_scenarios.scenarios.heavy_traffic_scenario\"\n}",
+      "requestPayload": "{\n  \"scenario_name\": \"carla_scenarios.scenarios.light_traffic_scenario\"\n}",
       "layout": "vertical",
       "timeoutSeconds": 20,
       "serviceName": "/carla/scenario_server/switch_scenario"
@@ -24,16 +24,28 @@
       "timeoutSeconds": 20,
       "serviceName": "/world_modeling/set_route"
     },
+    "CallService!2qg3vqq": {
+      "requestPayload": "{\n  \"pose\": {\n    \"header\": {\n      \"stamp\": {\n        \"sec\": 0,\n        \"nsec\": 0\n      },\n      \"frame_id\": \"base_link\"\n    },\n    \"pose\": {\n      \"position\": {\n        \"x\": 5,\n        \"y\": 0,\n        \"z\": 0\n      },\n      \"orientation\": {\n        \"x\": 0,\n        \"y\": 0,\n        \"z\": 0,\n        \"w\": 0\n      }\n    }\n  },\n  \"length\": 1,\n  \"width\": 8\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 20,
+      "serviceName": "/world_modeling/spawn_wall"
+    },
+    "CallService!7edari": {
+      "requestPayload": "{\n  \"wall_id\": 1\n}",
+      "layout": "horizontal",
+      "timeoutSeconds": 20,
+      "serviceName": "/world_modeling/despawn_wall"
+    },
     "3D!30zmknt": {
       "cameraState": {
         "perspective": true,
-        "distance": 259.9260046275298,
-        "phi": 36.56092415342824,
-        "thetaOffset": 154.4706603128317,
+        "distance": 84.09478170665749,
+        "phi": 38.03382117547943,
+        "thetaOffset": -103.77148132775575,
         "targetOffset": [
-          -73.98744835285055,
-          -87.54224579102564,
-          -1.7533513681107087
+          1.9376727406218588,
+          -2.2539852042421056,
+          -1.7533513681107005
         ],
         "target": [
           0,
@@ -157,7 +169,7 @@
           "decayTime": 0
         },
         "/carla/bbox_markers": {
-          "visible": true
+          "visible": false
         },
         "/camera_pano_ss/image_rect": {
           "visible": false,
@@ -180,21 +192,56 @@
           "colorMap": "turbo"
         },
         "/carla/top_lidar/points": {
-          "visible": true,
+          "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
-          "colorMap": "turbo"
+          "colorMap": "turbo",
+          "pointSize": 1.4,
+          "explicitAlpha": 0.292
         },
         "/markers": {
           "visible": false
         },
         "/world_modeling/lanelet/lane_context_markers": {
-          "visible": false
+          "visible": true
         },
         "/world_modeling/lanelet/map_viz_markers": {
           "visible": true
         },
         "/world_modeling/lanelet/route_ahead_markers": {
+          "visible": false
+        },
+        "/world_modeling/area_occupancy_markers": {
+          "visible": false
+        },
+        "/world_modeling/lanelet/lanelet_ahead_markers": {
+          "visible": true
+        },
+        "/world_modeling/world_objects_markers": {
+          "visible": false
+        },
+        "/world_modeling/dynamic_objects_markers": {
+          "visible": true
+        },
+        "/perception/ground_cloud": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "flatColor": "#80ed8630"
+        },
+        "/perception/non_ground_cloud": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "flatColor": "#ed80926e"
+        },
+        "/world_modeling/costmap": {
+          "visible": true,
+          "colorMode": "costmap"
+        },
+        "/world_modeling/costmap_footprint_markers": {
           "visible": true
         }
       },
@@ -235,8 +282,7 @@
           "layerId": "foxglove.Urdf",
           "sourceType": "topic",
           "url": "",
-          "filePath":
-            "/home/eddy/code/watonomous/wato_monorepo/src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro",
+          "filePath": "/home/eddy/code/watonomous/wato_monorepo/src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro",
           "parameter": "",
           "topic": "/robot_description_viz",
           "framePrefix": "",
@@ -253,15 +299,7 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "map"
-    },
-    "RawMessages!gwbiuj": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "/world_modeling/lanelet/route_ahead_markers",
-      "fontSize": 12
+      "followTf": "base_link"
     }
   },
   "globalVariables": {},
@@ -276,21 +314,26 @@
         "first": "CallService!3k192jd",
         "second": {
           "first": "CallService!trma13",
-          "second": "CallService!3mbbmci",
-          "direction": "column"
+          "second": {
+            "first": "CallService!3mbbmci",
+            "second": {
+              "first": "CallService!2qg3vqq",
+              "second": "CallService!7edari",
+              "direction": "column"
+            },
+            "direction": "column",
+            "splitPercentage": 5.029585798816569
+          },
+          "direction": "column",
+          "splitPercentage": 4.6025104602510405
         },
         "direction": "column",
-        "splitPercentage": 30.768220928472832
+        "splitPercentage": 4.4983485841139235
       },
       "direction": "column",
       "splitPercentage": 27.461607949412826
     },
-    "second": {
-      "first": "3D!30zmknt",
-      "second": "RawMessages!gwbiuj",
-      "direction": "row",
-      "splitPercentage": 63.0248366997647
-    },
+    "second": "3D!30zmknt",
     "direction": "row",
     "splitPercentage": 26.693967361408227
   }

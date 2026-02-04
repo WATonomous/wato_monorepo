@@ -1,4 +1,4 @@
-int64 wall_id
+int32 wall_id
 ---
 bool success
 string error_message

@@ -22,6 +22,7 @@
 #include "costmap/costmap_layer.hpp"
 #include "geometry_msgs/msg/polygon_stamped.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
+#include "pluginlib/class_loader.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
@@ -31,6 +32,13 @@
 namespace costmap
 {
 
+/**
+ * @brief Lifecycle node that composes an OccupancyGrid from pluggable layers.
+ *
+ * On each timer tick the node builds a blank grid centred on costmap_frame_,
+ * asks every registered CostmapLayer to stamp its costs, publishes the result,
+ * and optionally publishes the vehicle footprint as a PolygonStamped.
+ */
 class CostmapNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -45,6 +53,7 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
+  /** @brief Build and publish the OccupancyGrid and optional footprint polygon. */
   void publishCostmap();
 
   std::string costmap_frame_;
@@ -64,7 +73,8 @@ private:
   rclcpp::TimerBase::SharedPtr publish_timer_;
 
   std::vector<std::string> layer_names_;
-  std::vector<std::unique_ptr<CostmapLayer>> layers_;
+  pluginlib::ClassLoader<CostmapLayer> layer_loader_;
+  std::vector<std::shared_ptr<CostmapLayer>> layers_;
 };
 
 }  // namespace costmap

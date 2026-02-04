@@ -1,7 +1,7 @@
-geometry_msgs/Pose pose
+geometry_msgs/PoseStamped pose
 float64 length
 float64 width
 ---
 bool success
-int64 wall_id
+int32 wall_id
 string error_message
