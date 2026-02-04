@@ -1,43 +1,42 @@
-<root BTCPP_format="4">
-  <BehaviorTree ID="intersection">
-    <Sequence name="intersection_sequence">
-      <!-- 1. Extract all upcoming regulatory elements from the planned path -->
-      <GetRegElemContext
-          path="{global_path}"
-          lanelet_context="{current_lane_context}"
-          reg_elems="{upcoming_reg_elems}" />
+<root BTCPP_format="4" main_tree_to_execute="IntersectionTree">
+  <include path="subtrees/yield.xml" />
+  <include path="subtrees/stop_sign.xml" />
+  <include path="subtrees/traffic_light.xml" />
+  <BehaviorTree ID="IntersectionTree">
+    <Sequence>
+      <GetIntersectionContext
+        lane_ctx="{current_lane_ctx}"
+        route="{global_route}"
+        route_index_map="{global_route_index_map}"
+        lookahead_threshold_m="40.0"
+        in_active_traffic_control_element="{active_traffic_control_element}"
+        out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+        out_active_traffic_control_element="{active_traffic_control_element}"
+      />
 
-      <!-- 2. Check if we have reached the first regulatory element (threshold 5.0m) -->
-      <!-- If successful, it captures the element into {active_reg_elem} -->
-      <RegElemReached
-          reg_elems="{upcoming_reg_elems}"
-          threshold_m="5.0"
-          selected_reg_elem="{active_reg_elem}" />
+      <ActiveTrafficControlElementExist
+        active_traffic_control_element="{active_traffic_control_element}" />
 
-      <!-- 3. Branch based on the type of the reached regulatory element -->
-      <Fallback name="reg_elem_handler_selector">
+      <Fallback name="Handle Traffic Control Element">
+        <Sequence name="Handle STOP_SIGN Element">
+          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="STOP_SIGN" />
 
-        <!-- Stop Sign Branch -->
-        <Sequence name="stop_sign_branch">
-          <RegElemType value="{active_reg_elem}" expected="stop_sign" />
-          <!-- TODO(wato): improve yield when better world model services are implemented -->
-          <SubTree ID="stop_sign" active_elem="{active_reg_elem}" />
+          <!-- subtree to handle stop sign -->
+
         </Sequence>
+        <Sequence name="Handle TRAFFIC_LIGHT Element">
+          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
+            expected="TRAFFIC_LIGHT" />
 
-        <!-- Traffic Light Branch -->
-        <Sequence name="traffic_light_branch">
-          <RegElemType value="{active_reg_elem}" expected="traffic_light" />
-          <!-- TODO(wato): Implement traffic_light subtree (see traffic_light.xml) -->
-          <AlwaysSuccess />
+          <!-- subtree to handle traffic light -->
+
         </Sequence>
+        <Sequence name="Handle YIELD Element">
+          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="YIELD" />
 
-        <!-- Yield Branch -->
-        <Sequence name="yield_branch">
-          <RegElemType value="{active_reg_elem}" expected="yield" />
-          <!-- TODO(wato): improve yield when better world model services are implemented -->
-          <SubTree ID="yield" active_elem="{active_reg_elem}" />
+          <!-- subtree to handle yield -->
+
         </Sequence>
-
       </Fallback>
     </Sequence>
   </BehaviorTree>

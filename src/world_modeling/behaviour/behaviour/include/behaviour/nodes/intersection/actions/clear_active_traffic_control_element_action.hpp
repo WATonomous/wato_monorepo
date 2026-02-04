@@ -12,49 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__ACTIONS__CLEAR_ACTIVE_TRAFFIC_CONTROL_ELEMENT_ACTION_HPP_
-#define BEHAVIOUR__NODES__ACTIONS__CLEAR_ACTIVE_TRAFFIC_CONTROL_ELEMENT_ACTION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_ACTIVE_TRAFFIC_CONTROL_ELEMENT_ACTION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_ACTIVE_TRAFFIC_CONTROL_ELEMENT_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
 
 #include <string>
 
 #include "behaviour/utils/utils.hpp"
+#include "lanelet_msgs/msg/regulatory_element.hpp"
 
 namespace behaviour
 {
-/**
- * @class ClearActiveTrafficControlElementAction
- * @brief Clears the latched active traffic-control element.
- */
-class ClearActiveTrafficControlElementAction : public BT::SyncActionNode
-{
-public:
-  ClearActiveTrafficControlElementAction(const std::string & name, const BT::NodeConfig & config)
-  : BT::SyncActionNode(name, config)
-  {}
-
-  static BT::PortsList providedPorts()
+  /**
+   * @class ClearActiveTrafficControlElementAction
+   * @brief Clears the latched active traffic-control element.
+   */
+  class ClearActiveTrafficControlElementAction : public BT::SyncActionNode
   {
-    return {
-      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("in_active_traffic_control_element"),
-      BT::OutputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("out_active_traffic_control_element"),
-    };
-  }
-
-  BT::NodeStatus tick() override
-  {
-    auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "in_active_traffic_control_element");
-    if (!reg_elem) {
-      std::cerr << "[ClearActiveTrafficControlElementAction] Missing in_active_traffic_control_element." << std::endl;
+  public:
+    ClearActiveTrafficControlElementAction(const std::string &name, const BT::NodeConfig &config)
+        : BT::SyncActionNode(name, config)
+    {
     }
-    
-    std::cout << "[ClearActiveTrafficControlElementAction]: Clearing active traffic control element" << std::endl;
-    setOutput("out_active_traffic_control_element", reg_elem.reset());
-    return BT::NodeStatus::SUCCESS;
-  }
-};
 
-}  // namespace behaviour
+    static BT::PortsList providedPorts()
+    {
+      return {
+          BT::OutputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
+      };
+    }
 
-#endif  // BEHAVIOUR__NODES__ACTIONS__CLEAR_ACTIVE_TRAFFIC_CONTROL_ELEMENT_ACTION_HPP_
+    BT::NodeStatus tick() override
+    {
+      std::cout << "[ClearActiveTrafficControlElementAction]: Clearing active traffic control element" << std::endl;
+      lanelet_msgs::msg::RegulatoryElement::SharedPtr cleared = nullptr;
+      setOutput("active_traffic_control_element", cleared);
+      return BT::NodeStatus::SUCCESS;
+    }
+  };
+
+} // namespace behaviour
+
+#endif // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_ACTIVE_TRAFFIC_CONTROL_ELEMENT_ACTION_HPP_

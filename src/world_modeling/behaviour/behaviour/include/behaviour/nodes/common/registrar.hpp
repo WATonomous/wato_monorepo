@@ -18,7 +18,8 @@
 #include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
-#include "behaviour/nodes/common/conditions/car_on_route_condition.hpp"
+#include "behaviour/nodes/common/conditions/ego_on_route_condition.hpp"
+#include "behaviour/nodes/common/conditions/ego_stopped_condition.hpp"
 
 // decorators
 #include "behaviour/nodes/common/decorators/rate_controller.hpp"
@@ -29,9 +30,9 @@ public:
     void register_nodes(BT::BehaviorTreeFactory &factory, const BT::RosNodeParams &params) override
     {
         BT::RosNodeParams get_shortest_route_params = params;
-        get_shortest_route_params.server_timeout = std::chrono::milliseconds(50000); // 50s response timeout
-
         BT::RosNodeParams set_route_params = params;
+        // TODO(wato): adjust timeouts as needed
+        get_shortest_route_params.server_timeout = std::chrono::milliseconds(50000); // 50s response timeout
         set_route_params.server_timeout = std::chrono::milliseconds(50000);
 
         // actions
@@ -42,11 +43,13 @@ public:
 
         // conditions
         factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage");
+
         factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
         factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
         factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
-        factory.registerNodeType<behaviour::CarOnRouteCondition>("CarOnRoute");
 
+        factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute");
+        factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped");
         // decorators
         factory.registerNodeType<behaviour::RateController>("RateController");
     }

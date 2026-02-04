@@ -24,9 +24,8 @@
 
             <!-- TODO(wato): Improve the safe lane change -->
             <SafeLaneChange
-              lane_ctx="{current_lane_ctx}"
-              target_lanelet="{target_lanelet}"
-              dynamic_objects_snapshot="{dynamic_objects.snapshot}" />
+              lane_transition="{upcoming_lane_transition}"
+              area_occupancy_snapshot="{area_occupancy.snapshot}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->
@@ -50,9 +49,8 @@
 
             <!-- TODO(wato): Improve the safe lane change -->
             <SafeLaneChange
-              lane_ctx="{current_lane_ctx}"
-              target_lanelet="{target_lanelet}"
-              dynamic_objects_snapshot="{dynamic_objects.snapshot}" />
+              lane_transition="{upcoming_lane_transition}"
+              area_occupancy_snapshot="{area_occupancy.snapshot}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->

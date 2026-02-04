@@ -1,13 +1,4 @@
 // dynamic_object_store.hpp
-//
-// Thread-safe DynamicObjectStore with snapshot semantics.
-//
-// - Subscriber thread calls: store.update(msg)
-// - Tick thread sets BB:      bb["snap.dyn"] = store.snapshot()
-// - BT nodes read snap.dyn and call snapshot methods.
-//
-// Returned object pointers remain valid as long as the Snapshot shared_ptr
-// is kept alive (because Snapshot holds objects_snapshot_).
 
 #ifndef BEHAVIOUR__DYNAMIC_OBJECT_STORE_HPP_
 #define BEHAVIOUR__DYNAMIC_OBJECT_STORE_HPP_
@@ -16,113 +7,188 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
-#include "world_model_msgs/msg/dynamic_object.hpp"
-#include "world_model_msgs/msg/dynamic_object_array.hpp"
+#include "behaviour/utils/utils.hpp"
+
+#include "world_model_msgs/msg/world_object.hpp"
+#include "world_model_msgs/msg/world_object_array.hpp"
 
 namespace behaviour
 {
-
-class DynamicObjectStore
-{
-public:
-  struct Snapshot
+  class DynamicObjectStore
   {
-    world_model_msgs::msg::DynamicObjectArray::ConstSharedPtr objects_snapshot_;
+  public:
+    using MessageT = world_model_msgs::msg::WorldObjectArray;
+    using ObjectT = world_model_msgs::msg::WorldObject;
+    using ObjectId = std::string;
 
-    // lanelet_id -> indices -> objects_snapshot_->objects[index]
-    std::unordered_map<int64_t, std::vector<size_t>> cars_by_lanelet_;
-
-    // object_id -> index -> objects_snapshot_->objects[index]
-    std::unordered_map<int64_t, size_t> cars_by_id_;
-
-    const world_model_msgs::msg::DynamicObject* getCarsById(const int64_t id) const
+    struct Snapshot
     {
-      if (!objects_snapshot_) return nullptr;
+      MessageT::ConstSharedPtr objects_snapshot_;
 
-      auto it = cars_by_id_.find(id);
-      if (it == cars_by_id_.end()) return nullptr;
+      // lanelet_id -> indices in objects_snapshot_->objects
+      std::unordered_map<int64_t, std::vector<size_t>> cars_by_lanelet_;
 
-      const size_t idx = it->second;
-      if (idx >= objects_snapshot_->objects.size()) return nullptr;  // defensive
+      // detection.id -> index in objects_snapshot_->objects
+      std::unordered_map<ObjectId, size_t> cars_by_id_;
+      std::unordered_map<ObjectId, size_t> traffic_lights_by_id_;
 
-      return &objects_snapshot_->objects[idx];
+      const ObjectT *getCarById(const ObjectId id) const
+      {
+        return getById(*this, cars_by_id_, id);
+      }
+
+      const ObjectT *getTrafficLightById(const ObjectId id) const
+      {
+        return getById(*this, traffic_lights_by_id_, id);
+      }
+
+      std::vector<const ObjectT *> getCarsInLanelet(const int64_t lanelet_id) const
+      {
+        return getObjects(*this, cars_by_lanelet_, lanelet_id);
+      }
+    };
+
+    void update(MessageT::ConstSharedPtr msg)
+    {
+      auto snap = std::make_shared<Snapshot>();
+      snap->objects_snapshot_ = std::move(msg);
+
+      if (!snap->objects_snapshot_)
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        snapshot_ = std::move(snap);
+        return;
+      }
+
+      const auto &objs = snap->objects_snapshot_->objects;
+
+      snap->cars_by_lanelet_.reserve(objs.size());
+      snap->cars_by_id_.reserve(objs.size());
+      snap->traffic_lights_by_id_.reserve(objs.size());
+
+      for (size_t i = 0; i < objs.size(); ++i)
+      {
+        const auto &o = objs[i];
+
+        const int64_t lanelet_id = o.lanelet_ahead.current_lanelet_id;
+        const std::string_view class_id = getBestClassId(o);
+        const types::EntityType type = classify(class_id);
+
+        if (type == types::EntityType::UNKNOWN)
+        {
+          continue;
+        }
+
+        // Assumption: detection.id is always defined
+        const ObjectId &id = o.detection.id;
+
+        switch (type)
+        {
+        case types::EntityType::CAR:
+          snap->cars_by_id_[id] = i;
+          if (lanelet_id != kInvalidLanelet)
+          {
+            snap->cars_by_lanelet_[lanelet_id].push_back(i);
+          }
+          break;
+
+        case types::EntityType::TRAFFIC_LIGHT:
+          snap->traffic_lights_by_id_[id] = i;
+          break;
+
+        default:
+          break;
+        }
+      }
+
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        snapshot_ = std::move(snap);
+      }
     }
 
-    // Returns indices (no copying of objects)
-    const std::vector<size_t>& getCarIndicesInLanelet(const int64_t lanelet_id) const
+    std::shared_ptr<const Snapshot> snapshot() const
     {
-      static const std::vector<size_t> kEmpty{};
-      auto it = cars_by_lanelet_.find(lanelet_id);
-      return (it == cars_by_lanelet_.end()) ? kEmpty : it->second;
+      std::lock_guard<std::mutex> lock(mutex_);
+      return snapshot_;
     }
 
-    // Optional convenience: materialize pointers for callers
-    std::vector<const world_model_msgs::msg::DynamicObject*> getCarsInLanelet(const int64_t lanelet_id) const
-    {
-      std::vector<const world_model_msgs::msg::DynamicObject*> out;
-      if (!objects_snapshot_) return out;
+  private:
+    static constexpr int64_t kInvalidLanelet = -1;
 
-      const auto& idxs = getCarIndicesInLanelet(lanelet_id);
+    static types::EntityType classify(const std::string_view class_id)
+    {
+      if (class_id == "car" || class_id == "vehicle" || class_id == "truck")
+      {
+        return types::EntityType::CAR;
+      }
+      if (class_id == "red" || class_id == "green" || class_id == "yellow" || class_id == "traffic_light")
+      {
+        return types::EntityType::TRAFFIC_LIGHT;
+      }
+      return types::EntityType::UNKNOWN;
+    }
+
+    static std::string_view getBestClassId(const ObjectT &o)
+    {
+      if (o.detection.results.empty())
+        return {};
+      return o.detection.results[0].hypothesis.class_id;
+    }
+
+    template <typename MapT, typename KeyT>
+    static const std::vector<size_t> &getIndices(const MapT &map, const KeyT &key)
+    {
+      static const std::vector<size_t> empty_idxs{};
+      auto it = map.find(key);
+      return (it == map.end()) ? empty_idxs : it->second;
+    }
+
+    template <typename MapT, typename KeyT>
+    static std::vector<const ObjectT *> getObjects(const Snapshot &snap, const MapT &lanelet_map, const KeyT &key)
+    {
+      std::vector<const ObjectT *> out;
+      if (!snap.objects_snapshot_)
+        return out;
+
+      const auto &idxs = getIndices(lanelet_map, key);
       out.reserve(idxs.size());
-      for (size_t idx : idxs) {
-        if (idx < objects_snapshot_->objects.size()) {
-          out.push_back(&objects_snapshot_->objects[idx]);
+      for (size_t idx : idxs)
+      {
+        if (idx < snap.objects_snapshot_->objects.size())
+        {
+          out.push_back(&snap.objects_snapshot_->objects[idx]);
         }
       }
       return out;
     }
+
+    template <typename MapT, typename KeyT>
+    static const ObjectT *getById(const Snapshot &snap, const MapT &id_map, const KeyT &key)
+    {
+      if (!snap.objects_snapshot_)
+        return nullptr;
+
+      auto it = id_map.find(key);
+      if (it == id_map.end())
+        return nullptr;
+
+      const size_t idx = it->second;
+      if (idx >= snap.objects_snapshot_->objects.size())
+        return nullptr;
+
+      return &snap.objects_snapshot_->objects[idx];
+    }
+
+    mutable std::mutex mutex_;
+    std::shared_ptr<const Snapshot> snapshot_;
   };
 
+} // namespace behaviour
 
-  // Build and publish a new snapshot.
-  void update(world_model_msgs::msg::DynamicObjectArray::ConstSharedPtr msg)
-  {
-    auto snap = std::make_shared<Snapshot>();
-    snap->objects_snapshot_ = std::move(msg);
-
-    if (!snap->objects_snapshot_) {
-      std::lock_guard<std::mutex> lock(mutex_);
-      snapshot_ = std::move(snap);
-      return;
-    }
-
-    const auto& objs = snap->objects_snapshot_->objects;
-    snap->cars_by_lanelet_.reserve(objs.size());
-    snap->cars_by_id_.reserve(objs.size());
-
-    for (size_t i = 0; i < snap->objects_snapshot_->objects.size(); ++i) {
-      const auto& o = snap->objects_snapshot_->objects[i];
-
-      if (o.entity_type == world_model_msgs::msg::DynamicObject::TYPE_CAR) {
-        snap->cars_by_id_[o.id] = i;
-  
-        if (o.lanelet_id != -1) {
-          snap->cars_by_lanelet_[o.lanelet_id].push_back(i);
-        }
-      };
-    }
-    // Publish snapshot (swap under lock)
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      snapshot_ = std::move(snap);
-    }
-  }
-
-  // Get the latest snapshot pointer (cheap shared_ptr copy).
-  std::shared_ptr<const Snapshot> snapshot() const
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return snapshot_;
-  }
-
-private:
-  mutable std::mutex mutex_;
-  std::shared_ptr<const Snapshot> snapshot_;
-};
-
-}  // namespace behaviour
-
-#endif  // BEHAVIOUR__DYNAMIC_OBJECT_STORE_HPP_
+#endif // BEHAVIOUR__DYNAMIC_OBJECT_STORE_HPP_

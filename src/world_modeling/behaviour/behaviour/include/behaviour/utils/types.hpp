@@ -22,11 +22,22 @@
 
 namespace behaviour::types
 {
+
+  // Enumeration for different entity types in the world model
+  enum class EntityType : uint8_t
+  {
+    UNKNOWN = 0,
+    CAR = 1,
+    TRAFFIC_LIGHT = 2,
+    // add other entity types as needed
+  };
+
+  // Enumeration for different lane transition types
   enum class LaneTransition : uint8_t
   {
-    SUCCESSOR = 0,
-    LEFT = 1,
-    RIGHT = 2,
+    SUCCESSOR = 0, // follow route
+    LEFT = 1,      // left lane change
+    RIGHT = 2,     // right lane change
   };
 
   inline const char *toString(LaneTransition value)
@@ -44,6 +55,7 @@ namespace behaviour::types
     }
   }
 
+  // Enumeration for different traffic CONTROL element types
   enum class TrafficControlElementType : uint8_t
   {
     TRAFFIC_LIGHT = 0,

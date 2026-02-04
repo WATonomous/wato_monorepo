@@ -8,12 +8,6 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Behaviour Tree ROS2
-# RUN git clone https://github.com/BehaviorTree/BehaviorTree.ROS2.git --branch humble behaviortree_ros2
-# WORKDIR ${AMENT_WS}/src/behaviortree_ros2
-# RUN git checkout 6c6aa078ee7bc52fec98984bed4964556abf5beb
-# WORKDIR ${AMENT_WS}/src
-
 # Copy in source code needed for world modeling build
 COPY src/world_modeling world_modeling
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager

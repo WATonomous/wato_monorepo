@@ -1,36 +1,34 @@
-<root BTCPP_format="4">
-  <BehaviorTree ID="yield">
-    <Sequence name="yield_sequence">
-      <!-- 1. Spawn a virtual wall at the stop line (command=1) -->
-      <SetWall
-          stop_line_id="{active_elem.stop_line_id}"
-          command="1"
-          service_name="set_wall" />
+<BehaviorTree ID="YieldSubTree">
+    <Sequence name="Handle Yield">
+        <!-- Preconditions -->
+        <ActiveTrafficControlElementExist
+            active_traffic_control_element="{active_traffic_control_element}" />
+        <IsRegulatoryElementType
+            active_traffic_control_element="{active_traffic_control_element}"
+            expected="yield" />
 
-      <!-- 2. Get conflicting lanelets -->
-      <GetLaneletsByRegElem
-          id="{active_elem.id}"
-          lanelet_ids="{conflicting_lanelets}"
-          service_name="get_lanelets_by_reg_elem" />
+        <!-- Wall of doom: spawn immediately (placeholder service semantics) -->
+        <SetWallService
+            stop_line_id="{active_traffic_control_lanelet_id}"
+            command="1"
+            service_name="/world_modeling/spawn_wall" />
 
-      <!-- 3. Wait until no objects are within a safe radius on conflicting lanes -->
-      <RetryUntilSuccessful num_attempts="-1">
-        <Sequence>
-          <GetObjectsByLanelets
-              lanelet_ids="{conflicting_lanelets}"
-              objects="{current_objects}" />
-          <SafeProximity
-              objects="{current_objects}"
-              current_point="{current_point}"
-              radius="20.0" />
-        </Sequence>
-      </RetryUntilSuccessful>
+        <!-- Wait until yield lanes are clear for a gap -->
+        <YieldCanProceed
+            active_traffic_control_element="{active_traffic_control_element}"
+            dynamic_objects_snapshot="{dynamic_objects.snapshot}"
+        />
 
-      <!-- 4. Despawn the wall and proceed (command=0) -->
-      <SetWall
-          stop_line_id="{active_elem.stop_line_id}"
-          command="0"
-          service_name="set_wall" />
+        <!-- Despawn wall -->
+        <SetWallService
+            stop_line_id="{active_traffic_control_lanelet_id}"
+            command="0"
+            service_name="/world_modeling/despawn_wall" />
+
+        <!-- TODO: Add condition to see if passed intersection -->
+
+        <!-- Clear the latched element so we can detect the next one -->
+        <ClearActiveTrafficControlElement
+            active_traffic_control_element="{active_traffic_control_element}" />
     </Sequence>
-  </BehaviorTree>
-</root>
+</BehaviorTree>

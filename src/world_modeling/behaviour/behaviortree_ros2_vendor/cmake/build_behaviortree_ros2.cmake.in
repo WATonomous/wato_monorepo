@@ -3,6 +3,7 @@
 execute_process(
   COMMAND bash -lc
     "set -e;
+     unset MAKEFLAGS MFLAGS;
      source /opt/ros/jazzy/setup.bash;
      cd '@SOURCE_DIR@';
      colcon build --base-paths . --packages-select behaviortree_ros2 btcpp_ros2_interfaces --merge-install --install-base '@BT_ROS2_INSTALL_DIR@' --build-base '@CMAKE_CURRENT_BINARY_DIR@/bt_ros2_build' --cmake-args -DCMAKE_BUILD_TYPE=@bt_ros2_build_type@;

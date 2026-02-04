@@ -1,45 +1,38 @@
-<root BTCPP_format="4">
-  <BehaviorTree ID="stop_sign">
-    <Sequence name="stop_sign_sequence">
-      <!-- 1. Spawn a virtual wall at the stop line (command=1) -->
-      <SetWall
-          stop_line_id="{active_elem.stop_line_id}"
-          command="1"
-          service_name="set_wall" />
+<BehaviorTree ID="YieldSubTree">
+    <Sequence name="Handle Stop Sign">
+        <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="STOP_SIGN" />
 
-      <!-- 2. Wait until the vehicle has completely stopped (ego_velocity populated by OdometrySubscriber) -->
-      <RetryUntilSuccessful num_attempts="-1">
-        <Comparator left="{ego_velocity}" operator="&lt;=" right="0.1" />
-      </RetryUntilSuccessful>
+        <SetWallService stop_line_id="{active_traffic_control_lanelet_id}" command="1"
+            service_name="/world_modeling/spawn_wall" />
 
-      <!-- 3. Identify and capture the initial objects on conflicting lanes -->
-      <Sequence name="capture_initial_objects">
-        <GetLaneletsByRegElem
-            id="{active_elem.id}"
-            lanelet_ids="{conflicting_lanelets}"
-            service_name="get_lanelets_by_reg_elem" />
-        <GetObjectsByLanelets
-            lanelet_ids="{conflicting_lanelets}"
-            objects="{initial_objects}" />
-      </Sequence>
+        <EgoStopped ego_velocity="{ego_state.velocity_mps}" threshold_velocity="0.10" />
 
-      <!-- 4. Wait until all initial objects have cleared the intersection -->
-      <RetryUntilSuccessful num_attempts="-1">
-        <Sequence>
-          <GetObjectsByLanelets
-              lanelet_ids="{conflicting_lanelets}"
-              objects="{current_objects}" />
-          <TurnToGo initial_objects="{initial_objects}" current_objects="{current_objects}" />
-        </Sequence>
-      </RetryUntilSuccessful>
+        <GetStopSignCars
+            active_traffic_control_element="{active_traffic_control_element}"
+            dynamic_objects_snapshot="{dynamic_objects.snapshot}"
+            include_right_of_way="true"
+            out_car_ids="{stop_sign.car_ids}" />
 
-      <!-- 5. Despawn the wall and proceed (command=0) -->
-      <SetWall
-          stop_line_id="{active_elem.stop_line_id}"
-          command="0"
-          service_name="set_wall" />
+        <SetStopSignLatchedCars
+            active_traffic_control_element="{active_traffic_control_element}"
+            in_current_ids="{stop_sign.car_ids}"
+            out_baseline_ids="{stop_sign.latched_ids}" />
 
-      <!-- 6. Optional: Wait until we clear the current lanelet to prevent re-triggering -->
+        <!-- gap timer lives here -->
+        <StopSignCanProceed
+            active_traffic_control_element="{active_traffic_control_element}"
+            in_current_ids="{stop_sign.car_ids}"
+            in_baseline_ids="{stop_sign.latched_ids}"
+            gap_time_s="1.5" />
+
+        <SetWallService stop_line_id="{active_traffic_control_lanelet_id}" command="0"
+            service_name="/world_modeling/despawn_wall" />
+
+        <!-- TODO: Add condition to see if passed intersection -->
+
+        <ClearActiveTrafficControlElement
+            active_traffic_control_element="{active_traffic_control_element}" />
+
+        <ClearStopSignLatchedCars out_baseline_ids="{stop_sign.latched_ids}" />
     </Sequence>
-  </BehaviorTree>
-</root>
+</BehaviorTree>

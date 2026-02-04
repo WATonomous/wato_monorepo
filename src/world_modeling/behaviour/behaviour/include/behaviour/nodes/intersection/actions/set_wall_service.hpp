@@ -19,57 +19,69 @@
 
 #include <behaviortree_ros2/bt_service_node.hpp>
 
-// TODO(wato): to improve
+// TODO(wato): create the set wall service in world model
 // #include "world_model_msgs/srv/set_wall.hpp"
 
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
 {
-/**
-   * @class SetWallService
+  /**
+   * @class SetWallService [THIS IS A PLACEHOLDER, THIS WILL NOT BE USED]
    * @brief The wall of doom to stop the car! Node to spawn or despawn a wall at a stop line.
    *
    * TODO(wato): create world model service that accepts this service
    *
    */
-class SetWallService : public BT::RosServiceNode<world_model_msgs::srv::SetWall>
-{
-public:
-  SetWallService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
-  : BT::RosServiceNode<world_model_msgs::srv::SetWall>(name, conf, params)
-  {}
-
-  static BT::PortsList providedPorts()
+  class SetWallService : public BT::RosServiceNode<world_model_msgs::srv::SetWall>
   {
-    return providedBasicPorts({
-      BT::InputPort<int64_t>("stop_line_id"),
-      BT::InputPort<uint8_t>("command"),
-    });
-  }
+  public:
+    SetWallService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
+        : BT::RosServiceNode<world_model_msgs::srv::SetWall>(name, conf, params)
+    {
+    }
 
-  bool setRequest(Request::SharedPtr & request) override
-  {
-    try {
+    static BT::PortsList providedPorts()
+    {
+      return providedBasicPorts({
+          BT::InputPort<int64_t>("stop_line_id"),
+          BT::InputPort<uint8_t>("command"),
+      });
+    }
+
+    bool setRequest(Request::SharedPtr &request) override
+    {
+      auto stop_line_id = ports::tryGet<int64_t>(*this, "stop_line_id");
+      auto command = ports::tryGet<uint8_t>(*this, "command");
+
+      if (!stop_line_id)
+      {
+        RCLCPP_ERROR(logger(), "[SetWallService]: Missing stop line id.");
+        return false;
+      }
+
+      if (!command)
+      {
+        RCLCPP_ERROR(logger(), "[SetWallService]: Missing command.");
+        return false;
+      }
+
       request->stop_line_id = ports::get<int64_t>(*this, "stop_line_id");
       request->command = ports::get<uint8_t>(*this, "command");
-    } catch (const BT::RuntimeError & e) {
-      return false;
+      return true;
     }
-    return true;
-  }
 
-  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
-  {
-    return response->success ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-  }
+    BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
+    {
+      return response->success ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+    }
 
-  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-  {
-    RCLCPP_ERROR(logger(), "SetWall service failed: %d", error);
-    return BT::NodeStatus::FAILURE;
-  }
-};
-}  // namespace behaviour
+    BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+    {
+      RCLCPP_ERROR(logger(), "[SetWallService]: SetWall service failed: %d", error);
+      return BT::NodeStatus::FAILURE;
+    }
+  };
+} // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__SERVICES__SET_WALL_SERVICE_HPP_
+#endif // BEHAVIOUR__NODES__SERVICES__SET_WALL_SERVICE_HPP_

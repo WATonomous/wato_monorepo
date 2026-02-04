@@ -97,65 +97,6 @@ namespace behaviour
         return BT::NodeStatus::FAILURE;
       }
 
-      
-      // ------------- using k lookahead lanelets -------------
-      // insert the lookahead lanelets to check for traffic controls elements
-      // std::vector<int64_t> lookahead_lanelets;
-      
-      // lookahead_lanelets.reserve(
-      //     1 + std::min<std::size_t>(static_cast<std::size_t>(k), lane_ctx->upcoming_lanelet_ids.size()));
-
-      // lookahead_lanelets.push_back(lane_ctx->current_lanelet.id);
-
-      // const std::size_t n =
-      //     std::min<std::size_t>(static_cast<std::size_t>(k), lane_ctx->upcoming_lanelet_ids.size());
-
-      // lookahead_lanelets.insert(
-      //     lookahead_lanelets.end(),
-      //     lane_ctx->upcoming_lanelet_ids.begin(),
-      //     lane_ctx->upcoming_lanelet_ids.begin() + n);
-
-      // // check each lookahead lanelet for traffic control elements
-      // for (const auto &lanelet_id : lookahead_lanelets)
-      // {
-      //   // verify lanelet is on route
-      //   const auto route_it = route_index_map->find(lanelet_id);
-      //   if (route_it == route_index_map->end())
-      //   {
-      //     continue;
-      //   }
-
-      //   // use route index map to quickly find lanelet in route
-      //   const auto &lanelet = route->lanelets[route_it->second];
-
-      //   // classify traffic control element on lanelet
-
-      //   auto traffic_control_element = classify_lanelet_traffic_control_element(lanelet);
-
-      //   // currently only latch the first found traffic control element
-      //   // but in the future we can do some computation using distances to pick the best candidate traffic element that ego is approaching
-      //   if (traffic_control_element)
-      //   {
-      //     const double dist_to_candidate_m =
-      //         (idx == 0) ? 0.0
-      //                    : lane_ctx->upcoming_lanelet_distances_m[idx - 1];
-
-      //     if (dist_to_candidate_m > acquire_distance_m)
-      //     {
-      //       continue; // too far, don't latch yet
-      //     }
-      //     std::cout << "[GetIntersectionContextAction]: Found traffic control element of type "
-      //               << static_cast<int>(traffic_control_element->subtype)
-      //               << " on lanelet " << lanelet_id << std::endl;
-
-      //     setOutput("out_active_traffic_control_lanelet_id", lanelet_id);
-      //     setOutput("out_active_traffic_control_element", traffic_control_element);
-      //     return BT::NodeStatus::SUCCESS;
-      //   }
-      // }
-      // return BT::NodeStatus::SUCCESS;
-      // ------------- using k lookahead lanelets -------------
-
       // ------------- using lookahead distance -------------
       // check the current lanelet first
       const auto lanelet_id = lane_ctx->current_lanelet.id;
@@ -171,6 +112,7 @@ namespace behaviour
         }
       }
 
+      // now check the upcoming lanelets within the lookahead distance
       const std::size_t m = std::min(lane_ctx->upcoming_lanelet_ids.size(),
                                      lane_ctx->upcoming_lanelet_distances_m.size());
 
@@ -218,12 +160,14 @@ namespace behaviour
         return 2;
       return 999;
     }
+
+    // find the best candidate that represents the primary regulatory element on the lanelet
+    // since lanelets can have multiple regulatory elements attached
     static lanelet_msgs::msg::RegulatoryElement::SharedPtr classify_lanelet_traffic_control_element(const lanelet_msgs::msg::Lanelet &lanelet)
     {
       lanelet_msgs::msg::RegulatoryElement::SharedPtr primary_reg_elem = nullptr;
 
-      // Lower is higher priority
-
+      // lower is higher priority
       int best_prio = 999;
 
       for (const auto &reg_elem : lanelet.regulatory_elements)
@@ -234,7 +178,7 @@ namespace behaviour
           best_prio = p;
           primary_reg_elem = std::make_shared<lanelet_msgs::msg::RegulatoryElement>(reg_elem);
 
-          // Early exit if we found the top priority
+          // early exit if we found the top priority
           if (best_prio == 0)
           {
             break;
@@ -242,6 +186,7 @@ namespace behaviour
         }
       }
 
+      // nullptr if none found
       return primary_reg_elem;
     }
   };

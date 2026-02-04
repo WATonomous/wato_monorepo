@@ -26,71 +26,73 @@
 
 namespace behaviour
 {
-/**
+  /**
    * @class GetShortestRouteService
    * @brief BT node to request a global route between two lanelets.
    */
-class GetShortestRouteService : public BT::RosServiceNode<lanelet_msgs::srv::GetShortestRoute>
-{
-public:
-  GetShortestRouteService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
-  : BT::RosServiceNode<lanelet_msgs::srv::GetShortestRoute>(name, conf, params)
-  {}
-
-  static BT::PortsList providedPorts()
+  class GetShortestRouteService : public BT::RosServiceNode<lanelet_msgs::srv::GetShortestRoute>
   {
-    return providedBasicPorts({
-      BT::OutputPort<lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr>("route"),
-      BT::OutputPort<std::shared_ptr<std::unordered_map<int64_t, size_t>>>("route_index_map"), // New Map Port
-      BT::OutputPort<std::vector<int64_t>>("route_lanelet_ids"), // New Vector Port
-      BT::OutputPort<std::string>("error_message"),
-    });
-  }
+  public:
+    GetShortestRouteService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
+        : BT::RosServiceNode<lanelet_msgs::srv::GetShortestRoute>(name, conf, params)
+    {
+    }
 
-  bool setRequest(Request::SharedPtr & request) override
-  {
-    return true;
-  }
+    static BT::PortsList providedPorts()
+    {
+      return providedBasicPorts({
+          BT::OutputPort<lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr>("route"),
+          BT::OutputPort<std::shared_ptr<std::unordered_map<int64_t, size_t>>>("route_index_map"), // New Map Port
+          BT::OutputPort<std::vector<int64_t>>("route_lanelet_ids"),                               // New Vector Port
+          BT::OutputPort<std::string>("error_message"),
+      });
+    }
 
-  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
-  {
-    if (!response->success) {
-      setOutput("error_message", response->error_message);
+    bool setRequest(Request::SharedPtr &request) override
+    {
+      return true;
+    }
+
+    BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
+    {
+      if (!response->success)
+      {
+        setOutput("error_message", response->error_message);
+        return BT::NodeStatus::FAILURE;
+      }
+
+      auto route = std::make_shared<lanelet_msgs::srv::GetShortestRoute::Response>(std::move(*response));
+
+      // build the index map (lanelet_id -> index)
+      auto index_map = std::make_shared<std::unordered_map<int64_t, size_t>>();
+      index_map->reserve(route->lanelets.size());
+
+      auto lanelet_ids = std::vector<int64_t>();
+      lanelet_ids.reserve(route->lanelets.size());
+
+      for (size_t i = 0; i < route->lanelets.size(); ++i)
+      {
+        // map the lanelet id to its sequence position
+        (*index_map)[route->lanelets[i].id] = i;
+
+        // populate the lanelet ids vector
+        lanelet_ids.push_back(route->lanelets[i].id);
+      }
+
+      setOutput("route", route);
+      setOutput("route_index_map", index_map);
+      setOutput("route_lanelet_ids", lanelet_ids);
+
+      return BT::NodeStatus::SUCCESS;
+    }
+
+    BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+    {
+      setOutput("error_message", std::string(BT::toStr(error)));
+      RCLCPP_ERROR(logger(), "GetShortestRoute service failed: %d", error);
       return BT::NodeStatus::FAILURE;
     }
+  };
+} // namespace behaviour
 
-    auto route = std::make_shared<lanelet_msgs::srv::GetShortestRoute::Response>(std::move(*response));
-    
-    // 2. Build the Index Map (Lanelet ID -> Index in Vector)
-    auto index_map = std::make_shared<std::unordered_map<int64_t, size_t>>();
-    index_map->reserve(route->lanelets.size());
-
-    auto lanelet_ids = std::vector<int64_t>();
-    lanelet_ids.reserve(route->lanelets.size());
-
-    for (size_t i = 0; i < route->lanelets.size(); ++i) {
-      // Map the lanelet ID to its sequence position
-      (*index_map)[route->lanelets[i].id] = i;
-
-      // Populate the lanelet IDs vector
-      lanelet_ids.push_back(route->lanelets[i].id);
-    }
-
-    // 3. Set the Blackboard outputs
-    setOutput("route", route);
-    setOutput("route_index_map", index_map);
-    setOutput("route_lanelet_ids", lanelet_ids);
-
-    return BT::NodeStatus::SUCCESS;
-  }
-
-  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-  {
-    setOutput("error_message", std::string(BT::toStr(error)));
-    RCLCPP_ERROR(logger(), "GetShortestRoute service failed: %d", error);
-    return BT::NodeStatus::FAILURE;
-  }
-};
-}  // namespace behaviour
-
-#endif  // BEHAVIOUR__GET_SHORTEST_ROUTE_SERVICE_HPP_
+#endif // BEHAVIOUR__GET_SHORTEST_ROUTE_SERVICE_HPP_

@@ -1,5 +1,1 @@
-<root BTCPP_format="4">
-  <BehaviorTree ID="traffic_light">
-    <AlwaysSuccess/>
-  </BehaviorTree>
-</root>
+<!-- TODO -->
