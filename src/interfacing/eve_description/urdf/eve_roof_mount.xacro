@@ -29,6 +29,14 @@
       <origin xyz="0 0 0.35" rpy="0 0 0"/>
     </joint>
 
+    <!-- Alias frame to match bag/driver frame_id (lidar_top) -->
+    <link name="lidar_top"/>
+    <joint name="lidar_top_alias" type="fixed">
+      <parent link="lidar_cc"/>
+      <child link="lidar_top"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
 
     <!-- GPS/IMU Antenna -->
     <link name="gps_imu_antenna">
