@@ -96,10 +96,10 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
   }
 
   KinematicState current_state = initial_state;
-  double t = 0.0;
+  double t = dt;
   const double lookahead_distance = 3.0;
 
-  while (t < horizon) {
+  while (t <= horizon) {
     // compute heading with pure pursuit logic
     double min_distance = std::numeric_limits<double>::max();
     size_t closest_idx = 0;
@@ -213,9 +213,9 @@ std::vector<geometry_msgs::msg::PoseStamped> ConstantVelocityModel::generateTraj
   std::vector<geometry_msgs::msg::PoseStamped> trajectory;
 
   KinematicState current_state = initial_state;
-  double t = 0.0;
+  double t = dt;
 
-  while (t < horizon) {
+  while (t <= horizon) {
     current_state = propagate(current_state, dt);
 
     geometry_msgs::msg::PoseStamped pose_stamped;
