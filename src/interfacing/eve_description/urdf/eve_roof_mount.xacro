@@ -2,7 +2,7 @@
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
 
   <!-- Roof mount macro - attaches sensors to the provided parent link -->
-  <xacro:macro name="roof_mount" params="parent">
+  <xacro:macro name="roof_mount" params="parent imu_xyz:='-0.5600 0 0' imu_rpy:='0 0 0'">
 
     <!-- Top LiDAR -->
     <link name="lidar_cc">
@@ -53,6 +53,30 @@
       <parent link="${parent}"/>
       <child link="gps_imu_antenna"/>
       <origin xyz="-0.5600 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <link name="imu_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.04"/>
+        </geometry>
+        <material name="green">
+          <color rgba="0.0 1.0 0.0 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="0.04"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="imu_mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="imu_link"/>
+      <origin xyz="${imu_xyz}" rpy="${imu_rpy}"/>
     </joint>
 
     <xacro:property name="camera_z" value="0.217"/>
