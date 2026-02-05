@@ -17,27 +17,24 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // Publishers
+#include "world_model/interfaces/publishers/area_occupancy_publisher.hpp"
 #include "world_model/interfaces/publishers/dynamic_objects_publisher.hpp"
 #include "world_model/interfaces/publishers/lane_context_publisher.hpp"
+#include "world_model/interfaces/publishers/lanelet_ahead_publisher.hpp"
 #include "world_model/interfaces/publishers/map_viz_publisher.hpp"
 #include "world_model/interfaces/publishers/route_ahead_publisher.hpp"
 
-// Subscribers
-#include "world_model/interfaces/subscribers/detection_subscriber.hpp"
-#include "world_model/interfaces/subscribers/prediction_subscriber.hpp"
-#include "world_model/interfaces/subscribers/traffic_light_subscriber.hpp"
-
 // Services
+#include "world_model/interfaces/services/get_objects_by_lanelet_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
 #include "world_model/interfaces/services/set_route_service.hpp"
 #include "world_model/interfaces/services/shortest_route_service.hpp"
-
-// Workers
-#include "world_model/interfaces/workers/cleanup_worker.hpp"
 
 namespace world_model
 {
@@ -45,22 +42,12 @@ namespace world_model
 WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("world_model", options)
 {
-  // Declare parameters
+  // Declare shared parameters (used by both the node and interfaces)
   this->declare_parameter<std::string>("osm_map_path", "");
   this->declare_parameter<std::string>("map_frame", "map");
   this->declare_parameter<std::string>("base_frame", "base_link");
   this->declare_parameter<std::string>("utm_frame", "utm");
   this->declare_parameter<std::string>("projector_type", "utm");
-  this->declare_parameter<double>("entity_history_duration_sec", 5.0);
-  this->declare_parameter<double>("entity_prune_timeout_sec", 2.0);
-  this->declare_parameter<double>("traffic_light_timeout_sec", 1.0);
-  this->declare_parameter<double>("cleanup_interval_ms", 1000.0);
-  this->declare_parameter<double>("lane_context_publish_rate_hz", 10.0);
-  this->declare_parameter<double>("map_viz_publish_rate_hz", 1.0);
-  this->declare_parameter<double>("map_viz_radius_m", 100.0);
-  this->declare_parameter<double>("dynamic_objects_publish_rate_hz", 10.0);
-  this->declare_parameter<double>("route_ahead_publish_rate_hz", 10.0);
-  this->declare_parameter<double>("route_ahead_lookahead_m", 100.0);
 
   RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
 }
@@ -93,58 +80,31 @@ WorldModelNode::CallbackReturn WorldModelNode::on_configure(const rclcpp_lifecyc
 
 void WorldModelNode::createInterfaces()
 {
-  // Get parameters
-  double lane_context_rate_hz = this->get_parameter("lane_context_publish_rate_hz").as_double();
-  double map_viz_rate_hz = this->get_parameter("map_viz_publish_rate_hz").as_double();
-  double map_viz_radius_m = this->get_parameter("map_viz_radius_m").as_double();
-  double dynamic_objects_rate_hz = this->get_parameter("dynamic_objects_publish_rate_hz").as_double();
-  double route_ahead_rate_hz = this->get_parameter("route_ahead_publish_rate_hz").as_double();
-  double route_ahead_lookahead_m = this->get_parameter("route_ahead_lookahead_m").as_double();
-  double history_duration_sec = this->get_parameter("entity_history_duration_sec").as_double();
-  double entity_prune_timeout_sec = this->get_parameter("entity_prune_timeout_sec").as_double();
-  double traffic_light_timeout_sec = this->get_parameter("traffic_light_timeout_sec").as_double();
-  auto cleanup_interval =
-    std::chrono::milliseconds(static_cast<int64_t>(this->get_parameter("cleanup_interval_ms").as_double()));
-
   // Publishers
-  interfaces_.push_back(std::make_unique<LaneContextPublisher>(
-    this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_, lane_context_rate_hz));
+  interfaces_.push_back(std::make_unique<LaneContextPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(std::make_unique<MapVizPublisher>(
-    this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_, map_viz_rate_hz, map_viz_radius_m));
+  interfaces_.push_back(std::make_unique<MapVizPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
+
+  interfaces_.push_back(std::make_unique<DynamicObjectsPublisher>(this, world_state_.get(), lanelet_handler_.get()));
+
+  interfaces_.push_back(std::make_unique<RouteAheadPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
   interfaces_.push_back(
-    std::make_unique<DynamicObjectsPublisher>(this, world_state_.get(), map_frame_, dynamic_objects_rate_hz));
+    std::make_unique<AreaOccupancyPublisher>(this, world_state_.get(), tf_buffer_.get(), lanelet_handler_.get()));
 
-  interfaces_.push_back(std::make_unique<RouteAheadPublisher>(
-    this,
-    lanelet_handler_.get(),
-    tf_buffer_.get(),
-    map_frame_,
-    base_frame_,
-    route_ahead_rate_hz,
-    route_ahead_lookahead_m));
-
-  // Subscribers
-  interfaces_.push_back(
-    std::make_unique<DetectionSubscriber>(this, world_state_.get(), lanelet_handler_.get(), history_duration_sec));
-
-  interfaces_.push_back(std::make_unique<TrafficLightSubscriber>(this, world_state_.get()));
-
-  interfaces_.push_back(std::make_unique<PredictionSubscriber>(this, world_state_.get()));
+  interfaces_.push_back(std::make_unique<LaneletAheadPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
   // Services
-  interfaces_.push_back(
-    std::make_unique<SetRouteService>(this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_));
+  interfaces_.push_back(std::make_unique<SetRouteService>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(
-    std::make_unique<ShortestRouteService>(this, lanelet_handler_.get(), tf_buffer_.get(), map_frame_, base_frame_));
+  interfaces_.push_back(std::make_unique<ShortestRouteService>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
   interfaces_.push_back(std::make_unique<RegElemService>(this, lanelet_handler_.get()));
 
-  // Workers
-  interfaces_.push_back(std::make_unique<CleanupWorker>(
-    world_state_.get(), this->get_clock(), cleanup_interval, entity_prune_timeout_sec, traffic_light_timeout_sec));
+  interfaces_.push_back(std::make_unique<GetObjectsByLaneletService>(this, world_state_.get(), lanelet_handler_.get()));
+
+  // Single inbound subscriber
+  writer_ = std::make_unique<WorldModelWriter>(this, world_state_.get(), lanelet_handler_.get(), tf_buffer_.get());
 }
 
 WorldModelNode::CallbackReturn WorldModelNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
@@ -192,7 +152,8 @@ WorldModelNode::CallbackReturn WorldModelNode::on_cleanup(const rclcpp_lifecycle
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up...");
 
-  // Clear all interfaces
+  // Clear subscriber and interfaces
+  writer_.reset();
   interfaces_.clear();
 
   // Reset other resources
@@ -208,6 +169,25 @@ WorldModelNode::CallbackReturn WorldModelNode::on_cleanup(const rclcpp_lifecycle
 WorldModelNode::CallbackReturn WorldModelNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down...");
+
+  // Deactivate interfaces (safe even if never activated — methods have null guards)
+  for (auto & interface : interfaces_) {
+    interface->deactivate();
+  }
+
+  if (map_init_timer_) {
+    map_init_timer_->cancel();
+    map_init_timer_.reset();
+  }
+
+  // Release all resources
+  writer_.reset();
+  interfaces_.clear();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  lanelet_handler_.reset();
+  world_state_.reset();
+
   return CallbackReturn::SUCCESS;
 }
 

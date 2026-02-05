@@ -14,6 +14,10 @@
 
 #include "patchworkpp/ground_removal_node.hpp"
 
+#include <tf2/exceptions.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -105,7 +109,6 @@ void GroundRemovalNode::updateDiagnostics(const std_msgs::msg::Header::_stamp_ty
 void GroundRemovalNode::declareParameters(patchwork::Params & params)
 {
   // Declare Patchwork++ algorithm parameters
-  this->declare_parameter<double>("sensor_height", 1.88);
   this->declare_parameter<int>("num_iter", 3);
   this->declare_parameter<int>("num_lpr", 20);
   this->declare_parameter<int>("num_min_pts", 0);
@@ -119,8 +122,10 @@ void GroundRemovalNode::declareParameters(patchwork::Params & params)
   this->declare_parameter<bool>("enable_RNR", false);
   this->declare_parameter<bool>("verbose", true);
 
+  // TF-based sensor height: base_frame to use for looking up sensor height from TF
+  this->declare_parameter<std::string>("base_frame", "base_link");
+
   // Get parameter values
-  params.sensor_height = this->get_parameter("sensor_height").as_double();
   params.num_iter = this->get_parameter("num_iter").as_int();
   params.num_lpr = this->get_parameter("num_lpr").as_int();
   params.num_min_pts = this->get_parameter("num_min_pts").as_int();
@@ -133,10 +138,38 @@ void GroundRemovalNode::declareParameters(patchwork::Params & params)
   params.uprightness_thr = this->get_parameter("uprightness_thr").as_double();
   params.enable_RNR = this->get_parameter("enable_RNR").as_bool();
   params.verbose = this->get_parameter("verbose").as_bool();
+  base_frame_ = this->get_parameter("base_frame").as_string();
 }
 
 void GroundRemovalNode::removeGround(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg)
 {
+  // Resolve sensor height from TF on first message and create the processing core
+  if (!sensor_height_resolved_) {
+    try {
+      const auto transform =
+        tf_buffer_->lookupTransform(base_frame_, msg->header.frame_id, tf2::TimePointZero, tf2::durationFromSec(1.0));
+      patchwork_params_.sensor_height = transform.transform.translation.z;
+      core_ = std::make_unique<GroundRemovalCore>(patchwork_params_);
+      sensor_height_resolved_ = true;
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Resolved sensor height from TF (%s -> %s): %.3f m",
+        base_frame_.c_str(),
+        msg->header.frame_id.c_str(),
+        patchwork_params_.sensor_height);
+    } catch (const tf2::TransformException & e) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "Waiting for transform from '%s' to '%s' to resolve sensor height: %s",
+        base_frame_.c_str(),
+        msg->header.frame_id.c_str(),
+        e.what());
+      return;
+    }
+  }
+
   Eigen::MatrixX3f cloud;
   try {
     cloud = GroundRemovalCore::pointCloud2ToEigen(msg);
@@ -292,9 +325,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
   RCLCPP_INFO(this->get_logger(), "Configuring Patchwork++ Ground Removal node");
 
   try {
-    patchwork::Params params;
-    declareParameters(params);
-    core_ = std::make_unique<GroundRemovalCore>(params);
+    declareParameters(patchwork_params_);
+
+    // Create TF buffer and listener for sensor height lookup
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     // Declare QoS parameters
     this->declare_parameter<std::string>("qos_subscriber_reliability", "best_effort");
@@ -400,6 +435,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
   nonground_pub_diagnostic_.reset();
   diagnostic_updater_.reset();
   core_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  sensor_height_resolved_ = false;
 
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -415,6 +453,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Ground
   ground_publisher_.reset();
   nonground_publisher_.reset();
   core_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  sensor_height_resolved_ = false;
   total_processed_ = 0;
   total_processing_time_ms_ = 0.0;
   last_processing_time_ms_ = 0.0;

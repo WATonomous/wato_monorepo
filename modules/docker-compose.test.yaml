@@ -4,58 +4,70 @@ services:
   infrastructure_bringup_test:
     profiles: ["infrastructure_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: infrastructure_bringup
     build:
       target: build
     image: "${INFRASTRUCTURE_IMAGE:?}:test_${TAG}"
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 #################### INTERFACING SERVICE ####################
   interfacing_bringup_test:
     profiles: ["interfacing_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: interfacing_bringup
     build:
       target: build
     image: "${INTERFACING_IMAGE:?}:test_${TAG}"
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 #################### PERCEPTION SERVICE ####################
   perception_bringup_test:
     profiles: ["perception_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: perception_bringup
     build:
       target: build
     image: "${PERCEPTION_IMAGE:?}:test_${TAG}"
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_bringup_test:
     profiles: ["world_modeling_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: world_modeling_bringup
     build:
       target: build
     image: "${WORLD_MODELING_IMAGE:?}:test_${TAG}"
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 #################### ACTION SERVICE ####################
   action_bringup_test:
     profiles: ["action_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: action_bringup
     build:
       target: build
     image: "${ACTION_IMAGE:?}:test_${TAG}"
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 #################### SIMULATION SERVICE ####################
   simulation_bringup_test:
     profiles: ["simulation_test"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: simulation_bringup
     build:
       target: build
     image: "${SIMULATION_IMAGE:?}:test_${TAG}"
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp

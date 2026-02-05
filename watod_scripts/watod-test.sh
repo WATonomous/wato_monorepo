@@ -15,7 +15,7 @@
 set -euo pipefail
 
 # watod-test.sh - Builds test images and runs tests
-# Usage: watod-test.sh --pre-profiles <profiles...> --all-profiles <profiles...> [service names...]
+# Usage: watod-test.sh --pre-profiles <profiles...> --all-profiles <profiles...> [--services <services...>] [--packages <packages...>]
 
 # Get monorepo directory
 MONO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,6 +28,7 @@ declare -a TEST_PRE_PROFILES=()
 declare -a TEST_ALL_PROFILES=()
 declare -a PROFILE_MODULES=()
 declare -a TEST_SERVICES=()
+declare -a FILTER_PACKAGES=()
 
 # Parse profile arguments
 while [[ $# -gt 0 ]]; do
@@ -46,10 +47,23 @@ while [[ $# -gt 0 ]]; do
         shift
       done
       ;;
-    *)
-      # Remaining arguments are service names
-      TEST_SERVICES+=("$1")
+    --packages)
       shift
+      while [[ $# -gt 0 && "$1" != --* ]]; do
+        FILTER_PACKAGES+=("$1")
+        shift
+      done
+      ;;
+    --services)
+      shift
+      while [[ $# -gt 0 && "$1" != --* ]]; do
+        TEST_SERVICES+=("$1")
+        shift
+      done
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
       ;;
   esac
 done
@@ -70,7 +84,7 @@ TEST_PRE_PROFILES=("${PRE_PROFILES[@]}")
 TEST_ROS_DOMAIN_ID=${TEST_ROS_DOMAIN_ID:-99}
 
 # Services to skip (non-ROS services that don't have colcon tests)
-SKIP_SERVICES=("log_viewer")
+SKIP_SERVICES=("log_viewer" "network_namespace")
 
 # Track test results
 declare -a TESTED_SERVICES=()
@@ -80,39 +94,38 @@ declare -a TEST_COUNTS=()
 
 # Compose files for testing
 # PRE-BUILD uses standard dep files to build source/deps stages
-declare -a TEST_PRE_COMPOSE_FILES=("modules/docker-compose.yaml" "modules/docker-compose.dep.yaml")
+declare -a WATCLOUD_COMPOSE_FILES=()
+if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
+  WATCLOUD_COMPOSE_FILES=("modules/docker-compose.watcloud.yaml")
+fi
+
+declare -a TEST_PRE_COMPOSE_FILES=("modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "modules/docker-compose.dep.yaml")
 # Main BUILD uses dep files (for profile assignments) + test files (for test service overrides)
-declare -a TEST_ALL_COMPOSE_FILES=("modules/docker-compose.yaml" "modules/docker-compose.dep.yaml" "modules/docker-compose.test.yaml")
+declare -a TEST_ALL_COMPOSE_FILES=("modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "modules/docker-compose.dep.yaml" "modules/docker-compose.test.yaml")
 
 # Run tests for a service
 run_tests() {
   local service=$1
   local test_service="${service}_test"
-  local image
 
-  echo "Getting image for test service: $test_service"
-  # Use watod-compose.sh for config command
-  image=$("$MONO_DIR/watod_scripts/watod-compose.sh" config \
-    --pre-profiles "${TEST_PRE_PROFILES[@]}" \
-    --all-profiles "${TEST_ALL_PROFILES[@]}" \
-    --compose-files "${TEST_ALL_COMPOSE_FILES[@]}" \
-    --images "$test_service" 2>/dev/null | head -n1)
-
-  if [[ -z "$image" ]]; then
-    echo "Error: Could not find image for service $test_service" >&2
-    return 1
+  # Build colcon test command
+  local colcon_cmd="colcon test --event-handlers console_direct+"
+  if [[ ${#FILTER_PACKAGES[@]} -gt 0 ]]; then
+    colcon_cmd+=" --packages-select ${FILTER_PACKAGES[*]}"
   fi
-
-  echo "Testing $service (image: $image)"
 
   # Capture test output
   local test_output
-  test_output=$(docker run --rm \
+  test_output=$( "$MONO_DIR/watod_scripts/watod-compose.sh" run \
+    --pre-profiles "${TEST_PRE_PROFILES[@]}" \
+    --all-profiles "${TEST_ALL_PROFILES[@]}" \
+    --compose-files "${TEST_ALL_COMPOSE_FILES[@]}" \
+    --rm \
     -e ROS_DOMAIN_ID="$TEST_ROS_DOMAIN_ID" \
     --name "${service}_test_$$" \
     -w /ws \
-    "$image" \
-    /bin/bash -c "source /opt/watonomous/setup.bash && colcon test --event-handlers console_direct+ && colcon test-result --verbose" 2>&1)
+    "$test_service" \
+    /bin/bash -c "source /opt/watonomous/setup.bash && $colcon_cmd && colcon test-result --verbose" 2>&1)
 
   local exit_code=$?
   echo "$test_output"
@@ -120,7 +133,7 @@ run_tests() {
   # Extract summary information
   local packages
   local tests
-  packages=$(echo "$test_output" | grep -oP "Summary: \K\d+(?= packages finished)" | tail -1)
+  packages=$(echo "$test_output" | grep -oP "Summary: \K\d+(?= packages? finished)" | tail -1)
   tests=$(echo "$test_output" | grep -oP "Summary: \K\d+(?= tests)" | tail -1)
 
   # Store results
@@ -152,8 +165,12 @@ fi
 
 # Main logic
 if [[ ${#TEST_SERVICES[@]} -gt 0 ]]; then
-  # Test specific services
+  # Test specific services (convert module name to bringup service name)
   for service in "${TEST_SERVICES[@]}"; do
+    # If service doesn't end with _bringup, append it (e.g., world_modeling -> world_modeling_bringup)
+    if [[ ! "$service" =~ _bringup$ ]]; then
+      service="${service}_bringup"
+    fi
     run_tests "$service" || exit 1
   done
 else
@@ -237,7 +254,10 @@ for i in "${!TESTED_SERVICES[@]}"; do
 done
 
 echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
-printf "${BLUE}║${RESET}  ${YELLOW}${BOLD}Total: %s packages, %s tests${RESET}%-29s${BLUE}║${RESET}\n" "$total_packages" "$total_tests" ""
+# Calculate dynamic padding for the Total line (box content width is 57 chars after "  ")
+total_text="Total: ${total_packages} packages, ${total_tests} tests"
+padding=$((57 - ${#total_text}))
+printf "${BLUE}║${RESET}  ${YELLOW}${BOLD}%s${RESET}%${padding}s${BLUE}║${RESET}\n" "$total_text" ""
 if $all_passed; then
   echo -e "${BLUE}║${RESET}  ${GREEN}${BOLD}Status: ALL TESTS PASSED${RESET}                                 ${BLUE}║${RESET}"
 else
