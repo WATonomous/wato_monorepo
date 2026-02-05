@@ -4,7 +4,7 @@ services:
   infrastructure_bringup_dev:
     profiles: ["infrastructure_dev"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: infrastructure_bringup
     build:
       target: develop
@@ -22,7 +22,7 @@ services:
   interfacing_bringup_dev:
     profiles: ["interfacing_dev"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: interfacing_bringup
     build:
       target: develop
@@ -40,7 +40,7 @@ services:
   perception_bringup_dev:
     profiles: ["perception_dev"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: perception_bringup
     build:
       target: develop
@@ -58,7 +58,7 @@ services:
   world_modeling_bringup_dev:
     profiles: ["world_modeling_dev"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: world_modeling_bringup
     build:
       target: develop
@@ -70,15 +70,13 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
-      - ${MONO_DIR}/src/infrastructure/wato_lifecycle_manager:/ws/src/wato_lifecycle_manager
-      - ${MONO_DIR}/src/infrastructure/lanelet_markers:/ws/src/lanelet_markers
       - ${MONO_DIR}/bags:/ws/bags
 
 #################### ACTION SERVICE ####################
   action_bringup_dev:
     profiles: ["action_dev"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: action_bringup
     build:
       target: develop
@@ -96,19 +94,19 @@ services:
   carla_sim:
     profiles: ["carla_gpu"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: carla_sim
 
   carla_sim_no_gpu:
     profiles: ["carla_no_gpu"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: carla_sim_no_gpu
 
   simulation_bringup_dev:
     profiles: ["simulation_dev"]
     extends:
-      file: docker-compose.yaml
+      file: ${COMPOSE_EXTEND_FILE}
       service: simulation_bringup
     build:
       target: develop

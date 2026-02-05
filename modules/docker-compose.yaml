@@ -1,5 +1,6 @@
 ---
 services:
+
 #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
     profiles: ["infrastructure_pre"]
@@ -50,7 +51,7 @@ services:
       context: ../watod_scripts/tools/log-viewer
       dockerfile: Dockerfile
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_SOCKET_PATH}:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
 
@@ -80,7 +81,6 @@ services:
       memlock: -1
     ipc: host
     network_mode: host
-    pull_policy: never
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -144,7 +144,7 @@ services:
         - "${PERCEPTION_IMAGE:?}:main"
       target: deploy
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
-    command: /bin/bash -c "ros2 launch perception_bringup perception_launch.yaml"
+    command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
     volumes:
       - /mnt/wato-drive2/perception_models:/perception_models
     environment:

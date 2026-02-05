@@ -1,0 +1,49 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Recording profile: lidar_only
+# Records all LiDAR point clouds, GPS, and IMU (no cameras)
+
+bag_recorder:
+  ros__parameters:
+    record:
+      all_topics: false
+      is_discovery_disabled: false
+      compression_mode: "none"
+      topics:
+        # LiDAR point clouds
+        - /lidar_cc/velodyne_points
+        - /lidar_nw/velodyne_points
+        - /lidar_ne/velodyne_points
+        # Novatel GPS/IMU
+        - /novatel/oem7/bestgnsspos
+        - /novatel/oem7/bestgnssvel
+        - /novatel/oem7/bestpos
+        - /novatel/oem7/bestutm
+        - /novatel/oem7/bestvel
+        - /novatel/oem7/corrimu
+        - /novatel/oem7/fix
+        - /novatel/oem7/gps
+        - /novatel/oem7/heading2
+        - /novatel/oem7/imu/data
+        - /novatel/oem7/imu/data_raw
+        - /novatel/oem7/insconfig
+        - /novatel/oem7/inspva
+        - /novatel/oem7/inspvax
+        - /novatel/oem7/insstdev
+        - /novatel/oem7/odom
+        - /novatel/oem7/odom_origin
+        - /novatel/oem7/oem7raw
+        - /novatel/oem7/ppppos
+        - /novatel/oem7/rxstatus
+        - /novatel/oem7/terrastarinfo
+        - /novatel/oem7/terrastarstatus
+        - /novatel/oem7/time
+        # Transforms
+        - /tf
+        - /tf_static
+
+    storage:
+      storage_id: "mcap"
+      max_bagfile_size: 21474836480  # 20 GB
+      max_cache_size: 104857600  # 100 MB

@@ -1,0 +1,8 @@
+# GetObjectsByLanelet.srv
+# Service to retrieve all objects currently on a specific lanelet.
+
+int64 lanelet_id
+---
+bool success
+string error_message
+WorldObject[] objects

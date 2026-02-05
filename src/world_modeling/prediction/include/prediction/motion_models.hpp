@@ -14,34 +14,11 @@
 
 /**
  * @file motion_models.hpp
- * @brief PHYSICS-BASED MOTION MODELS - Low-level kinematic propagation
+ * @brief Physics-based motion models for trajectory propagation.
  *
- * WHAT THIS FILE DOES:
- * - Provides physics-based models to propagate object state forward in time
+ * Provides kinematic models to propagate object state forward in time:
  * - BicycleModel: Vehicle motion with front-wheel steering
  * - ConstantVelocityModel: Simple linear motion with optional noise
- *
- * ========== TASK ASSIGNMENTS ==========
- *
- * JOHN - BICYCLE MODEL (for vehicles):
- * - Implement: BicycleModel::generateTrajectory() in motion_models.cpp
- * - Add: Path following logic (pure pursuit or Stanley controller)
- * - Add: Steering angle computation to follow centerline
- * - Add: Velocity profile generation (acceleration/deceleration)
- * - Input: Initial state + path points (from lanelet centerline)
- * - Output: Vector of Pose messages (trajectory waypoints)
- *
- * GIRISH - CONSTANT VELOCITY MODEL (for pedestrians):
- * - Implement: ConstantVelocityModel::generateTrajectory() noise option
- * - Add: Gaussian noise sampling for position and heading
- * - Add: Multiple trajectory samples for uncertainty representation
- * - Input: Initial state + horizon + dt
- * - Output: Vector of Pose messages (trajectory waypoints)
- *
- * ARUHANT - CAN USE BOTH MODELS:
- * - Use BicycleModel when cyclist is on road
- * - Use ConstantVelocityModel when cyclist is near crosswalk
- * - Decision logic goes in trajectory_predictor.cpp
  */
 
 #ifndef PREDICTION__MOTION_MODELS_HPP_

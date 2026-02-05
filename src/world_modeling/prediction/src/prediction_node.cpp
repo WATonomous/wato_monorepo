@@ -15,27 +15,47 @@
 #include "prediction/prediction_node.hpp"
 
 #include <memory>  // for std::make_unique
+#include <optional>
+#include <string>
 
 namespace prediction
 {
 
 PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
-: Node("prediction_node", options)
+: LifecycleNode("prediction_node", options)
 {
-  // Declare parameters
-  this->declare_parameter("prediction_horizon", 5.0);
-  this->declare_parameter("prediction_time_step", 0.1);
-  this->declare_parameter("use_map_constraints", true);
-  this->declare_parameter("enable_visualization", false);
+  // Declare parameters (defaults match simple_prediction for drop-in compatibility)
+  this->declare_parameter("prediction_horizon", 3.0);
+  this->declare_parameter("prediction_time_step", 0.2);
+
+  RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
+}
+
+PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Configuring...");
 
   // Get parameters
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
-  use_map_constraints_ = this->get_parameter("use_map_constraints").as_bool();
-  enable_visualization_ = this->get_parameter("enable_visualization").as_bool();
 
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds", prediction_horizon_);
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
+
+  // Initialize publisher
+  world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
+
+  // Initialize components
+  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_);
+  intent_classifier_ = std::make_unique<IntentClassifier>(this);
+
+  RCLCPP_INFO(this->get_logger(), "Configured successfully");
+  return CallbackReturn::SUCCESS;
+}
+
+PredictionNode::CallbackReturn PredictionNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Activating...");
 
   // Initialize subscribers
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
@@ -44,27 +64,78 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
     "ego_pose", 10, std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1));
 
-  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_);
+  world_objects_pub_->on_activate();
 
-  intent_classifier_ = std::make_unique<IntentClassifier>(this);
+  RCLCPP_INFO(this->get_logger(), "Activated successfully");
+  return CallbackReturn::SUCCESS;
+}
 
-  map_interface_ = std::make_unique<MapInterface>(this);
-  RCLCPP_INFO(this->get_logger(), "Prediction node initialized successfully");
+PredictionNode::CallbackReturn PredictionNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Deactivating...");
+
+  tracked_objects_sub_.reset();
+  ego_pose_sub_.reset();
+  world_objects_pub_->on_deactivate();
+
+  RCLCPP_INFO(this->get_logger(), "Deactivated successfully");
+  return CallbackReturn::SUCCESS;
+}
+
+PredictionNode::CallbackReturn PredictionNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Cleaning up...");
+
+  // Reset subscribers and publishers
+  tracked_objects_sub_.reset();
+  ego_pose_sub_.reset();
+  world_objects_pub_.reset();
+
+  // Reset components
+  trajectory_predictor_.reset();
+  intent_classifier_.reset();
+
+  // Clear state
+  ego_pose_.reset();
+
+  RCLCPP_INFO(this->get_logger(), "Cleaned up successfully");
+  return CallbackReturn::SUCCESS;
+}
+
+PredictionNode::CallbackReturn PredictionNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Shutting down...");
+
+  // Reset subscribers and publishers
+  tracked_objects_sub_.reset();
+  ego_pose_sub_.reset();
+  world_objects_pub_.reset();
+
+  // Reset components
+  trajectory_predictor_.reset();
+  intent_classifier_.reset();
+
+  // Clear state
+  ego_pose_.reset();
+
+  return CallbackReturn::SUCCESS;
 }
 
 void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
-  if (!ego_pose_) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 1000, "Ego pose not received yet, skipping prediction");
-    return;
-  }
-
   RCLCPP_DEBUG(this->get_logger(), "Processing %zu tracked objects", msg->detections.size());
 
+  world_model_msgs::msg::WorldObjectArray output;
+  output.header = msg->header;
+
   for (const auto & detection : msg->detections) {
-    processObject(detection);
+    auto world_obj = processObject(detection, msg->header.frame_id);
+    if (world_obj.has_value()) {
+      output.objects.push_back(world_obj.value());
+    }
   }
+
+  world_objects_pub_->publish(output);
 }
 
 void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -72,34 +143,64 @@ void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::Shar
   ego_pose_ = msg;
 }
 
-void PredictionNode::processObject(const vision_msgs::msg::Detection3D & detection)
+std::optional<world_model_msgs::msg::WorldObject> PredictionNode::processObject(
+  const vision_msgs::msg::Detection3D & detection, const std::string & frame_id)
 {
   RCLCPP_DEBUG(this->get_logger(), "Processing object with ID: %s", detection.id.c_str());
 
   try {
-    geometry_msgs::msg::Point center = detection.bbox.center.position;
-    int64_t current_lanelet = map_interface_->findNearestLanelet(center);
-
-    auto future_lanelets = map_interface_->getPossibleFutureLanelets(current_lanelet, 3);
-
-    auto hypotheses = trajectory_predictor_->generateHypotheses(detection, future_lanelets);
+    auto hypotheses = trajectory_predictor_->generateHypotheses(detection);
 
     if (hypotheses.empty()) {
       RCLCPP_DEBUG(this->get_logger(), "No hypotheses generated for object %s", detection.id.c_str());
-      return;
+      return std::nullopt;
     }
 
-    auto features = intent_classifier_->extractFeatures(detection, future_lanelets);
+    auto features = intent_classifier_->extractFeatures(detection);
     intent_classifier_->assignProbabilities(detection, hypotheses, features);
+
+    // Build WorldObject with predictions
+    world_model_msgs::msg::WorldObject world_obj;
+    world_obj.detection = detection;
+
+    for (const auto & hypothesis : hypotheses) {
+      world_model_msgs::msg::Prediction pred;
+      pred.header.frame_id = frame_id;
+      pred.conf = hypothesis.probability;
+
+      for (size_t i = 0; i < hypothesis.waypoints.size(); ++i) {
+        geometry_msgs::msg::PoseStamped ps;
+        ps.header.frame_id = frame_id;
+        ps.pose = hypothesis.waypoints[i];
+        pred.poses.push_back(ps);
+      }
+
+      world_obj.predictions.push_back(pred);
+    }
 
     RCLCPP_DEBUG(
       this->get_logger(), "Generated %zu predictions for object %s", hypotheses.size(), detection.id.c_str());
+
+    return world_obj;
   } catch (const std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "Error processing object %s: %s", detection.id.c_str(), e.what());
+    return std::nullopt;
   }
 }
 
 }  // namespace prediction
 
-#include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(prediction::PredictionNode)
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
+
+  auto node = std::make_shared<prediction::PredictionNode>(rclcpp::NodeOptions());
+
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+
+  executor.spin();
+
+  rclcpp::shutdown();
+  return 0;
+}

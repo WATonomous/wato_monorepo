@@ -31,7 +31,6 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
-find_package(prediction_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED)
 find_package(lanelet2_io REQUIRED)
@@ -62,7 +61,7 @@ target_link_libraries(${PROJECT_NAME}_lib
     ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
-    ${prediction_msgs_TARGETS}
+
     lanelet2_core::lanelet2_core
     lanelet2_io::lanelet2_io
     lanelet2_projection::lanelet2_projection
@@ -87,7 +86,7 @@ target_link_libraries(world_model_node
     ${geometry_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
-    ${prediction_msgs_TARGETS}
+
     ${world_model_msgs_TARGETS}
     lanelet2_core::lanelet2_core
     lanelet2_io::lanelet2_io
