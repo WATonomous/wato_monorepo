@@ -1,0 +1,28 @@
+launch:
+  # Pre-enrichment: subscribes to world_object_seeds (from simple_prediction)
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: world_objects_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share world_model_markers)/config/world_model_markers.yaml
+      remap:
+        - from: world_objects
+          to: /world_object_seeds
+        - from: markers
+          to: /world_objects_markers
+
+  # Post-enrichment: subscribes to world_objects (from world model)
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: dynamic_objects_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share world_model_markers)/config/world_model_markers.yaml
+      remap:
+        - from: world_objects
+          to: /world_objects
+        - from: markers
+          to: /dynamic_objects_markers

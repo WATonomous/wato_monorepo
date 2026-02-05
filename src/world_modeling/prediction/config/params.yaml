@@ -3,8 +3,8 @@
 prediction_node:
   ros__parameters:
     # Prediction horizon and temporal resolution
-    prediction_horizon: 5.0      # seconds - how far into the future to predict
-    prediction_time_step: 0.1    # seconds - time between waypoints
+    prediction_horizon: 3.0      # seconds - how far into the future to predict
+    prediction_time_step: 0.2    # seconds - time between waypoints
 
     # Map constraints
     use_map_constraints: true    # whether to constrain predictions to HD map

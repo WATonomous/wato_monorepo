@@ -80,22 +80,9 @@ if(BUILD_TESTING)
   add_wato_test(joystick_interfacing_test test/joystick_interfacing_test.cpp
     LIBRARIES joystick_interfacing
   )
-  target_link_libraries(joystick_interfacing_test
-    ${ackermann_msgs_TARGETS}
-    ${sensor_msgs_TARGETS}
-    ${std_msgs_TARGETS}
-    roscco_msg::roscco_msg__rosidl_typesupport_cpp
-  )
 
   add_wato_test(joystick_arming_test test/joystick_arming_test.cpp
     LIBRARIES joystick_interfacing
-  )
-  target_link_libraries(joystick_arming_test
-    ${ackermann_msgs_TARGETS}
-    ${sensor_msgs_TARGETS}
-    ${std_msgs_TARGETS}
-    ${std_srvs_TARGETS}
-    roscco_msg::roscco_msg__rosidl_typesupport_cpp
   )
 endif()
 
