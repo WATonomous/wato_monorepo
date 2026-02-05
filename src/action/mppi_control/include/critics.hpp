@@ -1,6 +1,9 @@
 #pragma once
 #include <vector>
 #include <cstddef>
+#include <cmath>
+#include <algorithm>
+#include <limits>
 #include "helpers.hpp"
 
 namespace critic{
@@ -33,6 +36,10 @@ public:
         // terminal deviation cost
         double w_terminal_deviation = 10.0;
 
+        // heading error weights:
+        double w_heading = 2.0;
+        double w_terminal_heading = 10.0;
+
         // -- Rate Costs --
         // smoothen acceleration changes
         double w_jerk = 1.0;
@@ -44,6 +51,10 @@ private:
     Params params_;
 
     std::vector<struct State> desired_trajectory_;
+
+    // helpers
+    int find_nearest_ref_index(const State &s) const;
+    double lateral_error_and_tangent(int index, const State &s, double &tangent_x, double &tangent_y) const;
     
 };
 
