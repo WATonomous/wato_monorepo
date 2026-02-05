@@ -16,10 +16,8 @@ float64[] speeds
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <tf2_msgs/msg/tf_message.hpp>
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
-#include <trajectory_msgs/msg/joint_trajectory.hpp> 
 #include "mppi_core.hpp"
-#include "mppi_control/msg/path_with_speed.hpp"
-
+#include <wato_trajectory_msgs/msg/trajectory.hpp>
 class MppiNode : public rclcpp::Node {
 public:
     MppiNode() : Node("mppi_node") {
@@ -72,7 +70,7 @@ public:
             std::bind(&MppiNode::odom_callback, this, std::placeholders::_1));
 
         //trajectory subscriber - path_with_speed
-        trajectory_sub_ = this->create_subscription<mppi_control::msg::PathWithSpeed>(
+        trajectory_sub_ = this->create_subscription<wato_trajectory_msgs::msg::Trajectory>(
             trajectory_topic_, 10,
             std::bind(&MppiNode::trajectory_callback, this, std::placeholders::_1));
 
@@ -108,16 +106,16 @@ public:
         mppi_core_->update_velocity(msg->twist.twist.linear.x);
     }
 
-    void trajectory_callback(const mppi_control::msg::PathWithSpeed::SharedPtr msg) {
-        RCLCPP_INFO(this->get_logger(), "Trajectory received with %zu points", msg->path.poses.size());
+    void trajectory_callback(const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg) {
+        RCLCPP_INFO(this->get_logger(), "Trajectory received with %zu points", msg->points.size());
         //turn trajectory into vector of States
         std::vector<State> traj;
-        for (size_t i = 0; i < msg->path.poses.size(); i++) {
+        for (size_t i = 0; i < msg->points.size(); i++) {
             State state;
-            state.x = msg->path.poses[i].pose.position.x;
-            state.y = msg->path.poses[i].pose.position.y;
-            state.yaw = quaternion_to_yaw(msg->path.poses[i].pose.orientation);
-            state.v = msg->speeds[i];
+            state.x = msg->points[i].pose.position.x;
+            state.y = msg->points[i].pose.position.y;
+            state.yaw = quaternion_to_yaw(msg->points[i].pose.orientation);
+            state.v = msg->points[i].max_speed;
             traj.push_back(state);
         }
 
@@ -157,7 +155,7 @@ private:
     std::string occupancy_grid_topic_;
     std::string control_topic_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-    rclcpp::Subscription<mppi_control::msg::PathWithSpeed>::SharedPtr trajectory_sub_;
+    rclcpp::Subscription<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_sub_;
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_sub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_sub_;
     rclcpp::TimerBase::SharedPtr control_timer_;
