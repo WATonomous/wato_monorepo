@@ -4,4 +4,4 @@
 geometry_msgs/Pose pose
 
 # Longitudinal speed (m/s)
-float64 v
+float64 max_speed
