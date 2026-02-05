@@ -61,6 +61,13 @@ namespace behaviour
 
         // create the tree
         tree_ = std::make_shared<BehaviourTree>(this->shared_from_this(), tree_path.string(), enable_console_logging);
+
+        // set TF and frames on blackboard to be used by BT nodes
+        tree_->updateBlackboard("tf_buffer", tf_buffer_);
+        tree_->updateBlackboard("map_frame", map_frame_);
+        tree_->updateBlackboard("base_frame", base_frame_);
+
+        // stores for world state publishers
         dynamic_objects_store_ = std::make_shared<behaviour::DynamicObjectStore>();
         area_occupancy_store_ = std::make_shared<behaviour::AreaOccupancyStore>();
 
@@ -88,6 +95,7 @@ namespace behaviour
             "/world_modeling/lanelet/lane_context", 10,
             [this](const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
             {
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Received CurrentLaneContext message");
                 tree_->updateBlackboard("current_lane_ctx", msg);
             });
 
@@ -95,16 +103,17 @@ namespace behaviour
             "/world_modeling/world_objects", rclcpp::QoS(10),
             [this](world_model_msgs::msg::WorldObjectArray::ConstSharedPtr msg)
             {
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Received WorldObjectArray message with %zu objects", msg->objects.size());
                 dynamic_objects_store_->update(msg);
             });
 
-        area_occupancy_sub_ =
-            this->create_subscription<world_model_msgs::msg::AreaOccupancy>(
-                "/world_modeling/area_occupancy", rclcpp::QoS(10),
-                [this](world_model_msgs::msg::AreaOccupancy::ConstSharedPtr msg)
-                {
-                    area_occupancy_store_->update(msg);
-                });
+        area_occupancy_sub_ = this->create_subscription<world_model_msgs::msg::AreaOccupancy>(
+            "/world_modeling/area_occupancy", rclcpp::QoS(10),
+            [this](world_model_msgs::msg::AreaOccupancy::ConstSharedPtr msg)
+            {
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Received AreaOccupancy message with %zu areas", msg->areas.size());
+                area_occupancy_store_->update(msg);
+            });
 
         RCLCPP_INFO(this->get_logger(), "BehaviourNode has been fully initialized.");
     }
@@ -116,11 +125,11 @@ namespace behaviour
     {
         try
         {
-            // world objects globally (traffic light)
+            // send latest world state snapshots to blackboard
             tree_->updateBlackboard("dynamic_objects.snapshot", dynamic_objects_store_->snapshot());
-
-            // world objects in area occupancy of the car (mainly checking for cars and pedestrians)
             tree_->updateBlackboard("area_occupancy.snapshot", area_occupancy_store_->snapshot());
+
+            // tick tree
             tree_->tick();
         }
         catch (const std::exception &e)

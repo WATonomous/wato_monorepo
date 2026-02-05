@@ -10,6 +10,8 @@
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
 #include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
+#include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
+#include "behaviour/nodes/common/actions/despawn_wall_service.hpp"
 
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
 
@@ -32,27 +34,30 @@ public:
         BT::RosNodeParams get_shortest_route_params = params;
         BT::RosNodeParams set_route_params = params;
         BT::RosNodeParams get_lanelets_by_reg_elem_params = params;
+        BT::RosNodeParams wall_service = params;
 
         // TODO(wato): adjust timeouts as needed
-        get_shortest_route_params.server_timeout = std::chrono::milliseconds(50000); // 50s response timeout
-        set_route_params.server_timeout = std::chrono::milliseconds(50000);
+        get_shortest_route_params.server_timeout = std::chrono::milliseconds(60000);
+        set_route_params.server_timeout = std::chrono::milliseconds(60000);
         get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(5000);
+        wall_service.server_timeout = std::chrono::milliseconds(5000);
 
         // actions
         factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
         factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
         factory.registerNodeType<behaviour::GetLaneletsByRegElemService>("GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
+        factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
+        factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
         factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
 
         // conditions
         factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage");
-
         factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
         factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
         factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
-
         factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute");
         factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped");
+
         // decorators
         factory.registerNodeType<behaviour::RateController>("RateController");
     }

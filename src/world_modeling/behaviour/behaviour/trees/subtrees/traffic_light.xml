@@ -1,1 +1,39 @@
-<!-- TODO -->
+<root BTCPP_format="4" main_tree_to_execute="TrafficLightSubTree">
+
+    <BehaviorTree ID="TrafficLightSubTree">
+        <Sequence name="Handle Traffic Light">
+
+            <!-- WALL OF DOOM: compute stop/yield-line pose and spawn wall -->
+            <GetStopLinePose
+                reg_elem="{traffic_light}"
+                map_frame="{map_frame}"
+                pose="{traffic_light.wall_pose}"
+                error_message="{traffic_light.get_stop_line_pose_error_msg}" />
+
+
+            <!-- Get the state of the traffic light -->
+
+            <!-- fallback -->
+            <!-- If red/yellow -->
+            <SpawnWall
+                pose="{traffic_light.wall_pose}"
+                tf_buffer="{tf_buffer}"
+                base_frame="{base_frame}"
+                width="5.0"
+                length="1.0"
+                wall_id="{traffic_light.wall_id}"
+                error_message="{traffic_light.spawn_wall_error_msg}" />
+
+
+            <!-- If green -->
+            <!-- WALL OF DOOM: despawn -->
+            <DespawnWall
+                wall_id="{traffic_light.wall_id}"
+                error_message="{traffic_light.despawn_wall_error_msg}" />
+
+            <!-- If unknown deal with it -->
+
+            <!-- TODO: Add condition to see if passed intersection -->
+        </Sequence>
+    </BehaviorTree>
+</root>

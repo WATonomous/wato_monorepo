@@ -36,6 +36,7 @@ find_package(std_srvs REQUIRED)
 find_package(behaviortree_ros2 REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
+find_package(costmap_msgs REQUIRED)
 find_package(behaviour_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
@@ -65,6 +66,7 @@ target_link_libraries(${PROJECT_NAME}_lib
     behaviortree_ros2::behaviortree_ros2
     ${behaviour_msgs_TARGETS}
     ${world_model_msgs_TARGETS}
+    ${costmap_msgs_TARGETS}
   PRIVATE
     ament_index_cpp::ament_index_cpp
     tf2_ros::tf2_ros
@@ -94,13 +96,13 @@ target_link_libraries(behaviour_node
     rclcpp_action::rclcpp_action
     tf2_ros::tf2_ros
     tf2_geometry_msgs::tf2_geometry_msgs
-    # behaviortree_cpp::behaviortree_cpp2
     behaviortree_ros2::behaviortree_ros2
     ament_index_cpp::ament_index_cpp
     ${std_msgs_TARGETS}
     ${std_srvs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${world_model_msgs_TARGETS}
+    ${costmap_msgs_TARGETS}
     ${behaviour_msgs_TARGETS}
     ${nav_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
