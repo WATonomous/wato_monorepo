@@ -16,7 +16,10 @@
   <xacro:include filename="eve_roof_mount.xacro"/>
 
   <!-- Base link is the roof frame; attach roof sensors directly to base_link -->
-  <xacro:roof_mount parent="base_link"/>
+  <xacro:roof_mount
+    parent="base_link"
+    imu_xyz="-0.4090656 0.3916093 -0.1823015"
+    imu_rpy="-0.01013236 0.00230282 -0.81890701"/>
 
   <!-- Nominal lower camera extrinsics (placeholder values; update once measured) -->
   <xacro:lower_cameras parent="base_link"/>
