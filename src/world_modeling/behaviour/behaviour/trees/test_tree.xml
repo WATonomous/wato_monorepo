@@ -1,4 +1,5 @@
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
+    <!-- Test tree to test smaller behaviours -->
     <include path="subtrees/intersection.xml" />
     <include path="subtrees/lane_navigation.xml" />
     <BehaviorTree ID="MainTree">

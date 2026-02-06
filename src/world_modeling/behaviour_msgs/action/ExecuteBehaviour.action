@@ -1,3 +1,6 @@
+# ExecuteBehaviour.action
+# Deprecated method of sending the lane behaviour to lattice planner
+
 # Request
 string behaviour
 ---

@@ -37,8 +37,8 @@
 namespace behaviour
 {
 
-/**
-   * @brief A BT::DecoratorNode that ticks its child at a specified rate.
+  /**
+   * @brief A DecoratorNode that ticks its child at a specified rate.
    *
    * This decorator limits how often its child node gets ticked. It's useful for
    * rate-limiting expensive operations like path planning or sensor processing.
@@ -50,94 +50,96 @@ namespace behaviour
    *
    * @note Adapted from Nav2 nav2_behavior_tree::RateController
    */
-class RateController : public BT::DecoratorNode
-{
-public:
-  /**
+  class RateController : public BT::DecoratorNode
+  {
+  public:
+    /**
      * @brief A constructor for behaviour::RateController
      * @param name Name for the XML tag for this node
      * @param conf BT node configuration
      */
-  RateController(const std::string & name, const BT::NodeConfiguration & conf)
-  : BT::DecoratorNode(name, conf)
-  , period_(1.0)
-  , first_time_(true)
-  {}
+    RateController(const std::string &name, const BT::NodeConfiguration &conf)
+        : BT::DecoratorNode(name, conf), period_(1.0), first_time_(true)
+    {
+    }
 
-  /**
+    /**
      * @brief Function to read parameters and initialize class variables
      */
-  void initialize()
-  {
-    double hz = 1.0;
-    getInput("hz", hz);
-    period_ = 1.0 / hz;
-  }
+    void initialize()
+    {
+      double hz = 1.0;
+      getInput("hz", hz);
+      period_ = 1.0 / hz;
+    }
 
-  /**
+    /**
      * @brief Creates list of BT ports
      * @return BT::PortsList Containing node-specific ports
      */
-  static BT::PortsList providedPorts()
-  {
-    return {BT::InputPort<double>("hz", 10.0, "Rate in Hz to tick child node")};
-  }
+    static BT::PortsList providedPorts()
+    {
+      return {BT::InputPort<double>("hz", 10.0, "Rate in Hz to tick child node")};
+    }
 
-private:
-  /**
+  private:
+    /**
      * @brief The main override required by a BT action
      * @return BT::NodeStatus Status of tick execution
      */
-  BT::NodeStatus tick()
-  {
-    if (!BT::isStatusActive(status())) {
-      initialize();
-      // Reset the starting point since we're starting a new iteration of
-      // the rate controller (moving from IDLE to RUNNING)
-      start_ = std::chrono::high_resolution_clock::now();
-      first_time_ = true;
-    }
+    BT::NodeStatus tick()
+    {
+      if (!BT::isStatusActive(status()))
+      {
+        initialize();
+        // Reset the starting point since we're starting a new iteration of
+        // the rate controller (moving from IDLE to RUNNING)
+        start_ = std::chrono::high_resolution_clock::now();
+        first_time_ = true;
+      }
 
-    setStatus(BT::NodeStatus::RUNNING);
+      setStatus(BT::NodeStatus::RUNNING);
 
-    // Determine how long its been since we've started this iteration
-    auto now = std::chrono::high_resolution_clock::now();
-    auto elapsed = now - start_;
+      // Determine how long its been since we've started this iteration
+      auto now = std::chrono::high_resolution_clock::now();
+      auto elapsed = now - start_;
 
-    // Now, get that in seconds
-    typedef std::chrono::duration<float> float_seconds;
-    auto seconds = std::chrono::duration_cast<float_seconds>(elapsed);
+      // Now, get that in seconds
+      typedef std::chrono::duration<float> float_seconds;
+      auto seconds = std::chrono::duration_cast<float_seconds>(elapsed);
 
-    // The child gets ticked the first time through and any time the period has
-    // expired. In addition, once the child begins to run, it is ticked each time
-    // 'til completion
-    if (first_time_ || (child_node_->status() == BT::NodeStatus::RUNNING) || seconds.count() >= period_) {
-      first_time_ = false;
-      const BT::NodeStatus child_state = child_node_->executeTick();
+      // The child gets ticked the first time through and any time the period has
+      // expired. In addition, once the child begins to run, it is ticked each time
+      // 'til completion
+      if (first_time_ || (child_node_->status() == BT::NodeStatus::RUNNING) || seconds.count() >= period_)
+      {
+        first_time_ = false;
+        const BT::NodeStatus child_state = child_node_->executeTick();
 
-      switch (child_state) {
+        switch (child_state)
+        {
         case BT::NodeStatus::SKIPPED:
         case BT::NodeStatus::RUNNING:
         case BT::NodeStatus::FAILURE:
           return child_state;
 
         case BT::NodeStatus::SUCCESS:
-          start_ = std::chrono::high_resolution_clock::now();  // Reset the timer
+          start_ = std::chrono::high_resolution_clock::now(); // Reset the timer
           return BT::NodeStatus::SUCCESS;
 
         default:
           return BT::NodeStatus::FAILURE;
+        }
       }
-    }
 
-    return status();
+      return status();
+    };
+
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_;
+    double period_;
+    bool first_time_;
   };
 
-  std::chrono::time_point<std::chrono::high_resolution_clock> start_;
-  double period_;
-  bool first_time_;
-};
+} // namespace behaviour
 
-}  // namespace behaviour
-
-#endif  // BEHAVIOUR__NODES__COMMON__DECORATORS__RATE_CONTROLLER_HPP_
+#endif // BEHAVIOUR__NODES__COMMON__DECORATORS__RATE_CONTROLLER_HPP_

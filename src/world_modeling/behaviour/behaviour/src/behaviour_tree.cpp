@@ -26,64 +26,54 @@
 namespace behaviour
 {
 
-/**
-   * @brief Initialize the BT manager by registering custom nodes and loading the XML.
-   */
-BehaviourTree::BehaviourTree(rclcpp::Node::SharedPtr node, const std::string & tree_file_path, bool logging)
-: node_(std::move(node))
-{
-  registerNodes();
-  buildTree(tree_file_path);
+  BehaviourTree::BehaviourTree(rclcpp::Node::SharedPtr node, const std::string &tree_file_path, bool logging)
+      : node_(std::move(node))
+  {
+    registerNodes();
+    buildTree(tree_file_path);
 
-  if (logging) {
-    // This logger prints state transitions [IDLE -> RUNNING -> SUCCESS] to terminal
-    cout_logger_ = std::make_unique<BT::StdCoutLogger>(tree_);
-  }
-}
-
-/**
-   * @brief Register all custom BT nodes (Actions, Conditions, Decorators, Services).
-   */
-void BehaviourTree::registerNodes()
-{
-  if (!node_) {
-    throw std::runtime_error("ROS node provided to BehaviourTree is null!");
+    if (logging)
+    {
+      // This logger prints state transitions [IDLE -> RUNNING -> SUCCESS] to terminal (configured in config)
+      cout_logger_ = std::make_unique<BT::StdCoutLogger>(tree_);
+    }
   }
 
-  // Default params for most ROS-linked BT nodes
-  BT::RosNodeParams params;
-  params.nh = node_;
+  void BehaviourTree::registerNodes()
+  {
+    if (!node_)
+    {
+      throw std::runtime_error("ROS node provided to BehaviourTree is null!");
+    }
 
-  // load all the node registrars
-  CommonNodeRegistrar common_registrar;
-  IntersectionNodeRegistrar intersection_registrar;
-  LaneNavigationNodeRegistrar lane_navigation_registrar;
+    // Default params for most ROS-linked BT nodes
+    BT::RosNodeParams params;
+    params.nh = node_;
 
-  common_registrar.register_nodes(factory_, params);
-  intersection_registrar.register_nodes(factory_, params);
-  lane_navigation_registrar.register_nodes(factory_, params);
-}
+    // load all the node registrars
+    CommonNodeRegistrar common_registrar;
+    IntersectionNodeRegistrar intersection_registrar;
+    LaneNavigationNodeRegistrar lane_navigation_registrar;
 
-/**
-   * @brief Create the blackboard and build the tree structure from the XML file.
-   */
-void BehaviourTree::buildTree(const std::string & tree_file_path)
-{
-  blackboard_ = BT::Blackboard::create();
+    common_registrar.register_nodes(factory_, params);
+    intersection_registrar.register_nodes(factory_, params);
+    lane_navigation_registrar.register_nodes(factory_, params);
+  }
 
-  // Set the node on the blackboard so custom nodes can access it
-  blackboard_->set<rclcpp::Node::SharedPtr>("node", node_);
+  void BehaviourTree::buildTree(const std::string &tree_file_path)
+  {
+    blackboard_ = BT::Blackboard::create();
 
-  RCLCPP_INFO(node_->get_logger(), "Loading Behavior Tree from: %s", tree_file_path.c_str());
-  tree_ = factory_.createTreeFromFile(tree_file_path, blackboard_);
-}
+    // Set the node on the blackboard so custom nodes can access it
+    blackboard_->set<rclcpp::Node::SharedPtr>("node", node_);
 
-/**
-   * @brief Tick the tree logic.
-   */
-void BehaviourTree::tick()
-{
-  tree_.tickOnce();
-}
+    RCLCPP_INFO(node_->get_logger(), "Loading Behavior Tree from: %s", tree_file_path.c_str());
+    tree_ = factory_.createTreeFromFile(tree_file_path, blackboard_);
+  }
 
-}  // namespace behaviour
+  void BehaviourTree::tick()
+  {
+    tree_.tickOnce();
+  }
+
+} // namespace behaviour

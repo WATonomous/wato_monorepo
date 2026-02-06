@@ -18,11 +18,6 @@ COPY src/wato_test wato_test
 # Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
 
-# Install BehaviorTree.CPP library for BehaviorTree.ROS2 to be vendored
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-jazzy-behaviortree-cpp \
- && rm -rf /var/lib/apt/lists/*
-
 # Download maps (ADD fetches GitHub API to bust cache when repo updates)
 ADD https://api.github.com/repos/WATonomous/map_data/git/refs/heads/master /tmp/map_version.json
 ENV MAPS_DIR="${WATONOMOUS_INSTALL}/maps/"
