@@ -106,6 +106,46 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("spatial_association_param_file")],
     )
 
+    # Attribute Assigner: enriches 2D detections with semantic attributes
+    attribute_assigner_pkg = get_package_share_directory("attribute_assigner")
+    attribute_assigner_param_file = os.path.join(
+        attribute_assigner_pkg, "config", "params.yaml"
+    )
+    attribute_assigner_param = DeclareLaunchArgument(
+        "attribute_assigner_param_file",
+        default_value=attribute_assigner_param_file,
+        description="Path to config file for attribute assigner node",
+    )
+    attribute_assigner_image_topic = DeclareLaunchArgument(
+        "attribute_assigner_image_topic",
+        default_value="/camera/image",
+        description="Camera image topic for attribute assigner (same frame as detections)",
+    )
+    attribute_assigner_input_topic = DeclareLaunchArgument(
+        "attribute_assigner_input_topic",
+        default_value="/camera_object_detections",
+        description="Input detection topic consumed by the attribute assigner",
+    )
+    attribute_assigner_output_topic = DeclareLaunchArgument(
+        "attribute_assigner_output_topic",
+        default_value="/enriched_detections",
+        description="Output enriched detection topic from the attribute assigner",
+    )
+    attribute_assigner_node = Node(
+        package="attribute_assigner",
+        executable="attribute_assigner_node",
+        name="attribute_assigner_node",
+        parameters=[LaunchConfiguration("attribute_assigner_param_file")],
+        remappings=[
+            ("input_image", LaunchConfiguration("attribute_assigner_image_topic")),
+            ("input_detections", LaunchConfiguration("attribute_assigner_input_topic")),
+            (
+                "output_detections",
+                LaunchConfiguration("attribute_assigner_output_topic"),
+            ),
+        ],
+    )
+
     return LaunchDescription(
         [
             camera_detection_param,
@@ -115,9 +155,14 @@ def generate_launch_description():
             patchwork_ground_topic,
             patchwork_non_ground_topic,
             spatial_association_param,
+            attribute_assigner_param,
+            attribute_assigner_image_topic,
+            attribute_assigner_input_topic,
+            attribute_assigner_output_topic,
             camera_object_detection_node,
             depth_estimation_node,
             patchwork_node,
             spatial_association_node,
+            attribute_assigner_node,
         ]
     )

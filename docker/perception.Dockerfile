@@ -12,6 +12,7 @@ WORKDIR ${AMENT_WS}/src
 COPY src/perception/perception_bringup perception_bringup
 COPY src/perception/patchwork patchwork
 COPY src/perception/tracking_2d tracking_2d
+COPY src/perception/attribute_assigner attribute_assigner
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################

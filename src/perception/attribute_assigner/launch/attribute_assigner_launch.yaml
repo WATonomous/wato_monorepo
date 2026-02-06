@@ -1,0 +1,34 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# http://www.apache.org/licenses/LICENSE-2.0
+---
+launch:
+  # Declare launch arguments for image, detections, and output topics
+  - arg:
+      name: image_topic
+      default: /camera/image
+      description: Camera image topic (same frame as detections; BGR or RGB)
+  - arg:
+      name: input_detections_topic
+      default: /camera_object_detections
+      description: 2D detection topic (Detection2DArray, e.g. YOLOv8 COCO)
+  - arg:
+      name: output_detections_topic
+      default: /enriched_detections
+      description: Topic to publish attribute-enriched detections to
+
+  # Launch the attribute assigner node
+  - node:
+      pkg: attribute_assigner
+      exec: attribute_assigner_node
+      name: attribute_assigner_node
+      output: screen
+      param:
+        - from: $(find-pkg-share attribute_assigner)/config/params.yaml
+      remap:
+        - from: input_image
+          to: $(var image_topic)
+        - from: input_detections
+          to: $(var input_detections_topic)
+        - from: output_detections
+          to: $(var output_detections_topic)
