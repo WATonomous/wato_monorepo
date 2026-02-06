@@ -23,34 +23,34 @@
 
 namespace behaviour
 {
-    /**
-     * @brief Clears stop sign priority ids and resets the latch flag.
-     */
-    class ClearStopSignPriorityCarsAction : public BT::SyncActionNode
-    {
-    public:
-        ClearStopSignPriorityCarsAction(const std::string &name, const BT::NodeConfig &config)
-            : BT::SyncActionNode(name, config)
-        {
-        }
+/**
+ * @class ClearStopSignPriorityCarsAction
+ * @brief SyncActionNode to clear stop-sign priority car IDs.
+ */
+class ClearStopSignPriorityCarsAction : public BT::SyncActionNode
+{
+public:
+  ClearStopSignPriorityCarsAction(const std::string & name, const BT::NodeConfig & config)
+  : BT::SyncActionNode(name, config)
+  {}
 
-        static BT::PortsList providedPorts()
-        {
-            return {
-                BT::OutputPort<std::vector<std::string>>("priority_car_ids"),
-                BT::OutputPort<bool>("priority_latched"),
-            };
-        }
-
-        BT::NodeStatus tick() override
-        {
-            std::cout << "[ClearStopSignPriorityCars]: Clearing stop sign priority car ids" << std::endl;
-            setOutput("priority_car_ids", std::vector<std::string>{});
-            setOutput("priority_latched", false);
-            return BT::NodeStatus::SUCCESS;
-        }
+  static BT::PortsList providedPorts()
+  {
+    return {
+      BT::OutputPort<std::vector<std::string>>("priority_car_ids"),
+      BT::OutputPort<bool>("priority_latched"),
     };
+  }
 
-} // namespace behaviour
+  BT::NodeStatus tick() override
+  {
+    std::cout << "[ClearStopSignPriorityCars]: Clearing stop sign priority car ids" << std::endl;
+    setOutput("priority_car_ids", std::vector<std::string>{});
+    setOutput("priority_latched", false);
+    return BT::NodeStatus::SUCCESS;
+  }
+};
 
-#endif // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_PRIORITY_CARS_ACTION_HPP_
+}  // namespace behaviour
+
+#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_PRIORITY_CARS_ACTION_HPP_

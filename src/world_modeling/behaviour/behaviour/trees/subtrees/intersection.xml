@@ -33,7 +33,7 @@
 
           <Sequence name="Handle STOP_SIGN Element">
             <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
-              expected="stop_sign" />
+              expected="STOP_SIGN" />
 
             <!-- subtree to handle stop sign -->
             <SubTree
@@ -52,7 +52,7 @@
           </Sequence>
           <Sequence name="Handle TRAFFIC_LIGHT Element">
             <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
-              expected="traffic_light" />
+              expected="TRAFFIC_LIGHT" />
 
             <!-- subtree to handle traffic light -->
             <SubTree
@@ -71,7 +71,7 @@
 
           </Sequence>
           <Sequence name="Handle YIELD Element">
-            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="yield" />
+            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="YIELD" />
 
             <SubTree
               ID="YieldSubTree"

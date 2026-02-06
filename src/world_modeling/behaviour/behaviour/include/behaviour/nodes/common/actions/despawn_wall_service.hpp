@@ -22,74 +22,68 @@
 #include <behaviortree_ros2/bt_service_node.hpp>
 
 #include "behaviour/utils/ports.hpp"
-
 #include "costmap_msgs/srv/despawn_wall.hpp"
 
 namespace behaviour
 {
-    /**
-     * @class DespawnWallService
-     * @brief BT node to request despawning a virtual wall by wall_id.
-     *
-     */
-    class DespawnWallService : public BT::RosServiceNode<costmap_msgs::srv::DespawnWall>
-    {
-    public:
-        DespawnWallService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
-            : BT::RosServiceNode<costmap_msgs::srv::DespawnWall>(name, conf, params)
-        {
-        }
+/**
+ * @class DespawnWallService
+ * @brief RosServiceNode to request DespawnWall service.
+ */
+class DespawnWallService : public BT::RosServiceNode<costmap_msgs::srv::DespawnWall>
+{
+public:
+  DespawnWallService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosServiceNode<costmap_msgs::srv::DespawnWall>(name, conf, params)
+  {}
 
-        static BT::PortsList providedPorts()
-        {
-            return providedBasicPorts({
-                BT::InputPort<int32_t>("wall_id"),
-                BT::OutputPort<std::string>("error_message"),
-            });
-        }
+  static BT::PortsList providedPorts()
+  {
+    return providedBasicPorts({
+      BT::InputPort<int32_t>("wall_id"),
+      BT::OutputPort<std::string>("error_message"),
+    });
+  }
 
-        bool setRequest(Request::SharedPtr &request) override
-        {
-            auto wall_id = ports::tryGet<int32_t>(*this, "wall_id");
-            if (!wall_id)
-            {
-                setOutput("error_message", "missing_port:wall_id");
-                RCLCPP_ERROR(logger(), "[DespawnWallService] Missing input port: wall_id");
-                return false;
-            }
+  bool setRequest(Request::SharedPtr & request) override
+  {
+    auto wall_id = ports::tryGet<int32_t>(*this, "wall_id");
+    if (!wall_id) {
+      setOutput("error_message", "missing_port:wall_id");
+      RCLCPP_ERROR(logger(), "[DespawnWallService] Missing input port: wall_id");
+      return false;
+    }
 
-            RCLCPP_INFO(logger(), "[DespawnWallService] Despawning wall with wall_id: %d", *wall_id);
+    RCLCPP_INFO(logger(), "[DespawnWallService] Despawning wall with wall_id: %d", *wall_id);
 
-            request->wall_id = *wall_id;
-            return true;
-        }
+    request->wall_id = *wall_id;
+    return true;
+  }
 
-        BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
-        {
-            if (!response->success)
-            {
-                setOutput("error_message", response->error_message);
-                if (response->error_message == "wall_not_found")
-                {
-                    // if wall not found then assuming it is not there, so return SUCCESS
-                    RCLCPP_WARN(logger(), "[DespawnWallService] Wall not found");
-                    return BT::NodeStatus::SUCCESS;
-                }
-                return BT::NodeStatus::FAILURE;
-            }
+  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
+  {
+    if (!response->success) {
+      setOutput("error_message", response->error_message);
+      if (response->error_message == "wall_not_found") {
+        // if wall not found then assuming it is not there, so return SUCCESS
+        RCLCPP_WARN(logger(), "[DespawnWallService] Wall not found");
+        return BT::NodeStatus::SUCCESS;
+      }
+      return BT::NodeStatus::FAILURE;
+    }
 
-            RCLCPP_INFO(logger(), "[DespawnWallService] service response received");
-            return BT::NodeStatus::SUCCESS;
-        }
+    RCLCPP_INFO(logger(), "[DespawnWallService] service response received");
+    return BT::NodeStatus::SUCCESS;
+  }
 
-        BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-        {
-            setOutput("error_message", std::string(BT::toStr(error)));
-            RCLCPP_ERROR(logger(), "[DespawnWallService] service failed: %d", error);
-            return BT::NodeStatus::FAILURE;
-        }
-    };
+  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+  {
+    setOutput("error_message", std::string(BT::toStr(error)));
+    RCLCPP_ERROR(logger(), "[DespawnWallService] service failed: %d", error);
+    return BT::NodeStatus::FAILURE;
+  }
+};
 
-} // namespace behaviour
+}  // namespace behaviour
 
-#endif // BEHAVIOUR__NODES__COMMON__ACTIONS__DESPAWN_WALL_SERVICE_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__ACTIONS__DESPAWN_WALL_SERVICE_HPP_

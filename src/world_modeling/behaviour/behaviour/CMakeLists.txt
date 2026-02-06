@@ -131,7 +131,7 @@ install(DIRECTORY config launch trees
 # Testing
 # ══════════════════════════════════════════════════════════════════════
 
-if(BUILD_TESTING)  
+if(BUILD_TESTING)
   # TODO(wato): add behaviour unit testing
   # find_package(wato_test REQUIRED)
   # add_wato_test(test_behaviour

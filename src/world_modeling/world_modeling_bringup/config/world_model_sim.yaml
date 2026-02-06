@@ -140,40 +140,6 @@
     # VirtualWallLayer has no params (walls managed via services)
 
 # =============================================================================
-# Costmap Node
-# =============================================================================
-/**/costmap_node:
-  ros__parameters:
-    costmap_frame: "base_link"
-    map_frame: "map"
-    publish_rate_hz: 30.0
-    grid_width_m: 100.0
-    grid_height_m: 100.0
-    resolution: 0.1
-    footprint_front_left: [2.5, 1.0]
-    footprint_rear_right: [-1.5, -1.0]
-    layers: ["objects", "pointcloud", "virtual_wall"]
-
-    # Layer plugin types
-    layers.objects.type: "costmap::ObjectsLayer"
-    layers.pointcloud.type: "costmap::PointCloudLayer"
-    layers.virtual_wall.type: "costmap::VirtualWallLayer"
-
-    # ObjectsLayer params
-    layers.objects.bbox_inflation_m: 0.2
-    layers.objects.bbox_cost_decay: 0.3
-    layers.objects.prediction_inflation_m: 0.3
-    layers.objects.prediction_cost_decay: 0.3
-
-    # PointCloudLayer params
-    layers.pointcloud.max_height_m: 2.0
-    layers.pointcloud.min_height_m: 0.1
-    layers.pointcloud.inflation_m: 0.3
-    layers.pointcloud.cost_decay: 0.1
-
-    # VirtualWallLayer has no params (walls managed via services)
-
-# =============================================================================
 # Lanelet Marker Nodes
 # =============================================================================
 

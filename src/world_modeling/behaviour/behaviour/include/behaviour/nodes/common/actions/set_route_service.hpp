@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__SET_ROUTE_SERVICE_HPP_
-#define BEHAVIOUR__SET_ROUTE_SERVICE_HPP_
+#ifndef BEHAVIOUR__NODES__COMMON__ACTIONS__SET_ROUTE_SERVICE_HPP_
+#define BEHAVIOUR__NODES__COMMON__ACTIONS__SET_ROUTE_SERVICE_HPP_
 
 #include <string>
 
@@ -25,9 +25,9 @@
 namespace behaviour
 {
 /**
-   * @class GetRouteService
-   * @brief BT node to request a global route between two lanelets.
-   */
+ * @class SetRouteService
+ * @brief RosServiceNode to request SetRoute service.
+ */
 class SetRouteService : public BT::RosServiceNode<lanelet_msgs::srv::SetRoute>
 {
 public:
@@ -75,4 +75,4 @@ public:
 };
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__SET_ROUTE_SERVICE_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__ACTIONS__SET_ROUTE_SERVICE_HPP_

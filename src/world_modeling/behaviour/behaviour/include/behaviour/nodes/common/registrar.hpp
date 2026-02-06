@@ -1,27 +1,42 @@
-#ifndef BEHAVIOUR__NODES__COMMON_NODE__REGISTRAR_HPP_
-#define BEHAVIOUR__NODES__COMMON_NODE__REGISTRAR_HPP_
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef BEHAVIOUR__NODES__COMMON__REGISTRAR_HPP_
+#define BEHAVIOUR__NODES__COMMON__REGISTRAR_HPP_
 
 #include <behaviortree_cpp/bt_factory.h>
+
 #include <behaviortree_ros2/ros_node_params.hpp>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
 
 // actions
-#include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
-#include "behaviour/nodes/common/actions/set_route_service.hpp"
-#include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
-#include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/despawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
+#include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
+#include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
+#include "behaviour/nodes/common/actions/set_route_service.hpp"
+#include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 
 // conditions
-#include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
-#include "behaviour/nodes/common/conditions/wall_exist_condition.hpp"
-#include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
-#include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
-#include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_route_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_stopped_condition.hpp"
+#include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
+#include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
+#include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
+#include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
+#include "behaviour/nodes/common/conditions/wall_exist_condition.hpp"
 
 // decorators
 #include "behaviour/nodes/common/decorators/rate_controller.hpp"
@@ -29,39 +44,40 @@
 class CommonNodeRegistrar : public NodeRegistrarBase
 {
 public:
-    void register_nodes(BT::BehaviorTreeFactory &factory, const BT::RosNodeParams &params) override
-    {
-        BT::RosNodeParams get_shortest_route_params = params;
-        BT::RosNodeParams set_route_params = params;
-        BT::RosNodeParams get_lanelets_by_reg_elem_params = params;
-        BT::RosNodeParams wall_service = params;
+  void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
+  {
+    BT::RosNodeParams get_shortest_route_params = params;
+    BT::RosNodeParams set_route_params = params;
+    BT::RosNodeParams get_lanelets_by_reg_elem_params = params;
+    BT::RosNodeParams wall_service = params;
 
-        // TODO(wato): adjust timeouts as needed
-        get_shortest_route_params.server_timeout = std::chrono::milliseconds(6000);
-        set_route_params.server_timeout = std::chrono::milliseconds(6000);
-        get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(5000);
-        wall_service.server_timeout = std::chrono::milliseconds(5000);
+    // TODO(wato): adjust timeouts as needed
+    get_shortest_route_params.server_timeout = std::chrono::milliseconds(6000);
+    set_route_params.server_timeout = std::chrono::milliseconds(6000);
+    get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(5000);
+    wall_service.server_timeout = std::chrono::milliseconds(5000);
 
-        // actions
-        factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
-        factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
-        factory.registerNodeType<behaviour::GetLaneletsByRegElemService>("GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
-        factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
-        factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
-        factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
+    // actions
+    factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
+    factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
+    factory.registerNodeType<behaviour::GetLaneletsByRegElemService>(
+      "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
+    factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
+    factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
+    factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
 
-        // conditions
-        factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage");
-        factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist");
-        factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
-        factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
-        factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
-        factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute");
-        factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped");
+    // conditions
+    factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage");
+    factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist");
+    factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
+    factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
+    factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
+    factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute");
+    factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped");
 
-        // decorators
-        factory.registerNodeType<behaviour::RateController>("RateController");
-    }
+    // decorators
+    factory.registerNodeType<behaviour::RateController>("RateController");
+  }
 };
 
-#endif // BEHAVIOUR__NODES__COMMON_NODE__REGISTRAR_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__REGISTRAR_HPP_

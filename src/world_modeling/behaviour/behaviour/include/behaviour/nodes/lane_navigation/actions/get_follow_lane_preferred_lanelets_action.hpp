@@ -1,10 +1,25 @@
-#ifndef BEHAVIOUR__NODES__ACTIONS__GET_FOLLOW_LANE_PREFERRED_LANELETS_ACTION_HPP_
-#define BEHAVIOUR__NODES__ACTIONS__GET_FOLLOW_LANE_PREFERRED_LANELETS_ACTION_HPP_
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef BEHAVIOUR__NODES__LANE_NAVIGATION__ACTIONS__GET_FOLLOW_LANE_PREFERRED_LANELETS_ACTION_HPP_
+#define BEHAVIOUR__NODES__LANE_NAVIGATION__ACTIONS__GET_FOLLOW_LANE_PREFERRED_LANELETS_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
 
 #include <cmath>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <string>
 #include <vector>
@@ -18,12 +33,16 @@ namespace behaviour
 
 /**
  * @class GetFollowLanePreferredLaneletsAction
- * @brief BT sync action to select preferred lanelet IDs for following the current lane NOT the route.
+ * @brief SyncActionNode to build preferred lanelets for follow-lane behavior.
+ *
+ * Logic:
+ * - Start preferred lanelets with current lanelet.
+ * - Append current-lanelet successors in order.
  */
 class GetFollowLanePreferredLaneletsAction : public BT::SyncActionNode
 {
 public:
-  GetFollowLanePreferredLaneletsAction(const std::string& name, const BT::NodeConfig& config)
+  GetFollowLanePreferredLaneletsAction(const std::string & name, const BT::NodeConfig & config)
   : BT::SyncActionNode(name, config)
   {}
 
@@ -45,9 +64,6 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    // Allows for right turn and any lanelets successor ids
-    // This only disallows lane changes
-
     std::vector<int64_t> preferred;
     preferred.push_back(lane_ctx->current_lanelet.id);
     for (const auto & id : lane_ctx->current_lanelet.successor_ids) {
@@ -55,12 +71,12 @@ public:
     }
 
     setOutput("out_preferred_lanelet_ids", preferred);
-    std::cout << "[GetFollowLanePreferredLanelets]: Result=SUCCESS (preferred_ids_count="
-              << preferred.size() << ")" << std::endl;
+    std::cout << "[GetFollowLanePreferredLanelets]: Result=SUCCESS (preferred_ids_count=" << preferred.size() << ")"
+              << std::endl;
     return BT::NodeStatus::SUCCESS;
   }
 };
 
 }  // namespace behaviour
 
-#endif // BEHAVIOUR__NODES__ACTIONS__GET_FOLLOW_LANE_PREFERRED_LANELETS_ACTION_HPP_
+#endif  // BEHAVIOUR__NODES__LANE_NAVIGATION__ACTIONS__GET_FOLLOW_LANE_PREFERRED_LANELETS_ACTION_HPP_

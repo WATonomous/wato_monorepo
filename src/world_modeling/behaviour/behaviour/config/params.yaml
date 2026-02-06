@@ -15,7 +15,7 @@
 behaviour_node:
   ros__parameters:
     # Behavior tree XML file (relative to trees/ directory)
-    bt_tree_file: "test_tree.xml"
+    bt_tree_file: "main_tree.xml"
 
     # How often to tick the tree (Hz)
     rate_hz: 10.0

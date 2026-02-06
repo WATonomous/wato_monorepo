@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__GOAL_REACHED_CONDTION_HPP_
-#define BEHAVIOUR__GOAL_REACHED_CONDTION_HPP_
+#ifndef BEHAVIOUR__NODES__COMMON__CONDITIONS__GOAL_REACHED_CONDITION_HPP_
+#define BEHAVIOUR__NODES__COMMON__CONDITIONS__GOAL_REACHED_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
@@ -25,6 +25,10 @@
 
 namespace behaviour
 {
+/**
+ * @class GoalReachedCondition
+ * @brief ConditionNode to check whether ego is within goal distance threshold.
+ */
 class GoalReachedCondition : public BT::ConditionNode
 {
 public:
@@ -52,7 +56,6 @@ public:
 
     double threshold = ports::tryGet<double>(*this, "threshold_m").value_or(1.0);
 
-
     // Calculate 2D distance
     double dx = gp->x - cp->x;
     double dy = gp->y - cp->y;
@@ -69,4 +72,4 @@ public:
   }
 };
 }  // namespace behaviour
-#endif
+#endif  // BEHAVIOUR__NODES__COMMON__CONDITIONS__GOAL_REACHED_CONDITION_HPP_

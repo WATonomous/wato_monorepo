@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
-#define BEHAVIOUR__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
+#ifndef BEHAVIOUR__NODES__COMMON__ACTIONS__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
+#define BEHAVIOUR__NODES__COMMON__ACTIONS__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -30,68 +30,61 @@
 
 namespace behaviour
 {
-  /**
-   * @class GetLaneletsByRegElemService
-   * @brief BT node to request all lanelets associated with a regulatory element id.
-   */
-  class GetLaneletsByRegElemService : public BT::RosServiceNode<lanelet_msgs::srv::GetLaneletsByRegElem>
+/**
+ * @class GetLaneletsByRegElemService
+ * @brief RosServiceNode to request GetLaneletsByRegElem service.
+ */
+class GetLaneletsByRegElemService : public BT::RosServiceNode<lanelet_msgs::srv::GetLaneletsByRegElem>
+{
+public:
+  GetLaneletsByRegElemService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosServiceNode<lanelet_msgs::srv::GetLaneletsByRegElem>(name, conf, params)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    GetLaneletsByRegElemService(
-        const std::string &name,
-        const BT::NodeConfig &conf,
-        const BT::RosNodeParams &params)
-        : BT::RosServiceNode<lanelet_msgs::srv::GetLaneletsByRegElem>(name, conf, params)
-    {
+    return providedBasicPorts({
+      BT::InputPort<int64_t>("reg_elem_id"),
+      BT::OutputPort<std::vector<lanelet_msgs::msg::Lanelet>>("lanelets"),
+      BT::OutputPort<std::string>("error_message"),
+    });
+  }
+
+  bool setRequest(Request::SharedPtr & request) override
+  {
+    auto reg_elem_id = ports::tryGet<int64_t>(*this, "reg_elem_id");
+    if (!reg_elem_id) {
+      setOutput("error_message", "Missing input port: reg_elem_id");
+      return false;
     }
 
-    static BT::PortsList providedPorts()
-    {
-      return providedBasicPorts({
-          BT::InputPort<int64_t>("reg_elem_id"),
-          BT::OutputPort<std::vector<lanelet_msgs::msg::Lanelet>>("lanelets"),
-          BT::OutputPort<std::string>("error_message"),
-      });
-    }
+    request->reg_elem_id = *reg_elem_id;
+    return true;
+  }
 
-    bool setRequest(Request::SharedPtr &request) override
-    {
-      auto reg_elem_id = ports::tryGet<int64_t>(*this, "reg_elem_id");
-      if (!reg_elem_id)
-      {
-        setOutput("error_message", "Missing input port: reg_elem_id");
-        return false;
-      }
-
-      request->reg_elem_id = *reg_elem_id;
-      return true;
-    }
-
-    BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
-    {
-      if (!response->success)
-      {
-        setOutput("error_message", response->error_message);
-        return BT::NodeStatus::FAILURE;
-      }
-
-      // Move into a heap-owned response so downstream nodes can safely keep a shared ptr
-      auto lanelets_resp =
-          std::make_shared<lanelet_msgs::srv::GetLaneletsByRegElem::Response>(std::move(*response));
-
-      setOutput("lanelets", lanelets_resp->lanelets);
-
-      return BT::NodeStatus::SUCCESS;
-    }
-
-    BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-    {
-      setOutput("error_message", std::string(BT::toStr(error)));
-      RCLCPP_ERROR(logger(), "GetLaneletsByRegElem service failed: %d", error);
+  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
+  {
+    if (!response->success) {
+      setOutput("error_message", response->error_message);
       return BT::NodeStatus::FAILURE;
     }
-  };
 
-} // namespace behaviour
+    // Move into a heap-owned response so downstream nodes can safely keep a shared ptr
+    auto lanelets_resp = std::make_shared<lanelet_msgs::srv::GetLaneletsByRegElem::Response>(std::move(*response));
 
-#endif // BEHAVIOUR__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_
+    setOutput("lanelets", lanelets_resp->lanelets);
+
+    return BT::NodeStatus::SUCCESS;
+  }
+
+  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+  {
+    setOutput("error_message", std::string(BT::toStr(error)));
+    RCLCPP_ERROR(logger(), "GetLaneletsByRegElem service failed: %d", error);
+    return BT::NodeStatus::FAILURE;
+  }
+};
+
+}  // namespace behaviour
+
+#endif  // BEHAVIOUR__NODES__COMMON__ACTIONS__GET_LANELETS_BY_REG_ELEM_SERVICE_HPP_

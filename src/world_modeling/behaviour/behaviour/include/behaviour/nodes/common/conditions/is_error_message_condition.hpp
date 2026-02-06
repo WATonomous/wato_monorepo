@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__IS_ERROR_MESSAGE_CONDITION_HPP_
-#define BEHAVIOUR__IS_ERROR_MESSAGE_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__COMMON__CONDITIONS__IS_ERROR_MESSAGE_CONDITION_HPP_
+#define BEHAVIOUR__NODES__COMMON__CONDITIONS__IS_ERROR_MESSAGE_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <iostream>
 #include <string>
 
 #include "behaviour/utils/utils.hpp"
@@ -24,9 +25,9 @@
 namespace behaviour
 {
 /**
-   * @class IsErrorMessageCondition
-   * @brief Compares an error message against an expected value.
-   */
+ * @class IsErrorMessageCondition
+ * @brief ConditionNode to compare an error message with an expected value.
+ */
 class IsErrorMessageCondition : public BT::ConditionNode
 {
 public:
@@ -53,7 +54,8 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    std::cout << "[IsErrorMessageCondition]: Comparing msg='" << *msg << "' to expected='" << *expected << "'" << std::endl;
+    std::cout << "[IsErrorMessageCondition]: Comparing msg='" << *msg << "' to expected='" << *expected << "'"
+              << std::endl;
 
     if (msg == expected) {
       return BT::NodeStatus::SUCCESS;
@@ -64,4 +66,4 @@ public:
 };
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__IS_MANEUVER_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__CONDITIONS__IS_ERROR_MESSAGE_CONDITION_HPP_

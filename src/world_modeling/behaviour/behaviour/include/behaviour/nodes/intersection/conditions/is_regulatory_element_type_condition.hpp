@@ -12,59 +12,58 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__CONDITIONS__IS_REGULATORY_ELEMENT_TYPE_CONDITION_HPP_
-#define BEHAVIOUR__NODES__CONDITIONS__IS_REGULATORY_ELEMENT_TYPE_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__IS_REGULATORY_ELEMENT_TYPE_CONDITION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__IS_REGULATORY_ELEMENT_TYPE_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <iostream>
 #include <string>
 
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
 {
-  /**
-   * @class IsRegulatoryElementTypeCondition
-   * @brief Checks if the reg element has the expected subtype.
-   */
-  class IsRegulatoryElementTypeCondition : public BT::ConditionNode
+/**
+ * @class IsRegulatoryElementTypeCondition
+ * @brief ConditionNode to compare regulatory element subtype with expected type.
+ */
+class IsRegulatoryElementTypeCondition : public BT::ConditionNode
+{
+public:
+  IsRegulatoryElementTypeCondition(const std::string & name, const BT::NodeConfig & config)
+  : BT::ConditionNode(name, config)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    IsRegulatoryElementTypeCondition(const std::string &name, const BT::NodeConfig &config)
-        : BT::ConditionNode(name, config)
-    {
+    return {
+      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("reg_elem"),
+      BT::InputPort<types::TrafficControlElementType>("expected"),
+    };
+  }
+
+  BT::NodeStatus tick() override
+  {
+    auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
+    auto expected = ports::tryGet<types::TrafficControlElementType>(*this, "expected");
+
+    if (!reg_elem) {
+      std::cerr << "[IsRegulatoryElementType] Missing reg_elem." << std::endl;
+      return BT::NodeStatus::FAILURE;
     }
 
-    static BT::PortsList providedPorts()
-    {
-      return {
-          BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("reg_elem"),
-          BT::InputPort<std::string>("expected"),
-      };
+    if (!expected) {
+      std::cerr << "[IsRegulatoryElementType] Missing expected." << std::endl;
+      return BT::NodeStatus::FAILURE;
     }
 
-    BT::NodeStatus tick() override
-    {
-      auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
-      auto expected = ports::tryGet<std::string>(*this, "expected");
+    std::cout << "[IsRegulatoryElementType]: Comparing msg='" << reg_elem->subtype << "' to expected='"
+              << types::toString(expected.value()) << "'" << std::endl;
+    return (reg_elem->subtype == types::toString(expected.value())) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+  }
+};
 
-      if (!reg_elem)
-      {
-        std::cerr << "[IsRegulatoryElementType] Missing reg_elem." << std::endl;
-        return BT::NodeStatus::FAILURE;
-      }
+}  // namespace behaviour
 
-      if (!expected)
-      {
-        std::cerr << "[IsRegulatoryElementType] Missing expected." << std::endl;
-        return BT::NodeStatus::FAILURE;
-      }
-
-      std::cout << "[IsRegulatoryElementType]: Comparing msg='" << reg_elem->subtype << "' to expected='" << expected.value() << "'" << std::endl;
-      return (reg_elem->subtype == expected.value()) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-    }
-  };
-
-} // namespace behaviour
-
-#endif // BEHAVIOUR__NODES__CONDITIONS__IS_REGULATORY_ELEMENT_TYPE_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__IS_REGULATORY_ELEMENT_TYPE_CONDITION_HPP_

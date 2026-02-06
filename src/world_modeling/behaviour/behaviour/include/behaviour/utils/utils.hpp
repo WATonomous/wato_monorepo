@@ -20,5 +20,4 @@
 #include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/types.hpp"
 
-
 #endif  // BEHAVIOUR__UTILS__UTILS_HPP_

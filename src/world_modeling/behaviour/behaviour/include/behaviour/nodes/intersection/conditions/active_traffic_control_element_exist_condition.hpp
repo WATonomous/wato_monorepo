@@ -12,46 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__CONDITIONS__ACTIVE_TRAFFIC_CONTROL_ELEMENT_EXIST_CONDITION_HPP_
-#define BEHAVIOUR__NODES__CONDITIONS__ACTIVE_TRAFFIC_CONTROL_ELEMENT_EXIST_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__ACTIVE_TRAFFIC_CONTROL_ELEMENT_EXIST_CONDITION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__ACTIVE_TRAFFIC_CONTROL_ELEMENT_EXIST_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <iostream>
 #include <string>
 
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
 {
-  /**
-   * @class ActiveTrafficControlElementExistCondition
-   * @brief Checks whether a latched traffic-control element is present.
-   */
-  class ActiveTrafficControlElementExistCondition : public BT::ConditionNode
+/**
+ * @class ActiveTrafficControlElementExistCondition
+ * @brief ConditionNode to check whether an active traffic-control element exists.
+ */
+class ActiveTrafficControlElementExistCondition : public BT::ConditionNode
+{
+public:
+  ActiveTrafficControlElementExistCondition(const std::string & name, const BT::NodeConfig & config)
+  : BT::ConditionNode(name, config)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    ActiveTrafficControlElementExistCondition(const std::string &name, const BT::NodeConfig &config)
-        : BT::ConditionNode(name, config)
-    {
-    }
+    return {
+      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
+    };
+  }
 
-    static BT::PortsList providedPorts()
-    {
-      return {
-          BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
-      };
-    }
+  BT::NodeStatus tick() override
+  {
+    auto active = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
 
-    BT::NodeStatus tick() override
-    {
-      auto active = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
+    std::cout << "[ActiveTrafficControlElementExist]: active_traffic_control_element "
+              << (active ? "exists." : "does not exist.") << std::endl;
+    return active ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+  }
+};
 
-      std::cout << "[ActiveTrafficControlElementExist]: active_traffic_control_element "
-                << (active ? "exists." : "does not exist.") << std::endl;
-      return active ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-    }
-  };
+}  // namespace behaviour
 
-} // namespace behaviour
-
-#endif // BEHAVIOUR__NODES__CONDITIONS__ACTIVE_TRAFFIC_CONTROL_ELEMENT_EXIST_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__ACTIVE_TRAFFIC_CONTROL_ELEMENT_EXIST_CONDITION_HPP_

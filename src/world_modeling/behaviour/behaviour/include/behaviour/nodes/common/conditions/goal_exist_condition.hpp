@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__GOAL_EXIST_CONDITION_HPP_
-#define BEHAVIOUR__GOAL_EXIST_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__COMMON__CONDITIONS__GOAL_EXIST_CONDITION_HPP_
+#define BEHAVIOUR__NODES__COMMON__CONDITIONS__GOAL_EXIST_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
@@ -24,6 +24,10 @@
 
 namespace behaviour
 {
+/**
+ * @class GoalExistCondition
+ * @brief ConditionNode to check whether a goal point is available.
+ */
 class GoalExistCondition : public BT::ConditionNode
 {
 public:
@@ -47,4 +51,4 @@ public:
   }
 };
 }  // namespace behaviour
-#endif // BEHAVIOUR__GOAL_EXIST_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__CONDITIONS__GOAL_EXIST_CONDITION_HPP_

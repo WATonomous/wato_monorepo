@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__EGO_STOPPED_CONDITION_HPP_
-#define BEHAVIOUR__EGO_STOPPED_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__COMMON__CONDITIONS__EGO_STOPPED_CONDITION_HPP_
+#define BEHAVIOUR__NODES__COMMON__CONDITIONS__EGO_STOPPED_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
@@ -25,49 +25,48 @@
 
 namespace behaviour
 {
+/**
+ * @class EgoStoppedCondition
+ * @brief ConditionNode to check whether ego speed is below a threshold.
+ */
 
-    class EgoStoppedCondition : public BT::ConditionNode
-    {
-    public:
-        EgoStoppedCondition(const std::string &name, const BT::NodeConfig &config)
-            : BT::ConditionNode(name, config)
-        {
-        }
+class EgoStoppedCondition : public BT::ConditionNode
+{
+public:
+  EgoStoppedCondition(const std::string & name, const BT::NodeConfig & config)
+  : BT::ConditionNode(name, config)
+  {}
 
-        static BT::PortsList providedPorts()
-        {
-            return {
-                BT::InputPort<double>("ego_velocity"),
-                BT::InputPort<double>("threshold_velocity"),
-            };
-        }
-
-        BT::NodeStatus tick() override
-        {
-            auto ego_vel = ports::tryGet<double>(*this, "ego_velocity");
-            const double thresh = ports::tryGet<double>(*this, "threshold_velocity").value_or(0.1);
-
-            if (!ego_vel)
-            {
-                std::cout << "[EgoStopped]: Missing or invalid ego_velocity" << std::endl;
-                return BT::NodeStatus::FAILURE;
-            }
-
-            const double v = *ego_vel;
-
-            if (std::fabs(v) <= thresh)
-            {
-                std::cout << "[EgoStopped]: ego_velocity " << v
-                          << " <= threshold_velocity " << thresh << std::endl;
-                return BT::NodeStatus::SUCCESS;
-            }
-
-            std::cout << "[EgoStopped]: ego_velocity " << v
-                      << " > threshold_velocity " << thresh << std::endl;
-            return BT::NodeStatus::FAILURE;
-        }
+  static BT::PortsList providedPorts()
+  {
+    return {
+      BT::InputPort<double>("ego_velocity"),
+      BT::InputPort<double>("threshold_velocity"),
     };
+  }
 
-} // namespace behaviour
+  BT::NodeStatus tick() override
+  {
+    auto ego_vel = ports::tryGet<double>(*this, "ego_velocity");
+    const double thresh = ports::tryGet<double>(*this, "threshold_velocity").value_or(0.1);
 
-#endif // BEHAVIOUR__EGO_STOPPED_CONDITION_HPP_
+    if (!ego_vel) {
+      std::cout << "[EgoStopped]: Missing or invalid ego_velocity" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+
+    const double v = *ego_vel;
+
+    if (std::fabs(v) <= thresh) {
+      std::cout << "[EgoStopped]: ego_velocity " << v << " <= threshold_velocity " << thresh << std::endl;
+      return BT::NodeStatus::SUCCESS;
+    }
+
+    std::cout << "[EgoStopped]: ego_velocity " << v << " > threshold_velocity " << thresh << std::endl;
+    return BT::NodeStatus::FAILURE;
+  }
+};
+
+}  // namespace behaviour
+
+#endif  // BEHAVIOUR__NODES__COMMON__CONDITIONS__EGO_STOPPED_CONDITION_HPP_
