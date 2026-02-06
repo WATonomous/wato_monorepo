@@ -44,7 +44,7 @@ namespace behaviour
 
         BT::NodeStatus tick() override
         {
-            std::cout << "[ClearStopSignPriorityCarsAction]: Clearing stop sign priority car ids" << std::endl;
+            std::cout << "[ClearStopSignPriorityCars]: Clearing stop sign priority car ids" << std::endl;
             setOutput("priority_car_ids", std::vector<std::string>{});
             setOutput("priority_latched", false);
             return BT::NodeStatus::SUCCESS;

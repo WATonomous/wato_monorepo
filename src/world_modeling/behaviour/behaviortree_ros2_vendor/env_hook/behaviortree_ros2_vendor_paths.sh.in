@@ -1,4 +1,8 @@
-_vendor_prefix="@CMAKE_INSTALL_PREFIX@/opt/behaviortree_ros2_vendor"
-ament_prepend_unique_value AMENT_PREFIX_PATH "${_vendor_prefix}"
-ament_prepend_unique_value CMAKE_PREFIX_PATH "${_vendor_prefix}"
-ament_prepend_unique_value LD_LIBRARY_PATH "${_vendor_prefix}/lib"
+# Relative prefix in case of relocation
+HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PREFIX=$(dirname $(dirname $(dirname $HERE)))
+
+# Fixed path at build time
+ament_prepend_unique_value AMENT_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/behaviortree_ros2_vendor"
+ament_prepend_unique_value CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/behaviortree_ros2_vendor"
+ament_prepend_unique_value LD_LIBRARY_PATH "@CMAKE_INSTALL_PREFIX@/opt/behaviortree_ros2_vendor/lib"

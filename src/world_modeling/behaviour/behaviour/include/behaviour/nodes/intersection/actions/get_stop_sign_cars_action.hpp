@@ -37,7 +37,7 @@
 namespace behaviour
 {
     /**
-     * @class GetStopSignCarsAction
+     * @class GetStopSignCars
      * @brief Gets cars "queued" near stop lines for the yield lanelets of a stop-sign/right_of_way reg elem.
      *
      * Assumptions:
@@ -76,28 +76,28 @@ namespace behaviour
 
             if (!stop_sign)
             {
-                std::cout << "[GetStopSignCarsAction] Missing stop_sign" << std::endl;
+                std::cout << "[GetStopSignCars] Missing stop_sign" << std::endl;
                 return BT::NodeStatus::FAILURE;
             }
             if (!snap || !snap->objects_snapshot_)
             {
-                std::cout << "[GetStopSignCarsAction] Missing dynamic_objects_snapshot" << std::endl;
+                std::cout << "[GetStopSignCars] Missing dynamic_objects_snapshot" << std::endl;
                 return BT::NodeStatus::FAILURE;
             }
             if (!lanelets)
             {
-                std::cout << "[GetStopSignCarsAction] Missing lanelets" << std::endl;
+                std::cout << "[GetStopSignCars] Missing lanelets" << std::endl;
                 return BT::NodeStatus::FAILURE;
             }
             if (!threshold_m)
             {
-                std::cout << "[GetStopSignCarsAction] Missing threshold_m" << std::endl;
+                std::cout << "[GetStopSignCars] Missing threshold_m" << std::endl;
                 return BT::NodeStatus::FAILURE;
             }
 
             if (stop_sign->yield_lanelet_ids.empty())
             {
-                std::cout << "[GetStopSignCarsAction] yield_lanelet_ids empty" << std::endl;
+                std::cout << "[GetStopSignCars] yield_lanelet_ids empty" << std::endl;
                 setOutput("out_stop_sign_car_ids", std::vector<std::string>{});
                 return BT::NodeStatus::SUCCESS;
             }

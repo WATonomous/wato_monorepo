@@ -12,11 +12,11 @@
 #include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/despawn_wall_service.hpp"
-
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
 
 // conditions
 #include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
+#include "behaviour/nodes/common/conditions/wall_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
@@ -37,8 +37,8 @@ public:
         BT::RosNodeParams wall_service = params;
 
         // TODO(wato): adjust timeouts as needed
-        get_shortest_route_params.server_timeout = std::chrono::milliseconds(60000);
-        set_route_params.server_timeout = std::chrono::milliseconds(60000);
+        get_shortest_route_params.server_timeout = std::chrono::milliseconds(6000);
+        set_route_params.server_timeout = std::chrono::milliseconds(6000);
         get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(5000);
         wall_service.server_timeout = std::chrono::milliseconds(5000);
 
@@ -52,6 +52,7 @@ public:
 
         // conditions
         factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage");
+        factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist");
         factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
         factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
         factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");

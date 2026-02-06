@@ -1,21 +1,29 @@
-# Generated config for behaviortree_ros2_vendor
+@PACKAGE_INIT@
 
-set(behaviortree_ros2_vendor_PREFIX "@BT_ROS2_VENDOR_INSTALL_PREFIX@")
+if(behaviortree_ros2_vendor_FOUND)
+    return()
+endif()
+set(behaviortree_ros2_vendor_FOUND TRUE)
 
-# You may need to adjust these after the first build if the library name differs.
-set(_bt_ros2_lib "${behaviortree_ros2_vendor_PREFIX}/lib/libbehaviortree_ros2.so")
+set(behaviortree_ros2_vendor_VERSION "@BEHAVIORTREE_ROS2_GIT_TAG@")
 
+check_required_components(behaviortree_ros2_vendor)
+
+# BehaviorTree.ROS2 installs its own CMake configs via colcon, so we add the
+# vendor prefix to CMAKE_PREFIX_PATH and let downstream packages use find_package
+# to discover behaviortree_ros2 and btcpp_ros2_interfaces directly.
+list(APPEND CMAKE_PREFIX_PATH "@BT_ROS2_VENDOR_INSTALL_PREFIX@")
+
+# For convenience, also provide imported targets if libraries exist
+set(_bt_ros2_lib "@BT_ROS2_VENDOR_INSTALL_PREFIX@/lib/libbehaviortree_ros2.so")
 if(NOT EXISTS "${_bt_ros2_lib}")
-  # Fallback: static lib or different naming (adjust if needed after first build)
-  set(_bt_ros2_lib "${behaviortree_ros2_vendor_PREFIX}/lib/libbehaviortree_ros2.a")
+    set(_bt_ros2_lib "@BT_ROS2_VENDOR_INSTALL_PREFIX@/lib/libbehaviortree_ros2.a")
 endif()
 
-# Imported target for linking
-add_library(behaviortree_ros2_vendor::behaviortree_ros2 UNKNOWN IMPORTED)
-set_target_properties(behaviortree_ros2_vendor::behaviortree_ros2 PROPERTIES
-  IMPORTED_LOCATION "${_bt_ros2_lib}"
-  INTERFACE_INCLUDE_DIRECTORIES "${behaviortree_ros2_vendor_PREFIX}/include"
-)
-
-# If upstream installs a CMake package config itself, you could also forward-find it here.
-# For now, this vendor target is the stable interface.
+if(EXISTS "${_bt_ros2_lib}" AND NOT TARGET behaviortree_ros2_vendor::behaviortree_ros2)
+    add_library(behaviortree_ros2_vendor::behaviortree_ros2 UNKNOWN IMPORTED)
+    set_target_properties(behaviortree_ros2_vendor::behaviortree_ros2 PROPERTIES
+        IMPORTED_LOCATION "${_bt_ros2_lib}"
+        INTERFACE_INCLUDE_DIRECTORIES "@BT_ROS2_VENDOR_INSTALL_PREFIX@/include"
+    )
+endif()

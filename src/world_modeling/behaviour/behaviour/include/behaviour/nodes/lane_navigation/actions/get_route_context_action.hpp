@@ -33,7 +33,7 @@ namespace behaviour
           BT::InputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("route_index_map"),
           BT::InputPort<std::shared_ptr<lanelet_msgs::msg::CurrentLaneContext>>("lane_ctx"),
           BT::OutputPort<types::LaneTransition>("out_lane_transition"),
-          BT::OutputPort<std::shared_ptr<lanelet_msgs::msg::Lanelet>>("out_next_lanelet")};
+          BT::OutputPort<lanelet_msgs::msg::Lanelet::SharedPtr>("out_next_lanelet")};
     }
 
     BT::NodeStatus tick() override
@@ -65,7 +65,7 @@ namespace behaviour
       if (current_it == map->end())
       {
         // Current lanelet not found on route
-        std::cout << "[GetRouteContextAction]: Current lanelet ID " << current_id
+        std::cout << "[GetRouteContext]: Current lanelet ID " << current_id
                   << " not found on route" << std::endl;
         return BT::NodeStatus::FAILURE;
       }
@@ -76,8 +76,12 @@ namespace behaviour
 
         // At last lanelet, no further transitions
         setOutput("out_lane_transition", types::LaneTransition::SUCCESSOR);
-        setOutput("out_next_lanelet", current_lane_context->current_lanelet);
-        std::cout << "[GetRouteContextAction]: Result=SUCCESS (end of route, default SUCCESSOR)"
+
+        auto current_lanelet_ptr =
+            std::make_shared<lanelet_msgs::msg::Lanelet>(current_lane_context->current_lanelet);
+        setOutput("out_next_lanelet", current_lanelet_ptr);
+
+        std::cout << "[GetRouteContext]: Result=SUCCESS (end of route, default SUCCESSOR)"
                   << std::endl;
         return BT::NodeStatus::SUCCESS;
       }
@@ -86,11 +90,11 @@ namespace behaviour
       const uint8_t transition = route->transitions[current_idx];
       const types::LaneTransition transition_enum = static_cast<types::LaneTransition>(transition);
 
-      const std::shared_ptr<lanelet_msgs::msg::Lanelet> next_lanelet = std::make_shared<lanelet_msgs::msg::Lanelet>(route->lanelets[current_idx + 1]);
+      const lanelet_msgs::msg::Lanelet::SharedPtr next_lanelet = std::make_shared<lanelet_msgs::msg::Lanelet>(route->lanelets[current_idx + 1]);
 
       setOutput("out_lane_transition", transition_enum);
       setOutput("out_next_lanelet", next_lanelet);
-      std::cout << "[GetRouteContextAction]: Result=SUCCESS (transition set, next_lanelet_id="
+      std::cout << "[GetRouteContext]: Result=SUCCESS (transition set, next_lanelet_id="
                 << next_lanelet->id << ")" << std::endl;
 
       return BT::NodeStatus::SUCCESS;

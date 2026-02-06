@@ -46,7 +46,7 @@ namespace behaviour
     {
       auto active = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
 
-      std::cout << "[ActiveTrafficControlElementExistCondition]: active_traffic_control_element "
+      std::cout << "[ActiveTrafficControlElementExist]: active_traffic_control_element "
                 << (active ? "exists." : "does not exist.") << std::endl;
       return active ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
     }

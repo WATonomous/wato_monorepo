@@ -1,39 +1,70 @@
 <root BTCPP_format="4" main_tree_to_execute="TrafficLightSubTree">
-
     <BehaviorTree ID="TrafficLightSubTree">
         <Sequence name="Handle Traffic Light">
 
             <!-- WALL OF DOOM: compute stop/yield-line pose and spawn wall -->
+            <!-- <PrintDynamicObjects
+                dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
+                max_objects="20" /> -->
             <GetStopLinePose
                 reg_elem="{traffic_light}"
-                map_frame="{map_frame}"
+                map_frame="{@map_frame}"
                 pose="{traffic_light.wall_pose}"
                 error_message="{traffic_light.get_stop_line_pose_error_msg}" />
 
-
             <!-- Get the state of the traffic light -->
+            <GetTrafficLightState
+                traffic_light="{traffic_light}"
+                dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
+                state_hypothesis_index="{@traffic_light_state_hypothesis_index}"
+                out_traffic_light_state="{traffic_light.state}"
+                error_message="{get_traffic_light_state_error_msg}" />
 
-            <!-- fallback -->
-            <!-- If red/yellow -->
-            <SpawnWall
-                pose="{traffic_light.wall_pose}"
-                tf_buffer="{tf_buffer}"
-                base_frame="{base_frame}"
-                width="5.0"
-                length="1.0"
-                wall_id="{traffic_light.wall_id}"
-                error_message="{traffic_light.spawn_wall_error_msg}" />
+            <!-- Act based on state -->
+            <Fallback name="Traffic Light Gate">
+                <!-- RED or YELLOW or UNKNOWN=> ensure wall is spawned -->
+                <Sequence name="RedOrYellow">
+                    <Fallback name="RedOrYellowCheck">
+                        <IsTrafficLightState traffic_light_state="{traffic_light.state}"
+                            expected="red" />
+                        <IsTrafficLightState traffic_light_state="{traffic_light.state}"
+                            expected="yellow" />
+                    </Fallback>
 
+                    <SpawnWall
+                        pose="{traffic_light.wall_pose}"
+                        tf_buffer="{tf_buffer}"
+                        base_frame="{base_frame}"
+                        width="5.0"
+                        length="1.0"
+                        wall_id="{traffic_light.wall_id}"
+                        error_message="{traffic_light.spawn_wall_error_msg}" />
+                </Sequence>
 
-            <!-- If green -->
-            <!-- WALL OF DOOM: despawn -->
-            <DespawnWall
-                wall_id="{traffic_light.wall_id}"
-                error_message="{traffic_light.despawn_wall_error_msg}" />
+                <!-- GREEN => despawn wall if it exists (idempotent) -->
+                <Sequence name="Green">
+                    <IsTrafficLightState traffic_light_state="{traffic_light.state}"
+                        expected="green" />
 
-            <!-- If unknown deal with it -->
+                    <DespawnWall wall_id="{traffic_light.wall_id}"
+                        error_message="{traffic_light.despawn_wall_error_msg}" />
+                </Sequence>
+
+                <!-- UNKNOWN => fail-safe: spawn wall -->
+                <Sequence name="UnknownFailSafe">
+                    <SpawnWall
+                        pose="{traffic_light.wall_pose}"
+                        tf_buffer="{tf_buffer}"
+                        base_frame="{base_frame}"
+                        width="5.0"
+                        length="1.0"
+                        wall_id="{traffic_light.wall_id}"
+                        error_message="{traffic_light.spawn_wall_error_msg}" />
+                </Sequence>
+            </Fallback>
 
             <!-- TODO: Add condition to see if passed intersection -->
         </Sequence>
     </BehaviorTree>
+
 </root>

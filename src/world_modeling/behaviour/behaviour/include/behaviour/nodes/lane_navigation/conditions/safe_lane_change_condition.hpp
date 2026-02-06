@@ -99,8 +99,8 @@ namespace behaviour
     private:
         // must match the names configured in world_model's occupancy_areas parameters
         // TODO(wato): add safer areas here and in config (e.g. larger area that covers the whole area needed for lane change)
-        std::vector<std::string> left_lane_change_areas_{"left_blind_spot"};
-        std::vector<std::string> right_lane_change_areas_{"right_blind_spot"};
+        std::vector<std::string> left_lane_change_areas_{"left_lane_change_corridor"};
+        std::vector<std::string> right_lane_change_areas_{"right_lane_change_corridor"};
     };
 } // namespace behaviour
 

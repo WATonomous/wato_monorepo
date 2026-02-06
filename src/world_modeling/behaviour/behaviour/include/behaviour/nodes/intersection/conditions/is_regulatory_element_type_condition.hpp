@@ -50,17 +50,17 @@ namespace behaviour
 
       if (!reg_elem)
       {
-        std::cerr << "[IsRegulatoryElementTypeCondition] Missing reg_elem." << std::endl;
+        std::cerr << "[IsRegulatoryElementType] Missing reg_elem." << std::endl;
         return BT::NodeStatus::FAILURE;
       }
 
       if (!expected)
       {
-        std::cerr << "[IsRegulatoryElementTypeCondition] Missing expected." << std::endl;
+        std::cerr << "[IsRegulatoryElementType] Missing expected." << std::endl;
         return BT::NodeStatus::FAILURE;
       }
 
-      std::cout << "[IsRegulatoryElementTypeCondition]: Comparing msg='" << reg_elem->subtype << "' to expected='" << expected.value() << "'" << std::endl;
+      std::cout << "[IsRegulatoryElementType]: Comparing msg='" << reg_elem->subtype << "' to expected='" << expected.value() << "'" << std::endl;
       return (reg_elem->subtype == expected.value()) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
     }
   };

@@ -58,6 +58,8 @@ namespace behaviour
                 return false;
             }
 
+            RCLCPP_INFO(logger(), "[DespawnWallService] Despawning wall with wall_id: %d", *wall_id);
+
             request->wall_id = *wall_id;
             return true;
         }
@@ -67,6 +69,12 @@ namespace behaviour
             if (!response->success)
             {
                 setOutput("error_message", response->error_message);
+                if (response->error_message == "wall_not_found")
+                {
+                    // if wall not found then assuming it is not there, so return SUCCESS
+                    RCLCPP_WARN(logger(), "[DespawnWallService] Wall not found");
+                    return BT::NodeStatus::SUCCESS;
+                }
                 return BT::NodeStatus::FAILURE;
             }
 

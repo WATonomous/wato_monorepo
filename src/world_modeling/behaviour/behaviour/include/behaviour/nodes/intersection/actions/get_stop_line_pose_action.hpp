@@ -93,6 +93,7 @@ namespace behaviour
             auto map_frame = ports::tryGet<std::string>(*this, "map_frame");
             if (!map_frame)
             {
+                std::cout << "[GetStopLinePose] Missing map_frame" << std::endl;
                 setOutput("error_message", "missing_port:map_frame");
                 return BT::NodeStatus::FAILURE;
             }
@@ -129,6 +130,11 @@ namespace behaviour
             pose->pose.position.y = pm.y;
             pose->pose.position.z = pm.z;
             pose->pose.orientation = tf2::toMsg(q);
+
+            std::cout << "[GetStopLinePose] Extracted stop line pose at ("
+                      << pose->pose.position.x << ", "
+                      << pose->pose.position.y << ", "
+                      << pose->pose.position.z << ") with yaw " << yaw << std::endl;
 
             setOutput("pose", pose);
             return BT::NodeStatus::SUCCESS;

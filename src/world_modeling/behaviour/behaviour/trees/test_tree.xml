@@ -47,11 +47,16 @@
                                 </RateController>
                             </RetryUntilSuccessful>
 
-                            <GetShortestRoute route="{global_route}"
-                                route_index_map="{global_route_index_map}"
-                                route_lanelet_ids="{global_route_lanelet_ids}"
-                                error_message="{get_shortest_route_error_msg}"
-                                service_name="/world_modeling/get_shortest_route" />
+                            <RetryUntilSuccessful num_attempts="10">
+                                <RateController hz="1.0">
+                                    <GetShortestRoute route="{global_route}"
+                                        route_index_map="{global_route_index_map}"
+                                        route_lanelet_ids="{global_route_lanelet_ids}"
+                                        error_message="{get_shortest_route_error_msg}"
+                                        service_name="/world_modeling/get_shortest_route" />
+                                </RateController>
+                            </RetryUntilSuccessful>
+
 
                         </Sequence>
                     </Fallback>

@@ -81,19 +81,19 @@ namespace behaviour
 
       if (!lane_ctx)
       {
-        std::cerr << "[GetIntersectionContextAction] Missing lane_ctx." << std::endl;
+        std::cerr << "[GetIntersectionContext] Missing lane_ctx." << std::endl;
         return BT::NodeStatus::FAILURE;
       }
 
       if (!route)
       {
-        std::cerr << "[GetIntersectionContextAction] Missing route." << std::endl;
+        std::cerr << "[GetIntersectionContext] Missing route." << std::endl;
         return BT::NodeStatus::FAILURE;
       }
 
       if (!route_index_map)
       {
-        std::cerr << "[GetIntersectionContextAction] Missing route_index_map." << std::endl;
+        std::cerr << "[GetIntersectionContext] Missing route_index_map." << std::endl;
         return BT::NodeStatus::FAILURE;
       }
 

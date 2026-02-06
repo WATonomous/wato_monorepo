@@ -12,12 +12,15 @@
 #include "behaviour/nodes/intersection/actions/clear_stop_sign_priority_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_cars_action.hpp"
-#include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
+#include "behaviour/nodes/intersection/actions/get_traffic_light_state_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_line_pose_action.hpp"
+#include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
 
 // conditions
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_exist_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/active_traffic_control_element_passed_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_regulatory_element_type_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/is_traffic_light_state_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_can_proceed_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/yield_sign_can_proceed_condition.hpp"
 
@@ -26,6 +29,7 @@ class IntersectionNodeRegistrar : public NodeRegistrarBase
 public:
     void register_nodes(BT::BehaviorTreeFactory &factory, const BT::RosNodeParams &params) override
     {
+
         // enums
         factory.registerScriptingEnums<behaviour::types::TrafficControlElementType>();
 
@@ -34,11 +38,15 @@ public:
         factory.registerNodeType<behaviour::ClearStopSignPriorityCarsAction>("ClearStopSignPriorityCarsAction");
         factory.registerNodeType<behaviour::GetIntersectionContextAction>("GetIntersectionContext");
         factory.registerNodeType<behaviour::GetStopSignCarsAction>("GetStopSignCars");
-        factory.registerNodeType<behaviour::SetStopSignPriorityCarsAction>("SetStopSignPriorityCars");
+        factory.registerNodeType<behaviour::GetTrafficLightStateAction>("GetTrafficLightState");
         factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose");
+        factory.registerNodeType<behaviour::SetStopSignPriorityCarsAction>("SetStopSignPriorityCars");
+
         // conditions
         factory.registerNodeType<behaviour::ActiveTrafficControlElementExistCondition>("ActiveTrafficControlElementExist");
+        factory.registerNodeType<behaviour::ActiveTrafficControlElementPassedCondition>("ActiveTrafficControlElementPassed");
         factory.registerNodeType<behaviour::IsRegulatoryElementTypeCondition>("IsRegulatoryElementType");
+        factory.registerNodeType<behaviour::IsTrafficLightStateCondition>("IsTrafficLightState");
         factory.registerNodeType<behaviour::StopSignCanProceedCondition>("StopSignCanProceed");
         factory.registerNodeType<behaviour::YieldSignCanProceedCondition>("YieldCanProceed");
     }

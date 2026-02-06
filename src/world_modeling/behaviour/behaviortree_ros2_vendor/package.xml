@@ -3,10 +3,10 @@
 <package format="3">
   <name>behaviortree_ros2_vendor</name>
   <version>0.0.0</version>
-  <description>Vendor package for BehaviorTree.ROS2</description>
+  <description>ROS2 vendor package for the BehaviorTree.ROS2 library.</description>
   <maintainer email="js3huang@watonomous.ca">jstephhuang</maintainer>
   <license>Apache-2.0</license>
-  <!-- TODO(wato): vendor package for behaviour tree ros2 -->
+
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>behaviortree_cpp</depend>

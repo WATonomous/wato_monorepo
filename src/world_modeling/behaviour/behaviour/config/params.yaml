@@ -27,5 +27,8 @@ behaviour_node:
     map_frame: "map"
     base_frame: "base_link"
 
+    # Traffic light state hypothesis index to use
+    traffic_light_state_hypothesis_index: 1
+
     # Logging options
     enable_console_logging: false

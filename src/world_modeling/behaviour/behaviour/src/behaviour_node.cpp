@@ -36,6 +36,7 @@ namespace behaviour
         this->declare_parameter("map_frame", "map");
         this->declare_parameter("base_frame", "base_link");
         this->declare_parameter("enable_console_logging", false);
+        this->declare_parameter("traffic_light_state_hypothesis_index", 1);
 
         // Init TF
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -53,6 +54,7 @@ namespace behaviour
         double tick_rate_hz = this->get_parameter("rate_hz").as_double();
         double ego_rate_hz = this->get_parameter("ego_state_rate_hz").as_double();
         bool enable_console_logging = this->get_parameter("enable_console_logging").as_bool();
+        int traffic_light_state_hypothesis_index = this->get_parameter("traffic_light_state_hypothesis_index").as_int();
 
         // behaviour tree file path
         std::string package_share_directory = ament_index_cpp::get_package_share_directory("behaviour");
@@ -66,6 +68,7 @@ namespace behaviour
         tree_->updateBlackboard("tf_buffer", tf_buffer_);
         tree_->updateBlackboard("map_frame", map_frame_);
         tree_->updateBlackboard("base_frame", base_frame_);
+        tree_->updateBlackboard("traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
 
         // stores for world state publishers
         dynamic_objects_store_ = std::make_shared<behaviour::DynamicObjectStore>();
@@ -95,7 +98,6 @@ namespace behaviour
             "/world_modeling/lanelet/lane_context", 10,
             [this](const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
             {
-                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Received CurrentLaneContext message");
                 tree_->updateBlackboard("current_lane_ctx", msg);
             });
 
@@ -103,7 +105,6 @@ namespace behaviour
             "/world_modeling/world_objects", rclcpp::QoS(10),
             [this](world_model_msgs::msg::WorldObjectArray::ConstSharedPtr msg)
             {
-                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Received WorldObjectArray message with %zu objects", msg->objects.size());
                 dynamic_objects_store_->update(msg);
             });
 
@@ -111,7 +112,6 @@ namespace behaviour
             "/world_modeling/area_occupancy", rclcpp::QoS(10),
             [this](world_model_msgs::msg::AreaOccupancy::ConstSharedPtr msg)
             {
-                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Received AreaOccupancy message with %zu areas", msg->areas.size());
                 area_occupancy_store_->update(msg);
             });
 
@@ -139,7 +139,7 @@ namespace behaviour
     }
 
     /**
-     * @brief Fetches latest TF transform and updates the BT blackboard with ego state.
+     * @brief Fetches latest TF transform and updates the BT blackboard with ego state (velocity and position).
      */
     void BehaviourNode::tfTimerCallback()
     {
@@ -173,7 +173,6 @@ namespace behaviour
                     tf2::Vector3 world_vel = (current_position - last_position_) / dt;
 
                     // Convert to body-frame (Local) velocity
-                    //
                     tf2::Vector3 local_vel = tf2::quatRotate(current_orientation.inverse(), world_vel);
                     ego_velocity->linear.x = local_vel.x();
                     ego_velocity->linear.y = local_vel.y();
@@ -212,6 +211,7 @@ namespace behaviour
 int main(int argc, char *argv[])
 {
     rclcpp::init(argc, argv);
+
     auto node = std::make_shared<behaviour::BehaviourNode>();
     node->init();
 

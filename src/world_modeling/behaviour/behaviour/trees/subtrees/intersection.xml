@@ -1,7 +1,7 @@
 <root BTCPP_format="4" main_tree_to_execute="IntersectionSubTree">
   <include path="yield.xml" />
   <include path="stop_sign.xml" />
-  <!-- <include path="traffic_light.xml" /> -->
+  <include path="traffic_light.xml" />
   <BehaviorTree ID="IntersectionSubTree">
     <Sequence>
       <GetIntersectionContext
@@ -17,40 +17,77 @@
       <ActiveTrafficControlElementExist
         active_traffic_control_element="{active_traffic_control_element}" />
 
-      <Fallback name="Handle Traffic Control Element">
-        <Sequence name="Handle STOP_SIGN Element">
-          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="stop_sign" />
-
-          <!-- subtree to handle stop sign -->
-          <SubTree
-            ID="StopSignSubTree"
-            stop_sign="{active_traffic_control_element}"
-            stop_sign_id="{active_traffic_control_element_id}"
-          />
+      <Fallback>
+        <Sequence>
+          <!-- If we are way passed the intersection -->
+          <ActiveTrafficControlElementPassed
+            lane_ctx="{@current_lane_ctx}"
+            route_index_map="{global_route_index_map}"
+            active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+            lanelet_threshold="2" />
 
           <ClearActiveTrafficControlElement
             active_traffic_control_element="{active_traffic_control_element}" />
         </Sequence>
-        <Sequence name="Handle TRAFFIC_LIGHT Element">
-          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
-            expected="traffic_light" />
+        <Fallback name="Handle Traffic Control Element">
 
-          <!-- subtree to handle traffic light -->
-          <!-- todo -->
+          <Sequence name="Handle STOP_SIGN Element">
+            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
+              expected="stop_sign" />
 
-        </Sequence>
-        <Sequence name="Handle YIELD Element">
-          <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="yield" />
+            <!-- subtree to handle stop sign -->
+            <SubTree
+              ID="StopSignSubTree"
+              stop_sign="{active_traffic_control_element}"
+              stop_sign_id="{active_traffic_control_element_id}"
+            />
+            <ActiveTrafficControlElementPassed
+              lane_ctx="{@current_lane_ctx}"
+              route_index_map="{global_route_index_map}"
+              active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+              lanelet_threshold="1" />
 
-          <SubTree
-            ID="YieldSubTree"
-            yield_sign="{active_traffic_control_element}"
-            yield_sign_id="{active_traffic_control_element_id}"
-          />
+            <ClearActiveTrafficControlElement
+              active_traffic_control_element="{active_traffic_control_element}" />
+          </Sequence>
+          <Sequence name="Handle TRAFFIC_LIGHT Element">
+            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
+              expected="traffic_light" />
 
-          <ClearActiveTrafficControlElement
-            active_traffic_control_element="{active_traffic_control_element}" />
-        </Sequence>
+            <!-- subtree to handle traffic light -->
+            <SubTree
+              ID="TrafficLightSubTree"
+              traffic_light="{active_traffic_control_element}"
+              traffic_light_id="{active_traffic_control_element_id}"
+            />
+            <ActiveTrafficControlElementPassed
+              lane_ctx="{@current_lane_ctx}"
+              route_index_map="{global_route_index_map}"
+              active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+              lanelet_threshold="1" />
+
+            <ClearActiveTrafficControlElement
+              active_traffic_control_element="{active_traffic_control_element}" />
+
+          </Sequence>
+          <Sequence name="Handle YIELD Element">
+            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}" expected="yield" />
+
+            <SubTree
+              ID="YieldSubTree"
+              yield_sign="{active_traffic_control_element}"
+              yield_sign_id="{active_traffic_control_element_id}"
+            />
+            <ActiveTrafficControlElementPassed
+              lane_ctx="{@current_lane_ctx}"
+              route_index_map="{global_route_index_map}"
+              active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+              lanelet_threshold="1" />
+
+            <ClearActiveTrafficControlElement
+              active_traffic_control_element="{active_traffic_control_element}" />
+          </Sequence>
+        </Fallback>
       </Fallback>
     </Sequence>
   </BehaviorTree>

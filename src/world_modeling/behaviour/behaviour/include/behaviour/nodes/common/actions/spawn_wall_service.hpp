@@ -142,6 +142,7 @@ namespace behaviour
                 return BT::NodeStatus::FAILURE;
             }
 
+            RCLCPP_INFO(logger(), "[%s] wall spawned successfully", name().c_str());
             setOutput("wall_id", response->wall_id);
             return BT::NodeStatus::SUCCESS;
         }
