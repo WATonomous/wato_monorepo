@@ -209,6 +209,7 @@ launch:
           to: /world_modeling/costmap_footprint_markers
 
   # Behaviour Node
+  # run this separately for now
   # - node:
   #     pkg: behaviour
   #     exec: behaviour_node
