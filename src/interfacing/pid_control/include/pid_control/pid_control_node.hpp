@@ -76,6 +76,9 @@ private:
   // Timer
   rclcpp::TimerBase::SharedPtr timer_;
 
+  // conversion factor
+  double steering_wheel_conversion_factor_{15.7};
+
   // Internal state
   double steering_setpoint_{0.0};
   double steering_meas_{0.0};

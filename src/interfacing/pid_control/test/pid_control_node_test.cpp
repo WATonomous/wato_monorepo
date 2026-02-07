@@ -51,6 +51,7 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
      "roscco:=/joystick/roscco"});
   options.parameter_overrides(
     {{"update_rate", 10.0},
+     {"steering_wheel_conversion_factor", 10.0},
      {"steering_pid.p", 1.0},
      {"steering_pid.i", 0.0},
      {"steering_pid.d", 0.0},
@@ -89,18 +90,20 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Expect Roscco message
-    // Since P=0.5, and error is 0.5 and 1.0, we expect steering torque ~0.25 and forward ~0.5
+    // Since P=0.5, and error is (0.5 - 0.1) and 1.0, we expect steering torque ~0.2 and forward ~0.5
     auto roscco_future = roscco_sub->expect_next_message();
 
-    // Send Ackermann setpoint (Steering: 0.5, Speed: 1.0)
+    // Send Ackermann setpoint (Steering: 0.5 rad, Speed: 1.0 m/s)
     AckermannDriveStamped ack_msg;
     ack_msg.drive.steering_angle = 0.5;
     ack_msg.drive.speed = 1.0;
     ackermann_pub->publish(ack_msg);
 
-    // Send Feedback (Steering: 0.0, Speed: 0.0) -> Error = 0.5, 1.0
+    // Send Feedback (Steering: 57.2957795 degrees on wheel, Speed: 0.0)
+    // 57.2957795 / 10.0 = 5.72957795 degrees = 0.1 radians
+    // Error = 0.5 - 0.1 = 0.4
     Float64 steer_msg;
-    steer_msg.data = 0.0;
+    steer_msg.data = 57.2957795;
     steering_meas_pub->publish(steer_msg);
 
     Float64 vel_msg;
@@ -109,7 +112,7 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
 
     auto result_msg = roscco_future.get();
 
-    REQUIRE(result_msg.steering == Catch::Approx(0.25));
+    REQUIRE(result_msg.steering == Catch::Approx(0.2));
     REQUIRE(result_msg.forward == Catch::Approx(0.5));
   }
 
