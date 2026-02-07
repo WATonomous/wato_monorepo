@@ -1,0 +1,45 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# =============================================================================
+# Patchwork++ Node
+# =============================================================================
+/**/patchworkpp_node:
+  ros__parameters:
+    # Patchwork++ parameters (seeded from library defaults)
+    base_frame: "base_link"
+    num_iter: 5
+    num_lpr: 20
+    num_min_pts: 0
+    th_seeds: 0.3
+    th_dist: 0.15
+    th_seeds_v: 0.25
+    th_dist_v: 0.85
+    max_range: 90.0
+    min_range: 1.0
+    uprightness_thr: 0.101
+    enable_RNR: false
+    verbose: false
+
+    # QoS Configuration
+    # Subscriber QoS: best_effort for low-latency sensor data (default for LiDAR)
+    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_subscriber_depth: 10                   # Queue depth for incoming messages
+
+    # Publisher QoS: reliable + transient_local for immediate availability
+    # Transient local ensures late-joining subscribers (e.g., RViz) receive the latest
+    # segmentation immediately without waiting for the next scan
+    qos_publisher_reliability: "reliable"      # Options: "reliable", "best_effort"
+    qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
+    qos_publisher_depth: 10                    # Queue depth for outgoing messages
