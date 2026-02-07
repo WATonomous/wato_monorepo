@@ -20,6 +20,7 @@
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <lifecycle_msgs/msg/transition.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <std_msgs/msg/float64.hpp>
@@ -61,6 +62,10 @@ TEST_CASE_METHOD(TestExecutorFixture, "PidControlNode Basic Operation", "[pid_co
 
   auto pid_node = std::make_shared<pid_control::PidControlNode>(options);
   add_node(pid_node);
+
+  // Transition lifecycle node to active state
+  pid_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  pid_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
 
   // Inputs
   auto ackermann_pub =

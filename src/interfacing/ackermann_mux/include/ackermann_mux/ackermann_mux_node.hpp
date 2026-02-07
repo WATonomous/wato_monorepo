@@ -20,6 +20,7 @@
 
 #include <ackermann_msgs/msg/ackermann_drive.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 
 #include "ackermann_mux/input_handle.hpp"
 
@@ -34,7 +35,7 @@ namespace ackermann_mux
  * a single command based on priority and safety gating rules. It supports
  * masking individual inputs and enforces safety thresholds for command timeouts.
  */
-class AckermannMuxNode : public rclcpp::Node
+class AckermannMuxNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   /**
@@ -42,6 +43,15 @@ public:
    * @param options Node options for configuring the ROS 2 node.
    */
   explicit AckermannMuxNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+
+protected:
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
   /**

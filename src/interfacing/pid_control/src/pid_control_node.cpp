@@ -22,16 +22,20 @@ namespace pid_control
 {
 
 PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
-: Node("pid_control_node", options)
+: LifecycleNode("pid_control_node", options)
 {
-  // Declare topics
+  // Declare parameters only - do not read or create resources yet
   this->declare_parameter<double>("update_rate", 100.0);
-
-  double update_rate = this->get_parameter("update_rate").as_double();
-
-  // Declare steering wheel conversion factor
   this->declare_parameter<double>("steering_wheel_conversion_factor", 15.7);
 
+  RCLCPP_INFO(this->get_logger(), "PidControlNode created (unconfigured)");
+}
+
+PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Configuring...");
+
+  // Read parameters
   steering_wheel_conversion_factor_ = this->get_parameter("steering_wheel_conversion_factor").as_double();
 
   // Initialize Steering PID
@@ -73,13 +77,82 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
   // Publisher
   roscco_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(10));
 
-  // Timer
+  RCLCPP_INFO(this->get_logger(), "Configured successfully");
+  return CallbackReturn::SUCCESS;
+}
+
+PidControlNode::CallbackReturn PidControlNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Activating...");
+
+  double update_rate = this->get_parameter("update_rate").as_double();
+
+  // Start control loop timer
   last_time_ = this->now();
   auto period = std::chrono::duration<double>(1.0 / update_rate);
   timer_ = this->create_wall_timer(
     std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&PidControlNode::control_loop, this));
 
-  RCLCPP_INFO(this->get_logger(), "PID Control Node initialized at %.1f Hz", update_rate);
+  RCLCPP_INFO(this->get_logger(), "Activated - control loop running at %.1f Hz", update_rate);
+  return CallbackReturn::SUCCESS;
+}
+
+PidControlNode::CallbackReturn PidControlNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Deactivating...");
+
+  // Stop the timer
+  if (timer_) {
+    timer_->cancel();
+    timer_.reset();
+  }
+
+  RCLCPP_INFO(this->get_logger(), "Deactivated");
+  return CallbackReturn::SUCCESS;
+}
+
+PidControlNode::CallbackReturn PidControlNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Cleaning up...");
+
+  // Reset all resources
+  timer_.reset();
+  ackermann_sub_.reset();
+  steering_meas_sub_.reset();
+  velocity_meas_sub_.reset();
+  roscco_pub_.reset();
+  steering_pid_ros_.reset();
+  velocity_pid_ros_.reset();
+
+  // Reset state
+  steering_setpoint_ = 0.0;
+  steering_meas_ = 0.0;
+  velocity_setpoint_ = 0.0;
+  velocity_meas_ = 0.0;
+  ackermann_received_ = false;
+  steering_meas_received_ = false;
+  velocity_meas_received_ = false;
+
+  return CallbackReturn::SUCCESS;
+}
+
+PidControlNode::CallbackReturn PidControlNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Shutting down...");
+
+  if (timer_) {
+    timer_->cancel();
+    timer_.reset();
+  }
+
+  ackermann_sub_.reset();
+  steering_meas_sub_.reset();
+  velocity_meas_sub_.reset();
+  roscco_pub_.reset();
+  steering_pid_ros_.reset();
+  velocity_pid_ros_.reset();
+
+  return CallbackReturn::SUCCESS;
 }
 
 void PidControlNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)

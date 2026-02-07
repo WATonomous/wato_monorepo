@@ -20,6 +20,7 @@
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <control_toolbox/pid_ros.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <std_msgs/msg/float64.hpp>
 
@@ -29,10 +30,19 @@ namespace pid_control
 /**
  * @brief Node for dual-loop PID control of steering and velocity.
  */
-class PidControlNode : public rclcpp::Node
+class PidControlNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   explicit PidControlNode(const rclcpp::NodeOptions & options);
+
+protected:
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
   /**
