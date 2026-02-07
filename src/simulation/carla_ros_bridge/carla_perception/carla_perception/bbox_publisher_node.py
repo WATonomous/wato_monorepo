@@ -74,7 +74,7 @@ class BBoxPublisherNode(LifecycleNode):
         )
         self.declare_parameter(
             "frame_id",
-            "base_link",
+            "map",
             ParameterDescriptor(description="TF frame for published detections"),
         )
         self.declare_parameter(

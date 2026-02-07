@@ -54,6 +54,8 @@ Options
                               Append :bag for bag recording mode (e.g., -m interfacing:bag)
   -t, --terminal SERVICE      Run 'docker compose up -d' (if needed) and open
                               a bash shell in the SERVICE container
+  -s, --setup-dev-env [MOD]   Setup VSCode dev environment (extract headers)
+                              Use 'all' for all modules, or specify module(s)
   -h, --help                  Show this help and exit
 
 Commands
@@ -87,6 +89,8 @@ Examples
   watod bag record -a                   # record all topics (auto-saves to ./bags)
   watod bag play my_bag                 # play bag from ./bags directory
   watod bag info my_bag                 # show bag info
+  watod -s                              # setup dev env (extracts all module headers)
+  watod -s world_modeling               # setup dev env with specific module only
 
 More info: https://docs.docker.com/compose/reference/overview/
 EOF
@@ -249,6 +253,11 @@ while [[ $# -gt 0 ]]; do
       usage; exit 0 ;;
     install)
       "$MONO_DIR/watod_scripts/watod-install.sh"
+      exit $?
+      ;;
+    -s|--setup-dev-env)
+      shift
+      "$MONO_DIR/watod_scripts/watod-setup-dev-env.sh" "$@"
       exit $?
       ;;
     test)

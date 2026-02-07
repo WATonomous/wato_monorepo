@@ -27,6 +27,7 @@ watod --help
   - Note: for full DevContainer experience, run `watod -t` on a container that is denoted as a `DevContainer`. More information about DevContainers [here](#devcontainers)
 - **Testing**: Run colcon tests across $ACTIVE_MODULES with (`watod test`)
 - **ROS bag management**: Record and play ROS2 bags with automatic mounting (`watod bag <command>`)
+- **VSCode Setup**: Configure local VSCode IntelliSense by extracting headers from containers (`watod -s`)
 
 To begin using `watod`, edit the [`watod-config.sh`](./watod-config.sh) or create a copy called `watod-config.local.sh` to configure important settings for `watod` like $ACTIVE_MODULES which defines which docker services to start.
 
@@ -62,6 +63,21 @@ To setup a DevContainer:
 
 1. Once you are inside a DevContainer, make sure you work in `/ws/`. All `src` files relevant to the module will be mounted from the monorepo to `/ws/src`. This means that any changes you make in `/ws/src` will reflect out to the `wato_monorepo`. `/ws` is a default ROS2 workspace where you can run commands like `colcon`.
 1. Manage git changes outside of the devcontainer.
+
+## VSCode Setup (Local Development)
+
+If you strictly develop locally (not using DevContainers) but want IntelliSense to work with ROS dependencies, you can use `watod -s`.
+
+```bash
+watod -s [module_name] # defaults to infrastructure if no module specified or "all"
+```
+
+This command:
+1. Starts a temporary container for the specified module
+1. Extracts ROS headers and other dependencies to `/tmp/deps`
+1. Generates/Updates `.vscode/c_cpp_properties.json` and `.vscode/settings.json` to point to these headers
+
+**Note:** You must run this command whenever you switch branches or update dependencies to keep your intellisense up to date.
 
 ## Pre-commit
 

@@ -22,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <queue>
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -454,7 +455,9 @@ lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
   const geometry_msgs::msg::Point & current_pos,
   double heading_rad,
   double radius_m,
-  std::optional<int64_t> previous_lanelet_id) const
+  std::optional<int64_t> previous_lanelet_id,
+  double route_priority_threshold_m,
+  double heading_search_radius_m) const
 {
   lanelet_msgs::msg::LaneletAhead msg;
   msg.current_lanelet_id = -1;
@@ -465,7 +468,8 @@ lanelet_msgs::msg::LaneletAhead LaneletHandler::getLaneletAhead(
   }
 
   // Find current lanelet using heading-based selection (with BFS hint if available)
-  auto current_id = findCurrentLaneletId(current_pos, heading_rad, 10.0, 15.0, previous_lanelet_id);
+  auto current_id = findCurrentLaneletId(
+    current_pos, heading_rad, route_priority_threshold_m, heading_search_radius_m, previous_lanelet_id);
   if (!current_id.has_value()) {
     return msg;  // Can't determine reachability without a starting point
   }
@@ -539,6 +543,57 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getReachableLaneletsInRadius(
   }
 
   return result;
+}
+
+std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(const geometry_msgs::msg::Point & point) const
+{
+  if (!map_) {
+    return std::nullopt;
+  }
+
+  double best_dist_sq = std::numeric_limits<double>::max();
+  std::optional<int64_t> best_id;
+
+  for (const auto & reg_elem : map_->regulatoryElementLayer) {
+    if (
+      !reg_elem->hasAttribute(lanelet::AttributeName::Subtype) ||
+      reg_elem->attribute(lanelet::AttributeName::Subtype).value() != "traffic_light")
+    {
+      continue;
+    }
+
+    // Check linestring-based refers (centroid)
+    for (const auto & ls : reg_elem->getParameters<lanelet::ConstLineString3d>("refers")) {
+      if (ls.empty()) {
+        continue;
+      }
+      double cx = 0, cy = 0;
+      for (const auto & pt : ls) {
+        cx += pt.x();
+        cy += pt.y();
+      }
+      cx /= ls.size();
+      cy /= ls.size();
+      double dx = cx - point.x, dy = cy - point.y;
+      double dist_sq = dx * dx + dy * dy;
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_id = reg_elem->id();
+      }
+    }
+
+    // Check point-based refers
+    for (const auto & pt : reg_elem->getParameters<lanelet::ConstPoint3d>("refers")) {
+      double dx = pt.x() - point.x, dy = pt.y() - point.y;
+      double dist_sq = dx * dx + dy * dy;
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_id = reg_elem->id();
+      }
+    }
+  }
+
+  return best_id;
 }
 
 lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(int64_t reg_elem_id) const
@@ -700,88 +755,142 @@ void LaneletHandler::populateLaneletConnectivity(
 void LaneletHandler::populateLaneletRegulatoryElements(
   lanelet_msgs::msg::Lanelet & msg, const lanelet::ConstLanelet & ll) const
 {
+  // Track processed regulatory element IDs to avoid duplicates
+  std::set<int64_t> processed_ids;
+
   for (const auto & reg_elem : ll.regulatoryElements()) {
-    // Check for specific types
-    if (!reg_elem->hasAttribute(lanelet::AttributeName::Subtype)) {
+    // Skip if already processed
+    if (processed_ids.count(reg_elem->id()) > 0) {
       continue;
     }
-    std::string subtype = reg_elem->attribute(lanelet::AttributeName::Subtype).value();
+    processed_ids.insert(reg_elem->id());
 
-    if (subtype == "traffic_light") {
-      msg.has_traffic_light = true;
+    lanelet_msgs::msg::RegulatoryElement re_msg;
+    re_msg.id = reg_elem->id();
 
-      // Extract traffic light positions from the regulatory element
-      // Traffic lights have a "refers" role pointing to the light linestrings
-      auto refers = reg_elem->getParameters<lanelet::ConstLineString3d>("refers");
-      for (const auto & light_ls : refers) {
-        lanelet_msgs::msg::TrafficLightInfo tl_info;
-        tl_info.id = light_ls.id();
-        tl_info.stop_line_id = -1;
+    // Get subtype
+    if (reg_elem->hasAttribute(lanelet::AttributeName::Subtype)) {
+      re_msg.subtype = reg_elem->attribute(lanelet::AttributeName::Subtype).value();
+    } else {
+      re_msg.subtype = "unknown";
+    }
 
-        // Use centroid of the linestring as position
-        if (!light_ls.empty()) {
-          double x = 0, y = 0, z = 0;
-          for (const auto & pt : light_ls) {
-            x += pt.x();
-            y += pt.y();
-            z += pt.z();
+    // Extract referred geometry positions (traffic lights, signs)
+    auto refers = reg_elem->getParameters<lanelet::ConstLineString3d>("refers");
+    for (const auto & refer_ls : refers) {
+      // Use centroid of the linestring as position
+      if (!refer_ls.empty()) {
+        double x = 0, y = 0, z = 0;
+        for (const auto & pt : refer_ls) {
+          x += pt.x();
+          y += pt.y();
+          z += pt.z();
+        }
+        geometry_msgs::msg::Point p;
+        p.x = x / refer_ls.size();
+        p.y = y / refer_ls.size();
+        p.z = z / refer_ls.size();
+        re_msg.refers_positions.push_back(p);
+      }
+    }
+
+    // Also check for point-based refers
+    auto refers_points = reg_elem->getParameters<lanelet::ConstPoint3d>("refers");
+    for (const auto & pt : refers_points) {
+      geometry_msgs::msg::Point p;
+      p.x = pt.x();
+      p.y = pt.y();
+      p.z = pt.z();
+      re_msg.refers_positions.push_back(p);
+    }
+
+    // Extract reference lines (stop lines)
+    auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
+    for (const auto & ref_ls : ref_lines) {
+      lanelet_msgs::msg::RefLine ref_line_msg;
+
+      // Calculate distance along lanelet centerline to the ref_line (stop line)
+      auto centerline = ll.centerline2d();
+      if (centerline.size() >= 2 && !ref_ls.empty()) {
+        // Compute centroid of the ref_line
+        double ref_cx = 0.0, ref_cy = 0.0;
+        for (const auto & pt : ref_ls) {
+          ref_cx += pt.x();
+          ref_cy += pt.y();
+        }
+        ref_cx /= static_cast<double>(ref_ls.size());
+        ref_cy /= static_cast<double>(ref_ls.size());
+
+        // Find the closest point on the centerline and compute arc length to it
+        double min_dist_sq = std::numeric_limits<double>::max();
+        double best_arc_length = 0.0;
+        double accumulated_length = 0.0;
+
+        for (size_t i = 0; i + 1 < centerline.size(); ++i) {
+          double ax = centerline[i].x(), ay = centerline[i].y();
+          double bx = centerline[i + 1].x(), by = centerline[i + 1].y();
+          double dx = bx - ax, dy = by - ay;
+          double seg_len_sq = dx * dx + dy * dy;
+
+          // Project ref_line centroid onto this centerline segment
+          double t = 0.0;
+          if (seg_len_sq > 1e-12) {
+            t = ((ref_cx - ax) * dx + (ref_cy - ay) * dy) / seg_len_sq;
+            t = std::clamp(t, 0.0, 1.0);
           }
-          tl_info.position.x = x / light_ls.size();
-          tl_info.position.y = y / light_ls.size();
-          tl_info.position.z = z / light_ls.size();
-          msg.traffic_lights.push_back(tl_info);
+
+          double proj_x = ax + t * dx;
+          double proj_y = ay + t * dy;
+          double dist_sq = (ref_cx - proj_x) * (ref_cx - proj_x) + (ref_cy - proj_y) * (ref_cy - proj_y);
+
+          if (dist_sq < min_dist_sq) {
+            min_dist_sq = dist_sq;
+            best_arc_length = accumulated_length + t * std::sqrt(seg_len_sq);
+          }
+
+          accumulated_length += std::sqrt(seg_len_sq);
         }
+
+        ref_line_msg.distance_along_lanelet_m = best_arc_length;
+      } else {
+        ref_line_msg.distance_along_lanelet_m = 0.0;
       }
 
-      // Check for associated stop line (ref_line role)
-      auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
-      for (const auto & stop_ls : ref_lines) {
-        lanelet_msgs::msg::StopLineInfo sl_info;
-        sl_info.id = stop_ls.id();
-        sl_info.distance_along_lanelet_m = 0.0;  // TODO(WATonomous): calculate actual distance
-
-        for (const auto & pt : stop_ls) {
-          geometry_msgs::msg::Point p;
-          p.x = pt.x();
-          p.y = pt.y();
-          p.z = pt.z();
-          sl_info.points.push_back(p);
-        }
-
-        if (!sl_info.points.empty()) {
-          msg.stop_lines.push_back(sl_info);
-          msg.has_stop_line = true;
-        }
+      for (const auto & pt : ref_ls) {
+        geometry_msgs::msg::Point p;
+        p.x = pt.x();
+        p.y = pt.y();
+        p.z = pt.z();
+        ref_line_msg.points.push_back(p);
       }
-    }
 
-    if (subtype == "stop_sign" || subtype == "right_of_way") {
-      // Extract stop lines from stop signs and right-of-way elements
-      auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
-      for (const auto & stop_ls : ref_lines) {
-        lanelet_msgs::msg::StopLineInfo sl_info;
-        sl_info.id = stop_ls.id();
-        sl_info.distance_along_lanelet_m = 0.0;
-
-        for (const auto & pt : stop_ls) {
-          geometry_msgs::msg::Point p;
-          p.x = pt.x();
-          p.y = pt.y();
-          p.z = pt.z();
-          sl_info.points.push_back(p);
-        }
-
-        if (!sl_info.points.empty()) {
-          msg.stop_lines.push_back(sl_info);
-          msg.has_stop_line = true;
-        }
+      if (!ref_line_msg.points.empty()) {
+        re_msg.ref_lines.push_back(ref_line_msg);
       }
     }
 
-    if (subtype == "yield") {
-      msg.has_yield_sign = true;
-      msg.must_yield = true;
+    // Extract yield relationships for right_of_way elements
+    if (re_msg.subtype == "right_of_way") {
+      // Get yield lanelets
+      auto yield_lanelets = reg_elem->getParameters<lanelet::ConstLanelet>("yield");
+      for (const auto & yield_ll : yield_lanelets) {
+        re_msg.yield_lanelet_ids.push_back(yield_ll.id());
+      }
+
+      // Get right-of-way lanelets
+      auto row_lanelets = reg_elem->getParameters<lanelet::ConstLanelet>("right_of_way");
+      for (const auto & row_ll : row_lanelets) {
+        re_msg.right_of_way_lanelet_ids.push_back(row_ll.id());
+      }
     }
+
+    // Extract generic attributes
+    for (const auto & attr : reg_elem->attributes()) {
+      re_msg.attribute_keys.push_back(attr.first);
+      re_msg.attribute_values.push_back(attr.second.value());
+    }
+
+    msg.regulatory_elements.push_back(re_msg);
   }
 }
 

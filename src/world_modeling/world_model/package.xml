@@ -21,7 +21,6 @@
   <depend>geometry_msgs</depend>
   <depend>vision_msgs</depend>
   <depend>lanelet_msgs</depend>
-  <depend>prediction_msgs</depend>
   <depend>world_model_msgs</depend>
 
   <!-- Lanelet2 -->

@@ -22,7 +22,7 @@ _watod_completions() {
   local prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   # Top-level commands and options
-  local commands="up down ps logs build pull install test bag run -m -t -v -h"
+  local commands="up down ps logs build pull install test bag run -m -t -v -h -s"
 
   # Recording profiles for 'watod run'
   local profiles="all_sensors camera_only lidar_only --list -l"
@@ -42,7 +42,7 @@ _watod_completions() {
       mapfile -t COMPREPLY < <(compgen -W "${bag_cmds}" -- "${cur}")
       return 0
       ;;
-    -m|--module)
+    up|down|-m|--module|-s|--setup-dev-env|test)
       mapfile -t COMPREPLY < <(compgen -W "${modules}" -- "${cur}")
       return 0
       ;;
@@ -53,4 +53,4 @@ _watod_completions() {
   return 0
 }
 
-complete -o default -F _watod_completions watod
+complete -o bashdefault -o default -F _watod_completions watod
