@@ -21,30 +21,34 @@
 
             <EgoStopped ego_velocity="{ego_velocity}" threshold_velocity="0.10" />
 
-            <!-- Fetch lanelets controlled by this regulatory element -->
+            <!-- Temporal-based stop sign logic: track arrival times and determine right-of-way -->
             <ReactiveSequence>
+                <!-- Get lanelets controlled by this regulatory element -->
                 <GetLaneletsByRegElem
                     reg_elem_id="{active_traffic_control_element_id}"
                     lanelets="{stop_sign.lanelets}"
                     error_message="{get_lanelets_by_reg_elem_error_msg}" />
 
-                <GetStopSignCars
+                <!-- Get cars with their detection timestamps -->
+                <GetStopSignCarsWithTimestamps
                     stop_sign="{active_traffic_control_element}"
                     lanelets="{stop_sign.lanelets}"
                     threshold_m="8.0"
+                    velocity_threshold_mps="0.5"
                     dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
-                    out_stop_sign_car_ids="{stop_sign.current_ids}" />
+                    out_stop_sign_cars_with_timestamps="{stop_sign.cars_with_timestamps}" />
 
-                <SetStopSignPriorityCars
-                    current_car_ids="{stop_sign.current_ids}"
-                    priority_car_ids="{stop_sign.priority_ids}"
-                    priority_latched="{stop_sign.priority_latched}"
-                    out_priority_car_ids="{stop_sign.priority_ids}"
-                    out_priority_latched="{stop_sign.priority_latched}" />
+                <!-- Update arrival queue with current detections -->
+                <UpdateStopSignArrivalQueue
+                    current_cars_with_timestamps="{stop_sign.cars_with_timestamps}"
+                    simultaneous_arrival_threshold_s="1.0"
+                    arrival_queue="{stop_sign.arrival_queue}" />
 
-                <StopSignCanProceed
-                    priority_ids="{stop_sign.priority_ids}"
-                    current_ids="{stop_sign.current_ids}" />
+                <!-- Check if ego has right-of-way based on arrival order -->
+                <StopSignCheckRightOfWay
+                    arrival_queue="{stop_sign.arrival_queue}"
+                    ego_id="ego"
+                    blocking_car_ids="{stop_sign.blocking_ids}" />
             </ReactiveSequence>
 
             <!-- WALL OF DOOM: despawn wall after proceed condition passes -->
@@ -52,9 +56,14 @@
                 wall_id="{stop_sign.wall_id}"
                 error_message="{despawn_wall_error_msg}" />
 
-            <ClearStopSignPriorityCarsAction
-                priority_car_ids="{stop_sign.priority_ids}"
-                priority_latched="{stop_sign.priority_latched}" />
+            <!-- Mark ego as having proceeded (updates arrival queue) -->
+            <MarkEgoProceeded
+                arrival_queue="{stop_sign.arrival_queue}"
+                ego_id="ego" />
+
+            <!-- Clear arrival queue after successfully proceeding -->
+            <ClearStopSignArrivalQueue
+                arrival_queue="{stop_sign.arrival_queue}" />
 
         </Sequence>
     </BehaviorTree>

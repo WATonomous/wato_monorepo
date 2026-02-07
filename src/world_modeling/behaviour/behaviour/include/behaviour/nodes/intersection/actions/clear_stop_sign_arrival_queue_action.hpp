@@ -12,45 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_PRIORITY_CARS_ACTION_HPP_
-#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_PRIORITY_CARS_ACTION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_ARRIVAL_QUEUE_ACTION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_ARRIVAL_QUEUE_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
 
 #include <iostream>
-#include <string>
-#include <vector>
+#include <memory>
+
+#include "behaviour/stop_sign_arrival_queue.hpp"
 
 namespace behaviour
 {
 /**
- * @class ClearStopSignPriorityCarsAction
- * @brief SyncActionNode to clear stop-sign priority car IDs.
+ * @class ClearStopSignArrivalQueueAction
+ * @brief SyncActionNode to clear the stop sign arrival queue.
  */
-class ClearStopSignPriorityCarsAction : public BT::SyncActionNode
+class ClearStopSignArrivalQueueAction : public BT::SyncActionNode
 {
 public:
-  ClearStopSignPriorityCarsAction(const std::string & name, const BT::NodeConfig & config)
+  ClearStopSignArrivalQueueAction(const std::string & name, const BT::NodeConfig & config)
   : BT::SyncActionNode(name, config)
   {}
 
   static BT::PortsList providedPorts()
   {
     return {
-      BT::OutputPort<std::vector<std::string>>("priority_car_ids"),
-      BT::OutputPort<bool>("priority_latched"),
+      BT::OutputPort<StopSignArrivalQueue::SharedPtr>("arrival_queue"),
     };
   }
 
   BT::NodeStatus tick() override
   {
-    std::cout << "[ClearStopSignPriorityCars]: Clearing stop sign priority car ids" << std::endl;
-    setOutput("priority_car_ids", std::vector<std::string>{});
-    setOutput("priority_latched", false);
+    std::cout << "[ClearStopSignArrivalQueue]: Clearing arrival queue" << std::endl;
+    auto cleared_queue = std::make_shared<StopSignArrivalQueue>();
+    setOutput("arrival_queue", cleared_queue);
     return BT::NodeStatus::SUCCESS;
   }
 };
 
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_PRIORITY_CARS_ACTION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__CLEAR_STOP_SIGN_ARRIVAL_QUEUE_ACTION_HPP_

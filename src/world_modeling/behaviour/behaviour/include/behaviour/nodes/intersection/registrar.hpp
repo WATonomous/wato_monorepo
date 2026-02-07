@@ -24,12 +24,16 @@
 
 // actions
 #include "behaviour/nodes/intersection/actions/clear_active_traffic_control_element_action.hpp"
+#include "behaviour/nodes/intersection/actions/clear_stop_sign_arrival_queue_action.hpp"
 #include "behaviour/nodes/intersection/actions/clear_stop_sign_priority_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_line_pose_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_cars_action.hpp"
+#include "behaviour/nodes/intersection/actions/get_stop_sign_cars_with_timestamps_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_traffic_light_state_action.hpp"
+#include "behaviour/nodes/intersection/actions/mark_ego_proceeded_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
+#include "behaviour/nodes/intersection/actions/update_stop_sign_arrival_queue_action.hpp"
 
 // conditions
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_exist_condition.hpp"
@@ -37,6 +41,7 @@
 #include "behaviour/nodes/intersection/conditions/is_regulatory_element_type_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_traffic_light_state_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_can_proceed_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/stop_sign_check_right_of_way_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/yield_sign_can_proceed_condition.hpp"
 
 class IntersectionNodeRegistrar : public NodeRegistrarBase
@@ -49,12 +54,16 @@ public:
 
     // actions
     factory.registerNodeType<behaviour::ClearActiveTrafficControlElementAction>("ClearActiveTrafficControlElement");
+    factory.registerNodeType<behaviour::ClearStopSignArrivalQueueAction>("ClearStopSignArrivalQueue");
     factory.registerNodeType<behaviour::ClearStopSignPriorityCarsAction>("ClearStopSignPriorityCarsAction");
     factory.registerNodeType<behaviour::GetIntersectionContextAction>("GetIntersectionContext");
     factory.registerNodeType<behaviour::GetStopSignCarsAction>("GetStopSignCars");
+    factory.registerNodeType<behaviour::GetStopSignCarsWithTimestampsAction>("GetStopSignCarsWithTimestamps");
     factory.registerNodeType<behaviour::GetTrafficLightStateAction>("GetTrafficLightState");
     factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose");
+    factory.registerNodeType<behaviour::MarkEgoProceededAction>("MarkEgoProceeded");
     factory.registerNodeType<behaviour::SetStopSignPriorityCarsAction>("SetStopSignPriorityCars");
+    factory.registerNodeType<behaviour::UpdateStopSignArrivalQueueAction>("UpdateStopSignArrivalQueue");
 
     // conditions
     factory.registerNodeType<behaviour::ActiveTrafficControlElementExistCondition>("ActiveTrafficControlElementExist");
@@ -63,6 +72,7 @@ public:
     factory.registerNodeType<behaviour::IsRegulatoryElementTypeCondition>("IsRegulatoryElementType");
     factory.registerNodeType<behaviour::IsTrafficLightStateCondition>("IsTrafficLightState");
     factory.registerNodeType<behaviour::StopSignCanProceedCondition>("StopSignCanProceed");
+    factory.registerNodeType<behaviour::StopSignCheckRightOfWayCondition>("StopSignCheckRightOfWay");
     factory.registerNodeType<behaviour::YieldSignCanProceedCondition>("YieldCanProceed");
   }
 };
