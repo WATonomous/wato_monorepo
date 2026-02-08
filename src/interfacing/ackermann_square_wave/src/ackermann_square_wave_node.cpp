@@ -117,7 +117,7 @@ void AckermannSquareWaveNode::timer_callback()
   msg->header.stamp = now;
   msg->header.frame_id = "base_link";
   msg->drive.steering_angle = static_cast<float>(steering);
-  msg->drive.speed = 0.0f;  // Only for steering tuning
+  // Leave speed unset to avoid interfering with velocity control
 
   pub_->publish(std::move(msg));
 }

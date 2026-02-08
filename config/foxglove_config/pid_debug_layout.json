@@ -4,21 +4,22 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/joystick/ackermann.drive.steering_angle",
+          "value": "/ackermann.drive.steering_angle",
           "enabled": true,
           "color": "#4e98e2",
-          "label": "Setpoint"
+          "label": "Setpoint",
+          "showLine": false
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/steering_feedback.data",
+          "value": "/oscc_interfacing/steering_wheel_angle.data",
           "enabled": true,
           "color": "#f5774d",
           "label": "Feedback"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/joystick/roscco.steering",
+          "value": "/roscco.steering",
           "enabled": true,
           "color": "#f7df71",
           "label": "Output (Torque)"
@@ -35,14 +36,19 @@
       "sidebarDimension": 240,
       "foxglovePanelTitle": "steering "
     },
+    "Parameters!3jt4x8y": {
+      "title": "PID & Mock Parameters",
+      "filterText": "pid_control|ackermann_square_wave|ackermann_velocity_trapezoid"
+    },
     "Plot!velocity": {
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/joystick/ackermann.drive.speed",
+          "value": "/ackermann.drive.speed",
           "enabled": true,
           "color": "#4e98e2",
-          "label": "Setpoint"
+          "label": "Setpoint",
+          "showLine": false
         },
         {
           "timestampMethod": "receiveTime",
@@ -53,7 +59,7 @@
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/joystick/roscco.forward",
+          "value": "/roscco.forward",
           "enabled": true,
           "color": "#f7df71",
           "label": "Output (force)"
@@ -77,6 +83,14 @@
       "showFullMessageForDiff": false,
       "topicPath": "/joystick/state",
       "fontSize": 12
+    },
+    "RawMessages!1jjt4nk": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/oscc_interfacing/is_armed",
+      "fontSize": 12
     }
   },
   "globalVariables": {},
@@ -86,11 +100,20 @@
   },
   "layout": {
     "direction": "column",
-    "first": "Plot!steering",
+    "first": {
+      "first": "Plot!steering",
+      "second": "Parameters!3jt4x8y",
+      "direction": "row",
+      "splitPercentage": 63.795423956931366
+    },
     "second": {
       "direction": "row",
       "first": "Plot!velocity",
-      "second": "RawMessages!state",
+      "second": {
+        "first": "RawMessages!state",
+        "second": "RawMessages!1jjt4nk",
+        "direction": "row"
+      },
       "splitPercentage": 70
     },
     "splitPercentage": 50
