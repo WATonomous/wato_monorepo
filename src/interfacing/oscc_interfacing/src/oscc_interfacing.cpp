@@ -30,48 +30,27 @@ static OsccInterfacingNode * g_node_instance = nullptr;
 void brake_report_callback(oscc_brake_report_s * report)
 {
   if (report->operator_override && g_node_instance) {
-    RCLCPP_INFO(g_node_instance->get_logger(), "Brake Operator Override");
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
-    }
+    // Queue override event instead of doing ROS operations from CAN thread
+    std::lock_guard<std::mutex> lock(g_node_instance->data_mutex_);
+    g_node_instance->override_queue_.push(OsccInterfacingNode::OverrideType::BRAKE);
   }
 }
 
 void throttle_report_callback(oscc_throttle_report_s * report)
 {
   if (report->operator_override && g_node_instance) {
-    RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Operator Override");
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
-    }
+    // Queue override event instead of doing ROS operations from CAN thread
+    std::lock_guard<std::mutex> lock(g_node_instance->data_mutex_);
+    g_node_instance->override_queue_.push(OsccInterfacingNode::OverrideType::THROTTLE);
   }
 }
 
 void steering_report_callback(oscc_steering_report_s * report)
 {
   if (report->operator_override && g_node_instance) {
-    RCLCPP_INFO(g_node_instance->get_logger(), "Steering Operator Override");
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
-    }
+    // Queue override event instead of doing ROS operations from CAN thread
+    std::lock_guard<std::mutex> lock(g_node_instance->data_mutex_);
+    g_node_instance->override_queue_.push(OsccInterfacingNode::OverrideType::STEERING);
   }
 }
 
@@ -104,22 +83,14 @@ void obd_callback(struct can_frame * frame)
 void fault_report_callback(oscc_fault_report_s * report)
 {
   if (g_node_instance) {
+    // Queue fault event instead of doing ROS operations from CAN thread
+    std::lock_guard<std::mutex> lock(g_node_instance->data_mutex_);
     if (report->fault_origin_id == FAULT_ORIGIN_BRAKE) {
-      RCLCPP_INFO(g_node_instance->get_logger(), "Brake Fault");
+      g_node_instance->fault_queue_.push(OsccInterfacingNode::FaultType::BRAKE_FAULT);
     } else if (report->fault_origin_id == FAULT_ORIGIN_STEERING) {
-      RCLCPP_INFO(g_node_instance->get_logger(), "Steering Fault");
+      g_node_instance->fault_queue_.push(OsccInterfacingNode::FaultType::STEERING_FAULT);
     } else if (report->fault_origin_id == FAULT_ORIGIN_THROTTLE) {
-      RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Fault");
-    }
-
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
+      g_node_instance->fault_queue_.push(OsccInterfacingNode::FaultType::THROTTLE_FAULT);
     }
   }
 }
@@ -369,6 +340,56 @@ void OsccInterfacingNode::process_queued_data()
     msg.angle = data.angle;
     msg.header.stamp = this->now();
     steering_wheel_angle_pub_->publish(msg);
+  }
+  
+  // Process operator override events
+  while (!override_queue_.empty()) {
+    auto override_type = override_queue_.front();
+    override_queue_.pop();
+    
+    if (override_type == OverrideType::BRAKE) {
+      RCLCPP_INFO(get_logger(), "Brake Operator Override");
+    } else if (override_type == OverrideType::THROTTLE) {
+      RCLCPP_INFO(get_logger(), "Throttle Operator Override");
+    } else if (override_type == OverrideType::STEERING) {
+      RCLCPP_INFO(get_logger(), "Steering Operator Override");
+    }
+    
+    // Handle disarming safely on ROS thread
+    if (oscc_disable() == OSCC_OK) {
+      {
+        std::lock_guard<std::mutex> arm_lock(arm_mutex_);
+        is_armed_ = false;
+      }
+      RCLCPP_INFO(get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
+  
+  // Process fault events
+  while (!fault_queue_.empty()) {
+    auto fault_type = fault_queue_.front();
+    fault_queue_.pop();
+    
+    if (fault_type == FaultType::BRAKE_FAULT) {
+      RCLCPP_INFO(get_logger(), "Brake Fault");
+    } else if (fault_type == FaultType::STEERING_FAULT) {
+      RCLCPP_INFO(get_logger(), "Steering Fault");
+    } else if (fault_type == FaultType::THROTTLE_FAULT) {
+      RCLCPP_INFO(get_logger(), "Throttle Fault");
+    }
+    
+    // Handle disarming safely on ROS thread
+    if (oscc_disable() == OSCC_OK) {
+      {
+        std::lock_guard<std::mutex> arm_lock(arm_mutex_);
+        is_armed_ = false;
+      }
+      RCLCPP_INFO(get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
   }
 }
 
