@@ -290,7 +290,7 @@ void OsccInterfacingNode::arm_service_callback(
 {
   if (request->data) {  // data is the boolean, true = arm, false = disarm
     // Arm the vehicle
-    if (oscc_enable() == OSCC_OK) {
+    if (oscc_enable_steering() == OSCC_OK) {
       {
         std::lock_guard<std::mutex> lock(arm_mutex_);
         is_armed_ = true;

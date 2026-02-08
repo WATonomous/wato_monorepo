@@ -71,9 +71,9 @@ launch:
   # Joystick Node
   - include:
       file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
-  # ackerman_mux Node
-  - include:
-      file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
+  # # ackerman_mux Node
+  # - include:
+  #     file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
 
   # Mock Nodes for Tuning (Uncomment/comment as needed - use ONE at a time)
   
@@ -87,9 +87,9 @@ launch:
   # OSCC interfacing Node
   - include:
       file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
-  # # PID Control Node --- PID NEEDS TO BE TURNED OFF FOR joystick roscco to work for debug
-  # - include:
-  #     file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
+  # PID Control Node --- PID NEEDS TO BE TURNED OFF FOR joystick roscco to work for debug
+  - include:
+      file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
 
   # Lifecycle Manager
   - node:
@@ -101,9 +101,9 @@ launch:
         - name: node_names
           value:
             - /joystick_node
-            - /ackermann_mux
-            # - /pid_control_node
-            # - /ackermann_square_wave  # Comment this when using velocity trapezoid
+            # - /ackermann_mux
+            - /pid_control_node
+            - /ackermann_square_wave  # Comment this when using velocity trapezoid
             # - /ackermann_velocity_trapezoid  # Uncomment when using velocity trapezoid
         - name: autostart
           value: $(var autostart)
