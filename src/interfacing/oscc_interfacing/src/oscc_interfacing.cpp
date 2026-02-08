@@ -122,12 +122,16 @@ void OsccInterfacingNode::configure()
   this->declare_parameter<int>("is_armed_publish_rate_hz", 100);
   this->declare_parameter<int>("oscc_can_bus", 0);
   this->declare_parameter<float>("steering_scaling", 1);
+  this->declare_parameter<bool>("disable_boards_on_fault", false);
+  this->declare_parameter<float>("steering_conversion_factor", 15.7);
 
   // Read parameters
   is_armed_ = false;
   is_armed_publish_rate_hz = this->get_parameter("is_armed_publish_rate_hz").as_int();
   oscc_can_bus_ = this->get_parameter("oscc_can_bus").as_int();
   steering_scaling_ = this->get_parameter("steering_scaling").as_double();
+  disable_boards_on_fault_ = this->get_parameter("disable_boards_on_fault").as_bool();
+  steering_conversion_factor_ = this->get_parameter("steering_conversion_factor").as_double();
 
   if (steering_scaling_ > 1.0 || steering_scaling_ <= 0.0) {
     RCLCPP_ERROR(this->get_logger(), "Steering scaling parameter out of range (0.0, 1.0], resetting to 1.0");
@@ -144,8 +148,8 @@ void OsccInterfacingNode::configure()
   wheel_speeds_pub_ =
     this->create_publisher<roscco_msg::msg::WheelSpeeds>("/oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
 
-  steering_wheel_angle_pub_ =
-    this->create_publisher<roscco_msg::msg::SteeringAngle>("/oscc_interfacing/steering_wheel_angle", rclcpp::QoS(1));
+  steering_angle_pub_ =
+    this->create_publisher<roscco_msg::msg::SteeringAngle>("/oscc_interfacing/steering_angle", rclcpp::QoS(1));
 
   // Create arm service
   arm_service_ = this->create_service<std_srvs::srv::SetBool>(
@@ -327,9 +331,13 @@ void OsccInterfacingNode::process_queued_data()
   // Process steering angle data
   if (has_steering_data_.exchange(false)) {
     roscco_msg::msg::SteeringAngle msg;
-    msg.angle = latest_steering_data_.angle.load();
+    float angle = latest_steering_data_.angle.load();
+    angle = angle / steering_conversion_factor_;
+    // convert to radians
+    angle = angle * (M_PI / 180.0);
+    msg.angle = angle;
     msg.header.stamp = this->now();
-    steering_wheel_angle_pub_->publish(msg);
+    steering_angle_pub_->publish(msg);
   }
   
   // Process operator override events
@@ -365,7 +373,7 @@ void OsccInterfacingNode::process_queued_data()
     }
     
     // Handle disarming safely on ROS thread
-    if (oscc_disable() == OSCC_OK) {
+    if (disable_boards_on_fault_ && oscc_disable() == OSCC_OK) {
       {
         std::lock_guard<std::mutex> arm_lock(arm_mutex_);
         is_armed_ = false;
@@ -390,14 +398,14 @@ void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, flo
   wheel_speeds_pub_->publish(msg);
 }
 
-void OsccInterfacingNode::publish_steering_wheel_angle(float angle_degrees)
+void OsccInterfacingNode::publish_steering_angle(float angle_degrees)
 {
   roscco_msg::msg::SteeringAngle msg;
   msg.angle = angle_degrees;
   // Use get_clock()->now() instead of this->now() for thread safety
   // This maintains ROS 2 time synchronization while being thread-safe for CAN callbacks
   msg.header.stamp = get_clock()->now();
-  steering_wheel_angle_pub_->publish(msg);
+  steering_angle_pub_->publish(msg);
 }
 
 oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
