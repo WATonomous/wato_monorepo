@@ -13,8 +13,8 @@ COPY src/action action
 COPY src/wato_test wato_test
 
 COPY src/world_modeling/lanelet_msgs lanelet_msgs
-COPY src/world_modeling/prediction_msgs prediction_msgs
 COPY src/world_modeling/world_model_msgs world_model_msgs
+COPY src/world_modeling/behaviour_msgs behaviour_msgs
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible

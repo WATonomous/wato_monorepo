@@ -17,6 +17,7 @@
   <depend>rclcpp_components</depend>
   <depend>std_msgs</depend>
   <depend>lanelet_msgs</depend>
+  <depend>behaviour_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>

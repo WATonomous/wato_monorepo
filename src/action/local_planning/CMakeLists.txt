@@ -11,6 +11,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
+find_package(behaviour_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -28,28 +29,35 @@ target_include_directories(local_planner_core PUBLIC
 # Put only what local_planner_core uses:
 ament_target_dependencies(local_planner_core)
 
-add_executable(local_planner
+add_executable(local_planner_node
   src/local_planner_node.cpp src/local_planner_core.cpp
 )
-target_include_directories(local_planner PUBLIC
+target_include_directories(local_planner_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 target_include_directories(local_planner_core PUBLIC
   ${EIGEN3_INCLUDE_DIRS}
 )
-target_link_libraries(local_planner local_planner_core Eigen3::Eigen)
-ament_target_dependencies(local_planner
+target_link_libraries(local_planner_node local_planner_core Eigen3::Eigen)
+ament_target_dependencies(local_planner_node
   rclcpp rclcpp_lifecycle rclcpp_components
   std_msgs lanelet_msgs nav_msgs geometry_msgs
   visualization_msgs tf2 tf2_geometry_msgs
+  behaviour_msgs
 )
 
-install(TARGETS local_planner local_planner_core
+install(TARGETS local_planner_node local_planner_core
   DESTINATION lib/${PROJECT_NAME}
 )
 install(DIRECTORY include/
   DESTINATION include
 )
+# Install config files
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME}
+)
+
 
 ament_package()
