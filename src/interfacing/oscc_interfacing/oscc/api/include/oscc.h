@@ -298,4 +298,9 @@ oscc_result_t get_steering_wheel_angle(struct can_frame const * const frame, dou
  */
 oscc_result_t get_brake_pressure(struct can_frame const * const frame, double * brake_pressure);
 
+oscc_result_t oscc_enable_throttle(void);
+oscc_result_t oscc_enable_steering(void);
+oscc_result_t oscc_enable_brakes(void);
+
+
 #endif /* _OSCC_H */

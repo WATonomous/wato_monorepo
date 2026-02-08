@@ -338,7 +338,9 @@ void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, flo
   msg.nw = NW;
   msg.se = SE;
   msg.sw = SW;
-  msg.header.stamp = this->now();
+  // Use get_clock()->now() instead of this->now() for thread safety
+  // This maintains ROS 2 time synchronization while being thread-safe for CAN callbacks
+  msg.header.stamp = get_clock()->now();
   wheel_speeds_pub_->publish(msg);
 }
 
@@ -346,7 +348,9 @@ void OsccInterfacingNode::publish_steering_wheel_angle(float angle_degrees)
 {
   roscco_msg::msg::SteeringAngle msg;
   msg.angle = angle_degrees;
-  msg.header.stamp = this->now();
+  // Use get_clock()->now() instead of this->now() for thread safety
+  // This maintains ROS 2 time synchronization while being thread-safe for CAN callbacks
+  msg.header.stamp = get_clock()->now();
   steering_wheel_angle_pub_->publish(msg);
 }
 
