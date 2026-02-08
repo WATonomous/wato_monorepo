@@ -68,10 +68,14 @@ public:
   // Thread-safe data queues for CAN callbacks (public for free function access)
   struct WheelSpeedData { float ne, nw, se, sw; };
   struct SteeringAngleData { float angle; };
+  enum class OverrideType { BRAKE, THROTTLE, STEERING };
+  enum class FaultType { BRAKE_FAULT, STEERING_FAULT, THROTTLE_FAULT };
   
   std::mutex data_mutex_;
   std::queue<WheelSpeedData> wheel_speed_queue_;
   std::queue<SteeringAngleData> steering_angle_queue_;
+  std::queue<OverrideType> override_queue_;
+  std::queue<FaultType> fault_queue_;
 
   /**
    * @brief Publishes wheel speeds (4 floats)
