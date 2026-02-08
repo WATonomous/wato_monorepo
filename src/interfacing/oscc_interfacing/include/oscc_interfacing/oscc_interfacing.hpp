@@ -19,8 +19,10 @@ extern "C"
 #include <oscc.h>
 }
 
+#include <atomic>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -120,6 +122,17 @@ private:
 
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};
+
+  // Thread-safe data queues for CAN callbacks
+  struct WheelSpeedData { float ne, nw, se, sw; };
+  struct SteeringAngleData { float angle; };
+  
+  std::mutex data_mutex_;
+  std::queue<WheelSpeedData> wheel_speed_queue_;
+  std::queue<SteeringAngleData> steering_angle_queue_;
+  rclcpp::TimerBase::SharedPtr data_process_timer_;
+  
+  void process_queued_data();
 };
 
 }  // namespace oscc_interfacing
