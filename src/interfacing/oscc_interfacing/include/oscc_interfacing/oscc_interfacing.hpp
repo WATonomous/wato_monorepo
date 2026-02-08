@@ -42,7 +42,7 @@ This node does these things:
 - Publishes to /oscc_interfacing/is_armed (Just a bool, 100HZ)
 
 - Publishes to /oscc_interfacing/wheel_speeds (4 floats, one per wheel)
-- Publishes to /oscc_interfacing/steering_wheel_angle (float, degrees, 0 = centered)
+- Publishes to /oscc_interfacing/steering_angle (float, degrees, 0 = centered)
       - You can model this with ackermann reference frames and get an odom for
       - speed and angular velocity for localization
 
@@ -97,7 +97,7 @@ public:
   /**
    * @brief Publishes steering wheel angle in degrees
    */
-  void publish_steering_wheel_angle(float angle_degrees);
+  void publish_steering_angle(float angle_degrees);
 
 private:
   /**
@@ -133,7 +133,7 @@ private:
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
   rclcpp::Publisher<roscco_msg::msg::WheelSpeeds>::SharedPtr wheel_speeds_pub_;
-  rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr steering_wheel_angle_pub_;
+  rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr steering_angle_pub_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr arm_service_;
 
   // Timer for 100Hz is_armed publication
@@ -142,7 +142,9 @@ private:
   // Status tracking
   int is_armed_publish_rate_hz;
   int oscc_can_bus_;
-  float steering_scaling_{1.0};
+  double steering_scaling_{1.0};
+  bool disable_boards_on_fault_{false};
+  double steering_conversion_factor_{15.7}; // Steering wheel to wheel angle
 
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};

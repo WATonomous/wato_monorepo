@@ -9,7 +9,7 @@ This node does these things:
 - Publishes to /oscc_interfacing/is_armed (Just a bool, 100HZ)
 
 - Publishes to /oscc_interfacing/wheel_speeds (4 floats, one per wheel)
-- Publishes to /oscc_interfacing/steering_wheel_angle (float, degrees, 0 = centered)
+- Publishes to /oscc_interfacing/steering_angle (float, radians, angle of front wheels, 0 = centered)
   - You can model this with ackermann reference frames and get an odom for
   - speed and angular velocity for localization
 
