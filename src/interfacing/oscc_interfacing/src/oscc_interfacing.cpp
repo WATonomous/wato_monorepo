@@ -83,16 +83,21 @@ void obd_callback(struct can_frame * frame)
   // this only passes if it is indeed a wheel speed msg
   double se;
   if (get_wheel_speed_right_rear(frame, &se) == OSCC_OK) {
-    double ne;
-    double nw;
-    double sw;
+    double ne, nw, sw;
     get_wheel_speed_left_front(frame, &nw);
     get_wheel_speed_left_rear(frame, &sw);
     get_wheel_speed_right_front(frame, &ne);
-    g_node_instance->publish_wheel_speeds(
-      static_cast<float>(ne), static_cast<float>(nw), static_cast<float>(se), static_cast<float>(sw));
+    
+    // Queue data instead of publishing directly from CAN thread
+    std::lock_guard<std::mutex> lock(g_node_instance->data_mutex_);
+    g_node_instance->wheel_speed_queue_.push({
+      static_cast<float>(ne), static_cast<float>(nw), 
+      static_cast<float>(se), static_cast<float>(sw)
+    });
   } else if (get_steering_wheel_angle(frame, &se) == OSCC_OK) {
-    g_node_instance->publish_steering_wheel_angle(static_cast<float>(se));
+    // Queue data instead of publishing directly from CAN thread
+    std::lock_guard<std::mutex> lock(g_node_instance->data_mutex_);
+    g_node_instance->steering_angle_queue_.push({static_cast<float>(se)});
   }
 }
 
@@ -179,6 +184,10 @@ void OsccInterfacingNode::configure()
   // Create 100Hz timer for is_armed publication
   std::chrono::milliseconds interval(1000 / is_armed_publish_rate_hz);
   is_armed_timer_ = this->create_wall_timer(interval, std::bind(&OsccInterfacingNode::is_armed_timer_callback, this));
+
+  // Create high-frequency timer to process queued CAN data safely on ROS thread
+  data_process_timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(5), std::bind(&OsccInterfacingNode::process_queued_data, this));
 
   RCLCPP_INFO(
     this->get_logger(),
@@ -331,6 +340,36 @@ void OsccInterfacingNode::is_armed_timer_callback()
     msg.data = is_armed_;
   }
   is_armed_pub_->publish(msg);
+}
+
+void OsccInterfacingNode::process_queued_data()
+{
+  std::lock_guard<std::mutex> lock(data_mutex_);
+  
+  // Process wheel speed data
+  while (!wheel_speed_queue_.empty()) {
+    auto data = wheel_speed_queue_.front();
+    wheel_speed_queue_.pop();
+    
+    roscco_msg::msg::WheelSpeeds msg;
+    msg.ne = data.ne;
+    msg.nw = data.nw;
+    msg.se = data.se;
+    msg.sw = data.sw;
+    msg.header.stamp = this->now();
+    wheel_speeds_pub_->publish(msg);
+  }
+  
+  // Process steering angle data
+  while (!steering_angle_queue_.empty()) {
+    auto data = steering_angle_queue_.front();
+    steering_angle_queue_.pop();
+    
+    roscco_msg::msg::SteeringAngle msg;
+    msg.angle = data.angle;
+    msg.header.stamp = this->now();
+    steering_wheel_angle_pub_->publish(msg);
+  }
 }
 
 void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, float SW)
