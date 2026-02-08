@@ -22,6 +22,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <roscco_msg/msg/roscco.hpp>
+#include <roscco_msg/msg/steering_angle.hpp>
 #include <std_msgs/msg/float64.hpp>
 
 namespace pid_control
@@ -55,9 +56,9 @@ private:
   /**
    * @brief Callback for steering angle measurement feedback.
    *
-   * @param msg The current steering angle in radians.
+   * @param msg The current steering angle in degrees.
    */
-  void steering_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg);
+  void steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg);
 
   /**
    * @brief Callback for velocity measurement feedback.
@@ -73,7 +74,7 @@ private:
 
   // Subscriptions
   rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_sub_;
-  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr steering_meas_sub_;
+  rclcpp::Subscription<roscco_msg::msg::SteeringAngle>::SharedPtr steering_meas_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr velocity_meas_sub_;
 
   // Publisher
