@@ -71,11 +71,17 @@ public:
   enum class OverrideType { BRAKE, THROTTLE, STEERING };
   enum class FaultType { BRAKE_FAULT, STEERING_FAULT, THROTTLE_FAULT };
   
-  std::mutex data_mutex_;
-  std::queue<WheelSpeedData> wheel_speed_queue_;
-  std::queue<SteeringAngleData> steering_angle_queue_;
-  std::queue<OverrideType> override_queue_;
-  std::queue<FaultType> fault_queue_;
+  // Use atomic flags instead of mutex for signal-safe operation
+  std::atomic<bool> has_wheel_data_{false};
+  std::atomic<bool> has_steering_data_{false};
+  std::atomic<bool> has_override_{false};
+  std::atomic<bool> has_fault_{false};
+  
+  // Single data slots (signal handlers write, timer reads)
+  WheelSpeedData latest_wheel_data_;
+  SteeringAngleData latest_steering_data_;
+  OverrideType latest_override_;
+  FaultType latest_fault_;
 
   /**
    * @brief Publishes wheel speeds (4 floats)
