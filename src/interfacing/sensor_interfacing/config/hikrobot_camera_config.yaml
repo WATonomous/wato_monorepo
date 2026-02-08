@@ -12,90 +12,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
-# Hikrobot camera configuration
+# Common camera settings
+x-common-settings: &common_settings
+  verbose: false
+  transport_layer_packet_size: 9156
+  acquisition_frame_rate_enable: true
+  acquisition_frame_rate: 63.0
+
+  # Auto-exposure and gain settings
+  AcquisitionControl:
+    ExposureAuto: "Continuous"
+    AutoExposureTimeLowerLimit: 100        # microseconds
+    AutoExposureTimeUpperLimit: 15000      # microseconds - limit for motion blur
+    GainShutPrior: "Shut"                  # Prioritize shutter speed over gain
+  AnalogControl:
+    GainAuto: "Continuous"
+    AutoGainLowerLimit: 0.0                # dB
+    AutoGainUpperLimit: 15.0               # dB - limit noise in dark conditions
+    BalanceWhiteAuto: "Continuous"
+    Gamma: 0.75
 
 # Panorama cameras
 camera_pano_nn:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_pano_ne:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_pano_ee:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_pano_se:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_pano_ss:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_pano_sw:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_pano_ww:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_pano_nw:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 # Lower cameras
 camera_lower_ne:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_lower_se:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_lower_sw:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
 
 camera_lower_nw:
   ros__parameters:
-    verbose: false
-    transport_layer_packet_size: 9156
-    acquisition_frame_rate_enable: true
-    acquisition_frame_rate: 63.0
+    <<: *common_settings
