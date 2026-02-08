@@ -14,6 +14,14 @@
 cmake_minimum_required(VERSION 3.10)
 project(spatial_association)
 
+# Suppress CMake policy warnings from PCL's FindFLANN module
+if(POLICY CMP0074)
+    cmake_policy(SET CMP0074 NEW)
+endif()
+if(POLICY CMP0144)
+    cmake_policy(SET CMP0144 NEW)
+endif()
+
 # Set C++ standard
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 17)
@@ -29,7 +37,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(sample_msgs REQUIRED)
 find_package(camera_object_detection_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -66,7 +73,6 @@ target_link_libraries(projection_utils
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}
     PRIVATE
-        ${sample_msgs_TARGETS}
         ${sensor_msgs_TARGETS}
         ${vision_msgs_TARGETS}
         ${visualization_msgs_TARGETS}
