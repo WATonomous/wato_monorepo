@@ -8,7 +8,7 @@ launch:
         - from: "ackermann"
           to: "/ackermann"
         - from: "steering_feedback"
-          to: "/oscc_interfacing/steering_wheel_angle"
+          to: "/oscc_interfacing/steering_angle"
         - from: "velocity_feedback"
           to: "/velocity_feedback"
         - from: "roscco"

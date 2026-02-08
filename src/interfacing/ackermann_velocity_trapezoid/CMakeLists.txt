@@ -47,16 +47,6 @@ rclcpp_components_register_node(ackermann_velocity_trapezoid_component
   EXECUTABLE ackermann_velocity_trapezoid_node
 )
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in ament_cmake_cpplint >= 0.12.0)
-  # prefer not to use it, but it can be handy to jump-start a project
-  # set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-endif()
 
 install(TARGETS
   ackermann_velocity_trapezoid_component ackermann_velocity_trapezoid_node

@@ -74,7 +74,8 @@ AckermannVelocityTrapezoidNode::CallbackReturn AckermannVelocityTrapezoidNode::o
 
   RCLCPP_INFO(
     this->get_logger(),
-    "Configured: target_velocity=%.2f m/s, rise_time=%.2fs, hold_time=%.2fs, ramp_down_time=%.2fs, rate=%.1f Hz",
+    "Configured: target_velocity=%.2f m/s, rise_time=%.2fs, hold_time=%.2fs, "
+    "ramp_down_time=%.2fs, rate=%.1f Hz",
     target_velocity_, rise_time_, hold_time_, ramp_down_time_, publish_rate_);
 
   return CallbackReturn::SUCCESS;
@@ -85,8 +86,8 @@ AckermannVelocityTrapezoidNode::CallbackReturn AckermannVelocityTrapezoidNode::o
 {
   start_time_ = this->now();
 
-  auto period_ns =
-    std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / publish_rate_));
+  auto period_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    std::chrono::duration<double>(1.0 / publish_rate_));
 
   timer_ = this->create_wall_timer(
     period_ns, std::bind(&AckermannVelocityTrapezoidNode::timer_callback, this));
@@ -141,13 +142,11 @@ void AckermannVelocityTrapezoidNode::timer_callback()
   // Phase 1: Rise (0 to rise_time_) - linear ramp from 0 to target_velocity
   if (cycle_time < rise_time_) {
     velocity = (cycle_time / rise_time_) * target_velocity_;
-  }
-  // Phase 2: Hold (rise_time_ to rise_time_ + hold_time_) - constant at target_velocity
-  else if (cycle_time < rise_time_ + hold_time_) {
+  } else if (cycle_time < rise_time_ + hold_time_) {
+    // Phase 2: Hold - constant at target_velocity
     velocity = target_velocity_;
-  }
-  // Phase 3: Ramp down (rise_time_ + hold_time_ to cycle_period) - linear ramp from target_velocity to 0
-  else {
+  } else {
+    // Phase 3: Ramp down - linear ramp from target_velocity to 0
     double ramp_down_elapsed = cycle_time - (rise_time_ + hold_time_);
     velocity = target_velocity_ * (1.0 - (ramp_down_elapsed / ramp_down_time_));
   }
@@ -208,8 +207,8 @@ rcl_interfaces::msg::SetParametersResult AckermannVelocityTrapezoidNode::on_set_
         RCLCPP_INFO(this->get_logger(), "Updated publish_rate to %.2f", publish_rate_);
         // Update timer if active
         if (this->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-          auto period_ns =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / publish_rate_));
+          auto period_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::duration<double>(1.0 / publish_rate_));
           timer_.reset();
           timer_ = this->create_wall_timer(
             period_ns, std::bind(&AckermannVelocityTrapezoidNode::timer_callback, this));

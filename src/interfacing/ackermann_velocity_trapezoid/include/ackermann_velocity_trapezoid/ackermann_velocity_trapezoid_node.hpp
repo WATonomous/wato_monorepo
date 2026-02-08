@@ -41,7 +41,8 @@ public:
 
 private:
   void timer_callback();
-  rcl_interfaces::msg::SetParametersResult on_set_parameters(const std::vector<rclcpp::Parameter> & parameters);
+  rcl_interfaces::msg::SetParametersResult on_set_parameters(
+    const std::vector<rclcpp::Parameter> & parameters);
 
   double target_velocity_;  // m/s
   double rise_time_;        // seconds

@@ -1,7 +1,6 @@
 pid_control_node:
   ros__parameters:
     update_rate: 100.0
-    steering_wheel_conversion_factor: 15.7  #steering wheel rotation to wheel angle conversion factor 15.7:1
     steering_pid:
       p: 1.0  # Proportional gain
       i: 0.7  # Integral gain
