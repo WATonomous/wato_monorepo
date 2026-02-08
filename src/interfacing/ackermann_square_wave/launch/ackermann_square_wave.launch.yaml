@@ -1,0 +1,12 @@
+launch:
+  - arg:
+      name: "test_config_file"
+      default: "$(find-pkg-share ackermann_square_wave)/config/default_parameters.yaml"
+
+  - node:
+      pkg: "ackermann_square_wave"
+      exec: "ackermann_square_wave_node"
+      name: "ackermann_square_wave"
+      output: "screen"
+      param:
+        - from: "$(var test_config_file)"
