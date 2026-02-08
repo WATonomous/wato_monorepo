@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <string>
 #include <vector>
 #include <utility>
 #include <optional>
@@ -17,27 +18,35 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 
 #include "nav_msgs/msg/odometry.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
+#include "nav_msgs/msg/path.hpp"
 
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 
+#include "behaviour_msgs/msg/execute_behaviour.hpp"
 
-struct FrenetPath{
-  std::vector<FrenetPoint> path;
-  int target_lanelet_id;
+struct Path{
+  std::vector<PathPoint> path;
+  int64_t target_lanelet_id;
   double lateral_dist_from_goal_lane;
   double cost;
+};
+
+struct CostmapParams{
+  double occupancy_weight;
+  double lateral_movement_weight;
+  double physical_limits_weight;
+  double preferred_lane_cost;
+  double unknown_occupancy_cost;
+  double max_curvature_change;
 };
 
 class LocalPlannerNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
 
-  explicit LocalPlannerNode(const rclcpp::NodeOptions & options);
-
-  static constexpr auto route_ahead_topic = "/world_modeling/lanelet/route_ahead";
-  static constexpr auto lanelet_ahead_topic = "/world_modeling/lanelet/lanelet_ahead";
-  static constexpr auto odom_topic = "/ego/odom";
+  LocalPlannerNode(const rclcpp::NodeOptions & options);
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State & previous_state) override;
@@ -58,30 +67,73 @@ private:
   
   LocalPlannerCore core_;
 
-  // corridor construction
-  static constexpr int num_horizons = 3;
-  static constexpr double lookahead_s_m[num_horizons] = {5.0, 10.0, 15.0}; // in metres
-  static constexpr int lateral_samples = 3;
+  // subscription topic names
+  std::string lanelet_ahead_topic, odom_topic, costmap_topic, bt_topic;
+  
+  // publisher topic names
+  std::string planned_paths_vis_topic, final_path_vis_topic, final_path_topic;
 
-  std::pair<FrenetPoint, int64_t> corridor_terminals[num_horizons][lateral_samples];
+  // parameter structs
+  CostmapParams cm_params;
+  PathGenParams pg_params;
+
+  // corridor construction
+  int num_horizons;
+  std::vector<double> lookahead_s_m; // in metres
+  std::vector<std::pair<PathPoint, int64_t>> corridor_terminals;
 
   std::optional<geometry_msgs::msg::PoseStamped> car_pose;
-  std::optional<FrenetPoint> car_frenet_point;
+  std::optional<PathPoint> car_frenet_point;
+  std::optional<nav_msgs::msg::OccupancyGrid> costmap;
+  std::unordered_map<int64_t, int> preferred_lanelets;
 
-  double distance_along_first_lanelet(const lanelet_msgs::msg::Lanelet & ll);
-
-  // void create_corridor(const lanelet_msgs::msg::RouteAhead::ConstSharedPtr & msg);
-  void get_terminal_points(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg);
-  void update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
-  void timer_callback();
-  void publish_paths_vis(std::vector<FrenetPath> paths);
+  // path generation functions
+  bool point_ahead_of_car(const geometry_msgs::msg::Point & pt);
   
+  void plan_and_publish_path();
+
+  double path_cost_function(    
+    const Path & path,
+    bool preferred_lane,
+    CostmapParams params
+  );
+
+  PathPoint create_terminal_point(
+    const geometry_msgs::msg::Point& pt,
+    size_t pt_idx,
+    const std::vector<geometry_msgs::msg::Point>& centerline,
+     const geometry_msgs::msg::Point* prev_pt
+  );
+
+  std::vector<std::vector<int64_t>> get_id_order(
+    int64_t curr_id, 
+    const std::unordered_map<int64_t, 
+    lanelet_msgs::msg::Lanelet> & ll_map
+  ); 
+  
+  Path get_lowest_cost_path(const std::vector<Path> & paths);
+
+  // subscriber callbacks
+  void lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg);
+  void update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
+  void update_costmap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr & msg);
+  void set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg);
+  
+  // publisher wrappers
+  void publish_final_path(const Path & path);
+  void publish_planned_paths_vis(const std::vector<Path> & paths);
+  void publish_final_path_vis(const Path & path);
+  
+  // subscribers
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_; 
+  rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_; 
 
-  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_vis_pub_;
-
-  rclcpp::TimerBase::SharedPtr timer_;
-  
+  // publishers
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr planned_path_vis_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>::SharedPtr final_path_vis_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+ 
 };
