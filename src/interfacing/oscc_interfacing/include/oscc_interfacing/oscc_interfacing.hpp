@@ -66,8 +66,14 @@ public:
   bool is_armed_{false};
 
   // Thread-safe data queues for CAN callbacks (public for free function access)
-  struct WheelSpeedData { float ne, nw, se, sw; };
-  struct SteeringAngleData { float angle; };
+  struct WheelSpeedData { 
+    std::atomic<float> ne, nw, se, sw; 
+    WheelSpeedData() : ne(0), nw(0), se(0), sw(0) {}
+  };
+  struct SteeringAngleData { 
+    std::atomic<float> angle;
+    SteeringAngleData() : angle(0) {}
+  };
   enum class OverrideType { BRAKE, THROTTLE, STEERING };
   enum class FaultType { BRAKE_FAULT, STEERING_FAULT, THROTTLE_FAULT };
   

@@ -67,15 +67,15 @@ void obd_callback(struct can_frame * frame)
     get_wheel_speed_left_rear(frame, &sw);
     get_wheel_speed_right_front(frame, &ne);
     
-    // Async-signal-safe: only atomic operations allowed
-    g_node_instance->latest_wheel_data_ = {
-      static_cast<float>(ne), static_cast<float>(nw), 
-      static_cast<float>(se), static_cast<float>(sw)
-    };
+    // Async-signal-safe: atomic stores prevent data corruption
+    g_node_instance->latest_wheel_data_.ne.store(static_cast<float>(ne));
+    g_node_instance->latest_wheel_data_.nw.store(static_cast<float>(nw));
+    g_node_instance->latest_wheel_data_.se.store(static_cast<float>(se));
+    g_node_instance->latest_wheel_data_.sw.store(static_cast<float>(sw));
     g_node_instance->has_wheel_data_.store(true);
   } else if (get_steering_wheel_angle(frame, &se) == OSCC_OK) {
-    // Async-signal-safe: only atomic operations allowed
-    g_node_instance->latest_steering_data_ = {static_cast<float>(se)};
+    // Async-signal-safe: atomic store prevents data corruption
+    g_node_instance->latest_steering_data_.angle.store(static_cast<float>(se));
     g_node_instance->has_steering_data_.store(true);
   }
 }
@@ -316,10 +316,10 @@ void OsccInterfacingNode::process_queued_data()
   // Process wheel speed data
   if (has_wheel_data_.exchange(false)) {
     roscco_msg::msg::WheelSpeeds msg;
-    msg.ne = latest_wheel_data_.ne;
-    msg.nw = latest_wheel_data_.nw;
-    msg.se = latest_wheel_data_.se;
-    msg.sw = latest_wheel_data_.sw;
+    msg.ne = latest_wheel_data_.ne.load();
+    msg.nw = latest_wheel_data_.nw.load();
+    msg.se = latest_wheel_data_.se.load();
+    msg.sw = latest_wheel_data_.sw.load();
     msg.header.stamp = this->now();
     wheel_speeds_pub_->publish(msg);
   }
@@ -327,7 +327,7 @@ void OsccInterfacingNode::process_queued_data()
   // Process steering angle data
   if (has_steering_data_.exchange(false)) {
     roscco_msg::msg::SteeringAngle msg;
-    msg.angle = latest_steering_data_.angle;
+    msg.angle = latest_steering_data_.angle.load();
     msg.header.stamp = this->now();
     steering_wheel_angle_pub_->publish(msg);
   }
