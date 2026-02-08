@@ -1,0 +1,16 @@
+---
+launch:
+  # 1. Declare Arguments
+  - arg:
+      name: "behaviour_param_file"
+      default: "$(find-pkg-share behaviour)/config/params.yaml"
+
+  # 2. Launch the Node
+  - node:
+      pkg: "behaviour"
+      exec: "behaviour_node"
+      name: "behaviour_node"
+      namespace: ""
+      param:
+        - from: "$(var behaviour_param_file)"
+      output: "screen"

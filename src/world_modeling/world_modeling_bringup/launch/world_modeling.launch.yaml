@@ -208,6 +208,20 @@ launch:
         - from: markers
           to: /world_modeling/costmap_footprint_markers
 
+  # Behaviour Node
+  # run this separately for now
+  # - node:
+  #     pkg: behaviour
+  #     exec: behaviour_node
+  #     name: behaviour_node
+  #     namespace: ""
+  #     output: screen
+  #     param:
+  #       - from: $(find-pkg-share behaviour)/config/params.yaml
+  #     remap:
+  #       - from: execute_behaviour
+  #         to: /behaviour/execute_behaviour
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager

@@ -1,0 +1,61 @@
+<root BTCPP_format="4" main_tree_to_execute="StopSignSubTree">
+
+    <BehaviorTree ID="StopSignSubTree">
+        <Sequence name="Handle Stop Sign">
+
+            <!-- WALL OF DOOM: compute stop-line pose and spawn wall -->
+            <GetStopLinePose
+                reg_elem="{active_traffic_control_element}"
+                map_frame="{map_frame}"
+                pose="{stop_sign.stop_line_pose}"
+                error_message="{get_stop_line_pose_error_msg}" />
+
+            <SpawnWall
+                pose="{stop_sign.stop_line_pose}"
+                tf_buffer="{@tf_buffer}"
+                base_frame="{@base_frame}"
+                width="5.0"
+                length="1.0"
+                wall_id="{stop_sign.wall_id}"
+                error_message="{spawn_wall_error_msg}" />
+
+            <EgoStopped ego_velocity="{ego_velocity}" threshold_velocity="0.10" />
+
+            <!-- Fetch lanelets controlled by this regulatory element -->
+            <ReactiveSequence>
+                <GetLaneletsByRegElem
+                    reg_elem_id="{active_traffic_control_element_id}"
+                    lanelets="{stop_sign.lanelets}"
+                    error_message="{get_lanelets_by_reg_elem_error_msg}" />
+
+                <GetStopSignCars
+                    stop_sign="{active_traffic_control_element}"
+                    lanelets="{stop_sign.lanelets}"
+                    threshold_m="8.0"
+                    dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
+                    out_stop_sign_car_ids="{stop_sign.current_ids}" />
+
+                <SetStopSignPriorityCars
+                    current_car_ids="{stop_sign.current_ids}"
+                    priority_car_ids="{stop_sign.priority_ids}"
+                    priority_latched="{stop_sign.priority_latched}"
+                    out_priority_car_ids="{stop_sign.priority_ids}"
+                    out_priority_latched="{stop_sign.priority_latched}" />
+
+                <StopSignCanProceed
+                    priority_ids="{stop_sign.priority_ids}"
+                    current_ids="{stop_sign.current_ids}" />
+            </ReactiveSequence>
+
+            <!-- WALL OF DOOM: despawn wall after proceed condition passes -->
+            <DespawnWall
+                wall_id="{stop_sign.wall_id}"
+                error_message="{despawn_wall_error_msg}" />
+
+            <ClearStopSignPriorityCarsAction
+                priority_car_ids="{stop_sign.priority_ids}"
+                priority_latched="{stop_sign.priority_latched}" />
+
+        </Sequence>
+    </BehaviorTree>
+</root>

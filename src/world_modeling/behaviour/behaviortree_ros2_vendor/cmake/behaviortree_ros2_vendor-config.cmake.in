@@ -1,0 +1,29 @@
+@PACKAGE_INIT@
+
+if(behaviortree_ros2_vendor_FOUND)
+    return()
+endif()
+set(behaviortree_ros2_vendor_FOUND TRUE)
+
+set(behaviortree_ros2_vendor_VERSION "@BEHAVIORTREE_ROS2_GIT_TAG@")
+
+check_required_components(behaviortree_ros2_vendor)
+
+# BehaviorTree.ROS2 installs its own CMake configs via colcon, so we add the
+# vendor prefix to CMAKE_PREFIX_PATH and let downstream packages use find_package
+# to discover behaviortree_ros2 and btcpp_ros2_interfaces directly.
+list(APPEND CMAKE_PREFIX_PATH "@BT_ROS2_VENDOR_INSTALL_PREFIX@")
+
+# For convenience, also provide imported targets if libraries exist
+set(_bt_ros2_lib "@BT_ROS2_VENDOR_INSTALL_PREFIX@/lib/libbehaviortree_ros2.so")
+if(NOT EXISTS "${_bt_ros2_lib}")
+    set(_bt_ros2_lib "@BT_ROS2_VENDOR_INSTALL_PREFIX@/lib/libbehaviortree_ros2.a")
+endif()
+
+if(EXISTS "${_bt_ros2_lib}" AND NOT TARGET behaviortree_ros2_vendor::behaviortree_ros2)
+    add_library(behaviortree_ros2_vendor::behaviortree_ros2 UNKNOWN IMPORTED)
+    set_target_properties(behaviortree_ros2_vendor::behaviortree_ros2 PROPERTIES
+        IMPORTED_LOCATION "${_bt_ros2_lib}"
+        INTERFACE_INCLUDE_DIRECTORIES "@BT_ROS2_VENDOR_INSTALL_PREFIX@/include"
+    )
+endif()

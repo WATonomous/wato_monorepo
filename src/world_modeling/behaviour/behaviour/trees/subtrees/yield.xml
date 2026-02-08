@@ -1,0 +1,35 @@
+<root BTCPP_format="4" main_tree_to_execute="YieldSubTree">
+
+    <BehaviorTree ID="YieldSubTree">
+        <Sequence name="Handle Yield">
+
+            <!-- WALL OF DOOM: compute stop/yield-line pose and spawn wall -->
+            <GetStopLinePose
+                reg_elem="{yield_sign}"
+                map_frame="{map_frame}"
+                pose="{yield.wall_pose}"
+                error_message="{yield.get_stop_line_pose_error_msg}" />
+
+            <SpawnWall
+                pose="{yield.wall_pose}"
+                tf_buffer="{tf_buffer}"
+                base_frame="{base_frame}"
+                width="5.0"
+                length="1.0"
+                wall_id="{yield.wall_id}"
+                error_message="{yield.spawn_wall_error_msg}" />
+
+            <!-- Wait until yield lanes are clear for a gap -->
+            <YieldCanProceed
+                active_traffic_control_element="{yield_sign}"
+                dynamic_objects_snapshot="{@dynamic_objects.snapshot}" />
+
+            <!-- WALL OF DOOM: despawn -->
+            <DespawnWall
+                wall_id="{yield.wall_id}"
+                error_message="{yield.despawn_wall_error_msg}" />
+
+            <!-- TODO: Add condition to see if passed intersection -->
+        </Sequence>
+    </BehaviorTree>
+</root>
