@@ -1,0 +1,33 @@
+local_planner_node:
+  ros__parameters:
+    
+    # Topic names
+    lanelet_ahead_topic: "/world_modeling/lanelet/lanelet_ahead"
+    odom_topic: "/ego/odom"
+    costmap_topic: "/world_modeling/costmap"
+    bt_topic: "/behaviour/execute_behaviour"
+    
+    # Publishing
+    planned_paths_vis_topic: "planned_paths_markers"
+    final_paths_vis_topic: "final_path_markers"
+    path_topic: "path"
+
+    # Path generation parameters
+    # -  Cost Map  -
+    cm_occupancy_weight: 20.0
+    cm_lateral_movement_weight: 2.0
+    cm_physical_limits_weight: 4.0
+    cm_preferred_lane_cost: 20.0
+    cm_unknown_occupancy_cost: 50.0
+    cm_max_curvature_change: 0.1
+
+    # -  Corridor  -
+    num_horizons: 3
+    lookahead_distances: [10.0, 15.0, 20.0]  # meters
+    
+    # -  path generation  -
+    max_iterations: 20
+    path_steps: 20
+    convergence_tolerance: 0.15
+    newton_damping: 0.7
+    max_step_size: 1.0
