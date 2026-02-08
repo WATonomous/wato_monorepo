@@ -188,8 +188,6 @@ void LocalPlannerNode::plan_and_publish_path(){
   publish_final_path(lowest_cost);
 }
 
-
-
 Path LocalPlannerNode::get_lowest_cost_path(const std::vector<Path> & paths){
   Path lowest_cost_path = paths[0]; // Initialize with first valid path
   double prev_cost = path_cost_function(paths[0], preferred_lanelets.count(paths[0].target_lanelet_id) >= 1, cm_params);
@@ -233,7 +231,7 @@ double LocalPlannerNode::path_cost_function(
   }
 
   for(const auto & pt: path.path){
-
+    // TODO(wato) get rid of occupancy cost if no static costmap is implemented
     // Occupancy Cost
     const int mx = static_cast<int>(std::floor((pt.x - cm_ox) / cm_res));
     const int my = static_cast<int>(std::floor((pt.y - cm_oy) / cm_res));

@@ -5,6 +5,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 
+// TODO(wato) make this a true frenet point and make converter functions
 struct PathPoint{
   double x;
   double y;

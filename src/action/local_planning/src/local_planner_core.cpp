@@ -92,6 +92,8 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
 
       Eigen::Vector3d params(spiral_params[1], spiral_params[2], spiral_params[4]);
       
+      // TODO(wato) ideally add the curvature as a parameter as well
+      //    currently having problems with short arc distanes
       Eigen::Matrix3d J = compute_jacobian_3dof(params, error, start, target, pg_params.steps);
       
       double det = J.determinant();
