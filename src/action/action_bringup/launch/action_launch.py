@@ -15,9 +15,13 @@
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
-
+from ament_index_python.packages import get_package_share_directory
+import os
 
 def generate_launch_description():
+    local_planning_pkg_dir = get_package_share_directory('local_planning')
+    local_planning_params_file = os.path.join(local_planning_pkg_dir, 'config', 'local_planner_params.yaml')
+    
     return LaunchDescription(
         [
             Node(
@@ -25,6 +29,14 @@ def generate_launch_description():
                 executable="mpc_node",
                 name="mpc_node",
                 output="screen",
+            ),
+            Node(
+                package="local_planning",
+                executable="local_planner_node",
+                name="local_planner_node",
+                namespace='action/local_planning',
+                parameters=[local_planning_params_file],
+                output="screen"
             )
         ]
     )
