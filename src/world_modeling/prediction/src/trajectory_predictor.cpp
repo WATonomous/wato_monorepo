@@ -14,9 +14,12 @@
 
 #include "prediction/trajectory_predictor.hpp"
 
-#include <cmath>
+#include <cmath>  // for std::atan2, std::sin, std::cos
 #include <memory>  // for std::make_unique
+#include <string>  // for std::string
 #include <vector>  // for std::vector
+
+#include "rclcpp/rclcpp.hpp"  // Add this for rclcpp::Duration
 
 namespace prediction
 {
@@ -101,32 +104,144 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
-  // Create a simple "continue straight" hypothesis
-  TrajectoryHypothesis straight_hyp;
-  straight_hyp.intent = Intent::CONTINUE_STRAIGHT;
-  straight_hyp.probability = 0.0;  // Will be set by classifier
+  // Get current time and frame for timestamps
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
 
-  // Extract state from detection
-  double current_x = detection.bbox.center.position.x;
-  double current_y = detection.bbox.center.position.y;
-  double current_z = detection.bbox.center.position.z;
-  double heading = extractYaw(detection.bbox.center.orientation);
-  double velocity = 5.0;  // Vehicle speed ~5 m/s
+  // Extract initial state from detection
+  KinematicState initial_state;
+  initial_state.x = detection.bbox.center.position.x;
+  initial_state.y = detection.bbox.center.position.y;
+  initial_state.theta = extractYaw(detection.bbox.center.orientation);
 
-  for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
-    geometry_msgs::msg::Pose waypoint;
-    waypoint.position.x = current_x + velocity * std::cos(heading) * t;
-    waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = current_z;
-    waypoint.orientation = detection.bbox.center.orientation;
+  // Estimate speed from bounding box size heuristic
+  double length = detection.bbox.size.x;
+  initial_state.v = (length > 3.5) ? 5.0 : 1.4;
 
-    straight_hyp.waypoints.push_back(waypoint);
-    straight_hyp.timestamps.push_back(t);
+  initial_state.a = 0.0;
+  initial_state.delta = 0.0;
+
+  // ==== Vehicle Hypothesis: Continue Straight ====
+  {
+    std::vector<Eigen::Vector2d> straight_path;
+    for (double d = 0.0; d <= initial_state.v * prediction_horizon_ + 10.0; d += 1.0) {
+      straight_path.emplace_back(
+        initial_state.x + d * std::cos(initial_state.theta), initial_state.y + d * std::sin(initial_state.theta));
+    }
+
+    TrajectoryHypothesis straight_hyp;
+    straight_hyp.header.stamp = current_time;
+    straight_hyp.header.frame_id = frame_id;
+    straight_hyp.intent = Intent::CONTINUE_STRAIGHT;
+    straight_hyp.probability = 0.0;
+
+    straight_hyp.poses = bicycle_model_->generateTrajectory(
+      initial_state, straight_path, prediction_horizon_, time_step_, current_time, frame_id);
+
+    hypotheses.push_back(straight_hyp);
   }
 
-  hypotheses.push_back(straight_hyp);
+  // ==== Vehicle Hypothesis: Turn Left ====
+  {
+    std::vector<Eigen::Vector2d> left_path;
+    double turn_radius = 10.0;
+    for (double angle = 0.0; angle <= M_PI / 2.0; angle += 0.1) {
+      double path_x = initial_state.x + turn_radius * std::sin(angle) * std::cos(initial_state.theta) -
+                      turn_radius * (1.0 - std::cos(angle)) * std::sin(initial_state.theta);
+      double path_y = initial_state.y + turn_radius * std::sin(angle) * std::sin(initial_state.theta) +
+                      turn_radius * (1.0 - std::cos(angle)) * std::cos(initial_state.theta);
+      left_path.emplace_back(path_x, path_y);
+    }
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Vehicle prediction: constant velocity");
+    TrajectoryHypothesis left_hyp;
+    left_hyp.header.stamp = current_time;
+    left_hyp.header.frame_id = frame_id;
+    left_hyp.intent = Intent::TURN_LEFT;
+    left_hyp.probability = 0.0;
+
+    left_hyp.poses = bicycle_model_->generateTrajectory(
+      initial_state, left_path, prediction_horizon_, time_step_, current_time, frame_id);
+
+    hypotheses.push_back(left_hyp);
+  }
+
+  // ==== Vehicle Hypothesis: Turn Right ====
+  {
+    std::vector<Eigen::Vector2d> right_path;
+    double turn_radius = 10.0;
+    for (double angle = 0.0; angle <= M_PI / 2.0; angle += 0.1) {
+      double path_x = initial_state.x + turn_radius * std::sin(angle) * std::cos(initial_state.theta) +
+                      turn_radius * (1.0 - std::cos(angle)) * std::sin(initial_state.theta);
+      double path_y = initial_state.y + turn_radius * std::sin(angle) * std::sin(initial_state.theta) -
+                      turn_radius * (1.0 - std::cos(angle)) * std::cos(initial_state.theta);
+      right_path.emplace_back(path_x, path_y);
+    }
+
+    TrajectoryHypothesis right_hyp;
+    right_hyp.header.stamp = current_time;
+    right_hyp.header.frame_id = frame_id;
+    right_hyp.intent = Intent::TURN_RIGHT;
+    right_hyp.probability = 0.0;
+
+    right_hyp.poses = bicycle_model_->generateTrajectory(
+      initial_state, right_path, prediction_horizon_, time_step_, current_time, frame_id);
+
+    hypotheses.push_back(right_hyp);
+  }
+
+  // ==== Vehicle Hypothesis: Lane Change Left ====
+  {
+    std::vector<Eigen::Vector2d> lcl_path;
+    double lane_width = 3.5;
+    double lc_distance = 30.0;
+    for (double d = 0.0; d <= lc_distance; d += 1.0) {
+      double lateral_offset = lane_width * (d / lc_distance);
+      double path_x =
+        initial_state.x + d * std::cos(initial_state.theta) - lateral_offset * std::sin(initial_state.theta);
+      double path_y =
+        initial_state.y + d * std::sin(initial_state.theta) + lateral_offset * std::cos(initial_state.theta);
+      lcl_path.emplace_back(path_x, path_y);
+    }
+
+    TrajectoryHypothesis lcl_hyp;
+    lcl_hyp.header.stamp = current_time;
+    lcl_hyp.header.frame_id = frame_id;
+    lcl_hyp.intent = Intent::LANE_CHANGE_LEFT;
+    lcl_hyp.probability = 0.0;
+
+    lcl_hyp.poses = bicycle_model_->generateTrajectory(
+      initial_state, lcl_path, prediction_horizon_, time_step_, current_time, frame_id);
+
+    hypotheses.push_back(lcl_hyp);
+  }
+
+  // ==== Vehicle Hypothesis: Lane Change Right ====
+  {
+    std::vector<Eigen::Vector2d> lcr_path;
+    double lane_width = 3.5;
+    double lc_distance = 30.0;
+    for (double d = 0.0; d <= lc_distance; d += 1.0) {
+      double lateral_offset = lane_width * (d / lc_distance);
+      double path_x =
+        initial_state.x + d * std::cos(initial_state.theta) + lateral_offset * std::sin(initial_state.theta);
+      double path_y =
+        initial_state.y + d * std::sin(initial_state.theta) - lateral_offset * std::cos(initial_state.theta);
+      lcr_path.emplace_back(path_x, path_y);
+    }
+
+    TrajectoryHypothesis lcr_hyp;
+    lcr_hyp.header.stamp = current_time;
+    lcr_hyp.header.frame_id = frame_id;
+    lcr_hyp.intent = Intent::LANE_CHANGE_RIGHT;
+    lcr_hyp.probability = 0.0;
+
+    lcr_hyp.poses = bicycle_model_->generateTrajectory(
+      initial_state, lcr_path, prediction_horizon_, time_step_, current_time, frame_id);
+
+    hypotheses.push_back(lcr_hyp);
+  }
+
+  RCLCPP_DEBUG(node_->get_logger(), "Generated %zu vehicle trajectory hypotheses", hypotheses.size());
 
   return hypotheses;
 }
@@ -136,7 +251,12 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
+
   TrajectoryHypothesis walk_hyp;
+  walk_hyp.header.stamp = current_time;
+  walk_hyp.header.frame_id = frame_id;
   walk_hyp.intent = Intent::CONTINUE_STRAIGHT;
   walk_hyp.probability = 0.0;
 
@@ -144,17 +264,21 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
   double current_y = detection.bbox.center.position.y;
   double current_z = detection.bbox.center.position.z;
   double heading = extractYaw(detection.bbox.center.orientation);
-  double velocity = 1.4;  // Typical walking speed ~1.4 m/s
+
+  // Estimate speed from bounding box size heuristic
+  double length = detection.bbox.size.x;
+  double velocity = (length > 3.5) ? 5.0 : 1.4;
 
   for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
-    geometry_msgs::msg::Pose waypoint;
-    waypoint.position.x = current_x + velocity * std::cos(heading) * t;
-    waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = current_z;
-    waypoint.orientation = detection.bbox.center.orientation;
+    geometry_msgs::msg::PoseStamped pose_stamped;
+    pose_stamped.header.frame_id = frame_id;
+    pose_stamped.header.stamp = current_time + rclcpp::Duration::from_seconds(t);
+    pose_stamped.pose.position.x = current_x + velocity * std::cos(heading) * t;
+    pose_stamped.pose.position.y = current_y + velocity * std::sin(heading) * t;
+    pose_stamped.pose.position.z = current_z;
+    pose_stamped.pose.orientation = detection.bbox.center.orientation;
 
-    walk_hyp.waypoints.push_back(waypoint);
-    walk_hyp.timestamps.push_back(t);
+    walk_hyp.poses.push_back(pose_stamped);
   }
 
   hypotheses.push_back(walk_hyp);
@@ -169,7 +293,12 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
+
   TrajectoryHypothesis cycle_hyp;
+  cycle_hyp.header.stamp = current_time;
+  cycle_hyp.header.frame_id = frame_id;
   cycle_hyp.intent = Intent::CONTINUE_STRAIGHT;
   cycle_hyp.probability = 0.0;
 
@@ -177,17 +306,21 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
   double current_y = detection.bbox.center.position.y;
   double current_z = detection.bbox.center.position.z;
   double heading = extractYaw(detection.bbox.center.orientation);
-  double velocity = 4.5;  // Typical cycling speed ~4.5 m/s
+
+  // Estimate speed from bounding box size heuristic
+  double length = detection.bbox.size.x;
+  double velocity = (length > 3.5) ? 5.0 : 1.4;
 
   for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
-    geometry_msgs::msg::Pose waypoint;
-    waypoint.position.x = current_x + velocity * std::cos(heading) * t;
-    waypoint.position.y = current_y + velocity * std::sin(heading) * t;
-    waypoint.position.z = current_z;
-    waypoint.orientation = detection.bbox.center.orientation;
+    geometry_msgs::msg::PoseStamped pose_stamped;
+    pose_stamped.header.frame_id = frame_id;
+    pose_stamped.header.stamp = current_time + rclcpp::Duration::from_seconds(t);
+    pose_stamped.pose.position.x = current_x + velocity * std::cos(heading) * t;
+    pose_stamped.pose.position.y = current_y + velocity * std::sin(heading) * t;
+    pose_stamped.pose.position.z = current_z;
+    pose_stamped.pose.orientation = detection.bbox.center.orientation;
 
-    cycle_hyp.waypoints.push_back(waypoint);
-    cycle_hyp.timestamps.push_back(t);
+    cycle_hyp.poses.push_back(pose_stamped);
   }
 
   hypotheses.push_back(cycle_hyp);
