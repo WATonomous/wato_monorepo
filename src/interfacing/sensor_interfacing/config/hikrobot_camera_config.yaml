@@ -16,8 +16,6 @@
 x-common-settings: &common_settings
   verbose: false
   transport_layer_packet_size: 9156
-  acquisition_frame_rate_enable: true
-  acquisition_frame_rate: 63.0
 
   # Auto-exposure and gain settings
   AcquisitionControl:
@@ -25,6 +23,8 @@ x-common-settings: &common_settings
     AutoExposureTimeLowerLimit: 100        # microseconds
     AutoExposureTimeUpperLimit: 15000      # microseconds - limit for motion blur
     GainShutPrior: "Shut"                  # Prioritize shutter speed over gain
+    AcquisitionFrameRateEnable: true
+    AcquisitionFrameRate: 12.0
   AnalogControl:
     GainAuto: "Continuous"
     AutoGainLowerLimit: 0.0                # dB
