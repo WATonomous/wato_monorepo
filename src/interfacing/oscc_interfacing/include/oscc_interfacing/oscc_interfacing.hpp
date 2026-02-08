@@ -65,6 +65,14 @@ public:
   std::mutex arm_mutex_;
   bool is_armed_{false};
 
+  // Thread-safe data queues for CAN callbacks (public for free function access)
+  struct WheelSpeedData { float ne, nw, se, sw; };
+  struct SteeringAngleData { float angle; };
+  
+  std::mutex data_mutex_;
+  std::queue<WheelSpeedData> wheel_speed_queue_;
+  std::queue<SteeringAngleData> steering_angle_queue_;
+
   /**
    * @brief Publishes wheel speeds (4 floats)
    */
@@ -123,13 +131,6 @@ private:
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};
 
-  // Thread-safe data queues for CAN callbacks
-  struct WheelSpeedData { float ne, nw, se, sw; };
-  struct SteeringAngleData { float angle; };
-  
-  std::mutex data_mutex_;
-  std::queue<WheelSpeedData> wheel_speed_queue_;
-  std::queue<SteeringAngleData> steering_angle_queue_;
   rclcpp::TimerBase::SharedPtr data_process_timer_;
   
   void process_queued_data();
