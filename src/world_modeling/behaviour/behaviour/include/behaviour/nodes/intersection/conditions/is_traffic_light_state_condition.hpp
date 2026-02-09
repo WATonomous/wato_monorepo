@@ -26,55 +26,49 @@
 
 namespace behaviour
 {
-/**
- * @class IsTrafficLightStateCondition
- * @brief ConditionNode to compare traffic light state with expected state.
- */
-class IsTrafficLightStateCondition : public BT::ConditionNode
-{
-public:
-  IsTrafficLightStateCondition(const std::string & name, const BT::NodeConfig & config)
-  : BT::ConditionNode(name, config)
-  {}
-
-  static BT::PortsList providedPorts()
+  /**
+   * @class IsTrafficLightStateCondition
+   * @brief ConditionNode to compare traffic light state with expected state.
+   */
+  class IsTrafficLightStateCondition : public BT::ConditionNode
   {
-    return {
-      BT::InputPort<std::string>("traffic_light_state"),
-      BT::InputPort<std::string>("expected"),
-    };
-  }
-
-  BT::NodeStatus tick() override
-  {
-    auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
-    auto expected = ports::tryGet<std::string>(*this, "expected");
-
-    if (!state) {
-      std::cerr << "[IsTrafficLightState] Missing traffic_light_state." << std::endl;
-      return BT::NodeStatus::FAILURE;
+  public:
+    IsTrafficLightStateCondition(const std::string &name, const BT::NodeConfig &config)
+        : BT::ConditionNode(name, config)
+    {
     }
 
-    if (!expected) {
-      std::cerr << "[IsTrafficLightState] Missing expected." << std::endl;
-      return BT::NodeStatus::FAILURE;
+    static BT::PortsList providedPorts()
+    {
+      return {
+          BT::InputPort<std::string>("traffic_light_state"),
+          BT::InputPort<std::string>("expected"),
+      };
     }
 
-    // case-insensitive comparison
-    auto norm = [](std::string s) {
-      std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      return s;
-    };
+    BT::NodeStatus tick() override
+    {
+      auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
+      auto expected = ports::tryGet<std::string>(*this, "expected");
 
-    const std::string s_norm = norm(*state);
-    const std::string e_norm = norm(*expected);
+      if (!state)
+      {
+        std::cerr << "[IsTrafficLightState] Missing traffic_light_state." << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
 
-    std::cout << "[IsTrafficLightState]: Comparing msg='" << s_norm << "' to expected='" << e_norm << "'" << std::endl;
+      if (!expected)
+      {
+        std::cerr << "[IsTrafficLightState] Missing expected." << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
 
-    return (s_norm == e_norm) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-  }
-};
+      std::cout << "[IsTrafficLightState]: Comparing msg='" << *state << "' to expected='" << *expected << "'" << std::endl;
 
-}  // namespace behaviour
+      return (*state == *expected) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+    }
+  };
 
-#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__IS_TRAFFIC_LIGHT_STATE_CONDITION_HPP_
+} // namespace behaviour
+
+#endif // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__IS_TRAFFIC_LIGHT_STATE_CONDITION_HPP_

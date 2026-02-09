@@ -1,0 +1,11 @@
+behaviour_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    preferred_centerline_line_width: 0.45
+    preferred_boundary_line_width: 0.18
+    current_lane_line_width: 0.2
+    text_height: 0.8
+    show_boundaries: true
+    show_lanelet_ids: false
+    show_current_lane: true
+    show_info: true

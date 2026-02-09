@@ -209,18 +209,46 @@ launch:
           to: /world_modeling/costmap_footprint_markers
 
   # Behaviour Node
-  # run this separately for now
-  # - node:
-  #     pkg: behaviour
-  #     exec: behaviour_node
-  #     name: behaviour_node
-  #     namespace: ""
-  #     output: screen
-  #     param:
-  #       - from: $(find-pkg-share behaviour)/config/params.yaml
-  #     remap:
-  #       - from: execute_behaviour
-  #         to: /behaviour/execute_behaviour
+  - node:
+      pkg: behaviour
+      exec: behaviour_node
+      name: behaviour_node
+      namespace: ""
+      output: screen
+      param:
+        - from: $(find-pkg-share behaviour)/config/params.yaml
+      remap:
+        - from: execute_behaviour
+          to: /behaviour/execute_behaviour
+        - from: lane_context
+          to: /world_modeling/lanelet/lane_context
+        - from: world_objects
+          to: /world_modeling/world_objects
+        - from: area_occupancy
+          to: /world_modeling/area_occupancy
+        - from: goal_point
+          to: /behaviour/goal_point
+
+  # Behaviour Tree visualization markers
+  - node:
+      pkg: behaviour_markers
+      exec: behaviour_markers_node
+      name: behaviour_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share behaviour_markers)/config/behaviour_markers.yaml
+      remap:
+        - from: execute_behaviour
+          to: /behaviour/execute_behaviour
+        - from: route_ahead
+          to: lanelet/route_ahead
+        - from: lanelet_ahead
+          to: lanelet/lanelet_ahead
+        - from: lane_context
+          to: lanelet/lane_context
+        - from: markers
+          to: behaviour_markers
 
   # Lifecycle Manager
   - node:

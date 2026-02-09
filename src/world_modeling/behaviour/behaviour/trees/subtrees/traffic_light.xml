@@ -33,10 +33,10 @@
 
                     <SpawnWall
                         pose="{traffic_light.wall_pose}"
-                        tf_buffer="{tf_buffer}"
-                        base_frame="{base_frame}"
-                        width="5.0"
-                        length="1.0"
+                        tf_buffer="{@tf_buffer}"
+                        base_frame="{@base_frame}"
+                        width="{@stop_line_wall_of_doom_width}"
+                        length="{@stop_line_wall_of_doom_length}"
                         wall_id="{traffic_light.wall_id}"
                         error_message="{traffic_light.spawn_wall_error_msg}" />
                 </Sequence>
@@ -51,18 +51,15 @@
                 </Sequence>
 
                 <!-- UNKNOWN => fail-safe: spawn wall -->
-                <Sequence name="UnknownFailSafe">
-                    <SpawnWall
-                        pose="{traffic_light.wall_pose}"
-                        tf_buffer="{tf_buffer}"
-                        base_frame="{base_frame}"
-                        width="5.0"
-                        length="1.0"
-                        wall_id="{traffic_light.wall_id}"
-                        error_message="{traffic_light.spawn_wall_error_msg}" />
-                </Sequence>
             </Fallback>
-
+            <SpawnWall
+                pose="{traffic_light.wall_pose}"
+                tf_buffer="{@tf_buffer}"
+                base_frame="{@base_frame}"
+                width="{@stop_line_wall_of_doom_width}"
+                length="{@stop_line_wall_of_doom_length}"
+                wall_id="{traffic_light.wall_id}"
+                error_message="{traffic_light.spawn_wall_error_msg}" />
             <!-- TODO: Add condition to see if passed intersection -->
         </Sequence>
     </BehaviorTree>

@@ -24,7 +24,9 @@
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{@area_occupancy.snapshot}" />
+              area_occupancy_snapshot="{@area_occupancy.snapshot}"
+              left_lane_change_areas="{@left_lane_change_areas}"
+              right_lane_change_areas="{@right_lane_change_areas}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->
@@ -48,7 +50,9 @@
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{@area_occupancy.snapshot}" />
+              area_occupancy_snapshot="{@area_occupancy.snapshot}"
+              left_lane_change_areas="{@left_lane_change_areas}"
+              right_lane_change_areas="{@right_lane_change_areas}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->

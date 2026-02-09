@@ -44,24 +44,30 @@
 class CommonNodeRegistrar : public NodeRegistrarBase
 {
 public:
-  void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
+  void register_nodes(BT::BehaviorTreeFactory &factory, const BT::RosNodeParams &params) override
   {
     BT::RosNodeParams get_shortest_route_params = params;
     BT::RosNodeParams set_route_params = params;
     BT::RosNodeParams get_lanelets_by_reg_elem_params = params;
     BT::RosNodeParams wall_service = params;
 
-    // TODO(wato): adjust timeouts as needed
-    get_shortest_route_params.server_timeout = std::chrono::milliseconds(6000);
-    set_route_params.server_timeout = std::chrono::milliseconds(6000);
-    get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(5000);
-    wall_service.server_timeout = std::chrono::milliseconds(5000);
+    // Read timeout values from node parameters
+    auto node = params.nh;
+    int get_shortest_route_timeout = node->get_parameter("get_shortest_route_timeout_ms").as_int();
+    int set_route_timeout = node->get_parameter("set_route_timeout_ms").as_int();
+    int get_lanelets_timeout = node->get_parameter("get_lanelets_by_reg_elem_timeout_ms").as_int();
+    int wall_timeout = node->get_parameter("wall_service_timeout_ms").as_int();
+
+    get_shortest_route_params.server_timeout = std::chrono::milliseconds(get_shortest_route_timeout);
+    set_route_params.server_timeout = std::chrono::milliseconds(set_route_timeout);
+    get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(get_lanelets_timeout);
+    wall_service.server_timeout = std::chrono::milliseconds(wall_timeout);
 
     // actions
     factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
     factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
     factory.registerNodeType<behaviour::GetLaneletsByRegElemService>(
-      "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
+        "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
     factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
     factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
@@ -80,4 +86,4 @@ public:
   }
 };
 
-#endif  // BEHAVIOUR__NODES__COMMON__REGISTRAR_HPP_
+#endif // BEHAVIOUR__NODES__COMMON__REGISTRAR_HPP_

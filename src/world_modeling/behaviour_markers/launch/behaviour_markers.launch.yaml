@@ -1,0 +1,19 @@
+launch:
+  - node:
+      pkg: behaviour_markers
+      exec: behaviour_markers_node
+      name: behaviour_markers_node
+      output: screen
+      param:
+        - from: $(find-pkg-share behaviour_markers)/config/behaviour_markers.yaml
+      remap:
+        - from: execute_behaviour
+          to: /behaviour/execute_behaviour
+        - from: route_ahead
+          to: /lanelet/route_ahead
+        - from: lanelet_ahead
+          to: /lanelet/lanelet_ahead
+        - from: lane_context
+          to: /lane_context
+        - from: markers
+          to: /behaviour_markers

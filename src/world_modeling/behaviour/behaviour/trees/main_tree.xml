@@ -12,7 +12,7 @@
         <!-- Ensure goal is not reached -->
         <Inverter>
           <GoalReached current_point="{ego_point}" goal_point="{goal_point}"
-            threshold_m="1.0" />
+            threshold_m="{@goal_reached_threshold_m}" />
         </Inverter>
 
         <!-- Ensure path exists -->
@@ -26,7 +26,8 @@
 
           <Fallback name="Get Route">
 
-            <GetShortestRoute route="{global_route}"
+            <GetShortestRoute
+              route="{global_route}"
               route_index_map="{global_route_index_map}"
               route_lanelet_ids="{global_route_lanelet_ids}"
               error_message="{get_shortest_route_error_msg}"
@@ -47,15 +48,11 @@
                 </RateController>
               </RetryUntilSuccessful>
 
-              <RetryUntilSuccessful num_attempts="10">
-                <RateController hz="1.0">
-                  <GetShortestRoute route="{global_route}"
-                    route_index_map="{global_route_index_map}"
-                    route_lanelet_ids="{global_route_lanelet_ids}"
-                    error_message="{get_shortest_route_error_msg}"
-                    service_name="/world_modeling/get_shortest_route" />
-                </RateController>
-              </RetryUntilSuccessful>
+              <GetShortestRoute route="{global_route}"
+                route_index_map="{global_route_index_map}"
+                route_lanelet_ids="{global_route_lanelet_ids}"
+                error_message="{get_shortest_route_error_msg}"
+                service_name="/world_modeling/get_shortest_route" />
 
 
             </Sequence>

@@ -30,5 +30,42 @@ behaviour_node:
     # Traffic light state hypothesis index to use
     traffic_light_state_hypothesis_index: 1
 
+    # World objects hypothesis index (which detection result to use for classification)
+    world_objects_hypothesis_index: 0
+
+    # Lane change safety check areas (must match world_model's occupancy_areas config)
+    left_lane_change_areas:
+      - "left_lane_change_corridor"
+    right_lane_change_areas:
+      - "right_lane_change_corridor"
+
+    # Stop line wall of doom dimensions (meters)
+    stop_line_wall_of_doom_width: 5.0
+    stop_line_wall_of_doom_length: 1.0
+
+    # Ego stopped velocity threshold (m/s)
+    ego_stopped_velocity_threshold: 0.1
+
+    # Intersection lookahead distance (meters)
+    intersection_lookahead_m: 40.0
+
+    # Lanelet thresholds for determining if traffic control element is passed
+    traffic_control_element_passed_lanelet_threshold: 2
+
+    # Lanelet thresholds for determining if traffic control element is handled (e.g. stop sign handled if stopped at stop line)
+    traffic_control_element_handled_lanelet_threshold: 1
+
+    # Stop sign car detection threshold (meters)
+    stop_sign_car_detection_threshold_m: 8.0
+
+    # Goal reached threshold (meters)
+    goal_reached_threshold_m: 1.0
+
+    # Service timeouts (milliseconds)
+    get_shortest_route_timeout_ms: 6000
+    set_route_timeout_ms: 6000
+    get_lanelets_by_reg_elem_timeout_ms: 5000
+    wall_service_timeout_ms: 5000
+
     # Logging options
     enable_console_logging: false
