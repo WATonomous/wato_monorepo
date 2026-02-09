@@ -29,6 +29,11 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 
   double update_rate = this->get_parameter("update_rate").as_double();
 
+  // Declare steering wheel conversion factor
+  this->declare_parameter<double>("steering_wheel_conversion_factor", 15.7);
+
+  steering_wheel_conversion_factor_ = this->get_parameter("steering_wheel_conversion_factor").as_double();
+
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
     this->get_node_base_interface(),
@@ -87,6 +92,9 @@ void PidControlNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriv
 void PidControlNode::steering_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
   steering_meas_ = msg->data;
+  steering_meas_ = steering_meas_ / steering_wheel_conversion_factor_;
+  // convert to radians
+  steering_meas_ = steering_meas_ * (M_PI / 180.0);
   steering_meas_received_ = true;
 }
 
@@ -111,6 +119,7 @@ void PidControlNode::control_loop()
     return;
   }
 
+  /*
   if (!steering_meas_received_ || !velocity_meas_received_) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
@@ -121,14 +130,26 @@ void PidControlNode::control_loop()
       velocity_meas_received_ ? "OK" : "MISSING");
     return;
   }
+  */
+
+  double steering_command = 0.0;
+  double velocity_command = 0.0;
 
   // Compute Steering Command (Torque)
-  double steering_error = steering_setpoint_ - steering_meas_;
-  double steering_command = steering_pid_ros_->compute_command(steering_error, dt);
+  if (steering_meas_received_) {
+    double steering_error = steering_setpoint_ - steering_meas_;
+    steering_command = steering_pid_ros_->compute_command(steering_error, dt);
+  } else {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");
+  }
 
   // Compute Velocity Command
-  double velocity_error = velocity_setpoint_ - velocity_meas_;
-  double velocity_command = velocity_pid_ros_->compute_command(velocity_error, dt);
+  if (velocity_meas_received_) {
+    double velocity_error = velocity_setpoint_ - velocity_meas_;
+    velocity_command = velocity_pid_ros_->compute_command(velocity_error, dt);
+  } else {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for velocity feedback...");
+  }
 
   // Publish Roscco message
   roscco_msg::msg::Roscco msg;
