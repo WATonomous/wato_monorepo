@@ -52,7 +52,11 @@ public:
     BT::RosNodeParams wall_service = params;
 
     // Read timeout values from node parameters
-    auto node = params.nh;
+    auto node = params.nh.lock();
+    if (!node)
+    {
+      throw std::runtime_error("ROS node expired in CommonNodeRegistrar");
+    }
     int get_shortest_route_timeout = node->get_parameter("get_shortest_route_timeout_ms").as_int();
     int set_route_timeout = node->get_parameter("set_route_timeout_ms").as_int();
     int get_lanelets_timeout = node->get_parameter("get_lanelets_by_reg_elem_timeout_ms").as_int();
