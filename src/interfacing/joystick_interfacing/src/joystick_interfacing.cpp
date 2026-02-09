@@ -75,7 +75,7 @@ void JoystickNode::configure()
   // Setup pubs/subs
   ackermann_drive_stamped_pub_ =
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/joystick/ackermann", rclcpp::QoS(10));
-  roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("/joystick/roscco", rclcpp::QoS(10));
+  roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("/roscco", rclcpp::QoS(10));
   idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/joystick/is_idle", rclcpp::QoS(10));
   state_pub_ = this->create_publisher<std_msgs::msg::Int8>("/joystick/state", rclcpp::QoS(10));
 

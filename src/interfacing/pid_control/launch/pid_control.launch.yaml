@@ -6,12 +6,12 @@ launch:
       output: "screen"
       remap:
         - from: "ackermann"
-          to: "/joystick/ackermann"
+          to: "/ackermann"
         - from: "steering_feedback"
-          to: "/steering_feedback"
+          to: "/oscc_interfacing/steering_wheel_angle"
         - from: "velocity_feedback"
           to: "/velocity_feedback"
         - from: "roscco"
-          to: "/joystick/roscco"
+          to: "/roscco"
       param:
         - from: "$(find-pkg-share pid_control)/config/pid_control.yaml"

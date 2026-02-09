@@ -56,7 +56,7 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
 ### Published
 
 - `/joystick/ackermann` (`ackermann_msgs/msg/AckermannDriveStamped`): Ackermann drive commands
-- `/joystick/roscco` (`roscco_msg/msg/Roscco`): ROSCCO drive commands (used when toggled)
+- `/roscco` (`roscco_msg/msg/Roscco`): ROSCCO drive commands (used when toggled)
 - `/joystick/is_idle` (`std_msgs/msg/Bool`): Idle state indicator (true when joystick is not active)
 - `/joystick/state` (`std_msgs/msg/Int8`): Current operation mode (0: NULL, 1: ACKERMANN, 2: ROSCCO)
 - `/joy/set_feedback` (`sensor_msgs/msg/JoyFeedback`): Force feedback (vibration) commands to the joystick
@@ -79,7 +79,7 @@ The node will automatically detect and read from `/dev/input/js0` (or the device
    - Steering and throttle are scaled based on the current mode (Ackermann or ROSCCO) using their respective `max_speed` and `max_steering_angle` parameters.
    - Inversion flags are applied if configured.
 
-5. **Topic Selection**: If the `toggle_button` is pressed (rising edge), the node switches between publishing to `/joystick/ackermann` and `/joystick/roscco`.
+5. **Topic Selection**: If the `toggle_button` is pressed (rising edge), the node switches between publishing to `/joystick/ackermann` and `/roscco`.
    - **Switch to ROSCCO**: Double vibration pulse.
    - **Switch to Ackermann**: Single vibration pulse.
 
