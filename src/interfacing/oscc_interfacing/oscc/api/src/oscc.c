@@ -36,7 +36,8 @@
 static int global_oscc_can_socket = UNINITIALIZED_SOCKET;
 static int global_vehicle_can_socket = UNINITIALIZED_SOCKET;
 
-oscc_result_t oscc_init() {
+oscc_result_t oscc_init()
+{
   oscc_result_t result = OSCC_ERROR;
 
   result = oscc_search_can(&auto_init_all_can, true);
@@ -59,7 +60,8 @@ oscc_result_t oscc_init() {
   return result;
 }
 
-oscc_result_t oscc_open(unsigned int channel) {
+oscc_result_t oscc_open(unsigned int channel)
+{
   oscc_result_t result = OSCC_ERROR;
 
   can_contains_s channel_contents = {.is_oscc = false, .has_vehicle = false};
@@ -99,7 +101,8 @@ oscc_result_t oscc_open(unsigned int channel) {
   return result;
 }
 
-oscc_result_t oscc_close() {
+oscc_result_t oscc_close()
+{
   bool closed_channel = false;
   bool close_errored = false;
 
@@ -130,7 +133,8 @@ oscc_result_t oscc_close() {
   }
 }
 
-oscc_result_t oscc_enable(void) {
+oscc_result_t oscc_enable(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
   result = oscc_enable_brakes();
@@ -146,7 +150,8 @@ oscc_result_t oscc_enable(void) {
   return result;
 }
 
-oscc_result_t oscc_disable(void) {
+oscc_result_t oscc_disable(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
   result = oscc_disable_brakes();
@@ -162,52 +167,49 @@ oscc_result_t oscc_disable(void) {
   return result;
 }
 
-oscc_result_t oscc_publish_brake_position(double brake_position) {
+oscc_result_t oscc_publish_brake_position(double brake_position)
+{
   oscc_result_t result = OSCC_ERROR;
 
-  oscc_brake_command_s brake_cmd = {.magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-                                    .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+  oscc_brake_command_s brake_cmd = {.magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
   brake_cmd.pedal_command = (float)brake_position;
 
-  result = oscc_can_write(OSCC_BRAKE_COMMAND_CAN_ID, (void *)&brake_cmd,
-                          sizeof(brake_cmd));
+  result = oscc_can_write(OSCC_BRAKE_COMMAND_CAN_ID, (void *)&brake_cmd, sizeof(brake_cmd));
 
   return result;
 }
 
-oscc_result_t oscc_publish_throttle_position(double throttle_position) {
+oscc_result_t oscc_publish_throttle_position(double throttle_position)
+{
   oscc_result_t result = OSCC_ERROR;
 
   oscc_throttle_command_s throttle_cmd = {
-      .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-      .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+    .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
   throttle_cmd.torque_request = (float)throttle_position;
 
-  result = oscc_can_write(OSCC_THROTTLE_COMMAND_CAN_ID, (void *)&throttle_cmd,
-                          sizeof(throttle_cmd));
+  result = oscc_can_write(OSCC_THROTTLE_COMMAND_CAN_ID, (void *)&throttle_cmd, sizeof(throttle_cmd));
 
   return result;
 }
 
-oscc_result_t oscc_publish_steering_torque(double torque) {
+oscc_result_t oscc_publish_steering_torque(double torque)
+{
   oscc_result_t result = OSCC_ERROR;
 
   oscc_steering_command_s steering_cmd = {
-      .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-      .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+    .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
   steering_cmd.torque_command = (float)torque;
 
-  result = oscc_can_write(OSCC_STEERING_COMMAND_CAN_ID, (void *)&steering_cmd,
-                          sizeof(steering_cmd));
+  result = oscc_can_write(OSCC_STEERING_COMMAND_CAN_ID, (void *)&steering_cmd, sizeof(steering_cmd));
 
   return result;
 }
 
-oscc_result_t
-oscc_subscribe_to_brake_reports(void (*callback)(oscc_brake_report_s *report)) {
+oscc_result_t oscc_subscribe_to_brake_reports(void (*callback)(oscc_brake_report_s * report))
+{
   oscc_result_t result = OSCC_ERROR;
 
   if (callback != NULL) {
@@ -218,8 +220,8 @@ oscc_subscribe_to_brake_reports(void (*callback)(oscc_brake_report_s *report)) {
   return result;
 }
 
-oscc_result_t oscc_subscribe_to_throttle_reports(
-    void (*callback)(oscc_throttle_report_s *report)) {
+oscc_result_t oscc_subscribe_to_throttle_reports(void (*callback)(oscc_throttle_report_s * report))
+{
   oscc_result_t result = OSCC_ERROR;
 
   if (callback != NULL) {
@@ -230,8 +232,8 @@ oscc_result_t oscc_subscribe_to_throttle_reports(
   return result;
 }
 
-oscc_result_t oscc_subscribe_to_steering_reports(
-    void (*callback)(oscc_steering_report_s *report)) {
+oscc_result_t oscc_subscribe_to_steering_reports(void (*callback)(oscc_steering_report_s * report))
+{
   oscc_result_t result = OSCC_ERROR;
 
   if (callback != NULL) {
@@ -242,8 +244,8 @@ oscc_result_t oscc_subscribe_to_steering_reports(
   return result;
 }
 
-oscc_result_t
-oscc_subscribe_to_fault_reports(void (*callback)(oscc_fault_report_s *report)) {
+oscc_result_t oscc_subscribe_to_fault_reports(void (*callback)(oscc_fault_report_s * report))
+{
   oscc_result_t result = OSCC_ERROR;
 
   if (callback != NULL) {
@@ -254,8 +256,8 @@ oscc_subscribe_to_fault_reports(void (*callback)(oscc_fault_report_s *report)) {
   return result;
 }
 
-oscc_result_t
-oscc_subscribe_to_obd_messages(void (*callback)(struct can_frame *frame)) {
+oscc_result_t oscc_subscribe_to_obd_messages(void (*callback)(struct can_frame * frame))
+{
   oscc_result_t result = OSCC_ERROR;
 
   if (callback != NULL) {
@@ -267,83 +269,78 @@ oscc_subscribe_to_obd_messages(void (*callback)(struct can_frame *frame)) {
 }
 
 /* Internal */
-oscc_result_t oscc_enable_brakes(void) {
+oscc_result_t oscc_enable_brakes(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
-  oscc_brake_enable_s brake_enable = {.magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-                                      .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+  oscc_brake_enable_s brake_enable = {.magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
-  result = oscc_can_write(OSCC_BRAKE_ENABLE_CAN_ID, (void *)&brake_enable,
-                          sizeof(brake_enable));
+  result = oscc_can_write(OSCC_BRAKE_ENABLE_CAN_ID, (void *)&brake_enable, sizeof(brake_enable));
 
   return result;
 }
 
-oscc_result_t oscc_enable_throttle(void) {
+oscc_result_t oscc_enable_throttle(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
   oscc_throttle_enable_s throttle_enable = {
-      .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-      .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+    .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
-  result = oscc_can_write(OSCC_THROTTLE_ENABLE_CAN_ID, (void *)&throttle_enable,
-                          sizeof(throttle_enable));
+  result = oscc_can_write(OSCC_THROTTLE_ENABLE_CAN_ID, (void *)&throttle_enable, sizeof(throttle_enable));
 
   return result;
 }
 
-oscc_result_t oscc_enable_steering(void) {
+oscc_result_t oscc_enable_steering(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
   oscc_steering_enable_s steering_enable = {
-      .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-      .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+    .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
-  result = oscc_can_write(OSCC_STEERING_ENABLE_CAN_ID, (void *)&steering_enable,
-                          sizeof(steering_enable));
+  result = oscc_can_write(OSCC_STEERING_ENABLE_CAN_ID, (void *)&steering_enable, sizeof(steering_enable));
 
   return result;
 }
 
-oscc_result_t oscc_disable_brakes(void) {
+oscc_result_t oscc_disable_brakes(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
-  oscc_brake_disable_s brake_disable = {.magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-                                        .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+  oscc_brake_disable_s brake_disable = {.magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
-  result = oscc_can_write(OSCC_BRAKE_DISABLE_CAN_ID, (void *)&brake_disable,
-                          sizeof(brake_disable));
+  result = oscc_can_write(OSCC_BRAKE_DISABLE_CAN_ID, (void *)&brake_disable, sizeof(brake_disable));
 
   return result;
 }
 
-oscc_result_t oscc_disable_throttle(void) {
+oscc_result_t oscc_disable_throttle(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
   oscc_throttle_disable_s throttle_disable = {
-      .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-      .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+    .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
-  result = oscc_can_write(OSCC_THROTTLE_DISABLE_CAN_ID,
-                          (void *)&throttle_disable, sizeof(throttle_disable));
+  result = oscc_can_write(OSCC_THROTTLE_DISABLE_CAN_ID, (void *)&throttle_disable, sizeof(throttle_disable));
 
   return result;
 }
 
-oscc_result_t oscc_disable_steering(void) {
+oscc_result_t oscc_disable_steering(void)
+{
   oscc_result_t result = OSCC_ERROR;
 
   oscc_steering_disable_s steering_disable = {
-      .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0,
-      .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
+    .magic[0] = (uint8_t)OSCC_MAGIC_BYTE_0, .magic[1] = (uint8_t)OSCC_MAGIC_BYTE_1};
 
-  result = oscc_can_write(OSCC_STEERING_DISABLE_CAN_ID,
-                          (void *)&steering_disable, sizeof(steering_disable));
+  result = oscc_can_write(OSCC_STEERING_DISABLE_CAN_ID, (void *)&steering_disable, sizeof(steering_disable));
 
   return result;
 }
 
-void oscc_update_status(int sig, siginfo_t *siginfo, void *context) {
+void oscc_update_status(int sig, siginfo_t * siginfo, void * context)
+{
   struct can_frame rx_frame;
   memset(&rx_frame, 0, sizeof(rx_frame));
 
@@ -351,32 +348,27 @@ void oscc_update_status(int sig, siginfo_t *siginfo, void *context) {
     int oscc_can_bytes = read(global_oscc_can_socket, &rx_frame, CAN_MTU);
 
     while (oscc_can_bytes > 0) {
-      if ((rx_frame.data[0] == OSCC_MAGIC_BYTE_0) &&
-          (rx_frame.data[1] == OSCC_MAGIC_BYTE_1)) {
+      if ((rx_frame.data[0] == OSCC_MAGIC_BYTE_0) && (rx_frame.data[1] == OSCC_MAGIC_BYTE_1)) {
         if (rx_frame.can_id == OSCC_STEERING_REPORT_CAN_ID) {
-          oscc_steering_report_s *steering_report =
-              (oscc_steering_report_s *)rx_frame.data;
+          oscc_steering_report_s * steering_report = (oscc_steering_report_s *)rx_frame.data;
 
           if (steering_report_callback != NULL) {
             steering_report_callback(steering_report);
           }
         } else if (rx_frame.can_id == OSCC_THROTTLE_REPORT_CAN_ID) {
-          oscc_throttle_report_s *throttle_report =
-              (oscc_throttle_report_s *)rx_frame.data;
+          oscc_throttle_report_s * throttle_report = (oscc_throttle_report_s *)rx_frame.data;
 
           if (throttle_report_callback != NULL) {
             throttle_report_callback(throttle_report);
           }
         } else if (rx_frame.can_id == OSCC_BRAKE_REPORT_CAN_ID) {
-          oscc_brake_report_s *brake_report =
-              (oscc_brake_report_s *)rx_frame.data;
+          oscc_brake_report_s * brake_report = (oscc_brake_report_s *)rx_frame.data;
 
           if (brake_report_callback != NULL) {
             brake_report_callback(brake_report);
           }
         } else if (rx_frame.can_id == OSCC_FAULT_REPORT_CAN_ID) {
-          oscc_fault_report_s *fault_report =
-              (oscc_fault_report_s *)rx_frame.data;
+          oscc_fault_report_s * fault_report = (oscc_fault_report_s *)rx_frame.data;
 
           if (fault_report_callback != NULL) {
             fault_report_callback(fault_report);
@@ -405,7 +397,8 @@ void oscc_update_status(int sig, siginfo_t *siginfo, void *context) {
   }
 }
 
-oscc_result_t oscc_can_write(long id, void *msg, unsigned int dlc) {
+oscc_result_t oscc_can_write(long id, void * msg, unsigned int dlc)
+{
   oscc_result_t result = OSCC_ERROR;
 
   if (global_oscc_can_socket >= 0) {
@@ -428,7 +421,8 @@ oscc_result_t oscc_can_write(long id, void *msg, unsigned int dlc) {
   return result;
 }
 
-oscc_result_t register_can_signal() {
+oscc_result_t register_can_signal()
+{
   oscc_result_t result = OSCC_ERROR;
 
   struct sigaction sig;
@@ -447,7 +441,8 @@ oscc_result_t register_can_signal() {
   return result;
 }
 
-oscc_result_t oscc_async_enable(int socket) {
+oscc_result_t oscc_async_enable(int socket)
+{
   oscc_result_t result = OSCC_ERROR;
 
   int ret = fcntl(socket, F_SETOWN, getpid());
@@ -471,8 +466,8 @@ oscc_result_t oscc_async_enable(int socket) {
   return result;
 }
 
-oscc_result_t oscc_search_can(can_contains_s (*search_callback)(const char *),
-                              bool search_oscc) {
+oscc_result_t oscc_search_can(can_contains_s (*search_callback)(const char *), bool search_oscc)
+{
   oscc_result_t result = OSCC_OK;
 
   if (search_callback == NULL) {
@@ -514,7 +509,8 @@ oscc_result_t oscc_search_can(can_contains_s (*search_callback)(const char *),
   return result;
 }
 
-can_contains_s auto_init_all_can(const char *can_channel) {
+can_contains_s auto_init_all_can(const char * can_channel)
+{
   if (can_channel == NULL) {
     can_contains_s contents = {.is_oscc = false, .has_vehicle = false};
 
@@ -532,7 +528,8 @@ can_contains_s auto_init_all_can(const char *can_channel) {
   return contents;
 }
 
-can_contains_s auto_init_vehicle_can(const char *can_channel) {
+can_contains_s auto_init_vehicle_can(const char * can_channel)
+{
   if (can_channel == NULL) {
     can_contains_s contents = {.is_oscc = false, .has_vehicle = false};
 
@@ -548,7 +545,8 @@ can_contains_s auto_init_vehicle_can(const char *can_channel) {
   return contents;
 }
 
-oscc_result_t init_oscc_can(const char *can_channel) {
+oscc_result_t init_oscc_can(const char * can_channel)
+{
   int result = OSCC_ERROR;
 
   if (can_channel != NULL) {
@@ -564,7 +562,8 @@ oscc_result_t init_oscc_can(const char *can_channel) {
   return result;
 }
 
-oscc_result_t init_vehicle_can(const char *can_channel) {
+oscc_result_t init_vehicle_can(const char * can_channel)
+{
   int result = OSCC_ERROR;
 
   if (can_channel != NULL) {
@@ -580,7 +579,8 @@ oscc_result_t init_vehicle_can(const char *can_channel) {
   return result;
 }
 
-int init_can_socket(const char *can_channel, struct timeval *tv) {
+int init_can_socket(const char * can_channel, struct timeval * tv)
+{
   if (can_channel == NULL) {
     return UNINITIALIZED_SOCKET;
   }
@@ -607,8 +607,7 @@ int init_can_socket(const char *can_channel, struct timeval *tv) {
   // If a timeout has been specified set one here since it should be set before
   // the bind call
   if (valid >= 0 && tv != NULL) {
-    valid =
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, tv, sizeof(struct timeval));
+    valid = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, tv, sizeof(struct timeval));
 
     if (valid < 0) {
       perror("Setting timeout failed:");
@@ -638,7 +637,8 @@ int init_can_socket(const char *can_channel, struct timeval *tv) {
   return sock;
 }
 
-can_contains_s can_detection(const char *can_channel) {
+can_contains_s can_detection(const char * can_channel)
+{
   if (can_channel == NULL) {
     can_contains_s detection = {.is_oscc = false, .has_vehicle = false};
 
@@ -651,13 +651,10 @@ can_contains_s can_detection(const char *can_channel) {
 
   int sock = init_can_socket(can_channel, &timeout);
 
-  vehicle_can_desc_s vehicle_detection = {.has_steering_angle = false,
-                                          .has_brake_pressure = false,
-                                          .has_wheel_speed = false};
+  vehicle_can_desc_s vehicle_detection = {
+    .has_steering_angle = false, .has_brake_pressure = false, .has_wheel_speed = false};
 
-  oscc_can_desc_s oscc_detection = {.has_accel_report = false,
-                                    .has_steer_report = false,
-                                    .has_brake_report = false};
+  oscc_can_desc_s oscc_detection = {.has_accel_report = false, .has_steer_report = false, .has_brake_report = false};
 
   uint i = 0;
 
@@ -669,45 +666,37 @@ can_contains_s can_detection(const char *can_channel) {
     recv_bytes = read(sock, &rx_frame, sizeof(rx_frame));
 
     if (recv_bytes == CAN_MTU || recv_bytes == CANFD_MTU) {
-      if ((rx_frame.can_id < 0x100) &&
-          (rx_frame.data[0] == OSCC_MAGIC_BYTE_0) &&
-          (rx_frame.data[1] == OSCC_MAGIC_BYTE_1)) {
-        oscc_detection.has_brake_report |=
-            ((rx_frame.can_id == OSCC_BRAKE_REPORT_CAN_ID));
+      if (
+        (rx_frame.can_id < 0x100) && (rx_frame.data[0] == OSCC_MAGIC_BYTE_0) && (rx_frame.data[1] == OSCC_MAGIC_BYTE_1))
+      {
+        oscc_detection.has_brake_report |= ((rx_frame.can_id == OSCC_BRAKE_REPORT_CAN_ID));
 
-        oscc_detection.has_steer_report |=
-            ((rx_frame.can_id == OSCC_STEERING_REPORT_CAN_ID));
+        oscc_detection.has_steer_report |= ((rx_frame.can_id == OSCC_STEERING_REPORT_CAN_ID));
 
-        oscc_detection.has_accel_report |=
-            ((rx_frame.can_id == OSCC_THROTTLE_REPORT_CAN_ID));
+        oscc_detection.has_accel_report |= ((rx_frame.can_id == OSCC_THROTTLE_REPORT_CAN_ID));
       }
 
-      vehicle_detection.has_brake_pressure |=
-          (rx_frame.can_id == KIA_SOUL_OBD_BRAKE_PRESSURE_CAN_ID);
+      vehicle_detection.has_brake_pressure |= (rx_frame.can_id == KIA_SOUL_OBD_BRAKE_PRESSURE_CAN_ID);
 
-      vehicle_detection.has_steering_angle |=
-          (rx_frame.can_id == KIA_SOUL_OBD_STEERING_WHEEL_ANGLE_CAN_ID);
+      vehicle_detection.has_steering_angle |= (rx_frame.can_id == KIA_SOUL_OBD_STEERING_WHEEL_ANGLE_CAN_ID);
 
-      vehicle_detection.has_wheel_speed |=
-          (rx_frame.can_id == KIA_SOUL_OBD_WHEEL_SPEED_CAN_ID);
+      vehicle_detection.has_wheel_speed |= (rx_frame.can_id == KIA_SOUL_OBD_WHEEL_SPEED_CAN_ID);
     }
   }
 
   close(sock);
 
-  can_contains_s detection = {.is_oscc = oscc_detection.has_brake_report &&
-                                         oscc_detection.has_steer_report &&
-                                         oscc_detection.has_accel_report,
-                              .has_vehicle =
-                                  vehicle_detection.has_brake_pressure &&
-                                  vehicle_detection.has_steering_angle &&
-                                  vehicle_detection.has_wheel_speed};
+  can_contains_s detection = {
+    .is_oscc = oscc_detection.has_brake_report && oscc_detection.has_steer_report && oscc_detection.has_accel_report,
+    .has_vehicle = vehicle_detection.has_brake_pressure && vehicle_detection.has_steering_angle &&
+                   vehicle_detection.has_wheel_speed};
 
   return detection;
 }
 
-oscc_result_t construct_interfaces_list(device_names_s *const names_ptr) {
-  FILE *file_handler;
+oscc_result_t construct_interfaces_list(device_names_s * const names_ptr)
+{
+  FILE * file_handler;
   char buffer[512];
   oscc_result_t result = OSCC_OK;
 
@@ -744,7 +733,7 @@ oscc_result_t construct_interfaces_list(device_names_s *const names_ptr) {
     fgets(buffer, sizeof(buffer), file_handler);
   }
 
-  char *socket_name = calloc(IFNAMSIZ, sizeof(char));
+  char * socket_name = calloc(IFNAMSIZ, sizeof(char));
 
   if (!socket_name) {
     result = OSCC_ERROR;
@@ -773,7 +762,8 @@ oscc_result_t construct_interfaces_list(device_names_s *const names_ptr) {
   return result;
 }
 
-oscc_result_t clear_device_names(device_names_s *const names_ptr) {
+oscc_result_t clear_device_names(device_names_s * const names_ptr)
+{
   oscc_result_t result = OSCC_OK;
 
   if (names_ptr == NULL) {
@@ -799,7 +789,8 @@ oscc_result_t clear_device_names(device_names_s *const names_ptr) {
   return result;
 }
 
-oscc_result_t get_device_name(char *string, char *const name) {
+oscc_result_t get_device_name(char * string, char * const name)
+{
   oscc_result_t result = OSCC_OK;
 
   if (name == NULL || string == NULL) {
@@ -833,8 +824,8 @@ oscc_result_t get_device_name(char *string, char *const name) {
   return result;
 }
 
-static oscc_result_t get_wheel_speed(struct can_frame const *const frame,
-                                     double *wheel_speed, const size_t offset) {
+static oscc_result_t get_wheel_speed(struct can_frame const * const frame, double * wheel_speed, const size_t offset)
+{
   if ((frame == NULL) || (wheel_speed == NULL)) {
     return OSCC_ERROR;
   }
@@ -851,8 +842,8 @@ static oscc_result_t get_wheel_speed(struct can_frame const *const frame,
   return OSCC_OK;
 }
 
-oscc_result_t get_wheel_speed_right_rear(struct can_frame const *const frame,
-                                         double *wheel_speed_right_rear) {
+oscc_result_t get_wheel_speed_right_rear(struct can_frame const * const frame, double * wheel_speed_right_rear)
+{
   size_t offset = 6;
 
   oscc_result_t ret = get_wheel_speed(frame, wheel_speed_right_rear, offset);
@@ -860,8 +851,8 @@ oscc_result_t get_wheel_speed_right_rear(struct can_frame const *const frame,
   return ret;
 }
 
-oscc_result_t get_wheel_speed_left_rear(struct can_frame const *const frame,
-                                        double *wheel_speed_left_rear) {
+oscc_result_t get_wheel_speed_left_rear(struct can_frame const * const frame, double * wheel_speed_left_rear)
+{
   size_t offset = 4;
 
   oscc_result_t ret = get_wheel_speed(frame, wheel_speed_left_rear, offset);
@@ -869,8 +860,8 @@ oscc_result_t get_wheel_speed_left_rear(struct can_frame const *const frame,
   return ret;
 }
 
-oscc_result_t get_wheel_speed_right_front(struct can_frame const *const frame,
-                                          double *wheel_speed_right_front) {
+oscc_result_t get_wheel_speed_right_front(struct can_frame const * const frame, double * wheel_speed_right_front)
+{
   size_t offset = 2;
 
   oscc_result_t ret = get_wheel_speed(frame, wheel_speed_right_front, offset);
@@ -878,8 +869,8 @@ oscc_result_t get_wheel_speed_right_front(struct can_frame const *const frame,
   return ret;
 }
 
-oscc_result_t get_wheel_speed_left_front(struct can_frame const *const frame,
-                                         double *wheel_speed_left_front) {
+oscc_result_t get_wheel_speed_left_front(struct can_frame const * const frame, double * wheel_speed_left_front)
+{
   size_t offset = 0;
 
   oscc_result_t ret = get_wheel_speed(frame, wheel_speed_left_front, offset);
@@ -887,8 +878,8 @@ oscc_result_t get_wheel_speed_left_front(struct can_frame const *const frame,
   return ret;
 }
 
-oscc_result_t get_steering_wheel_angle(struct can_frame const *const frame,
-                                       double *steering_wheel_angle) {
+oscc_result_t get_steering_wheel_angle(struct can_frame const * const frame, double * steering_wheel_angle)
+{
   if ((frame == NULL) || (steering_wheel_angle == NULL)) {
     return OSCC_ERROR;
   }
@@ -904,8 +895,8 @@ oscc_result_t get_steering_wheel_angle(struct can_frame const *const frame,
   return OSCC_OK;
 }
 
-oscc_result_t get_brake_pressure(struct can_frame const *const frame,
-                                 double *brake_pressure) {
+oscc_result_t get_brake_pressure(struct can_frame const * const frame, double * brake_pressure)
+{
   if ((frame == NULL) || (brake_pressure == NULL)) {
     return OSCC_ERROR;
   }

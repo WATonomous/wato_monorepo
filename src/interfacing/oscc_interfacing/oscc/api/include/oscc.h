@@ -46,7 +46,12 @@
  */
 #define CAN_MESSAGE_TIMEOUT (100)
 
-typedef enum { OSCC_OK, OSCC_ERROR, OSCC_WARNING } oscc_result_t;
+typedef enum
+{
+  OSCC_OK,
+  OSCC_ERROR,
+  OSCC_WARNING
+} oscc_result_t;
 
 /**
  * @brief Looks for available CAN channels and automatically detects which
@@ -144,8 +149,7 @@ oscc_result_t oscc_publish_steering_torque(double torque);
  * @return OSCC_ERROR or OSCC_OK
  *
  */
-oscc_result_t
-oscc_subscribe_to_brake_reports(void (*callback)(oscc_brake_report_s *report));
+oscc_result_t oscc_subscribe_to_brake_reports(void (*callback)(oscc_brake_report_s * report));
 
 /**
  * @brief Register callback function to be called when throttle report
@@ -157,8 +161,7 @@ oscc_subscribe_to_brake_reports(void (*callback)(oscc_brake_report_s *report));
  * @return OSCC_ERROR or OSCC_OK
  *
  */
-oscc_result_t oscc_subscribe_to_throttle_reports(
-    void (*callback)(oscc_throttle_report_s *report));
+oscc_result_t oscc_subscribe_to_throttle_reports(void (*callback)(oscc_throttle_report_s * report));
 
 /**
  * @brief Register callback function to be called when steering report
@@ -170,8 +173,7 @@ oscc_result_t oscc_subscribe_to_throttle_reports(
  * @return OSCC_ERROR or OSCC_OK
  *
  */
-oscc_result_t oscc_subscribe_to_steering_reports(
-    void (*callback)(oscc_steering_report_s *report));
+oscc_result_t oscc_subscribe_to_steering_reports(void (*callback)(oscc_steering_report_s * report));
 
 /**
  * @brief Register callback function to be called when fault report
@@ -183,8 +185,7 @@ oscc_result_t oscc_subscribe_to_steering_reports(
  * @return OSCC_ERROR or OSCC_OK
  *
  */
-oscc_result_t
-oscc_subscribe_to_fault_reports(void (*callback)(oscc_fault_report_s *report));
+oscc_result_t oscc_subscribe_to_fault_reports(void (*callback)(oscc_fault_report_s * report));
 
 /**
  * @brief Register callback function to be called when OBD message received
@@ -196,8 +197,7 @@ oscc_subscribe_to_fault_reports(void (*callback)(oscc_fault_report_s *report));
  * @return OSCC_ERROR or OSCC_OK
  *
  */
-oscc_result_t
-oscc_subscribe_to_obd_messages(void (*callback)(struct can_frame *frame));
+oscc_result_t oscc_subscribe_to_obd_messages(void (*callback)(struct can_frame * frame));
 
 /**
  * @brief Set vehicle right rear wheel speed in kph from CAN frame. (kph)
@@ -214,8 +214,7 @@ oscc_subscribe_to_obd_messages(void (*callback)(struct can_frame *frame));
  * \li \ref OSCC_ERROR if a parameter is NULL or the CAN frame ID is not
  * \ref KIA_SOUL_OBD_WHEEL_SPEED_CAN_ID
  */
-oscc_result_t get_wheel_speed_right_rear(struct can_frame const *const frame,
-                                         double *wheel_speed_right_rear);
+oscc_result_t get_wheel_speed_right_rear(struct can_frame const * const frame, double * wheel_speed_right_rear);
 
 /**
  * @brief Get vehicle left rear wheel speed in kph from CAN frame. (kph)
@@ -232,8 +231,7 @@ oscc_result_t get_wheel_speed_right_rear(struct can_frame const *const frame,
  * \li \ref OSCC_ERROR if a parameter is NULL or the CAN frame ID is not
  * \ref KIA_SOUL_OBD_WHEEL_SPEED_CAN_ID
  */
-oscc_result_t get_wheel_speed_left_rear(struct can_frame const *const frame,
-                                        double *wheel_speed_left_rear);
+oscc_result_t get_wheel_speed_left_rear(struct can_frame const * const frame, double * wheel_speed_left_rear);
 
 /**
  * @brief Get vehicle right front wheel speed in kph from CAN frame. (kph)
@@ -250,8 +248,7 @@ oscc_result_t get_wheel_speed_left_rear(struct can_frame const *const frame,
  * \li \ref OSCC_ERROR if a parameter is NULL or the CAN frame ID is not
  * \ref KIA_SOUL_OBD_WHEEL_SPEED_CAN_ID
  */
-oscc_result_t get_wheel_speed_right_front(struct can_frame const *const frame,
-                                          double *wheel_speed_right_front);
+oscc_result_t get_wheel_speed_right_front(struct can_frame const * const frame, double * wheel_speed_right_front);
 
 /**
  * @brief Get vehicle left front wheel speed in kph from CAN frame. (kph)
@@ -268,8 +265,7 @@ oscc_result_t get_wheel_speed_right_front(struct can_frame const *const frame,
  * \li \ref OSCC_ERROR if a parameter is NULL or the CAN frame ID is not
  * \ref KIA_SOUL_OBD_WHEEL_SPEED_CAN_ID
  */
-oscc_result_t get_wheel_speed_left_front(struct can_frame const *const frame,
-                                         double *wheel_speed_left_front);
+oscc_result_t get_wheel_speed_left_front(struct can_frame const * const frame, double * wheel_speed_left_front);
 
 /**
  * @brief Get vehicle steering wheel angle from CAN frame. (degrees)
@@ -286,8 +282,7 @@ oscc_result_t get_wheel_speed_left_front(struct can_frame const *const frame,
  * \li \ref OSCC_ERROR if a parameter is NULL or the CAN frame ID is not
  * \ref KIA_SOUL_OBD_STEERING_WHEEL_ANGLE_CAN_ID
  */
-oscc_result_t get_steering_wheel_angle(struct can_frame const *const frame,
-                                       double *steering_wheel_angle);
+oscc_result_t get_steering_wheel_angle(struct can_frame const * const frame, double * steering_wheel_angle);
 
 /**
  * @brief Get vehicle brake pressure from CAN frame. (bar)
@@ -304,8 +299,7 @@ oscc_result_t get_steering_wheel_angle(struct can_frame const *const frame,
  * \li \ref OSCC_ERROR if a parameter is NULL or the CAN frame ID is not
  * \ref KIA_SOUL_OBD_BRAKE_PRESSURE_CAN_ID
  */
-oscc_result_t get_brake_pressure(struct can_frame const *const frame,
-                                 double *brake_pressure);
+oscc_result_t get_brake_pressure(struct can_frame const * const frame, double * brake_pressure);
 
 oscc_result_t oscc_enable_throttle(void);
 oscc_result_t oscc_enable_steering(void);

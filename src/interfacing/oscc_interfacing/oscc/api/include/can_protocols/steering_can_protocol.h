@@ -71,7 +71,8 @@
  * @brief Enumeration of all possible steering DTCs.
  *
  */
-enum {
+enum
+{
   /* DTC bitfield position indicating an invalid sensor value. */
   OSCC_STEERING_DTC_INVALID_SENSOR_VAL = 0,
 
@@ -91,7 +92,8 @@ enum {
  * CAN frame ID: \ref OSCC_STEERING_ENABLE_CAN_ID
  *
  */
-typedef struct {
+typedef struct
+{
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
                      *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
                      *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
@@ -105,7 +107,8 @@ typedef struct {
  * CAN frame ID: \ref OSCC_STEERING_DISABLE_CAN_ID
  *
  */
-typedef struct {
+typedef struct
+{
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
                      *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
                      *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
@@ -119,7 +122,8 @@ typedef struct {
  * CAN frame ID: \ref OSCC_STEERING_COMMAND_CAN_ID
  *
  */
-typedef struct {
+typedef struct
+{
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
                      *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
                      *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
@@ -139,7 +143,8 @@ typedef struct {
  * CAN frame ID: \ref OSCC_STEERING_REPORT_CAN_ID
  *
  */
-typedef struct {
+typedef struct
+{
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
                      *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
                      *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
