@@ -341,6 +341,10 @@ oscc_result_t oscc_disable_steering(void)
 
 void oscc_update_status(int sig, siginfo_t * siginfo, void * context)
 {
+  (void)sig;
+  (void)siginfo;
+  (void)context;
+
   struct can_frame rx_frame;
   memset(&rx_frame, 0, sizeof(rx_frame));
 
@@ -811,11 +815,9 @@ oscc_result_t get_device_name(char * string, char * const name)
     size_t leading_spaces = strspn(temp_name, " ");
 
     if (leading_spaces != 0) {
-      char new_name[IFNAMSIZ];
-
       strncpy(name, temp_name + leading_spaces, span - leading_spaces + 1);
 
-      new_name[span - leading_spaces] = '\0';
+      name[span - leading_spaces] = '\0';
     } else {
       strncpy(name, temp_name, span);
     }
