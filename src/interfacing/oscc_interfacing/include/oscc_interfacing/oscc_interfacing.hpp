@@ -14,7 +14,8 @@
 
 #pragma once
 
-extern "C" {
+extern "C"
+{
 #include <oscc.h>
 }
 
@@ -52,27 +53,51 @@ This node does these things:
 
 */
 
-namespace oscc_interfacing {
+namespace oscc_interfacing
+{
 
-class OsccInterfacingNode : public rclcpp::Node {
+class OsccInterfacingNode : public rclcpp::Node
+{
 public:
-  explicit OsccInterfacingNode(const rclcpp::NodeOptions &options);
+  explicit OsccInterfacingNode(const rclcpp::NodeOptions & options);
   ~OsccInterfacingNode();
 
   std::mutex arm_mutex_;
   bool is_armed_{false};
 
   // Thread-safe data queues for CAN callbacks (public for free function access)
-  struct WheelSpeedData {
+  struct WheelSpeedData
+  {
     std::atomic<float> ne, nw, se, sw;
-    WheelSpeedData() : ne(0), nw(0), se(0), sw(0) {}
+
+    WheelSpeedData()
+    : ne(0)
+    , nw(0)
+    , se(0)
+    , sw(0)
+    {}
   };
-  struct SteeringAngleData {
+
+  struct SteeringAngleData
+  {
     std::atomic<float> angle;
-    SteeringAngleData() : angle(0) {}
+
+    SteeringAngleData()
+    : angle(0)
+    {}
   };
-  enum class OverrideType { BRAKE, THROTTLE, STEERING };
-  enum class FaultType { BRAKE_FAULT, STEERING_FAULT, THROTTLE_FAULT };
+  enum class OverrideType
+  {
+    BRAKE,
+    THROTTLE,
+    STEERING
+  };
+  enum class FaultType
+  {
+    BRAKE_FAULT,
+    STEERING_FAULT,
+    THROTTLE_FAULT
+  };
 
   // Use atomic flags instead of mutex for signal-safe operation
   std::atomic<bool> has_wheel_data_{false};
@@ -112,8 +137,8 @@ private:
    * @param request.data true = arm, false = disarm
    */
   void arm_service_callback(
-      const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-      std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
   /**
    * @brief Timer callback to publish is_armed status at 100Hz
@@ -130,8 +155,7 @@ private:
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
   rclcpp::Publisher<roscco_msg::msg::WheelSpeeds>::SharedPtr wheel_speeds_pub_;
-  rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr
-      steering_angle_pub_;
+  rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr steering_angle_pub_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr arm_service_;
 
   // Timer for 100Hz is_armed publication
@@ -142,7 +166,7 @@ private:
   int oscc_can_bus_;
   double steering_scaling_{1.0};
   bool disable_boards_on_fault_{false};
-  double steering_conversion_factor_{15.7}; // Steering wheel to wheel angle
+  double steering_conversion_factor_{15.7};  // Steering wheel to wheel angle
 
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};
@@ -152,4 +176,4 @@ private:
   void process_queued_data();
 };
 
-} // namespace oscc_interfacing
+}  // namespace oscc_interfacing
