@@ -105,8 +105,7 @@ void WorldModelNode::createInterfaces()
 
   interfaces_.push_back(std::make_unique<GetObjectsByLaneletService>(this, world_state_.get(), lanelet_handler_.get()));
 
-  interfaces_.push_back(
-    std::make_unique<GetDynamicObjectsService>(this, world_state_.get(), lanelet_handler_.get()));
+  interfaces_.push_back(std::make_unique<GetDynamicObjectsService>(this, world_state_.get(), lanelet_handler_.get()));
 
   interfaces_.push_back(
     std::make_unique<GetAreaOccupancyService>(this, world_state_.get(), tf_buffer_.get(), lanelet_handler_.get()));

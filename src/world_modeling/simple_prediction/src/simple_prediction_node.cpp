@@ -102,9 +102,8 @@ void SimplePredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detect
     world_model_msgs::msg::WorldObject obj;
     obj.detection = detection;
 
-    bool is_traffic_light =
-      static_cast<size_t>(hypothesis_idx_) < detection.results.size() &&
-      detection.results[hypothesis_idx_].hypothesis.class_id == "traffic_light";
+    bool is_traffic_light = static_cast<size_t>(hypothesis_idx_) < detection.results.size() &&
+                            detection.results[hypothesis_idx_].hypothesis.class_id == "traffic_light";
     if (!is_traffic_light) {
       obj.predictions = generatePredictions(detection, frame_id);
     }

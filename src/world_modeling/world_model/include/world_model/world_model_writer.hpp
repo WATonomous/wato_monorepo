@@ -110,7 +110,10 @@ private:
     RCLCPP_DEBUG(
       node_->get_logger(),
       "onMessage: %zu objects -> cars=%zu tl=%zu unknown=%zu",
-      msg->objects.size(), cars.size(), traffic_lights.size(), unknowns.size());
+      msg->objects.size(),
+      cars.size(),
+      traffic_lights.size(),
+      unknowns.size());
 
     // Use the message timestamp for permanence checks instead of the node clock.
     // This avoids sim-time vs wall-time mismatches that would cause entities to be
@@ -125,7 +128,6 @@ private:
     runPipeline<Bicycle>(bicycles, msg->header, now);
     runPipeline<Motorcycle>(motorcycles, msg->header, now);
     runPipeline<TrafficLight>(traffic_lights, msg->header, now);
-
   }
 
   /**
@@ -166,7 +168,9 @@ private:
       RCLCPP_DEBUG(
         node_->get_logger(),
         "classify: det id='%s' has %zu results, need idx %ld -> UNKNOWN",
-        det.id.c_str(), det.results.size(), hypothesis_idx_);
+        det.id.c_str(),
+        det.results.size(),
+        hypothesis_idx_);
       return EntityType::UNKNOWN;
     }
 
@@ -187,7 +191,9 @@ private:
     RCLCPP_DEBUG(
       node_->get_logger(),
       "classify: det id='%s' unrecognized class_id='%s' at idx %ld -> UNKNOWN",
-      det.id.c_str(), class_id.c_str(), hypothesis_idx_);
+      det.id.c_str(),
+      class_id.c_str(),
+      hypothesis_idx_);
     return EntityType::UNKNOWN;
   }
 

@@ -75,8 +75,7 @@ MapVizMarkersNode::MapVizMarkersNode(const rclcpp::NodeOptions & options)
 
   // Create publishers and subscription (use remaps to override topic names)
   publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("markers", 10);
-  reg_elem_publisher_ =
-    this->create_publisher<visualization_msgs::msg::MarkerArray>("reg_elem_markers", 10);
+  reg_elem_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("reg_elem_markers", 10);
   subscription_ = this->create_subscription<lanelet_msgs::msg::MapVisualization>(
     "map_visualization", 10, std::bind(&MapVizMarkersNode::mapVisualizationCallback, this, std::placeholders::_1));
 
@@ -232,8 +231,7 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
       id_pos.z += 0.2;
       auto id_color = makeColor(1.0f, 1.0f, 1.0f, 0.7f);
       auto id_marker = createTextMarker(
-        "lanelet_ids", marker_id++, frame_id_, id_pos,
-        std::to_string(lanelet.id), id_color, lanelet_id_text_height_);
+        "lanelet_ids", marker_id++, frame_id_, id_pos, std::to_string(lanelet.id), id_color, lanelet_id_text_height_);
       id_marker.header.stamp = stamp;
       marker_array.markers.push_back(id_marker);
     }
@@ -307,10 +305,16 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
       // Classify this lanelet's role relative to the regulatory element
       std::string lanelet_role = "references";
       for (const auto & yid : reg_elem.yield_lanelet_ids) {
-        if (yid == lanelet.id) { lanelet_role = "yields"; break; }
+        if (yid == lanelet.id) {
+          lanelet_role = "yields";
+          break;
+        }
       }
       for (const auto & rid : reg_elem.right_of_way_lanelet_ids) {
-        if (rid == lanelet.id) { lanelet_role = "has_priority"; break; }
+        if (rid == lanelet.id) {
+          lanelet_role = "has_priority";
+          break;
+        }
       }
 
       // Yield sign markers
@@ -339,10 +343,10 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
       if (show_traffic_lights_) {
         for (const auto & position : reg_elem.refers_positions) {
           auto marker_color = (reg_elem.subtype == "traffic_light")
-                                ? makeColor(1.0f, 1.0f, 0.0f)   // Yellow for traffic lights
+                                ? makeColor(1.0f, 1.0f, 0.0f)  // Yellow for traffic lights
                                 : makeColor(1.0f, 0.5f, 0.0f);  // Orange for signs
-          auto tl_marker =
-            createSphereMarker("traffic_lights", re_marker_id++, frame_id_, position, marker_color, traffic_light_radius_);
+          auto tl_marker = createSphereMarker(
+            "traffic_lights", re_marker_id++, frame_id_, position, marker_color, traffic_light_radius_);
           tl_marker.header.stamp = stamp;
           reg_elem_marker_array.markers.push_back(tl_marker);
         }
@@ -395,8 +399,7 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
             label += " W:" + std::to_string(reg_elem.refers_ids[ci]);
           }
           auto re_label = createTextMarker(
-            "reg_elem_ids", re_marker_id++, frame_id_, label_pos,
-            label, makeColor(1.0f, 1.0f, 0.0f, 0.9f), 0.4);
+            "reg_elem_ids", re_marker_id++, frame_id_, label_pos, label, makeColor(1.0f, 1.0f, 0.0f, 0.9f), 0.4);
           re_label.header.stamp = stamp;
           reg_elem_marker_array.markers.push_back(re_label);
         }
@@ -405,8 +408,7 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
         // Color-coded by role: cyan=references, red=yields, green=has_priority
         if (!component_positions.empty()) {
           // Helper: draw lines + role text from an anchor to all component positions
-          auto draw_role_lines = [&](const geometry_msgs::msg::Point & anchor,
-                                     const std::string & role) {
+          auto draw_role_lines = [&](const geometry_msgs::msg::Point & anchor, const std::string & role) {
             std_msgs::msg::ColorRGBA color;
             if (role == "yields") {
               color = makeColor(1.0f, 0.3f, 0.3f, 0.5f);
@@ -441,9 +443,7 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
               midpt.x = (anchor.x + cp.x) / 2.0;
               midpt.y = (anchor.y + cp.y) / 2.0;
               midpt.z = (anchor.z + cp.z) / 2.0;
-              auto txt = createTextMarker(
-                "reg_elem_connections", re_marker_id++, frame_id_, midpt,
-                role, color, 0.3);
+              auto txt = createTextMarker("reg_elem_connections", re_marker_id++, frame_id_, midpt, role, color, 0.3);
               txt.header.stamp = stamp;
               reg_elem_marker_array.markers.push_back(txt);
             }

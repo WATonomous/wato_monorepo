@@ -223,7 +223,7 @@ public:
   /// Result of matching a point to a traffic light map element.
   struct TrafficLightMatch
   {
-    int64_t way_id;       ///< ID of the matched refers linestring (way)
+    int64_t way_id;  ///< ID of the matched refers linestring (way)
     int64_t reg_elem_id;  ///< ID of the parent regulatory element
   };
 

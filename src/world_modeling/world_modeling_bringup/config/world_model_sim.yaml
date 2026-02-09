@@ -116,7 +116,7 @@
     layers.objects.bbox_cost_decay: 0.3
     layers.objects.prediction_inflation_m: 0.3
     layers.objects.prediction_cost_decay: 0.3
-    layers.objects.max_centroid_height_m: 3.0
+    layers.objects.max_centroid_height_m: 5.0
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 2.0

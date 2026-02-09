@@ -95,12 +95,16 @@ class BBoxPublisherNode(LifecycleNode):
         self.declare_parameter(
             "include_pedestrian_traffic_lights",
             False,
-            ParameterDescriptor(description="Include pedestrian crossing traffic lights"),
+            ParameterDescriptor(
+                description="Include pedestrian crossing traffic lights"
+            ),
         )
         self.declare_parameter(
             "include_parked_vehicles",
             True,
-            ParameterDescriptor(description="Include parked/static vehicles in detections"),
+            ParameterDescriptor(
+                description="Include parked/static vehicles in detections"
+            ),
         )
         self.declare_parameter(
             "max_distance",
@@ -257,7 +261,9 @@ class BBoxPublisherNode(LifecycleNode):
             include_ped_traffic_lights = self.get_parameter(
                 "include_pedestrian_traffic_lights"
             ).value
-            include_parked_vehicles = self.get_parameter("include_parked_vehicles").value
+            include_parked_vehicles = self.get_parameter(
+                "include_parked_vehicles"
+            ).value
             max_distance = self.get_parameter("max_distance").value
 
             filtered_actors = []
@@ -288,9 +294,7 @@ class BBoxPublisherNode(LifecycleNode):
                     carla.CityObjectLabel.Motorcycle,
                     carla.CityObjectLabel.Train,
                 ):
-                    env_vehicles.extend(
-                        self.world.get_environment_objects(label)
-                    )
+                    env_vehicles.extend(self.world.get_environment_objects(label))
 
                 # Deduplicate by position (CARLA can return multiple env
                 # objects for the same physical vehicle, e.g. body + windows)
@@ -301,7 +305,10 @@ class BBoxPublisherNode(LifecycleNode):
                     if any(obj_loc.distance(ul) < 1.0 for ul in used_locations):
                         continue
                     used_locations.append(obj_loc)
-                    if max_distance > 0 and ego_location.distance(obj_loc) > max_distance:
+                    if (
+                        max_distance > 0
+                        and ego_location.distance(obj_loc) > max_distance
+                    ):
                         continue
                     unique_vehicles.append(obj)
                 parked_vehicles = unique_vehicles
@@ -349,13 +356,19 @@ class BBoxPublisherNode(LifecycleNode):
                         if not include_ped_traffic_lights and lbox.extent.z < 0.15:
                             continue
                         det = self._create_detection_3d_from_light_box(
-                            lbox, actor.type_id, stamp, transform,
+                            lbox,
+                            actor.type_id,
+                            stamp,
+                            transform,
                             light_state=actor.state,
                         )
                         if det:
                             detections_3d.detections.append(det)
                             det_tracked = self._create_detection_3d_from_light_box(
-                                lbox, actor.type_id, stamp, transform,
+                                lbox,
+                                actor.type_id,
+                                stamp,
+                                transform,
                                 light_state=actor.state,
                                 track_id=self._get_uuid(f"tl_{actor.id}_{i}"),
                             )
@@ -369,7 +382,9 @@ class BBoxPublisherNode(LifecycleNode):
 
                     # Create tracked detection with actor ID for tracking
                     tracked_detection = self._create_detection_3d(
-                        actor, stamp, transform,
+                        actor,
+                        stamp,
+                        transform,
                         track_id=self._get_uuid(f"actor_{actor.id}"),
                     )
                     if tracked_detection:
@@ -384,7 +399,9 @@ class BBoxPublisherNode(LifecycleNode):
                     detections_3d.detections.append(detection_3d)
 
                     tracked_detection = self._create_detection_3d_from_env_object(
-                        env_obj, stamp, transform,
+                        env_obj,
+                        stamp,
+                        transform,
                         track_id=self._get_uuid(f"env_{env_obj.id}"),
                     )
                     if tracked_detection:
@@ -554,9 +571,7 @@ class BBoxPublisherNode(LifecycleNode):
             else:
                 detection.bbox.center = Pose()
                 detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
-                detection.bbox.center.orientation = Quaternion(
-                    x=qx, y=qy, z=qz, w=qw
-                )
+                detection.bbox.center.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
 
             detection.bbox.size = Vector3(
                 x=bbox.extent.x * 2.0, y=bbox.extent.y * 2.0, z=bbox.extent.z * 2.0
@@ -621,9 +636,7 @@ class BBoxPublisherNode(LifecycleNode):
             else:
                 detection.bbox.center = Pose()
                 detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
-                detection.bbox.center.orientation = Quaternion(
-                    x=qx, y=qy, z=qz, w=qw
-                )
+                detection.bbox.center.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
 
             detection.bbox.size = Vector3(
                 x=light_box.extent.x * 2.0,
@@ -655,9 +668,7 @@ class BBoxPublisherNode(LifecycleNode):
             return detection
 
         except Exception as e:
-            self.get_logger().error(
-                f"Error creating detection for light box: {e}"
-            )
+            self.get_logger().error(f"Error creating detection for light box: {e}")
             return None
 
     def _get_uuid(self, key: str) -> str:
