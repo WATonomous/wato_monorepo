@@ -3,3 +3,5 @@ oscc_interfacing:
     is_armed_publish_rate_hz: 100
     oscc_can_bus: 0 # Can bus number (int)
     steering_scaling: 1.0 # value 0-1 to scale the effectiveness of steering commands
+    disable_boards_on_fault: false # If true, will disable OSCC boards on fault instead of just disarming
+    steering_conversion_factor: 15.7 # factor to convert from steering wheel angle

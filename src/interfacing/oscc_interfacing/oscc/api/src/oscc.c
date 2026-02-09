@@ -341,6 +341,10 @@ oscc_result_t oscc_disable_steering(void)
 
 void oscc_update_status(int sig, siginfo_t * siginfo, void * context)
 {
+  (void)sig;
+  (void)siginfo;
+  (void)context;
+
   struct can_frame rx_frame;
   memset(&rx_frame, 0, sizeof(rx_frame));
 
@@ -480,8 +484,8 @@ oscc_result_t oscc_search_can(can_contains_s (*search_callback)(const char *), b
     result = construct_interfaces_list(&dev_list);
   }
 
-  //temp_contents is the temporary storage of the current CAN channel
-  //all_contents is the sum of all channels searched
+  // temp_contents is the temporary storage of the current CAN channel
+  // all_contents is the sum of all channels searched
   can_contains_s temp_contents;
   can_contains_s all_contents = {.is_oscc = !search_oscc, .has_vehicle = false};
 
@@ -495,7 +499,7 @@ oscc_result_t oscc_search_can(can_contains_s (*search_callback)(const char *), b
 
       all_contents.has_vehicle |= temp_contents.has_vehicle;
 
-      //Leave the while loop if both requirements are met
+      // Leave the while loop if both requirements are met
       if (all_contents.is_oscc && all_contents.has_vehicle) {
         break;
       }
@@ -604,8 +608,8 @@ int init_can_socket(const char * can_channel, struct timeval * tv)
     }
   }
 
-  //If a timeout has been specified set one here since it should be set before
-  //the bind call
+  // If a timeout has been specified set one here since it should be set before
+  // the bind call
   if (valid >= 0 && tv != NULL) {
     valid = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, tv, sizeof(struct timeval));
 
@@ -728,7 +732,7 @@ oscc_result_t construct_interfaces_list(device_names_s * const names_ptr)
 
     rewind(file_handler);
 
-    //Consume the first two lines since they are headers
+    // Consume the first two lines since they are headers
     fgets(buffer, sizeof(buffer), file_handler);
     fgets(buffer, sizeof(buffer), file_handler);
   }
@@ -811,11 +815,9 @@ oscc_result_t get_device_name(char * string, char * const name)
     size_t leading_spaces = strspn(temp_name, " ");
 
     if (leading_spaces != 0) {
-      char new_name[IFNAMSIZ];
-
       strncpy(name, temp_name + leading_spaces, span - leading_spaces + 1);
 
-      new_name[span - leading_spaces] = '\0';
+      name[span - leading_spaces] = '\0';
     } else {
       strncpy(name, temp_name, span);
     }

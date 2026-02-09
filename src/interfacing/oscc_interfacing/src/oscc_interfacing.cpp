@@ -30,48 +30,27 @@ static OsccInterfacingNode * g_node_instance = nullptr;
 void brake_report_callback(oscc_brake_report_s * report)
 {
   if (report->operator_override && g_node_instance) {
-    RCLCPP_INFO(g_node_instance->get_logger(), "Brake Operator Override");
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
-    }
+    // Async-signal-safe: only atomic operations allowed
+    g_node_instance->latest_override_ = OsccInterfacingNode::OverrideType::BRAKE;
+    g_node_instance->has_override_.store(true);
   }
 }
 
 void throttle_report_callback(oscc_throttle_report_s * report)
 {
   if (report->operator_override && g_node_instance) {
-    RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Operator Override");
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
-    }
+    // Async-signal-safe: only atomic operations allowed
+    g_node_instance->latest_override_ = OsccInterfacingNode::OverrideType::THROTTLE;
+    g_node_instance->has_override_.store(true);
   }
 }
 
 void steering_report_callback(oscc_steering_report_s * report)
 {
   if (report->operator_override && g_node_instance) {
-    RCLCPP_INFO(g_node_instance->get_logger(), "Steering Operator Override");
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
-    }
+    // Async-signal-safe: only atomic operations allowed
+    g_node_instance->latest_override_ = OsccInterfacingNode::OverrideType::STEERING;
+    g_node_instance->has_override_.store(true);
   }
 }
 
@@ -83,39 +62,36 @@ void obd_callback(struct can_frame * frame)
   // this only passes if it is indeed a wheel speed msg
   double se;
   if (get_wheel_speed_right_rear(frame, &se) == OSCC_OK) {
-    double ne;
-    double nw;
-    double sw;
+    double ne, nw, sw;
     get_wheel_speed_left_front(frame, &nw);
     get_wheel_speed_left_rear(frame, &sw);
     get_wheel_speed_right_front(frame, &ne);
-    g_node_instance->publish_wheel_speeds(
-      static_cast<float>(ne), static_cast<float>(nw), static_cast<float>(se), static_cast<float>(sw));
+
+    // Async-signal-safe: atomic stores prevent data corruption
+    g_node_instance->latest_wheel_data_.ne.store(static_cast<float>(ne));
+    g_node_instance->latest_wheel_data_.nw.store(static_cast<float>(nw));
+    g_node_instance->latest_wheel_data_.se.store(static_cast<float>(se));
+    g_node_instance->latest_wheel_data_.sw.store(static_cast<float>(sw));
+    g_node_instance->has_wheel_data_.store(true);
   } else if (get_steering_wheel_angle(frame, &se) == OSCC_OK) {
-    g_node_instance->publish_steering_wheel_angle(static_cast<float>(se));
+    // Async-signal-safe: atomic store prevents data corruption
+    g_node_instance->latest_steering_data_.angle.store(static_cast<float>(se));
+    g_node_instance->has_steering_data_.store(true);
   }
 }
 
 void fault_report_callback(oscc_fault_report_s * report)
 {
   if (g_node_instance) {
+    // Async-signal-safe: only atomic operations allowed
     if (report->fault_origin_id == FAULT_ORIGIN_BRAKE) {
-      RCLCPP_INFO(g_node_instance->get_logger(), "Brake Fault");
+      g_node_instance->latest_fault_ = OsccInterfacingNode::FaultType::BRAKE_FAULT;
     } else if (report->fault_origin_id == FAULT_ORIGIN_STEERING) {
-      RCLCPP_INFO(g_node_instance->get_logger(), "Steering Fault");
+      g_node_instance->latest_fault_ = OsccInterfacingNode::FaultType::STEERING_FAULT;
     } else if (report->fault_origin_id == FAULT_ORIGIN_THROTTLE) {
-      RCLCPP_INFO(g_node_instance->get_logger(), "Throttle Fault");
+      g_node_instance->latest_fault_ = OsccInterfacingNode::FaultType::THROTTLE_FAULT;
     }
-
-    if (oscc_disable() == OSCC_OK) {
-      {
-        std::lock_guard<std::mutex> lock(g_node_instance->arm_mutex_);
-        g_node_instance->is_armed_ = false;
-      }
-      RCLCPP_INFO(g_node_instance->get_logger(), "Vehicle disarmed");
-    } else {
-      RCLCPP_FATAL(g_node_instance->get_logger(), "!!!!!! Failed to disarm vehicle");
-    }
+    g_node_instance->has_fault_.store(true);
   }
 }
 
@@ -146,12 +122,16 @@ void OsccInterfacingNode::configure()
   this->declare_parameter<int>("is_armed_publish_rate_hz", 100);
   this->declare_parameter<int>("oscc_can_bus", 0);
   this->declare_parameter<float>("steering_scaling", 1);
+  this->declare_parameter<bool>("disable_boards_on_fault", false);
+  this->declare_parameter<float>("steering_conversion_factor", 15.7);
 
   // Read parameters
   is_armed_ = false;
   is_armed_publish_rate_hz = this->get_parameter("is_armed_publish_rate_hz").as_int();
   oscc_can_bus_ = this->get_parameter("oscc_can_bus").as_int();
   steering_scaling_ = this->get_parameter("steering_scaling").as_double();
+  disable_boards_on_fault_ = this->get_parameter("disable_boards_on_fault").as_bool();
+  steering_conversion_factor_ = this->get_parameter("steering_conversion_factor").as_double();
 
   if (steering_scaling_ > 1.0 || steering_scaling_ <= 0.0) {
     RCLCPP_ERROR(this->get_logger(), "Steering scaling parameter out of range (0.0, 1.0], resetting to 1.0");
@@ -168,8 +148,8 @@ void OsccInterfacingNode::configure()
   wheel_speeds_pub_ =
     this->create_publisher<roscco_msg::msg::WheelSpeeds>("/oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
 
-  steering_wheel_angle_pub_ =
-    this->create_publisher<roscco_msg::msg::SteeringAngle>("/oscc_interfacing/steering_wheel_angle", rclcpp::QoS(1));
+  steering_angle_pub_ =
+    this->create_publisher<roscco_msg::msg::SteeringAngle>("/oscc_interfacing/steering_angle", rclcpp::QoS(1));
 
   // Create arm service
   arm_service_ = this->create_service<std_srvs::srv::SetBool>(
@@ -179,6 +159,10 @@ void OsccInterfacingNode::configure()
   // Create 100Hz timer for is_armed publication
   std::chrono::milliseconds interval(1000 / is_armed_publish_rate_hz);
   is_armed_timer_ = this->create_wall_timer(interval, std::bind(&OsccInterfacingNode::is_armed_timer_callback, this));
+
+  // Create high-frequency timer to process queued CAN data safely on ROS thread
+  data_process_timer_ =
+    this->create_wall_timer(std::chrono::milliseconds(5), std::bind(&OsccInterfacingNode::process_queued_data, this));
 
   RCLCPP_INFO(
     this->get_logger(),
@@ -241,12 +225,17 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   float steering = msg->steering;
 
   if (std::abs(forward) > 1.0) {
-    RCLCPP_ERROR(this->get_logger(), "Forward command out of range [-1, 1], this should not happen! Ignoring message.");
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Forward command out of range [-1, 1], this should not "
+      "happen! Ignoring message.");
     return;
   }
   if (std::abs(steering) > 1.0) {
     RCLCPP_ERROR(
-      this->get_logger(), "Steering command out of range [-1, 1], this should not happen! Ignoring message.");
+      this->get_logger(),
+      "Steering command out of range [-1, 1], this should not "
+      "happen! Ignoring message.");
     return;
   }
 
@@ -331,6 +320,76 @@ void OsccInterfacingNode::is_armed_timer_callback()
   is_armed_pub_->publish(msg);
 }
 
+void OsccInterfacingNode::process_queued_data()
+{
+  // Process wheel speed data
+  if (has_wheel_data_.exchange(false)) {
+    roscco_msg::msg::WheelSpeeds msg;
+    msg.ne = latest_wheel_data_.ne.load();
+    msg.nw = latest_wheel_data_.nw.load();
+    msg.se = latest_wheel_data_.se.load();
+    msg.sw = latest_wheel_data_.sw.load();
+    msg.header.stamp = this->now();
+    wheel_speeds_pub_->publish(msg);
+  }
+
+  // Process steering angle data
+  if (has_steering_data_.exchange(false)) {
+    roscco_msg::msg::SteeringAngle msg;
+    float angle = latest_steering_data_.angle.load();
+    angle = angle / steering_conversion_factor_;
+    // convert to radians
+    angle = angle * (M_PI / 180.0);
+    msg.angle = angle;
+    msg.header.stamp = this->now();
+    steering_angle_pub_->publish(msg);
+  }
+
+  // Process operator override events
+  if (has_override_.exchange(false)) {
+    if (latest_override_ == OverrideType::BRAKE) {
+      RCLCPP_INFO(get_logger(), "Brake Operator Override");
+    } else if (latest_override_ == OverrideType::THROTTLE) {
+      RCLCPP_INFO(get_logger(), "Throttle Operator Override");
+    } else if (latest_override_ == OverrideType::STEERING) {
+      RCLCPP_INFO(get_logger(), "Steering Operator Override");
+    }
+
+    // Handle disarming safely on ROS thread
+    if (oscc_disable() == OSCC_OK) {
+      {
+        std::lock_guard<std::mutex> arm_lock(arm_mutex_);
+        is_armed_ = false;
+      }
+      RCLCPP_INFO(get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
+
+  // Process fault events
+  if (has_fault_.exchange(false)) {
+    if (latest_fault_ == FaultType::BRAKE_FAULT) {
+      RCLCPP_INFO(get_logger(), "Brake Fault");
+    } else if (latest_fault_ == FaultType::STEERING_FAULT) {
+      RCLCPP_INFO(get_logger(), "Steering Fault");
+    } else if (latest_fault_ == FaultType::THROTTLE_FAULT) {
+      RCLCPP_INFO(get_logger(), "Throttle Fault");
+    }
+
+    // Handle disarming safely on ROS thread
+    if (disable_boards_on_fault_ && oscc_disable() == OSCC_OK) {
+      {
+        std::lock_guard<std::mutex> arm_lock(arm_mutex_);
+        is_armed_ = false;
+      }
+      RCLCPP_INFO(get_logger(), "Vehicle disarmed");
+    } else {
+      RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
+    }
+  }
+}
+
 void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, float SW)
 {
   roscco_msg::msg::WheelSpeeds msg;
@@ -338,16 +397,22 @@ void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, flo
   msg.nw = NW;
   msg.se = SE;
   msg.sw = SW;
-  msg.header.stamp = this->now();
+  // Use get_clock()->now() instead of this->now() for thread safety
+  // This maintains ROS 2 time synchronization while being thread-safe for CAN
+  // callbacks
+  msg.header.stamp = get_clock()->now();
   wheel_speeds_pub_->publish(msg);
 }
 
-void OsccInterfacingNode::publish_steering_wheel_angle(float angle_degrees)
+void OsccInterfacingNode::publish_steering_angle(float angle_degrees)
 {
   roscco_msg::msg::SteeringAngle msg;
   msg.angle = angle_degrees;
-  msg.header.stamp = this->now();
-  steering_wheel_angle_pub_->publish(msg);
+  // Use get_clock()->now() instead of this->now() for thread safety
+  // This maintains ROS 2 time synchronization while being thread-safe for CAN
+  // callbacks
+  msg.header.stamp = get_clock()->now();
+  steering_angle_pub_->publish(msg);
 }
 
 oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
