@@ -40,7 +40,6 @@ repos:
     hooks:
       - id: clang-format
         args: ["--style=file:.config/clang-format"]
-        exclude: "^(src/embedded/)"
 
   # C++ linting
   - repo: https://github.com/cpplint/cpplint
@@ -48,8 +47,7 @@ repos:
     hooks:
       - id: cpplint
         args: ["--config=.cpplint.cfg", "--filter=-runtime/references", --quiet, --output=sed]
-        exclude: "^(src/embedded/)"
-
+        exclude: "^(src/embedded/|src/interfacing/oscc_interfacing/oscc/)"
   # CMake linting
   - repo: https://github.com/cmake-lint/cmake-lint
     rev: 1.4.3
