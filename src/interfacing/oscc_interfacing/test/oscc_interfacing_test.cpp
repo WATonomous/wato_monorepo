@@ -14,7 +14,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("oscc_interfacing placeholder", "[oscc_interfacing]")
-{
+TEST_CASE("oscc_interfacing placeholder", "[oscc_interfacing]") {
   REQUIRE(true);
 }
