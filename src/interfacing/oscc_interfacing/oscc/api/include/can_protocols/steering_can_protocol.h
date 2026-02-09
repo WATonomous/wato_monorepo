@@ -95,8 +95,8 @@ enum
 typedef struct
 {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t reserved[6]; /*!< Reserved. */
 } oscc_steering_enable_s;
@@ -110,8 +110,8 @@ typedef struct
 typedef struct
 {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t reserved[6]; /*!< Reserved. */
 } oscc_steering_disable_s;
@@ -125,14 +125,14 @@ typedef struct
 typedef struct
 {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   float torque_command; /* Steering torque request [-1.0, 1.0] where -1.0 is
-                           * max torque in the counterclockwise direction and 1
-                           * is max torque in the clockwise direction.
-                           * (Note: this is inverse to standard torque direction)
-                           */
+                         * max torque in the counterclockwise direction and 1
+                         * is max torque in the clockwise direction.
+                         * (Note: this is inverse to standard torque direction)
+                         */
 
   uint8_t reserved[2]; /*!< Reserved. */
 } oscc_steering_command_s;
@@ -146,17 +146,18 @@ typedef struct
 typedef struct
 {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t enabled; /*!< Steering controls enabled state.
-                      * Zero value means disabled (commands are ignored).
-                      * Non-zero value means enabled (no timeouts or overrides have occured). */
+                    * Zero value means disabled (commands are ignored).
+                    * Non-zero value means enabled (no timeouts or overrides
+                    * have occured). */
 
   uint8_t operator_override; /*!< Driver override state.
-                                * Zero value means there has been no operator override.
-                                * Non-zero value means an operator has physically overridden
-                                * the system. */
+                              * Zero value means there has been no operator
+                              * override. Non-zero value means an operator has
+                              * physically overridden the system. */
 
   uint8_t dtcs; /*!< Bitfield of DTCs present in the module. */
 

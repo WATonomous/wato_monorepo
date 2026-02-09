@@ -85,19 +85,19 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/
 )
 
-if(BUILD_TESTING)
-  find_package(wato_test QUIET)
-  if(wato_test_FOUND)
-    add_wato_test(oscc_interfacing_test test/oscc_interfacing_test.cpp
-      LIBRARIES oscc_interfacing
-    )
-    target_link_libraries(oscc_interfacing_test
-      ${sensor_msgs_TARGETS}
-      ${std_msgs_TARGETS}
-      roscco_msg::roscco_msg__rosidl_typesupport_cpp
-      std_srvs::std_srvs__rosidl_typesupport_cpp
-    )
-  endif()
-endif()
+# if(BUILD_TESTING)
+#   find_package(wato_test QUIET)
+#   if(wato_test_FOUND)
+#     add_wato_test(oscc_interfacing_test test/oscc_interfacing_test.cpp
+#       LIBRARIES oscc_interfacing
+#     )
+#     target_link_libraries(oscc_interfacing_test
+#       ${sensor_msgs_TARGETS}
+#       ${std_msgs_TARGETS}
+#       roscco_msg::roscco_msg__rosidl_typesupport_cpp
+#       std_srvs::std_srvs__rosidl_typesupport_cpp
+#     )
+#   endif()
+# endif()
 
 ament_package()

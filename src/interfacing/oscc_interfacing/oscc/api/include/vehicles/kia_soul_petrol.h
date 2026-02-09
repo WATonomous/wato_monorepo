@@ -99,7 +99,8 @@ typedef struct
 /**
  * @brief Brake pressure message data.
  * @warn Deprecated.
- * @warn Does not reflect CAN message data. Use \ref get_wheel_brake_pressure instead.
+ * @warn Does not reflect CAN message data. Use \ref get_wheel_brake_pressure
+ * instead.
  */
 typedef struct
 {
@@ -113,7 +114,8 @@ typedef struct
 // ****************************************************************************
 
 /*
- * @brief Number of steps per volt corresponding to 4096 steps (2^12) across 5 volts.
+ * @brief Number of steps per volt corresponding to 4096 steps (2^12) across 5
+ * volts.
  *
  */
 #define STEPS_PER_VOLT (819.2)
@@ -493,7 +495,8 @@ typedef struct
    THROTTLE_SPOOF_HIGH_SIGNAL_VOLTAGE_MIN)
 
 /*
- * @brief Value of the accelerator position that indicates operator override. [steps]
+ * @brief Value of the accelerator position that indicates operator override.
+ * [steps]
  *
  */
 #define ACCELERATOR_OVERRIDE_THRESHOLD (185.0)
