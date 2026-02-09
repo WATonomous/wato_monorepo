@@ -38,10 +38,39 @@ public:
 protected:
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
+  /**
+   * @brief Configures the node, including parameters and internal state.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Activates the node, enabling publishers and timers.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Deactivates the node, disabling publishers and timers.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
   CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Cleans up the node, releasing resources.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
   CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Shuts down the node.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
