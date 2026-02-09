@@ -7,22 +7,31 @@
           "value": "/ackermann.drive.steering_angle",
           "enabled": true,
           "color": "#4e98e2",
-          "label": "Setpoint",
+          "label": "Setpoint steering",
           "showLine": false
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/oscc_interfacing/steering_wheel_angle.data",
+          "value": "/oscc_interfacing/steering_angle.data",
           "enabled": true,
           "color": "#f5774d",
-          "label": "Feedback"
+          "label": "Feedback angle"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/roscco.steering",
+          "value": "/ackermann.drive.speed",
           "enabled": true,
           "color": "#f7df71",
-          "label": "Output (Torque)"
+          "id": "674468f7-b8a2-4eea-beab-403e7e39333e",
+          "label": "setpoint speed"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/velocity_feedback.data",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "id": "6083e876-c9a3-4605-874e-9623e8e9df91",
+          "label": "Feedback speed"
         }
       ],
       "showXAxisLabels": true,
@@ -44,25 +53,19 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/ackermann.drive.speed",
+          "value": "/roscco.steering",
           "enabled": true,
           "color": "#4e98e2",
-          "label": "Setpoint",
+          "label": "output steering ",
           "showLine": false
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/velocity_feedback.data",
-          "enabled": true,
-          "color": "#f5774d",
-          "label": "Feedback"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/roscco.forward",
           "enabled": true,
           "color": "#f7df71",
-          "label": "Output (force)"
+          "label": "Output (velocity)",
+          "showLine": true
         }
       ],
       "showXAxisLabels": true,
@@ -75,14 +78,6 @@
       "title": "Velocity PID",
       "sidebarDimension": 240,
       "foxglovePanelTitle": "velocity"
-    },
-    "RawMessages!state": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "/joystick/state",
-      "fontSize": 12
     },
     "RawMessages!1jjt4nk": {
       "diffEnabled": false,
@@ -109,13 +104,9 @@
     "second": {
       "direction": "row",
       "first": "Plot!velocity",
-      "second": {
-        "first": "RawMessages!state",
-        "second": "RawMessages!1jjt4nk",
-        "direction": "row"
-      },
+      "second": "RawMessages!1jjt4nk",
       "splitPercentage": 70
     },
-    "splitPercentage": 50
+    "splitPercentage": 47.727214283877494
   }
 }
