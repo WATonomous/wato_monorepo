@@ -22,6 +22,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 find_package(roscco_msg REQUIRED)
@@ -40,6 +42,8 @@ target_include_directories(pid_control_component PUBLIC
 target_link_libraries(pid_control_component PUBLIC
   rclcpp::rclcpp
   rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${lifecycle_msgs_TARGETS}
   ${std_msgs_TARGETS}
   ${ackermann_msgs_TARGETS}
   roscco_msg::roscco_msg__rosidl_typesupport_cpp
