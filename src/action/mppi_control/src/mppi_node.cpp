@@ -101,9 +101,14 @@ public:
     }
 
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-        RCLCPP_INFO(this->get_logger(), "Odom received");
+        //RCLCPP_INFO(this->get_logger(), "Odom received");
         mppi_core_->update_pose(msg->pose.pose.position.x, msg->pose.pose.position.y, quaternion_to_yaw(msg->pose.pose.orientation));
         mppi_core_->update_velocity(msg->twist.twist.linear.x);
+        RCLCPP_INFO(this->get_logger(), "Pose updated: x=%.2f, y=%.2f, yaw=%.2f, v=%.2f", 
+            msg->pose.pose.position.x, msg->pose.pose.position.y, 
+            quaternion_to_yaw(msg->pose.pose.orientation), msg->twist.twist.linear.x);
+        valid_odom_ = true;
+        valid_pose_ = true;
     }
 
     void trajectory_callback(const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg) {
@@ -120,15 +125,17 @@ public:
         }
 
         mppi_core_->update_trajectory(traj);
+        valid_trajectory_ = true;
 
     }
 
     void tf_callback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
-        RCLCPP_INFO(this->get_logger(), "TF received");
+        //RCLCPP_INFO(this->get_logger(), "TF received");
     }
 
     void occupancy_grid_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
-        RCLCPP_INFO(this->get_logger(), "Occupancy Grid received");
+        //RCLCPP_INFO(this->get_logger(), "Occupancy Grid received");
+        valid_occupancy_grid_ = true;
     }
 
     void publish_control_command() {
@@ -137,9 +144,15 @@ public:
 
         control_msg.header.stamp = this->now();
 
-        control_msg.drive.steering_angle = control_output.delta; // Placeholder value
-        control_msg.drive.acceleration = control_output.a; // Placeholder value
-        //control_msg.drive.speed = 0.1; // Placeholder value
+        if (!valid_pose_ || !valid_trajectory_  || !valid_odom_) { //|| !valid_occupancy_grid_
+            RCLCPP_WARN(this->get_logger(), "Waiting for valid data before publishing non-zero control command");
+            control_msg.drive.steering_angle = 0.0;
+            control_msg.drive.acceleration = 0.0;   
+        }
+        else {
+            control_msg.drive.steering_angle = control_output.delta;
+            control_msg.drive.acceleration = control_output.a;
+        }
 
         control_pub_->publish(control_msg);
 
@@ -162,6 +175,12 @@ private:
 
     //control publisher
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr control_pub_;
+
+    bool valid_pose_ = false;
+    bool valid_trajectory_ = false;
+    bool valid_occupancy_grid_ = false;
+    bool valid_odom_ = false;
+
 
 };
 
