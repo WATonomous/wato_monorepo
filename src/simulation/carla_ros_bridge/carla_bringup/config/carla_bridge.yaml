@@ -34,6 +34,7 @@ camera_publisher:
   ros__parameters:
     <<: *carla_connection
     role_name: "ego_vehicle"
+    base_frame: "base_footprint"
     # List of camera names to spawn
     camera_names:
       - front_camera
@@ -66,6 +67,7 @@ lidar_publisher:
   ros__parameters:
     <<: *carla_connection
     role_name: "ego_vehicle"
+    base_frame: "base_footprint"
     # List of LiDAR names to spawn
     lidar_names:
       - top_lidar
@@ -108,7 +110,7 @@ carla_localization:
     # TF frame names
     map_frame: "map"
     odom_frame: "odom"
-    base_link_frame: "base_link"
+    base_frame: "base_footprint"
     publish_rate: 50.0  # Hz
 
 # Teleop Configuration (Foxglove compatible)

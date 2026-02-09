@@ -26,5 +26,5 @@ ros2 run carla_localization localization
 | `role_name` | string | `ego_vehicle` | Role name of the ego vehicle to track |
 | `map_frame` | string | `map` | Name of the map frame |
 | `odom_frame` | string | `odom` | Name of the odom frame |
-| `base_link_frame` | string | `base_link` | Name of the base_link frame |
+| `base_frame` | string | `base_link` | Name of the base_link frame |
 | `publish_rate` | double | `50.0` | TF publish rate in Hz |
