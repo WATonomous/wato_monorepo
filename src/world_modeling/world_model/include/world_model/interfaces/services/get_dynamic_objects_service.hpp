@@ -54,11 +54,25 @@ public:
   }
 
 private:
+  /**
+   * @brief Extract the yaw angle from a quaternion orientation.
+   * @param q Quaternion to extract yaw from.
+   * @return Yaw angle in radians.
+   */
   static double extractYaw(const geometry_msgs::msg::Quaternion & q)
   {
     return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
   }
 
+  /**
+   * @brief Handle an incoming GetDynamicObjects service request.
+   *
+   * Collects all tracked entities of every type (Unknown, Car, Human, Bicycle,
+   * Motorcycle, TrafficLight) into the response's objects list.
+   *
+   * @param request  The service request (unused).
+   * @param response The service response populated with all dynamic objects.
+   */
   void handleRequest(
     world_model_msgs::srv::GetDynamicObjects::Request::ConstSharedPtr /*request*/,
     world_model_msgs::srv::GetDynamicObjects::Response::SharedPtr response)
@@ -74,6 +88,18 @@ private:
     collectEntities<TrafficLight>(response->objects);
   }
 
+  /**
+   * @brief Collect all tracked entities of a given type into the output list.
+   *
+   * Iterates over every entity of EntityType in the world state buffer, builds
+   * a WorldObject message for each non-empty entity (including detection,
+   * predictions, lanelet-ahead info, and pose history), and appends it to the
+   * output. For TrafficLight entities, also attaches matched way ID and
+   * regulatory element data when available.
+   *
+   * @tparam EntityType The world-model entity type to collect (e.g. Car, Human).
+   * @param objects Output vector to append WorldObject messages to.
+   */
   template <typename EntityType>
   void collectEntities(std::vector<world_model_msgs::msg::WorldObject> & objects)
   {

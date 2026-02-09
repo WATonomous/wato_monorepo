@@ -20,6 +20,6 @@ RefLine[] ref_lines
 int64[] yield_lanelet_ids
 int64[] right_of_way_lanelet_ids
 
-# Generic attributes (key-value pairs)Z
+# Generic attributes (key-value pairs)
 string[] attribute_keys
 string[] attribute_values

@@ -63,11 +63,26 @@ public:
   }
 
 private:
+  /**
+   * @brief Extract the yaw angle from a quaternion orientation.
+   * @param q Quaternion to extract yaw from.
+   * @return Yaw angle in radians.
+   */
   static double extractYaw(const geometry_msgs::msg::Quaternion & q)
   {
     return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
   }
 
+  /**
+   * @brief Handle an incoming GetAreaOccupancy service request.
+   *
+   * Looks up the map-to-area transform, then iterates over each configured
+   * detection area and checks all entity types for occupancy. Populates the
+   * response with per-area occupancy info and any world objects found inside.
+   *
+   * @param request  The service request (unused).
+   * @param response The service response populated with area occupancy data.
+   */
   void handleRequest(
     world_model_msgs::srv::GetAreaOccupancy::Request::ConstSharedPtr /*request*/,
     world_model_msgs::srv::GetAreaOccupancy::Response::SharedPtr response)
@@ -110,6 +125,19 @@ private:
     }
   }
 
+  /**
+   * @brief Check whether any entities of a given type occupy a detection area.
+   *
+   * Iterates over all tracked entities of EntityType, transforms their pose
+   * into the area frame if necessary, and tests containment. Matching entities
+   * are appended to area_info.objects and area_info.is_occupied is set to true.
+   *
+   * @tparam EntityType The world-model entity type to check (e.g. Car, Human).
+   * @param area       The detection area to test against.
+   * @param area_info  Output message to populate with occupancy results.
+   * @param cached_tf  Pre-looked-up transform from map frame to area frame.
+   * @param tf_valid   Whether cached_tf is valid; if false, this is a no-op.
+   */
   template <typename EntityType>
   void checkEntitiesInArea(
     const DetectionArea & area,
@@ -165,6 +193,15 @@ private:
     });
   }
 
+  /**
+   * @brief Parse configured occupancy areas from ROS parameters.
+   *
+   * Reads the "occupancy_areas" parameter for area names, then for each area
+   * loads its type, center, radius, angle range, and dimensions from the
+   * corresponding "occupancy_area.<name>.*" parameters.
+   *
+   * @return Vector of DetectionArea objects parsed from parameters.
+   */
   std::vector<DetectionArea> parseOccupancyAreas()
   {
     std::vector<DetectionArea> areas;
