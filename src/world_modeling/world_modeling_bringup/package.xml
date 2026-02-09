@@ -17,6 +17,8 @@
   <exec_depend>lanelet_markers</exec_depend>
   <exec_depend>world_model_markers</exec_depend>
   <exec_depend>costmap</exec_depend>
+  <exec_depend>costmap_markers</exec_depend>
+  <exec_depend>behaviour</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

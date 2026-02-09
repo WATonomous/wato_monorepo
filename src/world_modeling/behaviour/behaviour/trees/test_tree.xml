@@ -1,0 +1,96 @@
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+    <!-- Test tree to test smaller behaviours -->
+    <include path="subtrees/intersection.xml" />
+    <include path="subtrees/lane_navigation.xml" />
+    <BehaviorTree ID="MainTree">
+        <Fallback name="Root Fallback">
+
+            <!-- Reactive Sequence to check if we have a valid goal and route -->
+            <ReactiveSequence name="Core Navigation Sequence">
+                <!-- Ensure goal exists -->
+                <GoalExist point="{goal_point}" />
+
+                <!-- Ensure goal is not reached -->
+                <Inverter>
+                    <GoalReached current_point="{ego_point}" goal_point="{goal_point}"
+                        threshold_m="1.0" />
+                </Inverter>
+
+                <!-- Ensure path exists -->
+                <Fallback name="Ensure Route">
+
+                    <Sequence name="IsGlobalRouteValid">
+                        <GlobalRouteExist route="{global_route}" />
+                        <EgoOnRoute route_index_map="{global_route_index_map}"
+                            lane_ctx="{current_lane_ctx}" />
+                    </Sequence>
+
+                    <Fallback name="Get Route">
+
+                        <GetShortestRoute route="{global_route}"
+                            route_index_map="{global_route_index_map}"
+                            route_lanelet_ids="{global_route_lanelet_ids}"
+                            error_message="{get_shortest_route_error_msg}"
+                            service_name="/world_modeling/get_shortest_route" />
+
+                        <Sequence name="Set Route">
+                            <Fallback name="CheckSpecificErrors">
+                                <IsErrorMessage msg="{get_shortest_route_error_msg}"
+                                    expected="ego_not_on_route" />
+                                <IsErrorMessage msg="{get_shortest_route_error_msg}"
+                                    expected="no_active_route" />
+                            </Fallback>
+
+                            <RetryUntilSuccessful num_attempts="10">
+                                <RateController hz="1.0">
+                                    <SetRoute goal_point="{goal_point}"
+                                        service_name="/world_modeling/set_route" />
+                                </RateController>
+                            </RetryUntilSuccessful>
+
+                            <RetryUntilSuccessful num_attempts="10">
+                                <RateController hz="1.0">
+                                    <GetShortestRoute route="{global_route}"
+                                        route_index_map="{global_route_index_map}"
+                                        route_lanelet_ids="{global_route_lanelet_ids}"
+                                        error_message="{get_shortest_route_error_msg}"
+                                        service_name="/world_modeling/get_shortest_route" />
+                                </RateController>
+                            </RetryUntilSuccessful>
+
+
+                        </Sequence>
+                    </Fallback>
+
+                </Fallback>
+
+                <!-- navigation and intersection behaviour run in parallel -->
+                <ParallelAll max_failures="-1">
+
+                    <!-- NAVIGATION -->
+                    <SubTree ID="LaneNavigationSubTree"
+                        global_route="{global_route}"
+                        global_route_index_map="{global_route_index_map}"
+                        global_route_lanelet_ids="{global_route_lanelet_ids}"
+                    />
+
+                    <!-- NAVIGATION -->
+
+                    <!-- INTERSECTION -->
+
+                    <SubTree ID="IntersectionSubTree"
+                        global_route="{global_route}"
+                        global_route_index_map="{global_route_index_map}"
+                    />
+
+                    <!-- INTERSECTION -->
+                </ParallelAll>
+
+            </ReactiveSequence>
+
+            <!-- If no goal exists or goal is reached or we failed to get route -->
+            <ExecuteBehaviour behaviour="standby" topic_name="/execute_behaviour" />
+
+        </Fallback>
+    </BehaviorTree>
+</root>

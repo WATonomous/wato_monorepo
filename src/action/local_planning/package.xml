@@ -3,20 +3,29 @@
 <package format="3">
   <name>local_planning</name>
   <version>0.0.0</version>
-  <description>TODO(wato): Package description</description>
-  <maintainer email="e23zhou@watonomous.ca">eddyzhou</maintainer>
-  <license>Apache 2.0</license>
+  <description>TODO: Package description</description>
+  <maintainer email="todo@todo.todo">todo</maintainer>
+  <license>TODO: License declaration</license>
 
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>visualization_msgs</depend>
-  <depend>geometry_msgs</depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>rclcpp_components</depend>
   <depend>std_msgs</depend>
+  <depend>lanelet_msgs</depend>
+  <depend>behaviour_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>eigen3_cmake_module</depend>
 
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

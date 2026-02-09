@@ -19,7 +19,7 @@
   ros__parameters:
     # Map
     osm_map_path: "/opt/watonomous/maps/osm/Town10HD_with_regulatory.osm"
-    projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
+    projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
 
     # Frames
     map_frame: "map"
@@ -64,6 +64,8 @@
       - "front_far"
       - "left_blind_spot"
       - "right_blind_spot"
+      - "left_lane_change_corridor"
+      - "right_lane_change_corridor"
 
     occupancy_area:
       front_near:
@@ -90,6 +92,18 @@
         radius: 10.0
         start_angle_deg: 180.0
         end_angle_deg: 250.0
+      left_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: 3.0
+        length: 12.5
+        width: 4.0
+      right_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: -3.0
+        length: 12.5
+        width: 4.0
 
 # =============================================================================
 # Costmap Node
