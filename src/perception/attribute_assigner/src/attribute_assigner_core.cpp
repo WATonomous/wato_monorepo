@@ -19,7 +19,43 @@
 #include <cmath>
 #include <string>
 
+#include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
+
+namespace
+{
+
+/**
+ * @brief Compute mean of a rectangular region from an integral image in O(1).
+ * @param integral Integral image (rows+1)x(cols+1), 3-channel CV_64F (e.g. from cv::integral(hsv)).
+ * @param x Left column of region
+ * @param y Top row of region
+ * @param w Width of region
+ * @param h Height of region
+ * @return Mean as cv::Scalar (3 values: channel 0, 1, 2)
+ */
+cv::Scalar regionMeanFromIntegral(const cv::Mat & integral, int x, int y, int w, int h)
+{
+  const int rows = integral.rows - 1;
+  const int cols = integral.cols - 1;
+  const int x2 = std::min(x + w, cols);
+  const int y2 = std::min(y + h, rows);
+  const int x1 = std::max(0, x);
+  const int y1 = std::max(0, y);
+  const double area = static_cast<double>(x2 - x1) * (y2 - y1);
+  if (area <= 0.0) {
+    return cv::Scalar(0.0, 0.0, 0.0);
+  }
+
+  const cv::Vec3d & a = integral.at<cv::Vec3d>(y1, x1);
+  const cv::Vec3d & b = integral.at<cv::Vec3d>(y1, x2);
+  const cv::Vec3d & c = integral.at<cv::Vec3d>(y2, x1);
+  const cv::Vec3d & d = integral.at<cv::Vec3d>(y2, x2);
+  return cv::Scalar(
+    (d[0] - b[0] - c[0] + a[0]) / area, (d[1] - b[1] - c[1] + a[1]) / area, (d[2] - b[2] - c[2] + a[2]) / area);
+}
+
+}  // namespace
 
 namespace wato::perception::attribute_assigner
 {
@@ -51,6 +87,15 @@ vision_msgs::msg::Detection2DArray AttributeAssignerCore::process(
     vision_msgs::msg::Detection2D enriched = det;
 
     const double score = getBestScore(det);
+    const bool is_traffic_light = isTrafficLight(det);
+    const bool is_car = isCar(det);
+
+    // Skip cropping entirely for classes we don't process
+    if (!is_traffic_light && !is_car) {
+      output.detections.push_back(enriched);
+      continue;
+    }
+
     if (score < params_.min_detection_confidence) {
       output.detections.push_back(enriched);
       continue;
@@ -62,11 +107,11 @@ vision_msgs::msg::Detection2DArray AttributeAssignerCore::process(
       continue;
     }
 
-    if (isTrafficLight(det)) {
-      TrafficLightAttributes attrs = classifyTrafficLightState(crop, det);
+    if (is_traffic_light) {
+      TrafficLightAttributes attrs = classifyTrafficLightState(crop);
       appendTrafficLightHypotheses(enriched, attrs);
-    } else if (isCar(det)) {
-      CarAttributes attrs = classifyCarBehavior(crop, det);
+    } else {
+      CarAttributes attrs = classifyCarBehavior(crop);
       appendCarHypotheses(enriched, attrs);
     }
 
@@ -162,45 +207,48 @@ cv::Mat AttributeAssignerCore::cropToBbox(const cv::Mat & image, const vision_ms
     return cv::Mat();
   }
 
-  return image(cv::Rect(x1_c, y1_c, x2_c - x1_c, y2_c - y1_c)).clone();
+  // Return a view (no copy); valid only while image is unchanged. Caller must use synchronously.
+  return image(cv::Rect(x1_c, y1_c, x2_c - x1_c, y2_c - y1_c));
 }
 
-TrafficLightAttributes AttributeAssignerCore::classifyTrafficLightState(
-  const cv::Mat & crop, const vision_msgs::msg::Detection2D & det) const
+TrafficLightAttributes AttributeAssignerCore::classifyTrafficLightState(const cv::Mat & crop) const
 {
   TrafficLightAttributes attrs;
   const double min_sat = params_.traffic_light_min_saturation;
   const double min_val = params_.traffic_light_min_value;
 
   if (crop.rows < 3 || crop.cols < 2) {
-    attrs.red = 0.25;
-    attrs.green = 0.25;
-    attrs.yellow = 0.25;
-    attrs.left_turn = 0.25;
+    attrs.red = 0.33;
+    attrs.green = 0.33;
+    attrs.yellow = 0.33;
     return attrs;
   }
 
   cv::Mat hsv;
   cv::cvtColor(crop, hsv, cv::COLOR_BGR2HSV);
+  cv::Mat sum_integral;
+  cv::integral(hsv, sum_integral, CV_64F);
 
-  const double aspect = static_cast<double>(crop.rows) / static_cast<double>(crop.cols);
+  const int crop_w = crop.cols;
+  const int crop_h = crop.rows;
+  const double aspect = static_cast<double>(crop_h) / static_cast<double>(crop_w);
 
-  // Vertical light (standard 3-stack): top = red, middle = yellow, bottom = green
+  // Vertical light (standard 3-stack): top = red, middle = yellow, bottom = green (O(1) means via integral)
   if (aspect > 1.2) {
-    const int h = crop.rows;
+    const int h = crop_h;
     const int third = h / 3;
-    cv::Scalar mean_top = cv::mean(hsv(cv::Rect(0, 0, crop.cols, third)));
-    cv::Scalar mean_mid = cv::mean(hsv(cv::Rect(0, third, crop.cols, third)));
-    cv::Scalar mean_bot = cv::mean(hsv(cv::Rect(0, 2 * third, crop.cols, h - 2 * third)));
+    cv::Scalar mean_top = regionMeanFromIntegral(sum_integral, 0, 0, crop_w, third);
+    cv::Scalar mean_mid = regionMeanFromIntegral(sum_integral, 0, third, crop_w, third);
+    cv::Scalar mean_bot = regionMeanFromIntegral(sum_integral, 0, 2 * third, crop_w, h - 2 * third);
 
     auto is_lit = [min_sat, min_val](const cv::Scalar & m) { return m[1] >= min_sat && m[2] >= min_val; };
     auto hue_red = [](double h) { return h <= 10.0 || h >= 170.0; };
     auto hue_yellow = [](double h) { return h > 10.0 && h <= 35.0; };
     auto hue_green = [](double h) { return h > 35.0 && h < 85.0; };
 
-    const double h_top = mean_top[0], s_top = mean_top[1], v_top = mean_top[2];
-    const double h_mid = mean_mid[0], s_mid = mean_mid[1], v_mid = mean_mid[2];
-    const double h_bot = mean_bot[0], s_bot = mean_bot[1], v_bot = mean_bot[2];
+    const double h_top = mean_top[0], s_top = mean_top[1];
+    const double s_mid = mean_mid[1];
+    const double h_bot = mean_bot[0], s_bot = mean_bot[1];
 
     const bool lit_top = is_lit(mean_top);
     const bool lit_mid = is_lit(mean_mid);
@@ -212,22 +260,18 @@ TrafficLightAttributes AttributeAssignerCore::classifyTrafficLightState(
         attrs.red = 0.92;
         attrs.green = 0.05;
         attrs.yellow = 0.05;
-        attrs.left_turn = 0.05;
       } else if (hue_yellow(h_top)) {
         attrs.yellow = 0.92;
         attrs.red = 0.05;
         attrs.green = 0.05;
-        attrs.left_turn = 0.05;
       } else if (hue_green(h_top)) {
-        attrs.left_turn = 0.5;  // top green can be arrow
-        attrs.green = 0.45;
+        attrs.green = 0.92;
         attrs.red = 0.05;
         attrs.yellow = 0.05;
       } else {
         attrs.red = 0.4;
         attrs.green = 0.3;
-        attrs.yellow = 0.2;
-        attrs.left_turn = 0.2;
+        attrs.yellow = 0.3;
       }
       return attrs;
     }
@@ -235,7 +279,6 @@ TrafficLightAttributes AttributeAssignerCore::classifyTrafficLightState(
       attrs.yellow = 0.92;
       attrs.red = 0.05;
       attrs.green = 0.05;
-      attrs.left_turn = 0.05;
       return attrs;
     }
     if (!lit_top && !lit_mid && lit_bot) {
@@ -243,17 +286,14 @@ TrafficLightAttributes AttributeAssignerCore::classifyTrafficLightState(
         attrs.green = 0.92;
         attrs.red = 0.05;
         attrs.yellow = 0.05;
-        attrs.left_turn = 0.05;
       } else if (hue_yellow(h_bot)) {
         attrs.yellow = 0.92;
         attrs.red = 0.05;
         attrs.green = 0.05;
-        attrs.left_turn = 0.05;
       } else {
         attrs.green = 0.5;
         attrs.yellow = 0.3;
-        attrs.red = 0.1;
-        attrs.left_turn = 0.2;
+        attrs.red = 0.2;
       }
       return attrs;
     }
@@ -277,63 +317,54 @@ TrafficLightAttributes AttributeAssignerCore::classifyTrafficLightState(
       if (best == 0) {
         attrs.red = 0.85;
         attrs.yellow = 0.08;
-        attrs.green = 0.05;
-        attrs.left_turn = 0.05;
+        attrs.green = 0.07;
       } else if (best == 1) {
         attrs.yellow = 0.85;
         attrs.red = 0.08;
-        attrs.green = 0.05;
-        attrs.left_turn = 0.05;
+        attrs.green = 0.07;
       } else if (best == 2) {
         attrs.green = 0.85;
         attrs.red = 0.05;
-        attrs.yellow = 0.08;
-        attrs.left_turn = 0.05;
+        attrs.yellow = 0.10;
       }
       return attrs;
     }
   }
 
-  // Horizontal or roughly square: single region or left-turn style
-  if (aspect < 0.8 || (aspect >= 0.8 && aspect <= 1.2)) {
-    cv::Scalar mean_all = cv::mean(hsv);
+  // Horizontal or roughly square: single region
+  if (aspect <= 1.2) {
+    cv::Scalar mean_all = regionMeanFromIntegral(sum_integral, 0, 0, crop_w, crop_h);
     const double h = mean_all[0], s = mean_all[1], v = mean_all[2];
     if (s >= min_sat && v >= min_val) {
       if (h <= 10.0 || h >= 170.0) {
         attrs.red = 0.88;
-        attrs.green = 0.04;
-        attrs.yellow = 0.04;
-        attrs.left_turn = 0.04;
+        attrs.green = 0.06;
+        attrs.yellow = 0.06;
       } else if (h > 10.0 && h <= 35.0) {
         attrs.yellow = 0.88;
-        attrs.red = 0.04;
-        attrs.green = 0.04;
-        attrs.left_turn = 0.04;
+        attrs.red = 0.06;
+        attrs.green = 0.06;
       } else if (h > 35.0 && h < 85.0) {
-        attrs.green = 0.5;
-        attrs.left_turn = 0.45;  // square green often arrow
-        attrs.red = 0.03;
-        attrs.yellow = 0.03;
+        attrs.green = 0.88;
+        attrs.red = 0.06;
+        attrs.yellow = 0.06;
       } else {
-        attrs.red = 0.25;
-        attrs.green = 0.25;
-        attrs.yellow = 0.25;
-        attrs.left_turn = 0.25;
+        attrs.red = 0.33;
+        attrs.green = 0.33;
+        attrs.yellow = 0.33;
       }
       return attrs;
     }
   }
 
   // No clear lit region
-  attrs.red = 0.25;
-  attrs.green = 0.25;
-  attrs.yellow = 0.25;
-  attrs.left_turn = 0.25;
+  attrs.red = 0.33;
+  attrs.green = 0.33;
+  attrs.yellow = 0.33;
   return attrs;
 }
 
-CarAttributes AttributeAssignerCore::classifyCarBehavior(
-  const cv::Mat & crop, const vision_msgs::msg::Detection2D &) const
+CarAttributes AttributeAssignerCore::classifyCarBehavior(const cv::Mat & crop) const
 {
   CarAttributes attrs;
   if (crop.rows < 4 || crop.cols < 4) {
@@ -346,38 +377,29 @@ CarAttributes AttributeAssignerCore::classifyCarBehavior(
 
   const int h = crop.rows;
   const int w = crop.cols;
-  const double min_red = params_.car_brake_min_red;
-  const double min_bright = params_.car_brake_min_brightness;
+  const double min_bright = params_.car_brake_min_brightness;  // V in HSV
   const double ah_lo = params_.car_amber_hue_lo;
   const double ah_hi = params_.car_amber_hue_hi;
   const double am_sat = params_.car_amber_min_saturation;
   const double am_val = params_.car_amber_min_value;
 
-  // Bottom 25%: brake lights (red, bright)
+  // Single BGR→HSV conversion for whole crop; integral image for O(1) region means
+  cv::Mat crop_hsv;
+  cv::cvtColor(crop, crop_hsv, cv::COLOR_BGR2HSV);
+  cv::Mat sum_integral;
+  cv::integral(crop_hsv, sum_integral, CV_64F);
+
+  // Bottom 25%: brake lights (red in HSV: H in [0,10] or [170,180], high S and V)
   const int bottom_h = std::max(1, h / 4);
-  cv::Mat bottom_region = crop(cv::Rect(0, h - bottom_h, w, bottom_h));
-  cv::Scalar mean_bottom = cv::mean(bottom_region);
-  const double b_r = mean_bottom[2];  // BGR order
-  const double b_g = mean_bottom[1];
-  const double b_b = mean_bottom[0];
-  const double brightness = (b_r + b_g + b_b) / 3.0;
-  if (b_r >= min_red && b_r >= b_g && b_r >= b_b && brightness >= min_bright) {
-    attrs.braking = 0.85;
-  } else {
-    attrs.braking = 0.1;
-  }
+  cv::Scalar mean_bottom = regionMeanFromIntegral(sum_integral, 0, h - bottom_h, w, bottom_h);
+  const double bh = mean_bottom[0], bs = mean_bottom[1], bv = mean_bottom[2];
+  const bool is_red = (bh <= 10.0 || bh >= 170.0) && bs >= 80.0 && bv >= min_bright;
+  attrs.braking = is_red ? 0.85 : 0.1;
 
   // Left 25% and right 25%: amber for turn/hazard
   const int side_w = std::max(1, w / 4);
-  cv::Mat left_region = crop(cv::Rect(0, 0, side_w, h));
-  cv::Mat right_region = crop(cv::Rect(w - side_w, 0, side_w, h));
-
-  cv::Mat left_hsv, right_hsv;
-  cv::cvtColor(left_region, left_hsv, cv::COLOR_BGR2HSV);
-  cv::cvtColor(right_region, right_hsv, cv::COLOR_BGR2HSV);
-
-  cv::Scalar mean_left = cv::mean(left_hsv);
-  cv::Scalar mean_right = cv::mean(right_hsv);
+  cv::Scalar mean_left = regionMeanFromIntegral(sum_integral, 0, 0, side_w, h);
+  cv::Scalar mean_right = regionMeanFromIntegral(sum_integral, w - side_w, 0, side_w, h);
 
   auto has_amber = [ah_lo, ah_hi, am_sat, am_val](const cv::Scalar & m) {
     const double h = m[0], s = m[1], v = m[2];
@@ -414,7 +436,6 @@ void AttributeAssignerCore::appendTrafficLightHypotheses(
   det.results.push_back(makeHypothesis(std::string(kStatePrefix) + "green", attrs.green));
   det.results.push_back(makeHypothesis(std::string(kStatePrefix) + "yellow", attrs.yellow));
   det.results.push_back(makeHypothesis(std::string(kStatePrefix) + "red", attrs.red));
-  det.results.push_back(makeHypothesis(std::string(kStatePrefix) + "left_turn_signal", attrs.left_turn));
 }
 
 void AttributeAssignerCore::appendCarHypotheses(vision_msgs::msg::Detection2D & det, const CarAttributes & attrs)

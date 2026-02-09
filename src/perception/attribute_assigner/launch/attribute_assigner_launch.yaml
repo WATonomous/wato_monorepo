@@ -11,7 +11,7 @@ launch:
   - arg:
       name: input_detections_topic
       default: /camera_object_detections
-      description: 2D detection topic (Detection2DArray, e.g. YOLOv8 COCO)
+      description: 2D detection topic (Detection2DArray)
   - arg:
       name: output_detections_topic
       default: /enriched_detections

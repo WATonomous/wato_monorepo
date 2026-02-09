@@ -8,11 +8,8 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code needed for perception build
-COPY src/perception/perception_bringup perception_bringup
-COPY src/perception/patchwork patchwork
-COPY src/perception/tracking_2d tracking_2d
-COPY src/perception/attribute_assigner attribute_assigner
+# Copy perception as src/perception so paths match host (avoids duplicate package when volume-mounting src/perception in dev)
+COPY src/perception perception
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################

@@ -24,6 +24,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
@@ -32,6 +33,9 @@ find_package(diagnostic_updater REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(message_filters REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # ---- Core library (image-based attribute logic) ----
@@ -48,9 +52,7 @@ target_include_directories(${PROJECT_NAME}_core
 target_link_libraries(${PROJECT_NAME}_core
   PUBLIC
     ${vision_msgs_TARGETS}
-    ${std_msgs_TARGETS}
-    OpenCV::opencv_core
-    OpenCV::opencv_imgproc
+    ${OpenCV_LIBS}
 )
 
 # ---- Node library (lifecycle composable node) ----
@@ -69,18 +71,18 @@ target_link_libraries(${PROJECT_NAME}_node
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     diagnostic_updater::diagnostic_updater
+    message_filters::message_filters
+    ${sensor_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${std_msgs_TARGETS}
     ${PROJECT_NAME}_core
   PRIVATE
     rclcpp_components::component
-    ${diagnostic_msgs_TARGETS}
     cv_bridge::cv_bridge
-    sensor_msgs::sensor_msgs
-    message_filters::message_filters
+    ${diagnostic_msgs_TARGETS}
 )
 
-# ---- Standalone executable ----
+# ---- Executable ----
 add_executable(${PROJECT_NAME}_exe
   src/main.cpp
 )
@@ -99,7 +101,7 @@ target_link_libraries(${PROJECT_NAME}_exe
     ${PROJECT_NAME}_node
 )
 
-# ---- Install targets ----
+# ---- Install ----
 install(
   TARGETS
     ${PROJECT_NAME}_core
@@ -126,13 +128,12 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Install headers for downstream packages
 install(
   DIRECTORY include/
   DESTINATION include
 )
 
-# ---- Export ament dependencies ----
+# ---- Export ----
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   rclcpp
@@ -143,14 +144,9 @@ ament_export_dependencies(
   vision_msgs
   std_msgs
   sensor_msgs
-  cv_bridge
   message_filters
+  cv_bridge
+  OpenCV
 )
-
-# ---- Tests ----
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
-endif()
 
 ament_package()

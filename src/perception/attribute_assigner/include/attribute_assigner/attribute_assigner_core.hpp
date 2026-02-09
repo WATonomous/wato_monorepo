@@ -44,8 +44,7 @@ struct Params
   double traffic_light_min_saturation{60.0};
   double traffic_light_min_value{80.0};
 
-  /// Car: min red channel and min brightness for brake light detection
-  double car_brake_min_red{140.0};
+  /// Car: min brightness (HSV V channel) for brake light detection
   double car_brake_min_brightness{90.0};
   /// Car: amber hue range (OpenCV H 0-180) and min saturation/value for turn/hazard
   double car_amber_hue_lo{12.0};
@@ -65,7 +64,6 @@ struct TrafficLightAttributes
   double green{0.0};  ///< Confidence that the light is green
   double yellow{0.0};  ///< Confidence that the light is yellow
   double red{0.0};  ///< Confidence that the light is red
-  double left_turn{0.0};  ///< Confidence that the light shows a left-turn signal
 };
 
 /**
@@ -86,7 +84,7 @@ struct CarAttributes
  * @brief Core logic for assigning semantic attributes to 2D detections.
  *
  * Processes a Detection2DArray, identifies traffic lights and cars by their
- * class IDs, and enriches each detection's ObjectHypothesisWithPose results
+ * class IDs, and assigns each detection's ObjectHypothesisWithPose results
  * array with attribute hypotheses. The original detection hypothesis is
  * preserved; attributes are appended with a namespaced class_id prefix.
  *
@@ -177,24 +175,23 @@ private:
    *
    * Splits the crop into regions (vertical: top/middle/bottom = red/yellow/green).
    * Determines which region is "lit" (high saturation and value), then maps hue to color.
+   * Uses integral images for O(1) region mean calculations.
    *
    * @param crop Cropped image (traffic light bbox)
-   * @param det The traffic light detection (for aspect ratio if needed)
    * @return Attribute confidences for each traffic light state
    */
-  TrafficLightAttributes classifyTrafficLightState(
-    const cv::Mat & crop, const vision_msgs::msg::Detection2D & det) const;
+  TrafficLightAttributes classifyTrafficLightState(const cv::Mat & crop) const;
 
   /**
-   * @brief Classify car behavior from the cropped image: brake lights (red) and turn/hazard (amber).
+   * @brief Classify car behavior from the cropped image: brake lights and turn/hazard signals.
    *
-   * Bottom region: dominant red + bright -> braking. Left/right regions: amber -> turn or hazard.
+   * Converts crop to HSV once and uses integral images for O(1) region mean calculations.
+   * Bottom region: red hue + high S/V -> braking. Left/right regions: amber hue -> turn or hazard.
    *
    * @param crop Cropped image (car/vehicle bbox)
-   * @param det The car detection
    * @return Attribute confidences for each car behavior
    */
-  CarAttributes classifyCarBehavior(const cv::Mat & crop, const vision_msgs::msg::Detection2D & det) const;
+  CarAttributes classifyCarBehavior(const cv::Mat & crop) const;
 
   /**
    * @brief Append traffic light attribute hypotheses to a detection.

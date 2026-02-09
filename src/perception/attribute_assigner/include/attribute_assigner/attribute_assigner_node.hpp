@@ -45,7 +45,7 @@ namespace wato::perception::attribute_assigner
  * with attribute hypotheses (traffic light state, car behavior), and publishes the
  * enriched detections. Supports full lifecycle management and component loading.
  *
- * Traffic light attributes: green, yellow, red, left-turn signal
+ * Traffic light attributes: green, yellow, red
  * Car behavior attributes: turning left, turning right, braking, hazard lights
  *
  * Each attribute is appended as an additional ObjectHypothesisWithPose entry in
@@ -167,8 +167,8 @@ private:
   using DetectionsMsg = vision_msgs::msg::Detection2DArray;
   using SyncPolicy = message_filters::sync_policies::ApproximateTime<ImageMsg, DetectionsMsg>;
 
-  std::unique_ptr<message_filters::Subscriber<ImageMsg>> image_sub_;
-  std::unique_ptr<message_filters::Subscriber<DetectionsMsg>> detections_sub_;
+  std::unique_ptr<message_filters::Subscriber<ImageMsg, rclcpp_lifecycle::LifecycleNode>> image_sub_;
+  std::unique_ptr<message_filters::Subscriber<DetectionsMsg, rclcpp_lifecycle::LifecycleNode>> detections_sub_;
   std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
 
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection2DArray>::SharedPtr detections_pub_;
@@ -189,7 +189,6 @@ private:
   double min_freq_{0.0};  ///< Minimum expected publishing frequency (Hz)
   double max_freq_{100.0};  ///< Maximum expected publishing frequency (Hz)
 
-  std::string image_topic_;  ///< Resolved image topic (from param)
   int sync_queue_size_{10};  ///< Message filters sync queue size
 };
 

@@ -1,8 +1,6 @@
 ---
 attribute_assigner_node:
   ros__parameters:
-    # Image topic (same camera frame as detections; used for cropping and color/signal detection)
-    image_topic: "input_image"
     sync_queue_size: 10   # ApproximateTime sync queue size for image + detections
 
     # Class ID mappings (YOLOv8 COCO: 9=traffic_light, 2=car, 7=truck, 5=bus)
@@ -16,9 +14,8 @@ attribute_assigner_node:
     traffic_light_min_saturation: 60.0
     traffic_light_min_value: 80.0
 
-    # Car: brake light (red) and amber (turn/hazard) detection thresholds
-    car_brake_min_red: 140.0
-    car_brake_min_brightness: 90.0
+    # Car: brake light and amber (turn/hazard) detection thresholds (HSV-based)
+    car_brake_min_brightness: 90.0  # Min V channel for brake light detection
     car_amber_hue_lo: 12.0
     car_amber_hue_hi: 35.0
     car_amber_min_saturation: 80.0

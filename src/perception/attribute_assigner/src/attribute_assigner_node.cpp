@@ -14,13 +14,12 @@
 
 #include "attribute_assigner/attribute_assigner_node.hpp"
 
-#include <cv_bridge/cv_bridge.h>
-
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <cv_bridge/cv_bridge.hpp>
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
 #include <opencv2/core/mat.hpp>
@@ -61,14 +60,12 @@ void AttributeAssignerNode::declareParameters(Params & params)
   params.traffic_light_min_saturation = this->get_parameter("traffic_light_min_saturation").as_double();
   params.traffic_light_min_value = this->get_parameter("traffic_light_min_value").as_double();
 
-  // Car signal detection thresholds
-  this->declare_parameter<double>("car_brake_min_red", 140.0);
+  // Car signal detection thresholds (HSV-based)
   this->declare_parameter<double>("car_brake_min_brightness", 90.0);
   this->declare_parameter<double>("car_amber_hue_lo", 12.0);
   this->declare_parameter<double>("car_amber_hue_hi", 35.0);
   this->declare_parameter<double>("car_amber_min_saturation", 80.0);
   this->declare_parameter<double>("car_amber_min_value", 100.0);
-  params.car_brake_min_red = this->get_parameter("car_brake_min_red").as_double();
   params.car_brake_min_brightness = this->get_parameter("car_brake_min_brightness").as_double();
   params.car_amber_hue_lo = this->get_parameter("car_amber_hue_lo").as_double();
   params.car_amber_hue_hi = this->get_parameter("car_amber_hue_hi").as_double();
@@ -273,9 +270,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     const int publisher_depth = this->get_parameter("qos_publisher_depth").as_int();
     publisher_qos_ = createPublisherQoS(publisher_reliability, publisher_durability, publisher_depth);
 
-    this->declare_parameter<std::string>("image_topic", std::string(kImageTopic));
     this->declare_parameter<int>("sync_queue_size", 10);
-    image_topic_ = this->get_parameter("image_topic").as_string();
     sync_queue_size_ = this->get_parameter("sync_queue_size").as_int();
 
     // Initialize diagnostics
@@ -297,8 +292,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   RCLCPP_INFO(this->get_logger(), "Activating Attribute Assigner node");
 
   try {
-    image_sub_ = std::make_unique<message_filters::Subscriber<ImageMsg>>(this, image_topic_, subscriber_qos_);
-    detections_sub_ = std::make_unique<message_filters::Subscriber<DetectionsMsg>>(this, kInputTopic, subscriber_qos_);
+    image_sub_ = std::make_unique<message_filters::Subscriber<ImageMsg, rclcpp_lifecycle::LifecycleNode>>(
+      this, kImageTopic, subscriber_qos_.get_rmw_qos_profile());
+    detections_sub_ = std::make_unique<message_filters::Subscriber<DetectionsMsg, rclcpp_lifecycle::LifecycleNode>>(
+      this, kInputTopic, subscriber_qos_.get_rmw_qos_profile());
 
     sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(
       SyncPolicy(sync_queue_size_), *image_sub_, *detections_sub_);
@@ -322,7 +319,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     RCLCPP_INFO(
       this->get_logger(),
       "Node activated. Subscribed to image '%s' and detections '%s'; publishing -> '%s'",
-      image_topic_.c_str(),
+      kImageTopic,
       kInputTopic,
       detections_pub_->get_topic_name());
 
