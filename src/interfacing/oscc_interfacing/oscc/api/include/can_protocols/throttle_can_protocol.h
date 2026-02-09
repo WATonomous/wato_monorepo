@@ -71,8 +71,7 @@
  * @brief Enumeration of all possible throttle DTCs.
  *
  */
-enum
-{
+enum {
   /* DTC bitfield position indicating an invalid sensor value. */
   OSCC_THROTTLE_DTC_INVALID_SENSOR_VAL = 0,
 
@@ -92,11 +91,10 @@ enum
  * CAN frame ID: \ref OSCC_THROTTLE_ENABLE_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t reserved[6]; /*!< Reserved. */
 } oscc_throttle_enable_s;
@@ -107,11 +105,10 @@ typedef struct
  * CAN frame ID: \ref OSCC_THROTTLE_DISABLE_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t reserved[6]; /*!< Reserved. */
 } oscc_throttle_disable_s;
@@ -122,11 +119,10 @@ typedef struct
  * CAN frame ID: \ref OSCC_THROTTLE_COMMAND_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   float torque_request; /* Torque request from 0.0 to 1.0 where 1.0 is 100% */
 
@@ -139,20 +135,20 @@ typedef struct
  * CAN frame ID: \ref OSCC_THROTTLE_REPORT_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t enabled; /*!< Throttle controls enabled state.
-                      * Zero value means disabled (commands are ignored).
-                      * Non-zero value means enabled (commands are sent to the vehicle). */
+                    * Zero value means disabled (commands are ignored).
+                    * Non-zero value means enabled (commands are sent to the
+                    * vehicle). */
 
   uint8_t operator_override; /*!< Driver override state.
-                                * Zero value means there has been no operator override.
-                                * Non-zero value means an operator has physically overridden
-                                * the system. */
+                              * Zero value means there has been no operator
+                              * override. Non-zero value means an operator has
+                              * physically overridden the system. */
 
   uint8_t dtcs; /*!< Bitfield of DTCs present in the module. */
 

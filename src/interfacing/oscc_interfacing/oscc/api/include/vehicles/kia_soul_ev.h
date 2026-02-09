@@ -81,8 +81,7 @@
  * @brief Steering wheel angle message data.
  * @warn Deprecated. Use \ref get_steering_wheel_angle instead.
  */
-typedef struct
-{
+typedef struct {
   int16_t steering_wheel_angle; /* 1/10 degrees */
 
   uint8_t reserved[6]; /* Reserved. */
@@ -97,8 +96,7 @@ typedef struct
  * \li \ref get_wheel_speed_right_front
  * \li \ref get_wheel_speed_left_front
  */
-typedef struct
-{
+typedef struct {
   int16_t wheel_speed_front_left; /* 1/50 mph */
 
   int16_t wheel_speed_front_right; /* 1/50 mph */
@@ -111,10 +109,10 @@ typedef struct
 /**
  * @brief Brake pressure message data.
  * @warn Deprecated.
- * @warn Does not reflect CAN message data. Use \ref get_wheel_brake_pressure instead.
+ * @warn Does not reflect CAN message data. Use \ref get_wheel_brake_pressure
+ * instead.
  */
-typedef struct
-{
+typedef struct {
   int16_t master_cylinder_pressure; /* 1/10th of a bar per bit */
 
   uint8_t reserved[6]; /* Reserved. */
@@ -125,7 +123,8 @@ typedef struct
 // ****************************************************************************
 
 /*
- * @brief Number of steps per volt corresponding to 4096 steps (2^12) across 5 volts.
+ * @brief Number of steps per volt corresponding to 4096 steps (2^12) across 5
+ * volts.
  *
  */
 #define STEPS_PER_VOLT (819.2)
@@ -209,32 +208,37 @@ typedef struct
  * @brief Calculation to convert a brake position to a low spoof voltage.
  *
  */
-#define BRAKE_POSITION_TO_VOLTS_LOW(position)                                               \
-  ((position) * (BRAKE_SPOOF_LOW_SIGNAL_VOLTAGE_MAX - BRAKE_SPOOF_LOW_SIGNAL_VOLTAGE_MIN) + \
+#define BRAKE_POSITION_TO_VOLTS_LOW(position)                                  \
+  ((position) * (BRAKE_SPOOF_LOW_SIGNAL_VOLTAGE_MAX -                          \
+                 BRAKE_SPOOF_LOW_SIGNAL_VOLTAGE_MIN) +                         \
    BRAKE_SPOOF_LOW_SIGNAL_VOLTAGE_MIN)
 
 /*
  * @brief Calculation to convert a brake position to a high spoof voltage.
  *
  */
-#define BRAKE_POSITION_TO_VOLTS_HIGH(position)                                                \
-  ((position) * (BRAKE_SPOOF_HIGH_SIGNAL_VOLTAGE_MAX - BRAKE_SPOOF_HIGH_SIGNAL_VOLTAGE_MIN) + \
+#define BRAKE_POSITION_TO_VOLTS_HIGH(position)                                 \
+  ((position) * (BRAKE_SPOOF_HIGH_SIGNAL_VOLTAGE_MAX -                         \
+                 BRAKE_SPOOF_HIGH_SIGNAL_VOLTAGE_MIN) +                        \
    BRAKE_SPOOF_HIGH_SIGNAL_VOLTAGE_MIN)
 
 /*
- * @brief Value of the accelerator position that indicates operator override. [steps]
+ * @brief Value of the accelerator position that indicates operator override.
+ * [steps]
  *
  */
 #define BRAKE_PEDAL_OVERRIDE_THRESHOLD (130)
 
 /*
- * @brief Minimum value of the low spoof signal that activates the brake lights. [steps]
+ * @brief Minimum value of the low spoof signal that activates the brake lights.
+ * [steps]
  *
  */
 #define BRAKE_LIGHT_SPOOF_LOW_THRESHOLD (300)
 
 /*
- * @brief Minimum value of the high spoof signal that activates the brake lights. [steps]
+ * @brief Minimum value of the high spoof signal that activates the brake
+ * lights. [steps]
  *
  */
 #define BRAKE_LIGHT_SPOOF_HIGH_THRESHOLD (600)
@@ -335,15 +339,17 @@ typedef struct
  * @brief Minimum allowed value for the high spoof signal value.
  *
  */
-#define STEERING_TORQUE_TO_VOLTS_HIGH(torque) \
-  (((TORQUE_SPOOF_HIGH_SIGNAL_CALIBRATION_CURVE_SCALE * (torque)) + TORQUE_SPOOF_HIGH_SIGNAL_CALIBRATION_CURVE_OFFSET))
+#define STEERING_TORQUE_TO_VOLTS_HIGH(torque)                                  \
+  (((TORQUE_SPOOF_HIGH_SIGNAL_CALIBRATION_CURVE_SCALE * (torque)) +            \
+    TORQUE_SPOOF_HIGH_SIGNAL_CALIBRATION_CURVE_OFFSET))
 
 /*
  * @brief Calculation to convert a steering torque to a low spoof value.
  *
  */
-#define STEERING_TORQUE_TO_VOLTS_LOW(torque) \
-  (((TORQUE_SPOOF_LOW_SIGNAL_CALIBRATION_CURVE_SCALE * (torque)) + TORQUE_SPOOF_LOW_SIGNAL_CALIBRATION_CURVE_OFFSET))
+#define STEERING_TORQUE_TO_VOLTS_LOW(torque)                                   \
+  (((TORQUE_SPOOF_LOW_SIGNAL_CALIBRATION_CURVE_SCALE * (torque)) +             \
+    TORQUE_SPOOF_LOW_SIGNAL_CALIBRATION_CURVE_OFFSET))
 
 /*
  * @brief Value of torque sensor difference that indicates likely operator
@@ -424,20 +430,23 @@ typedef struct
  * @brief Calculation to convert a throttle position to a low spoof voltage.
  *
  */
-#define THROTTLE_POSITION_TO_VOLTS_LOW(position)                                                  \
-  ((position) * (THROTTLE_SPOOF_LOW_SIGNAL_VOLTAGE_MAX - THROTTLE_SPOOF_LOW_SIGNAL_VOLTAGE_MIN) + \
+#define THROTTLE_POSITION_TO_VOLTS_LOW(position)                               \
+  ((position) * (THROTTLE_SPOOF_LOW_SIGNAL_VOLTAGE_MAX -                       \
+                 THROTTLE_SPOOF_LOW_SIGNAL_VOLTAGE_MIN) +                      \
    THROTTLE_SPOOF_LOW_SIGNAL_VOLTAGE_MIN)
 
 /*
  * @brief Calculation to convert a throttle position to a high spoof voltage.
  *
  */
-#define THROTTLE_POSITION_TO_VOLTS_HIGH(position)                                                   \
-  ((position) * (THROTTLE_SPOOF_HIGH_SIGNAL_VOLTAGE_MAX - THROTTLE_SPOOF_HIGH_SIGNAL_VOLTAGE_MIN) + \
+#define THROTTLE_POSITION_TO_VOLTS_HIGH(position)                              \
+  ((position) * (THROTTLE_SPOOF_HIGH_SIGNAL_VOLTAGE_MAX -                      \
+                 THROTTLE_SPOOF_HIGH_SIGNAL_VOLTAGE_MIN) +                     \
    THROTTLE_SPOOF_HIGH_SIGNAL_VOLTAGE_MIN)
 
 /*
- * @brief Value of the accelerator position that indicates operator override. [steps]
+ * @brief Value of the accelerator position that indicates operator override.
+ * [steps]
  *
  */
 #define ACCELERATOR_OVERRIDE_THRESHOLD (185.0)

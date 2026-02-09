@@ -71,8 +71,7 @@
  * @brief Enumeration of all possible brake DTCs.
  *
  */
-enum
-{
+enum {
   /* DTC bitfield position indicating an invalid sensor value. */
   OSCC_BRAKE_DTC_INVALID_SENSOR_VAL = 0,
 
@@ -92,11 +91,10 @@ enum
  * CAN frame ID: \ref OSCC_BRAKE_ENABLE_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t reserved[6]; /*!< Reserved. */
 } oscc_brake_enable_s;
@@ -107,11 +105,10 @@ typedef struct
  * CAN frame ID: \ref OSCC_BRAKE_DISABLE_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t reserved[6]; /*!< Reserved. */
 } oscc_brake_disable_s;
@@ -122,11 +119,10 @@ typedef struct
  * CAN frame ID: \ref OSCC_BRAKE_COMMAND_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   float pedal_command; /* Brake Request 0.0 to 1.0 where 1.0 is 100% */
 
@@ -140,20 +136,20 @@ typedef struct
  * CAN frame ID: \ref OSCC_BRAKE_REPORT_CAN_ID
  *
  */
-typedef struct
-{
+typedef struct {
   uint8_t magic[2]; /*!< Magic number identifying CAN frame as from OSCC.
-                       *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
-                       *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
+                     *   Byte 0 should be \ref OSCC_MAGIC_BYTE_0.
+                     *   Byte 1 should be \ref OSCC_MAGIC_BYTE_1. */
 
   uint8_t enabled; /*!< Braking controls enabled state.
-                      * Zero value means disabled (commands are ignored).
-                      * Non-zero value means enabled (no timeouts or overrides have occured). */
+                    * Zero value means disabled (commands are ignored).
+                    * Non-zero value means enabled (no timeouts or overrides
+                    * have occured). */
 
   uint8_t operator_override; /*!< Driver override state.
-                                * Zero value means there has been no operator override.
-                                * Non-zero value means an operator has physically overridden
-                                * the system. */
+                              * Zero value means there has been no operator
+                              * override. Non-zero value means an operator has
+                              * physically overridden the system. */
 
   uint8_t dtcs; /*!< Bitfield of DTCs present in the module. */
 
