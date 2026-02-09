@@ -66,23 +66,45 @@ public:
   bool is_armed_{false};
 
   // Thread-safe data queues for CAN callbacks (public for free function access)
-  struct WheelSpeedData { 
-    std::atomic<float> ne, nw, se, sw; 
-    WheelSpeedData() : ne(0), nw(0), se(0), sw(0) {}
+  struct WheelSpeedData
+  {
+    std::atomic<float> ne, nw, se, sw;
+
+    WheelSpeedData()
+    : ne(0)
+    , nw(0)
+    , se(0)
+    , sw(0)
+    {}
   };
-  struct SteeringAngleData { 
+
+  struct SteeringAngleData
+  {
     std::atomic<float> angle;
-    SteeringAngleData() : angle(0) {}
+
+    SteeringAngleData()
+    : angle(0)
+    {}
   };
-  enum class OverrideType { BRAKE, THROTTLE, STEERING };
-  enum class FaultType { BRAKE_FAULT, STEERING_FAULT, THROTTLE_FAULT };
-  
+  enum class OverrideType
+  {
+    BRAKE,
+    THROTTLE,
+    STEERING
+  };
+  enum class FaultType
+  {
+    BRAKE_FAULT,
+    STEERING_FAULT,
+    THROTTLE_FAULT
+  };
+
   // Use atomic flags instead of mutex for signal-safe operation
   std::atomic<bool> has_wheel_data_{false};
   std::atomic<bool> has_steering_data_{false};
   std::atomic<bool> has_override_{false};
   std::atomic<bool> has_fault_{false};
-  
+
   // Single data slots (signal handlers write, timer reads)
   WheelSpeedData latest_wheel_data_;
   SteeringAngleData latest_steering_data_;
@@ -144,13 +166,13 @@ private:
   int oscc_can_bus_;
   double steering_scaling_{1.0};
   bool disable_boards_on_fault_{false};
-  double steering_conversion_factor_{15.7}; // Steering wheel to wheel angle
+  double steering_conversion_factor_{15.7};  // Steering wheel to wheel angle
 
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};
 
   rclcpp::TimerBase::SharedPtr data_process_timer_;
-  
+
   void process_queued_data();
 };
 

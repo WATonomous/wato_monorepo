@@ -40,7 +40,6 @@ repos:
     hooks:
       - id: clang-format
         args: ["--style=file:.config/clang-format"]
-        exclude: "^(src/embedded/|src/interfacing/oscc_interfacing/oscc/)"
 
   # C++ linting
   - repo: https://github.com/cpplint/cpplint

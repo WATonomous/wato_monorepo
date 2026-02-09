@@ -66,7 +66,7 @@ void obd_callback(struct can_frame * frame)
     get_wheel_speed_left_front(frame, &nw);
     get_wheel_speed_left_rear(frame, &sw);
     get_wheel_speed_right_front(frame, &ne);
-    
+
     // Async-signal-safe: atomic stores prevent data corruption
     g_node_instance->latest_wheel_data_.ne.store(static_cast<float>(ne));
     g_node_instance->latest_wheel_data_.nw.store(static_cast<float>(nw));
@@ -161,8 +161,8 @@ void OsccInterfacingNode::configure()
   is_armed_timer_ = this->create_wall_timer(interval, std::bind(&OsccInterfacingNode::is_armed_timer_callback, this));
 
   // Create high-frequency timer to process queued CAN data safely on ROS thread
-  data_process_timer_ = this->create_wall_timer(
-    std::chrono::milliseconds(5), std::bind(&OsccInterfacingNode::process_queued_data, this));
+  data_process_timer_ =
+    this->create_wall_timer(std::chrono::milliseconds(5), std::bind(&OsccInterfacingNode::process_queued_data, this));
 
   RCLCPP_INFO(
     this->get_logger(),
@@ -227,12 +227,17 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   float steering = msg->steering;
 
   if (std::abs(forward) > 1.0) {
-    RCLCPP_ERROR(this->get_logger(), "Forward command out of range [-1, 1], this should not happen! Ignoring message.");
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Forward command out of range [-1, 1], this should not "
+      "happen! Ignoring message.");
     return;
   }
   if (std::abs(steering) > 1.0) {
     RCLCPP_ERROR(
-      this->get_logger(), "Steering command out of range [-1, 1], this should not happen! Ignoring message.");
+      this->get_logger(),
+      "Steering command out of range [-1, 1], this should not "
+      "happen! Ignoring message.");
     return;
   }
 
@@ -329,7 +334,7 @@ void OsccInterfacingNode::process_queued_data()
     msg.header.stamp = this->now();
     wheel_speeds_pub_->publish(msg);
   }
-  
+
   // Process steering angle data
   if (has_steering_data_.exchange(false)) {
     roscco_msg::msg::SteeringAngle msg;
@@ -341,7 +346,7 @@ void OsccInterfacingNode::process_queued_data()
     msg.header.stamp = this->now();
     steering_angle_pub_->publish(msg);
   }
-  
+
   // Process operator override events
   if (has_override_.exchange(false)) {
     if (latest_override_ == OverrideType::BRAKE) {
@@ -351,7 +356,7 @@ void OsccInterfacingNode::process_queued_data()
     } else if (latest_override_ == OverrideType::STEERING) {
       RCLCPP_INFO(get_logger(), "Steering Operator Override");
     }
-    
+
     // Handle disarming safely on ROS thread
     if (oscc_disable() == OSCC_OK) {
       {
@@ -363,7 +368,7 @@ void OsccInterfacingNode::process_queued_data()
       RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
     }
   }
-  
+
   // Process fault events
   if (has_fault_.exchange(false)) {
     if (latest_fault_ == FaultType::BRAKE_FAULT) {
@@ -373,7 +378,7 @@ void OsccInterfacingNode::process_queued_data()
     } else if (latest_fault_ == FaultType::THROTTLE_FAULT) {
       RCLCPP_INFO(get_logger(), "Throttle Fault");
     }
-    
+
     // Handle disarming safely on ROS thread
     if (disable_boards_on_fault_ && oscc_disable() == OSCC_OK) {
       {
@@ -395,7 +400,8 @@ void OsccInterfacingNode::publish_wheel_speeds(float NE, float NW, float SE, flo
   msg.se = SE;
   msg.sw = SW;
   // Use get_clock()->now() instead of this->now() for thread safety
-  // This maintains ROS 2 time synchronization while being thread-safe for CAN callbacks
+  // This maintains ROS 2 time synchronization while being thread-safe for CAN
+  // callbacks
   msg.header.stamp = get_clock()->now();
   wheel_speeds_pub_->publish(msg);
 }
@@ -405,7 +411,8 @@ void OsccInterfacingNode::publish_steering_angle(float angle_degrees)
   roscco_msg::msg::SteeringAngle msg;
   msg.angle = angle_degrees;
   // Use get_clock()->now() instead of this->now() for thread safety
-  // This maintains ROS 2 time synchronization while being thread-safe for CAN callbacks
+  // This maintains ROS 2 time synchronization while being thread-safe for CAN
+  // callbacks
   msg.header.stamp = get_clock()->now();
   steering_angle_pub_->publish(msg);
 }
