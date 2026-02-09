@@ -8,8 +8,9 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy perception as src/perception so paths match host (avoids duplicate package when volume-mounting src/perception in dev)
+# Copy in source code needed for perception build
 COPY src/perception perception
+COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################
