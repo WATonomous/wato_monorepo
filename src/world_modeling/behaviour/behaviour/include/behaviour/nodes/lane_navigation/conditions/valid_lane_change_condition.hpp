@@ -25,7 +25,7 @@
 
 namespace behaviour
 {
-  /**
+/**
    * @class ValidLaneChangeCondition
    * @brief ConditionNode to validate whether a lane change is permitted.
    *
@@ -41,78 +41,68 @@ namespace behaviour
    * - Valid lane change does not mean its a safe lane change.
    * - Intersection constraint is a hard stop for lane-change validity.
    */
-  class ValidLaneChangeCondition : public BT::ConditionNode
+class ValidLaneChangeCondition : public BT::ConditionNode
+{
+public:
+  ValidLaneChangeCondition(const std::string & name, const BT::NodeConfig & config)
+  : BT::ConditionNode(name, config)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    ValidLaneChangeCondition(const std::string &name, const BT::NodeConfig &config)
-        : BT::ConditionNode(name, config)
-    {
+    return {
+      BT::InputPort<types::LaneTransition>("lane_transition", "The transition to check"),
+      BT::InputPort<lanelet_msgs::msg::CurrentLaneContext::SharedPtr>("lane_ctx", "The expected transition"),
+    };
+  }
+
+  BT::NodeStatus tick() override
+  {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[ValidLaneChange]: Missing " << port_name << " input" << std::endl;
+    };
+
+    auto lane_transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
+    if (!ports::require(lane_transition, "lane_transition", missing_input_callback)) return BT::NodeStatus::FAILURE;
+    auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
+    if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback)) return BT::NodeStatus::FAILURE;
+
+    // Check if in intersection
+    lanelet_msgs::msg::Lanelet current_lanelet = lane_ctx->current_lanelet;
+    if (current_lanelet.is_intersection) {
+      std::cout << "[ValidLaneChange]: Not valid, currently in intersection" << std::endl;
+      return BT::NodeStatus::FAILURE;
     }
 
-    static BT::PortsList providedPorts()
-    {
-      return {
-          BT::InputPort<types::LaneTransition>("lane_transition", "The transition to check"),
-          BT::InputPort<lanelet_msgs::msg::CurrentLaneContext::SharedPtr>("lane_ctx", "The expected transition"),
-      };
-    }
+    bool can_change_left = current_lanelet.can_change_left;
+    bool can_change_right = current_lanelet.can_change_right;
 
-    BT::NodeStatus tick() override
-    {
-      const auto missing_input_callback = [&](const char *port_name)
-      { std::cout << "[ValidLaneChange]: Missing " << port_name << " input" << std::endl; };
-
-      auto lane_transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
-      if (!ports::require(lane_transition, "lane_transition", missing_input_callback))
-        return BT::NodeStatus::FAILURE;
-      auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
-      if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback))
-        return BT::NodeStatus::FAILURE;
-
-      // Check if in intersection
-      lanelet_msgs::msg::Lanelet current_lanelet = lane_ctx->current_lanelet;
-      if (current_lanelet.is_intersection)
-      {
-        std::cout << "[ValidLaneChange]: Not valid, currently in intersection" << std::endl;
-        return BT::NodeStatus::FAILURE;
-      }
-
-      bool can_change_left = current_lanelet.can_change_left;
-      bool can_change_right = current_lanelet.can_change_right;
-
-      switch (lane_transition.value())
-      {
+    switch (lane_transition.value()) {
       // handles left lane change
       case types::LaneTransition::LEFT:
-        if (can_change_left)
-        {
+        if (can_change_left) {
           std::cout << "[ValidLaneChange]: Valid left lane change" << std::endl;
           return BT::NodeStatus::SUCCESS;
-        }
-        else
-        {
+        } else {
           std::cout << "[ValidLaneChange]: Not valid, cannot change left" << std::endl;
           return BT::NodeStatus::FAILURE;
         }
       // handles right lane change
       case types::LaneTransition::RIGHT:
-        if (can_change_right)
-        {
+        if (can_change_right) {
           std::cout << "[ValidLaneChange]: Valid right lane change" << std::endl;
           return BT::NodeStatus::SUCCESS;
-        }
-        else
-        {
+        } else {
           std::cout << "[ValidLaneChange]: Not valid, cannot change right" << std::endl;
           return BT::NodeStatus::FAILURE;
         }
       default:
         std::cout << "[ValidLaneChange]: Invalid transition type" << std::endl;
         return BT::NodeStatus::FAILURE;
-      }
     }
-  };
+  }
+};
 
-} // namespace behaviour
+}  // namespace behaviour
 
-#endif // BEHAVIOUR__NODES__LANE_NAVIGATION__CONDITIONS__VALID_LANE_CHANGE_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__LANE_NAVIGATION__CONDITIONS__VALID_LANE_CHANGE_CONDITION_HPP_

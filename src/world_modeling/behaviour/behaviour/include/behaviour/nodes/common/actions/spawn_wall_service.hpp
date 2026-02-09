@@ -33,111 +33,99 @@
 
 namespace behaviour
 {
-  /**
+/**
    * @class SpawnWallService
    * @brief RosServiceNode to request SpawnWall service.
    */
-  class SpawnWallService : public BT::RosServiceNode<costmap_msgs::srv::SpawnWall>
+class SpawnWallService : public BT::RosServiceNode<costmap_msgs::srv::SpawnWall>
+{
+public:
+  SpawnWallService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosServiceNode<costmap_msgs::srv::SpawnWall>(name, conf, params)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    SpawnWallService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
-        : BT::RosServiceNode<costmap_msgs::srv::SpawnWall>(name, conf, params)
-    {
+    return providedBasicPorts({
+      BT::InputPort<geometry_msgs::msg::PoseStamped::SharedPtr>("pose"),
+      BT::InputPort<std::shared_ptr<tf2_ros::Buffer>>("tf_buffer"),
+
+      BT::InputPort<std::string>("pose_frame"),
+      BT::InputPort<double>("width"),
+      BT::InputPort<double>("length"),
+
+      BT::OutputPort<int32_t>("wall_id"),
+      BT::OutputPort<std::string>("error_message"),
+    });
+  }
+
+  bool setRequest(Request::SharedPtr & request) override
+  {
+    const auto missing_input_callback = [&](const char * port_name) {
+      RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+      setOutput("error_message", std::string("missing_port:") + port_name);
+    };
+
+    // read input ports
+    auto input_pose = ports::tryGetPtr<geometry_msgs::msg::PoseStamped>(*this, "pose");
+    if (!ports::require(input_pose, "pose", missing_input_callback)) return false;
+    auto tf_buffer = ports::tryGetPtr<tf2_ros::Buffer>(*this, "tf_buffer");
+    if (!ports::require(tf_buffer, "tf_buffer", missing_input_callback)) return false;
+    auto wall_pose_frame = ports::tryGet<std::string>(*this, "pose_frame");
+    if (!ports::require(wall_pose_frame, "pose_frame", missing_input_callback)) return false;
+    auto width = ports::tryGet<double>(*this, "width");
+    if (!ports::require(width, "width", missing_input_callback)) return false;
+    auto length = ports::tryGet<double>(*this, "length");
+    if (!ports::require(length, "length", missing_input_callback)) return false;
+
+    if (input_pose->header.frame_id.empty()) {
+      RCLCPP_ERROR(logger(), "[%s] input_pose->header.frame_id is empty", name().c_str());
+      setOutput("error_message", "invalid_pose");
+      return false;
     }
 
-    static BT::PortsList providedPorts()
-    {
-      return providedBasicPorts({
-          BT::InputPort<geometry_msgs::msg::PoseStamped::SharedPtr>("pose"),
-          BT::InputPort<std::shared_ptr<tf2_ros::Buffer>>("tf_buffer"),
-
-          BT::InputPort<std::string>("pose_frame"),
-          BT::InputPort<double>("width"),
-          BT::InputPort<double>("length"),
-
-          BT::OutputPort<int32_t>("wall_id"),
-          BT::OutputPort<std::string>("error_message"),
-      });
+    // Transform
+    // make sure any input pose is transformed to pose_frame
+    geometry_msgs::msg::PoseStamped wall_pose;
+    try {
+      // tf2_ros::Buffer::transform takes the message by const reference.
+      wall_pose = tf_buffer->transform(*input_pose, *wall_pose_frame);
+    } catch (const tf2::TransformException & ex) {
+      const std::string msg = std::string("[SpawnWallService]: TF transform failed: ") + ex.what();
+      RCLCPP_ERROR(logger(), "[%s] %s", name().c_str(), msg.c_str());
+      setOutput("error_message", msg);
+      return false;
     }
 
-    bool setRequest(Request::SharedPtr &request) override
-    {
-      const auto missing_input_callback = [&](const char *port_name)
-      {
-        RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
-        setOutput("error_message", std::string("missing_port:") + port_name);
-      };
+    // Build request in pose_frame
+    request->pose = wall_pose;
+    request->pose.header.frame_id = *wall_pose_frame;
+    request->width = *width;
+    request->length = *length;
 
-      // read input ports
-      auto input_pose = ports::tryGetPtr<geometry_msgs::msg::PoseStamped>(*this, "pose");
-      if (!ports::require(input_pose, "pose", missing_input_callback))
-        return false;
-      auto tf_buffer = ports::tryGetPtr<tf2_ros::Buffer>(*this, "tf_buffer");
-      if (!ports::require(tf_buffer, "tf_buffer", missing_input_callback))
-        return false;
-      auto wall_pose_frame = ports::tryGet<std::string>(*this, "pose_frame");
-      if (!ports::require(wall_pose_frame, "pose_frame", missing_input_callback))
-        return false;
-      auto width = ports::tryGet<double>(*this, "width");
-      if (!ports::require(width, "width", missing_input_callback))
-        return false;
-      auto length = ports::tryGet<double>(*this, "length");
-      if (!ports::require(length, "length", missing_input_callback))
-        return false;
+    return true;
+  }
 
-      if (input_pose->header.frame_id.empty())
-      {
-        RCLCPP_ERROR(logger(), "[%s] input_pose->header.frame_id is empty", name().c_str());
-        setOutput("error_message", "invalid_pose");
-        return false;
-      }
-
-      // Transform
-      // make sure any input pose is transformed to pose_frame
-      geometry_msgs::msg::PoseStamped wall_pose;
-      try
-      {
-        // tf2_ros::Buffer::transform takes the message by const reference.
-        wall_pose = tf_buffer->transform(*input_pose, *wall_pose_frame);
-      }
-      catch (const tf2::TransformException &ex)
-      {
-        const std::string msg = std::string("[SpawnWallService]: TF transform failed: ") + ex.what();
-        RCLCPP_ERROR(logger(), "[%s] %s", name().c_str(), msg.c_str());
-        setOutput("error_message", msg);
-        return false;
-      }
-
-      // Build request in pose_frame
-      request->pose = wall_pose;
-      request->pose.header.frame_id = *wall_pose_frame;
-      request->width = *width;
-      request->length = *length;
-
-      return true;
-    }
-
-    BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
-    {
-      if (!response->success)
-      {
-        setOutput("error_message", response->error_message);
-        return BT::NodeStatus::FAILURE;
-      }
-
-      RCLCPP_INFO(logger(), "[%s] wall spawned successfully", name().c_str());
-      setOutput("wall_id", response->wall_id);
-      return BT::NodeStatus::SUCCESS;
-    }
-
-    BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-    {
-      setOutput("error_message", std::string(BT::toStr(error)));
-      RCLCPP_ERROR(logger(), "[%s] service failed: %d", name().c_str(), error);
+  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
+  {
+    if (!response->success) {
+      setOutput("error_message", response->error_message);
       return BT::NodeStatus::FAILURE;
     }
-  };
 
-} // namespace behaviour
+    RCLCPP_INFO(logger(), "[%s] wall spawned successfully", name().c_str());
+    setOutput("wall_id", response->wall_id);
+    return BT::NodeStatus::SUCCESS;
+  }
 
-#endif // BEHAVIOUR__NODES__COMMON__ACTIONS__SPAWN_WALL_SERVICE_HPP_
+  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+  {
+    setOutput("error_message", std::string(BT::toStr(error)));
+    RCLCPP_ERROR(logger(), "[%s] service failed: %d", name().c_str(), error);
+    return BT::NodeStatus::FAILURE;
+  }
+};
+
+}  // namespace behaviour
+
+#endif  // BEHAVIOUR__NODES__COMMON__ACTIONS__SPAWN_WALL_SERVICE_HPP_

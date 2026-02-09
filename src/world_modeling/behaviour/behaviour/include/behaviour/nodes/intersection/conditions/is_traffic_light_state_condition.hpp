@@ -26,49 +26,48 @@
 
 namespace behaviour
 {
-  /**
+/**
    * @class IsTrafficLightStateCondition
    * @brief ConditionNode to compare traffic light state with expected state.
    */
-  class IsTrafficLightStateCondition : public BT::ConditionNode
+class IsTrafficLightStateCondition : public BT::ConditionNode
+{
+public:
+  IsTrafficLightStateCondition(const std::string & name, const BT::NodeConfig & config)
+  : BT::ConditionNode(name, config)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    IsTrafficLightStateCondition(const std::string &name, const BT::NodeConfig &config)
-        : BT::ConditionNode(name, config)
-    {
+    return {
+      BT::InputPort<std::string>("traffic_light_state"),
+      BT::InputPort<std::string>("expected"),
+    };
+  }
+
+  BT::NodeStatus tick() override
+  {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[IsTrafficLightState] Missing " << port_name << " input" << std::endl;
+    };
+
+    auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
+    if (!ports::require(state, "traffic_light_state", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
     }
 
-    static BT::PortsList providedPorts()
-    {
-      return {
-          BT::InputPort<std::string>("traffic_light_state"),
-          BT::InputPort<std::string>("expected"),
-      };
+    auto expected = ports::tryGet<std::string>(*this, "expected");
+    if (!ports::require(expected, "expected", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
     }
 
-    BT::NodeStatus tick() override
-    {
-      const auto missing_input_callback = [&](const char *port_name)
-      { std::cout << "[IsTrafficLightState] Missing " << port_name << " input" << std::endl; };
+    std::cout << "[IsTrafficLightState]: Comparing msg='" << *state << "' to expected='" << *expected << "'"
+              << std::endl;
 
-      auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
-      if (!ports::require(state, "traffic_light_state", missing_input_callback))
-      {
-        return BT::NodeStatus::FAILURE;
-      }
+    return (*state == *expected) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+  }
+};
 
-      auto expected = ports::tryGet<std::string>(*this, "expected");
-      if (!ports::require(expected, "expected", missing_input_callback))
-      {
-        return BT::NodeStatus::FAILURE;
-      }
+}  // namespace behaviour
 
-      std::cout << "[IsTrafficLightState]: Comparing msg='" << *state << "' to expected='" << *expected << "'" << std::endl;
-
-      return (*state == *expected) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-    }
-  };
-
-} // namespace behaviour
-
-#endif // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__IS_TRAFFIC_LIGHT_STATE_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__IS_TRAFFIC_LIGHT_STATE_CONDITION_HPP_
