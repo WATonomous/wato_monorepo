@@ -87,7 +87,6 @@ private:
   // Timer
   rclcpp::TimerBase::SharedPtr timer_;
 
-
   // Internal state
   double steering_setpoint_{0.0};
   double steering_meas_{0.0};

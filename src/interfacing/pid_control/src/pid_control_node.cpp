@@ -34,7 +34,6 @@ PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecyc
 {
   RCLCPP_INFO(this->get_logger(), "Configuring...");
 
-
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
     this->get_node_base_interface(),

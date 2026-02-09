@@ -41,14 +41,13 @@ public:
 
 private:
   void timer_callback();
-  rcl_interfaces::msg::SetParametersResult on_set_parameters(
-    const std::vector<rclcpp::Parameter> & parameters);
+  rcl_interfaces::msg::SetParametersResult on_set_parameters(const std::vector<rclcpp::Parameter> & parameters);
 
   double target_velocity_;  // m/s
-  double rise_time_;        // seconds
-  double hold_time_;        // seconds
-  double ramp_down_time_;   // seconds
-  double publish_rate_;     // Hz
+  double rise_time_;  // seconds
+  double hold_time_;  // seconds
+  double ramp_down_time_;  // seconds
+  double publish_rate_;  // Hz
 
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp_lifecycle::LifecyclePublisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr pub_;

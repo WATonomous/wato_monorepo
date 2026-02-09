@@ -22,51 +22,51 @@ launch:
       default: "false"
       description: "Enable bond-based crash detection"
 
-  # # GPS Configs
-  # - arg:
-  #     name: "oem7_ip_addr"
-  #     default: "10.8.0.8"
-  #     description: "IP address of the OEM7 GPS receiver"
-  # - arg:
-  #     name: "oem7_port"
-  #     default: "3001"
-  #     description: "TCP or UDP port for OEM7 communication"
-  # - arg:
-  #     name: "oem7_if"
-  #     default: "Oem7ReceiverTcp"
-  #     description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
+  # GPS Configs
+  - arg:
+      name: "oem7_ip_addr"
+      default: "10.8.0.8"
+      description: "IP address of the OEM7 GPS receiver"
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
 
-  # # GPS - Novatel OEM7
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
-  #     arg:
-  #       - name: "oem7_ip_addr"
-  #         value: "$(var oem7_ip_addr)"
-  #       - name: "oem7_port"
-  #         value: "$(var oem7_port)"
-  #       - name: "oem7_if"
-  #         value: "$(var oem7_if)"
+  # GPS - Novatel OEM7
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+      arg:
+        - name: "oem7_ip_addr"
+          value: "$(var oem7_ip_addr)"
+        - name: "oem7_port"
+          value: "$(var oem7_port)"
+        - name: "oem7_if"
+          value: "$(var oem7_if)"
 
-  # # LiDAR VLP-32 with config file
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
+  # LiDAR VLP-32 with config file
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
 
-  # # Eve Robot Description
-  # - include:
-  #     file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
 
-  # # Hikrobot Cameras
-  # - node_container:
-  #     pkg: rclcpp_components
-  #     exec: component_container_mt
-  #     name: cameras_container
-  #     namespace: ""
+  # Hikrobot Cameras
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container_mt
+      name: cameras_container
+      namespace: ""
 
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "cameras_container"
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+      arg:
+        - name: "container_name"
+          value: "cameras_container"
 
   # Joystick Node
   - include:
@@ -76,7 +76,7 @@ launch:
   #     file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
 
   # Mock Nodes for Tuning (Uncomment/comment as needed - use ONE at a time)
-  
+
   # Ackermann Square Wave Node - for steering angle tuning
   - include:
       file: "$(find-pkg-share ackermann_square_wave)/launch/ackermann_square_wave.launch.yaml"

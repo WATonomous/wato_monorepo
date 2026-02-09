@@ -205,8 +205,7 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   {
     std::lock_guard<std::mutex> lock(arm_mutex_);
     if (!is_armed_) {
-      RCLCPP_WARN_THROTTLE(this->get_logger(),
-        *this->get_clock(), 10000, "Vehicle not armed, Ignoring roscco message");
+      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 10000, "Vehicle not armed, Ignoring roscco message");
       return;
     }
   }
@@ -215,8 +214,8 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   // To not overload CAN (targeting 20HZ, 50-40=10ms leeway)
   rclcpp::Time now = rclcpp::Clock().now();
   if ((now - last_message_time_).nanoseconds() < 40000000) {  // 40ms in nanoseconds
-    RCLCPP_WARN_THROTTLE(this->get_logger(),
-      *this->get_clock(), 10000, "Message too soon, Ignoring roscco message to avoid CAN overload");
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 10000, "Message too soon, Ignoring roscco message to avoid CAN overload");
     return;
   }
   last_message_time_ = now;

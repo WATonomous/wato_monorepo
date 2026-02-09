@@ -76,7 +76,11 @@ AckermannVelocityTrapezoidNode::CallbackReturn AckermannVelocityTrapezoidNode::o
     this->get_logger(),
     "Configured: target_velocity=%.2f m/s, rise_time=%.2fs, hold_time=%.2fs, "
     "ramp_down_time=%.2fs, rate=%.1f Hz",
-    target_velocity_, rise_time_, hold_time_, ramp_down_time_, publish_rate_);
+    target_velocity_,
+    rise_time_,
+    hold_time_,
+    ramp_down_time_,
+    publish_rate_);
 
   return CallbackReturn::SUCCESS;
 }
@@ -86,11 +90,10 @@ AckermannVelocityTrapezoidNode::CallbackReturn AckermannVelocityTrapezoidNode::o
 {
   start_time_ = this->now();
 
-  auto period_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    std::chrono::duration<double>(1.0 / publish_rate_));
+  auto period_ns =
+    std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / publish_rate_));
 
-  timer_ = this->create_wall_timer(
-    period_ns, std::bind(&AckermannVelocityTrapezoidNode::timer_callback, this));
+  timer_ = this->create_wall_timer(period_ns, std::bind(&AckermannVelocityTrapezoidNode::timer_callback, this));
 
   pub_->on_activate();
 
@@ -207,11 +210,10 @@ rcl_interfaces::msg::SetParametersResult AckermannVelocityTrapezoidNode::on_set_
         RCLCPP_INFO(this->get_logger(), "Updated publish_rate to %.2f", publish_rate_);
         // Update timer if active
         if (this->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-          auto period_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::duration<double>(1.0 / publish_rate_));
+          auto period_ns =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / publish_rate_));
           timer_.reset();
-          timer_ = this->create_wall_timer(
-            period_ns, std::bind(&AckermannVelocityTrapezoidNode::timer_callback, this));
+          timer_ = this->create_wall_timer(period_ns, std::bind(&AckermannVelocityTrapezoidNode::timer_callback, this));
         }
       }
     }
