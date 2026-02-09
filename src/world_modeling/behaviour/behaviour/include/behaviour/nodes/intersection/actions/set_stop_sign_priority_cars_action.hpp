@@ -50,12 +50,15 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[SetStopSignPriorityCarsAction] Missing " << port_name << " input" << std::endl;
+    };
+
     // If already latched, keep returning the stored ids.
     const bool latched = ports::tryGet<bool>(*this, "priority_latched").value_or(false);
     if (latched) {
       auto existing = ports::tryGet<std::vector<std::string>>(*this, "priority_car_ids");
-      if (!existing) {
-        std::cout << "[SetStopSignPriorityCarsAction] priority_latched=true but priority_car_ids missing" << std::endl;
+      if (!ports::require(existing, "priority_car_ids", missing_input_callback)) {
         return BT::NodeStatus::FAILURE;
       }
       setOutput("out_priority_car_ids", *existing);
@@ -65,8 +68,7 @@ public:
 
     // Not latched yet: latch current set (may be empty).
     auto current = ports::tryGet<std::vector<std::string>>(*this, "current_car_ids");
-    if (!current) {
-      std::cout << "[SetStopSignPriorityCarsAction] Missing current_car_ids" << std::endl;
+    if (!ports::require(current, "current_car_ids", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

@@ -45,10 +45,13 @@ public:
 
   bool setRequest(Request::SharedPtr & request) override
   {
-    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    const auto missing_input_callback = [&](const char * port_name) {
+      RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+      setOutput("error_message", std::string("missing_port:") + port_name);
+    };
 
-    if (gp == nullptr) {
-      RCLCPP_WARN(logger(), "[%s] No goal point provided on port", name().c_str());
+    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    if (!ports::require(gp, "goal_point", missing_input_callback)) {
       return false;
     }
 

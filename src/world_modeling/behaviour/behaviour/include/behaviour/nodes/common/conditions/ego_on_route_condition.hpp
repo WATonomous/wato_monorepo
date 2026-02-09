@@ -46,17 +46,17 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto route_index_map = ports::tryGetPtr<std::unordered_map<int64_t, size_t>>(*this, "route_index_map");
-    auto ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[EgoOnRoute]: Missing " << port_name << " input" << std::endl;
+    };
 
-    // If either pointer is missing, we cannot verify position, so return failure
-    if (!route_index_map) {
-      std::cout << "[EgoOnRoute]: Missing route index map" << std::endl;
+    auto route_index_map = ports::tryGetPtr<std::unordered_map<int64_t, size_t>>(*this, "route_index_map");
+    if (!ports::require(route_index_map, "route_index_map", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (!ctx) {
-      std::cout << "[EgoOnRoute]: Missing lane context" << std::endl;
+    auto ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
+    if (!ports::require(ctx, "lane_ctx", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

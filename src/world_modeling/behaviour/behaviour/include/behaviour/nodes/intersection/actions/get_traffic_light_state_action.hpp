@@ -52,25 +52,23 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetTrafficLightState] Missing " << port_name << " input" << std::endl;
+    };
+
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "traffic_light");
+    if (!ports::require(reg_elem, "traffic_light", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
+    if (!ports::require(snap, "dynamic_objects_snapshot", missing_input_callback) || !snap->objects_snapshot_) {
+      std::cout << "[GetTrafficLightState] Missing dynamic_objects_snapshot data" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto hypothesis_index = ports::tryGet<int>(*this, "state_hypothesis_index");
-
-    if (!reg_elem) {
-      setOutput("error_message", "missing_port:traffic_light");
-      std::cout << "[GetTrafficLightState] Missing traffic_light" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!snap || !snap->objects_snapshot_) {
-      setOutput("error_message", "missing_port:dynamic_objects_snapshot");
-      std::cout << "[GetTrafficLightState] Missing dynamic_objects_snapshot" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!hypothesis_index) {
-      setOutput("error_message", "missing_port:state_hypothesis_index");
-      std::cout << "[GetTrafficLightState] Missing state_hypothesis_index" << std::endl;
+    if (!ports::require(hypothesis_index, "state_hypothesis_index", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

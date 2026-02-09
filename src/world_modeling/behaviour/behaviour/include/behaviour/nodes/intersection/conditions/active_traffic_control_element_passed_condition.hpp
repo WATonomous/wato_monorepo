@@ -65,26 +65,26 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[ActiveTrafficControlElementPassed] Missing " << port_name << " input" << std::endl;
+    };
+
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
+    if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto route_index_map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_index_map");
+    if (!ports::require(route_index_map, "route_index_map", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto active_lanelet_id = ports::tryGet<int64_t>(*this, "active_traffic_control_lanelet_id");
+    if (!ports::require(active_lanelet_id, "active_traffic_control_lanelet_id", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
 
     const int lanelet_threshold = ports::tryGet<int>(*this, "lanelet_threshold").value_or(2);
-
-    if (!lane_ctx) {
-      std::cout << "[ActiveTrafficControlElementPassed] Missing lane_ctx" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!route_index_map) {
-      std::cout << "[ActiveTrafficControlElementPassed] Missing route_index_map" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!active_lanelet_id) {
-      std::cout << "[ActiveTrafficControlElementPassed] Missing active_traffic_control_lanelet_id" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
 
     const int64_t active_id = *active_lanelet_id;
     const int64_t ego_id = lane_ctx->current_lanelet.id;

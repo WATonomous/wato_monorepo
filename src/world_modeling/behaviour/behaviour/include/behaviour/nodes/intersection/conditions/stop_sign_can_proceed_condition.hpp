@@ -47,16 +47,17 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto priority = ports::tryGet<std::vector<std::string>>(*this, "priority_ids");
-    auto current = ports::tryGet<std::vector<std::string>>(*this, "current_ids");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[StopSignCanProceed] Missing " << port_name << " input" << std::endl;
+    };
 
-    if (!priority) {
-      std::cout << "[StopSignCanProceed] Missing priority_ids" << std::endl;
+    auto priority = ports::tryGet<std::vector<std::string>>(*this, "priority_ids");
+    if (!ports::require(priority, "priority_ids", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (!current) {
-      std::cout << "[StopSignCanProceed] Missing current_ids" << std::endl;
+    auto current = ports::tryGet<std::vector<std::string>>(*this, "current_ids");
+    if (!ports::require(current, "current_ids", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

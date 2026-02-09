@@ -59,25 +59,28 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
-    auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
-    auto lanelets = ports::tryGet<std::vector<lanelet_msgs::msg::Lanelet>>(*this, "lanelets");
-    auto threshold_m = ports::tryGet<double>(*this, "threshold_m");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetStopSignCars] Missing " << port_name << " input" << std::endl;
+    };
 
-    if (!stop_sign) {
-      std::cout << "[GetStopSignCars] Missing stop_sign" << std::endl;
+    auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
+    if (!ports::require(stop_sign, "stop_sign", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
-    if (!snap || !snap->objects_snapshot_) {
-      std::cout << "[GetStopSignCars] Missing dynamic_objects_snapshot" << std::endl;
+
+    auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
+    if (!ports::require(snap, "dynamic_objects_snapshot", missing_input_callback) || !snap->objects_snapshot_) {
+      std::cout << "[GetStopSignCars] Missing dynamic_objects_snapshot data" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
-    if (!lanelets) {
-      std::cout << "[GetStopSignCars] Missing lanelets" << std::endl;
+
+    auto lanelets = ports::tryGet<std::vector<lanelet_msgs::msg::Lanelet>>(*this, "lanelets");
+    if (!ports::require(lanelets, "lanelets", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
-    if (!threshold_m) {
-      std::cout << "[GetStopSignCars] Missing threshold_m" << std::endl;
+
+    auto threshold_m = ports::tryGet<double>(*this, "threshold_m");
+    if (!ports::require(threshold_m, "threshold_m", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

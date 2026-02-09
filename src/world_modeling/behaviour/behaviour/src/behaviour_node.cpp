@@ -36,18 +36,18 @@ namespace behaviour
     this->declare_parameter("map_frame", "map");
     this->declare_parameter("base_frame", "base_link");
     this->declare_parameter("enable_console_logging", false);
-    this->declare_parameter("traffic_light_state_hypothesis_index", 1);
+    this->declare_parameter("bt.traffic_light_state_hypothesis_index", 1);
     this->declare_parameter("world_objects_hypothesis_index", 0);
-    this->declare_parameter("left_lane_change_areas", std::vector<std::string>{"left_lane_change_corridor"});
-    this->declare_parameter("right_lane_change_areas", std::vector<std::string>{"right_lane_change_corridor"});
-    this->declare_parameter("stop_line_wall_of_doom_width", 5.0);
-    this->declare_parameter("stop_line_wall_of_doom_length", 1.0);
-    this->declare_parameter("ego_stopped_velocity_threshold", 0.1);
-    this->declare_parameter("intersection_lookahead_m", 40.0);
-    this->declare_parameter("traffic_control_element_passed_lanelet_threshold", 2);
-    this->declare_parameter("traffic_control_element_handled_lanelet_threshold", 1);
-    this->declare_parameter("stop_sign_car_detection_threshold_m", 8.0);
-    this->declare_parameter("goal_reached_threshold_m", 1.0);
+    this->declare_parameter("bt.left_lane_change_areas", std::vector<std::string>{"left_lane_change_corridor"});
+    this->declare_parameter("bt.right_lane_change_areas", std::vector<std::string>{"right_lane_change_corridor"});
+    this->declare_parameter("bt.intersection_wall_of_doom_width", 5.0);
+    this->declare_parameter("bt.intersection_wall_of_doom_length", 1.0);
+    this->declare_parameter("bt.ego_stopped_velocity_threshold", 0.1);
+    this->declare_parameter("bt.intersection_lookahead_m", 40.0);
+    this->declare_parameter("bt.traffic_control_element_passed_lanelet_threshold", 2);
+    this->declare_parameter("bt.traffic_control_element_handled_lanelet_threshold", 1);
+    this->declare_parameter("bt.stop_sign_car_detection_threshold_m", 8.0);
+    this->declare_parameter("bt.goal_reached_threshold_m", 1.0);
     this->declare_parameter("get_shortest_route_timeout_ms", 6000);
     this->declare_parameter("set_route_timeout_ms", 6000);
     this->declare_parameter("get_lanelets_by_reg_elem_timeout_ms", 5000);
@@ -69,18 +69,18 @@ namespace behaviour
     double tick_rate_hz = this->get_parameter("rate_hz").as_double();
     double ego_rate_hz = this->get_parameter("ego_state_rate_hz").as_double();
     bool enable_console_logging = this->get_parameter("enable_console_logging").as_bool();
-    int traffic_light_state_hypothesis_index = this->get_parameter("traffic_light_state_hypothesis_index").as_int();
+    int traffic_light_state_hypothesis_index = this->get_parameter("bt.traffic_light_state_hypothesis_index").as_int();
     int world_objects_hypothesis_index = this->get_parameter("world_objects_hypothesis_index").as_int();
-    std::vector<std::string> left_lane_change_areas = this->get_parameter("left_lane_change_areas").as_string_array();
-    std::vector<std::string> right_lane_change_areas = this->get_parameter("right_lane_change_areas").as_string_array();
-    double stop_line_wall_width = this->get_parameter("stop_line_wall_of_doom_width").as_double();
-    double stop_line_wall_length = this->get_parameter("stop_line_wall_of_doom_length").as_double();
-    double ego_stopped_velocity_threshold = this->get_parameter("ego_stopped_velocity_threshold").as_double();
-    double intersection_lookahead_m = this->get_parameter("intersection_lookahead_m").as_double();
-    int traffic_control_passed_threshold = this->get_parameter("traffic_control_element_passed_lanelet_threshold").as_int();
-    int traffic_control_handled_threshold = this->get_parameter("traffic_control_element_handled_lanelet_threshold").as_int();
-    double stop_sign_car_detection_threshold_m = this->get_parameter("stop_sign_car_detection_threshold_m").as_double();
-    double goal_reached_threshold_m = this->get_parameter("goal_reached_threshold_m").as_double();
+    std::vector<std::string> left_lane_change_areas = this->get_parameter("bt.left_lane_change_areas").as_string_array();
+    std::vector<std::string> right_lane_change_areas = this->get_parameter("bt.right_lane_change_areas").as_string_array();
+    double stop_line_wall_width = this->get_parameter("bt.intersection_wall_of_doom_width").as_double();
+    double stop_line_wall_length = this->get_parameter("bt.intersection_wall_of_doom_length").as_double();
+    double ego_stopped_velocity_threshold = this->get_parameter("bt.ego_stopped_velocity_threshold").as_double();
+    double intersection_lookahead_m = this->get_parameter("bt.intersection_lookahead_m").as_double();
+    int traffic_control_passed_threshold = this->get_parameter("bt.traffic_control_element_passed_lanelet_threshold").as_int();
+    int traffic_control_handled_threshold = this->get_parameter("bt.traffic_control_element_handled_lanelet_threshold").as_int();
+    double stop_sign_car_detection_threshold_m = this->get_parameter("bt.stop_sign_car_detection_threshold_m").as_double();
+    double goal_reached_threshold_m = this->get_parameter("bt.goal_reached_threshold_m").as_double();
 
     // behaviour tree file path
     std::string package_share_directory = ament_index_cpp::get_package_share_directory("behaviour");
@@ -90,21 +90,23 @@ namespace behaviour
     // create the tree
     tree_ = std::make_shared<BehaviourTree>(this->shared_from_this(), tree_path.string(), enable_console_logging);
 
-    // set TF and frames on blackboard to be used by BT nodes
+    // set TF and frames on blackboard to be used by BT nodes for performing transforms between points
     tree_->updateBlackboard("tf_buffer", tf_buffer_);
     tree_->updateBlackboard("map_frame", map_frame_);
     tree_->updateBlackboard("base_frame", base_frame_);
-    tree_->updateBlackboard("traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
-    tree_->updateBlackboard("left_lane_change_areas", left_lane_change_areas);
-    tree_->updateBlackboard("right_lane_change_areas", right_lane_change_areas);
-    tree_->updateBlackboard("stop_line_wall_of_doom_width", stop_line_wall_width);
-    tree_->updateBlackboard("stop_line_wall_of_doom_length", stop_line_wall_length);
-    tree_->updateBlackboard("ego_stopped_velocity_threshold", ego_stopped_velocity_threshold);
-    tree_->updateBlackboard("intersection_lookahead_m", intersection_lookahead_m);
-    tree_->updateBlackboard("traffic_control_element_passed_lanelet_threshold", traffic_control_passed_threshold);
-    tree_->updateBlackboard("traffic_control_element_handled_lanelet_threshold", traffic_control_handled_threshold);
-    tree_->updateBlackboard("stop_sign_car_detection_threshold_m", stop_sign_car_detection_threshold_m);
-    tree_->updateBlackboard("goal_reached_threshold_m", goal_reached_threshold_m);
+
+    // xml specific values
+    tree_->updateBlackboard("bt.traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
+    tree_->updateBlackboard("bt.left_lane_change_areas", left_lane_change_areas);
+    tree_->updateBlackboard("bt.right_lane_change_areas", right_lane_change_areas);
+    tree_->updateBlackboard("bt.intersection_wall_of_doom_width", stop_line_wall_width);
+    tree_->updateBlackboard("bt.intersection_wall_of_doom_length", stop_line_wall_length);
+    tree_->updateBlackboard("bt.ego_stopped_velocity_threshold", ego_stopped_velocity_threshold);
+    tree_->updateBlackboard("bt.intersection_lookahead_m", intersection_lookahead_m);
+    tree_->updateBlackboard("bt.traffic_control_element_passed_lanelet_threshold", traffic_control_passed_threshold);
+    tree_->updateBlackboard("bt.traffic_control_element_handled_lanelet_threshold", traffic_control_handled_threshold);
+    tree_->updateBlackboard("bt.stop_sign_car_detection_threshold_m", stop_sign_car_detection_threshold_m);
+    tree_->updateBlackboard("bt.goal_reached_threshold_m", goal_reached_threshold_m);
 
     // stores for world state publishers
     dynamic_objects_store_ = std::make_shared<behaviour::DynamicObjectStore>(world_objects_hypothesis_index);

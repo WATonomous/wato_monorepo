@@ -63,16 +63,18 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
-    auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[YieldSignCanProceed]: Missing " << port_name << " input" << std::endl;
+    };
 
-    if (!elem) {
-      std::cout << "[YieldSignCanProceed]: Missing active_traffic_control_element" << std::endl;
+    auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
+    if (!ports::require(elem, "active_traffic_control_element", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (!snap || !snap->objects_snapshot_) {
-      std::cout << "[YieldSignCanProceed]: Missing dynamic_objects_snapshot" << std::endl;
+    auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
+    if (!ports::require(snap, "dynamic_objects_snapshot", missing_input_callback) || !snap->objects_snapshot_) {
+      std::cout << "[YieldSignCanProceed]: Missing dynamic_objects_snapshot data" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 

@@ -7,7 +7,7 @@
           out_next_lanelet="{target_lanelet}" />
         <Fallback name="Lane Transition Handling">
           <Sequence name="Handle SUCCESSOR Transition">
-            <IsLaneTransition transition="{upcoming_lane_transition}" expected="SUCCESSOR" />
+            <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="SUCCESSOR" />
             <ExecuteBehaviour
               behaviour="follow route"
               preferred_lanelet_ids="{global_route_lanelet_ids}"
@@ -15,18 +15,18 @@
           </Sequence>
 
           <Sequence name="Handle RIGHT Transition">
-            <IsLaneTransition transition="{upcoming_lane_transition}" expected="RIGHT" />
+            <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="RIGHT" />
 
             <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
-              transition="{upcoming_lane_transition}"
+              lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
               area_occupancy_snapshot="{@area_occupancy.snapshot}"
-              left_lane_change_areas="{@left_lane_change_areas}"
-              right_lane_change_areas="{@right_lane_change_areas}" />
+              left_lane_change_areas="{@bt.left_lane_change_areas}"
+              right_lane_change_areas="{@bt.right_lane_change_areas}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->
@@ -41,18 +41,18 @@
           </Sequence>
 
           <Sequence name="Handle LEFT Transition">
-            <IsLaneTransition transition="{upcoming_lane_transition}" expected="LEFT" />
+            <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="LEFT" />
 
             <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
-              transition="{upcoming_lane_transition}"
+              lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
               area_occupancy_snapshot="{@area_occupancy.snapshot}"
-              left_lane_change_areas="{@left_lane_change_areas}"
-              right_lane_change_areas="{@right_lane_change_areas}" />
+              left_lane_change_areas="{@bt.left_lane_change_areas}"
+              right_lane_change_areas="{@bt.right_lane_change_areas}" />
 
             <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
               planner -->

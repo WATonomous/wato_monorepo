@@ -7,12 +7,12 @@
       <!-- Reactive Sequence to check if we have a valid goal and route -->
       <ReactiveSequence name="Core Navigation Sequence">
         <!-- Ensure goal exists -->
-        <GoalExist point="{goal_point}" />
+        <GoalExist goal_point="{goal_point}" />
 
         <!-- Ensure goal is not reached -->
         <Inverter>
           <GoalReached current_point="{ego_point}" goal_point="{goal_point}"
-            threshold_m="{@goal_reached_threshold_m}" />
+            threshold_m="{@bt.goal_reached_threshold_m}" />
         </Inverter>
 
         <!-- Ensure path exists -->

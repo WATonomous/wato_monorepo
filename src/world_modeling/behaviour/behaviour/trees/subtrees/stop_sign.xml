@@ -6,21 +6,21 @@
             <!-- WALL OF DOOM: compute stop-line pose and spawn wall -->
             <GetStopLinePose
                 reg_elem="{active_traffic_control_element}"
-                map_frame="{map_frame}"
+                map_frame="{@map_frame}"
                 pose="{stop_sign.stop_line_pose}"
                 error_message="{get_stop_line_pose_error_msg}" />
 
             <SpawnWall
                 pose="{stop_sign.stop_line_pose}"
                 tf_buffer="{@tf_buffer}"
-                base_frame="{@base_frame}"
-                width="{@stop_line_wall_of_doom_width}"
-                length="{@stop_line_wall_of_doom_length}"
+                pose_frame="{@map_frame}"
+                width="{@bt.intersection_wall_of_doom_width}"
+                length="{@bt.intersection_wall_of_doom_length}"
                 wall_id="{stop_sign.wall_id}"
                 error_message="{spawn_wall_error_msg}" />
 
             <EgoStopped ego_velocity="{ego_velocity}"
-                threshold_velocity="{@ego_stopped_velocity_threshold}" />
+                threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
 
             <!-- Fetch lanelets controlled by this regulatory element -->
             <ReactiveSequence>
@@ -32,7 +32,7 @@
                 <GetStopSignCars
                     stop_sign="{active_traffic_control_element}"
                     lanelets="{stop_sign.lanelets}"
-                    threshold_m="{@stop_sign_car_detection_threshold_m}"
+                    threshold_m="{@bt.stop_sign_car_detection_threshold_m}"
                     dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
                     out_stop_sign_car_ids="{stop_sign.current_ids}" />
 

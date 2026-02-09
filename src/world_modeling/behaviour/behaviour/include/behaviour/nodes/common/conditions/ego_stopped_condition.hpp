@@ -47,11 +47,14 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[EgoStopped]: Missing " << port_name << " input" << std::endl;
+    };
+
     auto ego_vel = ports::tryGet<double>(*this, "ego_velocity");
     const double thresh = ports::tryGet<double>(*this, "threshold_velocity").value_or(0.1);
 
-    if (!ego_vel) {
-      std::cout << "[EgoStopped]: Missing or invalid ego_velocity" << std::endl;
+    if (!ports::require(ego_vel, "ego_velocity", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

@@ -64,22 +64,22 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetRouteContextAction]: Missing " << port_name << " input" << std::endl;
+    };
+
     auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
+    if (!ports::require(route, "route", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_index_map");
+    if (!ports::require(map, "route_index_map", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto current_lane_context = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
-
-    if (!route) {
-      std::cout << "[GetRouteContextAction]: Missing route input" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!map) {
-      std::cout << "[GetRouteContextAction]: Missing route index map input" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!current_lane_context) {
-      std::cout << "[GetRouteContextAction]: Missing current lane context input" << std::endl;
+    if (!ports::require(current_lane_context, "lane_ctx", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

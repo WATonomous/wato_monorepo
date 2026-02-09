@@ -27,6 +27,8 @@ find_package(lanelet_markers REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 add_executable(behaviour_markers_node
   src/behaviour_markers_node.cpp
@@ -36,6 +38,8 @@ target_link_libraries(behaviour_markers_node
   PRIVATE
     lanelet_markers::marker_utils
     rclcpp::rclcpp
+    tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
     ${behaviour_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
     ${std_msgs_TARGETS}

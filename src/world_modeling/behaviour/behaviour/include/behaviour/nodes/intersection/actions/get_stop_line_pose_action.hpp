@@ -57,10 +57,12 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetStopLinePose] Missing " << port_name << " input" << std::endl;
+    };
+
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
-    if (!reg_elem) {
-      std::cout << "[GetStopLinePose] Missing reg_elem" << std::endl;
-      setOutput("error_message", "missing_port:reg_elem");
+    if (!ports::require(reg_elem, "reg_elem", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
@@ -71,9 +73,7 @@ public:
     }
 
     auto map_frame = ports::tryGet<std::string>(*this, "map_frame");
-    if (!map_frame) {
-      std::cout << "[GetStopLinePose] Missing map_frame" << std::endl;
-      setOutput("error_message", "missing_port:map_frame");
+    if (!ports::require(map_frame, "map_frame", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

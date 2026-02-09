@@ -8,7 +8,7 @@
         lane_ctx="{@current_lane_ctx}"
         route="{global_route}"
         route_index_map="{global_route_index_map}"
-        lookahead_threshold_m="{@intersection_lookahead_m}"
+        lookahead_threshold_m="{@bt.intersection_lookahead_m}"
         in_active_traffic_control_element="{active_traffic_control_element}"
         out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
         out_active_traffic_control_element="{active_traffic_control_element}"
@@ -24,7 +24,7 @@
             lane_ctx="{@current_lane_ctx}"
             route_index_map="{global_route_index_map}"
             active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
-            lanelet_threshold="{@traffic_control_element_passed_lanelet_threshold}" />
+            lanelet_threshold="{@bt.traffic_control_element_passed_lanelet_threshold}" />
 
           <ClearActiveTrafficControlElement
             active_traffic_control_element="{active_traffic_control_element}" />
@@ -45,7 +45,7 @@
               lane_ctx="{@current_lane_ctx}"
               route_index_map="{global_route_index_map}"
               active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
-              lanelet_threshold="{@traffic_control_element_handled_lanelet_threshold}" />
+              lanelet_threshold="{@bt.traffic_control_element_handled_lanelet_threshold}" />
 
             <ClearActiveTrafficControlElement
               active_traffic_control_element="{active_traffic_control_element}" />
@@ -64,7 +64,7 @@
               lane_ctx="{@current_lane_ctx}"
               route_index_map="{global_route_index_map}"
               active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
-              lanelet_threshold="{@traffic_control_element_handled_lanelet_threshold}" />
+              lanelet_threshold="{@bt.traffic_control_element_handled_lanelet_threshold}" />
 
             <ClearActiveTrafficControlElement
               active_traffic_control_element="{active_traffic_control_element}" />
@@ -82,7 +82,7 @@
               lane_ctx="{@current_lane_ctx}"
               route_index_map="{global_route_index_map}"
               active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
-              lanelet_threshold="{@traffic_control_element_handled_lanelet_threshold}" />
+              lanelet_threshold="{@bt.traffic_control_element_handled_lanelet_threshold}" />
 
             <ClearActiveTrafficControlElement
               active_traffic_control_element="{active_traffic_control_element}" />

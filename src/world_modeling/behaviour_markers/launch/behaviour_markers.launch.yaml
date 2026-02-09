@@ -9,11 +9,7 @@ launch:
       remap:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
-        - from: route_ahead
-          to: /lanelet/route_ahead
         - from: lanelet_ahead
           to: /lanelet/lanelet_ahead
-        - from: lane_context
-          to: /lane_context
         - from: markers
           to: /behaviour_markers

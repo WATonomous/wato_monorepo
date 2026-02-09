@@ -16,7 +16,7 @@
             <GetTrafficLightState
                 traffic_light="{traffic_light}"
                 dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
-                state_hypothesis_index="{@traffic_light_state_hypothesis_index}"
+                state_hypothesis_index="{@bt.traffic_light_state_hypothesis_index}"
                 out_traffic_light_state="{traffic_light.state}"
                 error_message="{get_traffic_light_state_error_msg}" />
 
@@ -34,9 +34,9 @@
                     <SpawnWall
                         pose="{traffic_light.wall_pose}"
                         tf_buffer="{@tf_buffer}"
-                        base_frame="{@base_frame}"
-                        width="{@stop_line_wall_of_doom_width}"
-                        length="{@stop_line_wall_of_doom_length}"
+                        pose_frame="{@map_frame}"
+                        width="{@bt.intersection_wall_of_doom_width}"
+                        length="{@bt.intersection_wall_of_doom_length}"
                         wall_id="{traffic_light.wall_id}"
                         error_message="{traffic_light.spawn_wall_error_msg}" />
                 </Sequence>
@@ -55,9 +55,9 @@
             <SpawnWall
                 pose="{traffic_light.wall_pose}"
                 tf_buffer="{@tf_buffer}"
-                base_frame="{@base_frame}"
-                width="{@stop_line_wall_of_doom_width}"
-                length="{@stop_line_wall_of_doom_length}"
+                pose_frame="{@map_frame}"
+                width="{@bt.intersection_wall_of_doom_width}"
+                length="{@bt.intersection_wall_of_doom_length}"
                 wall_id="{traffic_light.wall_id}"
                 error_message="{traffic_light.spawn_wall_error_msg}" />
             <!-- TODO: Add condition to see if passed intersection -->

@@ -15,23 +15,29 @@
 #ifndef BEHAVIOUR_MARKERS__BEHAVIOUR_MARKERS_NODE_HPP_
 #define BEHAVIOUR_MARKERS__BEHAVIOUR_MARKERS_NODE_HPP_
 
-#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
-#include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
-#include "lanelet_msgs/msg/route_ahead.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/color_rgba.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
 #include "visualization_msgs/msg/marker_array.hpp"
 
 namespace behaviour_markers
 {
 
+  /**
+   * @brief Visualizes behaviour tree decisions.
+   *
+   * Subscribes to execute_behaviour to get the current behaviour and preferred lanelets,
+   * and to route_ahead to get lanelet geometry. Displays:
+   * - Text marker above ego showing current behaviour
+   * - Centerlines for preferred lanelets
+   */
   class BehaviourMarkersNode : public rclcpp::Node
   {
   public:
@@ -39,40 +45,33 @@ namespace behaviour_markers
 
   private:
     void executeBehaviourCallback(const behaviour_msgs::msg::ExecuteBehaviour::SharedPtr msg);
-    void routeAheadCallback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);
     void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
-    void laneContextCallback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
-
-    void cacheLanelets(const std::vector<lanelet_msgs::msg::Lanelet> &lanelets);
     void publishMarkers();
 
-    static std::string toLower(std::string text);
-    std_msgs::msg::ColorRGBA colorForBehaviour(const std::string &behaviour) const;
-
+    // Subscribers
     rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr execute_behaviour_sub_;
-    rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
     rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
-    rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr lane_context_sub_;
+
+    // Publisher
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
 
-    std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> lanelet_cache_;
-    lanelet_msgs::msg::Lanelet current_lanelet_;
+    // TF for ego position
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-    behaviour_msgs::msg::ExecuteBehaviour latest_execute_behaviour_;
-    bool has_latest_execute_behaviour_{false};
-    bool has_current_lane_{false};
+    // Cached lanelet geometry from lanelet_ahead (id -> lanelet)
+    std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> ahead_lanelets_;
 
-    // Visual parameters
-    std::string frame_id_;
-    std::string frame_hint_;
-    double preferred_centerline_line_width_{0.45};
-    double preferred_boundary_line_width_{0.18};
-    double current_lane_line_width_{0.2};
-    double text_height_{0.8};
-    bool show_boundaries_{true};
-    bool show_lanelet_ids_{false};
-    bool show_current_lane_{true};
-    bool show_info_{true};
+    // Latest behaviour message
+    behaviour_msgs::msg::ExecuteBehaviour latest_behaviour_;
+    bool has_behaviour_{false};
+
+    // Parameters
+    std::string map_frame_;
+    std::string base_frame_;
+    double centerline_width_{0.4};
+    double text_height_{1.0};
+    double text_offset_z_{3.0};
   };
 
 } // namespace behaviour_markers

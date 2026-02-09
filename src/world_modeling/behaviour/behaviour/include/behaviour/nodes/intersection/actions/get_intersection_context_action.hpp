@@ -77,6 +77,10 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetIntersectionContext] Missing " << port_name << " input" << std::endl;
+    };
+
     auto active_traffic_control_element =
       ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "in_active_traffic_control_element");
     if (active_traffic_control_element) {
@@ -85,24 +89,21 @@ public:
     }
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
+    if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
+    if (!ports::require(route, "route", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto route_index_map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_index_map");
+    if (!ports::require(route_index_map, "route_index_map", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto lookahead_threshold_m = ports::tryGet<double>(*this, "lookahead_threshold_m").value_or(40.0);
-
-    if (!lane_ctx) {
-      std::cerr << "[GetIntersectionContext] Missing lane_ctx." << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!route) {
-      std::cerr << "[GetIntersectionContext] Missing route." << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!route_index_map) {
-      std::cerr << "[GetIntersectionContext] Missing route_index_map." << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
 
     // ------------- using lookahead distance -------------
     // check the current lanelet first

@@ -47,12 +47,18 @@ namespace behaviour
 
     BT::NodeStatus tick() override
     {
-      geometry_msgs::msg::Point::SharedPtr gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
-      geometry_msgs::msg::Point::SharedPtr cp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "current_point");
+      const auto missing_input_callback = [&](const char *port_name)
+      { std::cout << "[GoalReached]: Missing " << port_name << " input" << std::endl; };
 
-      if (gp == nullptr || cp == nullptr)
+      geometry_msgs::msg::Point::SharedPtr gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+      if (!ports::require(gp, "goal_point", missing_input_callback))
       {
-        std::cout << "[GoalReached]: Missing current or goal point" << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
+
+      geometry_msgs::msg::Point::SharedPtr cp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "current_point");
+      if (!ports::require(cp, "current_point", missing_input_callback))
+      {
         return BT::NodeStatus::FAILURE;
       }
 

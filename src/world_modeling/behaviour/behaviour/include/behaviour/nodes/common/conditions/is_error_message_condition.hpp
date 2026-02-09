@@ -46,11 +46,17 @@ public:
      */
   BT::NodeStatus tick() override
   {
-    auto msg = ports::tryGet<std::string>(*this, "msg");
-    auto expected = ports::tryGet<std::string>(*this, "expected");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[IsErrorMessageCondition]: Missing " << port_name << " input" << std::endl;
+    };
 
-    if (!msg || !expected) {
-      std::cout << "[IsErrorMessageCondition]: Missing msg or expected input" << std::endl;
+    auto msg = ports::tryGet<std::string>(*this, "msg");
+    if (!ports::require(msg, "msg", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    auto expected = ports::tryGet<std::string>(*this, "expected");
+    if (!ports::require(expected, "expected", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

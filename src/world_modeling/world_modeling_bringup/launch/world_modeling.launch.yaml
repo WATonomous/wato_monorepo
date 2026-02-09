@@ -227,7 +227,7 @@ launch:
         - from: area_occupancy
           to: /world_modeling/area_occupancy
         - from: goal_point
-          to: /behaviour/goal_point
+          to: /goal_point
 
   # Behaviour Tree visualization markers
   - node:

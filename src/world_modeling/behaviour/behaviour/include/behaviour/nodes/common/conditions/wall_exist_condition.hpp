@@ -45,9 +45,12 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[WallIdValid] Missing " << port_name << " input -> treat as no-op" << std::endl;
+    };
+
     auto wall_id = ports::tryGet<int32_t>(*this, "wall_id");
-    if (!wall_id) {
-      std::cout << "[WallIdValid] wall_id missing -> treat as no-op" << std::endl;
+    if (!ports::require(wall_id, "wall_id", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;  // used for gating in a Fallback
     }
 

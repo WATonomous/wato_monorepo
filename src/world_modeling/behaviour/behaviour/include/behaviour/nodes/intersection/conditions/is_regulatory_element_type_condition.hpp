@@ -45,16 +45,17 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
-    auto expected = ports::tryGet<types::TrafficControlElementType>(*this, "expected");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[IsRegulatoryElementType] Missing " << port_name << " input" << std::endl;
+    };
 
-    if (!reg_elem) {
-      std::cerr << "[IsRegulatoryElementType] Missing reg_elem." << std::endl;
+    auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
+    if (!ports::require(reg_elem, "reg_elem", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (!expected) {
-      std::cerr << "[IsRegulatoryElementType] Missing expected." << std::endl;
+    auto expected = ports::tryGet<types::TrafficControlElementType>(*this, "expected");
+    if (!ports::require(expected, "expected", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

@@ -48,18 +48,18 @@ namespace behaviour
 
     BT::NodeStatus tick() override
     {
-      auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
-      auto expected = ports::tryGet<std::string>(*this, "expected");
+      const auto missing_input_callback = [&](const char *port_name)
+      { std::cout << "[IsTrafficLightState] Missing " << port_name << " input" << std::endl; };
 
-      if (!state)
+      auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
+      if (!ports::require(state, "traffic_light_state", missing_input_callback))
       {
-        std::cerr << "[IsTrafficLightState] Missing traffic_light_state." << std::endl;
         return BT::NodeStatus::FAILURE;
       }
 
-      if (!expected)
+      auto expected = ports::tryGet<std::string>(*this, "expected");
+      if (!ports::require(expected, "expected", missing_input_callback))
       {
-        std::cerr << "[IsTrafficLightState] Missing expected." << std::endl;
         return BT::NodeStatus::FAILURE;
       }
 

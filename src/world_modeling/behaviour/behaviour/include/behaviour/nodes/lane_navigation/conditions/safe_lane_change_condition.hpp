@@ -64,24 +64,30 @@ namespace behaviour
 
     BT::NodeStatus tick() override
     {
-      auto transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
-      auto area_snapshot = ports::tryGetPtr<const AreaOccupancyStore::Snapshot>(*this, "area_occupancy_snapshot");
-      auto left_areas = ports::tryGet<std::vector<std::string>>(*this, "left_lane_change_areas");
-      auto right_areas = ports::tryGet<std::vector<std::string>>(*this, "right_lane_change_areas");
+      const auto missing_input_callback = [&](const char *port_name)
+      { std::cout << "[SafeLaneChange]: Missing " << port_name << " input" << std::endl; };
 
-      if (!transition)
+      auto transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
+      if (!ports::require(transition, "lane_transition", missing_input_callback))
       {
-        std::cout << "[SafeLaneChange]: Missing lane_transition" << std::endl;
         return BT::NodeStatus::FAILURE;
       }
-      if (!area_snapshot)
+
+      auto area_snapshot = ports::tryGetPtr<const AreaOccupancyStore::Snapshot>(*this, "area_occupancy_snapshot");
+      if (!ports::require(area_snapshot, "area_occupancy_snapshot", missing_input_callback))
       {
-        std::cout << "[SafeLaneChange]: Missing area_occupancy_snapshot" << std::endl;
         return BT::NodeStatus::FAILURE;
       }
-      if (!left_areas || !right_areas)
+
+      auto left_areas = ports::tryGet<std::vector<std::string>>(*this, "left_lane_change_areas");
+      if (!ports::require(left_areas, "left_lane_change_areas", missing_input_callback))
       {
-        std::cout << "[SafeLaneChange]: Missing lane change area configuration" << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
+
+      auto right_areas = ports::tryGet<std::vector<std::string>>(*this, "right_lane_change_areas");
+      if (!ports::require(right_areas, "right_lane_change_areas", missing_input_callback))
+      {
         return BT::NodeStatus::FAILURE;
       }
       if (transition == types::LaneTransition::SUCCESSOR)

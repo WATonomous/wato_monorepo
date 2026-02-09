@@ -52,9 +52,13 @@ public:
 
   bool setRequest(Request::SharedPtr & request) override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+      setOutput("error_message", std::string("missing_port:") + port_name);
+    };
+
     auto reg_elem_id = ports::tryGet<int64_t>(*this, "reg_elem_id");
-    if (!reg_elem_id) {
-      setOutput("error_message", "Missing input port: reg_elem_id");
+    if (!ports::require(reg_elem_id, "reg_elem_id", missing_input_callback)) {
       return false;
     }
 

@@ -21,49 +21,51 @@ behaviour_node:
     rate_hz: 10.0
 
     # How often to update ego pose from TF (Hz)
-    ego_pose_rate_hz: 20.0
+    ego_state_rate_hz: 20.0
 
     # Frame parameters
     map_frame: "map"
     base_frame: "base_link"
 
-    # Traffic light state hypothesis index to use
-    traffic_light_state_hypothesis_index: 1
-
     # World objects hypothesis index (which detection result to use for classification)
     world_objects_hypothesis_index: 0
 
-    # Lane change safety check areas (must match world_model's occupancy_areas config)
-    left_lane_change_areas:
-      - "left_lane_change_corridor"
-    right_lane_change_areas:
-      - "right_lane_change_corridor"
+    # Behavior-tree XML specific config (blackboard keys referenced as {@bt.*})
+    bt:
+      # Traffic light state hypothesis index to use
+      traffic_light_state_hypothesis_index: 1
 
-    # Stop line wall of doom dimensions (meters)
-    stop_line_wall_of_doom_width: 5.0
-    stop_line_wall_of_doom_length: 1.0
+      # Lane change safety check areas (must match world_model's occupancy_areas config)
+      left_lane_change_areas:
+        - "left_lane_change_corridor"
+      right_lane_change_areas:
+        - "right_lane_change_corridor"
 
-    # Ego stopped velocity threshold (m/s)
-    ego_stopped_velocity_threshold: 0.1
+      # Stop line wall of doom dimensions (meters)
+      intersection_wall_of_doom_width: 5.0
+      intersection_wall_of_doom_length: 1.0
 
-    # Intersection lookahead distance (meters)
-    intersection_lookahead_m: 40.0
+      # Ego stopped velocity threshold (m/s)
+      ego_stopped_velocity_threshold: 0.1
 
-    # Lanelet thresholds for determining if traffic control element is passed
-    traffic_control_element_passed_lanelet_threshold: 2
+      # Intersection lookahead distance (meters)
+      intersection_lookahead_m: 40.0
 
-    # Lanelet thresholds for determining if traffic control element is handled (e.g. stop sign handled if stopped at stop line)
-    traffic_control_element_handled_lanelet_threshold: 1
+      # Lanelet threshold for determining if traffic control element is passed
+      traffic_control_element_passed_lanelet_threshold: 2
 
-    # Stop sign car detection threshold (meters)
-    stop_sign_car_detection_threshold_m: 8.0
+      # Lanelet threshold for determining if traffic control element is handled
+      traffic_control_element_handled_lanelet_threshold: 1
 
-    # Goal reached threshold (meters)
-    goal_reached_threshold_m: 1.0
+      # Stop sign car detection threshold (meters)
+      stop_sign_car_detection_threshold_m: 8.0
+
+      # Goal reached threshold (meters)
+      goal_reached_threshold_m: 1.0
 
     # Service timeouts (milliseconds)
-    get_shortest_route_timeout_ms: 6000
-    set_route_timeout_ms: 6000
+    get_shortest_route_timeout_ms: 5000
+    set_route_timeout_ms: 5000
     get_lanelets_by_reg_elem_timeout_ms: 5000
     wall_service_timeout_ms: 5000
 
