@@ -18,7 +18,7 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/osm/Town10HD_with_regulatory.osm"
+    osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
     projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
 
     # Frames
@@ -41,7 +41,7 @@
 
     # Map visualization
     map_viz_publish_rate_hz: 1.0
-    map_viz_radius_m: 100.0
+    map_viz_radius_m: 50.0
 
     # Dynamic objects (world_objects topic)
     dynamic_objects_publish_rate_hz: 20.0
@@ -116,6 +116,7 @@
     layers.objects.bbox_cost_decay: 0.3
     layers.objects.prediction_inflation_m: 0.3
     layers.objects.prediction_cost_decay: 0.3
+    layers.objects.max_centroid_height_m: 3.0
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 2.0
@@ -147,6 +148,9 @@
     direction_arrow_size: 0.8
     speed_limit_text_height: 1.0
     yield_marker_size: 1.5
+    show_reg_elem_labels: true
+    show_lanelet_ids: true
+    lanelet_id_text_height: 0.5
 
 /**/lane_context_markers_node:
   ros__parameters:

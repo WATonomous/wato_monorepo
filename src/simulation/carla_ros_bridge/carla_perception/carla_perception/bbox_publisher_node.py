@@ -88,6 +88,21 @@ class BBoxPublisherNode(LifecycleNode):
             ParameterDescriptor(description="Include pedestrians in detections"),
         )
         self.declare_parameter(
+            "include_traffic_lights",
+            True,
+            ParameterDescriptor(description="Include traffic lights in detections"),
+        )
+        self.declare_parameter(
+            "include_pedestrian_traffic_lights",
+            False,
+            ParameterDescriptor(description="Include pedestrian crossing traffic lights"),
+        )
+        self.declare_parameter(
+            "include_parked_vehicles",
+            True,
+            ParameterDescriptor(description="Include parked/static vehicles in detections"),
+        )
+        self.declare_parameter(
             "max_distance",
             -1.0,
             ParameterDescriptor(
@@ -105,6 +120,10 @@ class BBoxPublisherNode(LifecycleNode):
         self.detections_3d_publisher = None
         self.tracked_detections_3d_publisher = None
         self.publish_timer = None
+
+        # Track ID cache and counter for tracked detections
+        self._uuid_cache = {}
+        self._uuid_counter = 0
 
         # TF2 for frame transforms
         self.tf_buffer = Buffer()
@@ -234,6 +253,11 @@ class BBoxPublisherNode(LifecycleNode):
             # Filter actors based on parameters
             include_vehicles = self.get_parameter("include_vehicles").value
             include_pedestrians = self.get_parameter("include_pedestrians").value
+            include_traffic_lights = self.get_parameter("include_traffic_lights").value
+            include_ped_traffic_lights = self.get_parameter(
+                "include_pedestrian_traffic_lights"
+            ).value
+            include_parked_vehicles = self.get_parameter("include_parked_vehicles").value
             max_distance = self.get_parameter("max_distance").value
 
             filtered_actors = []
@@ -241,15 +265,46 @@ class BBoxPublisherNode(LifecycleNode):
                 filtered_actors.extend(actors.filter("vehicle.*"))
             if include_pedestrians:
                 filtered_actors.extend(actors.filter("walker.pedestrian.*"))
+            if include_traffic_lights:
+                filtered_actors.extend(actors.filter("traffic.traffic_light*"))
 
             # Filter by distance if max_distance is set
+            ego_location = self.ego_vehicle.get_location()
             if max_distance > 0:
-                ego_location = self.ego_vehicle.get_location()
                 filtered_actors = [
                     actor
                     for actor in filtered_actors
                     if actor.get_location().distance(ego_location) <= max_distance
                 ]
+
+            # Get parked/static vehicles (environment objects, not actors)
+            parked_vehicles = []
+            if include_parked_vehicles:
+                env_vehicles = []
+                for label in (
+                    carla.CityObjectLabel.Car,
+                    carla.CityObjectLabel.Truck,
+                    carla.CityObjectLabel.Bus,
+                    carla.CityObjectLabel.Motorcycle,
+                    carla.CityObjectLabel.Train,
+                ):
+                    env_vehicles.extend(
+                        self.world.get_environment_objects(label)
+                    )
+
+                # Deduplicate by position (CARLA can return multiple env
+                # objects for the same physical vehicle, e.g. body + windows)
+                unique_vehicles = []
+                used_locations = []
+                for obj in env_vehicles:
+                    obj_loc = obj.transform.location
+                    if any(obj_loc.distance(ul) < 1.0 for ul in used_locations):
+                        continue
+                    used_locations.append(obj_loc)
+                    if max_distance > 0 and ego_location.distance(obj_loc) > max_distance:
+                        continue
+                    unique_vehicles.append(obj)
+                parked_vehicles = unique_vehicles
 
             # Create header
             header = Header()
@@ -284,13 +339,53 @@ class BBoxPublisherNode(LifecycleNode):
                 # Skip ego vehicle
                 if actor.id == self.ego_vehicle.id:
                     continue
+
+                # For traffic lights, publish per-light-head boxes
+                if "traffic_light" in actor.type_id:
+                    light_boxes = actor.get_light_boxes()
+                    for i, lbox in enumerate(light_boxes):
+                        # Pedestrian crossing lights are much smaller
+                        # (extent z < 0.15) than vehicle lights (z ~ 0.6)
+                        if not include_ped_traffic_lights and lbox.extent.z < 0.15:
+                            continue
+                        det = self._create_detection_3d_from_light_box(
+                            lbox, actor.type_id, stamp, transform,
+                            light_state=actor.state,
+                        )
+                        if det:
+                            detections_3d.detections.append(det)
+                            det_tracked = self._create_detection_3d_from_light_box(
+                                lbox, actor.type_id, stamp, transform,
+                                light_state=actor.state,
+                                track_id=self._get_uuid(f"tl_{actor.id}_{i}"),
+                            )
+                            if det_tracked:
+                                tracked_detections_3d.detections.append(det_tracked)
+                    continue
+
                 detection_3d = self._create_detection_3d(actor, stamp, transform)
                 if detection_3d:
                     detections_3d.detections.append(detection_3d)
 
                     # Create tracked detection with actor ID for tracking
                     tracked_detection = self._create_detection_3d(
-                        actor, stamp, transform, track_id=str(actor.id)
+                        actor, stamp, transform,
+                        track_id=self._get_uuid(f"actor_{actor.id}"),
+                    )
+                    if tracked_detection:
+                        tracked_detections_3d.detections.append(tracked_detection)
+
+            # Process parked/static vehicles (environment objects)
+            for env_obj in parked_vehicles:
+                detection_3d = self._create_detection_3d_from_env_object(
+                    env_obj, stamp, transform
+                )
+                if detection_3d:
+                    detections_3d.detections.append(detection_3d)
+
+                    tracked_detection = self._create_detection_3d_from_env_object(
+                        env_obj, stamp, transform,
+                        track_id=self._get_uuid(f"env_{env_obj.id}"),
                     )
                     if tracked_detection:
                         tracked_detections_3d.detections.append(tracked_detection)
@@ -379,6 +474,22 @@ class BBoxPublisherNode(LifecycleNode):
             hypothesis.hypothesis.score = 1.0
             detection.results.append(hypothesis)
 
+            # Add vehicle signal state as second hypothesis
+            if "vehicle" in actor.type_id:
+                light_state = actor.get_light_state()
+                signal_flags = [
+                    (carla.VehicleLightState.LeftBlinker, "left_blinker"),
+                    (carla.VehicleLightState.RightBlinker, "right_blinker"),
+                    (carla.VehicleLightState.Brake, "brake"),
+                    (carla.VehicleLightState.Reverse, "reverse"),
+                ]
+                for flag, label in signal_flags:
+                    if light_state & flag:
+                        signal_hypothesis = ObjectHypothesisWithPose()
+                        signal_hypothesis.hypothesis.class_id = label
+                        signal_hypothesis.hypothesis.score = 1.0
+                        detection.results.append(signal_hypothesis)
+
             return detection
 
         except Exception as e:
@@ -387,21 +498,186 @@ class BBoxPublisherNode(LifecycleNode):
             )
             return None
 
+    def _create_detection_3d_from_env_object(
+        self,
+        env_obj,
+        stamp,
+        transform,
+        track_id: Optional[str] = None,
+    ) -> Optional[Detection3D]:
+        """Create Detection3D message from a CARLA EnvironmentObject.
+
+        EnvironmentObjects (e.g. parked cars) use a different API than Actors.
+        Their world pose is stored in ``env_obj.bounding_box`` (location + rotation)
+        and ``env_obj.transform``.
+
+        Args:
+            env_obj: CARLA EnvironmentObject (from ``world.get_environment_objects``).
+            stamp: ROS timestamp for the detection.
+            transform: TF2 transform to apply (None if frame_id is "map").
+            track_id: Optional tracking ID for the detection.
+        """
+        try:
+            detection = Detection3D()
+
+            if track_id is not None:
+                detection.id = track_id
+
+            bbox = env_obj.bounding_box
+            obj_transform = env_obj.transform
+
+            # Environment object location is at ground level like vehicles,
+            # so offset z by half bbox height
+            ros_x, ros_y, ros_z = carla_to_ros_position(
+                obj_transform.location.x,
+                obj_transform.location.y,
+                obj_transform.location.z + bbox.extent.z,
+            )
+            roll, pitch, yaw = carla_to_ros_rotation(
+                obj_transform.rotation.roll,
+                obj_transform.rotation.pitch,
+                obj_transform.rotation.yaw,
+            )
+            qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
+
+            if transform is not None:
+                pose_stamped = PoseStamped()
+                pose_stamped.header.stamp = stamp
+                pose_stamped.header.frame_id = "map"
+                pose_stamped.pose.position = Point(x=ros_x, y=ros_y, z=ros_z)
+                pose_stamped.pose.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
+
+                transformed_pose = tf2_geometry_msgs.do_transform_pose_stamped(
+                    pose_stamped, transform
+                )
+                detection.bbox.center = transformed_pose.pose
+            else:
+                detection.bbox.center = Pose()
+                detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
+                detection.bbox.center.orientation = Quaternion(
+                    x=qx, y=qy, z=qz, w=qw
+                )
+
+            detection.bbox.size = Vector3(
+                x=bbox.extent.x * 2.0, y=bbox.extent.y * 2.0, z=bbox.extent.z * 2.0
+            )
+
+            hypothesis = ObjectHypothesisWithPose()
+            hypothesis.hypothesis.class_id = "vehicle"
+            hypothesis.hypothesis.score = 1.0
+            detection.results.append(hypothesis)
+
+            return detection
+
+        except Exception as e:
+            self.get_logger().error(
+                f"Error creating detection for env object {env_obj.id}: {e}"
+            )
+            return None
+
+    def _create_detection_3d_from_light_box(
+        self,
+        light_box: "carla.BoundingBox",
+        type_id: str,
+        stamp,
+        transform,
+        light_state=None,
+        track_id: Optional[str] = None,
+    ) -> Optional[Detection3D]:
+        """Create Detection3D from a traffic light head BoundingBox.
+
+        Uses ``TrafficLight.get_light_boxes()`` which returns world-space
+        bounding boxes for each individual light head rather than the whole pole.
+        """
+        try:
+            detection = Detection3D()
+
+            if track_id is not None:
+                detection.id = track_id
+
+            ros_x, ros_y, ros_z = carla_to_ros_position(
+                light_box.location.x,
+                light_box.location.y,
+                light_box.location.z,
+            )
+            roll, pitch, yaw = carla_to_ros_rotation(
+                light_box.rotation.roll,
+                light_box.rotation.pitch,
+                light_box.rotation.yaw,
+            )
+            qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
+
+            if transform is not None:
+                pose_stamped = PoseStamped()
+                pose_stamped.header.stamp = stamp
+                pose_stamped.header.frame_id = "map"
+                pose_stamped.pose.position = Point(x=ros_x, y=ros_y, z=ros_z)
+                pose_stamped.pose.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
+
+                transformed_pose = tf2_geometry_msgs.do_transform_pose_stamped(
+                    pose_stamped, transform
+                )
+                detection.bbox.center = transformed_pose.pose
+            else:
+                detection.bbox.center = Pose()
+                detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
+                detection.bbox.center.orientation = Quaternion(
+                    x=qx, y=qy, z=qz, w=qw
+                )
+
+            detection.bbox.size = Vector3(
+                x=light_box.extent.x * 2.0,
+                y=light_box.extent.y * 2.0,
+                z=light_box.extent.z * 2.0,
+            )
+
+            hypothesis = ObjectHypothesisWithPose()
+            hypothesis.hypothesis.class_id = "traffic_light"
+            hypothesis.hypothesis.score = 1.0
+            detection.results.append(hypothesis)
+
+            # Add light color as second hypothesis
+            if light_state is not None:
+                color_hypothesis = ObjectHypothesisWithPose()
+                state_map = {
+                    carla.TrafficLightState.Red: "red",
+                    carla.TrafficLightState.Yellow: "yellow",
+                    carla.TrafficLightState.Green: "green",
+                    carla.TrafficLightState.Off: "unknown",
+                    carla.TrafficLightState.Unknown: "unknown",
+                }
+                color_hypothesis.hypothesis.class_id = state_map.get(
+                    light_state, "unknown"
+                )
+                color_hypothesis.hypothesis.score = 1.0
+                detection.results.append(color_hypothesis)
+
+            return detection
+
+        except Exception as e:
+            self.get_logger().error(
+                f"Error creating detection for light box: {e}"
+            )
+            return None
+
+    def _get_uuid(self, key: str) -> str:
+        """Get a cached unique ID for the given key."""
+        cached = self._uuid_cache.get(key)
+        if cached is not None:
+            return cached
+        val = str(self._uuid_counter)
+        self._uuid_counter += 1
+        self._uuid_cache[key] = val
+        return val
+
     def _get_class_id(self, type_id: str) -> str:
         """Map CARLA type_id to class identifier."""
         if "vehicle" in type_id:
-            if "car" in type_id:
-                return "car"
-            elif "truck" in type_id:
-                return "truck"
-            elif "bike" in type_id or "bicycle" in type_id:
-                return "bicycle"
-            elif "motorcycle" in type_id:
-                return "motorcycle"
-            else:
-                return "vehicle"
+            return "vehicle"
         elif "pedestrian" in type_id:
             return "pedestrian"
+        elif "traffic_light" in type_id:
+            return "traffic_light"
         else:
             return "unknown"
 

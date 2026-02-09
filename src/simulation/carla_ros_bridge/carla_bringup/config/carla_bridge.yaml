@@ -96,7 +96,9 @@ bbox_publisher:
     frame_id: "map"
     include_vehicles: true
     include_pedestrians: true
-    max_distance: -1.0  # Max distance from ego vehicle in meters (-1 = no limit)
+    include_traffic_lights: true
+    include_parked_vehicles: true
+    max_distance: 5.0  # Max distance from ego vehicle in meters (-1 = no limit)
 
 # Localization Configuration (TF publisher)
 carla_localization:

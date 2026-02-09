@@ -46,6 +46,7 @@ private:
 
   rclcpp::Subscription<lanelet_msgs::msg::MapVisualization>::SharedPtr subscription_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr reg_elem_publisher_;
 
   std::string frame_id_;
   bool show_centerlines_;
@@ -63,6 +64,9 @@ private:
   double direction_arrow_size_;
   double speed_limit_text_height_;
   double yield_marker_size_;
+  bool show_reg_elem_labels_;
+  bool show_lanelet_ids_;
+  double lanelet_id_text_height_;
 };
 
 }  // namespace lanelet_markers

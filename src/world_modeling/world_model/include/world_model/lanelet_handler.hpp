@@ -34,6 +34,7 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
+#include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
@@ -219,14 +220,33 @@ public:
     double route_priority_threshold_m = 10.0,
     double heading_search_radius_m = 15.0) const;
 
+  /// Result of matching a point to a traffic light map element.
+  struct TrafficLightMatch
+  {
+    int64_t way_id;       ///< ID of the matched refers linestring (way)
+    int64_t reg_elem_id;  ///< ID of the parent regulatory element
+  };
+
   /**
-   * @brief Find the nearest traffic light regulatory element to a point.
+   * @brief Find the nearest traffic light way and its parent regulatory element.
    *
    * Iterates all regulatory elements with subtype "traffic_light",
-   * computes distance from their "refers" positions to the query point,
-   * and returns the ID of the closest one.
+   * computes distance from each refers linestring to the query point,
+   * and returns the closest way ID along with its parent reg elem ID.
    */
-  std::optional<int64_t> findNearestTrafficLightRegElemId(const geometry_msgs::msg::Point & point) const;
+  std::optional<TrafficLightMatch> findNearestTrafficLightMatch(const geometry_msgs::msg::Point & point) const;
+
+  /**
+   * @brief Build a RegulatoryElement message for a given regulatory element ID.
+   *
+   * Looks up the regulatory element in the map and populates the message with
+   * subtype, refers positions, ref lines (with distance_along_lanelet_m = 0),
+   * yield/right-of-way IDs, and generic attributes.
+   *
+   * @param reg_elem_id Regulatory element ID to look up.
+   * @return Populated message, or nullopt if the ID is not found or no map is loaded.
+   */
+  std::optional<lanelet_msgs::msg::RegulatoryElement> getRegulatoryElementMsg(int64_t reg_elem_id) const;
 
   // Service implementations
 
