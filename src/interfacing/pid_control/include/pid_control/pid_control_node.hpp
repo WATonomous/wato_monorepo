@@ -85,7 +85,7 @@ private:
   /**
    * @brief Callback for steering angle measurement feedback.
    *
-   * @param msg The current steering angle in degrees.
+   * @param msg The current steering angle in radians.
    */
   void steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg);
 
