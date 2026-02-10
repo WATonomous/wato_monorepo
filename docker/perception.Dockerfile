@@ -9,6 +9,7 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code needed for perception build
+RUN git clone https://github.com/WATonomous/deep_ros.git --branch jazzy-fix deep_ros
 COPY src/perception perception
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/wato_test wato_test
