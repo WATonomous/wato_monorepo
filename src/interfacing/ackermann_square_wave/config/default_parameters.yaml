@@ -1,5 +1,0 @@
-ackermann_square_wave:
-  ros__parameters:
-    period: 15.0
-    amplitude: 0.4
-    publish_rate: 50.0

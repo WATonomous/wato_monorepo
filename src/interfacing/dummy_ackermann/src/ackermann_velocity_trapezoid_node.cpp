@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ackermann_velocity_trapezoid/ackermann_velocity_trapezoid_node.hpp"
+#include "dummy_ackermann/ackermann_velocity_trapezoid_node.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -23,7 +23,7 @@
 #include "lifecycle_msgs/msg/state.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
-namespace ackermann_velocity_trapezoid
+namespace dummy_ackermann
 {
 
 AckermannVelocityTrapezoidNode::AckermannVelocityTrapezoidNode(const rclcpp::NodeOptions & options)
@@ -222,6 +222,6 @@ rcl_interfaces::msg::SetParametersResult AckermannVelocityTrapezoidNode::on_set_
   return result;
 }
 
-}  // namespace ackermann_velocity_trapezoid
+}  // namespace dummy_ackermann
 
-RCLCPP_COMPONENTS_REGISTER_NODE(ackermann_velocity_trapezoid::AckermannVelocityTrapezoidNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(dummy_ackermann::AckermannVelocityTrapezoidNode)
