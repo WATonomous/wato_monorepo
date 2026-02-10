@@ -25,7 +25,7 @@ launch:
   # Tuning Modes
   - arg:
       name: "tune_steering"
-      default: "true"  ## change this to false to tune velocity
+      default: "false"  ## change this to false to tune velocity
       description: "Enable steering tuning mode (square wave)"
   - arg:
       name: "tune_velocity"
@@ -115,10 +115,10 @@ launch:
         - name: node_names
           value: >
             $(eval "
-            ['/joystick_node', '/pid_control_node'] +
-            (['/ackermann_mux'] if '$(var tune_steering)' == 'false' and '$(var tune_velocity)' == 'false' else []) +
-            (['/ackermann_square_wave'] if '$(var tune_steering)' == 'true' else []) +
-            (['/ackermann_velocity_trapezoid'] if '$(var tune_velocity)' == 'true' else [])
+            ['/interfacing/joystick_node', '/interfacing/pid_control_node'] +
+            (['/interfacing/ackermann_mux'] if '$(var tune_steering)' == 'false' and '$(var tune_velocity)' == 'false' else []) +
+            (['/interfacing/ackermann_square_wave'] if '$(var tune_steering)' == 'true' else []) +
+            (['/interfacing/ackermann_velocity_trapezoid'] if '$(var tune_velocity)' == 'true' else [])
             ")
         - name: autostart
           value: $(var autostart)

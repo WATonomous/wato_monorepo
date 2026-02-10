@@ -7,6 +7,7 @@ launch:
       pkg: "ackermann_velocity_trapezoid"
       exec: "ackermann_velocity_trapezoid_node"
       name: "ackermann_velocity_trapezoid"
+      namespace: "interfacing"
       output: "screen"
       param:
         - from: "$(var test_config_file)"
