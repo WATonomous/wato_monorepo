@@ -61,9 +61,7 @@ public:
    * @param timeout Maximum time to wait
    * @return true if the required subscriber count was reached, false on timeout
    */
-  bool wait_for_subscribers(
-    size_t count = 1,
-    std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
+  bool wait_for_subscribers(size_t count = 1, std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
 
 private:
   typename rclcpp::Publisher<MessageType>::SharedPtr publisher_;

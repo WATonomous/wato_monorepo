@@ -89,9 +89,7 @@ public:
    * @param timeout Maximum time to wait
    * @return true if the required publisher count was reached, false on timeout
    */
-  bool wait_for_publishers(
-    size_t count = 1,
-    std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
+  bool wait_for_publishers(size_t count = 1, std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
 
 private:
   void message_callback(typename MessageType::UniquePtr msg);
