@@ -17,7 +17,7 @@
 namespace ackermann_mux
 {
 
-InputHandle::InputHandle(rclcpp::Node * node, const InputConfig & cfg)
+InputHandle::InputHandle(rclcpp_lifecycle::LifecycleNode * node, const InputConfig & cfg)
 : node_(node)
 , cfg_(cfg)
 {
