@@ -14,12 +14,14 @@
 
 #pragma once
 
+#include <chrono>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
 #include <string>
+#include <thread>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -79,6 +81,17 @@ public:
    * Clears the last message and any pending futures.
    */
   void reset_for_new_test();
+
+  /**
+   * @brief Wait until this subscriber has at least the specified number of publishers
+   *
+   * @param count Minimum number of matched publishers to wait for
+   * @param timeout Maximum time to wait
+   * @return true if the required publisher count was reached, false on timeout
+   */
+  bool wait_for_publishers(
+    size_t count = 1,
+    std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
 
 private:
   void message_callback(typename MessageType::UniquePtr msg);
@@ -156,6 +169,19 @@ void SubscriberTestNode<MessageType>::message_callback(typename MessageType::Uni
   }
 
   RCLCPP_DEBUG(this->get_logger(), "Received message");
+}
+
+template <typename MessageType>
+bool SubscriberTestNode<MessageType>::wait_for_publishers(size_t count, std::chrono::milliseconds timeout) const
+{
+  auto start = std::chrono::steady_clock::now();
+  while (subscription_->get_publisher_count() < count) {
+    if (std::chrono::steady_clock::now() - start > timeout) {
+      return false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  return true;
 }
 
 }  // namespace wato::test

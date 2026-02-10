@@ -44,6 +44,10 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Multiple nodes with TestExecu
   add_node(sub_node);
   start_spinning();
 
+  // Wait for DDS discovery
+  REQUIRE(pub_node->wait_for_subscribers(1));
+  REQUIRE(sub_node->wait_for_publishers(1));
+
   SECTION("Both nodes are running")
   {
     REQUIRE(pub_node != nullptr);
@@ -74,9 +78,6 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Multiple nodes with TestExecu
     // Reset message count for clean test
     sub_node->reset_for_new_test();
 
-    // Allow time for connection
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
     const int num_messages = 3;
 
     // Publish messages with small delays to ensure proper ordering
@@ -104,9 +105,6 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Multiple nodes with TestExecu
     // Reset for clean test
     sub_node->reset_for_new_test();
     REQUIRE(sub_node->get_message_count() == 0);
-
-    // Allow time for connection
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Publish multiple messages
     for (int i = 0; i < 3; ++i) {
