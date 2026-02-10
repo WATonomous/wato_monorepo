@@ -106,6 +106,10 @@ launch:
   - include:
       file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
 
+  # Car Velocity Feedback Node
+  - include:
+      file: "$(find-pkg-share car_velocity_feedback)/launch/car_velocity_feedback.launch.yaml"
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -116,7 +120,7 @@ launch:
         - name: node_names
           value: >
             $(eval "
-            ['/interfacing/joystick_node', '/interfacing/pid_control_node'] +
+            ['/interfacing/joystick_node', '/interfacing/pid_control_node', '/interfacing/car_velocity_feedback_node'] +
             (['/interfacing/ackermann_mux'] if '$(var tune_steering)' == 'false' and '$(var tune_velocity)' == 'false' else []) +
             (['/interfacing/ackermann_square_wave'] if '$(var tune_steering)' == 'true' else []) +
             (['/interfacing/ackermann_velocity_trapezoid'] if '$(var tune_velocity)' == 'true' else [])
