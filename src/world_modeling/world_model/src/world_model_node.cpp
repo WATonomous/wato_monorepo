@@ -47,7 +47,7 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   // Declare shared parameters (used by both the node and interfaces)
   this->declare_parameter<std::string>("osm_map_path", "");
   this->declare_parameter<std::string>("map_frame", "map");
-  this->declare_parameter<std::string>("base_frame", "base_link");
+  this->declare_parameter<std::string>("base_frame", "base_footprint");
   this->declare_parameter<std::string>("utm_frame", "utm");
   this->declare_parameter<std::string>("projector_type", "utm");
 

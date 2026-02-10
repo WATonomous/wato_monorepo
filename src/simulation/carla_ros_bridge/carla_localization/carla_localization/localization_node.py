@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Localization lifecycle node for CARLA - publishes TF from map -> odom -> base_link."""
+"""Localization lifecycle node for CARLA - publishes TF from map -> odom -> base_footprint."""
 
 from typing import Any, Optional
 import rclpy
@@ -66,9 +66,9 @@ class LocalizationNode(LifecycleNode):
             ParameterDescriptor(description="Name of the odom frame"),
         )
         self.declare_parameter(
-            "base_link_frame",
-            "base_link",
-            ParameterDescriptor(description="Name of the base_link frame"),
+            "base_frame",
+            "base_footprint",
+            ParameterDescriptor(description="Name of the base footprint frame"),
         )
         self.declare_parameter(
             "publish_rate",
@@ -192,7 +192,7 @@ class LocalizationNode(LifecycleNode):
             # Get frame names
             map_frame = self.get_parameter("map_frame").value
             odom_frame = self.get_parameter("odom_frame").value
-            base_link_frame = self.get_parameter("base_link_frame").value
+            base_frame = self.get_parameter("base_frame").value
 
             # Current timestamp
             now = self.get_clock().now().to_msg()
@@ -223,11 +223,11 @@ class LocalizationNode(LifecycleNode):
             map_to_odom.transform.rotation.z = 0.0
             map_to_odom.transform.rotation.w = 1.0
 
-            # Publish odom -> base_link (vehicle pose)
+            # Publish odom -> base_footprint (vehicle pose)
             odom_to_base = TransformStamped()
             odom_to_base.header.stamp = now
             odom_to_base.header.frame_id = odom_frame
-            odom_to_base.child_frame_id = base_link_frame
+            odom_to_base.child_frame_id = base_frame
             odom_to_base.transform.translation.x = x
             odom_to_base.transform.translation.y = y
             odom_to_base.transform.translation.z = z
@@ -248,7 +248,7 @@ class LocalizationNode(LifecycleNode):
             odom = Odometry()
             odom.header.stamp = now
             odom.header.frame_id = odom_frame
-            odom.child_frame_id = base_link_frame
+            odom.child_frame_id = base_frame
             odom.pose.pose.position.x = x
             odom.pose.pose.position.y = y
             odom.pose.pose.position.z = z

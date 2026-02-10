@@ -23,6 +23,7 @@
 
     # Frames
     map_frame: "map"
+    base_frame: "base_footprint"
     utm_frame: "utm"
 
     # Entity tracking
@@ -58,7 +59,7 @@
     # --- Area occupancy ---
 
     area_occupancy_publish_rate_hz: 20.0
-    area_occupancy_frame: "base_link"
+    area_occupancy_frame: "base_footprint"
     occupancy_areas:
       - "front_near"
       - "front_far"
@@ -96,7 +97,7 @@
 # =============================================================================
 /**/costmap_node:
   ros__parameters:
-    costmap_frame: "base_link"
+    costmap_frame: "base_footprint"
     map_frame: "map"
     publish_rate_hz: 30.0
     grid_width_m: 100.0
@@ -205,7 +206,7 @@
 
 /**/costmap_markers_node:
   ros__parameters:
-    frame_id: "base_link"
+    frame_id: "base_footprint"
     footprint_color: [0.5, 0.0, 1.0, 0.8]
     footprint_line_width: 0.1
 

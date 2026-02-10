@@ -1,6 +1,6 @@
 costmap_node:
   ros__parameters:
-    costmap_frame: "base_link"
+    costmap_frame: "base_footprint"
     map_frame: "map"
     publish_rate_hz: 20.0
     grid_width_m: 60.0
