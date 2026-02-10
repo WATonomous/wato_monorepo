@@ -12,104 +12,92 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef WORLD_MODEL__INTERFACES__PUBLISHERS__DYNAMIC_OBJECTS_PUBLISHER_HPP_
-#define WORLD_MODEL__INTERFACES__PUBLISHERS__DYNAMIC_OBJECTS_PUBLISHER_HPP_
+#ifndef WORLD_MODEL__INTERFACES__SERVICES__GET_DYNAMIC_OBJECTS_SERVICE_HPP_
+#define WORLD_MODEL__INTERFACES__SERVICES__GET_DYNAMIC_OBJECTS_SERVICE_HPP_
 
-#include <chrono>
 #include <cmath>
 #include <string>
 #include <type_traits>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
-#include "world_model_msgs/msg/world_object_array.hpp"
+#include "world_model_msgs/srv/get_dynamic_objects.hpp"
 
 namespace world_model
 {
 
 /**
- * @brief Publishes all tracked dynamic objects at a fixed rate.
+ * @brief Service that returns all tracked dynamic objects on demand.
  *
- * Collects entities from all entity types (Car, Human, Bicycle, Motorcycle, etc.)
- * and publishes them as a WorldObjectArray message with lanelet context and history.
+ * Mirrors the data published by DynamicObjectsPublisher but as a
+ * request/response service for on-demand snapshots.
  */
-class DynamicObjectsPublisher : public InterfaceBase
+class GetDynamicObjectsService : public InterfaceBase
 {
 public:
-  DynamicObjectsPublisher(
+  GetDynamicObjectsService(
     rclcpp_lifecycle::LifecycleNode * node, const WorldState * world_state, const LaneletHandler * lanelet_handler)
   : node_(node)
   , world_state_(world_state)
   , lanelet_handler_(lanelet_handler)
+  , frame_id_(node->get_parameter("map_frame").as_string())
+  , radius_m_(node->get_parameter("dynamic_objects_lanelet_ahead_radius_m").as_double())
   {
-    frame_id_ = node_->get_parameter("map_frame").as_string();
-    rate_hz_ = node_->declare_parameter<double>("dynamic_objects_publish_rate_hz", 10.0);
-    radius_m_ = node_->declare_parameter<double>("dynamic_objects_lanelet_ahead_radius_m", 30.0);
-
-    pub_ = node_->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_objects", 10);
-  }
-
-  void activate() override
-  {
-    pub_->on_activate();
-
-    if (rate_hz_ > 0.0) {
-      auto period = std::chrono::duration<double>(1.0 / rate_hz_);
-      timer_ = node_->create_wall_timer(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-        std::bind(&DynamicObjectsPublisher::publish, this));
-    }
-  }
-
-  void deactivate() override
-  {
-    if (timer_) {
-      timer_->cancel();
-      timer_.reset();
-    }
-    pub_->on_deactivate();
+    srv_ = node_->create_service<world_model_msgs::srv::GetDynamicObjects>(
+      "get_dynamic_objects",
+      std::bind(&GetDynamicObjectsService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
+  /**
+   * @brief Extract the yaw angle from a quaternion orientation.
+   * @param q Quaternion to extract yaw from.
+   * @return Yaw angle in radians.
+   */
   static double extractYaw(const geometry_msgs::msg::Quaternion & q)
   {
     return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
   }
 
   /**
-   * @brief Timer callback that collects all tracked entities and publishes them.
+   * @brief Handle an incoming GetDynamicObjects service request.
    *
-   * Iterates over all entity type buffers (Unknown, Car, Human, Bicycle, Motorcycle,
-   * TrafficLight), converts each to a WorldObject message, and publishes the array.
+   * Collects all tracked entities of every type (Unknown, Car, Human, Bicycle,
+   * Motorcycle, TrafficLight) into the response's objects list.
+   *
+   * @param request  The service request (unused).
+   * @param response The service response populated with all dynamic objects.
    */
-  void publish()
+  void handleRequest(
+    world_model_msgs::srv::GetDynamicObjects::Request::ConstSharedPtr /*request*/,
+    world_model_msgs::srv::GetDynamicObjects::Response::SharedPtr response)
   {
-    world_model_msgs::msg::WorldObjectArray msg;
-    msg.header.stamp = node_->get_clock()->now();
-    msg.header.frame_id = frame_id_;
+    response->header.stamp = node_->get_clock()->now();
+    response->header.frame_id = frame_id_;
 
-    // Collect from all entity types
-    collectEntities<Unknown>(msg.objects);
-    collectEntities<Car>(msg.objects);
-    collectEntities<Human>(msg.objects);
-    collectEntities<Bicycle>(msg.objects);
-    collectEntities<Motorcycle>(msg.objects);
-    collectEntities<TrafficLight>(msg.objects);
-
-    pub_->publish(msg);
+    collectEntities<Unknown>(response->objects);
+    collectEntities<Car>(response->objects);
+    collectEntities<Human>(response->objects);
+    collectEntities<Bicycle>(response->objects);
+    collectEntities<Motorcycle>(response->objects);
+    collectEntities<TrafficLight>(response->objects);
   }
 
   /**
-   * @brief Collects all entities of a given type into the output vector.
+   * @brief Collect all tracked entities of a given type into the output list.
    *
-   * Reads a snapshot of the entity buffer, converts each entity to a WorldObject
-   * message with detection, lanelet_ahead, history, and predictions.
+   * Iterates over every entity of EntityType in the world state buffer, builds
+   * a WorldObject message for each non-empty entity (including detection,
+   * predictions, lanelet-ahead info, and pose history), and appends it to the
+   * output. For TrafficLight entities, also attaches matched way ID and
+   * regulatory element data when available.
    *
-   * @tparam EntityType Entity class (e.g. Car, Human).
+   * @tparam EntityType The world-model entity type to collect (e.g. Car, Human).
    * @param objects Output vector to append WorldObject messages to.
    */
   template <typename EntityType>
@@ -127,14 +115,12 @@ private:
       obj.detection = entity.detection();
       obj.predictions = entity.predictions;
 
-      // Populate lanelet_ahead from entity's cached lanelet_id
       if (entity.lanelet_id.has_value()) {
         double heading = extractYaw(entity.pose().orientation);
         obj.lanelet_ahead =
           lanelet_handler_->getLaneletAhead(entity.pose().position, heading, radius_m_, entity.lanelet_id);
       }
 
-      // History: convert Detection3D deque to PoseStamped[]
       for (const auto & det : entity.history) {
         geometry_msgs::msg::PoseStamped ps;
         ps.header = det.header;
@@ -162,13 +148,11 @@ private:
   WorldStateReader world_state_;
   const LaneletHandler * lanelet_handler_;
   std::string frame_id_;
-  double rate_hz_;
   double radius_m_;
 
-  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr pub_;
-  rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::Service<world_model_msgs::srv::GetDynamicObjects>::SharedPtr srv_;
 };
 
 }  // namespace world_model
 
-#endif  // WORLD_MODEL__INTERFACES__PUBLISHERS__DYNAMIC_OBJECTS_PUBLISHER_HPP_
+#endif  // WORLD_MODEL__INTERFACES__SERVICES__GET_DYNAMIC_OBJECTS_SERVICE_HPP_

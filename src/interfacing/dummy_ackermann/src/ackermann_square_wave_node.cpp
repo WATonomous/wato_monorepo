@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ackermann_square_wave/ackermann_square_wave_node.hpp"
+#include "dummy_ackermann/ackermann_square_wave_node.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -23,7 +23,7 @@
 #include "lifecycle_msgs/msg/state.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
-namespace ackermann_square_wave
+namespace dummy_ackermann
 {
 
 AckermannSquareWaveNode::AckermannSquareWaveNode(const rclcpp::NodeOptions & options)
@@ -163,6 +163,6 @@ rcl_interfaces::msg::SetParametersResult AckermannSquareWaveNode::on_set_paramet
   return result;
 }
 
-}  // namespace ackermann_square_wave
+}  // namespace dummy_ackermann
 
-RCLCPP_COMPONENTS_REGISTER_NODE(ackermann_square_wave::AckermannSquareWaveNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(dummy_ackermann::AckermannSquareWaveNode)

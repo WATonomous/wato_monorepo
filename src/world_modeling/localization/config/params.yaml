@@ -9,9 +9,9 @@ ekf_filter_node_local:
     frequency: 15.0                 # EKF update rate
     two_d_mode: true                # ignore Z axis for 2D robot
     odom_frame: odom                # local odometry frame
-    base_link_frame: base_link      # robot frame
+    base_frame: base_footprint      # robot frame
     world_frame: odom               # output frame (local pose)
-    publish_tf: true                # broadcast odom -> base_link TF
+    publish_tf: true                # broadcast odom -> base_footprint TF
     # debug: true
 
     # Odometry data (from wheel odometry)
@@ -39,9 +39,9 @@ ekf_filter_node_global:
     frequency: 15.0                  # EKF update rate
     two_d_mode: true                # ignore Z axis for 2D robot
     odom_frame: odom                # local odometry frame
-    base_link_frame: base_link      # robot frame
+    base_frame: base_footprint      # robot frame
     world_frame: map                # output frame
-    publish_tf: true                # broadcast map -> base_link TF
+    publish_tf: true                # broadcast map -> base_footprint TF
     # transform_time_offset: 1.0      # prevents error in navsat_transform
     initial_state: [
       73.6, -66.4, 0.0,

@@ -1,7 +1,0 @@
-ackermann_velocity_trapezoid:
-  ros__parameters:
-    target_velocity: 1.0    # m/s - goal velocity
-    rise_time: 2.0          # seconds - time to ramp up to target
-    hold_time: 3.0          # seconds - time to hold at target
-    ramp_down_time: 2.0     # seconds - time to ramp down to 0
-    publish_rate: 50.0      # Hz - publishing frequency

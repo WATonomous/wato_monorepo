@@ -31,6 +31,7 @@
     carla_host: "localhost"
     carla_timeout: 10.0
     role_name: "ego_vehicle"
+    base_frame: "base_footprint"
     # List of camera names to spawn
     camera_names:
       - front_camera
@@ -64,6 +65,7 @@
     carla_host: "localhost"
     carla_timeout: 10.0
     role_name: "ego_vehicle"
+    base_frame: "base_footprint"
     # List of LiDAR names to spawn
     lidar_names:
       - top_lidar
@@ -95,7 +97,7 @@
     frame_id: "map"
     include_vehicles: true
     include_pedestrians: true
-    max_distance: -1.0  # Max distance from ego vehicle in meters (-1 = no limit)
+    max_distance: 75.0  # Max distance from ego vehicle in meters (-1 = no limit)
 
 # Localization Configuration (TF publisher)
 /**/carla_localization:
@@ -106,7 +108,7 @@
     # TF frame names
     map_frame: "map"
     odom_frame: "odom"
-    base_link_frame: "base_link"
+    base_frame: "base_footprint"
     publish_rate: 50.0  # Hz
 
 # Teleop Configuration (Foxglove compatible)

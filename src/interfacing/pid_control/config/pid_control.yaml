@@ -1,4 +1,4 @@
-pid_control_node:
+/interfacing/pid_control_node:
   ros__parameters:
     update_rate: 100.0
     steering_pid:

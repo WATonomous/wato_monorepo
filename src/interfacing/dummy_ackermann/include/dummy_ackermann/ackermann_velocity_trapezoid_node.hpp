@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ACKERMANN_SQUARE_WAVE__ACKERMANN_SQUARE_WAVE_NODE_HPP_
-#define ACKERMANN_SQUARE_WAVE__ACKERMANN_SQUARE_WAVE_NODE_HPP_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -23,15 +22,15 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-namespace ackermann_square_wave
+namespace dummy_ackermann
 {
 
-class AckermannSquareWaveNode : public rclcpp_lifecycle::LifecycleNode
+class AckermannVelocityTrapezoidNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-  explicit AckermannSquareWaveNode(const rclcpp::NodeOptions & options);
+  explicit AckermannVelocityTrapezoidNode(const rclcpp::NodeOptions & options);
 
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
@@ -43,8 +42,10 @@ private:
   void timer_callback();
   rcl_interfaces::msg::SetParametersResult on_set_parameters(const std::vector<rclcpp::Parameter> & parameters);
 
-  double period_;  // seconds
-  double amplitude_;  // radians
+  double target_velocity_;  // m/s
+  double rise_time_;  // seconds
+  double hold_time_;  // seconds
+  double ramp_down_time_;  // seconds
   double publish_rate_;  // Hz
 
   rclcpp::TimerBase::SharedPtr timer_;
@@ -55,6 +56,4 @@ private:
   rclcpp::Time start_time_;
 };
 
-}  // namespace ackermann_square_wave
-
-#endif  // ACKERMANN_SQUARE_WAVE__ACKERMANN_SQUARE_WAVE_NODE_HPP_
+}  // namespace dummy_ackermann
