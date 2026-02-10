@@ -18,61 +18,52 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find dependencies
+# Dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 
-# Ackermann Square Wave Node
-add_library(ackermann_square_wave_lib SHARED
+# Component Library
+add_library(${PROJECT_NAME}_nodes SHARED
   src/ackermann_square_wave_node.cpp
+  src/ackermann_velocity_trapezoid_node.cpp
 )
-target_include_directories(ackermann_square_wave_lib PUBLIC
+
+target_include_directories(${PROJECT_NAME}_nodes PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-ament_target_dependencies(ackermann_square_wave_lib
-  rclcpp
-  rclcpp_components
-  rclcpp_lifecycle
-  ackermann_msgs
+
+target_link_libraries(${PROJECT_NAME}_nodes PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ackermann_msgs::ackermann_msgs__rosidl_typesupport_cpp
 )
-rclcpp_components_register_node(ackermann_square_wave_lib
+
+# Register Components
+rclcpp_components_register_node(${PROJECT_NAME}_nodes
   PLUGIN "dummy_ackermann::AckermannSquareWaveNode"
   EXECUTABLE ackermann_square_wave_node
 )
-
-# Ackermann Velocity Trapezoid Node
-add_library(ackermann_velocity_trapezoid_lib SHARED
-  src/ackermann_velocity_trapezoid_node.cpp
-)
-target_include_directories(ackermann_velocity_trapezoid_lib PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-ament_target_dependencies(ackermann_velocity_trapezoid_lib
-  rclcpp
-  rclcpp_components
-  rclcpp_lifecycle
-  ackermann_msgs
-)
-rclcpp_components_register_node(ackermann_velocity_trapezoid_lib
+rclcpp_components_register_node(${PROJECT_NAME}_nodes
   PLUGIN "dummy_ackermann::AckermannVelocityTrapezoidNode"
   EXECUTABLE ackermann_velocity_trapezoid_node
 )
 
-install(TARGETS
-  ackermann_square_wave_lib
-  ackermann_velocity_trapezoid_lib
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
+# Install
+install(TARGETS ${PROJECT_NAME}_nodes
+  DESTINATION lib
 )
 
 install(DIRECTORY include/
   DESTINATION include
+)
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()
