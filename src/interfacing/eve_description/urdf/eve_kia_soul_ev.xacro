@@ -18,7 +18,7 @@
 
   <!-- Instantiate chassis with position relative to base_link -->
   <xacro:chassis parent="base_link">
-    <origin xyz="-0.8629 0 -1.76" rpy="0 0 0"/>
+    <origin xyz="-0.8629 0 -1.72" rpy="0 0 0"/>
   </xacro:chassis>
 
   <!-- Include roof mount and sensors -->
