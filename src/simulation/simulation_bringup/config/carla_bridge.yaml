@@ -95,7 +95,7 @@
     frame_id: "map"
     include_vehicles: true
     include_pedestrians: true
-    max_distance: -1.0  # Max distance from ego vehicle in meters (-1 = no limit)
+    max_distance: 75.0  # Max distance from ego vehicle in meters (-1 = no limit)
 
 # Localization Configuration (TF publisher)
 /**/carla_localization:

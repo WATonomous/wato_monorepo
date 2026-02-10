@@ -32,6 +32,12 @@
       "serviceName": "/world_modeling/spawn_wall"
     },
     "CallService!7edari": {
+      "requestPayload": "{\n  \"data\": true\n}",
+      "layout": "horizontal",
+      "timeoutSeconds": 20,
+      "serviceName": "/carla/pause"
+    },
+    "CallService!2t1hvwk": {
       "requestPayload": "{\n  \"wall_id\": 1\n}",
       "layout": "horizontal",
       "timeoutSeconds": 20,
@@ -40,13 +46,13 @@
     "3D!30zmknt": {
       "cameraState": {
         "perspective": true,
-        "distance": 84.09478170665749,
-        "phi": 38.03382117547943,
-        "thetaOffset": -103.77148132775575,
+        "distance": 53.00068653066134,
+        "phi": 57.898650373499756,
+        "thetaOffset": -63.44060537981954,
         "targetOffset": [
-          1.9376727406218588,
-          -2.2539852042421056,
-          -1.7533513681107005
+          24.016402012892968,
+          -2.6728053318692666,
+          -1.753351368110668
         ],
         "target": [
           0,
@@ -193,7 +199,7 @@
           "colorMap": "turbo"
         },
         "/carla/top_lidar/points": {
-          "visible": false,
+          "visible": true,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
@@ -243,6 +249,9 @@
           "colorMode": "costmap"
         },
         "/world_modeling/costmap_footprint_markers": {
+          "visible": true
+        },
+        "/world_modeling/reg_elem_markers": {
           "visible": true
         }
       },
@@ -320,8 +329,14 @@
             "first": "CallService!3mbbmci",
             "second": {
               "first": "CallService!2qg3vqq",
-              "second": "CallService!7edari",
-              "direction": "column"
+              "second": {
+                "first": "CallService!7edari",
+                "second": "CallService!2t1hvwk",
+                "direction": "column",
+                "splitPercentage": 60.27098102572206
+              },
+              "direction": "column",
+              "splitPercentage": 5.817954204498669
             },
             "direction": "column",
             "splitPercentage": 5.029585798816569
@@ -330,7 +345,7 @@
           "splitPercentage": 4.6025104602510405
         },
         "direction": "column",
-        "splitPercentage": 4.4983485841139235
+        "splitPercentage": 40.72770588553792
       },
       "direction": "column",
       "splitPercentage": 27.461607949412826
