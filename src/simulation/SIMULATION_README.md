@@ -140,7 +140,7 @@ Your modules can subscribe to these topics and publish control commands to test 
 
 1. Ensure `infrastructure` is in your active modules
 2. Connect Foxglove to `ws://localhost:<FOXGLOVE_BRIDGE_PORT>`
-3. Import the configuration from `config/foxglove_config/carla_sim.json`
+3. Import the layout from `config/foxglove_config/carla_sim.json` by clicking the Layout dropdown → Import from file → Select `carla_sim.json`
 4. Use the layout buttons to run commands and visualize the simulation.
 
 ### Pygame HUD (No-GPU Mode)
