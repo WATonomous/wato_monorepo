@@ -70,7 +70,7 @@ public:
   void calculate_spiral_coeff(const double p[5], double (&coeffs)[4]);
   void generate_spiral(PathPoint start, int steps, double sf, double coeffs[4], std::vector<PathPoint>& path);
 
-  Eigen::Vector4d compute_error(const PathPoint actual, const PathPoint target);
+  Eigen::Vector3d compute_error_3dof(const PathPoint& actual, const PathPoint& target);
 
   Eigen::Matrix3d compute_jacobian_3dof(
     const Eigen::Vector3d& p, 

@@ -3,7 +3,6 @@
 
 #include "local_planning/local_planner_core.hpp"
 
-
 LocalPlannerCore::LocalPlannerCore() = default;
 
 double LocalPlannerCore::get_euc_dist(double x1, double y1, double x2, double y2){
@@ -30,7 +29,7 @@ Path LocalPlannerCore::get_lowest_cost_path(
   const std::unordered_map<int64_t, int> & preferred_lanelets, 
   const CostFunctionParams & cf_params
 ){
-  Path lowest_cost_path = paths[0]; // Initialize with first valid path
+  Path lowest_cost_path = paths[0];
   double prev_cost = path_cost_function(paths[0], preferred_lanelets.count(paths[0].target_lanelet_id) >= 1, cf_params);
 
   for(size_t i = 1; i < paths.size(); i++){
@@ -50,17 +49,14 @@ double LocalPlannerCore::path_cost_function(
   bool preferred_lane,
   CostFunctionParams params
 ){
-
   double path_cost = 0.0;
   double prev_kappa = std::numeric_limits<double>::quiet_NaN();
 
-  // Preferred Lane Cost
   if(!preferred_lane){
     path_cost += params.preferred_lane_cost;
   }
 
   for(const auto & pt: path.path){
-    // Curvature Change Cost (physical limits)
     if(!std::isnan(prev_kappa)){
       double curvature_change = fabs(pt.kappa - prev_kappa);
       if(curvature_change > params.max_curvature_change){
@@ -68,7 +64,6 @@ double LocalPlannerCore::path_cost_function(
       }
     }
 
-    // Lateral Movement Cost (using curvature for rough approx)
     path_cost += params.lateral_movement_weight * fabs(pt.kappa);  
     
     prev_kappa = pt.kappa;
@@ -95,11 +90,21 @@ void LocalPlannerCore::generate_spiral(
       theta += kappa * ds;
       x += cos(theta) * ds;
       y += sin(theta) * ds;
-      PathPoint point = {x,y,theta,kappa};
+      PathPoint point = {x, y, theta, kappa};
       path.push_back(point);
   }
 }
 
+Eigen::Vector3d LocalPlannerCore::compute_error_3dof(
+  const PathPoint& actual, 
+  const PathPoint& target)
+{
+  Eigen::Vector3d error;
+  error << actual.x - target.x,
+           actual.y - target.y,
+           normalise_angle(actual.theta - target.theta);
+  return error;
+}
 
 std::vector<PathPoint> LocalPlannerCore::generate_path(
   PathPoint start, 
@@ -112,14 +117,11 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
   double spiral_coeffs[4];
   double spiral_params[5];
 
-  // Initial arc length estimate
   double sf_est = get_euc_dist(start.x, start.y, target.x, target.y);
-  
 
-  // Set intial spiral parameters
   spiral_params[0] = start.kappa;
-  spiral_params[1] = start.kappa + (target.kappa - start.kappa) * (1/3);  // 1/3 point
-  spiral_params[2] = start.kappa + (target.kappa - start.kappa) * (2/3);  // 2/3 point
+  spiral_params[1] = start.kappa + (target.kappa - start.kappa) * (1.0 / 3.0);
+  spiral_params[2] = start.kappa + (target.kappa - start.kappa) * (2.0 / 3.0);
   spiral_params[3] = target.kappa;
   spiral_params[4] = sf_est;
     
@@ -133,19 +135,12 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
 
       PathPoint final_state = path.back();
 
-      Eigen::Vector3d error;
-      error << final_state.x - target.x,
-               final_state.y - target.y,
-               normalise_angle(final_state.theta - target.theta);
-      
+      Eigen::Vector3d error = compute_error_3dof(final_state, target);
       norm = error.norm();
 
       if (norm < pg_params.tolerance) break;
 
       Eigen::Vector3d params(spiral_params[1], spiral_params[2], spiral_params[4]);
-      
-      // TODO(wato) ideally add the curvature as a parameter as well
-      //    currently having problems with short arc distanes
       Eigen::Matrix3d J = compute_jacobian_3dof(params, error, start, target, pg_params.steps);
       
       double det = J.determinant();
@@ -156,21 +151,17 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
       }
       
       Eigen::Vector3d delta = J.inverse() * error;
-      
-      // Damped Newton step (prevent divergence)
       delta *= pg_params.newton_damping;
       
-      // Additional step limiting
       if (delta.norm() > pg_params.max_step_size) {
-        delta = delta.normalized() * 1.0;
+        delta = delta.normalized() * pg_params.max_step_size;
       }
 
       params -= delta;
       spiral_params[1] = params(0);
       spiral_params[2] = params(1);
-      spiral_params[4] = std::max(0.5, params(2)); // Keep sf positive
+      spiral_params[4] = std::max(0.5, params(2));
       
-      // Clamp curvatures to reasonable values
       spiral_params[1] = std::clamp(spiral_params[1], -max_kappa, max_kappa);
       spiral_params[2] = std::clamp(spiral_params[2], -max_kappa, max_kappa);
   }
@@ -182,17 +173,6 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
 
   return path;
 }
-
-
-Eigen::Vector4d LocalPlannerCore::compute_error(const PathPoint actual, const PathPoint target) {
-  Eigen::Vector4d error;
-  error << actual.x - target.x,
-            actual.y - target.y,
-            actual.theta - target.theta,
-            actual.kappa - target.kappa;
-  return error;
-}
-
 
 Eigen::Matrix3d LocalPlannerCore::compute_jacobian_3dof(
   const Eigen::Vector3d& p, 
@@ -217,11 +197,7 @@ Eigen::Matrix3d LocalPlannerCore::compute_jacobian_3dof(
       generate_spiral(start, steps, p_perturbed(2), spiral_coeffs, temp_path);
 
       PathPoint final_state = temp_path.back();
-      
-      Eigen::Vector3d error_perturbed;
-      error_perturbed << final_state.x - target.x,
-                        final_state.y - target.y,
-                        normalise_angle(final_state.theta - target.theta);
+      Eigen::Vector3d error_perturbed = compute_error_3dof(final_state, target);
       
       jacobian.col(j) = (error_perturbed - error) / delta;
   }
