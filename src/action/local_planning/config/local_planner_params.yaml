@@ -2,10 +2,10 @@ local_planner_node:
   ros__parameters:
     
     # Topic names
-    lanelet_ahead_topic: "/world_modeling/lanelet/lanelet_ahead"
-    odom_topic: "/ego/odom"
-    costmap_topic: "/world_modeling/costmap"
-    bt_topic: "/behaviour/execute_behaviour"
+    lanelet_ahead_topic: "lanelet_ahead"
+    odom_topic: "odom"
+    costmap_topic: "costmap"
+    bt_topic: "execute_behaviour"
     
     # Publishing
     planned_paths_vis_topic: "planned_paths_markers"
