@@ -62,8 +62,10 @@ TEST_CASE_METHOD(TestExecutorFixture, "Car Velocity Feedback Calculation", "[car
 
   start_spinning();
 
-  // Allow time for discovery
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  // Wait for discovery
+  REQUIRE(wheel_speeds_pub->wait_for_subscribers(1));
+  REQUIRE(steering_angle_pub->wait_for_subscribers(1));
+  REQUIRE(velocity_sub->wait_for_publishers(1));
 
   SECTION("Calculate straight line velocity")
   {
@@ -71,10 +73,6 @@ TEST_CASE_METHOD(TestExecutorFixture, "Car Velocity Feedback Calculation", "[car
     SteeringAngle steering_msg;
     steering_msg.angle = 0.0;
     steering_angle_pub->publish(steering_msg);
-
-    // Allow steering to be processed (simple sleep since we don't have feedback for internal state)
-    // In a real async system, we rely on the next message triggering the calculation
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Queue expectation
     auto velocity_future = velocity_sub->expect_next_message();
@@ -100,8 +98,6 @@ TEST_CASE_METHOD(TestExecutorFixture, "Car Velocity Feedback Calculation", "[car
     SteeringAngle steering_msg;
     steering_msg.angle = 1.04719755;
     steering_angle_pub->publish(steering_msg);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Queue expectation
     auto velocity_future = velocity_sub->expect_next_message();

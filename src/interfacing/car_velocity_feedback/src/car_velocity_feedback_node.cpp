@@ -19,6 +19,9 @@
 namespace car_velocity_feedback
 {
 
+// Conversion constant: 1 km/h = 1000m / 3600s = 1/3.6 m/s
+constexpr double KPH_TO_MPS = 1.0 / 3.6;
+
 CarVelocityFeedbackNode::CarVelocityFeedbackNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode("car_velocity_feedback_node", options)
 , current_steering_angle_rad_(0.0)
@@ -99,10 +102,6 @@ void CarVelocityFeedbackNode::wheel_speeds_callback(const roscco_msg::msg::Wheel
       this->get_logger(), *this->get_clock(), 5000, "Waiting for steering angle data to calculate body velocity...");
     return;
   }
-
-  // Convert km/h to m/s
-  // 1 km/h = 1000m / 3600s = 1/3.6 m/s
-  const double KPH_TO_MPS = 1.0 / 3.6;
 
   // Average front wheel speeds (FL = nw, FR = ne)
   double v_front_avg_kph = (msg->nw + msg->ne) / 2.0;
