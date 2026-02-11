@@ -66,8 +66,8 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
 
   // Set intial spiral parameters
   spiral_params[0] = start.kappa;
-  spiral_params[1] = start.kappa + (target.kappa - start.kappa) * 0.33;  // 1/3 point
-  spiral_params[2] = start.kappa + (target.kappa - start.kappa) * 0.67;  // 2/3 point
+  spiral_params[1] = start.kappa + (target.kappa - start.kappa) * (1/3);  // 1/3 point
+  spiral_params[2] = start.kappa + (target.kappa - start.kappa) * (2/3);  // 2/3 point
   spiral_params[3] = target.kappa;
   spiral_params[4] = sf_est;
     
@@ -176,38 +176,3 @@ Eigen::Matrix3d LocalPlannerCore::compute_jacobian_3dof(
   
   return jacobian;
 }
-
-// Eigen::Matrix4d LocalPlannerCore::compute_jacobian(
-//   const Eigen::Vector3d& p, 
-//   const Eigen::Vector4d& error,
-//   const PathPoint& start,
-//   const PathPoint& target,
-//   int steps) 
-// {
-//   Eigen::Matrix4d jacobian = Eigen::Matrix4d::Zero();
-//   const double delta = 1e-6;
-  
-//   for (int j = 0; j < 3; ++j) {
-//       // Perturb parameter j
-//       Eigen::Vector3d p_perturbed = p;
-//       p_perturbed(j) += delta;
-      
-//       // Generate spiral with perturbed parameters
-//       std::vector<PathPoint> temp_path;
-//       double spiral_coeffs[4];
-//       double spiral_params[5] = {start.kappa, p_perturbed(0), p_perturbed(1), target.kappa, p_perturbed(2)};
-
-//       calculate_spiral_coeff(spiral_params, spiral_coeffs);
-//       generate_spiral(start, steps, p_perturbed(2), spiral_coeffs, temp_path);
-
-//       PathPoint final_state = temp_path.back();
-      
-//       // Compute error with perturbed parameters
-//       Eigen::Vector4d error_perturbed = compute_error(final_state, target);
-      
-//       // Finite difference
-//       jacobian.col(j) = (error_perturbed - error) / delta;
-//   }
-  
-//   return jacobian;
-// }

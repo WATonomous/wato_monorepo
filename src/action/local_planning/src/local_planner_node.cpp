@@ -55,6 +55,66 @@ LocalPlannerNode::LocalPlannerNode(const rclcpp::NodeOptions & options)
   pg_params.max_step_size = this->declare_parameter("max_step_size", 1.0);
 }
 
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_configure(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Configuring Local Planning node");
+  planned_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(planned_paths_vis_topic, 10);
+  final_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(final_path_vis_topic, 10);
+  path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
+
+  RCLCPP_INFO(this->get_logger(), "Node configured successfully");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_activate(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Activating Local Planning node");
+  lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(lanelet_ahead_topic, 10, std::bind(&LocalPlannerNode::lanelet_update_callback, this, std::placeholders::_1));
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(odom_topic, 10, std::bind(&LocalPlannerNode::update_vehicle_odom, this, std::placeholders::_1));
+  costmap_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(costmap_topic, 10, std::bind(&LocalPlannerNode::update_costmap, this, std::placeholders::_1));
+  bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(bt_topic, 10, std::bind(&LocalPlannerNode::set_preferred_lanes, this, std::placeholders::_1));
+  planned_path_vis_pub_->on_activate();   
+  final_path_vis_pub_->on_activate();   
+  path_pub_->on_activate();   
+  RCLCPP_INFO(this->get_logger(), "Node Activated");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_deactivate(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Deactivating Local Planning node");
+  lanelet_ahead_sub_.reset();
+  costmap_sub_.reset();
+  bt_sub_.reset();
+  RCLCPP_INFO(this->get_logger(), "Node deactivated");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_cleanup(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Cleaning up Local Planning node");
+  lanelet_ahead_sub_.reset();
+  costmap_sub_.reset();
+  bt_sub_.reset();
+  RCLCPP_INFO(this->get_logger(), "Node cleaned up");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_shutdown(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Shutting down Local Planning node");
+  lanelet_ahead_sub_.reset();
+  costmap_sub_.reset();
+  bt_sub_.reset();
+  RCLCPP_INFO(this->get_logger(), "Node shut down");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
 void LocalPlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg){
   geometry_msgs::msg::PoseStamped ps;
   geometry_msgs::msg::Quaternion q;
@@ -489,66 +549,6 @@ nav_msgs::msg::Path path_msg;
   }
   
   path_pub_->publish(path_msg);
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_configure(
-  const rclcpp_lifecycle::State &)
-{
-  RCLCPP_INFO(this->get_logger(), "Configuring Local Planning node");
-  planned_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(planned_paths_vis_topic, 10);
-  final_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(final_path_vis_topic, 10);
-  path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
-
-  RCLCPP_INFO(this->get_logger(), "Node configured successfully");
-  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_activate(
-  const rclcpp_lifecycle::State &)
-{
-  RCLCPP_INFO(this->get_logger(), "Activating Local Planning node");
-  lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(lanelet_ahead_topic, 10, std::bind(&LocalPlannerNode::lanelet_update_callback, this, std::placeholders::_1));
-  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(odom_topic, 10, std::bind(&LocalPlannerNode::update_vehicle_odom, this, std::placeholders::_1));
-  costmap_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(costmap_topic, 10, std::bind(&LocalPlannerNode::update_costmap, this, std::placeholders::_1));
-  bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(bt_topic, 10, std::bind(&LocalPlannerNode::set_preferred_lanes, this, std::placeholders::_1));
-  planned_path_vis_pub_->on_activate();   
-  final_path_vis_pub_->on_activate();   
-  path_pub_->on_activate();   
-  RCLCPP_INFO(this->get_logger(), "Node Activated");
-  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_deactivate(
-  const rclcpp_lifecycle::State &)
-{
-  RCLCPP_INFO(this->get_logger(), "Deactivating Local Planning node");
-  lanelet_ahead_sub_.reset();
-  costmap_sub_.reset();
-  bt_sub_.reset();
-  RCLCPP_INFO(this->get_logger(), "Node deactivated");
-  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_cleanup(
-  const rclcpp_lifecycle::State &)
-{
-  RCLCPP_INFO(this->get_logger(), "Cleaning up Local Planning node");
-  lanelet_ahead_sub_.reset();
-  costmap_sub_.reset();
-  bt_sub_.reset();
-  RCLCPP_INFO(this->get_logger(), "Node cleaned up");
-  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_shutdown(
-  const rclcpp_lifecycle::State &)
-{
-  RCLCPP_INFO(this->get_logger(), "Shutting down Local Planning node");
-  lanelet_ahead_sub_.reset();
-  costmap_sub_.reset();
-  bt_sub_.reset();
-  RCLCPP_INFO(this->get_logger(), "Node shut down");
-  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
 RCLCPP_COMPONENTS_REGISTER_NODE(LocalPlannerNode)
