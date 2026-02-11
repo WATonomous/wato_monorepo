@@ -26,21 +26,6 @@
 
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 
-struct Path{
-  std::vector<PathPoint> path;
-  int64_t target_lanelet_id;
-  double lateral_dist_from_goal_lane;
-  double cost;
-};
-
-struct CostmapParams{
-  double occupancy_weight;
-  double lateral_movement_weight;
-  double physical_limits_weight;
-  double preferred_lane_cost;
-  double unknown_occupancy_cost;
-  double max_curvature_change;
-};
 
 class LocalPlannerNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -65,38 +50,10 @@ public:
 
 private:
   
-  LocalPlannerCore core_;
-
-  // subscription topic names
-  std::string lanelet_ahead_topic, odom_topic, costmap_topic, bt_topic;
-  
-  // publisher topic names
-  std::string planned_paths_vis_topic, final_path_vis_topic, final_path_topic;
-
-  // parameter structs
-  CostmapParams cm_params;
-  PathGenParams pg_params;
-
-  // corridor construction
-  int num_horizons;
-  std::vector<double> lookahead_s_m; // in metres
-  std::vector<std::pair<PathPoint, int64_t>> corridor_terminals;
-
-  std::optional<geometry_msgs::msg::PoseStamped> car_pose;
-  std::optional<PathPoint> car_frenet_point;
-  std::optional<nav_msgs::msg::OccupancyGrid> costmap;
-  std::unordered_map<int64_t, int> preferred_lanelets;
-
   // path generation functions
   bool point_ahead_of_car(const geometry_msgs::msg::Point & pt);
   
   void plan_and_publish_path();
-
-  double path_cost_function(    
-    const Path & path,
-    bool preferred_lane,
-    CostmapParams params
-  );
 
   PathPoint create_terminal_point(
     const geometry_msgs::msg::Point& pt,
@@ -111,12 +68,10 @@ private:
     lanelet_msgs::msg::Lanelet> & ll_map
   ); 
   
-  Path get_lowest_cost_path(const std::vector<Path> & paths);
 
   // subscriber callbacks
   void lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg);
   void update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
-  void update_costmap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr & msg);
   void set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg);
   
   // publisher wrappers
@@ -124,11 +79,31 @@ private:
   void publish_planned_paths_vis(const std::vector<Path> & paths);
   void publish_final_path_vis(const Path & path);
   
+  LocalPlannerCore core_;
+
+  // subscription topic names
+  std::string lanelet_ahead_topic, odom_topic, bt_topic;
+  
+  // publisher topic names
+  std::string planned_paths_vis_topic, final_path_vis_topic, final_path_topic;
+
+  // parameter structs
+  CostFunctionParams cf_params;
+  PathGenParams pg_params;
+
+  // corridor construction
+  int num_horizons;
+  std::vector<double> lookahead_s_m; // in metres
+  std::vector<std::pair<PathPoint, int64_t>> corridor_terminals;
+
+  std::optional<geometry_msgs::msg::PoseStamped> car_pose;
+  std::optional<PathPoint> car_frenet_point;
+  std::unordered_map<int64_t, int> preferred_lanelets;
+
   // subscribers
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_; 
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_; 
 
   // publishers

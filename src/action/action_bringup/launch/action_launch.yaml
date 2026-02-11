@@ -1,1 +1,19 @@
----
+# action_launch.yaml
+
+launch:
+
+  - node:
+      pkg: "local_planning"
+      exec: "local_planner_node"
+      name: "local_planner_node"
+      namespace: "action/local_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share local_planning)/config/local_planner_params.yaml"
+      remap:
+        - from: "lanelet_ahead"
+          to: "/world_modeling/lanelet/lanelet_ahead"
+        - from: "odom"
+          to: "/ego/odom"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"

@@ -1,5 +1,9 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.14)
 project(local_planning)
+
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -19,45 +23,61 @@ find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-add_library(local_planner_core SHARED
+# ----------------------------
+# Component library
+# ----------------------------
+add_library(local_planning_component SHARED
   src/local_planner_core.cpp
-)
-target_include_directories(local_planner_core PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-# Put only what local_planner_core uses:
-ament_target_dependencies(local_planner_core)
-
-add_executable(local_planner_node
-  src/local_planner_node.cpp src/local_planner_core.cpp
-)
-target_include_directories(local_planner_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-target_include_directories(local_planner_core PUBLIC
-  ${EIGEN3_INCLUDE_DIRS}
-)
-target_link_libraries(local_planner_node local_planner_core Eigen3::Eigen)
-ament_target_dependencies(local_planner_node
-  rclcpp rclcpp_lifecycle rclcpp_components
-  std_msgs lanelet_msgs nav_msgs geometry_msgs
-  visualization_msgs tf2 tf2_geometry_msgs
-  behaviour_msgs
+  src/local_planner_node.cpp
 )
 
-install(TARGETS local_planner_node local_planner_core
-  DESTINATION lib/${PROJECT_NAME}
+target_include_directories(local_planning_component
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
-install(DIRECTORY include/
+
+target_link_libraries(local_planning_component
+  PRIVATE
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    ${rclcpp_components_TARGETS}
+    ${std_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
+    ${behaviour_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
+    tf2::tf2
+    tf2_geometry_msgs::tf2_geometry_msgs
+    Eigen3::Eigen
+)
+
+# Register component and generate executable
+rclcpp_components_register_node(
+  local_planning_component
+  PLUGIN "LocalPlannerNode"
+  EXECUTABLE local_planner_node
+)
+
+# ----------------------------
+# Install
+# ----------------------------
+install(
+  TARGETS local_planning_component
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(
+  DIRECTORY include/
   DESTINATION include
 )
-# Install config files
-install(DIRECTORY
-  config
+
+install(
+  DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
-
 
 ament_package()
