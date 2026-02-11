@@ -11,7 +11,7 @@ launch:
         - from: "steering_feedback"
           to: "/oscc_interfacing/steering_angle"
         - from: "velocity_feedback"
-          to: "/velocity_feedback"
+          to: "/body_velocity_feedback"
         - from: "roscco"
           to: "/roscco"
       param:

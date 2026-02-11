@@ -83,6 +83,10 @@ launch:
   - include:
       file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
 
+  # Car Velocity Feedback Node
+  - include:
+      file: "$(find-pkg-share car_velocity_feedback)/launch/car_velocity_feedback.launch.yaml"
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -95,6 +99,7 @@ launch:
             - /interfacing/joystick_node
             - /interfacing/pid_control_node
             - /interfacing/ackermann_mux
+            - /interfacing/car_velocity_feedback_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
