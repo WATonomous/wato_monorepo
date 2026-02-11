@@ -99,7 +99,6 @@ services:
 
   carla_sim_no_gpu:
     profiles: ["carla_no_gpu"]
-    cpus: "3.0"
     extends:
       file: ${COMPOSE_EXTEND_FILE}
       service: carla_sim_no_gpu
