@@ -257,10 +257,7 @@ std::vector<std::vector<int64_t>> LocalPlannerNode::get_id_order(int64_t curr_id
   // Use index-based loop to allow safe addition during iteration
   for (size_t lane_idx = 0; lane_idx < id_order.size(); ++lane_idx) {
   
-    while (true) {
-      // DON'T hold a reference across the whole loop
-      // auto & lane = id_order[lane_idx];  ← REMOVE THIS
-      
+    while (true) {    
       // Check empty at the start of each iteration
       if (id_order[lane_idx].empty()) {
         RCLCPP_ERROR(get_logger(), "Empty lane at index %zu", lane_idx);
@@ -278,20 +275,18 @@ std::vector<std::vector<int64_t>> LocalPlannerNode::get_id_order(int64_t curr_id
       int64_t succ_id = succs.front();
       if (succ_id < 0 || succ_id == current_id || ll_map.count(succ_id) < 1) break;
       
-      // Add first successor - access directly, don't hold reference
+      // Add first successor
       id_order[lane_idx].push_back(succ_id);
       
       // Handle splits for ego lane only
       if (succs.size() > 1 && lane_idx == 1) {
         for (size_t i = 1; i < succs.size(); ++i) {
           if (succs[i] >= 0 && succs[i] != current_id && ll_map.count(succs[i]) > 0) {
-            // Copy the lane BEFORE adding to id_order
             std::vector<int64_t> split_lane = id_order[lane_idx];
             
-            // Safety check (though shouldn't be needed now)
             if (!split_lane.empty()) {
               split_lane.back() = succs[i];
-              id_order.push_back(split_lane);  // Can cause reallocation
+              id_order.push_back(split_lane); 
             }
           }
         }
@@ -312,6 +307,7 @@ bool LocalPlannerNode::point_ahead_of_car(const geometry_msgs::msg::Point & pt) 
   double to_point_x = pt.x - car_pos.x;
   double to_point_y = pt.y - car_pos.y;
   
+  // use dot product to find if point lies ahead or behind the car
   double dot = car_forward_x * to_point_x + car_forward_y * to_point_y;
   
   return dot > 0.0;  
