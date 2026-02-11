@@ -24,6 +24,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
@@ -43,6 +45,8 @@ target_include_directories(ackermann_mux_component
   SYSTEM PRIVATE
     ${rclcpp_INCLUDE_DIRS}
     ${rclcpp_components_INCLUDE_DIRS}
+    ${rclcpp_lifecycle_INCLUDE_DIRS}
+    ${lifecycle_msgs_INCLUDE_DIRS}
     ${ackermann_msgs_INCLUDE_DIRS}
     ${std_msgs_INCLUDE_DIRS}
 )
@@ -51,6 +55,8 @@ target_link_libraries(ackermann_mux_component
   PRIVATE
     ${rclcpp_LIBRARIES}
     ${rclcpp_components_LIBRARIES}
+    ${rclcpp_lifecycle_LIBRARIES}
+    ${lifecycle_msgs_LIBRARIES}
     ${ackermann_msgs_LIBRARIES}
     ${std_msgs_LIBRARIES}
 )

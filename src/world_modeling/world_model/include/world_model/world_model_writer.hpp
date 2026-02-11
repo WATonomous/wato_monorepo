@@ -58,6 +58,7 @@ public:
   , permanence_(
       node->declare_parameter<double>("entity_history_duration_sec", 5.0),
       node->declare_parameter<double>("entity_prune_timeout_sec", 2.0))
+  , populator_(node->declare_parameter<int64_t>("traffic_light_state_hypothesis_index", 1))
   , hypothesis_idx_(node->declare_parameter<int64_t>("entity_class_hypothesis_index", 0))
   , cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant))
   {
@@ -106,6 +107,14 @@ private:
       }
     }
 
+    RCLCPP_DEBUG(
+      node_->get_logger(),
+      "onMessage: %zu objects -> cars=%zu tl=%zu unknown=%zu",
+      msg->objects.size(),
+      cars.size(),
+      traffic_lights.size(),
+      unknowns.size());
+
     // Use the message timestamp for permanence checks instead of the node clock.
     // This avoids sim-time vs wall-time mismatches that would cause entities to be
     // instantly pruned when use_sim_time is not configured.
@@ -134,13 +143,13 @@ private:
     auto & buffer = world_state_.buffer<EntityT>();
 
     if (!objects.empty()) {
-      buffer.batch([&](std::unordered_map<int64_t, EntityT> & map) {
+      buffer.batch([&](std::unordered_map<std::string, EntityT> & map) {
         populator_.populate(map, objects, msg_header);
         enricher_.enrich(map);
         permanence_.apply(map, now);
       });
     } else if (!buffer.empty()) {
-      buffer.batch([&](std::unordered_map<int64_t, EntityT> & map) { permanence_.apply(map, now); });
+      buffer.batch([&](std::unordered_map<std::string, EntityT> & map) { permanence_.apply(map, now); });
     }
   }
 
@@ -156,6 +165,12 @@ private:
   EntityType classify(const vision_msgs::msg::Detection3D & det) const
   {
     if (det.results.empty() || static_cast<size_t>(hypothesis_idx_) >= det.results.size()) {
+      RCLCPP_DEBUG(
+        node_->get_logger(),
+        "classify: det id='%s' has %zu results, need idx %ld -> UNKNOWN",
+        det.id.c_str(),
+        det.results.size(),
+        hypothesis_idx_);
       return EntityType::UNKNOWN;
     }
 
@@ -173,6 +188,12 @@ private:
       return EntityType::TRAFFIC_LIGHT;
     }
 
+    RCLCPP_DEBUG(
+      node_->get_logger(),
+      "classify: det id='%s' unrecognized class_id='%s' at idx %ld -> UNKNOWN",
+      det.id.c_str(),
+      class_id.c_str(),
+      hypothesis_idx_);
     return EntityType::UNKNOWN;
   }
 

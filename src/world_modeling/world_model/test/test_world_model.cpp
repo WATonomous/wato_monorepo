@@ -52,7 +52,7 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
   SECTION("Upsert creates new entity")
   {
     world_model::Car default_car;
-    buffer.upsert(42, default_car, [](world_model::Car & car) {
+    buffer.upsert("42", default_car, [](world_model::Car & car) {
       vision_msgs::msg::Detection3D det;
       det.id = "42";
       det.bbox.center.position.x = 10.0;
@@ -62,9 +62,9 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
 
     REQUIRE(buffer.size() == 1);
 
-    auto retrieved = buffer.get(42);
+    auto retrieved = buffer.get("42");
     REQUIRE(retrieved.has_value());
-    REQUIRE(retrieved->id() == 42);
+    REQUIRE(retrieved->id() == "42");
     REQUIRE(retrieved->pose().position.x == Catch::Approx(10.0));
   }
 
@@ -73,7 +73,7 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
     world_model::Car default_car;
 
     // First insert
-    buffer.upsert(42, default_car, [](world_model::Car & car) {
+    buffer.upsert("42", default_car, [](world_model::Car & car) {
       vision_msgs::msg::Detection3D det;
       det.id = "42";
       det.bbox.center.position.x = 10.0;
@@ -81,7 +81,7 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
     });
 
     // Update
-    buffer.upsert(42, default_car, [](world_model::Car & car) {
+    buffer.upsert("42", default_car, [](world_model::Car & car) {
       vision_msgs::msg::Detection3D det;
       det.id = "42";
       det.bbox.center.position.x = 30.0;
@@ -90,7 +90,7 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
 
     REQUIRE(buffer.size() == 1);
 
-    auto retrieved = buffer.get(42);
+    auto retrieved = buffer.get("42");
     REQUIRE(retrieved.has_value());
     REQUIRE(retrieved->pose().position.x == Catch::Approx(30.0));
     REQUIRE(retrieved->history.size() == 2);
@@ -98,7 +98,7 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
 
   SECTION("Get returns nullopt for non-existent entity")
   {
-    auto retrieved = buffer.get(999);
+    auto retrieved = buffer.get("999");
     REQUIRE_FALSE(retrieved.has_value());
   }
 
@@ -107,9 +107,10 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
     world_model::Car default_car;
 
     for (int i = 0; i < 5; ++i) {
-      buffer.upsert(i, default_car, [i](world_model::Car & car) {
+      std::string sid = std::to_string(i);
+      buffer.upsert(sid, default_car, [sid, i](world_model::Car & car) {
         vision_msgs::msg::Detection3D det;
-        det.id = std::to_string(i);
+        det.id = sid;
         det.bbox.center.position.x = static_cast<double>(i * 10);
         car.history.push_front(det);
       });
@@ -121,11 +122,11 @@ TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")
     buffer.prune([](const world_model::Car & car) { return car.pose().position.x < 25.0; });
 
     REQUIRE(buffer.size() == 2);
-    REQUIRE_FALSE(buffer.get(0).has_value());
-    REQUIRE_FALSE(buffer.get(1).has_value());
-    REQUIRE_FALSE(buffer.get(2).has_value());
-    REQUIRE(buffer.get(3).has_value());
-    REQUIRE(buffer.get(4).has_value());
+    REQUIRE_FALSE(buffer.get("0").has_value());
+    REQUIRE_FALSE(buffer.get("1").has_value());
+    REQUIRE_FALSE(buffer.get("2").has_value());
+    REQUIRE(buffer.get("3").has_value());
+    REQUIRE(buffer.get("4").has_value());
   }
 }
 
@@ -149,13 +150,13 @@ TEST_CASE("WorldState entity type access", "[world_state]")
     world_model::Car default_car;
     world_model::Human default_human;
 
-    state.buffer<world_model::Car>().upsert(1, default_car, [](world_model::Car & car) {
+    state.buffer<world_model::Car>().upsert("1", default_car, [](world_model::Car & car) {
       vision_msgs::msg::Detection3D det;
       det.id = "1";
       car.history.push_front(det);
     });
 
-    state.buffer<world_model::Human>().upsert(1, default_human, [](world_model::Human & human) {
+    state.buffer<world_model::Human>().upsert("1", default_human, [](world_model::Human & human) {
       vision_msgs::msg::Detection3D det;
       det.id = "1";
       human.history.push_front(det);
@@ -273,11 +274,11 @@ TEST_CASE("Detection3D to Entity conversion", "[detection]")
     det.bbox.size.z = 1.8;
 
     world_model::Human default_human;
-    buffer.upsert(123, default_human, [&det](world_model::Human & human) { human.history.push_front(det); });
+    buffer.upsert("123", default_human, [&det](world_model::Human & human) { human.history.push_front(det); });
 
-    auto retrieved = buffer.get(123);
+    auto retrieved = buffer.get("123");
     REQUIRE(retrieved.has_value());
-    REQUIRE(retrieved->id() == 123);
+    REQUIRE(retrieved->id() == "123");
     REQUIRE(retrieved->frameId() == "base_link");
     REQUIRE(retrieved->pose().position.x == Catch::Approx(5.0));
     REQUIRE(retrieved->pose().position.y == Catch::Approx(10.0));
@@ -290,7 +291,7 @@ TEST_CASE("Detection3D to Entity conversion", "[detection]")
     world_model::Human default_human;
 
     for (int i = 0; i < 5; ++i) {
-      buffer.upsert(1, default_human, [i](world_model::Human & human) {
+      buffer.upsert("1", default_human, [i](world_model::Human & human) {
         vision_msgs::msg::Detection3D det;
         det.id = "1";
         det.header.stamp.sec = i;
@@ -299,7 +300,7 @@ TEST_CASE("Detection3D to Entity conversion", "[detection]")
       });
     }
 
-    auto retrieved = buffer.get(1);
+    auto retrieved = buffer.get("1");
     REQUIRE(retrieved.has_value());
     REQUIRE(retrieved->history.size() == 5);
 
@@ -353,12 +354,12 @@ TEST_CASE("EntityBuffer thread safety", "[thread_safety]")
     for (int t = 0; t < num_threads; ++t) {
       threads.emplace_back([&buffer, t]() {
         for (int i = 0; i < ops_per_thread; ++i) {
-          int64_t id = t * ops_per_thread + i;
+          std::string id = std::to_string(t * ops_per_thread + i);
           world_model::Car default_car;
-          buffer.upsert(id, default_car, [id](world_model::Car & car) {
+          buffer.upsert(id, default_car, [&id](world_model::Car & car) {
             vision_msgs::msg::Detection3D det;
-            det.id = std::to_string(id);
-            det.bbox.center.position.x = static_cast<double>(id);
+            det.id = id;
+            det.bbox.center.position.x = 0.0;
             car.history.push_front(det);
           });
         }
@@ -376,10 +377,11 @@ TEST_CASE("EntityBuffer thread safety", "[thread_safety]")
   {
     // Populate buffer
     for (int i = 0; i < 100; ++i) {
+      std::string sid = std::to_string(i);
       world_model::Car default_car;
-      buffer.upsert(i, default_car, [i](world_model::Car & car) {
+      buffer.upsert(sid, default_car, [sid](world_model::Car & car) {
         vision_msgs::msg::Detection3D det;
-        det.id = std::to_string(i);
+        det.id = sid;
         car.history.push_front(det);
       });
     }
@@ -391,7 +393,7 @@ TEST_CASE("EntityBuffer thread safety", "[thread_safety]")
     for (int t = 0; t < num_readers; ++t) {
       readers.emplace_back([&buffer, &successful_reads]() {
         for (int i = 0; i < 100; ++i) {
-          auto entity = buffer.get(i);
+          auto entity = buffer.get(std::to_string(i));
           if (entity.has_value()) {
             successful_reads++;
           }
@@ -415,7 +417,7 @@ TEST_CASE("WorldStateReader provides const access", "[world_state_accessor]")
 
   // Populate via direct access
   world_model::Car default_car;
-  state.buffer<world_model::Car>().upsert(1, default_car, [](world_model::Car & car) {
+  state.buffer<world_model::Car>().upsert("1", default_car, [](world_model::Car & car) {
     vision_msgs::msg::Detection3D det;
     det.id = "1";
     det.bbox.center.position.x = 42.0;
@@ -429,7 +431,7 @@ TEST_CASE("WorldStateReader provides const access", "[world_state_accessor]")
     const auto & buffer = reader.buffer<world_model::Car>();
     REQUIRE(buffer.size() == 1);
 
-    auto car = buffer.get(1);
+    auto car = buffer.get("1");
     REQUIRE(car.has_value());
     REQUIRE(car->pose().position.x == Catch::Approx(42.0));
   }
@@ -450,7 +452,7 @@ TEST_CASE("WorldStateWriter provides mutable access", "[world_state_accessor]")
   SECTION("Writer can modify buffers")
   {
     world_model::Human default_human;
-    writer.buffer<world_model::Human>().upsert(99, default_human, [](world_model::Human & human) {
+    writer.buffer<world_model::Human>().upsert("99", default_human, [](world_model::Human & human) {
       vision_msgs::msg::Detection3D det;
       det.id = "99";
       det.bbox.center.position.y = 123.0;
@@ -459,7 +461,7 @@ TEST_CASE("WorldStateWriter provides mutable access", "[world_state_accessor]")
 
     REQUIRE(writer.buffer<world_model::Human>().size() == 1);
 
-    auto human = writer.buffer<world_model::Human>().get(99);
+    auto human = writer.buffer<world_model::Human>().get("99");
     REQUIRE(human.has_value());
     REQUIRE(human->pose().position.y == Catch::Approx(123.0));
   }
@@ -480,7 +482,7 @@ TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
   SECTION("TrafficLight entity can be created")
   {
     world_model::TrafficLight default_tl;
-    buffer.upsert(500, default_tl, [](world_model::TrafficLight & tl) {
+    buffer.upsert("500", default_tl, [](world_model::TrafficLight & tl) {
       vision_msgs::msg::Detection3D det;
       det.id = "500";
       det.header.stamp.sec = 10;
@@ -491,7 +493,7 @@ TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
 
     REQUIRE(buffer.size() == 1);
 
-    auto retrieved = buffer.get(500);
+    auto retrieved = buffer.get("500");
     REQUIRE(retrieved.has_value());
     REQUIRE(retrieved->state == world_model::TrafficLightState::RED);
     REQUIRE(retrieved->confidence == Catch::Approx(0.95));
@@ -502,7 +504,7 @@ TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
     world_model::TrafficLight default_tl;
 
     // Initial: RED
-    buffer.upsert(600, default_tl, [](world_model::TrafficLight & tl) {
+    buffer.upsert("600", default_tl, [](world_model::TrafficLight & tl) {
       vision_msgs::msg::Detection3D det;
       det.id = "600";
       tl.history.push_front(det);
@@ -510,14 +512,14 @@ TEST_CASE("TrafficLight entity buffer", "[traffic_light]")
     });
 
     // Update: GREEN
-    buffer.modify(600, [](world_model::TrafficLight & tl) {
+    buffer.modify("600", [](world_model::TrafficLight & tl) {
       vision_msgs::msg::Detection3D det;
       det.id = "600";
       tl.history.push_front(det);
       tl.state = world_model::TrafficLightState::GREEN;
     });
 
-    auto retrieved = buffer.get(600);
+    auto retrieved = buffer.get("600");
     REQUIRE(retrieved.has_value());
     REQUIRE(retrieved->state == world_model::TrafficLightState::GREEN);
     REQUIRE(retrieved->history.size() == 2);
@@ -536,10 +538,11 @@ TEST_CASE("Entity pruning based on timestamp", "[cleanup]")
 
     // Add entities with different timestamps
     for (int i = 0; i < 5; ++i) {
+      std::string sid = std::to_string(i);
       world_model::Car default_car;
-      buffer.upsert(i, default_car, [i](world_model::Car & car) {
+      buffer.upsert(sid, default_car, [sid, i](world_model::Car & car) {
         vision_msgs::msg::Detection3D det;
-        det.id = std::to_string(i);
+        det.id = sid;
         // Entity 0-2 are old, 3-4 are recent
         det.header.stamp.sec = (i < 3) ? 990 : 999;
         car.history.push_front(det);
@@ -552,11 +555,11 @@ TEST_CASE("Entity pruning based on timestamp", "[cleanup]")
     buffer.prune([&now](const world_model::Car & car) { return (now - car.timestamp()).seconds() > 5.0; });
 
     REQUIRE(buffer.size() == 2);
-    REQUIRE_FALSE(buffer.get(0).has_value());
-    REQUIRE_FALSE(buffer.get(1).has_value());
-    REQUIRE_FALSE(buffer.get(2).has_value());
-    REQUIRE(buffer.get(3).has_value());
-    REQUIRE(buffer.get(4).has_value());
+    REQUIRE_FALSE(buffer.get("0").has_value());
+    REQUIRE_FALSE(buffer.get("1").has_value());
+    REQUIRE_FALSE(buffer.get("2").has_value());
+    REQUIRE(buffer.get("3").has_value());
+    REQUIRE(buffer.get("4").has_value());
   }
 }
 
@@ -607,10 +610,11 @@ TEST_CASE("EntityBuffer forEach operations", "[entity_buffer]")
 
   // Populate
   for (int i = 0; i < 3; ++i) {
+    std::string sid = std::to_string(i);
     world_model::Car default_car;
-    buffer.upsert(i, default_car, [i](world_model::Car & car) {
+    buffer.upsert(sid, default_car, [sid, i](world_model::Car & car) {
       vision_msgs::msg::Detection3D det;
-      det.id = std::to_string(i);
+      det.id = sid;
       det.bbox.center.position.x = static_cast<double>(i);
       car.history.push_front(det);
     });
@@ -621,7 +625,7 @@ TEST_CASE("EntityBuffer forEach operations", "[entity_buffer]")
     buffer.forEach([](world_model::Car & car) { car.lanelet_id = 999; });
 
     for (int i = 0; i < 3; ++i) {
-      auto car = buffer.get(i);
+      auto car = buffer.get(std::to_string(i));
       REQUIRE(car.has_value());
       REQUIRE(car->lanelet_id.has_value());
       REQUIRE(*car->lanelet_id == 999);
@@ -652,10 +656,11 @@ TEST_CASE("EntityBuffer getByLanelet", "[entity_buffer]")
   SECTION("Returns entities on specified lanelet")
   {
     for (int i = 0; i < 5; ++i) {
+      std::string sid = std::to_string(i);
       world_model::Car default_car;
-      buffer.upsert(i, default_car, [i](world_model::Car & car) {
+      buffer.upsert(sid, default_car, [sid, i](world_model::Car & car) {
         vision_msgs::msg::Detection3D det;
-        det.id = std::to_string(i);
+        det.id = sid;
         car.history.push_front(det);
         car.lanelet_id = (i % 2 == 0) ? 100 : 200;
       });
