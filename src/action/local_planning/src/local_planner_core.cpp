@@ -5,18 +5,48 @@
 
 LocalPlannerCore::LocalPlannerCore() = default;
 
+/**
+ * @brief Calculate Euclidean distance between two 2D points.
+ * @param x1 X-coordinate of first point.
+ * @param y1 Y-coordinate of first point.
+ * @param x2 X-coordinate of second point.
+ * @param y2 Y-coordinate of second point.
+ * @return Euclidean distance.
+ */
 double LocalPlannerCore::get_euc_dist(double x1, double y1, double x2, double y2){
   return std::hypot(x2 - x1, y2 - y1);
 }
 
+/**
+ * @brief Calculate angle from first point to second point.
+ * @param x1 X-coordinate of first point.
+ * @param y1 Y-coordinate of first point.
+ * @param x2 X-coordinate of second point.
+ * @param y2 Y-coordinate of second point.
+ * @return Angle in radians.
+ */
 double LocalPlannerCore::get_angle_from_pts(double x1, double y1, double x2, double y2){
   return std::atan2(y2 - y1, x2 - x1);
 }
 
+/**
+ * @brief Normalize angle to [-pi, pi].
+ * @param angle Input angle in radians.
+ * @return Normalized angle.
+ */
 double LocalPlannerCore::normalise_angle(double angle){
     return std::remainder(angle, 2.0 * M_PI);
 }
 
+/**
+ * @brief Calculate cubic spiral polynomial coefficients from boundary conditions.
+ * 
+ * Computes coefficients for k(s) = c0 + c1s + c2s^2 + c3s^3 using a cubic interpolation scheme
+ * that ensures smooth curvature transitions between waypoints.
+ * 
+ * @param p Array of 5 parameters: [k0, k1, k2, k3, sf] where k are curvatures at waypoints and sf is arc length.
+ * @param coeffs Output array of 4 cubic polynomial coefficients [c0, c1, c2, c3].
+ */
 void LocalPlannerCore::calculate_spiral_coeff(const double p[5], double (&coeffs)[4]){
   coeffs[0] = p[0];
   coeffs[1] = (-11 * p[0] + 18 * p[1] - 9 * p[2] + 2 * p[3])  / (2 * p[4]);
@@ -24,6 +54,13 @@ void LocalPlannerCore::calculate_spiral_coeff(const double p[5], double (&coeffs
   coeffs[3] = (-9 * (p[0] - 3 * p[1] + 3 * p[2] - p[3]))      / (2 * p[4] * p[4] * p[4]);
 }
 
+/**
+ * @brief Select path with lowest cost from candidate set.
+ * @param paths Vector of candidate paths.
+ * @param preferred_lanelets Map of preferred lanelet IDs.
+ * @param cf_params Cost function parameters.
+ * @return Path with minimum cost.
+ */
 Path LocalPlannerCore::get_lowest_cost_path(
   const std::vector<Path> & paths, 
   const std::unordered_map<int64_t, int> & preferred_lanelets, 
@@ -44,6 +81,13 @@ Path LocalPlannerCore::get_lowest_cost_path(
   return lowest_cost_path;
 }
 
+/**
+ * @brief Compute cost of a path based on curvature changes, lateral movement, and lane preference.
+ * @param path Path to evaluate.
+ * @param preferred_lane Whether the path is in a preferred lane.
+ * @param params Cost function weights and thresholds.
+ * @return Total path cost.
+ */
 double LocalPlannerCore::path_cost_function(    
   const Path & path,
   bool preferred_lane,
@@ -72,6 +116,18 @@ double LocalPlannerCore::path_cost_function(
   return path_cost;
 }
 
+/**
+ * @brief Generate discrete path points along a cubic spiral by integrating curvature.
+ * 
+ * Uses forward Euler integration to compute (x, y, theta, kappa) at each step along the arc length,
+ * where curvature evolves according to k(s) = c0 + c1s + c2s^2 + c3s^3.
+ * 
+ * @param start Starting path point (x, y, theta, kappa).
+ * @param steps Number of discrete integration steps.
+ * @param sf Total arc length.
+ * @param c Array of 4 spiral polynomial coefficients [c0, c1, c2, c3].
+ * @param path Output vector of path points.
+ */
 void LocalPlannerCore::generate_spiral(
   PathPoint start, 
   int steps, 
@@ -95,6 +151,12 @@ void LocalPlannerCore::generate_spiral(
   }
 }
 
+/**
+ * @brief Compute 3-DOF error vector (x, y, theta) between actual and target path points.
+ * @param actual Achieved path point.
+ * @param target Desired path point.
+ * @return Error vector [dx, dy, dtheta].
+ */
 Eigen::Vector3d LocalPlannerCore::compute_error_3dof(
   const PathPoint& actual, 
   const PathPoint& target)
@@ -106,6 +168,19 @@ Eigen::Vector3d LocalPlannerCore::compute_error_3dof(
   return error;
 }
 
+/**
+ * @brief Generate smooth path between start and target using damped Newton optimization on cubic spiral parameters.
+ * 
+ * Fits a cubic spiral k(s) = c0 + c1s + c2s^2 + c3s^3 connecting start to target by iteratively refining
+ * three parameters: intermediate curvatures k1, k2 (at 1/3 and 2/3 arc length), and total arc length sf.
+ * Uses damped Newton's method with finite-difference Jacobian to minimize 3-DOF pose error (x, y, theta).
+ * Curvatures are clamped to vehicle physical limits to ensure feasibility.
+ * 
+ * @param start Initial path point (position, heading, curvature).
+ * @param target Target path point to reach.
+ * @param pg_params Parameters controlling optimization (max iterations, tolerance, damping, step limits).
+ * @return Vector of path points forming the spiral, or empty vector if optimization fails to converge.
+ */
 std::vector<PathPoint> LocalPlannerCore::generate_path(
   PathPoint start, 
   PathPoint target,
@@ -174,6 +249,19 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
   return path;
 }
 
+/**
+ * @brief Compute 3x3 Jacobian matrix d(x,y,theta)/d(k1,k2,sf) using finite differences.
+ * 
+ * Evaluates sensitivity of final pose error to spiral parameters by perturbing each parameter
+ * and measuring the resulting change in endpoint position and heading.
+ * 
+ * @param p Current parameter vector [k1, k2, sf].
+ * @param error Current 3-DOF error vector.
+ * @param start Starting path point.
+ * @param target Target path point.
+ * @param steps Number of spiral discretization steps.
+ * @return 3x3 Jacobian matrix for Newton optimization.
+ */
 Eigen::Matrix3d LocalPlannerCore::compute_jacobian_3dof(
   const Eigen::Vector3d& p, 
   const Eigen::Vector3d& error,
