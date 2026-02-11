@@ -23,18 +23,22 @@ find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-add_library(${PROJECT_NAME}_lib SHARED
+# ----------------------------
+# Component library
+# ----------------------------
+add_library(local_planning_component SHARED
   src/local_planner_core.cpp
+  src/local_planner_node.cpp
 )
 
-target_include_directories(${PROJECT_NAME}_lib
+target_include_directories(local_planning_component
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(${PROJECT_NAME}_lib
-  PUBLIC
+target_link_libraries(local_planning_component
+  PRIVATE
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     ${rclcpp_components_TARGETS}
@@ -49,32 +53,30 @@ target_link_libraries(${PROJECT_NAME}_lib
     Eigen3::Eigen
 )
 
-add_executable(local_planner_node
-  src/local_planner_node.cpp
+# Register component and generate executable
+rclcpp_components_register_node(
+  local_planning_component
+  PLUGIN "LocalPlannerNode"
+  EXECUTABLE local_planner_node
 )
 
-target_include_directories(local_planner_node PRIVATE include)
-
-target_link_libraries(local_planner_node
-  PRIVATE
-    ${PROJECT_NAME}_lib
-)
-
-install(TARGETS ${PROJECT_NAME}_lib
+# ----------------------------
+# Install
+# ----------------------------
+install(
+  TARGETS local_planning_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS local_planner_node
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(DIRECTORY include/
+install(
+  DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY config
+install(
+  DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 

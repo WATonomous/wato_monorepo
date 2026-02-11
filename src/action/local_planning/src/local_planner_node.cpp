@@ -461,14 +461,3 @@ nav_msgs::msg::Path path_msg;
 }
 
 RCLCPP_COMPONENTS_REGISTER_NODE(LocalPlannerNode)
-
-int main(int argc, char * argv[])
-{
-    rclcpp::init(argc, argv);
-    auto lc_node = std::make_shared<LocalPlannerNode>(rclcpp::NodeOptions());
-    lc_node->configure();
-    lc_node->activate();
-    rclcpp::spin(lc_node->get_node_base_interface());
-    rclcpp::shutdown();
-    return 0;
-}
