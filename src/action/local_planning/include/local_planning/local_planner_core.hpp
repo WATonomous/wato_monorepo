@@ -20,8 +20,7 @@ struct Path{
   double cost;
 };
 
-struct CostmapParams{
-  double occupancy_weight;
+struct CostFunctionParams{
   double lateral_movement_weight;
   double physical_limits_weight;
   double preferred_lane_cost;

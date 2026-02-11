@@ -17,5 +17,3 @@ launch:
           to: "/ego/odom"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
-        - from: "costmap"
-          to: "/world_modeling/costmap"

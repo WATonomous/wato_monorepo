@@ -24,10 +24,9 @@ LocalPlannerNode::LocalPlannerNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
   
   // Subscription topics
-  lanelet_ahead_topic = this->declare_parameter("lanelet_ahead_topic", "/world_modeling/lanelet/lanelet_ahead");
-  odom_topic = this->declare_parameter("odom_topic", "/ego/odom");
-  costmap_topic = this->declare_parameter("costmap_topic", "/world_modeling/costmap");
-  bt_topic = this->declare_parameter("bt_topic", "/behaviour/execute_behaviour");
+  lanelet_ahead_topic = this->declare_parameter("lanelet_ahead_topic", "lanelet_ahead");
+  odom_topic = this->declare_parameter("odom_topic", "odom");
+  bt_topic = this->declare_parameter("bt_topic", "execute_behaviour");
 
   // Publishing topics
   planned_paths_vis_topic = this->declare_parameter("planned_paths_vis_topic", "planned_paths_markers");
@@ -39,13 +38,12 @@ LocalPlannerNode::LocalPlannerNode(const rclcpp::NodeOptions & options)
   num_horizons = this->declare_parameter("num_horizons", 3);
   lookahead_s_m = this->declare_parameter("lookahead_distances", std::vector<double>{10.0, 15.0, 20.0});
   
-  //  - Costmap -
-  cm_params.occupancy_weight = this->declare_parameter("cm_occupancy_weight", 20.0);
-  cm_params.lateral_movement_weight = this->declare_parameter("cm_lateral_movement_weight",2.0);
-  cm_params.physical_limits_weight = this->declare_parameter("cm_physical_limits_weight",4.0);
-  cm_params.preferred_lane_cost = this->declare_parameter("cm_preferred_lane_cost",20.0);
-  cm_params.unknown_occupancy_cost = this->declare_parameter("cm_unknown_occupancy_cost",50.0);
-  cm_params.max_curvature_change = this->declare_parameter("cm_max_curvature_change",0.1);
+  //  - Cost Funcation -
+  cf_params.lateral_movement_weight = this->declare_parameter("cm_lateral_movement_weight",2.0);
+  cf_params.physical_limits_weight = this->declare_parameter("cm_physical_limits_weight",4.0);
+  cf_params.preferred_lane_cost = this->declare_parameter("cm_preferred_lane_cost",20.0);
+  cf_params.unknown_occupancy_cost = this->declare_parameter("cm_unknown_occupancy_cost",50.0);
+  cf_params.max_curvature_change = this->declare_parameter("cm_max_curvature_change",0.1);
 
   //  - Path Generation -
   pg_params.max_iterations = this->declare_parameter("max_iterations", 20);
@@ -73,7 +71,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
   RCLCPP_INFO(this->get_logger(), "Activating Local Planning node");
   lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(lanelet_ahead_topic, 10, std::bind(&LocalPlannerNode::lanelet_update_callback, this, std::placeholders::_1));
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(odom_topic, 10, std::bind(&LocalPlannerNode::update_vehicle_odom, this, std::placeholders::_1));
-  costmap_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(costmap_topic, 10, std::bind(&LocalPlannerNode::update_costmap, this, std::placeholders::_1));
   bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(bt_topic, 10, std::bind(&LocalPlannerNode::set_preferred_lanes, this, std::placeholders::_1));
   planned_path_vis_pub_->on_activate();   
   final_path_vis_pub_->on_activate();   
@@ -87,7 +84,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating Local Planning node");
   lanelet_ahead_sub_.reset();
-  costmap_sub_.reset();
   bt_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -98,7 +94,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up Local Planning node");
   lanelet_ahead_sub_.reset();
-  costmap_sub_.reset();
   bt_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -109,7 +104,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down Local Planning node");
   lanelet_ahead_sub_.reset();
-  costmap_sub_.reset();
   bt_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -140,9 +134,6 @@ void LocalPlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstS
   car_frenet_point = fp;
 }
 
-void LocalPlannerNode::update_costmap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr & msg){
-  costmap = *msg;
-}
 
 void LocalPlannerNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg){
   preferred_lanelets.clear();
@@ -250,11 +241,11 @@ void LocalPlannerNode::plan_and_publish_path(){
 
 Path LocalPlannerNode::get_lowest_cost_path(const std::vector<Path> & paths){
   Path lowest_cost_path = paths[0]; // Initialize with first valid path
-  double prev_cost = path_cost_function(paths[0], preferred_lanelets.count(paths[0].target_lanelet_id) >= 1, cm_params);
+  double prev_cost = path_cost_function(paths[0], preferred_lanelets.count(paths[0].target_lanelet_id) >= 1, cf_params);
 
   for(size_t i = 1; i < paths.size(); i++){
     bool preferred_lane = preferred_lanelets.count(paths[i].target_lanelet_id) >= 1;
-    double path_cost = path_cost_function(paths[i], preferred_lane, cm_params);
+    double path_cost = path_cost_function(paths[i], preferred_lane, cf_params);
 
     if(path_cost < prev_cost){
       lowest_cost_path = paths[i];
@@ -267,47 +258,18 @@ Path LocalPlannerNode::get_lowest_cost_path(const std::vector<Path> & paths){
 double LocalPlannerNode::path_cost_function(    
   const Path & path,
   bool preferred_lane,
-  CostmapParams params
+  CostFunctionParams params
 ){
 
   double path_cost = 0.0;
   double prev_kappa = std::numeric_limits<double>::quiet_NaN();
 
-  //Costmap Params
-  if(!costmap.has_value()){
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Costmap not available");
-    return std::numeric_limits<double>::infinity();
-  }
-
-  double cm_res = costmap->info.resolution;
-  double cm_ox = costmap->info.origin.position.x;
-  double cm_oy = costmap->info.origin.position.y;
-  double cm_w  = costmap->info.width;
-  double cm_h  = costmap->info.height;
-  
   // Preferred Lane Cost
   if(!preferred_lane){
     path_cost += params.preferred_lane_cost;
   }
 
   for(const auto & pt: path.path){
-    // TODO(wato) get rid of occupancy cost if no static costmap is implemented
-    // Occupancy Cost
-    const int mx = static_cast<int>(std::floor((pt.x - cm_ox) / cm_res));
-    const int my = static_cast<int>(std::floor((pt.y - cm_oy) / cm_res));
-    
-    if( mx >= 0 && my >= 0 && mx < cm_w && my < cm_h){
-      const int idx = my * cm_w + mx;
-      const int8_t occ = costmap->data[idx];
-      
-      if(occ >= 0){
-        path_cost += occ*params.occupancy_weight;
-      }
-      else{
-        path_cost += params.unknown_occupancy_cost*params.occupancy_weight;
-      }
-    }
-
     // Curvature Change Cost (physical limits)
     if(!std::isnan(prev_kappa)){
       double curvature_change = fabs(pt.kappa - prev_kappa);
