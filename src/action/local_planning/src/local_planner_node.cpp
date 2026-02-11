@@ -134,7 +134,6 @@ void LocalPlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstS
   car_frenet_point = fp;
 }
 
-
 void LocalPlannerNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg){
   preferred_lanelets.clear();
   for(auto id: msg->preferred_lanelet_ids){
@@ -233,58 +232,10 @@ void LocalPlannerNode::plan_and_publish_path(){
     return;
   }
 
-  Path lowest_cost = get_lowest_cost_path(paths);
+  Path lowest_cost = core_.get_lowest_cost_path(paths, preferred_lanelets, cf_params);
   publish_planned_paths_vis(paths);
   publish_final_path_vis(lowest_cost);
   publish_final_path(lowest_cost);
-}
-
-Path LocalPlannerNode::get_lowest_cost_path(const std::vector<Path> & paths){
-  Path lowest_cost_path = paths[0]; // Initialize with first valid path
-  double prev_cost = path_cost_function(paths[0], preferred_lanelets.count(paths[0].target_lanelet_id) >= 1, cf_params);
-
-  for(size_t i = 1; i < paths.size(); i++){
-    bool preferred_lane = preferred_lanelets.count(paths[i].target_lanelet_id) >= 1;
-    double path_cost = path_cost_function(paths[i], preferred_lane, cf_params);
-
-    if(path_cost < prev_cost){
-      lowest_cost_path = paths[i];
-      prev_cost = path_cost;
-    }
-  }
-  return lowest_cost_path;
-}
-
-double LocalPlannerNode::path_cost_function(    
-  const Path & path,
-  bool preferred_lane,
-  CostFunctionParams params
-){
-
-  double path_cost = 0.0;
-  double prev_kappa = std::numeric_limits<double>::quiet_NaN();
-
-  // Preferred Lane Cost
-  if(!preferred_lane){
-    path_cost += params.preferred_lane_cost;
-  }
-
-  for(const auto & pt: path.path){
-    // Curvature Change Cost (physical limits)
-    if(!std::isnan(prev_kappa)){
-      double curvature_change = fabs(pt.kappa - prev_kappa);
-      if(curvature_change > params.max_curvature_change){
-        path_cost += params.physical_limits_weight * (curvature_change - params.max_curvature_change);
-      }
-    }
-
-    // Lateral Movement Cost (using curvature for rough approx)
-    path_cost += params.lateral_movement_weight * fabs(pt.kappa);  
-    
-    prev_kappa = pt.kappa;
-  }
-
-  return path_cost;
 }
 
 std::vector<std::vector<int64_t>> LocalPlannerNode::get_id_order(int64_t curr_id, const std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> & ll_map){

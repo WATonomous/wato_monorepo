@@ -53,6 +53,19 @@ public:
     PathPoint target,
     PathGenParams pg_params
   );
+
+  // path costing 
+  Path get_lowest_cost_path(
+    const std::vector<Path> & paths, 
+    const std::unordered_map<int64_t, int> & preferred_lanelets, 
+    const CostFunctionParams & cf_params
+  );
+
+  double path_cost_function(    
+    const Path & path,
+    bool preferred_lane,
+    CostFunctionParams params
+  );
   
   void calculate_spiral_coeff(const double p[5], double (&coeffs)[4]);
   void generate_spiral(PathPoint start, int steps, double sf, double coeffs[4], std::vector<PathPoint>& path);

@@ -25,6 +25,58 @@ void LocalPlannerCore::calculate_spiral_coeff(const double p[5], double (&coeffs
   coeffs[3] = (-9 * (p[0] - 3 * p[1] + 3 * p[2] - p[3]))      / (2 * p[4] * p[4] * p[4]);
 }
 
+Path LocalPlannerCore::get_lowest_cost_path(
+  const std::vector<Path> & paths, 
+  const std::unordered_map<int64_t, int> & preferred_lanelets, 
+  const CostFunctionParams & cf_params
+){
+  Path lowest_cost_path = paths[0]; // Initialize with first valid path
+  double prev_cost = path_cost_function(paths[0], preferred_lanelets.count(paths[0].target_lanelet_id) >= 1, cf_params);
+
+  for(size_t i = 1; i < paths.size(); i++){
+    bool preferred_lane = preferred_lanelets.count(paths[i].target_lanelet_id) >= 1;
+    double path_cost = path_cost_function(paths[i], preferred_lane, cf_params);
+
+    if(path_cost < prev_cost){
+      lowest_cost_path = paths[i];
+      prev_cost = path_cost;
+    }
+  }
+  return lowest_cost_path;
+}
+
+double LocalPlannerCore::path_cost_function(    
+  const Path & path,
+  bool preferred_lane,
+  CostFunctionParams params
+){
+
+  double path_cost = 0.0;
+  double prev_kappa = std::numeric_limits<double>::quiet_NaN();
+
+  // Preferred Lane Cost
+  if(!preferred_lane){
+    path_cost += params.preferred_lane_cost;
+  }
+
+  for(const auto & pt: path.path){
+    // Curvature Change Cost (physical limits)
+    if(!std::isnan(prev_kappa)){
+      double curvature_change = fabs(pt.kappa - prev_kappa);
+      if(curvature_change > params.max_curvature_change){
+        path_cost += params.physical_limits_weight * (curvature_change - params.max_curvature_change);
+      }
+    }
+
+    // Lateral Movement Cost (using curvature for rough approx)
+    path_cost += params.lateral_movement_weight * fabs(pt.kappa);  
+    
+    prev_kappa = pt.kappa;
+  }
+
+  return path_cost;
+}
+
 void LocalPlannerCore::generate_spiral(
   PathPoint start, 
   int steps, 

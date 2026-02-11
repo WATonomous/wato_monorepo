@@ -55,12 +55,6 @@ private:
   
   void plan_and_publish_path();
 
-  double path_cost_function(    
-    const Path & path,
-    bool preferred_lane,
-    CostFunctionParams params
-  );
-
   PathPoint create_terminal_point(
     const geometry_msgs::msg::Point& pt,
     size_t pt_idx,
@@ -74,7 +68,6 @@ private:
     lanelet_msgs::msg::Lanelet> & ll_map
   ); 
   
-  Path get_lowest_cost_path(const std::vector<Path> & paths);
 
   // subscriber callbacks
   void lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg);
