@@ -1,8 +1,17 @@
 <?xml version="1.0"?>
 <robot name="eve_kia_soul_ev" xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <!-- Base link (root of the robot) -->
+  <!-- Base footprint (root of the robot, on the ground plane) -->
+  <link name="base_footprint"/>
+
+  <!-- Base link (roof frame, 1.76m above ground) -->
   <link name="base_link"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 1.76" rpy="0 0 0"/>
+  </joint>
 
   <!-- Include chassis -->
   <xacro:include filename="eve_chassis.xacro"/>

@@ -62,10 +62,10 @@ public:
     return history.front();
   }
 
-  /// @brief Returns the tracking ID parsed from the most recent detection.
-  int64_t id() const
+  /// @brief Returns the tracking ID from the most recent detection.
+  const std::string & id() const
   {
-    return std::stoll(history.front().id);
+    return history.front().id;
   }
 
   /// @brief Returns the timestamp of the most recent detection.
@@ -182,7 +182,9 @@ public:
   TrafficLightState state{TrafficLightState::UNKNOWN};
   float confidence{0.0f};
 
-  // Lanelet regulatory element ID (links to map)
+  // Matched map way ID (the specific refers linestring closest to this detection)
+  int64_t way_id{-1};
+  // Parent regulatory element ID (derived from way_id)
   int64_t reg_elem_id{-1};
 };
 
