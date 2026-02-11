@@ -10,7 +10,6 @@ launch:
       pkg: "joy"
       exec: "joy_node"
       name: "joy_node"
-      namespace: ""
       param:
         - from: "$(var config_file)"
 
@@ -21,6 +20,6 @@ launch:
       name: "joystick_node"
       output: "screen"
       ros_args: "--log-level warn"
-      namespace: ""
+      namespace: "interfacing"
       param:
         - from: "$(var config_file)"

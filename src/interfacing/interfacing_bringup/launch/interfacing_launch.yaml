@@ -71,13 +71,15 @@ launch:
   # Joystick Node
   - include:
       file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
-  # ackerman_mux Node
+
+  # ackermann_mux Node
   - include:
       file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
+
   # OSCC interfacing Node
   - include:
       file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
-  # PID Control Node --- PID NEEDS TO BE TURNED OFF FOR joystick roscco to work for debug
+  # PID Control Node
   - include:
       file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
 
@@ -90,9 +92,9 @@ launch:
       param:
         - name: node_names
           value:
-            - /joystick_node
-            - /ackermann_mux
-            - /pid_control_node
+            - /interfacing/joystick_node
+            - /interfacing/pid_control_node
+            - /interfacing/ackermann_mux
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

@@ -26,7 +26,6 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 {
   // Declare parameters only - do not read or create resources yet
   this->declare_parameter<double>("update_rate", 100.0);
-  this->declare_parameter<double>("steering_wheel_conversion_factor", 15.7);
 
   RCLCPP_INFO(this->get_logger(), "PidControlNode created (unconfigured)");
 }
@@ -34,9 +33,6 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Configuring...");
-
-  // Read parameters
-  steering_wheel_conversion_factor_ = this->get_parameter("steering_wheel_conversion_factor").as_double();
 
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
@@ -64,7 +60,7 @@ PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecyc
   ackermann_sub_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
     "ackermann", rclcpp::QoS(10), std::bind(&PidControlNode::ackermann_callback, this, std::placeholders::_1));
 
-  steering_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+  steering_meas_sub_ = this->create_subscription<roscco_msg::msg::SteeringAngle>(
     "steering_feedback",
     rclcpp::QoS(10),
     std::bind(&PidControlNode::steering_feedback_callback, this, std::placeholders::_1));
@@ -162,12 +158,9 @@ void PidControlNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriv
   ackermann_received_ = true;
 }
 
-void PidControlNode::steering_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
+void PidControlNode::steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg)
 {
-  steering_meas_ = msg->data;
-  steering_meas_ = steering_meas_ / steering_wheel_conversion_factor_;
-  // convert to radians
-  steering_meas_ = steering_meas_ * (M_PI / 180.0);
+  steering_meas_ = msg->angle;
   steering_meas_received_ = true;
 }
 
