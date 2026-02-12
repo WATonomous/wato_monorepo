@@ -14,48 +14,123 @@
 
 #include "tracking/tracking.hpp"
 
+#include <exception>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <lifecycle_msgs/msg/state.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
 #include <tf2/utils.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // static logger for static logging
-rclcpp::Logger tracking::static_logger_ = rclcpp::get_logger("tracking_stc");
+rclcpp::Logger TrackingNode::static_logger_ = rclcpp::get_logger("tracking_stc");
 
 // class maps
-std::unordered_map<std::string, int> tracking::class_map_ = {
+std::unordered_map<std::string, int> TrackingNode::class_map_ = {
   {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4}, {"vehicle", 5},
   // etc...
 };
-std::unordered_map<int, std::string> tracking::reverse_class_map_ = [] {
+std::unordered_map<int, std::string> TrackingNode::reverse_class_map_ = [] {
   std::unordered_map<int, std::string> m;
-  for (const auto & [k, v] : tracking::class_map_) m[v] = k;
+  for (const auto & [k, v] : TrackingNode::class_map_) m[v] = k;
   return m;
 }();
 
-tracking::tracking()
-: Node("tracking")
-, tf_buffer_(this->get_clock())
-, tf_listener_(tf_buffer_)
+TrackingNode::TrackingNode(const rclcpp::NodeOptions & options)
+: LifecycleNode("tracking", options)
 {
-  initializeParams();
-
-  // Subscribers
-  dets_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    kDetectionsTopic, 10, std::bind(&tracking::detectionsCallback, this, std::placeholders::_1));
-
-  // Publishers
-  tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kTracksTopic, 10);
-
-  // ByteTrack tracker
-  tracker_ =
-    std::make_unique<byte_track::BYTETracker>(frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_);
+  RCLCPP_INFO(this->get_logger(), "New tracking node created");
 }
 
-void tracking::initializeParams()
+TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::State &) {
+  RCLCPP_INFO(this->get_logger(), "Configuring tracking node...");
+
+  // Parameters
+  RCLCPP_INFO(this->get_logger(), "Initializing parameters...");
+  initializeParams();
+  RCLCPP_INFO(this->get_logger(), "Parameters initialized successfully");
+
+  // TF stuff
+  RCLCPP_INFO(this->get_logger(), "Initializing TF buffer and listener...");
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  RCLCPP_INFO(this->get_logger(), "TF buffer and listener initialized successfully");
+
+  // Subscriber
+  RCLCPP_INFO(this->get_logger(), "Initializing subscriber...");
+  dets_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
+    kDetectionsTopic, 10, std::bind(&TrackingNode::detectionsCallback, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Subscriber initialized successfully, subscribed to %s", dets_sub_->get_topic_name());
+
+  // Lifecycle Publisher
+  RCLCPP_INFO(this->get_logger(), "Initializing publisher...");
+  tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kTracksTopic, 10);
+  RCLCPP_INFO(this->get_logger(), "Publisher initialized successfully, publishing to %s", tracked_dets_pub_->get_topic_name());
+
+  // ByteTrack tracker
+  RCLCPP_INFO(this->get_logger(), "Initializing ByteTrack...");
+  tracker_ =
+    std::make_unique<byte_track::BYTETracker>(frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_);
+  RCLCPP_INFO(this->get_logger(), "ByteTrack initialized successfully");
+
+  RCLCPP_INFO(this->get_logger(), "Tracking node configured successfully");
+  return TrackingNode::CallbackReturn::SUCCESS;
+}
+
+TrackingNode::CallbackReturn TrackingNode::on_activate(const rclcpp_lifecycle::State &) {
+  RCLCPP_INFO(this->get_logger(), "Activating tracking node...");
+  if (tracked_dets_pub_) tracked_dets_pub_->on_activate();
+  else {
+    RCLCPP_ERROR(this->get_logger(), "Deactivation failed: nullptr publisher");
+    return TrackingNode::CallbackReturn::FAILURE;
+  }
+
+  RCLCPP_INFO(this->get_logger(), "Node activated successfully");
+  return TrackingNode::CallbackReturn::SUCCESS;
+}
+
+TrackingNode::CallbackReturn TrackingNode::on_deactivate(const rclcpp_lifecycle::State &) {
+  RCLCPP_INFO(this->get_logger(), "Deactivating tracking node...");
+  if (tracked_dets_pub_) tracked_dets_pub_->on_deactivate();
+  else {
+    RCLCPP_ERROR(this->get_logger(), "Deactivation failed: nullptr publisher");
+    return TrackingNode::CallbackReturn::FAILURE;
+  }
+
+  RCLCPP_INFO(this->get_logger(), "Node deactivated successfully");
+  return TrackingNode::CallbackReturn::SUCCESS;
+}
+
+TrackingNode::CallbackReturn TrackingNode::on_cleanup(const rclcpp_lifecycle::State &) {
+  RCLCPP_INFO(this->get_logger(), "Cleaning up tracking node...");
+
+  tracked_dets_pub_.reset();
+  dets_sub_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  tracker_.reset();
+
+  RCLCPP_INFO(this->get_logger(), "Clean up successful");
+  return TrackingNode::CallbackReturn::SUCCESS;
+}
+
+TrackingNode::CallbackReturn TrackingNode::on_shutdown(const rclcpp_lifecycle::State &) {
+  RCLCPP_INFO(this->get_logger(), "Shutting down tracking node...");
+
+  tracked_dets_pub_.reset();
+  dets_sub_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  tracker_.reset();
+
+  RCLCPP_INFO(this->get_logger(), "Node shut down successfully");
+  return TrackingNode::CallbackReturn::SUCCESS;
+}
+
+void TrackingNode::initializeParams()
 {
   // Declare parameters
   frame_rate_ = this->declare_parameter<int>("frame_rate", 2);
@@ -64,12 +139,10 @@ void tracking::initializeParams()
   high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 1.0));
   output_frame_ = this->declare_parameter<std::string>("output_frame", "map");
-
-  RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
 // Get class id from class_map_ using class name
-int tracking::classLookup(const std::string & class_name)
+int TrackingNode::classLookup(const std::string & class_name)
 {
   auto it = class_map_.find(class_name);
   if (it != class_map_.end())
@@ -81,7 +154,7 @@ int tracking::classLookup(const std::string & class_name)
 }
 
 // Get class name from reverse_class_map_ using class id
-std::string tracking::reverseClassLookup(int class_id)
+std::string TrackingNode::reverseClassLookup(int class_id)
 {
   auto it = reverse_class_map_.find(class_id);
   if (it != reverse_class_map_.end())
@@ -93,7 +166,7 @@ std::string tracking::reverseClassLookup(int class_id)
 }
 
 // Convert from ros msgs to bytetrack's required format
-std::vector<byte_track::Object> tracking::detsToObjects(const vision_msgs::msg::Detection3DArray & dets)
+std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::msg::Detection3DArray & dets)
 {
   std::vector<byte_track::Object> objs;
   objs.reserve(dets.detections.size());
@@ -137,7 +210,7 @@ std::vector<byte_track::Object> tracking::detsToObjects(const vision_msgs::msg::
 }
 
 // Convert from bytetrack format back to ros msgs
-vision_msgs::msg::Detection3DArray tracking::STracksToTracks(
+vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
   const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header)
 {
   // Use same header as detections for same time stamps
@@ -180,12 +253,17 @@ vision_msgs::msg::Detection3DArray tracking::STracksToTracks(
   return trks;
 }
 
-void tracking::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr msg)
+void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
+  // Activation guard
+  if (this->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+    return;
+  }
+
   // Get newest frame transform
   geometry_msgs::msg::TransformStamped tf_stamped;
   try {
-    tf_stamped = tf_buffer_.lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
+    tf_stamped = tf_buffer_->lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s", ex.what());
     RCLCPP_WARN(this->get_logger(), "Falling back to identity transform");
@@ -232,3 +310,5 @@ void tracking::detectionsCallback(vision_msgs::msg::Detection3DArray::SharedPtr 
     tracked_dets.detections[0].results[0].hypothesis.class_id.c_str(),
     std::stoi(tracked_dets.detections[0].id));
 }
+
+RCLCPP_COMPONENTS_REGISTER_NODE(TrackingNode)

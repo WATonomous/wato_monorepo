@@ -23,15 +23,24 @@
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
+#include <rclcpp_lifecycle/state.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 
-class tracking : public rclcpp::Node
+/**
+ * @brief ROS2 Lifecycle Node that manages 3D multi-object tracking.
+ * 
+ * Tracks 3D bounding box detections in the map frame. The tracker
+ * uses a version of ByteTrack modified to work in 3D.
+ */
+class TrackingNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
-  tracking();
+  explicit TrackingNode(const rclcpp::NodeOptions & options);
+  ~TrackingNode() override = default;
 
   static constexpr auto kDetectionsTopic = "input_detections";
   static constexpr auto kTracksTopic = "output_tracks";
@@ -96,6 +105,15 @@ public:
   static vision_msgs::msg::Detection3DArray STracksToTracks(
     const std::vector<byte_track::BYTETracker::STrackPtr> & strk_ptrs, const std_msgs::msg::Header & header);
 
+protected:
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
+
 private:
   /**
    * @brief Initializes tracker parameters.
@@ -120,7 +138,7 @@ private:
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr dets_sub_;
 
   // Publishers
-  rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_dets_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_dets_pub_;
 
   // ByteTrack parameters
   int frame_rate_;
@@ -135,8 +153,8 @@ private:
 
   std::unique_ptr<byte_track::BYTETracker> tracker_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   static rclcpp::Logger static_logger_;
 };

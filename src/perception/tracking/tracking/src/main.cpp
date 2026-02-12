@@ -14,12 +14,31 @@
 
 #include <memory>
 
+#include <lifecycle_msgs/msg/state.hpp>
+#include <rclcpp/executors/multi_threaded_executor.hpp>
+#include <rclcpp/rclcpp.hpp>
+
 #include "tracking/tracking.hpp"
 
+/**
+ * @brief For isolated testing (make sure to change CMakeLists accordingly)
+ */
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<tracking>());
+  rclcpp::executors::MultiThreadedExecutor exec;
+  auto node = std::make_shared<TrackingNode>(rclcpp::NodeOptions());
+  exec.add_node(node->get_node_base_interface());
+  auto configured_state = node->configure();
+  if (configured_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
+    auto activated_state = node->activate();
+    if (activated_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+      RCLCPP_INFO(node->get_logger(), "Node configured and activated, spinning...");
+      exec.spin();
+    } else {
+      RCLCPP_ERROR(node->get_logger(), "Failed to activate node, current state: %s", activated_state.label().c_str());
+    }
+  }
   rclcpp::shutdown();
   return 0;
 }
