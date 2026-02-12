@@ -24,13 +24,14 @@ if [[ $# -gt 0 && ("$1" == "convert_ros1" || "$1" == "convert-ros1") ]]; then
 
   converter_image="${COMPOSE_PROJECT_NAME:-watod}-bag-converter:${TAG:-latest}"
   converter_context="$MONO_DIR/watod_scripts/tools/bag-converter"
+  force_rebuild="${WATOD_TOOLS_REBUILD:-0}"
 
   if ! command -v docker >/dev/null 2>&1; then
     echo "Error: docker not found. This command runs the converter in a container." >&2
     exit 1
   fi
 
-  if ! docker image inspect "$converter_image" >/dev/null 2>&1; then
+  if [[ "$force_rebuild" == "1" ]] || ! docker image inspect "$converter_image" >/dev/null 2>&1; then
     echo "Building converter image: $converter_image"
     docker build -t "$converter_image" "$converter_context"
   fi
@@ -50,13 +51,14 @@ if [[ $# -gt 0 && ("$1" == "li_init" || "$1" == "li-init") ]]; then
 
   li_init_image="${COMPOSE_PROJECT_NAME:-watod}-li-init:${TAG:-latest}"
   li_init_context="$MONO_DIR/watod_scripts/tools/li-init"
+  force_rebuild="${WATOD_TOOLS_REBUILD:-0}"
 
   if ! command -v docker >/dev/null 2>&1; then
     echo "Error: docker not found. This command runs LI-Init in a container." >&2
     exit 1
   fi
 
-  if ! docker image inspect "$li_init_image" >/dev/null 2>&1; then
+  if [[ "$force_rebuild" == "1" ]] || ! docker image inspect "$li_init_image" >/dev/null 2>&1; then
     echo "Building LI-Init image: $li_init_image"
     docker build -t "$li_init_image" "$li_init_context"
   fi
