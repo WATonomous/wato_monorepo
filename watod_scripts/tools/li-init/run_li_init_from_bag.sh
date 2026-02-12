@@ -28,6 +28,8 @@ bag=""
 lidar_topic="/lidar_top/velodyne_points"
 imu_topic="/novatel/oem7/imu/data_raw"
 out="/bags/li_init_result.txt"
+debug_dir_default="/bags/li_init_debug"
+debug_dir="${LI_INIT_DEBUG_DIR:-$debug_dir_default}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -97,6 +99,26 @@ if ! rosparam list >/dev/null 2>&1; then
 fi
 
 cleanup() {
+  exit_code=$?
+
+  if (( exit_code != 0 )); then
+    mkdir -p "$debug_dir" || true
+    stamp="$(date +%Y%m%d_%H%M%S)"
+
+    # Copy whatever logs exist to the mounted bags volume so debugging doesn't
+    # require re-running the container without --rm.
+    for f in /tmp/li_init.log /tmp/rosbag_play.log /tmp/rosbag_probe.log /tmp/rosbag_info.txt /tmp/roscore.log; do
+      if [[ -s "$f" ]]; then
+        cp -f "$f" "$debug_dir/$(basename "$f" .log)_${stamp}.log" >/dev/null 2>&1 || true
+      fi
+    done
+    # Preserve raw text names (rosbag_info may not be .log)
+    if [[ -s /tmp/rosbag_info.txt ]]; then
+      cp -f /tmp/rosbag_info.txt "$debug_dir/rosbag_info_${stamp}.txt" >/dev/null 2>&1 || true
+    fi
+    echo "Debug logs copied to: $debug_dir" >&2
+  fi
+
   # best-effort cleanup
   if [[ -n "${play_pid:-}" ]] && kill -0 "$play_pid" >/dev/null 2>&1; then
     kill "$play_pid" >/dev/null 2>&1 || true
@@ -111,8 +133,90 @@ cleanup() {
   fi
 
   kill "$roscore_pid" >/dev/null 2>&1 || true
+
+  exit "$exit_code"
 }
 trap cleanup EXIT
+
+echo "Inspecting bag topics..." >&2
+rosbag info "$bag" >/tmp/rosbag_info.txt 2>&1 || true
+if ! grep -Fq "$lidar_topic" /tmp/rosbag_info.txt; then
+  echo "Error: LiDAR topic not found in bag: $lidar_topic" >&2
+  echo "See /tmp/rosbag_info.txt (will be copied to $debug_dir on exit)." >&2
+  exit 1
+fi
+if ! grep -Fq "$imu_topic" /tmp/rosbag_info.txt; then
+  echo "Error: IMU topic not found in bag: $imu_topic" >&2
+  echo "See /tmp/rosbag_info.txt (will be copied to $debug_dir on exit)." >&2
+  exit 1
+fi
+
+echo "Probing first LiDAR/IMU messages..." >&2
+
+# Play just long enough for one message to be observed.
+rosbag play --quiet --clock --topics "$lidar_topic" "$imu_topic" "$bag" >/tmp/rosbag_probe.log 2>&1 &
+probe_play_pid=$!
+
+LIDAR_TOPIC="$lidar_topic" IMU_TOPIC="$imu_topic" python3 - <<'PY'
+import os
+import sys
+
+import rospy
+from sensor_msgs.msg import Imu, PointCloud2
+
+lidar_topic = os.environ.get("LIDAR_TOPIC", "/lidar_top/velodyne_points")
+imu_topic = os.environ.get("IMU_TOPIC", "/novatel/oem7/imu/data_raw")
+
+rospy.init_node("li_init_bag_probe", anonymous=True, disable_signals=True)
+
+try:
+    pc = rospy.wait_for_message(lidar_topic, PointCloud2, timeout=10.0)
+except Exception as e:
+    print(f"ERROR: did not receive PointCloud2 on {lidar_topic}: {e}", file=sys.stderr)
+    sys.exit(2)
+
+try:
+    _ = rospy.wait_for_message(imu_topic, Imu, timeout=10.0)
+except Exception as e:
+    print(f"ERROR: did not receive Imu on {imu_topic}: {e}", file=sys.stderr)
+    sys.exit(2)
+
+field_names = [f.name for f in pc.fields]
+print("PointCloud2 fields:", ", ".join(field_names), file=sys.stderr)
+
+# LI-Init commonly expects per-point timing + ring for Velodyne clouds.
+required_any = [
+    {"time", "t", "timestamp"},
+    {"ring"},
+]
+
+missing_groups = []
+for group in required_any:
+    if not any(name in field_names for name in group):
+        missing_groups.append("/".join(sorted(group)))
+
+if missing_groups:
+    print(
+        "ERROR: PointCloud2 is missing required fields for LI-Init: "
+        + ", ".join(missing_groups)
+        + ".\n"
+        + "If your driver publishes a cloud without ring/time, re-record using a Velodyne pipeline that includes these fields (e.g., velodyne_pointcloud with ring+time).",
+        file=sys.stderr,
+    )
+    sys.exit(3)
+
+sys.exit(0)
+PY
+
+probe_rc=$?
+
+kill "$probe_play_pid" >/dev/null 2>&1 || true
+wait "$probe_play_pid" >/dev/null 2>&1 || true
+
+if (( probe_rc != 0 )); then
+  echo "Probe failed (rc=$probe_rc). See /tmp/rosbag_probe.log" >&2
+  exit 1
+fi
 
 # Configure parameters for Velodyne VLP-16-ish defaults.
 # LI-Init reads these as global params (nh.param("common/..."))
