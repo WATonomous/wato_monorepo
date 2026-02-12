@@ -17,152 +17,132 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <limits>
-#include <memory>
 #include <string>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
-#include "behaviour/dynamic_object_store.hpp"
-#include "behaviour/utils/ports.hpp"
-#include "lanelet_msgs/msg/lanelet.hpp"
+#include "behaviour/utils/utils.hpp"
+
 #include "lanelet_msgs/msg/regulatory_element.hpp"
+#include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour
 {
-/**
- * @class GetStopSignCarsAction
- * @brief SyncActionNode to collect stop-sign queued car IDs.
- */
-class GetStopSignCarsAction : public BT::SyncActionNode
-{
-public:
-  GetStopSignCarsAction(const std::string & name, const BT::NodeConfig & config)
-  : BT::SyncActionNode(name, config)
-  {}
-
-  static BT::PortsList providedPorts()
+  /**
+   * @class GetStopSignCarsAction
+   * @brief SyncActionNode to collect stop-sign queued car IDs.
+   */
+  class GetStopSignCarsAction : public BT::SyncActionNode
   {
-    return {
-      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("stop_sign"),
-      BT::InputPort<std::vector<lanelet_msgs::msg::Lanelet>>("lanelets"),
-      BT::InputPort<double>("threshold_m"),
-      BT::InputPort<std::shared_ptr<const DynamicObjectStore::Snapshot>>("dynamic_objects_snapshot"),
-      BT::OutputPort<std::vector<std::string>>("out_stop_sign_car_ids"),
-    };
-  }
-
-  BT::NodeStatus tick() override
-  {
-    const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetStopSignCars] Missing " << port_name << " input" << std::endl;
-    };
-
-    auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
-    if (!ports::require(stop_sign, "stop_sign", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
+  public:
+    GetStopSignCarsAction(const std::string &name, const BT::NodeConfig &config)
+        : BT::SyncActionNode(name, config)
+    {
     }
 
-    auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
-    if (!ports::require(snap, "dynamic_objects_snapshot", missing_input_callback) || !snap->objects_snapshot_) {
-      std::cout << "[GetStopSignCars] Missing dynamic_objects_snapshot data" << std::endl;
-      return BT::NodeStatus::FAILURE;
+    static BT::PortsList providedPorts()
+    {
+      return {
+          BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("stop_sign"),
+          BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
+          BT::InputPort<int>("hypothesis_index"),
+          BT::InputPort<double>("stop_sign_line_threshold_m"),
+          BT::OutputPort<std::vector<std::string>>("out_stop_sign_car_ids"),
+          BT::OutputPort<std::vector<world_model_msgs::msg::WorldObject>>("out_stop_sign_cars"),
+      };
     }
 
-    auto lanelets = ports::tryGet<std::vector<lanelet_msgs::msg::Lanelet>>(*this, "lanelets");
-    if (!ports::require(lanelets, "lanelets", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
-    }
+    BT::NodeStatus tick() override
+    {
+      const auto missing_input_callback = [&](const char *port_name)
+      {
+        std::cout << "[GetStopSignCars] Missing " << port_name << " input" << std::endl;
+      };
 
-    auto threshold_m = ports::tryGet<double>(*this, "threshold_m");
-    if (!ports::require(threshold_m, "threshold_m", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
-    }
+      auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
+      if (!ports::require(stop_sign, "stop_sign", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
 
-    if (stop_sign->yield_lanelet_ids.empty()) {
-      std::cout << "[GetStopSignCars] yield_lanelet_ids empty" << std::endl;
-      setOutput("out_stop_sign_car_ids", std::vector<std::string>{});
+      auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
+      if (!ports::require(objects, "objects", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
+
+      auto hypothesis_index = ports::tryGet<int>(*this, "hypothesis_index");
+      if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
+
+      auto stop_sign_line_threshold_m = ports::tryGet<double>(*this, "stop_sign_line_threshold_m");
+      if (!ports::require(stop_sign_line_threshold_m, "stop_sign_line_threshold_m", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
+
+      if (*hypothesis_index < 0)
+      {
+        std::cout << "[GetStopSignCars] invalid hypothesis_index" << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
+
+      std::vector<std::string> out_ids;
+      std::vector<world_model_msgs::msg::WorldObject> out_cars;
+      std::unordered_set<std::string> seen_ids;
+
+      for (const auto lanelet_id : stop_sign->yield_lanelet_ids)
+      {
+        const auto cars_in_lanelet = object_utils::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+
+        for (const auto *obj : cars_in_lanelet)
+        {
+          if (obj == nullptr)
+          {
+            continue;
+          }
+
+          // todo clarify on the which ref line is the right one
+          double min_ref_line_distance = std::numeric_limits<double>::infinity();
+          for (const auto &ref_line : stop_sign->ref_lines)
+          {
+            if (ref_line.points.empty())
+            {
+              continue;
+            }
+            const double d = geometry::objectToRefLineDistanceXY(*obj, ref_line);
+            if (d < min_ref_line_distance)
+            {
+              min_ref_line_distance = d;
+            }
+          }
+          if (!std::isfinite(min_ref_line_distance) || min_ref_line_distance > *stop_sign_line_threshold_m)
+          {
+            continue;
+          }
+
+          if (!seen_ids.insert(obj->detection.id).second)
+          {
+            continue;
+          }
+
+          out_ids.push_back(obj->detection.id);
+          out_cars.push_back(*obj);
+        }
+      }
+      setOutput("out_stop_sign_car_ids", out_ids);
+      setOutput("out_stop_sign_cars", out_cars);
       return BT::NodeStatus::SUCCESS;
     }
+  };
 
-    std::unordered_set<int64_t> yield_ids;
-    yield_ids.reserve(stop_sign->yield_lanelet_ids.size());
-    for (const auto id : stop_sign->yield_lanelet_ids) {
-      yield_ids.insert(id);
-    }
+} // namespace behaviour
 
-    std::vector<std::string> out_ids;
-    out_ids.reserve(32);
-
-    for (const auto & ll : *lanelets) {
-      if (yield_ids.find(ll.id) == yield_ids.end()) {
-        continue;
-      }
-
-      // Find this reg elem within this lanelet so we can use its ref_lines (stop lines).
-      const lanelet_msgs::msg::RegulatoryElement * re_in_ll = nullptr;
-      for (const auto & re : ll.regulatory_elements) {
-        if (re.id == stop_sign->id) {
-          re_in_ll = &re;
-          break;
-        }
-      }
-      if (!re_in_ll) {
-        continue;
-      }
-
-      // Pick the first ref_line with points as the stop line.
-      const lanelet_msgs::msg::RefLine * stop_line = nullptr;
-      for (const auto & rl : re_in_ll->ref_lines) {
-        if (!rl.points.empty()) {
-          stop_line = &rl;
-          break;
-        }
-      }
-      if (!stop_line) {
-        continue;
-      }
-
-      // Compute centroid of the stop line polyline in XY.
-      double cx = 0.0, cy = 0.0;
-      for (const auto & p : stop_line->points) {
-        cx += p.x;
-        cy += p.y;
-      }
-      cx /= static_cast<double>(stop_line->points.size());
-      cy /= static_cast<double>(stop_line->points.size());
-
-      // Get cars currently in this lanelet and filter by distance to stop line centroid.
-      const auto cars = snap->getCarsInLanelet(ll.id);
-      for (const auto * car : cars) {
-        if (!car) continue;
-
-        const auto & pos = car->detection.bbox.center.position;
-
-        const double dx = pos.x - cx;
-        const double dy = pos.y - cy;
-        const double d = std::sqrt(dx * dx + dy * dy);
-
-        if (d <= *threshold_m) {
-          out_ids.push_back(car->detection.id);
-        }
-      }
-    }
-
-    // Deduplicate IDs (defensive; avoids duplicates if any mapping overlap occurs).
-    std::sort(out_ids.begin(), out_ids.end());
-    out_ids.erase(std::unique(out_ids.begin(), out_ids.end()), out_ids.end());
-
-    setOutput("out_stop_sign_car_ids", out_ids);
-    return BT::NodeStatus::SUCCESS;
-  }
-};
-
-}  // namespace behaviour
-
-#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_STOP_SIGN_CARS_ACTION_HPP_
+#endif // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_STOP_SIGN_CARS_ACTION_HPP_

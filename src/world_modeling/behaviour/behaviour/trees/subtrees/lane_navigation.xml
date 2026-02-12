@@ -22,9 +22,14 @@
               lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
 
+            <GetAreaOccupancy
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              service_name="/world_modeling/get_area_occupancy" />
+
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{@area_occupancy.snapshot}"
+              areas="{lane_nav.area_occupancy_areas}"
               left_lane_change_areas="{@bt.left_lane_change_areas}"
               right_lane_change_areas="{@bt.right_lane_change_areas}" />
 
@@ -48,9 +53,14 @@
               lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
 
+            <GetAreaOccupancy
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              service_name="/world_modeling/get_area_occupancy" />
+
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{@area_occupancy.snapshot}"
+              areas="{lane_nav.area_occupancy_areas}"
               left_lane_change_areas="{@bt.left_lane_change_areas}"
               right_lane_change_areas="{@bt.right_lane_change_areas}" />
 

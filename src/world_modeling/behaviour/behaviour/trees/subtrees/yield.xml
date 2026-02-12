@@ -19,10 +19,16 @@
                 wall_id="{yield.wall_id}"
                 error_message="{yield.spawn_wall_error_msg}" />
 
+            <GetObjects
+                objects="{yield.objects}"
+                error_message="{yield.get_objects_error_msg}"
+                service_name="/world_modeling/get_dynamic_objects" />
+
             <!-- Wait until yield lanes are clear for a gap -->
             <YieldCanProceed
                 active_traffic_control_element="{yield_sign}"
-                dynamic_objects_snapshot="{@dynamic_objects.snapshot}" />
+                objects="{yield.objects}"
+                hypothesis_index="{@world_objects_hypothesis_index}" />
 
             <!-- WALL OF DOOM: despawn -->
             <DespawnWall

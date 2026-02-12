@@ -24,7 +24,9 @@
 // actions
 #include "behaviour/nodes/common/actions/despawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
+#include "behaviour/nodes/common/actions/get_area_occupancy_service.hpp"
 #include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
+#include "behaviour/nodes/common/actions/get_objects_service.hpp"
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
@@ -49,6 +51,8 @@ public:
   {
     BT::RosNodeParams get_shortest_route_params = params;
     BT::RosNodeParams set_route_params = params;
+    BT::RosNodeParams get_area_occupancy_params = params;
+    BT::RosNodeParams get_objects_params = params;
     BT::RosNodeParams get_lanelets_by_reg_elem_params = params;
     BT::RosNodeParams wall_service = params;
 
@@ -59,17 +63,23 @@ public:
     }
     int get_shortest_route_timeout = node->get_parameter("get_shortest_route_timeout_ms").as_int();
     int set_route_timeout = node->get_parameter("set_route_timeout_ms").as_int();
+    int get_area_occupancy_timeout = node->get_parameter("get_area_occupancy_timeout_ms").as_int();
+    int get_dynamic_objects_timeout = node->get_parameter("get_dynamic_objects_timeout_ms").as_int();
     int get_lanelets_timeout = node->get_parameter("get_lanelets_by_reg_elem_timeout_ms").as_int();
     int wall_timeout = node->get_parameter("wall_service_timeout_ms").as_int();
 
     get_shortest_route_params.server_timeout = std::chrono::milliseconds(get_shortest_route_timeout);
     set_route_params.server_timeout = std::chrono::milliseconds(set_route_timeout);
+    get_area_occupancy_params.server_timeout = std::chrono::milliseconds(get_area_occupancy_timeout);
+    get_objects_params.server_timeout = std::chrono::milliseconds(get_dynamic_objects_timeout);
     get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(get_lanelets_timeout);
     wall_service.server_timeout = std::chrono::milliseconds(wall_timeout);
 
     // actions
     factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
     factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
+    factory.registerNodeType<behaviour::GetAreaOccupancyService>("GetAreaOccupancy", get_area_occupancy_params);
+    factory.registerNodeType<behaviour::GetObjectsService>("GetObjects", get_objects_params);
     factory.registerNodeType<behaviour::GetLaneletsByRegElemService>(
       "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);

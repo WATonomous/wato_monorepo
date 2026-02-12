@@ -29,11 +29,16 @@
                     lanelets="{stop_sign.lanelets}"
                     error_message="{get_lanelets_by_reg_elem_error_msg}" />
 
+                <GetObjects
+                    objects="{stop_sign.objects}"
+                    error_message="{get_objects_error_msg}"
+                    service_name="/world_modeling/get_dynamic_objects" />
+
                 <GetStopSignCars
                     stop_sign="{active_traffic_control_element}"
-                    lanelets="{stop_sign.lanelets}"
-                    threshold_m="{@bt.stop_sign_car_detection_threshold_m}"
-                    dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
+                    objects="{stop_sign.objects}"
+                    hypothesis_index="{@world_objects_hypothesis_index}"
+                    stop_sign_line_threshold_m="{@bt.stop_sign_car_detection_threshold_m}"
                     out_stop_sign_car_ids="{stop_sign.current_ids}" />
 
                 <SetStopSignPriorityCars

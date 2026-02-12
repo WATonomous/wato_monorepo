@@ -63,6 +63,8 @@ behaviour_node:
     # Service timeouts (milliseconds)
     get_shortest_route_timeout_ms: 5000
     set_route_timeout_ms: 5000
+    get_area_occupancy_timeout_ms: 5000
+    get_dynamic_objects_timeout_ms: 5000
     get_lanelets_by_reg_elem_timeout_ms: 5000
     wall_service_timeout_ms: 5000
 
