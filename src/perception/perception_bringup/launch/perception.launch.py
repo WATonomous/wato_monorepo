@@ -18,7 +18,8 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+from launch_ros.actions import Node, ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
@@ -106,6 +107,50 @@ def generate_launch_description():
         parameters=[LaunchConfiguration("spatial_association_param_file")],
     )
 
+    tracking_pkg = get_package_share_directory("tracking")
+    tracking_param_file = os.path.join(tracking_pkg, "config", "params.yaml")
+    tracking_param = DeclareLaunchArgument(
+        "tracking_param_file",
+        default_value=tracking_param_file,
+        description="Path to config file for tracking node",
+    )
+    tracking_detection_topic = DeclareLaunchArgument(
+        "tracking_detection_topic",
+        default_value="/carla/detections_3d",
+        description="Input detections topic subscribed to by tracking node",
+    )
+    tracking_track_topic = DeclareLaunchArgument(
+        "tracking_track_topic",
+        default_value="/tracked_boxes",
+        description="Tracked boxes output topic published to by tracking node",
+    )
+    tracking_node = ComposableNode(
+        package="tracking",
+        plugin="TrackingNode",
+        name="tracking_node",
+        parameters=[LaunchConfiguration("tracking_param_file")],
+        remappings=[
+            ("input_detections", LaunchConfiguration("tracking_detection_topic")),
+            ("output_tracks", LaunchConfiguration("tracking_track_topic")),
+        ],
+    )
+
+    container = ComposableNodeContainer(
+        name='perception_bringup',
+        namespace='perception',
+        package='rclcpp_components',
+        executable='component_container',
+        composable_node_descriptions=[
+            camera_object_detection_node,
+            depth_estimation_node,
+            patchwork_node,
+            spatial_association_node,
+            tracking_node,
+        ],
+        output='both'
+    )
+
+
     return LaunchDescription(
         [
             camera_detection_param,
@@ -115,9 +160,9 @@ def generate_launch_description():
             patchwork_ground_topic,
             patchwork_non_ground_topic,
             spatial_association_param,
-            camera_object_detection_node,
-            depth_estimation_node,
-            patchwork_node,
-            spatial_association_node,
+            tracking_param,
+            tracking_detection_topic,
+            tracking_track_topic,
+            container
         ]
     )
