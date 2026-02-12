@@ -67,6 +67,46 @@ void VirtualWallLayer::spawnWallCallback(
   wall.length = request->length;
   wall.width = request->width;
 
+  // If position_frame is specified, it means the input pose is defined in that frame,
+  // but we want to store it relative to wall.pose.header.frame_id (the target frame).
+  if (!request->position_frame.empty()) {
+    // Check if we need to transform
+    if (request->position_frame != wall.pose.header.frame_id) {
+      if (!tf_buffer_) {
+        response->success = false;
+        response->error_message = "TF buffer not available";
+        return;
+      }
+
+      try {
+        // We want to transform from position_frame to wall.pose.header.frame_id
+        // The input pose coordinates are assumed to be in position_frame
+        geometry_msgs::msg::PoseStamped input_pose;
+        input_pose.header.frame_id = request->position_frame;
+        input_pose.header.stamp = rclcpp::Time(0); // Use latest available transform
+        input_pose.pose = request->pose.pose;
+
+        geometry_msgs::msg::PoseStamped transformed_pose;
+        // Transform into the target frame (request->pose.header.frame_id)
+        auto tf = tf_buffer_->lookupTransform(
+            wall.pose.header.frame_id, 
+            request->position_frame, 
+            tf2::TimePointZero);
+            
+        tf2::doTransform(input_pose, transformed_pose, tf);
+        
+        // Update the wall pose with the transformed result
+        // The header.frame_id remains the target frame
+        wall.pose = transformed_pose;
+        
+      } catch (const tf2::TransformException & ex) {
+        response->success = false;
+        response->error_message = std::string("Failed to transform from position_frame: ") + ex.what();
+        return;
+      }
+    }
+  }
+
   int32_t id = next_wall_id_++;
   walls_[id] = wall;
 
