@@ -240,7 +240,7 @@ public:
    * @brief Build a RegulatoryElement message for a given regulatory element ID.
    *
    * Looks up the regulatory element in the map and populates the message with
-   * subtype, refers positions, ref lines (with distance_along_lanelet_m = 0),
+   * subtype, refers (as Ways), ref lines (as LaneletWays),
    * yield/right-of-way IDs, and generic attributes.
    *
    * @param reg_elem_id Regulatory element ID to look up.
