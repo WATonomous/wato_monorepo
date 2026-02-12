@@ -18,7 +18,8 @@ public:
 
     double evaluate(const std::vector<double>& state,
                             const std::vector<double>& action,
-                            const std::vector<double>& prev_action);
+                            const std::vector<double>& prev_action,
+                            const double dt);
     void set_trajectory(const std::vector<struct State>& traj);
     double terminal_cost(double x, double y, double yaw, double v);
 
@@ -31,21 +32,22 @@ public:
         double w_terminal_progress = 10.0;
 
         // step deviation cost
-        double w_deviation = 1.0;
+        double w_deviation = 2.0;
 
         // terminal deviation cost
-        double w_terminal_deviation = 10.0;
+        double w_terminal_deviation = 20.0;
 
         // heading error weights:
-        double w_heading = 2.0;
+        double w_heading = 1.0;
         double w_terminal_heading = 10.0;
 
         // -- Rate Costs --
-        // smoothen acceleration changes
-        double w_jerk = 1.0;
+        double w_jerk = 0.1;
+        double w_steering_rate = 0.5;
 
-        // smoothen steering rate changes
-        double w_steering_rate = 1.0;
+        //effort costs
+        double w_accel = 0.05;
+        double w_steer_angle = 0.2;
     };
 private:
     Params params_;

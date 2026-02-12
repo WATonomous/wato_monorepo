@@ -37,8 +37,8 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
 State MppiCore::step_bicycle(const State& s, double a, double delta, double dt, double L) {
     State ns = s;
 
-    a = std::clamp(a, -1.0*accel_max_, accel_max_);
-    delta = std::clamp(delta, -1.0*steer_angle_max_,steer_angle_max_);
+    //a = std::clamp(a, -1.0*accel_max_, accel_max_);
+    //delta = std::clamp(delta, -1.0*steer_angle_max_,steer_angle_max_);
 
     ns.x   = s.x   + s.v * std::cos(s.yaw) * dt;
     ns.y   = s.y   + s.v * std::sin(s.yaw) * dt;
@@ -55,9 +55,13 @@ Control_Output MppiCore::computeControl(){
         trajectory_costs_ = eval_trajectories_scores();
         compute_weights();
         weighted_average_controls();
-        return Control_Output{optimal_control_sequence_.A(0, 0), optimal_control_sequence_.D(0, 0)};
+        return Control_Output{std::clamp(optimal_control_sequence_.A(0, 0), -accel_max_, accel_max_), std::clamp(optimal_control_sequence_.D(0, 0), -steer_angle_max_, steer_angle_max_)};
     };
 void MppiCore::warm_start_control_sequences() {
+
+    if (num_time_step_ < 2) {
+        return; // nothing to shift safely
+    }
     // Shift the nominal (optimal) control sequence forward
     for (int t = 0; t < num_time_step_ - 1; t++) {
         optimal_control_sequence_.A(0, t) =
@@ -77,7 +81,7 @@ void MppiCore::add_noise_to_control_sequences(){
         // add noise to control sequences
         for(int k=0; k<num_samples_; k++){
             for(int t=0; t<num_time_step_; t++){
-                // simple gaussian noise, consider clamps
+                // simple gaussiastd::clamp(n noise, consider clamps
                 noise_samples_.A(k, t) = gaussian_noise(a_noise_std_);
                 noise_samples_.D(k, t) = gaussian_noise(delta_noise_std_);
             }
@@ -88,7 +92,7 @@ double MppiCore::compute_costs(const State& old_state, const State& new_state, d
         std::vector<double> state_vec = {new_state.x, new_state.y, new_state.yaw, new_state.v};
         std::vector<double> action_vec = {u_a, u_delta};
         std::vector<double> prev_action_vec = {prev_u_a, prev_u_delta};
-        double cost = critic_.evaluate(state_vec, action_vec, prev_action_vec);
+        double cost = critic_.evaluate(state_vec, action_vec, prev_action_vec, dt_);
     return cost;
 };
 
@@ -107,8 +111,8 @@ std::vector<double> MppiCore::eval_trajectories_scores(){
                 const double eps_a = noise_samples_.A(k, t);
                 const double eps_d = noise_samples_.D(k, t);
 
-                double u_a = std::clamp(u_a_nom + eps_a, -accel_max_, accel_max_);
-                double u_d = std::clamp(u_d_nom + eps_d, -steer_angle_max_, steer_angle_max_);
+                double u_a = u_a_nom+eps_a;//std::clamp(u_a_nom + eps_a, -accel_max_, accel_max_);
+                double u_d = u_d_nom+eps_d;//std::clamp(u_d_nom + eps_d, -steer_angle_max_, steer_angle_max_);
 
                 State old_state = sim_state;
                 sim_state = step_bicycle(sim_state, u_a, u_d, dt_, L_);

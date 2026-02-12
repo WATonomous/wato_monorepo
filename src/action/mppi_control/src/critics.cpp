@@ -10,11 +10,11 @@ static double angle_diff(double a, double b) {
 
 double critic::MppiCritic::evaluate(const std::vector<double>& state,
                                     const std::vector<double>& action,
-                                    const std::vector<double>& prev_action) {
+                                    const std::vector<double>& prev_action, 
+                                    const double dt) {
     
-    if (state.size() < 4 || action.size() < 2 || prev_action.size() < 2) {
-        return 1e6;
-    }
+    if (state.size() < 4 || action.size() < 2 || prev_action.size() < 2) return 1e6;
+    if (!(dt > 0.0) || !std::isfinite(dt)) return 1e6;
 
     State s;
     s.x = state[0];
@@ -35,25 +35,30 @@ double critic::MppiCritic::evaluate(const std::vector<double>& state,
     double cost = 0.0;
 
     // lateral deviation, quadratic
-    cost += params_.w_deviation * (lateral * lateral);
+    cost += dt * params_.w_deviation * (lateral * lateral);
 
     // heading cost, quadratic
     double ref_yaw = std::atan2(ty, tx);
     double d_yaw = angle_diff(s.yaw, ref_yaw);
 
-    cost += params_.w_heading * (d_yaw * d_yaw);
+    cost += dt* params_.w_heading * (d_yaw * d_yaw);
 
     // forward progress
-    double forward_proj = s.v * (std::cos(s.yaw) * tx + std::sin(s.yaw) * ty);
+    double forward_proj = dt * s.v * (std::cos(s.yaw) * tx + std::sin(s.yaw) * ty);
     
     // progress lowers the cost
     cost -= params_.w_progress * forward_proj;
 
     // smoothing penalties, uses prev_action for delta
-    double da = a - prev_a;
-    double dd = delta - prev_delta;
-    cost += params_.w_jerk * (da * da);
-    cost += params_.w_steering_rate * (dd * dd);
+    double jerk = (a - prev_a)/dt;
+    double steer_rate = (delta - prev_delta)/dt;
+    cost += params_.w_jerk * (jerk * jerk);
+    cost += params_.w_steering_rate * (steer_rate * steer_rate);
+
+    //effort
+    cost += dt * params_.w_accel * (a * a);
+    cost += dt * params_.w_steer_angle * (delta * delta);
+
 
     // safety
     if (!std::isfinite(cost)) cost = 1e6;
