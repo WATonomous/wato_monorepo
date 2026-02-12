@@ -29,7 +29,7 @@ struct TrajectoryConfig
 {
   double safe_distance = 10.0;
   double stop_distance = 2.0;
-  double max_speed = 5.0;  // Default limit if lanelet fails
+  double max_speed = 20.0;  // Default limit if lanelet speed limit unavailable
   double interpolation_resolution = 0.1;
   double footprint_radius = 1.0;  // Simple radius check for now
 };
@@ -44,11 +44,13 @@ public:
    *
    * @param path The geometric path from local planner.
    * @param costmap The current costmap.
-   * @param current_speed Current vehicle speed (optional, for smoothing).
+   * @param limit_speed The lane speed limit (m/s). Used with config max_speed to cap velocity.
+   * @param current_speed Current vehicle speed (optional, for future smoothing).
    * @return wato_trajectory_msgs::msg::Trajectory
    */
   wato_trajectory_msgs::msg::Trajectory compute_trajectory(
-    const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap, double current_speed = 0.0);
+    const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap,
+    double limit_speed, double current_speed = 0.0);
 
   /**
    * @brief Finds the distance to the first lethal obstacle along the path.

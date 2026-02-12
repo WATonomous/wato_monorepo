@@ -17,10 +17,14 @@
 
 #include <memory>
 
+#include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
+#include "visualization_msgs/msg/marker_array.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 #include "wato_trajectory_planner/trajectory_core.hpp"
 
@@ -43,15 +47,26 @@ public:
 private:
   void path_callback(const nav_msgs::msg::Path::SharedPtr msg);
   void costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
+  void lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
   void update_trajectory();
 
   std::unique_ptr<TrajectoryCore> core_;
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr traj_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+  
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr lane_context_sub_;
+
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   nav_msgs::msg::Path::SharedPtr latest_path_;
   nav_msgs::msg::OccupancyGrid::SharedPtr latest_costmap_;
+
+  /// Current lane speed limit in m/s. Falls back to config max_speed if unavailable.
+  double current_speed_limit_mps_{0.0};
+  bool has_speed_limit_{false};
 };
 
 }  // namespace wato_trajectory_planner

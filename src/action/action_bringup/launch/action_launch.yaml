@@ -18,6 +18,24 @@ launch:
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
 
+  - node:
+      pkg: "wato_trajectory_planner"
+      exec: "wato_trajectory_planner_node"
+      name: "trajectory_planner_node"
+      namespace: "action/trajectory_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share wato_trajectory_planner)/config/trajectory_planner_params.yaml"
+      remap:
+        - from: "input_path"
+          to: "/action/local_planning/path"
+        - from: "costmap"
+          to: "/world_modeling/costmap"
+        - from: "trajectory"
+          to: "/action/trajectory_planning/trajectory"
+        - from: "lane_context"
+          to: "/world_modeling/lanelet/lane_context"
+
   # Lifecycle Manager
   - node:
       pkg: "wato_lifecycle_manager"
@@ -26,10 +44,10 @@ launch:
       namespace: "action"
       param:
         - name: "node_names"
-          value: ["/action/local_planning/local_planner_node"]
+          value: ["/action/local_planning/local_planner_node", "/action/trajectory_planning/trajectory_planner_node"]
         - name: "autostart"
           value: true
         - name: "bond_enabled"
           value: false
-
-
+        - name: "transition_timeout_s"
+          value: 30.0

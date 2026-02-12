@@ -1,0 +1,18 @@
+trajectory_planner_node:
+  ros__parameters:
+    # Safety distances
+    safe_distance: 10.0  # Distance (m) where slowing down begins
+    stop_distance: 2.0   # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    
+    # Speed limits
+    max_speed: 20.0  # Default maximum speed (m/s) if lanelet limit unavailable
+    
+    # Path interpolation
+    interpolation_resolution: 0.1  # Resolution (m) for path interpolation
+    
+    # Vehicle geometry
+    vehicle_front_offset: 2.5  # Distance (m) from base_link to front bumper
+    footprint_radius: 1.2      # Radius (m) for collision checking around path points
+    
+    # Costmap thresholds
+    lethal_cost_threshold: 100  # Costmap value considered lethal obstacle

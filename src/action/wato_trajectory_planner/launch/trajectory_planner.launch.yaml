@@ -1,0 +1,18 @@
+launch:
+  - node:
+      pkg: "wato_trajectory_planner"
+      exec: "wato_trajectory_planner_node"
+      name: "trajectory_planner_node"
+      namespace: "action/trajectory_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share wato_trajectory_planner)/config/trajectory_planner_params.yaml"
+      remap:
+        - from: "input_path"
+          to: "/action/local_planning/path"
+        - from: "costmap"
+          to: "/world_modeling/costmap"
+        - from: "trajectory"
+          to: "/action/trajectory_planning/trajectory"
+        - from: "lane_context"
+          to: "/world_modeling/lanelet/lane_context"
