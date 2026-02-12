@@ -16,11 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-noetic-pcl-ros ros-noetic-eigen-conversions \
     ros-noetic-tf ros-noetic-tf2 ros-noetic-tf2-ros \
     ros-noetic-rosbag \
+  && pip3 install --no-cache-dir matplotlib==3.7.5 \
   && rm -rf /var/lib/apt/lists/*
 
 # Matplotlib (LI-Init includes matplotlibcpp)
 ENV MPLBACKEND=Agg
-RUN pip3 install --no-cache-dir matplotlib
 
 # Catkin workspace
 WORKDIR /catkin_ws/src

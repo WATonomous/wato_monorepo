@@ -93,8 +93,18 @@ fi
 
 cleanup() {
   # best-effort cleanup
-  pkill -f "rosbag play" >/dev/null 2>&1 || true
-  pkill -f "li_init" >/dev/null 2>&1 || true
+  if [[ -n "${play_pid:-}" ]] && kill -0 "$play_pid" >/dev/null 2>&1; then
+    kill "$play_pid" >/dev/null 2>&1 || true
+  else
+    pkill -f "rosbag play" >/dev/null 2>&1 || true
+  fi
+
+  if [[ -n "${li_init_pid:-}" ]] && kill -0 "$li_init_pid" >/dev/null 2>&1; then
+    kill "$li_init_pid" >/dev/null 2>&1 || true
+  else
+    pkill -f "li_init" >/dev/null 2>&1 || true
+  fi
+
   kill "$roscore_pid" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
