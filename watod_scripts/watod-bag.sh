@@ -39,7 +39,7 @@ if [[ $# -gt 0 && ("$1" == "convert_ros1" || "$1" == "convert-ros1") ]]; then
     -v "$BAG_DIRECTORY:/bags" \
     -w /bags \
     "$converter_image" \
-    python3 /tool/convert_ros2_mcap_to_ros1_bag.py "$@"
+    "$@"
   exit $?
 fi
 
