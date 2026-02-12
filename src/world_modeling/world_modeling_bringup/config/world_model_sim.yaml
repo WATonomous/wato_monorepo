@@ -18,11 +18,12 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/osm/Town10HD_with_regulatory.osm"
-    projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
+    osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
+    projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
 
     # Frames
     map_frame: "map"
+    base_frame: "base_footprint"
     utm_frame: "utm"
 
     # Entity tracking
@@ -41,7 +42,7 @@
 
     # Map visualization
     map_viz_publish_rate_hz: 1.0
-    map_viz_radius_m: 100.0
+    map_viz_radius_m: 50.0
 
     # Dynamic objects (world_objects topic)
     dynamic_objects_publish_rate_hz: 20.0
@@ -58,7 +59,7 @@
     # --- Area occupancy ---
 
     area_occupancy_publish_rate_hz: 20.0
-    area_occupancy_frame: "base_link"
+    area_occupancy_frame: "base_footprint"
     occupancy_areas:
       - "front_near"
       - "front_far"
@@ -110,7 +111,7 @@
 # =============================================================================
 /**/costmap_node:
   ros__parameters:
-    costmap_frame: "base_link"
+    costmap_frame: "base_footprint"
     map_frame: "map"
     publish_rate_hz: 30.0
     grid_width_m: 100.0
@@ -130,6 +131,7 @@
     layers.objects.bbox_cost_decay: 0.3
     layers.objects.prediction_inflation_m: 0.3
     layers.objects.prediction_cost_decay: 0.3
+    layers.objects.max_centroid_height_m: 5.0
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 2.0
@@ -161,6 +163,9 @@
     direction_arrow_size: 0.8
     speed_limit_text_height: 1.0
     yield_marker_size: 1.5
+    show_reg_elem_labels: true
+    show_lanelet_ids: true
+    lanelet_id_text_height: 0.5
 
 /**/lane_context_markers_node:
   ros__parameters:
@@ -230,7 +235,7 @@
 
 /**/costmap_markers_node:
   ros__parameters:
-    frame_id: "base_link"
+    frame_id: "base_footprint"
     footprint_color: [0.5, 0.0, 1.0, 0.8]
     footprint_line_width: 0.1
 

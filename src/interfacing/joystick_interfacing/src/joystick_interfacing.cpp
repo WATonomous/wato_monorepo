@@ -24,20 +24,12 @@ namespace joystick_node
 {
 
 JoystickNode::JoystickNode(const rclcpp::NodeOptions & options)
-: Node("joystick_node", options)
-
+: LifecycleNode("joystick_node", options)
 {
-  configure();
-  RCLCPP_INFO(this->get_logger(), "JoystickNode initialized");
-}
-
-void JoystickNode::configure()
-{
-  // Declare parameters (no default values)
+  // Declare parameters only - do not read or create pub/sub yet
   this->declare_parameter<int>("enable_axis");
   this->declare_parameter<int>("toggle_button", 0);
   this->declare_parameter<int>("steering_axis");
-
   this->declare_parameter<int>("throttle_axis");
   this->declare_parameter<int>("arming_button", 0);
 
@@ -52,6 +44,13 @@ void JoystickNode::configure()
 
   this->declare_parameter<double>("toggle_vibration_intensity", 0.5);
   this->declare_parameter<int>("toggle_vibration_duration_ms", 100);
+
+  RCLCPP_INFO(this->get_logger(), "JoystickNode created (unconfigured)");
+}
+
+JoystickNode::CallbackReturn JoystickNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Configuring...");
 
   // Read parameters
   enable_axis_ = this->get_parameter("enable_axis").as_int();
@@ -72,14 +71,15 @@ void JoystickNode::configure()
   toggle_vibration_intensity_ = this->get_parameter("toggle_vibration_intensity").as_double();
   toggle_vibration_duration_ms_ = this->get_parameter("toggle_vibration_duration_ms").as_int();
 
-  // Setup pubs/subs
+  // Setup publishers
   ackermann_drive_stamped_pub_ =
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/joystick/ackermann", rclcpp::QoS(10));
-  roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("/joystick/roscco", rclcpp::QoS(10));
+  roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("/roscco", rclcpp::QoS(10));
   idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/joystick/is_idle", rclcpp::QoS(10));
   state_pub_ = this->create_publisher<std_msgs::msg::Int8>("/joystick/state", rclcpp::QoS(10));
-
   joy_feedback_pub_ = this->create_publisher<sensor_msgs::msg::JoyFeedback>("/joy/set_feedback", rclcpp::QoS(10));
+
+  // Setup subscribers
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
     "/joy", rclcpp::QoS(10), std::bind(&JoystickNode::joy_callback, this, std::placeholders::_1));
 
@@ -101,6 +101,75 @@ void JoystickNode::configure()
     ackermann_max_steering_angle_,
     roscco_max_speed_,
     roscco_max_steering_angle_);
+
+  return CallbackReturn::SUCCESS;
+}
+
+JoystickNode::CallbackReturn JoystickNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Activated");
+  return CallbackReturn::SUCCESS;
+}
+
+JoystickNode::CallbackReturn JoystickNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Deactivated");
+
+  // Cancel vibration timer if running
+  if (vibration_timer_) {
+    vibration_timer_->cancel();
+    vibration_timer_.reset();
+  }
+
+  return CallbackReturn::SUCCESS;
+}
+
+JoystickNode::CallbackReturn JoystickNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Cleaning up...");
+
+  // Reset all resources
+  joy_sub_.reset();
+  ackermann_drive_stamped_pub_.reset();
+  roscco_joystick_pub_.reset();
+  idle_state_pub_.reset();
+  state_pub_.reset();
+  joy_feedback_pub_.reset();
+  is_armed_sub_.reset();
+  arm_client_.reset();
+  vibration_timer_.reset();
+
+  // Reset state
+  use_roscco_topic_ = false;
+  prev_toggle_button_pressed_ = false;
+  is_armed_ = false;
+  prev_arming_button_pressed_ = false;
+  vibration_pulses_remaining_ = 0;
+  vibration_on_ = false;
+
+  return CallbackReturn::SUCCESS;
+}
+
+JoystickNode::CallbackReturn JoystickNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Shutting down...");
+
+  // Same cleanup as on_cleanup
+  if (vibration_timer_) {
+    vibration_timer_->cancel();
+    vibration_timer_.reset();
+  }
+
+  joy_sub_.reset();
+  ackermann_drive_stamped_pub_.reset();
+  roscco_joystick_pub_.reset();
+  idle_state_pub_.reset();
+  state_pub_.reset();
+  joy_feedback_pub_.reset();
+  is_armed_sub_.reset();
+  arm_client_.reset();
+
+  return CallbackReturn::SUCCESS;
 }
 
 double JoystickNode::get_axis(const sensor_msgs::msg::Joy & msg, int axis_index) const
@@ -273,7 +342,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   // If enable is not held, fully disarm and stop.
   if (!enable_pressed) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 500, "Safety not met (enable_axis=false) -> publishing zero command");
+      this->get_logger(), *this->get_clock(), 10000, "Safety not met (enable_axis=false) -> publishing zero command");
     publish_neutral_state(true);
     return;
   }

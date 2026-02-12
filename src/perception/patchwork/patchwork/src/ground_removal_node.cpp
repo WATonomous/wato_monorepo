@@ -123,7 +123,7 @@ void GroundRemovalNode::declareParameters(patchwork::Params & params)
   this->declare_parameter<bool>("verbose", true);
 
   // TF-based sensor height: base_frame to use for looking up sensor height from TF
-  this->declare_parameter<std::string>("base_frame", "base_link");
+  this->declare_parameter<std::string>("base_frame", "base_footprint");
 
   // Get parameter values
   params.num_iter = this->get_parameter("num_iter").as_int();

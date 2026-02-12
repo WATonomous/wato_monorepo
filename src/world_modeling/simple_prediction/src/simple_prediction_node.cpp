@@ -27,6 +27,7 @@ SimplePredictionNode::SimplePredictionNode(const rclcpp::NodeOptions & options)
 {
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
+  this->declare_parameter<int64_t>("entity_class_hypothesis_index", 0);
 
   RCLCPP_INFO(this->get_logger(), "SimplePredictionNode created (unconfigured)");
 }
@@ -37,6 +38,7 @@ SimplePredictionNode::CallbackReturn SimplePredictionNode::on_configure(const rc
 
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
+  hypothesis_idx_ = this->get_parameter("entity_class_hypothesis_index").as_int();
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
@@ -99,7 +101,13 @@ void SimplePredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detect
   for (const auto & detection : msg->detections) {
     world_model_msgs::msg::WorldObject obj;
     obj.detection = detection;
-    obj.predictions = generatePredictions(detection, frame_id);
+
+    bool is_traffic_light = static_cast<size_t>(hypothesis_idx_) < detection.results.size() &&
+                            detection.results[hypothesis_idx_].hypothesis.class_id == "traffic_light";
+    if (!is_traffic_light) {
+      obj.predictions = generatePredictions(detection, frame_id);
+    }
+
     output.objects.push_back(obj);
   }
 
