@@ -342,7 +342,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   // If enable is not held, fully disarm and stop.
   if (!enable_pressed) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 500, "Safety not met (enable_axis=false) -> publishing zero command");
+      this->get_logger(), *this->get_clock(), 10000, "Safety not met (enable_axis=false) -> publishing zero command");
     publish_neutral_state(true);
     return;
   }

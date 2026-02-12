@@ -92,6 +92,9 @@ oscc_result_t oscc_close();
  *
  */
 oscc_result_t oscc_enable(void);
+oscc_result_t oscc_enable_steering(void);
+oscc_result_t oscc_enable_throttle(void);
+oscc_result_t oscc_enable_brakes(void);
 
 /**
  * @brief Send disable commands to all OSCC modules.

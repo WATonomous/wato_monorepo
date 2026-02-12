@@ -1,0 +1,10 @@
+launch:
+  - node:
+      pkg: "car_velocity_feedback"
+      exec: "car_velocity_feedback_node"
+      name: "car_velocity_feedback_node"
+      namespace: "interfacing"
+      output: "screen"
+      param:
+        - name: "use_sim_time"
+          value: "$(var use_sim_time)"
