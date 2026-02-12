@@ -17,6 +17,32 @@ set -euo pipefail
 # Ensure bags directory exists
 mkdir -p "$BAG_DIRECTORY"
 
+if [[ $# -gt 0 && ("$1" == "convert_ros1" || "$1" == "convert-ros1") ]]; then
+  shift
+  echo "Converting ROS2 MCAP -> ROS1 .bag (offline)"
+  echo "Note: convert_ros1 supports only selected topics; use --help for usage."
+
+  converter_image="${COMPOSE_PROJECT_NAME:-watod}-bag-converter:${TAG:-latest}"
+  converter_context="$MONO_DIR/watod_scripts/tools/bag-converter"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: docker not found. This command runs the converter in a container." >&2
+    exit 1
+  fi
+
+  if ! docker image inspect "$converter_image" >/dev/null 2>&1; then
+    echo "Building converter image: $converter_image"
+    docker build -t "$converter_image" "$converter_context"
+  fi
+
+  docker run --rm -t \
+    -v "$BAG_DIRECTORY:/bags" \
+    -w /bags \
+    "$converter_image" \
+    python3 /tool/convert_ros2_mcap_to_ros1_bag.py "$@"
+  exit $?
+fi
+
 # Handle custom ls command
 if [[ $# -gt 0 && "$1" == "ls" ]]; then
   echo "Usage: watod bag play <path>"
