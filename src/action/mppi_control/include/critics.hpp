@@ -25,6 +25,10 @@ public:
 
     struct Params{
         // -- Progress Cost -- 
+
+        //velocity tracking cost
+        double w_velocity = 1.0;
+
         // regular step cost 
         double w_progress = 1.0;
 
@@ -36,6 +40,7 @@ public:
 
         // terminal deviation cost
         double w_terminal_deviation = 20.0;
+        double w_terminal_velocity = 5.0;
 
         // heading error weights:
         double w_heading = 1.0;

@@ -31,7 +31,7 @@ double critic::MppiCritic::evaluate(const std::vector<double>& state,
     int ref_idx = find_nearest_ref_index(s);
     double tx = 1.0, ty = 0.0;
     double lateral = lateral_error_and_tangent(ref_idx, s, tx, ty);
-
+    double ref_speed = (ref_idx >= 0) ? desired_trajectory_[ref_idx].v : 0.0;
     double cost = 0.0;
 
     // lateral deviation, quadratic
@@ -59,8 +59,10 @@ double critic::MppiCritic::evaluate(const std::vector<double>& state,
     cost += dt * params_.w_accel * (a * a);
     cost += dt * params_.w_steer_angle * (delta * delta);
 
-
-    // safety
+    //speed tracking
+    double speed_error = s.v - ref_speed;
+    cost += dt * params_.w_velocity * (speed_error * speed_error);
+    
     if (!std::isfinite(cost)) cost = 1e6;
     return cost;
 }
@@ -76,9 +78,14 @@ double critic::MppiCritic::terminal_cost(double x, double y, double yaw, double 
     int ref_idx = find_nearest_ref_index(s);
     double tx = 1.0, ty = 0.0;
     double lateral = lateral_error_and_tangent(ref_idx, s, tx, ty);
+    double ref_speed = (ref_idx >= 0) ? desired_trajectory_[ref_idx].v : 0.0;
 
     double cost = 0.0;
     cost += params_.w_terminal_deviation * (lateral * lateral); // quadratic
+
+    // terminal velocity cost
+    double speed_error = s.v - ref_speed;
+    cost += params_.w_terminal_velocity * (speed_error * speed_error);
 
     // terminal heading cost
     double ref_yaw = std::atan2(ty, tx);

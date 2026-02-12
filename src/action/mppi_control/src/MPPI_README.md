@@ -106,91 +106,50 @@ repeat:
     update controls u_t += Σ w_k ε_k,t
     apply u_0
 ```
-
-```markdown
 ## Critic Cost Function
 
-The critic provides the running cost  
-\[
-q(x_t,u_t,u_{t-1})
-\]
-and terminal cost  
-\[
-\phi(x_T)
-\]
-for trajectory evaluation.
+The critic evaluates the trajectory by providing the **running cost** $q(x_t, u_t, u_{t-1})$ and the **terminal cost** $\phi(x_T)$.
 
-Let the nearest reference path give:
+### Reference Path Metrics
+Given the nearest reference path, we define the following states:
 
-- Tangent: \( t = [t_x, t_y] \)
-- Lateral error: \( e_{lat} \)
-- Heading error:
-\[
-\Delta\psi = \text{wrap}(\psi - \text{atan2}(t_y,t_x))
-\]
-- Forward progress:
-\[
-p = v(\cos\psi\,t_x + \sin\psi\,t_y)
-\]
+* **Tangent:** $t = [t_x, t_y]$
+* **Lateral error:** $e_{lat}$
+* **Heading error:** $$\Delta\psi = \text{wrap}(\psi - \operatorname{atan2}(t_y, t_x))$$
+* **Forward progress:** $$p = v(\cos\psi \, t_x + \sin\psi \, t_y)$$
 
 ---
 
 ### Running Cost
 
-Tracking:
-\[
-q_{track} = dt\left(
-w_{dev} e_{lat}^2 +
-w_{heading} \Delta\psi^2
-\right)
-\]
+The total running cost is the summation of tracking precision, progress, smoothness, and control effort.
 
-Progress reward:
-\[
-q_{prog} = - w_{progress}\, dt\, p
-\]
+#### 1. Tracking
+$$q_{track} = dt \left( w_{dev} e_{lat}^2 + w_{heading} \Delta\psi^2 \right)$$
 
-Smoothness:
-\[
-j = \frac{a_t-a_{t-1}}{dt}, \quad
-\dot{\delta} = \frac{\delta_t-\delta_{t-1}}{dt}
-\]
-\[
-q_{smooth} =
-w_{jerk} j^2 +
-w_{steer\_rate} \dot{\delta}^2
-\]
+#### 2. Progress Reward
+$$q_{prog} = - w_{progress} \, dt \, p$$
 
-Control effort:
-\[
-q_{effort} = dt\left(
-w_a a^2 +
-w_\delta \delta^2
-\right)
-\]
+#### 3. Smoothness
+Defined by the jerk ($j$) and steering rate ($\dot{\delta}$):
+$$j = \frac{a_t - a_{t-1}}{dt}, \quad \dot{\delta} = \frac{\delta_t - \delta_{t-1}}{dt}$$
+$$q_{smooth} = w_{jerk} j^2 + w_{steer\_rate} \dot{\delta}^2$$
 
-Total running cost:
-\[
-\boxed{
-q = q_{track} + q_{prog} + q_{smooth} + q_{effort}
-}
-\]
+#### 4. Control Effort
+$$q_{effort} = dt \left( w_a a^2 + w_\delta \delta^2 \right)$$
+
+> **Total Running Cost:**
+> $$q = q_{track} + q_{prog} + q_{smooth} + q_{effort}$$
 
 ---
 
 ### Terminal Cost
+The terminal cost penalizes the final state of the trajectory to ensure long-term stability:
 
-\[
-\boxed{
-\phi =
-w_{dev}^T e_{lat}^2 +
-w_{heading}^T \Delta\psi^2
-- w_{progress}^T \, p
-}
-\]
+$$\phi = w_{dev}^T e_{lat}^2 + w_{heading}^T \Delta\psi^2 - w_{progress}^T \, p$$
 
-Invalid costs:
-\[
-J = 10^6 \quad \text{if non-finite}
-\]
-```
+---
+
+### Constraint Handling
+If the resulting trajectory is non-finite or violates hard constraints, an **invalid cost** is assigned:
+$$J = 10^6 \quad \text{if non-finite}$$
