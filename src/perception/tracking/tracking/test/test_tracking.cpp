@@ -21,7 +21,9 @@
 #include <vector>
 
 #include <catch2/catch_all.hpp>
-#include <std_msgs/msg/header.hpp>
+#include <lifecycle_msgs/msg/state.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node_options.hpp>
 #include <tf2/utils.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
@@ -109,7 +111,7 @@ TEST_CASE("Detection3DArray to Object conversion working", "[conv_1]")
   std::vector<std::string> class_ids = {"car", "bus", "truck", "bicycle", "pedestrian"};
   vision_msgs::msg::Detection3DArray msg = arraysToDetection3DArray(det_info, class_ids);
 
-  std::vector<byte_track::Object> objs = tracking::detsToObjects(msg);
+  std::vector<byte_track::Object> objs = TrackingNode::detsToObjects(msg);
 
   SECTION("No detections missed")
   {
@@ -129,7 +131,7 @@ TEST_CASE("Detection3DArray to Object conversion working", "[conv_1]")
         }
       }
       REQUIRE_THAT(obj.prob, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(obj.label == tracking::classLookup(class_ids[i]));
+      REQUIRE(obj.label == TrackingNode::classLookup(class_ids[i]));
     }
   }
 }
@@ -150,7 +152,7 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
   std::vector<int> class_ids = {0, 3, 2, 4, 1};
   auto strks = arraysToSTrackPtrs(det_info, class_ids);
 
-  vision_msgs::msg::Detection3DArray trks = tracking::STracksToTracks(strks, h);
+  vision_msgs::msg::Detection3DArray trks = TrackingNode::STracksToTracks(strks, h);
 
   SECTION("No tracks missed")
   {
@@ -181,7 +183,7 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
       REQUIRE_THAT(trk_box.size.z, Catch::Matchers::WithinRel(exp[6]));
 
       REQUIRE_THAT(trk.results[0].hypothesis.score, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(trk.results[0].hypothesis.class_id == tracking::reverseClassLookup(class_ids[i]));
+      REQUIRE(trk.results[0].hypothesis.class_id == TrackingNode::reverseClassLookup(class_ids[i]));
 
       REQUIRE(trk.header.stamp == h.stamp);
       REQUIRE(trk.header.frame_id == h.frame_id);
@@ -189,7 +191,25 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
   }
 }
 
-// Test 3: Tracking node
+// Test 3: Lifecycle state transitions
+TEST_CASE("Lifecycle node transitions through all states", "[node][fast]")
+{
+  if (!rclcpp::ok()) {
+    rclcpp::init(0, nullptr);
+  }
+
+  auto node = std::make_shared<TrackingNode>(rclcpp::NodeOptions{});
+
+  REQUIRE(node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED);
+  REQUIRE(node->configure().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+  REQUIRE(node->activate().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+  REQUIRE(node->deactivate().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+  REQUIRE(node->cleanup().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED);
+
+  rclcpp::shutdown();
+}
+
+// Test 4: Tracking node
 TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Node tests", "[ros]")
 {
   std::string timeout_flag = "timeout";
@@ -203,16 +223,19 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Node tests", "[ros]")
     {"car", "car"}, {"car", "car"}, {"bus", "car"}, {"car", "car"}, {"car", "car"}};
   std::vector<vision_msgs::msg::Detection3DArray> msgs = getTestInput(vdet_info, vclass_ids);
 
-  auto node = std::make_shared<tracking>();
+  auto node = std::make_shared<TrackingNode>(rclcpp::NodeOptions());
   add_node(node);
 
   auto test_pub =
-    std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(tracking::kDetectionsTopic);
+    std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kDetectionsTopic);
   auto test_sub =
-    std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(tracking::kTracksTopic);
+    std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kTracksTopic);
 
   add_node(test_pub);
   add_node(test_sub);
+
+  node->configure();
+  node->activate();
   start_spinning();
 
   // Node initialized
