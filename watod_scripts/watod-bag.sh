@@ -43,6 +43,32 @@ if [[ $# -gt 0 && ("$1" == "convert_ros1" || "$1" == "convert-ros1") ]]; then
   exit $?
 fi
 
+if [[ $# -gt 0 && ("$1" == "li_init" || "$1" == "li-init") ]]; then
+  shift
+  echo "Running ROS1 LI-Init on a ROS1 .bag (offline)"
+  echo "Note: this runs in a dedicated ROS1 container and writes a result file into /bags."
+
+  li_init_image="${COMPOSE_PROJECT_NAME:-watod}-li-init:${TAG:-latest}"
+  li_init_context="$MONO_DIR/watod_scripts/tools/li-init"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: docker not found. This command runs LI-Init in a container." >&2
+    exit 1
+  fi
+
+  if ! docker image inspect "$li_init_image" >/dev/null 2>&1; then
+    echo "Building LI-Init image: $li_init_image"
+    docker build -t "$li_init_image" "$li_init_context"
+  fi
+
+  docker run --rm -t \
+    -v "$BAG_DIRECTORY:/bags" \
+    -w /bags \
+    "$li_init_image" \
+    "$@"
+  exit $?
+fi
+
 # Handle custom ls command
 if [[ $# -gt 0 && "$1" == "ls" ]]; then
   echo "Usage: watod bag play <path>"
