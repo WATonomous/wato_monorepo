@@ -9,10 +9,9 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code needed for perception build
-COPY src/perception/perception_bringup perception_bringup
-COPY src/perception/patchwork patchwork
-COPY src/perception/tracking tracking
+COPY src/perception perception
 COPY src/wato_test wato_test
+COPY src/infrastructure/wato_lifecycle_manager infrastructure/wato_lifecycle_manager
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible
