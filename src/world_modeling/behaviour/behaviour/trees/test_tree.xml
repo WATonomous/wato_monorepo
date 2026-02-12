@@ -11,7 +11,7 @@
 
                 <!-- Ensure goal is not reached -->
                 <Inverter>
-                    <GoalReached current_point="{ego_point}" goal_point="{goal_point}"
+                    <GoalReached ego_odom="{ego_odom}" goal_lanelet="{goal_lanelet}"
                         threshold_m="{@bt.goal_reached_threshold_m}" />
                 </Inverter>
 
@@ -30,6 +30,7 @@
                             route="{global_route}"
                             route_index_map="{global_route_index_map}"
                             route_lanelet_ids="{global_route_lanelet_ids}"
+                            goal_lanelet="{goal_lanelet}"
                             error_message="{get_shortest_route_error_msg}"
                             service_name="/world_modeling/get_shortest_route" />
 
@@ -51,6 +52,7 @@
                             <GetShortestRoute route="{global_route}"
                                 route_index_map="{global_route_index_map}"
                                 route_lanelet_ids="{global_route_lanelet_ids}"
+                                goal_lanelet="{goal_lanelet}"
                                 error_message="{get_shortest_route_error_msg}"
                                 service_name="/world_modeling/get_shortest_route" />
 

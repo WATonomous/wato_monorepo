@@ -103,7 +103,10 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto lookahead_threshold_m = ports::tryGet<double>(*this, "lookahead_threshold_m").value_or(40.0);
+    auto lookahead_threshold_m = ports::tryGet<double>(*this, "lookahead_threshold_m");
+    if (!ports::require(lookahead_threshold_m, "lookahead_threshold_m", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
 
     // ------------- using lookahead distance -------------
     // check the current lanelet first
@@ -125,7 +128,7 @@ public:
     for (std::size_t i = 0; i < m; ++i) {
       const double dist = lane_ctx->upcoming_lanelet_distances_m[i];
       if (dist < 0.0) continue;  // if your msg ever uses -1
-      if (dist > lookahead_threshold_m) break;  // distances are increasing in order
+      if (dist > *lookahead_threshold_m) break;  // distances are increasing in order
 
       const int64_t lanelet_id = lane_ctx->upcoming_lanelet_ids[i];
 

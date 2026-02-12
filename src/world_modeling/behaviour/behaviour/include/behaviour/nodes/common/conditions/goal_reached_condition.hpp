@@ -17,11 +17,15 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <cmath>
+#include <cstdint>
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "behaviour/utils/utils.hpp"
-#include "geometry_msgs/msg/point.hpp"
+#include "lanelet_msgs/msg/lanelet.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 
 namespace behaviour
 {
@@ -39,8 +43,8 @@ public:
   static BT::PortsList providedPorts()
   {
     return {
-      BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("current_point"),
-      BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point"),
+      BT::InputPort<nav_msgs::msg::Odometry::SharedPtr>("ego_odom"),
+      BT::InputPort<lanelet_msgs::msg::Lanelet::SharedPtr>("goal_lanelet"),
       BT::InputPort<double>("threshold_m")};
   };
 
@@ -50,30 +54,44 @@ public:
       std::cout << "[GoalReached]: Missing " << port_name << " input" << std::endl;
     };
 
-    geometry_msgs::msg::Point::SharedPtr gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
-    if (!ports::require(gp, "goal_point", missing_input_callback)) {
+    auto ego_odom = ports::tryGetPtr<nav_msgs::msg::Odometry>(*this, "ego_odom");
+    if (!ports::require(ego_odom, "ego_odom", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    geometry_msgs::msg::Point::SharedPtr cp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "current_point");
-    if (!ports::require(cp, "current_point", missing_input_callback)) {
+    auto goal_lanelet = ports::tryGetPtr<lanelet_msgs::msg::Lanelet>(*this, "goal_lanelet");
+    if (!ports::require(goal_lanelet, "goal_lanelet", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+    if (goal_lanelet->centerline.empty()) {
+      std::cout << "[GoalReached]: goal_lanelet centerline is empty" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
-    double threshold = ports::tryGet<double>(*this, "threshold_m").value_or(1.0);
+    auto threshold_m = ports::tryGet<double>(*this, "threshold_m");
+    if (!ports::require(threshold_m, "threshold_m", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    // Goal-point distance check removed: we now measure distance to end of goal lanelet centerline.
+    const auto & cp = ego_odom->pose.pose.position;
+    const auto & lanelet_end_point = goal_lanelet->centerline.back();
+    const double threshold = *threshold_m;
 
     // Calculate 2D distance
-    double dx = gp->x - cp->x;
-    double dy = gp->y - cp->y;
-    double distance = std::sqrt(dx * dx + dy * dy);
+    const double dx = lanelet_end_point.x - cp.x;
+    const double dy = lanelet_end_point.y - cp.y;
+    const double distance = std::sqrt(dx * dx + dy * dy);
 
     // Check if within threshold
     if (distance <= threshold) {
-      std::cout << "[GoalReached]: Distance " << distance << " is within threshold " << threshold << std::endl;
+      std::cout << "[GoalReached]: Distance " << distance << " is within threshold " << threshold
+                << " (goal_lanelet_id=" << goal_lanelet->id << ")" << std::endl;
       return BT::NodeStatus::SUCCESS;
     }
 
-    std::cout << "[GoalReached]: Distance " << distance << " is outside threshold " << threshold << std::endl;
+    std::cout << "[GoalReached]: Distance " << distance << " is outside threshold " << threshold
+              << " (goal_lanelet_id=" << goal_lanelet->id << ")" << std::endl;
     return BT::NodeStatus::FAILURE;
   }
 };

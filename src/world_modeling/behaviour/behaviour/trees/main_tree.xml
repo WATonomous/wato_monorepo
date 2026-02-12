@@ -9,17 +9,13 @@
         <!-- Ensure goal exists -->
         <GoalExist goal_point="{goal_point}" />
 
-        <!-- Ensure goal is not reached -->
-        <Inverter>
-          <GoalReached current_point="{ego_point}" goal_point="{goal_point}"
-            threshold_m="{@bt.goal_reached_threshold_m}" />
-        </Inverter>
-
         <!-- Ensure path exists -->
         <Fallback name="Ensure Route">
 
+          <!-- Essentially do we need to get the route -->
           <Sequence name="IsGlobalRouteValid">
             <GlobalRouteExist route="{global_route}" />
+            <GoalLaneletExist goal_lanelet="{goal_lanelet}" />
             <EgoOnRoute route_index_map="{global_route_index_map}"
               lane_ctx="{current_lane_ctx}" />
           </Sequence>
@@ -30,6 +26,7 @@
               route="{global_route}"
               route_index_map="{global_route_index_map}"
               route_lanelet_ids="{global_route_lanelet_ids}"
+              goal_lanelet="{goal_lanelet}"
               error_message="{get_shortest_route_error_msg}"
               service_name="/world_modeling/get_shortest_route" />
 
@@ -41,9 +38,10 @@
                   expected="no_active_route" />
               </Fallback>
 
-              <RetryUntilSuccessful num_attempts="10">
+              <RetryUntilSuccessful num_attempts="8">
                 <RateController hz="1.0">
-                  <SetRoute goal_point="{goal_point}"
+                  <SetRoute
+                    goal_point="{goal_point}"
                     service_name="/world_modeling/set_route" />
                 </RateController>
               </RetryUntilSuccessful>
@@ -51,6 +49,7 @@
               <GetShortestRoute route="{global_route}"
                 route_index_map="{global_route_index_map}"
                 route_lanelet_ids="{global_route_lanelet_ids}"
+                goal_lanelet="{goal_lanelet}"
                 error_message="{get_shortest_route_error_msg}"
                 service_name="/world_modeling/get_shortest_route" />
 
@@ -59,6 +58,14 @@
           </Fallback>
 
         </Fallback>
+
+        <!-- Ensure goal is not reached -->
+        <Inverter>
+          <GoalReached
+            ego_odom="{ego_odom}"
+            goal_lanelet="{goal_lanelet}"
+            threshold_m="{@bt.goal_reached_threshold_m}" />
+        </Inverter>
 
         <!-- navigation and intersection behaviour run in parallel -->
         <ParallelAll max_failures="-1">

@@ -18,7 +18,6 @@ There is more comments and info under `/config/param.yaml`
 | ------------------------------------------------------ | -------- | ------------------------------ | ------------------------------------------------- |
 | `bt_tree_file`                                         | string   | `main_tree.xml`                | Behavior tree XML file to load                    |
 | `rate_hz`                                              | double   | 10.0                           | Tree tick frequency                               |
-| `ego_state_rate_hz`                                    | double   | 20.0                           | Ego pose TF lookup rate                           |
 | `map_frame`                                            | string   | `map`                          | Map frame ID                                      |
 | `base_frame`                                           | string   | `base_link`                    | Robot base frame ID                               |
 | `bt.traffic_light_state_hypothesis_index`              | int      | 1                              | Hypothesis index for traffic light state          |
@@ -46,6 +45,7 @@ There is more comments and info under `/config/param.yaml`
 | Topic            | Type                                  | Description                       |
 | ---------------- | ------------------------------------- | --------------------------------- |
 | `goal_point`     | `geometry_msgs/PointStamped`          | Goal position                     |
+| `ego_odom`       | `nav_msgs/Odometry`                   | Ego pose and twist                |
 | `lane_context`   | `lanelet_msgs/CurrentLaneContext`     | Current lane information          |
 | `world_objects`  | `world_model_msgs/DynamicObjectArray` | Tracked dynamic objects           |
 | `area_occupancy` | `world_model_msgs/AreaOccupancyArray` | Occupancy status of defined areas |

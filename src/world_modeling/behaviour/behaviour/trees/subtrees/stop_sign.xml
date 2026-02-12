@@ -19,7 +19,7 @@
                 wall_id="{stop_sign.wall_id}"
                 error_message="{spawn_wall_error_msg}" />
 
-            <EgoStopped ego_velocity="{ego_velocity}"
+            <EgoStopped ego_odom="{ego_odom}"
                 threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
 
             <!-- Fetch lanelets controlled by this regulatory element -->

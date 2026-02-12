@@ -15,6 +15,7 @@
 #ifndef BEHAVIOUR__NODES__COMMON__ACTIONS__SET_ROUTE_SERVICE_HPP_
 #define BEHAVIOUR__NODES__COMMON__ACTIONS__SET_ROUTE_SERVICE_HPP_
 
+#include <cstdint>
 #include <string>
 
 #include <behaviortree_ros2/bt_service_node.hpp>

@@ -228,6 +228,8 @@ launch:
           to: /world_modeling/area_occupancy
         - from: goal_point
           to: /goal_point
+        - from: ego/odom
+          to: /ego/odom
 
   # Behaviour Tree visualization markers
   - node:

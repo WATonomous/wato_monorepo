@@ -19,9 +19,11 @@
 
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "behaviour/utils/utils.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 
 namespace behaviour
 {
@@ -40,7 +42,7 @@ public:
   static BT::PortsList providedPorts()
   {
     return {
-      BT::InputPort<double>("ego_velocity"),
+      BT::InputPort<nav_msgs::msg::Odometry::SharedPtr>("ego_odom"),
       BT::InputPort<double>("threshold_velocity"),
     };
   }
@@ -51,21 +53,24 @@ public:
       std::cout << "[EgoStopped]: Missing " << port_name << " input" << std::endl;
     };
 
-    auto ego_vel = ports::tryGet<double>(*this, "ego_velocity");
-    const double thresh = ports::tryGet<double>(*this, "threshold_velocity").value_or(0.1);
-
-    if (!ports::require(ego_vel, "ego_velocity", missing_input_callback)) {
+    auto ego_odom = ports::tryGetPtr<nav_msgs::msg::Odometry>(*this, "ego_odom");
+    if (!ports::require(ego_odom, "ego_odom", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+    auto threshold_velocity = ports::tryGet<double>(*this, "threshold_velocity");
+    if (!ports::require(threshold_velocity, "threshold_velocity", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    const double v = *ego_vel;
+    const double v = std::hypot(ego_odom->twist.twist.linear.x, ego_odom->twist.twist.linear.y);
+    const double thresh = *threshold_velocity;
 
-    if (std::fabs(v) <= thresh) {
-      std::cout << "[EgoStopped]: ego_velocity " << v << " <= threshold_velocity " << thresh << std::endl;
+    if (v <= thresh) {
+      std::cout << "[EgoStopped]: speed " << v << " <= threshold_velocity " << thresh << std::endl;
       return BT::NodeStatus::SUCCESS;
     }
 
-    std::cout << "[EgoStopped]: ego_velocity " << v << " > threshold_velocity " << thresh << std::endl;
+    std::cout << "[EgoStopped]: speed " << v << " > threshold_velocity " << thresh << std::endl;
     return BT::NodeStatus::FAILURE;
   }
 };

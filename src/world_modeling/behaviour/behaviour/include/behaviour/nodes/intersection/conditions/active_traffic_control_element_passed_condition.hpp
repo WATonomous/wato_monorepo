@@ -84,7 +84,10 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    const int lanelet_threshold = ports::tryGet<int>(*this, "lanelet_threshold").value_or(2);
+    auto lanelet_threshold = ports::tryGet<int>(*this, "lanelet_threshold");
+    if (!ports::require(lanelet_threshold, "lanelet_threshold", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
 
     const int64_t active_id = *active_lanelet_id;
     const int64_t ego_id = lane_ctx->current_lanelet.id;
@@ -106,7 +109,7 @@ public:
     const std::size_t idx_active = it_active->second;
     const std::size_t idx_ego = it_ego->second;
 
-    const std::size_t required = idx_active + static_cast<std::size_t>(std::max(0, lanelet_threshold));
+    const std::size_t required = idx_active + static_cast<std::size_t>(std::max(0, *lanelet_threshold));
 
     std::cout << "[ActiveTrafficControlElementPassed] idx_ego=" << idx_ego << " idx_active=" << idx_active
               << " required>=" << required << " ego_lanelet=" << ego_id << " active_lanelet=" << active_id << std::endl;

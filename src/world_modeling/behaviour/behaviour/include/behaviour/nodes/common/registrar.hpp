@@ -34,6 +34,7 @@
 #include "behaviour/nodes/common/conditions/ego_stopped_condition.hpp"
 #include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
+#include "behaviour/nodes/common/conditions/goal_lanelet_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
 #include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
 #include "behaviour/nodes/common/conditions/wall_exist_condition.hpp"
@@ -80,6 +81,7 @@ public:
     factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist");
     factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
     factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
+    factory.registerNodeType<behaviour::GoalLaneletExistCondition>("GoalLaneletExist");
     factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
     factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute");
     factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped");

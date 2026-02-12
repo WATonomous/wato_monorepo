@@ -63,6 +63,11 @@ public:
     // Check if current lanelet ID exists in the route index map
     auto it = route_index_map->find(ctx->current_lanelet.id);
 
+    // log for debugging
+    (it != route_index_map->end())
+      ? std::cout << "[EgoOnRoute]: Current lanelet " << ctx->current_lanelet.id << " is on the route" << std::endl
+      : std::cout << "[EgoOnRoute]: Current lanelet " << ctx->current_lanelet.id << " is not on the route" << std::endl;
+
     return (it != route_index_map->end()) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

@@ -20,9 +20,6 @@ behaviour_node:
     # How often to tick the tree (Hz)
     rate_hz: 10.0
 
-    # How often to update ego pose from TF (Hz)
-    ego_state_rate_hz: 20.0
-
     # Frame parameters
     map_frame: "map"
     base_frame: "base_link"
