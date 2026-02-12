@@ -65,11 +65,16 @@ target_link_libraries(${PROJECT_NAME}_lib
     ${tf2_geometry_msgs_TARGETS}
 )
 
-# Add the executable
-add_executable(${PROJECT_NAME}_node src/main.cpp)
+# Add the executable (uncomment if using this package's main)
+# add_executable(${PROJECT_NAME}_node src/main.cpp)
 
-target_link_libraries(${PROJECT_NAME}_node
-    PRIVATE ${PROJECT_NAME}_lib
+# target_link_libraries(${PROJECT_NAME}_node
+#     PRIVATE ${PROJECT_NAME}_lib
+# )
+
+# Register the component
+rclcpp_components_register_nodes(${PROJECT_NAME}_lib
+  "TrackingNode"
 )
 
 # Install library
@@ -79,10 +84,10 @@ install(TARGETS ${PROJECT_NAME}_lib
     RUNTIME DESTINATION bin
 )
 
-# Install the executable
-install(TARGETS ${PROJECT_NAME}_node RUNTIME
-    DESTINATION lib/${PROJECT_NAME}
-)
+# Install the executable (uncomment if using this package's main)
+# install(TARGETS ${PROJECT_NAME}_node RUNTIME
+#     DESTINATION lib/${PROJECT_NAME}
+# )
 
 # Install launch and config files
 install(DIRECTORY launch config
