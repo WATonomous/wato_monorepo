@@ -49,10 +49,22 @@ services:
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
     image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
+    runtime: nvidia
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/perception:/ws/src/perception
       - ${MONO_DIR}/bags:/ws/bags
+      - ${MONO_DIR}/models:/ws/models
+      - ${MONO_DIR}/models:/workspaces/deep_ros
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
 
 #################### WORLD_MODELING SERVICE ####################
   world_modeling_bringup_dev:
