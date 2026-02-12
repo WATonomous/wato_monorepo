@@ -9,6 +9,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(wato_trajectory_msgs REQUIRED)
@@ -27,6 +29,8 @@ ament_target_dependencies(mppi_core
   ackermann_msgs
   tf2_msgs
   wato_trajectory_msgs
+  visualization_msgs
+  geometry_msgs
 )
 
 add_executable(mppi_node src/mppi_node.cpp)
@@ -43,6 +47,8 @@ ament_target_dependencies(mppi_node
   ackermann_msgs
   tf2_msgs
   wato_trajectory_msgs
+  visualization_msgs
+  geometry_msgs
 )
 
 # Install BOTH the executable and the library

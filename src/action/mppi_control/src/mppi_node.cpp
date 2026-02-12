@@ -18,6 +18,9 @@ float64[] speeds
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include "mppi_core.hpp"
 #include <wato_trajectory_msgs/msg/trajectory.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <geometry_msgs/msg/quaternion.hpp>
+
 class MppiNode : public rclcpp::Node {
 public:
     MppiNode() : Node("mppi_node") {
@@ -91,6 +94,9 @@ public:
         //control publisher
         control_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(control_topic_, 10);
 
+        //marker array publisher for visualization in foxglove
+        marker_array_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("mppi_markers", 10);
+
     }
 
     double quaternion_to_yaw(const geometry_msgs::msg::Quaternion& q) {
@@ -104,9 +110,9 @@ public:
         //RCLCPP_INFO(this->get_logger(), "Odom received");
         mppi_core_->update_pose(msg->pose.pose.position.x, msg->pose.pose.position.y, quaternion_to_yaw(msg->pose.pose.orientation));
         mppi_core_->update_velocity(msg->twist.twist.linear.x);
-        RCLCPP_INFO(this->get_logger(), "Pose updated: x=%.2f, y=%.2f, yaw=%.2f, v=%.2f", 
-            msg->pose.pose.position.x, msg->pose.pose.position.y, 
-            quaternion_to_yaw(msg->pose.pose.orientation), msg->twist.twist.linear.x);
+        //RCLCPP_INFO(this->get_logger(), "Pose updated: x=%.2f, y=%.2f, yaw=%.2f, v=%.2f", 
+        //    msg->pose.pose.position.x, msg->pose.pose.position.y, 
+        //    quaternion_to_yaw(msg->pose.pose.orientation), msg->twist.twist.linear.x);
         valid_odom_ = true;
         valid_pose_ = true;
     }
@@ -115,6 +121,8 @@ public:
         RCLCPP_INFO(this->get_logger(), "Trajectory received with %zu points", msg->points.size());
         //turn trajectory into vector of States
         std::vector<State> traj;
+        visualization_msgs::msg::MarkerArray marker_array;
+
         for (size_t i = 0; i < msg->points.size(); i++) {
             State state;
             state.x = msg->points[i].pose.position.x;
@@ -122,8 +130,27 @@ public:
             state.yaw = quaternion_to_yaw(msg->points[i].pose.orientation);
             state.v = msg->points[i].max_speed;
             traj.push_back(state);
-        }
 
+            //publish marker array for visualization in foxglove
+
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = msg->header.frame_id;
+            marker.header.stamp = msg->header.stamp;
+            marker.ns = "trajectory";
+            marker.id = i;
+            marker.type = visualization_msgs::msg::Marker::ARROW;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+            marker.pose = msg->points[i].pose;
+            marker.scale.x = 0.2; // arrow length
+            marker.scale.y = 0.05; // arrow width
+            marker.scale.z = 0.05; // arrow height
+            marker.color.a = 1.0; // alpha
+            marker.color.r = 0.0;
+            marker.color.g = 1.0;
+            marker.color.b = 0.0;
+            marker_array.markers.push_back(marker);
+        }
+        marker_array_pub_->publish(marker_array);
         mppi_core_->update_trajectory(traj);
         valid_trajectory_ = true;
 
@@ -140,7 +167,7 @@ public:
 
     void publish_control_command() {
         auto control_msg = ackermann_msgs::msg::AckermannDriveStamped();
-        Control_Output control_output = mppi_core_->computeControl();
+        
 
         control_msg.header.stamp = this->now();
 
@@ -150,13 +177,14 @@ public:
             control_msg.drive.acceleration = 0.0;   
         }
         else {
+            Control_Output control_output = mppi_core_->computeControl();
             control_msg.drive.steering_angle = control_output.delta;
             control_msg.drive.acceleration = control_output.a;
         }
 
         control_pub_->publish(control_msg);
 
-        RCLCPP_INFO(this->get_logger(), "Control command published");
+        RCLCPP_DEBUG(this->get_logger(), "Control command published");
     }
 
 
@@ -173,6 +201,8 @@ private:
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_sub_;
     rclcpp::TimerBase::SharedPtr control_timer_;
 
+    //marker array publisher for visualization in foxglove
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_array_pub_;
     //control publisher
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr control_pub_;
 

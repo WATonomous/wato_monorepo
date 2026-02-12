@@ -37,8 +37,6 @@ MppiCore::MppiCore(int num_samples, double time_horizon, int num_time_step,
 State MppiCore::step_bicycle(const State& s, double a, double delta, double dt, double L) {
     State ns = s;
 
-    //sampling noise from truncated guassian(adding clamps) - consider clamps only on nominal control inputs
-
     a = std::clamp(a, -1.0*accel_max_, accel_max_);
     delta = std::clamp(delta, -1.0*steer_angle_max_,steer_angle_max_);
 
@@ -102,26 +100,29 @@ std::vector<double> MppiCore::eval_trajectories_scores(){
             double prev_u_a = optimal_control_sequence_.A(0, 0);
             double prev_u_delta = optimal_control_sequence_.D(0, 0);
 
-            for(int t=0; t<num_time_step_; t++){
-                double u_a = optimal_control_sequence_.A(0, t) + noise_samples_.A(k, t);
-                double u_delta = optimal_control_sequence_.D(0, t) + noise_samples_.D(k, t);
+            for (int t = 0; t < num_time_step_; t++) {
+                const double u_a_nom = optimal_control_sequence_.A(0, t);
+                const double u_d_nom = optimal_control_sequence_.D(0, t);
+
+                const double eps_a = noise_samples_.A(k, t);
+                const double eps_d = noise_samples_.D(k, t);
+
+                double u_a = std::clamp(u_a_nom + eps_a, -accel_max_, accel_max_);
+                double u_d = std::clamp(u_d_nom + eps_d, -steer_angle_max_, steer_angle_max_);
 
                 State old_state = sim_state;
-                sim_state = step_bicycle(sim_state, u_a, u_delta, dt_, L_);
-                // store sim_state if needed
-                trajectory_costs[k] += compute_costs(old_state, sim_state, u_a, u_delta, prev_u_a, prev_u_delta);
-                // MPPI noise quadratic term (REQUIRED)
-                trajectory_costs[k] +=
-                    0.5 *
-                    ( (noise_samples_.A(k, t) * noise_samples_.A(k, t)) /
-                        (a_noise_std_ * a_noise_std_) +
-                    (noise_samples_.D(k, t) * noise_samples_.D(k, t)) /
-                        (delta_noise_std_ * delta_noise_std_) );
+                sim_state = step_bicycle(sim_state, u_a, u_d, dt_, L_);
 
+                trajectory_costs[k] += compute_costs(old_state, sim_state, u_a, u_d, prev_u_a, prev_u_delta);
 
+                const double inv_var_a = 1.0 / (a_noise_std_ * a_noise_std_);
+                const double inv_var_d = 1.0 / (delta_noise_std_ * delta_noise_std_);
+
+                trajectory_costs[k] += lambda_ * (u_a_nom * eps_a * inv_var_a + u_d_nom * eps_d * inv_var_d);
+                trajectory_costs[k] += 0.5 * lambda_ * (eps_a * eps_a * inv_var_a + eps_d * eps_d * inv_var_d);
 
                 prev_u_a = u_a;
-                prev_u_delta = u_delta;
+                prev_u_delta = u_d;
             }
             trajectory_costs[k] += critic_.terminal_cost(sim_state.x, sim_state.y, sim_state.yaw, sim_state.v);
         }
