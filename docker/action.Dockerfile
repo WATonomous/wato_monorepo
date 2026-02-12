@@ -15,6 +15,8 @@ COPY src/wato_test wato_test
 COPY src/world_modeling/lanelet_msgs lanelet_msgs
 COPY src/world_modeling/world_model_msgs world_model_msgs
 COPY src/world_modeling/behaviour_msgs behaviour_msgs
+COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
+
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible
