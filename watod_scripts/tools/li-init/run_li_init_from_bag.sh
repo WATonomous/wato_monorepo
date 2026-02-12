@@ -65,6 +65,11 @@ if [[ ! -f "$bag" ]]; then
   exit 2
 fi
 
+# ROS Noetic's catkin profile scripts may reference ROS_MASTER_URI, and this
+# script runs with `set -u`.
+export ROS_MASTER_URI="${ROS_MASTER_URI:-http://localhost:11311}"
+export ROS_HOSTNAME="${ROS_HOSTNAME:-localhost}"
+
 # Source ROS and workspace
 source /opt/ros/noetic/setup.bash
 source /catkin_ws/devel/setup.bash
