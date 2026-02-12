@@ -27,6 +27,9 @@ endif()
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -51,10 +54,13 @@ target_link_libraries(${PROJECT_NAME}_lib
     PUBLIC
     bytetrack_cpp_vendor::bytetrack
     rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
     ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${tf2_ros_TARGETS}
     PRIVATE
+    rclcpp_components::component
+    ${lifecycle_msgs_TARGETS}
     ${tf2_LIBRARIES}
     ${tf2_geometry_msgs_TARGETS}
 )
