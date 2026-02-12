@@ -38,6 +38,7 @@ if [[ $# -gt 0 && ("$1" == "convert_ros1" || "$1" == "convert-ros1") ]]; then
 
   docker run --rm -t \
     -v "$BAG_DIRECTORY:/bags" \
+    -v "$MONO_DIR/watod_scripts/tools/bag-converter/convert_ros2_mcap_to_ros1_bag.py:/tool/convert_ros2_mcap_to_ros1_bag.py:ro" \
     -w /bags \
     "$converter_image" \
     "$@"
@@ -65,6 +66,7 @@ if [[ $# -gt 0 && ("$1" == "li_init" || "$1" == "li-init") ]]; then
 
   docker run --rm -t \
     -v "$BAG_DIRECTORY:/bags" \
+    -v "$MONO_DIR/watod_scripts/tools/li-init/run_li_init_from_bag.sh:/tool/run_li_init_from_bag.sh:ro" \
     -w /bags \
     "$li_init_image" \
     "$@"
