@@ -2,14 +2,7 @@
 
 ## Dependencies
 
-| ROS 2 | Other |
-|-------|-----------------------|
-| `rclcpp` | [ByteTrack-cpp](https://github.com/Vertical-Beach/ByteTrack-cpp) |
-| `std_msgs` | `eigen3-cmake-module` |
-| `vision_msgs` | `Eigen3` |
-| `tf2` | |
-| `tf2_ros` | |
-| `tf2_geometry_msgs` | |
+Refer to package.xml
 
 ## Building
 
