@@ -29,10 +29,8 @@ WORKDIR /catkin_ws/src
 # (We clone at build time so the monorepo doesn't vendor GPL code.)
 ARG LI_INIT_REPO=https://github.com/hku-mars/lidar_imu_init.git
 ARG LI_INIT_REF=main
-RUN git clone --depth 1 --branch ${LI_INIT_REF} ${LI_INIT_REPO} lidar_imu_init
-
-# livox_ros_driver is required to build headers even for non-Livox paths
-RUN git clone --depth 1 --branch v2.6.0 https://github.com/Livox-SDK/livox_ros_driver.git
+RUN git clone --depth 1 --branch ${LI_INIT_REF} ${LI_INIT_REPO} lidar_imu_init \
+  && git clone --depth 1 --branch v2.6.0 https://github.com/Livox-SDK/livox_ros_driver.git
 
 WORKDIR /catkin_ws
 RUN source /opt/ros/noetic/setup.bash \
