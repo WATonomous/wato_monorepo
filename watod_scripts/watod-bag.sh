@@ -17,6 +17,62 @@ set -euo pipefail
 # Ensure bags directory exists
 mkdir -p "$BAG_DIRECTORY"
 
+if [[ $# -gt 0 && ("$1" == "convert_ros1" || "$1" == "convert-ros1") ]]; then
+  shift
+  echo "Converting ROS2 MCAP -> ROS1 .bag (offline)"
+  echo "Note: convert_ros1 supports only selected topics; use --help for usage."
+
+  converter_image="${COMPOSE_PROJECT_NAME:-watod}-bag-converter:${TAG:-latest}"
+  converter_context="$MONO_DIR/watod_scripts/tools/bag-converter"
+  force_rebuild="${WATOD_TOOLS_REBUILD:-0}"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: docker not found. This command runs the converter in a container." >&2
+    exit 1
+  fi
+
+  if [[ "$force_rebuild" == "1" ]] || ! docker image inspect "$converter_image" >/dev/null 2>&1; then
+    echo "Building converter image: $converter_image"
+    docker build -t "$converter_image" "$converter_context"
+  fi
+
+  docker run --rm -t \
+    -v "$BAG_DIRECTORY:/bags" \
+    -v "$MONO_DIR/watod_scripts/tools/bag-converter/convert_ros2_mcap_to_ros1_bag.py:/tool/convert_ros2_mcap_to_ros1_bag.py:ro" \
+    -w /bags \
+    "$converter_image" \
+    "$@"
+  exit $?
+fi
+
+if [[ $# -gt 0 && ("$1" == "li_init" || "$1" == "li-init") ]]; then
+  shift
+  echo "Running ROS1 LI-Init on a ROS1 .bag (offline)"
+  echo "Note: this runs in a dedicated ROS1 container and writes a result file into /bags."
+
+  li_init_image="${COMPOSE_PROJECT_NAME:-watod}-li-init:${TAG:-latest}"
+  li_init_context="$MONO_DIR/watod_scripts/tools/li-init"
+  force_rebuild="${WATOD_TOOLS_REBUILD:-0}"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: docker not found. This command runs LI-Init in a container." >&2
+    exit 1
+  fi
+
+  if [[ "$force_rebuild" == "1" ]] || ! docker image inspect "$li_init_image" >/dev/null 2>&1; then
+    echo "Building LI-Init image: $li_init_image"
+    docker build -t "$li_init_image" "$li_init_context"
+  fi
+
+  docker run --rm -t \
+    -v "$BAG_DIRECTORY:/bags" \
+    -v "$MONO_DIR/watod_scripts/tools/li-init/run_li_init_from_bag.sh:/tool/run_li_init_from_bag.sh:ro" \
+    -w /bags \
+    "$li_init_image" \
+    "$@"
+  exit $?
+fi
+
 # Handle custom ls command
 if [[ $# -gt 0 && "$1" == "ls" ]]; then
   echo "Usage: watod bag play <path>"
