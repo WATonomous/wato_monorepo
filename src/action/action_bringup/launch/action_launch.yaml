@@ -17,3 +17,19 @@ launch:
           to: "/ego/odom"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
+
+  # Lifecycle Manager
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "action_lifecycle_manager"
+      namespace: "action"
+      param:
+        - name: "node_names"
+          value: ["/action/local_planning/local_planner_node"]
+        - name: "autostart"
+          value: true
+        - name: "bond_enabled"
+          value: false
+
+
