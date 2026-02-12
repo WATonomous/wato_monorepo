@@ -29,3 +29,4 @@ This tool is intended to be invoked via `./watod bag li_init ...`.
   - Rotation/translation from LiDAR to IMU
   - Time lag IMU to LiDAR (seconds)
   - IMU biases and gravity estimate
+- LI-Init is a ROS1 repo. Best practice is to seperate it from src/interfacing/calibration as they are ROS2-based
