@@ -12,7 +12,6 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <exec_depend>model_predictive_control</exec_depend>
   <exec_depend>local_planning</exec_depend>
 
   <export>
