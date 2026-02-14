@@ -10,13 +10,13 @@
 
 #include "local_planning_msgs/msg/path_array.hpp"
 
-namespace local_planning_markers
+namespace lattice_planning_markers
 {
 
-class LocalPlanningMarkersNode : public rclcpp::Node
+class LatticePlanningMarkersNode : public rclcpp::Node
 {
 public:
-  explicit LocalPlanningMarkersNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  explicit LatticePlanningMarkersNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
   void pathCallback(const nav_msgs::msg::Path::SharedPtr msg);
@@ -55,4 +55,4 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr available_paths_markers_pub_;
 };
 
-}  // namespace local_planning_markers
+}  // namespace lattice_planning_markers

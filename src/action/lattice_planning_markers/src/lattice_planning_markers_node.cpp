@@ -1,4 +1,4 @@
-#include "local_planning_markers/local_planning_markers_node.hpp"
+#include "lattice_planning_markers/lattice_planning_markers_node.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -10,11 +10,11 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
-namespace local_planning_markers
+namespace lattice_planning_markers
 {
 
-LocalPlanningMarkersNode::LocalPlanningMarkersNode(const rclcpp::NodeOptions & options)
-: rclcpp::Node("local_planning_markers_node", options)
+LatticePlanningMarkersNode::LatticePlanningMarkersNode(const rclcpp::NodeOptions & options)
+: rclcpp::Node("lattice_planning_markers_node", options)
 {
   // Subscription topics
   path_topic_ = this->declare_parameter<std::string>("path_topic", "path");
@@ -28,7 +28,7 @@ LocalPlanningMarkersNode::LocalPlanningMarkersNode(const rclcpp::NodeOptions & o
     this->declare_parameter<std::string>("available_paths_markers_topic", "available_paths_markers");
 
   // Appearance parameters.
-  path_line_width_ = this->declare_parameter<double>("path_line_width", 0.99);
+  path_line_width_ = this->declare_parameter<double>("path_line_width", 0.05);
   available_path_line_width_ = this->declare_parameter<double>("available_path_line_width", 0.03);
   available_paths_alpha_ = this->declare_parameter<double>("available_paths_alpha", 0.85);
   max_available_paths_ = this->declare_parameter<int>("max_available_paths", 50);
@@ -44,26 +44,26 @@ LocalPlanningMarkersNode::LocalPlanningMarkersNode(const rclcpp::NodeOptions & o
 
   path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
     path_topic_, rclcpp::QoS(10),
-    std::bind(&LocalPlanningMarkersNode::pathCallback, this, std::placeholders::_1));
+    std::bind(&LatticePlanningMarkersNode::pathCallback, this, std::placeholders::_1));
 
   available_paths_sub_ = this->create_subscription<local_planning_msgs::msg::PathArray>(
     available_paths_topic_, rclcpp::QoS(10),
-    std::bind(&LocalPlanningMarkersNode::availablePathsCallback, this, std::placeholders::_1));
+    std::bind(&LatticePlanningMarkersNode::availablePathsCallback, this, std::placeholders::_1));
 }
 
-visualization_msgs::msg::Marker LocalPlanningMarkersNode::makeDeleteAllMarker(
+visualization_msgs::msg::Marker LatticePlanningMarkersNode::makeDeleteAllMarker(
   const std_msgs::msg::Header & header) const
 {
   visualization_msgs::msg::Marker m;
   m.header = header;
-  m.ns = "local_planning";
+  m.ns = "lattice_planning";
   m.id = 0;
   m.type = visualization_msgs::msg::Marker::SPHERE;  // type is ignored for DELETEALL
   m.action = visualization_msgs::msg::Marker::DELETEALL;
   return m;
 }
 
-visualization_msgs::msg::MarkerArray LocalPlanningMarkersNode::pathToLineStripMarkers(
+visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathToLineStripMarkers(
   const nav_msgs::msg::Path & path,
   const std::string & ns,
   int32_t id,
@@ -99,7 +99,7 @@ visualization_msgs::msg::MarkerArray LocalPlanningMarkersNode::pathToLineStripMa
   return out;
 }
 
-visualization_msgs::msg::MarkerArray LocalPlanningMarkersNode::pathArrayToMarkers(
+visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathArrayToMarkers(
   const local_planning_msgs::msg::PathArray & path_array) const
 {
   visualization_msgs::msg::MarkerArray out;
@@ -159,7 +159,7 @@ visualization_msgs::msg::MarkerArray LocalPlanningMarkersNode::pathArrayToMarker
   return out;
 }
 
-void LocalPlanningMarkersNode::pathCallback(const nav_msgs::msg::Path::SharedPtr msg)
+void LatticePlanningMarkersNode::pathCallback(const nav_msgs::msg::Path::SharedPtr msg)
 {
   visualization_msgs::msg::MarkerArray out;
 
@@ -176,13 +176,13 @@ void LocalPlanningMarkersNode::pathCallback(const nav_msgs::msg::Path::SharedPtr
   path_markers_pub_->publish(out);
 }
 
-void LocalPlanningMarkersNode::availablePathsCallback(
+void LatticePlanningMarkersNode::availablePathsCallback(
   const local_planning_msgs::msg::PathArray::SharedPtr msg)
 {
   auto out = pathArrayToMarkers(*msg);
   available_paths_markers_pub_->publish(out);
 }
 
-}  // namespace local_planning_markers
+}  // namespace lattice_planning_markers
 
-RCLCPP_COMPONENTS_REGISTER_NODE(local_planning_markers::LocalPlanningMarkersNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(lattice_planning_markers::LatticePlanningMarkersNode)

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.14)
-project(local_planning_markers)
+project(lattice_planning_markers)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
@@ -33,17 +33,17 @@ find_package(local_planning_msgs REQUIRED)
 # ----------------------------
 # Component library
 # ----------------------------
-add_library(local_planning_markers_component SHARED
-  src/local_planning_markers_node.cpp
+add_library(lattice_planning_markers_component SHARED
+  src/lattice_planning_markers_node.cpp
 )
 
-target_include_directories(local_planning_markers_component
+target_include_directories(lattice_planning_markers_component
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(local_planning_markers_component
+ament_target_dependencies(lattice_planning_markers_component
   rclcpp
   rclcpp_components
   geometry_msgs
@@ -54,16 +54,16 @@ ament_target_dependencies(local_planning_markers_component
 
 # Register component and generate executable
 rclcpp_components_register_node(
-  local_planning_markers_component
-  PLUGIN "local_planning_markers::LocalPlanningMarkersNode"
-  EXECUTABLE local_planning_markers_node
+  lattice_planning_markers_component
+  PLUGIN "lattice_planning_markers::LatticePlanningMarkersNode"
+  EXECUTABLE lattice_planning_markers_node
 )
 
 # ----------------------------
 # Install
 # ----------------------------
 install(
-  TARGETS local_planning_markers_component
+  TARGETS lattice_planning_markers_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

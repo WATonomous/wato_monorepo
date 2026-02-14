@@ -17,15 +17,15 @@ launch:
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
   - node:
-      pkg: "local_planning_markers"
-      exec: "local_planning_markers_node"
-      name: "local_planning_markers_node"
-      namespace: "action/local_planning_markers"
+      pkg: "lattice_planning_markers"
+      exec: "lattice_planning_markers_node"
+      name: "lattice_planning_markers_node"
+      namespace: "action/lattice_planning_markers"
       output: "screen"
       param:
-        - from: "$(find-pkg-share local_planning_markers)/config/local_planner_markers_params.yaml"
+        - from: "$(find-pkg-share lattice_planning_markers)/config/lattice_planning_markers_params.yaml"
       remap:
         - from: "path"
-          to: "/action/local_planning/path"
+          to: "/action/lattice_planning/path"
         - from: "available_paths"
-          to: "/action/local_planning/available_paths"
+          to: "/action/lattice_planning/available_paths"

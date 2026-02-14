@@ -2,8 +2,8 @@
 #
 # ROS 2 parameter file for the node named "local_planning_markers_node".
 action:
-  local_planning_markers:
-    local_planning_markers_node:
+  lattice_planning_markers:
+    lattice_planning_markers_node:
       ros__parameters:
         # Subscription topics
         path_topic: "path"
