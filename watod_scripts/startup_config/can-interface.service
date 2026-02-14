@@ -1,0 +1,14 @@
+[Unit]
+Description=Setup CAN interface
+Wants=network.target
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/sbin/modprobe kvaser_usb
+ExecStart=/sbin/ip link set can0 up type can bitrate 500000
+ExecStartPost=/sbin/ip link set can0 up
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

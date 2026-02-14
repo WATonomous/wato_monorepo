@@ -89,6 +89,7 @@ private:
   // Parameters
   double prediction_horizon_;  // seconds
   double prediction_time_step_;  // seconds
+  int64_t hypothesis_idx_;  // which results[] entry holds the entity class
 };
 
 }  // namespace simple_prediction

@@ -20,7 +20,7 @@ from rcl_interfaces.msg import ParameterDescriptor
 from carla_msgs.srv import SwitchScenario, GetAvailableScenarios
 from carla_msgs.msg import ScenarioStatus
 from std_msgs.msg import Header
-from std_srvs.srv import Trigger
+from std_srvs.srv import SetBool, Trigger
 from rosgraph_msgs.msg import Clock
 
 import carla
@@ -102,6 +102,8 @@ class ScenarioServerNode(LifecycleNode):
         self.switch_scenario_service = None
         self.get_scenarios_service = None
         self.tick_timer = None
+        self.paused = False
+        self.pause_service = None
         self.prepare_switch_client = None
         self.client_cb_group = None
         self.service_cb_group = None
@@ -191,6 +193,13 @@ class ScenarioServerNode(LifecycleNode):
             GetAvailableScenarios,
             "~/get_available_scenarios",
             self.get_scenarios_callback,
+            callback_group=self.service_cb_group,
+        )
+
+        self.pause_service = self.create_service(
+            SetBool,
+            "pause",
+            self.pause_callback,
             callback_group=self.service_cb_group,
         )
 
@@ -285,6 +294,9 @@ class ScenarioServerNode(LifecycleNode):
 
     def _tick_callback(self):
         """Timer callback for world synchronization and status publishing."""
+        if self.paused:
+            return
+
         if self.carla_world:
             try:
                 if self.get_parameter("synchronous_mode").value:
@@ -322,6 +334,15 @@ class ScenarioServerNode(LifecycleNode):
             status_msg.state = "running" if self.current_scenario else "idle"
             status_msg.info = ""
             self.status_publisher.publish(status_msg)
+
+    def pause_callback(self, request, response):
+        """Handle pause service request. data=True pauses, data=False resumes."""
+        self.paused = request.data
+        state = "paused" if self.paused else "resumed"
+        self.get_logger().info(f"Simulation {state}")
+        response.success = True
+        response.message = state
+        return response
 
     def switch_scenario_callback(self, request, response):
         """Handle switch scenario service request."""

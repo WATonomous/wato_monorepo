@@ -29,12 +29,18 @@ namespace ackermann_mux
 {
 
 AckermannMuxNode::AckermannMuxNode(const rclcpp::NodeOptions & options)
-: Node(
+: LifecycleNode(
     "ackermann_mux",
     rclcpp::NodeOptions(options).allow_undeclared_parameters(true).automatically_declare_parameters_from_overrides(
       true))
-
 {
+  RCLCPP_INFO(this->get_logger(), "AckermannMuxNode created (unconfigured)");
+}
+
+AckermannMuxNode::CallbackReturn AckermannMuxNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Configuring...");
+
   this->get_parameter_or("safety_threshold", safety_threshold_, 0.5);
   this->get_parameter_or("publish_rate_hz", publish_rate_hz_, 50.0);
 
@@ -48,21 +54,71 @@ AckermannMuxNode::AckermannMuxNode(const rclcpp::NodeOptions & options)
   build_inputs_from_params();
 
   if (publish_rate_hz_ <= 0.0) {
-    throw std::runtime_error("publish_rate_hz must be > 0");
+    RCLCPP_ERROR(this->get_logger(), "publish_rate_hz must be > 0");
+    return CallbackReturn::FAILURE;
   }
-  const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
-  timer_ = this->create_wall_timer(
-    std::chrono::duration_cast<nanoseconds>(period), std::bind(&AckermannMuxNode::ackerman_cmd_callback, this));
 
   RCLCPP_INFO(
     this->get_logger(),
-    "ackermann_mux component running: safety_threshold=%.3fs publish_rate=%.1fHz emergency(speed=%.3f, steer=%.3f) "
-    "inputs=%zu",
+    "Configured: safety_threshold=%.3fs publish_rate=%.1fHz emergency(speed=%.3f, steer=%.3f) inputs=%zu",
     safety_threshold_,
     publish_rate_hz_,
     emergency_.drive.speed,
     emergency_.drive.steering_angle,
     inputs_.size());
+
+  return CallbackReturn::SUCCESS;
+}
+
+AckermannMuxNode::CallbackReturn AckermannMuxNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Activating...");
+
+  const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
+  timer_ = this->create_wall_timer(
+    std::chrono::duration_cast<nanoseconds>(period), std::bind(&AckermannMuxNode::ackerman_cmd_callback, this));
+
+  RCLCPP_INFO(this->get_logger(), "Activated - mux running at %.1f Hz", publish_rate_hz_);
+  return CallbackReturn::SUCCESS;
+}
+
+AckermannMuxNode::CallbackReturn AckermannMuxNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Deactivating...");
+
+  if (timer_) {
+    timer_->cancel();
+    timer_.reset();
+  }
+
+  RCLCPP_INFO(this->get_logger(), "Deactivated");
+  return CallbackReturn::SUCCESS;
+}
+
+AckermannMuxNode::CallbackReturn AckermannMuxNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Cleaning up...");
+
+  timer_.reset();
+  pub_out_.reset();
+  inputs_.clear();
+
+  return CallbackReturn::SUCCESS;
+}
+
+AckermannMuxNode::CallbackReturn AckermannMuxNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
+{
+  RCLCPP_INFO(this->get_logger(), "Shutting down...");
+
+  if (timer_) {
+    timer_->cancel();
+    timer_.reset();
+  }
+
+  pub_out_.reset();
+  inputs_.clear();
+
+  return CallbackReturn::SUCCESS;
 }
 
 void AckermannMuxNode::build_inputs_from_params()

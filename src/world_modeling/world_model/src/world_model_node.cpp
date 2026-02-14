@@ -31,6 +31,8 @@
 #include "world_model/interfaces/publishers/route_ahead_publisher.hpp"
 
 // Services
+#include "world_model/interfaces/services/get_area_occupancy_service.hpp"
+#include "world_model/interfaces/services/get_dynamic_objects_service.hpp"
 #include "world_model/interfaces/services/get_objects_by_lanelet_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
 #include "world_model/interfaces/services/set_route_service.hpp"
@@ -45,7 +47,7 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   // Declare shared parameters (used by both the node and interfaces)
   this->declare_parameter<std::string>("osm_map_path", "");
   this->declare_parameter<std::string>("map_frame", "map");
-  this->declare_parameter<std::string>("base_frame", "base_link");
+  this->declare_parameter<std::string>("base_frame", "base_footprint");
   this->declare_parameter<std::string>("utm_frame", "utm");
   this->declare_parameter<std::string>("projector_type", "utm");
 
@@ -102,6 +104,11 @@ void WorldModelNode::createInterfaces()
   interfaces_.push_back(std::make_unique<RegElemService>(this, lanelet_handler_.get()));
 
   interfaces_.push_back(std::make_unique<GetObjectsByLaneletService>(this, world_state_.get(), lanelet_handler_.get()));
+
+  interfaces_.push_back(std::make_unique<GetDynamicObjectsService>(this, world_state_.get(), lanelet_handler_.get()));
+
+  interfaces_.push_back(
+    std::make_unique<GetAreaOccupancyService>(this, world_state_.get(), tf_buffer_.get(), lanelet_handler_.get()));
 
   // Single inbound subscriber
   writer_ = std::make_unique<WorldModelWriter>(this, world_state_.get(), lanelet_handler_.get(), tf_buffer_.get());

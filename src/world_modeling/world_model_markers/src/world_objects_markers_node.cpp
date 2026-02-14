@@ -29,7 +29,7 @@ WorldObjectsMarkersNode::WorldObjectsMarkersNode()
 {
   this->declare_parameter("frame_id", "map");
   this->declare_parameter("box_alpha", 0.6);
-  this->declare_parameter("label_text_height", 0.5);
+  this->declare_parameter("label_text_height", 0.2);
   this->declare_parameter("history_line_width", 0.1);
   this->declare_parameter("prediction_line_width", 0.08);
   this->declare_parameter("lanelet_boundary_line_width", 0.05);
@@ -130,16 +130,22 @@ void WorldObjectsMarkersNode::worldObjectsCallback(const world_model_msgs::msg::
     // ID label (TEXT_VIEW_FACING) above the box
     std::string label_text = class_id;
     if (!det.id.empty()) {
-      label_text = det.id + "\n" + class_id;
+      label_text = "ID:" + det.id + "\nCLS:" + class_id;
     }
     if (world_obj.lanelet_ahead.current_lanelet_id > 0) {
       label_text += "\nL:" + std::to_string(world_obj.lanelet_ahead.current_lanelet_id);
+    }
+    if (world_obj.regulatory_element.id > 0) {
+      label_text += "\nRE:" + std::to_string(world_obj.regulatory_element.id);
+    }
+    if (world_obj.matched_way_id > 0) {
+      label_text += " W:" + std::to_string(world_obj.matched_way_id);
     }
 
     geometry_msgs::msg::Point label_pos = det.bbox.center.position;
     label_pos.z += det.bbox.size.z / 2.0 + label_text_height_;
 
-    auto label_color = lanelet_markers::makeColor(1.0f, 1.0f, 1.0f, 0.9f);
+    auto label_color = lanelet_markers::makeColor(1.0f, 1.0f, 1.0f, 0.8f);
     auto label_marker = lanelet_markers::createTextMarker(
       "wo_labels", marker_id++, frame_id, label_pos, label_text, label_color, label_text_height_);
     label_marker.header.stamp = stamp;

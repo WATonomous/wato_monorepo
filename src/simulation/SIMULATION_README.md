@@ -50,6 +50,7 @@ All bridge nodes start automatically and connect to CARLA. The simulation is rea
 | `CARLA_RENDER_MODE` | `no_gpu` | `gpu` for GPU rendering, `no_gpu` for headless |
 | `PYGAME_HUD_ENABLED` | `true` | Auto-set to `true` when `CARLA_RENDER_MODE=no_gpu` |
 | `PYGAME_HUD_PORT` | Auto | Port for pygame web HUD (auto-assigned based on user ID) |
+| `WATCLOUD_MODE` | `false` | Set to `true` in `watod-config.local.sh` if running on WatCloud |
 
 ### Simulation Parameters
 
@@ -64,7 +65,18 @@ Simulation parameters are configured in `src/simulation/simulation_bringup/confi
 
 ### Basic Usage
 
-Once `watod up` completes, the simulation is running with the default scenario (light traffic). Use ROS2 services to interact with the simulation:
+Once `watod up` completes, the simulation is running with the default scenario (light traffic).
+
+You can control the simulation using the commands configured in the Foxglove layout (see [Visualization](#visualization)).
+
+Alternatively, to run commands manually in the container:
+
+```bash
+./watod -t simulation_bringup
+source /opt/watonomous/setup.bash
+```
+
+Then you can issue ROS2 service calls:
 
 #### Switch Scenarios
 
@@ -128,10 +140,8 @@ Your modules can subscribe to these topics and publish control commands to test 
 
 1. Ensure `infrastructure` is in your active modules
 2. Connect Foxglove to `ws://localhost:<FOXGLOVE_BRIDGE_PORT>`
-3. Add panels for:
-   - 3D view with `/carla/top_lidar/points` and `/carla/bbox_markers`
-   - Image view with camera topics
-   - Teleop panel publishing to `/carla/cmd_vel`
+3. Import the layout from `config/foxglove_config/carla_sim.json` by clicking the Layout dropdown → Import from file → Select `carla_sim.json`
+4. Use the layout buttons to run commands and visualize the simulation.
 
 ### Pygame HUD (No-GPU Mode)
 
@@ -144,7 +154,7 @@ When `CARLA_RENDER_MODE=no_gpu` (the default), a web-based bird's-eye view is au
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        watod up                                  │
+│                        watod up                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┴───────────────┐

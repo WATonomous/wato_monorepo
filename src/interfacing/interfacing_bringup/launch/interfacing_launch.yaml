@@ -11,8 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
----
 launch:
+  - arg:
+      name: "autostart"
+      default: "true"
+      description: "Automatically configure and activate managed nodes"
+
+  - arg:
+      name: "bond_enabled"
+      default: "false"
+      description: "Enable bond-based crash detection"
+
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
@@ -63,10 +72,39 @@ launch:
   - include:
       file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
 
-  # ackerman_mux Node
+  # ackermann_mux Node
   - include:
       file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
 
+  # OSCC interfacing Node
+  - include:
+      file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
   # PID Control Node
   - include:
       file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
+
+  # Car Velocity Feedback Node
+  - include:
+      file: "$(find-pkg-share car_velocity_feedback)/launch/car_velocity_feedback.launch.yaml"
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: interfacing_lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /interfacing/joystick_node
+            - /interfacing/pid_control_node
+            - /interfacing/ackermann_mux
+            - /interfacing/car_velocity_feedback_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)

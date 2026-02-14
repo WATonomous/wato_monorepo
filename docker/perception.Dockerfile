@@ -10,8 +10,8 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code needed for perception build
 COPY src/perception perception
+COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/wato_test wato_test
-COPY src/infrastructure/wato_lifecycle_manager infrastructure/wato_lifecycle_manager
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible

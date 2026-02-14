@@ -18,11 +18,12 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/osm/Town10HD_with_regulatory.osm"
+    osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
     projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
 
     # Frames
     map_frame: "map"
+    base_frame: "base_footprint"
     utm_frame: "utm"
 
     # Entity tracking
@@ -41,7 +42,7 @@
 
     # Map visualization
     map_viz_publish_rate_hz: 1.0
-    map_viz_radius_m: 100.0
+    map_viz_radius_m: 50.0
 
     # Dynamic objects (world_objects topic)
     dynamic_objects_publish_rate_hz: 20.0
@@ -58,7 +59,7 @@
     # --- Area occupancy ---
 
     area_occupancy_publish_rate_hz: 20.0
-    area_occupancy_frame: "base_link"
+    area_occupancy_frame: "base_footprint"
     occupancy_areas:
       - "front_near"
       - "front_far"
@@ -92,6 +93,41 @@
         end_angle_deg: 250.0
 
 # =============================================================================
+# Costmap Node
+# =============================================================================
+/**/costmap_node:
+  ros__parameters:
+    costmap_frame: "base_footprint"
+    map_frame: "map"
+    publish_rate_hz: 30.0
+    grid_width_m: 100.0
+    grid_height_m: 100.0
+    resolution: 0.1
+    footprint_front_left: [2.5, 1.0]
+    footprint_rear_right: [-1.5, -1.0]
+    layers: ["objects", "pointcloud", "virtual_wall"]
+
+    # Layer plugin types
+    layers.objects.type: "costmap::ObjectsLayer"
+    layers.pointcloud.type: "costmap::PointCloudLayer"
+    layers.virtual_wall.type: "costmap::VirtualWallLayer"
+
+    # ObjectsLayer params
+    layers.objects.bbox_inflation_m: 0.2
+    layers.objects.bbox_cost_decay: 0.3
+    layers.objects.prediction_inflation_m: 0.3
+    layers.objects.prediction_cost_decay: 0.3
+    layers.objects.max_centroid_height_m: 5.0
+
+    # PointCloudLayer params
+    layers.pointcloud.max_height_m: 2.0
+    layers.pointcloud.min_height_m: 0.1
+    layers.pointcloud.inflation_m: 0.3
+    layers.pointcloud.cost_decay: 0.1
+
+    # VirtualWallLayer has no params (walls managed via services)
+
+# =============================================================================
 # Lanelet Marker Nodes
 # =============================================================================
 
@@ -113,6 +149,9 @@
     direction_arrow_size: 0.8
     speed_limit_text_height: 1.0
     yield_marker_size: 1.5
+    show_reg_elem_labels: true
+    show_lanelet_ids: true
+    lanelet_id_text_height: 0.5
 
 /**/lane_context_markers_node:
   ros__parameters:
@@ -160,6 +199,16 @@
     lanelet_centerline_color_b: 0.8
     lanelet_centerline_alpha: 0.2
     entity_class_hypothesis_index: 0
+
+# =============================================================================
+# Costmap Footprint Marker Node
+# =============================================================================
+
+/**/costmap_markers_node:
+  ros__parameters:
+    frame_id: "base_footprint"
+    footprint_color: [0.5, 0.0, 1.0, 0.8]
+    footprint_line_width: 0.1
 
 # Post-enrichment (subscribes to world_objects from world model)
 /**/world_objects_markers_node:
