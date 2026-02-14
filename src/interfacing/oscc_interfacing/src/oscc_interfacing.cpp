@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <string>
 
 #include <rclcpp_components/register_node_macro.hpp>
 
@@ -124,6 +125,10 @@ void OsccInterfacingNode::configure()
   this->declare_parameter<float>("steering_scaling", 1);
   this->declare_parameter<bool>("disable_boards_on_fault", false);
   this->declare_parameter<float>("steering_conversion_factor", 15.7);
+  this->declare_parameter<bool>("enable_all", true);
+  this->declare_parameter<bool>("enable_steering", true);
+  this->declare_parameter<bool>("enable_throttle", true);
+  this->declare_parameter<bool>("enable_brakes", true);
 
   // Read parameters
   is_armed_ = false;
@@ -132,6 +137,10 @@ void OsccInterfacingNode::configure()
   steering_scaling_ = this->get_parameter("steering_scaling").as_double();
   disable_boards_on_fault_ = this->get_parameter("disable_boards_on_fault").as_bool();
   steering_conversion_factor_ = this->get_parameter("steering_conversion_factor").as_double();
+  enable_all_ = this->get_parameter("enable_all").as_bool();
+  enable_steering_ = this->get_parameter("enable_steering").as_bool();
+  enable_throttle_ = this->get_parameter("enable_throttle").as_bool();
+  enable_brakes_ = this->get_parameter("enable_brakes").as_bool();
 
   if (steering_scaling_ > 1.0 || steering_scaling_ <= 0.0) {
     RCLCPP_ERROR(this->get_logger(), "Steering scaling parameter out of range (0.0, 1.0], resetting to 1.0");
@@ -279,30 +288,106 @@ void OsccInterfacingNode::arm_service_callback(
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
   if (request->data) {  // data is the boolean, true = arm, false = disarm
-    // Arm the vehicle
-    if (oscc_enable() == OSCC_OK) {
+    // Arm the vehicle - enable modules based on parameters
+    bool all_ok = true;
+    std::string enabled_modules;
+
+    if (enable_all_) {
+      // Enable all modules at once
+      if (oscc_enable() != OSCC_OK) {
+        all_ok = false;
+      } else {
+        enabled_modules = "all";
+      }
+    } else {
+      // Enable individual modules based on parameters
+      if (enable_steering_) {
+        if (oscc_enable_steering() != OSCC_OK) {
+          all_ok = false;
+          RCLCPP_ERROR(get_logger(), "Failed to enable steering module");
+        } else {
+          enabled_modules += "steering ";
+        }
+      }
+      if (enable_throttle_) {
+        if (oscc_enable_throttle() != OSCC_OK) {
+          all_ok = false;
+          RCLCPP_ERROR(get_logger(), "Failed to enable throttle module");
+        } else {
+          enabled_modules += "throttle ";
+        }
+      }
+      if (enable_brakes_) {
+        if (oscc_enable_brakes() != OSCC_OK) {
+          all_ok = false;
+          RCLCPP_ERROR(get_logger(), "Failed to enable brake module");
+        } else {
+          enabled_modules += "brakes ";
+        }
+      }
+    }
+
+    if (all_ok) {
       {
         std::lock_guard<std::mutex> lock(arm_mutex_);
         is_armed_ = true;
       }
       response->success = true;
-      response->message = "Vehicle armed successfully";
-      RCLCPP_INFO(get_logger(), "Vehicle armed");
+      response->message = "Vehicle armed successfully (" + enabled_modules + ")";
+      RCLCPP_INFO(get_logger(), "Vehicle armed: %s", enabled_modules.c_str());
     } else {
       response->success = false;
       response->message = "Failed to arm vehicle";
       RCLCPP_ERROR(get_logger(), "Failed to arm vehicle");
     }
   } else {
-    // Disarm the vehicle
-    if (oscc_disable() == OSCC_OK) {
+    // Disarm the vehicle - disable modules based on parameters
+    bool all_ok = true;
+    std::string disabled_modules;
+
+    if (enable_all_) {
+      // Disable all modules at once
+      if (oscc_disable() != OSCC_OK) {
+        all_ok = false;
+      } else {
+        disabled_modules = "all";
+      }
+    } else {
+      // Disable only the modules that were enabled
+      if (enable_steering_) {
+        if (oscc_disable_steering() != OSCC_OK) {
+          all_ok = false;
+          RCLCPP_ERROR(get_logger(), "Failed to disable steering module");
+        } else {
+          disabled_modules += "steering ";
+        }
+      }
+      if (enable_throttle_) {
+        if (oscc_disable_throttle() != OSCC_OK) {
+          all_ok = false;
+          RCLCPP_ERROR(get_logger(), "Failed to disable throttle module");
+        } else {
+          disabled_modules += "throttle ";
+        }
+      }
+      if (enable_brakes_) {
+        if (oscc_disable_brakes() != OSCC_OK) {
+          all_ok = false;
+          RCLCPP_ERROR(get_logger(), "Failed to disable brake module");
+        } else {
+          disabled_modules += "brakes ";
+        }
+      }
+    }
+
+    if (all_ok) {
       {
         std::lock_guard<std::mutex> lock(arm_mutex_);
         is_armed_ = false;
       }
       response->success = true;
-      response->message = "Vehicle disarmed successfully";
-      RCLCPP_INFO(get_logger(), "Vehicle disarmed");
+      response->message = "Vehicle disarmed successfully (" + disabled_modules + ")";
+      RCLCPP_INFO(get_logger(), "Vehicle disarmed: %s", disabled_modules.c_str());
     } else {
       response->success = false;
       response->message = "Failed to disarm vehicle";
