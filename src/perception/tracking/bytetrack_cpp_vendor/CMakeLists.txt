@@ -39,7 +39,7 @@ macro(build_bytetrack_cpp)
     # Build ByteTrack
     externalproject_add(bytetrack
         GIT_REPOSITORY https://github.com/khuang9/ByteTrack-cpp-3d.git
-        GIT_TAG main
+        GIT_TAG v1.0.0
         TIMEOUT 600
         CMAKE_ARGS ${extra_cmake_args}
         INSTALL_COMMAND ""
