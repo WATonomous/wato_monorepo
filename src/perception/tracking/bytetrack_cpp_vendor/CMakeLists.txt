@@ -38,13 +38,12 @@ macro(build_bytetrack_cpp)
 
     # Build ByteTrack
     externalproject_add(bytetrack
-        GIT_REPOSITORY https://github.com/Vertical-Beach/ByteTrack-cpp.git
-        GIT_TAG main
+        GIT_REPOSITORY https://github.com/khuang9/ByteTrack-cpp-3d.git
+        GIT_TAG v1.0.0
         TIMEOUT 600
         CMAKE_ARGS ${extra_cmake_args}
         INSTALL_COMMAND ""
         CONFIGURE_HANDLED_BY_BUILD TRUE
-        PATCH_COMMAND git checkout -- . && git apply --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/patches/0001-class-id.patch
     )
     externalproject_get_property(bytetrack BINARY_DIR SOURCE_DIR)
 
