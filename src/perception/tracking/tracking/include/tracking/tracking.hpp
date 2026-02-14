@@ -32,7 +32,7 @@
 
 /**
  * @brief ROS2 Lifecycle Node that manages 3D multi-object tracking.
- * 
+ *
  * Tracks 3D bounding box detections in the map frame. The tracker
  * uses a version of ByteTrack modified to work in 3D.
  */

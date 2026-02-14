@@ -45,7 +45,8 @@ TrackingNode::TrackingNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "New tracking node created");
 }
 
-TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::State &) {
+TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(this->get_logger(), "Configuring tracking node...");
 
   // Parameters
@@ -68,7 +69,8 @@ TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::
   // Lifecycle Publisher
   RCLCPP_INFO(this->get_logger(), "Initializing publisher...");
   tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kTracksTopic, 10);
-  RCLCPP_INFO(this->get_logger(), "Publisher initialized successfully, publishing to %s", tracked_dets_pub_->get_topic_name());
+  RCLCPP_INFO(
+    this->get_logger(), "Publisher initialized successfully, publishing to %s", tracked_dets_pub_->get_topic_name());
 
   // ByteTrack tracker
   RCLCPP_INFO(this->get_logger(), "Initializing ByteTrack...");
@@ -80,9 +82,11 @@ TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
-TrackingNode::CallbackReturn TrackingNode::on_activate(const rclcpp_lifecycle::State &) {
+TrackingNode::CallbackReturn TrackingNode::on_activate(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(this->get_logger(), "Activating tracking node...");
-  if (tracked_dets_pub_) tracked_dets_pub_->on_activate();
+  if (tracked_dets_pub_)
+    tracked_dets_pub_->on_activate();
   else {
     RCLCPP_ERROR(this->get_logger(), "Deactivation failed: nullptr publisher");
     return TrackingNode::CallbackReturn::FAILURE;
@@ -92,9 +96,11 @@ TrackingNode::CallbackReturn TrackingNode::on_activate(const rclcpp_lifecycle::S
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
-TrackingNode::CallbackReturn TrackingNode::on_deactivate(const rclcpp_lifecycle::State &) {
+TrackingNode::CallbackReturn TrackingNode::on_deactivate(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(this->get_logger(), "Deactivating tracking node...");
-  if (tracked_dets_pub_) tracked_dets_pub_->on_deactivate();
+  if (tracked_dets_pub_)
+    tracked_dets_pub_->on_deactivate();
   else {
     RCLCPP_ERROR(this->get_logger(), "Deactivation failed: nullptr publisher");
     return TrackingNode::CallbackReturn::FAILURE;
@@ -104,7 +110,8 @@ TrackingNode::CallbackReturn TrackingNode::on_deactivate(const rclcpp_lifecycle:
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
-TrackingNode::CallbackReturn TrackingNode::on_cleanup(const rclcpp_lifecycle::State &) {
+TrackingNode::CallbackReturn TrackingNode::on_cleanup(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(this->get_logger(), "Cleaning up tracking node...");
 
   tracked_dets_pub_.reset();
@@ -117,7 +124,8 @@ TrackingNode::CallbackReturn TrackingNode::on_cleanup(const rclcpp_lifecycle::St
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
-TrackingNode::CallbackReturn TrackingNode::on_shutdown(const rclcpp_lifecycle::State &) {
+TrackingNode::CallbackReturn TrackingNode::on_shutdown(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(this->get_logger(), "Shutting down tracking node...");
 
   tracked_dets_pub_.reset();

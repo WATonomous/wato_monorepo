@@ -22,8 +22,8 @@
 
 #include <catch2/catch_all.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <rclcpp/node_options.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <tf2/utils.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>

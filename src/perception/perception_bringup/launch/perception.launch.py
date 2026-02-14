@@ -136,10 +136,10 @@ def generate_launch_description():
     )
 
     container = ComposableNodeContainer(
-        name='perception_bringup',
-        namespace='perception',
-        package='rclcpp_components',
-        executable='component_container',
+        name="perception_bringup",
+        namespace="perception",
+        package="rclcpp_components",
+        executable="component_container",
         composable_node_descriptions=[
             camera_object_detection_node,
             depth_estimation_node,
@@ -147,9 +147,8 @@ def generate_launch_description():
             spatial_association_node,
             tracking_node,
         ],
-        output='both'
+        output="both",
     )
-
 
     return LaunchDescription(
         [
@@ -163,6 +162,6 @@ def generate_launch_description():
             tracking_param,
             tracking_detection_topic,
             tracking_track_topic,
-            container
+            container,
         ]
     )
