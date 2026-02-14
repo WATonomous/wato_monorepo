@@ -10,4 +10,5 @@
     rise_time: 2.0
     hold_time: 3.0
     ramp_down_time: 2.0
+    down_hold_time: 1.0
     publish_rate: 50.0
