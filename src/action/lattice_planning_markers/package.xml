@@ -14,7 +14,7 @@
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>
   <depend>nav_msgs</depend>
-  <depend>local_planning_msgs</depend>
+  <depend>lattice_planning_msgs</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

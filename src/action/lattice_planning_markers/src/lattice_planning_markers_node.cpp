@@ -46,7 +46,7 @@ LatticePlanningMarkersNode::LatticePlanningMarkersNode(const rclcpp::NodeOptions
     path_topic_, rclcpp::QoS(10),
     std::bind(&LatticePlanningMarkersNode::pathCallback, this, std::placeholders::_1));
 
-  available_paths_sub_ = this->create_subscription<local_planning_msgs::msg::PathArray>(
+  available_paths_sub_ = this->create_subscription<lattice_planning_msgs::msg::PathArray>(
     available_paths_topic_, rclcpp::QoS(10),
     std::bind(&LatticePlanningMarkersNode::availablePathsCallback, this, std::placeholders::_1));
 }
@@ -100,7 +100,7 @@ visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathToLineStrip
 }
 
 visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathArrayToMarkers(
-  const local_planning_msgs::msg::PathArray & path_array) const
+  const lattice_planning_msgs::msg::PathArray & path_array) const
 {
   visualization_msgs::msg::MarkerArray out;
 
@@ -177,7 +177,7 @@ void LatticePlanningMarkersNode::pathCallback(const nav_msgs::msg::Path::SharedP
 }
 
 void LatticePlanningMarkersNode::availablePathsCallback(
-  const local_planning_msgs::msg::PathArray::SharedPtr msg)
+  const lattice_planning_msgs::msg::PathArray::SharedPtr msg)
 {
   auto out = pathArrayToMarkers(*msg);
   available_paths_markers_pub_->publish(out);

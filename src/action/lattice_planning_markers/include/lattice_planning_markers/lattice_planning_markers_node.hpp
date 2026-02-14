@@ -8,7 +8,7 @@
 #include "nav_msgs/msg/path.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
-#include "local_planning_msgs/msg/path_array.hpp"
+#include "lattice_planning_msgs/msg/path_array.hpp"
 
 namespace lattice_planning_markers
 {
@@ -20,7 +20,7 @@ public:
 
 private:
   void pathCallback(const nav_msgs::msg::Path::SharedPtr msg);
-  void availablePathsCallback(const local_planning_msgs::msg::PathArray::SharedPtr msg);
+  void availablePathsCallback(const lattice_planning_msgs::msg::PathArray::SharedPtr msg);
 
   visualization_msgs::msg::MarkerArray pathToLineStripMarkers(
     const nav_msgs::msg::Path & path,
@@ -30,7 +30,7 @@ private:
     float line_width) const;
 
   visualization_msgs::msg::MarkerArray pathArrayToMarkers(
-    const local_planning_msgs::msg::PathArray & path_array) const;
+    const lattice_planning_msgs::msg::PathArray & path_array) const;
 
   visualization_msgs::msg::Marker makeDeleteAllMarker(const std_msgs::msg::Header & header) const;
 
@@ -49,7 +49,7 @@ private:
 
   // ROS interfaces
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
-  rclcpp::Subscription<local_planning_msgs::msg::PathArray>::SharedPtr available_paths_sub_;
+  rclcpp::Subscription<lattice_planning_msgs::msg::PathArray>::SharedPtr available_paths_sub_;
 
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_markers_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr available_paths_markers_pub_;

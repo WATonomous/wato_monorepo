@@ -57,7 +57,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
 {
   RCLCPP_INFO(this->get_logger(), "Configuring Lattice Planning node");
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
-  available_paths_pub_ = this->create_publisher<local_planning_msgs::msg::PathArray>(available_paths_topic, 10);
+  available_paths_pub_ = this->create_publisher<lattice_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -365,7 +365,7 @@ void LatticePlanningNode::publish_final_path(const Path & path){
 }
 
 void LatticePlanningNode::publish_available_paths(const std::vector<Path> & paths){
-  local_planning_msgs::msg::PathArray available_paths;
+  lattice_planning_msgs::msg::PathArray available_paths;
   
   if(paths.empty()){
     RCLCPP_ERROR(get_logger(), "Available paths list is empty");

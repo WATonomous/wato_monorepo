@@ -21,7 +21,7 @@
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav_msgs/msg/path.hpp"
 
-#include "local_planning_msgs/msg/path_array.hpp"
+#include "lattice_planning_msgs/msg/path_array.hpp"
 
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
@@ -109,6 +109,6 @@ private:
 
   // publishers
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
-  rclcpp_lifecycle::LifecyclePublisher<local_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<lattice_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
  
 };

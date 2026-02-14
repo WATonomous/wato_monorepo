@@ -28,7 +28,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(local_planning_msgs REQUIRED)
+find_package(lattice_planning_msgs REQUIRED)
 
 # ----------------------------
 # Component library
@@ -49,7 +49,7 @@ ament_target_dependencies(lattice_planning_markers_component
   geometry_msgs
   visualization_msgs
   nav_msgs
-  local_planning_msgs
+  lattice_planning_msgs
 )
 
 # Register component and generate executable
