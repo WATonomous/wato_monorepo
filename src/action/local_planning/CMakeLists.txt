@@ -14,6 +14,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(local_planning_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
 find_package(behaviour_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -44,6 +45,7 @@ target_link_libraries(local_planning_component
     ${rclcpp_components_TARGETS}
     ${std_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
+    ${local_planning_msgs_TARGETS}
     ${behaviour_msgs_TARGETS}
     ${nav_msgs_TARGETS}
     ${geometry_msgs_TARGETS}

@@ -10,6 +10,7 @@ local_planner_node:
     planned_paths_vis_topic: "planned_paths_markers"
     final_paths_vis_topic: "final_path_markers"
     path_topic: "path"
+    available_paths_topic: "available_paths"
 
     # Path generation parameters
     # -  Cost Function  -

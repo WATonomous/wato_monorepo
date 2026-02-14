@@ -13,6 +13,7 @@
   <depend>rclcpp_lifecycle</depend>
   <depend>rclcpp_components</depend>
   <depend>std_msgs</depend>
+  <depend>local_planning_msgs</depend>
   <depend>lanelet_msgs</depend>
   <depend>behaviour_msgs</depend>
   <depend>nav_msgs</depend>

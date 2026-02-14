@@ -32,6 +32,7 @@ LocalPlannerNode::LocalPlannerNode(const rclcpp::NodeOptions & options)
   planned_paths_vis_topic = this->declare_parameter("planned_paths_vis_topic", "planned_paths_markers");
   final_path_vis_topic = this->declare_parameter("final_paths_vis_topic", "final_path_markers");
   final_path_topic = this->declare_parameter("path_topic", "path");
+  available_paths_topic = this->declare_parameter("available_paths_topic", "available_paths");
 
   // Path generation parameters
   //  - Corridor -
@@ -60,6 +61,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
   planned_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(planned_paths_vis_topic, 10);
   final_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(final_path_vis_topic, 10);
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
+  available_paths_pub_ = this->create_publisher<local_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -75,6 +77,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
   planned_path_vis_pub_->on_activate();   
   final_path_vis_pub_->on_activate();   
   path_pub_->on_activate();   
+  available_paths_pub_->on_activate();   
   RCLCPP_INFO(this->get_logger(), "Node Activated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -236,6 +239,7 @@ void LocalPlannerNode::plan_and_publish_path(){
   publish_planned_paths_vis(paths);
   publish_final_path_vis(lowest_cost);
   publish_final_path(lowest_cost);
+  publish_available_paths(paths);
 }
 
 std::vector<std::vector<int64_t>> LocalPlannerNode::get_id_order(int64_t curr_id, const std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> & ll_map){
@@ -438,7 +442,7 @@ void LocalPlannerNode::publish_final_path_vis(const Path & path){
 }
 
 void LocalPlannerNode::publish_final_path(const Path & path){
-nav_msgs::msg::Path path_msg;
+  nav_msgs::msg::Path path_msg;
   path_msg.header.stamp = this->now();
   path_msg.header.frame_id = "map";
   
@@ -458,6 +462,39 @@ nav_msgs::msg::Path path_msg;
   }
   
   path_pub_->publish(path_msg);
+}
+
+void LocalPlannerNode::publish_available_paths(const std::vector<Path> & paths){
+  local_planning_msgs::msg::PathArray available_paths;
+  
+  if(paths.empty()){
+    RCLCPP_ERROR(get_logger(), "Available paths list is empty");
+    return;
+  }
+
+  for(auto path: paths){
+    nav_msgs::msg::Path path_msg;
+    path_msg.header.stamp = this->now();
+    path_msg.header.frame_id = "map";
+    
+    for(const auto & pt : path.path) {
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header = path_msg.header;
+      pose.pose.position.x = pt.x;
+      pose.pose.position.y = pt.y;
+      pose.pose.position.z = 0.0;
+      
+      // Convert heading to quaternion
+      tf2::Quaternion q;
+      q.setRPY(0, 0, pt.theta);
+      pose.pose.orientation = tf2::toMsg(q);
+      
+      path_msg.poses.push_back(pose);
+    }          
+    available_paths.paths.push_back(path_msg);
+    available_paths.costs.push_back(path.cost);
+  }                       
+  available_paths_pub_->publish(available_paths);
 }
 
 RCLCPP_COMPONENTS_REGISTER_NODE(LocalPlannerNode)

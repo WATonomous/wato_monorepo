@@ -21,6 +21,8 @@
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav_msgs/msg/path.hpp"
 
+#include "local_planning_msgs/msg/path_array.hpp"
+
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 
@@ -78,6 +80,7 @@ private:
   void publish_final_path(const Path & path);
   void publish_planned_paths_vis(const std::vector<Path> & paths);
   void publish_final_path_vis(const Path & path);
+  void publish_available_paths(const std::vector<Path> & paths);
   
   LocalPlannerCore core_;
 
@@ -85,7 +88,7 @@ private:
   std::string lanelet_ahead_topic, odom_topic, bt_topic;
   
   // publisher topic names
-  std::string planned_paths_vis_topic, final_path_vis_topic, final_path_topic;
+  std::string planned_paths_vis_topic, final_path_vis_topic, final_path_topic, available_paths_topic;
 
   // parameter structs
   CostFunctionParams cf_params;
@@ -110,5 +113,6 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr planned_path_vis_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>::SharedPtr final_path_vis_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<local_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
  
 };
