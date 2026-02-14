@@ -78,8 +78,6 @@ private:
   
   // publisher wrappers
   void publish_final_path(const Path & path);
-  void publish_planned_paths_vis(const std::vector<Path> & paths);
-  void publish_final_path_vis(const Path & path);
   void publish_available_paths(const std::vector<Path> & paths);
   
   LocalPlannerCore core_;
@@ -88,7 +86,7 @@ private:
   std::string lanelet_ahead_topic, odom_topic, bt_topic;
   
   // publisher topic names
-  std::string planned_paths_vis_topic, final_path_vis_topic, final_path_topic, available_paths_topic;
+  std::string final_path_topic, available_paths_topic;
 
   // parameter structs
   CostFunctionParams cf_params;
@@ -110,8 +108,6 @@ private:
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_; 
 
   // publishers
-  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr planned_path_vis_pub_;
-  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>::SharedPtr final_path_vis_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<local_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
  

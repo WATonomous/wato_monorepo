@@ -29,8 +29,6 @@ LocalPlannerNode::LocalPlannerNode(const rclcpp::NodeOptions & options)
   bt_topic = this->declare_parameter("bt_topic", "execute_behaviour");
 
   // Publishing topics
-  planned_paths_vis_topic = this->declare_parameter("planned_paths_vis_topic", "planned_paths_markers");
-  final_path_vis_topic = this->declare_parameter("final_paths_vis_topic", "final_path_markers");
   final_path_topic = this->declare_parameter("path_topic", "path");
   available_paths_topic = this->declare_parameter("available_paths_topic", "available_paths");
 
@@ -58,8 +56,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Configuring Local Planning node");
-  planned_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(planned_paths_vis_topic, 10);
-  final_path_vis_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(final_path_vis_topic, 10);
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
   available_paths_pub_ = this->create_publisher<local_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
@@ -74,8 +70,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
   lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(lanelet_ahead_topic, 10, std::bind(&LocalPlannerNode::lanelet_update_callback, this, std::placeholders::_1));
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(odom_topic, 10, std::bind(&LocalPlannerNode::update_vehicle_odom, this, std::placeholders::_1));
   bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(bt_topic, 10, std::bind(&LocalPlannerNode::set_preferred_lanes, this, std::placeholders::_1));
-  planned_path_vis_pub_->on_activate();   
-  final_path_vis_pub_->on_activate();   
   path_pub_->on_activate();   
   available_paths_pub_->on_activate();   
   RCLCPP_INFO(this->get_logger(), "Node Activated");
@@ -236,8 +230,6 @@ void LocalPlannerNode::plan_and_publish_path(){
   }
 
   Path lowest_cost = core_.get_lowest_cost_path(paths, preferred_lanelets, cf_params);
-  publish_planned_paths_vis(paths);
-  publish_final_path_vis(lowest_cost);
   publish_final_path(lowest_cost);
   publish_available_paths(paths);
 }
@@ -347,98 +339,6 @@ PathPoint LocalPlannerNode::create_terminal_point(
   }
   
   return PathPoint{pt.x, pt.y, angle, curvature};
-}
-
-void LocalPlannerNode::publish_planned_paths_vis(const std::vector<Path> & paths){
- 
-  // Publish paths as LINE_STRIP marker
-  visualization_msgs::msg::MarkerArray marker_array;
-  for(size_t i = 0; i < paths.size(); i++){
-    visualization_msgs::msg::Marker marker;
-
-    marker.header.frame_id = "map";
-    marker.header.stamp = this->get_clock()->now();
-    marker.ns = "planned_path";
-    marker.id = i;
-    marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-    marker.action = visualization_msgs::msg::Marker::ADD;
-
-    marker.color.r = 0.0; marker.color.g = 0.5; marker.color.b = 0.5;
-    marker.color.a = 1.0;
-    marker.scale.x = 0.1;
-
-    // Add path points
-    for (const auto& point : paths.at(i).path) {
-      geometry_msgs::msg::Point p;
-      p.x = point.x;
-      p.y = point.y;
-      p.z = 0.0;
-      marker.points.push_back(p);
-    }
-
-    marker_array.markers.push_back(marker);
-  }
-
-  // push back terminal points to compare
-
-  int id = marker_array.markers.size();
-  for (auto & terminal : corridor_terminals) {
-    if(terminal.second >= 0){
-      visualization_msgs::msg::Marker marker;
-
-      marker.header.frame_id = "map";
-      marker.header.stamp = this->get_clock()->now();
-      marker.ns = "terminal_points";
-      marker.id = id;
-      marker.type = visualization_msgs::msg::Marker::SPHERE;
-      marker.action = visualization_msgs::msg::Marker::ADD;
-
-      // Blue line, 0.1m thick
-      marker.color.r = 0.0; marker.color.g = 0.8; marker.color.b = 0.5;
-      marker.color.a = 1.0;
-      marker.scale.x = 0.5; marker.scale.y = 0.5; marker.scale.z = 0.5;
-
-      geometry_msgs::msg::Point p;
-      p.x = terminal.first.x;
-      p.y = terminal.first.y;
-      p.z = 0.0;
-
-      marker.pose.position = p;
-
-      marker_array.markers.push_back(marker);
-      id++;
-    }
-  }
-  planned_path_vis_pub_->publish(marker_array);
-}
-
-void LocalPlannerNode::publish_final_path_vis(const Path & path){
-  // Publish as LINE_STRIP marker
-
-  visualization_msgs::msg::Marker marker;
-
-  marker.header.frame_id = "map";
-  marker.header.stamp = this->get_clock()->now();
-  marker.ns = "final_path";
-  marker.id = 0;
-  marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-  marker.action = visualization_msgs::msg::Marker::ADD;
-
-  // Orange line, 0.1m thick
-  marker.color.r = 1.0; marker.color.g = 0.36; marker.color.b = 0.0;
-  marker.color.a = 1.0;
-  marker.scale.x = 0.1;
-
-  // Add path points
-  for (const auto& point : path.path) {
-    geometry_msgs::msg::Point p;
-    p.x = point.x;
-    p.y = point.y;
-    p.z = 0.0;
-    marker.points.push_back(p);
-  }
-  
-  final_path_vis_pub_->publish(marker);
 }
 
 void LocalPlannerNode::publish_final_path(const Path & path){
