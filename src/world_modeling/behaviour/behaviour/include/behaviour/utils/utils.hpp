@@ -17,10 +17,10 @@
 
 // Aggregator header that includes all utility headers
 
-#include "behaviour/utils/area_occupancy_utils.hpp"
-#include "behaviour/utils/geometry_utils.hpp"
-#include "behaviour/utils/object_utils.hpp"
+#include "behaviour/utils/area_occupancy.hpp"
+#include "behaviour/utils/geometry.hpp"
+#include "behaviour/utils/world_objects.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/types.hpp"
 
-#endif  // BEHAVIOUR__UTILS__UTILS_HPP_
+#endif // BEHAVIOUR__UTILS__UTILS_HPP_

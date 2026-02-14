@@ -23,12 +23,14 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "behaviour/utils/utils.hpp"
 
 #include "lanelet_msgs/msg/regulatory_element.hpp"
+#include "lanelet_msgs/msg/way.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour
@@ -97,10 +99,35 @@ namespace behaviour
       std::vector<std::string> out_ids;
       std::vector<world_model_msgs::msg::WorldObject> out_cars;
       std::unordered_set<std::string> seen_ids;
+      std::unordered_map<int64_t, const lanelet_msgs::msg::Way *> stop_line_way_by_lanelet_id;
+
+      for (const auto &lanelet_way : stop_sign->ref_lines)
+      {
+        if (lanelet_way.way.points.empty())
+        {
+          continue;
+        }
+
+        for (const auto lanelet_id : lanelet_way.lanelet_ids)
+        {
+          stop_line_way_by_lanelet_id[lanelet_id] = &lanelet_way.way;
+        }
+      }
 
       for (const auto lanelet_id : stop_sign->yield_lanelet_ids)
       {
-        const auto cars_in_lanelet = object_utils::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+        const auto stop_line_way_it = stop_line_way_by_lanelet_id.find(lanelet_id);
+        if (stop_line_way_it == stop_line_way_by_lanelet_id.end())
+        {
+          continue;
+        }
+        const auto stop_line_way = stop_line_way_it->second;
+        if (stop_line_way == nullptr)
+        {
+          continue;
+        }
+
+        const auto cars_in_lanelet = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
 
         for (const auto *obj : cars_in_lanelet)
         {
@@ -109,21 +136,8 @@ namespace behaviour
             continue;
           }
 
-          // todo clarify on the which ref line is the right one
-          double min_ref_line_distance = std::numeric_limits<double>::infinity();
-          for (const auto &ref_line : stop_sign->ref_lines)
-          {
-            if (ref_line.points.empty())
-            {
-              continue;
-            }
-            const double d = geometry::objectToRefLineDistanceXY(*obj, ref_line);
-            if (d < min_ref_line_distance)
-            {
-              min_ref_line_distance = d;
-            }
-          }
-          if (!std::isfinite(min_ref_line_distance) || min_ref_line_distance > *stop_sign_line_threshold_m)
+          const double distance_to_stop_line = geometry::objectToWayDistanceXY(*obj, *stop_line_way);
+          if (!std::isfinite(distance_to_stop_line) || distance_to_stop_line > *stop_sign_line_threshold_m)
           {
             continue;
           }

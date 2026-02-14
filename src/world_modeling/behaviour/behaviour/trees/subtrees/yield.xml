@@ -6,6 +6,7 @@
             <!-- WALL OF DOOM: compute stop/yield-line pose and spawn wall -->
             <GetStopLinePose
                 reg_elem="{yield_sign}"
+                lane_ctx="{@current_lane_ctx}"
                 map_frame="{@map_frame}"
                 pose="{yield.wall_pose}"
                 error_message="{yield.get_stop_line_pose_error_msg}" />
@@ -19,7 +20,7 @@
                 wall_id="{yield.wall_id}"
                 error_message="{yield.spawn_wall_error_msg}" />
 
-            <GetObjects
+            <GetWorldObjects
                 objects="{yield.objects}"
                 error_message="{yield.get_objects_error_msg}"
                 service_name="/world_modeling/get_dynamic_objects" />

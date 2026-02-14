@@ -18,19 +18,23 @@
 #include <behaviortree_cpp/action_node.h>
 #include <tf2/LinearMath/Quaternion.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/utils.hpp"
+
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "lanelet_msgs/msg/ref_line.hpp"
+#include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
+#include "lanelet_msgs/msg/way.hpp"
+#include "rclcpp/time.hpp"
 
 namespace behaviour
 {
@@ -50,6 +54,7 @@ namespace behaviour
     {
       return {
           BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("reg_elem"),
+          BT::InputPort<lanelet_msgs::msg::CurrentLaneContext::SharedPtr>("lane_ctx"),
           BT::InputPort<std::string>("map_frame"),
           BT::OutputPort<geometry_msgs::msg::PoseStamped::SharedPtr>("pose"),
           BT::OutputPort<std::string>("error_message"),
@@ -69,6 +74,12 @@ namespace behaviour
         return BT::NodeStatus::FAILURE;
       }
 
+      auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
+      if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
+
       if (reg_elem->ref_lines.empty())
       {
         std::cout << "[GetStopLinePose] RegulatoryElement has no ref_lines" << std::endl;
@@ -82,19 +93,49 @@ namespace behaviour
         return BT::NodeStatus::FAILURE;
       }
 
-      // todo clarify on the which ref line is the right one
-      const auto &ref = reg_elem->ref_lines.front();
-      const auto &pts = ref.points;
+      const int64_t current_lanelet_id = lane_ctx->current_lanelet.id;
+      const lanelet_msgs::msg::Way *stop_line_way = nullptr;
+      for (const auto &lanelet_way : reg_elem->ref_lines)
+      {
+        if (lanelet_way.way.points.empty())
+        {
+          continue;
+        }
+
+        const auto lanelet_id_it =
+            std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), current_lanelet_id);
+        if (lanelet_id_it != lanelet_way.lanelet_ids.end())
+        {
+          stop_line_way = &lanelet_way.way;
+          break;
+        }
+      }
+
+      if (!stop_line_way)
+      {
+        std::cout << "[GetStopLinePose] No stop line found for lanelet " << current_lanelet_id << std::endl;
+        setOutput("error_message", "missing_stop_line_for_lanelet");
+        return BT::NodeStatus::FAILURE;
+      }
+      const auto center_point = geometry::wayCenterPoint(*stop_line_way);
+      if (!center_point)
+      {
+        std::cout << "[GetStopLinePose] Stop line has no valid points" << std::endl;
+        setOutput("error_message", "invalid_stop_line");
+        return BT::NodeStatus::FAILURE;
+      }
+
+      // get orientation of the pose
+      const auto &pts = stop_line_way->points;
 
       if (pts.size() < 2)
       {
-        std::cout << "[GetStopLinePose] RefLine has fewer than 2 points" << std::endl;
-        setOutput("error_message", "invalid_port");
+        std::cout << "[GetStopLinePose] Stop line has fewer than 2 points" << std::endl;
+        setOutput("error_message", "invalid_stop_line");
         return BT::NodeStatus::FAILURE;
       }
 
       const std::size_t mid = pts.size() / 2;
-      const auto &pm = pts[mid];
 
       const std::size_t i0 = (mid == 0) ? 0 : (mid - 1);
       const std::size_t i1 = (mid + 1 >= pts.size()) ? (pts.size() - 1) : (mid + 1);
@@ -111,9 +152,9 @@ namespace behaviour
 
       pose->header.frame_id = *map_frame;
 
-      pose->pose.position.x = pm.x;
-      pose->pose.position.y = pm.y;
-      pose->pose.position.z = pm.z;
+      pose->pose.position.x = center_point->x;
+      pose->pose.position.y = center_point->y;
+      pose->pose.position.z = center_point->z;
       pose->pose.orientation = tf2::toMsg(q);
 
       std::cout << "[GetStopLinePose] Extracted stop line pose at (" << pose->pose.position.x << ", "

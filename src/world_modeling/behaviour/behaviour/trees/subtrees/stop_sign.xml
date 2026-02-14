@@ -6,6 +6,7 @@
             <!-- WALL OF DOOM: compute stop-line pose and spawn wall -->
             <GetStopLinePose
                 reg_elem="{active_traffic_control_element}"
+                lane_ctx="{@current_lane_ctx}"
                 map_frame="{@map_frame}"
                 pose="{stop_sign.stop_line_pose}"
                 error_message="{get_stop_line_pose_error_msg}" />
@@ -29,7 +30,7 @@
                     lanelets="{stop_sign.lanelets}"
                     error_message="{get_lanelets_by_reg_elem_error_msg}" />
 
-                <GetObjects
+                <GetWorldObjects
                     objects="{stop_sign.objects}"
                     error_message="{get_objects_error_msg}"
                     service_name="/world_modeling/get_dynamic_objects" />

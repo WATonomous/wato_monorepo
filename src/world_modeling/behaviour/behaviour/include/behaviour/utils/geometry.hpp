@@ -18,11 +18,12 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
-#include "lanelet_msgs/msg/ref_line.hpp"
+#include "lanelet_msgs/msg/way.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour::geometry
@@ -95,18 +96,64 @@ inline double pointToPolylineDistanceXY(
   return min_dist;
 }
 
-inline double pointToRefLineDistanceXY(
+inline double pointToWayDistanceXY(
   const geometry_msgs::msg::Point & point,
-  const lanelet_msgs::msg::RefLine & ref_line)
+  const lanelet_msgs::msg::Way & way)
 {
-  return pointToPolylineDistanceXY(point, ref_line.points);
+  return pointToPolylineDistanceXY(point, way.points);
 }
 
-inline double objectToRefLineDistanceXY(
+inline double objectToWayDistanceXY(
   const world_model_msgs::msg::WorldObject & object,
-  const lanelet_msgs::msg::RefLine & ref_line)
+  const lanelet_msgs::msg::Way & way)
 {
-  return pointToRefLineDistanceXY(objectCenter(object), ref_line);
+  return pointToWayDistanceXY(objectCenter(object), way);
+}
+
+inline std::optional<geometry_msgs::msg::Point> wayCenterPoint(const lanelet_msgs::msg::Way & way)
+{
+  if (way.points.empty()) {
+    return std::nullopt;
+  }
+
+  if (way.points.size() == 1) {
+    return way.points.front();
+  }
+
+  double total_length = 0.0;
+  for (std::size_t i = 1; i < way.points.size(); ++i) {
+    total_length += distanceXY(way.points[i - 1], way.points[i]);
+  }
+
+  if (total_length <= 1e-9) {
+    return way.points[way.points.size() / 2];
+  }
+
+  const double target = 0.5 * total_length;
+  double accumulated = 0.0;
+
+  for (std::size_t i = 1; i < way.points.size(); ++i) {
+    const auto & p0 = way.points[i - 1];
+    const auto & p1 = way.points[i];
+    const double segment_length = distanceXY(p0, p1);
+
+    if (segment_length <= 1e-12) {
+      continue;
+    }
+
+    if ((accumulated + segment_length) >= target) {
+      const double t = (target - accumulated) / segment_length;
+      geometry_msgs::msg::Point center;
+      center.x = p0.x + ((p1.x - p0.x) * t);
+      center.y = p0.y + ((p1.y - p0.y) * t);
+      center.z = p0.z + ((p1.z - p0.z) * t);
+      return center;
+    }
+
+    accumulated += segment_length;
+  }
+
+  return way.points.back();
 }
 }  // namespace behaviour::geometry
 

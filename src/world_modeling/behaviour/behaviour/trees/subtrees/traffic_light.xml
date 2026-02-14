@@ -3,19 +3,22 @@
         <Sequence name="Handle Traffic Light">
 
             <!-- WALL OF DOOM: compute stop/yield-line pose and spawn wall -->
-            <!-- <PrintDynamicObjects
-                dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
-                max_objects="20" /> -->
             <GetStopLinePose
                 reg_elem="{traffic_light}"
+                lane_ctx="{@current_lane_ctx}"
                 map_frame="{@map_frame}"
                 pose="{traffic_light.wall_pose}"
                 error_message="{traffic_light.get_stop_line_pose_error_msg}" />
 
+            <GetWorldObjects
+                objects="{traffic_light.objects}"
+                error_message="{traffic_light.get_objects_error_msg}"
+                service_name="/world_modeling/get_dynamic_objects" />
+
             <!-- Get the state of the traffic light -->
             <GetTrafficLightState
                 traffic_light="{traffic_light}"
-                dynamic_objects_snapshot="{@dynamic_objects.snapshot}"
+                objects="{traffic_light.objects}"
                 state_hypothesis_index="{@bt.traffic_light_state_hypothesis_index}"
                 out_traffic_light_state="{traffic_light.state}"
                 error_message="{get_traffic_light_state_error_msg}" />

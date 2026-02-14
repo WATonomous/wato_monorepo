@@ -26,13 +26,13 @@
 namespace behaviour
 {
   /**
-   * @class GetObjectsService
+   * @class GetWorldObjectsService
    * @brief RosServiceNode to request all dynamic objects snapshot.
    */
-  class GetObjectsService : public BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>
+  class GetWorldObjectsService : public BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>
   {
   public:
-    GetObjectsService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
+    GetWorldObjectsService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
         : BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>(name, conf, params)
     {
     }
@@ -60,7 +60,7 @@ namespace behaviour
     BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
     {
       setOutput("error_message", std::string(BT::toStr(error)));
-      RCLCPP_ERROR(logger(), "GetObjects service failed: %d", error);
+      RCLCPP_ERROR(logger(), "[%s] service failed: %s", name().c_str(), std::string(BT::toStr(error)).c_str());
       return BT::NodeStatus::FAILURE;
     }
   };
