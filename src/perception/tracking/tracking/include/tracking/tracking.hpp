@@ -146,6 +146,7 @@ private:
   float track_thresh_;
   float high_thresh_;
   float match_thresh_;
+  bool use_maj_cls_;
   std::string output_frame_;
 
   static std::unordered_map<std::string, int> class_map_;

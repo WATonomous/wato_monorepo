@@ -30,7 +30,7 @@ rclcpp::Logger TrackingNode::static_logger_ = rclcpp::get_logger("tracking_stc")
 
 // class maps
 std::unordered_map<std::string, int> TrackingNode::class_map_ = {
-  {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4}, {"vehicle", 5},
+  {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"pedestrian", 3}, {"bus", 4}, {"vehicle", 5}, {"traffic_light", 6}
   // etc...
 };
 std::unordered_map<int, std::string> TrackingNode::reverse_class_map_ = [] {
@@ -74,8 +74,8 @@ TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::
 
   // ByteTrack tracker
   RCLCPP_INFO(this->get_logger(), "Initializing ByteTrack...");
-  tracker_ =
-    std::make_unique<byte_track::BYTETracker>(frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_);
+  tracker_ = std::make_unique<byte_track::BYTETracker>(
+    frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_, use_maj_cls_);
   RCLCPP_INFO(this->get_logger(), "ByteTrack initialized successfully");
 
   RCLCPP_INFO(this->get_logger(), "Tracking node configured successfully");
@@ -146,6 +146,7 @@ void TrackingNode::initializeParams()
   track_thresh_ = static_cast<float>(this->declare_parameter<double>("track_thresh", 0.5));
   high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 1.0));
+  use_maj_cls_ = this->declare_parameter<bool>("use_maj_cls", true);
   output_frame_ = this->declare_parameter<std::string>("output_frame", "map");
 }
 

@@ -16,7 +16,7 @@ launch:
   - arg:
       name: detections_topic
       default: /carla/detections_3d
-      description: 2D detection topic being subscribed to
+      description: 3D detection topic being subscribed to
   - arg:
       name: tracks_topic
       default: /tracked_boxes

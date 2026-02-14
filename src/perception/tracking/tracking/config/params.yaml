@@ -5,4 +5,5 @@ tracking:
     track_thresh: 0.5
     high_thresh: 0.6
     match_thresh: 0.8
+    use_maj_cls: true
     output_frame: "map"
