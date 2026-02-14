@@ -28,8 +28,8 @@ Generates drivable paths by:
 | Topic | Type | Description |
 |-------|------|-------------|
 | `path` | `nav_msgs/Path` | Selected path as sequence of poses |
-| `planned_paths_markers` | `visualization_msgs/MarkerArray` | All candidate paths and terminal points (visualization) |
-| `final_path_markers` | `visualization_msgs/Marker` | Selected path (visualization) |
+| `planned_paths_markers` | `local_planning_msgs/PathArray` | All candidate paths and their costs |
+
 
 ## Architecture
 
@@ -43,6 +43,8 @@ Generates drivable paths by:
   - `compute_jacobian_3dof()`: Finite-difference Jacobian for 3-DOF pose error (x, y, theta)
 
 ## Algorithm Details
+
+This algorithm was built from the following [paper](https://www.ri.cmu.edu/pub_files/2011/5/20100914_icra2011-mcnaughton.pdf), check it out to see the derivation of equations and more details about the following.
 
 ### Cubic Spiral Generation
 Paths are represented as cubic spirals where curvature varies smoothly:
