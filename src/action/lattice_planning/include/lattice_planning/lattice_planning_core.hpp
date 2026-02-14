@@ -36,11 +36,11 @@ struct PathGenParams{
   double max_step_size;
 };
 
-class LatticePlannerCore
+class LatticePlanningCore
 {
 public:
 
-  LatticePlannerCore();
+  LatticePlanningCore();
 
   // utility functions
   double get_euc_dist(double x1, double y1, double x2, double y2);

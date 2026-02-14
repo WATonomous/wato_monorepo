@@ -29,11 +29,11 @@
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 
 
-class LatticePlannerNode : public rclcpp_lifecycle::LifecycleNode
+class LatticePlanningNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
 
-  LatticePlannerNode(const rclcpp::NodeOptions & options);
+  LatticePlanningNode(const rclcpp::NodeOptions & options);
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State & previous_state) override;
@@ -80,7 +80,7 @@ private:
   void publish_final_path(const Path & path);
   void publish_available_paths(const std::vector<Path> & paths);
   
-  LatticePlannerCore core_;
+  LatticePlanningCore core_;
 
   // subscription topic names
   std::string lanelet_ahead_topic, odom_topic, bt_topic;
