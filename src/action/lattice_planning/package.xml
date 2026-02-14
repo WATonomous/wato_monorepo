@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>local_planning</name>
+  <name>lattice_planning</name>
   <version>0.0.0</version>
-  <description>Local Planner to generate paths</description>
+  <description>Lattice Planner to generate paths</description>
   <maintainer email="hello@watonomous.ca">todo</maintainer>
   <license>Apache 2.0</license>
 

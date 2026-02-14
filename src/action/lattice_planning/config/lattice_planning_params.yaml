@@ -1,6 +1,6 @@
 action:
-  local_planning:
-    local_planner_node:
+  lattice_planning:
+    lattice_planning_node:
       ros__parameters:
         
         # Topic names

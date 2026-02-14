@@ -2,13 +2,13 @@
 
 launch:
   - node:
-      pkg: "local_planning"
-      exec: "local_planner_node"
-      name: "local_planner_node"
-      namespace: "action/local_planning"
+      pkg: "lattice_planning"
+      exec: "lattice_planning_node"
+      name: "lattice_planning_node"
+      namespace: "action/lattice_planning"
       output: "screen"
       param:
-        - from: "$(find-pkg-share local_planning)/config/local_planner_params.yaml"
+        - from: "$(find-pkg-share lattice_planning)/config/lattice_planning_params.yaml"
       remap:
         - from: "lanelet_ahead"
           to: "/world_modeling/lanelet/lanelet_ahead"

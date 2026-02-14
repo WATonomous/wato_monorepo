@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(local_planning)
+project(lattice_planning)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
@@ -27,18 +27,18 @@ find_package(Eigen3 REQUIRED)
 # ----------------------------
 # Component library
 # ----------------------------
-add_library(local_planning_component SHARED
-  src/local_planner_core.cpp
-  src/local_planner_node.cpp
+add_library(lattice_planning_component SHARED
+  src/lattice_planning_core.cpp
+  src/lattice_planning_node.cpp
 )
 
-target_include_directories(local_planning_component
+target_include_directories(lattice_planning_component
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(local_planning_component
+target_link_libraries(lattice_planning_component
   PRIVATE
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
@@ -57,16 +57,16 @@ target_link_libraries(local_planning_component
 
 # Register component and generate executable
 rclcpp_components_register_node(
-  local_planning_component
-  PLUGIN "LocalPlannerNode"
-  EXECUTABLE local_planner_node
+  lattice_planning_component
+  PLUGIN "LatticePlanningNode"
+  EXECUTABLE lattice_planning_node
 )
 
 # ----------------------------
 # Install
 # ----------------------------
 install(
-  TARGETS local_planning_component
+  TARGETS lattice_planning_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

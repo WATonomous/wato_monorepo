@@ -1,4 +1,4 @@
-#include "local_planning/local_planner_node.hpp"
+#include "lattice_planning/lattice_planning_node.hpp"
 
 #include <unordered_map>
 #include <limits>
@@ -17,10 +17,10 @@
 using namespace std::chrono_literals;
 
 
-LocalPlannerNode::LocalPlannerNode(const rclcpp::NodeOptions & options)
+LatticePlannerNode::LatticePlannerNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode("local_planner_node", options)
 {
-  RCLCPP_INFO(this->get_logger(), "Local Planner ROS 2 lifecycle node created");
+  RCLCPP_INFO(this->get_logger(), "Lattice Planner ROS 2 lifecycle node created");
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
   
   // Subscription topics
@@ -52,10 +52,10 @@ LocalPlannerNode::LocalPlannerNode(const rclcpp::NodeOptions & options)
   pg_params.max_step_size = this->declare_parameter("max_step_size", 1.0);
 }
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_configure(
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LatticePlannerNode::on_configure(
   const rclcpp_lifecycle::State &)
 {
-  RCLCPP_INFO(this->get_logger(), "Configuring Local Planning node");
+  RCLCPP_INFO(this->get_logger(), "Configuring Lattice Planning node");
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
   available_paths_pub_ = this->create_publisher<local_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
@@ -63,50 +63,50 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalP
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_activate(
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LatticePlannerNode::on_activate(
   const rclcpp_lifecycle::State &)
 {
-  RCLCPP_INFO(this->get_logger(), "Activating Local Planning node");
-  lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(lanelet_ahead_topic, 10, std::bind(&LocalPlannerNode::lanelet_update_callback, this, std::placeholders::_1));
-  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(odom_topic, 10, std::bind(&LocalPlannerNode::update_vehicle_odom, this, std::placeholders::_1));
-  bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(bt_topic, 10, std::bind(&LocalPlannerNode::set_preferred_lanes, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Activating Lattice Planning node");
+  lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(lanelet_ahead_topic, 10, std::bind(&LatticePlannerNode::lanelet_update_callback, this, std::placeholders::_1));
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(odom_topic, 10, std::bind(&LatticePlannerNode::update_vehicle_odom, this, std::placeholders::_1));
+  bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(bt_topic, 10, std::bind(&LatticePlannerNode::set_preferred_lanes, this, std::placeholders::_1));
   path_pub_->on_activate();   
   available_paths_pub_->on_activate();   
   RCLCPP_INFO(this->get_logger(), "Node Activated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_deactivate(
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LatticePlannerNode::on_deactivate(
   const rclcpp_lifecycle::State &)
 {
-  RCLCPP_INFO(this->get_logger(), "Deactivating Local Planning node");
+  RCLCPP_INFO(this->get_logger(), "Deactivating Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_cleanup(
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LatticePlannerNode::on_cleanup(
   const rclcpp_lifecycle::State &)
 {
-  RCLCPP_INFO(this->get_logger(), "Cleaning up Local Planning node");
+  RCLCPP_INFO(this->get_logger(), "Cleaning up Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LocalPlannerNode::on_shutdown(
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LatticePlannerNode::on_shutdown(
   const rclcpp_lifecycle::State &)
 {
-  RCLCPP_INFO(this->get_logger(), "Shutting down Local Planning node");
+  RCLCPP_INFO(this->get_logger(), "Shutting down Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-void LocalPlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg){
+void LatticePlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstSharedPtr & msg){
   geometry_msgs::msg::PoseStamped ps;
   geometry_msgs::msg::Quaternion q;
   geometry_msgs::msg::Point p;
@@ -131,14 +131,14 @@ void LocalPlannerNode::update_vehicle_odom(const nav_msgs::msg::Odometry::ConstS
   car_frenet_point = fp;
 }
 
-void LocalPlannerNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg){
+void LatticePlannerNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg){
   preferred_lanelets.clear();
   for(auto id: msg->preferred_lanelet_ids){
     preferred_lanelets[id] = 1;
   }
 }
 
-void LocalPlannerNode::lanelet_update_callback(
+void LatticePlannerNode::lanelet_update_callback(
   const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg)
 {
   std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> lanelets;
@@ -201,7 +201,7 @@ void LocalPlannerNode::lanelet_update_callback(
   plan_and_publish_path();
 }
 
-void LocalPlannerNode::plan_and_publish_path(){
+void LatticePlannerNode::plan_and_publish_path(){
   std::vector<Path> paths;
 
   if (!car_frenet_point) {
@@ -234,7 +234,7 @@ void LocalPlannerNode::plan_and_publish_path(){
   publish_available_paths(paths);
 }
 
-std::vector<std::vector<int64_t>> LocalPlannerNode::get_id_order(int64_t curr_id, const std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> & ll_map){
+std::vector<std::vector<int64_t>> LatticePlannerNode::get_id_order(int64_t curr_id, const std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> & ll_map){
   std::vector<std::vector<int64_t>> id_order;
   
   auto it_curr = ll_map.find(curr_id);
@@ -292,7 +292,7 @@ std::vector<std::vector<int64_t>> LocalPlannerNode::get_id_order(int64_t curr_id
 return id_order;
 }
 
-bool LocalPlannerNode::point_ahead_of_car(const geometry_msgs::msg::Point & pt) {
+bool LatticePlannerNode::point_ahead_of_car(const geometry_msgs::msg::Point & pt) {
   const auto & car_pos = car_pose->pose.position;
   const auto & car_quat = car_pose->pose.orientation;
   
@@ -309,7 +309,7 @@ bool LocalPlannerNode::point_ahead_of_car(const geometry_msgs::msg::Point & pt) 
   return dot > 0.0;  
 }
 
-PathPoint LocalPlannerNode::create_terminal_point(
+PathPoint LatticePlannerNode::create_terminal_point(
   const geometry_msgs::msg::Point& pt,
   size_t pt_idx,
   const std::vector<geometry_msgs::msg::Point>& centerline,
@@ -341,7 +341,7 @@ PathPoint LocalPlannerNode::create_terminal_point(
   return PathPoint{pt.x, pt.y, angle, curvature};
 }
 
-void LocalPlannerNode::publish_final_path(const Path & path){
+void LatticePlannerNode::publish_final_path(const Path & path){
   nav_msgs::msg::Path path_msg;
   path_msg.header.stamp = this->now();
   path_msg.header.frame_id = "map";
@@ -364,7 +364,7 @@ void LocalPlannerNode::publish_final_path(const Path & path){
   path_pub_->publish(path_msg);
 }
 
-void LocalPlannerNode::publish_available_paths(const std::vector<Path> & paths){
+void LatticePlannerNode::publish_available_paths(const std::vector<Path> & paths){
   local_planning_msgs::msg::PathArray available_paths;
   
   if(paths.empty()){
@@ -397,4 +397,4 @@ void LocalPlannerNode::publish_available_paths(const std::vector<Path> & paths){
   available_paths_pub_->publish(available_paths);
 }
 
-RCLCPP_COMPONENTS_REGISTER_NODE(LocalPlannerNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(LatticePlannerNode)

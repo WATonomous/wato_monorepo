@@ -1,11 +1,11 @@
-# Local Planning Module
+# Lattice Planning Module
 
-Smooth, kinematically-feasible local path generation using cubic spiral optimization with map-aware corridor sampling and cost-based path selection.
+Smooth, kinematically-feasible lattice path generation using cubic spiral optimization with map-aware corridor sampling and cost-based path selection.
 
 ## Overview
 
 Generates drivable paths by:
-1. Receiving ego vehicle pose and local lanelet corridor from world modeling
+1. Receiving ego vehicle pose and lattice lanelet corridor from world modeling
 2. Sampling terminal points at multiple lookahead horizons across available lanes
 3. Fitting cubic spirals between current pose and each terminal using damped Newton optimization
 4. Scoring paths based on curvature smoothness, lateral movement, and lane preference
@@ -20,7 +20,7 @@ Generates drivable paths by:
 | Topic | Type | Description |
 |-------|------|-------------|
 | `odom` | `nav_msgs/Odometry` | Ego vehicle odometry (position, orientation, curvature) |
-| `lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Local lanelet corridor with centerlines and topology |
+| `lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Lattice lanelet corridor with centerlines and topology |
 | `execute_behaviour` | `behaviour_msgs/ExecuteBehaviour` | Preferred lanelet IDs from behavior planner |
 
 ### Published Topics
@@ -28,15 +28,15 @@ Generates drivable paths by:
 | Topic | Type | Description |
 |-------|------|-------------|
 | `path` | `nav_msgs/Path` | Selected path as sequence of poses |
-| `planned_paths_markers` | `local_planning_msgs/PathArray` | All candidate paths and their costs |
+| `available_paths` | `lattice_planning_msgs/PathArray` | All candidate paths and their costs |
 
 
 ## Architecture
 
 **Lifecycle node with separate algorithm core**:
 
-- **local_planner_node**: ROS 2 lifecycle node handling subscriptions, publications, and corridor processing
-- **local_planner_core**: Pure algorithm library for spiral generation, cost evaluation, and path selection
+- **lattice_planning_node**: ROS 2 lifecycle node handling subscriptions, publications, and corridor processing
+- **lattice_planning_core**: Pure algorithm library for spiral generation, cost evaluation, and path selection
   - `generate_path()`: Damped Newton optimizer fitting cubic spirals k(s) = c0 + c1s + c2s^2 + c3s^3
   - `path_cost_function()`: Evaluates curvature change penalties, lateral movement cost, and lane preference
   - `get_lowest_cost_path()`: Selects minimum-cost path from candidate set
@@ -66,7 +66,7 @@ Paths scored on:
 
 ## Configuration
 
-Parameters in `config/local_planner_params.yaml`:
+Parameters in `config/lattice_planning_params.yaml`:
 
 **Corridor Sampling**:
 - `num_horizons`: Number of lookahead distances (default: 3)

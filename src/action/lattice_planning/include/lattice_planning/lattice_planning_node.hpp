@@ -6,7 +6,7 @@
 #include <utility>
 #include <optional>
 
-#include "local_planning/local_planner_core.hpp"
+#include "lattice_planning/lattice_planning_core.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -29,11 +29,11 @@
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 
 
-class LocalPlannerNode : public rclcpp_lifecycle::LifecycleNode
+class LatticePlannerNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
 
-  LocalPlannerNode(const rclcpp::NodeOptions & options);
+  LatticePlannerNode(const rclcpp::NodeOptions & options);
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State & previous_state) override;
@@ -80,7 +80,7 @@ private:
   void publish_final_path(const Path & path);
   void publish_available_paths(const std::vector<Path> & paths);
   
-  LocalPlannerCore core_;
+  LatticePlannerCore core_;
 
   // subscription topic names
   std::string lanelet_ahead_topic, odom_topic, bt_topic;

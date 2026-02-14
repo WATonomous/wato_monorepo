@@ -1,9 +1,9 @@
 #include <iostream>
 #include <cmath>
 
-#include "local_planning/local_planner_core.hpp"
+#include "lattice_planning/lattice_planning_core.hpp"
 
-LocalPlannerCore::LocalPlannerCore() = default;
+LatticePlannerCore::LatticePlannerCore() = default;
 
 /**
  * @brief Calculate Euclidean distance between two 2D points.
@@ -13,7 +13,7 @@ LocalPlannerCore::LocalPlannerCore() = default;
  * @param y2 Y-coordinate of second point.
  * @return Euclidean distance.
  */
-double LocalPlannerCore::get_euc_dist(double x1, double y1, double x2, double y2){
+double LatticePlannerCore::get_euc_dist(double x1, double y1, double x2, double y2){
   return std::hypot(x2 - x1, y2 - y1);
 }
 
@@ -25,7 +25,7 @@ double LocalPlannerCore::get_euc_dist(double x1, double y1, double x2, double y2
  * @param y2 Y-coordinate of second point.
  * @return Angle in radians.
  */
-double LocalPlannerCore::get_angle_from_pts(double x1, double y1, double x2, double y2){
+double LatticePlannerCore::get_angle_from_pts(double x1, double y1, double x2, double y2){
   return std::atan2(y2 - y1, x2 - x1);
 }
 
@@ -34,7 +34,7 @@ double LocalPlannerCore::get_angle_from_pts(double x1, double y1, double x2, dou
  * @param angle Input angle in radians.
  * @return Normalized angle.
  */
-double LocalPlannerCore::normalise_angle(double angle){
+double LatticePlannerCore::normalise_angle(double angle){
     return std::remainder(angle, 2.0 * M_PI);
 }
 
@@ -47,7 +47,7 @@ double LocalPlannerCore::normalise_angle(double angle){
  * @param p Array of 5 parameters: [k0, k1, k2, k3, sf] where k are curvatures at waypoints and sf is arc length.
  * @param coeffs Output array of 4 cubic polynomial coefficients [c0, c1, c2, c3].
  */
-void LocalPlannerCore::calculate_spiral_coeff(const double p[num_of_spiral_params], double (&coeffs)[num_of_spiral_coeffs]){
+void LatticePlannerCore::calculate_spiral_coeff(const double p[num_of_spiral_params], double (&coeffs)[num_of_spiral_coeffs]){
   coeffs[0] = p[0];
   coeffs[1] = (-11 * p[0] + 18 * p[1] - 9 * p[2] + 2 * p[3])  / (2 * p[4]);
   coeffs[2] = (9 * (2 * p[0] - 5 * p[1] + 4 * p[2] - p[3]))   / (2 * p[4] * p[4]);
@@ -61,7 +61,7 @@ void LocalPlannerCore::calculate_spiral_coeff(const double p[num_of_spiral_param
  * @param cf_params Cost function parameters.
  * @return Path with minimum cost.
  */
-Path LocalPlannerCore::get_lowest_cost_path(
+Path LatticePlannerCore::get_lowest_cost_path(
   const std::vector<Path> & paths, 
   const std::unordered_map<int64_t, int> & preferred_lanelets, 
   const CostFunctionParams & cf_params
@@ -88,7 +88,7 @@ Path LocalPlannerCore::get_lowest_cost_path(
  * @param params Cost function weights and thresholds.
  * @return Total path cost.
  */
-double LocalPlannerCore::path_cost_function(    
+double LatticePlannerCore::path_cost_function(    
   const Path & path,
   bool preferred_lane,
   CostFunctionParams params
@@ -128,7 +128,7 @@ double LocalPlannerCore::path_cost_function(
  * @param c Array of 4 spiral polynomial coefficients [c0, c1, c2, c3].
  * @param path Output vector of path points.
  */
-void LocalPlannerCore::generate_spiral(
+void LatticePlannerCore::generate_spiral(
   PathPoint start, 
   int steps, 
   double sf, 
@@ -157,7 +157,7 @@ void LocalPlannerCore::generate_spiral(
  * @param target Desired path point.
  * @return Error vector [dx, dy, dtheta].
  */
-Eigen::Vector3d LocalPlannerCore::compute_error_3dof(
+Eigen::Vector3d LatticePlannerCore::compute_error_3dof(
   const PathPoint& actual, 
   const PathPoint& target)
 {
@@ -181,7 +181,7 @@ Eigen::Vector3d LocalPlannerCore::compute_error_3dof(
  * @param pg_params Parameters controlling optimization (max iterations, tolerance, damping, step limits).
  * @return Vector of path points forming the spiral, or empty vector if optimization fails to converge.
  */
-std::vector<PathPoint> LocalPlannerCore::generate_path(
+std::vector<PathPoint> LatticePlannerCore::generate_path(
   PathPoint start, 
   PathPoint target,
   PathGenParams pg_params)
@@ -262,7 +262,7 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
  * @param steps Number of spiral discretization steps.
  * @return 3x3 Jacobian matrix for Newton optimization.
  */
-Eigen::Matrix3d LocalPlannerCore::compute_jacobian_3dof(
+Eigen::Matrix3d LatticePlannerCore::compute_jacobian_3dof(
   const Eigen::Vector3d& p, 
   const Eigen::Vector3d& error,
   const PathPoint& start,
