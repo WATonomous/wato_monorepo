@@ -47,7 +47,7 @@ double LocalPlannerCore::normalise_angle(double angle){
  * @param p Array of 5 parameters: [k0, k1, k2, k3, sf] where k are curvatures at waypoints and sf is arc length.
  * @param coeffs Output array of 4 cubic polynomial coefficients [c0, c1, c2, c3].
  */
-void LocalPlannerCore::calculate_spiral_coeff(const double p[5], double (&coeffs)[4]){
+void LocalPlannerCore::calculate_spiral_coeff(const double p[num_of_spiral_params], double (&coeffs)[num_of_spiral_coeffs]){
   coeffs[0] = p[0];
   coeffs[1] = (-11 * p[0] + 18 * p[1] - 9 * p[2] + 2 * p[3])  / (2 * p[4]);
   coeffs[2] = (9 * (2 * p[0] - 5 * p[1] + 4 * p[2] - p[3]))   / (2 * p[4] * p[4]);
@@ -189,8 +189,8 @@ std::vector<PathPoint> LocalPlannerCore::generate_path(
   std::vector<PathPoint> path;
 
   double norm = std::numeric_limits<double>::infinity();
-  double spiral_coeffs[4];
-  double spiral_params[5];
+  double spiral_coeffs[num_of_spiral_coeffs];
+  double spiral_params[num_of_spiral_params];
 
   double sf_est = get_euc_dist(start.x, start.y, target.x, target.y);
 
@@ -277,8 +277,8 @@ Eigen::Matrix3d LocalPlannerCore::compute_jacobian_3dof(
       p_perturbed(j) += delta;
       
       std::vector<PathPoint> temp_path;
-      double spiral_coeffs[4];
-      double spiral_params[5] = {start.kappa, p_perturbed(0), p_perturbed(1), 
+      double spiral_coeffs[num_of_spiral_coeffs];
+      double spiral_params[num_of_spiral_params] = {start.kappa, p_perturbed(0), p_perturbed(1), 
                                   target.kappa, p_perturbed(2)};
 
       calculate_spiral_coeff(spiral_params, spiral_coeffs);

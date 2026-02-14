@@ -79,4 +79,8 @@ public:
     const PathPoint& target,
     int steps
   );
+
+  //sprial generation constants
+  static constexpr int num_of_spiral_coeffs = 4;
+  static constexpr int num_of_spiral_params = 5;
 };
