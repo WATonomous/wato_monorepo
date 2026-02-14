@@ -168,6 +168,12 @@ private:
   bool disable_boards_on_fault_{false};
   double steering_conversion_factor_{15.7};  // Steering wheel to wheel angle
 
+  // Per-module enable parameters
+  bool enable_all_{true};
+  bool enable_steering_{true};
+  bool enable_throttle_{true};
+  bool enable_brakes_{true};
+
   float last_forward_{0.0};
   rclcpp::Time last_message_time_{0, 0, RCL_SYSTEM_TIME};
 
