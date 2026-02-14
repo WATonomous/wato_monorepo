@@ -1,7 +1,6 @@
 # action_launch.yaml
 
 launch:
-
   - node:
       pkg: "local_planning"
       exec: "local_planner_node"
@@ -17,3 +16,16 @@ launch:
           to: "/ego/odom"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
+  - node:
+      pkg: "local_planning_markers"
+      exec: "local_planning_markers_node"
+      name: "local_planning_markers_node"
+      namespace: "action/local_planning_markers"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share local_planning_markers)/config/local_planner_markers_params.yaml"
+      remap:
+        - from: "path"
+          to: "/action/local_planning/path"
+        - from: "available_paths"
+          to: "/action/local_planning/available_paths"
