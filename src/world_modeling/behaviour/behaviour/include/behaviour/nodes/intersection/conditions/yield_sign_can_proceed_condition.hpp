@@ -24,13 +24,12 @@
 #include <vector>
 
 #include "behaviour/utils/utils.hpp"
-
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour
 {
-  /**
+/**
    * @class YieldSignCanProceedCondition
    * @brief ConditionNode to check whether yield lanelets are clear.
    *
@@ -46,75 +45,66 @@ namespace behaviour
    * - If there are no more cars in the yield lanelets, then it's safe to proceed, car might still pose a risk in we do allow the car to go
    * - World object lanelet association is up to date and reliable.
    */
-  class YieldSignCanProceedCondition : public BT::ConditionNode
+class YieldSignCanProceedCondition : public BT::ConditionNode
+{
+public:
+  YieldSignCanProceedCondition(const std::string & name, const BT::NodeConfig & config)
+  : BT::ConditionNode(name, config)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    YieldSignCanProceedCondition(const std::string &name, const BT::NodeConfig &config)
-        : BT::ConditionNode(name, config)
-    {
+    return {
+      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
+      BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
+      BT::InputPort<int>("hypothesis_index"),
+    };
+  }
+
+  BT::NodeStatus tick() override
+  {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[YieldSignCanProceed]: Missing " << port_name << " input" << std::endl;
+    };
+
+    auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
+    if (!ports::require(elem, "active_traffic_control_element", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
     }
 
-    static BT::PortsList providedPorts()
-    {
-      return {
-          BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
-          BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
-          BT::InputPort<int>("hypothesis_index"),
-      };
+    auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
+    if (!ports::require(objects, "objects", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
     }
 
-    BT::NodeStatus tick() override
-    {
-      const auto missing_input_callback = [&](const char *port_name)
-      {
-        std::cout << "[YieldSignCanProceed]: Missing " << port_name << " input" << std::endl;
-      };
-
-      auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
-      if (!ports::require(elem, "active_traffic_control_element", missing_input_callback))
-      {
-        return BT::NodeStatus::FAILURE;
-      }
-
-      auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
-      if (!ports::require(objects, "objects", missing_input_callback))
-      {
-        return BT::NodeStatus::FAILURE;
-      }
-
-      auto hypothesis_index = ports::tryGet<int>(*this, "hypothesis_index");
-      if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback))
-      {
-        return BT::NodeStatus::FAILURE;
-      }
-
-      if (elem->yield_lanelet_ids.empty())
-      {
-        std::cout << "[YieldSignCanProceed]: yield_lanelet_ids empty (fail-safe)" << std::endl;
-        return BT::NodeStatus::FAILURE;
-      }
-
-      if (*hypothesis_index < 0)
-      {
-        std::cout << "[YieldSignCanProceed]: invalid hypothesis_index" << std::endl;
-        return BT::NodeStatus::FAILURE;
-      }
-
-      for (const auto lanelet_id : elem->yield_lanelet_ids)
-      {
-        const auto cars = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
-        if (!cars.empty())
-        {
-          std::cout << "[YieldSignCanProceed]: Blocked (car in yield lanelet " << lanelet_id << ")" << std::endl;
-          return BT::NodeStatus::FAILURE;
-        }
-      }
-
-      std::cout << "[YieldSignCanProceed]: Clear (no cars in yield lanelets)" << std::endl;
-      return BT::NodeStatus::SUCCESS;
+    auto hypothesis_index = ports::tryGet<int>(*this, "hypothesis_index");
+    if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
     }
-  };
 
-} // namespace behaviour
+    if (elem->yield_lanelet_ids.empty()) {
+      std::cout << "[YieldSignCanProceed]: yield_lanelet_ids empty (fail-safe)" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
 
-#endif // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__YIELD_SIGN_CAN_PROCEED_CONDITION_HPP_
+    if (*hypothesis_index < 0) {
+      std::cout << "[YieldSignCanProceed]: invalid hypothesis_index" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+
+    for (const auto lanelet_id : elem->yield_lanelet_ids) {
+      const auto cars = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+      if (!cars.empty()) {
+        std::cout << "[YieldSignCanProceed]: Blocked (car in yield lanelet " << lanelet_id << ")" << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
+    }
+
+    std::cout << "[YieldSignCanProceed]: Clear (no cars in yield lanelets)" << std::endl;
+    return BT::NodeStatus::SUCCESS;
+  }
+};
+
+}  // namespace behaviour
+
+#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__YIELD_SIGN_CAN_PROCEED_CONDITION_HPP_

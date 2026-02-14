@@ -76,8 +76,7 @@ inline double pointToSegmentDistanceXY(
 }
 
 inline double pointToPolylineDistanceXY(
-  const geometry_msgs::msg::Point & point,
-  const std::vector<geometry_msgs::msg::Point> & polyline)
+  const geometry_msgs::msg::Point & point, const std::vector<geometry_msgs::msg::Point> & polyline)
 {
   if (polyline.empty()) {
     return std::numeric_limits<double>::infinity();
@@ -96,16 +95,13 @@ inline double pointToPolylineDistanceXY(
   return min_dist;
 }
 
-inline double pointToWayDistanceXY(
-  const geometry_msgs::msg::Point & point,
-  const lanelet_msgs::msg::Way & way)
+inline double pointToWayDistanceXY(const geometry_msgs::msg::Point & point, const lanelet_msgs::msg::Way & way)
 {
   return pointToPolylineDistanceXY(point, way.points);
 }
 
 inline double objectToWayDistanceXY(
-  const world_model_msgs::msg::WorldObject & object,
-  const lanelet_msgs::msg::Way & way)
+  const world_model_msgs::msg::WorldObject & object, const lanelet_msgs::msg::Way & way)
 {
   return pointToWayDistanceXY(objectCenter(object), way);
 }

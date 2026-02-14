@@ -25,45 +25,44 @@
 
 namespace behaviour
 {
-  /**
+/**
    * @class GetAreaOccupancyService
    * @brief RosServiceNode to request area occupancy snapshot.
    */
-  class GetAreaOccupancyService : public BT::RosServiceNode<world_model_msgs::srv::GetAreaOccupancy>
+class GetAreaOccupancyService : public BT::RosServiceNode<world_model_msgs::srv::GetAreaOccupancy>
+{
+public:
+  GetAreaOccupancyService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosServiceNode<world_model_msgs::srv::GetAreaOccupancy>(name, conf, params)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    GetAreaOccupancyService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
-        : BT::RosServiceNode<world_model_msgs::srv::GetAreaOccupancy>(name, conf, params)
-    {
-    }
+    return providedBasicPorts({
+      BT::OutputPort<std::vector<world_model_msgs::msg::AreaOccupancyInfo>>("areas"),
+      BT::OutputPort<std::string>("error_message"),
+    });
+  }
 
-    static BT::PortsList providedPorts()
-    {
-      return providedBasicPorts({
-          BT::OutputPort<std::vector<world_model_msgs::msg::AreaOccupancyInfo>>("areas"),
-          BT::OutputPort<std::string>("error_message"),
-      });
-    }
+  bool setRequest(Request::SharedPtr & request) override
+  {
+    (void)request;
+    return true;
+  }
 
-    bool setRequest(Request::SharedPtr &request) override
-    {
-      (void)request;
-      return true;
-    }
+  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
+  {
+    setOutput("areas", response->areas);
+    return BT::NodeStatus::SUCCESS;
+  }
 
-    BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
-    {
-      setOutput("areas", response->areas);
-      return BT::NodeStatus::SUCCESS;
-    }
+  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+  {
+    setOutput("error_message", std::string(BT::toStr(error)));
+    RCLCPP_ERROR(logger(), "GetAreaOccupancy service failed: %d", error);
+    return BT::NodeStatus::FAILURE;
+  }
+};
+}  // namespace behaviour
 
-    BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-    {
-      setOutput("error_message", std::string(BT::toStr(error)));
-      RCLCPP_ERROR(logger(), "GetAreaOccupancy service failed: %d", error);
-      return BT::NodeStatus::FAILURE;
-    }
-  };
-} // namespace behaviour
-
-#endif // BEHAVIOUR__NODES__COMMON__ACTIONS__GET_AREA_OCCUPANCY_SERVICE_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__ACTIONS__GET_AREA_OCCUPANCY_SERVICE_HPP_

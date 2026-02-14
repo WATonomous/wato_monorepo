@@ -51,7 +51,7 @@ public:
     if (!ports::require(goal_lanelet, "goal_lanelet", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
-    
+
     return BT::NodeStatus::SUCCESS;
   }
 };

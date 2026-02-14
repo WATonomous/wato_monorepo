@@ -25,45 +25,44 @@
 
 namespace behaviour
 {
-  /**
+/**
    * @class GetWorldObjectsService
    * @brief RosServiceNode to request all dynamic objects snapshot.
    */
-  class GetWorldObjectsService : public BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>
+class GetWorldObjectsService : public BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>
+{
+public:
+  GetWorldObjectsService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>(name, conf, params)
+  {}
+
+  static BT::PortsList providedPorts()
   {
-  public:
-    GetWorldObjectsService(const std::string &name, const BT::NodeConfig &conf, const BT::RosNodeParams &params)
-        : BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>(name, conf, params)
-    {
-    }
+    return providedBasicPorts({
+      BT::OutputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
+      BT::OutputPort<std::string>("error_message"),
+    });
+  }
 
-    static BT::PortsList providedPorts()
-    {
-      return providedBasicPorts({
-          BT::OutputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
-          BT::OutputPort<std::string>("error_message"),
-      });
-    }
+  bool setRequest(Request::SharedPtr & request) override
+  {
+    (void)request;
+    return true;
+  }
 
-    bool setRequest(Request::SharedPtr &request) override
-    {
-      (void)request;
-      return true;
-    }
+  BT::NodeStatus onResponseReceived(const Response::SharedPtr & response) override
+  {
+    setOutput("objects", response->objects);
+    return BT::NodeStatus::SUCCESS;
+  }
 
-    BT::NodeStatus onResponseReceived(const Response::SharedPtr &response) override
-    {
-      setOutput("objects", response->objects);
-      return BT::NodeStatus::SUCCESS;
-    }
+  BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
+  {
+    setOutput("error_message", std::string(BT::toStr(error)));
+    RCLCPP_ERROR(logger(), "[%s] service failed: %s", name().c_str(), std::string(BT::toStr(error)).c_str());
+    return BT::NodeStatus::FAILURE;
+  }
+};
+}  // namespace behaviour
 
-    BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
-    {
-      setOutput("error_message", std::string(BT::toStr(error)));
-      RCLCPP_ERROR(logger(), "[%s] service failed: %s", name().c_str(), std::string(BT::toStr(error)).c_str());
-      return BT::NodeStatus::FAILURE;
-    }
-  };
-} // namespace behaviour
-
-#endif // BEHAVIOUR__NODES__COMMON__ACTIONS__GET_OBJECTS_SERVICE_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__ACTIONS__GET_OBJECTS_SERVICE_HPP_
