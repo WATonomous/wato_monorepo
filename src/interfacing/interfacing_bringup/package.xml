@@ -14,6 +14,8 @@
 
   <exec_depend>sensor_interfacing</exec_depend>
   <exec_depend>eve_description</exec_depend>
+  <exec_depend>pid_control_raw</exec_depend>
+  <exec_depend>car_steering_feedback</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

@@ -17,6 +17,8 @@ launch:
       name: ackermann_velocity_trapezoid
       namespace: interfacing
       output: screen
+      param:
+        - from: "$(find-pkg-share dummy_ackermann)/config/dummy_ackermann.yaml"
 
   # Joystick Node (Required to arm)
   - include:
@@ -28,7 +30,7 @@ launch:
 
   # OSCC interfacing Node
   - include:
-      file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
+      file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch_linear.yaml"
 
   # Lifecycle Manager
   - node:

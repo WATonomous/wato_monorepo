@@ -12,64 +12,80 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pid_control/pid_control_node.hpp"
+#include "pid_control_raw/pid_control_raw_node.hpp"
 
 #include <algorithm>
 #include <memory>
 #include <string>
 
-namespace pid_control
+namespace pid_control_raw
 {
 
-PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
-: LifecycleNode("pid_control_node", options)
+PidControlRawNode::PidControlRawNode(const rclcpp::NodeOptions & options)
+: LifecycleNode("pid_control_raw_node", options)
 {
-  // Declare parameters only - do not read or create resources yet
+  // Declare top-level parameters
   this->declare_parameter<double>("update_rate", 100.0);
   this->declare_parameter<double>("steering_slew_rate", 100.0);
 
-  RCLCPP_INFO(this->get_logger(), "PidControlNode created (unconfigured)");
+  // Declare steering PID parameters
+  this->declare_parameter<double>("steering_pid.p", 1.0);
+  this->declare_parameter<double>("steering_pid.i", 0.0);
+  this->declare_parameter<double>("steering_pid.d", 0.0);
+  this->declare_parameter<double>("steering_pid.i_clamp_max", 0.56);
+  this->declare_parameter<double>("steering_pid.i_clamp_min", -0.56);
+  this->declare_parameter<double>("steering_pid.u_clamp_max", 0.56);
+  this->declare_parameter<double>("steering_pid.u_clamp_min", -0.56);
+
+  // Declare velocity PID parameters
+  this->declare_parameter<double>("velocity_pid.p", 1.0);
+  this->declare_parameter<double>("velocity_pid.i", 0.1);
+  this->declare_parameter<double>("velocity_pid.d", 0.01);
+  this->declare_parameter<double>("velocity_pid.i_clamp_max", 0.5);
+  this->declare_parameter<double>("velocity_pid.i_clamp_min", -0.5);
+  this->declare_parameter<double>("velocity_pid.u_clamp_max", 1.0);
+  this->declare_parameter<double>("velocity_pid.u_clamp_min", -1.0);
+
+  RCLCPP_INFO(this->get_logger(), "PidControlRawNode created (unconfigured)");
 }
 
-PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
+Pid::Gains PidControlRawNode::load_pid_gains(const std::string & prefix)
+{
+  Pid::Gains gains;
+  gains.p = this->get_parameter(prefix + ".p").as_double();
+  gains.i = this->get_parameter(prefix + ".i").as_double();
+  gains.d = this->get_parameter(prefix + ".d").as_double();
+  gains.i_clamp_max = this->get_parameter(prefix + ".i_clamp_max").as_double();
+  gains.i_clamp_min = this->get_parameter(prefix + ".i_clamp_min").as_double();
+  gains.u_clamp_max = this->get_parameter(prefix + ".u_clamp_max").as_double();
+  gains.u_clamp_min = this->get_parameter(prefix + ".u_clamp_min").as_double();
+  return gains;
+}
+
+PidControlRawNode::CallbackReturn PidControlRawNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Configuring...");
 
-  // Initialize Steering PID
-  steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
-    this->get_node_base_interface(),
-    this->get_node_logging_interface(),
-    this->get_node_parameters_interface(),
-    this->get_node_topics_interface(),
-    "steering_pid",
-    "/steering_pid_state",
-    true);
-  steering_pid_ros_->initialize_from_ros_parameters();
+  // Load PID gains from parameters
+  steering_pid_.set_gains(load_pid_gains("steering_pid"));
+  steering_pid_.reset();
 
-  // Initialize Velocity PID
-  velocity_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
-    this->get_node_base_interface(),
-    this->get_node_logging_interface(),
-    this->get_node_parameters_interface(),
-    this->get_node_topics_interface(),
-    "velocity_pid",
-    "/velocity_pid_state",
-    true);
-  velocity_pid_ros_->initialize_from_ros_parameters();
+  velocity_pid_.set_gains(load_pid_gains("velocity_pid"));
+  velocity_pid_.reset();
 
   // Subscriptions
   ackermann_sub_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
-    "ackermann", rclcpp::QoS(10), std::bind(&PidControlNode::ackermann_callback, this, std::placeholders::_1));
+    "ackermann", rclcpp::QoS(10), std::bind(&PidControlRawNode::ackermann_callback, this, std::placeholders::_1));
 
   steering_meas_sub_ = this->create_subscription<roscco_msg::msg::SteeringAngle>(
     "steering_feedback",
     rclcpp::QoS(10),
-    std::bind(&PidControlNode::steering_feedback_callback, this, std::placeholders::_1));
+    std::bind(&PidControlRawNode::steering_feedback_callback, this, std::placeholders::_1));
 
   velocity_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
     "velocity_feedback",
     rclcpp::QoS(10),
-    std::bind(&PidControlNode::velocity_feedback_callback, this, std::placeholders::_1));
+    std::bind(&PidControlRawNode::velocity_feedback_callback, this, std::placeholders::_1));
 
   // Publisher
   roscco_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(10));
@@ -78,27 +94,31 @@ PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecyc
   return CallbackReturn::SUCCESS;
 }
 
-PidControlNode::CallbackReturn PidControlNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
+PidControlRawNode::CallbackReturn PidControlRawNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Activating...");
 
   double update_rate = this->get_parameter("update_rate").as_double();
   steering_slew_rate_ = this->get_parameter("steering_slew_rate").as_double();
+
+  // Re-load gains in case they were changed between configure and activate
+  steering_pid_.set_gains(load_pid_gains("steering_pid"));
+  velocity_pid_.set_gains(load_pid_gains("velocity_pid"));
+
   // Start control loop timer
   last_time_ = this->now();
   auto period = std::chrono::duration<double>(1.0 / update_rate);
   timer_ = this->create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&PidControlNode::control_loop, this));
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&PidControlRawNode::control_loop, this));
 
   RCLCPP_INFO(this->get_logger(), "Activated - control loop running at %.1f Hz", update_rate);
   return CallbackReturn::SUCCESS;
 }
 
-PidControlNode::CallbackReturn PidControlNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
+PidControlRawNode::CallbackReturn PidControlRawNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating...");
 
-  // Stop the timer
   if (timer_) {
     timer_->cancel();
     timer_.reset();
@@ -108,20 +128,19 @@ PidControlNode::CallbackReturn PidControlNode::on_deactivate(const rclcpp_lifecy
   return CallbackReturn::SUCCESS;
 }
 
-PidControlNode::CallbackReturn PidControlNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
+PidControlRawNode::CallbackReturn PidControlRawNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up...");
 
-  // Reset all resources
   timer_.reset();
   ackermann_sub_.reset();
   steering_meas_sub_.reset();
   velocity_meas_sub_.reset();
   roscco_pub_.reset();
-  steering_pid_ros_.reset();
-  velocity_pid_ros_.reset();
 
   // Reset state
+  steering_pid_.reset();
+  velocity_pid_.reset();
   steering_setpoint_ = 0.0;
   steering_meas_ = 0.0;
   velocity_setpoint_ = 0.0;
@@ -133,7 +152,7 @@ PidControlNode::CallbackReturn PidControlNode::on_cleanup(const rclcpp_lifecycle
   return CallbackReturn::SUCCESS;
 }
 
-PidControlNode::CallbackReturn PidControlNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
+PidControlRawNode::CallbackReturn PidControlRawNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down...");
 
@@ -146,32 +165,30 @@ PidControlNode::CallbackReturn PidControlNode::on_shutdown(const rclcpp_lifecycl
   steering_meas_sub_.reset();
   velocity_meas_sub_.reset();
   roscco_pub_.reset();
-  steering_pid_ros_.reset();
-  velocity_pid_ros_.reset();
 
   return CallbackReturn::SUCCESS;
 }
 
-void PidControlNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
+void PidControlRawNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
 {
   steering_setpoint_ = msg->drive.steering_angle;
   velocity_setpoint_ = msg->drive.speed;
   ackermann_received_ = true;
 }
 
-void PidControlNode::steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg)
+void PidControlRawNode::steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg)
 {
   steering_meas_ = msg->angle;
   steering_meas_received_ = true;
 }
 
-void PidControlNode::velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
+void PidControlRawNode::velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
   velocity_meas_ = msg->data;
   velocity_meas_received_ = true;
 }
 
-void PidControlNode::control_loop()
+void PidControlRawNode::control_loop()
 {
   rclcpp::Time now = this->now();
   rclcpp::Duration dt = now - last_time_;
@@ -186,26 +203,13 @@ void PidControlNode::control_loop()
     return;
   }
 
-  /*
-  if (!steering_meas_received_ || !velocity_meas_received_) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "Waiting for feedback signals (steering: %s, velocity: %s)...",
-      steering_meas_received_ ? "OK" : "MISSING",
-      velocity_meas_received_ ? "OK" : "MISSING");
-    return;
-  }
-  */
-
   double steering_command = 0.0;
   double velocity_command = 0.0;
 
   // Compute Steering Command (Torque)
   if (steering_meas_received_) {
     double steering_error = steering_setpoint_ - steering_meas_;
-    steering_command = steering_pid_ros_->compute_command(steering_error, dt);
+    steering_command = steering_pid_.compute(steering_error, dt.seconds());
     if (steering_command > steering_output_prev_) {
       steering_command = std::min(steering_command, steering_output_prev_ + steering_slew_rate_ * dt.seconds());
     } else if (steering_command < steering_output_prev_) {
@@ -219,7 +223,7 @@ void PidControlNode::control_loop()
   // Compute Velocity Command
   if (velocity_meas_received_) {
     double velocity_error = velocity_setpoint_ - velocity_meas_;
-    velocity_command = velocity_pid_ros_->compute_command(velocity_error, dt);
+    velocity_command = velocity_pid_.compute(velocity_error, dt.seconds());
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for velocity feedback...");
   }
@@ -233,7 +237,7 @@ void PidControlNode::control_loop()
   roscco_pub_->publish(msg);
 }
 
-}  // namespace pid_control
+}  // namespace pid_control_raw
 
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(pid_control::PidControlNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(pid_control_raw::PidControlRawNode)

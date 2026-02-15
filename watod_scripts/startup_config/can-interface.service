@@ -6,7 +6,7 @@ After=network.target
 [Service]
 Type=oneshot
 ExecStartPre=/sbin/modprobe kvaser_usb
-ExecStart=/sbin/ip link set can0 up type can bitrate 500000
+ExecStart=/sbin/ip link set can0 up type can bitrate 500000 restart-ms 100
 ExecStartPost=/sbin/ip link set can0 up
 RemainAfterExit=yes
 

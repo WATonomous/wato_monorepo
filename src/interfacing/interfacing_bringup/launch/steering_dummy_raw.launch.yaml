@@ -24,13 +24,22 @@ launch:
   - include:
       file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
 
-  # PID Control Node
+  # PID Control Raw Node (no control_toolbox)
   - include:
-      file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
+      file: "$(find-pkg-share pid_control_raw)/launch/pid_control_raw.launch.yaml"
 
   # OSCC interfacing Node
   - include:
       file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
+
+  # Car Steering Feedback (direct CAN read, replaces OSCC steering angle)
+  - node:
+      pkg: car_steering_feedback
+      exec: car_steering_feedback_node
+      name: car_steering_feedback_node
+      output: screen
+      param:
+        - from: "$(find-pkg-share car_steering_feedback)/config/car_steering_feedback.yaml"
 
   # Lifecycle Manager
   - node:
@@ -42,7 +51,7 @@ launch:
         - name: node_names
           value:
             - /interfacing/joystick_node
-            - /interfacing/pid_control_node
+            - /interfacing/pid_control_raw_node
             - /interfacing/ackermann_square_wave
         - name: autostart
           value: $(var autostart)

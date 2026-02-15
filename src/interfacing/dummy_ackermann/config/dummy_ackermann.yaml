@@ -1,10 +1,10 @@
-/interfacing/ackermann_square_wave:
+/**/ackermann_square_wave:
   ros__parameters:
-    period: 2.0
+    period: 10.0
     amplitude: 0.1
     publish_rate: 50.0
 
-/interfacing/ackermann_velocity_trapezoid:
+/**/ackermann_velocity_trapezoid:
   ros__parameters:
     target_velocity: 1.0
     rise_time: 2.0

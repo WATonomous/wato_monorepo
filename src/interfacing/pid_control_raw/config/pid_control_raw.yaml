@@ -1,0 +1,21 @@
+/**/pid_control_raw_node:
+  ros__parameters:
+    update_rate: 20.0
+    steering_pid:
+      p: 2.5  # Proportional gain
+      i: 0.0  # Integral gain
+      d: 0.1 # Derivative gain
+      i_clamp_max: 0.56  # Upper bound for the integrator term
+      i_clamp_min: -0.56 # Lower bound for the integrator term
+      u_clamp_max: 1.0  # Upper saturation limit for the controller output
+      u_clamp_min: -1.0 # Lower saturation limit for the controller output
+      slew_rate: 100.0
+
+    velocity_pid:
+      p: 1.0
+      i: 0.1
+      d: 0.01
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0

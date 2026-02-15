@@ -1,0 +1,7 @@
+launch:
+  - node:
+      pkg: "car_steering_feedback"
+      exec: "car_steering_feedback_node"
+      name: "car_steering_feedback_node"
+      parameters:
+        - $(find-pkg-share car_steering_feedback)/config/car_steering_feedback.yaml

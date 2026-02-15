@@ -2,7 +2,7 @@ launch:
   # Arguments
   - arg:
       name: "config_file"
-      default: "$(find-pkg-share oscc_interfacing)/config/oscc_interfacing_config.yaml"
+      default: "$(find-pkg-share oscc_interfacing)/config/oscc_interfacing_config_linear.yaml"
       description: "Path to the OSCC interfacing configuration file"
 
   # Oscc node

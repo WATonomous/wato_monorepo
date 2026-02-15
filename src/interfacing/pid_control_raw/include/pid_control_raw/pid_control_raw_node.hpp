@@ -18,88 +18,45 @@
 #include <string>
 
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
-#include <control_toolbox/pid_ros.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/steering_angle.hpp>
 #include <std_msgs/msg/float64.hpp>
 
-namespace pid_control
+#include "pid_control_raw/pid.hpp"
+
+namespace pid_control_raw
 {
 
 /**
  * @brief Node for dual-loop PID control of steering and velocity.
+ *        Uses a self-contained PID implementation (no control_toolbox).
  */
-class PidControlNode : public rclcpp_lifecycle::LifecycleNode
+class PidControlRawNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
-  explicit PidControlNode(const rclcpp::NodeOptions & options);
+  explicit PidControlRawNode(const rclcpp::NodeOptions & options);
 
 protected:
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-  /**
-   * @brief Configures the node, including parameters and internal state.
-   * @param state The current state of the node.
-   * @return CallbackReturn Success or Failure.
-   */
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
-
-  /**
-   * @brief Activates the node, enabling publishers and timers.
-   * @param state The current state of the node.
-   * @return CallbackReturn Success or Failure.
-   */
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
-
-  /**
-   * @brief Deactivates the node, disabling publishers and timers.
-   * @param state The current state of the node.
-   * @return CallbackReturn Success or Failure.
-   */
   CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
-
-  /**
-   * @brief Cleans up the node, releasing resources.
-   * @param state The current state of the node.
-   * @return CallbackReturn Success or Failure.
-   */
   CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
-
-  /**
-   * @brief Shuts down the node.
-   * @param state The current state of the node.
-   * @return CallbackReturn Success or Failure.
-   */
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  /**
-   * @brief Callback for incoming Ackermann setpoints.
-   *
-   * @param msg The desired steering angle and speed.
-   */
   void ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg);
-
-  /**
-   * @brief Callback for steering angle measurement feedback.
-   *
-   * @param msg The current steering angle in radians.
-   */
   void steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg);
-
-  /**
-   * @brief Callback for velocity measurement feedback.
-   *
-   * @param msg The current vehicle speed in m/s.
-   */
   void velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg);
+  void control_loop();
 
   /**
-   * @brief The main control loop that computes and publishes PID commands.
+   * @brief Read PID gains from ROS parameters for a given prefix.
    */
-  void control_loop();
+  Pid::Gains load_pid_gains(const std::string & prefix);
 
   // Subscriptions
   rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_sub_;
@@ -109,9 +66,9 @@ private:
   // Publisher
   rclcpp::Publisher<roscco_msg::msg::Roscco>::SharedPtr roscco_pub_;
 
-  // PID
-  std::shared_ptr<control_toolbox::PidROS> steering_pid_ros_;
-  std::shared_ptr<control_toolbox::PidROS> velocity_pid_ros_;
+  // PID controllers
+  Pid steering_pid_;
+  Pid velocity_pid_;
 
   // Timer
   rclcpp::TimerBase::SharedPtr timer_;
@@ -132,4 +89,4 @@ private:
   double steering_slew_rate_{2.0};
 };
 
-}  // namespace pid_control
+}  // namespace pid_control_raw
