@@ -13,13 +13,13 @@ Core logic draws inspiration from ByteTrackV2 (Zhang et al., 2023). The implemen
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `[placeholder]` | `vision_msgs/Detection3DArray` | Incoming 3D detections |
+| `/perception/detections_3D` | `vision_msgs/Detection3DArray` | Incoming 3D detections |
 
 ### Published
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `tracked_boxes` | `vision_msgs/Detection3DArray` | Tracked detections |
+| `/perception/detections_3D_tracked` | `vision_msgs/Detection3DArray` | Tracked detections |
 
 ## Parameters
 | Parameter | Type | Default | Description |

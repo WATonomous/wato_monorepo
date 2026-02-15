@@ -31,12 +31,12 @@ launch:
   # topic arguments for tracking
   - arg:
       name: tracking_detections_topic
-      default: /carla/detections_3d
+      default: /perception/detections_3D
       description: 3D detection topic being subscribed to
 
   - arg:
       name: tracking_tracks_topic
-      default: /tracked_boxes
+      default: /perception/detections_3D_tracked
       description: Topic to publish tracks to
 
   # Patchwork++ ground segmentation

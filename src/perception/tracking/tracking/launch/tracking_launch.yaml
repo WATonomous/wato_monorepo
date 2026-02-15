@@ -15,11 +15,11 @@ launch:
   # Declare launch arguments for pub and sub topics
   - arg:
       name: detections_topic
-      default: /carla/detections_3d
+      default: /perception/detections_3D
       description: 3D detection topic being subscribed to
   - arg:
       name: tracks_topic
-      default: /tracked_boxes
+      default: /perception/detections_3D_tracked
       description: Topic to publish tracks to
 
   # Launch the 2D tracking node
