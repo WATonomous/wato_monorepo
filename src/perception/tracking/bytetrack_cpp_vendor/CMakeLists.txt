@@ -18,6 +18,20 @@ option(FORCE_BUILD_VENDOR_PKG
   "Build ByteTrack-cpp from source, even if system-installed package is available"
   OFF)
 
+set(PATCH_DIR "${CMAKE_SOURCE_DIR}/patches" CACHE STRING "Patch file directory")
+set(BYTETRACK_PATCHES "" CACHE STRING "List of patch files to apply")
+
+# Prepend patch files with path prefix if not already provided
+separate_arguments(BYTETRACK_PATCHES)
+set(BYTETRACK_PATCH_PATHS "")
+foreach(p IN LISTS BYTETRACK_PATCHES)
+    if(p MATCHES "/")
+        list(APPEND BYTETRACK_PATCH_PATHS "${p}")
+    else()
+        list(APPEND BYTETRACK_PATCH_PATHS "${PATCH_DIR}/${p}")
+    endif()
+endforeach()
+
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 
@@ -36,6 +50,12 @@ macro(build_bytetrack_cpp)
 
     list(APPEND extra_cmake_args "-DBUILD_BYTETRACK_TEST=OFF")
 
+    # Add requested patches
+    set(BYTETRACK_PATCH_CMD "")
+    if(BYTETRACK_PATCH_PATHS)
+        set(BYTETRACK_PATCH_CMD PATCH_COMMAND git apply --ignore-whitespace ${BYTETRACK_PATCH_PATHS})
+    endif()
+
     # Build ByteTrack
     externalproject_add(bytetrack
         GIT_REPOSITORY https://github.com/khuang9/ByteTrack-cpp-3d.git
@@ -44,6 +64,7 @@ macro(build_bytetrack_cpp)
         CMAKE_ARGS ${extra_cmake_args}
         INSTALL_COMMAND ""
         CONFIGURE_HANDLED_BY_BUILD TRUE
+        ${BYTETRACK_PATCH_CMD}
     )
     externalproject_get_property(bytetrack BINARY_DIR SOURCE_DIR)
 
