@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-Refer to package.xml
+Refer to [`package.xml`](./package.xml)
 
 ## Building
 
@@ -15,10 +15,10 @@ watod build perception_bringup
 **Development**
 
 ```bash
-colcon build --packages-select bytetrack_cpp_vendor tracking
+colcon build --packages-select bytetrack_cpp_vendor tracking wato_lifecycle_manager
 ```
 
-## Testing
+## Unit Testing
 
 ```bash
 colcon build --packages-select bytetrack_cpp_vendor tracking wato_test
@@ -34,5 +34,7 @@ ros2 launch tracking tracking_launch.yaml
 ```
 
 ## Modifying ByteTrack
-ByteTrack modifications are currently implemented as patch files for the ByteTrack vendor package. Patch files can be found under `tracking/bytetrack_cpp_vendor/patches`.
-All patches are implemented for [ByteTrack-cpp](https://github.com/Vertical-Beach/ByteTrack-cpp).
+
+ByteTrack currently uses a modified fork of [`ByteTrack-cpp`](https://github.com/Vertical-Beach/ByteTrack-cpp) located at [`ByteTrack-cpp-3d`](https://github.com/khuang9/ByteTrack-cpp-3d). Integration with ROS2 nodes happens through the vendor package at [`bytetrack_cpp_vendor/`](../bytetrack_cpp_vendor/).
+
+See [`bytetrack_cpp_vendor/DEVELOPING.md`](../bytetrack_cpp_vendor/DEVELOPING.md) for more details.
