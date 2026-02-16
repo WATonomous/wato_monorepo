@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-behaviour_node:
+/**/behaviour_node:
   ros__parameters:
     # Behavior tree XML file (relative to trees/ directory)
     bt_tree_file: "main_tree.xml"
@@ -48,14 +48,9 @@ behaviour_node:
       # Intersection lookahead distance (meters)
       intersection_lookahead_m: 40.0
 
-      # Lanelet threshold for determining if traffic control element is passed
-      traffic_control_element_passed_lanelet_threshold: 2
-
-      # Lanelet threshold for determining if traffic control element is handled
-      traffic_control_element_handled_lanelet_threshold: 1
-
-      # Stop sign car detection threshold (meters)
-      stop_sign_car_detection_threshold_m: 5.0
+      # Max distance from a stop line for a car to be considered
+      # part of the intersection (i.e. waiting/stopped at the stop sign)
+      stop_sign_stop_line_proximity_m: 5.0
 
       # Goal reached threshold (meters)
       goal_reached_threshold_m: 1.0

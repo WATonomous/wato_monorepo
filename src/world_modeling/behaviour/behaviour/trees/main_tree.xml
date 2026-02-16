@@ -105,7 +105,7 @@
       </ReactiveSequence>
 
       <!-- If no goal exists or goal is reached or we failed to get route -->
-      <ExecuteBehaviour behaviour="standby" topic_name="/execute_behaviour" />
+      <ExecuteBehaviour behaviour="standby" topic_name="execute_behaviour" />
 
     </Fallback>
   </BehaviorTree>

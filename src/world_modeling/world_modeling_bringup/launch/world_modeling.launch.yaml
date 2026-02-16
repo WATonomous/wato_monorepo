@@ -213,10 +213,10 @@ launch:
       pkg: behaviour
       exec: behaviour_node
       name: behaviour_node
-      namespace: "behaviour"
+      namespace: "world_modeling"
       output: screen
       # delay bt for wm to load all services
-      launch-prefix: "bash -c 'sleep 10; $0 $@'"
+      launch-prefix: "bash -c 'sleep 15; $0 $@'"
       param:
         - from: $(find-pkg-share behaviour)/config/params.yaml
       remap:

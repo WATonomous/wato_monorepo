@@ -3,7 +3,7 @@
     <BehaviorTree ID="StopSignSubTree">
         <Sequence name="Handle Stop Sign">
 
-            <!-- WALL OF DOOM: compute stop-line pose and spawn wall -->
+            <!-- compute stop line pose and spawn wall -->
             <GetStopLinePose
                 reg_elem="{active_traffic_control_element}"
                 lane_ctx="{@current_lane_ctx}"
@@ -18,17 +18,20 @@
                 width="{@bt.intersection_wall_of_doom_width}"
                 length="{@bt.intersection_wall_of_doom_length}"
                 wall_id="{stop_sign.wall_id}"
-                error_message="{spawn_wall_error_msg}" />
+                error_message="{spawn_wall_error_msg}"
+                service_name="/world_modeling/spawn_wall"
+            />
 
             <EgoStopped ego_odom="{ego_odom}"
                 threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
 
-            <!-- Fetch lanelets controlled by this regulatory element -->
+            <!-- fetch lanelets controlled by this regulatory element -->
             <ReactiveSequence>
                 <GetLaneletsByRegElem
                     reg_elem_id="{active_traffic_control_element_id}"
                     lanelets="{stop_sign.lanelets}"
-                    error_message="{get_lanelets_by_reg_elem_error_msg}" />
+                    error_message="{get_lanelets_by_reg_elem_error_msg}"
+                    service_name="/world_modeling/get_lanelets_by_reg_elem" />
 
                 <GetWorldObjects
                     objects="{stop_sign.objects}"
@@ -39,7 +42,7 @@
                     stop_sign="{active_traffic_control_element}"
                     objects="{stop_sign.objects}"
                     hypothesis_index="{@world_objects_hypothesis_index}"
-                    stop_sign_line_threshold_m="{@bt.stop_sign_car_detection_threshold_m}"
+                    stop_sign_line_threshold_m="{@bt.stop_sign_stop_line_proximity_m}"
                     out_stop_sign_car_ids="{stop_sign.current_ids}" />
 
                 <SetStopSignPriorityCars
@@ -54,10 +57,11 @@
                     current_ids="{stop_sign.current_ids}" />
             </ReactiveSequence>
 
-            <!-- WALL OF DOOM: despawn wall after proceed condition passes -->
+            <!-- despawn wall after proceed condition passes -->
             <DespawnWall
                 wall_id="{stop_sign.wall_id}"
-                error_message="{despawn_wall_error_msg}" />
+                error_message="{despawn_wall_error_msg}"
+                service_name="/world_modeling/despawn_wall" />
 
             <ClearStopSignPriorityCarsAction
                 priority_car_ids="{stop_sign.priority_ids}"

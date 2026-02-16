@@ -3,7 +3,7 @@
     <BehaviorTree ID="YieldSubTree">
         <Sequence name="Handle Yield">
 
-            <!-- WALL OF DOOM: compute stop/yield-line pose and spawn wall -->
+            <!-- compute stop/yield line pose and spawn wall -->
             <GetStopLinePose
                 reg_elem="{yield_sign}"
                 lane_ctx="{@current_lane_ctx}"
@@ -18,25 +18,25 @@
                 width="{@bt.intersection_wall_of_doom_width}"
                 length="{@bt.intersection_wall_of_doom_length}"
                 wall_id="{yield.wall_id}"
-                error_message="{yield.spawn_wall_error_msg}" />
+                error_message="{yield.spawn_wall_error_msg}"
+                service_name="/world_modeling/spawn_wall" />
 
             <GetWorldObjects
                 objects="{yield.objects}"
                 error_message="{yield.get_objects_error_msg}"
                 service_name="/world_modeling/get_dynamic_objects" />
 
-            <!-- Wait until yield lanes are clear for a gap -->
+            <!-- wait until yield lanes are clear for a gap -->
             <YieldCanProceed
                 active_traffic_control_element="{yield_sign}"
                 objects="{yield.objects}"
                 hypothesis_index="{@world_objects_hypothesis_index}" />
 
-            <!-- WALL OF DOOM: despawn -->
+            <!-- despawn wall -->
             <DespawnWall
                 wall_id="{yield.wall_id}"
-                error_message="{yield.despawn_wall_error_msg}" />
-
-            <!-- TODO: Add condition to see if passed intersection -->
+                error_message="{yield.despawn_wall_error_msg}"
+                service_name="/world_modeling/despawn_wall" />
         </Sequence>
     </BehaviorTree>
 </root>

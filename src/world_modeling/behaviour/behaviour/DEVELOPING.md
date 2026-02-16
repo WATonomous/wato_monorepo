@@ -79,7 +79,24 @@ In XML, reference those BT-only values with `{@bt.*}`.
 4. Wire the node into XML:
    - add it to the right tree/subtree
    - ensure XML port names exactly match C++ port names
-   - use `{@bt.*}` for BT-only config values.
+   - use `{@bt.*}` for BT-only config values
+   - **`RosServiceNode`**: always set `service_name="<service>"` in the XML element.
+     The registrar handles timeouts only; the service name is the tree's responsibility.
+   - **`RosTopicPubNode`**: always set `topic_name="<topic>"` (relative, no leading `/`) so
+     that launch-file remaps apply.
+
+   Current service/topic names used in XML:
+
+   | Node                   | Port           | Value                                      |
+   | ---------------------- | -------------- | ------------------------------------------ |
+   | `GetShortestRoute`     | `service_name` | `/world_modeling/get_shortest_route`       |
+   | `SetRoute`             | `service_name` | `/world_modeling/set_route`                |
+   | `GetAreaOccupancy`     | `service_name` | `/world_modeling/get_area_occupancy`       |
+   | `GetWorldObjects`      | `service_name` | `/world_modeling/get_dynamic_objects`      |
+   | `GetLaneletsByRegElem` | `service_name` | `/world_modeling/get_lanelets_by_reg_elem` |
+   | `SpawnWall`            | `service_name` | `/world_modeling/spawn_wall`               |
+   | `DespawnWall`          | `service_name` | `/world_modeling/despawn_wall`             |
+   | `ExecuteBehaviour`     | `topic_name`   | `execute_behaviour` (relative, remapped)   |
 
 5. Test:
    - build: `colcon build --packages-up-to behaviour`

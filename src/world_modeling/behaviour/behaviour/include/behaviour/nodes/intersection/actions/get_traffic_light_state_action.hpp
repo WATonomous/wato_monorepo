@@ -29,69 +29,76 @@
 
 namespace behaviour
 {
-/**
+  /**
    * @class GetTrafficLightStateAction
    * @brief SyncActionNode to read traffic light state from world-object snapshots.
    */
-class GetTrafficLightStateAction : public BT::SyncActionNode
-{
-public:
-  GetTrafficLightStateAction(const std::string & name, const BT::NodeConfig & config)
-  : BT::SyncActionNode(name, config)
-  {}
-
-  static BT::PortsList providedPorts()
+  class GetTrafficLightStateAction : public BT::SyncActionNode
   {
-    return {
-      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("traffic_light"),
-      BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
-      BT::InputPort<int>("state_hypothesis_index"),
-      BT::OutputPort<std::string>("out_traffic_light_state"),
-      BT::OutputPort<std::string>("error_message"),
-    };
-  }
-
-  BT::NodeStatus tick() override
-  {
-    const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetTrafficLightState] Missing " << port_name << " input" << std::endl;
-    };
-
-    auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "traffic_light");
-    if (!ports::require(reg_elem, "traffic_light", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
+  public:
+    GetTrafficLightStateAction(const std::string &name, const BT::NodeConfig &config)
+        : BT::SyncActionNode(name, config)
+    {
     }
 
-    auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
-    if (!ports::require(objects, "objects", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
+    static BT::PortsList providedPorts()
+    {
+      return {
+          BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("traffic_light"),
+          BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
+          BT::InputPort<int>("state_hypothesis_index"),
+          BT::OutputPort<std::string>("out_traffic_light_state"),
+          BT::OutputPort<std::string>("error_message"),
+      };
     }
 
-    auto hypothesis_index = ports::tryGet<int>(*this, "state_hypothesis_index");
-    if (!ports::require(hypothesis_index, "state_hypothesis_index", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
+    BT::NodeStatus tick() override
+    {
+      const auto missing_input_callback = [&](const char *port_name)
+      {
+        std::cout << "[GetTrafficLightState] Missing " << port_name << " input" << std::endl;
+      };
+
+      auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "traffic_light");
+      if (!ports::require(reg_elem, "traffic_light", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
+
+      auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
+      if (!ports::require(objects, "objects", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
+
+      auto hypothesis_index = ports::tryGet<int>(*this, "state_hypothesis_index");
+      if (!ports::require(hypothesis_index, "state_hypothesis_index", missing_input_callback))
+      {
+        return BT::NodeStatus::FAILURE;
+      }
+
+      if (*hypothesis_index < 0)
+      {
+        setOutput("error_message", "hypothesis_index_out_of_range");
+        std::cout << "[GetTrafficLightState] hypothesis_index out of range: " << *hypothesis_index << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
+
+      const auto state = world_objects::getTrafficLightState(reg_elem->id, *hypothesis_index, *objects);
+      if (!state)
+      {
+        setOutput("error_message", "traffic_light_state_not_found");
+        std::cout << "[GetTrafficLightState] failed to get state for reg_elem_id=" << reg_elem->id << std::endl;
+        return BT::NodeStatus::FAILURE;
+      }
+
+      setOutput("out_traffic_light_state", *state);
+      std::cout << "[GetTrafficLightState] state=" << *state << " reg_elem_id=" << reg_elem->id << std::endl;
+
+      return BT::NodeStatus::SUCCESS;
     }
+  };
 
-    if (*hypothesis_index < 0) {
-      setOutput("error_message", "hypothesis_index_out_of_range");
-      std::cout << "[GetTrafficLightState] hypothesis_index out of range: " << *hypothesis_index << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
+} // namespace behaviour
 
-    const auto state = world_objects::getTrafficLightState(reg_elem->id, *hypothesis_index, *objects);
-    if (!state) {
-      setOutput("error_message", "traffic_light_state_not_found");
-      std::cout << "[GetTrafficLightState] failed to get state for reg_elem_id=" << reg_elem->id << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    setOutput("out_traffic_light_state", *state);
-    std::cout << "[GetTrafficLightState] state=" << *state << " reg_elem_id=" << reg_elem->id << std::endl;
-
-    return BT::NodeStatus::SUCCESS;
-  }
-};
-
-}  // namespace behaviour
-
-#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_TRAFFIC_LIGHT_STATE_ACTION_HPP_
+#endif // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_TRAFFIC_LIGHT_STATE_ACTION_HPP_

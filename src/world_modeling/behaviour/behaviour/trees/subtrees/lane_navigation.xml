@@ -11,13 +11,12 @@
             <ExecuteBehaviour
               behaviour="follow route"
               preferred_lanelet_ids="{global_route_lanelet_ids}"
-              topic_name="/execute_behaviour" />
+              topic_name="execute_behaviour" />
           </Sequence>
 
           <Sequence name="Handle RIGHT Transition">
             <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="RIGHT" />
 
-            <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
               lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
@@ -33,8 +32,6 @@
               left_lane_change_areas="{@bt.left_lane_change_areas}"
               right_lane_change_areas="{@bt.right_lane_change_areas}" />
 
-            <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
-              planner -->
             <GetLaneChangePreferredLanelets
               lane_ctx="{@current_lane_ctx}"
               target_lanelet="{target_lanelet}"
@@ -42,13 +39,12 @@
             <ExecuteBehaviour
               behaviour="lane change right"
               preferred_lanelet_ids="{right_lane_change_preferred_lanelet_ids}"
-              topic_name="/execute_behaviour" />
+              topic_name="execute_behaviour" />
           </Sequence>
 
           <Sequence name="Handle LEFT Transition">
             <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="LEFT" />
 
-            <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
               lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
@@ -64,8 +60,6 @@
               left_lane_change_areas="{@bt.left_lane_change_areas}"
               right_lane_change_areas="{@bt.right_lane_change_areas}" />
 
-            <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
-              planner -->
             <GetLaneChangePreferredLanelets
               lane_ctx="{@current_lane_ctx}"
               target_lanelet="{target_lanelet}"
@@ -73,7 +67,7 @@
             <ExecuteBehaviour
               behaviour="lane change left"
               preferred_lanelet_ids="{left_lane_change_preferred_lanelet_ids}"
-              topic_name="/execute_behaviour" />
+              topic_name="execute_behaviour" />
           </Sequence>
 
         </Fallback>
@@ -85,7 +79,7 @@
         <ExecuteBehaviour
           behaviour="follow lane"
           preferred_lanelet_ids="{follow_lane_preferred_lanelet_ids}"
-          topic_name="/execute_behaviour" />
+          topic_name="execute_behaviour" />
       </Sequence>
     </Fallback>
   </BehaviorTree>
