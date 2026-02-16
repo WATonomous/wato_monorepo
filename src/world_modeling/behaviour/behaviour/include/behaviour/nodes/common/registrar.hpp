@@ -47,7 +47,7 @@
 class CommonNodeRegistrar : public NodeRegistrarBase
 {
 public:
-  void register_nodes(BT::BehaviorTreeFactory &factory, const BT::RosNodeParams &params) override
+  void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {
     BT::RosNodeParams get_shortest_route_params = params;
     BT::RosNodeParams set_route_params = params;
@@ -58,8 +58,7 @@ public:
 
     // Read timeout values from node parameters
     auto node = params.nh.lock();
-    if (!node)
-    {
+    if (!node) {
       throw std::runtime_error("ROS node expired in CommonNodeRegistrar");
     }
     int get_shortest_route_timeout = node->get_parameter("get_shortest_route_timeout_ms").as_int();
@@ -82,7 +81,7 @@ public:
     factory.registerNodeType<behaviour::GetAreaOccupancyService>("GetAreaOccupancy", get_area_occupancy_params);
     factory.registerNodeType<behaviour::GetWorldObjectsService>("GetWorldObjects", get_objects_params);
     factory.registerNodeType<behaviour::GetLaneletsByRegElemService>(
-        "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
+      "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
     factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
 
@@ -103,4 +102,4 @@ public:
   }
 };
 
-#endif // BEHAVIOUR__NODES__COMMON__REGISTRAR_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__REGISTRAR_HPP_
