@@ -26,8 +26,4 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/
 )
 
-install(PROGRAMS
-  DESTINATION lib/${PROJECT_NAME}/
-)
-
 ament_package()
