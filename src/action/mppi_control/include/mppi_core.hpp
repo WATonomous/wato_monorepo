@@ -17,7 +17,7 @@ inline double gaussian_noise(double sigma)
 }
 
 
-struct Control_Output { double a, delta; };
+struct Control_Output { double speed, a, delta; };
 
 class MppiCore
 {
@@ -92,6 +92,7 @@ private:
     std::vector<double> trajectory_weights_;
 
     double lambda_ = 1.0;
+    double accel_min_ = -1.0;
     double accel_max_ = 1.0;
     double steer_angle_max_ = 1.0;
     

@@ -55,7 +55,8 @@ Control_Output MppiCore::computeControl(){
         trajectory_costs_ = eval_trajectories_scores();
         compute_weights();
         weighted_average_controls();
-        return Control_Output{std::clamp(optimal_control_sequence_.A(0, 0), -accel_max_, accel_max_), std::clamp(optimal_control_sequence_.D(0, 0), -steer_angle_max_, steer_angle_max_)};
+        auto accel = std::clamp(optimal_control_sequence_.A(0, 0), -accel_max_, accel_max_);
+        return Control_Output{current_state_.v + accel*dt_, accel, std::clamp(optimal_control_sequence_.D(0, 0), -steer_angle_max_, steer_angle_max_)};
     };
 void MppiCore::warm_start_control_sequences() {
 

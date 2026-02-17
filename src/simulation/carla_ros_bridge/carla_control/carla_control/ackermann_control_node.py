@@ -203,14 +203,7 @@ class AckermannControlNode(LifecycleNode):
             ackermann.speed = cmd.speed
             ackermann.acceleration = cmd.acceleration
             ackermann.jerk = cmd.jerk
-            #self.ego_vehicle.apply_ackermann_control(ackermann)
-            
-            MAX_ACCEL = 2.0  # m/s^2 (kia sould max accel from 0-60)
-            throttle = max(0, min(1.0, cmd.acceleration / MAX_ACCEL))
-            steer_angle = cmd.steering_angle
-            self.ego_vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer_angle))
-            self.get_logger().info("applying ackermann control command steering : {} throttle: {}".format(
-                steer_angle, throttle))
+            self.ego_vehicle.apply_ackermann_control(ackermann)
             
         except Exception as e:
             self.get_logger().error(f"Error applying control: {e}")

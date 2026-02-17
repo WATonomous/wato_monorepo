@@ -108,8 +108,14 @@ public:
 
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
         //RCLCPP_INFO(this->get_logger(), "Odom received");
-        mppi_core_->update_pose(msg->pose.pose.position.x, msg->pose.pose.position.y, quaternion_to_yaw(msg->pose.pose.orientation));
-        mppi_core_->update_velocity(msg->twist.twist.linear.x);
+        double yaw = quaternion_to_yaw(msg->pose.pose.orientation);
+        mppi_core_->update_pose(msg->pose.pose.position.x, msg->pose.pose.position.y, yaw);
+        
+        // Calculate velocity in the direction the car is facing
+        double vx = msg->twist.twist.linear.x;
+        double vy = msg->twist.twist.linear.y;
+        double forward_velocity = vx * std::cos(yaw) + vy * std::sin(yaw);
+        mppi_core_->update_velocity(forward_velocity);
         //RCLCPP_INFO(this->get_logger(), "Pose updated: x=%.2f, y=%.2f, yaw=%.2f, v=%.2f", 
         //    msg->pose.pose.position.x, msg->pose.pose.position.y, 
         //    quaternion_to_yaw(msg->pose.pose.orientation), msg->twist.twist.linear.x);
@@ -174,12 +180,14 @@ public:
         if (!valid_pose_ || !valid_trajectory_  || !valid_odom_) { //|| !valid_occupancy_grid_
             RCLCPP_WARN(this->get_logger(), "Waiting for valid data before publishing non-zero control command");
             control_msg.drive.steering_angle = 0.0;
-            control_msg.drive.acceleration = 0.0;   
+            control_msg.drive.acceleration = 0.0;  
+            control_msg.drive.speed = 0.0; 
         }
         else {
             Control_Output control_output = mppi_core_->computeControl();
             control_msg.drive.steering_angle = control_output.delta;
             control_msg.drive.acceleration = control_output.a;
+            control_msg.drive.speed = control_output.speed;
         }
 
         control_pub_->publish(control_msg);

@@ -11,7 +11,7 @@ mppi_node:
     time_horizon: 1.0
     num_time_step: 10
     L: 2.5
-    a_noise_std: 0.1
+    a_noise_std: 0.5
     delta_noise_std: 0.1
     accel_max: 2.0
     steer_angle_max: 0.5

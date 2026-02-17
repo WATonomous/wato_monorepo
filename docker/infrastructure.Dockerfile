@@ -18,6 +18,8 @@ COPY src/world_modeling/lanelet_msgs lanelet_msgs
 COPY src/world_modeling/world_model_msgs world_model_msgs
 COPY src/world_modeling/costmap_msgs costmap_msgs
 
+COPY src/action/wato_trajectory_msgs wato_trajectory_msgs
+
 COPY src/interfacing/eve_description eve_description
 
 ################################# Dependencies ################################
