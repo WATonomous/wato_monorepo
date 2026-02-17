@@ -38,18 +38,41 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   lookahead_s_m = this->declare_parameter("lookahead_distances", std::vector<double>{10.0, 15.0, 20.0});
   
   //  - Cost Funcation -
-  cf_params.lateral_movement_weight = this->declare_parameter("cm_lateral_movement_weight",2.0);
-  cf_params.physical_limits_weight = this->declare_parameter("cm_physical_limits_weight",4.0);
-  cf_params.preferred_lane_cost = this->declare_parameter("cm_preferred_lane_cost",20.0);
-  cf_params.unknown_occupancy_cost = this->declare_parameter("cm_unknown_occupancy_cost",50.0);
-  cf_params.max_curvature_change = this->declare_parameter("cm_max_curvature_change",0.1);
+  cf_params.lateral_movement_weight = this->declare_parameter("cost_function.lateral_movement_weight",2.0);
+  cf_params.physical_limits_weight = this->declare_parameter("cost_function.physical_limits_weight",4.0);
+  cf_params.preferred_lane_cost = this->declare_parameter("cost_function.preferred_lane_cost",20.0);
+  cf_params.unknown_occupancy_cost = this->declare_parameter("cost_function.unknown_occupancy_cost",50.0);
+  cf_params.max_curvature_change = this->declare_parameter("cost_function.max_curvature_change",0.1);
 
   //  - Path Generation -
-  pg_params.max_iterations = this->declare_parameter("max_iterations", 20);
-  pg_params.steps = this->declare_parameter("path_steps", 20);
-  pg_params.tolerance = this->declare_parameter("convergence_tolerance", 0.25);
-  pg_params.newton_damping = this->declare_parameter("newton_damping", 0.7);
-  pg_params.max_step_size = this->declare_parameter("max_step_size", 1.0);
+  PathGenParams pg_params;
+  pg_params.max_iterations = this->declare_parameter("path_gen.max_iterations", 20);
+  pg_params.steps = this->declare_parameter("path_gen.path_steps", 20);
+  pg_params.tolerance = this->declare_parameter("path_gen.convergence_tolerance", 0.25);
+  pg_params.newton_damping = this->declare_parameter("path_gen.newton_damping", 0.7);
+  pg_params.max_step_size = this->declare_parameter("path_gen.max_step_size", 1.0);
+
+  // Sprial Coefficient Equation Constants
+  SpiralCoeffConstants constants;
+  constants.c1_k0_coeff = this->declare_parameter("spiral_coeffs.c1_k0_coeff", -11.0);
+  constants.c1_k1_coeff = this->declare_parameter("spiral_coeffs.c1_k1_coeff", 18.0);
+  constants.c1_k2_coeff = this->declare_parameter("spiral_coeffs.c1_k2_coeff", -9.0);
+  constants.c1_k3_coeff = this->declare_parameter("spiral_coeffs.c1_k3_coeff", 2.0);
+  constants.c1_divisor = this->declare_parameter("spiral_coeffs.c1_divisor", 2.0);
+  
+  constants.c2_k0_coeff = this->declare_parameter("spiral_coeffs.c2_k0_coeff", 18.0);
+  constants.c2_k1_coeff = this->declare_parameter("spiral_coeffs.c2_k1_coeff", -45.0);
+  constants.c2_k2_coeff = this->declare_parameter("spiral_coeffs.c2_k2_coeff", 36.0);
+  constants.c2_k3_coeff = this->declare_parameter("spiral_coeffs.c2_k3_coeff", -9.0);
+  constants.c2_divisor = this->declare_parameter("spiral_coeffs.c2_divisor", 2.0);
+  
+  constants.c3_k0_coeff = this->declare_parameter("spiral_coeffs.c3_k0_coeff", -9.0);
+  constants.c3_k1_coeff = this->declare_parameter("spiral_coeffs.c3_k1_coeff", 27.0);
+  constants.c3_k2_coeff = this->declare_parameter("spiral_coeffs.c3_k2_coeff", -27.0);
+  constants.c3_k3_coeff = this->declare_parameter("spiral_coeffs.c3_k3_coeff", 9.0);
+  constants.c3_divisor = this->declare_parameter("spiral_coeffs.c3_divisor", 2.0);
+
+  core_ = std::make_unique<LatticePlanningCore>(constants, pg_params);
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn LatticePlanningNode::on_configure(
@@ -117,13 +140,13 @@ void LatticePlanningNode::update_vehicle_odom(const nav_msgs::msg::Odometry::Con
   ps.pose   = msg->pose.pose; 
   p = ps.pose.position;
   q = ps.pose.orientation;
-  yaw = core_.normalise_angle(tf2::getYaw(q));
+  yaw = core_->normalise_angle(tf2::getYaw(q));
 
   if(!car_frenet_point){
     fp = PathPoint{p.x, p.y, yaw, 0.0};
   }
   else{
-    double ds = core_.get_euc_dist(p.x, p.y, car_pose->pose.position.x, car_pose->pose.position.y);
+    double ds = core_->get_euc_dist(p.x, p.y, car_pose->pose.position.x, car_pose->pose.position.y);
     double kappa = ds > 0.001 ? (yaw - car_frenet_point->theta)/ds : 0.0;
     fp = PathPoint{p.x, p.y, yaw, kappa};
   }
@@ -186,7 +209,7 @@ void LatticePlanningNode::lanelet_update_callback(
         // Horizon sampling
         if (arc_length < lookahead_s_m[curr_horizon]) {
           if (prev_pt) {
-            arc_length += core_.get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
+            arc_length += core_->get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
           }
           prev_pt = &pt;
         }else {
@@ -212,8 +235,8 @@ void LatticePlanningNode::plan_and_publish_path(){
   for (size_t i = 0; i < corridor_terminals.size(); i++) {
     auto & terminal = corridor_terminals[i];
     
-    std::vector<PathPoint> ft_path = core_.generate_path(
-        car_frenet_point.value(), terminal.first, pg_params);
+    std::vector<PathPoint> ft_path = core_->generate_path(
+        car_frenet_point.value(), terminal.first);
     
     if(ft_path.empty()){
       RCLCPP_DEBUG(get_logger(), "Path generation failed for terminal %zu", i);
@@ -229,7 +252,7 @@ void LatticePlanningNode::plan_and_publish_path(){
     return;
   }
 
-  Path lowest_cost = core_.get_lowest_cost_path(paths, preferred_lanelets, cf_params);
+  Path lowest_cost = core_->get_lowest_cost_path(paths, preferred_lanelets, cf_params);
   publish_final_path(lowest_cost);
   publish_available_paths(paths);
 }
@@ -296,7 +319,7 @@ bool LatticePlanningNode::point_ahead_of_car(const geometry_msgs::msg::Point & p
   const auto & car_pos = car_pose->pose.position;
   const auto & car_quat = car_pose->pose.orientation;
   
-  double car_yaw = core_.normalise_angle(tf2::getYaw(car_quat));
+  double car_yaw = core_->normalise_angle(tf2::getYaw(car_quat));
   double car_forward_x = std::cos(car_yaw);
   double car_forward_y = std::sin(car_yaw);
   
@@ -320,20 +343,20 @@ PathPoint LatticePlanningNode::create_terminal_point(
   if ((pt_idx + 1) < centerline.size()) {
     // Use forward difference
     const auto& next_pt = centerline[pt_idx + 1];
-    angle = core_.get_angle_from_pts(pt.x, pt.y, next_pt.x, next_pt.y);
+    angle = core_->get_angle_from_pts(pt.x, pt.y, next_pt.x, next_pt.y);
   } else if (prev_pt) {
     // Use backward difference
-    angle = core_.get_angle_from_pts(prev_pt->x, prev_pt->y, pt.x, pt.y);
+    angle = core_->get_angle_from_pts(prev_pt->x, prev_pt->y, pt.x, pt.y);
   }
   
   // Calculate curvature
   double curvature = 0.0;
   if (prev_pt) {
-    double prev_angle = core_.get_angle_from_pts(prev_pt->x, prev_pt->y, pt.x, pt.y);
-    double ds = core_.get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
+    double prev_angle = core_->get_angle_from_pts(prev_pt->x, prev_pt->y, pt.x, pt.y);
+    double ds = core_->get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
     
     if (ds > 0.001) {
-      double dtheta = core_.normalise_angle(angle - prev_angle);
+      double dtheta = core_->normalise_angle(angle - prev_angle);
       curvature = dtheta / ds;
     }
   }

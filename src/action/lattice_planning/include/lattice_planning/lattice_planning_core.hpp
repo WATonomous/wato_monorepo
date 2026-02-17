@@ -1,11 +1,11 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 
-// TODO(wato) make this a true frenet point and make converter functions
 struct PathPoint{
   double x;
   double y;
@@ -36,11 +36,50 @@ struct PathGenParams{
   double max_step_size;
 };
 
+// Enums for parameter indexing
+enum class SpiralParam {
+  K0,      // Initial curvature
+  K1,      // Curvature at 1/3 arc length
+  K2,      // Curvature at 2/3 arc length
+  K3,      // Terminal curvature
+  SF       // Total arc length
+};
+
+enum class SpiralCoeff {
+  C0,      // Constant coefficient
+  C1,      // Linear coefficient
+  C2,      // Quadratic coefficient
+  C3       // Cubic coefficient
+};
+
+// Struct to hold spiral coefficient equation constants
+struct SpiralCoeffConstants {
+  // C1 numerator coefficients
+  double c1_k0_coeff;
+  double c1_k1_coeff;
+  double c1_k2_coeff;
+  double c1_k3_coeff;
+  double c1_divisor;
+  
+  // C2 numerator coefficients
+  double c2_k0_coeff;
+  double c2_k1_coeff;
+  double c2_k2_coeff;
+  double c2_k3_coeff;
+  double c2_divisor;
+  
+  // C3 numerator coefficients
+  double c3_k0_coeff;
+  double c3_k1_coeff;
+  double c3_k2_coeff;
+  double c3_k3_coeff;
+  double c3_divisor;
+};
+
 class LatticePlanningCore
 {
 public:
-
-  LatticePlanningCore();
+  LatticePlanningCore(const SpiralCoeffConstants& constants, const PathGenParams& params);
 
   // utility functions
   double get_euc_dist(double x1, double y1, double x2, double y2);
@@ -50,8 +89,7 @@ public:
   // path generation
   std::vector<PathPoint> generate_path(
     PathPoint start, 
-    PathPoint target,
-    PathGenParams pg_params
+    PathPoint target
   );
 
   // path costing 
@@ -67,8 +105,18 @@ public:
     CostFunctionParams params
   );
   
-  void calculate_spiral_coeff(const double p[5], double (&coeffs)[4]);
-  void generate_spiral(PathPoint start, int steps, double sf, double coeffs[4], std::vector<PathPoint>& path);
+  void calculate_spiral_coeff(
+    const std::unordered_map<SpiralParam, double>& params, 
+    std::unordered_map<SpiralCoeff, double>& coeffs
+  );
+  
+  void generate_spiral(
+    PathPoint start, 
+    int steps, 
+    double sf, 
+    const std::unordered_map<SpiralCoeff, double>& coeffs, 
+    std::vector<PathPoint>& path
+  );
 
   Eigen::Vector3d compute_error_3dof(const PathPoint& actual, const PathPoint& target);
 
@@ -80,7 +128,7 @@ public:
     int steps
   );
 
-  //sprial generation constants
-  static constexpr int num_of_spiral_coeffs = 4;
-  static constexpr int num_of_spiral_params = 5;
+private:
+  SpiralCoeffConstants spiral_constants_;
+  PathGenParams pg_params_;
 };

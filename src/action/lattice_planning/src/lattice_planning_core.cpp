@@ -3,7 +3,9 @@
 
 #include "lattice_planning/lattice_planning_core.hpp"
 
-LatticePlanningCore::LatticePlanningCore() = default;
+LatticePlanningCore::LatticePlanningCore(const SpiralCoeffConstants& constants, const PathGenParams& params)
+  : spiral_constants_(constants), pg_params_(params) {
+}
 
 /**
  * @brief Calculate Euclidean distance between two 2D points.
@@ -41,17 +43,48 @@ double LatticePlanningCore::normalise_angle(double angle){
 /**
  * @brief Calculate cubic spiral polynomial coefficients from boundary conditions.
  * 
- * Computes coefficients for k(s) = c0 + c1s + c2s^2 + c3s^3 using a cubic interpolation scheme
+ * Computes coefficients for k(s) = c0 + c1*s + c2*s^2 + c3*s^3 using a cubic interpolation scheme
  * that ensures smooth curvature transitions between waypoints.
  * 
- * @param p Array of 5 parameters: [k0, k1, k2, k3, sf] where k are curvatures at waypoints and sf is arc length.
- * @param coeffs Output array of 4 cubic polynomial coefficients [c0, c1, c2, c3].
+ * @param params Map of spiral parameters (K0, K1, K2, K3, SF).
+ * @param coeffs Output map of cubic polynomial coefficients (C0, C1, C2, C3).
  */
-void LatticePlanningCore::calculate_spiral_coeff(const double p[num_of_spiral_params], double (&coeffs)[num_of_spiral_coeffs]){
-  coeffs[0] = p[0];
-  coeffs[1] = (-11 * p[0] + 18 * p[1] - 9 * p[2] + 2 * p[3])  / (2 * p[4]);
-  coeffs[2] = (9 * (2 * p[0] - 5 * p[1] + 4 * p[2] - p[3]))   / (2 * p[4] * p[4]);
-  coeffs[3] = (-9 * (p[0] - 3 * p[1] + 3 * p[2] - p[3]))      / (2 * p[4] * p[4] * p[4]);
+void LatticePlanningCore::calculate_spiral_coeff(
+    const std::unordered_map<SpiralParam, double>& params, 
+    std::unordered_map<SpiralCoeff, double>& coeffs)
+{
+  const double k0 = params.at(SpiralParam::K0);
+  const double k1 = params.at(SpiralParam::K1);
+  const double k2 = params.at(SpiralParam::K2);
+  const double k3 = params.at(SpiralParam::K3);
+  const double sf = params.at(SpiralParam::SF);
+  
+  // C0 = k0
+  coeffs[SpiralCoeff::C0] = k0;
+  
+  // C1 = (c1_k0_coeff * k0 + c1_k1_coeff * k1 + c1_k2_coeff * k2 + c1_k3_coeff * k3) / (c1_divisor * sf)
+  coeffs[SpiralCoeff::C1] = (
+    spiral_constants_.c1_k0_coeff * k0 + 
+    spiral_constants_.c1_k1_coeff * k1 + 
+    spiral_constants_.c1_k2_coeff * k2 + 
+    spiral_constants_.c1_k3_coeff * k3
+  ) / (spiral_constants_.c1_divisor * sf);
+  
+  // C2 = (c2_k0_coeff * k0 + c2_k1_coeff * k1 + c2_k2_coeff * k2 + c2_k3_coeff * k3) / (c2_divisor * sf^2)
+  coeffs[SpiralCoeff::C2] = (
+    spiral_constants_.c2_k0_coeff * k0 + 
+    spiral_constants_.c2_k1_coeff * k1 + 
+    spiral_constants_.c2_k2_coeff * k2 + 
+    spiral_constants_.c2_k3_coeff * k3
+  ) / (spiral_constants_.c2_divisor * sf * sf);
+  
+  // C3 = (c3_k0_coeff * k0 + c3_k1_coeff * k1 + c3_k2_coeff * k2 + c3_k3_coeff * k3) / (c3_divisor * sf^3)
+  coeffs[SpiralCoeff::C3] = (
+    spiral_constants_.c3_k0_coeff * k0 + 
+    spiral_constants_.c3_k1_coeff * k1 + 
+    spiral_constants_.c3_k2_coeff * k2 + 
+    spiral_constants_.c3_k3_coeff * k3
+  ) / (spiral_constants_.c3_divisor * sf * sf * sf);
 }
 
 /**
@@ -120,21 +153,26 @@ double LatticePlanningCore::path_cost_function(
  * @brief Generate discrete path points along a cubic spiral by integrating curvature.
  * 
  * Uses forward Euler integration to compute (x, y, theta, kappa) at each step along the arc length,
- * where curvature evolves according to k(s) = c0 + c1s + c2s^2 + c3s^3.
+ * where curvature evolves according to k(s) = c0 + c1*s + c2*s^2 + c3*s^3.
  * 
  * @param start Starting path point (x, y, theta, kappa).
  * @param steps Number of discrete integration steps.
  * @param sf Total arc length.
- * @param c Array of 4 spiral polynomial coefficients [c0, c1, c2, c3].
+ * @param coeffs Map of spiral polynomial coefficients (C0, C1, C2, C3).
  * @param path Output vector of path points.
  */
 void LatticePlanningCore::generate_spiral(
   PathPoint start, 
   int steps, 
   double sf, 
-  double c[4], 
+  const std::unordered_map<SpiralCoeff, double>& coeffs, 
   std::vector<PathPoint>& path)
 {
+  const double c0 = coeffs.at(SpiralCoeff::C0);
+  const double c1 = coeffs.at(SpiralCoeff::C1);
+  const double c2 = coeffs.at(SpiralCoeff::C2);
+  const double c3 = coeffs.at(SpiralCoeff::C3);
+  
   double ds = sf / steps;
   double x = start.x, y = start.y, theta = start.theta;
 
@@ -142,7 +180,7 @@ void LatticePlanningCore::generate_spiral(
 
   for (int i = 1; i <= steps; ++i) {
       double s = i * ds;
-      double kappa = c[0] + c[1] * s + c[2] * s * s + c[3] * s * s * s;
+      double kappa = c0 + c1 * s + c2 * s * s + c3 * s * s * s;
       theta += kappa * ds;
       x += cos(theta) * ds;
       y += sin(theta) * ds;
@@ -171,52 +209,55 @@ Eigen::Vector3d LatticePlanningCore::compute_error_3dof(
 /**
  * @brief Generate smooth path between start and target using damped Newton optimization on cubic spiral parameters.
  * 
- * Fits a cubic spiral k(s) = c0 + c1s + c2s^2 + c3s^3 connecting start to target by iteratively refining
+ * Fits a cubic spiral k(s) = c0 + c1*s + c2*s^2 + c3*s^3 connecting start to target by iteratively refining
  * three parameters: intermediate curvatures k1, k2 (at 1/3 and 2/3 arc length), and total arc length sf.
  * Uses damped Newton's method with finite-difference Jacobian to minimize 3-DOF pose error (x, y, theta).
  * Curvatures are clamped to vehicle physical limits to ensure feasibility.
  * 
  * @param start Initial path point (position, heading, curvature).
  * @param target Target path point to reach.
- * @param pg_params Parameters controlling optimization (max iterations, tolerance, damping, step limits).
+ * @param pg_params_ Parameters controlling optimization (max iterations, tolerance, damping, step limits).
  * @return Vector of path points forming the spiral, or empty vector if optimization fails to converge.
  */
 std::vector<PathPoint> LatticePlanningCore::generate_path(
   PathPoint start, 
-  PathPoint target,
-  PathGenParams pg_params)
+  PathPoint target)
 {
   std::vector<PathPoint> path;
+  std::unordered_map<SpiralCoeff, double> spiral_coeffs;
+  std::unordered_map<SpiralParam, double> spiral_params;
 
   double norm = std::numeric_limits<double>::infinity();
-  double spiral_coeffs[num_of_spiral_coeffs];
-  double spiral_params[num_of_spiral_params];
-
   double sf_est = get_euc_dist(start.x, start.y, target.x, target.y);
 
-  spiral_params[0] = start.kappa;
-  spiral_params[1] = start.kappa + (target.kappa - start.kappa) * (1.0 / 3.0);
-  spiral_params[2] = start.kappa + (target.kappa - start.kappa) * (2.0 / 3.0);
-  spiral_params[3] = target.kappa;
-  spiral_params[4] = sf_est;
+  // Initialize spiral parameters
+  spiral_params[SpiralParam::K0] = start.kappa;
+  spiral_params[SpiralParam::K1] = start.kappa + (target.kappa - start.kappa) * (1.0 / 3.0);
+  spiral_params[SpiralParam::K2] = start.kappa + (target.kappa - start.kappa) * (2.0 / 3.0);
+  spiral_params[SpiralParam::K3] = target.kappa;
+  spiral_params[SpiralParam::SF] = sf_est;
     
   double max_kappa = std::max({std::abs(start.kappa), std::abs(target.kappa), 0.5});
 
-  for(int i = 0; i < pg_params.max_iterations; i++){
+  for(int i = 0; i < pg_params_.max_iterations; i++){
       path.clear();
 
       calculate_spiral_coeff(spiral_params, spiral_coeffs);
-      generate_spiral(start, pg_params.steps, spiral_params[4], spiral_coeffs, path);
+      generate_spiral(start, pg_params_.steps, spiral_params[SpiralParam::SF], spiral_coeffs, path);
 
       PathPoint final_state = path.back();
 
       Eigen::Vector3d error = compute_error_3dof(final_state, target);
       norm = error.norm();
 
-      if (norm < pg_params.tolerance) break;
+      if (norm < pg_params_.tolerance) break;
 
-      Eigen::Vector3d params(spiral_params[1], spiral_params[2], spiral_params[4]);
-      Eigen::Matrix3d J = compute_jacobian_3dof(params, error, start, target, pg_params.steps);
+      Eigen::Vector3d params(
+        spiral_params[SpiralParam::K1], 
+        spiral_params[SpiralParam::K2], 
+        spiral_params[SpiralParam::SF]
+      );
+      Eigen::Matrix3d J = compute_jacobian_3dof(params, error, start, target, pg_params_.steps);
       
       double det = J.determinant();
       if (std::abs(det) < 1e-10) {
@@ -226,22 +267,22 @@ std::vector<PathPoint> LatticePlanningCore::generate_path(
       }
       
       Eigen::Vector3d delta = J.inverse() * error;
-      delta *= pg_params.newton_damping;
+      delta *= pg_params_.newton_damping;
       
-      if (delta.norm() > pg_params.max_step_size) {
-        delta = delta.normalized() * pg_params.max_step_size;
+      if (delta.norm() > pg_params_.max_step_size) {
+        delta = delta.normalized() * pg_params_.max_step_size;
       }
 
       params -= delta;
-      spiral_params[1] = params(0);
-      spiral_params[2] = params(1);
-      spiral_params[4] = std::max(0.5, params(2));
+      spiral_params[SpiralParam::K1] = params(0);
+      spiral_params[SpiralParam::K2] = params(1);
+      spiral_params[SpiralParam::SF] = std::max(0.5, params(2));
       
-      spiral_params[1] = std::clamp(spiral_params[1], -max_kappa, max_kappa);
-      spiral_params[2] = std::clamp(spiral_params[2], -max_kappa, max_kappa);
+      spiral_params[SpiralParam::K1] = std::clamp(spiral_params[SpiralParam::K1], -max_kappa, max_kappa);
+      spiral_params[SpiralParam::K2] = std::clamp(spiral_params[SpiralParam::K2], -max_kappa, max_kappa);
   }
   
-  if (norm > pg_params.tolerance){ 
+  if (norm > pg_params_.tolerance){ 
       std::cerr << "Failed to converge. Final error: " << norm << "\n";
       path.clear();
   }
@@ -277,9 +318,14 @@ Eigen::Matrix3d LatticePlanningCore::compute_jacobian_3dof(
       p_perturbed(j) += delta;
       
       std::vector<PathPoint> temp_path;
-      double spiral_coeffs[num_of_spiral_coeffs];
-      double spiral_params[num_of_spiral_params] = {start.kappa, p_perturbed(0), p_perturbed(1), 
-                                  target.kappa, p_perturbed(2)};
+      std::unordered_map<SpiralCoeff, double> spiral_coeffs;
+      std::unordered_map<SpiralParam, double> spiral_params;
+      
+      spiral_params[SpiralParam::K0] = start.kappa;
+      spiral_params[SpiralParam::K1] = p_perturbed(0);
+      spiral_params[SpiralParam::K2] = p_perturbed(1);
+      spiral_params[SpiralParam::K3] = target.kappa;
+      spiral_params[SpiralParam::SF] = p_perturbed(2);
 
       calculate_spiral_coeff(spiral_params, spiral_coeffs);
       generate_spiral(start, steps, p_perturbed(2), spiral_coeffs, temp_path);

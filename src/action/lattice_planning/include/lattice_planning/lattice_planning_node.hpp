@@ -80,7 +80,7 @@ private:
   void publish_final_path(const Path & path);
   void publish_available_paths(const std::vector<Path> & paths);
   
-  LatticePlanningCore core_;
+  std::unique_ptr<LatticePlanningCore> core_;
 
   // subscription topic names
   std::string lanelet_ahead_topic, odom_topic, bt_topic;
@@ -90,7 +90,6 @@ private:
 
   // parameter structs
   CostFunctionParams cf_params;
-  PathGenParams pg_params;
 
   // corridor construction
   int num_horizons;
