@@ -27,7 +27,6 @@ install(DIRECTORY
 )
 
 install(PROGRAMS
-  scripts/dummy_compressed_subscriber.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 

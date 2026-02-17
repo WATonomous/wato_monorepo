@@ -87,13 +87,6 @@ launch:
   - include:
       file: "$(find-pkg-share car_velocity_feedback)/launch/car_velocity_feedback.launch.yaml"
 
-  # Dummy subscriber to trigger lazy compressed_image_transport publishers (profiling)
-  # - node:
-  #     pkg: interfacing_bringup
-  #     exec: dummy_compressed_subscriber.py
-  #     name: dummy_compressed_subscriber
-  #     output: screen
-
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
