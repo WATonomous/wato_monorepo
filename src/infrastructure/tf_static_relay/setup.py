@@ -11,24 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.8)
-project(interfacing_bringup)
+from setuptools import setup
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+package_name = "tf_static_relay"
 
-find_package(ament_cmake REQUIRED)
-
-install(DIRECTORY
-  launch
-  config
-  DESTINATION share/${PROJECT_NAME}/
+setup(
+    name=package_name,
+    version="0.0.0",
+    packages=[package_name],
+    install_requires=["setuptools"],
+    zip_safe=True,
+    maintainer="WATonomous",
+    maintainer_email="hello@watonomous.ca",
+    description="Republish /tf_static at a fixed rate for bag recording split chunks",
+    license="Apache-2.0",
+    entry_points={
+        "console_scripts": [
+            "tf_static_relay = tf_static_relay.tf_static_relay:main",
+        ],
+    },
 )
-
-install(PROGRAMS
-  scripts/dummy_compressed_subscriber.py
-  DESTINATION lib/${PROJECT_NAME}/
-)
-
-ament_package()

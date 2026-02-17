@@ -11,24 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.8)
-project(interfacing_bringup)
-
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
-find_package(ament_cmake REQUIRED)
-
-install(DIRECTORY
-  launch
-  config
-  DESTINATION share/${PROJECT_NAME}/
-)
-
-install(PROGRAMS
-  scripts/dummy_compressed_subscriber.py
-  DESTINATION lib/${PROJECT_NAME}/
-)
-
-ament_package()
