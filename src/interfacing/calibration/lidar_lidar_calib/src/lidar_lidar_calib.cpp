@@ -281,7 +281,11 @@ void LidarLidarCalibNode::cloud_callback(
       translation_ = transform_.translation();
 
       // Convert rotation to Euler angles (roll, pitch, yaw)
-      euler_ = rotation_.eulerAngles(0, 1, 2);
+      // Using extrinsic XYZ convention: R = Rz(yaw) * Ry(pitch) * Rx(roll)
+      // This matches URDF rpy and the initial guess convention
+      euler_.x() = std::atan2(rotation_(2, 1), rotation_(2, 2));   // roll
+      euler_.y() = std::asin(-rotation_(2, 0));                     // pitch
+      euler_.z() = std::atan2(rotation_(1, 0), rotation_(0, 0));   // yaw
 
       log_results();
       publish_transform();
