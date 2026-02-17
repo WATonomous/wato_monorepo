@@ -22,4 +22,4 @@
     # Rotation in radians (roll, pitch, yaw)
     initial_rotation_roll: 0.017163
     initial_rotation_pitch: 0.108708
-    initial_rotation_yaw: -0.580009 
+    initial_rotation_yaw: -0.580009
