@@ -35,11 +35,11 @@
   <xacro:include filename="eve_mirror_mount_ne.xacro"/>
 
   <xacro:mirror_mount_ne parent="lidar_cc">
-    <origin xyz="0.924884 -0.972881 -0.840734" rpy="0.017163 0.108708 -0.580009"/>
+    <origin xyz="0.944015 -0.939612 -0.842884" rpy="-0.038481 0.104171 -0.584697"/>
   </xacro:mirror_mount_ne>
 
   <xacro:mirror_mount_nw parent="lidar_cc">
-    <origin xyz="1.102008 0.748385 -0.824361" rpy="0.049416 0.068287 0.246267"/>
+    <origin xyz="1.072228 0.817496 -0.820133" rpy="0.064777 0.052500 0.247888"/>
   </xacro:mirror_mount_nw>
 
 </robot>
