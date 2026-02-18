@@ -27,24 +27,24 @@ public:
         // -- Progress Cost -- 
 
         //velocity tracking cost
-        double w_velocity = 1.0;
+        double w_velocity = 20.0;
 
         // regular step cost 
-        double w_progress = 1.0;
+        double w_progress = 0.0;
 
         // terminal step cost
-        double w_terminal_progress = 10.0;
+        double w_terminal_progress = 0.0;
 
         // step deviation cost
-        double w_deviation = 2.0;
+        double w_deviation = 10.0;
 
         // terminal deviation cost
-        double w_terminal_deviation = 20.0;
-        double w_terminal_velocity = 5.0;
+        double w_terminal_deviation = 5.0;
+        double w_terminal_velocity = 20.0;
 
         // heading error weights:
         double w_heading = 1.0;
-        double w_terminal_heading = 10.0;
+        double w_terminal_heading = 1.0;
 
         // -- Rate Costs --
         double w_jerk = 0.1;
@@ -52,7 +52,7 @@ public:
 
         //effort costs
         double w_accel = 0.05;
-        double w_steer_angle = 0.2;
+        double w_steer_angle = 0.1;
     };
 private:
     Params params_;

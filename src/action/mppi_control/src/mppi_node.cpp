@@ -159,6 +159,7 @@ public:
         marker_array_pub_->publish(marker_array);
         mppi_core_->update_trajectory(traj);
         valid_trajectory_ = true;
+        
 
     }
 
@@ -185,14 +186,15 @@ public:
         }
         else {
             Control_Output control_output = mppi_core_->computeControl();
-            control_msg.drive.steering_angle = control_output.delta;
+            control_msg.drive.steering_angle = control_output.delta * -1.0; //negate for carla
             control_msg.drive.acceleration = control_output.a;
             control_msg.drive.speed = control_output.speed;
         }
 
         control_pub_->publish(control_msg);
 
-        RCLCPP_DEBUG(this->get_logger(), "Control command published");
+        RCLCPP_INFO(this->get_logger(), "Control command published, steering_angle=%.2f, acceleration=%.2f, speed=%.2f", 
+            control_msg.drive.steering_angle, control_msg.drive.acceleration, control_msg.drive.speed);
     }
 
 

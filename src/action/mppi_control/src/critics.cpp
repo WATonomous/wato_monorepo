@@ -75,31 +75,55 @@ double critic::MppiCritic::terminal_cost(double x, double y, double yaw, double 
     State s;
     s.x = x; s.y = y; s.yaw = yaw; s.v = v;
 
-    int ref_idx = find_nearest_ref_index(s);
+    // Use the LAST point in the trajectory as the terminal reference (O(1))
+    if (desired_trajectory_.empty()) return 1e6;
+
+    const size_t N = desired_trajectory_.size();
+    const int ref_idx = static_cast<int>(N - 1);
+
+    // Tangent at the end: use the last segment (N-2 -> N-1) if possible
     double tx = 1.0, ty = 0.0;
+    if (N >= 2) {
+        const auto& p0 = desired_trajectory_[N - 2];
+        const auto& p1 = desired_trajectory_[N - 1];
+        double vx = p1.x - p0.x;
+        double vy = p1.y - p0.y;
+        double len = std::hypot(vx, vy);
+        if (len > 1e-6) { tx = vx / len; ty = vy / len; }
+        else { tx = std::cos(desired_trajectory_[N - 1].yaw); ty = std::sin(desired_trajectory_[N - 1].yaw); }
+    } else {
+        tx = std::cos(desired_trajectory_[N - 1].yaw);
+        ty = std::sin(desired_trajectory_[N - 1].yaw);
+    }
+
+    // Lateral error to the last segment/point (re-use existing helper, but force last index)
     double lateral = lateral_error_and_tangent(ref_idx, s, tx, ty);
-    double ref_speed = (ref_idx >= 0) ? desired_trajectory_[ref_idx].v : 0.0;
+
+    // Terminal speed reference is the last point's speed (often 0)
+    const double ref_speed = desired_trajectory_[ref_idx].v;
 
     double cost = 0.0;
-    cost += params_.w_terminal_deviation * (lateral * lateral); // quadratic
 
-    // terminal velocity cost
+    // terminal deviation
+    cost += params_.w_terminal_deviation * (lateral * lateral);
+
+    // terminal velocity
     double speed_error = s.v - ref_speed;
     cost += params_.w_terminal_velocity * (speed_error * speed_error);
 
-    // terminal heading cost
+    // terminal heading (relative to end tangent)
     double ref_yaw = std::atan2(ty, tx);
     double d_yaw = angle_diff(s.yaw, ref_yaw);
+    cost += params_.w_terminal_heading * (d_yaw * d_yaw);
 
-    cost += params_.w_terminal_heading * (d_yaw * d_yaw); // quadratic
-
-    // terminal progress lowers cost
+    // terminal progress (keep if you still want it; otherwise set weight to 0)
     double forward_proj = s.v * (std::cos(s.yaw) * tx + std::sin(s.yaw) * ty);
     cost -= params_.w_terminal_progress * forward_proj;
 
     if (!std::isfinite(cost)) cost = 1e6;
     return cost;
 }
+
 
 // helpers:
 
