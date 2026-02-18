@@ -4,6 +4,7 @@
 #include <vector>
 //goal - no ROS dependencies
 #include <random>
+#include <cstdint>
 #include "helpers.hpp"
 #include "critics.hpp"
 
@@ -67,6 +68,10 @@ public:
     void update_velocity(double v);
 
     void update_trajectory(const std::vector<State>& traj);
+    
+    void update_occupancy_grid(const std::vector<int8_t>& data, 
+                                unsigned int width, unsigned int height,
+                                double resolution, double origin_x, double origin_y);
 
 private:
     State current_state_;

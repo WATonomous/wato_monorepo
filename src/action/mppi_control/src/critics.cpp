@@ -55,6 +55,9 @@ double critic::MppiCritic::evaluate(const std::vector<double>& state,
     cost += params_.w_jerk * (da * da);
     cost += params_.w_steering_rate * (dd * dd);
 
+    // obstacle cost
+    cost += params_.w_obstacle * compute_obstacle_cost(s.x, s.y);
+
     // safety
     if (!std::isfinite(cost)) cost = 1e6;
     return cost;
@@ -62,6 +65,23 @@ double critic::MppiCritic::evaluate(const std::vector<double>& state,
 
 void critic::MppiCritic::set_trajectory(const std::vector<struct State>& traj){
     desired_trajectory_ = traj; 
+}
+
+void critic::MppiCritic::set_occupancy_grid(const std::vector<int8_t>& data, 
+                                            unsigned int width, unsigned int height,
+                                            double resolution, double origin_x, double origin_y) {
+    occupancy_grid_data_ = data;
+    grid_width_ = width;
+    grid_height_ = height;
+    grid_resolution_ = resolution;
+    grid_origin_x_ = origin_x;
+    grid_origin_y_ = origin_y;
+    has_occupancy_grid_ = (width > 0 && height > 0 && resolution > 0.0 && !data.empty());
+    
+    // compute distance field when grid is updated
+    if (has_occupancy_grid_) {
+        compute_distance_field();
+    }
 }
 
 double critic::MppiCritic::terminal_cost(double x, double y, double yaw, double v){
@@ -84,6 +104,9 @@ double critic::MppiCritic::terminal_cost(double x, double y, double yaw, double 
     // terminal progress lowers cost
     double forward_proj = s.v * (std::cos(s.yaw) * tx + std::sin(s.yaw) * ty);
     cost -= params_.w_terminal_progress * forward_proj;
+
+    // terminal obstacle cost
+    cost += params_.w_obstacle * compute_obstacle_cost(x, y);
 
     if (!std::isfinite(cost)) cost = 1e6;
     return cost;
@@ -157,4 +180,179 @@ double critic::MppiCritic::lateral_error_and_tangent(int idx, const State &s, do
     if (cross < 0) lat = -lat;
 
     return lat;
+}
+
+double critic::MppiCritic::compute_obstacle_cost(double x, double y) const {
+    if (!has_occupancy_grid_ || !has_distance_field_) {
+        return 0.0;  // no grid or distance field available
+    }
+
+    //check vehicle footprint, sample points in a circle around vehicle center
+    double max_cost = 0.0;
+    int num_samples = 8; 
+    
+    for (int i = 0; i < num_samples; ++i) {
+        double angle = 2.0 * M_PI * i / num_samples;
+        double sample_x = x + params_.vehicle_radius * std::cos(angle);
+        double sample_y = y + params_.vehicle_radius * std::sin(angle);
+        
+        double dist = get_distance_to_obstacle(sample_x, sample_y);
+        double cost = compute_distance_based_cost(dist);
+        max_cost = std::max(max_cost, cost);
+    }
+    
+    // check center point
+    double center_dist = get_distance_to_obstacle(x, y);
+    double center_cost = compute_distance_based_cost(center_dist);
+    max_cost = std::max(max_cost, center_cost);
+    
+    return max_cost;
+}
+
+double critic::MppiCritic::compute_distance_based_cost(double distance) const {
+    // distance is in meters, distance to nearest obstacle
+    // cost decays from cost_at_obstacle (at distance = 0) to cost_at_inflation (at inflation_radius)
+    
+    if (distance < 0.0) {
+        // inside obstacle or out of bounds
+        return params_.cost_at_obstacle;
+    }
+    
+    if (distance >= params_.obstacle_inflation_radius) {
+        // outside inflation radius, no cost
+        return 0.0;
+    }
+    
+    // linear decay from cost_at_obstacle to cost_at_inflation
+    double t = distance / params_.obstacle_inflation_radius;
+    double cost = params_.cost_at_obstacle * (1.0 - t) + params_.cost_at_inflation * t;
+    
+    return cost;
+}
+
+double critic::MppiCritic::get_distance_to_obstacle(double x, double y) const {
+    if (!has_distance_field_) {
+        return -1.0;  // no distance field, treat as obstacle
+    }
+
+    // world coordinates to grid indices using floor for mapping
+    int grid_x = static_cast<int>(std::floor((x - grid_origin_x_) / grid_resolution_));
+    int grid_y = static_cast<int>(std::floor((y - grid_origin_y_) / grid_resolution_));
+
+    // check if coordinates are within grid bounds
+    if (grid_x < 0 || grid_x >= static_cast<int>(grid_width_) ||
+        grid_y < 0 || grid_y >= static_cast<int>(grid_height_)) {
+        // out of bounds, treat as obstacle (negative distance)
+        return -1.0;
+    }
+
+    // distance from distance field
+    size_t index = static_cast<size_t>(grid_y) * grid_width_ + static_cast<size_t>(grid_x);
+    if (index >= distance_field_.size()) {
+        return -1.0;  // invalid index, treat as obstacle
+    }
+
+    return distance_field_[index];
+}
+
+void critic::MppiCritic::compute_distance_field() {
+    if (!has_occupancy_grid_ || grid_width_ == 0 || grid_height_ == 0) {
+        has_distance_field_ = false;
+        return;
+    }
+
+    size_t num_cells = grid_width_ * grid_height_;
+    distance_field_.resize(num_cells);
+    
+    constexpr double INF = 1e6;  
+    constexpr double INF_SQ = INF * INF; 
+    
+    // first identify obstacle cells and initialize distance field
+    // F&H algorithm works with squared distances, 0 for obstacles, large value for free
+    for (size_t i = 0; i < num_cells; ++i) {
+        int8_t occupancy = (i < occupancy_grid_data_.size()) ? occupancy_grid_data_[i] : -1;
+        
+        // consider cells with occupancy > 50 as obstacles, or unknown as obstacles
+        if (occupancy > 50 || occupancy < 0) {
+            distance_field_[i] = 0.0;  // obstacle cell (squared distance = 0)
+        } else {
+            distance_field_[i] = INF_SQ;  // free cell, initialize to large squared distance
+        }
+    }
+    
+    // helper func for 1D EDT: finds the lower envelope of parabolas
+    // input f contains squared distances, output is squared distances
+    auto edt_1d = [INF, INF_SQ](const std::vector<double>& f, int n, double scale) -> std::vector<double> {
+        std::vector<double> d(n);
+        std::vector<int> v(n);
+        std::vector<double> z(n + 1);
+        int k = 0;
+        
+        v[0] = 0;
+        z[0] = -INF;  // z stores intersection x-coordinates, not squared values
+        z[1] = INF;
+        
+        for (int q = 1; q < n; ++q) {
+            double s = ((f[q] + scale * scale * q * q) - (f[v[k]] + scale * scale * v[k] * v[k])) / (2.0 * scale * scale * (q - v[k]));
+            
+            while (s <= z[k]) {
+                --k;
+                if (k < 0) break;
+                s = ((f[q] + scale * scale * q * q) - (f[v[k]] + scale * scale * v[k] * v[k])) / (2.0 * scale * scale * (q - v[k]));
+            }
+            ++k;
+            v[k] = q;
+            z[k] = s;
+            z[k + 1] = INF;
+        }
+        
+        k = 0;
+        for (int q = 0; q < n; ++q) {
+            while (k < static_cast<int>(v.size()) - 1 && z[k + 1] < q) ++k;
+            int j = v[k];
+            d[q] = scale * scale * (q - j) * (q - j) + f[j];
+        }
+        
+        return d;
+    };
+    
+    // first pass: compute EDT for each row (squared distances along rows)
+    std::vector<double> row_distances(grid_width_);
+    for (unsigned int y = 0; y < grid_height_; ++y) {
+        // Extract row
+        for (unsigned int x = 0; x < grid_width_; ++x) {
+            size_t idx = y * grid_width_ + x;
+            row_distances[x] = distance_field_[idx];
+        }
+        
+        // compute 1D EDT for this row (output is squared distances)
+        std::vector<double> edt_result = edt_1d(row_distances, grid_width_, grid_resolution_);
+        
+        // store results back (still squared distances)
+        for (unsigned int x = 0; x < grid_width_; ++x) {
+            size_t idx = y * grid_width_ + x;
+            distance_field_[idx] = edt_result[x];
+        }
+    }
+    
+    // second pass: compute EDT for each column using row results
+    std::vector<double> col_distances(grid_height_);
+    for (unsigned int x = 0; x < grid_width_; ++x) {
+        // extract column (contains squared distances from row pass)
+        for (unsigned int y = 0; y < grid_height_; ++y) {
+            size_t idx = y * grid_width_ + x;
+            col_distances[y] = distance_field_[idx];
+        }
+        
+        // compute 1D EDT for this column (output is squared distances in 2D)
+        std::vector<double> edt_result = edt_1d(col_distances, grid_height_, grid_resolution_);
+        
+        // store results back and take square root to get actual Euclidean distance
+        for (unsigned int y = 0; y < grid_height_; ++y) {
+            size_t idx = y * grid_width_ + x;
+            distance_field_[idx] = std::sqrt(edt_result[y]);
+        }
+    }
+    
+    has_distance_field_ = true;
 }

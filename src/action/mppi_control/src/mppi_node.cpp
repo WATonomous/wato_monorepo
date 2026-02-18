@@ -135,6 +135,18 @@ public:
 
     void occupancy_grid_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
         //RCLCPP_INFO(this->get_logger(), "Occupancy Grid received");
+        
+        // extract occupancy grid data
+        std::vector<int8_t> grid_data(msg->data.begin(), msg->data.end());
+        unsigned int width = msg->info.width;
+        unsigned int height = msg->info.height;
+        double resolution = msg->info.resolution;
+        double origin_x = msg->info.origin.position.x;
+        double origin_y = msg->info.origin.position.y;
+        
+        // update the critic with occupancy grid data
+        mppi_core_->update_occupancy_grid(grid_data, width, height, resolution, origin_x, origin_y);
+        
         valid_occupancy_grid_ = true;
     }
 

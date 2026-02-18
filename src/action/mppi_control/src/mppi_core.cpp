@@ -202,3 +202,10 @@ void MppiCore::update_trajectory(const std::vector<State>& traj){
     critic_.set_trajectory(traj);
     //desired_trajectory_ = traj; 
 }
+
+//update occupancy grid
+void MppiCore::update_occupancy_grid(const std::vector<int8_t>& data, 
+                                     unsigned int width, unsigned int height,
+                                     double resolution, double origin_x, double origin_y) {
+    critic_.set_occupancy_grid(data, width, height, resolution, origin_x, origin_y);
+}
