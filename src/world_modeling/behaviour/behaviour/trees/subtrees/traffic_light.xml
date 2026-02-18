@@ -1,0 +1,56 @@
+<root BTCPP_format="4" main_tree_to_execute="TrafficLightSubTree">
+    <BehaviorTree ID="TrafficLightSubTree">
+        <Sequence name="Handle Traffic Light">
+
+            <!-- compute stop/yield line pose (only needs reg_elem, not state) -->
+            <GetStopLinePose
+                reg_elem="{traffic_light}"
+                lane_ctx="{@current_lane_ctx}"
+                map_frame="{@map_frame}"
+                pose="{traffic_light.wall_pose}"
+                error_message="{traffic_light.get_stop_line_pose_error_msg}" />
+
+            <!-- try to determine the traffic light state and act on it.
+                 if anything fails (service, detection, etc.), the fallback
+                 falls through to the fail safe wall spawn at the end. -->
+            <Fallback name="Traffic Light Gate">
+
+                <!-- green: despawn wall and succeed -->
+                <Sequence name="Green">
+                    <GetWorldObjects
+                        objects="{traffic_light.objects}"
+                        error_message="{traffic_light.get_objects_error_msg}"
+                        service_name="/world_modeling/get_dynamic_objects" />
+
+                    <GetTrafficLightState
+                        traffic_light="{traffic_light}"
+                        objects="{traffic_light.objects}"
+                        state_hypothesis_index="{@bt.traffic_light_state_hypothesis_index}"
+                        out_traffic_light_state="{traffic_light.state}"
+                        error_message="{get_traffic_light_state_error_msg}" />
+
+                    <IsTrafficLightState traffic_light_state="{traffic_light.state}"
+                        expected="green" />
+
+                    <DespawnWall wall_id="{traffic_light.wall_id}"
+                        error_message="{traffic_light.despawn_wall_error_msg}"
+                        service_name="/world_modeling/despawn_wall" />
+                </Sequence>
+
+                <!-- fail safe: any non green state or detection failure => spawn wall -->
+                <SpawnWall
+                    pose="{traffic_light.wall_pose}"
+                    tf_buffer="{@tf_buffer}"
+                    pose_frame="{@map_frame}"
+                    width="{@bt.intersection_wall_of_doom_width}"
+                    length="{@bt.intersection_wall_of_doom_length}"
+                    wall_id="{traffic_light.wall_id}"
+                    error_message="{traffic_light.spawn_wall_error_msg}"
+                    service_name="/world_modeling/spawn_wall" />
+
+            </Fallback>
+
+        </Sequence>
+    </BehaviorTree>
+
+</root>

@@ -65,6 +65,8 @@
       - "front_far"
       - "left_blind_spot"
       - "right_blind_spot"
+      - "left_lane_change_corridor"
+      - "right_lane_change_corridor"
 
     occupancy_area:
       front_near:
@@ -91,6 +93,18 @@
         radius: 10.0
         start_angle_deg: 180.0
         end_angle_deg: 250.0
+      left_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: 3.0
+        length: 12.5
+        width: 4.0
+      right_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: -3.0
+        length: 12.5
+        width: 4.0
 
 # =============================================================================
 # Costmap Node
@@ -175,6 +189,21 @@
     show_lanelet_ids: false
     show_info: true
     show_boundaries: true
+
+# =============================================================================
+# Behaviour Markers Node
+# =============================================================================
+/**/behaviour_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    preferred_centerline_line_width: 0.45
+    preferred_boundary_line_width: 0.18
+    current_lane_line_width: 0.2
+    text_height: 0.8
+    show_boundaries: true
+    show_lanelet_ids: false
+    show_current_lane: true
+    show_info: true
 
 # =============================================================================
 # World Object Marker Nodes
