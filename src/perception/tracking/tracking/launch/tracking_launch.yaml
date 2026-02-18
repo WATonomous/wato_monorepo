@@ -15,21 +15,21 @@ launch:
   # Declare launch arguments for pub and sub topics
   - arg:
       name: detections_topic
-      default: /camera_object_detections
-      description: 2D detection topic being subscribed to
+      default: /perception/detections_3D
+      description: 3D detection topic being subscribed to
   - arg:
       name: tracks_topic
-      default: /tracked_boxes
+      default: /perception/detections_3D_tracked
       description: Topic to publish tracks to
 
   # Launch the 2D tracking node
   - node:
-      pkg: tracking_2d
-      exec: tracking_2d_node
-      name: tracking_2d_node
+      pkg: tracking
+      exec: tracking_node
+      name: tracking_node
       output: screen
       param:
-        - from: $(find-pkg-share tracking_2d)/config/params.yaml
+        - from: $(find-pkg-share tracking)/config/params.yaml
       remap:
         - from: input_detections
           to: $(var detections_topic)
