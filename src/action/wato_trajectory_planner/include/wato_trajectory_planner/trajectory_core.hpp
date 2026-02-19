@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef WATO_TRAJECTORY_PLANNER__TRAJECTORY_CORE_HPP_
-#define WATO_TRAJECTORY_PLANNER__TRAJECTORY_CORE_HPP_
+#pragma once
 
 #include <optional>
 #include <vector>
@@ -68,4 +67,3 @@ private:
 
 }  // namespace wato_trajectory_planner
 
-#endif  // WATO_TRAJECTORY_PLANNER__TRAJECTORY_CORE_HPP_

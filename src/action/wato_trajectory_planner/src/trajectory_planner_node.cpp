@@ -189,6 +189,29 @@ void TrajectoryPlannerNode::update_trajectory()
       // Base size 0.1m, scales up to 0.5m at max speed
       double speed_ratio = std::max(0.0, std::min(1.0, point.max_speed / limit_speed));
       double diameter = 0.1 + (0.4 * speed_ratio);
+
+      // Only add labels for every 4th point to avoid clutter
+      if (id % 4 == 0) {
+        visualization_msgs::msg::Marker label;
+        label.header = traj.header;
+        label.ns = "trajectory_speed_labels";
+        label.id = id++;
+        label.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+        label.action = visualization_msgs::msg::Marker::ADD;
+        label.pose = point.pose;
+        label.pose.position.y += 0.8;
+        label.pose.position.z += 0.5;
+        label.scale.z = 0.4;
+        label.color.r = 1.0f;
+        label.color.g = 1.0f;
+        label.color.b = 1.0f;
+        label.color.a = 1.0f;
+
+        // Simple concatenation: use std::to_string and truncate extra zeros
+        std::string speed_str = std::to_string(point.max_speed);
+        label.text = speed_str.substr(0, speed_str.find(".") + 2) + " m/s";
+        markers.markers.push_back(label);
+      }
       
       sphere.scale.x = diameter;
       sphere.scale.y = diameter;
