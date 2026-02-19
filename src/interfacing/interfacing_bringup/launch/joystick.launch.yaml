@@ -1,3 +1,16 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ---
 launch:
   - arg:
@@ -10,20 +23,24 @@ launch:
       default: "false"
       description: "Enable bond-based crash detection"
 
+  # GPS Configs
+  - arg:
+      name: "oem7_ip_addr"
+      default: "10.8.0.8"
+      description: "IP address of the OEM7 GPS receiver"
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
+
   - arg:
       name: "config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/steering_dummy.yaml"
-      description: "Path to the steering dummy configuration file"
-
-  # Steering Dummy
-  - node:
-      pkg: dummy_ackermann
-      exec: ackermann_square_wave_node
-      name: ackermann_square_wave
-      namespace: interfacing
-      output: screen
-      param:
-        - from: "$(var config_file)"
+      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
+      description: "Path to the joystick configuration file"
 
   # Joystick hardware node (publishes joy messages from physical joystick)
   - node:
@@ -45,20 +62,30 @@ launch:
       param:
         - from: "$(var config_file)"
 
-  # PID Control Node
+  # Ackermann Mux Node
   - node:
-      pkg: "pid_control"
-      exec: "pid_control_node"
-      name: "pid_control_node"
+      pkg: "ackermann_mux"
+      exec: "ackermann_mux_node"
+      name: "ackermann_mux"
       namespace: "interfacing"
       output: "screen"
-      remap:
-        - from: "steering_feedback"
-          to: "oscc_interfacing/steering_angle"
-        - from: "velocity_feedback"
-          to: "body_velocity_feedback"
+      ros_args: "--log-level warn"
       param:
         - from: "$(var config_file)"
+
+  # - node:
+  #     pkg: "pid_control"
+  #     exec: "pid_control_node"
+  #     name: "pid_control_node"
+  #     namespace: "interfacing"
+  #     output: "screen"
+  #     remap:
+  #       - from: "steering_feedback"
+  #         to: "oscc_interfacing/steering_angle"
+  #       - from: "velocity_feedback"
+  #         to: "body_velocity_feedback"
+  #     param:
+  #       - from: "$(var config_file)"
 
   # OSCC interfacing Node
   - node:
@@ -77,17 +104,7 @@ launch:
       namespace: interfacing
       output: screen
       param:
-        - from: "$(var config_file)"
-
-  - node:
-      pkg: "car_velocity_feedback"
-      exec: "car_velocity_feedback_node"
-      name: "car_velocity_feedback_node"
-      namespace: "interfacing"
-      output: "screen"
-      param:
-        - name: "use_sim_time"
-          value: False
+        - from: "$(find-pkg-share car_steering_feedback)/config/car_steering_feedback.yaml"
 
   # Lifecycle Manager
   - node:
@@ -99,8 +116,8 @@ launch:
         - name: node_names
           value:
             - /interfacing/joystick_node
+            - /interfacing/ackermann_mux
             - /interfacing/pid_control_node
-            - /interfacing/ackermann_square_wave
             - /interfacing/car_velocity_feedback_node
         - name: autostart
           value: $(var autostart)

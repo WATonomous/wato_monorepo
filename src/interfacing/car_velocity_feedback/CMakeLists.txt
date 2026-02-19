@@ -30,7 +30,9 @@ find_package(roscco_msg REQUIRED)
 include_directories(include)
 
 # create library
-add_library(car_velocity_feedback_node_lib src/car_velocity_feedback_node.cpp)
+add_library(car_velocity_feedback_node_lib SHARED 
+  src/car_velocity_feedback_node.cpp
+)
 
 target_include_directories(car_velocity_feedback_node_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

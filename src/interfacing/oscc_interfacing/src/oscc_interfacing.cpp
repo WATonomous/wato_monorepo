@@ -53,6 +53,7 @@ void steering_report_callback(oscc_steering_report_s * report)
     node->latest_override_.store(OsccInterfacingNode::OverrideType::STEERING);
     node->has_override_.store(true);
   }
+  // float steering_torque = float(report->)
 }
 
 void obd_callback(struct can_frame * frame)
@@ -162,12 +163,12 @@ void OsccInterfacingNode::configure()
   rclcpp::SubscriptionOptions sub_options;
   sub_options.callback_group = oscc_api_group_;
   roscco_sub_ = this->create_subscription<roscco_msg::msg::Roscco>(
-    "/roscco", rclcpp::QoS(1),
+    "roscco", rclcpp::QoS(1),
     std::bind(&OsccInterfacingNode::roscco_callback, this, std::placeholders::_1),
     sub_options);
 
   arm_service_ = this->create_service<std_srvs::srv::SetBool>(
-    "/oscc_interfacing/arm",
+    "oscc_interfacing/arm",
     std::bind(&OsccInterfacingNode::arm_service_callback, this, std::placeholders::_1, std::placeholders::_2),
     rclcpp::ServicesQoS(),
     oscc_api_group_);
@@ -185,11 +186,11 @@ void OsccInterfacingNode::configure()
     feedback_group_);
 
   // Publishers
-  is_armed_pub_ = this->create_publisher<std_msgs::msg::Bool>("/oscc_interfacing/is_armed", rclcpp::QoS(1));
+  is_armed_pub_ = this->create_publisher<std_msgs::msg::Bool>("oscc_interfacing/is_armed", rclcpp::QoS(1));
   wheel_speeds_pub_ =
-    this->create_publisher<roscco_msg::msg::WheelSpeeds>("/oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
+    this->create_publisher<roscco_msg::msg::WheelSpeeds>("oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
   steering_angle_pub_ =
-    this->create_publisher<roscco_msg::msg::SteeringAngle>("/oscc_interfacing/steering_angle", rclcpp::QoS(1));
+    this->create_publisher<roscco_msg::msg::SteeringAngle>("oscc_interfacing/steering_angle", rclcpp::QoS(1));
 
   // Default group: is_armed status timer
   std::chrono::milliseconds interval(1000 / is_armed_publish_rate_hz);

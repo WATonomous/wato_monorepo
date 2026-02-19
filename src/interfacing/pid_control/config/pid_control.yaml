@@ -2,9 +2,9 @@
   ros__parameters:
     update_rate: 20.0
     steering_pid:
-      p: 2.0 # Proportional gain
-      i: 0.0 # Integral gain
-      d: 0.0 # Derivative gain
+      p: 2.5  # Proportional gain
+      i: 0.0  # Integral gain
+      d: 0.1 # Derivative gain
       i_clamp_max: 1.0  # Upper bound for the integrator term (prevents windup independently of output)
       i_clamp_min: -1.0 # Lower bound for the integrator term
       u_clamp_max: 1.0  # Upper saturation limit for the controller output (actuator limit)

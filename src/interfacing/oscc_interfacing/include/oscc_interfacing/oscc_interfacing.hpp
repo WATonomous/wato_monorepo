@@ -87,6 +87,7 @@ public:
   std::atomic<FaultType> latest_fault_{FaultType::BRAKE_FAULT};
   std::atomic<bool> has_override_{false};
   std::atomic<bool> has_fault_{false};
+  // std::atomic<float> steering_torque_{0.0f};
 
 private:
   void configure();

@@ -36,19 +36,19 @@ CarVelocityFeedbackNode::CallbackReturn CarVelocityFeedbackNode::on_configure(co
 
   // Subscribe to wheel speeds
   wheel_speeds_sub_ = this->create_subscription<roscco_msg::msg::WheelSpeeds>(
-    "/oscc_interfacing/wheel_speeds",
+    "oscc_interfacing/wheel_speeds",
     rclcpp::SensorDataQoS(),
     std::bind(&CarVelocityFeedbackNode::wheel_speeds_callback, this, std::placeholders::_1));
 
   // Subscribe to steering angle
   steering_angle_sub_ = this->create_subscription<roscco_msg::msg::SteeringAngle>(
-    "/oscc_interfacing/steering_angle",
+    "oscc_interfacing/steering_angle",
     rclcpp::SensorDataQoS(),
     std::bind(&CarVelocityFeedbackNode::steering_angle_callback, this, std::placeholders::_1));
 
   // Publisher for body velocity
   body_velocity_pub_ =
-    this->create_publisher<std_msgs::msg::Float64>("/body_velocity_feedback", rclcpp::SystemDefaultsQoS());
+    this->create_publisher<std_msgs::msg::Float64>("body_velocity_feedback", rclcpp::SystemDefaultsQoS());
 
   return CallbackReturn::SUCCESS;
 }

@@ -7,4 +7,4 @@ launch:
       output: "screen"
       param:
         - name: "use_sim_time"
-          value: "$(var use_sim_time)"
+          value: False

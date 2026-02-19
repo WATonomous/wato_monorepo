@@ -1,4 +1,4 @@
-oscc_interfacing:
+/**/oscc_interfacing:
   ros__parameters:
     is_armed_publish_rate_hz: 100
     oscc_can_bus: 0 # Can bus number (int)

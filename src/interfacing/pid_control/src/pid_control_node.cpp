@@ -42,7 +42,7 @@ PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecyc
     this->get_node_parameters_interface(),
     this->get_node_topics_interface(),
     "steering_pid",
-    "/steering_pid_state",
+    "steering_pid_state",
     true);
   steering_pid_ros_->initialize_from_ros_parameters();
 
@@ -53,7 +53,7 @@ PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecyc
     this->get_node_parameters_interface(),
     this->get_node_topics_interface(),
     "velocity_pid",
-    "/velocity_pid_state",
+    "velocity_pid_state",
     true);
   velocity_pid_ros_->initialize_from_ros_parameters();
 
@@ -205,11 +205,21 @@ void PidControlNode::control_loop()
   // Compute Steering Command (Torque)
   if (steering_meas_received_) {
     double steering_error = steering_setpoint_ - steering_meas_;
+    
     steering_command = steering_pid_ros_->compute_command(steering_error, dt);
     if (steering_command > steering_output_prev_) {
       steering_command = std::min(steering_command, steering_output_prev_ + steering_slew_rate_ * dt.seconds());
     } else if (steering_command < steering_output_prev_) {
       steering_command = std::max(steering_command, steering_output_prev_ - steering_slew_rate_ * dt.seconds());
+    }
+    // steering_command += steering_setpoint_*0.18*velocity_meas_*velocity_meas_;
+    RCLCPP_INFO(this->get_logger(), "vel %f", velocity_meas_);
+    // steering_command += steering_setpoint_*0.05*sqrt(velocity_meas_);
+    float velocity_gain = 0.01*velocity_meas_;
+    if (steering_command > 0 ) {
+      steering_command += velocity_gain;
+    } else if (steering_command < 0) {
+      steering_command -= velocity_gain;
     }
     steering_output_prev_ = steering_command;
   } else {

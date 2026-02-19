@@ -1,0 +1,133 @@
+# Steering Dummy Configuration
+# Consolidated config for all nodes in steering_dummy.launch.yaml
+
+# Dummy Ackermann (square wave steering input)
+/**/ackermann_square_wave:
+  ros__parameters:
+    period: 10.0
+    amplitude: 0.1
+    publish_rate: 50.0
+
+/**/ackermann_velocity_trapezoid:
+  ros__parameters:
+    target_velocity: 1.0
+    rise_time: 2.0
+    hold_time: 3.0
+    ramp_down_time: 2.0
+    down_hold_time: 1.0
+    publish_rate: 50.0
+
+# Joystick hardware node
+/**/joy_node:
+  ros__parameters:
+    deadzone: 0.05
+
+# Joystick interfacing node
+/**/joystick_node:
+  ros__parameters:
+    # left shoulder buttons
+    enable_axis: 2
+
+    # button to toggle between joystick/ackermann and joystick/roscco
+    toggle_button: 1  # B on xbox
+
+    # OSCC board arming button
+    arming_button: 0  # A on xbox
+
+    # left and right joystick axes
+    steering_axis: 0
+    throttle_axis: 4
+
+    # ACKERMANN SCALING ---- max speed and steering angle
+    ackermann_max_speed: 2.0
+    ackermann_max_steering_angle: 0.5
+
+    # ROSCCO SCALING ---- max speed and steering angle
+    roscco_max_speed: 1.0
+    roscco_max_steering_angle: 0.2
+
+    # invert steering and throttle
+    invert_steering: true
+    invert_throttle: false
+
+    # vibration feedback
+    toggle_vibration_intensity: 1.0
+    toggle_vibration_duration_ms: 150
+
+# PID Control
+/**/pid_control_node:
+  ros__parameters:
+    update_rate: 20.0
+    steering_slew_rate: 1.0
+    steering_pid:
+      p: 1.2  # Proportional gain
+      i: 0.0  # Integral gain
+      d: 0.15 # Derivative gain
+      i_clamp_max: 1.0  # Upper bound for the integrator term (prevents windup independently of output)
+      i_clamp_min: -1.0 # Lower bound for the integrator term
+      u_clamp_max: 0.2  # Upper saturation limit for the controller output (actuator limit)
+      u_clamp_min: -0.2 # Lower saturation limit for the controller output
+      saturation: true  # Whether to treat u_clamp limits as enforced saturation
+      antiwindup: true  # Enable anti-windup to correct the integrator during saturation
+      antiwindup_strategy: "conditional_integration"
+
+    velocity_pid:
+      p: 1.0
+      i: 0.07
+      d: 0.0
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+
+# /**/pid_control_node:
+#   ros__parameters:
+#     update_rate: 20.0
+#     steering_slew_rate: 2.0
+#     steering_pid:
+#       p: 3.5  # Proportional gain
+#       i: 0.0  # Integral gain
+#       d: 0.12 # Derivative gain
+#       i_clamp_max: 1.0  # Upper bound for the integrator term (prevents windup independently of output)
+#       i_clamp_min: -1.0 # Lower bound for the integrator term
+#       u_clamp_max: 0.11  # Upper saturation limit for the controller output (actuator limit)
+#       u_clamp_min: -0.11 # Lower saturation limit for the controller output
+#       saturation: true  # Whether to treat u_clamp limits as enforced saturation
+#       antiwindup: true  # Enable anti-windup to correct the integrator during saturation
+#       antiwindup_strategy: "conditional_integration"
+
+#     velocity_pid:
+#       p: 1.0
+#       i: 0.0
+#       d: 0.0
+#       i_clamp_max: 0.5
+#       i_clamp_min: -0.5
+#       u_clamp_max: 1.0
+#       u_clamp_min: -1.0
+#       saturation: true
+#       antiwindup: true
+#       antiwindup_strategy: "conditional_integration"
+
+# OSCC Interfacing
+/**/oscc_interfacing:
+  ros__parameters:
+    is_armed_publish_rate_hz: 100
+    oscc_can_bus: 0 # CAN bus number (int)
+    steering_scaling: 1.0 # value 0-1 to scale the effectiveness of steering commands
+    disable_boards_on_fault: false # If true, will disable OSCC boards on fault instead of just disarming
+    steering_conversion_factor: 15.7 # factor to convert from steering wheel angle
+    steering_torque_deadzone_pos: 0.095 # Deadzone compensation added to positive steering torque commands
+    steering_torque_deadzone_neg: 0.135 # Deadzone compensation added to negative steering torque commands
+    enable_all: false # If true, arm/disarm enables/disables all modules at once
+    enable_steering: true # Enable steering module on arm (only used when enable_all is false)
+    enable_throttle: false # Enable throttle module on arm (only used when enable_all is false)
+    enable_brakes: false # Enable brake module on arm (only used when enable_all is false)
+
+# Car Steering Feedback (direct CAN read, replaces OSCC steering angle)
+/**/car_steering_feedback_node:
+  ros__parameters:
+    can_interface: "can1"
+    steering_conversion_factor: 15.7

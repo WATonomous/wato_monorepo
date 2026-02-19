@@ -25,7 +25,7 @@ CarSteeringFeedbackNode::CarSteeringFeedbackNode(const rclcpp::NodeOptions & opt
   steering_conversion_factor_ = this->get_parameter("steering_conversion_factor").as_double();
 
   pub_ = this->create_publisher<roscco_msg::msg::SteeringAngle>(
-    "/car_steering_feedback/steering_angle", rclcpp::QoS(1));
+    "car_steering_feedback/steering_angle", rclcpp::QoS(1));
 
   // Open SocketCAN
   sock_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
