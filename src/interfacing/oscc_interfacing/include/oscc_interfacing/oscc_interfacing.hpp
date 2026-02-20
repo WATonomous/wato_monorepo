@@ -31,22 +31,17 @@ extern "C"
 #include <std_msgs/msg/bool.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 
-/*
-
-Threading model:
-
-  CAN thread (OSCC library)    — writes sensor data and events via atomics/mutex
-  Group A (MutuallyExclusive)  — serializes all OSCC API calls:
-                                   roscco_callback, arm_service_callback, process_events
-  Group B (MutuallyExclusive)  — feedback publishing (independent of OSCC API):
-                                   publish_feedback
-  Default group                — is_armed_timer_callback (trivial, runs freely)
-
-*/
-
 namespace oscc_interfacing
 {
 
+/**
+ * @brief ROS 2 node for interfacing with OSCC (Open Source Car Control).
+ *
+ * Manages the OSCC CAN-based vehicle control system: arming/disarming modules,
+ * forwarding steering and throttle commands, and publishing feedback data
+ * (wheel speeds, steering angle). Uses callback groups to serialize OSCC API
+ * access while allowing feedback publishing to run independently.
+ */
 class OsccInterfacingNode : public rclcpp::Node
 {
 public:
@@ -68,7 +63,9 @@ public:
     THROTTLE_FAULT
   };
 
-  // Wheel speed snapshot — protected by wheel_data_mutex_ for atomic group read/write
+  /**
+   * @brief Snapshot of all four wheel speeds for atomic group read/write.
+   */
   struct WheelSpeedSnapshot
   {
     float ne{0}, nw{0}, se{0}, sw{0};
@@ -90,21 +87,54 @@ public:
   // std::atomic<float> steering_torque_{0.0f};
 
 private:
+  /**
+   * @brief Declares parameters and initializes the OSCC library, publishers, and timers.
+   */
   void configure();
 
-  // Group A callbacks (MutuallyExclusive — serializes OSCC API access)
+  /**
+   * @brief Handles incoming Roscco commands (steering + throttle).
+   *
+   * Applies steering torque and throttle commands to the vehicle via OSCC API.
+   * Only processes commands when the system is armed.
+   * @param msg Roscco message containing forward and steering values.
+   */
   void roscco_callback(const roscco_msg::msg::Roscco::ConstSharedPtr msg);
+
+  /**
+   * @brief Arms or disarms the OSCC modules via service call.
+   * @param request Boolean request — true to arm, false to disarm.
+   * @param response Success status and message describing the result.
+   */
   void arm_service_callback(
     const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
     std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
+  /**
+   * @brief Polls for OSCC override and fault events from the CAN thread.
+   *
+   * Called on a timer. Checks atomic flags set by CAN callbacks and handles
+   * disarming on override or fault.
+   */
   void process_events();
 
-  // Group B callback (MutuallyExclusive — feedback publishing, independent of OSCC API)
+  /**
+   * @brief Publishes wheel speed and steering angle feedback from CAN data.
+   *
+   * Runs in its own callback group (Group B) so it does not block OSCC API calls.
+   */
   void publish_feedback();
 
-  // Default group
+  /**
+   * @brief Publishes the current armed state on a timer.
+   */
   void is_armed_timer_callback();
 
+  /**
+   * @brief Checks an OSCC API result and disarms on error.
+   * @param result The OSCC result code to check.
+   * @return The same result code passed in.
+   */
   oscc_result_t handle_any_errors(oscc_result_t result);
 
   // Callback groups

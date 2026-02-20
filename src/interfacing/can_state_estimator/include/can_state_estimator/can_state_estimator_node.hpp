@@ -31,6 +31,14 @@
 namespace can_state_estimator
 {
 
+/**
+ * @brief Lifecycle node that estimates vehicle state from CAN bus data.
+ *
+ * Reads steering angle (CAN 0x2B0) and wheel speed (CAN 0x4B0) frames directly
+ * from SocketCAN. Publishes steering angle, body velocity, and dead-reckoning
+ * odometry using the Ackermann bicycle model. The wheelbase is resolved from TF
+ * (rear_axle -> front_axle) rather than being hardcoded.
+ */
 class CanStateEstimatorNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -39,19 +47,68 @@ public:
 
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
+  /**
+   * @brief Reads parameters, creates publishers, opens and binds the CAN socket, starts TF listener.
+   */
   CallbackReturn on_configure(const rclcpp_lifecycle::State &);
+
+  /**
+   * @brief Activates publishers, resets odometry state, and starts the CAN read thread.
+   */
   CallbackReturn on_activate(const rclcpp_lifecycle::State &);
+
+  /**
+   * @brief Stops the CAN read thread and deactivates publishers.
+   */
   CallbackReturn on_deactivate(const rclcpp_lifecycle::State &);
+
+  /**
+   * @brief Closes the CAN socket and destroys publishers and TF resources.
+   */
   CallbackReturn on_cleanup(const rclcpp_lifecycle::State &);
+
+  /**
+   * @brief Full teardown from any state.
+   */
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State &);
 
 private:
+  /**
+   * @brief Background thread function that blocks on CAN socket reads and dispatches frames.
+   */
   void read_loop();
+
+  /**
+   * @brief Decodes a steering angle CAN frame (0x2B0) and publishes SteeringAngle.
+   * @param data Raw CAN frame payload (8 bytes).
+   */
   void process_steering_frame(const uint8_t * data);
+
+  /**
+   * @brief Decodes a wheel speed CAN frame (0x4B0), updates wheel speeds, and triggers odom.
+   * @param data Raw CAN frame payload (8 bytes).
+   */
   void process_wheel_speed_frame(const uint8_t * data);
+
+  /**
+   * @brief Computes and publishes body velocity and odometry from current state.
+   */
   void publish_velocity_and_odom();
+
+  /**
+   * @brief Looks up the rear_axle -> front_axle TF to determine wheelbase. Caches the result.
+   * @return true if wheelbase is available, false if TF is not yet ready.
+   */
   bool lookup_wheelbase();
+
+  /**
+   * @brief Signals the CAN read thread to stop and joins it.
+   */
   void stop_can_thread();
+
+  /**
+   * @brief Closes the CAN socket file descriptor if open.
+   */
   void close_can_socket();
 
   // CAN socket
