@@ -83,7 +83,7 @@ PidControlNode::CallbackReturn PidControlNode::on_activate(const rclcpp_lifecycl
   RCLCPP_INFO(this->get_logger(), "Activating...");
 
   double update_rate = this->get_parameter("update_rate").as_double();
-  steering_slew_rate_ = this->get_parameter("steering_slew_rate").as_double();
+
   // Start control loop timer
   last_time_ = this->now();
   auto period = std::chrono::duration<double>(1.0 / update_rate);
@@ -205,22 +205,7 @@ void PidControlNode::control_loop()
   // Compute Steering Command (Torque)
   if (steering_meas_received_) {
     double steering_error = steering_setpoint_ - steering_meas_;
-    
     steering_command = steering_pid_ros_->compute_command(steering_error, dt);
-    if (steering_command > steering_output_prev_) {
-      steering_command = std::min(steering_command, steering_output_prev_ + steering_slew_rate_ * dt.seconds());
-    } else if (steering_command < steering_output_prev_) {
-      steering_command = std::max(steering_command, steering_output_prev_ - steering_slew_rate_ * dt.seconds());
-    }
-    // steering_command += steering_setpoint_*0.18*velocity_meas_*velocity_meas_;
-    RCLCPP_INFO(this->get_logger(), "vel %f", velocity_meas_);
-    // steering_command += steering_setpoint_*0.05*sqrt(velocity_meas_);
-    float velocity_gain = 0.01*velocity_meas_;
-    if (steering_command > 0 ) {
-      steering_command += velocity_gain;
-    } else if (steering_command < 0) {
-      steering_command -= velocity_gain;
-    }
     steering_output_prev_ = steering_command;
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");
