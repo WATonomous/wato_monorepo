@@ -26,7 +26,6 @@ PidControlNode::PidControlNode(const rclcpp::NodeOptions & options)
 {
   // Declare parameters only - do not read or create resources yet
   this->declare_parameter<double>("update_rate", 100.0);
-  this->declare_parameter<double>("steering_slew_rate", 100.0);
 
   RCLCPP_INFO(this->get_logger(), "PidControlNode created (unconfigured)");
 }
@@ -206,7 +205,6 @@ void PidControlNode::control_loop()
   if (steering_meas_received_) {
     double steering_error = steering_setpoint_ - steering_meas_;
     steering_command = steering_pid_ros_->compute_command(steering_error, dt);
-    steering_output_prev_ = steering_command;
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");
   }
