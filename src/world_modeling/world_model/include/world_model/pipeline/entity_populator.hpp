@@ -36,6 +36,10 @@ namespace world_model
 class EntityPopulator
 {
 public:
+  explicit EntityPopulator(int64_t traffic_light_state_idx = 1)
+  : tl_state_idx_(traffic_light_state_idx)
+  {}
+
   /**
    * @brief Upsert a batch of world objects into the entity map.
    *
@@ -50,18 +54,16 @@ public:
    */
   template <typename EntityT>
   void populate(
-    std::unordered_map<int64_t, EntityT> & map,
+    std::unordered_map<std::string, EntityT> & map,
     const std::vector<const world_model_msgs::msg::WorldObject *> & objects,
     const std_msgs::msg::Header & msg_header)
   {
     for (const auto * obj : objects) {
-      try {
-        EntityT & entity = upsertBase(map, *obj, msg_header);
-        customize(entity, obj->detection);
-      } catch (const std::exception &) {
-        // Skip detections with non-numeric or empty IDs
+      if (obj->detection.id.empty()) {
         continue;
       }
+      EntityT & entity = upsertBase(map, *obj, msg_header);
+      customize(entity, obj->detection);
     }
   }
 
@@ -95,12 +97,13 @@ private:
    * @param tl TrafficLight entity to customize.
    * @param det Detection with classification results.
    */
-  static void customize(TrafficLight & tl, const vision_msgs::msg::Detection3D & det)
+  void customize(TrafficLight & tl, const vision_msgs::msg::Detection3D & det)
   {
-    if (!det.results.empty()) {
-      tl.confidence = det.results[0].hypothesis.score;
+    auto idx = static_cast<size_t>(tl_state_idx_);
+    if (det.results.size() > idx) {
+      tl.confidence = det.results[idx].hypothesis.score;
 
-      const std::string & class_id = det.results[0].hypothesis.class_id;
+      const std::string & class_id = det.results[idx].hypothesis.class_id;
       if (class_id == "red" || class_id == "RED") {
         tl.state = TrafficLightState::RED;
       } else if (class_id == "yellow" || class_id == "YELLOW" || class_id == "amber") {
@@ -123,12 +126,12 @@ private:
    */
   template <typename EntityT>
   EntityT & upsertBase(
-    std::unordered_map<int64_t, EntityT> & map,
+    std::unordered_map<std::string, EntityT> & map,
     const world_model_msgs::msg::WorldObject & obj,
     const std_msgs::msg::Header & msg_header)
   {
     const auto & det = obj.detection;
-    int64_t id = std::stoll(det.id);
+    const std::string & id = det.id;
 
     auto [it, inserted] = map.try_emplace(id, EntityT{});
     EntityT & entity = it->second;
@@ -146,6 +149,8 @@ private:
 
     return entity;
   }
+
+  int64_t tl_state_idx_;
 };
 
 }  // namespace world_model

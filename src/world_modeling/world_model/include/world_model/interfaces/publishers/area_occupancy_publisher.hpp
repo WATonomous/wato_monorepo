@@ -55,7 +55,7 @@ public:
   , timer_cb_group_(node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
   {
     map_frame_ = node_->get_parameter("map_frame").as_string();
-    area_frame_ = node_->declare_parameter<std::string>("area_occupancy_frame", "base_link");
+    area_frame_ = node_->declare_parameter<std::string>("area_occupancy_frame", "base_footprint");
     rate_hz_ = node_->declare_parameter<double>("area_occupancy_publish_rate_hz", 20.0);
     radius_m_ = node_->declare_parameter<double>("area_occupancy_lanelet_ahead_radius_m", 30.0);
     areas_ = parseOccupancyAreas();

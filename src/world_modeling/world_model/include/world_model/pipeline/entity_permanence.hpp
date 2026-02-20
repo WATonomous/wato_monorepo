@@ -15,6 +15,7 @@
 #ifndef WORLD_MODEL__PIPELINE__ENTITY_PERMANENCE_HPP_
 #define WORLD_MODEL__PIPELINE__ENTITY_PERMANENCE_HPP_
 
+#include <string>
 #include <unordered_map>
 
 #include "rclcpp/time.hpp"
@@ -47,7 +48,7 @@ public:
    * @brief Trim old history entries and prune stale entities.
    */
   template <typename EntityT>
-  void apply(std::unordered_map<int64_t, EntityT> & map, const rclcpp::Time & now)
+  void apply(std::unordered_map<std::string, EntityT> & map, const rclcpp::Time & now)
   {
     for (auto it = map.begin(); it != map.end();) {
       if (isStale(it->second, now)) {

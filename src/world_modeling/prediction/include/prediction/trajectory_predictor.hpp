@@ -27,6 +27,7 @@
 #include <string>
 #include <vector>
 
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "prediction/motion_models.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -65,10 +66,10 @@ enum class Intent
  */
 struct TrajectoryHypothesis
 {
-  std::vector<geometry_msgs::msg::Pose> waypoints;
-  std::vector<double> timestamps;
+  std_msgs::msg::Header header;
+  std::vector<geometry_msgs::msg::PoseStamped> poses;
   Intent intent;
-  double probability;  // Will be set by IntentClassifier
+  double probability;
 };
 
 /**

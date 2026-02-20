@@ -44,11 +44,17 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto active = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[ActiveTrafficControlElementExist]: Missing " << port_name << " input" << std::endl;
+    };
 
-    std::cout << "[ActiveTrafficControlElementExist]: active_traffic_control_element "
-              << (active ? "exists." : "does not exist.") << std::endl;
-    return active ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+    auto active = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
+    if (!ports::require(active, "active_traffic_control_element", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    std::cout << "[ActiveTrafficControlElementExist]: active_traffic_control_element exists." << std::endl;
+    return BT::NodeStatus::SUCCESS;
   }
 };
 

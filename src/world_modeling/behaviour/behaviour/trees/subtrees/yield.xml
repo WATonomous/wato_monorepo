@@ -3,33 +3,40 @@
     <BehaviorTree ID="YieldSubTree">
         <Sequence name="Handle Yield">
 
-            <!-- WALL OF DOOM: compute stop/yield-line pose and spawn wall -->
+            <!-- compute stop/yield line pose and spawn wall -->
             <GetStopLinePose
                 reg_elem="{yield_sign}"
-                map_frame="{map_frame}"
+                lane_ctx="{@current_lane_ctx}"
+                map_frame="{@map_frame}"
                 pose="{yield.wall_pose}"
                 error_message="{yield.get_stop_line_pose_error_msg}" />
 
             <SpawnWall
                 pose="{yield.wall_pose}"
-                tf_buffer="{tf_buffer}"
-                base_frame="{base_frame}"
-                width="5.0"
-                length="1.0"
+                tf_buffer="{@tf_buffer}"
+                pose_frame="{@map_frame}"
+                width="{@bt.intersection_wall_of_doom_width}"
+                length="{@bt.intersection_wall_of_doom_length}"
                 wall_id="{yield.wall_id}"
-                error_message="{yield.spawn_wall_error_msg}" />
+                error_message="{yield.spawn_wall_error_msg}"
+                service_name="/world_modeling/spawn_wall" />
 
-            <!-- Wait until yield lanes are clear for a gap -->
+            <GetWorldObjects
+                objects="{yield.objects}"
+                error_message="{yield.get_objects_error_msg}"
+                service_name="/world_modeling/get_dynamic_objects" />
+
+            <!-- wait until yield lanes are clear for a gap -->
             <YieldCanProceed
                 active_traffic_control_element="{yield_sign}"
-                dynamic_objects_snapshot="{@dynamic_objects.snapshot}" />
+                objects="{yield.objects}"
+                hypothesis_index="{@world_objects_hypothesis_index}" />
 
-            <!-- WALL OF DOOM: despawn -->
+            <!-- despawn wall -->
             <DespawnWall
                 wall_id="{yield.wall_id}"
-                error_message="{yield.despawn_wall_error_msg}" />
-
-            <!-- TODO: Add condition to see if passed intersection -->
+                error_message="{yield.despawn_wall_error_msg}"
+                service_name="/world_modeling/despawn_wall" />
         </Sequence>
     </BehaviorTree>
 </root>

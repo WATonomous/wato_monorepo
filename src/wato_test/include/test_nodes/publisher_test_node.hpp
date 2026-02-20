@@ -14,8 +14,10 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -52,6 +54,15 @@ public:
    */
   void publish(const MessageType & message);
 
+  /**
+   * @brief Wait until this publisher has at least the specified number of subscribers
+   *
+   * @param count Minimum number of matched subscribers to wait for
+   * @param timeout Maximum time to wait
+   * @return true if the required subscriber count was reached, false on timeout
+   */
+  bool wait_for_subscribers(size_t count = 1, std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
+
 private:
   typename rclcpp::Publisher<MessageType>::SharedPtr publisher_;
 };
@@ -71,6 +82,19 @@ void PublisherTestNode<MessageType>::publish(const MessageType & message)
 {
   publisher_->publish(message);
   RCLCPP_DEBUG(this->get_logger(), "Published message");
+}
+
+template <typename MessageType>
+bool PublisherTestNode<MessageType>::wait_for_subscribers(size_t count, std::chrono::milliseconds timeout) const
+{
+  auto start = std::chrono::steady_clock::now();
+  while (publisher_->get_subscription_count() < count) {
+    if (std::chrono::steady_clock::now() - start > timeout) {
+      return false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  return true;
 }
 
 }  // namespace wato::test

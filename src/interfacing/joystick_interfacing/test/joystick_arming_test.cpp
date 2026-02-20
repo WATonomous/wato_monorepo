@@ -20,6 +20,7 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <lifecycle_msgs/msg/transition.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <sensor_msgs/msg/joy_feedback.hpp>
@@ -57,6 +58,10 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Arming Feature", "[joystick_armi
 
   auto joy_node = std::make_shared<joystick_node::JoystickNode>(options);
   add_node(joy_node);
+
+  // Transition lifecycle node to active state
+  joy_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  joy_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
 
   // Input: Joy
   auto joy_pub = std::make_shared<PublisherTestNode<Joy>>("/joy", "joy_pub");

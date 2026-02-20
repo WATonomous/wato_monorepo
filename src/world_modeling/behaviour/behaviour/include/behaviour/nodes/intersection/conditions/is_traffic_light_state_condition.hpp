@@ -27,9 +27,9 @@
 namespace behaviour
 {
 /**
- * @class IsTrafficLightStateCondition
- * @brief ConditionNode to compare traffic light state with expected state.
- */
+   * @class IsTrafficLightStateCondition
+   * @brief ConditionNode to compare traffic light state with expected state.
+   */
 class IsTrafficLightStateCondition : public BT::ConditionNode
 {
 public:
@@ -47,31 +47,24 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
-    auto expected = ports::tryGet<std::string>(*this, "expected");
-
-    if (!state) {
-      std::cerr << "[IsTrafficLightState] Missing traffic_light_state." << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (!expected) {
-      std::cerr << "[IsTrafficLightState] Missing expected." << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    // case-insensitive comparison
-    auto norm = [](std::string s) {
-      std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      return s;
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[IsTrafficLightState] Missing " << port_name << " input" << std::endl;
     };
 
-    const std::string s_norm = norm(*state);
-    const std::string e_norm = norm(*expected);
+    auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
+    if (!ports::require(state, "traffic_light_state", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
 
-    std::cout << "[IsTrafficLightState]: Comparing msg='" << s_norm << "' to expected='" << e_norm << "'" << std::endl;
+    auto expected = ports::tryGet<std::string>(*this, "expected");
+    if (!ports::require(expected, "expected", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
 
-    return (s_norm == e_norm) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+    std::cout << "[IsTrafficLightState]: Comparing msg='" << *state << "' to expected='" << *expected << "'"
+              << std::endl;
+
+    return (*state == *expected) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };
 

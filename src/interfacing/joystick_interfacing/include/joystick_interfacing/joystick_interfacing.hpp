@@ -20,6 +20,7 @@
 
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <sensor_msgs/msg/joy_feedback.hpp>
@@ -36,7 +37,7 @@ namespace joystick_node
  * Subscribes to raw joystick data and publishes AckermannDriveStamped
  * commands. Includes safety gating via enable axis and idle state tracking.
  */
-class JoystickNode : public rclcpp::Node
+class JoystickNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   enum class JoystickState : int8_t
@@ -48,12 +49,45 @@ public:
 
   explicit JoystickNode(const rclcpp::NodeOptions & options);
 
-private:
-  /**
-   * @brief Loads parameters, initializes pubs/subs
-   */
-  void configure();
+protected:
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
+  /**
+   * @brief Configures the node, including parameters and internal state.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Activates the node, enabling publishers and timers.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Deactivates the node, disabling publishers and timers.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Cleans up the node, releasing resources.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Shuts down the node.
+   * @param state The current state of the node.
+   * @return CallbackReturn Success or Failure.
+   */
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
+
+private:
   /**
    * @brief Main hot-loop: process joystick, publish ackermann
    */

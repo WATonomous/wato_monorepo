@@ -1,0 +1,7 @@
+behaviour_markers_node:
+  ros__parameters:
+    map_frame: "map"
+    base_frame: "base_link"
+    centerline_width: 0.4
+    text_height: 1.0
+    text_offset_z: 3.0

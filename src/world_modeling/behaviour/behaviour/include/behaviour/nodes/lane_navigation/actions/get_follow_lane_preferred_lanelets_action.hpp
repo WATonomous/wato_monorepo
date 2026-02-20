@@ -57,10 +57,12 @@ public:
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetFollowLanePreferredLanelets]: Missing " << port_name << " input" << std::endl;
+    };
+
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
-    if (!lane_ctx) {
-      setOutput("error_message", "missing_lane_context");
-      std::cout << "[GetFollowLanePreferredLanelets]: Missing lane_ctx input" << std::endl;
+    if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 

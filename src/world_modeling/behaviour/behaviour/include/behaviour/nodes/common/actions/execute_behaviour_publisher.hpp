@@ -50,10 +50,13 @@ public:
      */
   bool setMessage(behaviour_msgs::msg::ExecuteBehaviour & msg) override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      RCLCPP_WARN(node_->get_logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+    };
+
     auto behaviour = ports::tryGet<std::string>(*this, "behaviour");
     auto preferred_lanelet_ids = ports::tryGet<std::vector<int64_t>>(*this, "preferred_lanelet_ids");
-    if (!behaviour) {
-      RCLCPP_WARN(node_->get_logger(), "[%s] No behaviour provided on port", name().c_str());
+    if (!ports::require(behaviour, "behaviour", missing_input_callback)) {
       return false;
     }
 

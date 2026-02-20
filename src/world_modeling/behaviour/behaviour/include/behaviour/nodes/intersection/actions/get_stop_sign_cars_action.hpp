@@ -17,28 +17,27 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <limits>
-#include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
-#include "behaviour/dynamic_object_store.hpp"
-#include "behaviour/utils/ports.hpp"
-#include "lanelet_msgs/msg/lanelet.hpp"
+#include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
+#include "lanelet_msgs/msg/way.hpp"
+#include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour
 {
 /**
- * @class GetStopSignCarsAction
- * @brief SyncActionNode to collect stop-sign queued car IDs.
- */
+   * @class GetStopSignCarsAction
+   * @brief SyncActionNode to collect stop-sign queued car IDs.
+   */
 class GetStopSignCarsAction : public BT::SyncActionNode
 {
 public:
@@ -50,112 +49,92 @@ public:
   {
     return {
       BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("stop_sign"),
-      BT::InputPort<std::vector<lanelet_msgs::msg::Lanelet>>("lanelets"),
-      BT::InputPort<double>("threshold_m"),
-      BT::InputPort<std::shared_ptr<const DynamicObjectStore::Snapshot>>("dynamic_objects_snapshot"),
+      BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
+      BT::InputPort<int>("hypothesis_index"),
+      BT::InputPort<double>("stop_sign_line_threshold_m"),
       BT::OutputPort<std::vector<std::string>>("out_stop_sign_car_ids"),
+      BT::OutputPort<std::vector<world_model_msgs::msg::WorldObject>>("out_stop_sign_cars"),
     };
   }
 
   BT::NodeStatus tick() override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetStopSignCars] Missing " << port_name << " input" << std::endl;
+    };
+
     auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
-    auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
-    auto lanelets = ports::tryGet<std::vector<lanelet_msgs::msg::Lanelet>>(*this, "lanelets");
-    auto threshold_m = ports::tryGet<double>(*this, "threshold_m");
-
-    if (!stop_sign) {
-      std::cout << "[GetStopSignCars] Missing stop_sign" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-    if (!snap || !snap->objects_snapshot_) {
-      std::cout << "[GetStopSignCars] Missing dynamic_objects_snapshot" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-    if (!lanelets) {
-      std::cout << "[GetStopSignCars] Missing lanelets" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-    if (!threshold_m) {
-      std::cout << "[GetStopSignCars] Missing threshold_m" << std::endl;
+    if (!ports::require(stop_sign, "stop_sign", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (stop_sign->yield_lanelet_ids.empty()) {
-      std::cout << "[GetStopSignCars] yield_lanelet_ids empty" << std::endl;
-      setOutput("out_stop_sign_car_ids", std::vector<std::string>{});
-      return BT::NodeStatus::SUCCESS;
+    auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
+    if (!ports::require(objects, "objects", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
     }
 
-    std::unordered_set<int64_t> yield_ids;
-    yield_ids.reserve(stop_sign->yield_lanelet_ids.size());
-    for (const auto id : stop_sign->yield_lanelet_ids) {
-      yield_ids.insert(id);
+    auto hypothesis_index = ports::tryGet<int>(*this, "hypothesis_index");
+    if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    auto stop_sign_line_threshold_m = ports::tryGet<double>(*this, "stop_sign_line_threshold_m");
+    if (!ports::require(stop_sign_line_threshold_m, "stop_sign_line_threshold_m", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    if (*hypothesis_index < 0) {
+      std::cout << "[GetStopSignCars] invalid hypothesis_index" << std::endl;
+      return BT::NodeStatus::FAILURE;
     }
 
     std::vector<std::string> out_ids;
-    out_ids.reserve(32);
+    std::vector<world_model_msgs::msg::WorldObject> out_cars;
+    std::unordered_set<std::string> seen_ids;
+    std::unordered_map<int64_t, const lanelet_msgs::msg::Way *> stop_line_way_by_lanelet_id;
 
-    for (const auto & ll : *lanelets) {
-      if (yield_ids.find(ll.id) == yield_ids.end()) {
+    for (const auto & lanelet_way : stop_sign->ref_lines) {
+      if (lanelet_way.way.points.empty()) {
         continue;
       }
 
-      // Find this reg elem within this lanelet so we can use its ref_lines (stop lines).
-      const lanelet_msgs::msg::RegulatoryElement * re_in_ll = nullptr;
-      for (const auto & re : ll.regulatory_elements) {
-        if (re.id == stop_sign->id) {
-          re_in_ll = &re;
-          break;
-        }
-      }
-      if (!re_in_ll) {
-        continue;
-      }
-
-      // Pick the first ref_line with points as the stop line.
-      const lanelet_msgs::msg::RefLine * stop_line = nullptr;
-      for (const auto & rl : re_in_ll->ref_lines) {
-        if (!rl.points.empty()) {
-          stop_line = &rl;
-          break;
-        }
-      }
-      if (!stop_line) {
-        continue;
-      }
-
-      // Compute centroid of the stop line polyline in XY.
-      double cx = 0.0, cy = 0.0;
-      for (const auto & p : stop_line->points) {
-        cx += p.x;
-        cy += p.y;
-      }
-      cx /= static_cast<double>(stop_line->points.size());
-      cy /= static_cast<double>(stop_line->points.size());
-
-      // Get cars currently in this lanelet and filter by distance to stop line centroid.
-      const auto cars = snap->getCarsInLanelet(ll.id);
-      for (const auto * car : cars) {
-        if (!car) continue;
-
-        const auto & pos = car->detection.bbox.center.position;
-
-        const double dx = pos.x - cx;
-        const double dy = pos.y - cy;
-        const double d = std::sqrt(dx * dx + dy * dy);
-
-        if (d <= *threshold_m) {
-          out_ids.push_back(car->detection.id);
-        }
+      for (const auto lanelet_id : lanelet_way.lanelet_ids) {
+        stop_line_way_by_lanelet_id[lanelet_id] = &lanelet_way.way;
       }
     }
 
-    // Deduplicate IDs (defensive; avoids duplicates if any mapping overlap occurs).
-    std::sort(out_ids.begin(), out_ids.end());
-    out_ids.erase(std::unique(out_ids.begin(), out_ids.end()), out_ids.end());
+    for (const auto lanelet_id : stop_sign->yield_lanelet_ids) {
+      const auto stop_line_way_it = stop_line_way_by_lanelet_id.find(lanelet_id);
+      if (stop_line_way_it == stop_line_way_by_lanelet_id.end()) {
+        continue;
+      }
+      const auto stop_line_way = stop_line_way_it->second;
+      if (stop_line_way == nullptr) {
+        continue;
+      }
 
+      const auto cars_in_lanelet = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+
+      for (const auto * obj : cars_in_lanelet) {
+        if (obj == nullptr) {
+          continue;
+        }
+
+        const double distance_to_stop_line = geometry::objectToWayDistanceXY(*obj, *stop_line_way);
+        if (!std::isfinite(distance_to_stop_line) || distance_to_stop_line > *stop_sign_line_threshold_m) {
+          continue;
+        }
+
+        if (!seen_ids.insert(obj->detection.id).second) {
+          continue;
+        }
+
+        out_ids.push_back(obj->detection.id);
+        out_cars.push_back(*obj);
+      }
+    }
     setOutput("out_stop_sign_car_ids", out_ids);
+    setOutput("out_stop_sign_cars", out_cars);
     return BT::NodeStatus::SUCCESS;
   }
 };

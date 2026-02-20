@@ -20,32 +20,31 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <memory>
 #include <string>
-#include <string_view>
+#include <vector>
 
-#include "behaviour/dynamic_object_store.hpp"
-#include "behaviour/utils/ports.hpp"
+#include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
+#include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour
 {
 /**
- * @class YieldSignCanProceedCondition
- * @brief ConditionNode to check whether yield lanelets are clear.
- *
- * Logic:
- * - Read the active control element and dynamic object snapshot.
- * - For each lanelet in `yield_lanelet_ids`, query cars currently in that lanelet.
- * - Return `SUCCESS` only when all yield lanelets are clear.
- * - Return `FAILURE` as soon as any yield lanelet contains a car.
- * - Return `FAILURE` when required state is missing (fail-safe behavior).
- *
- * Assumptions:
- * - `yield_lanelet_ids` correctly encodes conflicting traffic lanes.
- * - If there are no more cars in the yield lanelets, then it's safe to proceed, car might still pose a risk in we do allow the car to go
- * - Dynamic object-to-lanelet association is up to date and reliable.
- */
+   * @class YieldSignCanProceedCondition
+   * @brief ConditionNode to check whether yield lanelets are clear.
+   *
+   * Logic:
+   * - Read the active control element and current world objects.
+   * - Filter objects to cars on lanelets listed in `yield_lanelet_ids`.
+   * - Return `SUCCESS` only when all yield lanelets are clear.
+   * - Return `FAILURE` as soon as any yield lanelet contains a car.
+   * - Return `FAILURE` when required state is missing (fail-safe behavior).
+   *
+   * Assumptions:
+   * - `yield_lanelet_ids` correctly encodes conflicting traffic lanes.
+   * - If there are no more cars in the yield lanelets, then it's safe to proceed, car might still pose a risk in we do allow the car to go
+   * - World object lanelet association is up to date and reliable.
+   */
 class YieldSignCanProceedCondition : public BT::ConditionNode
 {
 public:
@@ -57,22 +56,29 @@ public:
   {
     return {
       BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
-      BT::InputPort<std::shared_ptr<const DynamicObjectStore::Snapshot>>("dynamic_objects_snapshot"),
+      BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
+      BT::InputPort<int>("hypothesis_index"),
     };
   }
 
   BT::NodeStatus tick() override
   {
-    auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
-    auto snap = ports::tryGetPtr<const DynamicObjectStore::Snapshot>(*this, "dynamic_objects_snapshot");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[YieldSignCanProceed]: Missing " << port_name << " input" << std::endl;
+    };
 
-    if (!elem) {
-      std::cout << "[YieldSignCanProceed]: Missing active_traffic_control_element" << std::endl;
+    auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
+    if (!ports::require(elem, "active_traffic_control_element", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (!snap || !snap->objects_snapshot_) {
-      std::cout << "[YieldSignCanProceed]: Missing dynamic_objects_snapshot" << std::endl;
+    auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
+    if (!ports::require(objects, "objects", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    auto hypothesis_index = ports::tryGet<int>(*this, "hypothesis_index");
+    if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
@@ -81,10 +87,15 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    for (const int64_t lanelet_id : elem->yield_lanelet_ids) {
-      const auto cars = snap->getCarsInLanelet(lanelet_id);
+    if (*hypothesis_index < 0) {
+      std::cout << "[YieldSignCanProceed]: invalid hypothesis_index" << std::endl;
+      return BT::NodeStatus::FAILURE;
+    }
+
+    for (const auto lanelet_id : elem->yield_lanelet_ids) {
+      const auto cars = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
       if (!cars.empty()) {
-        std::cout << "[YieldSignCanProceed]: Blocked (cars in yield lanelet " << lanelet_id << ")" << std::endl;
+        std::cout << "[YieldSignCanProceed]: Blocked (car in yield lanelet " << lanelet_id << ")" << std::endl;
         return BT::NodeStatus::FAILURE;
       }
     }

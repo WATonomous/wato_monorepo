@@ -26,9 +26,9 @@
 namespace behaviour
 {
 /**
- * @class ClearActiveTrafficControlElementAction
- * @brief SyncActionNode to clear the active traffic control element.
- */
+   * @class ClearActiveTrafficControlElementAction
+   * @brief SyncActionNode to clear the active traffic control element.
+   */
 class ClearActiveTrafficControlElementAction : public BT::SyncActionNode
 {
 public:
@@ -40,14 +40,19 @@ public:
   {
     return {
       BT::OutputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
+      BT::OutputPort<int64_t>("active_traffic_control_lanelet_id"),
+      BT::OutputPort<int64_t>("active_traffic_control_element_id"),
     };
   }
 
   BT::NodeStatus tick() override
   {
-    std::cout << "[ClearActiveTrafficControlElementAction]: Clearing active traffic control element" << std::endl;
+    std::cout << "[ClearActiveTrafficControlElementAction]: Clearing active traffic control element "
+              << "and associated lanelet/element IDs" << std::endl;
     lanelet_msgs::msg::RegulatoryElement::SharedPtr cleared = nullptr;
     setOutput("active_traffic_control_element", cleared);
+    setOutput("active_traffic_control_lanelet_id", static_cast<int64_t>(0));
+    setOutput("active_traffic_control_element_id", static_cast<int64_t>(0));
     return BT::NodeStatus::SUCCESS;
   }
 };

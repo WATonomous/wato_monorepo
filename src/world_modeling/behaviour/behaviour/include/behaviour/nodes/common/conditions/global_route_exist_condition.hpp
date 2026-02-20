@@ -43,9 +43,16 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GlobalRouteExist]: Missing " << port_name << " input" << std::endl;
+    };
 
-    if (!route || route->lanelets.empty()) {
+    auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
+    if (!ports::require(route, "route", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    if (route->lanelets.empty()) {
       std::cout << "[GlobalRouteExist]: Route does not exist or is empty" << std::endl;
       return BT::NodeStatus::FAILURE;
     }

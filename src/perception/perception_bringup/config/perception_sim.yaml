@@ -18,7 +18,7 @@
 /**/patchworkpp_node:
   ros__parameters:
     # Patchwork++ parameters (seeded from library defaults)
-    base_frame: "base_link"
+    base_frame: "base_footprint"
     num_iter: 5
     num_lpr: 20
     num_min_pts: 0

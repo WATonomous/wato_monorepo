@@ -22,6 +22,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -42,6 +44,8 @@ target_include_directories(joystick_interfacing PUBLIC
 target_link_libraries(joystick_interfacing PUBLIC
   rclcpp::rclcpp
   rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${lifecycle_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
   ${ackermann_msgs_TARGETS}
   ${std_msgs_TARGETS}

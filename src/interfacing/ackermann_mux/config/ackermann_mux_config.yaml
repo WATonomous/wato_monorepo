@@ -1,4 +1,4 @@
-ackermann_mux:
+/interfacing/ackermann_mux:
   ros__parameters:
     safety_threshold: 0.5
 

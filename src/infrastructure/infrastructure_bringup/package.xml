@@ -28,6 +28,9 @@
   <!-- Visualization nodes -->
   <depend>vision_msgs_markers</depend>
 
+  <!-- Temporary Fix for TF Static with ros bag splitting -->
+  <depend>tf_static_relay</depend>
+
   <!-- Bridge and tools -->
   <depend>rosbridge_server</depend>
   <depend>topic_tools</depend>
