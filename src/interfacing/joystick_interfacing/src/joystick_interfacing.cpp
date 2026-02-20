@@ -290,9 +290,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
 
     use_roscco_topic_ = !use_roscco_topic_;
     RCLCPP_INFO(
-      this->get_logger(),
-      "Toggled output topic to: %s",
-      use_roscco_topic_ ? "joystick/roscco" : "joystick/ackermann");
+      this->get_logger(), "Toggled output topic to: %s", use_roscco_topic_ ? "joystick/roscco" : "joystick/ackermann");
     vibrate(use_roscco_topic_ ? 2 : 1, toggle_vibration_duration_ms_);
   }
   prev_toggle_button_pressed_ = toggle_button_pressed;

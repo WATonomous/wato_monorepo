@@ -1,13 +1,30 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "can_state_estimator/can_state_estimator_node.hpp"
 
-#include <unistd.h>
+#include <linux/can.h>
+#include <linux/can/raw.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <linux/can.h>
-#include <linux/can/raw.h>
+#include <unistd.h>
+
 #include <cmath>
 #include <cstring>
+#include <memory>
+#include <string>
 
 static constexpr canid_t STEERING_ANGLE_CAN_ID = 0x2B0;
 static constexpr canid_t WHEEL_SPEED_CAN_ID = 0x4B0;
@@ -36,8 +53,7 @@ CanStateEstimatorNode::~CanStateEstimatorNode()
   close_can_socket();
 }
 
-CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_configure(
-  const rclcpp_lifecycle::State &)
+CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_configure(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Configuring CAN State Estimator Node");
 
@@ -54,12 +70,11 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_configure(
   tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
 
   // Publishers
-  steering_pub_ = this->create_publisher<roscco_msg::msg::SteeringAngle>(
-    "can_state_estimator/steering_angle", rclcpp::QoS(1));
-  velocity_pub_ = this->create_publisher<std_msgs::msg::Float64>(
-    "can_state_estimator/body_velocity", rclcpp::SystemDefaultsQoS());
-  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(
-    "can_state_estimator/odom", rclcpp::QoS(10));
+  steering_pub_ =
+    this->create_publisher<roscco_msg::msg::SteeringAngle>("can_state_estimator/steering_angle", rclcpp::QoS(1));
+  velocity_pub_ =
+    this->create_publisher<std_msgs::msg::Float64>("can_state_estimator/body_velocity", rclcpp::SystemDefaultsQoS());
+  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("can_state_estimator/odom", rclcpp::QoS(10));
 
   // Open SocketCAN
   sock_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -97,15 +112,17 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_configure(
     return CallbackReturn::FAILURE;
   }
 
-  RCLCPP_INFO(get_logger(),
+  RCLCPP_INFO(
+    get_logger(),
     "CAN State Estimator configured on %s (steering=0x%X, wheel_speed=0x%X)",
-    can_interface_.c_str(), STEERING_ANGLE_CAN_ID, WHEEL_SPEED_CAN_ID);
+    can_interface_.c_str(),
+    STEERING_ANGLE_CAN_ID,
+    WHEEL_SPEED_CAN_ID);
 
   return CallbackReturn::SUCCESS;
 }
 
-CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_activate(
-  const rclcpp_lifecycle::State &)
+CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_activate(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Activating CAN State Estimator Node");
 
@@ -126,8 +143,7 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_activate(
   return CallbackReturn::SUCCESS;
 }
 
-CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_deactivate(
-  const rclcpp_lifecycle::State &)
+CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_deactivate(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating CAN State Estimator Node");
 
@@ -140,8 +156,7 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_cleanup(
-  const rclcpp_lifecycle::State &)
+CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_cleanup(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up CAN State Estimator Node");
 
@@ -155,8 +170,7 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_cleanup(
   return CallbackReturn::SUCCESS;
 }
 
-CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_shutdown(
-  const rclcpp_lifecycle::State &)
+CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_shutdown(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down CAN State Estimator Node");
 
@@ -202,14 +216,22 @@ bool CanStateEstimatorNode::lookup_wheelbase()
     double dy = tf.transform.translation.y;
     wheelbase_ = std::hypot(dx, dy);
     has_wheelbase_ = true;
-    RCLCPP_INFO(get_logger(), "Wheelbase from TF (%s -> %s): %.4f m",
-      rear_axle_frame_.c_str(), front_axle_frame_.c_str(), wheelbase_);
+    RCLCPP_INFO(
+      get_logger(),
+      "Wheelbase from TF (%s -> %s): %.4f m",
+      rear_axle_frame_.c_str(),
+      front_axle_frame_.c_str(),
+      wheelbase_);
     return true;
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 5000,
+      get_logger(),
+      *get_clock(),
+      5000,
       "Waiting for %s -> %s TF to determine wheelbase: %s",
-      rear_axle_frame_.c_str(), front_axle_frame_.c_str(), ex.what());
+      rear_axle_frame_.c_str(),
+      front_axle_frame_.c_str(),
+      ex.what());
     return false;
   }
 }
@@ -221,10 +243,14 @@ void CanStateEstimatorNode::read_loop()
   while (running_.load(std::memory_order_relaxed)) {
     ssize_t nbytes = read(sock_, &frame, sizeof(frame));
     if (nbytes < 0) {
-      if (errno == EINTR) { continue; }
+      if (errno == EINTR) {
+        continue;
+      }
       break;
     }
-    if (nbytes != sizeof(frame)) { continue; }
+    if (nbytes != sizeof(frame)) {
+      continue;
+    }
 
     if (frame.can_id == STEERING_ANGLE_CAN_ID) {
       process_steering_frame(frame.data);
@@ -249,7 +275,9 @@ void CanStateEstimatorNode::process_steering_frame(const uint8_t * data)
     has_steering_angle_ = true;
   }
 
-  if (!steering_pub_->is_activated()) { return; }
+  if (!steering_pub_->is_activated()) {
+    return;
+  }
 
   roscco_msg::msg::SteeringAngle msg;
   msg.angle = static_cast<float>(angle_rad);
@@ -286,7 +314,9 @@ void CanStateEstimatorNode::process_wheel_speed_frame(const uint8_t * data)
 
 void CanStateEstimatorNode::publish_velocity_and_odom()
 {
-  if (!velocity_pub_->is_activated()) { return; }
+  if (!velocity_pub_->is_activated()) {
+    return;
+  }
 
   if (!lookup_wheelbase()) {
     return;
@@ -298,7 +328,9 @@ void CanStateEstimatorNode::publish_velocity_and_odom()
     std::lock_guard<std::mutex> lock(state_mutex_);
     if (!has_steering_angle_) {
       RCLCPP_WARN_THROTTLE(
-        this->get_logger(), *this->get_clock(), 5000,
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
         "Waiting for steering angle from CAN to compute velocity/odom...");
       return;
     }
@@ -369,8 +401,7 @@ void CanStateEstimatorNode::publish_velocity_and_odom()
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<can_state_estimator::CanStateEstimatorNode>(
-    rclcpp::NodeOptions());
+  auto node = std::make_shared<can_state_estimator::CanStateEstimatorNode>(rclcpp::NodeOptions());
   rclcpp::spin(node->get_node_base_interface());
   rclcpp::shutdown();
   return 0;

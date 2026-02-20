@@ -108,8 +108,8 @@ private:
   oscc_result_t handle_any_errors(oscc_result_t result);
 
   // Callback groups
-  rclcpp::CallbackGroup::SharedPtr oscc_api_group_;   // Group A
-  rclcpp::CallbackGroup::SharedPtr feedback_group_;    // Group B
+  rclcpp::CallbackGroup::SharedPtr oscc_api_group_;  // Group A
+  rclcpp::CallbackGroup::SharedPtr feedback_group_;  // Group B
 
   // ROS Interfaces
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;

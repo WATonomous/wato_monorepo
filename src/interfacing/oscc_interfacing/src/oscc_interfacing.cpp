@@ -163,7 +163,8 @@ void OsccInterfacingNode::configure()
   rclcpp::SubscriptionOptions sub_options;
   sub_options.callback_group = oscc_api_group_;
   roscco_sub_ = this->create_subscription<roscco_msg::msg::Roscco>(
-    "roscco", rclcpp::QoS(1),
+    "roscco",
+    rclcpp::QoS(1),
     std::bind(&OsccInterfacingNode::roscco_callback, this, std::placeholders::_1),
     sub_options);
 
@@ -175,15 +176,11 @@ void OsccInterfacingNode::configure()
 
   // Group A: event timer (handles override/fault → oscc_disable)
   event_timer_ = this->create_wall_timer(
-    std::chrono::milliseconds(5),
-    std::bind(&OsccInterfacingNode::process_events, this),
-    oscc_api_group_);
+    std::chrono::milliseconds(5), std::bind(&OsccInterfacingNode::process_events, this), oscc_api_group_);
 
   // Group B: feedback timer (publishes wheel speeds + steering angle, no OSCC API)
   feedback_timer_ = this->create_wall_timer(
-    std::chrono::milliseconds(5),
-    std::bind(&OsccInterfacingNode::publish_feedback, this),
-    feedback_group_);
+    std::chrono::milliseconds(5), std::bind(&OsccInterfacingNode::publish_feedback, this), feedback_group_);
 
   // Publishers
   is_armed_pub_ = this->create_publisher<std_msgs::msg::Bool>("oscc_interfacing/is_armed", rclcpp::QoS(1));
@@ -194,8 +191,7 @@ void OsccInterfacingNode::configure()
 
   // Default group: is_armed status timer
   std::chrono::milliseconds interval(1000 / is_armed_publish_rate_hz);
-  is_armed_timer_ = this->create_wall_timer(
-    interval, std::bind(&OsccInterfacingNode::is_armed_timer_callback, this));
+  is_armed_timer_ = this->create_wall_timer(interval, std::bind(&OsccInterfacingNode::is_armed_timer_callback, this));
 
   RCLCPP_INFO(
     this->get_logger(),
