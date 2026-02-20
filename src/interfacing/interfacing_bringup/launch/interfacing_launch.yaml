@@ -83,9 +83,9 @@ launch:
 #   - include:
 #       file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
 
-  # Car Velocity Feedback Node
+  # CAN State Estimator Node (steering angle + velocity + odometry from CAN bus)
   - include:
-      file: "$(find-pkg-share car_velocity_feedback)/launch/car_velocity_feedback.launch.yaml"
+      file: "$(find-pkg-share can_state_estimator)/launch/can_state_estimator.launch.yaml"
 
   # Lifecycle Manager
   - node:
@@ -99,7 +99,7 @@ launch:
             - /interfacing/joystick_node
             # - /interfacing/pid_control_node
             - /interfacing/ackermann_mux
-            - /interfacing/car_velocity_feedback_node
+            - /interfacing/can_state_estimator_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

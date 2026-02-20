@@ -94,11 +94,15 @@
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
 
-# Car Steering Feedback (direct CAN read, replaces OSCC steering angle)
-/**/car_steering_feedback_node:
+# CAN State Estimator (steering angle + velocity + odometry from CAN bus)
+/**/can_state_estimator_node:
   ros__parameters:
     can_interface: "can1"
     steering_conversion_factor: 15.7
+    rear_axle_frame: "rear_axle"
+    front_axle_frame: "front_axle"
+    odom_frame: "odom"
+    base_frame: "base_footprint"
 
 # OSCC Interfacing
 /**/oscc_interfacing:
@@ -110,7 +114,7 @@
     steering_conversion_factor: 15.7 # factor to convert from steering wheel angle
     steering_torque_deadzone_pos: 0.09 # Deadzone compensation added to positive steering torque commands
     steering_torque_deadzone_neg: 0.13 # Deadzone compensation added to negative steering torque commands
-    enable_all: false # If true, arm/disarm enables/disables all modules at once
+    enable_all: true # If true, arm/disarm enables/disables all modules at once
     enable_steering: true # Enable steering module on arm (only used when enable_all is false)
-    enable_throttle: false # Enable throttle module on arm (only used when enable_all is false)
-    enable_brakes: false # Enable brake module on arm (only used when enable_all is false)
+    enable_throttle: true # Enable throttle module on arm (only used when enable_all is false)
+    enable_brakes: true # Enable brake module on arm (only used when enable_all is false)

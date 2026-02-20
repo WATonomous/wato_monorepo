@@ -126,8 +126,12 @@
     enable_throttle: false # Enable throttle module on arm (only used when enable_all is false)
     enable_brakes: false # Enable brake module on arm (only used when enable_all is false)
 
-# Car Steering Feedback (direct CAN read, replaces OSCC steering angle)
-/**/car_steering_feedback_node:
+# CAN State Estimator (steering angle + velocity + odometry from CAN bus)
+/**/can_state_estimator_node:
   ros__parameters:
     can_interface: "can1"
     steering_conversion_factor: 15.7
+    rear_axle_frame: "rear_axle"
+    front_axle_frame: "front_axle"
+    odom_frame: "odom"
+    base_frame: "base_footprint"

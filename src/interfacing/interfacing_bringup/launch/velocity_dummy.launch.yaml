@@ -54,9 +54,9 @@ launch:
       output: "screen"
       remap:
         - from: "steering_feedback"
-          to: "oscc_interfacing/steering_angle"
+          to: "can_state_estimator/steering_angle"
         - from: "velocity_feedback"
-          to: "body_velocity_feedback"
+          to: "can_state_estimator/body_velocity"
       param:
         - from: "$(var config_file)"
 

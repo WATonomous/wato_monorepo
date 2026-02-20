@@ -54,9 +54,9 @@ launch:
       output: "screen"
       remap:
         - from: "steering_feedback"
-          to: "oscc_interfacing/steering_angle"
+          to: "can_state_estimator/steering_angle"
         - from: "velocity_feedback"
-          to: "body_velocity_feedback"
+          to: "can_state_estimator/body_velocity"
       param:
         - from: "$(var config_file)"
 
@@ -69,25 +69,15 @@ launch:
       param:
         - from: "$(var config_file)"
 
-  # Car Steering Feedback (direct CAN read, replaces OSCC steering angle)
+  # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
   - node:
-      pkg: car_steering_feedback
-      exec: car_steering_feedback_node
-      name: car_steering_feedback_node
+      pkg: can_state_estimator
+      exec: can_state_estimator_node
+      name: can_state_estimator_node
       namespace: interfacing
       output: screen
       param:
         - from: "$(var config_file)"
-
-  - node:
-      pkg: "car_velocity_feedback"
-      exec: "car_velocity_feedback_node"
-      name: "car_velocity_feedback_node"
-      namespace: "interfacing"
-      output: "screen"
-      param:
-        - name: "use_sim_time"
-          value: False
 
   # Lifecycle Manager
   - node:
@@ -101,7 +91,7 @@ launch:
             - /interfacing/joystick_node
             - /interfacing/pid_control_node
             - /interfacing/ackermann_square_wave
-            - /interfacing/car_velocity_feedback_node
+            - /interfacing/can_state_estimator_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
