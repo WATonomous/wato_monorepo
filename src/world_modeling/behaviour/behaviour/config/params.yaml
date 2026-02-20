@@ -1,0 +1,67 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+/**/behaviour_node:
+  ros__parameters:
+    # Behavior tree XML file (relative to trees/ directory)
+    bt_tree_file: "main_tree.xml"
+
+    # How often to tick the tree (Hz)
+    rate_hz: 10.0
+
+    # Frame parameters
+    map_frame: "map"
+    base_frame: "base_link"
+
+    # World objects hypothesis index (which detection result to use for classification)
+    world_objects_hypothesis_index: 0
+
+    # Behavior-tree XML specific config (blackboard keys referenced as {@bt.*})
+    bt:
+      # Traffic light state hypothesis index to use
+      traffic_light_state_hypothesis_index: 1
+
+      # Lane change safety check areas (must match world_model's occupancy_areas config)
+      left_lane_change_areas:
+        - "left_lane_change_corridor"
+      right_lane_change_areas:
+        - "right_lane_change_corridor"
+
+      # Stop line wall of doom dimensions (meters)
+      intersection_wall_of_doom_width: 5.0
+      intersection_wall_of_doom_length: 1.0
+
+      # Ego stopped velocity threshold (m/s)
+      ego_stopped_velocity_threshold: 0.1
+
+      # Intersection lookahead distance (meters)
+      intersection_lookahead_m: 40.0
+
+      # Max distance from a stop line for a car to be considered
+      # part of the intersection (i.e. waiting/stopped at the stop sign)
+      stop_sign_stop_line_proximity_m: 5.0
+
+      # Goal reached threshold (meters)
+      goal_reached_threshold_m: 1.0
+
+    # Service timeouts (milliseconds)
+    get_shortest_route_timeout_ms: 50000
+    set_route_timeout_ms: 50000
+    get_area_occupancy_timeout_ms: 5000
+    get_dynamic_objects_timeout_ms: 5000
+    get_lanelets_by_reg_elem_timeout_ms: 5000
+    wall_service_timeout_ms: 5000
+
+    # Logging options
+    enable_console_logging: false

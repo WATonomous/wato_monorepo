@@ -58,6 +58,10 @@
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
 # export BAG_DIRECTORY=""
 
+# Recording profile for bag recording. DEFAULT = "camera_only"
+# Available profiles: all_sensors, all_sensors_compressed, camera_only, camera_compressed, lidar_only
+# export RECORDING_PROFILE=""
+
 ############################### ROS 2 MIDDLEWARE SETTINGS ##############################
 ## Middleware to use for interprocess communication. DEFAULT = "rmw_zenoh_cpp"
 # export RMW_IMPLEMENTATION=""
