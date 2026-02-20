@@ -15,6 +15,10 @@ launch:
       default: "$(find-pkg-share interfacing_bringup)/config/steering_dummy.yaml"
       description: "Path to the steering dummy configuration file"
 
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
   # Steering Dummy
   - node:
       pkg: dummy_ackermann

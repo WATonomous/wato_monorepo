@@ -189,7 +189,7 @@ void CanStateEstimatorNode::stop_can_thread()
 {
   running_.store(false);
   if (sock_ >= 0) {
-    shutdown(sock_, SHUT_RDWR);
+    ::shutdown(sock_, SHUT_RDWR);
   }
   if (read_thread_.joinable()) {
     read_thread_.join();

@@ -15,6 +15,10 @@ launch:
       default: "$(find-pkg-share interfacing_bringup)/config/velocity_dummy.yaml"
       description: "Path to the velocity dummy configuration file"
 
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
   # Velocity Dummy
   - node:
       pkg: dummy_ackermann

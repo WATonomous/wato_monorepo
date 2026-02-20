@@ -65,6 +65,25 @@ bag_recorder:
         - /novatel/oem7/terrastarinfo
         - /novatel/oem7/terrastarstatus
         - /novatel/oem7/time
+        # OSCC Related Topics
+        - /interfacing/ackermann
+        - /interfacing/ackermann_mux/transition_event
+        - /interfacing/action/ackermann
+        - /interfacing/action/is_idle
+        - /interfacing/can_state_estimator/body_velocity
+        - /interfacing/can_state_estimator/odom
+        - /interfacing/can_state_estimator/steering_angle
+        - /interfacing/can_state_estimator_node/transition_event
+        - /interfacing/joy
+        - /interfacing/joy/set_feedback
+        - /interfacing/joystick/ackermann
+        - /interfacing/joystick/is_idle
+        - /interfacing/joystick/state
+        - /interfacing/joystick_node/transition_event
+        - /interfacing/oscc_interfacing/is_armed
+        - /interfacing/oscc_interfacing/steering_angle
+        - /interfacing/oscc_interfacing/wheel_speeds
+        - /interfacing/roscco
         # Transforms
         - /tf
         - /tf_static
