@@ -28,6 +28,31 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
+  - arg:
+      name: input_topic
+      default: /multi_camera_sync/multi_image_compressed
+      description: Input MultiImage topic for object detection
+
+  - arg:
+      name: output_detections_topic
+      default: /detections
+      description: Output detections topic
+
+  - arg:
+      name: output_annotations_topic
+      default: /image_annotations
+      description: Output image annotations topic
+
+  - arg:
+      name: object_det_container_name
+      default: high_perf_object_detection
+      description: Name of the high-performance container
+
+  - arg:
+      name: num_threads
+      default: "4"
+      description: Number of threads for the executor
+
   # Patchwork++ ground segmentation
   - node:
       pkg: patchworkpp
@@ -45,6 +70,45 @@ launch:
         - from: non_ground_cloud
           to: /perception/non_ground_cloud
 
+  # High-Performance Container: Multi-Camera Sync + Deep Object Detection
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container_mt
+      name: $(var object_det_container_name)
+      namespace: ""
+      output: screen
+      param:
+        - name: use_intra_process_comms
+          value: true
+        - name: num_threads
+          value: $(var num_threads)
+      composable_node:
+        - pkg: camera_sync
+          plugin: camera_sync::MultiCameraSyncNode
+          name: multi_camera_sync
+          namespace: ""
+          param:
+            - from: $(var config_file)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+        - pkg: deep_object_detection
+          plugin: deep_object_detection::DeepObjectDetectionNode
+          name: deep_object_detection_node
+          namespace: perception
+          remap:
+            - from: /multi_camera_sync/multi_image_compressed
+              to: $(var input_topic)
+            - from: /detections
+              to: $(var output_detections_topic)
+            - from: /image_annotations
+              to: $(var output_annotations_topic)
+          param:
+            - from: $(var config_file)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -56,6 +120,7 @@ launch:
         - name: node_names
           value:
             - /perception/patchworkpp_node
+            - /perception/deep_object_detection_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
