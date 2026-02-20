@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <limits>
 #include <chrono>
+#include <string>
+#include <vector>
 
 #include <std_msgs/msg/int64_multi_array.hpp>
 

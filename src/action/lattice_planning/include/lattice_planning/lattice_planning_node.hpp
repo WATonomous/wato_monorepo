@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <memory>
+#include <unordered_map>
 #include <optional>
 
 #include "lattice_planning/lattice_planning_core.hpp"
@@ -33,7 +35,7 @@ class LatticePlanningNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
 
-  LatticePlanningNode(const rclcpp::NodeOptions & options);
+  explicit LatticePlanningNode(const rclcpp::NodeOptions & options);
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State & previous_state) override;

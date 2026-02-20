@@ -1,5 +1,9 @@
 #include <iostream>
 #include <cmath>
+#include <limits>
+#include <algorithm>
+#include <vector>
+#include <unordered_map>
 
 #include "lattice_planning/lattice_planning_core.hpp"
 
