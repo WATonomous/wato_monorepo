@@ -20,6 +20,7 @@
   <exec_depend>costmap_markers</exec_depend>
   <exec_depend>behaviour</exec_depend>
   <exec_depend>behaviour_markers</exec_depend>
+  <exec_depend>lio_sam_vendor</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

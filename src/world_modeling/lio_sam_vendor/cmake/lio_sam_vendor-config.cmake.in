@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+if(lio_sam_vendor_FOUND)
+    return()
+endif()
+set(lio_sam_vendor_FOUND TRUE)
+
+set(lio_sam_vendor_VERSION "@LIO_SAM_GIT_TAG@")
+
+check_required_components(lio_sam_vendor)
+
+# LIO-SAM installs its own CMake configs via colcon, so we add the
+# vendor prefix to CMAKE_PREFIX_PATH and let downstream packages use find_package
+# to discover lio_sam directly.
+list(APPEND CMAKE_PREFIX_PATH "@LIO_SAM_VENDOR_INSTALL_PREFIX@")

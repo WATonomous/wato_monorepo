@@ -21,6 +21,11 @@ launch:
       description: Path to the world_model configuration file
 
   - arg:
+      name: lio_sam_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/lio_sam.yaml
+      description: Path to the LIO-SAM configuration file
+
+  - arg:
       name: autostart
       default: "true"
       description: Automatically configure and activate managed nodes
@@ -253,6 +258,43 @@ launch:
           to: lanelet/lane_context
         - from: markers
           to: behaviour_markers
+
+  # LIO-SAM Nodes
+  - node:
+      pkg: lio_sam
+      exec: lio_sam_imuPreintegration
+      name: lio_sam_imuPreintegration
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var lio_sam_config_file)
+
+  - node:
+      pkg: lio_sam
+      exec: lio_sam_imageProjection
+      name: lio_sam_imageProjection
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var lio_sam_config_file)
+
+  - node:
+      pkg: lio_sam
+      exec: lio_sam_featureExtraction
+      name: lio_sam_featureExtraction
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var lio_sam_config_file)
+
+  - node:
+      pkg: lio_sam
+      exec: lio_sam_mapOptimization
+      name: lio_sam_mapOptimization
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var lio_sam_config_file)
 
   # Lifecycle Manager
   - node:
