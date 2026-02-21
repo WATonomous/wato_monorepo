@@ -9,11 +9,27 @@
 
   <!-- To enable Shared Memory IPC -->
   <depend>rmw_zenoh_cpp</depend>
-
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>vision_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>deep_core</depend>
+  <depend>deep_msgs</depend>
+  <depend>deep_ort_backend_plugin</depend>
+  <depend>deep_ort_gpu_backend_plugin</depend>
+  <depend>onnxruntime_vendor</depend>
+  <depend>onnxruntime_gpu_vendor</depend>
+  <depend>libopencv-dev</depend>
+  <depend>rcl_interfaces</depend>
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <exec_depend>patchworkpp</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
+  <exec_depend>deep_object_detection</exec_depend>
+  <exec_depend>camera_sync</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
