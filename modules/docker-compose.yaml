@@ -133,6 +133,7 @@ services:
       memlock: -1
     ipc: host
     network_mode: host
+    runtime: nvidia
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -147,11 +148,22 @@ services:
     command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
     volumes:
       - /mnt/wato-drive2/perception_models:/perception_models
+      - ../models:/ws/models
+      - ../models:/workspaces/deep_ros/models # mount your local models into the container, don't know how we are actually doing this
+      - ../src/perception/perception_bringup/config:/ws/src/perception/perception_bringup/config
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
     depends_on:
       infrastructure_bringup:
         condition: service_started
