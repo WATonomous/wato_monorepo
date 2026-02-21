@@ -1,0 +1,16 @@
+pure_pursuit_node:
+  ros__parameters:
+    trajectory_topic: "trajectory"
+    ackermann_topic: "/action/ackermann"
+    idle_topic: "/action/is_idle"
+    base_frame: "base_footprint"
+    rear_axle_frame: "rear_axle"
+    front_axle_frame: "front_axle"
+    lookahead_distance: 5.0
+    min_lookahead_distance: 2.0
+    max_speed: 5.0
+    min_speed: 0.5
+    control_rate_hz: 20.0
+    wheelbase_fallback: 2.5667
+    max_steering_angle: 0.5
+    idle_timeout_sec: 2.0
