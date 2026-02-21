@@ -95,7 +95,7 @@ launch:
         - pkg: deep_object_detection
           plugin: deep_object_detection::DeepObjectDetectionNode
           name: deep_object_detection_node
-          namespace: perception
+          namespace: ""
           remap:
             - from: /multi_camera_sync/multi_image_compressed
               to: $(var input_topic)

@@ -53,33 +53,17 @@ multi_camera_sync:
     # For raw images, use topics like: ["/camera1/image_raw", "/camera2/image_raw"]
     # For compressed images, use topics like: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      - "/camera_lower_sw/image_rect"
-      - "/camera_lower_ne/image_rect"
-      - "/camera_lower_se/image_rect"
-      - "/camera_lower_nw/image_rect"
       - "/camera_pano_ww/image_rect"
       - "/camera_pano_nn/image_rect"
       - "/camera_pano_ee/image_rect"
-      - "/camera_pano_se/image_rect"
-      - "/camera_pano_ne/image_rect"
-      - "/camera_pano_nw/image_rect"
       - "/camera_pano_ss/image_rect"
-      - "/camera_pano_sw/image_rect"
 
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
-      - "camera_lower_sw"
-      - "camera_lower_ne"
-      - "camera_lower_se"
-      - "camera_lower_nw"
       - "camera_pano_ww"
       - "camera_pano_nn"
       - "camera_pano_ee"
-      - "camera_pano_se"
-      - "camera_pano_ne"
-      - "camera_pano_nw"
       - "camera_pano_ss"
-      - "camera_pano_sw"
 
     # Whether to use compressed images (sensor_msgs/CompressedImage) instead of raw (sensor_msgs/Image)
     # Set to true if your camera topics publish compressed images
@@ -87,21 +71,21 @@ multi_camera_sync:
 
     # Maximum time difference in milliseconds for message synchronization
     # Larger values allow more tolerance but may reduce temporal accuracy
-    sync_tolerance_ms: 33.0
+    sync_tolerance_ms: 2000.0
 
     # Queue size for message filters
     # Larger values can handle more variable frame rates but use more memory
-    queue_size: 10
+    queue_size: 20
 
     # Whether to publish synchronization information and statistics
     publish_sync_info: true
 
     # IPC-specific optimizations
-    use_intra_process_comms: true
+    use_intra_process_comms: false
 
     # QoS settings optimized for camera data with IPC
-    qos_depth: 5
-    qos_reliability: "best_effort"  # reliable or "best_effort" for higher throughput
+    qos_depth: 10
+    qos_reliability: "reliable"  # reliable or "best_effort" for higher throughput
     qos_durability: "volatile"
     qos_history: "keep_last"
 
@@ -112,7 +96,7 @@ multi_camera_sync:
   ros__parameters:
     model_path: "/ws/models/models/yolov8m.onnx"
     class_names_path: "/ws/src/deep_ros/deep_object_detection/config/coco_classes.txt"
-    use_compressed_images: true  # Set to true for compressed images, false for uncompressed (shared memory)
+    use_compressed_images: false  # Set to true for compressed images, false for uncompressed (shared memory)
 
     Model:
       num_classes: 80
