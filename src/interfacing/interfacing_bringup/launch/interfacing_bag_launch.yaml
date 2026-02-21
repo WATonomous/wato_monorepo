@@ -67,9 +67,7 @@ launch:
   - include:
       file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
 
-  # ===========================================================================
   # Single component container for all cameras + bag recorder (intra-process)
-  # ===========================================================================
   - node_container:
       pkg: rclcpp_components
       exec: component_container_mt
@@ -85,9 +83,7 @@ launch:
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
 
-  # ===========================================================================
   # Bag recorder (intra-process with cameras, inter-process with LiDAR)
-  # ===========================================================================
   - load_composable_node:
       target: cameras_and_recorder
       composable_node:
@@ -101,3 +97,25 @@ launch:
             - from: "$(find-pkg-share interfacing_bringup)/config/bag_recorder/$(var recording_profile).yaml"
             - name: storage.uri
               value: "$(var bag_path)"
+
+  # CAN State Estimator Node (steering angle + velocity + odometry from CAN bus)
+  - include:
+      file: "$(find-pkg-share can_state_estimator)/launch/can_state_estimator.launch.yaml"
+
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: interfacing_lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /interfacing/can_state_estimator_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)

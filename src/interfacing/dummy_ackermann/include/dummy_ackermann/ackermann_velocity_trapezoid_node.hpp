@@ -46,6 +46,7 @@ private:
   double rise_time_;  // seconds
   double hold_time_;  // seconds
   double ramp_down_time_;  // seconds
+  double down_hold_time_;  // seconds
   double publish_rate_;  // Hz
 
   rclcpp::TimerBase::SharedPtr timer_;
