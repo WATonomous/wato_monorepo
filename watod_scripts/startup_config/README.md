@@ -8,11 +8,14 @@ Run the following commands on the car's computer:
 
 ```bash
 # 1. Install search file
-sudo cp watod_scripts/startup_config/can-interface.service /etc/systemd/system/
+sudo cp watod_scripts/startup_config/can0-interface.service /etc/systemd/system/
+
+sudo cp watod_scripts/startup_config/can1-interface.service /etc/systemd/system/
 
 # 2. Enable and start service
 sudo systemctl daemon-reload
-sudo systemctl enable --now can-interface.service
+sudo systemctl enable --now can0-interface.service
+sudo systemctl enable --now can1-interface.service
 ```
 
 ## Verification

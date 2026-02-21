@@ -55,7 +55,7 @@ AckermannSquareWaveNode::CallbackReturn AckermannSquareWaveNode::on_configure(co
     return CallbackReturn::FAILURE;
   }
 
-  pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/ackermann", 10);
+  pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("ackermann", 10);
 
   RCLCPP_INFO(
     this->get_logger(), "Configured: period=%.2fs amplitude=%.2f rad rate=%.1f Hz", period_, amplitude_, publish_rate_);
