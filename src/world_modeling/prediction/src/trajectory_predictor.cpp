@@ -98,6 +98,24 @@ void TrajectoryPredictor::setLaneletHandler(std::shared_ptr<world_model::Lanelet
   RCLCPP_INFO(node_->get_logger(), "LaneletHandler set for TrajectoryPredictor");
 }
 
+std::vector<TrajectoryHypothesis> TrajectoryPredictor::buildCvFallback(
+  const KinematicState & state, double velocity, const char * reason)
+{
+  auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
+  auto hypothesis = buildHypothesis(std::move(poses), time_step_, Intent::CONTINUE_STRAIGHT);
+  hypothesis.probability = 1.0;
+
+  RCLCPP_DEBUG_THROTTLE(
+    node_->get_logger(),
+    *node_->get_clock(),
+    5000,
+    "Cyclist prediction: constant-velocity (%s), velocity=%.2f m/s",
+    reason,
+    velocity);
+
+  return {std::move(hypothesis)};
+}
+
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
   const vision_msgs::msg::Detection3D & detection, double timestamp)
 {
@@ -179,7 +197,6 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
   const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
-  std::vector<TrajectoryHypothesis> hypotheses;
   const auto & pos = detection.bbox.center.position;
 
   // Compute velocity with param-based clamping
@@ -189,42 +206,23 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
 
   auto state = stateFromDetection(pos, detection.bbox.center.orientation, v);
 
-  // Thread-safe access to lanelet handler
-  std::shared_lock lock(lanelet_handler_mutex_);
+  // Snapshot lanelet data under lock, then release for computation
+  lanelet::routing::RoutingGraphConstPtr routing_graph;
+  std::optional<lanelet::ConstLanelet> nearest_lanelet;
+  {
+    std::shared_lock lock(lanelet_handler_mutex_);
+    if (!lanelet_handler_ || !lanelet_handler_->isMapLoaded()) {
+      return buildCvFallback(state, v, "no map");
+    }
+    routing_graph = lanelet_handler_->getRoutingGraph();
+    if (!routing_graph) {
+      return buildCvFallback(state, v, "no map");
+    }
+    nearest_lanelet = lanelet_handler_->findNearestLanelet(pos);
+  }  // Lock released — all remaining work is lock-free
 
-  // Check if we can use lanelet-based prediction
-  if (!lanelet_handler_ || !lanelet_handler_->isMapLoaded() || !lanelet_handler_->getRoutingGraph()) {
-    lock.unlock();  // Release lock before computation
-    auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
-    auto hypothesis = buildHypothesis(std::move(poses), time_step_, Intent::CONTINUE_STRAIGHT);
-    hypothesis.probability = 1.0;
-    hypotheses.push_back(std::move(hypothesis));
-
-    RCLCPP_DEBUG_THROTTLE(
-      node_->get_logger(),
-      *node_->get_clock(),
-      5000,
-      "Cyclist prediction: constant-velocity (no map), velocity=%.2f m/s",
-      v);
-    return hypotheses;
-  }
-
-  // Use LaneletHandler to find nearest lanelet
-  auto nearest_lanelet = lanelet_handler_->findNearestLanelet(pos);
   if (!nearest_lanelet.has_value()) {
-    lock.unlock();
-    auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
-    auto hypothesis = buildHypothesis(std::move(poses), time_step_, Intent::CONTINUE_STRAIGHT);
-    hypothesis.probability = 1.0;
-    hypotheses.push_back(std::move(hypothesis));
-
-    RCLCPP_DEBUG_THROTTLE(
-      node_->get_logger(),
-      *node_->get_clock(),
-      5000,
-      "Cyclist prediction: constant-velocity (no lanelet), velocity=%.2f m/s",
-      v);
-    return hypotheses;
+    return buildCvFallback(state, v, "no lanelet");
   }
 
   // Check if cyclist is within proximity threshold of the nearest lanelet
@@ -239,42 +237,16 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
 
   const double threshold_sq = cyclist_params_.lanelet_proximity_threshold * cyclist_params_.lanelet_proximity_threshold;
   if (min_dist_sq > threshold_sq) {
-    lock.unlock();
-    auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
-    auto hypothesis = buildHypothesis(std::move(poses), time_step_, Intent::CONTINUE_STRAIGHT);
-    hypothesis.probability = 1.0;
-    hypotheses.push_back(std::move(hypothesis));
-
-    RCLCPP_DEBUG_THROTTLE(
-      node_->get_logger(),
-      *node_->get_clock(),
-      5000,
-      "Cyclist prediction: constant-velocity (off-road), velocity=%.2f m/s",
-      v);
-    return hypotheses;
+    return buildCvFallback(state, v, "off-road");
   }
 
-  // Near lanelet - generate multi-hypothesis trajectories
-  auto all_paths = getAllLaneletPaths(*nearest_lanelet, cyclist_params_.max_lanelet_search_depth);
-  lock.unlock();  // Release lock before heavy computation
+  // Near lanelet — generate multi-hypothesis trajectories
+  auto all_paths =
+    getAllLaneletPaths(*nearest_lanelet, cyclist_params_.max_lanelet_search_depth, routing_graph);
 
   if (all_paths.empty()) {
-    auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
-    auto hypothesis = buildHypothesis(std::move(poses), time_step_, Intent::CONTINUE_STRAIGHT);
-    hypothesis.probability = 1.0;
-    hypotheses.push_back(std::move(hypothesis));
-
-    RCLCPP_DEBUG_THROTTLE(
-      node_->get_logger(),
-      *node_->get_clock(),
-      5000,
-      "Cyclist prediction: constant-velocity (no paths), velocity=%.2f m/s",
-      v);
-    return hypotheses;
+    return buildCvFallback(state, v, "no paths");
   }
-
-  // Reserve space for hypotheses (paths + 1 CV fallback)
-  hypotheses.reserve(all_paths.size() + 1);
 
   // Distribute confidence among lanelet-based hypotheses (70% total)
   // Straight gets higher base confidence than turns
@@ -282,10 +254,21 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
   constexpr double kCvFallbackConf = 0.3;
   constexpr double kStraightBoost = 1.5;
 
+  // Compute total weight only from valid paths (>= 2 points)
   double total_weight = 0.0;
   for (const auto & [path, intent] : all_paths) {
-    total_weight += (intent == Intent::CONTINUE_STRAIGHT) ? kStraightBoost : 1.0;
+    if (path.size() >= 2) {
+      total_weight += (intent == Intent::CONTINUE_STRAIGHT) ? kStraightBoost : 1.0;
+    }
   }
+
+  // If all paths were filtered out, fall back to CV
+  if (total_weight <= 0.0) {
+    return buildCvFallback(state, v, "no valid paths");
+  }
+
+  std::vector<TrajectoryHypothesis> hypotheses;
+  hypotheses.reserve(all_paths.size() + 1);
 
   for (auto & [path_points, intent] : all_paths) {
     if (path_points.size() < 2) {
@@ -361,11 +344,11 @@ std::optional<double> TrajectoryPredictor::updateHistoryAndComputeVelocity(
 }
 
 std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> TrajectoryPredictor::getAllLaneletPaths(
-  const lanelet::ConstLanelet & start_lanelet, int max_depth) const
+  const lanelet::ConstLanelet & start_lanelet, int max_depth,
+  const lanelet::routing::RoutingGraphConstPtr & routing_graph) const
 {
   std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> all_paths;
 
-  auto routing_graph = lanelet_handler_->getRoutingGraph();
   if (!routing_graph) {
     return all_paths;
   }
@@ -397,25 +380,36 @@ std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> TrajectoryPredictor
     start_path_points.emplace_back(pt.x(), pt.y());
   }
 
-  const auto start_end = start_centerline.back();
   all_paths.reserve(following.size());
 
-  // Lateral displacement threshold for turn detection
-  constexpr double kTurnThreshold = 1.0;  // meters
+  // Heading-based turn detection threshold
+  constexpr double kTurnAngleThreshold = 0.26;  // radians (~15 degrees)
 
   // For each possible following lanelet, build a complete path
   for (const auto & next_lanelet : following) {
     std::vector<Eigen::Vector2d> path = start_path_points;  // Copy cached start points
 
-    // Determine intent based on lateral displacement
+    // Determine intent based on heading change between lanelet tangents
     const auto & next_centerline = next_lanelet.centerline();
     Intent intent = Intent::CONTINUE_STRAIGHT;
-    if (!next_centerline.empty()) {
-      const auto next_start = next_centerline.front();
-      const double lateral_diff = next_start.y() - start_end.y();
-      if (lateral_diff > kTurnThreshold) {
+    if (next_centerline.size() >= 2 && start_centerline.size() >= 2) {
+      // Tangent at end of start lanelet
+      const auto & s_prev = start_centerline[start_centerline.size() - 2];
+      const auto & s_end = start_centerline.back();
+      const double start_heading = std::atan2(s_end.y() - s_prev.y(), s_end.x() - s_prev.x());
+
+      // Tangent at beginning of next lanelet
+      const auto & n_first = next_centerline.front();
+      const auto & n_second = next_centerline[1];
+      const double next_heading = std::atan2(n_second.y() - n_first.y(), n_second.x() - n_first.x());
+
+      // Signed angular difference (positive = left turn)
+      const double angle_diff = std::atan2(
+        std::sin(next_heading - start_heading), std::cos(next_heading - start_heading));
+
+      if (angle_diff > kTurnAngleThreshold) {
         intent = Intent::TURN_LEFT;
-      } else if (lateral_diff < -kTurnThreshold) {
+      } else if (angle_diff < -kTurnAngleThreshold) {
         intent = Intent::TURN_RIGHT;
       }
     }

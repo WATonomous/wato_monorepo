@@ -24,6 +24,7 @@
 #define PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 
 #include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_routing/RoutingGraph.h>
 
 #include <deque>
 #include <memory>
@@ -186,7 +187,18 @@ private:
    * @return Vector of (path_points, intent) pairs for each possible route
    */
   std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> getAllLaneletPaths(
-    const lanelet::ConstLanelet & start_lanelet, int max_depth) const;
+    const lanelet::ConstLanelet & start_lanelet, int max_depth,
+    const lanelet::routing::RoutingGraphConstPtr & routing_graph) const;
+
+  /**
+   * @brief Build a single constant-velocity fallback hypothesis
+   * @param state Kinematic state for trajectory generation
+   * @param velocity Current velocity for logging
+   * @param reason Descriptive reason for fallback (for logging)
+   * @return Vector containing a single CV hypothesis with probability 1.0
+   */
+  std::vector<TrajectoryHypothesis> buildCvFallback(
+    const KinematicState & state, double velocity, const char * reason);
 
   rclcpp_lifecycle::LifecycleNode * node_;
   double prediction_horizon_;
