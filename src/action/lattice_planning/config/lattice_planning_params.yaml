@@ -2,12 +2,12 @@ action:
   lattice_planning:
     lattice_planning_node:
       ros__parameters:
-        
+
         # Topic names
         lanelet_ahead_topic: "lanelet_ahead"
         odom_topic: "odom"
         bt_topic: "execute_behaviour"
-        
+
         # Publishing
         path_topic: "path"
         available_paths_topic: "available_paths"
@@ -25,7 +25,7 @@ action:
         num_horizons: 3
         # must be same length as specified above
         lookahead_distances: [10.0, 15.0, 20.0]  # meters
-        
+
         # -  Path Generation  -
         path_gen:
           max_iterations: 20
@@ -33,7 +33,7 @@ action:
           convergence_tolerance: 0.15
           newton_damping: 0.7
           max_step_size: 1.0
-        
+
         # Cubic spiral coefficient calculation parameters
         # For k(s) = c0 + c1*s + c2*s^2 + c3*s^3
         # These constants define how intermediate curvatures k0, k1, k2, k3 map to polynomial coefficients
@@ -47,7 +47,7 @@ action:
           c1_k2_coeff: -9.0
           c1_k3_coeff: 2.0
           c1_divisor: 2.0
-          
+
           # C2 coefficient (quadratic term)
           # c2 = (c2_k0_coeff * k0 + c2_k1_coeff * k1 + c2_k2_coeff * k2 + c2_k3_coeff * k3) / (c2_divisor * sf^2)
           c2_k0_coeff: 18.0    # 9 * 2
@@ -55,11 +55,11 @@ action:
           c2_k2_coeff: 36.0    # 9 * 4
           c2_k3_coeff: -9.0    # 9 * -1
           c2_divisor: 2.0
-          
+
           # C3 coefficient (cubic term)
           # c3 = (c3_k0_coeff * k0 + c3_k1_coeff * k1 + c3_k2_coeff * k2 + c3_k3_coeff * k3) / (c3_divisor * sf^3)
           c3_k0_coeff: -9.0
           c3_k1_coeff: 27.0    # -9 * -3
           c3_k2_coeff: -27.0   # -9 * 3
           c3_k3_coeff: 9.0     # -9 * -1
-          c3_divisor: 2.0     
+          c3_divisor: 2.0

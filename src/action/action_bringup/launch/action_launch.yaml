@@ -10,7 +10,7 @@ launch:
       name: bond_enabled
       default: "false"
       description: Enable bond-based crash detection
-      
+
   - node:
       pkg: "lattice_planning"
       exec: "lattice_planning_node"

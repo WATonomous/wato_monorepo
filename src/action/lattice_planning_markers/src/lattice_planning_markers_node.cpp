@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "lattice_planning_markers/lattice_planning_markers_node.hpp"
 
 #include <algorithm>
@@ -7,8 +21,8 @@
 
 #include <rclcpp_components/register_node_macro.hpp>
 
-#include "std_msgs/msg/header.hpp"
 #include "geometry_msgs/msg/point.hpp"
+#include "std_msgs/msg/header.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
 namespace lattice_planning_markers
@@ -19,12 +33,10 @@ LatticePlanningMarkersNode::LatticePlanningMarkersNode(const rclcpp::NodeOptions
 {
   // Subscription topics
   path_topic_ = this->declare_parameter<std::string>("path_topic", "path");
-  available_paths_topic_ =
-    this->declare_parameter<std::string>("available_paths_topic", "available_paths");
+  available_paths_topic_ = this->declare_parameter<std::string>("available_paths_topic", "available_paths");
 
   // Publisher topics
-  path_markers_topic_ =
-    this->declare_parameter<std::string>("path_markers_topic", "path_markers");
+  path_markers_topic_ = this->declare_parameter<std::string>("path_markers_topic", "path_markers");
   available_paths_markers_topic_ =
     this->declare_parameter<std::string>("available_paths_markers_topic", "available_paths_markers");
 
@@ -35,20 +47,19 @@ LatticePlanningMarkersNode::LatticePlanningMarkersNode(const rclcpp::NodeOptions
   max_available_paths_ = this->declare_parameter<int>("max_available_paths", 50);
 
   // If true, publish a DELETEALL marker before publishing updates, to avoid stale markers in RViz.
-  publish_deleteall_each_update_ =
-    this->declare_parameter<bool>("publish_deleteall_each_update", true);
+  publish_deleteall_each_update_ = this->declare_parameter<bool>("publish_deleteall_each_update", true);
 
-  path_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-    path_markers_topic_, rclcpp::QoS(10));
-  available_paths_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-    available_paths_markers_topic_, rclcpp::QoS(10));
+  path_markers_pub_ =
+    this->create_publisher<visualization_msgs::msg::MarkerArray>(path_markers_topic_, rclcpp::QoS(10));
+  available_paths_markers_pub_ =
+    this->create_publisher<visualization_msgs::msg::MarkerArray>(available_paths_markers_topic_, rclcpp::QoS(10));
 
   path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
-    path_topic_, rclcpp::QoS(10),
-    std::bind(&LatticePlanningMarkersNode::pathCallback, this, std::placeholders::_1));
+    path_topic_, rclcpp::QoS(10), std::bind(&LatticePlanningMarkersNode::pathCallback, this, std::placeholders::_1));
 
   available_paths_sub_ = this->create_subscription<lattice_planning_msgs::msg::PathArray>(
-    available_paths_topic_, rclcpp::QoS(10),
+    available_paths_topic_,
+    rclcpp::QoS(10),
     std::bind(&LatticePlanningMarkersNode::availablePathsCallback, this, std::placeholders::_1));
 }
 
@@ -68,7 +79,10 @@ visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathToLineStrip
   const nav_msgs::msg::Path & path,
   const std::string & ns,
   int32_t id,
-  float r, float g, float b, float a,
+  float r,
+  float g,
+  float b,
+  float a,
   float line_width) const
 {
   visualization_msgs::msg::MarkerArray out;
@@ -113,8 +127,7 @@ visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathArrayToMark
   const size_t n_costs = path_array.costs.size();
   const size_t n = std::min(n_paths, n_costs);
 
-  const size_t n_limited =
-    static_cast<size_t>(std::max(0, max_available_paths_));
+  const size_t n_limited = static_cast<size_t>(std::max(0, max_available_paths_));
   const size_t n_use = std::min(n, n_limited);
 
   // Compute min/max costs (for color mapping). If costs are missing, we just use a constant color.
@@ -139,7 +152,9 @@ visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathArrayToMark
       b = 0.1f;
     } else {
       // No usable range; default to cyan-ish.
-      r = 0.1f; g = 0.8f; b = 1.0f;
+      r = 0.1f;
+      g = 0.8f;
+      b = 1.0f;
     }
 
     // Use path header if provided; otherwise fall back to PathArray header.
@@ -149,8 +164,13 @@ visualization_msgs::msg::MarkerArray LatticePlanningMarkersNode::pathArrayToMark
     }
 
     auto markers = pathToLineStripMarkers(
-      tmp, "available_paths", static_cast<int32_t>(i),
-      r, g, b, static_cast<float>(available_paths_alpha_),
+      tmp,
+      "available_paths",
+      static_cast<int32_t>(i),
+      r,
+      g,
+      b,
+      static_cast<float>(available_paths_alpha_),
       static_cast<float>(available_path_line_width_));
 
     // If we published DELETEALL above, it's okay to just append ADD markers.
@@ -168,17 +188,13 @@ void LatticePlanningMarkersNode::pathCallback(const nav_msgs::msg::Path::SharedP
     out.markers.push_back(makeDeleteAllMarker(msg->header));
   }
 
-  auto markers = pathToLineStripMarkers(
-    *msg, "path", 0,
-    0.2f, 0.6f, 1.0f, 1.0f,
-    static_cast<float>(path_line_width_));
+  auto markers = pathToLineStripMarkers(*msg, "path", 0, 0.2f, 0.6f, 1.0f, 1.0f, static_cast<float>(path_line_width_));
 
   out.markers.insert(out.markers.end(), markers.markers.begin(), markers.markers.end());
   path_markers_pub_->publish(out);
 }
 
-void LatticePlanningMarkersNode::availablePathsCallback(
-  const lattice_planning_msgs::msg::PathArray::SharedPtr msg)
+void LatticePlanningMarkersNode::availablePathsCallback(const lattice_planning_msgs::msg::PathArray::SharedPtr msg)
 {
   auto out = pathArrayToMarkers(*msg);
   available_paths_markers_pub_->publish(out);
