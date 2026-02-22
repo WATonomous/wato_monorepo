@@ -24,7 +24,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Find ROS 2 packages
+# Find ROS 2 (and other) packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
@@ -65,13 +65,6 @@ target_link_libraries(${PROJECT_NAME}_lib
     ${tf2_geometry_msgs_TARGETS}
 )
 
-# Add the executable (uncomment if using this package's main)
-# add_executable(${PROJECT_NAME}_node src/main.cpp)
-
-# target_link_libraries(${PROJECT_NAME}_node
-#     PRIVATE ${PROJECT_NAME}_lib
-# )
-
 # Register the component
 rclcpp_components_register_nodes(${PROJECT_NAME}_lib
   "TrackingNode"
@@ -84,18 +77,12 @@ install(TARGETS ${PROJECT_NAME}_lib
     RUNTIME DESTINATION bin
 )
 
-# Install the executable (uncomment if using this package's main)
-# install(TARGETS ${PROJECT_NAME}_node RUNTIME
-#     DESTINATION lib/${PROJECT_NAME}
-# )
-
 # Install launch and config files
 install(DIRECTORY launch config
     DESTINATION share/${PROJECT_NAME}
 )
 
-# Testing option
-# option(BUILD_TESTING "Enable testing" OFF)
+# Testing
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
 
