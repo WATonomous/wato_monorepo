@@ -68,24 +68,69 @@ launch:
         - name: "container_name"
           value: "cameras_container"
 
-  # Joystick Node
-  - include:
-      file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
+  # Joystick hardware node (publishes joy messages from physical joystick)
+  - node:
+      pkg: "joy"
+      exec: "joy_node"
+      name: "joy_node"
+      namespace: "interfacing"
+      param:
+        - from: "$(var config_file)"
 
-  # ackermann_mux Node
-  - include:
-      file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
+  # Joystick interfacing node (converts joy to joystick/ackermann)
+  - node:
+      pkg: "joystick_interfacing"
+      exec: "joystick_interfacing_node"
+      name: "joystick_node"
+      namespace: "interfacing"
+      output: "screen"
+      ros_args: "--log-level warn"
+      param:
+        - from: "$(var config_file)"
+
+  # Ackermann Mux Node
+  - node:
+      pkg: "ackermann_mux"
+      exec: "ackermann_mux_node"
+      name: "ackermann_mux"
+      namespace: "interfacing"
+      output: "screen"
+      ros_args: "--log-level warn"
+      param:
+        - from: "$(var config_file)"
+
+  - node:
+      pkg: "pid_control"
+      exec: "pid_control_node"
+      name: "pid_control_node"
+      namespace: "interfacing"
+      output: "screen"
+      remap:
+        - from: "steering_feedback"
+          to: "can_state_estimator/steering_angle"
+        - from: "velocity_feedback"
+          to: "can_state_estimator/body_velocity"
+      param:
+        - from: "$(var config_file)"
 
   # OSCC interfacing Node
-  - include:
-      file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
-  # PID Control Node
-  - include:
-      file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
+  - node:
+      pkg: "oscc_interfacing"
+      exec: "oscc_interfacing_node"
+      name: "oscc_interfacing"
+      namespace: "interfacing"
+      param:
+        - from: "$(var config_file)"
 
-  # Car Velocity Feedback Node
-  - include:
-      file: "$(find-pkg-share car_velocity_feedback)/launch/car_velocity_feedback.launch.yaml"
+  # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
+  - node:
+      pkg: can_state_estimator
+      exec: can_state_estimator_node
+      name: can_state_estimator_node
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(var config_file)"
 
   # Lifecycle Manager
   - node:
@@ -97,9 +142,9 @@ launch:
         - name: node_names
           value:
             - /interfacing/joystick_node
-            - /interfacing/pid_control_node
             - /interfacing/ackermann_mux
-            - /interfacing/car_velocity_feedback_node
+            - /interfacing/can_state_estimator_node
+            - /interfacing/pid_control_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

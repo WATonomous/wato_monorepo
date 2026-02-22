@@ -92,8 +92,35 @@ oscc_result_t oscc_close();
  *
  */
 oscc_result_t oscc_enable(void);
+
+/**
+ * @brief Send enable commands to OSCC steering module.
+ *
+ * @param [void]
+ *
+ * @return OSCC_ERROR or OSCC_OK
+ *
+ */
 oscc_result_t oscc_enable_steering(void);
+
+/**
+ * @brief Send enable commands to OSCC throttle module.
+ *
+ * @param [void]
+ *
+ * @return OSCC_ERROR or OSCC_OK
+ *
+ */
 oscc_result_t oscc_enable_throttle(void);
+
+/**
+ * @brief Send enable commands to OSCC brake module.
+ *
+ * @param [void]
+ *
+ * @return OSCC_ERROR or OSCC_OK
+ *
+ */
 oscc_result_t oscc_enable_brakes(void);
 
 /**
@@ -307,5 +334,35 @@ oscc_result_t get_brake_pressure(struct can_frame const * const frame, double * 
 oscc_result_t oscc_enable_throttle(void);
 oscc_result_t oscc_enable_steering(void);
 oscc_result_t oscc_enable_brakes(void);
+
+/**
+ * @brief Send disable commands to OSCC brake module.
+ *
+ * @param [void]
+ *
+ * @return OSCC_ERROR or OSCC_OK
+ *
+ */
+oscc_result_t oscc_disable_brakes(void);
+
+/**
+ * @brief Send disable commands to OSCC steering module.
+ *
+ * @param [void]
+ *
+ * @return OSCC_ERROR or OSCC_OK
+ *
+ */
+oscc_result_t oscc_disable_steering(void);
+
+/**
+ * @brief Send disable commands to OSCC throttle module.
+ *
+ * @param [void]
+ *
+ * @return OSCC_ERROR or OSCC_OK
+ *
+ */
+oscc_result_t oscc_disable_throttle(void);
 
 #endif /* _OSCC_H */

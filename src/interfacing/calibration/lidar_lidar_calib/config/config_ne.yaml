@@ -9,8 +9,8 @@
 
     # GICP parameters
     num_threads: 2
-    downsampling_resolution: 0.005  # meters
-    max_correspondence_distance: 0.01  # meters
+    downsampling_resolution: 0.5  # meters
+    max_correspondence_distance: 1.0  # meters
     max_iterations: 10000
 
     # Initial guess (transformation from source to target)
@@ -22,4 +22,4 @@
     # Rotation in radians (roll, pitch, yaw)
     initial_rotation_roll: 0.017163
     initial_rotation_pitch: 0.108708
-    initial_rotation_yaw: -0.580009  # 10 degrees
+    initial_rotation_yaw: -0.580009

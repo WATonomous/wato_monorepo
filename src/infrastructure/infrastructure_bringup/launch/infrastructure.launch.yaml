@@ -31,6 +31,13 @@ launch:
       output: screen
       args: /tf /tf_new
 
+  # TF Static Relay (workaround for bag split losing static transforms)
+  - node:
+      pkg: tf_static_relay
+      exec: tf_static_relay
+      name: tf_static_relay
+      output: screen
+
   # Foxglove Bridge
   - node:
       pkg: foxglove_bridge

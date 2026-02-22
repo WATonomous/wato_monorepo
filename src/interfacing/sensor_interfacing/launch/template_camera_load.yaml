@@ -50,6 +50,9 @@ launch:
               value: "$(var camera_name)"
             - name: camera_info_urls
               value: ["$(find-pkg-share camera_calib)/config/$(var camera_name).yaml"]
+            - name: $(var camera_name).image_raw.enable_pub_plugins
+              value:
+                - "image_transport/raw"
 
         - pkg: image_proc
           plugin: image_proc::DebayerNode
@@ -58,6 +61,13 @@ launch:
           extra_arg:
             - name: use_intra_process_comms
               value: "true"
+          param:
+            - name: image_color.enable_pub_plugins
+              value:
+                - "image_transport/raw"
+            - name: image_mono.enable_pub_plugins
+              value:
+                - "image_transport/raw"
 
         - pkg: image_proc
           plugin: image_proc::RectifyNode
@@ -66,6 +76,13 @@ launch:
           extra_arg:
             - name: use_intra_process_comms
               value: "true"
+          param:
+            - name: image_rect.compressed.format
+              value: "jpeg"
+            - name: image_rect.compressed.jpeg_quality
+              value: "90"
           remap:
             - from: "image"
               to: "image_color"
+            - from: "image_rect/compressed"
+              to: "image_rect_compressed"

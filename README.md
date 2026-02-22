@@ -2,6 +2,13 @@
 
 Dockerized monorepo for the WATonomous autonomous vehicle project (dubbed EVE).
 
+<div align="center">
+  <img src=".img/eve.jpg" height="250"/>
+  <img src=".img/wheel_turn_stabilized.gif" height="250">
+  <img src=".img/sensors.gif" height="250"/>
+  <img src=".img/world_model.gif" height="250"/>
+</div>
+
 ## Prerequisite Installation
 These steps are to setup the monorepo to work on your own PC. We utilize docker to enable ease of reproducibility and deployability.
 
