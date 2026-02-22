@@ -50,35 +50,26 @@ TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::
   RCLCPP_INFO(this->get_logger(), "Configuring tracking node...");
 
   // Parameters
-  RCLCPP_INFO(this->get_logger(), "Initializing parameters...");
   initializeParams();
-  RCLCPP_INFO(this->get_logger(), "Parameters initialized successfully");
 
   // TF stuff
-  RCLCPP_INFO(this->get_logger(), "Initializing TF buffer and listener...");
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-  RCLCPP_INFO(this->get_logger(), "TF buffer and listener initialized successfully");
 
   // Subscriber
-  RCLCPP_INFO(this->get_logger(), "Initializing subscriber...");
   dets_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
     kDetectionsTopic, 10, std::bind(&TrackingNode::detectionsCallback, this, std::placeholders::_1));
-  RCLCPP_INFO(this->get_logger(), "Subscriber initialized successfully, subscribed to %s", dets_sub_->get_topic_name());
+  RCLCPP_DEBUG(this->get_logger(), "Subscriber initialized, subscribed to %s", dets_sub_->get_topic_name());
 
   // Lifecycle Publisher
-  RCLCPP_INFO(this->get_logger(), "Initializing publisher...");
   tracked_dets_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kTracksTopic, 10);
-  RCLCPP_INFO(
-    this->get_logger(), "Publisher initialized successfully, publishing to %s", tracked_dets_pub_->get_topic_name());
+  RCLCPP_DEBUG(this->get_logger(), "Publisher initialized, publishing to %s", tracked_dets_pub_->get_topic_name());
 
   // ByteTrack tracker
-  RCLCPP_INFO(this->get_logger(), "Initializing ByteTrack...");
   tracker_ = std::make_unique<byte_track::BYTETracker>(
     frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_, use_maj_cls_);
-  RCLCPP_INFO(this->get_logger(), "ByteTrack initialized successfully");
 
-  RCLCPP_INFO(this->get_logger(), "Tracking node configured successfully");
+  RCLCPP_INFO(this->get_logger(), "Configuration successful");
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
@@ -88,11 +79,11 @@ TrackingNode::CallbackReturn TrackingNode::on_activate(const rclcpp_lifecycle::S
   if (tracked_dets_pub_)
     tracked_dets_pub_->on_activate();
   else {
-    RCLCPP_ERROR(this->get_logger(), "Deactivation failed: nullptr publisher");
+    RCLCPP_ERROR(this->get_logger(), "Activation failed: nullptr publisher");
     return TrackingNode::CallbackReturn::FAILURE;
   }
 
-  RCLCPP_INFO(this->get_logger(), "Node activated successfully");
+  RCLCPP_INFO(this->get_logger(), "Activation successful");
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
@@ -106,7 +97,7 @@ TrackingNode::CallbackReturn TrackingNode::on_deactivate(const rclcpp_lifecycle:
     return TrackingNode::CallbackReturn::FAILURE;
   }
 
-  RCLCPP_INFO(this->get_logger(), "Node deactivated successfully");
+  RCLCPP_INFO(this->get_logger(), "Deactivation successful");
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
@@ -134,7 +125,7 @@ TrackingNode::CallbackReturn TrackingNode::on_shutdown(const rclcpp_lifecycle::S
   tf_buffer_.reset();
   tracker_.reset();
 
-  RCLCPP_INFO(this->get_logger(), "Node shut down successfully");
+  RCLCPP_INFO(this->get_logger(), "Shut down successful");
   return TrackingNode::CallbackReturn::SUCCESS;
 }
 
