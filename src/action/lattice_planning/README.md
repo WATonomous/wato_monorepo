@@ -30,7 +30,6 @@ Generates drivable paths by:
 | `path` | `nav_msgs/Path` | Selected path as sequence of poses |
 | `available_paths` | `lattice_planning_msgs/PathArray` | All candidate paths and their costs |
 
-
 ## Architecture
 
 **Lifecycle node with separate algorithm core**:
@@ -92,7 +91,7 @@ Parameters in `config/lattice_planning_params.yaml`:
 - **Single-threaded**: All candidate paths generated sequentially
 - **No path smoothing post-processing**: Relies solely on cubic spiral smoothness
 - **Hard-coded horizon count**: Splitting behavior maximises at a 3-lane corridor (left/ego/right)
-- **Doesn't Use Strict Frenet Frame**: Stores all points as (x, y, theta, kappa) instead of frenet frame 
+- **Doesn't Use Strict Frenet Frame**: Stores all points as (x, y, theta, kappa) instead of frenet frame
 - **No convergence diagnostics**: Returns empty path on failure without intermediate results
 
 ## Dependencies
