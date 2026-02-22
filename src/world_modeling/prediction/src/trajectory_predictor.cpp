@@ -77,11 +77,15 @@ TrajectoryPredictor::TrajectoryPredictor(
   rclcpp_lifecycle::LifecycleNode * node,
   double prediction_horizon,
   double time_step,
+  const VehicleParams & vehicle_params,
+  const PedestrianParams & pedestrian_params,
   const CyclistParams & cyclist_params,
   std::shared_ptr<world_model::LaneletHandler> lanelet_handler)
 : node_(node)
 , prediction_horizon_(prediction_horizon)
 , time_step_(time_step)
+, vehicle_params_(vehicle_params)
+, pedestrian_params_(pedestrian_params)
 , cyclist_params_(cyclist_params)
 , lanelet_handler_(lanelet_handler)
 {
@@ -156,14 +160,9 @@ ObjectType TrajectoryPredictor::classifyObjectType(const vision_msgs::msg::Detec
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses(
   const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
-  // Use computed velocity if available, otherwise default to typical vehicle
-  // speed
-  // TODO(prediction): Move these defaults to params.yaml
-  constexpr double kDefaultVehicleSpeed = 5.0;  // m/s
-  constexpr double kMaxVehicleSpeed = 30.0;  // m/s
-
-  double v = velocity.value_or(kDefaultVehicleSpeed);
-  v = std::clamp(v, 0.0, kMaxVehicleSpeed);
+  // Use computed velocity if available, otherwise default to typical vehicle speed
+  double v = velocity.value_or(vehicle_params_.default_speed);
+  v = std::clamp(v, 0.0, vehicle_params_.max_speed);
 
   auto state = stateFromDetection(detection.bbox.center.position, detection.bbox.center.orientation, v);
 
@@ -178,12 +177,8 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
   const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
   // Use computed velocity if available, otherwise default to walking speed
-  // TODO(prediction): Move these defaults to params.yaml
-  constexpr double kDefaultWalkingSpeed = 1.4;  // m/s (average human walking speed)
-  constexpr double kMaxPedestrianSpeed = 3.0;  // m/s (fast jog)
-
-  double v = velocity.value_or(kDefaultWalkingSpeed);
-  v = std::clamp(v, 0.0, kMaxPedestrianSpeed);
+  double v = velocity.value_or(pedestrian_params_.default_speed);
+  v = std::clamp(v, 0.0, pedestrian_params_.max_speed);
 
   auto state = stateFromDetection(detection.bbox.center.position, detection.bbox.center.orientation, v);
 
@@ -248,11 +243,11 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
     return buildCvFallback(state, v, "no paths");
   }
 
-  // Distribute confidence among lanelet-based hypotheses (70% total)
+  // Distribute confidence among lanelet-based hypotheses
   // Straight gets higher base confidence than turns
-  constexpr double kLaneletTotalConf = 0.7;
-  constexpr double kCvFallbackConf = 0.3;
-  constexpr double kStraightBoost = 1.5;
+  const double kLaneletTotalConf = cyclist_params_.lanelet_confidence;
+  const double kCvFallbackConf = cyclist_params_.cv_fallback_confidence;
+  const double kStraightBoost = cyclist_params_.straight_boost;
 
   // Compute total weight only from valid paths (>= 2 points)
   double total_weight = 0.0;
@@ -383,7 +378,7 @@ std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> TrajectoryPredictor
   all_paths.reserve(following.size());
 
   // Heading-based turn detection threshold
-  constexpr double kTurnAngleThreshold = 0.26;  // radians (~15 degrees)
+  const double kTurnAngleThreshold = cyclist_params_.turn_angle_threshold;
 
   // For each possible following lanelet, build a complete path
   for (const auto & next_lanelet : following) {

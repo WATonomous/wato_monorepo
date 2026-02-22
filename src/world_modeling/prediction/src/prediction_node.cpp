@@ -32,6 +32,20 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("cyclist_speed_range", std::vector<double>{2.0, 8.0});
   this->declare_parameter("lanelet_proximity_threshold", 5.0);
 
+  // Vehicle defaults
+  this->declare_parameter("vehicle_default_speed", 5.0);
+  this->declare_parameter("vehicle_max_speed", 30.0);
+
+  // Pedestrian defaults
+  this->declare_parameter("pedestrian_default_speed", 1.4);
+  this->declare_parameter("pedestrian_max_speed", 3.0);
+
+  // Cyclist confidence distribution
+  this->declare_parameter("cyclist_lanelet_confidence", 0.7);
+  this->declare_parameter("cyclist_cv_fallback_confidence", 0.3);
+  this->declare_parameter("cyclist_straight_boost", 1.5);
+  this->declare_parameter("cyclist_turn_angle_threshold", 0.26);
+
   RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
 }
 
@@ -43,10 +57,24 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
 
+  // Build vehicle params from ROS params
+  TrajectoryPredictor::VehicleParams vehicle_params;
+  vehicle_params.default_speed = this->get_parameter("vehicle_default_speed").as_double();
+  vehicle_params.max_speed = this->get_parameter("vehicle_max_speed").as_double();
+
+  // Build pedestrian params from ROS params
+  TrajectoryPredictor::PedestrianParams pedestrian_params;
+  pedestrian_params.default_speed = this->get_parameter("pedestrian_default_speed").as_double();
+  pedestrian_params.max_speed = this->get_parameter("pedestrian_max_speed").as_double();
+
   // Build cyclist params from ROS params
   TrajectoryPredictor::CyclistParams cyclist_params;
   cyclist_params.max_lanelet_search_depth = this->get_parameter("max_lanelet_search_depth").as_int();
   cyclist_params.lanelet_proximity_threshold = this->get_parameter("lanelet_proximity_threshold").as_double();
+  cyclist_params.lanelet_confidence = this->get_parameter("cyclist_lanelet_confidence").as_double();
+  cyclist_params.cv_fallback_confidence = this->get_parameter("cyclist_cv_fallback_confidence").as_double();
+  cyclist_params.straight_boost = this->get_parameter("cyclist_straight_boost").as_double();
+  cyclist_params.turn_angle_threshold = this->get_parameter("cyclist_turn_angle_threshold").as_double();
 
   auto speed_range = this->get_parameter("cyclist_speed_range").as_double_array();
   if (speed_range.size() >= 2) {
@@ -58,18 +86,33 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
   RCLCPP_INFO(
     this->get_logger(),
-    "Cyclist params: speed=[%.1f, %.1f] m/s, lanelet_threshold=%.1f m, max_depth=%d",
+    "Vehicle params: default_speed=%.1f m/s, max_speed=%.1f m/s",
+    vehicle_params.default_speed,
+    vehicle_params.max_speed);
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Pedestrian params: default_speed=%.1f m/s, max_speed=%.1f m/s",
+    pedestrian_params.default_speed,
+    pedestrian_params.max_speed);
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Cyclist params: speed=[%.1f, %.1f] m/s, lanelet_threshold=%.1f m, max_depth=%d, "
+    "conf=[%.2f lanelet, %.2f cv], straight_boost=%.2f, turn_thresh=%.2f rad",
     cyclist_params.min_speed,
     cyclist_params.max_speed,
     cyclist_params.lanelet_proximity_threshold,
-    cyclist_params.max_lanelet_search_depth);
+    cyclist_params.max_lanelet_search_depth,
+    cyclist_params.lanelet_confidence,
+    cyclist_params.cv_fallback_confidence,
+    cyclist_params.straight_boost,
+    cyclist_params.turn_angle_threshold);
 
   // Initialize publisher
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
   // Initialize components
-  trajectory_predictor_ =
-    std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_, cyclist_params);
+  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(
+    this, prediction_horizon_, prediction_time_step_, vehicle_params, pedestrian_params, cyclist_params);
   intent_classifier_ = std::make_unique<IntentClassifier>(this);
 
   RCLCPP_INFO(this->get_logger(), "Configured successfully");

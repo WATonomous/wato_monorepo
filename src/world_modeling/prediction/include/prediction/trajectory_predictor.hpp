@@ -100,6 +100,24 @@ class TrajectoryPredictor
 {
 public:
   /**
+   * @brief Parameters for vehicle prediction (loaded from params.yaml)
+   */
+  struct VehicleParams
+  {
+    double default_speed;  // m/s - fallback when no velocity history
+    double max_speed;  // m/s - clamp upper bound
+  };
+
+  /**
+   * @brief Parameters for pedestrian prediction (loaded from params.yaml)
+   */
+  struct PedestrianParams
+  {
+    double default_speed;  // m/s - fallback when no velocity history
+    double max_speed;  // m/s - clamp upper bound
+  };
+
+  /**
    * @brief Parameters for cyclist prediction (loaded from params.yaml)
    */
   struct CyclistParams
@@ -108,6 +126,10 @@ public:
     double min_speed;  // m/s
     double max_speed;  // m/s
     int max_lanelet_search_depth;  // max successive lanelets to follow
+    double lanelet_confidence;  // total confidence for lanelet-based hypotheses
+    double cv_fallback_confidence;  // confidence for constant-velocity fallback
+    double straight_boost;  // weight multiplier for straight-ahead paths
+    double turn_angle_threshold;  // radians - threshold for turn detection
   };
 
   /**
@@ -115,6 +137,8 @@ public:
    * @param node ROS node pointer for logging
    * @param prediction_horizon Time horizon for predictions (seconds)
    * @param time_step Time step between waypoints (seconds)
+   * @param vehicle_params Vehicle-specific parameters (from params.yaml)
+   * @param pedestrian_params Pedestrian-specific parameters (from params.yaml)
    * @param cyclist_params Cyclist-specific parameters (from params.yaml)
    * @param lanelet_handler Optional LaneletHandler for map queries
    */
@@ -122,6 +146,8 @@ public:
     rclcpp_lifecycle::LifecycleNode * node,
     double prediction_horizon,
     double time_step,
+    const VehicleParams & vehicle_params,
+    const PedestrianParams & pedestrian_params,
     const CyclistParams & cyclist_params,
     std::shared_ptr<world_model::LaneletHandler> lanelet_handler = nullptr);
 
@@ -213,7 +239,9 @@ private:
   mutable std::shared_mutex lanelet_handler_mutex_;
   std::shared_ptr<world_model::LaneletHandler> lanelet_handler_;
 
-  // Cyclist-specific parameters (const after construction)
+  // Per-type parameters (const after construction)
+  const VehicleParams vehicle_params_;
+  const PedestrianParams pedestrian_params_;
   const CyclistParams cyclist_params_;
 
   // Detection history for velocity computation (object_id -> history)
