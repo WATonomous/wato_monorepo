@@ -1,0 +1,11 @@
+# Directory to load the map from
+string directory
+---
+# Whether the load operation succeeded
+bool success
+
+# Number of keyframes loaded
+int32 num_keyframes
+
+# Human-readable status message
+string message

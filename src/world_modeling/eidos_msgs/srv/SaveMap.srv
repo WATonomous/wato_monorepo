@@ -1,0 +1,11 @@
+# Directory to save the map to
+string directory
+
+# Downsampling resolution for the global map PCD (0 = no downsampling)
+float32 resolution 0.0
+---
+# Whether the save operation succeeded
+bool success
+
+# Human-readable status message
+string message

@@ -21,9 +21,9 @@ launch:
       description: Path to the world_model configuration file
 
   - arg:
-      name: lio_sam_config_file
-      default: $(find-pkg-share world_modeling_bringup)/config/lio_sam.yaml
-      description: Path to the LIO-SAM configuration file
+      name: eidos_config_file
+      default: $(find-pkg-share eidos)/config/params.yaml
+      description: Path to the eidos SLAM configuration file
 
   - arg:
       name: autostart
@@ -259,42 +259,15 @@ launch:
         - from: markers
           to: behaviour_markers
 
-  # LIO-SAM Nodes
+  # Eidos SLAM Node (replaces LIO-SAM's 4 nodes with a single plugin-based node)
   - node:
-      pkg: lio_sam
-      exec: lio_sam_imuPreintegration
-      name: lio_sam_imuPreintegration
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(var lio_sam_config_file)
-
-  - node:
-      pkg: lio_sam
-      exec: lio_sam_imageProjection
-      name: lio_sam_imageProjection
-      namespace: "world_modeling"
-      output: screen
-      param:
-        - from: $(var lio_sam_config_file)
-
-  - node:
-      pkg: lio_sam
-      exec: lio_sam_featureExtraction
-      name: lio_sam_featureExtraction
-      namespace: "world_modeling"
-      output: screen
-      param:
-        - from: $(var lio_sam_config_file)
-
-  - node:
-      pkg: lio_sam
-      exec: lio_sam_mapOptimization
-      name: lio_sam_mapOptimization
-      namespace: "world_modeling"
-      output: screen
-      param:
-        - from: $(var lio_sam_config_file)
+        - from: $(var eidos_config_file)
 
   # Lifecycle Manager
   - node:

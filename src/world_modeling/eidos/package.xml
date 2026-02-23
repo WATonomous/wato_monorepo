@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>eidos</name>
+  <version>0.1.0</version>
+  <description>Plugin-based LiDAR-Inertial-GNSS SLAM system</description>
+  <maintainer email="infra@watonomous.ca">WATonomous</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>pcl_conversions</build_depend>
+  <build_depend>eidos_msgs</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>libopencv-dev</build_depend>
+  <build_depend>libpcl-all-dev</build_depend>
+  <build_depend>gtsam</build_depend>
+  <build_depend>eigen</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>pcl_conversions</exec_depend>
+  <exec_depend>eidos_msgs</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+  <exec_depend>libopencv-dev</exec_depend>
+  <exec_depend>libpcl-all-dev</exec_depend>
+  <exec_depend>gtsam</exec_depend>
+  <exec_depend>eigen</exec_depend>
+
+  <test_depend>wato_test</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

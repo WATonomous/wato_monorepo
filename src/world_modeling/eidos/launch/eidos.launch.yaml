@@ -1,0 +1,12 @@
+launch:
+  - arg:
+      name: eidos_config_file
+      default: $(find-pkg-share eidos)/config/params.yaml
+      description: Path to the eidos parameter file
+
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      param:
+        - from: $(var eidos_config_file)

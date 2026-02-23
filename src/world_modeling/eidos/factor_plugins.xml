@@ -1,0 +1,22 @@
+<library path="eidos_plugins">
+  <class name="eidos::LidarKEPFactor"
+         type="eidos::LidarKEPFactor"
+         base_class_type="eidos::FactorPlugin">
+    <description>LiDAR Keyframe-based Edge-Plane factor. Performs deskewing, feature extraction, scan-to-map matching, and provides odometry BetweenFactor constraints.</description>
+  </class>
+  <class name="eidos::ImuIntegrationFactor"
+         type="eidos::ImuIntegrationFactor"
+         base_class_type="eidos::FactorPlugin">
+    <description>IMU preintegration factor. Provides high-rate odometry, TF broadcasting, and CombinedImuFactor constraints.</description>
+  </class>
+  <class name="eidos::GpsFactor"
+         type="eidos::GpsFactor"
+         base_class_type="eidos::FactorPlugin">
+    <description>GPS factor. Provides GPSFactor/PriorFactor constraints from GNSS data.</description>
+  </class>
+  <class name="eidos::EuclideanDistanceLoopClosureFactor"
+         type="eidos::EuclideanDistanceLoopClosureFactor"
+         base_class_type="eidos::FactorPlugin">
+    <description>Euclidean distance-based loop closure. Detects loops via KD-tree radius search and validates with ICP alignment.</description>
+  </class>
+</library>

@@ -1,0 +1,98 @@
+eidos_node:
+  ros__parameters:
+    # ---- Frames ----
+    frames:
+      lidar: "lidar_link"
+      base_link: "base_link"
+      odometry: "odom"
+      map: "map"
+
+    # ---- SLAM core ----
+    slam_rate: 10.0                    # Hz
+    max_displacement: 1.0              # meters -> new state
+    max_rotation: 0.2                  # radians -> new state
+    relocalization_timeout: 30.0       # seconds, then fallback to fresh SLAM
+
+    # ---- Factor plugins (order = processFrame priority) ----
+    factor_plugins:
+      - "imu_integration_factor"
+      - "lidar_kep_factor"
+      - "gps_factor"
+      - "euclidean_distance_loop_closure_factor"
+
+    # ---- Relocalization plugins (first to succeed wins) ----
+    relocalization_plugins:
+      - "gps_icp_relocalization"
+
+    # ---- Per-plugin config ----
+    imu_integration_factor:
+      plugin: "eidos::ImuIntegrationFactor"
+      imu_topic: "imu/data"
+      acc_noise: 3.9939570888238808e-03
+      gyr_noise: 1.5636343949698187e-03
+      acc_bias_noise: 6.4356659353532566e-05
+      gyr_bias_noise: 3.5640318696367613e-05
+      gravity: 9.80511
+      odom_frame: "odom"
+      base_link_frame: "base_link"
+      lidar_frame: "lidar_link"
+      extrinsic_rot: [-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]
+      extrinsic_rpy: [-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]
+      extrinsic_trans: [0.0, 0.0, 0.0]
+
+    lidar_kep_factor:
+      plugin: "eidos::LidarKEPFactor"
+      point_cloud_topic: "points_raw"
+      imu_topic: "imu/data"
+      imu_odom_topic: "imu_integration_factor/odometry/imu_incremental"
+      sensor_type: "velodyne"
+      n_scan: 32
+      horizon_scan: 1800
+      min_range: 1.0
+      max_range: 100.0
+      edge_threshold: 1.0
+      surf_threshold: 0.1
+      odom_surf_leaf_size: 0.4
+      mapping_corner_leaf_size: 0.2
+      mapping_surf_leaf_size: 0.4
+      ring_flag: 0
+      deskew_flag: 0
+      extrinsic_rot: [-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]
+      extrinsic_rpy: [0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+      extrinsic_trans: [0.0, 0.0, 0.0]
+
+    gps_factor:
+      plugin: "eidos::GpsFactor"
+      gps_topic: "gps/odometry"
+      cov_threshold: 2.0
+      use_elevation: false
+
+    euclidean_distance_loop_closure_factor:
+      plugin: "eidos::EuclideanDistanceLoopClosureFactor"
+      frequency: 1.0
+      search_radius: 15.0
+      search_time_diff: 30.0
+      search_num: 25
+      fitness_score: 0.3
+      pointcloud_from: "lidar_kep_factor"
+
+    gps_icp_relocalization:
+      plugin: "eidos::GpsIcpRelocalization"
+      gps_topic: "gps/odometry"
+      gps_candidate_radius: 30.0
+      fitness_threshold: 0.3
+      max_icp_iterations: 100
+      pointcloud_from: "lidar_kep_factor"
+      gps_from: "gps_factor"
+
+    # ---- Core (not per-plugin) ----
+    keyframe:
+      density: 2.0
+      search_radius: 50.0
+
+    map:
+      load_directory: ""               # if set, load prior map on startup
+      save_directory: "/tmp/eidos_maps/"
+
+    performance:
+      num_cores: 4
