@@ -41,7 +41,7 @@ PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecyc
     this->get_node_parameters_interface(),
     this->get_node_topics_interface(),
     "steering_pid",
-    "/steering_pid_state",
+    "steering_pid_state",
     true);
   steering_pid_ros_->initialize_from_ros_parameters();
 
@@ -52,7 +52,7 @@ PidControlNode::CallbackReturn PidControlNode::on_configure(const rclcpp_lifecyc
     this->get_node_parameters_interface(),
     this->get_node_topics_interface(),
     "velocity_pid",
-    "/velocity_pid_state",
+    "velocity_pid_state",
     true);
   velocity_pid_ros_->initialize_from_ros_parameters();
 

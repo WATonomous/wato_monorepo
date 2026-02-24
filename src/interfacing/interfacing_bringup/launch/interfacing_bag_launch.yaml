@@ -33,6 +33,11 @@ launch:
       default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
+  - arg:
+      name: "can_config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
+      description: "Path to the joystick configuration file"
+
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
@@ -67,9 +72,7 @@ launch:
   - include:
       file: "$(find-pkg-share ackermann_mux)/launch/ackermann_mux.launch.yaml"
 
-  # ===========================================================================
   # Single component container for all cameras + bag recorder (intra-process)
-  # ===========================================================================
   - node_container:
       pkg: rclcpp_components
       exec: component_container_mt
@@ -85,9 +88,7 @@ launch:
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
 
-  # ===========================================================================
   # Bag recorder (intra-process with cameras, inter-process with LiDAR)
-  # ===========================================================================
   - load_composable_node:
       target: cameras_and_recorder
       composable_node:
@@ -101,3 +102,31 @@ launch:
             - from: "$(find-pkg-share interfacing_bringup)/config/bag_recorder/$(var recording_profile).yaml"
             - name: storage.uri
               value: "$(var bag_path)"
+
+  # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
+  - node:
+      pkg: can_state_estimator
+      exec: can_state_estimator_node
+      name: can_state_estimator_node
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(var can_config_file)"
+
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: interfacing_lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /interfacing/can_state_estimator_node
+        - name: autostart
+          value: true
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

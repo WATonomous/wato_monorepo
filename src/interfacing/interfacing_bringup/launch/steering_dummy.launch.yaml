@@ -10,6 +10,15 @@ launch:
       default: "false"
       description: "Enable bond-based crash detection"
 
+  - arg:
+      name: "config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/steering_dummy.yaml"
+      description: "Path to the steering dummy configuration file"
+
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
   # Steering Dummy
   - node:
       pkg: dummy_ackermann
@@ -17,18 +26,62 @@ launch:
       name: ackermann_square_wave
       namespace: interfacing
       output: screen
+      param:
+        - from: "$(var config_file)"
 
-  # Joystick Node (Required to arm)
-  - include:
-      file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
+  # Joystick hardware node (publishes joy messages from physical joystick)
+  - node:
+      pkg: "joy"
+      exec: "joy_node"
+      name: "joy_node"
+      namespace: "interfacing"
+      param:
+        - from: "$(var config_file)"
+
+  # Joystick interfacing node (converts joy to joystick/ackermann)
+  - node:
+      pkg: "joystick_interfacing"
+      exec: "joystick_interfacing_node"
+      name: "joystick_node"
+      namespace: "interfacing"
+      output: "screen"
+      ros_args: "--log-level warn"
+      param:
+        - from: "$(var config_file)"
 
   # PID Control Node
-  - include:
-      file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
+  - node:
+      pkg: "pid_control"
+      exec: "pid_control_node"
+      name: "pid_control_node"
+      namespace: "interfacing"
+      output: "screen"
+      remap:
+        - from: "steering_feedback"
+          to: "can_state_estimator/steering_angle"
+        - from: "velocity_feedback"
+          to: "can_state_estimator/body_velocity"
+      param:
+        - from: "$(var config_file)"
 
   # OSCC interfacing Node
-  - include:
-      file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
+  - node:
+      pkg: "oscc_interfacing"
+      exec: "oscc_interfacing_node"
+      name: "oscc_interfacing"
+      namespace: "interfacing"
+      param:
+        - from: "$(var config_file)"
+
+  # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
+  - node:
+      pkg: can_state_estimator
+      exec: can_state_estimator_node
+      name: can_state_estimator_node
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(var config_file)"
 
   # Lifecycle Manager
   - node:
@@ -42,6 +95,7 @@ launch:
             - /interfacing/joystick_node
             - /interfacing/pid_control_node
             - /interfacing/ackermann_square_wave
+            - /interfacing/can_state_estimator_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

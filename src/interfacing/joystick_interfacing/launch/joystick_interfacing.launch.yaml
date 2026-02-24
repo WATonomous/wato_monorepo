@@ -5,15 +5,16 @@ launch:
       default: "$(find-pkg-share joystick_interfacing)/config/joy_config.yaml"
       description: "Path to the joystick configuration file"
 
-  # Joystick hardware node (publishes /joy messages from physical joystick)
+  # Joystick hardware node (publishes joy messages from physical joystick)
   - node:
       pkg: "joy"
       exec: "joy_node"
       name: "joy_node"
+      namespace: "interfacing"
       param:
         - from: "$(var config_file)"
 
-  # Joystick interfacing node (converts /joy to /joystick/ackermann)
+  # Joystick interfacing node (converts joy to joystick/ackermann)
   - node:
       pkg: "joystick_interfacing"
       exec: "joystick_interfacing_node"

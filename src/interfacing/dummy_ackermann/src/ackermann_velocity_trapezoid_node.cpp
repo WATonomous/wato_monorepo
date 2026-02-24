@@ -33,6 +33,7 @@ AckermannVelocityTrapezoidNode::AckermannVelocityTrapezoidNode(const rclcpp::Nod
   this->declare_parameter<double>("rise_time", 2.0);
   this->declare_parameter<double>("hold_time", 3.0);
   this->declare_parameter<double>("ramp_down_time", 2.0);
+  this->declare_parameter<double>("down_hold_time", 1.0);
   this->declare_parameter<double>("publish_rate", 50.0);
 
   callback_handle_ = this->add_on_set_parameters_callback(
@@ -48,6 +49,7 @@ AckermannVelocityTrapezoidNode::CallbackReturn AckermannVelocityTrapezoidNode::o
   rise_time_ = this->get_parameter("rise_time").as_double();
   hold_time_ = this->get_parameter("hold_time").as_double();
   ramp_down_time_ = this->get_parameter("ramp_down_time").as_double();
+  down_hold_time_ = this->get_parameter("down_hold_time").as_double();
   publish_rate_ = this->get_parameter("publish_rate").as_double();
 
   if (rise_time_ <= 0.0) {
@@ -65,21 +67,27 @@ AckermannVelocityTrapezoidNode::CallbackReturn AckermannVelocityTrapezoidNode::o
     return CallbackReturn::FAILURE;
   }
 
+  if (down_hold_time_ < 0.0) {
+    RCLCPP_ERROR(this->get_logger(), "Down hold time must be >= 0");
+    return CallbackReturn::FAILURE;
+  }
+
   if (publish_rate_ <= 0.0) {
     RCLCPP_ERROR(this->get_logger(), "Publish rate must be > 0");
     return CallbackReturn::FAILURE;
   }
 
-  pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/ackermann", 10);
+  pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("ackermann", 10);
 
   RCLCPP_INFO(
     this->get_logger(),
     "Configured: target_velocity=%.2f m/s, rise_time=%.2fs, hold_time=%.2fs, "
-    "ramp_down_time=%.2fs, rate=%.1f Hz",
+    "ramp_down_time=%.2fs, down_hold_time=%.2fs, rate=%.1f Hz",
     target_velocity_,
     rise_time_,
     hold_time_,
     ramp_down_time_,
+    down_hold_time_,
     publish_rate_);
 
   return CallbackReturn::SUCCESS;
@@ -134,7 +142,7 @@ void AckermannVelocityTrapezoidNode::timer_callback()
   double elapsed = (now - start_time_).seconds();
 
   // Calculate total cycle period
-  double cycle_period = rise_time_ + hold_time_ + ramp_down_time_;
+  double cycle_period = rise_time_ + hold_time_ + ramp_down_time_ + down_hold_time_;
 
   // Get position within current cycle
   double cycle_time = std::fmod(elapsed, cycle_period);
@@ -148,10 +156,13 @@ void AckermannVelocityTrapezoidNode::timer_callback()
   } else if (cycle_time < rise_time_ + hold_time_) {
     // Phase 2: Hold - constant at target_velocity
     velocity = target_velocity_;
-  } else {
+  } else if (cycle_time < rise_time_ + hold_time_ + ramp_down_time_) {
     // Phase 3: Ramp down - linear ramp from target_velocity to 0
     double ramp_down_elapsed = cycle_time - (rise_time_ + hold_time_);
     velocity = target_velocity_ * (1.0 - (ramp_down_elapsed / ramp_down_time_));
+  } else {
+    // Phase 4: Down hold - hold at 0
+    velocity = 0.0;
   }
 
   auto msg = std::make_unique<ackermann_msgs::msg::AckermannDriveStamped>();
@@ -199,6 +210,15 @@ rcl_interfaces::msg::SetParametersResult AckermannVelocityTrapezoidNode::on_set_
       } else {
         ramp_down_time_ = val;
         RCLCPP_INFO(this->get_logger(), "Updated ramp_down_time to %.2f", ramp_down_time_);
+      }
+    } else if (param.get_name() == "down_hold_time") {
+      double val = param.as_double();
+      if (val < 0.0) {
+        result.successful = false;
+        result.reason = "Down hold time must be >= 0";
+      } else {
+        down_hold_time_ = val;
+        RCLCPP_INFO(this->get_logger(), "Updated down_hold_time to %.2f", down_hold_time_);
       }
     } else if (param.get_name() == "publish_rate") {
       double val = param.as_double();
