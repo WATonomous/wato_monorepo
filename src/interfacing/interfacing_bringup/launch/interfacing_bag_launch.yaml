@@ -33,6 +33,11 @@ launch:
       default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
+  - arg:
+      name: "can_config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
+      description: "Path to the joystick configuration file"
+
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
@@ -98,9 +103,15 @@ launch:
             - name: storage.uri
               value: "$(var bag_path)"
 
-  # CAN State Estimator Node (steering angle + velocity + odometry from CAN bus)
-  - include:
-      file: "$(find-pkg-share can_state_estimator)/launch/can_state_estimator.launch.yaml"
+  # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
+  - node:
+      pkg: can_state_estimator
+      exec: can_state_estimator_node
+      name: can_state_estimator_node
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(var can_config_file)"
 
   - node:
       pkg: wato_lifecycle_manager
@@ -112,10 +123,10 @@ launch:
           value:
             - /interfacing/can_state_estimator_node
         - name: autostart
-          value: $(var autostart)
+          value: true
         - name: transition_timeout_s
           value: 10.0
         - name: bond_timeout_s
           value: 4.0
         - name: bond_enabled
-          value: $(var bond_enabled)
+          value: false
