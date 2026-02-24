@@ -1,0 +1,14 @@
+Multi thread started 
+lidar_type: 2
+Skip-init mode: will use provided extrinsic and refine with FAST-LIO2.
+  R_LI (deg):  1.90958 0.482237  95.4325
+  T_LI (m):   -0.138885   1.07082   2.29103
+  Time lag:   -0.050064 s
+~~~~/ws/src/interfacing/calibration/LiDAR_IMU_Init_ROS2/ doesn't exist
+[2m2026-02-24T20:44:37.222528Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(13) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+Compute offset time using constant rotation model.
+LI-Init not ready, no points stored.Compute offset time using constant rotation model.
+[2m2026-02-24T20:44:37.293795Z[0m [33m WARN[0m   Watchdog Validator ThreadId(14) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+catch sig %d2
+catch sig %d2
+[INFO] [1771965877.479983282] [rclcpp]: signal_handler(signum=15)

@@ -128,6 +128,8 @@ private:
   bool velocity_meas_received_{false};
 
   rclcpp::Time last_time_;
+  double steering_output_prev_{0.0};
+  double steering_slew_rate_{2.0};
 };
 
 }  // namespace pid_control
