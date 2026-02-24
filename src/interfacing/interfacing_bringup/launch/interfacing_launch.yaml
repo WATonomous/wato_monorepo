@@ -22,6 +22,11 @@ launch:
       default: "false"
       description: "Enable bond-based crash detection"
 
+  - arg:
+      name: "config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
+      description: "Path to the joystick configuration file"
+
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
