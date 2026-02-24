@@ -1,0 +1,48 @@
+laser_mapping:
+  ros__parameters:
+    common:
+        lid_topic:  "/lidar_cc/velodyne_points"
+        imu_topic:  "/novatel/oem7/imu/data_raw"
+
+    preprocess:
+        lidar_type: 2                # Velodyne LiDAR
+        scan_line: 32                # VLP-32C
+        blind: 2.0
+        feature_extract_en: false
+
+    initialization:
+        cut_frame_num: 3 # must be positive integer
+        orig_odom_freq: 20
+        mean_acc_norm: 9.81 # 1: for livox built-in IMU
+        online_refine_time: 60.0
+        data_accum_length: 60.0
+        Rot_LI_cov: [ 0.00005, 0.00005, 0.00005 ]
+        Trans_LI_cov: [ 0.0001, 0.0001, 0.0001 ]
+        # Skip initialization and use provided extrinsic (set to true to enable)
+        skip_init: true
+        # R_LI as rpy in radians (coordinate transform from LiDAR to IMU)
+        init_rpy_LI: [ 0.000308, -0.010973, 1.678464 ]
+        # T_LI as xyz in meters (LiDAR origin in IMU frame)
+        init_xyz_LI: [ -0.160071, 0.803362, 1.452150 ]
+        # Time lag IMU wrt LiDAR in seconds
+        init_time_lag: -0.050064
+
+    mapping:
+        filter_size_surf: 0.5
+        filter_size_map: 0.5
+        gyr_cov: 0.5
+        acc_cov: 0.5
+        b_acc_cov: 0.0001
+        b_gyr_cov: 0.0001
+        det_range: 100.0
+
+    publish:
+        path_en:  true
+        scan_publish_en:  true       # false: close all the point cloud output
+        dense_publish_en: true       # false: low down the points number in a global-frame point clouds scan.
+        scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+
+    pcd_save:
+        pcd_save_en: false
+        interval: -1                 # how many LiDAR frames saved in each pcd file; 
+                                 # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
