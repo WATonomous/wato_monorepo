@@ -14,6 +14,7 @@ watod-config.local.sh
 watod-config.sh
 
 bags/
+!bags/.gitkeep
 build/
 install/
 log/
