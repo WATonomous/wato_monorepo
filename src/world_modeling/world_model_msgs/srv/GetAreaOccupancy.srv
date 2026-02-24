@@ -1,0 +1,6 @@
+# GetAreaOccupancy.srv
+# Service to retrieve current area occupancy snapshot.
+
+---
+std_msgs/Header header
+AreaOccupancyInfo[] areas

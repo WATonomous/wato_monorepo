@@ -1,0 +1,95 @@
+---
+launch:
+  - arg:
+      name: "autostart"
+      default: "true"
+      description: "Automatically configure and activate managed nodes"
+
+  - arg:
+      name: "bond_enabled"
+      default: "false"
+      description: "Enable bond-based crash detection"
+
+  - arg:
+      name: "config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/velocity_dummy.yaml"
+      description: "Path to the velocity dummy configuration file"
+
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
+  # Velocity Dummy
+  - node:
+      pkg: dummy_ackermann
+      exec: ackermann_velocity_trapezoid_node
+      name: ackermann_velocity_trapezoid
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(var config_file)"
+
+  # Joystick hardware node (publishes joy messages from physical joystick)
+  - node:
+      pkg: "joy"
+      exec: "joy_node"
+      name: "joy_node"
+      namespace: "interfacing"
+      param:
+        - from: "$(var config_file)"
+
+  # Joystick interfacing node (converts joy to joystick/ackermann)
+  - node:
+      pkg: "joystick_interfacing"
+      exec: "joystick_interfacing_node"
+      name: "joystick_node"
+      namespace: "interfacing"
+      output: "screen"
+      ros_args: "--log-level warn"
+      param:
+        - from: "$(var config_file)"
+
+  # PID Control Node
+  - node:
+      pkg: "pid_control"
+      exec: "pid_control_node"
+      name: "pid_control_node"
+      namespace: "interfacing"
+      output: "screen"
+      remap:
+        - from: "steering_feedback"
+          to: "can_state_estimator/steering_angle"
+        - from: "velocity_feedback"
+          to: "can_state_estimator/body_velocity"
+      param:
+        - from: "$(var config_file)"
+
+  # OSCC interfacing Node (linear mode - steering disabled)
+  - node:
+      pkg: "oscc_interfacing"
+      exec: "oscc_interfacing_node"
+      name: "oscc_interfacing"
+      namespace: "interfacing"
+      param:
+        - from: "$(var config_file)"
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: interfacing_lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /interfacing/joystick_node
+            - /interfacing/pid_control_node
+            - /interfacing/ackermann_velocity_trapezoid
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)

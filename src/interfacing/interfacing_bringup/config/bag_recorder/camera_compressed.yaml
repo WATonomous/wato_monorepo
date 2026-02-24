@@ -1,0 +1,90 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Recording profile: camera_compressed
+# Records JPEG-compressed rectified camera images, GPS, and IMU (no LiDAR)
+
+bag_recorder:
+  ros__parameters:
+    record:
+      all_topics: false
+      is_discovery_disabled: false
+      compression_mode: "none"
+      topics:
+        # Compressed rectified camera images (12 cameras)
+        - /camera_pano_nn/image_rect_compressed
+        - /camera_pano_ne/image_rect_compressed
+        - /camera_pano_ee/image_rect_compressed
+        - /camera_pano_se/image_rect_compressed
+        - /camera_pano_ss/image_rect_compressed
+        - /camera_pano_sw/image_rect_compressed
+        - /camera_pano_ww/image_rect_compressed
+        - /camera_pano_nw/image_rect_compressed
+        - /camera_lower_ne/image_rect_compressed
+        - /camera_lower_se/image_rect_compressed
+        - /camera_lower_sw/image_rect_compressed
+        - /camera_lower_nw/image_rect_compressed
+        # Camera info (for calibration data)
+        - /camera_pano_nn/camera_info
+        - /camera_pano_ne/camera_info
+        - /camera_pano_ee/camera_info
+        - /camera_pano_se/camera_info
+        - /camera_pano_ss/camera_info
+        - /camera_pano_sw/camera_info
+        - /camera_pano_ww/camera_info
+        - /camera_pano_nw/camera_info
+        - /camera_lower_ne/camera_info
+        - /camera_lower_se/camera_info
+        - /camera_lower_sw/camera_info
+        - /camera_lower_nw/camera_info
+        # Novatel GPS/IMU
+        - /novatel/oem7/bestgnsspos
+        - /novatel/oem7/bestgnssvel
+        - /novatel/oem7/bestpos
+        - /novatel/oem7/bestutm
+        - /novatel/oem7/bestvel
+        - /novatel/oem7/corrimu
+        - /novatel/oem7/fix
+        - /novatel/oem7/gps
+        - /novatel/oem7/heading2
+        - /novatel/oem7/imu/data
+        - /novatel/oem7/imu/data_raw
+        - /novatel/oem7/insconfig
+        - /novatel/oem7/inspva
+        - /novatel/oem7/inspvax
+        - /novatel/oem7/insstdev
+        - /novatel/oem7/odom
+        - /novatel/oem7/odom_origin
+        - /novatel/oem7/oem7raw
+        - /novatel/oem7/ppppos
+        - /novatel/oem7/rxstatus
+        - /novatel/oem7/terrastarinfo
+        - /novatel/oem7/terrastarstatus
+        - /novatel/oem7/time
+        # OSCC Related Topics
+        - /interfacing/ackermann
+        - /interfacing/ackermann_mux/transition_event
+        - /interfacing/action/ackermann
+        - /interfacing/action/is_idle
+        - /interfacing/can_state_estimator/body_velocity
+        - /interfacing/can_state_estimator/odom
+        - /interfacing/can_state_estimator/steering_angle
+        - /interfacing/can_state_estimator_node/transition_event
+        - /interfacing/joy
+        - /interfacing/joy/set_feedback
+        - /interfacing/joystick/ackermann
+        - /interfacing/joystick/is_idle
+        - /interfacing/joystick/state
+        - /interfacing/joystick_node/transition_event
+        - /interfacing/oscc_interfacing/is_armed
+        - /interfacing/oscc_interfacing/steering_angle
+        - /interfacing/oscc_interfacing/wheel_speeds
+        - /interfacing/roscco
+        # Transforms
+        - /tf
+        - /tf_static
+
+    storage:
+      storage_id: "mcap"
+      max_bagfile_size: 21474836480  # 20 GB
+      max_cache_size: 20971520  # 20 MB (compressed data is ~10-20x smaller)

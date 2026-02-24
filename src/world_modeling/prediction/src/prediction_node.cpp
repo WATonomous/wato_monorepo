@@ -168,12 +168,7 @@ std::optional<world_model_msgs::msg::WorldObject> PredictionNode::processObject(
       pred.header.frame_id = frame_id;
       pred.conf = hypothesis.probability;
 
-      for (size_t i = 0; i < hypothesis.waypoints.size(); ++i) {
-        geometry_msgs::msg::PoseStamped ps;
-        ps.header.frame_id = frame_id;
-        ps.pose = hypothesis.waypoints[i];
-        pred.poses.push_back(ps);
-      }
+      pred.poses = hypothesis.poses;
 
       world_obj.predictions.push_back(pred);
     }

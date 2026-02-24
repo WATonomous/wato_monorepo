@@ -19,6 +19,9 @@
   <depend>diagnostic_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>geometry_msgs</depend>
 
   <test_depend>wato_test</test_depend>
 

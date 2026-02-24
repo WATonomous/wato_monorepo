@@ -9,9 +9,8 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code needed for perception build
-COPY src/perception/perception_bringup perception_bringup
-COPY src/perception/patchwork patchwork
-COPY src/perception/tracking_2d tracking_2d
+COPY src/perception perception
+COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################

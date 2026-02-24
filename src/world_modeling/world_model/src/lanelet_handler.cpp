@@ -545,14 +545,15 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getReachableLaneletsInRadius(
   return result;
 }
 
-std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(const geometry_msgs::msg::Point & point) const
+std::optional<LaneletHandler::TrafficLightMatch> LaneletHandler::findNearestTrafficLightMatch(
+  const geometry_msgs::msg::Point & point) const
 {
   if (!map_) {
     return std::nullopt;
   }
 
   double best_dist_sq = std::numeric_limits<double>::max();
-  std::optional<int64_t> best_id;
+  std::optional<TrafficLightMatch> best;
 
   for (const auto & reg_elem : map_->regulatoryElementLayer) {
     if (
@@ -562,38 +563,112 @@ std::optional<int64_t> LaneletHandler::findNearestTrafficLightRegElemId(const ge
       continue;
     }
 
-    // Check linestring-based refers (centroid)
-    for (const auto & ls : reg_elem->getParameters<lanelet::ConstLineString3d>("refers")) {
-      if (ls.empty()) {
-        continue;
-      }
-      double cx = 0, cy = 0;
+    auto refers = reg_elem->getParameters<lanelet::ConstLineString3d>("refers");
+    for (const auto & ls : refers) {
       for (const auto & pt : ls) {
-        cx += pt.x();
-        cy += pt.y();
-      }
-      cx /= ls.size();
-      cy /= ls.size();
-      double dx = cx - point.x, dy = cy - point.y;
-      double dist_sq = dx * dx + dy * dy;
-      if (dist_sq < best_dist_sq) {
-        best_dist_sq = dist_sq;
-        best_id = reg_elem->id();
-      }
-    }
-
-    // Check point-based refers
-    for (const auto & pt : reg_elem->getParameters<lanelet::ConstPoint3d>("refers")) {
-      double dx = pt.x() - point.x, dy = pt.y() - point.y;
-      double dist_sq = dx * dx + dy * dy;
-      if (dist_sq < best_dist_sq) {
-        best_dist_sq = dist_sq;
-        best_id = reg_elem->id();
+        double dx = pt.x() - point.x, dy = pt.y() - point.y;
+        double dist_sq = dx * dx + dy * dy;
+        if (dist_sq < best_dist_sq) {
+          best_dist_sq = dist_sq;
+          best = TrafficLightMatch{ls.id(), reg_elem->id()};
+        }
       }
     }
   }
 
-  return best_id;
+  return best;
+}
+
+std::optional<lanelet_msgs::msg::RegulatoryElement> LaneletHandler::getRegulatoryElementMsg(int64_t reg_elem_id) const
+{
+  if (!map_) {
+    return std::nullopt;
+  }
+
+  try {
+    auto reg_elem = map_->regulatoryElementLayer.get(reg_elem_id);
+
+    lanelet_msgs::msg::RegulatoryElement re_msg;
+    re_msg.id = reg_elem->id();
+
+    // Subtype
+    if (reg_elem->hasAttribute(lanelet::AttributeName::Subtype)) {
+      re_msg.subtype = reg_elem->attribute(lanelet::AttributeName::Subtype).value();
+    } else {
+      re_msg.subtype = "unknown";
+    }
+
+    // Referred primitives (traffic lights, signs) as Ways
+    auto refers = reg_elem->getParameters<lanelet::ConstLineString3d>("refers");
+    for (const auto & refer_ls : refers) {
+      if (!refer_ls.empty()) {
+        lanelet_msgs::msg::Way way_msg;
+        way_msg.id = refer_ls.id();
+        for (const auto & pt : refer_ls) {
+          geometry_msgs::msg::Point p;
+          p.x = pt.x();
+          p.y = pt.y();
+          p.z = pt.z();
+          way_msg.points.push_back(p);
+        }
+        re_msg.refers.push_back(way_msg);
+      }
+    }
+
+    // Point-based refers
+    auto refers_points = reg_elem->getParameters<lanelet::ConstPoint3d>("refers");
+    for (const auto & pt : refers_points) {
+      lanelet_msgs::msg::Way way_msg;
+      way_msg.id = pt.id();
+      geometry_msgs::msg::Point p;
+      p.x = pt.x();
+      p.y = pt.y();
+      p.z = pt.z();
+      way_msg.points.push_back(p);
+      re_msg.refers.push_back(way_msg);
+    }
+
+    // Reference lines (stop lines) — no lanelet context
+    auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
+    for (const auto & ref_ls : ref_lines) {
+      lanelet_msgs::msg::LaneletWay lanelet_way_msg;
+      lanelet_way_msg.way.id = ref_ls.id();
+
+      for (const auto & pt : ref_ls) {
+        geometry_msgs::msg::Point p;
+        p.x = pt.x();
+        p.y = pt.y();
+        p.z = pt.z();
+        lanelet_way_msg.way.points.push_back(p);
+      }
+
+      if (!lanelet_way_msg.way.points.empty()) {
+        re_msg.ref_lines.push_back(lanelet_way_msg);
+      }
+    }
+
+    // Yield relationships for right_of_way elements
+    if (re_msg.subtype == "right_of_way") {
+      auto yield_lanelets = reg_elem->getParameters<lanelet::ConstLanelet>("yield");
+      for (const auto & yield_ll : yield_lanelets) {
+        re_msg.yield_lanelet_ids.push_back(yield_ll.id());
+      }
+      auto row_lanelets = reg_elem->getParameters<lanelet::ConstLanelet>("right_of_way");
+      for (const auto & row_ll : row_lanelets) {
+        re_msg.right_of_way_lanelet_ids.push_back(row_ll.id());
+      }
+    }
+
+    // Generic attributes
+    for (const auto & attr : reg_elem->attributes()) {
+      re_msg.attribute_keys.push_back(attr.first);
+      re_msg.attribute_values.push_back(attr.second.value());
+    }
+
+    return re_msg;
+  } catch (const std::exception &) {
+    return std::nullopt;
+  }
 }
 
 lanelet_msgs::srv::GetLaneletsByRegElem::Response LaneletHandler::getLaneletsByRegElem(int64_t reg_elem_id) const
@@ -750,6 +825,12 @@ void LaneletHandler::populateLaneletConnectivity(
     msg.right_lane_id = -1;
     msg.can_change_right = false;
   }
+
+  // Conflicting lanelets (paths that cross this lanelet, e.g. at intersections)
+  auto conflicting = routing_graph_->conflicting(ll);
+  for (const auto & conf : conflicting) {
+    msg.conflicting_lanelet_ids.push_back(conf.id());
+  }
 }
 
 void LaneletHandler::populateLaneletRegulatoryElements(
@@ -775,97 +856,53 @@ void LaneletHandler::populateLaneletRegulatoryElements(
       re_msg.subtype = "unknown";
     }
 
-    // Extract referred geometry positions (traffic lights, signs)
+    // Referred primitives (traffic lights, signs) as Ways
     auto refers = reg_elem->getParameters<lanelet::ConstLineString3d>("refers");
     for (const auto & refer_ls : refers) {
-      // Use centroid of the linestring as position
       if (!refer_ls.empty()) {
-        double x = 0, y = 0, z = 0;
+        lanelet_msgs::msg::Way way_msg;
+        way_msg.id = refer_ls.id();
         for (const auto & pt : refer_ls) {
-          x += pt.x();
-          y += pt.y();
-          z += pt.z();
+          geometry_msgs::msg::Point p;
+          p.x = pt.x();
+          p.y = pt.y();
+          p.z = pt.z();
+          way_msg.points.push_back(p);
         }
-        geometry_msgs::msg::Point p;
-        p.x = x / refer_ls.size();
-        p.y = y / refer_ls.size();
-        p.z = z / refer_ls.size();
-        re_msg.refers_positions.push_back(p);
+        re_msg.refers.push_back(way_msg);
       }
     }
 
-    // Also check for point-based refers
+    // Point-based refers
     auto refers_points = reg_elem->getParameters<lanelet::ConstPoint3d>("refers");
     for (const auto & pt : refers_points) {
+      lanelet_msgs::msg::Way way_msg;
+      way_msg.id = pt.id();
       geometry_msgs::msg::Point p;
       p.x = pt.x();
       p.y = pt.y();
       p.z = pt.z();
-      re_msg.refers_positions.push_back(p);
+      way_msg.points.push_back(p);
+      re_msg.refers.push_back(way_msg);
     }
 
-    // Extract reference lines (stop lines)
+    // Reference lines (stop lines) with lanelet association
     auto ref_lines = reg_elem->getParameters<lanelet::ConstLineString3d>("ref_line");
     for (const auto & ref_ls : ref_lines) {
-      lanelet_msgs::msg::RefLine ref_line_msg;
-
-      // Calculate distance along lanelet centerline to the ref_line (stop line)
-      auto centerline = ll.centerline2d();
-      if (centerline.size() >= 2 && !ref_ls.empty()) {
-        // Compute centroid of the ref_line
-        double ref_cx = 0.0, ref_cy = 0.0;
-        for (const auto & pt : ref_ls) {
-          ref_cx += pt.x();
-          ref_cy += pt.y();
-        }
-        ref_cx /= static_cast<double>(ref_ls.size());
-        ref_cy /= static_cast<double>(ref_ls.size());
-
-        // Find the closest point on the centerline and compute arc length to it
-        double min_dist_sq = std::numeric_limits<double>::max();
-        double best_arc_length = 0.0;
-        double accumulated_length = 0.0;
-
-        for (size_t i = 0; i + 1 < centerline.size(); ++i) {
-          double ax = centerline[i].x(), ay = centerline[i].y();
-          double bx = centerline[i + 1].x(), by = centerline[i + 1].y();
-          double dx = bx - ax, dy = by - ay;
-          double seg_len_sq = dx * dx + dy * dy;
-
-          // Project ref_line centroid onto this centerline segment
-          double t = 0.0;
-          if (seg_len_sq > 1e-12) {
-            t = ((ref_cx - ax) * dx + (ref_cy - ay) * dy) / seg_len_sq;
-            t = std::clamp(t, 0.0, 1.0);
-          }
-
-          double proj_x = ax + t * dx;
-          double proj_y = ay + t * dy;
-          double dist_sq = (ref_cx - proj_x) * (ref_cx - proj_x) + (ref_cy - proj_y) * (ref_cy - proj_y);
-
-          if (dist_sq < min_dist_sq) {
-            min_dist_sq = dist_sq;
-            best_arc_length = accumulated_length + t * std::sqrt(seg_len_sq);
-          }
-
-          accumulated_length += std::sqrt(seg_len_sq);
-        }
-
-        ref_line_msg.distance_along_lanelet_m = best_arc_length;
-      } else {
-        ref_line_msg.distance_along_lanelet_m = 0.0;
-      }
+      lanelet_msgs::msg::LaneletWay lanelet_way_msg;
+      lanelet_way_msg.way.id = ref_ls.id();
+      lanelet_way_msg.lanelet_ids.push_back(ll.id());
 
       for (const auto & pt : ref_ls) {
         geometry_msgs::msg::Point p;
         p.x = pt.x();
         p.y = pt.y();
         p.z = pt.z();
-        ref_line_msg.points.push_back(p);
+        lanelet_way_msg.way.points.push_back(p);
       }
 
-      if (!ref_line_msg.points.empty()) {
-        re_msg.ref_lines.push_back(ref_line_msg);
+      if (!lanelet_way_msg.way.points.empty()) {
+        re_msg.ref_lines.push_back(lanelet_way_msg);
       }
     }
 

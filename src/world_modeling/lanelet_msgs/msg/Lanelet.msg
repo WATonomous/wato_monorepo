@@ -57,5 +57,8 @@ int64 right_lane_id
 # Successor lanelet IDs (what comes after this lanelet)
 int64[] successor_ids
 
+# Conflicting lanelet IDs (lanelets whose paths cross this one, e.g. at intersections)
+int64[] conflicting_lanelet_ids
+
 # Regulatory Elements (generic array - check subtype for specific types)
 RegulatoryElement[] regulatory_elements

@@ -28,7 +28,7 @@ class TestLocalizationNode:
             "role_name": "ego_vehicle",
             "map_frame": "map",
             "odom_frame": "odom",
-            "base_link_frame": "base_link",
+            "base_frame": "base_footprint",
             "publish_rate": 50.0,
         }
 
@@ -36,7 +36,7 @@ class TestLocalizationNode:
         assert defaults["carla_port"] == 2000
         assert defaults["map_frame"] == "map"
         assert defaults["odom_frame"] == "odom"
-        assert defaults["base_link_frame"] == "base_link"
+        assert defaults["base_frame"] == "base_footprint"
         assert defaults["publish_rate"] == 50.0
 
     def test_publish_rate_to_period(self):
@@ -86,19 +86,19 @@ class TestFrameHierarchy:
         """Test standard frame names."""
         map_frame = "map"
         odom_frame = "odom"
-        base_link_frame = "base_link"
+        base_frame = "base_footprint"
 
-        # Standard ROS frame hierarchy: map -> odom -> base_link
+        # Standard ROS frame hierarchy: map -> odom -> base_footprint
         assert map_frame == "map"
         assert odom_frame == "odom"
-        assert base_link_frame == "base_link"
+        assert base_frame == "base_footprint"
 
     def test_transform_chain(self):
         """Test transform chain is correct."""
         # map -> odom (static identity for ground truth)
-        # odom -> base_link (vehicle pose)
-        frames = ["map", "odom", "base_link"]
+        # odom -> base_footprint (vehicle pose)
+        frames = ["map", "odom", "base_footprint"]
 
         assert len(frames) == 3
         assert frames[0] == "map"
-        assert frames[-1] == "base_link"
+        assert frames[-1] == "base_footprint"
