@@ -43,3 +43,17 @@
     qos_publisher_reliability: "reliable"      # Options: "reliable", "best_effort"
     qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
     qos_publisher_depth: 10                    # Queue depth for outgoing messages
+
+
+# =============================================================================
+# Multi-Object Tracking Node
+# =============================================================================
+/**/tracking_node:
+  ros__parameters:
+    frame_rate: 30
+    track_buffer: 30
+    track_thresh: 0.5
+    high_thresh: 0.6
+    match_thresh: 0.8
+    use_maj_cls: true
+    output_frame: "map"

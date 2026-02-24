@@ -1,4 +1,17 @@
 #!/bin/bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Iterative LiDAR-IMU calibration refinement script
 # Runs N successive skip_init calibrations, each using the previous result as initial guess.
 # Results are logged to a CSV file for post-processing.
@@ -10,10 +23,10 @@ BAG_DIR="/ws/bags/recording_20260224_011359"
 BAG_FILES=(
     "$BAG_DIR/recording_20260224_011359_0.mcap"
 )
-TOPICS="/lidar_cc/velodyne_points /novatel/oem7/imu/data_raw"
+TOPICS="/lidar_cc/velodyne_points /novatel/oem7/imu/data"
 YAML_FILE="/ws/install/lidar_imu_init/share/lidar_imu_init/config/velodyne.yaml"
-RESULTS_CSV="/ws/scripts/calibration_results.csv"
-LOG_DIR="/ws/scripts/calibration_logs"
+RESULTS_CSV="/ws/src/interfacing/calibration/LiDAR_IMU_Init_ROS2/scripts/calibration_results.csv"
+LOG_DIR="/ws/src/interfacing/calibration/LiDAR_IMU_Init_ROS2/scripts/calibration_logs"
 
 mkdir -p "$LOG_DIR"
 
