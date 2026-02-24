@@ -22,6 +22,9 @@ alias l='ls -CF'
 # Source ROS2 environment
 source /opt/ros/${ROS_DISTRO}/setup.bash
 
+# Allow ANSI color codes in ROS2 log output
+export RCUTILS_COLORIZED_OUTPUT=1
+
 # Add ~/.local/bin to PATH
 export PATH="$HOME/.local/bin:$PATH"
 

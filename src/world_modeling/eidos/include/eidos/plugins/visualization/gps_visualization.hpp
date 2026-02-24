@@ -24,8 +24,8 @@ private:
 
   bool active_ = false;
   std::string gps_from_;
-  std::string map_frame_ = "map";
-  double marker_scale_ = 1.0;
+  std::string map_frame_;
+  double marker_scale_;
 };
 
 }  // namespace eidos

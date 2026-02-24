@@ -129,6 +129,17 @@ void GpsFactor::reset() {
 }
 
 // ---------------------------------------------------------------------------
+// isReady - ready when at least 1 valid NavSatFix received
+// ---------------------------------------------------------------------------
+bool GpsFactor::isReady() const {
+  return gps_received_;
+}
+
+std::string GpsFactor::getReadyStatus() const {
+  return gps_received_ ? "fix acquired" : "no NavSatFix received";
+}
+
+// ---------------------------------------------------------------------------
 // processFrame - GPS does not provide a pose estimate
 // ---------------------------------------------------------------------------
 std::optional<gtsam::Pose3> GpsFactor::processFrame(double /*timestamp*/) {
@@ -335,6 +346,9 @@ void GpsFactor::broadcastUtmToMap() {
 void GpsFactor::gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg) {
   std::lock_guard<std::mutex> lock(gps_lock_);
   gps_queue_.push_back(*msg);
+  if (!gps_received_) {
+    gps_received_ = true;
+  }
 }
 
 }  // namespace eidos

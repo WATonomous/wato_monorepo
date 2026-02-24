@@ -1,15 +1,25 @@
 <?xml version="1.0"?>
 <robot name="eve_kia_soul_ev" xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <!-- Base link (root of the robot) -->
+  <!-- Base footprint (root of the robot, on the ground plane) -->
+  <link name="base_footprint"/>
+
+  <!-- Base link (roof frame, 1.76m above ground) -->
   <link name="base_link"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 1.76" rpy="0 0 0"/>
+  </joint>
 
   <!-- Include chassis -->
   <xacro:include filename="eve_chassis.xacro"/>
 
-  <!-- Instantiate chassis with position relative to base_link -->
-  <xacro:chassis parent="base_link">
-    <origin xyz="-0.8629 0 -1.76" rpy="0 0 0"/>
+  <!-- Instantiate chassis with position relative to base_footprint -->
+  <!-- x: rear axle is 0.8629m behind sensor mast -->
+  <xacro:chassis parent="base_footprint">
+    <origin xyz="-0.8629 0 0" rpy="0 0 0"/>
   </xacro:chassis>
 
   <!-- Include roof mount and sensors -->
@@ -19,7 +29,7 @@
   <xacro:roof_mount
     parent="base_link"
     imu_xyz="-0.973762 -0.033626 -1.316802"
-    imu_rpy="-0.006167 0.042198 -1.653916"/>
+    imu_rpy="-0.006167 0.042198 -0.083116"/>
 
   <!-- Nominal lower camera extrinsics (placeholder values; update once measured) -->
   <xacro:lower_cameras parent="base_link"/>
@@ -29,11 +39,11 @@
   <xacro:include filename="eve_mirror_mount_ne.xacro"/>
 
   <xacro:mirror_mount_ne parent="lidar_cc">
-    <origin xyz="0.924884 -0.972881 -0.840734" rpy="0.017163 0.108708 -0.580009"/>
+    <origin xyz="0.944015 -0.939612 -0.842884" rpy="-0.038481 0.104171 -0.584697"/>
   </xacro:mirror_mount_ne>
 
   <xacro:mirror_mount_nw parent="lidar_cc">
-    <origin xyz="1.102008 0.748385 -0.824361" rpy="0.049416 0.068287 0.246267"/>
+    <origin xyz="1.072228 0.817496 -0.820133" rpy="0.064777 0.052500 0.247888"/>
   </xacro:mirror_mount_nw>
 
 </robot>

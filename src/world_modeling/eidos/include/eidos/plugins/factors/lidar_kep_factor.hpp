@@ -44,6 +44,8 @@ public:
       int state_index, const gtsam::Pose3& state_pose, double timestamp) override;
   void onOptimizationComplete(
       const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+  bool isReady() const override;
+  std::string getReadyStatus() const override;
 
 private:
   // ---- Local map assembly (moved from MapManager) ----
@@ -85,7 +87,7 @@ private:
   std::deque<sensor_msgs::msg::PointCloud2> cloud_queue_;
   std::deque<sensor_msgs::msg::Imu> imu_queue_;
   std::mutex imu_lock_;
-  std::mutex cloud_lock_;
+  mutable std::mutex cloud_lock_;
 
   // ---- Point clouds ----
   pcl::PointCloud<PointXYZIRT>::Ptr laser_cloud_in_;
@@ -162,28 +164,28 @@ private:
   bool new_data_available_ = false;
   bool active_ = false;
 
-  // ---- Parameters ----
-  SensorType sensor_type_ = SensorType::VELODYNE;
-  int n_scan_ = 32;
-  int horizon_scan_ = 1800;
-  float min_range_ = 1.0;
-  float max_range_ = 100.0;
-  float edge_threshold_ = 1.0;
-  float surf_threshold_ = 0.1;
-  float odom_surf_leaf_size_ = 0.4;
-  float mapping_corner_leaf_size_ = 0.2;
-  float mapping_surf_leaf_size_ = 0.4;
-  int ring_flag_ = 0;
-  int deskew_flag_ = 0;
-  float keyframe_search_radius_ = 50.0;
-  float keyframe_density_ = 2.0;
-  float recent_keyframe_window_ = 10.0;  // seconds
-  size_t map_cache_max_size_ = 1000;
-  float occlusion_depth_diff_ = 0.3;
-  float parallel_beam_ratio_ = 0.02;
-  double odom_rot_noise_ = 1e-6;
-  double odom_trans_noise_ = 1e-4;
-  double imu_time_margin_ = 0.01;
+  // ---- Parameters (populated from ROS params in onInitialize) ----
+  SensorType sensor_type_;
+  int n_scan_;
+  int horizon_scan_;
+  float min_range_;
+  float max_range_;
+  float edge_threshold_;
+  float surf_threshold_;
+  float odom_surf_leaf_size_;
+  float mapping_corner_leaf_size_;
+  float mapping_surf_leaf_size_;
+  int ring_flag_;
+  int deskew_flag_;
+  float keyframe_search_radius_;
+  float keyframe_density_;
+  float recent_keyframe_window_;
+  size_t map_cache_max_size_;
+  float occlusion_depth_diff_;
+  float parallel_beam_ratio_;
+  double odom_rot_noise_;
+  double odom_trans_noise_;
+  double imu_time_margin_;
 
   // IMU-to-lidar extrinsic transform (looked up from TF: lidar_frame_ <- imu_frame_)
   tf2::Transform t_lidar_imu_;

@@ -70,7 +70,7 @@ using PoseType = PointXYZIRPYT;
 enum class SensorType { VELODYNE, OUSTER, LIVOX };
 
 // SLAM state machine
-enum class SlamState { INITIALIZING, RELOCALIZING, TRACKING };
+enum class SlamState { INITIALIZING, WARMING_UP, RELOCALIZING, TRACKING };
 
 // Utility: compute distance of a single point from origin
 inline float pointDistance(const PointType& p) {

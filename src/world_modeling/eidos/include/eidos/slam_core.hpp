@@ -60,9 +60,11 @@ private:
   // ---- SLAM loop ----
   void slamLoop();
   void handleInitializing();
+  void handleWarmingUp(double timestamp);
   void handleRelocalizing(double timestamp);
   void handleTracking(double timestamp, bool& run_vis,
                       gtsam::Values& vis_values, bool& vis_loop_closure);
+  void beginTracking(const gtsam::Pose3& initial_pose, double timestamp);
 
   // ---- Plugin management ----
   void loadFactorPlugins();
@@ -121,18 +123,18 @@ private:
   // ---- Path ----
   nav_msgs::msg::Path global_path_;
 
-  // ---- Parameters ----
-  double slam_rate_ = 10.0;
-  double max_displacement_ = 1.0;
-  double max_rotation_ = 0.2;
-  double relocalization_timeout_ = 30.0;
-  std::string map_frame_ = "map";
-  std::string odom_frame_ = "odom";
-  std::string base_link_frame_ = "base_link";
+  // ---- Parameters (populated from ROS params in onConfigure) ----
+  double slam_rate_;
+  double max_displacement_;
+  double max_rotation_;
+  double relocalization_timeout_;
+  std::string map_frame_;
+  std::string odom_frame_;
+  std::string base_link_frame_;
 
   // Keyframe parameters
-  float keyframe_density_ = 2.0;
-  float keyframe_search_radius_ = 50.0;
+  float keyframe_density_;
+  float keyframe_search_radius_;
 
   // Map parameters
   std::string map_load_directory_;

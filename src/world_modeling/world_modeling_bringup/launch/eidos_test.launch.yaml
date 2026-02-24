@@ -4,6 +4,7 @@ launch:
       default: $(find-pkg-share world_modeling_bringup)/config/eidos.yaml
       description: Path to the eidos parameter file
 
+  # Just Eidos
   - node:
       pkg: eidos
       exec: eidos_node
@@ -11,6 +12,12 @@ launch:
       output: screen
       param:
         - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: true
+
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
 
   # Lifecycle Manager
   - node:

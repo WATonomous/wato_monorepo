@@ -38,6 +38,8 @@ public:
       int state_index, const gtsam::Pose3& state_pose, double timestamp) override;
   void onOptimizationComplete(
       const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+  bool isReady() const override;
+  std::string getReadyStatus() const override;
 
 private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
@@ -52,6 +54,7 @@ private:
   PointType last_gps_point_;
   bool has_last_gps_ = false;
   bool active_ = false;
+  bool gps_received_ = false;
 
   // UTM → map transform (pure translation)
   Eigen::Vector3d utm_to_map_translation_ = Eigen::Vector3d::Zero();
@@ -63,13 +66,13 @@ private:
   std::string map_frame_ = "map";
   std::string utm_frame_ = "utm";
 
-  // Parameters
-  float cov_threshold_ = 2.0;
-  bool use_elevation_ = false;
-  float min_trajectory_length_ = 5.0;
-  float gps_time_tolerance_ = 0.2;
-  float min_gps_movement_ = 5.0;
-  double min_noise_variance_ = 1.0;
+  // Parameters (populated from ROS params in onInitialize)
+  float cov_threshold_;
+  bool use_elevation_;
+  float min_trajectory_length_;
+  float gps_time_tolerance_;
+  float min_gps_movement_;
+  double min_noise_variance_;
 };
 
 }  // namespace eidos

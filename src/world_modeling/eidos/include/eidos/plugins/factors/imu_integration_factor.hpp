@@ -10,7 +10,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_ros/transform_broadcaster.h>
-#include <tf2/LinearMath/Transform.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <Eigen/Geometry>
 
@@ -30,8 +30,8 @@ namespace eidos {
  * @brief IMU preintegration factor plugin.
  *
  * Runs its own internal ISAM2 optimizer to estimate IMU biases using
- * lidar pose corrections (like LIO-SAM). Publishes high-rate IMU
- * odometry and TF from the IMU callback.
+ * graph-optimized pose corrections. Publishes high-rate IMU odometry
+ * and TF from the IMU callback.
  */
 class ImuIntegrationFactor : public FactorPlugin {
 public:
@@ -48,6 +48,8 @@ public:
       int state_index, const gtsam::Pose3& state_pose, double timestamp) override;
   void onOptimizationComplete(
       const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+  bool isReady() const override;
+  std::string getReadyStatus() const override;
 
 private:
   // ---- Callbacks ----
@@ -70,14 +72,22 @@ private:
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   // ---- Transform fusion state ----
-  Eigen::Isometry3d lidar_odom_affine_ = Eigen::Isometry3d::Identity();
-  double lidar_odom_time_ = -1;
+  Eigen::Isometry3d graph_odom_affine_ = Eigen::Isometry3d::Identity();
+  double graph_odom_time_ = -1;
   std::deque<nav_msgs::msg::Odometry> imu_odom_queue_;
 
   // ---- IMU buffers (two queues like LIO-SAM) ----
   std::deque<sensor_msgs::msg::Imu> imu_queue_opt_;
   std::deque<sensor_msgs::msg::Imu> imu_queue_imu_;
-  std::mutex imu_lock_;
+  mutable std::mutex imu_lock_;
+
+  // ---- Stationary detection ----
+  //  The callback maintains a sliding window and publishes computed RMS values.
+  //  isReady() / getReadyStatus() only read atomics — no lock needed.
+  std::deque<sensor_msgs::msg::Imu> stationary_buffer_;  // callback-only, no lock needed
+  std::atomic<double> stationary_acc_rms_{0.0};
+  std::atomic<double> stationary_gyr_rms_{0.0};
+  std::atomic<int> stationary_count_{0};
 
   // ---- GTSAM preintegration (two integrators like LIO-SAM) ----
   boost::shared_ptr<gtsam::PreintegrationParams> preint_params_;
@@ -107,10 +117,6 @@ private:
   gtsam::NavState prev_state_odom_;
   gtsam::imuBias::ConstantBias prev_bias_odom_;
 
-  // IMU-base_link transforms (populated from TF in activate)
-  gtsam::Pose3 imu_to_base_;
-  gtsam::Pose3 base_to_imu_;
-
   // Internal optimizer key counter
   int key_ = 1;
   bool done_first_opt_ = false;
@@ -124,28 +130,37 @@ private:
   bool has_imu_pose_ = false;
   std::mutex imu_pose_lock_;
 
-  // ---- Parameters ----
-  double acc_noise_ = 3.9939570888238808e-03;
-  double gyr_noise_ = 1.5636343949698187e-03;
-  double acc_bias_noise_ = 6.4356659353532566e-05;
-  double gyr_bias_noise_ = 3.5640318696367613e-05;
-  double gravity_ = 9.80511;
-  double integration_noise_ = 1e-4;
-  double prior_pose_sigma_ = 1e-2;
-  double prior_vel_sigma_ = 1e4;
-  double prior_bias_sigma_ = 1e-3;
-  double correction_rot_sigma_ = 0.05;
-  double correction_trans_sigma_ = 0.1;
-  double correction_degrade_sigma_ = 1.0;
-  double isam2_relinearize_threshold_ = 0.1;
-  double max_velocity_ = 30.0;
-  double max_bias_norm_ = 1.0;
-  double default_imu_dt_ = 1.0 / 500.0;
-  double quaternion_norm_threshold_ = 0.1;
-  int graph_reset_interval_ = 100;
+  // ---- Main graph odometry (BetweenFactor) ----
+  gtsam::Pose3 last_graph_pose_;
+  bool has_last_graph_pose_ = false;
+  double odom_rot_noise_;
+  double odom_trans_noise_;
 
-  // IMU-to-base_link extrinsic transform (looked up from TF: base_link_frame_ <- imu_frame_)
-  tf2::Transform t_base_imu_;
+  // ---- Parameters (populated from ROS params in onInitialize) ----
+  double acc_noise_;
+  double gyr_noise_;
+  double acc_bias_noise_;
+  double gyr_bias_noise_;
+  double gravity_;
+  double integration_noise_;
+  double prior_pose_sigma_;
+  double prior_vel_sigma_;
+  double prior_bias_sigma_;
+  double correction_rot_sigma_;
+  double correction_trans_sigma_;
+  double correction_degrade_sigma_;
+  double isam2_relinearize_threshold_;
+  double max_velocity_;
+  double max_bias_norm_;
+  double default_imu_dt_;
+  double quaternion_norm_threshold_;
+  int graph_reset_interval_;
+  double stationary_acc_threshold_;
+  double stationary_gyr_threshold_;
+  int stationary_samples_;
+
+  // Cached static TF: imu_frame_ → base_link_frame_ (looked up once in activate())
+  geometry_msgs::msg::TransformStamped tf_imu_to_base_msg_;
   bool extrinsics_resolved_ = false;
 
   // Frame names

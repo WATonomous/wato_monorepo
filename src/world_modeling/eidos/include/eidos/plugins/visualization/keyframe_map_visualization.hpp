@@ -24,9 +24,9 @@ private:
 
   bool active_ = false;
   std::string pointcloud_from_;
-  std::string map_frame_ = "map";
-  float voxel_leaf_size_ = 0.4f;
-  double publish_rate_ = 1.0;
+  std::string map_frame_;
+  float voxel_leaf_size_;
+  double publish_rate_;
   rclcpp::Time last_publish_time_{0, 0, RCL_ROS_TIME};
 };
 

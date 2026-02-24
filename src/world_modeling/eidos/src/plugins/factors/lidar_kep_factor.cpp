@@ -254,11 +254,28 @@ void LidarKEPFactor::reset() {
 }
 
 // ---------------------------------------------------------------------------
+// isReady - ready when at least 3 point clouds buffered
+// ---------------------------------------------------------------------------
+bool LidarKEPFactor::isReady() const {
+  std::lock_guard<std::mutex> lock(cloud_lock_);
+  return cloud_queue_.size() >= 3;
+}
+
+std::string LidarKEPFactor::getReadyStatus() const {
+  std::lock_guard<std::mutex> lock(cloud_lock_);
+  return "clouds buffered: " + std::to_string(cloud_queue_.size()) + "/3";
+}
+
+// ---------------------------------------------------------------------------
 // Callbacks
 // ---------------------------------------------------------------------------
 void LidarKEPFactor::pointCloudCallback(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
   std::lock_guard<std::mutex> lock(cloud_lock_);
+  if (cloud_queue_.empty()) {
+    RCLCPP_INFO(node_->get_logger(), "[%s] first point cloud received (stamp: %.3f)",
+        name_.c_str(), rclcpp::Time(msg->header.stamp).seconds());
+  }
   cloud_queue_.push_back(*msg);
 }
 
@@ -272,6 +289,10 @@ void LidarKEPFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
 
   sensor_msgs::msg::Imu imu_converted = imuConverter(*msg);
   std::lock_guard<std::mutex> lock(imu_lock_);
+  if (imu_queue_.empty()) {
+    RCLCPP_INFO(node_->get_logger(), "[%s] first IMU message received (stamp: %.3f)",
+        name_.c_str(), rclcpp::Time(msg->header.stamp).seconds());
+  }
   imu_queue_.push_back(imu_converted);
 }
 
@@ -308,7 +329,11 @@ std::optional<gtsam::Pose3> LidarKEPFactor::processFrame(double /*timestamp*/) {
   sensor_msgs::msg::PointCloud2 current_msg;
   {
     std::lock_guard<std::mutex> lock(cloud_lock_);
-    if (cloud_queue_.size() <= 2) return std::nullopt;
+    if (cloud_queue_.size() <= 2) {
+      RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+          "[%s] waiting for clouds (queue: %zu/3)", name_.c_str(), cloud_queue_.size());
+      return std::nullopt;
+    }
     current_msg = std::move(cloud_queue_.front());
     cloud_queue_.pop_front();
   }
@@ -375,7 +400,11 @@ std::optional<gtsam::Pose3> LidarKEPFactor::processFrame(double /*timestamp*/) {
   }
 
   // 2. Deskew info (get IMU data for the scan)
-  if (!deskewInfo()) return std::nullopt;
+  if (!deskewInfo()) {
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+        "[%s] deskewInfo() failed — no IMU data covering this scan", name_.c_str());
+    return std::nullopt;
+  }
 
   // 3. Project to range image
   projectPointCloud();
@@ -678,9 +707,17 @@ void LidarKEPFactor::downsampleCurrentClouds() {
 bool LidarKEPFactor::deskewInfo() {
   std::lock_guard<std::mutex> lock1(imu_lock_);
 
-  if (imu_queue_.empty() ||
-      rclcpp::Time(imu_queue_.front().header.stamp).seconds() > time_scan_cur_ ||
-      rclcpp::Time(imu_queue_.back().header.stamp).seconds() < time_scan_end_) {
+  if (imu_queue_.empty()) {
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+        "[%s] deskewInfo: no IMU data in queue", name_.c_str());
+    return false;
+  }
+  double imu_front = rclcpp::Time(imu_queue_.front().header.stamp).seconds();
+  double imu_back = rclcpp::Time(imu_queue_.back().header.stamp).seconds();
+  if (imu_front > time_scan_cur_ || imu_back < time_scan_end_) {
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+        "[%s] deskewInfo: IMU range [%.3f, %.3f] doesn't cover scan [%.3f, %.3f]",
+        name_.c_str(), imu_front, imu_back, time_scan_cur_, time_scan_end_);
     return false;
   }
 

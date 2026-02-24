@@ -87,6 +87,20 @@ public:
       double timestamp) = 0;
 
   /**
+   * @brief Returns true when the plugin has received enough data to begin SLAM.
+   * Override in plugins that need sensor warm-up (e.g. IMU, LiDAR).
+   */
+  virtual bool isReady() const { return true; }
+
+  /**
+   * @brief Returns a human-readable description of what the plugin is waiting for.
+   * Empty string means the plugin is ready. Used for warmup logging.
+   */
+  virtual std::string getReadyStatus() const {
+    return isReady() ? "" : "waiting for data";
+  }
+
+  /**
    * @brief Called after ISAM2 optimization.
    * @param optimized_values All optimized values from ISAM2.
    * @param loop_closure_detected Whether a loop closure was detected this cycle.

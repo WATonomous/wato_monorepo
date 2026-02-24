@@ -61,13 +61,13 @@ private:
   std::atomic<bool> running_{false};
   bool active_ = false;
 
-  // ---- Parameters ----
-  float frequency_ = 1.0;
-  float search_radius_ = 15.0;
-  float search_time_diff_ = 30.0;
-  int search_num_ = 25;
-  float fitness_score_ = 0.3;
-  float mapping_surf_leaf_size_ = 0.4;
+  // ---- Parameters (populated from ROS params in onInitialize) ----
+  float frequency_;
+  float search_radius_;
+  float search_time_diff_;
+  int search_num_;
+  float fitness_score_;
+  float mapping_surf_leaf_size_;
   std::string pointcloud_from_ = "lidar_kep_factor";
 };
 

@@ -97,34 +97,28 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   loadRelocalizationPlugins();
   loadVisualizationPlugins();
 
-  RCLCPP_INFO(get_logger(), "\033[1;32m----> Eidos SLAM Configured.\033[0m");
+  RCLCPP_INFO(get_logger(), "\033[36m[CONFIGURED]\033[0m Eidos SLAM configured");
   return CallbackReturn::SUCCESS;
 }
 
 SlamCore::CallbackReturn SlamCore::on_activate(
     const rclcpp_lifecycle::State&) {
-  RCLCPP_INFO(get_logger(), "Activating...");
+  RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATING]\033[0m ...");
 
   // Load prior map if configured
   if (!map_load_directory_.empty()) {
     if (map_manager_->loadMap(map_load_directory_)) {
-      RCLCPP_INFO(get_logger(), "Loaded prior map from: %s",
+      RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATING]\033[0m Loaded prior map from: %s",
                   map_load_directory_.c_str());
     } else {
-      RCLCPP_WARN(get_logger(), "Failed to load prior map from: %s",
+      RCLCPP_WARN(get_logger(), "\033[36m[ACTIVATING]\033[0m Failed to load prior map from: %s",
                   map_load_directory_.c_str());
     }
   }
 
-  // Determine initial state
-  if (!reloc_plugins_.empty() && map_manager_->hasPriorMap()) {
-    state_ = SlamState::RELOCALIZING;
-    relocalization_start_time_ = now().seconds();
-    RCLCPP_INFO(get_logger(), "Entering RELOCALIZING state");
-  } else {
-    state_ = SlamState::TRACKING;
-    RCLCPP_INFO(get_logger(), "Entering TRACKING state (fresh SLAM)");
-  }
+  // Always enter WARMING_UP — sensors must report ready before SLAM starts
+  state_ = SlamState::WARMING_UP;
+  RCLCPP_INFO(get_logger(), "\033[33m[WARMING_UP]\033[0m Waiting for factors...");
 
   // Activate lifecycle publishers
   path_pub_->on_activate();
@@ -150,13 +144,13 @@ SlamCore::CallbackReturn SlamCore::on_activate(
       std::bind(&SlamCore::slamLoop, this),
       slam_callback_group_);
 
-  RCLCPP_INFO(get_logger(), "\033[1;32m----> Eidos SLAM Activated.\033[0m");
+  RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATED]\033[0m Eidos SLAM active");
   return CallbackReturn::SUCCESS;
 }
 
 SlamCore::CallbackReturn SlamCore::on_deactivate(
     const rclcpp_lifecycle::State&) {
-  RCLCPP_INFO(get_logger(), "Deactivating...");
+  RCLCPP_INFO(get_logger(), "\033[36m[DEACTIVATING]\033[0m ...");
 
   if (slam_timer_) {
     slam_timer_->cancel();
@@ -177,13 +171,13 @@ SlamCore::CallbackReturn SlamCore::on_deactivate(
     plugin->deactivate();
   }
 
-  RCLCPP_INFO(get_logger(), "Eidos SLAM Deactivated.");
+  RCLCPP_INFO(get_logger(), "\033[36m[DEACTIVATED]\033[0m Eidos SLAM deactivated");
   return CallbackReturn::SUCCESS;
 }
 
 SlamCore::CallbackReturn SlamCore::on_cleanup(
     const rclcpp_lifecycle::State&) {
-  RCLCPP_INFO(get_logger(), "Cleaning up...");
+  RCLCPP_INFO(get_logger(), "\033[36m[CLEANING_UP]\033[0m ...");
 
   // Release plugins before loaders
   factor_plugins_.clear();
@@ -215,13 +209,13 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   accumulated_values_ = gtsam::Values();
   global_path_ = nav_msgs::msg::Path();
 
-  RCLCPP_INFO(get_logger(), "Eidos SLAM Cleaned up.");
+  RCLCPP_INFO(get_logger(), "\033[36m[CLEANED_UP]\033[0m Eidos SLAM cleaned up");
   return CallbackReturn::SUCCESS;
 }
 
 SlamCore::CallbackReturn SlamCore::on_shutdown(
     const rclcpp_lifecycle::State& state) {
-  RCLCPP_INFO(get_logger(), "Shutting down...");
+  RCLCPP_INFO(get_logger(), "\033[36m[SHUTTING_DOWN]\033[0m ...");
 
   // If still active, deactivate first
   if (slam_timer_) {
@@ -229,7 +223,7 @@ SlamCore::CallbackReturn SlamCore::on_shutdown(
   }
   on_cleanup(state);
 
-  RCLCPP_INFO(get_logger(), "Eidos SLAM Shut down.");
+  RCLCPP_INFO(get_logger(), "\033[36m[SHUT_DOWN]\033[0m Eidos SLAM shut down");
   return CallbackReturn::SUCCESS;
 }
 
@@ -247,6 +241,9 @@ void SlamCore::slamLoop() {
     switch (state_) {
       case SlamState::INITIALIZING:
         handleInitializing();
+        break;
+      case SlamState::WARMING_UP:
+        handleWarmingUp(timestamp);
         break;
       case SlamState::RELOCALIZING:
         handleRelocalizing(timestamp);
@@ -270,17 +267,102 @@ void SlamCore::slamLoop() {
 }
 
 void SlamCore::handleInitializing() {
-  // Transition to appropriate state
+  // Always transition to WARMING_UP
+  state_ = SlamState::WARMING_UP;
+  RCLCPP_INFO(get_logger(), "\033[33m[WARMING_UP]\033[0m Transitioning from INITIALIZING");
+}
+
+void SlamCore::handleWarmingUp(double timestamp) {
+  int ready_count = 0;
+  int total = static_cast<int>(factor_plugins_.size());
+  std::string report;
+
+  for (auto& plugin : factor_plugins_) {
+    bool ready = plugin->isReady();
+    if (ready) ready_count++;
+    std::string status = plugin->getReadyStatus();
+    report += "\n  " + plugin->getName() + ": "
+           + (ready ? "\033[32mREADY\033[0m" : "\033[33mWAITING\033[0m");
+    if (!status.empty()) report += " — " + status;
+  }
+
+  RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000,
+      "\033[33m[WARMING_UP]\033[0m factors ready: %d/%d%s",
+      ready_count, total, report.c_str());
+
+  if (ready_count < total) return;
+
+  RCLCPP_INFO(get_logger(),
+      "\033[32m[READY]\033[0m All factor plugins ready");
+
   if (!reloc_plugins_.empty() && map_manager_->hasPriorMap()) {
     state_ = SlamState::RELOCALIZING;
-    relocalization_start_time_ = now().seconds();
+    relocalization_start_time_ = timestamp;
+    RCLCPP_INFO(get_logger(), "\033[35m[RELOCALIZING]\033[0m Prior map loaded, entering relocalization");
   } else {
-    state_ = SlamState::TRACKING;
+    beginTracking(gtsam::Pose3::Identity(), timestamp);
   }
 }
 
+void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double timestamp) {
+  RCLCPP_INFO(get_logger(), "\033[32m[TRACKING]\033[0m Beginning at [%.2f, %.2f, %.2f]",
+      initial_pose.translation().x(), initial_pose.translation().y(),
+      initial_pose.translation().z());
+
+  current_pose_ = initial_pose;
+  current_transform_[0] = static_cast<float>(initial_pose.rotation().roll());
+  current_transform_[1] = static_cast<float>(initial_pose.rotation().pitch());
+  current_transform_[2] = static_cast<float>(initial_pose.rotation().yaw());
+  current_transform_[3] = static_cast<float>(initial_pose.translation().x());
+  current_transform_[4] = static_cast<float>(initial_pose.translation().y());
+  current_transform_[5] = static_cast<float>(initial_pose.translation().z());
+  current_state_index_ = 0;
+
+  // Create first keyframe with prior factor
+  gtsam::NonlinearFactorGraph initial_factors;
+  gtsam::Values initial_values;
+  initial_values.insert(0, current_pose_);
+  auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
+      (gtsam::Vector(6) << 1e-2, 1e-2, M_PI * M_PI, 1e8, 1e8, 1e8).finished());
+  initial_factors.addPrior(0, current_pose_, prior_noise);
+
+  // Collect factors from all plugins for state 0
+  for (auto& plugin : factor_plugins_) {
+    auto factors = plugin->getFactors(0, current_pose_, timestamp);
+    for (auto& f : factors) initial_factors.add(f);
+  }
+
+  // Store and optimize
+  accumulated_graph_.add(initial_factors);
+  if (!accumulated_values_.exists(0)) {
+    accumulated_values_.insert(0, current_pose_);
+  }
+  auto optimized = pose_graph_->update(initial_factors, initial_values);
+
+  // Store keyframe
+  PoseType pose_6d = gtsamPose3ToPoseType(current_pose_, timestamp);
+  pose_6d.intensity = 0.0f;
+  map_manager_->addKeyframe(0, pose_6d);
+
+  // Set state before notifying plugins so their callbacks can start buffering
+  state_ = SlamState::TRACKING;
+
+  // Notify all factors of initial optimization
+  for (auto& plugin : factor_plugins_) {
+    plugin->onOptimizationComplete(optimized, false);
+  }
+
+  // Notify visualizers with initial state
+  for (auto& plugin : vis_plugins_) {
+    plugin->onOptimizationComplete(optimized, false);
+  }
+
+  updatePath(pose_6d);
+  broadcastMapToOdom();
+}
+
 void SlamCore::handleRelocalizing(double timestamp) {
-  // Keep factor plugins warmed up
+  // Keep factor plugins warmed up (buffering data)
   for (auto& plugin : factor_plugins_) {
     plugin->processFrame(timestamp);
   }
@@ -289,33 +371,21 @@ void SlamCore::handleRelocalizing(double timestamp) {
   for (auto& plugin : reloc_plugins_) {
     auto result = plugin->tryRelocalize(timestamp);
     if (result.has_value()) {
-      current_pose_ = result->pose;
-
-      // Convert to transform array
-      current_transform_[0] = static_cast<float>(result->pose.rotation().roll());
-      current_transform_[1] = static_cast<float>(result->pose.rotation().pitch());
-      current_transform_[2] = static_cast<float>(result->pose.rotation().yaw());
-      current_transform_[3] = static_cast<float>(result->pose.translation().x());
-      current_transform_[4] = static_cast<float>(result->pose.translation().y());
-      current_transform_[5] = static_cast<float>(result->pose.translation().z());
-
       RCLCPP_INFO(get_logger(),
-                  "Relocalization succeeded (fitness: %.3f, keyframe: %d). "
-                  "Transitioning to TRACKING.",
+                  "\033[35m[RELOCALIZING]\033[0m Succeeded (fitness: %.3f, keyframe: %d)",
                   result->fitness_score, result->matched_keyframe_index);
-      state_ = SlamState::TRACKING;
+      beginTracking(result->pose, timestamp);
       return;
     }
   }
 
-  // Check timeout
+  // Timeout fallback
   double elapsed = timestamp - relocalization_start_time_;
   if (elapsed > relocalization_timeout_) {
     RCLCPP_WARN(get_logger(),
-                "Relocalization timed out after %.1f seconds. "
-                "Falling back to fresh SLAM.",
+                "\033[35m[RELOCALIZING]\033[0m Timed out after %.1f seconds, starting from origin",
                 elapsed);
-    state_ = SlamState::TRACKING;
+    beginTracking(gtsam::Pose3::Identity(), timestamp);
   }
 }
 
@@ -332,6 +402,8 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   }
 
   if (!best_pose.has_value()) {
+    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000,
+        "\033[32m[TRACKING]\033[0m Waiting for first pose from factor plugins...");
     return;  // No pose estimate yet
   }
 
@@ -343,11 +415,11 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   current_transform_[4] = static_cast<float>(current_pose_.translation().y());
   current_transform_[5] = static_cast<float>(current_pose_.translation().z());
 
-  // 2. Check displacement since last state
+  // 2. Check displacement since last state (state 0 is handled by beginTracking)
   bool new_state = false;
   auto poses_6d = map_manager_->getKeyPoses6D();
-  if (current_state_index_ < 0 || poses_6d->empty()) {
-    new_state = true;  // First state
+  if (poses_6d->empty()) {
+    return;  // beginTracking() not yet called — should not happen
   } else {
     auto last_pose = poses_6d->points.back();
     Eigen::Affine3f last_affine = poseTypeToAffine3f(last_pose);
@@ -372,13 +444,6 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     gtsam::NonlinearFactorGraph new_factors;
     gtsam::Values new_values;
     new_values.insert(current_state_index_, current_pose_);
-
-    // Add prior factor for first state
-    if (current_state_index_ == 0) {
-      auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
-          (gtsam::Vector(6) << 1e-2, 1e-2, M_PI * M_PI, 1e8, 1e8, 1e8).finished());
-      new_factors.addPrior(0, current_pose_, prior_noise);
-    }
 
     // Collect factors from all plugins
     loop_closure_detected_ = false;

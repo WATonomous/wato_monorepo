@@ -24,8 +24,8 @@ private:
 
   bool active_ = false;
   std::string loop_closure_from_;
-  std::string map_frame_ = "map";
-  double line_width_ = 0.1;
+  std::string map_frame_;
+  double line_width_;
 };
 
 }  // namespace eidos

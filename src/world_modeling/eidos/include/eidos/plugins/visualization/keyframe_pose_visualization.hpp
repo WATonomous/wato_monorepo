@@ -23,9 +23,9 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_;
 
   bool active_ = false;
-  std::string map_frame_ = "map";
-  double axis_length_ = 0.5;
-  double axis_width_ = 0.05;
+  std::string map_frame_;
+  double axis_length_;
+  double axis_width_;
 };
 
 }  // namespace eidos

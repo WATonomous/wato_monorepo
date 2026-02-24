@@ -40,8 +40,8 @@ eidos_node:
     # ==========================================================================
     # IMU Integration Factor
     #
-    # Runs an internal ISAM2 optimizer to estimate IMU biases using lidar pose
-    # corrections (LIO-SAM style). Publishes high-rate IMU odometry and TF.
+    # Runs an internal ISAM2 optimizer to estimate IMU biases using
+    # graph-optimized pose corrections. Publishes high-rate IMU odometry and TF.
     # ==========================================================================
     imu_integration_factor:
       plugin: "eidos::ImuIntegrationFactor"
@@ -49,22 +49,26 @@ eidos_node:
       # -- Topics --
       imu_topic: "imu/data"                                                  # sensor_msgs/Imu input
       odom_incremental_topic: "imu_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
-      odom_fused_topic: "imu_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (lidar-corrected + IMU-incremented)
+      odom_fused_topic: "imu_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
 
-      # -- IMU intrinsic noise (from Allan variance / datasheet) --
-      acc_noise: 3.9939570888238808e-03      # accelerometer white noise (m/s^2/sqrt(Hz))
-      gyr_noise: 1.5636343949698187e-03      # gyroscope white noise (rad/s/sqrt(Hz))
-      acc_bias_noise: 6.4356659353532566e-05  # accelerometer bias random walk
-      gyr_bias_noise: 3.5640318696367613e-05  # gyroscope bias random walk
-      gravity: 0.0                              # 0.0 for gravity-compensated IMU (data topic); 9.805 for raw IMU (data_raw topic)
+      # -- IMU intrinsic noise --
+      # Tuned for Novatel high-grade IMU with factory-calibrated (bias-compensated)
+      # output. Biases are already removed by the driver, so bias random walk and
+      # prior_bias_sigma are set very tight to keep GTSAM's online bias estimates
+      # near zero. Noise densities are also lowered to reflect the sensor quality.
+      acc_noise: 1.0e-3                       # accelerometer white noise (m/s^2/sqrt(Hz))
+      gyr_noise: 5.0e-4                       # gyroscope white noise (rad/s/sqrt(Hz))
+      acc_bias_noise: 1.0e-6                  # accelerometer bias random walk (near-zero, already calibrated)
+      gyr_bias_noise: 1.0e-6                  # gyroscope bias random walk (near-zero, already calibrated)
+      gravity: 0.0                            # 0.0 for gravity-compensated IMU (data topic); 9.805 for raw IMU (data_raw topic)
       integration_noise: 1.0e-4              # IMU preintegration covariance noise
 
       # -- ISAM2 noise model sigmas --
       prior_pose_sigma: 1.0e-2              # initial pose prior sigma (low confidence)
       prior_vel_sigma: 1.0e4                # initial velocity prior sigma (very low confidence, unknown)
-      prior_bias_sigma: 1.0e-3              # initial bias prior sigma (high confidence near zero)
-      correction_rot_sigma: 0.05            # lidar correction rotation sigma (rad)
-      correction_trans_sigma: 0.1           # lidar correction translation sigma (m)
+      prior_bias_sigma: 1.0e-5              # initial bias prior sigma (very tight — driver already compensates biases)
+      correction_rot_sigma: 0.05            # graph correction rotation sigma (rad)
+      correction_trans_sigma: 0.1           # graph correction translation sigma (m)
       correction_degrade_sigma: 1.0         # degraded correction sigma when system is uncertain
 
       # -- Internal optimizer tuning --
@@ -78,6 +82,10 @@ eidos_node:
       # -- Timing --
       default_imu_dt: 0.002                 # seconds (1/500 Hz), assumed dt for first IMU message
       quaternion_norm_threshold: 0.1        # minimum quaternion norm to accept as valid orientation
+
+      # -- Main graph odometry noise (BetweenFactor variances) --
+      odom_rot_noise: 1.0e-2           # rotation variance (rad^2) for IMU odometry between-factor
+      odom_trans_noise: 1.0e-1         # translation variance (m^2) for IMU odometry between-factor
 
       # -- Frame names --
       imu_frame: "imu_link"            # IMU-to-base_link extrinsic is looked up from TF (base_link <- imu_frame)

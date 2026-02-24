@@ -26,7 +26,7 @@
     <joint name="lidar_cc_mount_yaw" type="fixed">
       <parent link="${parent}"/>
       <child link="lidar_cc"/>
-      <origin xyz="0 0 0.35" rpy="0 0 0"/>
+      <origin xyz="0 0 0.35" rpy="0 0 0.10472"/>
     </joint>
 
     <!-- Alias frame to match bag/driver frame_id (lidar_top) -->
@@ -82,7 +82,7 @@
     </link>
 
     <joint name="imu_mount" type="fixed">
-      <parent link="${parent}"/>
+      <parent link="lidar_cc"/>
       <child link="imu_link"/>
       <origin xyz="${imu_xyz}" rpy="${imu_rpy}"/>
     </joint>

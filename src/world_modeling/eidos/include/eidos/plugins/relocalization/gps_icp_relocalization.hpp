@@ -41,13 +41,13 @@ private:
 
   bool active_ = false;
 
-  // Parameters
-  float gps_candidate_radius_ = 30.0;
-  float fitness_threshold_ = 0.3;
-  int max_icp_iterations_ = 100;
-  float submap_leaf_size_ = 0.4;
-  float max_correspondence_distance_ = 2.0;
-  int num_threads_ = 4;
+  // Parameters (populated from ROS params in onInitialize)
+  float gps_candidate_radius_;
+  float fitness_threshold_;
+  int max_icp_iterations_;
+  float submap_leaf_size_;
+  float max_correspondence_distance_;
+  int num_threads_;
   std::string pointcloud_from_ = "lidar_kep_factor";
   std::string gps_from_ = "gps_factor";
 };
