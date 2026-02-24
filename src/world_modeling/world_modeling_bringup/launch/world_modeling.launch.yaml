@@ -282,6 +282,7 @@ launch:
             - /world_modeling/simple_prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
+            - /world_modeling/eidos_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

@@ -1,6 +1,8 @@
 # eidos
 
-A plugin-based LiDAR-Inertial SLAM system for ROS 2. Runs as a single node (`eidos_node`) with a plugin architecture inspired by nav2 costmap layers.
+Every Imaginable Derivative Of SLAM (EIDOS) is a play of words resembling the greek word `eidos` meaning "form", "essence", etc.
+
+A plugin-based SLAM system for ROS 2. Runs as a single node (`eidos_node`) with a plugin architecture for populating a pose graph.
 
 ## Architecture
 

@@ -6,9 +6,11 @@
 #include <optional>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2/LinearMath/Transform.h>
 
 #include <Eigen/Geometry>
 
@@ -19,7 +21,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
-#include "eidos/factor_plugin.hpp"
+#include "eidos/plugins/base_factor_plugin.hpp"
 #include "eidos/types.hpp"
 
 namespace eidos {
@@ -63,8 +65,8 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
 
   // ---- Publishers ----
-  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr imu_odom_incremental_pub_;
-  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr imu_odom_fused_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr imu_odom_incremental_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr imu_odom_fused_pub_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   // ---- Transform fusion state ----
@@ -105,9 +107,9 @@ private:
   gtsam::NavState prev_state_odom_;
   gtsam::imuBias::ConstantBias prev_bias_odom_;
 
-  // IMU-LiDAR transforms
-  gtsam::Pose3 imu_to_lidar_;
-  gtsam::Pose3 lidar_to_imu_;
+  // IMU-base_link transforms (populated from TF in activate)
+  gtsam::Pose3 imu_to_base_;
+  gtsam::Pose3 base_to_imu_;
 
   // Internal optimizer key counter
   int key_ = 1;
@@ -142,15 +144,15 @@ private:
   double quaternion_norm_threshold_ = 0.1;
   int graph_reset_interval_ = 100;
 
-  // IMU extrinsics
-  Eigen::Matrix3d ext_rot_;
-  Eigen::Quaterniond ext_qrpy_;
-  Eigen::Vector3d ext_trans_;
+  // IMU-to-base_link extrinsic transform (looked up from TF: base_link_frame_ <- imu_frame_)
+  tf2::Transform t_base_imu_;
+  bool extrinsics_resolved_ = false;
 
   // Frame names
   std::string odom_frame_ = "odom";
   std::string base_link_frame_ = "base_link";
-  std::string lidar_frame_ = "lidar_link";
+  std::string imu_frame_ = "imu_link";
+  std::string imu_odom_child_frame_ = "odom_imu";
 };
 
 }  // namespace eidos

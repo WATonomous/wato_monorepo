@@ -10,7 +10,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include "eidos/factor_plugin.hpp"
+#include "eidos/plugins/base_factor_plugin.hpp"
 #include "eidos/types.hpp"
 
 namespace eidos {

@@ -1,8 +1,9 @@
-#include "eidos/plugins/lidar_kep_factor.hpp"
+#include "eidos/plugins/factors/lidar_kep_factor.hpp"
 
 #include <pluginlib/class_list_macros.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
@@ -43,12 +44,10 @@ void LidarKEPFactor::onInitialize() {
   node_->declare_parameter(prefix + ".odom_rot_noise", 1e-6);
   node_->declare_parameter(prefix + ".odom_trans_noise", 1e-4);
   node_->declare_parameter(prefix + ".imu_time_margin", 0.01);
+  node_->declare_parameter(prefix + ".odom_topic", name_ + "/odometry");
+  node_->declare_parameter(prefix + ".deskewed_cloud_topic", name_ + "/deskewed_cloud");
 
-  std::vector<double> identity_rot = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  std::vector<double> zero_trans = {0, 0, 0};
-  node_->declare_parameter(prefix + ".extrinsic_rot", identity_rot);
-  node_->declare_parameter(prefix + ".extrinsic_rpy", identity_rot);
-  node_->declare_parameter(prefix + ".extrinsic_trans", zero_trans);
+  node_->declare_parameter(prefix + ".imu_frame", "imu_link");
 
   // ---- Read parameters ----
   std::string point_cloud_topic, imu_topic, sensor_type_str;
@@ -82,18 +81,12 @@ void LidarKEPFactor::onInitialize() {
   else if (sensor_type_str == "livox") sensor_type_ = SensorType::LIVOX;
   else sensor_type_ = SensorType::VELODYNE;
 
-  std::vector<double> ext_rot_v, ext_rpy_v, ext_trans_v;
-  node_->get_parameter(prefix + ".extrinsic_rot", ext_rot_v);
-  node_->get_parameter(prefix + ".extrinsic_rpy", ext_rpy_v);
-  node_->get_parameter(prefix + ".extrinsic_trans", ext_trans_v);
-
-  ext_rot_ = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(
-      ext_rot_v.data(), 3, 3);
-  Eigen::Matrix3d ext_rpy = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(
-      ext_rpy_v.data(), 3, 3);
-  ext_qrpy_ = Eigen::Quaterniond(ext_rpy);
-  ext_trans_ = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(
-      ext_trans_v.data(), 3, 1);
+  // ---- Frame names ----
+  node_->declare_parameter(prefix + ".lidar_frame", "lidar_link");
+  node_->get_parameter("frames.odometry", odom_frame_);
+  node_->get_parameter("frames.base_link", base_link_frame_);
+  node_->get_parameter(prefix + ".lidar_frame", lidar_frame_);
+  node_->get_parameter(prefix + ".imu_frame", imu_frame_);
 
   // ---- Allocate point clouds ----
   laser_cloud_in_ = pcl::make_shared<pcl::PointCloud<PointXYZIRT>>();
@@ -150,10 +143,14 @@ void LidarKEPFactor::onInitialize() {
       sub_opts);
 
   // ---- Create publishers ----
+  std::string odom_topic, deskewed_cloud_topic;
+  node_->get_parameter(prefix + ".odom_topic", odom_topic);
+  node_->get_parameter(prefix + ".deskewed_cloud_topic", deskewed_cloud_topic);
+
   odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(
-      name_ + "/odometry", 10);
+      odom_topic, 10);
   deskewed_cloud_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>(
-      name_ + "/deskewed_cloud", 10);
+      deskewed_cloud_topic, 10);
 
   // ---- Scan matcher ----
   int num_cores = 4;
@@ -202,11 +199,33 @@ void LidarKEPFactor::onInitialize() {
 
 void LidarKEPFactor::activate() {
   active_ = true;
+  odom_pub_->on_activate();
+  deskewed_cloud_pub_->on_activate();
+
+  // Look up the static transform from IMU frame to lidar frame
+  try {
+    auto tf_msg = tf_->lookupTransform(
+        lidar_frame_, imu_frame_, tf2::TimePointZero, tf2::durationFromSec(5.0));
+    tf2::fromMsg(tf_msg.transform, t_lidar_imu_);
+    extrinsics_resolved_ = true;
+    RCLCPP_INFO(node_->get_logger(), "[%s] resolved TF %s -> %s",
+                name_.c_str(), imu_frame_.c_str(), lidar_frame_.c_str());
+  } catch (const tf2::TransformException& e) {
+    RCLCPP_ERROR(node_->get_logger(),
+                 "[%s] failed to look up TF %s -> %s: %s. "
+                 "IMU data will not be transformed.",
+                 name_.c_str(), imu_frame_.c_str(), lidar_frame_.c_str(), e.what());
+    t_lidar_imu_.setIdentity();
+    extrinsics_resolved_ = false;
+  }
+
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
 void LidarKEPFactor::deactivate() {
   active_ = false;
+  odom_pub_->on_deactivate();
+  deskewed_cloud_pub_->on_deactivate();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
@@ -244,6 +263,13 @@ void LidarKEPFactor::pointCloudCallback(
 }
 
 void LidarKEPFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
+  // Discard invalid IMU messages (some initial messages have all-zero data)
+  if (msg->angular_velocity.x == 0.0 && msg->angular_velocity.y == 0.0 &&
+      msg->angular_velocity.z == 0.0 && msg->linear_acceleration.x == 0.0 &&
+      msg->linear_acceleration.y == 0.0 && msg->linear_acceleration.z == 0.0) {
+    return;
+  }
+
   sensor_msgs::msg::Imu imu_converted = imuConverter(*msg);
   std::lock_guard<std::mutex> lock(imu_lock_);
   imu_queue_.push_back(imu_converted);
@@ -431,20 +457,40 @@ std::optional<gtsam::Pose3> LidarKEPFactor::processFrame(double /*timestamp*/) {
 
   std::copy(result.transform, result.transform + 6, current_transform_);
 
-  // Publish odometry
+  // Publish odometry (transform lidar-frame pose to base_link frame)
   auto odom_msg = nav_msgs::msg::Odometry();
   odom_msg.header.stamp = cloud_header_.stamp;
-  odom_msg.header.frame_id = "odom";
-  odom_msg.child_frame_id = "lidar_link";
-  odom_msg.pose.pose.position.x = current_transform_[3];
-  odom_msg.pose.pose.position.y = current_transform_[4];
-  odom_msg.pose.pose.position.z = current_transform_[5];
-  tf2::Quaternion q;
-  q.setRPY(current_transform_[0], current_transform_[1], current_transform_[2]);
-  odom_msg.pose.pose.orientation.x = q.x();
-  odom_msg.pose.pose.orientation.y = q.y();
-  odom_msg.pose.pose.orientation.z = q.z();
-  odom_msg.pose.pose.orientation.w = q.w();
+  odom_msg.header.frame_id = odom_frame_;
+  odom_msg.child_frame_id = base_link_frame_;
+
+  // T_odom_lidar from scan matcher
+  tf2::Transform t_odom_lidar;
+  tf2::Quaternion q_lidar;
+  q_lidar.setRPY(current_transform_[0], current_transform_[1], current_transform_[2]);
+  t_odom_lidar.setRotation(q_lidar);
+  t_odom_lidar.setOrigin({current_transform_[3], current_transform_[4], current_transform_[5]});
+
+  // T_lidar_baselink from TF tree (static transform)
+  try {
+    auto t_lidar_base_msg = tf_->lookupTransform(
+        lidar_frame_, base_link_frame_, tf2::TimePointZero);
+    tf2::Transform t_lidar_base;
+    tf2::fromMsg(t_lidar_base_msg.transform, t_lidar_base);
+
+    // T_odom_baselink = T_odom_lidar * T_lidar_baselink
+    tf2::Transform t_odom_base = t_odom_lidar * t_lidar_base;
+    odom_msg.pose.pose.position.x = t_odom_base.getOrigin().x();
+    odom_msg.pose.pose.position.y = t_odom_base.getOrigin().y();
+    odom_msg.pose.pose.position.z = t_odom_base.getOrigin().z();
+    odom_msg.pose.pose.orientation = tf2::toMsg(t_odom_base.getRotation());
+  } catch (const tf2::TransformException&) {
+    // Fallback: publish lidar-frame pose directly if TF not available
+    odom_msg.pose.pose.position.x = current_transform_[3];
+    odom_msg.pose.pose.position.y = current_transform_[4];
+    odom_msg.pose.pose.position.z = current_transform_[5];
+    odom_msg.pose.pose.orientation = tf2::toMsg(q_lidar);
+  }
+
   if (result.degenerate) odom_msg.pose.covariance[0] = 1;
   odom_pub_->publish(odom_msg);
 
@@ -954,29 +1000,28 @@ sensor_msgs::msg::Imu LidarKEPFactor::imuConverter(
     const sensor_msgs::msg::Imu& imu_in) {
   sensor_msgs::msg::Imu imu_out = imu_in;
 
-  Eigen::Vector3d acc(imu_in.linear_acceleration.x,
-                      imu_in.linear_acceleration.y,
-                      imu_in.linear_acceleration.z);
-  acc = ext_rot_ * acc;
+  const tf2::Matrix3x3& rot = t_lidar_imu_.getBasis();
+
+  tf2::Vector3 acc(imu_in.linear_acceleration.x,
+                   imu_in.linear_acceleration.y,
+                   imu_in.linear_acceleration.z);
+  acc = rot * acc;
   imu_out.linear_acceleration.x = acc.x();
   imu_out.linear_acceleration.y = acc.y();
   imu_out.linear_acceleration.z = acc.z();
 
-  Eigen::Vector3d gyr(imu_in.angular_velocity.x,
-                      imu_in.angular_velocity.y,
-                      imu_in.angular_velocity.z);
-  gyr = ext_rot_ * gyr;
+  tf2::Vector3 gyr(imu_in.angular_velocity.x,
+                   imu_in.angular_velocity.y,
+                   imu_in.angular_velocity.z);
+  gyr = rot * gyr;
   imu_out.angular_velocity.x = gyr.x();
   imu_out.angular_velocity.y = gyr.y();
   imu_out.angular_velocity.z = gyr.z();
 
-  Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x,
-                            imu_in.orientation.y, imu_in.orientation.z);
-  Eigen::Quaterniond q_final = q_from * ext_qrpy_;
-  imu_out.orientation.x = q_final.x();
-  imu_out.orientation.y = q_final.y();
-  imu_out.orientation.z = q_final.z();
-  imu_out.orientation.w = q_final.w();
+  tf2::Quaternion q_from;
+  tf2::fromMsg(imu_in.orientation, q_from);
+  tf2::Quaternion q_final = q_from * t_lidar_imu_.getRotation();
+  imu_out.orientation = tf2::toMsg(q_final);
 
   return imu_out;
 }

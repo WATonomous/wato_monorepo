@@ -1,8 +1,11 @@
-#include "eidos/plugins/imu_integration_factor.hpp"
+#include "eidos/plugins/factors/imu_integration_factor.hpp"
 
 #include <fstream>
 
 #include <pluginlib/class_list_macros.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
@@ -44,15 +47,10 @@ void ImuIntegrationFactor::onInitialize() {
   node_->declare_parameter(prefix + ".default_imu_dt", 1.0 / 500.0);
   node_->declare_parameter(prefix + ".quaternion_norm_threshold", 0.1);
   node_->declare_parameter(prefix + ".graph_reset_interval", 100);
-  node_->declare_parameter(prefix + ".odom_frame", "odom");
-  node_->declare_parameter(prefix + ".base_link_frame", "base_link");
-  node_->declare_parameter(prefix + ".lidar_frame", "lidar_link");
-
-  std::vector<double> identity_rot = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  std::vector<double> zero_trans = {0, 0, 0};
-  node_->declare_parameter(prefix + ".extrinsic_rot", identity_rot);
-  node_->declare_parameter(prefix + ".extrinsic_rpy", identity_rot);
-  node_->declare_parameter(prefix + ".extrinsic_trans", zero_trans);
+  node_->declare_parameter(prefix + ".odom_incremental_topic", name_ + "/odometry/imu_incremental");
+  node_->declare_parameter(prefix + ".odom_fused_topic", name_ + "/odometry/imu");
+  node_->declare_parameter(prefix + ".imu_frame", "imu_link");
+  node_->declare_parameter(prefix + ".imu_odom_child_frame", "odom_imu");
 
   // ---- Read parameters ----
   std::string imu_topic;
@@ -75,24 +73,10 @@ void ImuIntegrationFactor::onInitialize() {
   node_->get_parameter(prefix + ".default_imu_dt", default_imu_dt_);
   node_->get_parameter(prefix + ".quaternion_norm_threshold", quaternion_norm_threshold_);
   node_->get_parameter(prefix + ".graph_reset_interval", graph_reset_interval_);
-  node_->get_parameter(prefix + ".odom_frame", odom_frame_);
-  node_->get_parameter(prefix + ".base_link_frame", base_link_frame_);
-  node_->get_parameter(prefix + ".lidar_frame", lidar_frame_);
-
-  // ---- Read extrinsics ----
-  std::vector<double> ext_rot_v, ext_rpy_v, ext_trans_v;
-  node_->get_parameter(prefix + ".extrinsic_rot", ext_rot_v);
-  node_->get_parameter(prefix + ".extrinsic_rpy", ext_rpy_v);
-  node_->get_parameter(prefix + ".extrinsic_trans", ext_trans_v);
-
-  ext_rot_ = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(
-      ext_rot_v.data(), 3, 3);
-  Eigen::Matrix3d ext_rpy =
-      Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(
-          ext_rpy_v.data(), 3, 3);
-  ext_qrpy_ = Eigen::Quaterniond(ext_rpy);
-  ext_trans_ = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(
-      ext_trans_v.data(), 3, 1);
+  node_->get_parameter("frames.odometry", odom_frame_);
+  node_->get_parameter("frames.base_link", base_link_frame_);
+  node_->get_parameter(prefix + ".imu_frame", imu_frame_);
+  node_->get_parameter(prefix + ".imu_odom_child_frame", imu_odom_child_frame_);
 
   // ---- Set up GTSAM preintegration parameters ----
   auto p = gtsam::PreintegrationParams::MakeSharedU(gravity_);
@@ -109,16 +93,6 @@ void ImuIntegrationFactor::onInitialize() {
       preint_params_, prior_bias);
   imu_integrator_imu_ = std::make_unique<gtsam::PreintegratedImuMeasurements>(
       preint_params_, prior_bias);
-
-  // ---- Compute IMU-LiDAR transforms ----
-  // imu2Lidar: used to convert IMU pose to lidar frame for output
-  imu_to_lidar_ = gtsam::Pose3(
-      gtsam::Rot3(1, 0, 0, 0),
-      gtsam::Point3(-ext_trans_.x(), -ext_trans_.y(), -ext_trans_.z()));
-  // lidar2Imu: used to convert lidar correction pose to IMU frame for optimization
-  lidar_to_imu_ = gtsam::Pose3(
-      gtsam::Rot3(1, 0, 0, 0),
-      gtsam::Point3(ext_trans_.x(), ext_trans_.y(), ext_trans_.z()));
 
   // ---- Noise models ----
   prior_pose_noise_ = gtsam::noiseModel::Diagonal::Sigmas(
@@ -148,12 +122,14 @@ void ImuIntegrationFactor::onInitialize() {
       sub_opts);
 
   // ---- Create publishers ----
-  // Incremental: raw IMU-predicted odometry (used by LidarKEPFactor as initial guess)
+  std::string odom_incremental_topic, odom_fused_topic;
+  node_->get_parameter(prefix + ".odom_incremental_topic", odom_incremental_topic);
+  node_->get_parameter(prefix + ".odom_fused_topic", odom_fused_topic);
+
   imu_odom_incremental_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(
-      name_ + "/odometry/imu_incremental", 10);
-  // Fused: lidar-corrected + IMU-incremented odometry (smooth, high-rate output)
+      odom_incremental_topic, 10);
   imu_odom_fused_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(
-      name_ + "/odometry/imu", 10);
+      odom_fused_topic, 10);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node_);
 
   // ---- Register keyframe data types with MapManager ----
@@ -196,11 +172,44 @@ void ImuIntegrationFactor::onInitialize() {
 
 void ImuIntegrationFactor::activate() {
   active_ = true;
+  imu_odom_incremental_pub_->on_activate();
+  imu_odom_fused_pub_->on_activate();
+
+  // Look up the static transform from IMU frame to lidar frame
+  try {
+    auto tf_msg = tf_->lookupTransform(
+        base_link_frame_, imu_frame_, tf2::TimePointZero, tf2::durationFromSec(5.0));
+    tf2::fromMsg(tf_msg.transform, t_base_imu_);
+    extrinsics_resolved_ = true;
+
+    // Derive gtsam::Pose3 transforms for IMU-base_link frame conversions
+    const auto& q = t_base_imu_.getRotation();
+    const auto& t = t_base_imu_.getOrigin();
+    base_to_imu_ = gtsam::Pose3(
+        gtsam::Rot3(q.w(), q.x(), q.y(), q.z()),
+        gtsam::Point3(t.x(), t.y(), t.z()));
+    imu_to_base_ = base_to_imu_.inverse();
+
+    RCLCPP_INFO(node_->get_logger(), "[%s] resolved TF %s -> %s",
+                name_.c_str(), imu_frame_.c_str(), base_link_frame_.c_str());
+  } catch (const tf2::TransformException& e) {
+    RCLCPP_ERROR(node_->get_logger(),
+                 "[%s] failed to look up TF %s -> %s: %s. "
+                 "Using identity transform.",
+                 name_.c_str(), imu_frame_.c_str(), base_link_frame_.c_str(), e.what());
+    t_base_imu_.setIdentity();
+    base_to_imu_ = gtsam::Pose3::Identity();
+    imu_to_base_ = gtsam::Pose3::Identity();
+    extrinsics_resolved_ = false;
+  }
+
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
 void ImuIntegrationFactor::deactivate() {
   active_ = false;
+  imu_odom_incremental_pub_->on_deactivate();
+  imu_odom_fused_pub_->on_deactivate();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
@@ -308,9 +317,9 @@ void ImuIntegrationFactor::onOptimizationComplete(
   if (state_index < 0) return;
 
   // Get the optimized lidar pose from the main graph
-  gtsam::Pose3 lidar_pose;
+  gtsam::Pose3 graph_pose;
   if (!optimized_values.exists(state_index)) return;
-  lidar_pose = optimized_values.at<gtsam::Pose3>(state_index);
+  graph_pose = optimized_values.at<gtsam::Pose3>(state_index);
 
   // Get the correction timestamp from the latest keyframe
   double correction_time = node_->now().seconds();
@@ -320,8 +329,8 @@ void ImuIntegrationFactor::onOptimizationComplete(
   }
 
   // Store lidar odometry for transform fusion
-  auto q = lidar_pose.rotation().toQuaternion();
-  auto t_vec = lidar_pose.translation();
+  auto q = graph_pose.rotation().toQuaternion();
+  auto t_vec = graph_pose.translation();
   lidar_odom_affine_ = Eigen::Isometry3d::Identity();
   lidar_odom_affine_.linear() = Eigen::Quaterniond(q.w(), q.x(), q.y(), q.z()).toRotationMatrix();
   lidar_odom_affine_.translation() = Eigen::Vector3d(t_vec.x(), t_vec.y(), t_vec.z());
@@ -345,7 +354,7 @@ void ImuIntegrationFactor::onOptimizationComplete(
     }
 
     // Initial pose (in IMU frame)
-    prev_pose_ = lidar_pose.compose(lidar_to_imu_);
+    prev_pose_ = graph_pose.compose(base_to_imu_);
     graph_factors_.add(
         gtsam::PriorFactor<gtsam::Pose3>(X(0), prev_pose_, prior_pose_noise_));
 
@@ -447,8 +456,8 @@ void ImuIntegrationFactor::onOptimizationComplete(
           std::sqrt(imu_integrator_opt_->deltaTij()) *
           noise_between_bias_)));
 
-  // Add pose correction factor (lidar pose as soft constraint)
-  gtsam::Pose3 cur_pose = lidar_pose.compose(lidar_to_imu_);
+  // Add pose correction factor (base_link pose converted to IMU frame)
+  gtsam::Pose3 cur_pose = graph_pose.compose(base_to_imu_);
   graph_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(
       X(key_), cur_pose, correction_noise_));
 
@@ -534,6 +543,13 @@ void ImuIntegrationFactor::onOptimizationComplete(
 // ---------------------------------------------------------------------------
 void ImuIntegrationFactor::imuCallback(
     const sensor_msgs::msg::Imu::SharedPtr msg) {
+  // Discard invalid IMU messages (some initial messages have all-zero data)
+  if (msg->angular_velocity.x == 0.0 && msg->angular_velocity.y == 0.0 &&
+      msg->angular_velocity.z == 0.0 && msg->linear_acceleration.x == 0.0 &&
+      msg->linear_acceleration.y == 0.0 && msg->linear_acceleration.z == 0.0) {
+    return;
+  }
+
   sensor_msgs::msg::Imu imu_converted = imuConverter(*msg);
 
   std::lock_guard<std::mutex> lock(imu_lock_);
@@ -563,14 +579,14 @@ void ImuIntegrationFactor::imuCallback(
   gtsam::NavState current_state =
       imu_integrator_imu_->predict(prev_state_odom_, prev_bias_odom_);
 
-  // Transform IMU pose to lidar frame
+  // Transform IMU pose to base_link frame
   gtsam::Pose3 imu_pose(current_state.quaternion(), current_state.position());
-  gtsam::Pose3 lidar_pose = imu_pose.compose(imu_to_lidar_);
+  gtsam::Pose3 base_pose = imu_pose.compose(imu_to_base_);
 
   // Store for processFrame
   {
     std::lock_guard<std::mutex> lock(imu_pose_lock_);
-    latest_imu_pose_ = lidar_pose;
+    latest_imu_pose_ = base_pose;
     has_imu_pose_ = true;
   }
 
@@ -579,15 +595,15 @@ void ImuIntegrationFactor::imuCallback(
   auto odom_incremental = nav_msgs::msg::Odometry();
   odom_incremental.header.stamp = imu_converted.header.stamp;
   odom_incremental.header.frame_id = odom_frame_;
-  odom_incremental.child_frame_id = "odom_imu";
+  odom_incremental.child_frame_id = imu_odom_child_frame_;
 
-  odom_incremental.pose.pose.position.x = lidar_pose.translation().x();
-  odom_incremental.pose.pose.position.y = lidar_pose.translation().y();
-  odom_incremental.pose.pose.position.z = lidar_pose.translation().z();
-  odom_incremental.pose.pose.orientation.x = lidar_pose.rotation().toQuaternion().x();
-  odom_incremental.pose.pose.orientation.y = lidar_pose.rotation().toQuaternion().y();
-  odom_incremental.pose.pose.orientation.z = lidar_pose.rotation().toQuaternion().z();
-  odom_incremental.pose.pose.orientation.w = lidar_pose.rotation().toQuaternion().w();
+  odom_incremental.pose.pose.position.x = base_pose.translation().x();
+  odom_incremental.pose.pose.position.y = base_pose.translation().y();
+  odom_incremental.pose.pose.position.z = base_pose.translation().z();
+  odom_incremental.pose.pose.orientation.x = base_pose.rotation().toQuaternion().x();
+  odom_incremental.pose.pose.orientation.y = base_pose.rotation().toQuaternion().y();
+  odom_incremental.pose.pose.orientation.z = base_pose.rotation().toQuaternion().z();
+  odom_incremental.pose.pose.orientation.w = base_pose.rotation().toQuaternion().w();
 
   odom_incremental.twist.twist.linear.x = current_state.velocity().x();
   odom_incremental.twist.twist.linear.y = current_state.velocity().y();
@@ -675,35 +691,33 @@ sensor_msgs::msg::Imu ImuIntegrationFactor::imuConverter(
     const sensor_msgs::msg::Imu& imu_in) {
   sensor_msgs::msg::Imu imu_out = imu_in;
 
+  const tf2::Matrix3x3& rot = t_base_imu_.getBasis();
+
   // Rotate acceleration
-  Eigen::Vector3d acc(imu_in.linear_acceleration.x,
-                      imu_in.linear_acceleration.y,
-                      imu_in.linear_acceleration.z);
-  acc = ext_rot_ * acc;
+  tf2::Vector3 acc(imu_in.linear_acceleration.x,
+                   imu_in.linear_acceleration.y,
+                   imu_in.linear_acceleration.z);
+  acc = rot * acc;
   imu_out.linear_acceleration.x = acc.x();
   imu_out.linear_acceleration.y = acc.y();
   imu_out.linear_acceleration.z = acc.z();
 
   // Rotate gyroscope
-  Eigen::Vector3d gyr(imu_in.angular_velocity.x, imu_in.angular_velocity.y,
-                      imu_in.angular_velocity.z);
-  gyr = ext_rot_ * gyr;
+  tf2::Vector3 gyr(imu_in.angular_velocity.x,
+                   imu_in.angular_velocity.y,
+                   imu_in.angular_velocity.z);
+  gyr = rot * gyr;
   imu_out.angular_velocity.x = gyr.x();
   imu_out.angular_velocity.y = gyr.y();
   imu_out.angular_velocity.z = gyr.z();
 
-  // Rotate orientation (roll, pitch, yaw)
-  Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x,
-                            imu_in.orientation.y, imu_in.orientation.z);
-  Eigen::Quaterniond q_final = q_from * ext_qrpy_;
-  imu_out.orientation.x = q_final.x();
-  imu_out.orientation.y = q_final.y();
-  imu_out.orientation.z = q_final.z();
-  imu_out.orientation.w = q_final.w();
+  // Rotate orientation
+  tf2::Quaternion q_from;
+  tf2::fromMsg(imu_in.orientation, q_from);
+  tf2::Quaternion q_final = q_from * t_base_imu_.getRotation();
+  imu_out.orientation = tf2::toMsg(q_final);
 
-  if (std::sqrt(q_final.x() * q_final.x() + q_final.y() * q_final.y() +
-                q_final.z() * q_final.z() + q_final.w() * q_final.w()) <
-      quaternion_norm_threshold_) {
+  if (q_final.length() < quaternion_norm_threshold_) {
     RCLCPP_ERROR(node_->get_logger(),
                  "Invalid quaternion, please use a 9-axis IMU!");
   }

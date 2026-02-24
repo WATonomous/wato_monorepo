@@ -5,6 +5,7 @@
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <tf2_ros/buffer.h>
 
 #include <gtsam/geometry/Pose3.h>
@@ -41,7 +42,7 @@ public:
   void initialize(
       SlamCore* core,
       const std::string& name,
-      rclcpp::Node::SharedPtr node,
+      rclcpp_lifecycle::LifecycleNode::SharedPtr node,
       tf2_ros::Buffer* tf,
       rclcpp::CallbackGroup::SharedPtr callback_group) {
     core_ = core;
@@ -79,7 +80,7 @@ public:
 protected:
   SlamCore* core_ = nullptr;
   std::string name_;
-  rclcpp::Node::SharedPtr node_;
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
   tf2_ros::Buffer* tf_ = nullptr;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
 };

@@ -6,7 +6,10 @@
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -16,8 +19,9 @@
 #include "eidos/types.hpp"
 #include "eidos/pose_graph.hpp"
 #include "eidos/map_manager.hpp"
-#include "eidos/factor_plugin.hpp"
-#include "eidos/relocalization_plugin.hpp"
+#include "eidos/plugins/base_factor_plugin.hpp"
+#include "eidos/plugins/base_relocalization_plugin.hpp"
+#include "eidos/plugins/base_visualization_plugin.hpp"
 
 #include "eidos_msgs/msg/slam_status.hpp"
 #include "eidos_msgs/srv/save_map.hpp"
@@ -26,13 +30,13 @@
 namespace eidos {
 
 /**
- * @brief Core SLAM orchestrator. Runs a timer-driven SLAM loop,
+ * @brief Lifecycle-managed SLAM node. Runs a timer-driven SLAM loop,
  * manages plugins, PoseGraph, and MapManager.
  */
-class SlamCore {
+class SlamCore : public rclcpp_lifecycle::LifecycleNode {
 public:
-  explicit SlamCore(rclcpp::Node::SharedPtr node);
-  ~SlamCore();
+  explicit SlamCore(const rclcpp::NodeOptions& options);
+  ~SlamCore() override;
 
   // ---- Access for plugins ----
   const PoseGraph& getPoseGraph() const;
@@ -42,26 +46,28 @@ public:
   gtsam::Pose3 getCurrentPose() const;
   int getCurrentStateIndex() const;
 
-  /**
-   * @brief Start the SLAM loop.
-   */
-  void start();
+protected:
+  using CallbackReturn =
+      rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-  /**
-   * @brief Stop the SLAM loop.
-   */
-  void stop();
+  CallbackReturn on_configure(const rclcpp_lifecycle::State& state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State& state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State& state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State& state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State& state) override;
 
 private:
   // ---- SLAM loop ----
   void slamLoop();
   void handleInitializing();
   void handleRelocalizing(double timestamp);
-  void handleTracking(double timestamp);
+  void handleTracking(double timestamp, bool& run_vis,
+                      gtsam::Values& vis_values, bool& vis_loop_closure);
 
   // ---- Plugin management ----
   void loadFactorPlugins();
   void loadRelocalizationPlugins();
+  void loadVisualizationPlugins();
 
   // ---- Services ----
   void saveMapCallback(
@@ -75,12 +81,14 @@ private:
   void publishStatus();
   void publishPath();
   void updatePath(const PoseType& pose);
+  void broadcastMapToOdom();
 
-  // ---- State ----
-  rclcpp::Node::SharedPtr node_;
+  // ---- TF ----
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
+  // ---- SLAM state ----
   SlamState state_ = SlamState::INITIALIZING;
   gtsam::Pose3 current_pose_;
   int current_state_index_ = -1;
@@ -93,16 +101,18 @@ private:
   // ---- Plugins ----
   std::unique_ptr<pluginlib::ClassLoader<FactorPlugin>> factor_plugin_loader_;
   std::unique_ptr<pluginlib::ClassLoader<RelocalizationPlugin>> reloc_plugin_loader_;
+  std::unique_ptr<pluginlib::ClassLoader<VisualizationPlugin>> vis_plugin_loader_;
   std::vector<std::shared_ptr<FactorPlugin>> factor_plugins_;
   std::vector<std::shared_ptr<RelocalizationPlugin>> reloc_plugins_;
+  std::vector<std::shared_ptr<VisualizationPlugin>> vis_plugins_;
 
   // ---- Timer ----
   rclcpp::TimerBase::SharedPtr slam_timer_;
   rclcpp::CallbackGroup::SharedPtr slam_callback_group_;
 
   // ---- Publishers ----
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
-  rclcpp::Publisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
 
   // ---- Services ----
   rclcpp::Service<eidos_msgs::srv::SaveMap>::SharedPtr save_map_srv_;
@@ -118,6 +128,7 @@ private:
   double relocalization_timeout_ = 30.0;
   std::string map_frame_ = "map";
   std::string odom_frame_ = "odom";
+  std::string base_link_frame_ = "base_link";
 
   // Keyframe parameters
   float keyframe_density_ = 2.0;

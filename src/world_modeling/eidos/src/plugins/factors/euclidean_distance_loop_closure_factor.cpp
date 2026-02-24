@@ -1,4 +1,4 @@
-#include "eidos/plugins/euclidean_distance_loop_closure_factor.hpp"
+#include "eidos/plugins/factors/euclidean_distance_loop_closure_factor.hpp"
 
 #include <pcl/registration/icp.h>
 #include <pcl/filters/voxel_grid.h>
@@ -72,10 +72,8 @@ void EuclideanDistanceLoopClosureFactor::deactivate() {
 
 void EuclideanDistanceLoopClosureFactor::reset() {
   RCLCPP_INFO(node_->get_logger(), "[%s] reset", name_.c_str());
-  {
-    std::lock_guard<std::mutex> lock(loop_queue_mtx_);
-    loop_queue_.clear();
-  }
+  std::lock_guard<std::mutex> lock(loop_queue_mtx_);
+  loop_queue_.clear();
   loop_index_container_.clear();
 }
 
@@ -205,10 +203,12 @@ void EuclideanDistanceLoopClosureFactor::performLoopClosure() {
   {
     std::lock_guard<std::mutex> lock(loop_queue_mtx_);
     loop_queue_.push_back(lc);
+    // Mark this pair so we don't detect it again
+    loop_index_container_[latest_id] = closest_id;
   }
 
-  // Mark this pair so we don't detect it again
-  loop_index_container_[latest_id] = closest_id;
+  // Store loop target for visualization
+  core_->getMapManager().addKeyframeData(latest_id, name_ + "/loop_target", closest_id);
 }
 
 bool EuclideanDistanceLoopClosureFactor::detectLoopClosureDistance(
@@ -220,8 +220,15 @@ bool EuclideanDistanceLoopClosureFactor::detectLoopClosureDistance(
 
   *latest_id = num_poses - 1;
 
+  // Snapshot loop_index_container_ under lock to avoid data race with reset()
+  std::map<int, int> loop_index_snapshot;
+  {
+    std::lock_guard<std::mutex> lock(loop_queue_mtx_);
+    loop_index_snapshot = loop_index_container_;
+  }
+
   // Check if we already found a loop for this keyframe
-  if (loop_index_container_.find(*latest_id) != loop_index_container_.end())
+  if (loop_index_snapshot.find(*latest_id) != loop_index_snapshot.end())
     return false;
 
   // KD-tree search for nearby keyframes
@@ -247,7 +254,7 @@ bool EuclideanDistanceLoopClosureFactor::detectLoopClosureDistance(
     if (time_diff < search_time_diff_) continue;
 
     // Check if already used in a loop closure
-    if (loop_index_container_.find(candidate) != loop_index_container_.end())
+    if (loop_index_snapshot.find(candidate) != loop_index_snapshot.end())
       continue;
 
     if (search_distances[i] < best_dist) {

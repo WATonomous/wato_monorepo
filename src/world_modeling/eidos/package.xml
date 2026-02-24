@@ -10,30 +10,40 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <build_depend>rclcpp</build_depend>
+  <build_depend>rclcpp_lifecycle</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
   <build_depend>tf2</build_depend>
   <build_depend>tf2_ros</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
   <build_depend>pcl_conversions</build_depend>
   <build_depend>eidos_msgs</build_depend>
+  <build_depend>visualization_msgs</build_depend>
   <build_depend>pluginlib</build_depend>
   <build_depend>libopencv-dev</build_depend>
   <build_depend>libpcl-all-dev</build_depend>
   <build_depend>gtsam</build_depend>
   <build_depend>eigen</build_depend>
+  <build_depend>small_gicp_vendor</build_depend>
 
   <exec_depend>rclcpp</exec_depend>
+  <exec_depend>rclcpp_lifecycle</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>tf2</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
   <exec_depend>pcl_conversions</exec_depend>
   <exec_depend>eidos_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>pluginlib</exec_depend>
   <exec_depend>libopencv-dev</exec_depend>
   <exec_depend>libpcl-all-dev</exec_depend>
   <exec_depend>gtsam</exec_depend>
   <exec_depend>eigen</exec_depend>
+  <exec_depend>small_gicp_vendor</exec_depend>
 
   <test_depend>wato_test</test_depend>
 

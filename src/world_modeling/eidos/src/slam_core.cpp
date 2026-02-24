@@ -5,55 +5,83 @@
 #include <functional>
 
 #include <gtsam/slam/BetweenFactor.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace eidos {
 
-SlamCore::SlamCore(rclcpp::Node::SharedPtr node)
-    : node_(node) {
+SlamCore::SlamCore(const rclcpp::NodeOptions& options)
+    : rclcpp_lifecycle::LifecycleNode("eidos_node", options) {
+  RCLCPP_INFO(get_logger(), "EidosNode created (unconfigured)");
+}
+
+SlamCore::~SlamCore() = default;
+
+// ---- Lifecycle callbacks ----
+
+SlamCore::CallbackReturn SlamCore::on_configure(
+    const rclcpp_lifecycle::State&) {
+  RCLCPP_INFO(get_logger(), "Configuring...");
+
   // TF
-  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node_->get_clock());
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(
+      shared_from_this());
 
   // Parameters
-  node_->declare_parameter("slam_rate", slam_rate_);
-  node_->declare_parameter("max_displacement", max_displacement_);
-  node_->declare_parameter("max_rotation", max_rotation_);
-  node_->declare_parameter("relocalization_timeout", relocalization_timeout_);
-  node_->declare_parameter("frames.map", map_frame_);
-  node_->declare_parameter("frames.odometry", odom_frame_);
-  node_->declare_parameter("keyframe.density", keyframe_density_);
-  node_->declare_parameter("keyframe.search_radius", keyframe_search_radius_);
-  node_->declare_parameter("map.load_directory", map_load_directory_);
-  node_->declare_parameter("map.save_directory", map_save_directory_);
-  node_->declare_parameter("factor_plugins", std::vector<std::string>{});
-  node_->declare_parameter("relocalization_plugins", std::vector<std::string>{});
+  declare_parameter("slam_rate", slam_rate_);
+  declare_parameter("max_displacement", max_displacement_);
+  declare_parameter("max_rotation", max_rotation_);
+  declare_parameter("relocalization_timeout", relocalization_timeout_);
+  declare_parameter("frames.map", map_frame_);
+  declare_parameter("frames.odometry", odom_frame_);
+  declare_parameter("frames.base_link", base_link_frame_);
+  declare_parameter("keyframe.density", keyframe_density_);
+  declare_parameter("keyframe.search_radius", keyframe_search_radius_);
+  declare_parameter("map.load_directory", map_load_directory_);
+  declare_parameter("map.save_directory", map_save_directory_);
+  declare_parameter("factor_plugins", std::vector<std::string>{});
+  declare_parameter("relocalization_plugins", std::vector<std::string>{});
+  declare_parameter("visualization_plugins", std::vector<std::string>{});
+  declare_parameter("topics.path", "slam/path");
+  declare_parameter("topics.status", "slam/status");
+  declare_parameter("topics.save_map_service", "slam/save_map");
+  declare_parameter("topics.load_map_service", "slam/load_map");
 
-  node_->get_parameter("slam_rate", slam_rate_);
-  node_->get_parameter("max_displacement", max_displacement_);
-  node_->get_parameter("max_rotation", max_rotation_);
-  node_->get_parameter("relocalization_timeout", relocalization_timeout_);
-  node_->get_parameter("frames.map", map_frame_);
-  node_->get_parameter("frames.odometry", odom_frame_);
-  node_->get_parameter("keyframe.density", keyframe_density_);
-  node_->get_parameter("keyframe.search_radius", keyframe_search_radius_);
-  node_->get_parameter("map.load_directory", map_load_directory_);
-  node_->get_parameter("map.save_directory", map_save_directory_);
+  get_parameter("slam_rate", slam_rate_);
+  get_parameter("max_displacement", max_displacement_);
+  get_parameter("max_rotation", max_rotation_);
+  get_parameter("relocalization_timeout", relocalization_timeout_);
+  get_parameter("frames.map", map_frame_);
+  get_parameter("frames.odometry", odom_frame_);
+  get_parameter("frames.base_link", base_link_frame_);
+  get_parameter("keyframe.density", keyframe_density_);
+  get_parameter("keyframe.search_radius", keyframe_search_radius_);
+  get_parameter("map.load_directory", map_load_directory_);
+  get_parameter("map.save_directory", map_save_directory_);
+
+  std::string path_topic, status_topic, save_map_service, load_map_service;
+  get_parameter("topics.path", path_topic);
+  get_parameter("topics.status", status_topic);
+  get_parameter("topics.save_map_service", save_map_service);
+  get_parameter("topics.load_map_service", load_map_service);
 
   // Core components
   pose_graph_ = std::make_unique<PoseGraph>();
   map_manager_ = std::make_unique<MapManager>();
 
   // Publishers
-  path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("slam/path", 1);
-  status_pub_ = node_->create_publisher<eidos_msgs::msg::SlamStatus>("slam/status", 1);
+  path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic, 1);
+  status_pub_ = create_publisher<eidos_msgs::msg::SlamStatus>(status_topic, 1);
 
   // Services
-  save_map_srv_ = node_->create_service<eidos_msgs::srv::SaveMap>(
-      "slam/save_map",
+  save_map_srv_ = create_service<eidos_msgs::srv::SaveMap>(
+      save_map_service,
       std::bind(&SlamCore::saveMapCallback, this,
                 std::placeholders::_1, std::placeholders::_2));
-  load_map_srv_ = node_->create_service<eidos_msgs::srv::LoadMap>(
-      "slam/load_map",
+  load_map_srv_ = create_service<eidos_msgs::srv::LoadMap>(
+      load_map_service,
       std::bind(&SlamCore::loadMapCallback, this,
                 std::placeholders::_1, std::placeholders::_2));
 
@@ -62,23 +90,28 @@ SlamCore::SlamCore(rclcpp::Node::SharedPtr node)
       "eidos", "eidos::FactorPlugin");
   reloc_plugin_loader_ = std::make_unique<pluginlib::ClassLoader<RelocalizationPlugin>>(
       "eidos", "eidos::RelocalizationPlugin");
+  vis_plugin_loader_ = std::make_unique<pluginlib::ClassLoader<VisualizationPlugin>>(
+      "eidos", "eidos::VisualizationPlugin");
 
   loadFactorPlugins();
   loadRelocalizationPlugins();
+  loadVisualizationPlugins();
+
+  RCLCPP_INFO(get_logger(), "\033[1;32m----> Eidos SLAM Configured.\033[0m");
+  return CallbackReturn::SUCCESS;
 }
 
-SlamCore::~SlamCore() {
-  stop();
-}
+SlamCore::CallbackReturn SlamCore::on_activate(
+    const rclcpp_lifecycle::State&) {
+  RCLCPP_INFO(get_logger(), "Activating...");
 
-void SlamCore::start() {
   // Load prior map if configured
   if (!map_load_directory_.empty()) {
     if (map_manager_->loadMap(map_load_directory_)) {
-      RCLCPP_INFO(node_->get_logger(), "Loaded prior map from: %s",
+      RCLCPP_INFO(get_logger(), "Loaded prior map from: %s",
                   map_load_directory_.c_str());
     } else {
-      RCLCPP_WARN(node_->get_logger(), "Failed to load prior map from: %s",
+      RCLCPP_WARN(get_logger(), "Failed to load prior map from: %s",
                   map_load_directory_.c_str());
     }
   }
@@ -86,12 +119,16 @@ void SlamCore::start() {
   // Determine initial state
   if (!reloc_plugins_.empty() && map_manager_->hasPriorMap()) {
     state_ = SlamState::RELOCALIZING;
-    relocalization_start_time_ = node_->now().seconds();
-    RCLCPP_INFO(node_->get_logger(), "Entering RELOCALIZING state");
+    relocalization_start_time_ = now().seconds();
+    RCLCPP_INFO(get_logger(), "Entering RELOCALIZING state");
   } else {
     state_ = SlamState::TRACKING;
-    RCLCPP_INFO(node_->get_logger(), "Entering TRACKING state (fresh SLAM)");
+    RCLCPP_INFO(get_logger(), "Entering TRACKING state (fresh SLAM)");
   }
+
+  // Activate lifecycle publishers
+  path_pub_->on_activate();
+  status_pub_->on_activate();
 
   // Activate plugins
   for (auto& plugin : factor_plugins_) {
@@ -100,54 +137,143 @@ void SlamCore::start() {
   for (auto& plugin : reloc_plugins_) {
     plugin->activate();
   }
+  for (auto& plugin : vis_plugins_) {
+    plugin->activate();
+  }
 
   // Start SLAM timer
-  slam_callback_group_ = node_->create_callback_group(
+  slam_callback_group_ = create_callback_group(
       rclcpp::CallbackGroupType::MutuallyExclusive);
   auto period = std::chrono::duration<double>(1.0 / slam_rate_);
-  slam_timer_ = node_->create_wall_timer(
+  slam_timer_ = create_wall_timer(
       std::chrono::duration_cast<std::chrono::nanoseconds>(period),
       std::bind(&SlamCore::slamLoop, this),
       slam_callback_group_);
+
+  RCLCPP_INFO(get_logger(), "\033[1;32m----> Eidos SLAM Activated.\033[0m");
+  return CallbackReturn::SUCCESS;
 }
 
-void SlamCore::stop() {
+SlamCore::CallbackReturn SlamCore::on_deactivate(
+    const rclcpp_lifecycle::State&) {
+  RCLCPP_INFO(get_logger(), "Deactivating...");
+
   if (slam_timer_) {
     slam_timer_->cancel();
     slam_timer_.reset();
   }
+
+  // Deactivate lifecycle publishers
+  path_pub_->on_deactivate();
+  status_pub_->on_deactivate();
+
   for (auto& plugin : factor_plugins_) {
     plugin->deactivate();
   }
   for (auto& plugin : reloc_plugins_) {
     plugin->deactivate();
   }
-}
-
-void SlamCore::slamLoop() {
-  std::lock_guard<std::mutex> lock(mtx_);
-  double timestamp = node_->now().seconds();
-
-  switch (state_) {
-    case SlamState::INITIALIZING:
-      handleInitializing();
-      break;
-    case SlamState::RELOCALIZING:
-      handleRelocalizing(timestamp);
-      break;
-    case SlamState::TRACKING:
-      handleTracking(timestamp);
-      break;
+  for (auto& plugin : vis_plugins_) {
+    plugin->deactivate();
   }
 
-  publishStatus();
+  RCLCPP_INFO(get_logger(), "Eidos SLAM Deactivated.");
+  return CallbackReturn::SUCCESS;
+}
+
+SlamCore::CallbackReturn SlamCore::on_cleanup(
+    const rclcpp_lifecycle::State&) {
+  RCLCPP_INFO(get_logger(), "Cleaning up...");
+
+  // Release plugins before loaders
+  factor_plugins_.clear();
+  reloc_plugins_.clear();
+  vis_plugins_.clear();
+  factor_plugin_loader_.reset();
+  reloc_plugin_loader_.reset();
+  vis_plugin_loader_.reset();
+
+  path_pub_.reset();
+  status_pub_.reset();
+  save_map_srv_.reset();
+  load_map_srv_.reset();
+
+  pose_graph_.reset();
+  map_manager_.reset();
+
+  tf_broadcaster_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+
+  // Reset SLAM state
+  state_ = SlamState::INITIALIZING;
+  current_pose_ = gtsam::Pose3();
+  current_state_index_ = -1;
+  std::fill(std::begin(current_transform_), std::end(current_transform_), 0.0f);
+  loop_closure_detected_ = false;
+  accumulated_graph_ = gtsam::NonlinearFactorGraph();
+  accumulated_values_ = gtsam::Values();
+  global_path_ = nav_msgs::msg::Path();
+
+  RCLCPP_INFO(get_logger(), "Eidos SLAM Cleaned up.");
+  return CallbackReturn::SUCCESS;
+}
+
+SlamCore::CallbackReturn SlamCore::on_shutdown(
+    const rclcpp_lifecycle::State& state) {
+  RCLCPP_INFO(get_logger(), "Shutting down...");
+
+  // If still active, deactivate first
+  if (slam_timer_) {
+    on_deactivate(state);
+  }
+  on_cleanup(state);
+
+  RCLCPP_INFO(get_logger(), "Eidos SLAM Shut down.");
+  return CallbackReturn::SUCCESS;
+}
+
+// ---- SLAM loop ----
+
+void SlamCore::slamLoop() {
+  bool run_vis = false;
+  gtsam::Values vis_values;
+  bool vis_loop_closure = false;
+
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    double timestamp = now().seconds();
+
+    switch (state_) {
+      case SlamState::INITIALIZING:
+        handleInitializing();
+        break;
+      case SlamState::RELOCALIZING:
+        handleRelocalizing(timestamp);
+        break;
+      case SlamState::TRACKING:
+        handleTracking(timestamp, run_vis, vis_values, vis_loop_closure);
+        break;
+    }
+
+    publishStatus();
+  }
+
+  // Visualization and path publishing run outside the lock — they are
+  // read-only with respect to SLAM state and can tolerate slightly stale data.
+  if (run_vis) {
+    for (auto& plugin : vis_plugins_) {
+      plugin->onOptimizationComplete(vis_values, vis_loop_closure);
+    }
+  }
+  publishPath();
 }
 
 void SlamCore::handleInitializing() {
   // Transition to appropriate state
   if (!reloc_plugins_.empty() && map_manager_->hasPriorMap()) {
     state_ = SlamState::RELOCALIZING;
-    relocalization_start_time_ = node_->now().seconds();
+    relocalization_start_time_ = now().seconds();
   } else {
     state_ = SlamState::TRACKING;
   }
@@ -173,7 +299,7 @@ void SlamCore::handleRelocalizing(double timestamp) {
       current_transform_[4] = static_cast<float>(result->pose.translation().y());
       current_transform_[5] = static_cast<float>(result->pose.translation().z());
 
-      RCLCPP_INFO(node_->get_logger(),
+      RCLCPP_INFO(get_logger(),
                   "Relocalization succeeded (fitness: %.3f, keyframe: %d). "
                   "Transitioning to TRACKING.",
                   result->fitness_score, result->matched_keyframe_index);
@@ -185,7 +311,7 @@ void SlamCore::handleRelocalizing(double timestamp) {
   // Check timeout
   double elapsed = timestamp - relocalization_start_time_;
   if (elapsed > relocalization_timeout_) {
-    RCLCPP_WARN(node_->get_logger(),
+    RCLCPP_WARN(get_logger(),
                 "Relocalization timed out after %.1f seconds. "
                 "Falling back to fresh SLAM.",
                 elapsed);
@@ -193,7 +319,9 @@ void SlamCore::handleRelocalizing(double timestamp) {
   }
 }
 
-void SlamCore::handleTracking(double timestamp) {
+void SlamCore::handleTracking(double timestamp, bool& run_vis,
+                              gtsam::Values& vis_values,
+                              bool& vis_loop_closure) {
   // 1. Process frames from all factor plugins
   std::optional<gtsam::Pose3> best_pose;
   for (auto& plugin : factor_plugins_) {
@@ -321,38 +449,46 @@ void SlamCore::handleTracking(double timestamp) {
       plugin->onOptimizationComplete(optimized, loop_closure_detected_);
     }
 
+    // Signal visualization to run outside the lock
+    run_vis = true;
+    vis_values = optimized;
+    vis_loop_closure = loop_closure_detected_;
+
+    // Broadcast map → odom TF
+    broadcastMapToOdom();
+
     // Update path
     updatePath(pose_6d);
   }
-
-  publishPath();
 }
+
+// ---- Plugin loading ----
 
 void SlamCore::loadFactorPlugins() {
   std::vector<std::string> plugin_names;
-  node_->get_parameter("factor_plugins", plugin_names);
+  get_parameter("factor_plugins", plugin_names);
 
   for (const auto& name : plugin_names) {
     std::string plugin_type;
-    node_->declare_parameter(name + ".plugin", std::string{});
-    node_->get_parameter(name + ".plugin", plugin_type);
+    declare_parameter(name + ".plugin", std::string{});
+    get_parameter(name + ".plugin", plugin_type);
 
     if (plugin_type.empty()) {
-      RCLCPP_ERROR(node_->get_logger(),
+      RCLCPP_ERROR(get_logger(),
                    "Factor plugin '%s' has no 'plugin' parameter.", name.c_str());
       continue;
     }
 
     try {
       auto plugin = factor_plugin_loader_->createSharedInstance(plugin_type);
-      auto cb_group = node_->create_callback_group(
+      auto cb_group = create_callback_group(
           rclcpp::CallbackGroupType::MutuallyExclusive);
-      plugin->initialize(this, name, node_, tf_buffer_.get(), cb_group);
+      plugin->initialize(this, name, shared_from_this(), tf_buffer_.get(), cb_group);
       factor_plugins_.push_back(plugin);
-      RCLCPP_INFO(node_->get_logger(), "Loaded factor plugin: %s (%s)",
+      RCLCPP_INFO(get_logger(), "Loaded factor plugin: %s (%s)",
                   name.c_str(), plugin_type.c_str());
     } catch (const pluginlib::PluginlibException& ex) {
-      RCLCPP_ERROR(node_->get_logger(),
+      RCLCPP_ERROR(get_logger(),
                    "Failed to load factor plugin '%s' (%s): %s",
                    name.c_str(), plugin_type.c_str(), ex.what());
     }
@@ -361,15 +497,15 @@ void SlamCore::loadFactorPlugins() {
 
 void SlamCore::loadRelocalizationPlugins() {
   std::vector<std::string> plugin_names;
-  node_->get_parameter("relocalization_plugins", plugin_names);
+  get_parameter("relocalization_plugins", plugin_names);
 
   for (const auto& name : plugin_names) {
     std::string plugin_type;
-    node_->declare_parameter(name + ".plugin", std::string{});
-    node_->get_parameter(name + ".plugin", plugin_type);
+    declare_parameter(name + ".plugin", std::string{});
+    get_parameter(name + ".plugin", plugin_type);
 
     if (plugin_type.empty()) {
-      RCLCPP_ERROR(node_->get_logger(),
+      RCLCPP_ERROR(get_logger(),
                    "Relocalization plugin '%s' has no 'plugin' parameter.",
                    name.c_str());
       continue;
@@ -377,19 +513,53 @@ void SlamCore::loadRelocalizationPlugins() {
 
     try {
       auto plugin = reloc_plugin_loader_->createSharedInstance(plugin_type);
-      auto cb_group = node_->create_callback_group(
+      auto cb_group = create_callback_group(
           rclcpp::CallbackGroupType::MutuallyExclusive);
-      plugin->initialize(this, name, node_, tf_buffer_.get(), cb_group);
+      plugin->initialize(this, name, shared_from_this(), tf_buffer_.get(), cb_group);
       reloc_plugins_.push_back(plugin);
-      RCLCPP_INFO(node_->get_logger(), "Loaded relocalization plugin: %s (%s)",
+      RCLCPP_INFO(get_logger(), "Loaded relocalization plugin: %s (%s)",
                   name.c_str(), plugin_type.c_str());
     } catch (const pluginlib::PluginlibException& ex) {
-      RCLCPP_ERROR(node_->get_logger(),
+      RCLCPP_ERROR(get_logger(),
                    "Failed to load relocalization plugin '%s' (%s): %s",
                    name.c_str(), plugin_type.c_str(), ex.what());
     }
   }
 }
+
+void SlamCore::loadVisualizationPlugins() {
+  std::vector<std::string> plugin_names;
+  get_parameter("visualization_plugins", plugin_names);
+
+  for (const auto& name : plugin_names) {
+    std::string plugin_type;
+    declare_parameter(name + ".plugin", std::string{});
+    get_parameter(name + ".plugin", plugin_type);
+
+    if (plugin_type.empty()) {
+      RCLCPP_ERROR(get_logger(),
+                   "Visualization plugin '%s' has no 'plugin' parameter.",
+                   name.c_str());
+      continue;
+    }
+
+    try {
+      auto plugin = vis_plugin_loader_->createSharedInstance(plugin_type);
+      auto cb_group = create_callback_group(
+          rclcpp::CallbackGroupType::MutuallyExclusive);
+      plugin->initialize(this, name, shared_from_this(), tf_buffer_.get(), cb_group);
+      vis_plugins_.push_back(plugin);
+      RCLCPP_INFO(get_logger(), "Loaded visualization plugin: %s (%s)",
+                  name.c_str(), plugin_type.c_str());
+    } catch (const pluginlib::PluginlibException& ex) {
+      RCLCPP_ERROR(get_logger(),
+                   "Failed to load visualization plugin '%s' (%s): %s",
+                   name.c_str(), plugin_type.c_str(), ex.what());
+    }
+  }
+}
+
+// ---- Services ----
 
 void SlamCore::saveMapCallback(
     const std::shared_ptr<eidos_msgs::srv::SaveMap::Request> request,
@@ -397,7 +567,7 @@ void SlamCore::saveMapCallback(
   std::lock_guard<std::mutex> lock(mtx_);
   std::string dir = request->directory.empty() ? map_save_directory_ : request->directory;
 
-  RCLCPP_INFO(node_->get_logger(), "Saving map to: %s", dir.c_str());
+  RCLCPP_INFO(get_logger(), "Saving map to: %s", dir.c_str());
   bool success = map_manager_->saveMap(
       dir, request->resolution, accumulated_graph_, accumulated_values_);
 
@@ -410,7 +580,7 @@ void SlamCore::loadMapCallback(
     std::shared_ptr<eidos_msgs::srv::LoadMap::Response> response) {
   std::lock_guard<std::mutex> lock(mtx_);
 
-  RCLCPP_INFO(node_->get_logger(), "Loading map from: %s", request->directory.c_str());
+  RCLCPP_INFO(get_logger(), "Loading map from: %s", request->directory.c_str());
   bool success = map_manager_->loadMap(request->directory);
 
   response->success = success;
@@ -418,9 +588,11 @@ void SlamCore::loadMapCallback(
   response->message = success ? "Map loaded successfully" : "Failed to load map";
 }
 
+// ---- Publishing ----
+
 void SlamCore::publishStatus() {
   auto msg = eidos_msgs::msg::SlamStatus();
-  msg.header.stamp = node_->now();
+  msg.header.stamp = now();
   msg.header.frame_id = map_frame_;
   msg.state = static_cast<uint8_t>(state_);
   msg.current_state_index = current_state_index_;
@@ -441,15 +613,15 @@ void SlamCore::publishStatus() {
 void SlamCore::publishPath() {
   if (path_pub_->get_subscription_count() == 0) return;
 
-  global_path_.header.stamp = node_->now();
-  global_path_.header.frame_id = odom_frame_;
+  global_path_.header.stamp = now();
+  global_path_.header.frame_id = map_frame_;
   path_pub_->publish(global_path_);
 }
 
 void SlamCore::updatePath(const PoseType& pose) {
   geometry_msgs::msg::PoseStamped ps;
   ps.header.stamp = rclcpp::Time(static_cast<int64_t>(pose.time * 1e9));
-  ps.header.frame_id = odom_frame_;
+  ps.header.frame_id = map_frame_;
   ps.pose.position.x = pose.x;
   ps.pose.position.y = pose.y;
   ps.pose.position.z = pose.z;
@@ -462,6 +634,48 @@ void SlamCore::updatePath(const PoseType& pose) {
   ps.pose.orientation.w = q.w();
 
   global_path_.poses.push_back(ps);
+}
+
+void SlamCore::broadcastMapToOdom() {
+  // T_map_odom = T_map_base * inverse(T_odom_base)
+  // T_map_base = latest optimized pose from ISAM2
+  // T_odom_base = looked up from TF tree (published by IMU factor)
+
+  // Look up T_odom_base from TF tree
+  geometry_msgs::msg::TransformStamped t_odom_base_msg;
+  try {
+    t_odom_base_msg = tf_buffer_->lookupTransform(
+        odom_frame_, base_link_frame_, tf2::TimePointZero);
+  } catch (const tf2::TransformException&) {
+    return;  // TF not yet available (IMU factor hasn't published)
+  }
+
+  // Build T_map_base from current optimized pose
+  tf2::Transform tf_map_base;
+  tf2::Quaternion q_map_base;
+  q_map_base.setRPY(current_pose_.rotation().roll(),
+                     current_pose_.rotation().pitch(),
+                     current_pose_.rotation().yaw());
+  tf_map_base.setRotation(q_map_base);
+  tf_map_base.setOrigin({current_pose_.translation().x(),
+                          current_pose_.translation().y(),
+                          current_pose_.translation().z()});
+
+  // Convert T_odom_base msg → tf2::Transform
+  tf2::Transform tf_odom_base;
+  tf2::fromMsg(t_odom_base_msg.transform, tf_odom_base);
+
+  // Compose: T_map_odom = T_map_base * inv(T_odom_base)
+  tf2::Transform tf_map_odom = tf_map_base * tf_odom_base.inverse();
+
+  // Convert back to msg and broadcast
+  geometry_msgs::msg::TransformStamped tf_msg;
+  tf_msg.header.stamp = now();
+  tf_msg.header.frame_id = map_frame_;
+  tf_msg.child_frame_id = odom_frame_;
+  tf_msg.transform = tf2::toMsg(tf_map_odom);
+
+  tf_broadcaster_->sendTransform(tf_msg);
 }
 
 // ---- Read-only accessors for plugins ----

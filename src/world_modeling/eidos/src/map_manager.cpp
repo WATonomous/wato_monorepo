@@ -85,12 +85,12 @@ void MapManager::updatePoses(const gtsam::Values& optimized) {
 
 pcl::PointCloud<PointType>::Ptr MapManager::getKeyPoses3D() const {
   std::lock_guard<std::mutex> lock(mtx_);
-  return key_poses_3d_;
+  return pcl::make_shared<pcl::PointCloud<PointType>>(*key_poses_3d_);
 }
 
 pcl::PointCloud<PoseType>::Ptr MapManager::getKeyPoses6D() const {
   std::lock_guard<std::mutex> lock(mtx_);
-  return key_poses_6d_;
+  return pcl::make_shared<pcl::PointCloud<PoseType>>(*key_poses_6d_);
 }
 
 int MapManager::numKeyframes() const {
@@ -140,6 +140,25 @@ std::unordered_map<std::string, std::any> MapManager::getKeyframeDataForPlugin(
     }
   }
   return result;
+}
+
+// ---- Global data storage ----
+
+void MapManager::registerGlobalType(const std::string& key, TypeHandler handler) {
+  std::lock_guard<std::mutex> lock(mtx_);
+  global_type_handlers_[key] = std::move(handler);
+}
+
+void MapManager::setGlobalData(const std::string& key, std::any data) {
+  std::lock_guard<std::mutex> lock(mtx_);
+  global_data_[key] = std::move(data);
+}
+
+std::optional<std::any> MapManager::getGlobalData(const std::string& key) const {
+  std::lock_guard<std::mutex> lock(mtx_);
+  auto it = global_data_.find(key);
+  if (it == global_data_.end()) return std::nullopt;
+  return it->second;
 }
 
 // ---- Persistence ----
@@ -202,6 +221,27 @@ bool MapManager::saveMap(
     }
   }
 
+  // Save global data using registered global serializers
+  auto global_dir = fs::path(directory) / "global";
+  fs::create_directories(global_dir);
+  std::vector<std::string> global_keys;
+  for (const auto& [key, data] : global_data_) {
+    auto handler_it = global_type_handlers_.find(key);
+    if (handler_it == global_type_handlers_.end()) continue;
+
+    std::string filename = key;
+    // Replace '/' with '_' for flat file naming
+    std::replace(filename.begin(), filename.end(), '/', '_');
+    std::string data_path = (global_dir / (filename + ".bin")).string();
+
+    try {
+      handler_it->second.serialize(data, data_path);
+      global_keys.push_back(key);
+    } catch (const std::exception&) {
+      continue;
+    }
+  }
+
   // Save global map (combined point clouds from all registered pcl types)
   // This is a best-effort convenience output for visualization
   if (resolution > 0) {
@@ -241,6 +281,10 @@ bool MapManager::saveMap(
     for (const auto& key : registered_keys) {
       meta << "  - \"" << key << "\"\n";
     }
+    meta << "global_keys:\n";
+    for (const auto& key : global_keys) {
+      meta << "  - \"" << key << "\"\n";
+    }
     meta.close();
   }
 
@@ -269,32 +313,39 @@ bool MapManager::loadMap(const std::string& directory) {
   int num_keyframes = static_cast<int>(key_poses_3d_->size());
   keyframe_data_.resize(num_keyframes);
 
-  // Read metadata to get the list of registered keys
+  // Read metadata to get the list of registered keys and global keys
   auto metadata_path = fs::path(directory) / "metadata.yaml";
   std::vector<std::string> saved_keys;
+  std::vector<std::string> saved_global_keys;
   if (fs::exists(metadata_path)) {
     std::ifstream meta(metadata_path.string());
     std::string line;
-    bool in_keys_section = false;
+    enum Section { NONE, REGISTERED_KEYS, GLOBAL_KEYS } section = NONE;
     while (std::getline(meta, line)) {
       if (line.find("registered_keys:") != std::string::npos) {
-        in_keys_section = true;
+        section = REGISTERED_KEYS;
         continue;
       }
-      if (in_keys_section) {
-        // Lines look like:   - "plugin_name/data_name"
+      if (line.find("global_keys:") != std::string::npos) {
+        section = GLOBAL_KEYS;
+        continue;
+      }
+      if (section == REGISTERED_KEYS || section == GLOBAL_KEYS) {
         auto dash_pos = line.find("- ");
         if (dash_pos == std::string::npos) {
-          in_keys_section = false;
+          section = NONE;
           continue;
         }
         std::string value = line.substr(dash_pos + 2);
-        // Strip quotes
         if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
           value = value.substr(1, value.size() - 2);
         }
         if (!value.empty()) {
-          saved_keys.push_back(value);
+          if (section == REGISTERED_KEYS) {
+            saved_keys.push_back(value);
+          } else {
+            saved_global_keys.push_back(value);
+          }
         }
       }
     }
@@ -329,6 +380,28 @@ bool MapManager::loadMap(const std::string& directory) {
         } catch (const std::exception&) {
           continue;
         }
+      }
+    }
+  }
+
+  // Load global data using registered global deserializers
+  auto global_dir = fs::path(directory) / "global";
+  if (fs::exists(global_dir)) {
+    for (const auto& key : saved_global_keys) {
+      auto handler_it = global_type_handlers_.find(key);
+      if (handler_it == global_type_handlers_.end()) continue;
+
+      std::string filename = key;
+      std::replace(filename.begin(), filename.end(), '/', '_');
+      auto data_path = global_dir / (filename + ".bin");
+
+      if (!fs::exists(data_path)) continue;
+
+      try {
+        auto data = handler_it->second.deserialize(data_path.string());
+        global_data_[key] = std::move(data);
+      } catch (const std::exception&) {
+        continue;
       }
     }
   }

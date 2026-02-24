@@ -12,12 +12,16 @@ endif()
 # ---- Dependencies ----
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(eidos_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 
 find_package(PCL REQUIRED)
@@ -25,6 +29,8 @@ find_package(OpenCV REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(small_gicp_vendor REQUIRED)
+find_package(small_gicp REQUIRED)
 
 # ---- Core library ----
 add_library(eidos_core SHARED
@@ -44,10 +50,13 @@ target_include_directories(eidos_core PUBLIC
 )
 target_link_libraries(eidos_core PUBLIC
   rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
   ${sensor_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   tf2::tf2
   tf2_ros::tf2_ros
+  ${tf2_geometry_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
   ${eidos_msgs_TARGETS}
   pluginlib::pluginlib
   ${PCL_LIBRARIES}
@@ -58,11 +67,15 @@ target_link_libraries(eidos_core PUBLIC
 
 # ---- Plugin library ----
 add_library(eidos_plugins SHARED
-  src/plugins/lidar_kep_factor.cpp
-  src/plugins/imu_integration_factor.cpp
-  src/plugins/gps_factor.cpp
-  src/plugins/euclidean_distance_loop_closure_factor.cpp
-  src/plugins/gps_icp_relocalization.cpp
+  src/plugins/factors/lidar_kep_factor.cpp
+  src/plugins/factors/imu_integration_factor.cpp
+  src/plugins/factors/gps_factor.cpp
+  src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
+  src/plugins/relocalization/gps_icp_relocalization.cpp
+  src/plugins/visualization/keyframe_map_visualization.cpp
+  src/plugins/visualization/gps_visualization.cpp
+  src/plugins/visualization/loop_closure_visualization.cpp
+  src/plugins/visualization/keyframe_pose_visualization.cpp
 )
 target_include_directories(eidos_plugins PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -73,10 +86,13 @@ target_include_directories(eidos_plugins PUBLIC
 )
 target_link_libraries(eidos_plugins PUBLIC
   eidos_core
+  small_gicp::small_gicp
+  ${visualization_msgs_TARGETS}
+  ${tf2_geometry_msgs_TARGETS}
 )
 
 # ---- Node executable ----
-add_executable(eidos_node src/slam_node.cpp)
+add_executable(eidos_node src/main.cpp)
 target_include_directories(eidos_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   ${PCL_INCLUDE_DIRS}
@@ -89,6 +105,7 @@ target_link_libraries(eidos_node PRIVATE
 # ---- Plugin descriptions ----
 pluginlib_export_plugin_description_file(eidos factor_plugins.xml)
 pluginlib_export_plugin_description_file(eidos relocalization_plugins.xml)
+pluginlib_export_plugin_description_file(eidos visualization_plugins.xml)
 
 # ---- Install ----
 install(TARGETS eidos_core eidos_plugins
@@ -109,7 +126,7 @@ install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(FILES factor_plugins.xml relocalization_plugins.xml
+install(FILES factor_plugins.xml relocalization_plugins.xml visualization_plugins.xml
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -140,8 +157,8 @@ endif()
 ament_export_include_directories(include)
 ament_export_libraries(eidos_core eidos_plugins)
 ament_export_dependencies(
-  rclcpp sensor_msgs nav_msgs
-  tf2 tf2_ros pcl_conversions eidos_msgs pluginlib
+  rclcpp rclcpp_lifecycle sensor_msgs nav_msgs geometry_msgs visualization_msgs
+  tf2 tf2_ros tf2_geometry_msgs pcl_conversions eidos_msgs pluginlib
 )
 
 ament_package()

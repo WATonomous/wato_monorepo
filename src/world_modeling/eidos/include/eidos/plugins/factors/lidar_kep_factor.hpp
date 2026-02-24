@@ -8,14 +8,16 @@
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <tf2/LinearMath/Transform.h>
 
 #include <opencv2/opencv.hpp>
 
-#include "eidos/factor_plugin.hpp"
-#include "eidos/scan_matcher.hpp"
+#include "eidos/plugins/base_factor_plugin.hpp"
+#include "eidos/utils/scan_matcher.hpp"
 #include "eidos/types.hpp"
 
 namespace eidos {
@@ -76,8 +78,8 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr imu_odom_sub_;
 
   // ---- Publishers ----
-  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr deskewed_cloud_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr deskewed_cloud_pub_;
 
   // ---- Buffers ----
   std::deque<sensor_msgs::msg::PointCloud2> cloud_queue_;
@@ -183,10 +185,15 @@ private:
   double odom_trans_noise_ = 1e-4;
   double imu_time_margin_ = 0.01;
 
-  // IMU extrinsics
-  Eigen::Matrix3d ext_rot_;
-  Eigen::Quaterniond ext_qrpy_;
-  Eigen::Vector3d ext_trans_;
+  // IMU-to-lidar extrinsic transform (looked up from TF: lidar_frame_ <- imu_frame_)
+  tf2::Transform t_lidar_imu_;
+  bool extrinsics_resolved_ = false;
+
+  // Frame names
+  std::string odom_frame_ = "odom";
+  std::string base_link_frame_ = "base_link";
+  std::string lidar_frame_ = "lidar_link";
+  std::string imu_frame_ = "imu_link";
 };
 
 }  // namespace eidos

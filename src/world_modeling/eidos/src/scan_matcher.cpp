@@ -1,4 +1,4 @@
-#include "eidos/scan_matcher.hpp"
+#include "eidos/utils/scan_matcher.hpp"
 
 #include <omp.h>
 

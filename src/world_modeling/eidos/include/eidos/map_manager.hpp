@@ -77,6 +77,17 @@ public:
   std::unordered_map<std::string, std::any> getKeyframeDataForPlugin(
       int index, const std::string& plugin_name) const;
 
+  // ---- Global data storage ----
+
+  /// Register a global data type with serialize/deserialize functions.
+  void registerGlobalType(const std::string& key, TypeHandler handler);
+
+  /// Store global data under a key.
+  void setGlobalData(const std::string& key, std::any data);
+
+  /// Retrieve global data under a key.
+  std::optional<std::any> getGlobalData(const std::string& key) const;
+
   // ---- Persistence ----
 
   /// Save the map to disk.
@@ -100,6 +111,10 @@ private:
 
   // Per-keyframe data: keyframe_index -> key -> data
   std::vector<std::unordered_map<std::string, std::any>> keyframe_data_;
+
+  // Global data type registry and storage
+  std::unordered_map<std::string, TypeHandler> global_type_handlers_;
+  std::unordered_map<std::string, std::any> global_data_;
 
   bool prior_map_loaded_ = false;
   mutable std::mutex mtx_;

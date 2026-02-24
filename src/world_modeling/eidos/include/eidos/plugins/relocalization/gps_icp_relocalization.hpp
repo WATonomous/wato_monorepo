@@ -5,18 +5,20 @@
 #include <optional>
 
 #include <rclcpp/rclcpp.hpp>
-#include <nav_msgs/msg/odometry.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 
-#include "eidos/relocalization_plugin.hpp"
+#include "eidos/plugins/base_relocalization_plugin.hpp"
 #include "eidos/types.hpp"
+#include "eidos/utils/utm.hpp"
 
 namespace eidos {
 
 /**
  * @brief GPS + ICP relocalization plugin.
  *
- * Uses GPS to find candidate keyframes in the prior map, assembles
- * a local submap, and performs ICP alignment to relocalize.
+ * Uses NavSatFix GPS to find candidate keyframes in the prior map,
+ * assembles a local submap, and performs ICP alignment (via small_gicp)
+ * to relocalize.
  */
 class GpsIcpRelocalization : public RelocalizationPlugin {
 public:
@@ -30,11 +32,11 @@ public:
   std::optional<RelocalizationResult> tryRelocalize(double timestamp) override;
 
 private:
-  void gpsCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gps_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
 
-  std::deque<nav_msgs::msg::Odometry> gps_queue_;
+  std::deque<sensor_msgs::msg::NavSatFix> gps_queue_;
   std::mutex gps_lock_;
 
   bool active_ = false;
@@ -44,6 +46,8 @@ private:
   float fitness_threshold_ = 0.3;
   int max_icp_iterations_ = 100;
   float submap_leaf_size_ = 0.4;
+  float max_correspondence_distance_ = 2.0;
+  int num_threads_ = 4;
   std::string pointcloud_from_ = "lidar_kep_factor";
   std::string gps_from_ = "gps_factor";
 };

@@ -2,12 +2,12 @@ eidos_node:
   ros__parameters:
     # ---- Frames ----
     frames:
-      base_link: "base_link"
+      base_link: "base_footprint"
       odometry: "odom"
       map: "map"
 
     # ---- SLAM core ----
-    slam_rate: 10.0                    # Hz, main SLAM loop frequency
+    slam_rate: 5.0                    # Hz, main SLAM loop frequency
     max_displacement: 1.0              # meters of travel before creating a new keyframe state
     max_rotation: 0.2                  # radians of rotation before creating a new keyframe state
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
@@ -47,16 +47,16 @@ eidos_node:
       plugin: "eidos::ImuIntegrationFactor"
 
       # -- Topics --
-      imu_topic: "imu/data"                                                  # sensor_msgs/Imu input
+      imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
       odom_incremental_topic: "imu_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
       odom_fused_topic: "imu_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (lidar-corrected + IMU-incremented)
 
-      # -- IMU intrinsic noise (from Allan variance / datasheet) --
-      acc_noise: 3.9939570888238808e-03      # accelerometer white noise (m/s^2/sqrt(Hz))
-      gyr_noise: 1.5636343949698187e-03      # gyroscope white noise (rad/s/sqrt(Hz))
-      acc_bias_noise: 6.4356659353532566e-05  # accelerometer bias random walk
-      gyr_bias_noise: 3.5640318696367613e-05  # gyroscope bias random walk
-      gravity: 0.0                              # 0.0 for gravity-compensated IMU (data topic); 9.805 for raw IMU (data_raw topic)
+      # -- IMU intrinsic noise (Epson G320N datasheet) --
+      acc_noise: 8.333e-04                    # accelerometer white noise (m/s^2/sqrt(Hz)), VRW = 0.05 m/s/sqrt(hr)
+      gyr_noise: 2.909e-05                    # gyroscope white noise (rad/s/sqrt(Hz)), ARW = 0.1 deg/sqrt(hr)
+      acc_bias_noise: 9.805e-04               # accelerometer bias instability (m/s^2), 0.1 mg
+      gyr_bias_noise: 1.694e-05               # gyroscope bias instability (rad/s), 3.5 deg/hr
+      gravity: 0.0                            # 0.0 because the data topic provides gravity-compensated acceleration
       integration_noise: 1.0e-4              # IMU preintegration covariance noise
 
       # -- ISAM2 noise model sigmas --
@@ -92,8 +92,8 @@ eidos_node:
       plugin: "eidos::LidarKEPFactor"
 
       # -- Topics --
-      point_cloud_topic: "points_raw"                                        # sensor_msgs/PointCloud2 input
-      imu_topic: "imu/data"                                                  # sensor_msgs/Imu input (for deskewing)
+      point_cloud_topic: "/lidar_cc/velodyne_points"                                        # sensor_msgs/PointCloud2 input
+      imu_topic: "/novatel/oem7/imu/data"                                                  # sensor_msgs/Imu input (9-DOF, for deskewing)
       imu_odom_topic: "imu_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (initial guess from IMU)
       odom_topic: "lidar_kep_factor/odometry"                                # nav_msgs/Odometry output
       deskewed_cloud_topic: "lidar_kep_factor/deskewed_cloud"                # sensor_msgs/PointCloud2 output
@@ -132,7 +132,7 @@ eidos_node:
       imu_time_margin: 0.01        # seconds, margin for pruning IMU messages around scan boundaries
 
       # -- Frame names --
-      lidar_frame: "lidar_link"
+      lidar_frame: "lidar_cc"
       imu_frame: "imu_link"            # IMU-to-lidar extrinsic is looked up from TF (lidar_frame <- imu_frame)
 
     # ==========================================================================
@@ -146,14 +146,14 @@ eidos_node:
       plugin: "eidos::GpsFactor"
 
       # -- Topics --
-      gps_topic: "gps/fix"           # sensor_msgs/NavSatFix input
+      gps_topic: "/novatel/oem7/fix"      # sensor_msgs/NavSatFix input
 
       # -- GPS quality filtering --
       cov_threshold: 2.0            # max GPS position covariance to accept a measurement
       use_elevation: false           # use GPS elevation (z), or lock z to current pose
 
       # -- GPS injection control --
-      min_trajectory_length: 5.0    # meters, minimum trajectory before injecting GPS factors
+      min_trajectory_length: 10.0    # meters, minimum trajectory before injecting GPS factors
       gps_time_tolerance: 0.2       # seconds, max time offset to match GPS to a keyframe state
       min_gps_movement: 5.0         # meters, minimum displacement between GPS injections
 
@@ -183,7 +183,7 @@ eidos_node:
     # ==========================================================================
     gps_icp_relocalization:
       plugin: "eidos::GpsIcpRelocalization"
-      gps_topic: "gps/fix"                 # sensor_msgs/NavSatFix input
+      gps_topic: "/novatel/oem7/fix"             # sensor_msgs/NavSatFix input
       gps_candidate_radius: 30.0    # meters, radius to search for prior map keyframes near GPS
       fitness_threshold: 0.3        # max ICP fitness score to accept relocalization
       max_icp_iterations: 100       # maximum ICP iterations
@@ -241,7 +241,7 @@ eidos_node:
     # ---- Core (not per-plugin) ----
     keyframe:
       density: 2.0                  # meters, voxel size for spatial downsampling of keyframe poses
-      search_radius: 10.0           # meters, radius for keyframe neighborhood queries
+      search_radius: 50.0           # meters, radius for keyframe neighborhood queries
 
     map:
       load_directory: ""            # if set, load prior map on startup

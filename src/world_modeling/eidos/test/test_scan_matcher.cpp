@@ -1,6 +1,6 @@
 #include <catch2/catch_all.hpp>
 
-#include "eidos/scan_matcher.hpp"
+#include "eidos/utils/scan_matcher.hpp"
 
 using namespace eidos;
 
