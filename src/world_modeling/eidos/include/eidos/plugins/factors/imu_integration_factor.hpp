@@ -55,6 +55,38 @@ private:
   // ---- Callbacks ----
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
+  // ---- Static utilities ----
+  static std::pair<gtsam::Vector3, gtsam::Vector3>
+  extractMeasurement(const sensor_msgs::msg::Imu& msg);
+  static bool isValidImuMessage(const sensor_msgs::msg::Imu& msg);
+
+  // ---- Integration helpers (caller must hold imu_lock_) ----
+  void drainAndIntegrate(
+      std::deque<sensor_msgs::msg::Imu>& queue,
+      gtsam::PreintegratedImuMeasurements& integrator,
+      double cutoff_time, double& last_time);
+  void reintegrateQueue(
+      const std::deque<sensor_msgs::msg::Imu>& queue,
+      gtsam::PreintegratedImuMeasurements& integrator,
+      double last_time);
+
+  // ---- onOptimizationComplete sub-methods (caller must hold imu_lock_) ----
+  double getCorrectionTime() const;
+  void storeGraphCorrection(const gtsam::Pose3& graph_pose, double correction_time);
+  void initializeIsam2(const gtsam::Pose3& graph_pose, double correction_time);
+  void resetGraphIfNeeded();
+  bool integrateAndOptimize(const gtsam::Pose3& graph_pose, double correction_time);
+  void repropagateBias();
+
+  // ---- imuCallback sub-methods ----
+  void updateStationaryDetection(const sensor_msgs::msg::Imu& imu_converted);
+  gtsam::NavState integrateSingleAndPredict(const sensor_msgs::msg::Imu& imu_converted);
+  void storeImuPose(const gtsam::Pose3& base_pose);
+  void publishIncrementalOdom(const sensor_msgs::msg::Imu& imu_converted,
+                              const gtsam::Pose3& base_pose,
+                              const gtsam::NavState& state);
+  void publishFusedOdom(const sensor_msgs::msg::Imu& imu_converted);
+
   // ---- IMU extrinsics ----
   sensor_msgs::msg::Imu imuConverter(const sensor_msgs::msg::Imu& imu_in);
 
