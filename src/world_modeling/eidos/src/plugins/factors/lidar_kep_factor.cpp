@@ -130,7 +130,7 @@ void LidarKEPFactor::onInitialize() {
       sub_opts);
 
   // ---- Subscribe to IMU odometry for initial guess ----
-  // Uses the ImuIntegrationFactor's published odometry topic
+  // Uses the ImuOptimizedIntegrationFactor's published odometry topic
   std::string imu_odom_topic;
   node_->declare_parameter(prefix + ".imu_odom_topic",
                            "imu_integration_factor/odometry/imu_incremental");

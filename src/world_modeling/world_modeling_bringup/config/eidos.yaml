@@ -21,9 +21,9 @@ eidos_node:
 
     # ---- Factor plugins (order = processFrame priority) ----
     factor_plugins:
-      - "imu_integration_factor"
+      - "imu_optimized_integration_factor"
       # - "lidar_kep_factor"
-      # - "gps_factor"
+      - "gps_factor"
       # - "euclidean_distance_loop_closure_factor"
 
     # ---- Relocalization plugins (first to succeed wins) ----
@@ -38,18 +38,18 @@ eidos_node:
       - "keyframe_pose_visualization"
 
     # ==========================================================================
-    # IMU Integration Factor
+    # IMU Optimized Integration Factor
     #
     # Runs an internal ISAM2 optimizer to estimate IMU biases using
     # graph-optimized pose corrections. Publishes high-rate IMU odometry and TF.
     # ==========================================================================
-    imu_integration_factor:
-      plugin: "eidos::ImuIntegrationFactor"
+    imu_optimized_integration_factor:
+      plugin: "eidos::ImuOptimizedIntegrationFactor"
 
       # -- Topics --
       imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
-      odom_incremental_topic: "imu_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
-      odom_fused_topic: "imu_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
+      odom_incremental_topic: "imu_optimized_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
+      odom_fused_topic: "imu_optimized_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
 
       # -- IMU intrinsic noise --
       # Novatel high-grade IMU with factory-calibrated (bias-compensated) output.
@@ -107,7 +107,7 @@ eidos_node:
       # -- Topics --
       point_cloud_topic: "/lidar_cc/velodyne_points"                                        # sensor_msgs/PointCloud2 input
       imu_topic: "/novatel/oem7/imu/data"                                                  # sensor_msgs/Imu input (9-DOF, for deskewing)
-      imu_odom_topic: "imu_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (initial guess from IMU)
+      imu_odom_topic: "imu_optimized_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (initial guess from IMU)
       odom_topic: "lidar_kep_factor/odometry"                                # nav_msgs/Odometry output
       deskewed_cloud_topic: "lidar_kep_factor/deskewed_cloud"                # sensor_msgs/PointCloud2 output
 

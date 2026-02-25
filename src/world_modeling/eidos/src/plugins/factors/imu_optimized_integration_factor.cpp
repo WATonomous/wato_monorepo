@@ -1,4 +1,4 @@
-#include "eidos/plugins/factors/imu_integration_factor.hpp"
+#include "eidos/plugins/factors/imu_optimized_integration_factor.hpp"
 
 #include <fstream>
 
@@ -23,7 +23,7 @@ namespace eidos {
 // Static utilities
 // ---------------------------------------------------------------------------
 std::pair<gtsam::Vector3, gtsam::Vector3>
-ImuIntegrationFactor::extractMeasurement(const sensor_msgs::msg::Imu& msg) {
+ImuOptimizedIntegrationFactor::extractMeasurement(const sensor_msgs::msg::Imu& msg) {
   return {
     gtsam::Vector3(msg.linear_acceleration.x,
                    msg.linear_acceleration.y,
@@ -34,7 +34,7 @@ ImuIntegrationFactor::extractMeasurement(const sensor_msgs::msg::Imu& msg) {
   };
 }
 
-bool ImuIntegrationFactor::isValidImuMessage(const sensor_msgs::msg::Imu& msg) {
+bool ImuOptimizedIntegrationFactor::isValidImuMessage(const sensor_msgs::msg::Imu& msg) {
   return !(msg.angular_velocity.x == 0.0 && msg.angular_velocity.y == 0.0 &&
            msg.angular_velocity.z == 0.0 && msg.linear_acceleration.x == 0.0 &&
            msg.linear_acceleration.y == 0.0 && msg.linear_acceleration.z == 0.0);
@@ -43,7 +43,7 @@ bool ImuIntegrationFactor::isValidImuMessage(const sensor_msgs::msg::Imu& msg) {
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
-void ImuIntegrationFactor::onInitialize() {
+void ImuOptimizedIntegrationFactor::onInitialize() {
   RCLCPP_INFO(node_->get_logger(), "[%s] onInitialize()", name_.c_str());
 
   std::string prefix = name_;
@@ -148,7 +148,7 @@ void ImuIntegrationFactor::onInitialize() {
 
   imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
       imu_topic, rclcpp::SensorDataQoS(),
-      std::bind(&ImuIntegrationFactor::imuCallback, this,
+      std::bind(&ImuOptimizedIntegrationFactor::imuCallback, this,
                 std::placeholders::_1),
       sub_opts);
 
@@ -201,7 +201,7 @@ void ImuIntegrationFactor::onInitialize() {
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized", name_.c_str());
 }
 
-void ImuIntegrationFactor::activate() {
+void ImuOptimizedIntegrationFactor::activate() {
   active_ = true;
   imu_odom_incremental_pub_->on_activate();
   imu_odom_fused_pub_->on_activate();
@@ -232,14 +232,14 @@ void ImuIntegrationFactor::activate() {
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
-void ImuIntegrationFactor::deactivate() {
+void ImuOptimizedIntegrationFactor::deactivate() {
   active_ = false;
   imu_odom_incremental_pub_->on_deactivate();
   imu_odom_fused_pub_->on_deactivate();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
-void ImuIntegrationFactor::reset() {
+void ImuOptimizedIntegrationFactor::reset() {
   RCLCPP_INFO(node_->get_logger(), "[%s] reset", name_.c_str());
   {
     std::lock_guard<std::mutex> lock(imu_lock_);
@@ -270,7 +270,7 @@ void ImuIntegrationFactor::reset() {
   has_last_graph_pose_ = false;
 }
 
-void ImuIntegrationFactor::resetOptimization() {
+void ImuOptimizedIntegrationFactor::resetOptimization() {
   gtsam::ISAM2Params params;
   params.relinearizeThreshold = isam2_relinearize_threshold_;
   params.relinearizeSkip = 1;
@@ -279,7 +279,7 @@ void ImuIntegrationFactor::resetOptimization() {
   graph_values_.clear();
 }
 
-bool ImuIntegrationFactor::failureDetection(
+bool ImuOptimizedIntegrationFactor::failureDetection(
     const gtsam::Vector3& vel,
     const gtsam::imuBias::ConstantBias& bias) {
   Eigen::Vector3f v(vel.x(), vel.y(), vel.z());
@@ -310,7 +310,7 @@ bool ImuIntegrationFactor::failureDetection(
 // at rest.  Thresholds must therefore be tight enough that only genuine
 // standstill passes.  Tune via config if needed.
 // ---------------------------------------------------------------------------
-bool ImuIntegrationFactor::isReady() const {
+bool ImuOptimizedIntegrationFactor::isReady() const {
   int count = stationary_count_.load(std::memory_order_relaxed);
   if (count < stationary_samples_) return false;
   double acc_rms = stationary_acc_rms_.load(std::memory_order_relaxed);
@@ -318,7 +318,7 @@ bool ImuIntegrationFactor::isReady() const {
   return acc_rms < stationary_acc_threshold_ && gyr_rms < stationary_gyr_threshold_;
 }
 
-std::string ImuIntegrationFactor::getReadyStatus() const {
+std::string ImuOptimizedIntegrationFactor::getReadyStatus() const {
   int count = stationary_count_.load(std::memory_order_relaxed);
   if (count == 0) return "no IMU data received";
   if (count < stationary_samples_) {
@@ -342,7 +342,7 @@ std::string ImuIntegrationFactor::getReadyStatus() const {
 // ---------------------------------------------------------------------------
 // processFrame - return latest IMU-predicted pose
 // ---------------------------------------------------------------------------
-std::optional<gtsam::Pose3> ImuIntegrationFactor::processFrame(
+std::optional<gtsam::Pose3> ImuOptimizedIntegrationFactor::processFrame(
     double /*timestamp*/) {
   if (!active_) return std::nullopt;
   std::lock_guard<std::mutex> lock(imu_pose_lock_);
@@ -354,7 +354,7 @@ std::optional<gtsam::Pose3> ImuIntegrationFactor::processFrame(
 // getFactors - BetweenFactor odometry for main pose graph + internal bookkeeping
 // ---------------------------------------------------------------------------
 std::vector<gtsam::NonlinearFactor::shared_ptr>
-ImuIntegrationFactor::getFactors(int state_index,
+ImuOptimizedIntegrationFactor::getFactors(int state_index,
                                  const gtsam::Pose3& state_pose,
                                  double /*timestamp*/) {
   std::vector<gtsam::NonlinearFactor::shared_ptr> factors;
@@ -389,7 +389,7 @@ ImuIntegrationFactor::getFactors(int state_index,
 // ---------------------------------------------------------------------------
 // Integration helpers
 // ---------------------------------------------------------------------------
-void ImuIntegrationFactor::drainAndIntegrate(
+void ImuOptimizedIntegrationFactor::drainAndIntegrate(
     std::deque<sensor_msgs::msg::Imu>& queue,
     gtsam::PreintegratedImuMeasurements& integrator,
     double cutoff_time, double& last_time) {
@@ -404,7 +404,7 @@ void ImuIntegrationFactor::drainAndIntegrate(
   }
 }
 
-void ImuIntegrationFactor::reintegrateQueue(
+void ImuOptimizedIntegrationFactor::reintegrateQueue(
     const std::deque<sensor_msgs::msg::Imu>& queue,
     gtsam::PreintegratedImuMeasurements& integrator,
     double last_time) {
@@ -423,7 +423,7 @@ void ImuIntegrationFactor::reintegrateQueue(
 // Called after the main SLAM graph optimizes. Uses the graph-optimized pose
 // as a correction for the internal IMU ISAM2 to estimate biases.
 // ---------------------------------------------------------------------------
-double ImuIntegrationFactor::getCorrectionTime() const {
+double ImuOptimizedIntegrationFactor::getCorrectionTime() const {
   double correction_time = node_->now().seconds();
   auto poses_6d = core_->getMapManager().getKeyPoses6D();
   if (!poses_6d->empty()) {
@@ -432,7 +432,7 @@ double ImuIntegrationFactor::getCorrectionTime() const {
   return correction_time;
 }
 
-void ImuIntegrationFactor::storeGraphCorrection(
+void ImuOptimizedIntegrationFactor::storeGraphCorrection(
     const gtsam::Pose3& graph_pose, double correction_time) {
   auto q = graph_pose.rotation().toQuaternion();
   auto t_vec = graph_pose.translation();
@@ -446,7 +446,7 @@ void ImuIntegrationFactor::storeGraphCorrection(
   graph_odom_time_ = (last_imu_t_opt_ > 0) ? last_imu_t_opt_ : correction_time;
 }
 
-void ImuIntegrationFactor::initializeIsam2(
+void ImuOptimizedIntegrationFactor::initializeIsam2(
     const gtsam::Pose3& graph_pose, double correction_time) {
   resetOptimization();
 
@@ -504,7 +504,7 @@ void ImuIntegrationFactor::initializeIsam2(
       prev_pose_.translation().z());
 }
 
-void ImuIntegrationFactor::resetGraphIfNeeded() {
+void ImuOptimizedIntegrationFactor::resetGraphIfNeeded() {
   if (key_ != graph_reset_interval_) return;
 
   auto updated_pose_noise = gtsam::noiseModel::Gaussian::Covariance(
@@ -534,7 +534,7 @@ void ImuIntegrationFactor::resetGraphIfNeeded() {
   key_ = 1;
 }
 
-bool ImuIntegrationFactor::integrateAndOptimize(
+bool ImuOptimizedIntegrationFactor::integrateAndOptimize(
     const gtsam::Pose3& graph_pose, double correction_time) {
   // Integrate IMU data between corrections
   drainAndIntegrate(imu_queue_opt_, *imu_integrator_opt_,
@@ -603,7 +603,7 @@ bool ImuIntegrationFactor::integrateAndOptimize(
   return true;
 }
 
-void ImuIntegrationFactor::repropagateBias() {
+void ImuOptimizedIntegrationFactor::repropagateBias() {
   prev_state_odom_ = prev_state_;
   prev_bias_odom_ = prev_bias_;
 
@@ -624,7 +624,7 @@ void ImuIntegrationFactor::repropagateBias() {
   }
 }
 
-void ImuIntegrationFactor::onOptimizationComplete(
+void ImuOptimizedIntegrationFactor::onOptimizationComplete(
     const gtsam::Values& optimized_values, bool /*loop_closure_detected*/) {
   if (!active_) return;
 
@@ -654,7 +654,7 @@ void ImuIntegrationFactor::onOptimizationComplete(
 // ---------------------------------------------------------------------------
 // Callback — high-rate IMU processing
 // ---------------------------------------------------------------------------
-void ImuIntegrationFactor::updateStationaryDetection(
+void ImuOptimizedIntegrationFactor::updateStationaryDetection(
     const sensor_msgs::msg::Imu& imu_converted) {
   if (stationary_buffer_.empty()) {
     RCLCPP_INFO(node_->get_logger(), "[%s] first IMU message received",
@@ -679,7 +679,7 @@ void ImuIntegrationFactor::updateStationaryDetection(
   stationary_count_.store(n, std::memory_order_relaxed);
 }
 
-gtsam::NavState ImuIntegrationFactor::integrateSingleAndPredict(
+gtsam::NavState ImuOptimizedIntegrationFactor::integrateSingleAndPredict(
     const sensor_msgs::msg::Imu& imu_converted) {
   double imu_time = stamp2Sec(imu_converted.header.stamp);
   double dt =
@@ -692,13 +692,13 @@ gtsam::NavState ImuIntegrationFactor::integrateSingleAndPredict(
   return imu_integrator_imu_->predict(prev_state_odom_, prev_bias_odom_);
 }
 
-void ImuIntegrationFactor::storeImuPose(const gtsam::Pose3& base_pose) {
+void ImuOptimizedIntegrationFactor::storeImuPose(const gtsam::Pose3& base_pose) {
   std::lock_guard<std::mutex> lock(imu_pose_lock_);
   latest_imu_pose_ = base_pose;
   has_imu_pose_ = true;
 }
 
-void ImuIntegrationFactor::publishIncrementalOdom(
+void ImuOptimizedIntegrationFactor::publishIncrementalOdom(
     const sensor_msgs::msg::Imu& imu_converted,
     const gtsam::Pose3& base_pose,
     const gtsam::NavState& state) {
@@ -731,7 +731,7 @@ void ImuIntegrationFactor::publishIncrementalOdom(
   imu_odom_queue_.push_back(odom_incremental);
 }
 
-void ImuIntegrationFactor::publishFusedOdom(
+void ImuOptimizedIntegrationFactor::publishFusedOdom(
     const sensor_msgs::msg::Imu& imu_converted) {
   // Can only fuse once we have a graph correction
   if (graph_odom_time_ < 0) return;
@@ -796,7 +796,7 @@ void ImuIntegrationFactor::publishFusedOdom(
   tf_broadcaster_->sendTransform(tf_msg);
 }
 
-void ImuIntegrationFactor::imuCallback(
+void ImuOptimizedIntegrationFactor::imuCallback(
     const sensor_msgs::msg::Imu::SharedPtr msg) {
   if (!isValidImuMessage(*msg)) return;
 
@@ -820,7 +820,7 @@ void ImuIntegrationFactor::imuCallback(
 // ---------------------------------------------------------------------------
 // IMU extrinsic conversion — transforms measurements from imu_frame_ to base_link_frame_
 // ---------------------------------------------------------------------------
-sensor_msgs::msg::Imu ImuIntegrationFactor::imuConverter(
+sensor_msgs::msg::Imu ImuOptimizedIntegrationFactor::imuConverter(
     const sensor_msgs::msg::Imu& imu_in) {
   sensor_msgs::msg::Imu imu_out = imu_in;
 
@@ -856,4 +856,4 @@ sensor_msgs::msg::Imu ImuIntegrationFactor::imuConverter(
 
 }  // namespace eidos
 
-PLUGINLIB_EXPORT_CLASS(eidos::ImuIntegrationFactor, eidos::FactorPlugin)
+PLUGINLIB_EXPORT_CLASS(eidos::ImuOptimizedIntegrationFactor, eidos::FactorPlugin)

@@ -68,7 +68,7 @@ target_link_libraries(eidos_core PUBLIC
 # ---- Plugin library ----
 add_library(eidos_plugins SHARED
   src/plugins/factors/lidar_kep_factor.cpp
-  src/plugins/factors/imu_integration_factor.cpp
+  src/plugins/factors/imu_optimized_integration_factor.cpp
   src/plugins/factors/gps_factor.cpp
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp

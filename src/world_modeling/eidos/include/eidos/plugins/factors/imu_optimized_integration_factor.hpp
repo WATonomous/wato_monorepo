@@ -33,10 +33,10 @@ namespace eidos {
  * graph-optimized pose corrections. Publishes high-rate IMU odometry
  * and TF from the IMU callback.
  */
-class ImuIntegrationFactor : public FactorPlugin {
+class ImuOptimizedIntegrationFactor : public FactorPlugin {
 public:
-  ImuIntegrationFactor() = default;
-  ~ImuIntegrationFactor() override = default;
+  ImuOptimizedIntegrationFactor() = default;
+  ~ImuOptimizedIntegrationFactor() override = default;
 
   void onInitialize() override;
   void activate() override;

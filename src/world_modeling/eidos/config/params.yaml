@@ -38,13 +38,13 @@ eidos_node:
       - "keyframe_pose_visualization"
 
     # ==========================================================================
-    # IMU Integration Factor
+    # IMU Optimized Integration Factor
     #
     # Runs an internal ISAM2 optimizer to estimate IMU biases using
     # graph-optimized pose corrections. Publishes high-rate IMU odometry and TF.
     # ==========================================================================
     imu_integration_factor:
-      plugin: "eidos::ImuIntegrationFactor"
+      plugin: "eidos::ImuOptimizedIntegrationFactor"
 
       # -- Topics --
       imu_topic: "imu/data"                                                  # sensor_msgs/Imu input
