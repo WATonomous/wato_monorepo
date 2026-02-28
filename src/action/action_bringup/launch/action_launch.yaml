@@ -1,1 +1,61 @@
----
+# action_launch.yaml
+
+launch:
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection
+
+  - node:
+      pkg: "lattice_planning"
+      exec: "lattice_planning_node"
+      name: "lattice_planning_node"
+      namespace: "action/lattice_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share lattice_planning)/config/lattice_planning_params.yaml"
+      remap:
+        - from: "lanelet_ahead"
+          to: "/world_modeling/lanelet/lanelet_ahead"
+        - from: "odom"
+          to: "/ego/odom"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
+  - node:
+      pkg: "lattice_planning_markers"
+      exec: "lattice_planning_markers_node"
+      name: "lattice_planning_markers_node"
+      namespace: "action/lattice_planning_markers"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share lattice_planning_markers)/config/lattice_planning_markers_params.yaml"
+      remap:
+        - from: "path"
+          to: "/action/lattice_planning/path"
+        - from: "available_paths"
+          to: "/action/lattice_planning/available_paths"
+
+   # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: action_lifecycle_manager
+      namespace: "action"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /action/lattice_planning/lattice_planning_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
