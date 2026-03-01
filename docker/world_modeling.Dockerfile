@@ -13,6 +13,9 @@ COPY src/world_modeling world_modeling
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/wato_test wato_test
 
+# TEMP
+COPY src/interfacing/eve_description eve_description
+
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible
 # Use this stage as a last resort

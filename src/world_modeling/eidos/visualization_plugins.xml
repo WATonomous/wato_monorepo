@@ -1,0 +1,22 @@
+<library path="eidos_plugins">
+  <class name="eidos::KeyframeMapVisualization"
+         type="eidos::KeyframeMapVisualization"
+         base_class_type="eidos::VisualizationPlugin">
+    <description>Publishes the accumulated keyframe point cloud map as a PointCloud2 message.</description>
+  </class>
+  <class name="eidos::GpsVisualization"
+         type="eidos::GpsVisualization"
+         base_class_type="eidos::VisualizationPlugin">
+    <description>Visualizes GPS fix positions vs optimized keyframe positions as MarkerArray.</description>
+  </class>
+  <class name="eidos::LoopClosureVisualization"
+         type="eidos::LoopClosureVisualization"
+         base_class_type="eidos::VisualizationPlugin">
+    <description>Visualizes loop closure edges between keyframes as red lines.</description>
+  </class>
+  <class name="eidos::KeyframePoseVisualization"
+         type="eidos::KeyframePoseVisualization"
+         base_class_type="eidos::VisualizationPlugin">
+    <description>Visualizes keyframe orientations as RGB coordinate axes (XYZ = RGB).</description>
+  </class>
+</library>

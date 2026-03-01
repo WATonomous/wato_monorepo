@@ -1,0 +1,12 @@
+[Final Result] Rotation LiDAR to IMU    =  1.332553  4.547802 95.832395 deg
+[Final Result] Translation LiDAR to IMU = -0.070118  0.997465  2.409541 m
+[Final Result] Time Lag IMU to LiDAR    = -0.05006400 s 
+[Final Result] Bias of Gyroscope        = -0.000969 -0.002690  0.000149 rad/s
+[Final Result] Bias of Accelerometer    = 0.082209 0.005870 0.035601 m/s^2
+[Final Result] Gravity in World Frame   =  0.197968  0.009888 -9.808425 m/s^2
+[URDF] parent=lidar_link, child=imu_link
+[URDF] xyz="-0.805245 -0.026223 -2.481257"
+[URDF] rpy="0.081313 -0.015089 -1.672158"
+[URDF] parent=imu_link, child=lidar_link
+[URDF] xyz="-0.070118 0.997465 2.409541"
+[URDF] rpy="0.023256 0.079368 1.672468"

@@ -70,6 +70,7 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
+      - ${MONO_DIR}/src/interfacing/eve_description:/ws/src/eve_description # TEMP
       - ${MONO_DIR}/bags:/ws/bags
 
 #################### ACTION SERVICE ####################

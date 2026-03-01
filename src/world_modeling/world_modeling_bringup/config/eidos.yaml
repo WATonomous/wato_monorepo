@@ -1,0 +1,264 @@
+eidos_node:
+  ros__parameters:
+    # ---- Frames ----
+    frames:
+      base_link: "base_footprint"
+      odometry: "odom"
+      map: "map"
+
+    # ---- SLAM core ----
+    slam_rate: 5.0                    # Hz, main SLAM loop frequency
+    max_displacement: 1.0              # meters of travel before creating a new keyframe state
+    max_rotation: 0.2                  # radians of rotation before creating a new keyframe state
+    relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
+
+    # ---- Core topics / services ----
+    topics:
+      path: "slam/path"               # nav_msgs/Path output
+      status: "slam/status"            # eidos_msgs/SlamStatus output
+      save_map_service: "slam/save_map"
+      load_map_service: "slam/load_map"
+
+    # ---- Factor plugins (order = processFrame priority) ----
+    factor_plugins:
+      - "imu_optimized_integration_factor"
+      # - "lidar_kep_factor"
+      - "gps_factor"
+      # - "euclidean_distance_loop_closure_factor"
+
+    # ---- Relocalization plugins (first to succeed wins) ----
+    # relocalization_plugins:
+    #   - "gps_icp_relocalization"
+
+    # ---- Visualization plugins ----
+    visualization_plugins:
+      - "keyframe_map_visualization"
+      - "gps_visualization"
+      - "loop_closure_visualization"
+      - "keyframe_pose_visualization"
+
+    # ==========================================================================
+    # IMU Optimized Integration Factor
+    #
+    # Runs an internal ISAM2 optimizer to estimate IMU biases using
+    # graph-optimized pose corrections. Publishes high-rate IMU odometry and TF.
+    # ==========================================================================
+    imu_optimized_integration_factor:
+      plugin: "eidos::ImuOptimizedIntegrationFactor"
+
+      # -- Topics --
+      imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
+      odom_incremental_topic: "imu_optimized_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
+      odom_fused_topic: "imu_optimized_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
+
+      # -- IMU intrinsic noise --
+      # Novatel high-grade IMU with factory-calibrated (bias-compensated) output.
+      # Biases are already removed by the driver, so bias random walk and
+      # prior_bias_sigma are set very tight to keep GTSAM's online bias estimates
+      # near zero.
+      acc_noise: 1.0e-3                       # accelerometer white noise (m/s^2/sqrt(Hz))
+      gyr_noise: 5.0e-4                       # gyroscope white noise (rad/s/sqrt(Hz))
+      acc_bias_noise: 1.0e-6                  # accelerometer bias random walk (near-zero, already calibrated)
+      gyr_bias_noise: 1.0e-6                  # gyroscope bias random walk (near-zero, already calibrated)
+      gravity: 0.0                            # 0.0 because the data topic provides gravity-compensated acceleration
+      integration_noise: 1.0e-4              # IMU preintegration covariance noise
+
+      # -- ISAM2 noise model sigmas --
+      prior_pose_sigma: 1.0e-2              # initial pose prior sigma (low confidence)
+      prior_vel_sigma: 1.0e4                # initial velocity prior sigma (very low confidence, unknown)
+      prior_bias_sigma: 1.0e-5              # initial bias prior sigma (very tight — driver already compensates biases)
+      correction_rot_sigma: 0.05            # graph correction rotation sigma (rad)
+      correction_trans_sigma: 0.1           # graph correction translation sigma (m)
+      correction_degrade_sigma: 1.0         # degraded correction sigma when system is uncertain
+
+      # -- Internal optimizer tuning --
+      isam2_relinearize_threshold: 0.1      # ISAM2 relinearization threshold
+      graph_reset_interval: 100             # reset internal ISAM2 graph every N keyframes for speed
+
+      # -- Failure detection --
+      max_velocity: 30.0                    # m/s, reset preintegration if velocity exceeds this
+      max_bias_norm: 1.0                    # reset preintegration if accel or gyro bias norm exceeds this
+
+      # -- Stationary detection (warmup gate) --
+      stationary_acc_threshold: 0.05         # m/s^2, RMS linear acceleration must be below this (gravity-compensated, so ~0 at rest)
+      stationary_gyr_threshold: 0.005        # rad/s, RMS angular velocity must be below this
+      stationary_samples: 200               # number of recent IMU samples to check (~0.4s at 500 Hz)
+
+      # -- Timing --
+      default_imu_dt: 0.002                 # seconds (1/500 Hz), assumed dt for first IMU message
+      quaternion_norm_threshold: 0.1        # minimum quaternion norm to accept as valid orientation
+
+      # -- Main graph odometry noise (BetweenFactor variances) --
+      odom_rot_noise: 1.0e-2           # rotation variance (rad^2) for IMU odometry between-factor
+      odom_trans_noise: 1.0e-1         # translation variance (m^2) for IMU odometry between-factor
+
+      # -- Frame names --
+      imu_frame: "imu_link"            # IMU-to-base_link extrinsic is looked up from TF (base_link <- imu_frame)
+
+    # ==========================================================================
+    # LiDAR Keyframe Edge-Plane Factor
+    #
+    # Point cloud deskewing, range image projection, LOAM-style feature
+    # extraction, scan-to-map matching, BetweenFactor odometry constraints.
+    # ==========================================================================
+    lidar_kep_factor:
+      plugin: "eidos::LidarKEPFactor"
+
+      # -- Topics --
+      point_cloud_topic: "/lidar_cc/velodyne_points"                                        # sensor_msgs/PointCloud2 input
+      imu_topic: "/novatel/oem7/imu/data"                                                  # sensor_msgs/Imu input (9-DOF, for deskewing)
+      imu_odom_topic: "imu_optimized_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (initial guess from IMU)
+      odom_topic: "lidar_kep_factor/odometry"                                # nav_msgs/Odometry output
+      deskewed_cloud_topic: "lidar_kep_factor/deskewed_cloud"                # sensor_msgs/PointCloud2 output
+
+      # -- Sensor configuration --
+      sensor_type: "velodyne"       # "velodyne", "ouster", or "livox"
+      n_scan: 32                    # number of scan rings
+      horizon_scan: 1800            # number of horizontal scan columns
+      min_range: 1.0                # meters, discard points closer than this
+      max_range: 100.0              # meters, discard points farther than this
+      ring_flag: 0                  # 0=auto-detect, 1=use ring field, 2=compute from vertical angle
+      deskew_flag: 0                # 0=auto-detect, 1=use time field for motion compensation
+
+      # -- Feature extraction --
+      edge_threshold: 1.0           # curvature threshold for edge/corner features
+      surf_threshold: 0.1           # curvature threshold for surface features
+      occlusion_depth_diff: 0.3     # meters, depth difference to mark occluded points
+      parallel_beam_ratio: 0.02     # ratio of range diff / range to mark parallel beam points
+
+      # -- Downsampling (voxel grid leaf sizes in meters) --
+      odom_surf_leaf_size: 0.4      # surface features per-scan downsampling
+      mapping_corner_leaf_size: 0.2 # corner map downsampling
+      mapping_surf_leaf_size: 0.4   # surface map downsampling
+
+      # -- Local map building --
+      keyframe_search_radius: 50.0  # meters, radius to search for nearby keyframes
+      keyframe_density: 2.0         # meters, voxel size for downsampling nearby keyframe poses
+      recent_keyframe_window: 10.0  # seconds, always include keyframes within this time window
+      map_cache_max_size: 1000      # max cached transformed keyframe clouds before clearing
+
+      # -- Odometry noise (BetweenFactor variances) --
+      odom_rot_noise: 1.0e-6       # rotation variance (rad^2) for odometry between-factor
+      odom_trans_noise: 1.0e-4     # translation variance (m^2) for odometry between-factor
+
+      # -- IMU deskewing timing --
+      imu_time_margin: 0.01        # seconds, margin for pruning IMU messages around scan boundaries
+
+      # -- Frame names --
+      lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"            # IMU-to-lidar extrinsic is looked up from TF (lidar_frame <- imu_frame)
+
+    # ==========================================================================
+    # GPS Factor
+    #
+    # Subscribes to sensor_msgs/NavSatFix, converts to UTM internally,
+    # manages utm → map transform, and provides GPSFactor constraints
+    # in map frame to the pose graph.
+    # ==========================================================================
+    gps_factor:
+      plugin: "eidos::GpsFactor"
+
+      # -- Topics --
+      gps_topic: "/novatel/oem7/fix"      # sensor_msgs/NavSatFix input
+
+      # -- GPS quality filtering --
+      cov_threshold: 2.0            # max GPS position covariance to accept a measurement
+      use_elevation: false           # use GPS elevation (z), or lock z to current pose
+
+      # -- GPS injection control --
+      min_trajectory_length: 10.0    # meters, minimum trajectory before injecting GPS factors
+      gps_time_tolerance: 0.2       # seconds, max time offset to match GPS to a keyframe state
+      min_gps_movement: 5.0         # meters, minimum displacement between GPS injections
+
+      # -- Noise --
+      min_noise_variance: 1.0       # floor for GPS noise variance (prevents over-confident fixes)
+
+    # ==========================================================================
+    # Euclidean Distance Loop Closure Factor
+    #
+    # Background thread searches for spatially close but temporally distant
+    # keyframes, validates with ICP alignment, injects BetweenFactor constraints.
+    # ==========================================================================
+    euclidean_distance_loop_closure_factor:
+      plugin: "eidos::EuclideanDistanceLoopClosureFactor"
+      frequency: 1.0                # Hz, loop closure detection frequency
+      search_radius: 15.0           # meters, radius to search for loop closure candidates
+      search_time_diff: 30.0        # seconds, minimum time gap between current and candidate keyframe
+      search_num: 25                # number of nearby keyframes to assemble into candidate submap
+      fitness_score: 0.3            # max ICP fitness score to accept a loop closure
+      pointcloud_from: "lidar_kep_factor"  # which factor plugin provides the keyframe point clouds
+
+    # ==========================================================================
+    # GPS + ICP Relocalization
+    #
+    # Uses GPS to find candidate keyframes in a prior map, assembles a local
+    # submap, and performs ICP alignment to relocalize.
+    # ==========================================================================
+    gps_icp_relocalization:
+      plugin: "eidos::GpsIcpRelocalization"
+      gps_topic: "/novatel/oem7/fix"             # sensor_msgs/NavSatFix input
+      gps_candidate_radius: 30.0    # meters, radius to search for prior map keyframes near GPS
+      fitness_threshold: 0.3        # max ICP fitness score to accept relocalization
+      max_icp_iterations: 100       # maximum ICP iterations
+      submap_leaf_size: 0.4         # meters, voxel downsampling for the assembled prior submap
+      max_correspondence_distance: 2.0  # meters, max point correspondence distance for ICP
+      num_threads: 4                # number of threads for small_gicp ICP
+      pointcloud_from: "lidar_kep_factor"  # which factor plugin provides keyframe point clouds
+      gps_from: "gps_factor"        # which factor plugin provides GPS keyframe positions
+
+    # ==========================================================================
+    # Keyframe Map Visualization
+    #
+    # Publishes the accumulated keyframe point cloud map as a PointCloud2.
+    # ==========================================================================
+    keyframe_map_visualization:
+      plugin: "eidos::KeyframeMapVisualization"
+      topic: "slam/visualization/map"
+      pointcloud_from: "lidar_kep_factor"
+      voxel_leaf_size: 0.4
+      publish_rate: 1.0
+
+    # ==========================================================================
+    # GPS Visualization
+    #
+    # Visualizes GPS fix positions vs optimized keyframe positions.
+    # ==========================================================================
+    gps_visualization:
+      plugin: "eidos::GpsVisualization"
+      topic: "slam/visualization/gps"
+      gps_from: "gps_factor"
+      marker_scale: 1.0
+
+    # ==========================================================================
+    # Loop Closure Visualization
+    #
+    # Visualizes loop closure edges between keyframes.
+    # ==========================================================================
+    loop_closure_visualization:
+      plugin: "eidos::LoopClosureVisualization"
+      topic: "slam/visualization/loop_closures"
+      loop_closure_from: "euclidean_distance_loop_closure_factor"
+      line_width: 0.1
+
+    # ==========================================================================
+    # Keyframe Pose Visualization
+    #
+    # Visualizes keyframe orientations as RGB coordinate axes.
+    # ==========================================================================
+    keyframe_pose_visualization:
+      plugin: "eidos::KeyframePoseVisualization"
+      topic: "slam/visualization/poses"
+      axis_length: 0.5
+      axis_width: 0.05
+
+    # ---- Core (not per-plugin) ----
+    keyframe:
+      density: 2.0                  # meters, voxel size for spatial downsampling of keyframe poses
+      search_radius: 50.0           # meters, radius for keyframe neighborhood queries
+
+    map:
+      load_directory: ""            # if set, load prior map on startup
+      save_directory: "/tmp/eidos_maps/"
+
+    performance:
+      num_cores: 8                  # number of CPU cores for parallel scan matching

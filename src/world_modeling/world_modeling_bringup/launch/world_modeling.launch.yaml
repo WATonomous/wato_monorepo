@@ -21,6 +21,11 @@ launch:
       description: Path to the world_model configuration file
 
   - arg:
+      name: eidos_config_file
+      default: $(find-pkg-share eidos)/config/params.yaml
+      description: Path to the eidos SLAM configuration file
+
+  - arg:
       name: autostart
       default: "true"
       description: Automatically configure and activate managed nodes
@@ -254,6 +259,16 @@ launch:
         - from: markers
           to: behaviour_markers
 
+  # Eidos SLAM Node (replaces LIO-SAM's 4 nodes with a single plugin-based node)
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -267,6 +282,7 @@ launch:
             - /world_modeling/simple_prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
+            - /world_modeling/eidos_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

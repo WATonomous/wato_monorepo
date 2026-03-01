@@ -1,0 +1,43 @@
+laser_mapping:
+  ros__parameters:
+    common:
+        lid_topic:  "/rslidar_points"
+        imu_topic:  "/imu"
+
+    preprocess:
+        lidar_type: 7
+        scan_line: 96
+        blind: 0.3
+        feature_extract_en: false
+
+    initialization:
+        cut_frame_num: 3 # must be positive integer
+        orig_odom_freq: 10
+        mean_acc_norm: 9.805
+        online_refine_time: 20.0
+        data_accum_length: 500.0
+        Rot_LI_cov: [ 0.00005, 0.00005, 0.00005 ]
+        Trans_LI_cov: [ 0.0001, 0.0001, 0.0001 ]
+
+    mapping:
+        filter_size_surf: 0.15
+        filter_size_map: 0.25
+        gyr_cov: 0.5
+        acc_cov: 0.5
+        b_acc_cov: 0.0001
+        b_gyr_cov: 0.0001
+        det_range: 60.0
+
+    publish:
+        path_en:  true
+        scan_publish_en:  true       # false: close all the point cloud output
+        dense_publish_en: false       # false: low down the points number in a global-frame point clouds scan.
+        scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+
+    pcd_save:
+        pcd_save_en: false
+        interval: -1
+
+# filter_size_surf (meter): It is recommended that filter_size_surf = 0.05-0.25 for indoor scenes, filter_size_surf = 0.5 for outdoor scenes.
+# filter_size_map (meter): It is recommended that filter_size_map = 0.15-0.35 for indoor scenes, filter_size_map = 0.5 for outdoor scenes.
+# If this warning still exists, try to increase these two parameters.

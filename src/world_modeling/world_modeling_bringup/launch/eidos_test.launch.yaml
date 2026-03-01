@@ -1,0 +1,39 @@
+launch:
+  - arg:
+      name: eidos_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos.yaml
+      description: Path to the eidos parameter file
+
+  # Just Eidos
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: true
+
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: eidos_lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /eidos_node
+        - name: autostart
+          value: true
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false
