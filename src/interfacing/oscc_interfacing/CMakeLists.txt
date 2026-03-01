@@ -25,7 +25,6 @@ endif()
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(roscco_msg REQUIRED)
@@ -34,21 +33,19 @@ find_package(std_srvs REQUIRED)
 # Build OSCC library subdirectory
 add_subdirectory(oscc/api)
 
-# Create shared library component
-add_library(oscc_interfacing SHARED
+# Create library for the node implementation
+add_library(oscc_interfacing_lib SHARED
   src/oscc_interfacing.cpp
 )
 
-target_include_directories(oscc_interfacing PUBLIC
+target_include_directories(oscc_interfacing_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/oscc/api/include>
 )
 
-# Link dependencies to library
-target_link_libraries(oscc_interfacing
+target_link_libraries(oscc_interfacing_lib
   rclcpp::rclcpp
-  rclcpp_components::component
   ${sensor_msgs_TARGETS}
   ${std_msgs_TARGETS}
   roscco_msg::roscco_msg__rosidl_typesupport_cpp
@@ -56,21 +53,25 @@ target_link_libraries(oscc_interfacing
   osccapi_shared_lib
 )
 
-# Ensure oscc_interfacing depends on osccapi library
-add_dependencies(oscc_interfacing osccapi_shared_lib)
+add_dependencies(oscc_interfacing_lib osccapi_shared_lib)
 
-# Register component and automatically create standalone executable
-# This replaces the need for manual add_executable and main() function
-rclcpp_components_register_node(oscc_interfacing
-  PLUGIN "oscc_interfacing::OsccInterfacingNode"
-  EXECUTABLE oscc_interfacing_node
+# Standalone executable with MultiThreadedExecutor
+add_executable(oscc_interfacing_node
+  src/main.cpp
 )
 
-# Install library and auto-generated executable
-install(TARGETS oscc_interfacing osccapi_shared_lib
+target_link_libraries(oscc_interfacing_node
+  oscc_interfacing_lib
+)
+
+# Install executable and library
+install(TARGETS oscc_interfacing_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS oscc_interfacing_lib osccapi_shared_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
 )
 
 # Install header files
