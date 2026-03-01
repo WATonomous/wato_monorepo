@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef ACKERMANN_PURE_PURSUIT__PURE_PURSUIT_NODE_HPP_
 #define ACKERMANN_PURE_PURSUIT__PURE_PURSUIT_NODE_HPP_
 
@@ -50,6 +64,7 @@ private:
   double wheelbase_fallback_;
   double max_steering_angle_;
   double idle_timeout_sec_;
+  bool invert_steering_;
 
   // Cached wheelbase from TF (0.0 = not yet resolved)
   double wheelbase_cached_{0.0};
@@ -59,8 +74,7 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // Pub/Sub
-  rclcpp_lifecycle::LifecyclePublisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr
-    ackermann_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_pub_;
   rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>::SharedPtr idle_pub_;
   rclcpp::Subscription<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_sub_;
   rclcpp::TimerBase::SharedPtr control_timer_;

@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "ackermann_pure_pursuit/pure_pursuit_node.hpp"
 
 #include <algorithm>
@@ -7,15 +21,15 @@
 #include <string>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace ackermann_pure_pursuit
 {
 
 PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
-: rclcpp_lifecycle::LifecycleNode("pure_pursuit_node", options),
-  last_trajectory_time_(0, 0, RCL_ROS_TIME)
+: rclcpp_lifecycle::LifecycleNode("pure_pursuit_node", options)
+, last_trajectory_time_(0, 0, RCL_ROS_TIME)
 {
   declare_parameter("trajectory_topic", "trajectory");
   declare_parameter("ackermann_topic", "/action/ackermann");
@@ -31,10 +45,10 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("wheelbase_fallback", 2.5667);
   declare_parameter("max_steering_angle", 0.5);
   declare_parameter("idle_timeout_sec", 2.0);
+  declare_parameter("invert_steering_", false);
 }
 
-PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(
-  const rclcpp_lifecycle::State & /*state*/)
+PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   trajectory_topic_ = get_parameter("trajectory_topic").as_string();
   ackermann_topic_ = get_parameter("ackermann_topic").as_string();
@@ -50,41 +64,36 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(
   wheelbase_fallback_ = get_parameter("wheelbase_fallback").as_double();
   max_steering_angle_ = get_parameter("max_steering_angle").as_double();
   idle_timeout_sec_ = get_parameter("idle_timeout_sec").as_double();
+  invert_steering_ = get_parameter("invert_steering_").as_bool();
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  ackermann_pub_ = create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(
-    ackermann_topic_, rclcpp::QoS(10));
+  ackermann_pub_ = create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(ackermann_topic_, rclcpp::QoS(10));
 
-  idle_pub_ = create_publisher<std_msgs::msg::Bool>(
-    idle_topic_, rclcpp::QoS(10));
+  idle_pub_ = create_publisher<std_msgs::msg::Bool>(idle_topic_, rclcpp::QoS(10));
 
   trajectory_sub_ = create_subscription<wato_trajectory_msgs::msg::Trajectory>(
-    trajectory_topic_, rclcpp::QoS(10),
-    std::bind(&PurePursuitNode::trajectoryCallback, this, std::placeholders::_1));
+    trajectory_topic_, rclcpp::QoS(10), std::bind(&PurePursuitNode::trajectoryCallback, this, std::placeholders::_1));
 
   RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz", control_rate_hz_);
   return CallbackReturn::SUCCESS;
 }
 
-PurePursuitNode::CallbackReturn PurePursuitNode::on_activate(
-  const rclcpp_lifecycle::State & /*state*/)
+PurePursuitNode::CallbackReturn PurePursuitNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   ackermann_pub_->on_activate();
   idle_pub_->on_activate();
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
   control_timer_ = create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-    std::bind(&PurePursuitNode::controlCallback, this));
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&PurePursuitNode::controlCallback, this));
 
   RCLCPP_INFO(get_logger(), "Activated");
   return CallbackReturn::SUCCESS;
 }
 
-PurePursuitNode::CallbackReturn PurePursuitNode::on_deactivate(
-  const rclcpp_lifecycle::State & /*state*/)
+PurePursuitNode::CallbackReturn PurePursuitNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   control_timer_.reset();
   ackermann_pub_->on_deactivate();
@@ -94,8 +103,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-PurePursuitNode::CallbackReturn PurePursuitNode::on_cleanup(
-  const rclcpp_lifecycle::State & /*state*/)
+PurePursuitNode::CallbackReturn PurePursuitNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   ackermann_pub_.reset();
   idle_pub_.reset();
@@ -109,8 +117,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_cleanup(
   return CallbackReturn::SUCCESS;
 }
 
-PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(
-  const rclcpp_lifecycle::State & /*state*/)
+PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   control_timer_.reset();
   ackermann_pub_.reset();
@@ -123,8 +130,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(
   return CallbackReturn::SUCCESS;
 }
 
-void PurePursuitNode::trajectoryCallback(
-  const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg)
+void PurePursuitNode::trajectoryCallback(const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg)
 {
   latest_trajectory_ = msg;
   last_trajectory_time_ = now();
@@ -137,8 +143,7 @@ double PurePursuitNode::getWheelbase()
   }
 
   try {
-    auto tf = tf_buffer_->lookupTransform(
-      rear_axle_frame_, front_axle_frame_, tf2::TimePointZero);
+    auto tf = tf_buffer_->lookupTransform(rear_axle_frame_, front_axle_frame_, tf2::TimePointZero);
     double dx = tf.transform.translation.x;
     double dy = tf.transform.translation.y;
     double dz = tf.transform.translation.z;
@@ -149,9 +154,13 @@ double PurePursuitNode::getWheelbase()
       return wb;
     }
   } catch (const tf2::TransformException & ex) {
-    RCLCPP_WARN_ONCE(get_logger(),
+    RCLCPP_WARN_ONCE(
+      get_logger(),
       "Cannot get wheelbase from TF (%s → %s): %s. Using fallback: %.4f m",
-      rear_axle_frame_.c_str(), front_axle_frame_.c_str(), ex.what(), wheelbase_fallback_);
+      rear_axle_frame_.c_str(),
+      front_axle_frame_.c_str(),
+      ex.what(),
+      wheelbase_fallback_);
   }
 
   return wheelbase_fallback_;
@@ -163,7 +172,7 @@ void PurePursuitNode::controlCallback()
 
   // Check for stale or missing trajectory
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
-    (now() - last_trajectory_time_).seconds() > idle_timeout_sec_;
+                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_;
 
   if (is_idle) {
     idle_msg.data = true;
@@ -192,8 +201,8 @@ void PurePursuitNode::controlCallback()
     try {
       pose_in_base = tf_buffer_->transform(pose_in_traj, base_frame_);
     } catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
-        "Cannot transform trajectory point to base frame: %s", ex.what());
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000, "Cannot transform trajectory point to base frame: %s", ex.what());
       return;
     }
 
@@ -238,7 +247,7 @@ void PurePursuitNode::controlCallback()
   ackermann_msgs::msg::AckermannDriveStamped cmd;
   cmd.header.stamp = now();
   cmd.header.frame_id = base_frame_;
-  cmd.drive.steering_angle = steering_angle;
+  cmd.drive.steering_angle = invert_steering_ ? -steering_angle : steering_angle;
   cmd.drive.speed = speed;
 
   ackermann_pub_->publish(cmd);
