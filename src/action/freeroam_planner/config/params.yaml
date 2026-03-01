@@ -1,11 +1,14 @@
-freeroam_planner_node:
-  ros__parameters:
-    goal_topic: "goal_point"
-    costmap_topic: "/world_modeling/costmap"
-    trajectory_topic: "trajectory"
-    base_frame: "base_footprint"
-    max_speed: 5.0
-    goal_tolerance: 1.0
-    obstacle_threshold: 50
-    allow_diagonal: true
-    planning_rate_hz: 2.0
+action:
+  freeroam_planner:
+    freeroam_planner_node:
+      ros__parameters:
+        goal_topic: "goal_point"
+        costmap_topic: "costmap"
+        trajectory_topic: "trajectory"
+        base_frame: "base_footprint"
+        max_speed: 5.0
+        goal_tolerance: 1.0
+        obstacle_threshold: 50
+        inflation_radius_m_: 1.6
+        allow_diagonal: true
+        planning_rate_hz: 2.0
