@@ -66,7 +66,7 @@ FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_configure(const rclc
 
   trajectory_pub_ = create_publisher<wato_trajectory_msgs::msg::Trajectory>(trajectory_topic_, rclcpp::QoS(10));
 
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   path_pub_ = create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
 
   goal_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
@@ -82,7 +82,7 @@ FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_configure(const rclc
 FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   trajectory_pub_->on_activate();
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   path_pub_->on_activate();
 
   const auto period = std::chrono::duration<double>(1.0 / planning_rate_hz_);
@@ -97,7 +97,7 @@ FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_deactivate(const rcl
 {
   plan_timer_.reset();
   trajectory_pub_->on_deactivate();
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   path_pub_->on_deactivate();
 
   RCLCPP_INFO(get_logger(), "Deactivated");
@@ -107,7 +107,7 @@ FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_deactivate(const rcl
 FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   trajectory_pub_.reset();
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   path_pub_.reset();
   goal_sub_.reset();
   costmap_sub_.reset();
@@ -129,7 +129,7 @@ FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_shutdown(const rclcp
   tf_listener_.reset();
   tf_buffer_.reset();
 
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   path_pub_.reset();
 
   RCLCPP_INFO(get_logger(), "Shut down");
@@ -203,7 +203,7 @@ void FreeroamPlannerNode::planCallback()
   trajectory.header.stamp = now();
   trajectory.header.frame_id = costmap_frame;
 
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   nav_msgs::msg::Path vis_path;
   vis_path.header.stamp = now();
   vis_path.header.frame_id = costmap_frame;
@@ -214,7 +214,7 @@ void FreeroamPlannerNode::planCallback()
     pt.pose.position.y = path[i].second;
     pt.pose.position.z = 0.0;
 
-    //REMOVE - for path vis
+    // REMOVE - for path vis
     geometry_msgs::msg::PoseStamped geo_pt;
     geo_pt.header.stamp = now();
     geo_pt.header.frame_id = costmap_frame;
@@ -241,7 +241,7 @@ void FreeroamPlannerNode::planCallback()
 
   trajectory_pub_->publish(trajectory);
 
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   path_pub_->publish(vis_path);
 }
 

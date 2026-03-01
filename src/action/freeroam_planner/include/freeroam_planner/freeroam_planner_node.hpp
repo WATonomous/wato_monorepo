@@ -27,7 +27,7 @@
 #include "tf2_ros/transform_listener.h"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
-//REMOVE - for path vis
+// REMOVE - for path vis
 #include "nav_msgs/msg/path.hpp"
 
 namespace freeroam_planner
@@ -77,7 +77,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
   rclcpp::TimerBase::SharedPtr plan_timer_;
 
-  //REMOVE - for path vis
+  // REMOVE - for path vis
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
   // State
