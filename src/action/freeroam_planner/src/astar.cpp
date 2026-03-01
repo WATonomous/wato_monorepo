@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "freeroam_planner/astar.hpp"
 
 #include <algorithm>
@@ -23,7 +37,10 @@ struct AStarNode
 
 struct CompareF
 {
-  bool operator()(const AStarNode & a, const AStarNode & b) const { return a.f > b.f; }
+  bool operator()(const AStarNode & a, const AStarNode & b) const
+  {
+    return a.f > b.f;
+  }
 };
 
 inline int toIndex(int row, int col, int width)
@@ -31,30 +48,26 @@ inline int toIndex(int row, int col, int width)
   return row * width + col;
 }
 
-inline GridCell worldToGrid(
-  double wx, double wy,
-  double origin_x, double origin_y, double resolution)
+inline GridCell worldToGrid(double wx, double wy, double origin_x, double origin_y, double resolution)
 {
   return {
     static_cast<int>(std::floor((wy - origin_y) / resolution)),
     static_cast<int>(std::floor((wx - origin_x) / resolution))};
 }
 
-inline std::pair<double, double> gridToWorld(
-  int row, int col,
-  double origin_x, double origin_y, double resolution)
+inline std::pair<double, double> gridToWorld(int row, int col, double origin_x, double origin_y, double resolution)
 {
-  return {
-    origin_x + (col + 0.5) * resolution,
-    origin_y + (row + 0.5) * resolution};
+  return {origin_x + (col + 0.5) * resolution, origin_y + (row + 0.5) * resolution};
 }
 
 }  // namespace
 
 std::vector<std::pair<double, double>> astar(
   const nav_msgs::msg::OccupancyGrid & grid,
-  double start_x, double start_y,
-  double goal_x, double goal_y,
+  double start_x,
+  double start_y,
+  double goal_x,
+  double goal_y,
   int obstacle_threshold,
   bool allow_diagonal)
 {
@@ -69,9 +82,7 @@ std::vector<std::pair<double, double>> astar(
   GridCell goal = worldToGrid(goal_x, goal_y, ox, oy, res);
 
   // Bounds check
-  auto inBounds = [&](int r, int c) {
-    return r >= 0 && r < height && c >= 0 && c < width;
-  };
+  auto inBounds = [&](int r, int c) { return r >= 0 && r < height && c >= 0 && c < width; };
 
   if (!inBounds(start.row, start.col) || !inBounds(goal.row, goal.col)) {
     return {};
@@ -91,9 +102,7 @@ std::vector<std::pair<double, double>> astar(
     dirs.push_back({-1, -1});
   }
 
-  auto heuristic = [&](int r, int c) {
-    return std::hypot(r - goal.row, c - goal.col);
-  };
+  auto heuristic = [&](int r, int c) { return std::hypot(r - goal.row, c - goal.col); };
 
   std::priority_queue<AStarNode, std::vector<AStarNode>, CompareF> open;
   std::unordered_map<int, double> g_costs;
