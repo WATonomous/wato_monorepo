@@ -27,6 +27,7 @@ extern "C"
 #include <rclcpp/rclcpp.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/steering_angle.hpp>
+#include <roscco_msg/msg/steering_torque.hpp>
 #include <roscco_msg/msg/wheel_speeds.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_srvs/srv/set_bool.hpp>
@@ -84,7 +85,10 @@ public:
   std::atomic<FaultType> latest_fault_{FaultType::BRAKE_FAULT};
   std::atomic<bool> has_override_{false};
   std::atomic<bool> has_fault_{false};
-  // std::atomic<float> steering_torque_{0.0f};
+
+  // Steering torque — single atomic, no tearing possible
+  std::atomic<float> latest_steering_torque_{0.0f};
+  std::atomic<bool> has_steering_torque_{false};
 
 private:
   /**
@@ -146,6 +150,7 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
   rclcpp::Publisher<roscco_msg::msg::WheelSpeeds>::SharedPtr wheel_speeds_pub_;
   rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr steering_angle_pub_;
+  rclcpp::Publisher<roscco_msg::msg::SteeringTorque>::SharedPtr steering_torque_pub_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr arm_service_;
 
   // Timers
