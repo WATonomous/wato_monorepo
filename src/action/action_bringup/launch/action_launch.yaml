@@ -1,1 +1,58 @@
----
+# action_launch.yaml
+
+launch:
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection
+
+  - node:
+      pkg: "freeroam_planner"
+      exec: "freeroam_planner_node"
+      name: "freeroam_planner_node"
+      namespace: "action/freeroam_planner"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share freeroam_planner)/config/params.yaml"
+      remap:
+        - from: "costmap"
+          to: "/world_modeling/costmap"
+        - from: "goal_point"
+          to: "/goal_point_stamped"
+  - node:
+      pkg: "ackermann_pure_pursuit"
+      exec: "pure_pursuit_node"
+      name: "pure_pursuit_node"
+      namespace: "action/pure_pursuit"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+      remap:
+        - from: "trajectory"
+          to: "/action/freeroam_planner/trajectory"
+
+   # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: action_lifecycle_manager
+      namespace: "action"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - action/freeroam_planner/freeroam_planner_node
+            - action/pure_pursuit/pure_pursuit_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
