@@ -24,6 +24,7 @@
 
                     <GetTrafficLightState
                         traffic_light="{traffic_light}"
+                        lane_ctx="{@current_lane_ctx}"
                         objects="{traffic_light.objects}"
                         state_hypothesis_index="{@bt.traffic_light_state_hypothesis_index}"
                         out_traffic_light_state="{traffic_light.state}"
