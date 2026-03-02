@@ -1,0 +1,52 @@
+---
+launch:
+  - arg:
+      name: "autostart"
+      default: "true"
+      description: "Automatically configure and activate managed nodes"
+
+  - arg:
+      name: "bond_enabled"
+      default: "false"
+      description: "Enable bond-based crash detection"
+
+  # Velocity Dummy
+  - node:
+      pkg: dummy_ackermann
+      exec: ackermann_velocity_trapezoid_node
+      name: ackermann_velocity_trapezoid
+      namespace: interfacing
+      output: screen
+
+  # Joystick Node (Required to arm)
+  - include:
+      file: "$(find-pkg-share joystick_interfacing)/launch/joystick_interfacing.launch.yaml"
+
+  # PID Control Node
+  - include:
+      file: "$(find-pkg-share pid_control)/launch/pid_control.launch.yaml"
+
+  # OSCC interfacing Node
+  - include:
+      file: "$(find-pkg-share oscc_interfacing)/launch/oscc_interfacing.launch.yaml"
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: interfacing_lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /interfacing/joystick_node
+            - /interfacing/pid_control_node
+            - /interfacing/ackermann_velocity_trapezoid
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)

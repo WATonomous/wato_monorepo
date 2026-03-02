@@ -1,0 +1,6 @@
+# GetDynamicObjects.srv
+# Service to retrieve all currently tracked dynamic objects.
+
+---
+std_msgs/Header header
+WorldObject[] objects

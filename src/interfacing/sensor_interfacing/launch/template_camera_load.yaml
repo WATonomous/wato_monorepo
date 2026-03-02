@@ -66,6 +66,13 @@ launch:
           extra_arg:
             - name: use_intra_process_comms
               value: "true"
+          param:
+            - name: image_rect.compressed.format
+              value: "jpeg"
+            - name: image_rect.compressed.jpeg_quality
+              value: "90"
           remap:
             - from: "image"
               to: "image_color"
+            - from: "image_rect/compressed"
+              to: "image_rect_compressed"

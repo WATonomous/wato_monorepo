@@ -34,6 +34,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AreaOccupancyInfo.msg"
   "msg/AreaOccupancy.msg"
   "srv/GetObjectsByLanelet.srv"
+  "srv/GetDynamicObjects.srv"
+  "srv/GetAreaOccupancy.srv"
   DEPENDENCIES std_msgs geometry_msgs builtin_interfaces vision_msgs lanelet_msgs
 )
 

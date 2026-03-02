@@ -35,11 +35,13 @@ void ObjectsLayer::configure(
   node_->declare_parameter("layers." + layer_name_ + ".bbox_cost_decay", 1.0);
   node_->declare_parameter("layers." + layer_name_ + ".prediction_inflation_m", 0.3);
   node_->declare_parameter("layers." + layer_name_ + ".prediction_cost_decay", 0.8);
+  node_->declare_parameter("layers." + layer_name_ + ".max_centroid_height_m", 100.0);
 
   bbox_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".bbox_inflation_m").as_double();
   bbox_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".bbox_cost_decay").as_double();
   prediction_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".prediction_inflation_m").as_double();
   prediction_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".prediction_cost_decay").as_double();
+  max_centroid_height_m_ = node_->get_parameter("layers." + layer_name_ + ".max_centroid_height_m").as_double();
 }
 
 void ObjectsLayer::activate()
@@ -91,6 +93,11 @@ void ObjectsLayer::update(
   for (const auto & obj : objects->objects) {
     const auto & det = obj.detection;
     const auto & bbox = det.bbox;
+
+    // Skip objects whose centroid is above the max height (e.g. traffic lights)
+    if (bbox.center.position.z > max_centroid_height_m_) {
+      continue;
+    }
 
     // Transform bbox center to costmap frame
     geometry_msgs::msg::PoseStamped pose_in, pose_out;

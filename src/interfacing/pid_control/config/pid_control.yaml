@@ -1,15 +1,14 @@
-pid_control_node:
+/interfacing/pid_control_node:
   ros__parameters:
     update_rate: 100.0
-    steering_wheel_conversion_factor: 15.7  #steering wheel rotation to wheel angle conversion factor 15.7:1
     steering_pid:
       p: 1.0  # Proportional gain
-      i: 0.1  # Integral gain
-      d: 0.01 # Derivative gain
-      i_clamp_max: 0.5  # Upper bound for the integrator term (prevents windup independently of output)
-      i_clamp_min: -0.5 # Lower bound for the integrator term
-      u_clamp_max: 1.0  # Upper saturation limit for the controller output (actuator limit)
-      u_clamp_min: -1.0 # Lower saturation limit for the controller output
+      i: 0.7  # Integral gain
+      d: 0.3 # Derivative gain
+      i_clamp_max: 0.56  # Upper bound for the integrator term (prevents windup independently of output)
+      i_clamp_min: -0.56 # Lower bound for the integrator term
+      u_clamp_max: 0.56  # Upper saturation limit for the controller output (actuator limit)
+      u_clamp_min: -0.56 # Lower saturation limit for the controller output
       saturation: true  # Whether to treat u_clamp limits as enforced saturation
       antiwindup: true  # Enable anti-windup to correct the integrator during saturation
       # Modern anti-windup strategy ("conditional_integration" replaces "legacy" to avoid warnings)

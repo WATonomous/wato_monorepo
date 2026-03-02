@@ -13,6 +13,12 @@ vision_msgs/Detection3D detection
 # Lanelet context: current lanelet + reachable lanelets ahead (empty from perception)
 lanelet_msgs/LaneletAhead lanelet_ahead
 
+# Matched traffic light way ID (the specific refers linestring; 0 if unmatched)
+int64 matched_way_id
+
+# Matched regulatory element (for traffic lights; empty if unmatched)
+lanelet_msgs/RegulatoryElement regulatory_element
+
 # Historical path (most recent first; empty from perception, populated by world model)
 geometry_msgs/PoseStamped[] history
 

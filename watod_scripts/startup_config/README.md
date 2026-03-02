@@ -8,7 +8,7 @@ Run the following commands on the car's computer:
 
 ```bash
 # 1. Install search file
-sudo cp can-interface.service /etc/systemd/system/
+sudo cp watod_scripts/startup_config/can-interface.service /etc/systemd/system/
 
 # 2. Enable and start service
 sudo systemctl daemon-reload

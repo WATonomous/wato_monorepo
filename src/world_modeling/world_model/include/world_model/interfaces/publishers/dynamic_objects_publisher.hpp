@@ -18,6 +18,7 @@
 #include <chrono>
 #include <cmath>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -139,6 +140,18 @@ private:
         ps.header = det.header;
         ps.pose = det.bbox.center;
         obj.history.push_back(ps);
+      }
+
+      if constexpr (std::is_same_v<EntityType, TrafficLight>) {
+        if (entity.way_id > 0) {
+          obj.matched_way_id = entity.way_id;
+        }
+        if (entity.reg_elem_id > 0) {
+          auto re = lanelet_handler_->getRegulatoryElementMsg(entity.reg_elem_id);
+          if (re.has_value()) {
+            obj.regulatory_element = *re;
+          }
+        }
       }
 
       objects.push_back(obj);

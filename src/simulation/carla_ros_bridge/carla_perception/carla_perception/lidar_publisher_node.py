@@ -106,12 +106,20 @@ class LidarPublisherNode(LifecycleNode):
             ["lidar"],
             ParameterDescriptor(description="List of LiDAR sensor names to spawn"),
         )
+        self.declare_parameter(
+            "base_frame",
+            "base_footprint",
+            ParameterDescriptor(
+                description="Base frame for TF lookups when placing sensors"
+            ),
+        )
 
         # State
         self.carla_client: Optional["carla.Client"] = None
         self.ego_vehicle: Optional["carla.Vehicle"] = None
         self.lidars: Dict[str, LidarInstance] = {}
         self.simulation_fps: float = 20.0  # Will be updated from CARLA settings
+        self.base_frame: str = "base_footprint"
 
         # TF
         self.tf_buffer: Optional[Buffer] = None
@@ -131,6 +139,7 @@ class LidarPublisherNode(LifecycleNode):
         port = self.get_parameter("carla_port").value
         timeout = self.get_parameter("carla_timeout").value
         role_name = self.get_parameter("role_name").value
+        self.base_frame = self.get_parameter("base_frame").value
 
         try:
             self.carla_client = connect_carla(host, port, timeout)
@@ -310,7 +319,7 @@ class LidarPublisherNode(LifecycleNode):
             frame_id = lidar.config.frame_id
             try:
                 self.tf_buffer.lookup_transform(
-                    "base_link", frame_id, rclpy.time.Time()
+                    self.base_frame, frame_id, rclpy.time.Time()
                 )
             except TransformException:
                 return False
@@ -456,23 +465,23 @@ class LidarPublisherNode(LifecycleNode):
             return False
 
     def _get_transform_from_tf(self, frame_id: str) -> Optional["carla.Transform"]:
-        """Look up transform from base_link to frame_id and convert to CARLA transform."""
+        """Look up transform from base frame to frame_id and convert to CARLA transform."""
         try:
             tf = self.tf_buffer.lookup_transform(
-                "base_link", frame_id, rclpy.time.Time()
+                self.base_frame, frame_id, rclpy.time.Time()
             )
 
             t = tf.transform.translation
-            x, y, z = t.x, t.y, t.z
-
             q = tf.transform.rotation
             roll, pitch, yaw = quaternion_to_euler(q.x, q.y, q.z, q.w)
 
+            # Convert ROS (right-handed, FLU) to CARLA (left-handed, FRU):
+            # Y axis is flipped, so negate y, pitch, and yaw
             return carla.Transform(
-                carla.Location(x=x, y=y, z=z),
+                carla.Location(x=t.x, y=-t.y, z=t.z),
                 carla.Rotation(
-                    pitch=math.degrees(pitch),
-                    yaw=math.degrees(yaw),
+                    pitch=-math.degrees(pitch),
+                    yaw=-math.degrees(yaw),
                     roll=math.degrees(roll),
                 ),
             )

@@ -10,6 +10,6 @@ launch:
       pkg: "oscc_interfacing"
       exec: "oscc_interfacing_node"
       name: "oscc_interfacing_node"
-      namespace: ""
+      namespace: "interfacing"
       param:
         - from: "$(var config_file)"
