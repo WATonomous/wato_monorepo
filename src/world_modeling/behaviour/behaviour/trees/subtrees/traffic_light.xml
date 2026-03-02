@@ -20,7 +20,7 @@
                     <GetWorldObjects
                         objects="{traffic_light.objects}"
                         error_message="{traffic_light.get_objects_error_msg}"
-                        service_name="/world_modeling/get_dynamic_objects" />
+                        service_name="/world_modeling/get_world_objects_enriched" />
 
                     <GetTrafficLightState
                         traffic_light="{traffic_light}"

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef WORLD_MODEL__INTERFACES__SERVICES__GET_DYNAMIC_OBJECTS_SERVICE_HPP_
-#define WORLD_MODEL__INTERFACES__SERVICES__GET_DYNAMIC_OBJECTS_SERVICE_HPP_
+#ifndef WORLD_MODEL__INTERFACES__SERVICES__GET_WORLD_OBJECTS_ENRICHED_SERVICE_HPP_
+#define WORLD_MODEL__INTERFACES__SERVICES__GET_WORLD_OBJECTS_ENRICHED_SERVICE_HPP_
 
 #include <cmath>
 #include <string>
@@ -26,7 +26,7 @@
 #include "world_model/interfaces/interface_base.hpp"
 #include "world_model/lanelet_handler.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
-#include "world_model_msgs/srv/get_dynamic_objects.hpp"
+#include "world_model_msgs/srv/get_world_objects_enriched.hpp"
 
 namespace world_model
 {
@@ -34,23 +34,23 @@ namespace world_model
 /**
  * @brief Service that returns all tracked dynamic objects on demand.
  *
- * Mirrors the data published by DynamicObjectsPublisher but as a
+ * Mirrors the data published by WorldObjectsEnrichedPublisher but as a
  * request/response service for on-demand snapshots.
  */
-class GetDynamicObjectsService : public InterfaceBase
+class GetWorldObjectsEnrichedService : public InterfaceBase
 {
 public:
-  GetDynamicObjectsService(
+  GetWorldObjectsEnrichedService(
     rclcpp_lifecycle::LifecycleNode * node, const WorldState * world_state, const LaneletHandler * lanelet_handler)
   : node_(node)
   , world_state_(world_state)
   , lanelet_handler_(lanelet_handler)
   , frame_id_(node->get_parameter("map_frame").as_string())
-  , radius_m_(node->get_parameter("dynamic_objects_lanelet_ahead_radius_m").as_double())
+  , radius_m_(node->get_parameter("world_objects_enriched_lanelet_ahead_radius_m").as_double())
   {
-    srv_ = node_->create_service<world_model_msgs::srv::GetDynamicObjects>(
-      "get_dynamic_objects",
-      std::bind(&GetDynamicObjectsService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
+    srv_ = node_->create_service<world_model_msgs::srv::GetWorldObjectsEnriched>(
+      "get_world_objects_enriched",
+      std::bind(&GetWorldObjectsEnrichedService::handleRequest, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
@@ -65,7 +65,7 @@ private:
   }
 
   /**
-   * @brief Handle an incoming GetDynamicObjects service request.
+   * @brief Handle an incoming GetWorldObjectsEnriched service request.
    *
    * Collects all tracked entities of every type (Unknown, Car, Human, Bicycle,
    * Motorcycle, TrafficLight) into the response's objects list.
@@ -74,8 +74,8 @@ private:
    * @param response The service response populated with all dynamic objects.
    */
   void handleRequest(
-    world_model_msgs::srv::GetDynamicObjects::Request::ConstSharedPtr /*request*/,
-    world_model_msgs::srv::GetDynamicObjects::Response::SharedPtr response)
+    world_model_msgs::srv::GetWorldObjectsEnriched::Request::ConstSharedPtr /*request*/,
+    world_model_msgs::srv::GetWorldObjectsEnriched::Response::SharedPtr response)
   {
     response->header.stamp = node_->get_clock()->now();
     response->header.frame_id = frame_id_;
@@ -150,9 +150,9 @@ private:
   std::string frame_id_;
   double radius_m_;
 
-  rclcpp::Service<world_model_msgs::srv::GetDynamicObjects>::SharedPtr srv_;
+  rclcpp::Service<world_model_msgs::srv::GetWorldObjectsEnriched>::SharedPtr srv_;
 };
 
 }  // namespace world_model
 
-#endif  // WORLD_MODEL__INTERFACES__SERVICES__GET_DYNAMIC_OBJECTS_SERVICE_HPP_
+#endif  // WORLD_MODEL__INTERFACES__SERVICES__GET_WORLD_OBJECTS_ENRICHED_SERVICE_HPP_

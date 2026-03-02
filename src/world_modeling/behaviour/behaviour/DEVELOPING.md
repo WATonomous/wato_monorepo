@@ -92,7 +92,7 @@ In XML, reference those BT-only values with `{@bt.*}`.
    | `GetShortestRoute`     | `service_name` | `/world_modeling/get_shortest_route`       |
    | `SetRoute`             | `service_name` | `/world_modeling/set_route`                |
    | `GetAreaOccupancy`     | `service_name` | `/world_modeling/get_area_occupancy`       |
-   | `GetWorldObjects`      | `service_name` | `/world_modeling/get_dynamic_objects`      |
+   | `GetWorldObjects`      | `service_name` | `/world_modeling/get_world_objects_enriched` |
    | `GetLaneletsByRegElem` | `service_name` | `/world_modeling/get_lanelets_by_reg_elem` |
    | `SpawnWall`            | `service_name` | `/world_modeling/spawn_wall`               |
    | `DespawnWall`          | `service_name` | `/world_modeling/despawn_wall`             |

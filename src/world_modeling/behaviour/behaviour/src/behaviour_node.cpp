@@ -49,7 +49,7 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("get_shortest_route_timeout_ms", 6000);
   this->declare_parameter("set_route_timeout_ms", 6000);
   this->declare_parameter("get_area_occupancy_timeout_ms", 5000);
-  this->declare_parameter("get_dynamic_objects_timeout_ms", 5000);
+  this->declare_parameter("get_world_objects_enriched_timeout_ms", 5000);
   this->declare_parameter("get_lanelets_by_reg_elem_timeout_ms", 5000);
   this->declare_parameter("wall_service_timeout_ms", 5000);
 
