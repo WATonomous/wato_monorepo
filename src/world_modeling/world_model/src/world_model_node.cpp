@@ -24,7 +24,7 @@
 
 // Publishers
 #include "world_model/interfaces/publishers/area_occupancy_publisher.hpp"
-#include "world_model/interfaces/publishers/dynamic_objects_publisher.hpp"
+#include "world_model/interfaces/publishers/world_objects_enriched_publisher.hpp"
 #include "world_model/interfaces/publishers/lane_context_publisher.hpp"
 #include "world_model/interfaces/publishers/lanelet_ahead_publisher.hpp"
 #include "world_model/interfaces/publishers/map_viz_publisher.hpp"
@@ -32,7 +32,7 @@
 
 // Services
 #include "world_model/interfaces/services/get_area_occupancy_service.hpp"
-#include "world_model/interfaces/services/get_dynamic_objects_service.hpp"
+#include "world_model/interfaces/services/get_world_objects_enriched_service.hpp"
 #include "world_model/interfaces/services/get_objects_by_lanelet_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
 #include "world_model/interfaces/services/set_route_service.hpp"
@@ -87,7 +87,7 @@ void WorldModelNode::createInterfaces()
 
   interfaces_.push_back(std::make_unique<MapVizPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
-  interfaces_.push_back(std::make_unique<DynamicObjectsPublisher>(this, world_state_.get(), lanelet_handler_.get()));
+  interfaces_.push_back(std::make_unique<WorldObjectsEnrichedPublisher>(this, world_state_.get(), lanelet_handler_.get()));
 
   interfaces_.push_back(std::make_unique<RouteAheadPublisher>(this, lanelet_handler_.get(), tf_buffer_.get()));
 
@@ -105,7 +105,7 @@ void WorldModelNode::createInterfaces()
 
   interfaces_.push_back(std::make_unique<GetObjectsByLaneletService>(this, world_state_.get(), lanelet_handler_.get()));
 
-  interfaces_.push_back(std::make_unique<GetDynamicObjectsService>(this, world_state_.get(), lanelet_handler_.get()));
+  interfaces_.push_back(std::make_unique<GetWorldObjectsEnrichedService>(this, world_state_.get(), lanelet_handler_.get()));
 
   interfaces_.push_back(
     std::make_unique<GetAreaOccupancyService>(this, world_state_.get(), tf_buffer_.get(), lanelet_handler_.get()));

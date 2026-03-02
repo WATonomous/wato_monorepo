@@ -36,7 +36,7 @@
                 <GetWorldObjects
                     objects="{stop_sign.objects}"
                     error_message="{get_objects_error_msg}"
-                    service_name="/world_modeling/get_dynamic_objects" />
+                    service_name="/world_modeling/get_world_objects_enriched" />
 
                 <GetStopSignCars
                     stop_sign="{active_traffic_control_element}"
