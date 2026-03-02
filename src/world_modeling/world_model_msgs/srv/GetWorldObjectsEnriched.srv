@@ -1,0 +1,6 @@
+# GetWorldObjectsEnriched.srv
+# Service to retrieve all currently tracked world objects (enriched).
+
+---
+std_msgs/Header header
+WorldObject[] objects

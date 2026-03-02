@@ -32,7 +32,7 @@
       "serviceName": "/world_modeling/spawn_wall"
     },
     "CallService!7edari": {
-      "requestPayload": "{\n  \"data\": true\n}",
+      "requestPayload": "{\n  \"data\": false\n}",
       "layout": "horizontal",
       "timeoutSeconds": 20,
       "serviceName": "/carla/pause"
@@ -46,13 +46,13 @@
     "3D!30zmknt": {
       "cameraState": {
         "perspective": true,
-        "distance": 53.00068653066134,
-        "phi": 57.898650373499756,
-        "thetaOffset": -63.44060537981954,
+        "distance": 98.08401423513503,
+        "phi": 29.173790769491045,
+        "thetaOffset": -56.41459753083616,
         "targetOffset": [
-          24.016402012892968,
-          -2.6728053318692666,
-          -1.753351368110668
+          -8.47765315526343,
+          4.918154813294437,
+          -1.753351368110654
         ],
         "target": [
           0,
@@ -252,6 +252,12 @@
           "visible": true
         },
         "/world_modeling/reg_elem_markers": {
+          "visible": false
+        },
+        "/world_modeling/world_objects_enriched_markers": {
+          "visible": true
+        },
+        "/world_modeling/behaviour_markers": {
           "visible": true
         }
       },
@@ -310,7 +316,7 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "base_link"
+      "followTf": "base_footprint"
     }
   },
   "globalVariables": {},

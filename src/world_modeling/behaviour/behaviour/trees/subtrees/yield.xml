@@ -24,7 +24,7 @@
             <GetWorldObjects
                 objects="{yield.objects}"
                 error_message="{yield.get_objects_error_msg}"
-                service_name="/world_modeling/get_dynamic_objects" />
+                service_name="/world_modeling/get_world_objects_enriched" />
 
             <!-- wait until yield lanes are clear for a gap -->
             <YieldCanProceed

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef WORLD_MODEL__INTERFACES__PUBLISHERS__DYNAMIC_OBJECTS_PUBLISHER_HPP_
-#define WORLD_MODEL__INTERFACES__PUBLISHERS__DYNAMIC_OBJECTS_PUBLISHER_HPP_
+#ifndef WORLD_MODEL__INTERFACES__PUBLISHERS__WORLD_OBJECTS_ENRICHED_PUBLISHER_HPP_
+#define WORLD_MODEL__INTERFACES__PUBLISHERS__WORLD_OBJECTS_ENRICHED_PUBLISHER_HPP_
 
 #include <chrono>
 #include <cmath>
@@ -37,18 +37,18 @@ namespace world_model
  * Collects entities from all entity types (Car, Human, Bicycle, Motorcycle, etc.)
  * and publishes them as a WorldObjectArray message with lanelet context and history.
  */
-class DynamicObjectsPublisher : public InterfaceBase
+class WorldObjectsEnrichedPublisher : public InterfaceBase
 {
 public:
-  DynamicObjectsPublisher(
+  WorldObjectsEnrichedPublisher(
     rclcpp_lifecycle::LifecycleNode * node, const WorldState * world_state, const LaneletHandler * lanelet_handler)
   : node_(node)
   , world_state_(world_state)
   , lanelet_handler_(lanelet_handler)
   {
     frame_id_ = node_->get_parameter("map_frame").as_string();
-    rate_hz_ = node_->declare_parameter<double>("dynamic_objects_publish_rate_hz", 10.0);
-    radius_m_ = node_->declare_parameter<double>("dynamic_objects_lanelet_ahead_radius_m", 30.0);
+    rate_hz_ = node_->declare_parameter<double>("world_objects_enriched_publish_rate_hz", 10.0);
+    radius_m_ = node_->declare_parameter<double>("world_objects_enriched_lanelet_ahead_radius_m", 30.0);
 
     pub_ = node_->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_objects", 10);
   }
@@ -61,7 +61,7 @@ public:
       auto period = std::chrono::duration<double>(1.0 / rate_hz_);
       timer_ = node_->create_wall_timer(
         std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-        std::bind(&DynamicObjectsPublisher::publish, this));
+        std::bind(&WorldObjectsEnrichedPublisher::publish, this));
     }
   }
 
@@ -171,4 +171,4 @@ private:
 
 }  // namespace world_model
 
-#endif  // WORLD_MODEL__INTERFACES__PUBLISHERS__DYNAMIC_OBJECTS_PUBLISHER_HPP_
+#endif  // WORLD_MODEL__INTERFACES__PUBLISHERS__WORLD_OBJECTS_ENRICHED_PUBLISHER_HPP_
