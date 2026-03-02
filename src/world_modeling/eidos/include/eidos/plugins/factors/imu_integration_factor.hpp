@@ -120,6 +120,7 @@ private:
   // ---- Noise models ----
   gtsam::noiseModel::Diagonal::shared_ptr prior_vel_noise_;
   gtsam::noiseModel::Diagonal::shared_ptr prior_bias_noise_;
+  gtsam::noiseModel::Diagonal::shared_ptr attitude_noise_;
   gtsam::Vector noise_between_bias_;
 
   // ---- State ----
@@ -142,14 +143,16 @@ private:
   std::mutex imu_pose_lock_;
 
   // ---- Parameters (populated from ROS params in onInitialize) ----
-  double acc_noise_;
-  double gyr_noise_;
-  double acc_bias_noise_;
-  double gyr_bias_noise_;
+  // Covariance diagonals [x, y, z] — set directly in PreintegrationParams
+  std::vector<double> acc_cov_;          // accelerometer covariance diagonal
+  std::vector<double> gyr_cov_;          // gyroscope covariance diagonal
+  std::vector<double> bias_walk_cov_;    // bias random-walk covariance diagonal [ax, ay, az, gx, gy, gz]
+  std::vector<double> integration_cov_;  // preintegration position covariance diagonal
   double gravity_;
-  double integration_noise_;
-  double prior_vel_sigma_;
-  double prior_bias_sigma_;
+  std::vector<double> prior_vel_cov_;       // [vx, vy, vz]
+  std::vector<double> prior_bias_cov_;      // [ax, ay, az, gx, gy, gz]
+  std::vector<double> attitude_prior_cov_;  // [pitch, roll]
+  bool use_attitude_prior_;
   double max_velocity_;
   double max_bias_norm_;
   double default_imu_dt_;

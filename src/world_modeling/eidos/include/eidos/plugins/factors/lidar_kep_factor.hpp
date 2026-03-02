@@ -183,8 +183,7 @@ private:
   size_t map_cache_max_size_;
   float occlusion_depth_diff_;
   float parallel_beam_ratio_;
-  double odom_rot_noise_;
-  double odom_trans_noise_;
+  std::vector<double> odom_cov_;  // diagonal of 6D Pose3 covariance [r, p, y, x, y, z]
   double imu_time_margin_;
 
   // IMU-to-lidar extrinsic transform (looked up from TF: lidar_frame_ <- imu_frame_)

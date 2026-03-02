@@ -7,7 +7,7 @@ eidos_node:
       map: "map"
 
     # ---- SLAM core ----
-    slam_rate: 1.0                    # Hz, main SLAM loop frequency
+    slam_rate: 2.0                    # Hz, main SLAM loop frequency
     max_displacement: 1.0              # meters of travel before creating a new keyframe state
     max_rotation: 0.2                  # radians of rotation before creating a new keyframe state
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
@@ -15,6 +15,7 @@ eidos_node:
     # ---- Core topics / services ----
     topics:
       path: "slam/path"               # nav_msgs/Path output
+      pose: "slam/pose"               # geometry_msgs/PoseStamped output (optimized pose in map frame)
       status: "slam/status"            # eidos_msgs/SlamStatus output
       odom_input: "imu_integration_factor/odometry/imu"  # nav_msgs/Odometry input (source for odom->base_link TF)
       odom: "slam/odometry"            # nav_msgs/Odometry output (republished canonical odom)
@@ -25,7 +26,7 @@ eidos_node:
     factor_plugins:
       - "imu_integration_factor"
       # - "lidar_kep_factor"
-      # - "gps_factor"
+      - "gps_factor"
       # - "euclidean_distance_loop_closure_factor"
 
     # ---- Relocalization plugins (first to succeed wins) ----
@@ -54,20 +55,24 @@ eidos_node:
       odom_incremental_topic: "imu_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
       odom_fused_topic: "imu_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
 
-      # -- IMU intrinsic noise --
-      # Novatel high-grade IMU with factory-calibrated (bias-compensated) output.
-      # Biases are largely removed by the driver, but residual bias remains.
-      # Bias noise must be loose enough for GTSAM to estimate residuals.
-      acc_noise: 1e-3        # accelerometer white noise (m/s^2/sqrt(Hz)) — LIO-SAM default
-      gyr_noise: 4e-4        # gyroscope white noise (rad/s/sqrt(Hz)) — LIO-SAM default
-      acc_bias_noise: 1e-3   # accelerometer bias random walk — LIO-SAM default
-      gyr_bias_noise: 1e-3   # gyroscope bias random walk — LIO-SAM default
-      gravity: 0.0                            # 0.0 because the data topic provides gravity-compensated acceleration
-      integration_noise: 1.0e-4              # IMU preintegration covariance noise
+      # -- IMU covariance diagonals [x, y, z] --
+      # These set the diagonal of the 3x3 covariance matrices in GTSAM's
+      # PreintegrationParams.  Per-axis control lets you e.g. loosen z
+      # without affecting xy.
+      # Epson EG320N datasheet: VRW=0.05 m/s/√hr → 6.9e-7, ARW=0.1 °/√hr → 8.5e-10
+      # Bias instability: accel=0.1mg → 9.6e-7, gyro=3.5°/hr → 2.9e-10
+      acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]           # accelerometer covariance diagonal (m/s^2)^2
+      gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]        # gyroscope covariance diagonal (rad/s)^2
+      bias_walk_cov: [9.6e-7, 9.6e-7, 9.6e-7, 2.9e-10, 2.9e-10, 2.9e-10]  # [ax, ay, az, gx, gy, gz] bias random-walk covariance
+      gravity: 0.0                                   # 0.0 because the data topic provides gravity-compensated acceleration
+      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]    # preintegration position covariance diagonal
 
-      # -- State 0 prior sigmas (for V and B in main graph) --
-      prior_vel_sigma: 1.0e-8                 # initial velocity prior sigma - on startup, the car is ASSUMED NOT moving, so we are very certain
-      prior_bias_sigma: 1.0e-3               # initial bias prior sigma
+      # -- State 0 prior covariance diagonals (for V and B in main graph) --
+      prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]                       # [vx, vy, vz] — car assumed stationary at startup
+      prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6] # [ax, ay, az, gx, gy, gz] — initial IMU bias
+
+      use_attitude_prior: true                                            # enable Pose3AttitudeFactor (gravity alignment) per keyframe
+      attitude_prior_cov: [2.0e-2, 2.0e-2]                              # [pitch, roll] rad^2, constrains roll and pitch
 
       # -- Failure detection --
       max_velocity: 30.0                    # m/s, reset preintegration if velocity exceeds this
@@ -128,8 +133,7 @@ eidos_node:
       map_cache_max_size: 1000      # max cached transformed keyframe clouds before clearing
 
       # -- Odometry noise (BetweenFactor variances) --
-      odom_rot_noise: 1.0e-6       # rotation variance (rad^2) for odometry between-factor
-      odom_trans_noise: 1.0e-4     # translation variance (m^2) for odometry between-factor
+      odom_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]  # [r, p, y, x, y, z] odometry between-factor covariance
 
       # -- IMU deskewing timing --
       imu_time_margin: 0.01        # seconds, margin for pruning IMU messages around scan boundaries
@@ -150,18 +154,18 @@ eidos_node:
 
       # -- Topics --
       gps_topic: "/novatel/oem7/fix"      # sensor_msgs/NavSatFix input
+      imu_topic: "/novatel/oem7/imu/data" # sensor_msgs/Imu input (9-DOF orientation for heading alignment)
 
       # -- GPS quality filtering --
-      cov_threshold: 2.0            # max GPS position covariance to accept a measurement
+      cov_threshold: 5.0            # max GPS position covariance to accept a measurement
       use_elevation: false           # use GPS elevation (z), or lock z to current pose
 
       # -- GPS injection control --
-      min_trajectory_length: 10.0    # meters, minimum trajectory before injecting GPS factors
-      gps_time_tolerance: 0.02       # seconds, max time offset to match GPS to a keyframe state
-      min_gps_movement: 10.0         # meters, minimum displacement between GPS injections
+      min_gps_movement: 20.0          # meters, minimum displacement between GPS injections
 
-      # -- Noise --
-      bias_prior_sigma: 100.0        # sigma (meters) for the utm→map bias prior; lower = more stable, higher = more adaptive
+      # -- Covariances --
+      bias_prior_cov: [1.0e4, 1.0e4, 1.0e4]  # [x, y, z] utm→map bias prior covariance; lower = more stable
+      gps_cov: [0.0, 0.0, 1.0]                     # [x, y, z] BiasedGPSFactor measurement covariance floor (m^2); gps_cov[2] used for z if use_elevation: false
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
@@ -243,8 +247,7 @@ eidos_node:
 
     # ---- State 0 prior noise ----
     prior:
-      rot_variance: 1.0e-2           # rotation variance (rad^2) for state 0 prior (roll, pitch, yaw)
-      trans_variance: 1.0e-2         # translation variance (m^2) for state 0 prior (x, y, z)
+      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [r, p, y, x, y, z] state 0 prior covariance
 
     # ---- Core (not per-plugin) ----
     keyframe:

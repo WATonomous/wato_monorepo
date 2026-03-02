@@ -41,8 +41,8 @@ void LidarKEPFactor::onInitialize() {
   node_->declare_parameter(prefix + ".map_cache_max_size", 1000);
   node_->declare_parameter(prefix + ".occlusion_depth_diff", 0.3);
   node_->declare_parameter(prefix + ".parallel_beam_ratio", 0.02);
-  node_->declare_parameter(prefix + ".odom_rot_noise", 1e-6);
-  node_->declare_parameter(prefix + ".odom_trans_noise", 1e-4);
+  node_->declare_parameter(prefix + ".odom_cov",
+      std::vector<double>{1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4});
   node_->declare_parameter(prefix + ".imu_time_margin", 0.01);
   node_->declare_parameter(prefix + ".odom_topic", name_ + "/odometry");
   node_->declare_parameter(prefix + ".deskewed_cloud_topic", name_ + "/deskewed_cloud");
@@ -73,8 +73,7 @@ void LidarKEPFactor::onInitialize() {
   map_cache_max_size_ = static_cast<size_t>(cache_max);
   node_->get_parameter(prefix + ".occlusion_depth_diff", occlusion_depth_diff_);
   node_->get_parameter(prefix + ".parallel_beam_ratio", parallel_beam_ratio_);
-  node_->get_parameter(prefix + ".odom_rot_noise", odom_rot_noise_);
-  node_->get_parameter(prefix + ".odom_trans_noise", odom_trans_noise_);
+  node_->get_parameter(prefix + ".odom_cov", odom_cov_);
   node_->get_parameter(prefix + ".imu_time_margin", imu_time_margin_);
 
   if (sensor_type_str == "ouster") sensor_type_ = SensorType::OUSTER;
@@ -544,8 +543,8 @@ FactorResult LidarKEPFactor::getFactors(
   } else if (has_last_keyframe_) {
     // Add BetweenFactor (odometry constraint)
     auto noise = gtsam::noiseModel::Diagonal::Variances(
-        (gtsam::Vector(6) << odom_rot_noise_, odom_rot_noise_, odom_rot_noise_,
-         odom_trans_noise_, odom_trans_noise_, odom_trans_noise_).finished());
+        (gtsam::Vector(6) << odom_cov_[0], odom_cov_[1], odom_cov_[2],
+         odom_cov_[3], odom_cov_[4], odom_cov_[5]).finished());
     gtsam::Pose3 relative = last_keyframe_pose_.between(state_pose);
     auto factor = gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
         state_index - 1, state_index, relative, noise);

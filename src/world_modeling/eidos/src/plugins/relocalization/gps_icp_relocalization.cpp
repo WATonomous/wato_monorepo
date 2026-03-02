@@ -1,5 +1,8 @@
 #include "eidos/plugins/relocalization/gps_icp_relocalization.hpp"
 
+#include <array>
+#include <cmath>
+
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
@@ -134,14 +137,20 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
     return std::nullopt;
   }
 
-  auto offset_vec = std::any_cast<Eigen::Vector4d>(global_offset.value());
-  Eigen::Vector3d utm_to_map = offset_vec.head<3>();
+  auto offset_arr = std::any_cast<std::array<double, 5>>(global_offset.value());
+  Eigen::Vector3d utm_bias(offset_arr[0], offset_arr[1], offset_arr[2]);
+  // Reconstruct heading rotation: R_map_enu = Rz(-yaw)
+  double yaw = offset_arr[4];
+  double cy = std::cos(-yaw);
+  double sy = std::sin(-yaw);
+  Eigen::Matrix3d R_map_enu;
+  R_map_enu << cy, -sy, 0,
+               sy,  cy, 0,
+                0,   0, 1;
 
-  // Compute approximate map-frame position
-  Eigen::Vector3d map_guess(
-      utm.easting - utm_to_map.x(),
-      utm.northing - utm_to_map.y(),
-      utm.altitude - utm_to_map.z());
+  // Compute approximate map-frame position: map_pos = R_map_enu * utm_pos - bias
+  Eigen::Vector3d utm_pos_vec(utm.easting, utm.northing, utm.altitude);
+  Eigen::Vector3d map_guess = R_map_enu * utm_pos_vec - utm_bias;
 
   // 1. Find candidate keyframes near GPS position in map frame
   auto key_poses_3d = map_manager.getKeyPoses3D();
@@ -266,11 +275,12 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
               name_.c_str(), fitness, best_candidate, tx, ty, tz);
 
   // Refine utm → map offset using the precise ICP result
-  Eigen::Vector3d utm_pos(utm.easting, utm.northing, utm.altitude);
-  Eigen::Vector3d refined_offset = utm_pos - Eigen::Vector3d(tx, ty, tz);
+  // bias = R_map_enu * utm_pos - map_pos
+  Eigen::Vector3d utm_pos_reloc(utm.easting, utm.northing, utm.altitude);
+  Eigen::Vector3d refined_bias = R_map_enu * utm_pos_reloc - Eigen::Vector3d(tx, ty, tz);
   double zone_encoded = static_cast<double>(utm.zone * 10 + (utm.is_north ? 1 : 0));
-  Eigen::Vector4d refined_global(refined_offset.x(), refined_offset.y(),
-                                  refined_offset.z(), zone_encoded);
+  std::array<double, 5> refined_global = {
+      refined_bias.x(), refined_bias.y(), refined_bias.z(), zone_encoded, yaw};
   core_->getMapManager().setGlobalData("gps_factor/utm_to_map", refined_global);
 
   RelocalizationResult reloc_result;

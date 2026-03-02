@@ -1,5 +1,8 @@
 #include "eidos/plugins/visualization/gps_visualization.hpp"
 
+#include <array>
+#include <cmath>
+
 #include <Eigen/Core>
 
 #include <pluginlib/class_list_macros.hpp>
@@ -52,8 +55,16 @@ void GpsVisualization::onOptimizationComplete(
   auto global_offset = map_manager.getGlobalData(gps_from_ + "/utm_to_map");
   if (!global_offset.has_value()) return;
 
-  auto offset_vec = std::any_cast<Eigen::Vector4d>(global_offset.value());
-  Eigen::Vector3d utm_to_map = offset_vec.head<3>();
+  auto offset_arr = std::any_cast<std::array<double, 5>>(global_offset.value());
+  Eigen::Vector3d utm_bias(offset_arr[0], offset_arr[1], offset_arr[2]);
+  // Reconstruct heading rotation: R_map_enu = Rz(-yaw)
+  double yaw = offset_arr[4];
+  double cy = std::cos(-yaw);
+  double sy = std::sin(-yaw);
+  Eigen::Matrix3d R_map_enu;
+  R_map_enu << cy, -sy, 0,
+               sy,  cy, 0,
+                0,   0, 1;
 
   auto key_poses_6d = map_manager.getKeyPoses6D();
   int num_keyframes = map_manager.numKeyframes();
@@ -74,9 +85,15 @@ void GpsVisualization::onOptimizationComplete(
 
     auto utm_vec = std::any_cast<Eigen::Vector4d>(utm_data.value());
     Eigen::Vector3d utm_pos = utm_vec.head<3>();
-    Eigen::Vector3d gps_map_pos = utm_pos - utm_to_map;
+    Eigen::Vector3d gps_map_pos = R_map_enu * utm_pos - utm_bias;
 
     auto& kf_pose = key_poses_6d->points[i];
+
+    // If elevation is disabled (bias.z ≈ 0), GPS altitude is meaningless
+    // in map frame — use the keyframe z so markers are visually comparable
+    if (std::abs(utm_bias.z()) < 1.0) {
+      gps_map_pos.z() = kf_pose.z;
+    }
 
     // Green sphere at GPS position
     visualization_msgs::msg::Marker gps_marker;

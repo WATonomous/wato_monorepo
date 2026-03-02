@@ -1,5 +1,6 @@
 #include "eidos/plugins/factors/imu_integration_factor.hpp"
 
+#include <cmath>
 #include <fstream>
 #include <limits>
 
@@ -11,6 +12,7 @@
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/navigation/AttitudeFactor.h>
 
 #include "eidos/slam_core.hpp"
 
@@ -51,14 +53,19 @@ void ImuIntegrationFactor::onInitialize() {
 
   // ---- Declare parameters ----
   node_->declare_parameter(prefix + ".imu_topic", "imu/data");
-  node_->declare_parameter(prefix + ".acc_noise", 3.9939570888238808e-03);
-  node_->declare_parameter(prefix + ".gyr_noise", 1.5636343949698187e-03);
-  node_->declare_parameter(prefix + ".acc_bias_noise", 6.4356659353532566e-05);
-  node_->declare_parameter(prefix + ".gyr_bias_noise", 3.5640318696367613e-05);
+  node_->declare_parameter(prefix + ".acc_cov", std::vector<double>{9.0e-6, 9.0e-6, 9.0e-6});
+  node_->declare_parameter(prefix + ".gyr_cov", std::vector<double>{1.0e-6, 1.0e-6, 1.0e-6});
+  node_->declare_parameter(prefix + ".bias_walk_cov",
+      std::vector<double>{1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6});
   node_->declare_parameter(prefix + ".gravity", 9.80511);
-  node_->declare_parameter(prefix + ".integration_noise", 1e-4);
-  node_->declare_parameter(prefix + ".prior_vel_sigma", 1e-1);
-  node_->declare_parameter(prefix + ".prior_bias_sigma", 1e-3);
+  node_->declare_parameter(prefix + ".integration_cov", std::vector<double>{1.0e-4, 1.0e-4, 1.0e-4});
+  node_->declare_parameter(prefix + ".prior_vel_cov",
+      std::vector<double>{1e-2, 1e-2, 1e-2});
+  node_->declare_parameter(prefix + ".prior_bias_cov",
+      std::vector<double>{1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6});
+  node_->declare_parameter(prefix + ".attitude_prior_cov",
+      std::vector<double>{1e-2, 1e-2});
+  node_->declare_parameter(prefix + ".use_attitude_prior", true);
   node_->declare_parameter(prefix + ".max_velocity", 30.0);
   node_->declare_parameter(prefix + ".max_bias_norm", 1.0);
   node_->declare_parameter(prefix + ".default_imu_dt", 1.0 / 500.0);
@@ -73,14 +80,15 @@ void ImuIntegrationFactor::onInitialize() {
   // ---- Read parameters ----
   std::string imu_topic;
   node_->get_parameter(prefix + ".imu_topic", imu_topic);
-  node_->get_parameter(prefix + ".acc_noise", acc_noise_);
-  node_->get_parameter(prefix + ".gyr_noise", gyr_noise_);
-  node_->get_parameter(prefix + ".acc_bias_noise", acc_bias_noise_);
-  node_->get_parameter(prefix + ".gyr_bias_noise", gyr_bias_noise_);
+  node_->get_parameter(prefix + ".acc_cov", acc_cov_);
+  node_->get_parameter(prefix + ".gyr_cov", gyr_cov_);
+  node_->get_parameter(prefix + ".bias_walk_cov", bias_walk_cov_);
   node_->get_parameter(prefix + ".gravity", gravity_);
-  node_->get_parameter(prefix + ".integration_noise", integration_noise_);
-  node_->get_parameter(prefix + ".prior_vel_sigma", prior_vel_sigma_);
-  node_->get_parameter(prefix + ".prior_bias_sigma", prior_bias_sigma_);
+  node_->get_parameter(prefix + ".integration_cov", integration_cov_);
+  node_->get_parameter(prefix + ".prior_vel_cov", prior_vel_cov_);
+  node_->get_parameter(prefix + ".prior_bias_cov", prior_bias_cov_);
+  node_->get_parameter(prefix + ".attitude_prior_cov", attitude_prior_cov_);
+  node_->get_parameter(prefix + ".use_attitude_prior", use_attitude_prior_);
   node_->get_parameter(prefix + ".max_velocity", max_velocity_);
   node_->get_parameter(prefix + ".max_bias_norm", max_bias_norm_);
   node_->get_parameter(prefix + ".default_imu_dt", default_imu_dt_);
@@ -95,11 +103,11 @@ void ImuIntegrationFactor::onInitialize() {
   // ---- Set up GTSAM preintegration parameters ----
   auto p = gtsam::PreintegrationParams::MakeSharedU(gravity_);
   p->accelerometerCovariance =
-      gtsam::Matrix33::Identity() * std::pow(acc_noise_, 2);
+      Eigen::Vector3d(acc_cov_[0], acc_cov_[1], acc_cov_[2]).asDiagonal();
   p->gyroscopeCovariance =
-      gtsam::Matrix33::Identity() * std::pow(gyr_noise_, 2);
+      Eigen::Vector3d(gyr_cov_[0], gyr_cov_[1], gyr_cov_[2]).asDiagonal();
   p->integrationCovariance =
-      gtsam::Matrix33::Identity() * std::pow(integration_noise_, 2);
+      Eigen::Vector3d(integration_cov_[0], integration_cov_[1], integration_cov_[2]).asDiagonal();
   preint_params_ = p;
 
   gtsam::imuBias::ConstantBias prior_bias;
@@ -109,11 +117,18 @@ void ImuIntegrationFactor::onInitialize() {
       preint_params_, prior_bias);
 
   // ---- Noise models ----
-  prior_vel_noise_ = gtsam::noiseModel::Isotropic::Sigma(3, prior_vel_sigma_);
-  prior_bias_noise_ = gtsam::noiseModel::Isotropic::Sigma(6, prior_bias_sigma_);
+  prior_vel_noise_ = gtsam::noiseModel::Diagonal::Variances(
+      (gtsam::Vector(3) << prior_vel_cov_[0], prior_vel_cov_[1], prior_vel_cov_[2]).finished());
+  prior_bias_noise_ = gtsam::noiseModel::Diagonal::Variances(
+      (gtsam::Vector(6) << prior_bias_cov_[0], prior_bias_cov_[1], prior_bias_cov_[2],
+       prior_bias_cov_[3], prior_bias_cov_[4], prior_bias_cov_[5]).finished());
+  attitude_noise_ = gtsam::noiseModel::Diagonal::Variances(
+      (gtsam::Vector(2) << attitude_prior_cov_[0], attitude_prior_cov_[1]).finished());
+  // BetweenFactor<Bias> uses sigmas (sqrt of covariance)
   noise_between_bias_ =
-      (gtsam::Vector(6) << acc_bias_noise_, acc_bias_noise_, acc_bias_noise_,
-       gyr_bias_noise_, gyr_bias_noise_, gyr_bias_noise_)
+      (gtsam::Vector(6) << std::sqrt(bias_walk_cov_[0]), std::sqrt(bias_walk_cov_[1]),
+       std::sqrt(bias_walk_cov_[2]), std::sqrt(bias_walk_cov_[3]),
+       std::sqrt(bias_walk_cov_[4]), std::sqrt(bias_walk_cov_[5]))
           .finished();
 
   // ---- Create subscription ----
@@ -387,25 +402,18 @@ ImuIntegrationFactor::getFactors(int state_index,
       result.values.insert(V(state_index), prop_state.v());
       result.values.insert(B(state_index), prev_bias_);
 
-      auto dv = imu_integrator_opt_->deltaVij();
-      auto dp = imu_integrator_opt_->deltaPij();
-      auto acc_bias = prev_bias_.accelerometer();
-      auto gyr_bias = prev_bias_.gyroscope();
-
       RCLCPP_INFO(node_->get_logger(),
-          "\033[35m[%s] ADDED ImuFactor %d->%d (dt=%.3f s)\033[0m"
-          " dv=(%.3f, %.3f, %.3f) |dv|=%.3f"
-          " dp=(%.3f, %.3f, %.3f)"
-          " pred_v=(%.3f, %.3f, %.3f) |v|=%.3f"
-          " bias_a=(%.6f, %.6f, %.6f) bias_g=(%.6f, %.6f, %.6f)",
+          "\033[35m[%s] added ImuFactor %d->%d (dt=%.3f s, |v|=%.3f)\033[0m",
           name_.c_str(), state_index - 1, state_index,
-          imu_integrator_opt_->deltaTij(),
-          dv.x(), dv.y(), dv.z(), dv.norm(),
-          dp.x(), dp.y(), dp.z(),
-          prop_state.v().x(), prop_state.v().y(), prop_state.v().z(),
-          prop_state.v().norm(),
-          acc_bias.x(), acc_bias.y(), acc_bias.z(),
-          gyr_bias.x(), gyr_bias.y(), gyr_bias.z());
+          imu_integrator_opt_->deltaTij(), prop_state.v().norm());
+
+      // Gravity alignment: constrain body Z to stay near world Z
+      // Prevents optimizer from tilting pitch/roll to resolve GPS-IMU disagreements
+      if (use_attitude_prior_) {
+        result.factors.push_back(
+            gtsam::make_shared<gtsam::Pose3AttitudeFactor>(
+                state_index, gtsam::Unit3(0, 0, 1), attitude_noise_));
+      }
 
       // Reset integrator with current bias
       imu_integrator_opt_->resetIntegrationAndSetBias(prev_bias_);
@@ -533,15 +541,6 @@ void ImuIntegrationFactor::onOptimizationComplete(
   prev_vel_ = graph_vel;
   prev_bias_ = graph_bias;
 
-  RCLCPP_DEBUG(node_->get_logger(),
-      "[%s] OPT state=%d |v|=%.3f v=(%.3f, %.3f, %.3f)"
-      " bias_a=(%.6f, %.6f, %.6f) bias_g=(%.6f, %.6f, %.6f)",
-      name_.c_str(), state_index, graph_vel.norm(),
-      graph_vel.x(), graph_vel.y(), graph_vel.z(),
-      graph_bias.accelerometer().x(), graph_bias.accelerometer().y(),
-      graph_bias.accelerometer().z(),
-      graph_bias.gyroscope().x(), graph_bias.gyroscope().y(),
-      graph_bias.gyroscope().z());
 
   // Reset optimization integrator with updated bias
   imu_integrator_opt_->resetIntegrationAndSetBias(prev_bias_);

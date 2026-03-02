@@ -12,6 +12,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 
@@ -83,6 +84,7 @@ private:
   // ---- Publishing ----
   void publishStatus();
   void publishPath();
+  void publishPose();
   void updatePath(const PoseType& pose);
   void broadcastMapToOdom();
 
@@ -120,11 +122,13 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
 
   // ---- Odometry subscription ----
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::CallbackGroup::SharedPtr odom_callback_group_;
   Eigen::Isometry3d latest_odom_pose_ = Eigen::Isometry3d::Identity();
+  Eigen::Isometry3d keyframe_odom_pose_ = Eigen::Isometry3d::Identity();  // odom snapshot at keyframe creation
   bool has_odom_ = false;
   std::mutex odom_lock_;
 
@@ -152,9 +156,8 @@ private:
   std::string map_load_directory_;
   std::string map_save_directory_;
 
-  // Prior noise parameters
-  double prior_rot_variance_ = 1e-2;
-  double prior_trans_variance_ = 1e-2;
+  // Prior noise: diagonal of 6D Pose3 covariance [roll, pitch, yaw, x, y, z]
+  std::vector<double> prior_pose_cov_ = {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2};
 
   // ---- Loop closure tracking ----
   bool loop_closure_detected_ = false;

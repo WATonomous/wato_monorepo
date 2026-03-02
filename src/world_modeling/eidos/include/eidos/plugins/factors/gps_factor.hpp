@@ -1,14 +1,18 @@
 #pragma once
 
+#include <atomic>
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
 
@@ -52,9 +56,14 @@ public:
 
 private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+  void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
   void broadcastUtmToMap();
 
+  /// Rotate a UTM position into the map frame using the initial heading
+  Eigen::Vector3d utmToMap(const Eigen::Vector3d& utm_pos) const;
+
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr utm_pub_;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
@@ -66,7 +75,14 @@ private:
   bool active_ = false;
   bool gps_received_ = false;
 
-  // Bias variable for joint optimization: bias = utm_pos - map_pos
+  // IMU heading — used to align map frame with ENU/UTM
+  std::mutex imu_orientation_lock_;
+  double latest_imu_yaw_ = 0.0;
+  std::atomic<bool> has_imu_orientation_{false};
+  double initial_yaw_ = 0.0;                           // yaw captured at bias init (ENU convention)
+  Eigen::Matrix3d R_map_enu_ = Eigen::Matrix3d::Identity();  // rotation from ENU/UTM to map frame
+
+  // Bias variable for joint optimization: bias = rotated_utm_pos - map_pos
   gtsam::Key bias_key_ = gtsam::Symbol('g', 0);
   bool bias_initialized_ = false;
   gtsam::Point3 latest_bias_ = gtsam::Point3(0, 0, 0);
@@ -82,10 +98,9 @@ private:
   // Parameters (populated from ROS params in onInitialize)
   float cov_threshold_;
   bool use_elevation_;
-  float min_trajectory_length_;
-  float gps_time_tolerance_;
   float min_gps_movement_;
-  double bias_prior_sigma_;
+  std::vector<double> bias_prior_cov_;  // [x, y, z]
+  std::vector<double> gps_cov_;         // [x, y, z] BiasedGPSFactor measurement covariance
 };
 
 }  // namespace eidos
