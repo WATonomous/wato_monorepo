@@ -7,8 +7,13 @@
 #include <Eigen/Core>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
+
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/geometry/Point3.h>
 
 #include "eidos/plugins/base_factor_plugin.hpp"
 #include "eidos/types.hpp"
@@ -20,8 +25,12 @@ namespace eidos {
  * @brief GPS factor plugin.
  *
  * Subscribes to sensor_msgs/NavSatFix, converts to UTM internally,
- * manages the utm → map transform, and provides GPSFactor constraints
- * in map frame to the pose graph.
+ * manages the utm → map transform via a jointly-optimized bias variable,
+ * and provides BiasedGPSFactor constraints to the pose graph.
+ *
+ * The bias (Point3) represents the utm→map offset and is refined by the
+ * optimizer as GPS data accumulates. State 0 must be anchored with a tight
+ * translation prior so that the bias is well-determined.
  */
 class GpsFactor : public FactorPlugin {
 public:
@@ -34,7 +43,7 @@ public:
   void reset() override;
 
   std::optional<gtsam::Pose3> processFrame(double timestamp) override;
-  std::vector<gtsam::NonlinearFactor::shared_ptr> getFactors(
+  FactorResult getFactors(
       int state_index, const gtsam::Pose3& state_pose, double timestamp) override;
   void onOptimizationComplete(
       const gtsam::Values& optimized_values, bool loop_closure_detected) override;
@@ -46,6 +55,7 @@ private:
   void broadcastUtmToMap();
 
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr utm_pub_;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
   std::deque<sensor_msgs::msg::NavSatFix> gps_queue_;
@@ -56,9 +66,12 @@ private:
   bool active_ = false;
   bool gps_received_ = false;
 
-  // UTM → map transform (pure translation)
-  Eigen::Vector3d utm_to_map_translation_ = Eigen::Vector3d::Zero();
-  bool utm_to_map_initialized_ = false;
+  // Bias variable for joint optimization: bias = utm_pos - map_pos
+  gtsam::Key bias_key_ = gtsam::Symbol('g', 0);
+  bool bias_initialized_ = false;
+  gtsam::Point3 latest_bias_ = gtsam::Point3(0, 0, 0);
+
+  // UTM state
   int utm_zone_ = 0;
   bool utm_is_north_ = true;
 
@@ -72,7 +85,7 @@ private:
   float min_trajectory_length_;
   float gps_time_tolerance_;
   float min_gps_movement_;
-  double min_noise_variance_;
+  double bias_prior_sigma_;
 };
 
 }  // namespace eidos

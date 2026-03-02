@@ -26,7 +26,7 @@ eidos_node
     - Saves/loads maps to disk (GTSAM graph + per-keyframe plugin data)
 
   Factor Plugins (loaded via pluginlib):
-    LidarKEPFactor  ImuOptimizedIntegrationFactor  GpsFactor  EucDistLoopClosure
+    LidarKEPFactor  ImuIntegrationFactor  GpsFactor  EucDistLoopClosure
     (own subs/pubs)  (own subs/pubs)       (own sub)  (background thread)
 
   Relocalization Plugins (loaded via pluginlib):
@@ -234,7 +234,7 @@ Each plugin name maps to a parameter namespace with at least a `plugin` field sp
 
 Keyframe-based Edge-Plane LiDAR odometry. Performs point cloud deskewing, range image projection, LOAM-style curvature-based feature extraction (corners + surfaces), and scan-to-map matching via Levenberg-Marquardt optimization. Provides `BetweenFactor<Pose3>` odometry constraints between consecutive states.
 
-Uses IMU angular velocities for deskewing and IMU odometry from ImuOptimizedIntegrationFactor as initial guess for scan matching.
+Uses IMU angular velocities for deskewing and IMU odometry from ImuIntegrationFactor as initial guess for scan matching.
 
 Owns the local map assembly logic: retrieves its own keyframe data from MapManager, transforms to world frame, and assembles a local submap for scan matching.
 
@@ -248,7 +248,7 @@ Owns the local map assembly logic: retrieves its own keyframe data from MapManag
 **Subscriptions:**
 - Point cloud (`sensor_msgs/PointCloud2`)
 - IMU (`sensor_msgs/Imu`) -- for deskewing
-- IMU odometry (`nav_msgs/Odometry`) -- from ImuOptimizedIntegrationFactor, for initial guess
+- IMU odometry (`nav_msgs/Odometry`) -- from ImuIntegrationFactor, for initial guess
 
 **Publications:**
 - `<name>/odometry` (`nav_msgs/Odometry`) -- LiDAR odometry
@@ -277,15 +277,15 @@ Owns the local map assembly logic: retrieves its own keyframe data from MapManag
 | `extrinsic_rpy` | float[9] | identity | IMU-to-LiDAR RPY rotation matrix (row-major) |
 | `extrinsic_trans` | float[3] | [0,0,0] | IMU-to-LiDAR translation |
 
-### ImuOptimizedIntegrationFactor (`eidos::ImuOptimizedIntegrationFactor`)
+### ImuIntegrationFactor (`eidos::ImuIntegrationFactor`)
 
-IMU preintegration with internal ISAM2 optimizer for bias estimation. Runs two parallel pipelines:
-- **Optimization pipeline**: Integrates IMU data between lidar corrections and estimates biases using an internal ISAM2 graph (separate from the main pose graph). This two-loop architecture is intentional and matches LIO-SAM.
+IMU preintegration that provides `gtsam::ImuFactor` directly to the main SLAM graph. The main graph jointly optimizes poses (X), velocities (V), and biases (B). Runs two parallel pipelines:
+- **Factor pipeline**: Accumulates IMU measurements between keyframes via preintegration. At each new state, provides an ImuFactor and bias BetweenFactor to the main graph. After optimization, extracts the jointly-optimized velocity and bias.
 - **Real-time pipeline**: Produces high-rate IMU-predicted odometry and TF broadcasts
 
 Publishes two odometry topics:
 - **Incremental**: Raw IMU-predicted odometry (subscribed to by LidarKEPFactor for scan matching initial guess)
-- **Fused**: Transform fusion of latest lidar correction + IMU increment (smooth, high-rate output)
+- **Fused**: Transform fusion of latest graph correction + IMU increment (smooth, high-rate output)
 
 **Registered keyframe data keys:**
 
@@ -306,7 +306,7 @@ Publishes two odometry topics:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `plugin` | string | -- | `"eidos::ImuOptimizedIntegrationFactor"` |
+| `plugin` | string | -- | `"eidos::ImuIntegrationFactor"` |
 | `imu_topic` | string | "imu/data" | IMU topic |
 | `acc_noise` | float | 3.99e-03 | Accelerometer white noise |
 | `gyr_noise` | float | 1.56e-03 | Gyroscope white noise |
@@ -561,4 +561,4 @@ protected:
 
 3. **Consumer parameters are per-plugin** -- each consumer specifies its own `pointcloud_from` / `gps_from` independently. If two consumers both need point clouds, they each have their own `pointcloud_from` parameter (they can point to the same or different producers).
 
-4. **The two ISAM2 loops are intentional** -- ImuOptimizedIntegrationFactor has its own internal ISAM2 optimizer for bias estimation, separate from the main SLAM pose graph. This matches LIO-SAM's architecture where IMU preintegration has its own optimization loop.
+4. **Unified factor graph** -- ImuIntegrationFactor provides `gtsam::ImuFactor` directly to the main SLAM graph. The main graph jointly optimizes poses (X), velocities (V), and biases (B). There is no separate internal ISAM2 for bias estimation. High-rate IMU odometry (forward propagation) runs separately for inter-keyframe pose prediction and TF publishing.

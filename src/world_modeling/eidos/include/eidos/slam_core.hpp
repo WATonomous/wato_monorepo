@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <Eigen/Geometry>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
@@ -85,6 +86,9 @@ private:
   void updatePath(const PoseType& pose);
   void broadcastMapToOdom();
 
+  // ---- Odometry ----
+  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
   // ---- TF ----
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -115,6 +119,14 @@ private:
   // ---- Publishers ----
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+
+  // ---- Odometry subscription ----
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::CallbackGroup::SharedPtr odom_callback_group_;
+  Eigen::Isometry3d latest_odom_pose_ = Eigen::Isometry3d::Identity();
+  bool has_odom_ = false;
+  std::mutex odom_lock_;
 
   // ---- Services ----
   rclcpp::Service<eidos_msgs::srv::SaveMap>::SharedPtr save_map_srv_;
@@ -139,6 +151,10 @@ private:
   // Map parameters
   std::string map_load_directory_;
   std::string map_save_directory_;
+
+  // Prior noise parameters
+  double prior_rot_variance_ = 1e-2;
+  double prior_trans_variance_ = 1e-2;
 
   // ---- Loop closure tracking ----
   bool loop_closure_detected_ = false;

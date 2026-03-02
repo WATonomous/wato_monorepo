@@ -130,7 +130,7 @@ void LidarKEPFactor::onInitialize() {
       sub_opts);
 
   // ---- Subscribe to IMU odometry for initial guess ----
-  // Uses the ImuOptimizedIntegrationFactor's published odometry topic
+  // Uses the ImuIntegrationFactor's published odometry topic
   std::string imu_odom_topic;
   node_->declare_parameter(prefix + ".imu_odom_topic",
                            "imu_integration_factor/odometry/imu_incremental");
@@ -530,11 +530,11 @@ std::optional<gtsam::Pose3> LidarKEPFactor::processFrame(double /*timestamp*/) {
 // ---------------------------------------------------------------------------
 // getFactors - BetweenFactor odometry
 // ---------------------------------------------------------------------------
-std::vector<gtsam::NonlinearFactor::shared_ptr> LidarKEPFactor::getFactors(
+FactorResult LidarKEPFactor::getFactors(
     int state_index, const gtsam::Pose3& state_pose, double /*timestamp*/) {
-  std::vector<gtsam::NonlinearFactor::shared_ptr> factors;
+  FactorResult result;
 
-  if (!new_data_available_) return factors;
+  if (!new_data_available_) return result;
   new_data_available_ = false;
 
   if (state_index == 0) {
@@ -549,7 +549,7 @@ std::vector<gtsam::NonlinearFactor::shared_ptr> LidarKEPFactor::getFactors(
     gtsam::Pose3 relative = last_keyframe_pose_.between(state_pose);
     auto factor = gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
         state_index - 1, state_index, relative, noise);
-    factors.push_back(factor);
+    result.factors.push_back(factor);
     last_keyframe_pose_ = state_pose;
     has_last_keyframe_ = true;
   }
@@ -563,7 +563,7 @@ std::vector<gtsam::NonlinearFactor::shared_ptr> LidarKEPFactor::getFactors(
   map_manager.addKeyframeData(state_index, "lidar_kep_factor/corners", corners_copy);
   map_manager.addKeyframeData(state_index, "lidar_kep_factor/surfaces", surfaces_copy);
 
-  return factors;
+  return result;
 }
 
 void LidarKEPFactor::onOptimizationComplete(

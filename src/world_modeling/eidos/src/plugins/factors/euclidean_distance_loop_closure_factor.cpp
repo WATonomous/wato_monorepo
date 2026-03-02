@@ -88,24 +88,24 @@ EuclideanDistanceLoopClosureFactor::processFrame(double /*timestamp*/) {
 // ---------------------------------------------------------------------------
 // getFactors - drain the loop constraint queue
 // ---------------------------------------------------------------------------
-std::vector<gtsam::NonlinearFactor::shared_ptr>
+FactorResult
 EuclideanDistanceLoopClosureFactor::getFactors(
     int /*state_index*/, const gtsam::Pose3& /*state_pose*/,
     double /*timestamp*/) {
-  std::vector<gtsam::NonlinearFactor::shared_ptr> factors;
+  FactorResult result;
 
   std::lock_guard<std::mutex> lock(loop_queue_mtx_);
   for (auto& lc : loop_queue_) {
     auto factor = gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
         lc.from_index, lc.to_index, lc.relative_pose, lc.noise);
-    factors.push_back(factor);
+    result.factors.push_back(factor);
     RCLCPP_INFO(node_->get_logger(),
                 "[%s] Adding loop closure factor: %d -> %d", name_.c_str(),
                 lc.from_index, lc.to_index);
   }
   loop_queue_.clear();
 
-  return factors;
+  return result;
 }
 
 // ---------------------------------------------------------------------------

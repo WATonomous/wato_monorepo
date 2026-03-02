@@ -27,6 +27,7 @@ find_package(pluginlib REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(GTSAM REQUIRED)
+find_package(GTSAM_UNSTABLE REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(small_gicp_vendor REQUIRED)
@@ -62,13 +63,14 @@ target_link_libraries(eidos_core PUBLIC
   ${PCL_LIBRARIES}
   ${OpenCV_LIBRARIES}
   gtsam
+  gtsam_unstable
   OpenMP::OpenMP_CXX
 )
 
 # ---- Plugin library ----
 add_library(eidos_plugins SHARED
   src/plugins/factors/lidar_kep_factor.cpp
-  src/plugins/factors/imu_optimized_integration_factor.cpp
+  src/plugins/factors/imu_integration_factor.cpp
   src/plugins/factors/gps_factor.cpp
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp

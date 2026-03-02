@@ -32,7 +32,7 @@ public:
   void reset() override;
 
   std::optional<gtsam::Pose3> processFrame(double timestamp) override;
-  std::vector<gtsam::NonlinearFactor::shared_ptr> getFactors(
+  FactorResult getFactors(
       int state_index, const gtsam::Pose3& state_pose, double timestamp) override;
 
 private:

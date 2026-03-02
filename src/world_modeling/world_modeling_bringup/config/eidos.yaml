@@ -7,7 +7,7 @@ eidos_node:
       map: "map"
 
     # ---- SLAM core ----
-    slam_rate: 5.0                    # Hz, main SLAM loop frequency
+    slam_rate: 1.0                    # Hz, main SLAM loop frequency
     max_displacement: 1.0              # meters of travel before creating a new keyframe state
     max_rotation: 0.2                  # radians of rotation before creating a new keyframe state
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
@@ -16,14 +16,16 @@ eidos_node:
     topics:
       path: "slam/path"               # nav_msgs/Path output
       status: "slam/status"            # eidos_msgs/SlamStatus output
+      odom_input: "imu_integration_factor/odometry/imu"  # nav_msgs/Odometry input (source for odom->base_link TF)
+      odom: "slam/odometry"            # nav_msgs/Odometry output (republished canonical odom)
       save_map_service: "slam/save_map"
       load_map_service: "slam/load_map"
 
     # ---- Factor plugins (order = processFrame priority) ----
     factor_plugins:
-      - "imu_optimized_integration_factor"
+      - "imu_integration_factor"
       # - "lidar_kep_factor"
-      - "gps_factor"
+      # - "gps_factor"
       # - "euclidean_distance_loop_closure_factor"
 
     # ---- Relocalization plugins (first to succeed wins) ----
@@ -38,42 +40,34 @@ eidos_node:
       - "keyframe_pose_visualization"
 
     # ==========================================================================
-    # IMU Optimized Integration Factor
+    # IMU Integration Factor
     #
-    # Runs an internal ISAM2 optimizer to estimate IMU biases using
-    # graph-optimized pose corrections. Publishes high-rate IMU odometry and TF.
+    # Provides gtsam::ImuFactor directly to the main SLAM graph, which jointly
+    # optimizes poses (X), velocities (V), and biases (B). Publishes high-rate
+    # IMU odometry and TF.
     # ==========================================================================
-    imu_optimized_integration_factor:
-      plugin: "eidos::ImuOptimizedIntegrationFactor"
+    imu_integration_factor:
+      plugin: "eidos::ImuIntegrationFactor"
 
       # -- Topics --
       imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
-      odom_incremental_topic: "imu_optimized_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
-      odom_fused_topic: "imu_optimized_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
+      odom_incremental_topic: "imu_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
+      odom_fused_topic: "imu_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
 
       # -- IMU intrinsic noise --
       # Novatel high-grade IMU with factory-calibrated (bias-compensated) output.
-      # Biases are already removed by the driver, so bias random walk and
-      # prior_bias_sigma are set very tight to keep GTSAM's online bias estimates
-      # near zero.
-      acc_noise: 1.0e-3                       # accelerometer white noise (m/s^2/sqrt(Hz))
-      gyr_noise: 5.0e-4                       # gyroscope white noise (rad/s/sqrt(Hz))
-      acc_bias_noise: 1.0e-6                  # accelerometer bias random walk (near-zero, already calibrated)
-      gyr_bias_noise: 1.0e-6                  # gyroscope bias random walk (near-zero, already calibrated)
+      # Biases are largely removed by the driver, but residual bias remains.
+      # Bias noise must be loose enough for GTSAM to estimate residuals.
+      acc_noise: 1e-3        # accelerometer white noise (m/s^2/sqrt(Hz)) — LIO-SAM default
+      gyr_noise: 4e-4        # gyroscope white noise (rad/s/sqrt(Hz)) — LIO-SAM default
+      acc_bias_noise: 1e-3   # accelerometer bias random walk — LIO-SAM default
+      gyr_bias_noise: 1e-3   # gyroscope bias random walk — LIO-SAM default
       gravity: 0.0                            # 0.0 because the data topic provides gravity-compensated acceleration
       integration_noise: 1.0e-4              # IMU preintegration covariance noise
 
-      # -- ISAM2 noise model sigmas --
-      prior_pose_sigma: 1.0e-2              # initial pose prior sigma (low confidence)
-      prior_vel_sigma: 1.0e4                # initial velocity prior sigma (very low confidence, unknown)
-      prior_bias_sigma: 1.0e-5              # initial bias prior sigma (very tight — driver already compensates biases)
-      correction_rot_sigma: 0.05            # graph correction rotation sigma (rad)
-      correction_trans_sigma: 0.1           # graph correction translation sigma (m)
-      correction_degrade_sigma: 1.0         # degraded correction sigma when system is uncertain
-
-      # -- Internal optimizer tuning --
-      isam2_relinearize_threshold: 0.1      # ISAM2 relinearization threshold
-      graph_reset_interval: 100             # reset internal ISAM2 graph every N keyframes for speed
+      # -- State 0 prior sigmas (for V and B in main graph) --
+      prior_vel_sigma: 1.0e-8                 # initial velocity prior sigma - on startup, the car is ASSUMED NOT moving, so we are very certain
+      prior_bias_sigma: 1.0e-3               # initial bias prior sigma
 
       # -- Failure detection --
       max_velocity: 30.0                    # m/s, reset preintegration if velocity exceeds this
@@ -87,10 +81,6 @@ eidos_node:
       # -- Timing --
       default_imu_dt: 0.002                 # seconds (1/500 Hz), assumed dt for first IMU message
       quaternion_norm_threshold: 0.1        # minimum quaternion norm to accept as valid orientation
-
-      # -- Main graph odometry noise (BetweenFactor variances) --
-      odom_rot_noise: 1.0e-2           # rotation variance (rad^2) for IMU odometry between-factor
-      odom_trans_noise: 1.0e-1         # translation variance (m^2) for IMU odometry between-factor
 
       # -- Frame names --
       imu_frame: "imu_link"            # IMU-to-base_link extrinsic is looked up from TF (base_link <- imu_frame)
@@ -107,7 +97,7 @@ eidos_node:
       # -- Topics --
       point_cloud_topic: "/lidar_cc/velodyne_points"                                        # sensor_msgs/PointCloud2 input
       imu_topic: "/novatel/oem7/imu/data"                                                  # sensor_msgs/Imu input (9-DOF, for deskewing)
-      imu_odom_topic: "imu_optimized_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (initial guess from IMU)
+      imu_odom_topic: "imu_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (initial guess from IMU)
       odom_topic: "lidar_kep_factor/odometry"                                # nav_msgs/Odometry output
       deskewed_cloud_topic: "lidar_kep_factor/deskewed_cloud"                # sensor_msgs/PointCloud2 output
 
@@ -167,11 +157,11 @@ eidos_node:
 
       # -- GPS injection control --
       min_trajectory_length: 10.0    # meters, minimum trajectory before injecting GPS factors
-      gps_time_tolerance: 0.2       # seconds, max time offset to match GPS to a keyframe state
-      min_gps_movement: 5.0         # meters, minimum displacement between GPS injections
+      gps_time_tolerance: 0.02       # seconds, max time offset to match GPS to a keyframe state
+      min_gps_movement: 10.0         # meters, minimum displacement between GPS injections
 
       # -- Noise --
-      min_noise_variance: 1.0       # floor for GPS noise variance (prevents over-confident fixes)
+      bias_prior_sigma: 100.0        # sigma (meters) for the utm→map bias prior; lower = more stable, higher = more adaptive
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
@@ -250,6 +240,11 @@ eidos_node:
       topic: "slam/visualization/poses"
       axis_length: 0.5
       axis_width: 0.05
+
+    # ---- State 0 prior noise ----
+    prior:
+      rot_variance: 1.0e-2           # rotation variance (rad^2) for state 0 prior (roll, pitch, yaw)
+      trans_variance: 1.0e-2         # translation variance (m^2) for state 0 prior (x, y, z)
 
     # ---- Core (not per-plugin) ----
     keyframe:

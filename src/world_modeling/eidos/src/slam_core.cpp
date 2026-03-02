@@ -4,6 +4,7 @@
 #include <cmath>
 #include <functional>
 
+#include <Eigen/Geometry>
 #include <gtsam/slam/BetweenFactor.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -41,6 +42,8 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("keyframe.search_radius", keyframe_search_radius_);
   declare_parameter("map.load_directory", map_load_directory_);
   declare_parameter("map.save_directory", map_save_directory_);
+  declare_parameter("prior.rot_variance", prior_rot_variance_);
+  declare_parameter("prior.trans_variance", prior_trans_variance_);
   declare_parameter("factor_plugins", std::vector<std::string>{});
   declare_parameter("relocalization_plugins", std::vector<std::string>{});
   declare_parameter("visualization_plugins", std::vector<std::string>{});
@@ -48,6 +51,8 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("topics.status", "slam/status");
   declare_parameter("topics.save_map_service", "slam/save_map");
   declare_parameter("topics.load_map_service", "slam/load_map");
+  declare_parameter("topics.odom_input", std::string(""));
+  declare_parameter("topics.odom", std::string("slam/odometry"));
 
   get_parameter("slam_rate", slam_rate_);
   get_parameter("max_displacement", max_displacement_);
@@ -60,12 +65,18 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("keyframe.search_radius", keyframe_search_radius_);
   get_parameter("map.load_directory", map_load_directory_);
   get_parameter("map.save_directory", map_save_directory_);
+  get_parameter("prior.rot_variance", prior_rot_variance_);
+  get_parameter("prior.trans_variance", prior_trans_variance_);
 
   std::string path_topic, status_topic, save_map_service, load_map_service;
   get_parameter("topics.path", path_topic);
   get_parameter("topics.status", status_topic);
   get_parameter("topics.save_map_service", save_map_service);
   get_parameter("topics.load_map_service", load_map_service);
+
+  std::string odom_input_topic, odom_output_topic;
+  get_parameter("topics.odom_input", odom_input_topic);
+  get_parameter("topics.odom", odom_output_topic);
 
   // Core components
   pose_graph_ = std::make_unique<PoseGraph>();
@@ -74,6 +85,21 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   // Publishers
   path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic, 1);
   status_pub_ = create_publisher<eidos_msgs::msg::SlamStatus>(status_topic, 1);
+
+  // Odometry passthrough (odom_input → odom_output + odom→base_link TF)
+  if (!odom_input_topic.empty()) {
+    odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_output_topic, 10);
+    odom_callback_group_ = create_callback_group(
+        rclcpp::CallbackGroupType::MutuallyExclusive);
+    rclcpp::SubscriptionOptions sub_opts;
+    sub_opts.callback_group = odom_callback_group_;
+    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+        odom_input_topic, rclcpp::SensorDataQoS(),
+        std::bind(&SlamCore::odomCallback, this, std::placeholders::_1),
+        sub_opts);
+    RCLCPP_INFO(get_logger(), "Odom passthrough: %s -> %s",
+                odom_input_topic.c_str(), odom_output_topic.c_str());
+  }
 
   // Services
   save_map_srv_ = create_service<eidos_msgs::srv::SaveMap>(
@@ -123,6 +149,7 @@ SlamCore::CallbackReturn SlamCore::on_activate(
   // Activate lifecycle publishers
   path_pub_->on_activate();
   status_pub_->on_activate();
+  if (odom_pub_) odom_pub_->on_activate();
 
   // Activate plugins
   for (auto& plugin : factor_plugins_) {
@@ -160,6 +187,7 @@ SlamCore::CallbackReturn SlamCore::on_deactivate(
   // Deactivate lifecycle publishers
   path_pub_->on_deactivate();
   status_pub_->on_deactivate();
+  if (odom_pub_) odom_pub_->on_deactivate();
 
   for (auto& plugin : factor_plugins_) {
     plugin->deactivate();
@@ -186,6 +214,15 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   factor_plugin_loader_.reset();
   reloc_plugin_loader_.reset();
   vis_plugin_loader_.reset();
+
+  odom_sub_.reset();
+  odom_pub_.reset();
+  odom_callback_group_.reset();
+  {
+    std::lock_guard<std::mutex> lock(odom_lock_);
+    has_odom_ = false;
+    latest_odom_pose_ = Eigen::Isometry3d::Identity();
+  }
 
   path_pub_.reset();
   status_pub_.reset();
@@ -322,14 +359,18 @@ void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double timestamp)
   gtsam::NonlinearFactorGraph initial_factors;
   gtsam::Values initial_values;
   initial_values.insert(0, current_pose_);
+  // State 0 defines the map frame origin — anchor it tightly.
+  // Tight translation prior ensures GPS bias (if used) is well-determined.
   auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
-      (gtsam::Vector(6) << 1e-2, 1e-2, M_PI * M_PI, 1e8, 1e8, 1e8).finished());
+      (gtsam::Vector(6) << prior_rot_variance_, prior_rot_variance_, prior_rot_variance_,
+       prior_trans_variance_, prior_trans_variance_, prior_trans_variance_).finished());
   initial_factors.addPrior(0, current_pose_, prior_noise);
 
   // Collect factors from all plugins for state 0
   for (auto& plugin : factor_plugins_) {
-    auto factors = plugin->getFactors(0, current_pose_, timestamp);
-    for (auto& f : factors) initial_factors.add(f);
+    auto plugin_result = plugin->getFactors(0, current_pose_, timestamp);
+    for (auto& f : plugin_result.factors) initial_factors.add(f);
+    initial_values.insert(plugin_result.values);
   }
 
   // Store and optimize
@@ -448,9 +489,9 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     // Collect factors from all plugins
     loop_closure_detected_ = false;
     for (auto& plugin : factor_plugins_) {
-      auto factors = plugin->getFactors(
+      auto plugin_result = plugin->getFactors(
           current_state_index_, current_pose_, timestamp);
-      for (auto& f : factors) {
+      for (auto& f : plugin_result.factors) {
         new_factors.add(f);
         // Detect loop closure: BetweenFactors connecting non-consecutive states
         auto between =
@@ -466,6 +507,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
           }
         }
       }
+      new_values.insert(plugin_result.values);
     }
 
     // Track accumulated graph for serialization
@@ -509,6 +551,12 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     pose_6d.intensity = static_cast<float>(current_state_index_);
     map_manager_->addKeyframe(current_state_index_, pose_6d);
 
+    RCLCPP_INFO(get_logger(),
+        "\033[32m[TRACKING]\033[0m state=%d pos=(%.3f, %.3f, %.3f) rpy=(%.3f, %.3f, %.3f)",
+        current_state_index_,
+        latest_pose.translation().x(), latest_pose.translation().y(), latest_pose.translation().z(),
+        latest_pose.rotation().roll(), latest_pose.rotation().pitch(), latest_pose.rotation().yaw());
+
     // Notify plugins of optimization result
     for (auto& plugin : factor_plugins_) {
       plugin->onOptimizationComplete(optimized, loop_closure_detected_);
@@ -519,7 +567,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     vis_values = optimized;
     vis_loop_closure = loop_closure_detected_;
 
-    // Broadcast map → odom TF
+    // Broadcast map → odom corrective TF
     broadcastMapToOdom();
 
     // Update path
@@ -702,43 +750,81 @@ void SlamCore::updatePath(const PoseType& pose) {
 }
 
 void SlamCore::broadcastMapToOdom() {
-  // T_map_odom = T_map_base * inverse(T_odom_base)
-  // T_map_base = latest optimized pose from ISAM2
-  // T_odom_base = looked up from TF tree (published by IMU factor)
-
-  // Look up T_odom_base from TF tree
-  geometry_msgs::msg::TransformStamped t_odom_base_msg;
-  try {
-    t_odom_base_msg = tf_buffer_->lookupTransform(
-        odom_frame_, base_link_frame_, tf2::TimePointZero);
-  } catch (const tf2::TransformException&) {
-    return;  // TF not yet available (IMU factor hasn't published)
+  // Compute and broadcast map → odom corrective transform.
+  // T_map_odom = T_map_base * inv(T_odom_base)
+  // Where T_map_base = current_pose_ (graph-optimized),
+  //       T_odom_base = latest odom pose (from odom subscriber).
+  Eigen::Isometry3d T_odom_base;
+  bool have_odom;
+  {
+    std::lock_guard<std::mutex> lock(odom_lock_);
+    T_odom_base = latest_odom_pose_;
+    have_odom = has_odom_;
   }
 
-  // Build T_map_base from current optimized pose
-  tf2::Transform tf_map_base;
-  tf2::Quaternion q_map_base;
-  q_map_base.setRPY(current_pose_.rotation().roll(),
-                     current_pose_.rotation().pitch(),
-                     current_pose_.rotation().yaw());
-  tf_map_base.setRotation(q_map_base);
-  tf_map_base.setOrigin({current_pose_.translation().x(),
-                          current_pose_.translation().y(),
-                          current_pose_.translation().z()});
+  // Build T_map_base from current_pose_
+  Eigen::Isometry3d T_map_base = Eigen::Isometry3d::Identity();
+  T_map_base.linear() = current_pose_.rotation().matrix();
+  T_map_base.translation() = current_pose_.translation();
 
-  // Convert T_odom_base msg → tf2::Transform
-  tf2::Transform tf_odom_base;
-  tf2::fromMsg(t_odom_base_msg.transform, tf_odom_base);
+  Eigen::Isometry3d T_map_odom;
+  if (have_odom) {
+    T_map_odom = T_map_base * T_odom_base.inverse();
+  } else {
+    // No odom yet — publish identity so map == odom until first odom arrives
+    T_map_odom = T_map_base;
+  }
 
-  // Compose: T_map_odom = T_map_base * inv(T_odom_base)
-  tf2::Transform tf_map_odom = tf_map_base * tf_odom_base.inverse();
+  Eigen::Quaterniond q_mo(T_map_odom.linear());
+  q_mo.normalize();
 
-  // Convert back to msg and broadcast
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header.stamp = now();
   tf_msg.header.frame_id = map_frame_;
   tf_msg.child_frame_id = odom_frame_;
-  tf_msg.transform = tf2::toMsg(tf_map_odom);
+  tf_msg.transform.translation.x = T_map_odom.translation().x();
+  tf_msg.transform.translation.y = T_map_odom.translation().y();
+  tf_msg.transform.translation.z = T_map_odom.translation().z();
+  tf_msg.transform.rotation.x = q_mo.x();
+  tf_msg.transform.rotation.y = q_mo.y();
+  tf_msg.transform.rotation.z = q_mo.z();
+  tf_msg.transform.rotation.w = q_mo.w();
+
+  tf_broadcaster_->sendTransform(tf_msg);
+}
+
+void SlamCore::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+  // Cache odom pose for map→odom computation
+  Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+  pose.linear() = Eigen::Quaterniond(
+      msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
+      msg->pose.pose.orientation.y, msg->pose.pose.orientation.z)
+                       .normalized()
+                       .toRotationMatrix();
+  pose.translation() = Eigen::Vector3d(
+      msg->pose.pose.position.x, msg->pose.pose.position.y,
+      msg->pose.pose.position.z);
+
+  {
+    std::lock_guard<std::mutex> lock(odom_lock_);
+    latest_odom_pose_ = pose;
+    has_odom_ = true;
+  }
+
+  // Republish on canonical odom output topic
+  if (odom_pub_ && odom_pub_->is_activated()) {
+    odom_pub_->publish(*msg);
+  }
+
+  // Broadcast odom → base_link TF from this message
+  geometry_msgs::msg::TransformStamped tf_msg;
+  tf_msg.header = msg->header;
+  tf_msg.header.frame_id = odom_frame_;
+  tf_msg.child_frame_id = base_link_frame_;
+  tf_msg.transform.translation.x = msg->pose.pose.position.x;
+  tf_msg.transform.translation.y = msg->pose.pose.position.y;
+  tf_msg.transform.translation.z = msg->pose.pose.position.z;
+  tf_msg.transform.rotation = msg->pose.pose.orientation;
 
   tf_broadcaster_->sendTransform(tf_msg);
 }

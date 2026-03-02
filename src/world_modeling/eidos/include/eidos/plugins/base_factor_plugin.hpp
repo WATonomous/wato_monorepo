@@ -19,6 +19,15 @@ namespace eidos {
 class SlamCore;
 
 /**
+ * @brief Return type for getFactors(). Contains factors and optional initial
+ * values for any new variables introduced by the plugin.
+ */
+struct FactorResult {
+  std::vector<gtsam::NonlinearFactor::shared_ptr> factors;
+  gtsam::Values values;  // initial values for new variables (e.g. bias keys)
+};
+
+/**
  * @brief Base class for factor plugins that provide GTSAM factors from sensor data.
  *
  * Each plugin is fully self-contained: manages its own subscriptions, publishers,
@@ -81,7 +90,7 @@ public:
    * @param timestamp Timestamp of the new state.
    * @return GTSAM factors for the pose graph.
    */
-  virtual std::vector<gtsam::NonlinearFactor::shared_ptr> getFactors(
+  virtual FactorResult getFactors(
       int state_index,
       const gtsam::Pose3& state_pose,
       double timestamp) = 0;
