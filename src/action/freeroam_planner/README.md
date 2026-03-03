@@ -15,13 +15,13 @@ The freeroam planner receives a costmap and a goal point, computes a drivable tr
 | Topic | Remapped From | Type | Description |
 |-------|--------------|------|-------------|
 | `costmap` | `/world_modeling/costmap` | `nav_msgs/OccupancyGrid` | Occupancy grid for obstacle-aware planning |
-| `goal_point` | `/goal_point_stamped` | `geometry_msgs/PointStamped` | Target goal point for the planner |
+| `goal_point` | `/goal_point` | `geometry_msgs/PointStamped` | Target goal point for the planner |
 
 ### Published Topics
 
 | Topic | Remapped To | Type | Description |
 |-------|------------|------|-------------|
-| `trajectory` | `/action/freeroam_planner/trajectory` | `nav_msgs/Path` | Planned trajectory for the pure pursuit controller |
+| `trajectory` | `/action/trajectory` | `nav_msgs/Path` | Planned trajectory |
 
 ## Algorithm Details
 

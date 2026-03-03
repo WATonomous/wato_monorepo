@@ -14,7 +14,7 @@ The pure pursuit node receives a planned trajectory, transforms each waypoint in
 
 | Topic | Remapped From | Type | Description |
 |-------|--------------|------|-------------|
-| `trajectory` | `/action/freeroam_planner/trajectory` | `wato_trajectory_msgs/Trajectory` | Planned trajectory from the freeroam planner |
+| `trajectory` | `/action/trajectory` | `wato_trajectory_msgs/Trajectory` | Planned trajectory from the freeroam planner |
 
 ### Published Topics
 
