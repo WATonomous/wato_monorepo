@@ -140,17 +140,16 @@ public:
 
       const auto up_it = route_index_map->find(upcoming_id);
       if (up_it == route_index_map->end()) {
-        std::cout << "[GetIntersectionContext] upcoming lanelet " << upcoming_id
-                  << " (dist=" << dist << "m) not found in route" << std::endl;
+        std::cout << "[GetIntersectionContext] upcoming lanelet " << upcoming_id << " (dist=" << dist
+                  << "m) not found in route" << std::endl;
         continue;
       }
 
       const auto & lanelet = route->lanelets[up_it->second];
 
       if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
-        std::cout << "[GetIntersectionContext] lookahead hit: lanelet=" << upcoming_id
-                  << " dist=" << dist << "m subtype=" << elem->subtype
-                  << " reg_elem_id=" << elem->id << std::endl;
+        std::cout << "[GetIntersectionContext] lookahead hit: lanelet=" << upcoming_id << " dist=" << dist
+                  << "m subtype=" << elem->subtype << " reg_elem_id=" << elem->id << std::endl;
         setOutput("out_active_traffic_control_lanelet_id", upcoming_id);
         setOutput("out_active_traffic_control_element", elem);
         setOutput("out_active_traffic_control_element_id", elem->id);
@@ -169,8 +168,7 @@ public:
     }
 
     std::cout << "[GetIntersectionContext] no active control element found"
-              << " (ego lanelet=" << current_id
-              << ", upcoming_count=" << m << ")" << std::endl;
+              << " (ego lanelet=" << current_id << ", upcoming_count=" << m << ")" << std::endl;
     return BT::NodeStatus::SUCCESS;
   }
 

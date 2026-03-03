@@ -66,7 +66,8 @@ inline const world_model_msgs::msg::WorldObject * getTrafficLightByRegElemId(
 }
 
 inline std::optional<std::string> getTrafficLightState(
-  int64_t reg_elem_id, std::size_t state_hypothesis_index,
+  int64_t reg_elem_id,
+  std::size_t state_hypothesis_index,
   const std::vector<world_model_msgs::msg::WorldObject> & objects)
 {
   const auto * traffic_light = getTrafficLightByRegElemId(objects, reg_elem_id);

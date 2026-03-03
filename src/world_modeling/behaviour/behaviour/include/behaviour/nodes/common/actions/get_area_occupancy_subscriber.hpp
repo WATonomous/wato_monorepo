@@ -56,7 +56,10 @@ public:
     return BT::NodeStatus::SUCCESS;
   }
 
-  bool latchLastMessage() const override { return true; }
+  bool latchLastMessage() const override
+  {
+    return true;
+  }
 };
 }  // namespace behaviour
 

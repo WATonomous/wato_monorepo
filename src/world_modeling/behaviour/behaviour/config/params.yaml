@@ -26,7 +26,7 @@
 
     # World objects hypothesis index (which detection result to use for classification)
     world_objects_hypothesis_index: 0
-      
+
     # Traffic light state hypothesis index to use
     traffic_light_state_hypothesis_index: 1
 

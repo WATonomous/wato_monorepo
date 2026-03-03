@@ -68,8 +68,10 @@ void BehaviourNode::init()
   base_frame_ = this->get_parameter("base_frame").as_string();
   double tick_rate_hz = this->get_parameter("rate_hz").as_double();
   bool enable_console_logging = this->get_parameter("enable_console_logging").as_bool();
-  std::size_t traffic_light_state_hypothesis_index = static_cast<std::size_t>(this->get_parameter("traffic_light_state_hypothesis_index").as_int());
-  std::size_t world_objects_hypothesis_index = static_cast<std::size_t>(this->get_parameter("world_objects_hypothesis_index").as_int());
+  std::size_t traffic_light_state_hypothesis_index =
+    static_cast<std::size_t>(this->get_parameter("traffic_light_state_hypothesis_index").as_int());
+  std::size_t world_objects_hypothesis_index =
+    static_cast<std::size_t>(this->get_parameter("world_objects_hypothesis_index").as_int());
   std::vector<std::string> left_lane_change_areas = this->get_parameter("bt.left_lane_change_areas").as_string_array();
   std::vector<std::string> right_lane_change_areas =
     this->get_parameter("bt.right_lane_change_areas").as_string_array();

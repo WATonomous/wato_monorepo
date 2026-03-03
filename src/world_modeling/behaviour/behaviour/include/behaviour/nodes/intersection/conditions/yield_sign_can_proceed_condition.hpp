@@ -87,7 +87,6 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-
     for (const auto lanelet_id : elem->yield_lanelet_ids) {
       const auto cars = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
       if (!cars.empty()) {
