@@ -90,6 +90,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
 {
   RCLCPP_INFO(this->get_logger(), "Configuring Lattice Planning node");
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
+  point_pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/goal_point_stamped", 10);
   available_paths_pub_ = this->create_publisher<lattice_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
@@ -107,6 +108,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
     bt_topic, 10, std::bind(&LatticePlanningNode::set_preferred_lanes, this, std::placeholders::_1));
   path_pub_->on_activate();
+  point_pub_->on_activate();
   available_paths_pub_->on_activate();
   RCLCPP_INFO(this->get_logger(), "Node Activated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -399,6 +401,20 @@ void LatticePlanningNode::publish_final_path(const Path & path)
   }
 
   path_pub_->publish(path_msg);
+  publish_goal_point(path, 0.85);
+}
+
+void LatticePlanningNode::publish_goal_point(const Path & path, double look_ahead){
+  geometry_msgs::msg::PointStamped point_msg;
+  point_msg.header.stamp = this->now();
+  point_msg.header.frame_id = "map";
+
+  int index = static_cast<int>(path.path.size() * look_ahead);
+
+  point_msg.point.x = path.path.at(index).x;
+  point_msg.point.y = path.path.at(index).y;
+
+  point_pub_->publish(point_msg);
 }
 
 void LatticePlanningNode::publish_available_paths(const std::vector<Path> & paths)

@@ -27,6 +27,7 @@
 
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lattice_planning/lattice_planning_core.hpp"
@@ -80,6 +81,7 @@ private:
 
   // publisher wrappers
   void publish_final_path(const Path & path);
+  void publish_goal_point(const Path & path, double look_ahead);
   void publish_available_paths(const std::vector<Path> & paths);
 
   std::unique_ptr<LatticePlanningCore> core_;
@@ -110,5 +112,6 @@ private:
 
   // publishers
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PointStamped>::SharedPtr point_pub_;
   rclcpp_lifecycle::LifecyclePublisher<lattice_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
 };
