@@ -20,8 +20,8 @@ There is more comments and info under `/config/param.yaml`
 | `rate_hz`                                 | double   | 10.0                           | Tree tick frequency                                                            |
 | `map_frame`                               | string   | `map`                          | Map frame ID                                                                   |
 | `base_frame`                              | string   | `base_link`                    | Robot base frame ID                                                            |
-| `bt.traffic_light_state_hypothesis_index` | int      | 1                              | Hypothesis index for traffic light state                                       |
-| `world_objects_hypothesis_index`          | int      | 0                              | Hypothesis index for object classification                                     |
+| `traffic_light_state_hypothesis_index` | size_t      | 1                              | Hypothesis index for traffic light state                                       |
+| `world_objects_hypothesis_index`          | size_t      | 0                              | Hypothesis index for object classification                                     |
 | `bt.left_lane_change_areas`               | string[] | `[left_lane_change_corridor]`  | Area names for left lane change safety                                         |
 | `bt.right_lane_change_areas`              | string[] | `[right_lane_change_corridor]` | Area names for right lane change safety                                        |
 | `bt.intersection_wall_of_doom_width`      | double   | 5.0                            | Virtual wall width at stop lines (m)                                           |

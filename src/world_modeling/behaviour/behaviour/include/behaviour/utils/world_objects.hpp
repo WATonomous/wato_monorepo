@@ -25,23 +25,18 @@
 
 namespace behaviour::world_objects
 {
-inline bool isVehicle(const world_model_msgs::msg::WorldObject & object, int hypothesis_index)
+inline bool isVehicle(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
 {
-  if (hypothesis_index < 0) {
+  if (hypothesis_index >= object.detection.results.size()) {
     return false;
   }
 
-  const std::size_t idx = static_cast<std::size_t>(hypothesis_index);
-  if (idx >= object.detection.results.size()) {
-    return false;
-  }
-
-  const auto & class_id = object.detection.results[idx].hypothesis.class_id;
+  const auto & class_id = object.detection.results[hypothesis_index].hypothesis.class_id;
   return class_id == "car" || class_id == "vehicle" || class_id == "truck";
 }
 
 inline std::vector<const world_model_msgs::msg::WorldObject *> getCarsByLanelet(
-  const std::vector<world_model_msgs::msg::WorldObject> & objects, int hypothesis_index, int64_t lanelet_id)
+  const std::vector<world_model_msgs::msg::WorldObject> & objects, std::size_t hypothesis_index, int64_t lanelet_id)
 {
   std::vector<const world_model_msgs::msg::WorldObject *> cars;
   cars.reserve(objects.size());
@@ -59,12 +54,11 @@ inline std::vector<const world_model_msgs::msg::WorldObject *> getCarsByLanelet(
   return cars;
 }
 
-inline const world_model_msgs::msg::WorldObject * getTrafficLightById(
+inline const world_model_msgs::msg::WorldObject * getTrafficLightByRegElemId(
   const std::vector<world_model_msgs::msg::WorldObject> & objects, int64_t reg_elem_id)
 {
-  const std::string reg_elem_id_str = std::to_string(reg_elem_id);
   for (const auto & object : objects) {
-    if (object.detection.id == reg_elem_id_str) {
+    if (object.regulatory_element.id == reg_elem_id) {
       return &object;
     }
   }
@@ -72,23 +66,19 @@ inline const world_model_msgs::msg::WorldObject * getTrafficLightById(
 }
 
 inline std::optional<std::string> getTrafficLightState(
-  int64_t reg_elem_id, int state_hypothesis_index, const std::vector<world_model_msgs::msg::WorldObject> & objects)
+  int64_t reg_elem_id, std::size_t state_hypothesis_index,
+  const std::vector<world_model_msgs::msg::WorldObject> & objects)
 {
-  if (state_hypothesis_index < 0) {
-    return std::nullopt;
-  }
-
-  const auto * traffic_light = getTrafficLightById(objects, reg_elem_id);
+  const auto * traffic_light = getTrafficLightByRegElemId(objects, reg_elem_id);
   if (traffic_light == nullptr) {
     return std::nullopt;
   }
 
-  const std::size_t idx = static_cast<std::size_t>(state_hypothesis_index);
-  if (idx >= traffic_light->detection.results.size()) {
+  if (state_hypothesis_index >= traffic_light->detection.results.size()) {
     return std::nullopt;
   }
 
-  return traffic_light->detection.results[idx].hypothesis.class_id;
+  return traffic_light->detection.results[state_hypothesis_index].hypothesis.class_id;
 }
 }  // namespace behaviour::world_objects
 

@@ -42,6 +42,7 @@
               ID="StopSignSubTree"
               stop_sign="{active_traffic_control_element}"
               stop_sign_id="{active_traffic_control_element_id}"
+              stop_sign.wall_id="{stop_sign.wall_id}"
             />
             <ActiveTrafficControlElementPassed
               lane_ctx="{@current_lane_ctx}"
@@ -50,7 +51,8 @@
             <ClearActiveTrafficControlElement
               active_traffic_control_element="{active_traffic_control_element}"
               active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
-              active_traffic_control_element_id="{active_traffic_control_element_id}" />
+              active_traffic_control_element_id="{active_traffic_control_element_id}"
+              wall_id="{stop_sign.wall_id}" />
           </Sequence>
           <Sequence name="Handle TRAFFIC_LIGHT Element">
             <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
@@ -61,6 +63,7 @@
               ID="TrafficLightSubTree"
               traffic_light="{active_traffic_control_element}"
               traffic_light_id="{active_traffic_control_element_id}"
+              traffic_light.wall_id="{traffic_light.wall_id}"
             />
             <ActiveTrafficControlElementPassed
               lane_ctx="{@current_lane_ctx}"
@@ -69,7 +72,8 @@
             <ClearActiveTrafficControlElement
               active_traffic_control_element="{active_traffic_control_element}"
               active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
-              active_traffic_control_element_id="{active_traffic_control_element_id}" />
+              active_traffic_control_element_id="{active_traffic_control_element_id}"
+              wall_id="{traffic_light.wall_id}" />
 
           </Sequence>
           <Sequence name="Handle YIELD Element">
@@ -79,6 +83,7 @@
               ID="YieldSubTree"
               yield_sign="{active_traffic_control_element}"
               yield_sign_id="{active_traffic_control_element_id}"
+              yield.wall_id="{yield.wall_id}"
             />
             <ActiveTrafficControlElementPassed
               lane_ctx="{@current_lane_ctx}"
@@ -87,7 +92,8 @@
             <ClearActiveTrafficControlElement
               active_traffic_control_element="{active_traffic_control_element}"
               active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
-              active_traffic_control_element_id="{active_traffic_control_element_id}" />
+              active_traffic_control_element_id="{active_traffic_control_element_id}"
+              wall_id="{yield.wall_id}" />
           </Sequence>
         </Fallback>
       </Fallback>

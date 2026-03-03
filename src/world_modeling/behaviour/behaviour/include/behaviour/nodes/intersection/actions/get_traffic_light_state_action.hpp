@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "behaviour/utils/utils.hpp"
-#include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
@@ -45,9 +44,8 @@ public:
   {
     return {
       BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("traffic_light"),
-      BT::InputPort<lanelet_msgs::msg::CurrentLaneContext::SharedPtr>("lane_ctx"),
       BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
-      BT::InputPort<int>("state_hypothesis_index"),
+      BT::InputPort<std::size_t>("state_hypothesis_index"),
       BT::OutputPort<std::string>("out_traffic_light_state"),
       BT::OutputPort<std::string>("error_message"),
     };
@@ -69,54 +67,21 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto hypothesis_index = ports::tryGet<int>(*this, "state_hypothesis_index");
-    if (!ports::require(hypothesis_index, "state_hypothesis_index", missing_input_callback)) {
+    auto state_hypothesis_index = ports::tryGet<std::size_t>(*this, "state_hypothesis_index");
+    if (!ports::require(state_hypothesis_index, "state_hypothesis_index", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
-    if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (*hypothesis_index < 0) {
-      setOutput("error_message", "hypothesis_index_out_of_range");
-      std::cout << "[GetTrafficLightState] hypothesis_index out of range: " << *hypothesis_index << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    // Find the way in ref_lines that corresponds to the current lanelet.
-    // World objects store traffic light state by way ID, not regulatory element ID.
-    const int64_t current_lanelet_id = lane_ctx->current_lanelet.id;
-    int64_t way_id = -1;
-    for (const auto & lanelet_way : reg_elem->ref_lines) {
-      if (lanelet_way.way.points.empty()) {
-        continue;
-      }
-      const auto it = std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), current_lanelet_id);
-      if (it != lanelet_way.lanelet_ids.end()) {
-        way_id = lanelet_way.way.id;
-        break;
-      }
-    }
-
-    if (way_id < 0) {
-      setOutput("error_message", "no_matching_way_for_lanelet");
-      std::cout << "[GetTrafficLightState] no ref_line way found for lanelet " << current_lanelet_id << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
-
-    const auto state = world_objects::getTrafficLightState(way_id, *hypothesis_index, *objects);
+    const int64_t reg_elem_id = reg_elem->id;
+    const auto state = world_objects::getTrafficLightState(reg_elem_id, *state_hypothesis_index, *objects);
     if (!state) {
       setOutput("error_message", "traffic_light_state_not_found");
-      std::cout << "[GetTrafficLightState] failed to get state for way_id=" << way_id
-                << " (lanelet=" << current_lanelet_id << ")" << std::endl;
+      std::cout << "[GetTrafficLightState] failed to get state for reg_elem_id=" << reg_elem_id << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 
     setOutput("out_traffic_light_state", *state);
-    std::cout << "[GetTrafficLightState] state=" << *state << " way_id=" << way_id << " lanelet=" << current_lanelet_id
-              << std::endl;
+    std::cout << "[GetTrafficLightState] state=" << *state << " reg_elem_id=" << reg_elem_id << std::endl;
 
     return BT::NodeStatus::SUCCESS;
   }

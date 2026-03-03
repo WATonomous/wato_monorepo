@@ -25,9 +25,11 @@
 #include "behaviour/nodes/common/actions/despawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
 #include "behaviour/nodes/common/actions/get_area_occupancy_service.hpp"
+#include "behaviour/nodes/common/actions/get_area_occupancy_subscriber.hpp"
 #include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_service.hpp"
+#include "behaviour/nodes/common/actions/get_world_objects_subscriber.hpp"
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 
@@ -84,6 +86,9 @@ public:
       "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
     factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
+
+    factory.registerNodeType<behaviour::GetWorldObjectsSubscriber>("GetWorldObjectsSub", params);
+    factory.registerNodeType<behaviour::GetAreaOccupancySubscriber>("GetAreaOccupancySub", params);
 
     factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
 

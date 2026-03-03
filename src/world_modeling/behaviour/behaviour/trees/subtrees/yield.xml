@@ -11,20 +11,28 @@
                 pose="{yield.wall_pose}"
                 error_message="{yield.get_stop_line_pose_error_msg}" />
 
-            <SpawnWall
-                pose="{yield.wall_pose}"
-                tf_buffer="{@tf_buffer}"
-                pose_frame="{@map_frame}"
-                width="{@bt.intersection_wall_of_doom_width}"
-                length="{@bt.intersection_wall_of_doom_length}"
-                wall_id="{yield.wall_id}"
-                error_message="{yield.spawn_wall_error_msg}"
-                service_name="/world_modeling/spawn_wall" />
+            <!-- spawn wall if not exists -->
+            <Fallback name="SpawnIfNeeded">
+                <WallIdExist wall_id="{yield.wall_id}" />
+                <SpawnWall
+                    pose="{yield.wall_pose}"
+                    tf_buffer="{@tf_buffer}"
+                    pose_frame="{@map_frame}"
+                    width="{@bt.intersection_wall_of_doom_width}"
+                    length="{@bt.intersection_wall_of_doom_length}"
+                    wall_id="{yield.wall_id}"
+                    error_message="{yield.spawn_wall_error_msg}"
+                    service_name="/world_modeling/spawn_wall" />
+            </Fallback>
 
-            <GetWorldObjects
+            <!-- <GetWorldObjects
                 objects="{yield.objects}"
                 error_message="{yield.get_objects_error_msg}"
-                service_name="/world_modeling/get_world_objects_enriched" />
+                service_name="/world_modeling/get_world_objects_enriched" /> -->
+            <GetWorldObjectsSub
+                objects="{yield.objects}"
+                error_message="{yield.get_objects_error_msg}"
+                topic_name="/world_modeling/world_objects_enriched" />
 
             <!-- wait until yield lanes are clear for a gap -->
             <YieldCanProceed
@@ -32,11 +40,17 @@
                 objects="{yield.objects}"
                 hypothesis_index="{@world_objects_hypothesis_index}" />
 
-            <!-- despawn wall -->
-            <DespawnWall
-                wall_id="{yield.wall_id}"
-                error_message="{yield.despawn_wall_error_msg}"
-                service_name="/world_modeling/despawn_wall" />
+            <!-- despawn wall if exists -->
+            <Fallback name="DespawnIfNeeded">
+                <Inverter>
+                    <WallIdExist wall_id="{yield.wall_id}" />
+                </Inverter>
+                <DespawnWall
+                    wall_id="{yield.wall_id}"
+                    out_wall_id="{yield.wall_id}"
+                    error_message="{yield.despawn_wall_error_msg}"
+                    service_name="/world_modeling/despawn_wall" />
+            </Fallback>
         </Sequence>
     </BehaviorTree>
 </root>

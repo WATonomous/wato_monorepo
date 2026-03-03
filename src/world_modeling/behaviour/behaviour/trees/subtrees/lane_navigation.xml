@@ -21,10 +21,14 @@
               lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
 
-            <GetAreaOccupancy
+            <!-- <GetAreaOccupancy
               areas="{lane_nav.area_occupancy_areas}"
               error_message="{lane_nav.get_area_occupancy_error_msg}"
-              service_name="/world_modeling/get_area_occupancy" />
+              service_name="/world_modeling/get_area_occupancy" /> -->
+            <GetAreaOccupancySub
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              topic_name="/world_modeling/area_occupancy" />
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
@@ -49,10 +53,14 @@
               lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
 
-            <GetAreaOccupancy
+            <!-- <GetAreaOccupancy
               areas="{lane_nav.area_occupancy_areas}"
               error_message="{lane_nav.get_area_occupancy_error_msg}"
-              service_name="/world_modeling/get_area_occupancy" />
+              service_name="/world_modeling/get_area_occupancy" /> -->
+            <GetAreaOccupancySub
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              topic_name="/world_modeling/area_occupancy" />
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"

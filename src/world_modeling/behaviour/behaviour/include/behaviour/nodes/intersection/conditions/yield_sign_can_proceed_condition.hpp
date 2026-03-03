@@ -57,7 +57,7 @@ public:
     return {
       BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
       BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
-      BT::InputPort<int>("hypothesis_index"),
+      BT::InputPort<std::size_t>("hypothesis_index"),
     };
   }
 
@@ -77,7 +77,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto hypothesis_index = ports::tryGet<int>(*this, "hypothesis_index");
+    auto hypothesis_index = ports::tryGet<std::size_t>(*this, "hypothesis_index");
     if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
@@ -87,10 +87,6 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    if (*hypothesis_index < 0) {
-      std::cout << "[YieldSignCanProceed]: invalid hypothesis_index" << std::endl;
-      return BT::NodeStatus::FAILURE;
-    }
 
     for (const auto lanelet_id : elem->yield_lanelet_ids) {
       const auto cars = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);

@@ -42,8 +42,9 @@ namespace behaviour
    *
    * Logic:
    * - If an active traffic control element is already latched (car is currently dealing with it), return it and `SUCCESS`.
-   * - Otherwise, inspect the route ahead (globla route) of ego up to `lookahead_threshold_m` and find
-   *   the first relevant regulatory element.
+   * - Otherwise, check the current lanelet (from lane_ctx) for a regulatory element.
+   *   This uses the actual lane the car is in as ground truth, regardless of the planned route.
+   * - If no element on the current lanelet, inspect upcoming lanelets along the route up to `lookahead_threshold_m` for advance warning.
    * - Select control priority as: `traffic_light` > `stop_sign` > `yield`.
    * - Write selected control element and lanelet metadata to output ports.
    * - Return `SUCCESS` when a valid context is found and published.
@@ -52,6 +53,7 @@ namespace behaviour
    * Assumptions:
    * - `route_index_map` is consistent with `route`.
    * - Regulatory element subtype strings match expected classifier values.
+   * - Current lanelet from lane_ctx takes priority over route for ground truth.
    * - Priority order is fixed to traffic light, then stop sign, then yield.
    */
 class GetIntersectionContextAction : public BT::SyncActionNode
@@ -123,36 +125,32 @@ public:
       }
     }
 
-    // check the current lanelet first
-    const auto lanelet_id = lane_ctx->current_lanelet.id;
-    const auto route_it = route_index_map->find(lanelet_id);
-    if (route_it != route_index_map->end()) {
-      const auto & lanelet = route->lanelets[route_it->second];
-      if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
-        setOutput("out_active_traffic_control_lanelet_id", lanelet_id);
-        setOutput("out_active_traffic_control_element", elem);
-        setOutput("out_active_traffic_control_element_id", elem->id);
-        return BT::NodeStatus::SUCCESS;
-      }
-    }
+    const int64_t current_id = lane_ctx->current_lanelet.id;
 
-    // now check the upcoming lanelets within the lookahead distance
+    // Lookahead: check upcoming lanelets from the route for advance warning
     const std::size_t m =
       std::min(lane_ctx->upcoming_lanelet_ids.size(), lane_ctx->upcoming_lanelet_distances_m.size());
 
     for (std::size_t i = 0; i < m; ++i) {
       const double dist = lane_ctx->upcoming_lanelet_distances_m[i];
-      if (dist < 0.0) continue;  // if your msg ever uses -1
-      if (dist > *lookahead_threshold_m) break;  // distances are increasing in order
+      if (dist < 0.0) continue;
+      if (dist > *lookahead_threshold_m) break;
 
       const int64_t upcoming_id = lane_ctx->upcoming_lanelet_ids[i];
 
       const auto up_it = route_index_map->find(upcoming_id);
-      if (up_it == route_index_map->end()) continue;
+      if (up_it == route_index_map->end()) {
+        std::cout << "[GetIntersectionContext] upcoming lanelet " << upcoming_id
+                  << " (dist=" << dist << "m) not found in route" << std::endl;
+        continue;
+      }
 
       const auto & lanelet = route->lanelets[up_it->second];
 
       if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
+        std::cout << "[GetIntersectionContext] lookahead hit: lanelet=" << upcoming_id
+                  << " dist=" << dist << "m subtype=" << elem->subtype
+                  << " reg_elem_id=" << elem->id << std::endl;
         setOutput("out_active_traffic_control_lanelet_id", upcoming_id);
         setOutput("out_active_traffic_control_element", elem);
         setOutput("out_active_traffic_control_element_id", elem->id);
@@ -160,9 +158,20 @@ public:
       }
     }
 
-    // don't set the outputs if nothing found (no active traffic control element)
+    // Ground truth: check current lanelet directly from lane_ctx
+    if (auto elem = classify_lanelet_traffic_control_element(lane_ctx->current_lanelet)) {
+      std::cout << "[GetIntersectionContext] current lanelet hit: lanelet=" << current_id
+                << " subtype=" << elem->subtype << " reg_elem_id=" << elem->id << std::endl;
+      setOutput("out_active_traffic_control_lanelet_id", current_id);
+      setOutput("out_active_traffic_control_element", elem);
+      setOutput("out_active_traffic_control_element_id", elem->id);
+      return BT::NodeStatus::SUCCESS;
+    }
+
+    std::cout << "[GetIntersectionContext] no active control element found"
+              << " (ego lanelet=" << current_id
+              << ", upcoming_count=" << m << ")" << std::endl;
     return BT::NodeStatus::SUCCESS;
-    // ------------- using lookahead distance -------------
   }
 
 private:
