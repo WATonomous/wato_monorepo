@@ -404,7 +404,8 @@ void LatticePlanningNode::publish_final_path(const Path & path)
   publish_goal_point(path, 0.85);
 }
 
-void LatticePlanningNode::publish_goal_point(const Path & path, double look_ahead){
+void LatticePlanningNode::publish_goal_point(const Path & path, double look_ahead)
+{
   geometry_msgs::msg::PointStamped point_msg;
   point_msg.header.stamp = this->now();
   point_msg.header.frame_id = "map";

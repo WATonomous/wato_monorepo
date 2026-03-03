@@ -26,8 +26,8 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lattice_planning/lattice_planning_core.hpp"
