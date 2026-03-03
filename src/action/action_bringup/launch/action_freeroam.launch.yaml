@@ -30,18 +30,26 @@ launch:
       pkg: freeroam_planner
       exec: freeroam_planner_node
       name: freeroam_planner_node
+      namespace: "action"
       output: screen
       param:
         - from: $(find-pkg-share freeroam_planner)/config/params.yaml
+      remap:
+        - from: "costmap"
+          to: "/world_modeling/costmap"
 
   # Ackermann Pure Pursuit
   - node:
       pkg: ackermann_pure_pursuit
       exec: pure_pursuit_node
       name: pure_pursuit_node
+      namespace: "action"
       output: screen
       param:
         - from: $(find-pkg-share ackermann_pure_pursuit)/config/params.yaml
+      remap:
+        - from: "trajectory"
+          to: "/action/trajectory"
 
   # Lifecycle Manager
   - node:
