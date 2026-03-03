@@ -37,7 +37,7 @@ launch:
       remap:
         # Subscribers
         - from: "goal_point"
-          to: "/goal_point"
+          to: "/goal_point_stamped"
         - from: "costmap"
           to: "/world_modeling/costmap"
         # Publishers
