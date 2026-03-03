@@ -35,8 +35,14 @@ launch:
       param:
         - from: $(find-pkg-share freeroam_planner)/config/params.yaml
       remap:
+        # Subscribers
+        - from: "goal_point"
+          to: "/goal_point"
         - from: "costmap"
           to: "/world_modeling/costmap"
+        # Publishers
+        - from: "trajectory"
+          to: "/action/trajectory"
 
   # Ackermann Pure Pursuit
   - node:
@@ -48,8 +54,12 @@ launch:
       param:
         - from: $(find-pkg-share ackermann_pure_pursuit)/config/params.yaml
       remap:
+        # Subscribers
         - from: "trajectory"
           to: "/action/trajectory"
+        # Publishers
+        - from: "ackermann"
+          to: "/action/ackermann"
 
   # Lifecycle Manager
   - node:
@@ -60,8 +70,8 @@ launch:
       param:
         - name: node_names
           value:
-            - freeroam_planner_node
-            - pure_pursuit_node
+            - /action/freeroam_planner_node
+            - /action/pure_pursuit_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
