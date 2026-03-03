@@ -19,7 +19,8 @@
   ros__parameters:
     # Map
     osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
-    projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
+
+    projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
 
     # Frames
     map_frame: "map"
@@ -189,6 +190,21 @@
     show_lanelet_ids: false
     show_info: true
     show_boundaries: true
+
+# =============================================================================
+# Behaviour Markers Node
+# =============================================================================
+/**/behaviour_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    preferred_centerline_line_width: 0.45
+    preferred_boundary_line_width: 0.18
+    current_lane_line_width: 0.2
+    text_height: 0.8
+    show_boundaries: true
+    show_lanelet_ids: false
+    show_current_lane: true
+    show_info: true
 
 # =============================================================================
 # World Object Marker Nodes

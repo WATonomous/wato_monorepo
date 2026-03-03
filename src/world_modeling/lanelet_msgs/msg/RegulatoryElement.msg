@@ -9,12 +9,11 @@ int64 id
 # Subtype: "traffic_light", "stop_sign", "yield", "right_of_way", "speed_limit"
 string subtype
 
-# Referred geometry (traffic lights, signs): IDs and 3D positions (parallel arrays)
-int64[] refers_ids
-geometry_msgs/Point[] refers_positions
+# Referred primitives (traffic lights, signs, etc.)
+Way[] refers
 
-# Reference lines (stop lines)
-RefLine[] ref_lines
+# Reference lines (stop lines) with lanelet association
+LaneletWay[] ref_lines
 
 # Yield relationships
 int64[] yield_lanelet_ids

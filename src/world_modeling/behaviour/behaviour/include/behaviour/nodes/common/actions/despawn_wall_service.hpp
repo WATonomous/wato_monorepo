@@ -47,10 +47,13 @@ public:
 
   bool setRequest(Request::SharedPtr & request) override
   {
+    const auto missing_input_callback = [&](const char * port_name) {
+      RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+      setOutput("error_message", std::string("missing_port:") + port_name);
+    };
+
     auto wall_id = ports::tryGet<int32_t>(*this, "wall_id");
-    if (!wall_id) {
-      setOutput("error_message", "missing_port:wall_id");
-      RCLCPP_ERROR(logger(), "[DespawnWallService] Missing input port: wall_id");
+    if (!ports::require(wall_id, "wall_id", missing_input_callback)) {
       return false;
     }
 

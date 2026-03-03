@@ -49,7 +49,7 @@ AckermannMuxNode::CallbackReturn AckermannMuxNode::on_configure(const rclcpp_lif
   this->get_parameter_or("emergency.speed", emergency_.drive.speed, 0.0f);
 
   pub_out_ =
-    this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/ackermann", rclcpp::QoS(rclcpp::KeepLast(1)));
+    this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("ackermann", rclcpp::QoS(rclcpp::KeepLast(1)));
 
   build_inputs_from_params();
 

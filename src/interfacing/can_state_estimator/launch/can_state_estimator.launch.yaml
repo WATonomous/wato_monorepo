@@ -1,0 +1,9 @@
+launch:
+  - node:
+      pkg: "can_state_estimator"
+      exec: "can_state_estimator_node"
+      name: "can_state_estimator_node"
+      namespace: "interfacing"
+      output: "screen"
+      parameters:
+        - $(find-pkg-share can_state_estimator)/config/can_state_estimator.yaml

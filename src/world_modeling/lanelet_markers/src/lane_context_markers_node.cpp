@@ -228,20 +228,33 @@ void LaneContextMarkersNode::laneContextCallback(const lanelet_msgs::msg::Curren
   for (const auto & reg_elem : lanelet.regulatory_elements) {
     // Stop lines (from ref_lines)
     for (const auto & ref_line : reg_elem.ref_lines) {
-      if (!ref_line.points.empty()) {
+      if (!ref_line.way.points.empty()) {
         auto stop_color = makeColor(1.0f, 0.0f, 0.0f, 0.9f);
         auto stop_marker =
-          createLineStripMarker("stop_lines", marker_id++, frame_id_, ref_line.points, stop_color, 0.3);
+          createLineStripMarker("stop_lines", marker_id++, frame_id_, ref_line.way.points, stop_color, 0.3);
         stop_marker.header.stamp = stamp;
         marker_array.markers.push_back(stop_marker);
       }
     }
 
-    // Traffic lights (positions from refers_positions)
+    // Traffic lights (centroid of each refers Way)
     if (reg_elem.subtype == "traffic_light") {
-      for (const auto & position : reg_elem.refers_positions) {
+      for (const auto & way : reg_elem.refers) {
+        if (way.points.empty()) continue;
+        geometry_msgs::msg::Point centroid;
+        centroid.x = 0.0;
+        centroid.y = 0.0;
+        centroid.z = 0.0;
+        for (const auto & pt : way.points) {
+          centroid.x += pt.x;
+          centroid.y += pt.y;
+          centroid.z += pt.z;
+        }
+        centroid.x /= static_cast<double>(way.points.size());
+        centroid.y /= static_cast<double>(way.points.size());
+        centroid.z /= static_cast<double>(way.points.size());
         auto tl_color = makeColor(1.0f, 1.0f, 0.0f, 0.9f);
-        auto tl_marker = createSphereMarker("traffic_lights", marker_id++, frame_id_, position, tl_color, 0.5);
+        auto tl_marker = createSphereMarker("traffic_lights", marker_id++, frame_id_, centroid, tl_color, 0.5);
         tl_marker.header.stamp = stamp;
         marker_array.markers.push_back(tl_marker);
       }

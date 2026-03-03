@@ -73,20 +73,20 @@ JoystickNode::CallbackReturn JoystickNode::on_configure(const rclcpp_lifecycle::
 
   // Setup publishers
   ackermann_drive_stamped_pub_ =
-    this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/joystick/ackermann", rclcpp::QoS(10));
-  roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("/roscco", rclcpp::QoS(10));
-  idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/joystick/is_idle", rclcpp::QoS(10));
-  state_pub_ = this->create_publisher<std_msgs::msg::Int8>("/joystick/state", rclcpp::QoS(10));
-  joy_feedback_pub_ = this->create_publisher<sensor_msgs::msg::JoyFeedback>("/joy/set_feedback", rclcpp::QoS(10));
+    this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("joystick/ackermann", rclcpp::QoS(10));
+  roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(10));
+  idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("joystick/is_idle", rclcpp::QoS(10));
+  state_pub_ = this->create_publisher<std_msgs::msg::Int8>("joystick/state", rclcpp::QoS(10));
+  joy_feedback_pub_ = this->create_publisher<sensor_msgs::msg::JoyFeedback>("joy/set_feedback", rclcpp::QoS(10));
 
   // Setup subscribers
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
-    "/joy", rclcpp::QoS(10), std::bind(&JoystickNode::joy_callback, this, std::placeholders::_1));
+    "joy", rclcpp::QoS(10), std::bind(&JoystickNode::joy_callback, this, std::placeholders::_1));
 
   // Arming interface
-  arm_client_ = this->create_client<std_srvs::srv::SetBool>("/oscc_interfacing/arm");
+  arm_client_ = this->create_client<std_srvs::srv::SetBool>("oscc_interfacing/arm");
   is_armed_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "/oscc_interfacing/is_armed",
+    "oscc_interfacing/is_armed",
     rclcpp::QoS(10),
     std::bind(&JoystickNode::is_armed_callback, this, std::placeholders::_1));
 
@@ -290,9 +290,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
 
     use_roscco_topic_ = !use_roscco_topic_;
     RCLCPP_INFO(
-      this->get_logger(),
-      "Toggled output topic to: %s",
-      use_roscco_topic_ ? "/joystick/roscco" : "/joystick/ackermann");
+      this->get_logger(), "Toggled output topic to: %s", use_roscco_topic_ ? "joystick/roscco" : "joystick/ackermann");
     vibrate(use_roscco_topic_ ? 2 : 1, toggle_vibration_duration_ms_);
   }
   prev_toggle_button_pressed_ = toggle_button_pressed;

@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 
+#include "behaviour/utils/ports.hpp"
 #include "geometry_msgs/msg/point.hpp"
 
 namespace behaviour
@@ -37,14 +38,17 @@ public:
 
   static BT::PortsList providedPorts()
   {
-    return {BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("point")};
+    return {BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point")};
   }
 
   BT::NodeStatus tick() override
   {
-    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "point");
-    if (gp == nullptr) {
-      std::cout << "[GoalExist]: No goal point" << std::endl;
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GoalExist]: Missing " << port_name << " input" << std::endl;
+    };
+
+    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    if (!ports::require(gp, "goal_point", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
     return BT::NodeStatus::SUCCESS;

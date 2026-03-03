@@ -6,13 +6,9 @@ launch:
       namespace: "interfacing"
       output: "screen"
       remap:
-        - from: "ackermann"
-          to: "/ackermann"
         - from: "steering_feedback"
-          to: "/oscc_interfacing/steering_angle"
+          to: "can_state_estimator/steering_angle"
         - from: "velocity_feedback"
-          to: "/body_velocity_feedback"
-        - from: "roscco"
-          to: "/roscco"
+          to: "can_state_estimator/body_velocity"
       param:
         - from: "$(find-pkg-share pid_control)/config/pid_control.yaml"

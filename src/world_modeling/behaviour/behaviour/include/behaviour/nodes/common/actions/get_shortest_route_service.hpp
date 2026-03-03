@@ -15,8 +15,11 @@
 #ifndef BEHAVIOUR__NODES__COMMON__ACTIONS__GET_SHORTEST_ROUTE_SERVICE_HPP_
 #define BEHAVIOUR__NODES__COMMON__ACTIONS__GET_SHORTEST_ROUTE_SERVICE_HPP_
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -42,8 +45,9 @@ public:
   {
     return providedBasicPorts({
       BT::OutputPort<lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr>("route"),
-      BT::OutputPort<std::shared_ptr<std::unordered_map<int64_t, size_t>>>("route_index_map"),  // New Map Port
-      BT::OutputPort<std::vector<int64_t>>("route_lanelet_ids"),  // New Vector Port
+      BT::OutputPort<std::shared_ptr<std::unordered_map<int64_t, size_t>>>("route_index_map"),
+      BT::OutputPort<lanelet_msgs::msg::Lanelet::SharedPtr>("goal_lanelet"),
+      BT::OutputPort<std::vector<int64_t>>("route_lanelet_ids"),
       BT::OutputPort<std::string>("error_message"),
     });
   }
@@ -61,6 +65,10 @@ public:
     }
 
     auto route = std::make_shared<lanelet_msgs::srv::GetShortestRoute::Response>(std::move(*response));
+    if (route->lanelets.empty()) {
+      setOutput("error_message", "empty_route");
+      return BT::NodeStatus::FAILURE;
+    }
 
     // build the index map (lanelet_id -> index)
     auto index_map = std::make_shared<std::unordered_map<int64_t, size_t>>();
@@ -77,9 +85,12 @@ public:
       lanelet_ids.push_back(route->lanelets[i].id);
     }
 
+    // to access a lanelet in the route: route->lanelets[(*index_map)[lanelet_id]]
+
     setOutput("route", route);
     setOutput("route_index_map", index_map);
     setOutput("route_lanelet_ids", lanelet_ids);
+    setOutput("goal_lanelet", std::make_shared<lanelet_msgs::msg::Lanelet>(route->lanelets.back()));
 
     return BT::NodeStatus::SUCCESS;
   }

@@ -69,6 +69,7 @@ public:
       BT::InputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("route_index_map"),
       BT::InputPort<double>("lookahead_threshold_m"),
       BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("in_active_traffic_control_element"),
+      BT::InputPort<int64_t>("in_active_traffic_control_lanelet_id"),
       BT::OutputPort<int64_t>("out_active_traffic_control_lanelet_id"),
       BT::OutputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("out_active_traffic_control_element"),
       BT::OutputPort<int64_t>("out_active_traffic_control_element_id"),
@@ -77,34 +78,51 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto active_traffic_control_element =
-      ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "in_active_traffic_control_element");
-    if (active_traffic_control_element) {
-      setOutput("out_active_traffic_control_element", active_traffic_control_element);
-      return BT::NodeStatus::SUCCESS;
-    }
+    const auto missing_input_callback = [&](const char * port_name) {
+      std::cout << "[GetIntersectionContext] Missing " << port_name << " input" << std::endl;
+    };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
+    if (!ports::require(lane_ctx, "lane_ctx", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
+    if (!ports::require(route, "route", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto route_index_map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_index_map");
-    auto lookahead_threshold_m = ports::tryGet<double>(*this, "lookahead_threshold_m").value_or(40.0);
-
-    if (!lane_ctx) {
-      std::cerr << "[GetIntersectionContext] Missing lane_ctx." << std::endl;
+    if (!ports::require(route_index_map, "route_index_map", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (!route) {
-      std::cerr << "[GetIntersectionContext] Missing route." << std::endl;
+    auto lookahead_threshold_m = ports::tryGet<double>(*this, "lookahead_threshold_m");
+    if (!ports::require(lookahead_threshold_m, "lookahead_threshold_m", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (!route_index_map) {
-      std::cerr << "[GetIntersectionContext] Missing route_index_map." << std::endl;
-      return BT::NodeStatus::FAILURE;
+    auto active_traffic_control_element =
+      ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "in_active_traffic_control_element");
+
+    if (active_traffic_control_element) {
+      auto active_lanelet_id = ports::tryGet<int64_t>(*this, "in_active_traffic_control_lanelet_id");
+
+      if (active_lanelet_id && is_latch_stale(*active_lanelet_id, *lane_ctx)) {
+        // ego has left the intersection zone and the active lanelet is no longer ahead
+        std::cout << "[GetIntersectionContext] Active element on lanelet " << *active_lanelet_id
+                  << " is stale (ego on lanelet " << lane_ctx->current_lanelet.id
+                  << ", is_intersection=" << lane_ctx->current_lanelet.is_intersection << "), auto-clearing latch"
+                  << std::endl;
+        clear_active_outputs();
+        // fall through to rescan for a new element below
+      } else {
+        // if valid, keep the latch
+        setOutput("out_active_traffic_control_element", active_traffic_control_element);
+        return BT::NodeStatus::SUCCESS;
+      }
     }
 
-    // ------------- using lookahead distance -------------
     // check the current lanelet first
     const auto lanelet_id = lane_ctx->current_lanelet.id;
     const auto route_it = route_index_map->find(lanelet_id);
@@ -113,6 +131,7 @@ public:
       if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
         setOutput("out_active_traffic_control_lanelet_id", lanelet_id);
         setOutput("out_active_traffic_control_element", elem);
+        setOutput("out_active_traffic_control_element_id", elem->id);
         return BT::NodeStatus::SUCCESS;
       }
     }
@@ -124,17 +143,17 @@ public:
     for (std::size_t i = 0; i < m; ++i) {
       const double dist = lane_ctx->upcoming_lanelet_distances_m[i];
       if (dist < 0.0) continue;  // if your msg ever uses -1
-      if (dist > lookahead_threshold_m) break;  // distances are increasing in order
+      if (dist > *lookahead_threshold_m) break;  // distances are increasing in order
 
-      const int64_t lanelet_id = lane_ctx->upcoming_lanelet_ids[i];
+      const int64_t upcoming_id = lane_ctx->upcoming_lanelet_ids[i];
 
-      const auto route_it = route_index_map->find(lanelet_id);
-      if (route_it == route_index_map->end()) continue;
+      const auto up_it = route_index_map->find(upcoming_id);
+      if (up_it == route_index_map->end()) continue;
 
-      const auto & lanelet = route->lanelets[route_it->second];
+      const auto & lanelet = route->lanelets[up_it->second];
 
       if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
-        setOutput("out_active_traffic_control_lanelet_id", lanelet_id);
+        setOutput("out_active_traffic_control_lanelet_id", upcoming_id);
         setOutput("out_active_traffic_control_element", elem);
         setOutput("out_active_traffic_control_element_id", elem->id);
         return BT::NodeStatus::SUCCESS;
@@ -147,6 +166,55 @@ public:
   }
 
 private:
+  /**
+     * @brief Determine whether the latched active element is stale using lane context.
+     *
+     * The latch is stale when ALL of the following are true:
+     *   1. Ego is NOT on the active element's lanelet.
+     *   2. Ego's current lanelet is NOT an intersection lanelet.
+     *   3. The active element's lanelet does NOT appear in the upcoming lanelet list.
+     *
+     * This avoids relying on lanelet-index counts (which break for long lanelets)
+     * and instead uses the physical lane context: if the car has left the
+     * intersection zone and the active lanelet is no longer ahead, the latch is
+     * stale and should be cleared.
+     */
+  static bool is_latch_stale(int64_t active_lanelet_id, const lanelet_msgs::msg::CurrentLaneContext & lane_ctx)
+  {
+    const int64_t ego_lanelet_id = lane_ctx.current_lanelet.id;
+
+    // still on the active lanelet
+    if (ego_lanelet_id == active_lanelet_id) {
+      return false;
+    }
+
+    // still inside an intersection lanelet
+    if (lane_ctx.current_lanelet.is_intersection) {
+      return false;
+    }
+
+    // 3. The active lanelet is still ahead in the upcoming path
+    for (const auto & upcoming_id : lane_ctx.upcoming_lanelet_ids) {
+      if (upcoming_id == active_lanelet_id) {
+        return false;
+      }
+    }
+
+    // None of the keep-alive conditions hold — the latch is stale
+    return true;
+  }
+
+  /**
+     * @brief Clear all active traffic control element outputs (full latch reset).
+     */
+  void clear_active_outputs()
+  {
+    lanelet_msgs::msg::RegulatoryElement::SharedPtr cleared = nullptr;
+    setOutput("out_active_traffic_control_element", cleared);
+    setOutput("out_active_traffic_control_lanelet_id", static_cast<int64_t>(0));
+    setOutput("out_active_traffic_control_element_id", static_cast<int64_t>(0));
+  }
+
   inline static constexpr std::string_view traffic_light_subtype_ = "traffic_light";
   inline static constexpr std::string_view stop_sign_subtype_ = "stop_sign";
   inline static constexpr std::string_view yield_subtype_ = "yield";

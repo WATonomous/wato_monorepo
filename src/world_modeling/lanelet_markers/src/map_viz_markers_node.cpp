@@ -329,24 +329,37 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
       // Stop lines (from ref_lines of any regulatory element)
       if (show_stop_lines_) {
         for (const auto & ref_line : reg_elem.ref_lines) {
-          if (!ref_line.points.empty()) {
+          if (!ref_line.way.points.empty()) {
             auto stop_line_color = makeColor(1.0f, 0.0f, 0.0f);  // Red
             auto stop_marker = createLineStripMarker(
-              "stop_lines", re_marker_id++, frame_id_, ref_line.points, stop_line_color, stop_line_width_);
+              "stop_lines", re_marker_id++, frame_id_, ref_line.way.points, stop_line_color, stop_line_width_);
             stop_marker.header.stamp = stamp;
             reg_elem_marker_array.markers.push_back(stop_marker);
           }
         }
       }
 
-      // Traffic lights and signs (positions from refers_positions)
+      // Traffic lights and signs (centroid of each refers Way)
       if (show_traffic_lights_) {
-        for (const auto & position : reg_elem.refers_positions) {
+        for (const auto & way : reg_elem.refers) {
+          if (way.points.empty()) continue;
+          geometry_msgs::msg::Point centroid;
+          centroid.x = 0.0;
+          centroid.y = 0.0;
+          centroid.z = 0.0;
+          for (const auto & pt : way.points) {
+            centroid.x += pt.x;
+            centroid.y += pt.y;
+            centroid.z += pt.z;
+          }
+          centroid.x /= static_cast<double>(way.points.size());
+          centroid.y /= static_cast<double>(way.points.size());
+          centroid.z /= static_cast<double>(way.points.size());
           auto marker_color = (reg_elem.subtype == "traffic_light")
                                 ? makeColor(1.0f, 1.0f, 0.0f)  // Yellow for traffic lights
                                 : makeColor(1.0f, 0.5f, 0.0f);  // Orange for signs
           auto tl_marker = createSphereMarker(
-            "traffic_lights", re_marker_id++, frame_id_, position, marker_color, traffic_light_radius_);
+            "traffic_lights", re_marker_id++, frame_id_, centroid, marker_color, traffic_light_radius_);
           tl_marker.header.stamp = stamp;
           reg_elem_marker_array.markers.push_back(tl_marker);
         }
@@ -356,16 +369,29 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
       if (show_reg_elem_labels_) {
         std::vector<geometry_msgs::msg::Point> component_positions;
 
-        // Collect refers_positions (traffic lights, signs)
-        for (size_t i = 0; i < reg_elem.refers_positions.size(); ++i) {
-          auto pos = reg_elem.refers_positions[i];
+        // Collect refers centroids (traffic lights, signs)
+        for (size_t i = 0; i < reg_elem.refers.size(); ++i) {
+          const auto & pts = reg_elem.refers[i].points;
+          if (pts.empty()) continue;
+          geometry_msgs::msg::Point pos;
+          pos.x = 0.0;
+          pos.y = 0.0;
+          pos.z = 0.0;
+          for (const auto & pt : pts) {
+            pos.x += pt.x;
+            pos.y += pt.y;
+            pos.z += pt.z;
+          }
+          pos.x /= static_cast<double>(pts.size());
+          pos.y /= static_cast<double>(pts.size());
+          pos.z /= static_cast<double>(pts.size());
           pos.z += 0.5;
           component_positions.push_back(pos);
         }
 
-        // Collect ref_lines (stop lines)
+        // Collect ref_lines centroids (stop lines)
         for (size_t i = 0; i < reg_elem.ref_lines.size(); ++i) {
-          const auto & pts = reg_elem.ref_lines[i].points;
+          const auto & pts = reg_elem.ref_lines[i].way.points;
           if (pts.empty()) continue;
           geometry_msgs::msg::Point mid;
           mid.x = 0.0;
@@ -395,8 +421,8 @@ void MapVizMarkersNode::mapVisualizationCallback(const lanelet_msgs::msg::MapVis
           auto label_pos = component_positions[ci];
           label_pos.z += 0.5;
           std::string label = "RE:" + std::to_string(reg_elem.id);
-          if (ci < reg_elem.refers_ids.size()) {
-            label += " W:" + std::to_string(reg_elem.refers_ids[ci]);
+          if (ci < reg_elem.refers.size()) {
+            label += " W:" + std::to_string(reg_elem.refers[ci].id);
           }
           auto re_label = createTextMarker(
             "reg_elem_ids", re_marker_id++, frame_id_, label_pos, label, makeColor(1.0f, 1.0f, 0.0f, 0.9f), 0.4);

@@ -7,27 +7,31 @@
           out_next_lanelet="{target_lanelet}" />
         <Fallback name="Lane Transition Handling">
           <Sequence name="Handle SUCCESSOR Transition">
-            <IsLaneTransition transition="{upcoming_lane_transition}" expected="SUCCESSOR" />
+            <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="SUCCESSOR" />
             <ExecuteBehaviour
               behaviour="follow route"
               preferred_lanelet_ids="{global_route_lanelet_ids}"
-              topic_name="/execute_behaviour" />
+              topic_name="execute_behaviour" />
           </Sequence>
 
           <Sequence name="Handle RIGHT Transition">
-            <IsLaneTransition transition="{upcoming_lane_transition}" expected="RIGHT" />
+            <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="RIGHT" />
 
-            <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
-              transition="{upcoming_lane_transition}"
+              lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
+
+            <GetAreaOccupancy
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              service_name="/world_modeling/get_area_occupancy" />
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{@area_occupancy.snapshot}" />
+              areas="{lane_nav.area_occupancy_areas}"
+              left_lane_change_areas="{@bt.left_lane_change_areas}"
+              right_lane_change_areas="{@bt.right_lane_change_areas}" />
 
-            <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
-              planner -->
             <GetLaneChangePreferredLanelets
               lane_ctx="{@current_lane_ctx}"
               target_lanelet="{target_lanelet}"
@@ -35,23 +39,27 @@
             <ExecuteBehaviour
               behaviour="lane change right"
               preferred_lanelet_ids="{right_lane_change_preferred_lanelet_ids}"
-              topic_name="/execute_behaviour" />
+              topic_name="execute_behaviour" />
           </Sequence>
 
           <Sequence name="Handle LEFT Transition">
-            <IsLaneTransition transition="{upcoming_lane_transition}" expected="LEFT" />
+            <IsLaneTransition lane_transition="{upcoming_lane_transition}" expected="LEFT" />
 
-            <!-- Is the lane change valid and safe? -->
             <ValidLaneChange
-              transition="{upcoming_lane_transition}"
+              lane_transition="{upcoming_lane_transition}"
               lane_ctx="{@current_lane_ctx}" />
+
+            <GetAreaOccupancy
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              service_name="/world_modeling/get_area_occupancy" />
 
             <SafeLaneChange
               lane_transition="{upcoming_lane_transition}"
-              area_occupancy_snapshot="{@area_occupancy.snapshot}" />
+              areas="{lane_nav.area_occupancy_areas}"
+              left_lane_change_areas="{@bt.left_lane_change_areas}"
+              right_lane_change_areas="{@bt.right_lane_change_areas}" />
 
-            <!-- If the lane change is valid, build the preferred lanelet IDs for the lattice
-              planner -->
             <GetLaneChangePreferredLanelets
               lane_ctx="{@current_lane_ctx}"
               target_lanelet="{target_lanelet}"
@@ -59,7 +67,7 @@
             <ExecuteBehaviour
               behaviour="lane change left"
               preferred_lanelet_ids="{left_lane_change_preferred_lanelet_ids}"
-              topic_name="/execute_behaviour" />
+              topic_name="execute_behaviour" />
           </Sequence>
 
         </Fallback>
@@ -71,7 +79,7 @@
         <ExecuteBehaviour
           behaviour="follow lane"
           preferred_lanelet_ids="{follow_lane_preferred_lanelet_ids}"
-          topic_name="/execute_behaviour" />
+          topic_name="execute_behaviour" />
       </Sequence>
     </Fallback>
   </BehaviorTree>

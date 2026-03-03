@@ -472,16 +472,16 @@ class LidarPublisherNode(LifecycleNode):
             )
 
             t = tf.transform.translation
-            x, y, z = t.x, t.y, t.z
-
             q = tf.transform.rotation
             roll, pitch, yaw = quaternion_to_euler(q.x, q.y, q.z, q.w)
 
+            # Convert ROS (right-handed, FLU) to CARLA (left-handed, FRU):
+            # Y axis is flipped, so negate y, pitch, and yaw
             return carla.Transform(
-                carla.Location(x=x, y=y, z=z),
+                carla.Location(x=t.x, y=-t.y, z=t.z),
                 carla.Rotation(
-                    pitch=math.degrees(pitch),
-                    yaw=math.degrees(yaw),
+                    pitch=-math.degrees(pitch),
+                    yaw=-math.degrees(yaw),
                     roll=math.degrees(roll),
                 ),
             )

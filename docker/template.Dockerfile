@@ -84,7 +84,8 @@ RUN apt-get update && \
     wget \
     htop \
     nano \
-    tree
+    tree \
+    can-utils
 
 # Set user in container to developer's user
 # hadolint ignore=SC2086
