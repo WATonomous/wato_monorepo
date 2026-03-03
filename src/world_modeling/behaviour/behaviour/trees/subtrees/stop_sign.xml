@@ -11,16 +11,19 @@
                 pose="{stop_sign.stop_line_pose}"
                 error_message="{get_stop_line_pose_error_msg}" />
 
-            <SpawnWall
-                pose="{stop_sign.stop_line_pose}"
-                tf_buffer="{@tf_buffer}"
-                pose_frame="{@map_frame}"
-                width="{@bt.intersection_wall_of_doom_width}"
-                length="{@bt.intersection_wall_of_doom_length}"
-                wall_id="{stop_sign.wall_id}"
-                error_message="{spawn_wall_error_msg}"
-                service_name="/world_modeling/spawn_wall"
-            />
+            <!-- only spawn if not already spawned -->
+            <Fallback name="SpawnIfNeeded">
+                <WallIdExist wall_id="{stop_sign.wall_id}" />
+                <SpawnWall
+                    pose="{stop_sign.stop_line_pose}"
+                    tf_buffer="{@tf_buffer}"
+                    pose_frame="{@map_frame}"
+                    width="{@bt.intersection_wall_of_doom_width}"
+                    length="{@bt.intersection_wall_of_doom_length}"
+                    wall_id="{stop_sign.wall_id}"
+                    error_message="{spawn_wall_error_msg}"
+                    service_name="/world_modeling/spawn_wall" />
+            </Fallback>
 
             <EgoStopped ego_odom="{ego_odom}"
                 threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
@@ -33,10 +36,14 @@
                     error_message="{get_lanelets_by_reg_elem_error_msg}"
                     service_name="/world_modeling/get_lanelets_by_reg_elem" />
 
-                <GetWorldObjects
+                <!-- <GetWorldObjects
                     objects="{stop_sign.objects}"
                     error_message="{get_objects_error_msg}"
-                    service_name="/world_modeling/get_world_objects_enriched" />
+                    service_name="/world_modeling/get_world_objects_enriched" /> -->
+                <GetWorldObjectsSub
+                    objects="{stop_sign.objects}"
+                    error_message="{get_objects_error_msg}"
+                    topic_name="/world_modeling/world_objects_enriched" />
 
                 <GetStopSignCars
                     stop_sign="{active_traffic_control_element}"
@@ -57,11 +64,17 @@
                     current_ids="{stop_sign.current_ids}" />
             </ReactiveSequence>
 
-            <!-- despawn wall after proceed condition passes -->
-            <DespawnWall
-                wall_id="{stop_sign.wall_id}"
-                error_message="{despawn_wall_error_msg}"
-                service_name="/world_modeling/despawn_wall" />
+            <!-- despawn wall if exists -->
+            <Fallback name="DespawnIfNeeded">
+                <Inverter>
+                    <WallIdExist wall_id="{stop_sign.wall_id}" />
+                </Inverter>
+                <DespawnWall
+                    wall_id="{stop_sign.wall_id}"
+                    out_wall_id="{stop_sign.wall_id}"
+                    error_message="{despawn_wall_error_msg}"
+                    service_name="/world_modeling/despawn_wall" />
+            </Fallback>
 
             <ClearStopSignPriorityCarsAction
                 priority_car_ids="{stop_sign.priority_ids}"

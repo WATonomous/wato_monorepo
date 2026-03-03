@@ -150,7 +150,7 @@ On launch the behaviour tree will be expecting a goal point published to the top
 It could achieved by using a ros command:
 
 ```sh
-ros2 topic pub --once /goal_point geometry_msgs/msg/Point "{x: 1.0, y: 2.0, z: 0.0}"
+ros2 topic pub --once /goal_point geometry_msgs/msg/PointStamped "{header: {frame_id: 'map'}, point: {x: 1.0, y: 2.0, z: 0.0}}"
 ```
 
 or using the publish panel on Foxglove.

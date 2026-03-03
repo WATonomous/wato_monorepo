@@ -21,7 +21,7 @@
 #include <string>
 
 #include "behaviour/utils/ports.hpp"
-#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 
 namespace behaviour
 {
@@ -38,7 +38,7 @@ public:
 
   static BT::PortsList providedPorts()
   {
-    return {BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point")};
+    return {BT::InputPort<geometry_msgs::msg::PointStamped::SharedPtr>("goal_point")};
   }
 
   BT::NodeStatus tick() override
@@ -47,7 +47,7 @@ public:
       std::cout << "[GoalExist]: Missing " << port_name << " input" << std::endl;
     };
 
-    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    auto gp = ports::tryGetPtr<geometry_msgs::msg::PointStamped>(*this, "goal_point");
     if (!ports::require(gp, "goal_point", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
