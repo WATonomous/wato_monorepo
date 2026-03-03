@@ -22,7 +22,7 @@ launch:
 
   - arg:
       name: bond_enabled
-      default: "true"
+      default: "false"
       description: Enable bond-based crash detection
 
   # Freeroam Planner
