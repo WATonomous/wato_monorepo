@@ -1,8 +1,8 @@
 <library path="eidos_plugins">
-  <class name="eidos::LidarKEPFactor"
-         type="eidos::LidarKEPFactor"
+  <class name="eidos::LidarGICPFactor"
+         type="eidos::LidarGICPFactor"
          base_class_type="eidos::FactorPlugin">
-    <description>LiDAR Keyframe-based Edge-Plane factor. Performs deskewing, feature extraction, scan-to-map matching, and provides odometry BetweenFactor constraints.</description>
+    <description>LiDAR GICP factor. Scan-to-submap GICP registration via small_gicp, provides odometry BetweenFactor constraints.</description>
   </class>
   <class name="eidos::ImuIntegrationFactor"
          type="eidos::ImuIntegrationFactor"

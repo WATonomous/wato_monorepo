@@ -36,7 +36,7 @@ void EuclideanDistanceLoopClosureFactor::onInitialize() {
   node_->declare_parameter(prefix + ".search_num", 25);
   node_->declare_parameter(prefix + ".fitness_score", 0.3);
   node_->declare_parameter(prefix + ".mapping_surf_leaf_size", 0.4);
-  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_kep_factor");
+  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_gicp_factor");
 
   // ---- Read parameters ----
   node_->get_parameter(prefix + ".frequency", frequency_);

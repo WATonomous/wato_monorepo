@@ -25,7 +25,7 @@ eidos_node:
     # ---- Factor plugins (order = processFrame priority) ----
     factor_plugins:
       - "imu_integration_factor"
-      - "lidar_kep_factor"
+      - "lidar_gicp_factor"
       - "gps_factor"
       - "euclidean_distance_loop_closure_factor"
 
@@ -86,56 +86,47 @@ eidos_node:
       imu_frame: "imu_link"            # IMU-to-base_link extrinsic is looked up from TF (base_link <- imu_frame)
 
     # ==========================================================================
-    # LiDAR Keyframe Edge-Plane Factor
+    # LiDAR GICP Factor
     #
-    # Point cloud deskewing, range image projection, LOAM-style feature
-    # extraction, scan-to-map matching, BetweenFactor odometry constraints.
+    # Two-step registration (DLO-style):
+    #   1. Scan-to-scan GICP for fast frame-to-frame motion estimate
+    #   2. Scan-to-map GICP for drift correction against the local submap
+    # Accepts pre-deskewed PointCloud2.
     # ==========================================================================
-    lidar_kep_factor:
-      plugin: "eidos::LidarKEPFactor"
+    lidar_gicp_factor:
+      plugin: "eidos::LidarGICPFactor"
 
       # -- Topics --
-      point_cloud_topic: "points_raw"                                        # sensor_msgs/PointCloud2 input
-      imu_topic: "imu/data"                                                  # sensor_msgs/Imu input (for deskewing)
-      imu_odom_topic: "imu_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (initial guess from IMU)
-      odom_topic: "lidar_kep_factor/odometry"                                # nav_msgs/Odometry output
-      deskewed_cloud_topic: "lidar_kep_factor/deskewed_cloud"                # sensor_msgs/PointCloud2 output
+      point_cloud_topic: "points_raw"                                        # sensor_msgs/PointCloud2 input (pre-deskewed)
+      imu_odom_topic: "imu_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (twist for initial guess)
+      odom_topic: "lidar_gicp_factor/odometry"                               # nav_msgs/Odometry output (incremental, consumed by slam_core odom_input)
+      odom_global_topic: "lidar_gicp_factor/odometry/global"                  # nav_msgs/Odometry output (global, diagnostics — may hop on correction)
 
-      # -- Sensor configuration --
-      sensor_type: "velodyne"       # "velodyne", "ouster", or "livox"
-      n_scan: 32                    # number of scan rings
-      horizon_scan: 1800            # number of horizontal scan columns
+      # -- Range filter --
       min_range: 1.0                # meters, discard points closer than this
       max_range: 100.0              # meters, discard points farther than this
-      ring_flag: 0                  # 0=auto-detect, 1=use ring field, 2=compute from vertical angle
-      deskew_flag: 0                # 0=auto-detect, 1=use time field for motion compensation
 
-      # -- Feature extraction --
-      edge_threshold: 1.0           # curvature threshold for edge/corner features
-      surf_threshold: 0.1           # curvature threshold for surface features
-      occlusion_depth_diff: 0.3     # meters, depth difference to mark occluded points
-      parallel_beam_ratio: 0.02     # ratio of range diff / range to mark parallel beam points
+      # -- Downsampling --
+      scan_leaf_size: 0.5           # scan preprocessing (shared by s2s and s2m source)
+      submap_leaf_size: 0.4         # submap target downsampling for s2m
+      num_threads: 4                # threads for small_gicp (shared by s2s and s2m)
 
-      # -- Downsampling (voxel grid leaf sizes in meters) --
-      odom_surf_leaf_size: 0.4      # surface features per-scan downsampling
-      mapping_corner_leaf_size: 0.2 # corner map downsampling
-      mapping_surf_leaf_size: 0.4   # surface map downsampling
+      # -- Scan-to-scan GICP (frame-to-frame) --
+      s2s_max_iterations: 10                  # fewer iterations needed (small motion)
+      s2s_max_correspondence_distance: 1.0    # tighter search (motion is small between frames)
+
+      # -- Scan-to-map GICP (drift correction) --
+      s2m_max_iterations: 30                  # more iterations for accuracy
+      s2m_max_correspondence_distance: 2.0    # wider search against submap
 
       # -- Local map building --
       keyframe_search_radius: 50.0  # meters, radius to search for nearby keyframes
-      keyframe_density: 2.0         # meters, voxel size for downsampling nearby keyframe poses
+      keyframe_density: 2.0         # meters, spatial thinning for older keyframes
       recent_keyframe_window: 10.0  # seconds, always include keyframes within this time window
       map_cache_max_size: 1000      # max cached transformed keyframe clouds before clearing
 
-      # -- Odometry noise (BetweenFactor variances) --
-      odom_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]  # [r, p, y, x, y, z] odometry between-factor covariance
-
-      # -- IMU deskewing timing --
-      imu_time_margin: 0.01        # seconds, margin for pruning IMU messages around scan boundaries
-
-      # -- Frame names --
-      lidar_frame: "lidar_link"
-      imu_frame: "imu_link"            # IMU-to-lidar extrinsic is looked up from TF (lidar_frame <- imu_frame)
+      # -- Odometry noise (BetweenFactor fallback variances) --
+      odom_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]  # [r, p, y, x, y, z] used when GICP info matrix unavailable
 
     # ==========================================================================
     # GPS Factor
@@ -175,7 +166,7 @@ eidos_node:
       search_time_diff: 30.0        # seconds, minimum time gap between current and candidate keyframe
       search_num: 25                # number of nearby keyframes to assemble into candidate submap
       fitness_score: 0.3            # max ICP fitness score to accept a loop closure
-      pointcloud_from: "lidar_kep_factor"  # which factor plugin provides the keyframe point clouds
+      pointcloud_from: "lidar_gicp_factor"  # which factor plugin provides the keyframe point clouds
 
     # ==========================================================================
     # GPS + ICP Relocalization
@@ -192,7 +183,7 @@ eidos_node:
       submap_leaf_size: 0.4         # meters, voxel downsampling for the assembled prior submap
       max_correspondence_distance: 2.0  # meters, max point correspondence distance for ICP
       num_threads: 4                # number of threads for small_gicp ICP
-      pointcloud_from: "lidar_kep_factor"  # which factor plugin provides keyframe point clouds
+      pointcloud_from: "lidar_gicp_factor"  # which factor plugin provides keyframe point clouds
       gps_from: "gps_factor"        # which factor plugin provides GPS keyframe positions
 
     # ==========================================================================
@@ -203,7 +194,7 @@ eidos_node:
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"
       topic: "slam/visualization/map"
-      pointcloud_from: "lidar_kep_factor"
+      pointcloud_from: "lidar_gicp_factor"
       voxel_leaf_size: 0.4
       publish_rate: 1.0
 

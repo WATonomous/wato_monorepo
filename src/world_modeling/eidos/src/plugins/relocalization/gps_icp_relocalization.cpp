@@ -31,7 +31,7 @@ void GpsIcpRelocalization::onInitialize() {
   node_->declare_parameter(prefix + ".submap_leaf_size", 0.4);
   node_->declare_parameter(prefix + ".max_correspondence_distance", 2.0);
   node_->declare_parameter(prefix + ".num_threads", 4);
-  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_kep_factor");
+  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_gicp_factor");
   node_->declare_parameter(prefix + ".gps_from", "gps_factor");
 
   // ---- Read parameters ----

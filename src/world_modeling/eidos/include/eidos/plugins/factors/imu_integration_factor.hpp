@@ -84,10 +84,6 @@ private:
   // ---- IMU extrinsics ----
   sensor_msgs::msg::Imu imuConverter(const sensor_msgs::msg::Imu& imu_in);
 
-  // ---- Failure detection ----
-  bool failureDetection(const gtsam::Vector3& vel,
-                        const gtsam::imuBias::ConstantBias& bias);
-
   // ---- Subscription ----
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
 
@@ -153,8 +149,6 @@ private:
   std::vector<double> prior_bias_cov_;      // [ax, ay, az, gx, gy, gz]
   std::vector<double> attitude_prior_cov_;  // [pitch, roll]
   bool use_attitude_prior_;
-  double max_velocity_;
-  double max_bias_norm_;
   double default_imu_dt_;
   double quaternion_norm_threshold_;
   double stationary_acc_threshold_;

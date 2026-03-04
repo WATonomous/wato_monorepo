@@ -68,7 +68,7 @@ private:
   int search_num_;
   float fitness_score_;
   float mapping_surf_leaf_size_;
-  std::string pointcloud_from_ = "lidar_kep_factor";
+  std::string pointcloud_from_ = "lidar_gicp_factor";
 };
 
 }  // namespace eidos

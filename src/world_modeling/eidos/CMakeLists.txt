@@ -25,7 +25,6 @@ find_package(visualization_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 
 find_package(PCL REQUIRED)
-find_package(OpenCV REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(GTSAM_UNSTABLE REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -38,13 +37,11 @@ add_library(eidos_core SHARED
   src/slam_core.cpp
   src/pose_graph.cpp
   src/map_manager.cpp
-  src/scan_matcher.cpp
 )
 target_include_directories(eidos_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
   ${GTSAM_INCLUDE_DIR}
   ${EIGEN3_INCLUDE_DIR}
   ${pcl_conversions_INCLUDE_DIRS}
@@ -61,7 +58,6 @@ target_link_libraries(eidos_core PUBLIC
   ${eidos_msgs_TARGETS}
   pluginlib::pluginlib
   ${PCL_LIBRARIES}
-  ${OpenCV_LIBRARIES}
   gtsam
   gtsam_unstable
   OpenMP::OpenMP_CXX
@@ -69,7 +65,7 @@ target_link_libraries(eidos_core PUBLIC
 
 # ---- Plugin library ----
 add_library(eidos_plugins SHARED
-  src/plugins/factors/lidar_kep_factor.cpp
+  src/plugins/factors/lidar_gicp_factor.cpp
   src/plugins/factors/imu_integration_factor.cpp
   src/plugins/factors/gps_factor.cpp
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
@@ -148,11 +144,6 @@ if(BUILD_TESTING)
       eidos_core
   )
 
-  add_wato_test(test_scan_matcher
-    test/test_scan_matcher.cpp
-    LIBRARIES
-      eidos_core
-  )
 endif()
 
 # ---- Export ----

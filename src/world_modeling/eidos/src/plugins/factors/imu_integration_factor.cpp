@@ -66,8 +66,6 @@ void ImuIntegrationFactor::onInitialize() {
   node_->declare_parameter(prefix + ".attitude_prior_cov",
       std::vector<double>{1e-2, 1e-2});
   node_->declare_parameter(prefix + ".use_attitude_prior", true);
-  node_->declare_parameter(prefix + ".max_velocity", 30.0);
-  node_->declare_parameter(prefix + ".max_bias_norm", 1.0);
   node_->declare_parameter(prefix + ".default_imu_dt", 1.0 / 500.0);
   node_->declare_parameter(prefix + ".quaternion_norm_threshold", 0.1);
   node_->declare_parameter(prefix + ".stationary_acc_threshold", 0.05);
@@ -89,8 +87,6 @@ void ImuIntegrationFactor::onInitialize() {
   node_->get_parameter(prefix + ".prior_bias_cov", prior_bias_cov_);
   node_->get_parameter(prefix + ".attitude_prior_cov", attitude_prior_cov_);
   node_->get_parameter(prefix + ".use_attitude_prior", use_attitude_prior_);
-  node_->get_parameter(prefix + ".max_velocity", max_velocity_);
-  node_->get_parameter(prefix + ".max_bias_norm", max_bias_norm_);
   node_->get_parameter(prefix + ".default_imu_dt", default_imu_dt_);
   node_->get_parameter(prefix + ".quaternion_norm_threshold", quaternion_norm_threshold_);
   node_->get_parameter(prefix + ".stationary_acc_threshold", stationary_acc_threshold_);
@@ -253,30 +249,6 @@ void ImuIntegrationFactor::reset() {
   last_imu_t_opt_ = -1;
   initialized_ = false;
   has_imu_pose_ = false;
-}
-
-bool ImuIntegrationFactor::failureDetection(
-    const gtsam::Vector3& vel,
-    const gtsam::imuBias::ConstantBias& bias) {
-  Eigen::Vector3f v(vel.x(), vel.y(), vel.z());
-  if (v.norm() > max_velocity_) {
-    RCLCPP_WARN(node_->get_logger(),
-                "[%s] Large velocity (%.1f m/s), reset IMU-preintegration!",
-                name_.c_str(), static_cast<double>(v.norm()));
-    return true;
-  }
-
-  Eigen::Vector3f ba(bias.accelerometer().x(), bias.accelerometer().y(),
-                     bias.accelerometer().z());
-  Eigen::Vector3f bg(bias.gyroscope().x(), bias.gyroscope().y(),
-                     bias.gyroscope().z());
-  if (ba.norm() > max_bias_norm_ || bg.norm() > max_bias_norm_) {
-    RCLCPP_WARN(node_->get_logger(),
-                "[%s] Large bias, reset IMU-preintegration!", name_.c_str());
-    return true;
-  }
-
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -544,24 +516,6 @@ void ImuIntegrationFactor::onOptimizationComplete(
 
   // Reset optimization integrator with updated bias
   imu_integrator_opt_->resetIntegrationAndSetBias(prev_bias_);
-
-  // Failure detection
-  if (failureDetection(prev_vel_, prev_bias_)) {
-    imu_integrator_opt_->resetIntegrationAndSetBias(
-        gtsam::imuBias::ConstantBias());
-    imu_integrator_imu_->resetIntegrationAndSetBias(
-        gtsam::imuBias::ConstantBias());
-    prev_state_ = gtsam::NavState();
-    prev_vel_ = gtsam::Vector3::Zero();
-    prev_bias_ = gtsam::imuBias::ConstantBias();
-    prev_state_odom_ = gtsam::NavState();
-    prev_bias_odom_ = gtsam::imuBias::ConstantBias();
-    initialized_ = false;
-    has_imu_pose_ = false;
-    last_imu_t_imu_ = -1;
-    last_imu_t_opt_ = -1;
-    return;
-  }
 
   // Store graph correction for fused odometry
   double correction_time = getCorrectionTime();

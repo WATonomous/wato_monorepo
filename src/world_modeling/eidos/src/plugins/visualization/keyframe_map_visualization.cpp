@@ -13,7 +13,7 @@ void KeyframeMapVisualization::onInitialize() {
   std::string prefix = name_;
 
   node_->declare_parameter(prefix + ".topic", "slam/visualization/map");
-  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_kep_factor");
+  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_gicp_factor");
   node_->declare_parameter(prefix + ".voxel_leaf_size", 0.4);
   node_->declare_parameter(prefix + ".publish_rate", 1.0);
 
