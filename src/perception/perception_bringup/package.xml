@@ -7,19 +7,14 @@
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
-  <!-- To enable Shared Memory IPC -->
-  <depend>rmw_zenoh_cpp</depend>
-
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- Launched nodes and component container (zero-copy is intra-process in container) -->
+  <exec_depend>rmw_zenoh_cpp</exec_depend>
   <exec_depend>patchworkpp</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
-
-  <!-- Component container for perception nodes -->
   <exec_depend>rclcpp_components</exec_depend>
-  <!-- Camera drivers reused from sensor_interfacing -->
   <exec_depend>sensor_interfacing</exec_depend>
-  <!-- Camera sync and deep object detection (composable, loaded into shared container) -->
   <exec_depend>camera_sync</exec_depend>
   <exec_depend>deep_object_detection</exec_depend>
   <exec_depend>nav2_lifecycle_manager</exec_depend>
