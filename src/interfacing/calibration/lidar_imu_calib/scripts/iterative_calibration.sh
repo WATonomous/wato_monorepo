@@ -57,7 +57,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-for i in $(seq 1 $NUM_ITERATIONS); do
+for i in $(seq 1 "$NUM_ITERATIONS"); do
     echo "============================================"
     echo "  Iteration $i / $NUM_ITERATIONS"
     echo "  Input RPY: $RPY_R $RPY_P $RPY_Y"
@@ -65,8 +65,8 @@ for i in $(seq 1 $NUM_ITERATIONS); do
     echo "============================================"
 
     # Update yaml with current values
-    sed -i "s|init_rpy_LI: \[.*\]|init_rpy_LI: [ $RPY_R, $RPY_P, $RPY_Y ]|" "$YAML_FILE"
-    sed -i "s|init_xyz_LI: \[.*\]|init_xyz_LI: [ $XYZ_X, $XYZ_Y, $XYZ_Z ]|" "$YAML_FILE"
+    sed -i "s|init_rpy_LI: \[.*\]|init_rpy_LI: [$RPY_R, $RPY_P, $RPY_Y]|" "$YAML_FILE"
+    sed -i "s|init_xyz_LI: \[.*\]|init_xyz_LI: [$XYZ_X, $XYZ_Y, $XYZ_Z]|" "$YAML_FILE"
     sed -i "s|init_time_lag: .*|init_time_lag: $TIME_LAG|" "$YAML_FILE"
 
     LOG_FILE="$LOG_DIR/iteration_${i}.log"
@@ -86,7 +86,7 @@ for i in $(seq 1 $NUM_ITERATIONS); do
 
     # Play all bag files at 0.75x speed so node can keep up
     for bag in "${BAG_FILES[@]}"; do
-        ros2 bag play "$bag" --rate 0.75 --topics $TOPICS 2>/dev/null
+        ros2 bag play "$bag" --rate 0.75 --topics "$TOPICS" 2>/dev/null
     done
 
     # Wait for node to finish processing buffered data

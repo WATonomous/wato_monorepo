@@ -12,29 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <LI_init/LI_init.h>
 #include <omp.h>
-#include <unistd.h>
-
-#include <rclcpp/qos.hpp>
-
-#include "IMU_Processing.hpp"
-#include "rclcpp/rclcpp.hpp"
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2/transform_datatypes.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <unistd.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <deque>
 #include <Eigen/Core>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <rclcpp/qos.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <LI_init/LI_init.h>
 
-#include "preprocess.h"
+#include "IMU_Processing.hpp"  // NOLINT(build/include_subdir)
+#include "preprocess.h"  // NOLINT(build/include_subdir)
+#include "rclcpp/rclcpp.hpp"
 
 #include <ikd-Tree/ikd_Tree.h>
 
@@ -51,8 +55,8 @@ mutex mtx_buffer;
 condition_variable sig_buffer;
 
 // string root_dir = ament_index_cpp::get_package_share_directory("lidar_imu_calib2");
-string root_dir = ROOT_DIR;
-string map_file_path, lid_topic, imu_topic;
+string root_dir = ROOT_DIR;  // NOLINT(runtime/string)
+string map_file_path, lid_topic, imu_topic;  // NOLINT(runtime/string)
 
 int iterCount = 0, feats_down_size = 0, NUM_MAX_ITERATIONS = 0, laserCloudValidNum = 0, effect_feat_num = 0,
     scan_count = 0, publish_count = 0;
@@ -129,7 +133,7 @@ StatesGroup state;
 
 PointCloudXYZI::Ptr pcl_wait_save(new PointCloudXYZI());
 pcl::PCDWriter pcd_writer;
-string all_points_dir;
+string all_points_dir;  // NOLINT(runtime/string)
 
 nav_msgs::msg::Path path;
 nav_msgs::msg::Odometry odomAftMapped;
@@ -262,7 +266,7 @@ void lasermap_fov_segment()
   BoxPointType New_LocalMap_Points, tmp_boxpoints;
   New_LocalMap_Points = LocalMap_Points;
   float mov_dist =
-    max((cube_len - 2.0 * MOV_THRESHOLD * DET_RANGE) * 0.5 * 0.9, double(DET_RANGE * (MOV_THRESHOLD - 1)));
+    max((cube_len - 2.0 * MOV_THRESHOLD * DET_RANGE) * 0.5 * 0.9, static_cast<double>(DET_RANGE * (MOV_THRESHOLD - 1)));
   for (int i = 0; i < 3; i++) {
     tmp_boxpoints = LocalMap_Points;
     if (dist_to_map_edge[i][0] <= MOV_THRESHOLD * DET_RANGE) {
@@ -300,15 +304,14 @@ void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2 & msg)
     printf("Self sync IMU and LiDAR, HARD time lag is %.10lf \n \n", timediff_imu_wrt_lidar);
   }
 
-  if (cut_frame)
-  {
+  if (cut_frame) {
     deque<PointCloudXYZI::Ptr> ptr;
     deque<double> timestamp_lidar;
     p_pre->process_cut_frame_pcl2(msg, ptr, timestamp_lidar, cut_frame_num, scan_count);
     while (!ptr.empty() && !timestamp_lidar.empty()) {
       lidar_buffer.push_back(ptr.front());
       ptr.pop_front();
-      time_buffer.push_back(timestamp_lidar.front() / double(1000));  // unit:s
+      time_buffer.push_back(timestamp_lidar.front() / static_cast<double>(1000));  // unit:s
       timestamp_lidar.pop_front();
     }
   } else {
@@ -370,7 +373,7 @@ void imu_cbk(const sensor_msgs::msg::Imu::ConstSharedPtr msg_raw)
 
   sensor_msgs::msg::Imu::SharedPtr msg(new sensor_msgs::msg::Imu(msg_in));
 
-  //IMU Time Compensation
+  // IMU Time Compensation
   msg->header.stamp = get_ros_time(get_time_sec(msg->header.stamp) - timediff_imu_wrt_lidar - time_lag_IMU_wtr_lidar);
 
   double timestamp = get_time_sec(msg->header.stamp);
@@ -411,7 +414,7 @@ bool sync_packages(MeasureGroup & meas)
 
     meas.lidar_beg_time = time_buffer.front();  // unit:s
 
-    lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000);  // unit:s
+    lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / static_cast<double>(1000);  // unit:s
 
     lidar_pushed = true;
   }
@@ -450,7 +453,7 @@ bool sync_packages_only_lidar(MeasureGroup & meas)
 
     meas.lidar_beg_time = time_buffer.front();  // unit:s
 
-    lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000);  // unit:s
+    lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / static_cast<double>(1000);  // unit:s
 
     lidar_pushed = true;
   }
@@ -712,8 +715,8 @@ void print_refine_result()
 
 void printProgress(double percentage)
 {
-  int val = (int)(percentage * 100);
-  int lpad = (int)(percentage * PBWIDTH);
+  int val = static_cast<int>(percentage * 100);
+  int lpad = static_cast<int>(percentage * PBWIDTH);
   int rpad = PBWIDTH - lpad;
   printf("\033[1A\r");
   printf(BOLDMAGENTA "[Refinement] ");
@@ -732,7 +735,7 @@ void printProgress(double percentage)
 class LaserMappingNode : public rclcpp::Node
 {
 public:
-  LaserMappingNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
+  explicit LaserMappingNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
   : Node("laser_mapping", options)
   {
     // Get parameters with default values
@@ -1029,7 +1032,7 @@ void LaserMappingNode::timer_callback()
         point_selected_surf[i] = false;
         VD(4) pabcd;
         pabcd.setZero();
-        if (esti_plane(pabcd, points_near, 0.1))  //(planeValid)
+        if (esti_plane(pabcd, points_near, 0.1))  // (planeValid)
         {
           float pd2 = pabcd(0) * point_world.x + pabcd(1) * point_world.y + pabcd(2) * point_world.z + pabcd(3);
           float s = 1 - 0.9 * fabs(pd2) / sqrt(p_body.norm());
