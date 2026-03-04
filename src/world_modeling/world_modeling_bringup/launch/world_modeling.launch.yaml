@@ -25,6 +25,7 @@ launch:
       default: $(find-pkg-share eidos)/config/params.yaml
       description: Path to the eidos SLAM configuration file
 
+
   - arg:
       name: autostart
       default: "true"
@@ -268,6 +269,32 @@ launch:
       output: screen
       param:
         - from: $(var eidos_config_file)
+
+  # Localization: EKF Local (odom -> base_footprint)
+  - node:
+      pkg: robot_localization
+      exec: ekf_node
+      name: ekf_filter_node_local
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+      remap:
+        - from: odometry/filtered
+          to: /localization/odometry/filtered/local
+
+  # Localization: EKF Global (map -> odom)
+  - node:
+      pkg: robot_localization
+      exec: ekf_node
+      name: ekf_filter_node_global
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+      remap:
+        - from: odometry/filtered
+          to: /localization/odometry/filtered/global
 
   # Lifecycle Manager
   - node:

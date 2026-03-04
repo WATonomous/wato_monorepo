@@ -17,36 +17,51 @@
 #include <gtsam/navigation/NavState.h>
 #include <gtsam/navigation/ImuBias.h>
 
-#include "eidos/plugins/base_factor_plugin.hpp"
+#include "eidos/plugins/base_motion_model_plugin.hpp"
 #include "eidos/types.hpp"
 
 namespace eidos {
 
 /**
- * @brief IMU preintegration factor plugin.
+ * @brief IMU-based motion model plugin.
  *
- * Provides gtsam::ImuFactor directly to the main SLAM graph, which jointly
- * optimizes poses (X), velocities (V), and biases (B). High-rate IMU odometry
- * (forward propagation) is kept for inter-keyframe pose prediction and TF
- * publishing.
+ * Replaces the former ImuIntegrationFactor. Subscribes to IMU data,
+ * buffers measurements, and generates ImuFactor constraints between
+ * consecutive states via generateMotionModel().
+ *
+ * Also provides high-rate IMU odometry and the forward-propagated pose
+ * for displacement checks via getCurrentPose().
  */
-class ImuIntegrationFactor : public FactorPlugin {
+class ImuMotionModel : public MotionModelPlugin {
 public:
-  ImuIntegrationFactor() = default;
-  ~ImuIntegrationFactor() override = default;
+  ImuMotionModel() = default;
+  ~ImuMotionModel() override = default;
 
   void onInitialize() override;
   void activate() override;
   void deactivate() override;
   void reset() override;
 
-  std::optional<gtsam::Pose3> processFrame(double timestamp) override;
-  FactorResult getFactors(
-      int state_index, const gtsam::Pose3& state_pose, double timestamp) override;
+  void generateMotionModel(
+      gtsam::Key key_begin, double t_begin,
+      gtsam::Key key_end, double t_end,
+      gtsam::NonlinearFactorGraph& factors,
+      gtsam::Values& values) override;
+
+  void onStateZero(
+      gtsam::Key key, double timestamp,
+      const gtsam::Pose3& initial_pose,
+      gtsam::NonlinearFactorGraph& factors,
+      gtsam::Values& values) override;
+
   void onOptimizationComplete(
-      const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+      const gtsam::Values& optimized_values,
+      bool loop_closure_detected) override;
+
   bool isReady() const override;
   std::string getReadyStatus() const override;
+
+  std::optional<gtsam::Pose3> getCurrentPose() const override;
 
 private:
   // ---- Callbacks ----
@@ -57,20 +72,10 @@ private:
   extractMeasurement(const sensor_msgs::msg::Imu& msg);
   static bool isValidImuMessage(const sensor_msgs::msg::Imu& msg);
 
-  // ---- Integration helpers (caller must hold imu_lock_) ----
+  // ---- Integration helpers ----
   void drainAndIntegrate(
-      std::deque<sensor_msgs::msg::Imu>& queue,
       gtsam::PreintegratedImuMeasurements& integrator,
-      double cutoff_time, double& last_time);
-  void reintegrateQueue(
-      const std::deque<sensor_msgs::msg::Imu>& queue,
-      gtsam::PreintegratedImuMeasurements& integrator,
-      double last_time);
-
-  // ---- onOptimizationComplete sub-methods (caller must hold imu_lock_) ----
-  double getCorrectionTime() const;
-  void storeGraphCorrection(const gtsam::Pose3& graph_pose, double correction_time);
-  void repropagateBias();
+      double t_begin, double t_end);
 
   // ---- imuCallback sub-methods ----
   void updateStationaryDetection(const sensor_msgs::msg::Imu& imu_converted);
@@ -90,33 +95,31 @@ private:
   // ---- Publishers ----
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr imu_odom_incremental_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr imu_odom_fused_pub_;
+
   // ---- Transform fusion state ----
   Eigen::Isometry3d graph_odom_affine_ = Eigen::Isometry3d::Identity();
   double graph_odom_time_ = -1;
   std::deque<nav_msgs::msg::Odometry> imu_odom_queue_;
 
-  // ---- IMU buffers (two queues like LIO-SAM) ----
-  std::deque<sensor_msgs::msg::Imu> imu_queue_opt_;
+  // ---- IMU buffer (single queue for optimization) ----
+  std::deque<sensor_msgs::msg::Imu> imu_queue_;
+  // Separate queue for real-time prediction
   std::deque<sensor_msgs::msg::Imu> imu_queue_imu_;
   mutable std::mutex imu_lock_;
 
   // ---- Stationary detection ----
-  //  The callback maintains a sliding window and publishes computed RMS values.
-  //  isReady() / getReadyStatus() only read atomics — no lock needed.
-  std::deque<sensor_msgs::msg::Imu> stationary_buffer_;  // callback-only, no lock needed
+  std::deque<sensor_msgs::msg::Imu> stationary_buffer_;
   std::atomic<double> stationary_acc_rms_{0.0};
   std::atomic<double> stationary_gyr_rms_{0.0};
   std::atomic<int> stationary_count_{0};
 
-  // ---- GTSAM preintegration (two integrators like LIO-SAM) ----
+  // ---- GTSAM preintegration ----
   boost::shared_ptr<gtsam::PreintegrationParams> preint_params_;
-  std::unique_ptr<gtsam::PreintegratedImuMeasurements> imu_integrator_opt_;
   std::unique_ptr<gtsam::PreintegratedImuMeasurements> imu_integrator_imu_;
 
   // ---- Noise models ----
   gtsam::noiseModel::Diagonal::shared_ptr prior_vel_noise_;
   gtsam::noiseModel::Diagonal::shared_ptr prior_bias_noise_;
-  gtsam::noiseModel::Diagonal::shared_ptr attitude_noise_;
   gtsam::Vector noise_between_bias_;
 
   // ---- State ----
@@ -128,34 +131,38 @@ private:
   gtsam::NavState prev_state_odom_;
   gtsam::imuBias::ConstantBias prev_bias_odom_;
 
+  // Track the last key/timestamp we generated a motion model to
+  gtsam::Key last_generated_key_ = 0;
+  double last_generated_time_ = -1;
+
   double last_imu_t_imu_ = -1;
-  double last_imu_t_opt_ = -1;
   bool initialized_ = false;
   bool active_ = false;
 
-  // Latest IMU-predicted pose (for processFrame)
+  // Latest IMU-predicted pose (for getCurrentPose)
   gtsam::Pose3 latest_imu_pose_;
   bool has_imu_pose_ = false;
-  std::mutex imu_pose_lock_;
+  mutable std::mutex imu_pose_lock_;
 
-  // ---- Parameters (populated from ROS params in onInitialize) ----
-  // Covariance diagonals [x, y, z] — set directly in PreintegrationParams
-  std::vector<double> acc_cov_;          // accelerometer covariance diagonal
-  std::vector<double> gyr_cov_;          // gyroscope covariance diagonal
-  std::vector<double> bias_walk_cov_;    // bias random-walk covariance diagonal [ax, ay, az, gx, gy, gz]
-  std::vector<double> integration_cov_;  // preintegration position covariance diagonal
+  // ---- Parameters ----
+  std::vector<double> acc_cov_;
+  std::vector<double> gyr_cov_;
+  std::vector<double> bias_walk_cov_;
+  std::vector<double> integration_cov_;
   double gravity_;
-  std::vector<double> prior_vel_cov_;       // [vx, vy, vz]
-  std::vector<double> prior_bias_cov_;      // [ax, ay, az, gx, gy, gz]
-  std::vector<double> attitude_prior_cov_;  // [pitch, roll]
-  bool use_attitude_prior_;
+  std::vector<double> prior_vel_cov_;
+  std::vector<double> prior_bias_cov_;
   double default_imu_dt_;
   double quaternion_norm_threshold_;
   double stationary_acc_threshold_;
   double stationary_gyr_threshold_;
   int stationary_samples_;
 
-  // Cached static TF: imu_frame_ -> base_link_frame_ (looked up once in activate())
+  // Published odometry covariance diagonals [x, y, z, roll, pitch, yaw]
+  std::vector<double> odom_pose_cov_ = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+  std::vector<double> odom_twist_cov_ = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+
+  // Cached static TF
   geometry_msgs::msg::TransformStamped tf_imu_to_base_msg_;
   bool extrinsics_resolved_ = false;
 

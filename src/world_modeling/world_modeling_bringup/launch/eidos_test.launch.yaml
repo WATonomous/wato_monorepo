@@ -4,6 +4,7 @@ launch:
       default: $(find-pkg-share world_modeling_bringup)/config/eidos.yaml
       description: Path to the eidos parameter file
 
+
   # Just Eidos
   - node:
       pkg: eidos
@@ -14,6 +15,34 @@ launch:
         - from: $(var eidos_config_file)
         - name: use_sim_time
           value: true
+
+  # Localization: EKF Local (odom -> base_footprint)
+  - node:
+      pkg: robot_localization
+      exec: ekf_node
+      name: ekf_filter_node_local
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: true
+      remap:
+        - from: odometry/filtered
+          to: /localization/odometry/filtered/local
+
+  # Localization: EKF Global (map -> odom)
+  - node:
+      pkg: robot_localization
+      exec: ekf_node
+      name: ekf_filter_node_global
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: true
+      remap:
+        - from: odometry/filtered
+          to: /localization/odometry/filtered/global
 
   # Eve Robot Description
   - include:

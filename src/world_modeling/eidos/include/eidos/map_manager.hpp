@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <gtsam/inference/Key.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
@@ -27,6 +28,10 @@ namespace eidos {
  * Plugins register their data types at initialization time. Each type is
  * identified by a string key (convention: "plugin_name/data_name") and
  * paired with serialize/deserialize functions.
+ *
+ * Keyframes are indexed by gtsam::Key (from Symbol(plugin_index, keygroup)).
+ * The poses are stored both in PCL clouds (for efficient KD-tree queries)
+ * and in a key→cloud_index map for random access.
  */
 class MapManager {
 public:
@@ -39,78 +44,67 @@ public:
     std::function<std::any(const std::string& path)> deserialize;
   };
 
-  /// Register a keyframe data type with serialize/deserialize functions.
-  /// Called by plugins during onInitialize().
   void registerType(const std::string& key, TypeHandler handler);
-
-  /// Check if a type is registered.
   bool hasType(const std::string& key) const;
-
-  /// Get all registered keys for a given plugin name prefix.
-  /// e.g., getKeysForPlugin("lidar_kep_factor") returns
-  ///   ["lidar_kep_factor/corners", "lidar_kep_factor/surfaces"]
   std::vector<std::string> getKeysForPlugin(const std::string& plugin_name) const;
 
   // ---- Keyframe pose management ----
 
-  /// Add a keyframe (pose only). Plugins store their own data via addKeyframeData().
-  void addKeyframe(int index, const PoseType& pose);
+  /// Add a keyframe. The gtsam_key is used for random access; poses are
+  /// appended to the PCL clouds for KD-tree queries.
+  void addKeyframe(gtsam::Key gtsam_key, const PoseType& pose);
 
-  /// Update all keyframe poses after optimization.
+  /// Update all keyframe poses after optimization. Uses stored key→index map.
   void updatePoses(const gtsam::Values& optimized);
 
   pcl::PointCloud<PointType>::Ptr getKeyPoses3D() const;
   pcl::PointCloud<PoseType>::Ptr getKeyPoses6D() const;
   int numKeyframes() const;
 
+  /// Get ordered list of all GTSAM keys (insertion order).
+  std::vector<gtsam::Key> getKeyList() const;
+
+  /// Get the cloud index for a given GTSAM key (-1 if not found).
+  int getCloudIndex(gtsam::Key gtsam_key) const;
+
+  /// Get the GTSAM key for a given cloud index (0 if not found).
+  gtsam::Key getKeyFromCloudIndex(int cloud_index) const;
+
   // ---- Generic per-keyframe data storage ----
 
-  /// Store data for a keyframe under a registered key.
-  void addKeyframeData(int index, const std::string& key, std::any data);
-
-  /// Retrieve data for a keyframe under a key.
-  /// Returns std::nullopt if the key doesn't exist for this keyframe.
-  std::optional<std::any> getKeyframeData(int index, const std::string& key) const;
-
-  /// Retrieve all data for a keyframe from a specific plugin.
-  /// Returns a map of key -> data for all keys matching the plugin prefix.
+  void addKeyframeData(gtsam::Key gtsam_key, const std::string& key, std::any data);
+  std::optional<std::any> getKeyframeData(gtsam::Key gtsam_key, const std::string& key) const;
   std::unordered_map<std::string, std::any> getKeyframeDataForPlugin(
-      int index, const std::string& plugin_name) const;
+      gtsam::Key gtsam_key, const std::string& plugin_name) const;
 
   // ---- Global data storage ----
 
-  /// Register a global data type with serialize/deserialize functions.
   void registerGlobalType(const std::string& key, TypeHandler handler);
-
-  /// Store global data under a key.
   void setGlobalData(const std::string& key, std::any data);
-
-  /// Retrieve global data under a key.
   std::optional<std::any> getGlobalData(const std::string& key) const;
 
   // ---- Persistence ----
 
-  /// Save the map to disk.
   bool saveMap(const std::string& directory, float resolution,
                const gtsam::NonlinearFactorGraph& graph,
                const gtsam::Values& values);
-
-  /// Load a map from disk.
   bool loadMap(const std::string& directory);
-
-  /// Check if a prior map has been loaded.
   bool hasPriorMap() const;
 
 private:
-  // Poses
+  // Poses (PCL clouds for KD-tree + sequential access)
   pcl::PointCloud<PointType>::Ptr key_poses_3d_;
   pcl::PointCloud<PoseType>::Ptr key_poses_6d_;
+
+  // Key→cloud_index mapping for random access
+  std::map<gtsam::Key, int> key_to_cloud_index_;
+  std::vector<gtsam::Key> key_list_;  // insertion-ordered list of keys
 
   // Type registry: key -> handler
   std::unordered_map<std::string, TypeHandler> type_handlers_;
 
-  // Per-keyframe data: keyframe_index -> key -> data
-  std::vector<std::unordered_map<std::string, std::any>> keyframe_data_;
+  // Per-keyframe data: gtsam_key -> key -> data
+  std::map<gtsam::Key, std::unordered_map<std::string, std::any>> keyframe_data_;
 
   // Global data type registry and storage
   std::unordered_map<std::string, TypeHandler> global_type_handlers_;

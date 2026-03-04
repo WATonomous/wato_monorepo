@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/slam/PriorFactor.h>
@@ -14,6 +15,7 @@
 #include "eidos/map_manager.hpp"
 
 using namespace eidos;
+using gtsam::Symbol;
 
 namespace {
 
@@ -70,7 +72,8 @@ TEST_CASE("MapManager addKeyframe", "[map_manager]") {
   MapManager mm;
   PoseType pose = makePose(1.0, 2.0, 3.0, 0.0, 0);
 
-  mm.addKeyframe(0, pose);
+  gtsam::Key key0 = Symbol(255, 0);
+  mm.addKeyframe(key0, pose);
 
   REQUIRE(mm.numKeyframes() == 1);
   REQUIRE(mm.getKeyPoses3D()->size() == 1);
@@ -87,7 +90,7 @@ TEST_CASE("MapManager add multiple keyframes", "[map_manager]") {
   for (int i = 0; i < 5; i++) {
     PoseType pose = makePose(static_cast<float>(i), 0, 0,
                              static_cast<double>(i), i);
-    mm.addKeyframe(i, pose);
+    mm.addKeyframe(Symbol(255, i), pose);
   }
   REQUIRE(mm.numKeyframes() == 5);
 }
@@ -127,13 +130,14 @@ TEST_CASE("MapManager addKeyframeData and getKeyframeData", "[map_manager]") {
   MapManager mm;
   registerCloudType(mm, "test_plugin/corners");
 
+  gtsam::Key key0 = Symbol(255, 0);
   PoseType pose = makePose(0, 0, 0, 0.0, 0);
-  mm.addKeyframe(0, pose);
+  mm.addKeyframe(key0, pose);
 
   auto cloud = makeCloud(10);
-  mm.addKeyframeData(0, "test_plugin/corners", cloud);
+  mm.addKeyframeData(key0, "test_plugin/corners", cloud);
 
-  auto result = mm.getKeyframeData(0, "test_plugin/corners");
+  auto result = mm.getKeyframeData(key0, "test_plugin/corners");
   REQUIRE(result.has_value());
 
   auto retrieved = std::any_cast<pcl::PointCloud<PointType>::Ptr>(result.value());
@@ -142,19 +146,20 @@ TEST_CASE("MapManager addKeyframeData and getKeyframeData", "[map_manager]") {
 
 TEST_CASE("MapManager getKeyframeData returns nullopt for missing data", "[map_manager]") {
   MapManager mm;
+  gtsam::Key key0 = Symbol(255, 0);
   PoseType pose = makePose(0, 0, 0, 0.0, 0);
-  mm.addKeyframe(0, pose);
+  mm.addKeyframe(key0, pose);
 
   // No data stored yet
-  auto result = mm.getKeyframeData(0, "test_plugin/corners");
+  auto result = mm.getKeyframeData(key0, "test_plugin/corners");
   REQUIRE_FALSE(result.has_value());
 
-  // Out of range index
-  auto result2 = mm.getKeyframeData(99, "test_plugin/corners");
+  // Non-existent key
+  auto result2 = mm.getKeyframeData(Symbol(255, 99), "test_plugin/corners");
   REQUIRE_FALSE(result2.has_value());
 
-  // Negative index
-  auto result3 = mm.getKeyframeData(-1, "test_plugin/corners");
+  // Another non-existent key
+  auto result3 = mm.getKeyframeData(Symbol(0, 0), "test_plugin/corners");
   REQUIRE_FALSE(result3.has_value());
 }
 
@@ -164,17 +169,18 @@ TEST_CASE("MapManager getKeyframeDataForPlugin", "[map_manager]") {
   registerCloudType(mm, "lidar_kep_factor/surfaces");
   registerCloudType(mm, "other_plugin/data");
 
+  gtsam::Key key0 = Symbol(255, 0);
   PoseType pose = makePose(0, 0, 0, 0.0, 0);
-  mm.addKeyframe(0, pose);
+  mm.addKeyframe(key0, pose);
 
   auto corners = makeCloud(10);
   auto surfaces = makeCloud(20);
   auto other = makeCloud(5);
-  mm.addKeyframeData(0, "lidar_kep_factor/corners", corners);
-  mm.addKeyframeData(0, "lidar_kep_factor/surfaces", surfaces);
-  mm.addKeyframeData(0, "other_plugin/data", other);
+  mm.addKeyframeData(key0, "lidar_kep_factor/corners", corners);
+  mm.addKeyframeData(key0, "lidar_kep_factor/surfaces", surfaces);
+  mm.addKeyframeData(key0, "other_plugin/data", other);
 
-  auto plugin_data = mm.getKeyframeDataForPlugin(0, "lidar_kep_factor");
+  auto plugin_data = mm.getKeyframeDataForPlugin(key0, "lidar_kep_factor");
   REQUIRE(plugin_data.size() == 2);
   REQUIRE(plugin_data.count("lidar_kep_factor/corners") == 1);
   REQUIRE(plugin_data.count("lidar_kep_factor/surfaces") == 1);
@@ -188,9 +194,9 @@ TEST_CASE("MapManager getKeyframeDataForPlugin", "[map_manager]") {
   REQUIRE(s->size() == 20);
 }
 
-TEST_CASE("MapManager getKeyframeDataForPlugin empty for out of range", "[map_manager]") {
+TEST_CASE("MapManager getKeyframeDataForPlugin empty for non-existent key", "[map_manager]") {
   MapManager mm;
-  auto result = mm.getKeyframeDataForPlugin(0, "lidar_kep_factor");
+  auto result = mm.getKeyframeDataForPlugin(Symbol(255, 0), "lidar_kep_factor");
   REQUIRE(result.empty());
 }
 
@@ -206,23 +212,25 @@ TEST_CASE("MapManager save and load map", "[map_manager]") {
     registerCloudType(mm, "test_plugin/surfaces");
 
     for (int i = 0; i < 3; i++) {
+      gtsam::Key key = Symbol(255, i);
       PoseType pose = makePose(static_cast<float>(i), 0, 0,
                                static_cast<double>(i), i);
-      mm.addKeyframe(i, pose);
+      mm.addKeyframe(key, pose);
 
       auto corners = makeCloud(10, static_cast<float>(i));
       auto surfaces = makeCloud(20, static_cast<float>(i));
-      mm.addKeyframeData(i, "test_plugin/corners", corners);
-      mm.addKeyframeData(i, "test_plugin/surfaces", surfaces);
+      mm.addKeyframeData(key, "test_plugin/corners", corners);
+      mm.addKeyframeData(key, "test_plugin/surfaces", surfaces);
     }
 
     gtsam::NonlinearFactorGraph graph;
     gtsam::Values values;
     auto noise = gtsam::noiseModel::Isotropic::Sigma(6, 0.1);
     for (int i = 0; i < 3; i++) {
+      gtsam::Key key = Symbol(255, i);
       graph.add(gtsam::PriorFactor<gtsam::Pose3>(
-          i, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(i, 0, 0)), noise));
-      values.insert(i, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(i, 0, 0)));
+          key, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(i, 0, 0)), noise));
+      values.insert(key, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(i, 0, 0)));
     }
 
     REQUIRE(mm.saveMap(test_dir, 0.0f, graph, values));
@@ -237,6 +245,7 @@ TEST_CASE("MapManager save and load map", "[map_manager]") {
   }
 
   // Load into a fresh MapManager (must register the same types first)
+  // Note: loadMap creates Symbol(255, i) keys for legacy compatibility
   {
     MapManager mm2;
     registerCloudType(mm2, "test_plugin/corners");
@@ -251,13 +260,15 @@ TEST_CASE("MapManager save and load map", "[map_manager]") {
     REQUIRE(poses3d->points[1].x == Catch::Approx(1.0f));
     REQUIRE(poses3d->points[2].x == Catch::Approx(2.0f));
 
-    // Verify per-keyframe data was restored
-    auto result = mm2.getKeyframeData(0, "test_plugin/corners");
+    // Verify per-keyframe data was restored (loadMap uses Symbol(255, i) keys)
+    gtsam::Key loaded_key0 = Symbol(255, 0);
+    gtsam::Key loaded_key1 = Symbol(255, 1);
+    auto result = mm2.getKeyframeData(loaded_key0, "test_plugin/corners");
     REQUIRE(result.has_value());
     auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(result.value());
     REQUIRE(cloud->size() == 10);
 
-    auto result2 = mm2.getKeyframeData(1, "test_plugin/surfaces");
+    auto result2 = mm2.getKeyframeData(loaded_key1, "test_plugin/surfaces");
     REQUIRE(result2.has_value());
     auto cloud2 = std::any_cast<pcl::PointCloud<PointType>::Ptr>(result2.value());
     REQUIRE(cloud2->size() == 20);
@@ -279,16 +290,17 @@ TEST_CASE("MapManager load without registered types skips data", "[map_manager]"
   {
     MapManager mm;
     registerCloudType(mm, "test_plugin/data");
+    gtsam::Key key0 = Symbol(255, 0);
     PoseType pose = makePose(1, 2, 3, 0.0, 0);
-    mm.addKeyframe(0, pose);
-    mm.addKeyframeData(0, "test_plugin/data", makeCloud(10));
+    mm.addKeyframe(key0, pose);
+    mm.addKeyframeData(key0, "test_plugin/data", makeCloud(10));
 
     gtsam::NonlinearFactorGraph graph;
     gtsam::Values values;
     auto noise = gtsam::noiseModel::Isotropic::Sigma(6, 0.1);
     graph.add(gtsam::PriorFactor<gtsam::Pose3>(
-        0, gtsam::Pose3(), noise));
-    values.insert(0, gtsam::Pose3());
+        key0, gtsam::Pose3(), noise));
+    values.insert(key0, gtsam::Pose3());
     mm.saveMap(test_dir, 0.0f, graph, values);
   }
 
@@ -300,7 +312,8 @@ TEST_CASE("MapManager load without registered types skips data", "[map_manager]"
     REQUIRE(mm2.hasPriorMap());
 
     // Data should not be available since we didn't register the deserializer
-    auto result = mm2.getKeyframeData(0, "test_plugin/data");
+    gtsam::Key loaded_key0 = Symbol(255, 0);
+    auto result = mm2.getKeyframeData(loaded_key0, "test_plugin/data");
     REQUIRE_FALSE(result.has_value());
   }
 
@@ -312,12 +325,12 @@ TEST_CASE("MapManager updatePoses", "[map_manager]") {
   for (int i = 0; i < 3; i++) {
     PoseType pose = makePose(static_cast<float>(i), 0, 0,
                              static_cast<double>(i), i);
-    mm.addKeyframe(i, pose);
+    mm.addKeyframe(Symbol(255, i), pose);
   }
 
   gtsam::Values optimized;
   for (int i = 0; i < 3; i++) {
-    optimized.insert(i, gtsam::Pose3(
+    optimized.insert(Symbol(255, i), gtsam::Pose3(
         gtsam::Rot3(), gtsam::Point3(i + 10.0, 0, 0)));
   }
 

@@ -48,7 +48,7 @@ private:
   float submap_leaf_size_;
   float max_correspondence_distance_;
   int num_threads_;
-  std::string pointcloud_from_ = "lidar_gicp_factor";
+  std::string pointcloud_from_;
   std::string gps_from_ = "gps_factor";
 };
 

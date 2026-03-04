@@ -17,15 +17,51 @@ eidos_node:
       path: "slam/path"               # nav_msgs/Path output
       pose: "slam/pose"               # geometry_msgs/PoseStamped output (optimized pose in map frame)
       status: "slam/status"            # eidos_msgs/SlamStatus output
-      odom_input: "lidar_gicp_factor/odometry"  # nav_msgs/Odometry input (source for odom->base_link TF)
-      odom: "slam/odometry"            # nav_msgs/Odometry output (republished canonical odom)
+      odom: "slam/odometry"            # nav_msgs/Odometry output (optimized pose in map frame)
+      odom_pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-6, 1.0e-6, 1.0e-5]  # [x, y, z, roll, pitch, yaw] diagonal covariance for slam/odometry
       save_map_service: "slam/save_map"
       load_map_service: "slam/load_map"
 
-    # ---- Factor plugins (order = processFrame priority) ----
+    # ---- Motion model (single plugin) ----
+    motion_model:
+      plugin: "eidos::ImuMotionModel"
+
+      # -- Topics --
+      imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
+      odom_incremental_topic: "motion_model/odometry/imu_incremental"            # nav_msgs/Odometry output (raw IMU prediction)
+      odom_fused_topic: "motion_model/odometry/imu"                              # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
+
+      # -- IMU covariance diagonals [x, y, z] --
+      # Epson EG320N datasheet: VRW=0.05 m/s/√hr → 6.9e-7, ARW=0.1 °/√hr → 8.5e-10
+      # Bias instability: accel=0.1mg → 9.6e-7, gyro=3.5°/hr → 2.9e-10
+      acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]           # accelerometer covariance diagonal (m/s^2)^2
+      gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]        # gyroscope covariance diagonal (rad/s)^2
+      bias_walk_cov: [9.6e-7, 9.6e-7, 9.6e-7, 2.9e-10, 2.9e-10, 2.9e-10]  # [ax, ay, az, gx, gy, gz] bias random-walk covariance
+      gravity: 0.0                                   # 0.0 because the data topic provides gravity-compensated acceleration
+      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]    # preintegration position covariance diagonal
+
+      # -- State 0 prior covariance diagonals (for V and B) --
+      prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]                       # [vx, vy, vz] — car assumed stationary at startup
+      prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6] # [ax, ay, az, gx, gy, gz] — initial IMU bias
+
+      # -- Stationary detection (warmup gate) --
+      stationary_acc_threshold: 0.05         # m/s^2, RMS linear acceleration must be below this
+      stationary_gyr_threshold: 0.005        # rad/s, RMS angular velocity must be below this
+      stationary_samples: 200               # number of recent IMU samples to check (~0.4s at 500 Hz)
+
+      # -- Timing --
+      default_imu_dt: 0.002                 # seconds (1/500 Hz)
+      quaternion_norm_threshold: 0.1
+
+      # -- Published odometry covariance diagonals [x, y, z, roll, pitch, yaw] --
+      odom_pose_cov: [0.05, 0.05, 0.05, 0.01, 0.01, 0.01]
+      odom_twist_cov: [0.01, 0.01, 0.01, 0.01, 0.01, 0.001]
+
+      # -- Frame names --
+      imu_frame: "imu_link"
+
+    # ---- Factor plugins ----
     factor_plugins:
-      - "imu_integration_factor"
-      - "lidar_gicp_factor"
       - "gps_factor"
       # - "euclidean_distance_loop_closure_factor"
 
@@ -41,104 +77,7 @@ eidos_node:
       - "keyframe_pose_visualization"
 
     # ==========================================================================
-    # IMU Integration Factor
-    #
-    # Provides gtsam::ImuFactor directly to the main SLAM graph, which jointly
-    # optimizes poses (X), velocities (V), and biases (B). Publishes high-rate
-    # IMU odometry and TF.
-    # ==========================================================================
-    imu_integration_factor:
-      plugin: "eidos::ImuIntegrationFactor"
-
-      # -- Topics --
-      imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
-      odom_incremental_topic: "imu_integration_factor/odometry/imu_incremental"  # nav_msgs/Odometry output (raw IMU prediction)
-      odom_fused_topic: "imu_integration_factor/odometry/imu"                    # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
-
-      # -- IMU covariance diagonals [x, y, z] --
-      # These set the diagonal of the 3x3 covariance matrices in GTSAM's
-      # PreintegrationParams.  Per-axis control lets you e.g. loosen z
-      # without affecting xy.
-      # Epson EG320N datasheet: VRW=0.05 m/s/√hr → 6.9e-7, ARW=0.1 °/√hr → 8.5e-10
-      # Bias instability: accel=0.1mg → 9.6e-7, gyro=3.5°/hr → 2.9e-10
-      acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]           # accelerometer covariance diagonal (m/s^2)^2
-      gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]        # gyroscope covariance diagonal (rad/s)^2
-      bias_walk_cov: [9.6e-7, 9.6e-7, 9.6e-7, 2.9e-10, 2.9e-10, 2.9e-10]  # [ax, ay, az, gx, gy, gz] bias random-walk covariance
-      gravity: 0.0                                   # 0.0 because the data topic provides gravity-compensated acceleration
-      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]    # preintegration position covariance diagonal
-
-      # -- State 0 prior covariance diagonals (for V and B in main graph) --
-      prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]                       # [vx, vy, vz] — car assumed stationary at startup
-      prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6] # [ax, ay, az, gx, gy, gz] — initial IMU bias
-
-      use_attitude_prior: true                                            # enable Pose3AttitudeFactor (gravity alignment) per keyframe
-      attitude_prior_cov: [2.0e-2, 2.0e-2]                              # [pitch, roll] rad^2, constrains roll and pitch
-
-      # -- Failure detection --
-      max_velocity: 30.0                    # m/s, reset preintegration if velocity exceeds this
-      max_bias_norm: 1.0                    # reset preintegration if accel or gyro bias norm exceeds this
-
-      # -- Stationary detection (warmup gate) --
-      stationary_acc_threshold: 0.05         # m/s^2, RMS linear acceleration must be below this (gravity-compensated, so ~0 at rest)
-      stationary_gyr_threshold: 0.005        # rad/s, RMS angular velocity must be below this
-      stationary_samples: 200               # number of recent IMU samples to check (~0.4s at 500 Hz)
-
-      # -- Timing --
-      default_imu_dt: 0.002                 # seconds (1/500 Hz), assumed dt for first IMU message
-      quaternion_norm_threshold: 0.1        # minimum quaternion norm to accept as valid orientation
-
-      # -- Frame names --
-      imu_frame: "imu_link"            # IMU-to-base_link extrinsic is looked up from TF (base_link <- imu_frame)
-
-    # ==========================================================================
-    # LiDAR GICP Factor
-    #
-    # Two-step registration (DLO-style):
-    #   1. Scan-to-scan GICP for fast frame-to-frame motion estimate
-    #   2. Scan-to-map GICP for drift correction against the local submap
-    # Accepts pre-deskewed PointCloud2.
-    # ==========================================================================
-    lidar_gicp_factor:
-      plugin: "eidos::LidarGICPFactor"
-
-      # -- Topics --
-      point_cloud_topic: "/lidar_cc/velodyne_points"                         # sensor_msgs/PointCloud2 input (pre-deskewed)
-      imu_odom_topic: "imu_integration_factor/odometry/imu_incremental"      # nav_msgs/Odometry input (twist for initial guess)
-      odom_topic: "lidar_gicp_factor/odometry"                               # nav_msgs/Odometry output (incremental, consumed by slam_core odom_input)
-      odom_global_topic: "lidar_gicp_factor/odometry/global"                  # nav_msgs/Odometry output (global, diagnostics — may hop on correction)
-
-      # -- Range filter --
-      min_range: 2.0                # meters, discard points closer than this
-      max_range: 200.0              # meters, discard points farther than this
-
-      # -- Downsampling --
-      scan_leaf_size: 0.5           # scan preprocessing (shared by s2s and s2m source)
-      submap_leaf_size: 0.4         # submap target downsampling for s2m
-      num_threads: 16               # threads for small_gicp (shared by s2s and s2m)
-
-      # -- Scan-to-scan GICP (frame-to-frame) --
-      s2s_max_iterations: 30                  # fewer iterations needed (small motion)
-      s2s_max_correspondence_distance: 1.0    # tighter search (motion is small between frames)
-
-      # -- Scan-to-map GICP (drift correction) --
-      s2m_max_iterations: 30                  # more iterations for accuracy
-      s2m_max_correspondence_distance: 2.0    # wider search against submap
-
-      # -- Local map building --
-      keyframe_search_radius: 20.0  # meters, radius to search for nearby keyframes
-      keyframe_density: 2.0         # meters, spatial thinning for older keyframes
-      recent_keyframe_window: 10.0  # seconds, always include keyframes within this time window
-      map_cache_max_size: 1000      # max cached transformed keyframe clouds before clearing
-
-      # -- Odometry noise (BetweenFactor fallback variances) --
-      odom_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]  # [r, p, y, x, y, z] used when GICP info matrix unavailable
-
-    # ==========================================================================
     # GPS Factor
-    #
-    # Subscribes to sensor_msgs/NavSatFix, converts to UTM internally,
-    # manages utm → map transform, and provides GPSFactor constraints
-    # in map frame to the pose graph.
     # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
@@ -155,14 +94,11 @@ eidos_node:
       min_gps_movement: 20.0          # meters, minimum displacement between GPS injections
 
       # -- Covariances --
-      bias_prior_cov: [1.0e4, 1.0e4, 1.0e4]  # [x, y, z] utm→map bias prior covariance; lower = more stable
-      gps_cov: [0.0, 0.0, 1.0]                     # [x, y, z] BiasedGPSFactor measurement covariance floor (m^2); gps_cov[2] used for z if use_elevation: false
+      bias_prior_cov: [1.0e4, 1.0e4, 1.0e4]  # [x, y, z] utm→map bias prior covariance
+      gps_cov: [0.0, 0.0, 1.0]                     # [x, y, z] BiasedGPSFactor measurement covariance floor (m^2)
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
-    #
-    # Background thread searches for spatially close but temporally distant
-    # keyframes, validates with ICP alignment, injects BetweenFactor constraints.
     # ==========================================================================
     euclidean_distance_loop_closure_factor:
       plugin: "eidos::EuclideanDistanceLoopClosureFactor"
@@ -171,13 +107,10 @@ eidos_node:
       search_time_diff: 30.0        # seconds, minimum time gap between current and candidate keyframe
       search_num: 25                # number of nearby keyframes to assemble into candidate submap
       fitness_score: 0.3            # max ICP fitness score to accept a loop closure
-      pointcloud_from: "lidar_gicp_factor"  # which factor plugin provides the keyframe point clouds
+      pointcloud_from: ""  # which factor plugin provides the keyframe point clouds
 
     # ==========================================================================
     # GPS + ICP Relocalization
-    #
-    # Uses GPS to find candidate keyframes in a prior map, assembles a local
-    # submap, and performs ICP alignment to relocalize.
     # ==========================================================================
     gps_icp_relocalization:
       plugin: "eidos::GpsIcpRelocalization"
@@ -188,25 +121,21 @@ eidos_node:
       submap_leaf_size: 0.4         # meters, voxel downsampling for the assembled prior submap
       max_correspondence_distance: 2.0  # meters, max point correspondence distance for ICP
       num_threads: 4                # number of threads for small_gicp ICP
-      pointcloud_from: "lidar_gicp_factor"  # which factor plugin provides keyframe point clouds
+      pointcloud_from: ""  # which factor plugin provides keyframe point clouds
       gps_from: "gps_factor"        # which factor plugin provides GPS keyframe positions
 
     # ==========================================================================
     # Keyframe Map Visualization
-    #
-    # Publishes the accumulated keyframe point cloud map as a PointCloud2.
     # ==========================================================================
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"
       topic: "slam/visualization/map"
-      pointcloud_from: "lidar_gicp_factor"
+      pointcloud_from: ""
       voxel_leaf_size: 0.4
       publish_rate: 1.0
 
     # ==========================================================================
     # GPS Visualization
-    #
-    # Visualizes GPS fix positions vs optimized keyframe positions.
     # ==========================================================================
     gps_visualization:
       plugin: "eidos::GpsVisualization"
@@ -216,8 +145,6 @@ eidos_node:
 
     # ==========================================================================
     # Loop Closure Visualization
-    #
-    # Visualizes loop closure edges between keyframes.
     # ==========================================================================
     loop_closure_visualization:
       plugin: "eidos::LoopClosureVisualization"
@@ -227,8 +154,6 @@ eidos_node:
 
     # ==========================================================================
     # Keyframe Pose Visualization
-    #
-    # Visualizes keyframe orientations as RGB coordinate axes.
     # ==========================================================================
     keyframe_pose_visualization:
       plugin: "eidos::KeyframePoseVisualization"
@@ -251,3 +176,36 @@ eidos_node:
 
     performance:
       num_cores: 8                  # number of CPU cores for parallel scan matching
+
+# ==========================================================================
+# robot_localization dual-EKF
+# ==========================================================================
+ekf_filter_node_local:
+  ros__parameters:
+    frequency: 100.0
+    two_d_mode: false
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
+    publish_tf: true
+
+    # Eidos IMU incremental odometry
+    odom0: motion_model/odometry/imu_incremental
+    odom0_config: [true,true,true, true,true,true, true,true,true, true,true,true, false,false,false]
+
+ekf_filter_node_global:
+  ros__parameters:
+    frequency: 20.0
+    two_d_mode: false
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: map
+    publish_tf: true
+
+    # Eidos IMU incremental odometry (continuous)
+    odom0: motion_model/odometry/imu_incremental
+    odom0_config: [true,true,true, true,true,true, true,true,true, true,true,true, false,false,false]
+
+    # Eidos graph-optimized pose (absolute, in map frame)
+    odom1: slam/odometry
+    odom1_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]

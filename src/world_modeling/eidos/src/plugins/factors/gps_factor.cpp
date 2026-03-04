@@ -177,11 +177,10 @@ std::optional<gtsam::Pose3> GpsFactor::processFrame(double /*timestamp*/) {
 }
 
 // ---------------------------------------------------------------------------
-// getFactors - add BiasedGPSFactor constraint if available and reliable
+// getFactors - pop best GPS fix and return with its sensor timestamp
 // ---------------------------------------------------------------------------
-FactorResult GpsFactor::getFactors(
-    int state_index, const gtsam::Pose3& state_pose, double /*timestamp*/) {
-  FactorResult result;
+StampedFactorResult GpsFactor::getFactors(gtsam::Key key) {
+  StampedFactorResult result;
 
   if (!active_) return result;
 
@@ -192,164 +191,132 @@ FactorResult GpsFactor::getFactors(
     return result;
   }
 
-  // Get the timestamp of the current state
-  double state_time = node_->now().seconds();
-  auto poses_6d = core_->getMapManager().getKeyPoses6D();
-  if (!poses_6d->empty()) {
-    state_time = static_cast<double>(poses_6d->points.back().time);
+  // Pop the most recent fix from the queue (best available measurement)
+  sensor_msgs::msg::NavSatFix this_fix = gps_queue_.back();
+  gps_queue_.clear();
+
+  // Filter by status — skip STATUS_NO_FIX
+  if (this_fix.status.status < sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
+    return result;
   }
 
-  // Find GPS message closest to the state time
-  // Scan the queue, pick the fix with the smallest |t - state_time|,
-  // then drain everything up to and including it.
-  int best_idx = -1;
-  double best_dt = std::numeric_limits<double>::max();
-  for (size_t i = 0; i < gps_queue_.size(); ++i) {
-    double dt = std::abs(stamp2Sec(gps_queue_[i].header.stamp) - state_time);
-    if (dt < best_dt) {
-      best_dt = dt;
-      best_idx = static_cast<int>(i);
-    } else {
-      // Queue is time-ordered, so once dt starts increasing we're past the closest
-      break;
+  // Sensor-reported covariance (varies per fix with satellite geometry)
+  double sensor_cov_x = this_fix.position_covariance[0];
+  double sensor_cov_y = this_fix.position_covariance[4];
+  double sensor_cov_z = this_fix.position_covariance[8];
+
+  if (sensor_cov_x > cov_threshold_ || sensor_cov_y > cov_threshold_) {
+    return result;
+  }
+
+  // Convert lat/lon to UTM
+  UtmCoordinate utm = latLonToUtm(
+      this_fix.latitude, this_fix.longitude, this_fix.altitude);
+
+  Eigen::Vector3d utm_pos(utm.easting, utm.northing, utm.altitude);
+
+  // Initialize bias variable on first accepted fix
+  if (!bias_initialized_) {
+    // Need IMU heading to align map frame with UTM
+    if (!has_imu_orientation_.load(std::memory_order_relaxed)) {
+      RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+                           "[%s] waiting for IMU orientation before initializing GPS bias",
+                           name_.c_str());
+      return result;
+    }
+
+    utm_zone_ = utm.zone;
+    utm_is_north_ = utm.is_north;
+
+    // Capture IMU yaw and build rotation from ENU/UTM to map frame.
+    {
+      std::lock_guard<std::mutex> imu_lock(imu_orientation_lock_);
+      initial_yaw_ = latest_imu_yaw_;
+    }
+    double cy = std::cos(-initial_yaw_);
+    double sy = std::sin(-initial_yaw_);
+    R_map_enu_ << cy, -sy, 0,
+                  sy,  cy, 0,
+                   0,   0, 1;
+
+    // Rotate UTM position into map frame, then compute bias
+    Eigen::Vector3d utm_rotated = utmToMap(utm_pos);
+    auto current_pose = core_->getCurrentPose();
+    Eigen::Vector3d map_pos(current_pose.translation().x(),
+                            current_pose.translation().y(),
+                            current_pose.translation().z());
+    latest_bias_ = gtsam::Point3(
+        utm_rotated.x() - map_pos.x(),
+        utm_rotated.y() - map_pos.y(),
+        use_elevation_ ? (utm_rotated.z() - map_pos.z()) : 0.0);
+
+    auto bias_prior_noise = gtsam::noiseModel::Diagonal::Variances(
+        (gtsam::Vector(3) << bias_prior_cov_[0], bias_prior_cov_[1], bias_prior_cov_[2]).finished());
+    result.factors.push_back(
+        gtsam::make_shared<gtsam::PriorFactor<gtsam::Point3>>(
+            bias_key_, latest_bias_, bias_prior_noise));
+    result.values.insert(bias_key_, latest_bias_);
+
+    bias_initialized_ = true;
+    RCLCPP_INFO(node_->get_logger(),
+                 "[%s] bias initialized: yaw=%.1f deg, bias=(%.1f, %.1f, %.1f)",
+                 name_.c_str(), initial_yaw_ * 180.0 / M_PI,
+                 latest_bias_.x(), latest_bias_.y(), latest_bias_.z());
+  }
+
+  // Rotate UTM position into map frame for the BiasedGPSFactor
+  Eigen::Vector3d gps_rotated = utmToMap(utm_pos);
+
+  if (!use_elevation_) {
+    gps_rotated.z() = 0.0;
+  }
+  gtsam::Point3 gps_measurement(gps_rotated.x(), gps_rotated.y(), gps_rotated.z());
+
+  // Skip if GPS hasn't moved enough from last injection (in raw UTM)
+  float gps_x_utm = static_cast<float>(utm_pos.x());
+  float gps_y_utm = static_cast<float>(utm_pos.y());
+  if (has_last_gps_) {
+    float dx = gps_x_utm - last_gps_point_.x;
+    float dy = gps_y_utm - last_gps_point_.y;
+    float dist = std::sqrt(dx * dx + dy * dy);
+    if (dist < min_gps_movement_) {
+      return result;
     }
   }
 
-  if (best_idx < 0) return result;
+  last_gps_point_.x = gps_x_utm;
+  last_gps_point_.y = gps_y_utm;
+  last_gps_point_.z = static_cast<float>(utm_pos.z());
+  has_last_gps_ = true;
 
-  // Take the closest fix and drain everything before it
-  sensor_msgs::msg::NavSatFix this_fix = gps_queue_[best_idx];
-  for (int i = 0; i <= best_idx; ++i) gps_queue_.pop_front();
+  // Set the sensor timestamp — this creates a new state
+  double gps_time = stamp2Sec(this_fix.header.stamp);
+  result.timestamp = gps_time;
 
-  // Process the closest fix
-  {
+  // Create BiasedGPSFactor using the key assigned by SlamCore
+  double cov_x = std::max(sensor_cov_x, gps_cov_[0]);
+  double cov_y = std::max(sensor_cov_y, gps_cov_[1]);
+  double cov_z = use_elevation_ ? std::max(sensor_cov_z, gps_cov_[2]) : gps_cov_[2];
+  auto gps_noise = gtsam::noiseModel::Diagonal::Variances(
+      (gtsam::Vector(3) << cov_x, cov_y, cov_z).finished());
 
-      // Filter by status — skip STATUS_NO_FIX
-      if (this_fix.status.status < sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
-        return result;
-      }
+  auto gps_factor = gtsam::make_shared<gtsam::BiasedGPSFactor>(
+      key, bias_key_, gps_measurement, gps_noise);
+  result.factors.push_back(gps_factor);
 
-      // Sensor-reported covariance (varies per fix with satellite geometry)
-      double sensor_cov_x = this_fix.position_covariance[0];
-      double sensor_cov_y = this_fix.position_covariance[4];
-      double sensor_cov_z = this_fix.position_covariance[8];
+  // Store UTM position in MapManager using the GTSAM key
+  double zone_encoded = static_cast<double>(utm.zone * 10 + (utm.is_north ? 1 : 0));
+  Eigen::Vector4d utm_data(utm.easting, utm.northing, utm.altitude, zone_encoded);
+  core_->getMapManager().addKeyframeData(
+      key, "gps_factor/utm_position", utm_data);
 
-      if (sensor_cov_x > cov_threshold_ || sensor_cov_y > cov_threshold_) {
-        return result;
-      }
-
-      // Convert lat/lon to UTM
-      UtmCoordinate utm = latLonToUtm(
-          this_fix.latitude, this_fix.longitude, this_fix.altitude);
-
-      Eigen::Vector3d utm_pos(utm.easting, utm.northing, utm.altitude);
-
-      // Initialize bias variable on first accepted fix
-      if (!bias_initialized_) {
-        // Need IMU heading to align map frame with UTM
-        if (!has_imu_orientation_.load(std::memory_order_relaxed)) {
-          RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
-                               "[%s] waiting for IMU orientation before initializing GPS bias",
-                               name_.c_str());
-          return result;
-        }
-
-        utm_zone_ = utm.zone;
-        utm_is_north_ = utm.is_north;
-
-        // Capture IMU yaw and build rotation from ENU/UTM to map frame.
-        // At initialization, map X-axis = vehicle forward, which is at angle
-        // `yaw` from East in ENU. So R_map_enu = Rz(-yaw).
-        {
-          std::lock_guard<std::mutex> lock(imu_orientation_lock_);
-          initial_yaw_ = latest_imu_yaw_;
-        }
-        double cy = std::cos(-initial_yaw_);
-        double sy = std::sin(-initial_yaw_);
-        R_map_enu_ << cy, -sy, 0,
-                      sy,  cy, 0,
-                       0,   0, 1;
-
-        // Rotate UTM position into map frame, then compute bias
-        Eigen::Vector3d utm_rotated = utmToMap(utm_pos);
-        Eigen::Vector3d map_pos(state_pose.translation().x(),
-                                state_pose.translation().y(),
-                                state_pose.translation().z());
-        latest_bias_ = gtsam::Point3(
-            utm_rotated.x() - map_pos.x(),
-            utm_rotated.y() - map_pos.y(),
-            use_elevation_ ? (utm_rotated.z() - map_pos.z()) : 0.0);
-
-        auto bias_prior_noise = gtsam::noiseModel::Diagonal::Variances(
-            (gtsam::Vector(3) << bias_prior_cov_[0], bias_prior_cov_[1], bias_prior_cov_[2]).finished());
-        result.factors.push_back(
-            gtsam::make_shared<gtsam::PriorFactor<gtsam::Point3>>(
-                bias_key_, latest_bias_, bias_prior_noise));
-        result.values.insert(bias_key_, latest_bias_);
-
-        bias_initialized_ = true;
-        RCLCPP_INFO(node_->get_logger(),
-                     "[%s] bias initialized: yaw=%.1f deg, bias=(%.1f, %.1f, %.1f)",
-                     name_.c_str(), initial_yaw_ * 180.0 / M_PI,
-                     latest_bias_.x(), latest_bias_.y(), latest_bias_.z());
-      }
-
-      // Rotate UTM position into map frame for the BiasedGPSFactor
-      Eigen::Vector3d gps_rotated = utmToMap(utm_pos);
-
-      if (!use_elevation_) {
-        // Flat ground: constrain z near map origin (z=0).
-        // measurement.z = 0 + bias.z(≈0) => error.z = pose.z + bias.z ≈ pose.z
-        // This prevents unconstrained z drift from IMU integration errors.
-        gps_rotated.z() = 0.0;
-      }
-      gtsam::Point3 gps_measurement(gps_rotated.x(), gps_rotated.y(), gps_rotated.z());
-
-      // Skip if GPS hasn't moved enough from last injection (in raw UTM)
-      float gps_x_utm = static_cast<float>(utm_pos.x());
-      float gps_y_utm = static_cast<float>(utm_pos.y());
-      if (has_last_gps_) {
-        float dx = gps_x_utm - last_gps_point_.x;
-        float dy = gps_y_utm - last_gps_point_.y;
-        float dist = std::sqrt(dx * dx + dy * dy);
-        if (dist < min_gps_movement_) {
-          return result;
-        }
-      }
-
-      last_gps_point_.x = gps_x_utm;
-      last_gps_point_.y = gps_y_utm;
-      last_gps_point_.z = static_cast<float>(utm_pos.z());
-      has_last_gps_ = true;
-
-      // Create BiasedGPSFactor: error = pose.translation() + bias - measured
-      // Use max(sensor_cov, gps_cov) per axis — sensor covariance reflects
-      // satellite geometry quality, gps_cov acts as a minimum floor.
-      // When use_elevation=false, z measurement is overridden to 0.0 so we
-      // always use the configured gps_cov[2] for z in that case.
-      double cov_x = std::max(sensor_cov_x, gps_cov_[0]);
-      double cov_y = std::max(sensor_cov_y, gps_cov_[1]);
-      double cov_z = use_elevation_ ? std::max(sensor_cov_z, gps_cov_[2]) : gps_cov_[2];
-      auto gps_noise = gtsam::noiseModel::Diagonal::Variances(
-          (gtsam::Vector(3) << cov_x, cov_y, cov_z).finished());
-
-      auto gps_factor = gtsam::make_shared<gtsam::BiasedGPSFactor>(
-          state_index, bias_key_, gps_measurement, gps_noise);
-      result.factors.push_back(gps_factor);
-
-      // Store UTM position in MapManager
-      double zone_encoded = static_cast<double>(utm.zone * 10 + (utm.is_north ? 1 : 0));
-      Eigen::Vector4d utm_data(utm.easting, utm.northing, utm.altitude, zone_encoded);
-      core_->getMapManager().addKeyframeData(
-          state_index, "gps_factor/utm_position", utm_data);
-
-      RCLCPP_INFO(node_->get_logger(),
-                  "\033[35m[%s] added BiasedGPSFactor at state %d: "
-                  "measurement=(%.3f, %.3f, %.3f) cov=(%.4f, %.4f, %.4f)\033[0m",
-                  name_.c_str(), state_index,
-                  gps_measurement.x(), gps_measurement.y(), gps_measurement.z(),
-                  cov_x, cov_y, cov_z);
-  }
+  gtsam::Symbol sym(key);
+  RCLCPP_INFO(node_->get_logger(),
+              "\033[35m[%s] added BiasedGPSFactor at key (%c,%lu) t=%.3f: "
+              "measurement=(%.3f, %.3f, %.3f) cov=(%.4f, %.4f, %.4f)\033[0m",
+              name_.c_str(), sym.chr(), sym.index(), gps_time,
+              gps_measurement.x(), gps_measurement.y(), gps_measurement.z(),
+              cov_x, cov_y, cov_z);
 
   return result;
 }

@@ -65,10 +65,10 @@ target_link_libraries(eidos_core PUBLIC
 
 # ---- Plugin library ----
 add_library(eidos_plugins SHARED
-  src/plugins/factors/lidar_gicp_factor.cpp
-  src/plugins/factors/imu_integration_factor.cpp
   src/plugins/factors/gps_factor.cpp
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
+  src/plugins/motion_models/imu_motion_model.cpp
+  src/plugins/motion_models/holonomic_motion_model.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/gps_visualization.cpp
@@ -102,6 +102,7 @@ target_link_libraries(eidos_node PRIVATE
 
 # ---- Plugin descriptions ----
 pluginlib_export_plugin_description_file(eidos factor_plugins.xml)
+pluginlib_export_plugin_description_file(eidos motion_model_plugins.xml)
 pluginlib_export_plugin_description_file(eidos relocalization_plugins.xml)
 pluginlib_export_plugin_description_file(eidos visualization_plugins.xml)
 
@@ -124,7 +125,7 @@ install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(FILES factor_plugins.xml relocalization_plugins.xml visualization_plugins.xml
+install(FILES factor_plugins.xml motion_model_plugins.xml relocalization_plugins.xml visualization_plugins.xml
   DESTINATION share/${PROJECT_NAME}
 )
 

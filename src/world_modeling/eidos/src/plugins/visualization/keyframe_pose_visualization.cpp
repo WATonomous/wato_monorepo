@@ -46,7 +46,7 @@ void KeyframePoseVisualization::onOptimizationComplete(
 
   const auto& map_manager = core_->getMapManager();
   auto key_poses_6d = map_manager.getKeyPoses6D();
-  int num_keyframes = map_manager.numKeyframes();
+  auto key_list = map_manager.getKeyList();
 
   visualization_msgs::msg::MarkerArray marker_array;
 
@@ -58,8 +58,10 @@ void KeyframePoseVisualization::onOptimizationComplete(
   auto stamp = node_->now();
   int marker_id = 0;
 
-  for (int i = 0; i < num_keyframes; i++) {
-    auto& pose = key_poses_6d->points[i];
+  for (auto gtsam_key : key_list) {
+    int cloud_idx = map_manager.getCloudIndex(gtsam_key);
+    if (cloud_idx < 0) continue;
+    auto& pose = key_poses_6d->points[cloud_idx];
     Eigen::Affine3f affine = poseTypeToAffine3f(pose);
     Eigen::Matrix3f rot = affine.rotation();
 

@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 
+#include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/base/serialization.h>
@@ -44,42 +45,43 @@ std::vector<std::string> MapManager::getKeysForPlugin(
 
 // ---- Keyframe pose management ----
 
-void MapManager::addKeyframe(int index, const PoseType& pose) {
+void MapManager::addKeyframe(gtsam::Key gtsam_key, const PoseType& pose) {
   std::lock_guard<std::mutex> lock(mtx_);
+
+  int cloud_index = static_cast<int>(key_poses_3d_->size());
 
   PointType pose_3d;
   pose_3d.x = pose.x;
   pose_3d.y = pose.y;
   pose_3d.z = pose.z;
-  pose_3d.intensity = static_cast<float>(index);
+  pose_3d.intensity = static_cast<float>(cloud_index);
   key_poses_3d_->push_back(pose_3d);
 
   PoseType pose_6d = pose;
-  pose_6d.intensity = static_cast<float>(index);
+  pose_6d.intensity = static_cast<float>(cloud_index);
   key_poses_6d_->push_back(pose_6d);
 
-  // Ensure keyframe_data_ has enough slots
-  if (static_cast<int>(keyframe_data_.size()) <= index) {
-    keyframe_data_.resize(index + 1);
-  }
+  key_to_cloud_index_[gtsam_key] = cloud_index;
+  key_list_.push_back(gtsam_key);
 }
 
 void MapManager::updatePoses(const gtsam::Values& optimized) {
   std::lock_guard<std::mutex> lock(mtx_);
 
-  int num_poses = static_cast<int>(key_poses_3d_->size());
-  for (int i = 0; i < num_poses; i++) {
-    auto pose = optimized.at<gtsam::Pose3>(i);
-    key_poses_3d_->points[i].x = static_cast<float>(pose.translation().x());
-    key_poses_3d_->points[i].y = static_cast<float>(pose.translation().y());
-    key_poses_3d_->points[i].z = static_cast<float>(pose.translation().z());
+  for (const auto& [gtsam_key, cloud_idx] : key_to_cloud_index_) {
+    if (!optimized.exists(gtsam_key)) continue;
 
-    key_poses_6d_->points[i].x = key_poses_3d_->points[i].x;
-    key_poses_6d_->points[i].y = key_poses_3d_->points[i].y;
-    key_poses_6d_->points[i].z = key_poses_3d_->points[i].z;
-    key_poses_6d_->points[i].roll = static_cast<float>(pose.rotation().roll());
-    key_poses_6d_->points[i].pitch = static_cast<float>(pose.rotation().pitch());
-    key_poses_6d_->points[i].yaw = static_cast<float>(pose.rotation().yaw());
+    auto pose = optimized.at<gtsam::Pose3>(gtsam_key);
+    key_poses_3d_->points[cloud_idx].x = static_cast<float>(pose.translation().x());
+    key_poses_3d_->points[cloud_idx].y = static_cast<float>(pose.translation().y());
+    key_poses_3d_->points[cloud_idx].z = static_cast<float>(pose.translation().z());
+
+    key_poses_6d_->points[cloud_idx].x = key_poses_3d_->points[cloud_idx].x;
+    key_poses_6d_->points[cloud_idx].y = key_poses_3d_->points[cloud_idx].y;
+    key_poses_6d_->points[cloud_idx].z = key_poses_3d_->points[cloud_idx].z;
+    key_poses_6d_->points[cloud_idx].roll = static_cast<float>(pose.rotation().roll());
+    key_poses_6d_->points[cloud_idx].pitch = static_cast<float>(pose.rotation().pitch());
+    key_poses_6d_->points[cloud_idx].yaw = static_cast<float>(pose.rotation().yaw());
   }
 }
 
@@ -98,43 +100,56 @@ int MapManager::numKeyframes() const {
   return static_cast<int>(key_poses_3d_->size());
 }
 
+std::vector<gtsam::Key> MapManager::getKeyList() const {
+  std::lock_guard<std::mutex> lock(mtx_);
+  return key_list_;
+}
+
+int MapManager::getCloudIndex(gtsam::Key gtsam_key) const {
+  std::lock_guard<std::mutex> lock(mtx_);
+  auto it = key_to_cloud_index_.find(gtsam_key);
+  if (it == key_to_cloud_index_.end()) return -1;
+  return it->second;
+}
+
+gtsam::Key MapManager::getKeyFromCloudIndex(int cloud_index) const {
+  std::lock_guard<std::mutex> lock(mtx_);
+  if (cloud_index < 0 || cloud_index >= static_cast<int>(key_list_.size()))
+    return 0;
+  return key_list_[cloud_index];
+}
+
 // ---- Generic per-keyframe data storage ----
 
 void MapManager::addKeyframeData(
-    int index, const std::string& key, std::any data) {
+    gtsam::Key gtsam_key, const std::string& key, std::any data) {
   std::lock_guard<std::mutex> lock(mtx_);
-
-  if (static_cast<int>(keyframe_data_.size()) <= index) {
-    keyframe_data_.resize(index + 1);
-  }
-  keyframe_data_[index][key] = std::move(data);
+  keyframe_data_[gtsam_key][key] = std::move(data);
 }
 
 std::optional<std::any> MapManager::getKeyframeData(
-    int index, const std::string& key) const {
+    gtsam::Key gtsam_key, const std::string& key) const {
   std::lock_guard<std::mutex> lock(mtx_);
 
-  if (index < 0 || index >= static_cast<int>(keyframe_data_.size())) {
-    return std::nullopt;
-  }
-  auto it = keyframe_data_[index].find(key);
-  if (it == keyframe_data_[index].end()) {
-    return std::nullopt;
-  }
+  auto kf_it = keyframe_data_.find(gtsam_key);
+  if (kf_it == keyframe_data_.end()) return std::nullopt;
+
+  auto it = kf_it->second.find(key);
+  if (it == kf_it->second.end()) return std::nullopt;
+
   return it->second;
 }
 
 std::unordered_map<std::string, std::any> MapManager::getKeyframeDataForPlugin(
-    int index, const std::string& plugin_name) const {
+    gtsam::Key gtsam_key, const std::string& plugin_name) const {
   std::lock_guard<std::mutex> lock(mtx_);
 
   std::unordered_map<std::string, std::any> result;
-  if (index < 0 || index >= static_cast<int>(keyframe_data_.size())) {
-    return result;
-  }
+  auto kf_it = keyframe_data_.find(gtsam_key);
+  if (kf_it == keyframe_data_.end()) return result;
 
   std::string prefix = plugin_name + "/";
-  for (const auto& [key, data] : keyframe_data_[index]) {
+  for (const auto& [key, data] : kf_it->second) {
     if (key.rfind(prefix, 0) == 0) {
       result[key] = data;
     }
@@ -182,11 +197,10 @@ bool MapManager::saveMap(
     gtsam::serializeToBinaryFile(graph, directory + "/graph_factors.bin");
     gtsam::serializeToBinaryFile(values, directory + "/graph_values.bin");
   } catch (const std::exception&) {
-    // Serialization may not be available in all GTSAM builds;
-    // fall back to just saving PCD files.
+    // Serialization may not be available in all GTSAM builds
   }
 
-  // Collect all registered keys that have data
+  // Collect all registered keys
   std::vector<std::string> registered_keys;
   for (const auto& [key, _] : type_handlers_) {
     registered_keys.push_back(key);
@@ -194,34 +208,37 @@ bool MapManager::saveMap(
   std::sort(registered_keys.begin(), registered_keys.end());
 
   // Save per-keyframe data using registered serializers
-  int num_keyframes = static_cast<int>(keyframe_data_.size());
-  for (int i = 0; i < num_keyframes; i++) {
+  int kf_idx = 0;
+  for (const auto& gtsam_key : key_list_) {
     char dirname[32];
-    snprintf(dirname, sizeof(dirname), "%06d", i);
+    snprintf(dirname, sizeof(dirname), "%06d", kf_idx);
     auto keyframe_dir = fs::path(directory) / "keyframes" / dirname;
 
-    for (const auto& [key, data] : keyframe_data_[i]) {
-      auto handler_it = type_handlers_.find(key);
-      if (handler_it == type_handlers_.end()) continue;
+    auto kf_it = keyframe_data_.find(gtsam_key);
+    if (kf_it != keyframe_data_.end()) {
+      for (const auto& [key, data] : kf_it->second) {
+        auto handler_it = type_handlers_.find(key);
+        if (handler_it == type_handlers_.end()) continue;
 
-      // Parse "plugin_name/data_name" into subdirectory and filename
-      auto slash_pos = key.find('/');
-      std::string plugin_subdir = key.substr(0, slash_pos);
-      std::string data_name = key.substr(slash_pos + 1) + ".bin";
+        auto slash_pos = key.find('/');
+        std::string plugin_subdir = key.substr(0, slash_pos);
+        std::string data_name = key.substr(slash_pos + 1) + ".bin";
 
-      auto data_dir = keyframe_dir / plugin_subdir;
-      fs::create_directories(data_dir);
-      std::string data_path = (data_dir / data_name).string();
+        auto data_dir = keyframe_dir / plugin_subdir;
+        fs::create_directories(data_dir);
+        std::string data_path = (data_dir / data_name).string();
 
-      try {
-        handler_it->second.serialize(data, data_path);
-      } catch (const std::exception&) {
-        continue;
+        try {
+          handler_it->second.serialize(data, data_path);
+        } catch (const std::exception&) {
+          continue;
+        }
       }
     }
+    kf_idx++;
   }
 
-  // Save global data using registered global serializers
+  // Save global data
   auto global_dir = fs::path(directory) / "global";
   fs::create_directories(global_dir);
   std::vector<std::string> global_keys;
@@ -230,7 +247,6 @@ bool MapManager::saveMap(
     if (handler_it == global_type_handlers_.end()) continue;
 
     std::string filename = key;
-    // Replace '/' with '_' for flat file naming
     std::replace(filename.begin(), filename.end(), '/', '_');
     std::string data_path = (global_dir / (filename + ".bin")).string();
 
@@ -242,23 +258,26 @@ bool MapManager::saveMap(
     }
   }
 
-  // Save global map (combined point clouds from all registered pcl types)
-  // This is a best-effort convenience output for visualization
+  // Save global map (combined point clouds)
   if (resolution > 0) {
     pcl::PointCloud<PointType>::Ptr global_map(
         new pcl::PointCloud<PointType>());
 
-    for (int i = 0; i < num_keyframes; i++) {
-      for (const auto& [key, data] : keyframe_data_[i]) {
+    int idx = 0;
+    for (const auto& gtsam_key : key_list_) {
+      auto kf_it = keyframe_data_.find(gtsam_key);
+      if (kf_it == keyframe_data_.end()) { idx++; continue; }
+
+      for (const auto& [key, data] : kf_it->second) {
         try {
           auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(data);
           if (cloud && !cloud->empty()) {
-            *global_map += *transformPointCloud(cloud, key_poses_6d_->points[i]);
+            *global_map += *transformPointCloud(cloud, key_poses_6d_->points[idx]);
           }
         } catch (const std::bad_any_cast&) {
-          // Not a point cloud type, skip
         }
       }
+      idx++;
     }
 
     if (!global_map->empty()) {
@@ -274,8 +293,8 @@ bool MapManager::saveMap(
   // Save metadata
   {
     std::ofstream meta(directory + "/metadata.yaml");
-    meta << "version: 1\n";
-    meta << "num_keyframes: " << num_keyframes << "\n";
+    meta << "version: 2\n";
+    meta << "num_keyframes: " << static_cast<int>(key_list_.size()) << "\n";
     meta << "resolution: " << resolution << "\n";
     meta << "registered_keys:\n";
     for (const auto& key : registered_keys) {
@@ -297,7 +316,6 @@ bool MapManager::loadMap(const std::string& directory) {
   namespace fs = std::filesystem;
   if (!fs::exists(directory)) return false;
 
-  // Load trajectory and transformations
   auto traj_path = fs::path(directory) / "trajectory.pcd";
   auto trans_path = fs::path(directory) / "transformations.pcd";
 
@@ -306,14 +324,23 @@ bool MapManager::loadMap(const std::string& directory) {
   key_poses_3d_->clear();
   key_poses_6d_->clear();
   keyframe_data_.clear();
+  key_to_cloud_index_.clear();
+  key_list_.clear();
 
   pcl::io::loadPCDFile(traj_path.string(), *key_poses_3d_);
   pcl::io::loadPCDFile(trans_path.string(), *key_poses_6d_);
 
   int num_keyframes = static_cast<int>(key_poses_3d_->size());
-  keyframe_data_.resize(num_keyframes);
 
-  // Read metadata to get the list of registered keys and global keys
+  // For legacy maps (version 1), create sequential keys using index 255
+  // (the prior/init symbol index). Future maps will store the actual keys.
+  for (int i = 0; i < num_keyframes; i++) {
+    gtsam::Key gtsam_key = gtsam::Symbol(255, i);
+    key_to_cloud_index_[gtsam_key] = i;
+    key_list_.push_back(gtsam_key);
+  }
+
+  // Read metadata
   auto metadata_path = fs::path(directory) / "metadata.yaml";
   std::vector<std::string> saved_keys;
   std::vector<std::string> saved_global_keys;
@@ -351,7 +378,7 @@ bool MapManager::loadMap(const std::string& directory) {
     }
   }
 
-  // Load per-keyframe data using registered deserializers
+  // Load per-keyframe data
   auto keyframes_dir = fs::path(directory) / "keyframes";
   if (fs::exists(keyframes_dir)) {
     for (int i = 0; i < num_keyframes; i++) {
@@ -360,12 +387,11 @@ bool MapManager::loadMap(const std::string& directory) {
       auto keyframe_dir = keyframes_dir / dirname;
       if (!fs::exists(keyframe_dir)) continue;
 
+      gtsam::Key gtsam_key = key_list_[i];
+
       for (const auto& key : saved_keys) {
         auto handler_it = type_handlers_.find(key);
-        if (handler_it == type_handlers_.end()) {
-          // No deserializer registered for this key (plugin not loaded)
-          continue;
-        }
+        if (handler_it == type_handlers_.end()) continue;
 
         auto slash_pos = key.find('/');
         std::string plugin_subdir = key.substr(0, slash_pos);
@@ -376,7 +402,7 @@ bool MapManager::loadMap(const std::string& directory) {
 
         try {
           auto data = handler_it->second.deserialize(data_path.string());
-          keyframe_data_[i][key] = std::move(data);
+          keyframe_data_[gtsam_key][key] = std::move(data);
         } catch (const std::exception&) {
           continue;
         }
@@ -384,7 +410,7 @@ bool MapManager::loadMap(const std::string& directory) {
     }
   }
 
-  // Load global data using registered global deserializers
+  // Load global data
   auto global_dir = fs::path(directory) / "global";
   if (fs::exists(global_dir)) {
     for (const auto& key : saved_global_keys) {

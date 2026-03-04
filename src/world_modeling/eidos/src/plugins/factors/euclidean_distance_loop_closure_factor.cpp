@@ -36,7 +36,7 @@ void EuclideanDistanceLoopClosureFactor::onInitialize() {
   node_->declare_parameter(prefix + ".search_num", 25);
   node_->declare_parameter(prefix + ".fitness_score", 0.3);
   node_->declare_parameter(prefix + ".mapping_surf_leaf_size", 0.4);
-  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_gicp_factor");
+  node_->declare_parameter(prefix + ".pointcloud_from", "");
 
   // ---- Read parameters ----
   node_->get_parameter(prefix + ".frequency", frequency_);
@@ -86,22 +86,24 @@ EuclideanDistanceLoopClosureFactor::processFrame(double /*timestamp*/) {
 }
 
 // ---------------------------------------------------------------------------
-// getFactors - drain the loop constraint queue
+// getFactors - drain the loop constraint queue (no new state created)
 // ---------------------------------------------------------------------------
-FactorResult
-EuclideanDistanceLoopClosureFactor::getFactors(
-    int /*state_index*/, const gtsam::Pose3& /*state_pose*/,
-    double /*timestamp*/) {
-  FactorResult result;
+StampedFactorResult
+EuclideanDistanceLoopClosureFactor::getFactors(gtsam::Key /*key*/) {
+  StampedFactorResult result;
+  // Loop closure does not create a new state — timestamp is nullopt
 
   std::lock_guard<std::mutex> lock(loop_queue_mtx_);
   for (auto& lc : loop_queue_) {
     auto factor = gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-        lc.from_index, lc.to_index, lc.relative_pose, lc.noise);
+        lc.from_key, lc.to_key, lc.relative_pose, lc.noise);
     result.factors.push_back(factor);
+    gtsam::Symbol from_sym(lc.from_key), to_sym(lc.to_key);
     RCLCPP_INFO(node_->get_logger(),
-                "[%s] Adding loop closure factor: %d -> %d", name_.c_str(),
-                lc.from_index, lc.to_index);
+                "[%s] Adding loop closure factor: (%c,%lu) -> (%c,%lu)",
+                name_.c_str(),
+                from_sym.chr(), from_sym.index(),
+                to_sym.chr(), to_sym.index());
   }
   loop_queue_.clear();
 
@@ -157,6 +159,11 @@ void EuclideanDistanceLoopClosureFactor::performLoopClosure() {
 
   if (!icp.hasConverged() || icp.getFitnessScore() > fitness_score_) return;
 
+  // Convert cloud indices to gtsam::Keys
+  gtsam::Key latest_key = core_->getMapManager().getKeyFromCloudIndex(latest_id);
+  gtsam::Key closest_key = core_->getMapManager().getKeyFromCloudIndex(closest_id);
+  if (latest_key == 0 || closest_key == 0) return;
+
   RCLCPP_INFO(node_->get_logger(),
               "[%s] Loop closure detected: %d -> %d (fitness: %.3f)",
               name_.c_str(), latest_id, closest_id,
@@ -193,10 +200,10 @@ void EuclideanDistanceLoopClosureFactor::performLoopClosure() {
       gtsam::noiseModel::mEstimator::Cauchy::Create(1),
       gtsam::noiseModel::Diagonal::Variances(noise_vec));
 
-  // 6. Queue the loop constraint
+  // 6. Queue the loop constraint (using gtsam::Keys)
   LoopConstraint lc;
-  lc.from_index = latest_id;
-  lc.to_index = closest_id;
+  lc.from_key = latest_key;
+  lc.to_key = closest_key;
   lc.relative_pose = relative_pose;
   lc.noise = robust_noise;
 
@@ -207,8 +214,8 @@ void EuclideanDistanceLoopClosureFactor::performLoopClosure() {
     loop_index_container_[latest_id] = closest_id;
   }
 
-  // Store loop target for visualization
-  core_->getMapManager().addKeyframeData(latest_id, name_ + "/loop_target", closest_id);
+  // Store loop target for visualization (using gtsam::Key)
+  core_->getMapManager().addKeyframeData(latest_key, name_ + "/loop_target", closest_key);
 }
 
 bool EuclideanDistanceLoopClosureFactor::detectLoopClosureDistance(
@@ -286,8 +293,12 @@ void EuclideanDistanceLoopClosureFactor::loopFindNearKeyframes(
     int idx = key + i;
     if (idx < 0 || idx >= num_poses) continue;
 
+    // Convert cloud index to gtsam::Key for MapManager lookup
+    gtsam::Key gtsam_key = map_manager.getKeyFromCloudIndex(idx);
+    if (gtsam_key == 0) continue;
+
     // Get all point cloud data from the producer plugin
-    auto plugin_data = map_manager.getKeyframeDataForPlugin(idx, pointcloud_from_);
+    auto plugin_data = map_manager.getKeyframeDataForPlugin(gtsam_key, pointcloud_from_);
     if (plugin_data.empty()) continue;
 
     auto& pose = key_poses_6d->points[idx];

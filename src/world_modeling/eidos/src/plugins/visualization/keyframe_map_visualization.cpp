@@ -13,7 +13,7 @@ void KeyframeMapVisualization::onInitialize() {
   std::string prefix = name_;
 
   node_->declare_parameter(prefix + ".topic", "slam/visualization/map");
-  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_gicp_factor");
+  node_->declare_parameter(prefix + ".pointcloud_from", "");
   node_->declare_parameter(prefix + ".voxel_leaf_size", 0.4);
   node_->declare_parameter(prefix + ".publish_rate", 1.0);
 
@@ -58,15 +58,17 @@ void KeyframeMapVisualization::onOptimizationComplete(
 
   const auto& map_manager = core_->getMapManager();
   auto key_poses_6d = map_manager.getKeyPoses6D();
-  int num_keyframes = map_manager.numKeyframes();
+  auto key_list = map_manager.getKeyList();
 
   auto accumulated = pcl::make_shared<pcl::PointCloud<PointType>>();
 
-  for (int i = 0; i < num_keyframes; i++) {
-    auto plugin_data = map_manager.getKeyframeDataForPlugin(i, pointcloud_from_);
+  for (auto gtsam_key : key_list) {
+    auto plugin_data = map_manager.getKeyframeDataForPlugin(gtsam_key, pointcloud_from_);
     if (plugin_data.empty()) continue;
 
-    auto& pose = key_poses_6d->points[i];
+    int cloud_idx = map_manager.getCloudIndex(gtsam_key);
+    if (cloud_idx < 0) continue;
+    auto& pose = key_poses_6d->points[cloud_idx];
 
     for (const auto& [data_key, data] : plugin_data) {
       try {

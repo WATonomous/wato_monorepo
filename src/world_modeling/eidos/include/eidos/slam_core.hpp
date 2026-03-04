@@ -5,23 +5,23 @@
 #include <string>
 #include <vector>
 
-#include <Eigen/Geometry>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 
 #include <pluginlib/class_loader.hpp>
+#include <gtsam/inference/Symbol.h>
 
 #include "eidos/types.hpp"
 #include "eidos/pose_graph.hpp"
 #include "eidos/map_manager.hpp"
 #include "eidos/plugins/base_factor_plugin.hpp"
+#include "eidos/plugins/base_motion_model_plugin.hpp"
 #include "eidos/plugins/base_relocalization_plugin.hpp"
 #include "eidos/plugins/base_visualization_plugin.hpp"
 
@@ -34,6 +34,11 @@ namespace eidos {
 /**
  * @brief Lifecycle-managed SLAM node. Runs a timer-driven SLAM loop,
  * manages plugins, PoseGraph, and MapManager.
+ *
+ * Uses a keygroup model: each SLAM tick (when displacement is met) forms
+ * a keygroup. Each factor plugin contributes 0 or 1 states at its own
+ * sensor timestamp. A motion model plugin generates constraints between
+ * consecutive states across keygroups.
  */
 class SlamCore : public rclcpp_lifecycle::LifecycleNode {
 public:
@@ -46,7 +51,7 @@ public:
   MapManager& getMapManager();
   SlamState getState() const;
   gtsam::Pose3 getCurrentPose() const;
-  int getCurrentStateIndex() const;
+  int getCurrentKeygroup() const;
 
 protected:
   using CallbackReturn =
@@ -70,6 +75,7 @@ private:
 
   // ---- Plugin management ----
   void loadFactorPlugins();
+  void loadMotionModel();
   void loadRelocalizationPlugins();
   void loadVisualizationPlugins();
 
@@ -85,22 +91,25 @@ private:
   void publishStatus();
   void publishPath();
   void publishPose();
+  void publishOdometry();
   void updatePath(const PoseType& pose);
-  void broadcastMapToOdom();
-
-  // ---- Odometry ----
-  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
   // ---- TF ----
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   // ---- SLAM state ----
   SlamState state_ = SlamState::INITIALIZING;
   gtsam::Pose3 current_pose_;
-  int current_state_index_ = -1;
+  int current_keygroup_ = -1;
   float current_transform_[6] = {0};
+
+  // ---- Keygroup state tracking ----
+  struct KeygroupState {
+    gtsam::Key key;
+    double timestamp;
+  };
+  KeygroupState last_keygroup_state_;  // last state (by timestamp) from previous keygroup
 
   // ---- Core components ----
   std::unique_ptr<PoseGraph> pose_graph_;
@@ -108,9 +117,11 @@ private:
 
   // ---- Plugins ----
   std::unique_ptr<pluginlib::ClassLoader<FactorPlugin>> factor_plugin_loader_;
+  std::unique_ptr<pluginlib::ClassLoader<MotionModelPlugin>> motion_model_loader_;
   std::unique_ptr<pluginlib::ClassLoader<RelocalizationPlugin>> reloc_plugin_loader_;
   std::unique_ptr<pluginlib::ClassLoader<VisualizationPlugin>> vis_plugin_loader_;
   std::vector<std::shared_ptr<FactorPlugin>> factor_plugins_;
+  std::shared_ptr<MotionModelPlugin> motion_model_;
   std::vector<std::shared_ptr<RelocalizationPlugin>> reloc_plugins_;
   std::vector<std::shared_ptr<VisualizationPlugin>> vis_plugins_;
 
@@ -123,14 +134,6 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
-
-  // ---- Odometry subscription ----
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  rclcpp::CallbackGroup::SharedPtr odom_callback_group_;
-  Eigen::Isometry3d latest_odom_pose_ = Eigen::Isometry3d::Identity();
-  Eigen::Isometry3d keyframe_odom_pose_ = Eigen::Isometry3d::Identity();  // odom snapshot at keyframe creation
-  bool has_odom_ = false;
-  std::mutex odom_lock_;
 
   // ---- Services ----
   rclcpp::Service<eidos_msgs::srv::SaveMap>::SharedPtr save_map_srv_;
@@ -158,6 +161,9 @@ private:
 
   // Prior noise: diagonal of 6D Pose3 covariance [roll, pitch, yaw, x, y, z]
   std::vector<double> prior_pose_cov_ = {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2};
+
+  // Published odometry covariance diagonal [x, y, z, roll, pitch, yaw]
+  std::vector<double> odom_pose_cov_ = {1.0, 1.0, 1.0, 0.1, 0.1, 0.1};
 
   // ---- Loop closure tracking ----
   bool loop_closure_detected_ = false;

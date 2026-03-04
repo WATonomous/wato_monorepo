@@ -47,7 +47,7 @@ void LoopClosureVisualization::onOptimizationComplete(
 
   const auto& map_manager = core_->getMapManager();
   auto key_poses_6d = map_manager.getKeyPoses6D();
-  int num_keyframes = map_manager.numKeyframes();
+  auto key_list = map_manager.getKeyList();
 
   visualization_msgs::msg::MarkerArray marker_array;
 
@@ -73,21 +73,26 @@ void LoopClosureVisualization::onOptimizationComplete(
 
   std::string key = loop_closure_from_ + "/loop_target";
 
-  for (int i = 0; i < num_keyframes; i++) {
-    auto target_data = map_manager.getKeyframeData(i, key);
+  for (auto gtsam_key : key_list) {
+    auto target_data = map_manager.getKeyframeData(gtsam_key, key);
     if (!target_data.has_value()) continue;
 
-    int target_idx;
+    gtsam::Key target_gtsam_key;
     try {
-      target_idx = std::any_cast<int>(target_data.value());
+      target_gtsam_key = std::any_cast<gtsam::Key>(target_data.value());
     } catch (const std::bad_any_cast&) {
       continue;
     }
 
-    if (target_idx < 0 || target_idx >= num_keyframes) continue;
+    int target_cloud_idx = map_manager.getCloudIndex(target_gtsam_key);
+    int num_poses = static_cast<int>(key_poses_6d->size());
+    if (target_cloud_idx < 0 || target_cloud_idx >= num_poses) continue;
 
-    auto& source_pose = key_poses_6d->points[i];
-    auto& target_pose = key_poses_6d->points[target_idx];
+    int source_cloud_idx = map_manager.getCloudIndex(gtsam_key);
+    if (source_cloud_idx < 0) continue;
+
+    auto& source_pose = key_poses_6d->points[source_cloud_idx];
+    auto& target_pose = key_poses_6d->points[target_cloud_idx];
 
     geometry_msgs::msg::Point p1, p2;
     p1.x = source_pose.x;

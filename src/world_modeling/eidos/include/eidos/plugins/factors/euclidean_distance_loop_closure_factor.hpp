@@ -32,8 +32,7 @@ public:
   void reset() override;
 
   std::optional<gtsam::Pose3> processFrame(double timestamp) override;
-  FactorResult getFactors(
-      int state_index, const gtsam::Pose3& state_pose, double timestamp) override;
+  StampedFactorResult getFactors(gtsam::Key key) override;
 
 private:
   // ---- Background thread ----
@@ -46,8 +45,8 @@ private:
 
   // ---- Queued factors ----
   struct LoopConstraint {
-    int from_index;
-    int to_index;
+    gtsam::Key from_key;
+    gtsam::Key to_key;
     gtsam::Pose3 relative_pose;
     gtsam::noiseModel::Base::shared_ptr noise;
   };
@@ -68,7 +67,7 @@ private:
   int search_num_;
   float fitness_score_;
   float mapping_surf_leaf_size_;
-  std::string pointcloud_from_ = "lidar_gicp_factor";
+  std::string pointcloud_from_;
 };
 
 }  // namespace eidos

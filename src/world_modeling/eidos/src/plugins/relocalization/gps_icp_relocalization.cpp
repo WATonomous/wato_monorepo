@@ -31,7 +31,7 @@ void GpsIcpRelocalization::onInitialize() {
   node_->declare_parameter(prefix + ".submap_leaf_size", 0.4);
   node_->declare_parameter(prefix + ".max_correspondence_distance", 2.0);
   node_->declare_parameter(prefix + ".num_threads", 4);
-  node_->declare_parameter(prefix + ".pointcloud_from", "lidar_gicp_factor");
+  node_->declare_parameter(prefix + ".pointcloud_from", "");
   node_->declare_parameter(prefix + ".gps_from", "gps_factor");
 
   // ---- Read parameters ----
@@ -182,7 +182,9 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
   int best_candidate = candidate_indices[0];
 
   for (int idx : candidate_indices) {
-    auto plugin_data = map_manager.getKeyframeDataForPlugin(idx, pointcloud_from_);
+    gtsam::Key idx_key = map_manager.getKeyFromCloudIndex(idx);
+    if (idx_key == 0) continue;
+    auto plugin_data = map_manager.getKeyframeDataForPlugin(idx_key, pointcloud_from_);
     if (plugin_data.empty()) continue;
 
     auto& pose = key_poses_6d->points[idx];
@@ -215,7 +217,9 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
   auto& best_pose = key_poses_6d->points[best_candidate];
   Eigen::Affine3f best_t = poseTypeToAffine3f(best_pose);
 
-  auto source_data = map_manager.getKeyframeDataForPlugin(best_candidate, pointcloud_from_);
+  gtsam::Key best_candidate_key = map_manager.getKeyFromCloudIndex(best_candidate);
+  if (best_candidate_key == 0) return std::nullopt;
+  auto source_data = map_manager.getKeyframeDataForPlugin(best_candidate_key, pointcloud_from_);
   for (const auto& [data_key, data] : source_data) {
     try {
       auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(data);

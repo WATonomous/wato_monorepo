@@ -1,12 +1,13 @@
 #include "eidos/slam_core.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <functional>
 
 #include <Eigen/Geometry>
 #include <gtsam/slam/BetweenFactor.h>
-#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <gtsam/inference/Symbol.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace eidos {
@@ -27,8 +28,6 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   // TF
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-  tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(
-      shared_from_this());
 
   // Parameters
   declare_parameter("slam_rate", slam_rate_);
@@ -44,14 +43,15 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("map.save_directory", map_save_directory_);
   declare_parameter("prior.pose_cov", prior_pose_cov_);
   declare_parameter("factor_plugins", std::vector<std::string>{});
+  declare_parameter("motion_model.plugin", std::string{});
   declare_parameter("relocalization_plugins", std::vector<std::string>{});
   declare_parameter("visualization_plugins", std::vector<std::string>{});
   declare_parameter("topics.path", "slam/path");
   declare_parameter("topics.status", "slam/status");
   declare_parameter("topics.save_map_service", "slam/save_map");
   declare_parameter("topics.load_map_service", "slam/load_map");
-  declare_parameter("topics.odom_input", std::string(""));
   declare_parameter("topics.odom", std::string("slam/odometry"));
+  declare_parameter("topics.odom_pose_cov", odom_pose_cov_);
   declare_parameter("topics.pose", std::string("slam/pose"));
 
   get_parameter("slam_rate", slam_rate_);
@@ -66,6 +66,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("map.load_directory", map_load_directory_);
   get_parameter("map.save_directory", map_save_directory_);
   get_parameter("prior.pose_cov", prior_pose_cov_);
+  get_parameter("topics.odom_pose_cov", odom_pose_cov_);
 
   std::string path_topic, status_topic, save_map_service, load_map_service;
   get_parameter("topics.path", path_topic);
@@ -73,8 +74,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("topics.save_map_service", save_map_service);
   get_parameter("topics.load_map_service", load_map_service);
 
-  std::string odom_input_topic, odom_output_topic;
-  get_parameter("topics.odom_input", odom_input_topic);
+  std::string odom_output_topic;
   get_parameter("topics.odom", odom_output_topic);
 
   // Core components
@@ -88,21 +88,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic, 1);
   status_pub_ = create_publisher<eidos_msgs::msg::SlamStatus>(status_topic, 1);
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(pose_topic, 1);
-
-  // Odometry passthrough (odom_input → odom_output + odom→base_link TF)
-  if (!odom_input_topic.empty()) {
-    odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_output_topic, 10);
-    odom_callback_group_ = create_callback_group(
-        rclcpp::CallbackGroupType::MutuallyExclusive);
-    rclcpp::SubscriptionOptions sub_opts;
-    sub_opts.callback_group = odom_callback_group_;
-    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-        odom_input_topic, rclcpp::SensorDataQoS(),
-        std::bind(&SlamCore::odomCallback, this, std::placeholders::_1),
-        sub_opts);
-    RCLCPP_INFO(get_logger(), "Odom passthrough: %s -> %s",
-                odom_input_topic.c_str(), odom_output_topic.c_str());
-  }
+  odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_output_topic, 10);
 
   // Services
   save_map_srv_ = create_service<eidos_msgs::srv::SaveMap>(
@@ -117,12 +103,15 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   // Load plugins
   factor_plugin_loader_ = std::make_unique<pluginlib::ClassLoader<FactorPlugin>>(
       "eidos", "eidos::FactorPlugin");
+  motion_model_loader_ = std::make_unique<pluginlib::ClassLoader<MotionModelPlugin>>(
+      "eidos", "eidos::MotionModelPlugin");
   reloc_plugin_loader_ = std::make_unique<pluginlib::ClassLoader<RelocalizationPlugin>>(
       "eidos", "eidos::RelocalizationPlugin");
   vis_plugin_loader_ = std::make_unique<pluginlib::ClassLoader<VisualizationPlugin>>(
       "eidos", "eidos::VisualizationPlugin");
 
   loadFactorPlugins();
+  loadMotionModel();
   loadRelocalizationPlugins();
   loadVisualizationPlugins();
 
@@ -145,7 +134,7 @@ SlamCore::CallbackReturn SlamCore::on_activate(
     }
   }
 
-  // Always enter WARMING_UP — sensors must report ready before SLAM starts
+  // Always enter WARMING_UP
   state_ = SlamState::WARMING_UP;
   RCLCPP_INFO(get_logger(), "\033[33m[WARMING_UP]\033[0m Waiting for factors...");
 
@@ -153,11 +142,14 @@ SlamCore::CallbackReturn SlamCore::on_activate(
   path_pub_->on_activate();
   status_pub_->on_activate();
   pose_pub_->on_activate();
-  if (odom_pub_) odom_pub_->on_activate();
+  odom_pub_->on_activate();
 
   // Activate plugins
   for (auto& plugin : factor_plugins_) {
     plugin->activate();
+  }
+  if (motion_model_) {
+    motion_model_->activate();
   }
   for (auto& plugin : reloc_plugins_) {
     plugin->activate();
@@ -188,14 +180,16 @@ SlamCore::CallbackReturn SlamCore::on_deactivate(
     slam_timer_.reset();
   }
 
-  // Deactivate lifecycle publishers
   path_pub_->on_deactivate();
   status_pub_->on_deactivate();
   pose_pub_->on_deactivate();
-  if (odom_pub_) odom_pub_->on_deactivate();
+  odom_pub_->on_deactivate();
 
   for (auto& plugin : factor_plugins_) {
     plugin->deactivate();
+  }
+  if (motion_model_) {
+    motion_model_->deactivate();
   }
   for (auto& plugin : reloc_plugins_) {
     plugin->deactivate();
@@ -214,20 +208,15 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
 
   // Release plugins before loaders
   factor_plugins_.clear();
+  motion_model_.reset();
   reloc_plugins_.clear();
   vis_plugins_.clear();
   factor_plugin_loader_.reset();
+  motion_model_loader_.reset();
   reloc_plugin_loader_.reset();
   vis_plugin_loader_.reset();
 
-  odom_sub_.reset();
   odom_pub_.reset();
-  odom_callback_group_.reset();
-  {
-    std::lock_guard<std::mutex> lock(odom_lock_);
-    has_odom_ = false;
-    latest_odom_pose_ = Eigen::Isometry3d::Identity();
-  }
 
   path_pub_.reset();
   status_pub_.reset();
@@ -238,14 +227,13 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   pose_graph_.reset();
   map_manager_.reset();
 
-  tf_broadcaster_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
 
   // Reset SLAM state
   state_ = SlamState::INITIALIZING;
   current_pose_ = gtsam::Pose3();
-  current_state_index_ = -1;
+  current_keygroup_ = -1;
   std::fill(std::begin(current_transform_), std::end(current_transform_), 0.0f);
   loop_closure_detected_ = false;
   accumulated_graph_ = gtsam::NonlinearFactorGraph();
@@ -260,7 +248,6 @@ SlamCore::CallbackReturn SlamCore::on_shutdown(
     const rclcpp_lifecycle::State& state) {
   RCLCPP_INFO(get_logger(), "\033[36m[SHUTTING_DOWN]\033[0m ...");
 
-  // If still active, deactivate first
   if (slam_timer_) {
     on_deactivate(state);
   }
@@ -299,8 +286,6 @@ void SlamCore::slamLoop() {
     publishStatus();
   }
 
-  // Visualization and path publishing run outside the lock — they are
-  // read-only with respect to SLAM state and can tolerate slightly stale data.
   if (run_vis) {
     for (auto& plugin : vis_plugins_) {
       plugin->onOptimizationComplete(vis_values, vis_loop_closure);
@@ -310,7 +295,6 @@ void SlamCore::slamLoop() {
 }
 
 void SlamCore::handleInitializing() {
-  // Always transition to WARMING_UP
   state_ = SlamState::WARMING_UP;
   RCLCPP_INFO(get_logger(), "\033[33m[WARMING_UP]\033[0m Transitioning from INITIALIZING");
 }
@@ -329,14 +313,26 @@ void SlamCore::handleWarmingUp(double timestamp) {
     if (!status.empty()) report += " — " + status;
   }
 
+  // Also check motion model readiness
+  bool motion_ready = true;
+  if (motion_model_) {
+    motion_ready = motion_model_->isReady();
+    total++;
+    if (motion_ready) ready_count++;
+    std::string status = motion_model_->getReadyStatus();
+    report += "\n  " + motion_model_->getName() + " (motion): "
+           + (motion_ready ? "\033[32mREADY\033[0m" : "\033[33mWAITING\033[0m");
+    if (!status.empty()) report += " — " + status;
+  }
+
   RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000,
-      "\033[33m[WARMING_UP]\033[0m factors ready: %d/%d%s",
+      "\033[33m[WARMING_UP]\033[0m plugins ready: %d/%d%s",
       ready_count, total, report.c_str());
 
   if (ready_count < total) return;
 
   RCLCPP_INFO(get_logger(),
-      "\033[32m[READY]\033[0m All factor plugins ready");
+      "\033[32m[READY]\033[0m All plugins ready");
 
   if (!reloc_plugins_.empty() && map_manager_->hasPriorMap()) {
     state_ = SlamState::RELOCALIZING;
@@ -359,64 +355,114 @@ void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double timestamp)
   current_transform_[3] = static_cast<float>(initial_pose.translation().x());
   current_transform_[4] = static_cast<float>(initial_pose.translation().y());
   current_transform_[5] = static_cast<float>(initial_pose.translation().z());
-  current_state_index_ = 0;
-
-  // Snapshot odom pose at keyframe creation for stable map→odom TF
-  {
-    std::lock_guard<std::mutex> lock(odom_lock_);
-    keyframe_odom_pose_ = latest_odom_pose_;
-  }
+  current_keygroup_ = 0;
 
   // Create first keyframe with prior factor
+  // State 0 uses index 255 (reserved for init/prior state)
+  gtsam::Key key0 = gtsam::Symbol(255, 0);
+
   gtsam::NonlinearFactorGraph initial_factors;
   gtsam::Values initial_values;
-  initial_values.insert(0, current_pose_);
-  // State 0 defines the map frame origin — anchor it tightly.
-  // Tight translation prior ensures GPS bias (if used) is well-determined.
+  initial_values.insert(key0, current_pose_);
+
   auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
       (gtsam::Vector(6) << prior_pose_cov_[0], prior_pose_cov_[1], prior_pose_cov_[2],
        prior_pose_cov_[3], prior_pose_cov_[4], prior_pose_cov_[5]).finished());
-  initial_factors.addPrior(0, current_pose_, prior_noise);
+  initial_factors.addPrior(key0, current_pose_, prior_noise);
 
-  // Collect factors from all plugins for state 0
-  for (auto& plugin : factor_plugins_) {
-    auto plugin_result = plugin->getFactors(0, current_pose_, timestamp);
+  // Motion model state 0 initialization (e.g., IMU: V(0), B(0) priors)
+  if (motion_model_) {
+    motion_model_->onStateZero(key0, timestamp, current_pose_,
+                                initial_factors, initial_values);
+  }
+
+  // Collect factors from all factor plugins for state 0
+  // Same keygroup logic as handleTracking: plugins may contribute states
+  struct KgState { gtsam::Key key; double t; };
+  std::vector<KgState> keygroup_states;
+
+  for (size_t i = 0; i < factor_plugins_.size(); i++) {
+    gtsam::Key plugin_key = gtsam::Symbol(static_cast<unsigned char>(i), 0);
+    auto plugin_result = factor_plugins_[i]->getFactors(plugin_key);
+
+    if (plugin_result.timestamp.has_value()) {
+      // Plugin wants to create a state — insert initial pose value
+      initial_values.insert(plugin_key, current_pose_);
+      keygroup_states.push_back({plugin_key, plugin_result.timestamp.value()});
+    }
+
     for (auto& f : plugin_result.factors) initial_factors.add(f);
     initial_values.insert(plugin_result.values);
   }
 
+  // Connect plugin states to key0 via motion model (sorted by timestamp)
+  std::sort(keygroup_states.begin(), keygroup_states.end(),
+            [](auto& a, auto& b) { return a.t < b.t; });
+
+  // Build chain: key0 → first plugin state → ... → last plugin state
+  gtsam::Key chain_prev = key0;
+  double chain_prev_t = timestamp;
+  for (auto& ks : keygroup_states) {
+    if (motion_model_) {
+      motion_model_->generateMotionModel(
+          chain_prev, chain_prev_t, ks.key, ks.t,
+          initial_factors, initial_values);
+    }
+    chain_prev = ks.key;
+    chain_prev_t = ks.t;
+  }
+
+  // Track last state for motion model chaining
+  last_keygroup_state_ = {chain_prev, chain_prev_t};
+
   // Store and optimize
   accumulated_graph_.add(initial_factors);
-  if (!accumulated_values_.exists(0)) {
-    accumulated_values_.insert(0, current_pose_);
+  if (!accumulated_values_.exists(key0)) {
+    accumulated_values_.insert(key0, current_pose_);
+  }
+  for (auto& ks : keygroup_states) {
+    if (!accumulated_values_.exists(ks.key)) {
+      accumulated_values_.insert(ks.key, current_pose_);
+    }
   }
   auto optimized = pose_graph_->update(initial_factors, initial_values);
 
-  // Store keyframe
+  // Store keyframes — key0 first, then plugin states
   PoseType pose_6d = gtsamPose3ToPoseType(current_pose_, timestamp);
   pose_6d.intensity = 0.0f;
-  map_manager_->addKeyframe(0, pose_6d);
+  map_manager_->addKeyframe(key0, pose_6d);
 
-  // Set state before notifying plugins so their callbacks can start buffering
+  for (auto& ks : keygroup_states) {
+    gtsam::Pose3 pose = optimized.exists(ks.key)
+        ? optimized.at<gtsam::Pose3>(ks.key) : current_pose_;
+    PoseType kf_pose = gtsamPose3ToPoseType(pose, ks.t);
+    kf_pose.intensity = static_cast<float>(map_manager_->numKeyframes());
+    map_manager_->addKeyframe(ks.key, kf_pose);
+  }
+
+  // Set state before notifying plugins
   state_ = SlamState::TRACKING;
 
   // Notify all factors of initial optimization
   for (auto& plugin : factor_plugins_) {
     plugin->onOptimizationComplete(optimized, false);
   }
+  if (motion_model_) {
+    motion_model_->onOptimizationComplete(optimized, false);
+  }
 
-  // Notify visualizers with initial state
+  // Notify visualizers
   for (auto& plugin : vis_plugins_) {
     plugin->onOptimizationComplete(optimized, false);
   }
 
   updatePath(pose_6d);
   publishPose();
-  broadcastMapToOdom();
+  publishOdometry();
 }
 
 void SlamCore::handleRelocalizing(double timestamp) {
-  // Keep factor plugins warmed up (buffering data)
+  // Keep factor plugins warmed up
   for (auto& plugin : factor_plugins_) {
     plugin->processFrame(timestamp);
   }
@@ -446,19 +492,26 @@ void SlamCore::handleRelocalizing(double timestamp) {
 void SlamCore::handleTracking(double timestamp, bool& run_vis,
                               gtsam::Values& vis_values,
                               bool& vis_loop_closure) {
-  // 1. Process frames from all factor plugins
+  // 1. Get pose estimate from motion model or factor plugins
   std::optional<gtsam::Pose3> best_pose;
+
+  // First try motion model (IMU forward propagation)
+  if (motion_model_) {
+    best_pose = motion_model_->getCurrentPose();
+  }
+
+  // Fall back to factor plugins
   for (auto& plugin : factor_plugins_) {
     auto pose = plugin->processFrame(timestamp);
     if (pose.has_value() && !best_pose.has_value()) {
-      best_pose = pose;  // First valid pose wins (plugin order = priority)
+      best_pose = pose;
     }
   }
 
   if (!best_pose.has_value()) {
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000,
-        "\033[32m[TRACKING]\033[0m Waiting for first pose from factor plugins...");
-    return;  // No pose estimate yet
+        "\033[32m[TRACKING]\033[0m Waiting for first pose...");
+    return;
   }
 
   current_pose_ = best_pose.value();
@@ -469,11 +522,11 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   current_transform_[4] = static_cast<float>(current_pose_.translation().y());
   current_transform_[5] = static_cast<float>(current_pose_.translation().z());
 
-  // 2. Check displacement since last state (state 0 is handled by beginTracking)
+  // 2. Check displacement since last state
   bool new_state = false;
   auto poses_6d = map_manager_->getKeyPoses6D();
   if (poses_6d->empty()) {
-    return;  // beginTracking() not yet called — should not happen
+    return;
   } else {
     auto last_pose = poses_6d->points.back();
     Eigen::Affine3f last_affine = poseTypeToAffine3f(last_pose);
@@ -491,59 +544,81 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     }
   }
 
-  // 3. If new state, collect factors and optimize
+  // 3. If new state, form a keygroup
   if (new_state) {
-    current_state_index_++;
-
-    // Snapshot odom pose at keyframe creation for stable map→odom TF
-    {
-      std::lock_guard<std::mutex> lock(odom_lock_);
-      keyframe_odom_pose_ = latest_odom_pose_;
-    }
+    current_keygroup_++;
 
     gtsam::NonlinearFactorGraph new_factors;
     gtsam::Values new_values;
-    new_values.insert(current_state_index_, current_pose_);
 
-    // Collect factors from all plugins
+    // Phase A: Collect factors from each plugin
+    struct KgState { gtsam::Key key; double t; };
+    std::vector<KgState> keygroup_states;
+
     loop_closure_detected_ = false;
     std::string factor_summary;
-    for (auto& plugin : factor_plugins_) {
-      auto plugin_result = plugin->getFactors(
-          current_state_index_, current_pose_, timestamp);
+
+    for (size_t i = 0; i < factor_plugins_.size(); i++) {
+      gtsam::Key key = gtsam::Symbol(static_cast<unsigned char>(i), current_keygroup_);
+      auto result = factor_plugins_[i]->getFactors(key);
+
       if (!factor_summary.empty()) factor_summary += ", ";
-      factor_summary += plugin->getName() + ":" + std::to_string(plugin_result.factors.size());
-      for (auto& f : plugin_result.factors) {
+      factor_summary += factor_plugins_[i]->getName() + ":" + std::to_string(result.factors.size());
+
+      if (result.timestamp.has_value()) {
+        // This plugin contributes a state at its sensor timestamp
+        new_values.insert(key, current_pose_);  // initial estimate
+        keygroup_states.push_back({key, result.timestamp.value()});
+      }
+
+      for (auto& f : result.factors) {
         new_factors.add(f);
-        // Detect loop closure: BetweenFactors connecting non-consecutive states
+        // Detect loop closure
         auto between =
             boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f);
         if (between) {
-          auto keys = between->keys();
-          if (keys.size() == 2) {
-            int diff = std::abs(static_cast<int>(keys[0]) -
-                                static_cast<int>(keys[1]));
-            if (diff > 1) {
-              loop_closure_detected_ = true;
-            }
-          }
+          // Loop closure factors connect non-sequential keys
+          loop_closure_detected_ = true;
         }
       }
-      new_values.insert(plugin_result.values);
+      new_values.insert(result.values);
+    }
+
+    // Phase B: Motion model — connect consecutive states by timestamp
+    std::sort(keygroup_states.begin(), keygroup_states.end(),
+              [](auto& a, auto& b) { return a.t < b.t; });
+
+    if (!keygroup_states.empty()) {
+      // Connect from previous keygroup's last state to this keygroup's first
+      if (current_keygroup_ > 0) {
+        motion_model_->generateMotionModel(
+            last_keygroup_state_.key, last_keygroup_state_.timestamp,
+            keygroup_states.front().key, keygroup_states.front().t,
+            new_factors, new_values);
+      }
+      // Connect within this keygroup
+      for (size_t i = 0; i + 1 < keygroup_states.size(); i++) {
+        motion_model_->generateMotionModel(
+            keygroup_states[i].key, keygroup_states[i].t,
+            keygroup_states[i+1].key, keygroup_states[i+1].t,
+            new_factors, new_values);
+      }
+      last_keygroup_state_ = {keygroup_states.back().key,
+                               keygroup_states.back().t};
     }
 
     // Track accumulated graph for serialization
     accumulated_graph_.add(new_factors);
-    if (!accumulated_values_.exists(current_state_index_)) {
-      accumulated_values_.insert(current_state_index_, current_pose_);
+    for (const auto& ks : keygroup_states) {
+      if (!accumulated_values_.exists(ks.key)) {
+        accumulated_values_.insert(ks.key, current_pose_);
+      }
     }
 
     // Optimize
     auto optimized = pose_graph_->update(new_factors, new_values);
 
-    // Check if any loop closure factors were added
-    // (plugins signal this by adding BetweenFactors that aren't sequential)
-    // Update poses if loop closure detected
+    // Handle loop closure
     if (loop_closure_detected_) {
       pose_graph_->updateExtra(5);
       optimized = pose_graph_->getOptimizedValues();
@@ -551,51 +626,71 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
 
       // Rebuild path
       global_path_.poses.clear();
-      for (int i = 0; i <= current_state_index_; i++) {
-        auto pose = optimized.at<gtsam::Pose3>(i);
-        PoseType pt = gtsamPose3ToPoseType(pose);
-        updatePath(pt);
+      auto key_list = map_manager_->getKeyList();
+      auto all_poses_6d = map_manager_->getKeyPoses6D();
+      for (auto k : key_list) {
+        int idx = map_manager_->getCloudIndex(k);
+        if (idx >= 0) {
+          updatePath(all_poses_6d->points[idx]);
+        }
       }
     }
 
-    // Get latest optimized pose
-    auto latest_pose = optimized.at<gtsam::Pose3>(current_state_index_);
+    // Store keyframes for each state in this keygroup
+    for (auto& ks : keygroup_states) {
+      gtsam::Pose3 pose;
+      if (optimized.exists(ks.key)) {
+        pose = optimized.at<gtsam::Pose3>(ks.key);
+      } else {
+        pose = current_pose_;
+      }
+      PoseType pose_6d = gtsamPose3ToPoseType(pose, ks.t);
+      pose_6d.intensity = static_cast<float>(map_manager_->numKeyframes());
+      map_manager_->addKeyframe(ks.key, pose_6d);
+    }
+
+    // Get latest optimized pose (from last state in keygroup)
+    if (!keygroup_states.empty()) {
+      auto last_key = keygroup_states.back().key;
+      if (optimized.exists(last_key)) {
+        auto latest_pose = optimized.at<gtsam::Pose3>(last_key);
+        current_pose_ = latest_pose;
+        current_transform_[0] = static_cast<float>(latest_pose.rotation().roll());
+        current_transform_[1] = static_cast<float>(latest_pose.rotation().pitch());
+        current_transform_[2] = static_cast<float>(latest_pose.rotation().yaw());
+        current_transform_[3] = static_cast<float>(latest_pose.translation().x());
+        current_transform_[4] = static_cast<float>(latest_pose.translation().y());
+        current_transform_[5] = static_cast<float>(latest_pose.translation().z());
+      }
+    }
 
     RCLCPP_INFO(get_logger(),
-        "\033[32m[TRACKING]\033[0m state=%d optimized: (%.3f, %.3f, %.3f) factorsOnState: %zu [%s]",
-        current_state_index_,
-        latest_pose.translation().x(), latest_pose.translation().y(),
-        latest_pose.translation().z(), new_factors.size(), factor_summary.c_str());
-
-    current_pose_ = latest_pose;
-    current_transform_[0] = static_cast<float>(latest_pose.rotation().roll());
-    current_transform_[1] = static_cast<float>(latest_pose.rotation().pitch());
-    current_transform_[2] = static_cast<float>(latest_pose.rotation().yaw());
-    current_transform_[3] = static_cast<float>(latest_pose.translation().x());
-    current_transform_[4] = static_cast<float>(latest_pose.translation().y());
-    current_transform_[5] = static_cast<float>(latest_pose.translation().z());
-
-    // Store keyframe pose (plugins store their own data via addKeyframeData)
-    PoseType pose_6d = gtsamPose3ToPoseType(latest_pose, timestamp);
-    pose_6d.intensity = static_cast<float>(current_state_index_);
-    map_manager_->addKeyframe(current_state_index_, pose_6d);
+        "\033[32m[TRACKING]\033[0m keygroup=%d states=%zu optimized: (%.3f, %.3f, %.3f) factors: %zu [%s]",
+        current_keygroup_, keygroup_states.size(),
+        current_pose_.translation().x(), current_pose_.translation().y(),
+        current_pose_.translation().z(), new_factors.size(), factor_summary.c_str());
 
     // Notify plugins of optimization result
     for (auto& plugin : factor_plugins_) {
       plugin->onOptimizationComplete(optimized, loop_closure_detected_);
     }
+    if (motion_model_) {
+      motion_model_->onOptimizationComplete(optimized, loop_closure_detected_);
+    }
 
-    // Signal visualization to run outside the lock
+    // Signal visualization
     run_vis = true;
     vis_values = optimized;
     vis_loop_closure = loop_closure_detected_;
 
-    // Broadcast map → odom corrective TF
-    broadcastMapToOdom();
-
-    // Publish optimized pose and update path
     publishPose();
-    updatePath(pose_6d);
+    publishOdometry();
+
+    // Update path with latest keygroup state
+    if (!keygroup_states.empty()) {
+      PoseType pose_6d = gtsamPose3ToPoseType(current_pose_, keygroup_states.back().t);
+      updatePath(pose_6d);
+    }
   }
 }
 
@@ -622,13 +717,36 @@ void SlamCore::loadFactorPlugins() {
           rclcpp::CallbackGroupType::MutuallyExclusive);
       plugin->initialize(this, name, shared_from_this(), tf_buffer_.get(), cb_group);
       factor_plugins_.push_back(plugin);
-      RCLCPP_INFO(get_logger(), "Loaded factor plugin: %s (%s)",
-                  name.c_str(), plugin_type.c_str());
+      RCLCPP_INFO(get_logger(), "Loaded factor plugin [%zu]: %s (%s)",
+                  factor_plugins_.size() - 1, name.c_str(), plugin_type.c_str());
     } catch (const pluginlib::PluginlibException& ex) {
       RCLCPP_ERROR(get_logger(),
                    "Failed to load factor plugin '%s' (%s): %s",
                    name.c_str(), plugin_type.c_str(), ex.what());
     }
+  }
+}
+
+void SlamCore::loadMotionModel() {
+  std::string motion_model_type;
+  get_parameter("motion_model.plugin", motion_model_type);
+
+  if (motion_model_type.empty()) {
+    RCLCPP_WARN(get_logger(), "No motion model configured. Using HolonomicMotionModel.");
+    motion_model_type = "eidos::HolonomicMotionModel";
+  }
+
+  try {
+    motion_model_ = motion_model_loader_->createSharedInstance(motion_model_type);
+    auto cb_group = create_callback_group(
+        rclcpp::CallbackGroupType::MutuallyExclusive);
+    motion_model_->initialize(this, "motion_model", shared_from_this(),
+                               tf_buffer_.get(), cb_group);
+    RCLCPP_INFO(get_logger(), "Loaded motion model: %s", motion_model_type.c_str());
+  } catch (const pluginlib::PluginlibException& ex) {
+    RCLCPP_ERROR(get_logger(),
+                 "Failed to load motion model '%s': %s",
+                 motion_model_type.c_str(), ex.what());
   }
 }
 
@@ -732,7 +850,7 @@ void SlamCore::publishStatus() {
   msg.header.stamp = now();
   msg.header.frame_id = map_frame_;
   msg.state = static_cast<uint8_t>(state_);
-  msg.current_state_index = current_state_index_;
+  msg.current_state_index = current_keygroup_;
   msg.num_keyframes = map_manager_->numKeyframes();
   msg.num_factors = pose_graph_->numFactors();
   msg.loop_closure_detected = loop_closure_detected_;
@@ -792,81 +910,32 @@ void SlamCore::publishPose() {
   pose_pub_->publish(msg);
 }
 
-void SlamCore::broadcastMapToOdom() {
-  // Compute and broadcast map → odom corrective transform.
-  // T_map_odom = T_map_base * inv(T_odom_base)
-  // Where T_map_base = current_pose_ (graph-optimized at keyframe time),
-  //       T_odom_base = odom pose snapshotted at the same keyframe time.
-  // Using the snapshot (not latest odom) ensures T_map_odom is stable
-  // between keyframes and doesn't oscillate when optimization corrects poses.
-  Eigen::Isometry3d T_odom_base = keyframe_odom_pose_;
-  bool have_odom = has_odom_;
+void SlamCore::publishOdometry() {
+  if (!odom_pub_->is_activated()) return;
 
-  // Build T_map_base from current_pose_
-  Eigen::Isometry3d T_map_base = Eigen::Isometry3d::Identity();
-  T_map_base.linear() = current_pose_.rotation().matrix();
-  T_map_base.translation() = current_pose_.translation();
+  auto q = current_pose_.rotation().toQuaternion();
 
-  Eigen::Isometry3d T_map_odom;
-  if (have_odom) {
-    T_map_odom = T_map_base * T_odom_base.inverse();
-  } else {
-    // No odom yet — publish identity so map == odom until first odom arrives
-    T_map_odom = T_map_base;
-  }
+  nav_msgs::msg::Odometry msg;
+  msg.header.stamp = now();
+  msg.header.frame_id = map_frame_;
+  msg.child_frame_id = base_link_frame_;
+  msg.pose.pose.position.x = current_pose_.translation().x();
+  msg.pose.pose.position.y = current_pose_.translation().y();
+  msg.pose.pose.position.z = current_pose_.translation().z();
+  msg.pose.pose.orientation.x = q.x();
+  msg.pose.pose.orientation.y = q.y();
+  msg.pose.pose.orientation.z = q.z();
+  msg.pose.pose.orientation.w = q.w();
 
-  Eigen::Quaterniond q_mo(T_map_odom.linear());
-  q_mo.normalize();
+  // Pose covariance diagonal (6x6 row-major: x, y, z, roll, pitch, yaw)
+  msg.pose.covariance[0]  = odom_pose_cov_[0];  // x
+  msg.pose.covariance[7]  = odom_pose_cov_[1];  // y
+  msg.pose.covariance[14] = odom_pose_cov_[2];  // z
+  msg.pose.covariance[21] = odom_pose_cov_[3];  // roll
+  msg.pose.covariance[28] = odom_pose_cov_[4];  // pitch
+  msg.pose.covariance[35] = odom_pose_cov_[5];  // yaw
 
-  geometry_msgs::msg::TransformStamped tf_msg;
-  tf_msg.header.stamp = now();
-  tf_msg.header.frame_id = map_frame_;
-  tf_msg.child_frame_id = odom_frame_;
-  tf_msg.transform.translation.x = T_map_odom.translation().x();
-  tf_msg.transform.translation.y = T_map_odom.translation().y();
-  tf_msg.transform.translation.z = T_map_odom.translation().z();
-  tf_msg.transform.rotation.x = q_mo.x();
-  tf_msg.transform.rotation.y = q_mo.y();
-  tf_msg.transform.rotation.z = q_mo.z();
-  tf_msg.transform.rotation.w = q_mo.w();
-
-  tf_broadcaster_->sendTransform(tf_msg);
-}
-
-void SlamCore::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-  // Cache odom pose for map→odom computation
-  Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
-  pose.linear() = Eigen::Quaterniond(
-      msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
-      msg->pose.pose.orientation.y, msg->pose.pose.orientation.z)
-                       .normalized()
-                       .toRotationMatrix();
-  pose.translation() = Eigen::Vector3d(
-      msg->pose.pose.position.x, msg->pose.pose.position.y,
-      msg->pose.pose.position.z);
-
-  {
-    std::lock_guard<std::mutex> lock(odom_lock_);
-    latest_odom_pose_ = pose;
-    has_odom_ = true;
-  }
-
-  // Republish on canonical odom output topic
-  if (odom_pub_ && odom_pub_->is_activated()) {
-    odom_pub_->publish(*msg);
-  }
-
-  // Broadcast odom → base_link TF from this message
-  geometry_msgs::msg::TransformStamped tf_msg;
-  tf_msg.header = msg->header;
-  tf_msg.header.frame_id = odom_frame_;
-  tf_msg.child_frame_id = base_link_frame_;
-  tf_msg.transform.translation.x = msg->pose.pose.position.x;
-  tf_msg.transform.translation.y = msg->pose.pose.position.y;
-  tf_msg.transform.translation.z = msg->pose.pose.position.z;
-  tf_msg.transform.rotation = msg->pose.pose.orientation;
-
-  tf_broadcaster_->sendTransform(tf_msg);
+  odom_pub_->publish(msg);
 }
 
 // ---- Read-only accessors for plugins ----
@@ -891,8 +960,8 @@ gtsam::Pose3 SlamCore::getCurrentPose() const {
   return current_pose_;
 }
 
-int SlamCore::getCurrentStateIndex() const {
-  return current_state_index_;
+int SlamCore::getCurrentKeygroup() const {
+  return current_keygroup_;
 }
 
 }  // namespace eidos

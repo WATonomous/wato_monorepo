@@ -10,6 +10,7 @@
 #include <tf2_ros/buffer.h>
 
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Key.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/nonlinear/Values.h>
 
@@ -19,10 +20,15 @@ namespace eidos {
 class SlamCore;
 
 /**
- * @brief Return type for getFactors(). Contains factors and optional initial
- * values for any new variables introduced by the plugin.
+ * @brief Return type for getFactors(). Contains an optional sensor timestamp,
+ * factors, and optional initial values for any new variables introduced by the plugin.
+ *
+ * If timestamp has a value, SlamCore will create a new state at that timestamp
+ * and connect it via the motion model. If nullopt, the plugin contributes
+ * factors but does not create a new state (e.g., loop closure).
  */
-struct FactorResult {
+struct StampedFactorResult {
+  std::optional<double> timestamp;  // sensor timestamp; nullopt = no new state
   std::vector<gtsam::NonlinearFactor::shared_ptr> factors;
   gtsam::Values values;  // initial values for new variables (e.g. bias keys)
 };
@@ -79,25 +85,22 @@ public:
   /**
    * @brief Called every SLAM cycle. Plugin processes its latest buffered data.
    * @param timestamp Current SLAM cycle timestamp.
-   * @return A pose estimate if available (e.g., LiDAR scan match, IMU prediction).
+   * @return A pose estimate if available (e.g., LiDAR scan match).
    */
   virtual std::optional<gtsam::Pose3> processFrame(double timestamp) = 0;
 
   /**
-   * @brief Called when SlamCore creates a new state.
-   * @param state_index Index of the new state in the pose graph.
-   * @param state_pose Pose of the new state.
-   * @param timestamp Timestamp of the new state.
-   * @return GTSAM factors for the pose graph.
+   * @brief Called when SlamCore forms a keygroup.
+   * @param key GTSAM Symbol key assigned by SlamCore (Symbol(plugin_index, keygroup)).
+   * @return StampedFactorResult with optional timestamp and factors.
+   *         If timestamp has a value, a new state is created at that time.
+   *         The plugin should use `key` directly in its GTSAM factors.
    */
-  virtual FactorResult getFactors(
-      int state_index,
-      const gtsam::Pose3& state_pose,
-      double timestamp) = 0;
+  virtual StampedFactorResult getFactors(gtsam::Key key) = 0;
 
   /**
    * @brief Returns true when the plugin has received enough data to begin SLAM.
-   * Override in plugins that need sensor warm-up (e.g. IMU, LiDAR).
+   * Override in plugins that need sensor warm-up (e.g. LiDAR).
    */
   virtual bool isReady() const { return true; }
 

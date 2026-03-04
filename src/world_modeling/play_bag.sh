@@ -53,8 +53,6 @@ TOPICS=(
   /novatel/oem7/terrastarinfo
   /novatel/oem7/terrastarstatus
   /novatel/oem7/time
-  /tf
-  /tf_static
 )
 
 ros2 bag play "$BAG_DIR" --start-offset 40 --clock --topics "${TOPICS[@]}"

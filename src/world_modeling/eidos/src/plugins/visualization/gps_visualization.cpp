@@ -67,7 +67,7 @@ void GpsVisualization::onOptimizationComplete(
                 0,   0, 1;
 
   auto key_poses_6d = map_manager.getKeyPoses6D();
-  int num_keyframes = map_manager.numKeyframes();
+  auto key_list = map_manager.getKeyList();
 
   visualization_msgs::msg::MarkerArray marker_array;
 
@@ -79,15 +79,17 @@ void GpsVisualization::onOptimizationComplete(
   int marker_id = 0;
   auto stamp = node_->now();
 
-  for (int i = 0; i < num_keyframes; i++) {
-    auto utm_data = map_manager.getKeyframeData(i, gps_from_ + "/utm_position");
+  for (auto gtsam_key : key_list) {
+    auto utm_data = map_manager.getKeyframeData(gtsam_key, gps_from_ + "/utm_position");
     if (!utm_data.has_value()) continue;
 
     auto utm_vec = std::any_cast<Eigen::Vector4d>(utm_data.value());
     Eigen::Vector3d utm_pos = utm_vec.head<3>();
     Eigen::Vector3d gps_map_pos = R_map_enu * utm_pos - utm_bias;
 
-    auto& kf_pose = key_poses_6d->points[i];
+    int cloud_idx = map_manager.getCloudIndex(gtsam_key);
+    if (cloud_idx < 0) continue;
+    auto& kf_pose = key_poses_6d->points[cloud_idx];
 
     // If elevation is disabled (bias.z ≈ 0), GPS altitude is meaningless
     // in map frame — use the keyframe z so markers are visually comparable
