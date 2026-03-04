@@ -14,15 +14,9 @@
 #include <algorithm>
 #include <ceres/ceres.h>
 #include <sys/time.h>
-#ifndef DEPLOY
-#include "matplotlibcpp.h"
-#endif
 
 #define FILE_DIR(name)     (string(string(ROOT_DIR) + "Log/"+ name))
 
-#ifndef DEPLOY
-namespace plt = matplotlibcpp;
-#endif
 using namespace std;
 using namespace Eigen;
 

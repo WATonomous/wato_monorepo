@@ -8,9 +8,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -pthread -fexceptions")
 
-# Skip matplotlib plotting in container environments
-add_definitions(-DDEPLOY)
-
 add_definitions(-DROOT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
 
 message("Current CPU architecture: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -58,15 +55,6 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
-# Optional: Livox LiDAR support
-find_package(livox_ros_driver2 QUIET)
-if(livox_ros_driver2_FOUND)
-  message(STATUS "livox_ros_driver2 found, enabling Livox LiDAR support")
-  add_definitions(-DHAVE_LIVOX)
-else()
-  message(STATUS "livox_ros_driver2 not found, Livox LiDAR support disabled")
-endif()
-
 include_directories(
   include
   ${EIGEN3_INCLUDE_DIR}
@@ -106,10 +94,6 @@ set(_AMENT_DEPS
   "pcl_conversions"
   "ament_index_cpp"
 )
-if(livox_ros_driver2_FOUND)
-  list(APPEND _AMENT_DEPS "livox_ros_driver2")
-endif()
-
 ament_target_dependencies(li_init ${_AMENT_DEPS})
 
 rosidl_get_typesupport_target(cpp_typesupport_target
@@ -127,9 +111,7 @@ install(TARGETS li_init
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
-  launch
   config
-  rviz_cfg
   DESTINATION share/${PROJECT_NAME}
 )
 

@@ -248,25 +248,23 @@ void ImuProcess::Forward_propagation_without_imu(const MeasureGroup &meas, State
     state_inout.pos_end += state_inout.vel_end * dt;
 
     /**CV model： un-distort pcl using linear interpolation **/
-    if(lidar_type != L515){
-        auto it_pcl = pcl_out.points.end() - 1;
-        double dt_j = 0.0;
-        for(; it_pcl != pcl_out.points.begin(); it_pcl --)
-        {
-            dt_j= pcl_end_offset_time - it_pcl->curvature/double(1000);
-            M3D R_jk(Exp(state_inout.bias_g, - dt_j));
-            V3D P_j(it_pcl->x, it_pcl->y, it_pcl->z);
-            // Using rotation and translation to un-distort points
-            V3D p_jk;
-            p_jk = - state_inout.rot_end.transpose() * state_inout.vel_end * dt_j;
+    auto it_pcl = pcl_out.points.end() - 1;
+    double dt_j = 0.0;
+    for(; it_pcl != pcl_out.points.begin(); it_pcl --)
+    {
+        dt_j= pcl_end_offset_time - it_pcl->curvature/double(1000);
+        M3D R_jk(Exp(state_inout.bias_g, - dt_j));
+        V3D P_j(it_pcl->x, it_pcl->y, it_pcl->z);
+        // Using rotation and translation to un-distort points
+        V3D p_jk;
+        p_jk = - state_inout.rot_end.transpose() * state_inout.vel_end * dt_j;
 
-            V3D P_compensate =  R_jk * P_j + p_jk;
+        V3D P_compensate =  R_jk * P_j + p_jk;
 
-            /// save Undistorted points and their rotation
-            it_pcl->x = P_compensate(0);
-            it_pcl->y = P_compensate(1);
-            it_pcl->z = P_compensate(2);
-        }
+        /// save Undistorted points and their rotation
+        it_pcl->x = P_compensate(0);
+        it_pcl->y = P_compensate(1);
+        it_pcl->z = P_compensate(2);
     }
 }
 
@@ -280,18 +278,10 @@ void ImuProcess::propagation_and_undist(const MeasureGroup &meas, StatesGroup &s
   double imu_end_time = get_time_sec(v_imu.back()->header.stamp);
   double pcl_beg_time, pcl_end_time;
 
-  if (lidar_type == L515)
-  {
-    pcl_beg_time = last_lidar_end_time_;
-    pcl_end_time = meas.lidar_beg_time;
-  }
-  else
-  {
-    pcl_beg_time = meas.lidar_beg_time;
-    /*** sort point clouds by offset time ***/
-    sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);
-    pcl_end_time = pcl_beg_time + pcl_out.points.back().curvature / double(1000);
-  }
+  pcl_beg_time = meas.lidar_beg_time;
+  /*** sort point clouds by offset time ***/
+  sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);
+  pcl_end_time = pcl_beg_time + pcl_out.points.back().curvature / double(1000);
 
 
   /*** Initialize IMU pose ***/
@@ -391,36 +381,33 @@ void ImuProcess::propagation_and_undist(const MeasureGroup &meas, StatesGroup &s
   last_imu_ = meas.imu.back();
   last_lidar_end_time_ = pcl_end_time;
 
-  if (lidar_type != L515)
+  #ifdef DEBUG_PRINT
+    cout<<"[ IMU Process ]: vel "<<state_inout.vel_end.transpose()<<" pos "<<state_inout.pos_end.transpose()<<" ba"<<state_inout.bias_a.transpose()<<" bg "<<state_inout.bias_g.transpose()<<endl;
+    cout<<"propagated cov: "<<state_inout.cov.diagonal().transpose()<<endl;
+  #endif
+  /*** un-distort each lidar point (backward propagation) ***/
+  auto it_pcl = pcl_out.points.end() - 1; //a single point in k-th frame
+  for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); it_kp--)
   {
-    #ifdef DEBUG_PRINT
-      cout<<"[ IMU Process ]: vel "<<state_inout.vel_end.transpose()<<" pos "<<state_inout.pos_end.transpose()<<" ba"<<state_inout.bias_a.transpose()<<" bg "<<state_inout.bias_g.transpose()<<endl;
-      cout<<"propagated cov: "<<state_inout.cov.diagonal().transpose()<<endl;
-    #endif
-    /*** un-distort each lidar point (backward propagation) ***/
-    auto it_pcl = pcl_out.points.end() - 1; //a single point in k-th frame
-    for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); it_kp--)
-    {
-        auto head = it_kp - 1;
-        R_imu << MAT_FROM_ARRAY(head->rot);
-        acc_imu << VEC_FROM_ARRAY(head->acc);
-        vel_imu << VEC_FROM_ARRAY(head->vel);
-        pos_imu << VEC_FROM_ARRAY(head->pos);
-        angvel_avr << VEC_FROM_ARRAY(head->gyr);
-        for (; it_pcl->curvature / double(1000) > head->offset_time; it_pcl--) {
-            dt = it_pcl->curvature / double(1000) - head->offset_time; //dt = t_j - t_i > 0
-            /* Transform to the 'scan-end' IMU frame（I_k frame)*/
-            M3D R_i(R_imu * Exp(angvel_avr, dt));
-            V3D P_i = pos_imu + vel_imu * dt + 0.5 * acc_imu * dt * dt;
-            V3D p_in(it_pcl->x, it_pcl->y, it_pcl->z);
-            V3D P_compensate = state_inout.offset_R_L_I.transpose() * (state_inout.rot_end.transpose() * (R_i * (state_inout.offset_R_L_I * p_in + state_inout.offset_T_L_I) + P_i - state_inout.pos_end) - state_inout.offset_T_L_I);
-            /// save Undistorted points
-            it_pcl->x = P_compensate(0);
-            it_pcl->y = P_compensate(1);
-            it_pcl->z = P_compensate(2);
-            if (it_pcl == pcl_out.points.begin()) break;
-        }
-    }
+      auto head = it_kp - 1;
+      R_imu << MAT_FROM_ARRAY(head->rot);
+      acc_imu << VEC_FROM_ARRAY(head->acc);
+      vel_imu << VEC_FROM_ARRAY(head->vel);
+      pos_imu << VEC_FROM_ARRAY(head->pos);
+      angvel_avr << VEC_FROM_ARRAY(head->gyr);
+      for (; it_pcl->curvature / double(1000) > head->offset_time; it_pcl--) {
+          dt = it_pcl->curvature / double(1000) - head->offset_time; //dt = t_j - t_i > 0
+          /* Transform to the 'scan-end' IMU frame（I_k frame)*/
+          M3D R_i(R_imu * Exp(angvel_avr, dt));
+          V3D P_i = pos_imu + vel_imu * dt + 0.5 * acc_imu * dt * dt;
+          V3D p_in(it_pcl->x, it_pcl->y, it_pcl->z);
+          V3D P_compensate = state_inout.offset_R_L_I.transpose() * (state_inout.rot_end.transpose() * (R_i * (state_inout.offset_R_L_I * p_in + state_inout.offset_T_L_I) + P_i - state_inout.pos_end) - state_inout.offset_T_L_I);
+          /// save Undistorted points
+          it_pcl->x = P_compensate(0);
+          it_pcl->y = P_compensate(1);
+          it_pcl->z = P_compensate(2);
+          if (it_pcl == pcl_out.points.begin()) break;
+      }
   }
 }
 

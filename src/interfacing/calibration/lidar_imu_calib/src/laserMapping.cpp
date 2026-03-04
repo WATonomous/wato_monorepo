@@ -19,9 +19,6 @@
 
 #include "IMU_Processing.hpp"
 #include "rclcpp/rclcpp.hpp"
-#ifndef DEPLOY
-  #include <Python.h>
-#endif
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -35,19 +32,11 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#ifdef HAVE_LIVOX
-  #include <livox_ros_driver2/msg/custom_msg.hpp>
-#endif
 #include <LI_init/LI_init.h>
 
 #include "preprocess.h"
 
 #include <ikd-Tree/ikd_Tree.h>
-
-#ifndef DEPLOY
-  #include "matplotlibcpp.h"
-namespace plt = matplotlibcpp;
-#endif
 
 using std::placeholders::_1;
 
@@ -232,23 +221,6 @@ void pointBodyToWorld(const Matrix<T, 3, 1> & pi, Matrix<T, 3, 1> & po)
   po[2] = p_global(2);
 }
 
-void RGBpointBodyToWorld(PointType const * const pi, PointTypeRGB * const po)
-{
-  V3D p_body(pi->x, pi->y, pi->z);
-  V3D p_global(state.rot_end * (state.offset_R_L_I * p_body + state.offset_T_L_I) + state.pos_end);
-  po->x = p_global(0);
-  po->y = p_global(1);
-  po->z = p_global(2);
-  po->r = pi->normal_x;
-  po->g = pi->normal_y;
-  po->b = pi->normal_z;
-
-  float intensity = pi->intensity;
-  intensity = intensity - floor(intensity);
-
-  // int reflection_map = intensity * 10000;
-}
-
 int points_cache_size = 0;
 
 void points_cache_collect()
@@ -328,10 +300,7 @@ void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2 & msg)
     printf("Self sync IMU and LiDAR, HARD time lag is %.10lf \n \n", timediff_imu_wrt_lidar);
   }
 
-  if (
-    (lidar_type == AIRY || lidar_type == VELO || lidar_type == OUSTER || lidar_type == PANDAR ||
-     lidar_type == ROBOSENSE) &&
-    cut_frame)
+  if (cut_frame)
   {
     deque<PointCloudXYZI::Ptr> ptr;
     deque<double> timestamp_lidar;
@@ -423,49 +392,6 @@ void imu_cbk(const sensor_msgs::msg::Imu::ConstSharedPtr msg_raw)
   sig_buffer.notify_all();
 }
 
-#ifdef HAVE_LIVOX
-/* livox LiDAR callback */
-void livox_pcl_cbk(const livox_ros_driver2::msg::CustomMsg::ConstSharedPtr msg)
-{
-  mtx_buffer.lock();
-  double preprocess_start_time = omp_get_wtime();
-  double cur_time = get_time_sec(msg->header.stamp);
-  scan_count++;
-  if (cur_time < last_timestamp_lidar) {
-    std::cerr << "lidar loop back, clear buffer" << std::endl;
-    lidar_buffer.clear();
-    time_buffer.clear();
-  }
-  last_timestamp_lidar = cur_time;
-
-  if (abs(last_timestamp_imu - last_timestamp_lidar) > 1.0 && !timediff_set_flg && !imu_buffer.empty()) {
-    timediff_set_flg = true;
-    timediff_imu_wrt_lidar = last_timestamp_imu - last_timestamp_lidar;
-    printf("Self sync IMU and LiDAR, HARD time lag is %.10lf \n \n", timediff_imu_wrt_lidar);
-  }
-
-  if (cut_frame) {
-    deque<PointCloudXYZI::Ptr> ptr;
-    deque<double> timestamp_lidar;
-    p_pre->process_cut_frame_livox(msg, ptr, timestamp_lidar, cut_frame_num, scan_count);
-
-    while (!ptr.empty() && !timestamp_lidar.empty()) {
-      lidar_buffer.push_back(ptr.front());
-      ptr.pop_front();
-      time_buffer.push_back(timestamp_lidar.front() / double(1000));  //unit:s
-      timestamp_lidar.pop_front();
-    }
-  } else {
-    PointCloudXYZI::Ptr ptr(new PointCloudXYZI());
-    p_pre->process(msg, ptr);
-    lidar_buffer.push_back(ptr);
-    time_buffer.push_back(last_timestamp_lidar);
-  }
-  mtx_buffer.unlock();
-  sig_buffer.notify_all();
-}
-#endif  // HAVE_LIVOX
-
 bool sync_packages(MeasureGroup & meas)
 {
   if (lidar_buffer.empty() || imu_buffer.empty()) {
@@ -485,10 +411,7 @@ bool sync_packages(MeasureGroup & meas)
 
     meas.lidar_beg_time = time_buffer.front();  // unit:s
 
-    if (lidar_type == L515)
-      lidar_end_time = meas.lidar_beg_time;
-    else
-      lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000);  // unit:s
+    lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000);  // unit:s
 
     lidar_pushed = true;
   }
@@ -527,10 +450,7 @@ bool sync_packages_only_lidar(MeasureGroup & meas)
 
     meas.lidar_beg_time = time_buffer.front();  // unit:s
 
-    if (lidar_type == L515)
-      lidar_end_time = meas.lidar_beg_time;
-    else
-      lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000);  // unit:s
+    lidar_end_time = meas.lidar_beg_time + meas.lidar->points.back().curvature / double(1000);  // unit:s
 
     lidar_pushed = true;
   }
@@ -597,21 +517,14 @@ void publish_frame_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Share
     PointCloudXYZI::Ptr laserCloudFullRes(dense_pub_en ? feats_undistort : feats_down_body);
     int size = laserCloudFullRes->points.size();
 
-    PointCloudXYZRGB::Ptr laserCloudWorldRGB(new PointCloudXYZRGB(size, 1));
     PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
 
     for (int i = 0; i < size; i++) {
-      if (lidar_type == L515)
-        RGBpointBodyToWorld(&laserCloudFullRes->points[i], &laserCloudWorldRGB->points[i]);
-      else
-        pointBodyToWorld(&laserCloudFullRes->points[i], &laserCloudWorld->points[i]);
+      pointBodyToWorld(&laserCloudFullRes->points[i], &laserCloudWorld->points[i]);
     }
 
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
-    if (lidar_type == L515)
-      pcl::toROSMsg(*laserCloudWorldRGB, laserCloudmsg);
-    else
-      pcl::toROSMsg(*laserCloudWorld, laserCloudmsg);
+    pcl::toROSMsg(*laserCloudWorld, laserCloudmsg);
 
     laserCloudmsg.header.stamp = rclcpp::Time(lidar_end_time);
     laserCloudmsg.header.frame_id = "camera_init";
@@ -865,8 +778,8 @@ public:
     this->get_parameter_or<int>("max_iteration", NUM_MAX_ITERATIONS, 4);
     this->get_parameter_or<int>("point_filter_num", p_pre->point_filter_num, 2);
     this->get_parameter_or<std::string>("map_file_path", map_file_path, "");
-    this->get_parameter_or<std::string>("common.lid_topic", lid_topic, "/livox/lidar");
-    this->get_parameter_or<std::string>("common.imu_topic", imu_topic, "/livox/imu");
+    this->get_parameter_or<std::string>("common.lid_topic", lid_topic, "/lidar_cc/velodyne_points");
+    this->get_parameter_or<std::string>("common.imu_topic", imu_topic, "/novatel/oem7/imu/data");
     this->get_parameter_or<double>("mapping.filter_size_surf", filter_size_surf_min, 0.5);
     this->get_parameter_or<double>("mapping.filter_size_map", filter_size_map_min, 0.5);
     this->get_parameter_or<double>("cube_side_length", cube_len, 200.0);
@@ -877,7 +790,7 @@ public:
     this->get_parameter_or<double>("mapping.b_gyr_cov", b_gyr_cov, 0.0001);
     this->get_parameter_or<double>("mapping.b_acc_cov", b_acc_cov, 0.0001);
     this->get_parameter_or<double>("preprocess.blind", p_pre->blind, 1.0);
-    this->get_parameter_or<int>("preprocess.lidar_type", lidar_type, AVIA);
+    this->get_parameter_or<int>("preprocess.lidar_type", lidar_type, VELO);
     this->get_parameter_or<int>("preprocess.scan_line", p_pre->N_SCANS, 16);
     this->get_parameter_or<bool>("preprocess.feature_extract_en", p_pre->feature_enabled, false);
     this->get_parameter_or<bool>("initialization.cut_frame", cut_frame, true);
@@ -963,14 +876,7 @@ public:
       cout << "~~~~" << ROOT_DIR << " doesn't exist" << endl;
 
     /*** ROS subscribe initialization ***/
-#ifdef HAVE_LIVOX
-    if (p_pre->lidar_type == AVIA) {
-      sub_pcl_livox_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, 20, livox_pcl_cbk);
-    } else
-#endif
-    {
-      sub_pcl_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, 20, standard_pcl_cbk);
-    }
+    sub_pcl_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, 20, standard_pcl_cbk);
 
     sub_imu_ = this->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, imu_cbk);
 
@@ -1003,9 +909,6 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr pubIMU_sync;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_;
-#ifdef HAVE_LIVOX
-  rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;
-#endif
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFullRes;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFullRes_body;
@@ -1290,7 +1193,7 @@ void LaserMappingNode::timer_callback()
         state.rot_end = state.rot_end * state.offset_R_L_I.transpose();
         state.gravity = V3D(0, 0, -mean_acc_norm);
 
-        if (lidar_type != AVIA) cut_frame_num = 2;
+        cut_frame_num = 2;
 
         // Compensate IMU timestamps in buffer
         for (size_t i = 0; i < imu_buffer.size(); i++) {
@@ -1377,7 +1280,7 @@ void LaserMappingNode::timer_callback()
         state.bias_g = Init_LI->get_gyro_bias();
         state.bias_a = Init_LI->get_acc_bias();
 
-        if (lidar_type != AVIA) cut_frame_num = 2;
+        cut_frame_num = 2;
 
         time_lag_IMU_wtr_lidar = Init_LI->get_total_time_lag();  // Compensate IMU's time in the buffer
         for (int i = 0; i < imu_buffer.size(); i++) {
