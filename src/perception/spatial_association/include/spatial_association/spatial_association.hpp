@@ -29,7 +29,9 @@
 
 #include <camera_object_detection_msgs/msg/batch_detection.hpp>
 #include <opencv2/opencv.hpp>
+#include <rclcpp/node_options.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -48,10 +50,38 @@ struct DetectionOutputs
   vision_msgs::msg::Detection3DArray detections3d;
 };
 
-class spatial_association : public rclcpp::Node
+class SpatialAssociationNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
-  spatial_association();
+  SpatialAssociationNode() = delete;
+  explicit SpatialAssociationNode(const rclcpp::NodeOptions & options);
+
+  // Topic names (remap in launch)
+  static constexpr auto kCameraInfoFront = "camera_info_front";
+  static constexpr auto kCameraInfoLeft = "camera_info_left";
+  static constexpr auto kCameraInfoRight = "camera_info_right";
+  static constexpr auto kNonGroundCloud = "non_ground_cloud";
+  static constexpr auto kDetections = "detections";
+  static constexpr auto kFilteredLidar = "filtered_lidar";
+  static constexpr auto kClusterCentroid = "cluster_centroid";
+  static constexpr auto kBoundingBox = "bounding_box";
+  static constexpr auto kDetection3d = "detection_3d";
+
+  /** Lifecycle: configure parameters and core (no subs/pubs). */
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
+    const rclcpp_lifecycle::State &) override;
+  /** Lifecycle: create subs/pubs and activate publishers. */
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_activate(
+    const rclcpp_lifecycle::State &) override;
+  /** Lifecycle: deactivate publishers and stop processing. */
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_deactivate(
+    const rclcpp_lifecycle::State &) override;
+  /** Lifecycle: destroy subs/pubs and release core. */
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_cleanup(
+    const rclcpp_lifecycle::State &) override;
+  /** Lifecycle: shutdown. */
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_shutdown(
+    const rclcpp_lifecycle::State & previous_state) override;
 
 private:
   // CONFIG/VISUALIZATION
@@ -110,27 +140,16 @@ private:
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
 
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
-  rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
 
   /**
    * @brief Initializes and retrieves ROS parameters
    */
   void initializeParams();
-
-  std::string camera_info_topic_front_;
-  std::string camera_info_topic_left_;
-  std::string camera_info_topic_right_;
-
-  std::string non_ground_cloud_topic_;
-  std::string detections_topic_;
-
-  std::string filtered_lidar_topic_;
-  std::string cluster_centroid_topic_;
-  std::string bounding_box_topic_;
 
   std::string lidar_frame_;
 

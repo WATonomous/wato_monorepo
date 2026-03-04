@@ -18,115 +18,219 @@
 #include <string>
 #include <vector>
 
-spatial_association::spatial_association()
-: Node("spatial_association")
+#include <lifecycle_msgs/msg/state.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
+
+SpatialAssociationNode::SpatialAssociationNode(const rclcpp::NodeOptions & options)
+: rclcpp_lifecycle::LifecycleNode("spatial_association_node", options)
 {
-  initializeParams();
-
-  // Initialize core clustering library
-  core_ = std::make_unique<SpatialAssociationCore>();
-
-  // Initialize working PCL objects for visualization
-  working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
-  working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-
-  // Set core parameters from ROS parameters
-  SpatialAssociationCore::ClusteringParams core_params;
-  core_params.voxel_size = voxel_size_;
-  core_params.euclid_cluster_tolerance = euclid_cluster_tolerance_;
-  core_params.euclid_min_cluster_size = euclid_min_cluster_size_;
-  core_params.euclid_max_cluster_size = euclid_max_cluster_size_;
-  core_params.use_adaptive_clustering = use_adaptive_clustering_;
-  core_params.euclid_close_threshold = euclid_close_threshold_;
-  core_params.euclid_close_tolerance_mult = euclid_close_tolerance_mult_;
-  core_params.density_weight = density_weight_;
-  core_params.size_weight = size_weight_;
-  core_params.distance_weight = distance_weight_;
-  core_params.score_threshold = score_threshold_;
-  core_params.merge_threshold = merge_threshold_;
-  core_params.object_detection_confidence = object_detection_confidence_;
-
-  // Set quality filtering parameters from config
-  core_params.max_distance = this->get_parameter("quality_filter_params.max_distance").as_double();
-  core_params.min_points = this->get_parameter("quality_filter_params.min_points").as_int();
-  core_params.min_height = static_cast<float>(this->get_parameter("quality_filter_params.min_height").as_double());
-  core_params.min_points_default = this->get_parameter("quality_filter_params.min_points_default").as_int();
-  core_params.min_points_far = this->get_parameter("quality_filter_params.min_points_far").as_int();
-  core_params.min_points_medium = this->get_parameter("quality_filter_params.min_points_medium").as_int();
-  core_params.min_points_large = this->get_parameter("quality_filter_params.min_points_large").as_int();
-  core_params.distance_threshold_far = this->get_parameter("quality_filter_params.distance_threshold_far").as_double();
-  core_params.distance_threshold_medium =
-    this->get_parameter("quality_filter_params.distance_threshold_medium").as_double();
-  core_params.volume_threshold_large =
-    static_cast<float>(this->get_parameter("quality_filter_params.volume_threshold_large").as_double());
-  core_params.min_density = static_cast<float>(this->get_parameter("quality_filter_params.min_density").as_double());
-  core_params.max_density = static_cast<float>(this->get_parameter("quality_filter_params.max_density").as_double());
-  core_params.max_dimension =
-    static_cast<float>(this->get_parameter("quality_filter_params.max_dimension").as_double());
-  core_params.max_aspect_ratio =
-    static_cast<float>(this->get_parameter("quality_filter_params.max_aspect_ratio").as_double());
-
-  core_->setParams(core_params);
-
-  // SUBSCRIBERS
-  // -------------------------------------------------------------------------------------------------
-
-  non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    non_ground_cloud_topic_, 10, std::bind(&spatial_association::nonGroundCloudCallback, this, std::placeholders::_1));
-
-  batch_dets_sub_ = this->create_subscription<camera_object_detection_msgs::msg::BatchDetection>(
-    detections_topic_, 10, std::bind(&spatial_association::multiDetectionsCallback, this, std::placeholders::_1));
-
-  auto info_qos = rclcpp::SensorDataQoS();
-
-  camera_info_sub_front_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    camera_info_topic_front_,
-    info_qos,
-    std::bind(&spatial_association::multiCameraInfoCallback, this, std::placeholders::_1));
-
-  camera_info_sub_left_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    camera_info_topic_left_,
-    info_qos,
-    std::bind(&spatial_association::multiCameraInfoCallback, this, std::placeholders::_1));
-
-  camera_info_sub_right_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    camera_info_topic_right_,
-    info_qos,
-    std::bind(&spatial_association::multiCameraInfoCallback, this, std::placeholders::_1));
-
-  // PUBLISHERS
-  // --------------------------------------------------------------------------------------------------
-
-  // Always create the main detection publisher
-  detection_3d_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>("/detection_3d", 10);
-  bounding_box_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/bounding_box", 10);
-
-  // Only create visualization publishers if enabled
-  if (publish_visualization_) {
-    filtered_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(filtered_lidar_topic_, 10);
-    cluster_centroid_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(cluster_centroid_topic_, 10);
-    RCLCPP_INFO(this->get_logger(), "Visualization publishers enabled");
-  } else {
-    RCLCPP_INFO(this->get_logger(), "Visualization publishers disabled - only detection_3d will be published");
-  }
-
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  RCLCPP_INFO(this->get_logger(), "Spatial Association lifecycle node created");
 }
 
-void spatial_association::initializeParams()
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SpatialAssociationNode::on_configure(
+  const rclcpp_lifecycle::State &)
 {
-  this->declare_parameter<std::string>("camera_info_topic_front_", "/CAM_FRONT/camera_info");
-  this->declare_parameter<std::string>("camera_info_topic_left_", "/CAM_FRONT_LEFT/camera_info");
-  this->declare_parameter<std::string>("camera_info_topic_right_", "/CAM_FRONT_RIGHT/camera_info");
+  RCLCPP_INFO(this->get_logger(), "Configuring Spatial Association node");
 
-  this->declare_parameter<std::string>("non_ground_cloud_topic", "/non_ground_cloud");
-  this->declare_parameter<std::string>("detections_topic", "/batched_camera_message");
+  try {
+    initializeParams();
 
-  this->declare_parameter<std::string>("filtered_lidar_topic", "/filtered_lidar");
-  this->declare_parameter<std::string>("cluster_centroid_topic", "/cluster_centroid");
-  this->declare_parameter<std::string>("bounding_box_topic", "/bounding_box");
+    core_ = std::make_unique<SpatialAssociationCore>();
 
+    working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+    working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+
+    SpatialAssociationCore::ClusteringParams core_params;
+    core_params.voxel_size = voxel_size_;
+    core_params.euclid_cluster_tolerance = euclid_cluster_tolerance_;
+    core_params.euclid_min_cluster_size = euclid_min_cluster_size_;
+    core_params.euclid_max_cluster_size = euclid_max_cluster_size_;
+    core_params.use_adaptive_clustering = use_adaptive_clustering_;
+    core_params.euclid_close_threshold = euclid_close_threshold_;
+    core_params.euclid_close_tolerance_mult = euclid_close_tolerance_mult_;
+    core_params.density_weight = density_weight_;
+    core_params.size_weight = size_weight_;
+    core_params.distance_weight = distance_weight_;
+    core_params.score_threshold = score_threshold_;
+    core_params.merge_threshold = merge_threshold_;
+    core_params.object_detection_confidence = object_detection_confidence_;
+
+    core_params.max_distance = this->get_parameter("quality_filter_params.max_distance").as_double();
+    core_params.min_points = this->get_parameter("quality_filter_params.min_points").as_int();
+    core_params.min_height = static_cast<float>(this->get_parameter("quality_filter_params.min_height").as_double());
+    core_params.min_points_default = this->get_parameter("quality_filter_params.min_points_default").as_int();
+    core_params.min_points_far = this->get_parameter("quality_filter_params.min_points_far").as_int();
+    core_params.min_points_medium = this->get_parameter("quality_filter_params.min_points_medium").as_int();
+    core_params.min_points_large = this->get_parameter("quality_filter_params.min_points_large").as_int();
+    core_params.distance_threshold_far =
+      this->get_parameter("quality_filter_params.distance_threshold_far").as_double();
+    core_params.distance_threshold_medium =
+      this->get_parameter("quality_filter_params.distance_threshold_medium").as_double();
+    core_params.volume_threshold_large =
+      static_cast<float>(this->get_parameter("quality_filter_params.volume_threshold_large").as_double());
+    core_params.min_density = static_cast<float>(this->get_parameter("quality_filter_params.min_density").as_double());
+    core_params.max_density = static_cast<float>(this->get_parameter("quality_filter_params.max_density").as_double());
+    core_params.max_dimension =
+      static_cast<float>(this->get_parameter("quality_filter_params.max_dimension").as_double());
+    core_params.max_aspect_ratio =
+      static_cast<float>(this->get_parameter("quality_filter_params.max_aspect_ratio").as_double());
+
+    core_->setParams(core_params);
+
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    RCLCPP_INFO(this->get_logger(), "Node configured successfully");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(this->get_logger(), "Configuration failed: %s", e.what());
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
+  }
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SpatialAssociationNode::on_activate(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Activating Spatial Association node");
+
+  try {
+    non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      kNonGroundCloud, 10, std::bind(&SpatialAssociationNode::nonGroundCloudCallback, this, std::placeholders::_1));
+
+    batch_dets_sub_ = this->create_subscription<camera_object_detection_msgs::msg::BatchDetection>(
+      kDetections, 10, std::bind(&SpatialAssociationNode::multiDetectionsCallback, this, std::placeholders::_1));
+
+    auto info_qos = rclcpp::SensorDataQoS();
+    camera_info_sub_front_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+      kCameraInfoFront,
+      info_qos,
+      std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
+    camera_info_sub_left_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+      kCameraInfoLeft,
+      info_qos,
+      std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
+    camera_info_sub_right_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+      kCameraInfoRight,
+      info_qos,
+      std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
+
+    detection_3d_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kDetection3d, 10);
+    bounding_box_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kBoundingBox, 10);
+    if (detection_3d_pub_) {
+      detection_3d_pub_->on_activate();
+    }
+    if (bounding_box_pub_) {
+      bounding_box_pub_->on_activate();
+    }
+
+    if (publish_visualization_) {
+      filtered_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(kFilteredLidar, 10);
+      cluster_centroid_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(kClusterCentroid, 10);
+      if (filtered_lidar_pub_) {
+        filtered_lidar_pub_->on_activate();
+      }
+      if (cluster_centroid_pub_) {
+        cluster_centroid_pub_->on_activate();
+      }
+      RCLCPP_INFO(this->get_logger(), "Visualization publishers enabled");
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Visualization publishers disabled - only detection_3d will be published");
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Node activated");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(this->get_logger(), "Activation failed: %s", e.what());
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
+  }
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SpatialAssociationNode::on_deactivate(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Deactivating Spatial Association node");
+
+  if (detection_3d_pub_) {
+    detection_3d_pub_->on_deactivate();
+  }
+  if (bounding_box_pub_) {
+    bounding_box_pub_->on_deactivate();
+  }
+  if (filtered_lidar_pub_) {
+    filtered_lidar_pub_->on_deactivate();
+  }
+  if (cluster_centroid_pub_) {
+    cluster_centroid_pub_->on_deactivate();
+  }
+
+  non_ground_cloud_sub_.reset();
+  batch_dets_sub_.reset();
+  camera_info_sub_front_.reset();
+  camera_info_sub_left_.reset();
+  camera_info_sub_right_.reset();
+
+  RCLCPP_INFO(this->get_logger(), "Node deactivated");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SpatialAssociationNode::on_cleanup(
+  const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(this->get_logger(), "Cleaning up Spatial Association node");
+
+  non_ground_cloud_sub_.reset();
+  batch_dets_sub_.reset();
+  camera_info_sub_front_.reset();
+  camera_info_sub_left_.reset();
+  camera_info_sub_right_.reset();
+  detection_3d_pub_.reset();
+  bounding_box_pub_.reset();
+  filtered_lidar_pub_.reset();
+  cluster_centroid_pub_.reset();
+  core_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  camInfoMap_.clear();
+  filtered_point_cloud_.reset();
+  working_colored_cluster_.reset();
+  working_centroid_cloud_.reset();
+
+  RCLCPP_INFO(this->get_logger(), "Node cleaned up");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SpatialAssociationNode::on_shutdown(
+  const rclcpp_lifecycle::State & previous_state)
+{
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Shutting down Spatial Association node from state: %s",
+    previous_state.label().c_str());
+
+  non_ground_cloud_sub_.reset();
+  batch_dets_sub_.reset();
+  camera_info_sub_front_.reset();
+  camera_info_sub_left_.reset();
+  camera_info_sub_right_.reset();
+  detection_3d_pub_.reset();
+  bounding_box_pub_.reset();
+  filtered_lidar_pub_.reset();
+  cluster_centroid_pub_.reset();
+  core_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  camInfoMap_.clear();
+  filtered_point_cloud_.reset();
+  working_colored_cluster_.reset();
+  working_centroid_cloud_.reset();
+
+  RCLCPP_INFO(this->get_logger(), "Node shut down");
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+void SpatialAssociationNode::initializeParams()
+{
   this->declare_parameter<std::string>("lidar_top_frame", "LIDAR_TOP");
 
   this->declare_parameter<bool>("publish_visualization", true);
@@ -176,17 +280,6 @@ void spatial_association::initializeParams()
   voxel_size_ = static_cast<float>(this->get_parameter("voxel_size").as_double());
   // Note: voxel_filter_ is now managed by the core library and set via core_->setParams()
 
-  camera_info_topic_front_ = this->get_parameter("camera_info_topic_front_").as_string();
-  camera_info_topic_right_ = this->get_parameter("camera_info_topic_right_").as_string();
-  camera_info_topic_left_ = this->get_parameter("camera_info_topic_left_").as_string();
-
-  non_ground_cloud_topic_ = this->get_parameter("non_ground_cloud_topic").as_string();
-  detections_topic_ = this->get_parameter("detections_topic").as_string();
-
-  filtered_lidar_topic_ = this->get_parameter("filtered_lidar_topic").as_string();
-  cluster_centroid_topic_ = this->get_parameter("cluster_centroid_topic").as_string();
-  bounding_box_topic_ = this->get_parameter("bounding_box_topic").as_string();
-
   lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
   euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
@@ -213,13 +306,13 @@ void spatial_association::initializeParams()
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
-void spatial_association::multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
+void SpatialAssociationNode::multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
 {
   const auto frame = msg->header.frame_id;
   camInfoMap_[frame] = msg;
 }
 
-void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
@@ -245,7 +338,7 @@ void spatial_association::nonGroundCloudCallback(const sensor_msgs::msg::PointCl
   }
 }
 
-DetectionOutputs spatial_association::processDetections(
+DetectionOutputs SpatialAssociationNode::processDetections(
   const vision_msgs::msg::Detection2DArray & detection,
   const geometry_msgs::msg::TransformStamped & transform,
   const std::array<double, 12> & projection_matrix)
@@ -305,7 +398,7 @@ DetectionOutputs spatial_association::processDetections(
   return detection_outputs;
 }
 
-void spatial_association::multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg)
+void SpatialAssociationNode::multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg)
 {
   if (camInfoMap_.size() < 3) {
     RCLCPP_WARN(get_logger(), "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size());
@@ -377,20 +470,18 @@ void spatial_association::multiDetectionsCallback(camera_object_detection_msgs::
     }
   }
 
-  // Publish visualization topics if enabled
+  // Publish visualization topics if enabled (only when lifecycle publishers are activated)
   if (publish_visualization_) {
-    if (bounding_box_pub_) {
+    if (bounding_box_pub_ && bounding_box_pub_->is_activated()) {
       bounding_box_pub_->publish(combined_bboxes);
     }
-
-    if (filtered_lidar_pub_) {
+    if (filtered_lidar_pub_ && filtered_lidar_pub_->is_activated()) {
       sensor_msgs::msg::PointCloud2 pcl2_msg;
       pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
       pcl2_msg.header = latest_lidar_msg_.header;
       filtered_lidar_pub_->publish(pcl2_msg);
     }
-
-    if (cluster_centroid_pub_) {
+    if (cluster_centroid_pub_ && cluster_centroid_pub_->is_activated()) {
       sensor_msgs::msg::PointCloud2 pcl2_msg;
       pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
       pcl2_msg.header = latest_lidar_msg_.header;
@@ -399,13 +490,9 @@ void spatial_association::multiDetectionsCallback(camera_object_detection_msgs::
   }
 
   combined_detections3d.header.stamp = this->get_clock()->now();
-  detection_3d_pub_->publish(combined_detections3d);
+  if (detection_3d_pub_ && detection_3d_pub_->is_activated()) {
+    detection_3d_pub_->publish(combined_detections3d);
+  }
 }
 
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<spatial_association>());
-  rclcpp::shutdown();
-  return 0;
-}
+RCLCPP_COMPONENTS_REGISTER_NODE(SpatialAssociationNode)

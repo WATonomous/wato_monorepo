@@ -3,6 +3,44 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 ---
 launch:
+  # Topic remap arguments (remap in launch; node uses relative names)
+  - arg:
+      name: camera_info_front
+      default: "/CAM_FRONT/camera_info"
+      description: "Camera info topic (front)"
+  - arg:
+      name: camera_info_left
+      default: "/CAM_FRONT_LEFT/camera_info"
+      description: "Camera info topic (left)"
+  - arg:
+      name: camera_info_right
+      default: "/CAM_FRONT_RIGHT/camera_info"
+      description: "Camera info topic (right)"
+  - arg:
+      name: non_ground_cloud
+      default: "/non_ground_cloud"
+      description: "Non-ground point cloud from patchwork"
+  - arg:
+      name: detections
+      default: "/batched_camera_message"
+      description: "Batched camera detections input"
+  - arg:
+      name: filtered_lidar
+      default: "/filtered_lidar"
+      description: "Filtered LiDAR visualization (when publish_visualization enabled)"
+  - arg:
+      name: cluster_centroid
+      default: "/cluster_centroid"
+      description: "Cluster centroid visualization (when publish_visualization enabled)"
+  - arg:
+      name: bounding_box
+      default: "/bounding_box"
+      description: "Bounding box markers (when publish_visualization enabled)"
+  - arg:
+      name: detection_3d
+      default: "/detection_3d"
+      description: "3D detections output"
+
   # Launch the Spatial Association node
   - node:
       pkg: spatial_association
@@ -11,3 +49,22 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share spatial_association)/config/params.yaml
+      remap:
+        - from: camera_info_front
+          to: $(var camera_info_front)
+        - from: camera_info_left
+          to: $(var camera_info_left)
+        - from: camera_info_right
+          to: $(var camera_info_right)
+        - from: non_ground_cloud
+          to: $(var non_ground_cloud)
+        - from: detections
+          to: $(var detections)
+        - from: filtered_lidar
+          to: $(var filtered_lidar)
+        - from: cluster_centroid
+          to: $(var cluster_centroid)
+        - from: bounding_box
+          to: $(var bounding_box)
+        - from: detection_3d
+          to: $(var detection_3d)

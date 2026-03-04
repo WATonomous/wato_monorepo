@@ -35,6 +35,8 @@ endif()
 # Find ROS 2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(camera_object_detection_msgs REQUIRED)
@@ -108,10 +110,13 @@ target_link_libraries(spatial_association_core
 )
 
 
-add_executable(spatial_association_node src/spatial_association.cpp)
+# Lifecycle component (shared library for loadable component or linking into standalone exe)
+add_library(spatial_association_node SHARED
+  src/spatial_association.cpp
+)
 
 target_include_directories(spatial_association_node
-    PRIVATE
+  PRIVATE
     include
     utils/include
     ${OpenCV_INCLUDE_DIRS}
@@ -119,35 +124,48 @@ target_include_directories(spatial_association_node
     ${pcl_conversions_INCLUDE_DIRS}
 )
 
-
 target_link_libraries(spatial_association_node
-    PRIVATE
-        spatial_association_core
-        projection_utils
-        ${pcl_conversions_TARGETS}
-        ${pcl_ros_TARGETS}
-        ${sensor_msgs_TARGETS}
-        ${geometry_msgs_TARGETS}
-        ${vision_msgs_TARGETS}
-        ${std_msgs_TARGETS}
-        ${camera_object_detection_msgs_TARGETS}
-        ${visualization_msgs_TARGETS}
-    PUBLIC
-        rclcpp::rclcpp
-        tf2::tf2
-        tf2_ros::tf2_ros
-        tf2_geometry_msgs::tf2_geometry_msgs
-        cv_bridge::cv_bridge
-        ${OpenCV_LIBS}
-        ${PCL_LIBRARIES}
+  PRIVATE
+    spatial_association_core
+    projection_utils
+    rclcpp_components::component
+    ${pcl_conversions_TARGETS}
+    ${pcl_ros_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${vision_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    ${camera_object_detection_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
+  PUBLIC
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    tf2::tf2
+    tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
+    cv_bridge::cv_bridge
+    ${OpenCV_LIBS}
+    ${PCL_LIBRARIES}
 )
 
-# Install the executable and libraries
+# Standalone executable (auto configure + activate, then spin)
+add_executable(spatial_association_exe src/main.cpp)
+set_target_properties(spatial_association_exe PROPERTIES OUTPUT_NAME spatial_association_node)
+target_include_directories(spatial_association_exe PRIVATE include)
+target_link_libraries(spatial_association_exe PRIVATE spatial_association_node)
+
+# Install the component library and other libraries
 install(TARGETS
     spatial_association_node
     spatial_association_core
     projection_utils
-    DESTINATION lib/${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+)
+# Install standalone lifecycle executable
+install(TARGETS spatial_association_exe
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 # Install header files
@@ -163,8 +181,15 @@ install(DIRECTORY utils/include/
 
 install(DIRECTORY
     launch
+    config
     DESTINATION share/${PROJECT_NAME}
 )
 
-# Export dependencies
+ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
+ament_export_dependencies(
+  rclcpp
+  rclcpp_components
+  rclcpp_lifecycle
+)
+
 ament_package()
