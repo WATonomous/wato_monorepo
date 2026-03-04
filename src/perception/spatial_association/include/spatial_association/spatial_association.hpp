@@ -27,7 +27,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include <camera_object_detection_msgs/msg/batch_detection.hpp>
+#include <deep_msgs/msg/multi_camera_info.hpp>
+#include <deep_msgs/msg/multi_image.hpp>
 #include <opencv2/opencv.hpp>
 #include <rclcpp/node_options.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -56,10 +57,9 @@ public:
   SpatialAssociationNode() = delete;
   explicit SpatialAssociationNode(const rclcpp::NodeOptions & options);
 
-  // Topic names (remap in launch)
-  static constexpr auto kCameraInfoFront = "camera_info_front";
-  static constexpr auto kCameraInfoLeft = "camera_info_left";
-  static constexpr auto kCameraInfoRight = "camera_info_right";
+  // Topic names (relative, remappable via launch)
+  static constexpr auto kMultiImage = "multi_image";
+  static constexpr auto kMultiCameraInfo = "multi_camera_info";
   static constexpr auto kNonGroundCloud = "non_ground_cloud";
   static constexpr auto kDetections = "detections";
   static constexpr auto kFilteredLidar = "filtered_lidar";
@@ -67,43 +67,44 @@ public:
   static constexpr auto kBoundingBox = "bounding_box";
   static constexpr auto kDetection3d = "detection_3d";
 
-  /** Lifecycle: configure parameters and core (no subs/pubs). */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State &) override;
-  /** Lifecycle: create subs/pubs and activate publishers. */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_activate(
     const rclcpp_lifecycle::State &) override;
-  /** Lifecycle: deactivate publishers and stop processing. */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_deactivate(
     const rclcpp_lifecycle::State &) override;
-  /** Lifecycle: destroy subs/pubs and release core. */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_cleanup(
     const rclcpp_lifecycle::State &) override;
-  /** Lifecycle: shutdown. */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_shutdown(
     const rclcpp_lifecycle::State & previous_state) override;
 
 private:
-  // CONFIG/VISUALIZATION
   bool publish_visualization_;
   bool debug_logging_;
 
-  // CAMERA
-  // ------------------------------------------------------------------------------------------------------
-
+  // Camera info cache (frame_id → CameraInfo)
   std::unordered_map<std::string, sensor_msgs::msg::CameraInfo::SharedPtr> camInfoMap_;
 
   /**
-   * @brief Callback for camera info messages from multiple cameras
-   * @param msg Camera info message
+   * @brief Called when a batched MultiCameraInfo arrives from camera_sync.
+   * Populates camInfoMap_ with CameraInfo for each camera in one shot.
    */
-  void multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+  void multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::SharedPtr msg);
+
+  void multiImageCallback(const deep_msgs::msg::MultiImage::SharedPtr msg);
+
+  void nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   /**
-   * @brief Callback for non-ground filtered point cloud from patchwork
-   * @param msg Non-ground point cloud message
+   * @brief Called for each per-camera Detection2DArray from deep_object_detection.
+   * Uses cached cluster indices and CameraInfo to match 2D detections with 3D clusters.
    */
-  void nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void detectionCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
+
+  DetectionOutputs processDetections(
+    const vision_msgs::msg::Detection2DArray & detections,
+    const geometry_msgs::msg::TransformStamped & transform,
+    const std::array<double, 12> & projection_matrix);
 
   sensor_msgs::msg::PointCloud2 latest_lidar_msg_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
@@ -111,50 +112,28 @@ private:
 
   std::unique_ptr<SpatialAssociationCore> core_;
 
-  /**
-   * @brief Callback for batch detection messages from multiple cameras
-   * @param msg Batch detection message containing detections from all cameras
-   */
-  void multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg);
-
-  /**
-   * @brief Processes 2D camera detections and matches them with 3D LiDAR clusters
-   * @param detections 2D camera detections
-   * @param transform Transform from LiDAR to camera frame
-   * @param projection_matrix Camera projection matrix (3x4, flattened to 12 elements)
-   * @return DetectionOutputs containing bounding boxes, detections, and visualization data
-   * @note Uses member variable cluster_indices_ for processing
-   */
-  DetectionOutputs processDetections(
-    const vision_msgs::msg::Detection2DArray & detections,
-    const geometry_msgs::msg::TransformStamped & transform,
-    const std::array<double, 12> & projection_matrix);
-
   geometry_msgs::msg::TransformStamped transform;
 
+  // Subscriptions
+  rclcpp::Subscription<deep_msgs::msg::MultiImage>::SharedPtr multi_image_sub_;
+  rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr non_ground_cloud_sub_;
-  rclcpp::Subscription<camera_object_detection_msgs::msg::BatchDetection>::SharedPtr batch_dets_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_front_, camera_info_sub_left_,
-    camera_info_sub_right_;
+  rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr dets_sub_;
 
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
+  // Publishers (lifecycle)
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_lidar_pub_;
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_centroid_pub_;
-
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr bounding_box_pub_;
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
 
-  /**
-   * @brief Initializes and retrieves ROS parameters
-   */
   void initializeParams();
 
   std::string lidar_frame_;
 
   // Filtering parameters
-
   double euclid_cluster_tolerance_;
   int euclid_min_cluster_size_;
   int euclid_max_cluster_size_;
@@ -171,7 +150,6 @@ private:
 
   float object_detection_confidence_;
 
-  // Voxel downsampling parameter
   float voxel_size_;
 
   // Working PCL objects for visualization (reused from core)

@@ -28,6 +28,10 @@ SpatialAssociationNode::SpatialAssociationNode(const rclcpp::NodeOptions & optio
   RCLCPP_INFO(this->get_logger(), "Spatial Association lifecycle node created");
 }
 
+// ---------------------------------------------------------------------------
+// Lifecycle
+// ---------------------------------------------------------------------------
+
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SpatialAssociationNode::on_configure(
   const rclcpp_lifecycle::State &)
 {
@@ -95,26 +99,21 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   RCLCPP_INFO(this->get_logger(), "Activating Spatial Association node");
 
   try {
+    // Subscribers
     non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       kNonGroundCloud, 10, std::bind(&SpatialAssociationNode::nonGroundCloudCallback, this, std::placeholders::_1));
 
-    batch_dets_sub_ = this->create_subscription<camera_object_detection_msgs::msg::BatchDetection>(
-      kDetections, 10, std::bind(&SpatialAssociationNode::multiDetectionsCallback, this, std::placeholders::_1));
+    multi_image_sub_ = this->create_subscription<deep_msgs::msg::MultiImage>(
+      kMultiImage, 10, std::bind(&SpatialAssociationNode::multiImageCallback, this, std::placeholders::_1));
 
-    auto info_qos = rclcpp::SensorDataQoS();
-    camera_info_sub_front_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-      kCameraInfoFront,
-      info_qos,
-      std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
-    camera_info_sub_left_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-      kCameraInfoLeft,
-      info_qos,
-      std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
-    camera_info_sub_right_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-      kCameraInfoRight,
-      info_qos,
+    multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
+      kMultiCameraInfo, rclcpp::SensorDataQoS(),
       std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
 
+    dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
+      kDetections, 10, std::bind(&SpatialAssociationNode::detectionCallback, this, std::placeholders::_1));
+
+    // Publishers
     detection_3d_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kDetection3d, 10);
     bounding_box_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kBoundingBox, 10);
     if (detection_3d_pub_) {
@@ -134,8 +133,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
         cluster_centroid_pub_->on_activate();
       }
       RCLCPP_INFO(this->get_logger(), "Visualization publishers enabled");
-    } else {
-      RCLCPP_INFO(this->get_logger(), "Visualization publishers disabled - only detection_3d will be published");
     }
 
     RCLCPP_INFO(this->get_logger(), "Node activated");
@@ -165,10 +162,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   }
 
   non_ground_cloud_sub_.reset();
-  batch_dets_sub_.reset();
-  camera_info_sub_front_.reset();
-  camera_info_sub_left_.reset();
-  camera_info_sub_right_.reset();
+  multi_image_sub_.reset();
+  multi_camera_info_sub_.reset();
+  dets_sub_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -180,10 +176,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   RCLCPP_INFO(this->get_logger(), "Cleaning up Spatial Association node");
 
   non_ground_cloud_sub_.reset();
-  batch_dets_sub_.reset();
-  camera_info_sub_front_.reset();
-  camera_info_sub_left_.reset();
-  camera_info_sub_right_.reset();
+  multi_image_sub_.reset();
+  multi_camera_info_sub_.reset();
+  dets_sub_.reset();
   detection_3d_pub_.reset();
   bounding_box_pub_.reset();
   filtered_lidar_pub_.reset();
@@ -193,6 +188,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   tf_buffer_.reset();
   camInfoMap_.clear();
   filtered_point_cloud_.reset();
+  cluster_indices.clear();
   working_colored_cluster_.reset();
   working_centroid_cloud_.reset();
 
@@ -209,10 +205,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     previous_state.label().c_str());
 
   non_ground_cloud_sub_.reset();
-  batch_dets_sub_.reset();
-  camera_info_sub_front_.reset();
-  camera_info_sub_left_.reset();
-  camera_info_sub_right_.reset();
+  multi_image_sub_.reset();
+  multi_camera_info_sub_.reset();
+  dets_sub_.reset();
   detection_3d_pub_.reset();
   bounding_box_pub_.reset();
   filtered_lidar_pub_.reset();
@@ -222,12 +217,17 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   tf_buffer_.reset();
   camInfoMap_.clear();
   filtered_point_cloud_.reset();
+  cluster_indices.clear();
   working_colored_cluster_.reset();
   working_centroid_cloud_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
+
+// ---------------------------------------------------------------------------
+// Parameter initialisation
+// ---------------------------------------------------------------------------
 
 void SpatialAssociationNode::initializeParams()
 {
@@ -236,10 +236,8 @@ void SpatialAssociationNode::initializeParams()
   this->declare_parameter<bool>("publish_visualization", true);
   this->declare_parameter<bool>("debug_logging", false);
 
-  // Voxel downsampling parameters
-  this->declare_parameter<float>("voxel_size", 0.2f);  // Fixed voxel size (meters)
+  this->declare_parameter<float>("voxel_size", 0.2f);
 
-  // Euclidean Clustering Parameters
   this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.5);
   this->declare_parameter<int>("euclid_params.min_cluster_size", 50);
   this->declare_parameter<int>("euclid_params.max_cluster_size", 700);
@@ -247,7 +245,6 @@ void SpatialAssociationNode::initializeParams()
   this->declare_parameter<double>("euclid_params.close_threshold", 10.0);
   this->declare_parameter<double>("euclid_params.close_tolerance_mult", 1.5);
 
-  // Density Filtering Parameters
   this->declare_parameter<double>("density_filter_params.density_weight", 0.6);
   this->declare_parameter<double>("density_filter_params.size_weight", 0.8);
   this->declare_parameter<double>("density_filter_params.distance_weight", 0.7);
@@ -257,7 +254,6 @@ void SpatialAssociationNode::initializeParams()
 
   this->declare_parameter<float>("object_detection_confidence", 0.4);
 
-  // Quality filtering parameters
   this->declare_parameter<double>("quality_filter_params.max_distance", 60.0);
   this->declare_parameter<int>("quality_filter_params.min_points", 5);
   this->declare_parameter<double>("quality_filter_params.min_height", 0.15);
@@ -273,13 +269,8 @@ void SpatialAssociationNode::initializeParams()
   this->declare_parameter<double>("quality_filter_params.max_dimension", 15.0);
   this->declare_parameter<double>("quality_filter_params.max_aspect_ratio", 15.0);
 
-  // Get parameters
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
-
-  // Get voxel downsampling parameter
   voxel_size_ = static_cast<float>(this->get_parameter("voxel_size").as_double());
-  // Note: voxel_filter_ is now managed by the core library and set via core_->setParams()
-
   lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
 
   euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
@@ -295,7 +286,6 @@ void SpatialAssociationNode::initializeParams()
   score_threshold_ = this->get_parameter("density_filter_params.score_threshold").as_double();
 
   merge_threshold_ = this->get_parameter("merge_threshold").as_double();
-
   object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
 
   debug_logging_ = this->get_parameter("debug_logging").as_bool();
@@ -306,10 +296,27 @@ void SpatialAssociationNode::initializeParams()
   RCLCPP_INFO(this->get_logger(), "Parameters initialized");
 }
 
-void SpatialAssociationNode::multiCameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
+// ---------------------------------------------------------------------------
+// Callbacks
+// ---------------------------------------------------------------------------
+
+void SpatialAssociationNode::multiCameraInfoCallback(
+  const deep_msgs::msg::MultiCameraInfo::SharedPtr msg)
 {
-  const auto frame = msg->header.frame_id;
-  camInfoMap_[frame] = msg;
+  for (const auto & info : msg->camera_infos) {
+    const auto & frame_id = info.header.frame_id;
+    if (camInfoMap_.find(frame_id) == camInfoMap_.end()) {
+      RCLCPP_INFO(this->get_logger(), "Received CameraInfo for '%s' via MultiCameraInfo", frame_id.c_str());
+    }
+    camInfoMap_[frame_id] = std::make_shared<sensor_msgs::msg::CameraInfo>(info);
+  }
+}
+
+void SpatialAssociationNode::multiImageCallback(
+  const deep_msgs::msg::MultiImage::SharedPtr /*msg*/)
+{
+  // Camera intrinsics are now received via MultiCameraInfo; nothing to do here
+  // beyond keeping the subscription alive so the node stays in the graph.
 }
 
 void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -326,17 +333,93 @@ void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::Poin
   if (input_cloud->empty()) {
     RCLCPP_WARN(this->get_logger(), "Received empty non-ground cloud");
     filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+    cluster_indices.clear();
     return;
   }
 
   filtered_point_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
   core_->processPointCloud(input_cloud, filtered_point_cloud_);
 
+  // Pre-compute clusters once per lidar frame so every subsequent
+  // Detection2DArray callback reuses the same set.
+  core_->performClustering(filtered_point_cloud_, cluster_indices);
+
   if (debug_logging_) {
     RCLCPP_INFO(
-      this->get_logger(), "Processed non-ground cloud: %zu points after downsampling", filtered_point_cloud_->size());
+      this->get_logger(),
+      "Processed non-ground cloud: %zu points, %zu clusters",
+      filtered_point_cloud_->size(),
+      cluster_indices.size());
   }
 }
+
+void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
+{
+  const auto & frame_id = msg->header.frame_id;
+
+  // Need CameraInfo for this camera
+  const auto it = camInfoMap_.find(frame_id);
+  if (it == camInfoMap_.end()) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000, "No CameraInfo for '%s', skipping detections", frame_id.c_str());
+    return;
+  }
+
+  if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No non-ground cloud data, skipping detection processing");
+    return;
+  }
+
+  if (cluster_indices.empty()) {
+    RCLCPP_DEBUG(get_logger(), "No clusters available");
+    return;
+  }
+
+  const auto & camera_info = it->second;
+
+  geometry_msgs::msg::TransformStamped tf_cam_to_lidar;
+  try {
+    tf_cam_to_lidar = tf_buffer_->lookupTransform(frame_id, lidar_frame_, tf2::TimePointZero);
+  } catch (tf2::TransformException & e) {
+    RCLCPP_WARN(get_logger(), "TF %s->%s failed: %s", lidar_frame_.c_str(), frame_id.c_str(), e.what());
+    return;
+  }
+
+  auto detection_results = processDetections(*msg, tf_cam_to_lidar, camera_info->p);
+
+  // Publish 3D detections
+  if (detection_3d_pub_ && detection_3d_pub_->is_activated()) {
+    detection_results.detections3d.header = latest_lidar_msg_.header;
+    detection_results.detections3d.header.stamp = this->get_clock()->now();
+    detection_3d_pub_->publish(detection_results.detections3d);
+  }
+
+  // Publish visualisation topics
+  if (publish_visualization_) {
+    if (bounding_box_pub_ && bounding_box_pub_->is_activated()) {
+      for (auto & marker : detection_results.bboxes.markers) {
+        marker.ns = frame_id;
+      }
+      bounding_box_pub_->publish(detection_results.bboxes);
+    }
+    if (filtered_lidar_pub_ && filtered_lidar_pub_->is_activated() && detection_results.colored_cluster) {
+      sensor_msgs::msg::PointCloud2 pcl2_msg;
+      pcl::toROSMsg(*detection_results.colored_cluster, pcl2_msg);
+      pcl2_msg.header = latest_lidar_msg_.header;
+      filtered_lidar_pub_->publish(pcl2_msg);
+    }
+    if (cluster_centroid_pub_ && cluster_centroid_pub_->is_activated() && detection_results.centroid_cloud) {
+      sensor_msgs::msg::PointCloud2 pcl2_msg;
+      pcl::toROSMsg(*detection_results.centroid_cloud, pcl2_msg);
+      pcl2_msg.header = latest_lidar_msg_.header;
+      cluster_centroid_pub_->publish(pcl2_msg);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Core processing
+// ---------------------------------------------------------------------------
 
 DetectionOutputs SpatialAssociationNode::processDetections(
   const vision_msgs::msg::Detection2DArray & detection,
@@ -354,7 +437,6 @@ DetectionOutputs SpatialAssociationNode::processDetections(
     return detection_outputs;
   }
 
-  // Work with a local copy since computeHighestIOUCluster modifies cluster_indices
   std::vector<pcl::PointIndices> working_cluster_indices = cluster_indices;
 
   auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_point_cloud_, working_cluster_indices);
@@ -396,103 +478,6 @@ DetectionOutputs SpatialAssociationNode::processDetections(
     core_->computeClusterCentroids(filtered_point_cloud_, working_cluster_indices, detection_outputs.centroid_cloud);
   }
   return detection_outputs;
-}
-
-void SpatialAssociationNode::multiDetectionsCallback(camera_object_detection_msgs::msg::BatchDetection::SharedPtr msg)
-{
-  if (camInfoMap_.size() < 3) {
-    RCLCPP_WARN(get_logger(), "Waiting for 3 CameraInfo, have %zu", camInfoMap_.size());
-    return;
-  }
-
-  if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
-    RCLCPP_WARN(get_logger(), "No non-ground cloud data available, skipping detection processing");
-    return;
-  }
-
-  core_->performClustering(filtered_point_cloud_, cluster_indices);
-
-  if (cluster_indices.empty()) {
-    RCLCPP_DEBUG(get_logger(), "No clusters found after filtering");
-    return;
-  }
-
-  visualization_msgs::msg::MarkerArray combined_bboxes;
-  // Preallocate markers to avoid reallocations (estimate: 10 markers per camera batch)
-  combined_bboxes.markers.reserve(msg->detections.size() * 10);
-
-  vision_msgs::msg::Detection3DArray combined_detections3d;
-  // Preallocate detections to avoid reallocations (estimate: 10 detections per camera batch)
-  combined_detections3d.detections.reserve(msg->detections.size() * 10);
-  combined_detections3d.header = latest_lidar_msg_.header;
-
-  pcl::PointCloud<pcl::PointXYZRGB> merged_cluster_cloud;
-  pcl::PointCloud<pcl::PointXYZ> merged_centroid_cloud;
-  int marker_id_offset = 0;
-
-  for (const auto & camera_batch : msg->detections) {
-    const auto & frame_id = camera_batch.header.frame_id;
-
-    // Find camera info and use structured binding for cleaner access
-    const auto it = camInfoMap_.find(frame_id);
-    if (it == camInfoMap_.end()) {
-      RCLCPP_WARN(get_logger(), "No CameraInfo for '%s', skipping", frame_id.c_str());
-      continue;
-    }
-
-    // Use structured binding to extract camera info from map
-    const auto & [found_frame_id, camera_info] = *it;
-
-    geometry_msgs::msg::TransformStamped tf_cam_to_lidar;
-    try {
-      tf_cam_to_lidar = tf_buffer_->lookupTransform(frame_id, lidar_frame_, tf2::TimePointZero);
-    } catch (tf2::TransformException & e) {
-      RCLCPP_WARN(get_logger(), "TF %s→%s failed: %s", lidar_frame_.c_str(), frame_id.c_str(), e.what());
-      continue;
-    }
-
-    auto detection_results = processDetections(camera_batch, tf_cam_to_lidar, camera_info->p);
-
-    for (auto & marker : detection_results.bboxes.markers) {
-      marker.ns = frame_id;
-      marker.id += marker_id_offset;
-      combined_bboxes.markers.push_back(marker);
-    }
-    marker_id_offset += static_cast<int>(detection_results.bboxes.markers.size());
-
-    for (auto & det : detection_results.detections3d.detections) {
-      combined_detections3d.detections.push_back(det);
-    }
-
-    if (publish_visualization_) {
-      merged_cluster_cloud += *detection_results.colored_cluster;
-      merged_centroid_cloud += *detection_results.centroid_cloud;
-    }
-  }
-
-  // Publish visualization topics if enabled (only when lifecycle publishers are activated)
-  if (publish_visualization_) {
-    if (bounding_box_pub_ && bounding_box_pub_->is_activated()) {
-      bounding_box_pub_->publish(combined_bboxes);
-    }
-    if (filtered_lidar_pub_ && filtered_lidar_pub_->is_activated()) {
-      sensor_msgs::msg::PointCloud2 pcl2_msg;
-      pcl::toROSMsg(merged_cluster_cloud, pcl2_msg);
-      pcl2_msg.header = latest_lidar_msg_.header;
-      filtered_lidar_pub_->publish(pcl2_msg);
-    }
-    if (cluster_centroid_pub_ && cluster_centroid_pub_->is_activated()) {
-      sensor_msgs::msg::PointCloud2 pcl2_msg;
-      pcl::toROSMsg(merged_centroid_cloud, pcl2_msg);
-      pcl2_msg.header = latest_lidar_msg_.header;
-      cluster_centroid_pub_->publish(pcl2_msg);
-    }
-  }
-
-  combined_detections3d.header.stamp = this->get_clock()->now();
-  if (detection_3d_pub_ && detection_3d_pub_->is_activated()) {
-    detection_3d_pub_->publish(combined_detections3d);
-  }
 }
 
 RCLCPP_COMPONENTS_REGISTER_NODE(SpatialAssociationNode)

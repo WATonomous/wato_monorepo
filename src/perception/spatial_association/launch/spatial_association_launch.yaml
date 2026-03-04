@@ -5,25 +5,17 @@
 launch:
   # Topic remap arguments (remap in launch; node uses relative names)
   - arg:
-      name: camera_info_front
-      default: "/CAM_FRONT/camera_info"
-      description: "Camera info topic (front)"
-  - arg:
-      name: camera_info_left
-      default: "/CAM_FRONT_LEFT/camera_info"
-      description: "Camera info topic (left)"
-  - arg:
-      name: camera_info_right
-      default: "/CAM_FRONT_RIGHT/camera_info"
-      description: "Camera info topic (right)"
+      name: multi_image
+      default: "/multi_camera_sync/multi_image_raw"
+      description: "Batched camera images from camera_sync (deep_ros)"
   - arg:
       name: non_ground_cloud
       default: "/non_ground_cloud"
       description: "Non-ground point cloud from patchwork"
   - arg:
       name: detections
-      default: "/batched_camera_message"
-      description: "Batched camera detections input"
+      default: "/detections"
+      description: "Per-camera 2D detections from deep_object_detection (deep_ros)"
   - arg:
       name: filtered_lidar
       default: "/filtered_lidar"
@@ -50,12 +42,8 @@ launch:
       param:
         - from: $(find-pkg-share spatial_association)/config/params.yaml
       remap:
-        - from: camera_info_front
-          to: $(var camera_info_front)
-        - from: camera_info_left
-          to: $(var camera_info_left)
-        - from: camera_info_right
-          to: $(var camera_info_right)
+        - from: multi_image
+          to: $(var multi_image)
         - from: non_ground_cloud
           to: $(var non_ground_cloud)
         - from: detections

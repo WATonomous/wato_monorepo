@@ -39,7 +39,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(camera_object_detection_msgs REQUIRED)
+find_package(deep_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -78,7 +78,6 @@ target_link_libraries(projection_utils
         ${sensor_msgs_TARGETS}
         ${vision_msgs_TARGETS}
         ${visualization_msgs_TARGETS}
-        ${camera_object_detection_msgs_TARGETS}
         ${std_msgs_TARGETS}
         ${geometry_msgs_TARGETS}
         ${pcl_conversions_TARGETS}
