@@ -21,6 +21,7 @@
 #include <behaviortree_ros2/bt_service_node.hpp>
 
 #include "behaviour/utils/utils.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/srv/set_route.hpp"
 
 namespace behaviour
@@ -39,7 +40,7 @@ public:
   static BT::PortsList providedPorts()
   {
     return providedBasicPorts({
-      BT::InputPort<geometry_msgs::msg::Point::SharedPtr>("goal_point"),
+      BT::InputPort<geometry_msgs::msg::PointStamped::SharedPtr>("goal_point"),
       BT::OutputPort<std::string>("error_message"),
     });
   }
@@ -51,12 +52,12 @@ public:
       setOutput("error_message", std::string("missing_port:") + port_name);
     };
 
-    auto gp = ports::tryGetPtr<geometry_msgs::msg::Point>(*this, "goal_point");
+    auto gp = ports::tryGetPtr<geometry_msgs::msg::PointStamped>(*this, "goal_point");
     if (!ports::require(gp, "goal_point", missing_input_callback)) {
       return false;
     }
 
-    request->goal_point = *gp;
+    request->goal_point = gp->point;
     return true;
   }
 
@@ -73,7 +74,7 @@ public:
 
   BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
   {
-    RCLCPP_ERROR(logger(), "SetRoute service failed: %d", error);
+    RCLCPP_ERROR(logger(), "[%s] service failed: %s", name().c_str(), std::string(BT::toStr(error)).c_str());
     return BT::NodeStatus::FAILURE;
   }
 };

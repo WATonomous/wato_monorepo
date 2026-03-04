@@ -202,6 +202,53 @@ private:
       }
       cached_context_.distance_to_lanelet_end_m = arc_len;
     }
+
+    // Populate upcoming lanelets and distances using route lookahead
+    // Use a fixed lookahead for context generation (e.g. 100m)
+    auto route_ahead = lanelet_->getRouteAhead(ego.pose.position, 100.0);
+    cached_context_.upcoming_lanelet_ids = route_ahead.ids;
+    cached_context_.upcoming_lanelet_distances_m.clear();
+
+    // Find current lanelet index in the route to calculate relative distances
+    int current_idx = -1;
+    for (size_t i = 0; i < route_ahead.ids.size(); ++i) {
+      if (route_ahead.ids[i] == cached_context_.current_lanelet.id) {
+        current_idx = static_cast<int>(i);
+        break;
+      }
+    }
+
+    if (current_idx >= 0) {
+      // Calculate distances relative to ego
+      // Start with distance to end of current lanelet (which is start of next)
+      double dist_accumulator = cached_context_.distance_to_lanelet_end_m;
+
+      for (size_t i = 0; i < route_ahead.ids.size(); ++i) {
+        if (static_cast<int>(i) <= current_idx) {
+          // Current or past lanelets -> negative distance to indicate "active/passed"
+          cached_context_.upcoming_lanelet_distances_m.push_back(-1.0);
+        } else {
+          // Upcoming lanelets
+          cached_context_.upcoming_lanelet_distances_m.push_back(dist_accumulator);
+
+          // Add length of this lanelet to accumulator for the *next* one
+          double len = 0.0;
+          const auto & cl = route_ahead.lanelets[i].centerline;
+          for (size_t k = 0; k + 1 < cl.size(); ++k) {
+            double dx = cl[k + 1].x - cl[k].x;
+            double dy = cl[k + 1].y - cl[k].y;
+            len += std::sqrt(dx * dx + dy * dy);
+          }
+          dist_accumulator += len;
+        }
+      }
+    } else {
+      // current lanelet not in route (or no route)
+      // fill with -1 to match size, though ids might be empty/irrelevant if off-route
+      for (size_t i = 0; i < route_ahead.ids.size(); ++i) {
+        cached_context_.upcoming_lanelet_distances_m.push_back(-1.0);
+      }
+    }
   }
 
   rclcpp_lifecycle::LifecycleNode * node_;

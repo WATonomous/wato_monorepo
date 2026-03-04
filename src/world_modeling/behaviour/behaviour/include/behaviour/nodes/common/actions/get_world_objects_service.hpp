@@ -21,7 +21,7 @@
 #include <behaviortree_ros2/bt_service_node.hpp>
 
 #include "world_model_msgs/msg/world_object.hpp"
-#include "world_model_msgs/srv/get_dynamic_objects.hpp"
+#include "world_model_msgs/srv/get_world_objects_enriched.hpp"
 
 namespace behaviour
 {
@@ -29,11 +29,11 @@ namespace behaviour
    * @class GetWorldObjectsService
    * @brief RosServiceNode to request all dynamic objects snapshot.
    */
-class GetWorldObjectsService : public BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>
+class GetWorldObjectsService : public BT::RosServiceNode<world_model_msgs::srv::GetWorldObjectsEnriched>
 {
 public:
   GetWorldObjectsService(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
-  : BT::RosServiceNode<world_model_msgs::srv::GetDynamicObjects>(name, conf, params)
+  : BT::RosServiceNode<world_model_msgs::srv::GetWorldObjectsEnriched>(name, conf, params)
   {}
 
   static BT::PortsList providedPorts()

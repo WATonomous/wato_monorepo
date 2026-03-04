@@ -45,9 +45,9 @@
     map_viz_publish_rate_hz: 1.0
     map_viz_radius_m: 50.0
 
-    # Dynamic objects (world_objects topic)
-    dynamic_objects_publish_rate_hz: 20.0
-    dynamic_objects_lanelet_ahead_radius_m: 15.0
+    # World objects enriched
+    world_objects_enriched_publish_rate_hz: 20.0
+    world_objects_enriched_lanelet_ahead_radius_m: 15.0
 
     # Route ahead
     route_ahead_publish_rate_hz: 20.0
