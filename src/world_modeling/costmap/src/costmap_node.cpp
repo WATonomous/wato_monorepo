@@ -29,7 +29,7 @@ CostmapNode::CostmapNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode("costmap_node", options)
 , layer_loader_("costmap", "costmap::CostmapLayer")
 {
-  declare_parameter("costmap_frame", "base_link");
+  declare_parameter("costmap_frame", "base_footprint");
   declare_parameter("map_frame", "map");
   declare_parameter("publish_rate_hz", 20.0);
   declare_parameter("grid_width_m", 60.0);

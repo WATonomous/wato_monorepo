@@ -28,6 +28,17 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
+  # topic arguments for tracking
+  - arg:
+      name: tracking_detections_topic
+      default: /perception/detections_3D
+      description: 3D detection topic being subscribed to
+
+  - arg:
+      name: tracking_tracks_topic
+      default: /perception/detections_3D_tracked
+      description: Topic to publish tracks to
+
   # Patchwork++ ground segmentation
   - node:
       pkg: patchworkpp
@@ -45,6 +56,27 @@ launch:
         - from: non_ground_cloud
           to: /perception/non_ground_cloud
 
+  # 3D tracking component
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container
+      name: component_container
+      namespace: "perception"
+      output: screen
+
+      composable_node:
+        - pkg: tracking
+          plugin: TrackingNode
+          name: tracking_node
+          namespace: "perception"
+          param:
+            - from: $(var config_file)
+          remap:
+            - from: input_detections
+              to: $(var tracking_detections_topic)
+            - from: output_tracks
+              to: $(var tracking_tracks_topic)
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -56,6 +88,7 @@ launch:
         - name: node_names
           value:
             - /perception/patchworkpp_node
+            - /perception/tracking_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

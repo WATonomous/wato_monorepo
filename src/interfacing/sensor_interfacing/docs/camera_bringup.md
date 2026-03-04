@@ -30,7 +30,7 @@ Key things to check for:
 To configure permanent settings for cameras, use the MVS tool located at:
 
 ```sh
-/opt/MVS/bin/MVS
+/opt/MVS/bin/MVS.sh
 ```
 
 We use [camera_aravis2](https://github.com/FraunhoferIOSB/camera_aravis2) to communicate with Hikrobot cameras throught the GenICam standard interface.

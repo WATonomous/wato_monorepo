@@ -18,6 +18,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -37,7 +38,7 @@ namespace world_model
 template <typename T>
 class EntityBuffer
 {
-  using Map = std::unordered_map<int64_t, T>;
+  using Map = std::unordered_map<std::string, T>;
   using MapPtr = std::shared_ptr<const Map>;
 
 public:
@@ -65,7 +66,7 @@ public:
    *
    * @param id Entity ID to remove.
    */
-  void remove(int64_t id)
+  void remove(const std::string & id)
   {
     std::lock_guard<std::mutex> lock(write_mutex_);
     auto snapshot = std::atomic_load(&data_);
@@ -83,7 +84,7 @@ public:
    * @param id Entity ID to look up.
    * @return Copy of the entity if found, nullopt otherwise.
    */
-  std::optional<T> get(int64_t id) const
+  std::optional<T> get(const std::string & id) const
   {
     auto snapshot = std::atomic_load(&data_);
     auto it = snapshot->find(id);
@@ -194,7 +195,7 @@ public:
    * @return true if the entity was found and modified, false otherwise.
    */
   template <typename Func>
-  bool modify(int64_t id, Func modifier)
+  bool modify(const std::string & id, Func modifier)
   {
     std::lock_guard<std::mutex> lock(write_mutex_);
     auto snapshot = std::atomic_load(&data_);
@@ -220,7 +221,7 @@ public:
    * @param modifier Mutation function applied after insert-or-lookup.
    */
   template <typename Func>
-  void upsert(int64_t id, T default_entity, Func modifier)
+  void upsert(const std::string & id, T default_entity, Func modifier)
   {
     std::lock_guard<std::mutex> lock(write_mutex_);
     auto copy = std::make_shared<Map>(*std::atomic_load(&data_));

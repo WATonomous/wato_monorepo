@@ -26,7 +26,7 @@ The world model aggregates data from multiple sources (perception, prediction, H
 | `lane_context_publish_rate_hz` | double | 10.0 | Lane context publish rate |
 | `map_viz_publish_rate_hz` | double | 1.0 | Map visualization publish rate |
 | `map_viz_radius_m` | double | 100.0 | Radius for map visualization |
-| `dynamic_objects_publish_rate_hz` | double | 10.0 | Dynamic objects publish rate |
+| `world_objects_enriched_publish_rate_hz` | double | 10.0 | World objects enriched publish rate |
 | `route_ahead_publish_rate_hz` | double | 10.0 | Route ahead publish rate |
 | `route_ahead_lookahead_m` | double | 100.0 | Lookahead distance for route lanelets |
 
@@ -45,7 +45,7 @@ The world model aggregates data from multiple sources (perception, prediction, H
 | `lane_context` | `lanelet_msgs/CurrentLaneContext` | Current lane information (route-aware) |
 | `route_ahead` | `lanelet_msgs/RouteAhead` | Route lanelets ahead within lookahead distance |
 | `map_visualization` | `lanelet_msgs/MapVisualization` | Nearby lanelets for viz |
-| `dynamic_objects` | `world_model_msgs/DynamicObjectArray` | All tracked entities |
+| `world_objects_enriched` | `world_model_msgs/WorldObjectArray` | All tracked entities (enriched) |
 
 ## Services
 
