@@ -64,11 +64,7 @@ macro(build_bytetrack_cpp)
         CMAKE_ARGS ${extra_cmake_args}
         INSTALL_COMMAND ""
         CONFIGURE_HANDLED_BY_BUILD TRUE
-<<<<<<< HEAD:src/perception/tracking_2d/bytetrack_cpp_vendor/CMakeLists.txt
-        PATCH_COMMAND git checkout -- . && git apply --ignore-whitespace ${CMAKE_CURRENT_SOURCE_DIR}/patches/0001-class-id.patch
-=======
         ${BYTETRACK_PATCH_CMD}
->>>>>>> origin/main:src/perception/tracking/bytetrack_cpp_vendor/CMakeLists.txt
     )
     externalproject_get_property(bytetrack BINARY_DIR SOURCE_DIR)
 
