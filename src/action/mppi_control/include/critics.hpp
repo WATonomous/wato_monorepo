@@ -39,11 +39,11 @@ public:
         double w_deviation = 100.0;
 
         // terminal deviation cost1.
-        double w_terminal_deviation = 10.0;
+        double w_terminal_deviation = 1.0;
         double w_terminal_velocity = 100.0;
 
         // heading error weights:
-        double w_heading = 1.0;
+        double w_heading = 10.0;
         double w_terminal_heading = 10.0;
 
         // -- Rate Costs --
