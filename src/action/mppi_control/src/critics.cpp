@@ -49,12 +49,12 @@ double critic::MppiCritic::evaluate(const std::vector<double>& state,
     // progress lowers the cost
     cost -= params_.w_progress * forward_proj;
 
-    // smoothing penalties, uses prev_action for delta
-    double jerk = (a - prev_a)/dt;
-    double steer_rate = (delta - prev_delta)/dt;
-    cost += params_.w_jerk * (jerk * jerk);
-    cost += params_.w_steering_rate * (steer_rate * steer_rate);
+    // smoothing penalties 
+    double jerk = (a - prev_a) / dt;
+    double steer_rate = (delta - prev_delta) / dt;
 
+    cost += dt * params_.w_jerk * (jerk * jerk);
+    cost += dt * params_.w_steering_rate * (steer_rate * steer_rate);
     //effort
     cost += dt * params_.w_accel * (a * a);
     cost += dt * params_.w_steer_angle * (delta * delta);
@@ -97,7 +97,36 @@ double critic::MppiCritic::terminal_cost(double x, double y, double yaw, double 
     }
 
     // Lateral error to the last segment/point (re-use existing helper, but force last index)
-    double lateral = lateral_error_and_tangent(ref_idx, s, tx, ty);
+    // Lateral error to the terminal segment using the terminal tangent (do NOT call lateral_error_and_tangent here)
+    // Lateral error to the last segment (N-2 -> N-1), using the SAME terminal tangent tx,ty
+    const size_t i0 = (N >= 2) ? (N - 2) : (N - 1);
+    const size_t i1 = (N - 1);
+
+    const double x0 = desired_trajectory_[i0].x;
+    const double y0 = desired_trajectory_[i0].y;
+    const double x1 = desired_trajectory_[i1].x;
+    const double y1 = desired_trajectory_[i1].y;
+
+    const double vx = x1 - x0;
+    const double vy = y1 - y0;
+    const double seg_len2 = vx*vx + vy*vy;
+
+    // project onto segment (clamped)
+    double t = 0.0;
+    if (seg_len2 > 1e-12) {
+        t = ((s.x - x0)*vx + (s.y - y0)*vy) / seg_len2;
+        t = std::clamp(t, 0.0, 1.0);
+    }
+    const double projx = x0 + t*vx;
+    const double projy = y0 + t*vy;
+
+    const double dxp = s.x - projx;
+    const double dyp = s.y - projy;
+
+    // signed lateral distance using terminal tangent
+    double lateral = std::hypot(dxp, dyp);
+    const double cross = tx * dyp - ty * dxp;
+    if (cross < 0.0) lateral = -lateral;
 
     // Terminal speed reference is the last point's speed (often 0)
     const double ref_speed = desired_trajectory_[ref_idx].v;
@@ -153,8 +182,15 @@ double critic::MppiCritic::lateral_error_and_tangent(int idx, const State &s, do
     }
 
     size_t i = static_cast<size_t>(idx);
-    size_t j = (i + 1 < desired_trajectory_.size()) ? i + 1 : (i > 0 ? i - 1 : i);
+    const size_t N = desired_trajectory_.size();
+    size_t j = (i + 1 < N) ? i + 1 : i; // default: last point uses itself
+    size_t k = (i > 0) ? i - 1 : i;     // previous point (if exists)
 
+    // If we're at the last point and we have a previous point, use (prev -> last) so tangent points forward
+    if (i + 1 >= N && i > 0) {
+        j = i;      // end point
+        i = k;      // start point becomes previous
+    }
     double x1 = desired_trajectory_[i].x;
     double y1 = desired_trajectory_[i].y;
     double x2 = desired_trajectory_[j].x;
