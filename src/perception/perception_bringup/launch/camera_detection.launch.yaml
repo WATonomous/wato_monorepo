@@ -11,23 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+#
+# Launches camera drivers, multi-camera sync (deep_ros), and deep object
+# detection (deep_ros) in a single component container for zero-copy IPC.
+#
+# All nodes are composable and loaded into the same perception_container:
+#   - 12 camera pipelines (driver + debayer + rectify) from sensor_interfacing
+#   - camera_sync::MultiCameraSyncNode (deep_ros)
+#   - deep_object_detection::DeepObjectDetectionNode (deep_ros)
+#
+# Usage: ros2 launch perception_bringup camera_detection.launch.yaml
 launch:
-  - arg:
-      name: config_file
-      default: $(find-pkg-share perception_bringup)/config/perception_sim.yaml
-      description: Path to the perception configuration file
-
-  - arg:
-      name: autostart
-      default: "true"
-      description: Automatically configure and activate managed nodes
-
-  - arg:
-      name: bond_enabled
-      default: "false"
-      description: Enable bond-based crash detection
-
   - arg:
       name: cameras_config_file
       default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
@@ -58,42 +52,13 @@ launch:
       default: "/image_annotations"
       description: "Output image annotations topic"
 
-  # Patchwork++ ground segmentation
-  - node:
-      pkg: patchworkpp
-      exec: patchworkpp_node
-      name: patchworkpp_node
-      namespace: "perception"
-      output: screen
-      param:
-        - from: $(var config_file)
-      remap:
-        - from: input_cloud
-          to: /carla/top_lidar/points
-        - from: ground_cloud
-          to: /perception/ground_cloud
-        - from: non_ground_cloud
-          to: /perception/non_ground_cloud
-
-  # ===========================================================================
   # Single component container for cameras, sync, and detection (zero-copy IPC)
-  # ===========================================================================
   - node_container:
       pkg: rclcpp_components
       exec: component_container_mt
       name: perception_container
       namespace: ""
 
-  # Load all 12 camera pipelines into the shared container
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
-      arg:
-        - name: "container_name"
-          value: "perception_container"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
-
-  # Load multi-camera sync into the shared container
   - load_composable_node:
       target: perception_container
       composable_node:
@@ -107,7 +72,7 @@ launch:
           param:
             - from: "$(var sync_config_file)"
 
-  # Load deep object detection into the shared container
+  # Load deep object detection into the same container
   - load_composable_node:
       target: perception_container
       composable_node:
@@ -130,11 +95,20 @@ launch:
           param:
             - from: "$(var detection_config_file)"
             - name: model_path
-              value: "models/yolov8m.onnx"
+              value: "/ws/models/yolov8m.onnx"
             - name: class_names_path
               value: "$(find-pkg-share deep_object_detection)/config/coco_classes.txt"
             - name: use_compressed_images
               value: false
+
+  # Load all 12 camera pipelines into the same container (from sensor_interfacing)
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+      arg:
+        - name: "container_name"
+          value: "perception_container"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
 
   # Lifecycle Manager for detection node
   - node:
@@ -149,23 +123,3 @@ launch:
           value: true
         - name: "bond_timeout"
           value: 0.0
-
-  # Lifecycle Manager for patchworkpp
-  - node:
-      pkg: wato_lifecycle_manager
-      exec: wato_lifecycle_manager_node
-      name: perception_lifecycle_manager
-      namespace: "perception"
-      output: screen
-      param:
-        - name: node_names
-          value:
-            - /perception/patchworkpp_node
-        - name: autostart
-          value: $(var autostart)
-        - name: transition_timeout_s
-          value: 10.0
-        - name: bond_timeout_s
-          value: 4.0
-        - name: bond_enabled
-          value: $(var bond_enabled)

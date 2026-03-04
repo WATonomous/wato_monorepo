@@ -134,6 +134,7 @@ services:
     ipc: host
     network_mode: host
     runtime: nvidia
+    privileged: true
     build:
       context: ..
       dockerfile: docker/template.Dockerfile

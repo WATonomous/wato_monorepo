@@ -15,6 +15,15 @@
   <exec_depend>patchworkpp</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
 
+  <!-- Component container for perception nodes -->
+  <exec_depend>rclcpp_components</exec_depend>
+  <!-- Camera drivers reused from sensor_interfacing -->
+  <exec_depend>sensor_interfacing</exec_depend>
+  <!-- Camera sync and deep object detection (composable, loaded into shared container) -->
+  <exec_depend>camera_sync</exec_depend>
+  <exec_depend>deep_object_detection</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
