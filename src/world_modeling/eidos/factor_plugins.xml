@@ -9,4 +9,9 @@
          base_class_type="eidos::FactorPlugin">
     <description>Euclidean distance-based loop closure. Detects loops via KD-tree radius search and validates with ICP alignment.</description>
   </class>
+  <class name="eidos::LisoFactor"
+         type="eidos::LisoFactor"
+         base_class_type="eidos::FactorPlugin">
+    <description>LiDAR-Inertial Submap Odometry. GICP scan-to-submap matching with graph BFS submap assembly.</description>
+  </class>
 </library>

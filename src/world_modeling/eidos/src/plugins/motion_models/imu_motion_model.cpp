@@ -272,6 +272,55 @@ std::string ImuMotionModel::getReadyStatus() const {
 }
 
 // ---------------------------------------------------------------------------
+// getInitialOrientation — average roll/pitch from stationary buffer
+// ---------------------------------------------------------------------------
+std::optional<gtsam::Rot3> ImuMotionModel::getInitialOrientation() const {
+  if (stationary_buffer_.empty()) return std::nullopt;
+
+  // Average the gravity direction from IMU orientations collected during warmup.
+  // Each orientation in stationary_buffer_ is already in base_link frame.
+  // We rotate the world-frame gravity vector [0, 0, -1] by q^{-1} to get
+  // the gravity direction in body frame, then average across all samples.
+  // This is more robust than averaging Euler angles for larger tilts.
+  Eigen::Vector3d gravity_sum = Eigen::Vector3d::Zero();
+  int count = 0;
+
+  for (const auto& msg : stationary_buffer_) {
+    Eigen::Quaterniond q(msg.orientation.w, msg.orientation.x,
+                         msg.orientation.y, msg.orientation.z);
+    if (q.squaredNorm() < 0.01) continue;
+    q.normalize();
+
+    // q rotates body → world.  gravity_body = q^{-1} * [0, 0, -1]
+    Eigen::Vector3d gravity_body = q.inverse() * Eigen::Vector3d(0, 0, -1);
+    gravity_sum += gravity_body;
+    count++;
+  }
+
+  if (count == 0) return std::nullopt;
+
+  Eigen::Vector3d avg_gravity = (gravity_sum / count).normalized();
+
+  // Build a rotation that aligns body-frame [0, 0, -1] with avg_gravity,
+  // while keeping yaw = 0 (heading is set by GPS).
+  // avg_gravity is the "down" direction in body frame.
+  // We need Rot3 R such that R * [0,0,-1] = avg_gravity (in body frame coords)
+  // i.e., the world z-axis maps through R^{-1} to avg_gravity.
+  //
+  // Equivalently: extract roll, pitch from the average gravity vector.
+  //   pitch = asin(avg_gravity.x)      (forward tilt)
+  //   roll  = atan2(-avg_gravity.y, -avg_gravity.z) (lateral tilt)
+  double pitch = std::asin(std::clamp(avg_gravity.x(), -1.0, 1.0));
+  double roll = std::atan2(-avg_gravity.y(), -avg_gravity.z());
+
+  RCLCPP_INFO(node_->get_logger(),
+      "[%s] gravity alignment from %d samples: roll=%.2f° pitch=%.2f°",
+      name_.c_str(), count, roll * 180.0 / M_PI, pitch * 180.0 / M_PI);
+
+  return gtsam::Rot3::RzRyRx(roll, pitch, 0.0);
+}
+
+// ---------------------------------------------------------------------------
 // getCurrentPose
 // ---------------------------------------------------------------------------
 std::optional<gtsam::Pose3> ImuMotionModel::getCurrentPose() const {
@@ -457,7 +506,7 @@ void ImuMotionModel::onOptimizationComplete(
       Eigen::Vector3d(t_vec.x(), t_vec.y(), t_vec.z());
   graph_odom_time_ = (last_generated_time_ > 0) ? last_generated_time_ : node_->now().seconds();
 
-  // Update real-time prediction state and repropagate bias
+  // Update real-time prediction state to graph-optimized values
   prev_state_odom_ = prev_state_;
   prev_bias_odom_ = prev_bias_;
 
@@ -469,7 +518,6 @@ void ImuMotionModel::onOptimizationComplete(
     imu_queue_imu_.pop_front();
   }
 
-  // Re-propagate remaining messages with new bias
   if (!imu_queue_imu_.empty()) {
     imu_integrator_imu_->resetIntegrationAndSetBias(prev_bias_odom_);
     for (const auto& msg : imu_queue_imu_) {

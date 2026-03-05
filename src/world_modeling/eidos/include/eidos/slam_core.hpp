@@ -52,6 +52,7 @@ public:
   gtsam::Pose3 getCurrentPose() const;
   int getCurrentKeygroup() const;
   const gtsam::NonlinearFactorGraph& getAccumulatedGraph() const;
+  std::optional<gtsam::Pose3> getMotionModelPose() const;
 
 protected:
   using CallbackReturn =
@@ -101,6 +102,11 @@ private:
   gtsam::Pose3 current_pose_;
   int current_keygroup_ = -1;
   float current_transform_[6] = {0};
+
+  // Motion model delta tracking: current_pose = last_optimized * delta(mm)
+  gtsam::Pose3 last_optimized_pose_;
+  gtsam::Pose3 mm_pose_at_last_optimization_;
+  bool has_optimization_anchor_ = false;
 
   // ---- Keygroup state tracking ----
   struct KeygroupState {

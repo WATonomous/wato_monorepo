@@ -329,7 +329,15 @@ void SlamCore::handleWarmingUp(double timestamp) {
     relocalization_start_time_ = timestamp;
     RCLCPP_INFO(get_logger(), "\033[35m[RELOCALIZING]\033[0m Prior map loaded, entering relocalization");
   } else {
-    beginTracking(gtsam::Pose3::Identity(), timestamp);
+    // Use gravity-aligned orientation from motion model if available
+    gtsam::Pose3 initial_pose = gtsam::Pose3::Identity();
+    if (motion_model_) {
+      auto initial_rot = motion_model_->getInitialOrientation();
+      if (initial_rot.has_value()) {
+        initial_pose = gtsam::Pose3(initial_rot.value(), gtsam::Point3(0, 0, 0));
+      }
+    }
+    beginTracking(initial_pose, timestamp);
   }
 }
 
@@ -481,12 +489,22 @@ void SlamCore::handleRelocalizing(double timestamp) {
 void SlamCore::handleTracking(double timestamp, bool& run_vis,
                               gtsam::Values& vis_values,
                               bool& vis_loop_closure) {
-  // 1. Get pose estimate from motion model or factor plugins
+  // 1. Get pose estimate via motion model delta from last optimized pose
+  //    The motion model's absolute pose is only used for EKF odometry downstream.
+  //    For graph initial values, we use: last_optimized * delta(mm).
   std::optional<gtsam::Pose3> best_pose;
 
-  // First try motion model (IMU forward propagation)
   if (motion_model_) {
-    best_pose = motion_model_->getCurrentPose();
+    auto mm_pose = motion_model_->getCurrentPose();
+    if (mm_pose.has_value()) {
+      if (has_optimization_anchor_) {
+        // Relative delta: last_optimized * (mm_at_last_opt⁻¹ * mm_now)
+        gtsam::Pose3 delta = mm_pose_at_last_optimization_.between(*mm_pose);
+        best_pose = last_optimized_pose_.compose(delta);
+      } else {
+        best_pose = mm_pose;  // No anchor yet — use absolute (first keygroup only)
+      }
+    }
   }
 
   // Fall back to factor plugins
@@ -562,12 +580,16 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
 
       for (auto& f : result.factors) {
         new_factors.add(f);
-        // Detect loop closure
+        // Detect loop closure: BetweenFactor connecting keys from distant keygroups
         auto between =
             boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f);
         if (between) {
-          // Loop closure factors connect non-sequential keys
-          loop_closure_detected_ = true;
+          gtsam::Symbol s1(between->key1()), s2(between->key2());
+          int gap = std::abs(static_cast<int>(s1.index()) -
+                             static_cast<int>(s2.index()));
+          if (gap > 1) {
+            loop_closure_detected_ = true;
+          }
         }
       }
       new_values.insert(result.values);
@@ -628,6 +650,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     }
 
     // Get latest optimized pose (from last state in keygroup)
+    // and anchor the motion model delta tracking
     if (!keygroup_states.empty()) {
       auto last_key = keygroup_states.back().key;
       if (optimized.exists(last_key)) {
@@ -639,6 +662,16 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
         current_transform_[3] = static_cast<float>(latest_pose.translation().x());
         current_transform_[4] = static_cast<float>(latest_pose.translation().y());
         current_transform_[5] = static_cast<float>(latest_pose.translation().z());
+
+        // Anchor: next cycle computes current_pose = latest_pose * delta(mm)
+        last_optimized_pose_ = latest_pose;
+        if (motion_model_) {
+          auto mm_now = motion_model_->getCurrentPose();
+          if (mm_now.has_value()) {
+            mm_pose_at_last_optimization_ = *mm_now;
+          }
+        }
+        has_optimization_anchor_ = true;
       }
     }
 
@@ -916,6 +949,10 @@ int SlamCore::getCurrentKeygroup() const {
 
 const gtsam::NonlinearFactorGraph& SlamCore::getAccumulatedGraph() const {
   return accumulated_graph_;
+}
+
+std::optional<gtsam::Pose3> SlamCore::getMotionModelPose() const {
+  return motion_model_ ? motion_model_->getCurrentPose() : std::nullopt;
 }
 
 }  // namespace eidos

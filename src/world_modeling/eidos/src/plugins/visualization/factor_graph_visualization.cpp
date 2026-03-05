@@ -1,5 +1,6 @@
 #include "eidos/plugins/visualization/factor_graph_visualization.hpp"
 
+#include <cmath>
 #include <map>
 
 #include <pluginlib/class_list_macros.hpp>
@@ -181,6 +182,7 @@ void FactorGraphVisualization::onOptimizationComplete(
     std::string label;
     std_msgs::msg::ColorRGBA color;
     std::vector<geometry_msgs::msg::Point> pts;  // positioned keys
+    std::vector<gtsam::Key> keys;                // corresponding gtsam keys
     bool unary;
   };
   std::vector<FactorVis> factor_list;
@@ -228,16 +230,18 @@ void FactorGraphVisualization::onOptimizationComplete(
     // Collect positioned keys
     bool has_spatial = false;
     std::vector<geometry_msgs::msg::Point> pts;
+    std::vector<gtsam::Key> spatial_keys;
     for (auto k : keys) {
       auto it = key_positions.find(k);
       if (it != key_positions.end()) {
         pts.push_back(it->second);
+        spatial_keys.push_back(k);
         has_spatial = true;
       }
     }
     if (!has_spatial) continue;
 
-    factor_list.push_back({label, fc, pts, keys.size() == 1});
+    factor_list.push_back({label, fc, pts, spatial_keys, keys.size() == 1});
   }
 
   // Second pass: render factors with curve offsets for overlapping edges
@@ -281,17 +285,8 @@ void FactorGraphVisualization::onOptimizationComplete(
       auto& p1 = fv.pts[1];
 
       // Determine curve offset based on how many factors share this edge
-      // Use a canonical key pair (sorted) so both directions match
-      gtsam::Key k0 = 0, k1 = 0;
-      // Find the keys corresponding to these positions
-      for (const auto& [key, pos] : key_positions) {
-        if (std::abs(pos.x - p0.x) < 1e-6 && std::abs(pos.y - p0.y) < 1e-6 &&
-            std::abs(pos.z - p0.z) < 1e-6)
-          k0 = key;
-        if (std::abs(pos.x - p1.x) < 1e-6 && std::abs(pos.y - p1.y) < 1e-6 &&
-            std::abs(pos.z - p1.z) < 1e-6)
-          k1 = key;
-      }
+      gtsam::Key k0 = fv.keys.size() > 0 ? fv.keys[0] : 0;
+      gtsam::Key k1 = fv.keys.size() > 1 ? fv.keys[1] : 0;
       auto edge_key = std::make_pair(std::min(k0, k1), std::max(k0, k1));
       int edge_idx = edge_counts[edge_key]++;
 
@@ -314,7 +309,25 @@ void FactorGraphVisualization::onOptimizationComplete(
       double curve_amount = 0.0;
       if (edge_idx > 0) {
         double sign = (edge_idx % 2 == 1) ? 1.0 : -1.0;
-        curve_amount = sign * ((edge_idx + 1) / 2) * len * 0.15;
+        curve_amount = sign * ((edge_idx + 1) / 2) * len * 0.3;
+      }
+
+      // Long-range factors (spanning intermediate states): curve outward
+      // so they don't overlap states in between. Only curve the 2nd+ factor
+      // on an edge — the first factor is always drawn straight.
+      if (edge_idx > 0 && fv.keys.size() >= 2) {
+        gtsam::Symbol s0(fv.keys[0]), s1(fv.keys[1]);
+        // Only apply gap curve when both keys use the same symbol character
+        // (same plugin's states), otherwise it's a cross-plugin factor
+        if (s0.chr() == s1.chr()) {
+          int idx_gap = std::abs(static_cast<int>(s0.index()) -
+                                 static_cast<int>(s1.index()));
+          if (idx_gap > 1) {
+            double gap_curve = std::sqrt(static_cast<double>(idx_gap)) * len * 0.25;
+            double sign = (curve_amount >= 0.0) ? 1.0 : -1.0;
+            curve_amount += sign * gap_curve;
+          }
+        }
       }
 
       // Generate a curved line strip with a quadratic bezier (sampled)

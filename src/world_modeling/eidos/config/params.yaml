@@ -62,6 +62,7 @@ eidos_node:
     # ---- Factor plugins ----
     factor_plugins:
       - "gps_factor"
+      - "liso_factor"
       - "euclidean_distance_loop_closure_factor"
 
     # ---- Relocalization plugins (first to succeed wins) ----
@@ -96,6 +97,41 @@ eidos_node:
       # -- Covariances --
       bias_prior_cov: [2500.0, 2500.0, 2500.0]  # [x, y, z] utm→map bias prior covariance; lower = more stable
       gps_cov: [1.0, 1.0, 1.0]                  # [x, y, z] BiasedGPSFactor measurement covariance (m^2)
+
+    # ==========================================================================
+    # LISO Factor (LiDAR-Inertial Submap Odometry)
+    # ==========================================================================
+    liso_factor:
+      plugin: "eidos::LisoFactor"
+
+      # Topics
+      lidar_topic: "/lidar/points"
+      odom_topic: "liso/odometry"
+
+      # Downsampling
+      scan_ds_resolution: 0.5
+      submap_ds_resolution: 0.5
+      num_neighbors: 10
+
+      # Submap assembly (graph BFS)
+      submap_radius: 50.0
+      max_submap_states: 25
+
+      # Registration (small_gicp GICP)
+      max_correspondence_distance: 2.0
+      max_iterations: 20
+      num_threads: 4
+
+      # Quality filtering
+      min_inliers: 50
+      min_noise: 0.01
+      min_scan_distance: 1.0        # meters, minimum displacement between LISO factor injections
+
+      # Published odometry covariance diagonals [x, y, z, roll, pitch, yaw]
+      odom_pose_cov: [0.1, 0.1, 0.1, 0.05, 0.05, 0.05]
+
+      # Frames
+      lidar_frame: "velodyne"
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
@@ -218,3 +254,7 @@ ekf_filter_node_global:
     # Eidos graph-optimized pose (absolute, in map frame)
     odom1: slam/odometry
     odom1_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]
+
+    # LISO LiDAR odometry (absolute, in map frame)
+    odom2: liso/odometry
+    odom2_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]

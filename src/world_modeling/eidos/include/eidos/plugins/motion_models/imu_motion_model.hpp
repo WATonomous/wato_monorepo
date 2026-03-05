@@ -62,6 +62,7 @@ public:
   std::string getReadyStatus() const override;
 
   std::optional<gtsam::Pose3> getCurrentPose() const override;
+  std::optional<gtsam::Rot3> getInitialOrientation() const override;
 
 private:
   // ---- Callbacks ----

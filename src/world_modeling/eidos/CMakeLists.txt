@@ -67,6 +67,7 @@ target_link_libraries(eidos_core PUBLIC
 add_library(eidos_plugins SHARED
   src/plugins/factors/gps_factor.cpp
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
+  src/plugins/factors/liso_factor.cpp
   src/plugins/motion_models/imu_motion_model.cpp
   src/plugins/motion_models/holonomic_motion_model.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp

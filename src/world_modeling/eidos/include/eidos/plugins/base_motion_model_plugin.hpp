@@ -101,6 +101,12 @@ public:
    */
   virtual std::optional<gtsam::Pose3> getCurrentPose() const { return std::nullopt; }
 
+  /**
+   * @brief Get gravity-aligned initial orientation from sensor data collected during warmup.
+   * Returns Rot3 with roll/pitch from gravity reference, yaw=0 (heading set elsewhere).
+   */
+  virtual std::optional<gtsam::Rot3> getInitialOrientation() const { return std::nullopt; }
+
 protected:
   SlamCore* core_ = nullptr;
   std::string name_;
