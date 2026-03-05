@@ -8,8 +8,6 @@
 #include <Eigen/Geometry>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-
 namespace eidos {
 
 SlamCore::SlamCore(const rclcpp::NodeOptions& options)
@@ -46,7 +44,6 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("motion_model.plugin", std::string{});
   declare_parameter("relocalization_plugins", std::vector<std::string>{});
   declare_parameter("visualization_plugins", std::vector<std::string>{});
-  declare_parameter("topics.path", "slam/path");
   declare_parameter("topics.status", "slam/status");
   declare_parameter("topics.save_map_service", "slam/save_map");
   declare_parameter("topics.load_map_service", "slam/load_map");
@@ -68,8 +65,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("prior.pose_cov", prior_pose_cov_);
   get_parameter("topics.odom_pose_cov", odom_pose_cov_);
 
-  std::string path_topic, status_topic, save_map_service, load_map_service;
-  get_parameter("topics.path", path_topic);
+  std::string status_topic, save_map_service, load_map_service;
   get_parameter("topics.status", status_topic);
   get_parameter("topics.save_map_service", save_map_service);
   get_parameter("topics.load_map_service", load_map_service);
@@ -85,7 +81,6 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("topics.pose", pose_topic);
 
   // Publishers
-  path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic, 1);
   status_pub_ = create_publisher<eidos_msgs::msg::SlamStatus>(status_topic, 1);
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(pose_topic, 1);
   odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_output_topic, 10);
@@ -139,7 +134,6 @@ SlamCore::CallbackReturn SlamCore::on_activate(
   RCLCPP_INFO(get_logger(), "\033[33m[WARMING_UP]\033[0m Waiting for factors...");
 
   // Activate lifecycle publishers
-  path_pub_->on_activate();
   status_pub_->on_activate();
   pose_pub_->on_activate();
   odom_pub_->on_activate();
@@ -180,7 +174,6 @@ SlamCore::CallbackReturn SlamCore::on_deactivate(
     slam_timer_.reset();
   }
 
-  path_pub_->on_deactivate();
   status_pub_->on_deactivate();
   pose_pub_->on_deactivate();
   odom_pub_->on_deactivate();
@@ -218,7 +211,6 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
 
   odom_pub_.reset();
 
-  path_pub_.reset();
   status_pub_.reset();
   pose_pub_.reset();
   save_map_srv_.reset();
@@ -238,7 +230,6 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   loop_closure_detected_ = false;
   accumulated_graph_ = gtsam::NonlinearFactorGraph();
   accumulated_values_ = gtsam::Values();
-  global_path_ = nav_msgs::msg::Path();
 
   RCLCPP_INFO(get_logger(), "\033[36m[CLEANED_UP]\033[0m Eidos SLAM cleaned up");
   return CallbackReturn::SUCCESS;
@@ -291,7 +282,6 @@ void SlamCore::slamLoop() {
       plugin->onOptimizationComplete(vis_values, vis_loop_closure);
     }
   }
-  publishPath();
 }
 
 void SlamCore::handleInitializing() {
@@ -456,7 +446,6 @@ void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double timestamp)
     plugin->onOptimizationComplete(optimized, false);
   }
 
-  updatePath(pose_6d);
   publishPose();
   publishOdometry();
 }
@@ -623,17 +612,6 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
       pose_graph_->updateExtra(5);
       optimized = pose_graph_->getOptimizedValues();
       map_manager_->updatePoses(optimized);
-
-      // Rebuild path
-      global_path_.poses.clear();
-      auto key_list = map_manager_->getKeyList();
-      auto all_poses_6d = map_manager_->getKeyPoses6D();
-      for (auto k : key_list) {
-        int idx = map_manager_->getCloudIndex(k);
-        if (idx >= 0) {
-          updatePath(all_poses_6d->points[idx]);
-        }
-      }
     }
 
     // Store keyframes for each state in this keygroup
@@ -684,12 +662,10 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     vis_loop_closure = loop_closure_detected_;
 
     publishPose();
-    publishOdometry();
 
-    // Update path with latest keygroup state
+    // Only publish graph-optimized odometry when the graph actually grew
     if (!keygroup_states.empty()) {
-      PoseType pose_6d = gtsamPose3ToPoseType(current_pose_, keygroup_states.back().t);
-      updatePath(pose_6d);
+      publishOdometry();
     }
   }
 }
@@ -865,32 +841,6 @@ void SlamCore::publishStatus() {
   status_pub_->publish(msg);
 }
 
-void SlamCore::publishPath() {
-  if (path_pub_->get_subscription_count() == 0) return;
-
-  global_path_.header.stamp = now();
-  global_path_.header.frame_id = map_frame_;
-  path_pub_->publish(global_path_);
-}
-
-void SlamCore::updatePath(const PoseType& pose) {
-  geometry_msgs::msg::PoseStamped ps;
-  ps.header.stamp = rclcpp::Time(static_cast<int64_t>(pose.time * 1e9));
-  ps.header.frame_id = map_frame_;
-  ps.pose.position.x = pose.x;
-  ps.pose.position.y = pose.y;
-  ps.pose.position.z = pose.z;
-
-  tf2::Quaternion q;
-  q.setRPY(pose.roll, pose.pitch, pose.yaw);
-  ps.pose.orientation.x = q.x();
-  ps.pose.orientation.y = q.y();
-  ps.pose.orientation.z = q.z();
-  ps.pose.orientation.w = q.w();
-
-  global_path_.poses.push_back(ps);
-}
-
 void SlamCore::publishPose() {
   if (pose_pub_->get_subscription_count() == 0) return;
 
@@ -962,6 +912,10 @@ gtsam::Pose3 SlamCore::getCurrentPose() const {
 
 int SlamCore::getCurrentKeygroup() const {
   return current_keygroup_;
+}
+
+const gtsam::NonlinearFactorGraph& SlamCore::getAccumulatedGraph() const {
+  return accumulated_graph_;
 }
 
 }  // namespace eidos

@@ -14,11 +14,10 @@ eidos_node:
 
     # ---- Core topics / services ----
     topics:
-      path: "slam/path"               # nav_msgs/Path output
       pose: "slam/pose"               # geometry_msgs/PoseStamped output (optimized pose in map frame)
       status: "slam/status"            # eidos_msgs/SlamStatus output
       odom: "slam/odometry"            # nav_msgs/Odometry output (optimized pose in map frame)
-      odom_pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-6, 1.0e-6, 1.0e-5]  # [x, y, z, roll, pitch, yaw] diagonal covariance for slam/odometry
+      odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]  # [x, y, z, roll, pitch, yaw] diagonal covariance for slam/odometry
       save_map_service: "slam/save_map"
       load_map_service: "slam/load_map"
 
@@ -54,8 +53,8 @@ eidos_node:
       quaternion_norm_threshold: 0.1
 
       # -- Published odometry covariance diagonals [x, y, z, roll, pitch, yaw] --
-      odom_pose_cov: [0.05, 0.05, 0.05, 0.01, 0.01, 0.01]
-      odom_twist_cov: [0.01, 0.01, 0.01, 0.01, 0.01, 0.001]
+      odom_pose_cov: [0.3, 0.3, 0.3, 0.1, 0.1, 0.1]
+      odom_twist_cov: [0.1, 0.1, 0.1, 0.15, 0.15, 0.15]
 
       # -- Frame names --
       imu_frame: "imu_link"
@@ -75,6 +74,7 @@ eidos_node:
       - "gps_visualization"
       - "loop_closure_visualization"
       - "keyframe_pose_visualization"
+      - "factor_graph_visualization"
 
     # ==========================================================================
     # GPS Factor
@@ -161,6 +161,16 @@ eidos_node:
       axis_length: 0.5
       axis_width: 0.05
 
+    # ==========================================================================
+    # Factor Graph Visualization
+    # ==========================================================================
+    factor_graph_visualization:
+      plugin: "eidos::FactorGraphVisualization"
+      topic: "slam/visualization/factor_graph"
+      state_scale: 1.0
+      line_width: 0.5
+
+
     # ---- State 0 prior noise ----
     prior:
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [r, p, y, x, y, z] state 0 prior covariance
@@ -189,8 +199,8 @@ ekf_filter_node_local:
     world_frame: odom
     publish_tf: true
 
-    # Eidos IMU incremental odometry
-    odom0: motion_model/odometry/imu_incremental
+    # Eidos IMU preintegrated odometry — full pose + velocity
+    odom0: motion_model/odometry/imu
     odom0_config: [true,true,true, true,true,true, true,true,true, true,true,true, false,false,false]
 
 ekf_filter_node_global:
@@ -202,10 +212,13 @@ ekf_filter_node_global:
     world_frame: map
     publish_tf: true
 
-    # Eidos IMU incremental odometry (continuous)
-    odom0: motion_model/odometry/imu_incremental
-    odom0_config: [true,true,true, true,true,true, true,true,true, true,true,true, false,false,false]
+    # Eidos IMU preintegrated odometry — position + orientation (differential) + velocity
+    # Differential orientation: only rotation deltas, so SLAM sets the absolute heading
+    # and IMU fills in smooth changes between SLAM updates without double-counting
+    odom0: motion_model/odometry/imu
+    odom0_config: [true,true,true, true,true,true, true,true,true, false,false,false, false,false,false]
+    odom0_differential: true
 
-    # Eidos graph-optimized pose (absolute, in map frame)
+    # Eidos graph-optimized pose (absolute, in map frame) — position + orientation
     odom1: slam/odometry
     odom1_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]

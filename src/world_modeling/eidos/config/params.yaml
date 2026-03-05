@@ -14,7 +14,6 @@ eidos_node:
 
     # ---- Core topics / services ----
     topics:
-      path: "slam/path"               # nav_msgs/Path output
       pose: "slam/pose"               # geometry_msgs/PoseStamped output (optimized pose in map frame)
       status: "slam/status"            # eidos_msgs/SlamStatus output
       odom: "slam/odometry"            # nav_msgs/Odometry output (optimized pose in map frame)
@@ -75,6 +74,7 @@ eidos_node:
       - "gps_visualization"
       - "loop_closure_visualization"
       - "keyframe_pose_visualization"
+      - "factor_graph_visualization"
 
     # ==========================================================================
     # GPS Factor
@@ -160,6 +160,15 @@ eidos_node:
       topic: "slam/visualization/poses"
       axis_length: 0.5
       axis_width: 0.05
+
+    # ==========================================================================
+    # Factor Graph Visualization
+    # ==========================================================================
+    factor_graph_visualization:
+      plugin: "eidos::FactorGraphVisualization"
+      topic: "slam/visualization/factor_graph"
+      state_scale: 0.5
+      line_width: 0.05
 
     # ---- State 0 prior noise ----
     prior:

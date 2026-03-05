@@ -12,7 +12,6 @@
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <nav_msgs/msg/path.hpp>
 
 #include <pluginlib/class_loader.hpp>
 #include <gtsam/inference/Symbol.h>
@@ -52,6 +51,7 @@ public:
   SlamState getState() const;
   gtsam::Pose3 getCurrentPose() const;
   int getCurrentKeygroup() const;
+  const gtsam::NonlinearFactorGraph& getAccumulatedGraph() const;
 
 protected:
   using CallbackReturn =
@@ -89,10 +89,8 @@ private:
 
   // ---- Publishing ----
   void publishStatus();
-  void publishPath();
   void publishPose();
   void publishOdometry();
-  void updatePath(const PoseType& pose);
 
   // ---- TF ----
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -130,7 +128,6 @@ private:
   rclcpp::CallbackGroup::SharedPtr slam_callback_group_;
 
   // ---- Publishers ----
-  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
@@ -138,9 +135,6 @@ private:
   // ---- Services ----
   rclcpp::Service<eidos_msgs::srv::SaveMap>::SharedPtr save_map_srv_;
   rclcpp::Service<eidos_msgs::srv::LoadMap>::SharedPtr load_map_srv_;
-
-  // ---- Path ----
-  nav_msgs::msg::Path global_path_;
 
   // ---- Parameters (populated from ROS params in onConfigure) ----
   double slam_rate_;

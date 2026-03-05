@@ -74,6 +74,7 @@ add_library(eidos_plugins SHARED
   src/plugins/visualization/gps_visualization.cpp
   src/plugins/visualization/loop_closure_visualization.cpp
   src/plugins/visualization/keyframe_pose_visualization.cpp
+  src/plugins/visualization/factor_graph_visualization.cpp
 )
 target_include_directories(eidos_plugins PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
