@@ -12,35 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Launches camera drivers, multi-camera sync (deep_ros), and deep object
-# detection (deep_ros) in a single component container for zero-copy IPC.
+# Loads multi-camera sync and deep object detection into perception_container.
+# Requires camera_driver.launch.yaml to be launched first (creates the container
+# and camera driver nodes). Load this file into the same component container for
+# zero-copy IPC.
+
 #
-# All nodes are composable and loaded into the same perception_container:
-#   - 12 camera pipelines (driver + debayer + rectify) from sensor_interfacing
-#   - camera_sync::MultiCameraSyncNode (deep_ros)
-#   - deep_object_detection::DeepObjectDetectionNode (deep_ros)
-#
-# Usage: ros2 launch perception_bringup camera_detection.launch.yaml
+# Usage:
+#   1. ros2 launch perception_bringup camera_driver.launch.yaml
+#   2. ros2 launch perception_bringup camera_detection.launch.yaml
 launch:
   - arg:
-      name: cameras_config_file
-      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
-      description: "Hikrobot cameras configuration file"
-
-  - arg:
       name: detection_config_file
-      default: "$(find-pkg-share deep_object_detection)/config/generic_model_params.yaml"
+      default: "$(find-pkg-share perception_bringup)/config/perception_sim.yaml"
       description: "Path to YAML config for object detection"
 
   - arg:
       name: sync_config_file
-      default: "$(find-pkg-share camera_sync)/config/multi_camera_sync_params.yaml"
+      default: "$(find-pkg-share perception_bringup)/config/perception_sim.yaml"
       description: "Path to YAML config for multi-camera sync"
 
   - arg:
       name: input_topic
-      default: "/multi_camera_sync/multi_image_raw"
-      description: "Input MultiImage topic for detection (raw; sync uses use_compressed: false)"
+      default: "/multi_camera_sync/multi_image"
+      description: "Input MultiImage topic for detection (general)"
 
   - arg:
       name: output_detections_topic
@@ -52,13 +47,7 @@ launch:
       default: "/image_annotations"
       description: "Output image annotations topic"
 
-  # Single component container for cameras, sync, and detection (zero-copy IPC)
-  - node_container:
-      pkg: rclcpp_components
-      exec: component_container_mt
-      name: perception_container
-      namespace: ""
-
+  # Load sync into perception_container (created by camera_driver.launch.yaml)
   - load_composable_node:
       target: perception_container
       composable_node:
@@ -69,6 +58,11 @@ launch:
           extra_arg:
             - name: use_intra_process_comms
               value: "true"
+          remap:
+            - from: "/multi_camera_sync/multi_image_compressed"
+              to: "$(var input_topic)"
+            - from: "/multi_camera_sync/multi_image_raw"
+              to: "$(var input_topic)"
           param:
             - from: "$(var sync_config_file)"
 
@@ -98,17 +92,7 @@ launch:
               value: "/ws/models/yolov8m.onnx"
             - name: class_names_path
               value: "$(find-pkg-share deep_object_detection)/config/coco_classes.txt"
-            - name: use_compressed_images
-              value: false
-
-  # Load all 12 camera pipelines into the same container (from sensor_interfacing)
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
-      arg:
-        - name: "container_name"
-          value: "perception_container"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+          
 
   # Lifecycle Manager for detection node
   - node:

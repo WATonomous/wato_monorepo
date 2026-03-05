@@ -53,10 +53,10 @@ multi_camera_sync:
     # For raw images, use topics like: ["/camera1/image_raw", "/camera2/image_raw"]
     # For compressed images, use topics like: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      - "/camera_pano_ww/image_rect"
-      - "/camera_pano_nn/image_rect"
-      - "/camera_pano_ee/image_rect"
-      - "/camera_pano_ss/image_rect"
+      - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_nn/image_rect_compressed"
+      - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_ss/image_rect_compressed"
 
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
@@ -67,7 +67,7 @@ multi_camera_sync:
 
     # Whether to use compressed images (sensor_msgs/CompressedImage) instead of raw (sensor_msgs/Image)
     # Set to true if your camera topics publish compressed images
-    use_compressed: false
+    use_compressed: true
 
     # Maximum time difference in milliseconds for message synchronization
     # Larger values allow more tolerance but may reduce temporal accuracy
@@ -81,11 +81,11 @@ multi_camera_sync:
     publish_sync_info: true
 
     # IPC-specific optimizations
-    use_intra_process_comms: false
+    use_intra_process_comms: true
 
     # QoS settings optimized for camera data with IPC
-    qos_depth: 10
-    qos_reliability: "reliable"  # reliable or "best_effort" for higher throughput
+    qos_depth: 5
+    qos_reliability: "best_effort"  # reliable or "best_effort" for higher throughput
     qos_durability: "volatile"
     qos_history: "keep_last"
 
@@ -96,7 +96,7 @@ multi_camera_sync:
   ros__parameters:
     model_path: "/ws/models/models/yolov8m.onnx"
     class_names_path: "/ws/src/deep_ros/deep_object_detection/config/coco_classes.txt"
-    use_compressed_images: false  # Set to true for compressed images, false for uncompressed (shared memory)
+    use_compressed_images: true  # Set to true for compressed images, false for uncompressed (shared memory)
 
     Model:
       num_classes: 80
