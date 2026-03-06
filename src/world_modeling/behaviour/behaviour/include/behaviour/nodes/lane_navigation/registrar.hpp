@@ -24,6 +24,7 @@
 
 // actions
 #include "behaviour/nodes/lane_navigation/actions/get_follow_lane_preferred_lanelets_action.hpp"
+#include "behaviour/nodes/lane_navigation/actions/get_follow_route_preferred_lanelets_action.hpp"
 #include "behaviour/nodes/lane_navigation/actions/get_lane_change_preferred_lanelets_action.hpp"
 #include "behaviour/nodes/lane_navigation/actions/get_route_context_action.hpp"
 
@@ -43,6 +44,7 @@ public:
     // actions
     factory.registerNodeType<behaviour::GetRouteContextAction>("GetRouteContext");
     factory.registerNodeType<behaviour::GetFollowLanePreferredLaneletsAction>("GetFollowLanePreferredLanelets");
+    factory.registerNodeType<behaviour::GetFollowRoutePreferredLaneletsAction>("GetFollowRoutePreferredLanelets");
     factory.registerNodeType<behaviour::GetLaneChangePreferredLaneletsAction>("GetLaneChangePreferredLanelets");
 
     // conditions

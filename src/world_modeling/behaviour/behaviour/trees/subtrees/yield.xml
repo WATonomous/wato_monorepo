@@ -3,26 +3,26 @@
     <BehaviorTree ID="YieldSubTree">
         <Sequence name="Handle Yield">
 
-            <!-- compute stop/yield line pose and spawn wall -->
-            <GetStopLinePose
-                reg_elem="{yield_sign}"
-                lane_ctx="{@current_lane_ctx}"
-                map_frame="{@map_frame}"
-                pose="{yield.wall_pose}"
-                error_message="{yield.get_stop_line_pose_error_msg}" />
-
-            <!-- spawn wall if not exists -->
+            <!-- compute stop/yield line pose and spawn wall (only if not already spawned) -->
             <Fallback name="SpawnIfNeeded">
                 <WallIdExist wall_id="{yield.wall_id}" />
-                <SpawnWall
-                    pose="{yield.wall_pose}"
-                    tf_buffer="{@tf_buffer}"
-                    pose_frame="{@map_frame}"
-                    width="{@bt.intersection_wall_of_doom_width}"
-                    length="{@bt.intersection_wall_of_doom_length}"
-                    wall_id="{yield.wall_id}"
-                    error_message="{yield.spawn_wall_error_msg}"
-                    service_name="/world_modeling/spawn_wall" />
+                <Sequence>
+                    <GetStopLinePose
+                        reg_elem="{yield_sign}"
+                        lane_ctx="{@current_lane_ctx}"
+                        map_frame="{@map_frame}"
+                        pose="{yield.wall_pose}"
+                        error_message="{yield.get_stop_line_pose_error_msg}" />
+                    <SpawnWall
+                        pose="{yield.wall_pose}"
+                        tf_buffer="{@tf_buffer}"
+                        pose_frame="{@map_frame}"
+                        width="{@bt.intersection_wall_of_doom_width}"
+                        length="{@bt.intersection_wall_of_doom_length}"
+                        wall_id="{yield.wall_id}"
+                        error_message="{yield.spawn_wall_error_msg}"
+                        service_name="/world_modeling/spawn_wall" />
+                </Sequence>
             </Fallback>
 
             <!-- <GetWorldObjects

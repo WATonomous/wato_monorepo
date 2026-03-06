@@ -27,6 +27,7 @@
 #include "behaviour/behaviour_tree.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
+#include "lanelet_msgs/msg/route_ahead.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
 namespace behaviour
@@ -72,6 +73,7 @@ private:
 
   // Subs
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr current_lane_context_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr goal_point_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ego_odom_sub_;
 
