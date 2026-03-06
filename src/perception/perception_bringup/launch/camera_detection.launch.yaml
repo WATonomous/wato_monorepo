@@ -92,18 +92,22 @@ launch:
               value: "/ws/models/yolov8m.onnx"
             - name: class_names_path
               value: "$(find-pkg-share deep_object_detection)/config/coco_classes.txt"
-          
+
 
   # Lifecycle Manager for detection node
   - node:
-      pkg: "nav2_lifecycle_manager"
-      exec: "lifecycle_manager"
-      name: "detection_lifecycle_manager"
-      output: "screen"
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: detection_lifecycle_manager
+      output: screen
       param:
-        - name: "node_names"
+        - name: node_names
           value: ["deep_object_detection_node"]
-        - name: "autostart"
+        - name: autostart
           value: true
-        - name: "bond_timeout"
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
           value: 0.0
+        - name: bond_enabled
+          value: false
