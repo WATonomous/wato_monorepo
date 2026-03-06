@@ -7,21 +7,55 @@ eidos_node:
       map: "map"
 
     # ---- SLAM core ----
-    slam_rate: 1.0                    # Hz, main SLAM loop frequency
-    max_displacement: 1.0              # meters of travel before creating a new keyframe state
-    max_rotation: 0.2                  # radians of rotation before creating a new keyframe state
+    slam_rate: 10.0                    # Hz, main SLAM loop frequency
+    max_displacement: 10.0              # meters of travel before creating a new keyframe state
+    max_rotation: 0.1                  # radians of rotation before creating a new keyframe state
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
+
+    prior:
+      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [r, p, y, x, y, z] state 0 prior covariance
+
+    keyframe:
+      density: 2.0                    # meters, voxel size for spatial downsampling of keyframe poses
+      search_radius: 50.0             # meters, radius for keyframe neighborhood queries
+
+    map:
+      load_directory: ""              # if set, load prior map on startup
+      save_directory: "/tmp/eidos_maps/"
+
+    performance:
+      num_cores: 8                    # number of CPU cores for parallel scan matching
 
     # ---- Core topics / services ----
     topics:
       pose: "slam/pose"               # geometry_msgs/PoseStamped output (optimized pose in map frame)
       status: "slam/status"            # eidos_msgs/SlamStatus output
       odom: "slam/odometry"            # nav_msgs/Odometry output (optimized pose in map frame)
-      odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]  # [x, y, z, roll, pitch, yaw] diagonal covariance for slam/odometry
       save_map_service: "slam/save_map"
       load_map_service: "slam/load_map"
 
-    # ---- Motion model (single plugin) ----
+    # -- Published slam/odometry covariance diagonals [x, y, z, roll, pitch, yaw] --
+    odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]
+
+    # ---- Plugin lists ----
+    factor_plugins:
+      # - "gps_factor"
+      - "liso_factor"
+      # - "euclidean_distance_loop_closure_factor"
+
+    # relocalization_plugins:
+    #   - "gps_icp_relocalization"
+
+    visualization_plugins:
+      - "keyframe_map_visualization"
+      - "gps_visualization"
+      - "loop_closure_visualization"
+      - "keyframe_pose_visualization"
+      - "factor_graph_visualization"
+
+    # ==========================================================================
+    # Motion Model
+    # ==========================================================================
     motion_model:
       plugin: "eidos::ImuMotionModel"
 
@@ -30,7 +64,10 @@ eidos_node:
       odom_incremental_topic: "motion_model/odometry/imu_incremental"            # nav_msgs/Odometry output (raw IMU prediction)
       odom_fused_topic: "motion_model/odometry/imu"                              # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
 
-      # -- IMU covariance diagonals [x, y, z] --
+      # -- Frames --
+      imu_frame: "imu_link"
+
+      # -- IMU model --
       # Epson EG320N datasheet: VRW=0.05 m/s/√hr → 6.9e-7, ARW=0.1 °/√hr → 8.5e-10
       # Bias instability: accel=0.1mg → 9.6e-7, gyro=3.5°/hr → 2.9e-10
       acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]           # accelerometer covariance diagonal (m/s^2)^2
@@ -38,44 +75,20 @@ eidos_node:
       bias_walk_cov: [9.6e-7, 9.6e-7, 9.6e-7, 2.9e-10, 2.9e-10, 2.9e-10]  # [ax, ay, az, gx, gy, gz] bias random-walk covariance
       gravity: 0.0                                   # 0.0 because the data topic provides gravity-compensated acceleration
       integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]    # preintegration position covariance diagonal
+      default_imu_dt: 0.002                          # seconds (1/500 Hz)
 
-      # -- State 0 prior covariance diagonals (for V and B) --
-      prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]                       # [vx, vy, vz] — car assumed stationary at startup
-      prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6] # [ax, ay, az, gx, gy, gz] — initial IMU bias
-
-      # -- Stationary detection (warmup gate) --
-      stationary_acc_threshold: 0.05         # m/s^2, RMS linear acceleration must be below this
-      stationary_gyr_threshold: 0.005        # rad/s, RMS angular velocity must be below this
-      stationary_samples: 200               # number of recent IMU samples to check (~0.4s at 500 Hz)
-
-      # -- Timing --
-      default_imu_dt: 0.002                 # seconds (1/500 Hz)
-      quaternion_norm_threshold: 0.1
+      # -- Initialization (warmup + state 0 priors) --
+      initialization:
+        prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]                       # [vx, vy, vz] — car assumed stationary at startup
+        prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6] # [ax, ay, az, gx, gy, gz] — initial IMU bias
+        stationary_acc_threshold: 0.05         # m/s^2, RMS linear acceleration must be below this
+        stationary_gyr_threshold: 0.005        # rad/s, RMS angular velocity must be below this
+        stationary_samples: 200               # number of recent IMU samples to check (~0.4s at 500 Hz)
+        quaternion_norm_threshold: 0.1
 
       # -- Published odometry covariance diagonals [x, y, z, roll, pitch, yaw] --
       odom_pose_cov: [0.3, 0.3, 0.3, 0.1, 0.1, 0.1]
       odom_twist_cov: [0.1, 0.1, 0.1, 0.15, 0.15, 0.15]
-
-      # -- Frame names --
-      imu_frame: "imu_link"
-
-    # ---- Factor plugins ----
-    factor_plugins:
-      - "gps_factor"
-      - "liso_factor"
-      # - "euclidean_distance_loop_closure_factor"
-
-    # ---- Relocalization plugins (first to succeed wins) ----
-    # relocalization_plugins:
-    #   - "gps_icp_relocalization"
-
-    # ---- Visualization plugins ----
-    visualization_plugins:
-      - "keyframe_map_visualization"
-      - "gps_visualization"
-      - "loop_closure_visualization"
-      - "keyframe_pose_visualization"
-      - "factor_graph_visualization"
 
     # ==========================================================================
     # GPS Factor
@@ -85,7 +98,6 @@ eidos_node:
 
       # -- Topics --
       gps_topic: "/novatel/oem7/fix"      # sensor_msgs/NavSatFix input
-      imu_topic: "/novatel/oem7/imu/data" # sensor_msgs/Imu input (9-DOF orientation for heading alignment)
 
       # -- GPS quality filtering --
       cov_threshold: 5.0            # max GPS position covariance to accept a measurement
@@ -95,8 +107,12 @@ eidos_node:
       min_gps_movement: 20.0          # meters, minimum displacement between GPS injections
 
       # -- Covariances --
-      bias_prior_cov: [1.0e4, 1.0e4, 1.0e4]  # [x, y, z] utm→map bias prior covariance
-      gps_cov: [0.0, 0.0, 1.0e-4]                     # [x, y, z] BiasedGPSFactor measurement covariance floor (m^2)
+      gps_cov: [2.0, 2.0, 100.0]   # [x, y, z] BiasedGPSFactor measurement covariance floor (m^2)
+
+      # -- Initialization (heading alignment + UTM→map bias prior) --
+      initialization:
+        imu_topic: "/novatel/oem7/imu/data"          # sensor_msgs/Imu input (orientation for heading alignment)
+        bias_prior_cov: [1.0e4, 1.0e4, 1.0e4]       # [x, y, z] utm→map bias prior covariance
 
     # ==========================================================================
     # LISO Factor (LiDAR-Inertial Submap Odometry)
@@ -104,42 +120,42 @@ eidos_node:
     liso_factor:
       plugin: "eidos::LisoFactor"
 
-      # Topics
+      # -- Topics --
       lidar_topic: "/lidar_cc/velodyne_points"
       odom_topic: "liso/odometry"
+      imu_topic: "/novatel/oem7/imu/data"
 
-      # Initialization (IMU warmup + first state anchoring)
+      # -- Frames --
+      lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
+
+      # -- Initialization (IMU warmup + first state anchoring) --
       initialization:
-        imu_topic: "/novatel/oem7/imu/data"
-        imu_frame: "imu_link"
         warmup_samples: 200                    # consecutive stationary IMU samples required (~0.4s at 500Hz)
         stationary_gyr_threshold: 0.005        # rad/s, angular velocity magnitude below this = stationary
         first_state_prior_cov: [0.1, 0.1, 0.1, 1.0, 1.0, 1.0]  # [r,p,y,x,y,z] anchors first LISO state
 
-      # Downsampling
+      # -- Downsampling --
       scan_ds_resolution: 0.5
       submap_ds_resolution: 0.5
       num_neighbors: 10
 
-      # Submap assembly (graph BFS)
+      # -- Submap assembly (graph BFS) --
       submap_radius: 30.0
       max_submap_states: 25
 
-      # Registration (small_gicp GICP)
+      # -- Registration (small_gicp GICP) --
       max_correspondence_distance: 2.0
       max_iterations: 20
       num_threads: 16
 
-      # Quality filtering
+      # -- Quality filtering --
       min_inliers: 50
       min_noise: 0.01
       min_scan_distance: 5.0        # meters, minimum displacement between LISO factor injections
 
-      # Published odometry covariance diagonals [x, y, z, roll, pitch, yaw]
+      # -- Published odometry covariance diagonals [x, y, z, roll, pitch, yaw] --
       odom_pose_cov: [0.01, 0.01, 0.01, 0.005, 0.005, 0.005]
-
-      # Frames
-      lidar_frame: "lidar_cc"
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
@@ -213,23 +229,6 @@ eidos_node:
       topic: "slam/visualization/factor_graph"
       state_scale: 1.0
       line_width: 0.5
-
-
-    # ---- State 0 prior noise ----
-    prior:
-      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [r, p, y, x, y, z] state 0 prior covariance
-
-    # ---- Core (not per-plugin) ----
-    keyframe:
-      density: 2.0                  # meters, voxel size for spatial downsampling of keyframe poses
-      search_radius: 50.0           # meters, radius for keyframe neighborhood queries
-
-    map:
-      load_directory: ""            # if set, load prior map on startup
-      save_directory: "/tmp/eidos_maps/"
-
-    performance:
-      num_cores: 8                  # number of CPU cores for parallel scan matching
 
 # ==========================================================================
 # robot_localization dual-EKF

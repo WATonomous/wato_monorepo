@@ -48,7 +48,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("topics.save_map_service", "slam/save_map");
   declare_parameter("topics.load_map_service", "slam/load_map");
   declare_parameter("topics.odom", std::string("slam/odometry"));
-  declare_parameter("topics.odom_pose_cov", odom_pose_cov_);
+  declare_parameter("odom_pose_cov", odom_pose_cov_);
   declare_parameter("topics.pose", std::string("slam/pose"));
 
   get_parameter("slam_rate", slam_rate_);
@@ -63,7 +63,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("map.load_directory", map_load_directory_);
   get_parameter("map.save_directory", map_save_directory_);
   get_parameter("prior.pose_cov", prior_pose_cov_);
-  get_parameter("topics.odom_pose_cov", odom_pose_cov_);
+  get_parameter("odom_pose_cov", odom_pose_cov_);
 
   std::string status_topic, save_map_service, load_map_service;
   get_parameter("topics.status", status_topic);

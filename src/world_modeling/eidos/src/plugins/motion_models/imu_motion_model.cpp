@@ -56,15 +56,15 @@ void ImuMotionModel::onInitialize() {
       std::vector<double>{1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6});
   node_->declare_parameter(prefix + ".gravity", 9.80511);
   node_->declare_parameter(prefix + ".integration_cov", std::vector<double>{1.0e-4, 1.0e-4, 1.0e-4});
-  node_->declare_parameter(prefix + ".prior_vel_cov",
+  node_->declare_parameter(prefix + ".initialization.prior_vel_cov",
       std::vector<double>{1e-2, 1e-2, 1e-2});
-  node_->declare_parameter(prefix + ".prior_bias_cov",
+  node_->declare_parameter(prefix + ".initialization.prior_bias_cov",
       std::vector<double>{1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6});
   node_->declare_parameter(prefix + ".default_imu_dt", 1.0 / 500.0);
-  node_->declare_parameter(prefix + ".quaternion_norm_threshold", 0.1);
-  node_->declare_parameter(prefix + ".stationary_acc_threshold", 0.05);
-  node_->declare_parameter(prefix + ".stationary_gyr_threshold", 0.005);
-  node_->declare_parameter(prefix + ".stationary_samples", 200);
+  node_->declare_parameter(prefix + ".initialization.quaternion_norm_threshold", 0.1);
+  node_->declare_parameter(prefix + ".initialization.stationary_acc_threshold", 0.05);
+  node_->declare_parameter(prefix + ".initialization.stationary_gyr_threshold", 0.005);
+  node_->declare_parameter(prefix + ".initialization.stationary_samples", 200);
   node_->declare_parameter(prefix + ".odom_incremental_topic", name_ + "/odometry/imu_incremental");
   node_->declare_parameter(prefix + ".odom_fused_topic", name_ + "/odometry/imu");
   node_->declare_parameter(prefix + ".imu_frame", "imu_link");
@@ -79,13 +79,13 @@ void ImuMotionModel::onInitialize() {
   node_->get_parameter(prefix + ".bias_walk_cov", bias_walk_cov_);
   node_->get_parameter(prefix + ".gravity", gravity_);
   node_->get_parameter(prefix + ".integration_cov", integration_cov_);
-  node_->get_parameter(prefix + ".prior_vel_cov", prior_vel_cov_);
-  node_->get_parameter(prefix + ".prior_bias_cov", prior_bias_cov_);
+  node_->get_parameter(prefix + ".initialization.prior_vel_cov", prior_vel_cov_);
+  node_->get_parameter(prefix + ".initialization.prior_bias_cov", prior_bias_cov_);
   node_->get_parameter(prefix + ".default_imu_dt", default_imu_dt_);
-  node_->get_parameter(prefix + ".quaternion_norm_threshold", quaternion_norm_threshold_);
-  node_->get_parameter(prefix + ".stationary_acc_threshold", stationary_acc_threshold_);
-  node_->get_parameter(prefix + ".stationary_gyr_threshold", stationary_gyr_threshold_);
-  node_->get_parameter(prefix + ".stationary_samples", stationary_samples_);
+  node_->get_parameter(prefix + ".initialization.quaternion_norm_threshold", quaternion_norm_threshold_);
+  node_->get_parameter(prefix + ".initialization.stationary_acc_threshold", stationary_acc_threshold_);
+  node_->get_parameter(prefix + ".initialization.stationary_gyr_threshold", stationary_gyr_threshold_);
+  node_->get_parameter(prefix + ".initialization.stationary_samples", stationary_samples_);
   node_->get_parameter("frames.odometry", odom_frame_);
   node_->get_parameter("frames.base_link", base_link_frame_);
   node_->get_parameter(prefix + ".imu_frame", imu_frame_);

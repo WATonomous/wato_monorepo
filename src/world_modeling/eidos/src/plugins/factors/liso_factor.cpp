@@ -38,8 +38,8 @@ void LisoFactor::onInitialize() {
   node_->declare_parameter(prefix + ".min_scan_distance", min_scan_distance_);
   node_->declare_parameter(prefix + ".odom_pose_cov", odom_pose_cov_);
   node_->declare_parameter(prefix + ".lidar_frame", lidar_frame_);
-  node_->declare_parameter(prefix + ".initialization.imu_topic", imu_topic_);
-  node_->declare_parameter(prefix + ".initialization.imu_frame", imu_frame_);
+  node_->declare_parameter(prefix + ".imu_topic", imu_topic_);
+  node_->declare_parameter(prefix + ".imu_frame", imu_frame_);
   node_->declare_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
   node_->declare_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
   node_->declare_parameter(prefix + ".initialization.first_state_prior_cov", first_state_prior_cov_);
@@ -61,8 +61,8 @@ void LisoFactor::onInitialize() {
   node_->get_parameter(prefix + ".min_scan_distance", min_scan_distance_);
   node_->get_parameter(prefix + ".odom_pose_cov", odom_pose_cov_);
   node_->get_parameter(prefix + ".lidar_frame", lidar_frame_);
-  node_->get_parameter(prefix + ".initialization.imu_topic", imu_topic_);
-  node_->get_parameter(prefix + ".initialization.imu_frame", imu_frame_);
+  node_->get_parameter(prefix + ".imu_topic", imu_topic_);
+  node_->get_parameter(prefix + ".imu_frame", imu_frame_);
   node_->get_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
   node_->get_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
   node_->get_parameter(prefix + ".initialization.first_state_prior_cov", first_state_prior_cov_);
@@ -403,15 +403,20 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
       // R_world_base = R_world_imu * R_base_imu^T
       Eigen::Matrix3d R_world_imu = q_avg.toRotationMatrix();
       Eigen::Matrix3d R_world_base = R_world_imu * R_base_imu_.transpose();
-      initial_gravity_orientation_ = gtsam::Rot3(R_world_base);
+
+      // Extract only gravity alignment (roll, pitch), zero yaw.
+      // Map frame heading is arbitrary at startup — GPS provides absolute heading
+      // via R_map_enu. Including yaw here would double-count the heading.
+      gtsam::Rot3 full_rot(R_world_base);
+      initial_gravity_orientation_ = gtsam::Rot3::RzRyRx(0.0, full_rot.pitch(), full_rot.roll());
+
       imu_warmup_complete_ = true;
       RCLCPP_INFO(node_->get_logger(),
                   "[%s] IMU warmup complete — gravity aligned from %d samples "
-                  "(rpy: %.4f, %.4f, %.4f)",
+                  "(roll: %.4f, pitch: %.4f, yaw: 0.0)",
                   name_.c_str(), imu_warmup_count_,
                   initial_gravity_orientation_.roll(),
-                  initial_gravity_orientation_.pitch(),
-                  initial_gravity_orientation_.yaw());
+                  initial_gravity_orientation_.pitch());
     }
     last_gyro_time_ = current_time;
     return;  // don't integrate gyro until warmup is done

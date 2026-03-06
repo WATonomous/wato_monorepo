@@ -30,19 +30,19 @@ void GpsFactor::onInitialize() {
   node_->declare_parameter(prefix + ".use_elevation", false);
   node_->declare_parameter(prefix + ".min_gps_movement", 5.0);
 
-  node_->declare_parameter(prefix + ".bias_prior_cov",
+  node_->declare_parameter(prefix + ".initialization.bias_prior_cov",
       std::vector<double>{10000.0, 10000.0, 10000.0});
   node_->declare_parameter(prefix + ".gps_cov", std::vector<double>{1.0, 1.0, 1.0});
-  node_->declare_parameter(prefix + ".imu_topic", "imu/data");
+  node_->declare_parameter(prefix + ".initialization.imu_topic", "imu/data");
 
   // ---- Read parameters ----
   std::string gps_topic, imu_topic;
   node_->get_parameter(prefix + ".gps_topic", gps_topic);
-  node_->get_parameter(prefix + ".imu_topic", imu_topic);
+  node_->get_parameter(prefix + ".initialization.imu_topic", imu_topic);
   node_->get_parameter(prefix + ".cov_threshold", cov_threshold_);
   node_->get_parameter(prefix + ".use_elevation", use_elevation_);
   node_->get_parameter(prefix + ".min_gps_movement", min_gps_movement_);
-  node_->get_parameter(prefix + ".bias_prior_cov", bias_prior_cov_);
+  node_->get_parameter(prefix + ".initialization.bias_prior_cov", bias_prior_cov_);
   node_->get_parameter(prefix + ".gps_cov", gps_cov_);
 
   // Read frame names from slam_core parameters
