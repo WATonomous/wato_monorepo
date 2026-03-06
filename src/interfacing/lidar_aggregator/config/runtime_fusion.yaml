@@ -24,6 +24,18 @@
       ne_time_offset_sec: 0.0
       nw_time_offset_sec: 0.0
 
+    estimation:
+      enable_online_offset: false
+      search_half_window_sec: 0.03
+      search_step_sec: 0.003
+      ema_alpha: 0.2
+      min_yaw_rate_rad_s: 0.05
+      min_score_gain: 0.005
+      voxel_size_m: 0.5
+      min_points: 300
+      min_offset_sec: -0.1
+      max_offset_sec: 0.1
+
     # Initial side->center seeds from lidar_lidar_calib configs.
     extrinsic:
       ne:

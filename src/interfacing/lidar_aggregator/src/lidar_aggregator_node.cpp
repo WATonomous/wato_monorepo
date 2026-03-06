@@ -6,8 +6,10 @@
 #include "lidar_aggregator/lidar_aggregator_node.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <limits>
+#include <unordered_set>
 #include <utility>
 
 #include <pcl/point_cloud.h>
@@ -20,6 +22,38 @@ namespace lidar_aggregator
 
 namespace
 {
+
+struct VoxelKey
+{
+  int x;
+  int y;
+  int z;
+
+  bool operator==(const VoxelKey & other) const
+  {
+    return x == other.x && y == other.y && z == other.z;
+  }
+};
+
+struct VoxelKeyHash
+{
+  std::size_t operator()(const VoxelKey & key) const
+  {
+    // Large primes for low collision rate on integer grid coordinates.
+    const std::size_t h1 = static_cast<std::size_t>(key.x) * 73856093u;
+    const std::size_t h2 = static_cast<std::size_t>(key.y) * 19349663u;
+    const std::size_t h3 = static_cast<std::size_t>(key.z) * 83492791u;
+    return h1 ^ h2 ^ h3;
+  }
+};
+
+VoxelKey make_voxel_key(const Eigen::Vector3d & point, double voxel_size)
+{
+  return VoxelKey{
+    static_cast<int>(std::floor(point.x() / voxel_size)),
+    static_cast<int>(std::floor(point.y() / voxel_size)),
+    static_cast<int>(std::floor(point.z() / voxel_size))};
+}
 
 double abs_time_delta_sec(const rclcpp::Time & a, const rclcpp::Time & b)
 {
@@ -88,6 +122,17 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<double>("timing.ne_time_offset_sec", 0.0);
   declare_parameter<double>("timing.nw_time_offset_sec", 0.0);
 
+  declare_parameter<bool>("estimation.enable_online_offset", false);
+  declare_parameter<double>("estimation.search_half_window_sec", 0.03);
+  declare_parameter<double>("estimation.search_step_sec", 0.003);
+  declare_parameter<double>("estimation.ema_alpha", 0.2);
+  declare_parameter<double>("estimation.min_yaw_rate_rad_s", 0.05);
+  declare_parameter<double>("estimation.min_score_gain", 0.01);
+  declare_parameter<double>("estimation.voxel_size_m", 0.5);
+  declare_parameter<int>("estimation.min_points", 300);
+  declare_parameter<double>("estimation.min_offset_sec", -0.1);
+  declare_parameter<double>("estimation.max_offset_sec", 0.1);
+
   declare_parameter<double>("extrinsic.ne.xyz.x", 0.924884);
   declare_parameter<double>("extrinsic.ne.xyz.y", -0.972881);
   declare_parameter<double>("extrinsic.ne.xyz.z", -0.840734);
@@ -118,6 +163,16 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("runtime.max_imu_interp_gap_sec", max_imu_interp_gap_sec_);
   get_parameter("timing.ne_time_offset_sec", ne_time_offset_sec_);
   get_parameter("timing.nw_time_offset_sec", nw_time_offset_sec_);
+  get_parameter("estimation.enable_online_offset", estimator_cfg_.enabled);
+  get_parameter("estimation.search_half_window_sec", estimator_cfg_.search_half_window_sec);
+  get_parameter("estimation.search_step_sec", estimator_cfg_.search_step_sec);
+  get_parameter("estimation.ema_alpha", estimator_cfg_.ema_alpha);
+  get_parameter("estimation.min_yaw_rate_rad_s", estimator_cfg_.min_yaw_rate_rad_s);
+  get_parameter("estimation.min_score_gain", estimator_cfg_.min_score_gain);
+  get_parameter("estimation.voxel_size_m", estimator_cfg_.voxel_size_m);
+  get_parameter("estimation.min_points", estimator_cfg_.min_points);
+  get_parameter("estimation.min_offset_sec", estimator_cfg_.min_offset_sec);
+  get_parameter("estimation.max_offset_sec", estimator_cfg_.max_offset_sec);
 
   double ne_x = 0.0, ne_y = 0.0, ne_z = 0.0, ne_r = 0.0, ne_p = 0.0, ne_yaw = 0.0;
   double nw_x = 0.0, nw_y = 0.0, nw_z = 0.0, nw_r = 0.0, nw_p = 0.0, nw_yaw = 0.0;
@@ -138,6 +193,9 @@ void LidarAggregatorNode::declare_and_load_parameters()
 
   t_center_ne_ = rigid_from_xyz_rpy(ne_x, ne_y, ne_z, ne_r, ne_p, ne_yaw);
   t_center_nw_ = rigid_from_xyz_rpy(nw_x, nw_y, nw_z, nw_r, nw_p, nw_yaw);
+
+  estimator_cfg_.search_step_sec = std::max(estimator_cfg_.search_step_sec, 1e-4);
+  estimator_cfg_.ema_alpha = std::clamp(estimator_cfg_.ema_alpha, 0.0, 1.0);
 }
 
 void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -154,7 +212,7 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
 
   std::lock_guard<std::mutex> lock(mutex_);
 
-  imu_buffer_.push_back(ImuSample{rclcpp::Time(msg->header.stamp), q});
+  imu_buffer_.push_back(ImuSample{rclcpp::Time(msg->header.stamp), q, msg->angular_velocity.z});
 
   if (imu_buffer_.empty()) {
     return;
@@ -238,6 +296,37 @@ bool LidarAggregatorNode::get_rotation_delta(
   }
 
   delta_rotation = (q_to.conjugate() * q_from).toRotationMatrix();
+  return true;
+}
+
+bool LidarAggregatorNode::get_abs_gyro_z_at_time(const rclcpp::Time & stamp, double & abs_gyro_z_out) const
+{
+  if (imu_buffer_.empty()) {
+    return false;
+  }
+
+  auto upper = std::lower_bound(
+    imu_buffer_.begin(),
+    imu_buffer_.end(),
+    stamp,
+    [](const ImuSample & sample, const rclcpp::Time & t) { return sample.stamp < t; });
+
+  if (upper == imu_buffer_.begin()) {
+    abs_gyro_z_out = std::abs(upper->gyro_z);
+    return true;
+  }
+  if (upper == imu_buffer_.end()) {
+    abs_gyro_z_out = std::abs(imu_buffer_.back().gyro_z);
+    return true;
+  }
+
+  const auto & b = *upper;
+  const auto & a = *(upper - 1);
+  if (abs_time_delta_sec(stamp, a.stamp) <= abs_time_delta_sec(stamp, b.stamp)) {
+    abs_gyro_z_out = std::abs(a.gyro_z);
+  } else {
+    abs_gyro_z_out = std::abs(b.gyro_z);
+  }
   return true;
 }
 
@@ -329,10 +418,153 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::merge_clouds(
   return out_msg;
 }
 
+double LidarAggregatorNode::score_side_offset_candidate(
+  const pcl::PointCloud<pcl::PointXYZI> & center_cloud,
+  const pcl::PointCloud<pcl::PointXYZI> & side_cloud,
+  const rclcpp::Time & center_stamp,
+  const rclcpp::Time & side_stamp,
+  const RigidTransform & t_center_side,
+  double candidate_offset_sec) const
+{
+  if (center_cloud.empty() || side_cloud.empty()) {
+    return 0.0;
+  }
+
+  std::unordered_set<VoxelKey, VoxelKeyHash> center_voxels;
+  center_voxels.reserve(center_cloud.size());
+  for (const auto & p : center_cloud.points) {
+    center_voxels.insert(make_voxel_key(Eigen::Vector3d(p.x, p.y, p.z), estimator_cfg_.voxel_size_m));
+  }
+
+  const rclcpp::Time side_aligned = side_stamp + rclcpp::Duration::from_seconds(candidate_offset_sec);
+  Eigen::Matrix3d r_delta = Eigen::Matrix3d::Identity();
+  const bool has_delta = get_rotation_delta(side_aligned, center_stamp, r_delta);
+  if (!has_delta) {
+    return 0.0;
+  }
+
+  size_t hits = 0;
+  size_t total = 0;
+  for (const auto & p : side_cloud.points) {
+    Eigen::Vector3d p_side(p.x, p.y, p.z);
+    Eigen::Vector3d p_center = t_center_side.rotation * p_side + t_center_side.translation;
+    p_center = r_delta * p_center;
+
+    if (center_voxels.find(make_voxel_key(p_center, estimator_cfg_.voxel_size_m)) != center_voxels.end()) {
+      ++hits;
+    }
+    ++total;
+  }
+
+  if (total == 0) {
+    return 0.0;
+  }
+  return static_cast<double>(hits) / static_cast<double>(total);
+}
+
+bool LidarAggregatorNode::maybe_update_side_offset_locked(
+  const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
+  const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
+  const RigidTransform & t_center_side,
+  double & side_time_offset_sec,
+  double & last_score_out,
+  const char * side_name)
+{
+  if (!estimator_cfg_.enabled || !center_msg || !side_msg) {
+    return false;
+  }
+
+  pcl::PointCloud<pcl::PointXYZI> center_cloud;
+  pcl::PointCloud<pcl::PointXYZI> side_cloud;
+  pcl::fromROSMsg(*center_msg, center_cloud);
+  pcl::fromROSMsg(*side_msg, side_cloud);
+
+  if (
+    static_cast<int>(center_cloud.size()) < estimator_cfg_.min_points ||
+    static_cast<int>(side_cloud.size()) < estimator_cfg_.min_points)
+  {
+    return false;
+  }
+
+  const rclcpp::Time center_stamp(center_msg->header.stamp);
+  const rclcpp::Time side_stamp(side_msg->header.stamp);
+
+  double abs_gyro_z = 0.0;
+  if (!get_abs_gyro_z_at_time(center_stamp, abs_gyro_z) || abs_gyro_z < estimator_cfg_.min_yaw_rate_rad_s) {
+    return false;
+  }
+
+  const double start = std::max(side_time_offset_sec - estimator_cfg_.search_half_window_sec, estimator_cfg_.min_offset_sec);
+  const double end = std::min(side_time_offset_sec + estimator_cfg_.search_half_window_sec, estimator_cfg_.max_offset_sec);
+
+  double best_offset = side_time_offset_sec;
+  double best_score = -std::numeric_limits<double>::infinity();
+
+  for (double candidate = start; candidate <= end + 1e-9; candidate += estimator_cfg_.search_step_sec) {
+    const double score = score_side_offset_candidate(
+      center_cloud,
+      side_cloud,
+      center_stamp,
+      side_stamp,
+      t_center_side,
+      candidate);
+
+    if (score > best_score) {
+      best_score = score;
+      best_offset = candidate;
+    }
+  }
+
+  if (!std::isfinite(best_score)) {
+    return false;
+  }
+
+  const double score_gain = best_score - last_score_out;
+  if (score_gain < estimator_cfg_.min_score_gain && last_score_out > 0.0) {
+    return false;
+  }
+
+  const double old_offset = side_time_offset_sec;
+  side_time_offset_sec =
+    (1.0 - estimator_cfg_.ema_alpha) * side_time_offset_sec + estimator_cfg_.ema_alpha * best_offset;
+  side_time_offset_sec = std::clamp(side_time_offset_sec, estimator_cfg_.min_offset_sec, estimator_cfg_.max_offset_sec);
+  last_score_out = best_score;
+
+  RCLCPP_INFO_THROTTLE(
+    get_logger(),
+    *get_clock(),
+    2000,
+    "Offset update [%s]: old=%.4f best=%.4f new=%.4f score=%.3f gyro_z=%.3f",
+    side_name,
+    old_offset,
+    best_offset,
+    side_time_offset_sec,
+    best_score,
+    abs_gyro_z);
+  return true;
+}
+
 void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg)
 {
   if (!center_msg || !latest_ne_ || !latest_nw_) {
     return;
+  }
+
+  if (estimator_cfg_.enabled) {
+    maybe_update_side_offset_locked(
+      center_msg,
+      latest_ne_,
+      t_center_ne_,
+      ne_time_offset_sec_,
+      estimator_runtime_.ne_last_score,
+      "ne");
+    maybe_update_side_offset_locked(
+      center_msg,
+      latest_nw_,
+      t_center_nw_,
+      nw_time_offset_sec_,
+      estimator_runtime_.nw_last_score,
+      "nw");
   }
 
   const rclcpp::Time center_stamp(center_msg->header.stamp);

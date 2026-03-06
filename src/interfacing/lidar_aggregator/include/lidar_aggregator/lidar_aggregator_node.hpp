@@ -13,6 +13,9 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -36,6 +39,27 @@ private:
   {
     rclcpp::Time stamp;
     Eigen::Quaterniond orientation;
+    double gyro_z = 0.0;
+  };
+
+  struct OffsetEstimatorConfig
+  {
+    bool enabled = false;
+    double search_half_window_sec = 0.03;
+    double search_step_sec = 0.003;
+    double ema_alpha = 0.2;
+    double min_yaw_rate_rad_s = 0.05;
+    double min_score_gain = 0.01;
+    double voxel_size_m = 0.5;
+    int min_points = 300;
+    double min_offset_sec = -0.1;
+    double max_offset_sec = 0.1;
+  };
+
+  struct OffsetEstimatorRuntime
+  {
+    double ne_last_score = 0.0;
+    double nw_last_score = 0.0;
   };
 
   void declare_and_load_parameters();
@@ -49,6 +73,7 @@ private:
     const rclcpp::Time & from_stamp,
     const rclcpp::Time & to_stamp,
     Eigen::Matrix3d & delta_rotation) const;
+  bool get_abs_gyro_z_at_time(const rclcpp::Time & stamp, double & abs_gyro_z_out) const;
 
   sensor_msgs::msg::PointCloud2::SharedPtr compensate_side_cloud(
     const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
@@ -63,6 +88,22 @@ private:
     const sensor_msgs::msg::PointCloud2::SharedPtr & nw,
     const rclcpp::Time & stamp,
     const std::string & frame_id) const;
+
+  bool maybe_update_side_offset_locked(
+    const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
+    const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
+    const RigidTransform & t_center_side,
+    double & side_time_offset_sec,
+    double & last_score_out,
+    const char * side_name);
+
+  double score_side_offset_candidate(
+    const pcl::PointCloud<pcl::PointXYZI> & center_cloud,
+    const pcl::PointCloud<pcl::PointXYZI> & side_cloud,
+    const rclcpp::Time & center_stamp,
+    const rclcpp::Time & side_stamp,
+    const RigidTransform & t_center_side,
+    double candidate_offset_sec) const;
 
   void try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg);
 
@@ -106,6 +147,9 @@ private:
 
   double ne_time_offset_sec_ = 0.0;
   double nw_time_offset_sec_ = 0.0;
+
+  OffsetEstimatorConfig estimator_cfg_;
+  OffsetEstimatorRuntime estimator_runtime_;
 
   RigidTransform t_center_ne_;
   RigidTransform t_center_nw_;
