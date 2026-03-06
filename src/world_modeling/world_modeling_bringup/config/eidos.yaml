@@ -7,7 +7,7 @@ eidos_node:
       map: "map"
 
     # ---- SLAM core ----
-    slam_rate: 2.0                    # Hz, main SLAM loop frequency
+    slam_rate: 1.0                    # Hz, main SLAM loop frequency
     max_displacement: 1.0              # meters of travel before creating a new keyframe state
     max_rotation: 0.2                  # radians of rotation before creating a new keyframe state
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
@@ -108,19 +108,27 @@ eidos_node:
       lidar_topic: "/lidar_cc/velodyne_points"
       odom_topic: "liso/odometry"
 
+      # Initialization (IMU warmup + first state anchoring)
+      initialization:
+        imu_topic: "/novatel/oem7/imu/data"
+        imu_frame: "imu_link"
+        warmup_samples: 200                    # consecutive stationary IMU samples required (~0.4s at 500Hz)
+        stationary_gyr_threshold: 0.005        # rad/s, angular velocity magnitude below this = stationary
+        first_state_prior_cov: [0.1, 0.1, 0.1, 1.0, 1.0, 1.0]  # [r,p,y,x,y,z] anchors first LISO state
+
       # Downsampling
       scan_ds_resolution: 0.5
       submap_ds_resolution: 0.5
       num_neighbors: 10
 
       # Submap assembly (graph BFS)
-      submap_radius: 10.0
+      submap_radius: 30.0
       max_submap_states: 25
 
       # Registration (small_gicp GICP)
       max_correspondence_distance: 2.0
       max_iterations: 20
-      num_threads: 4
+      num_threads: 16
 
       # Quality filtering
       min_inliers: 50
@@ -128,7 +136,7 @@ eidos_node:
       min_scan_distance: 5.0        # meters, minimum displacement between LISO factor injections
 
       # Published odometry covariance diagonals [x, y, z, roll, pitch, yaw]
-      odom_pose_cov: [0.1, 0.1, 0.1, 0.05, 0.05, 0.05]
+      odom_pose_cov: [0.01, 0.01, 0.01, 0.005, 0.005, 0.005]
 
       # Frames
       lidar_frame: "lidar_cc"

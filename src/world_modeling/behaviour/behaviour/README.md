@@ -20,8 +20,8 @@ There is more comments and info under `/config/param.yaml`
 | `rate_hz`                                 | double   | 10.0                           | Tree tick frequency                                                            |
 | `map_frame`                               | string   | `map`                          | Map frame ID                                                                   |
 | `base_frame`                              | string   | `base_link`                    | Robot base frame ID                                                            |
-| `bt.traffic_light_state_hypothesis_index` | int      | 1                              | Hypothesis index for traffic light state                                       |
-| `world_objects_hypothesis_index`          | int      | 0                              | Hypothesis index for object classification                                     |
+| `traffic_light_state_hypothesis_index` | size_t      | 1                              | Hypothesis index for traffic light state                                       |
+| `world_objects_hypothesis_index`          | size_t      | 0                              | Hypothesis index for object classification                                     |
 | `bt.left_lane_change_areas`               | string[] | `[left_lane_change_corridor]`  | Area names for left lane change safety                                         |
 | `bt.right_lane_change_areas`              | string[] | `[right_lane_change_corridor]` | Area names for right lane change safety                                        |
 | `bt.intersection_wall_of_doom_width`      | double   | 5.0                            | Virtual wall width at stop lines (m)                                           |
@@ -33,7 +33,7 @@ There is more comments and info under `/config/param.yaml`
 | `get_shortest_route_timeout_ms`           | int      | 6000                           | Service timeout for get_shortest_route (ms)                                    |
 | `set_route_timeout_ms`                    | int      | 6000                           | Service timeout for set_route (ms)                                             |
 | `get_area_occupancy_timeout_ms`           | int      | 5000                           | Service timeout for get_area_occupancy (ms)                                    |
-| `get_dynamic_objects_timeout_ms`          | int      | 5000                           | Service timeout for get_dynamic_objects (ms)                                   |
+| `get_world_objects_enriched_timeout_ms`   | int      | 5000                           | Service timeout for get_world_objects_enriched (ms)                            |
 | `get_lanelets_by_reg_elem_timeout_ms`     | int      | 5000                           | Service timeout for get_lanelets_by_reg_elem (ms)                              |
 | `wall_service_timeout_ms`                 | int      | 5000                           | Service timeout for spawn/despawn wall (ms)                                    |
 | `enable_console_logging`                  | bool     | false                          | Enable BT console logging                                                      |
@@ -47,7 +47,7 @@ There is more comments and info under `/config/param.yaml`
 | `goal_point`     | `geometry_msgs/PointStamped`          | Goal position                     |
 | `ego_odom`       | `nav_msgs/Odometry`                   | Ego pose and twist                |
 | `lane_context`   | `lanelet_msgs/CurrentLaneContext`     | Current lane information          |
-| `world_objects`  | `world_model_msgs/DynamicObjectArray` | Tracked dynamic objects           |
+| `world_objects`  | `world_model_msgs/WorldObjectArray`   | Tracked world objects (enriched)  |
 | `area_occupancy` | `world_model_msgs/AreaOccupancyArray` | Occupancy status of defined areas |
 
 ### Published
@@ -66,7 +66,7 @@ Service names are set directly in the XML tree files (see [DEVELOPING.md](DEVELO
 | `/world_modeling/get_shortest_route`       | `lanelet_msgs/GetShortestRoute`      | Get route from ego to goal          |
 | `/world_modeling/set_route`                | `lanelet_msgs/SetRoute`              | Set the active route                |
 | `/world_modeling/get_area_occupancy`       | `world_model_msgs/GetAreaOccupancy`  | Get occupancy of defined areas      |
-| `/world_modeling/get_dynamic_objects`      | `world_model_msgs/GetDynamicObjects` | Get all tracked dynamic objects     |
+| `/world_modeling/get_world_objects_enriched` | `world_model_msgs/GetWorldObjectsEnriched` | Get all tracked world objects (enriched) |
 | `/world_modeling/get_lanelets_by_reg_elem` | `lanelet_msgs/GetLaneletsByRegElem`  | Find lanelets by regulatory element |
 | `/world_modeling/spawn_wall`               | `costmap_msgs/SpawnWall`             | Create virtual wall at stop lines   |
 | `/world_modeling/despawn_wall`             | `costmap_msgs/DespawnWall`           | Remove virtual wall                 |

@@ -48,8 +48,6 @@ launch:
       remap:
         - from: tracks_3d
           to: /carla/tracked_detections_3d
-        - from: world_object_seeds
-          to: /world_modeling/world_object_seeds
 
   # World Model
   - node:
@@ -61,8 +59,8 @@ launch:
       param:
         - from: $(var config_file)
       remap:
-        - from: "world_object_seeds"
-          to: "/world_modeling/world_object_seeds"
+        - from: "world_objects"
+          to: "world_objects_enriched"
         - from: "lane_context"
           to: "lanelet/lane_context"
         - from: "map_visualization"
@@ -157,9 +155,9 @@ launch:
         - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
       remap:
         - from: "world_objects"
-          to: "/world_modeling/world_object_seeds"
+          to: "world_object_seeds"
         - from: "markers"
-          to: "world_objects_markers"
+          to: "world_object_seeds_markers"
 
   # Post-enrichment: subscribes to world_objects (from world model)
   - node:
@@ -172,9 +170,9 @@ launch:
         - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
       remap:
         - from: "world_objects"
-          to: "/world_modeling/world_objects"
+          to: "world_objects_enriched"
         - from: "markers"
-          to: "dynamic_objects_markers"
+          to: "world_objects_enriched_markers"
 
   # Costmap Node
   - node:
@@ -187,17 +185,17 @@ launch:
         - from: $(var config_file)
       remap:
         - from: world_objects
-          to: /world_modeling/world_objects
+          to: world_objects_enriched
         - from: costmap
-          to: /world_modeling/costmap
+          to: costmap
         - from: pointcloud
           to: /perception/non_ground_cloud
         - from: footprint
-          to: /world_modeling/costmap_footprint
+          to: costmap_footprint
         - from: spawn_wall
-          to: /world_modeling/spawn_wall
+          to: spawn_wall
         - from: despawn_wall
-          to: /world_modeling/despawn_wall
+          to: despawn_wall
 
   # Costmap Footprint Markers
   - node:
@@ -210,9 +208,9 @@ launch:
         - from: $(var config_file)
       remap:
         - from: footprint
-          to: /world_modeling/costmap_footprint
+          to: costmap_footprint
         - from: markers
-          to: /world_modeling/costmap_footprint_markers
+          to: costmap_footprint_markers
 
   # Behaviour Node
   - node:
@@ -229,11 +227,11 @@ launch:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
         - from: lane_context
-          to: /world_modeling/lanelet/lane_context
+          to: lanelet/lane_context
         - from: world_objects
-          to: /world_modeling/world_objects
+          to: world_objects
         - from: area_occupancy
-          to: /world_modeling/area_occupancy
+          to: area_occupancy
         - from: goal_point
           to: /goal_point
         - from: ego/odom

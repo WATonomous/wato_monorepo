@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <deque>
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
@@ -11,6 +12,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 
@@ -48,6 +50,7 @@ public:
 
 private:
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
   void rebuildSubmap();
   std::vector<gtsam::Key> bfsCollectStates(gtsam::Key start, double radius);
 
@@ -72,12 +75,33 @@ private:
 
   // Subscription + publisher
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 
   // Last successful match tracking (for initial guess computation)
   gtsam::Pose3 last_matched_pose_;       // GICP result at last successful match
-  gtsam::Pose3 last_matched_mm_pose_;    // motion model pose at last successful match time
   bool has_last_match_ = false;
+
+  // IMU buffer (independent of motion model)
+  std::deque<sensor_msgs::msg::Imu> imu_buffer_;
+  std::mutex imu_mtx_;
+
+  // Gyro-integrated rotation tracking for initial guess
+  Eigen::Vector3d gyro_delta_rpy_{0, 0, 0};  // accumulated rotation since last match
+  double last_gyro_time_ = 0.0;               // timestamp of last integrated sample
+  bool gyro_tracking_active_ = false;
+
+  // TF: base_link <- imu_link (for transforming angular velocity)
+  Eigen::Matrix3d R_base_imu_ = Eigen::Matrix3d::Identity();
+  bool has_imu_tf_ = false;
+
+  // IMU warmup: stationarity detection + gravity alignment (independent of motion model)
+  std::atomic<bool> imu_warmup_complete_{false};
+  int imu_warmup_count_ = 0;               // consecutive stationary samples
+  Eigen::Vector4d warmup_quat_sum_{0, 0, 0, 0};  // accumulated quaternion (wxyz) for averaging
+  bool warmup_quat_hemisphere_set_ = false;
+  Eigen::Quaterniond warmup_quat_reference_;       // first quaternion, for hemisphere consistency
+  gtsam::Rot3 initial_gravity_orientation_; // computed during warmup
 
   // Distance gating + relative factor tracking
   gtsam::Point3 last_factor_position_ = gtsam::Point3(0, 0, 0);
@@ -101,6 +125,11 @@ private:
   std::string lidar_frame_ = "velodyne";
   std::string map_frame_ = "map";
   std::string base_link_frame_ = "base_footprint";
+  std::string imu_topic_ = "/imu/data";
+  std::string imu_frame_ = "imu_link";
+  int imu_warmup_samples_ = 200;
+  double imu_stationary_gyr_threshold_ = 0.005;  // rad/s
+  std::vector<double> first_state_prior_cov_ = {0.1, 0.1, 0.1, 1.0, 1.0, 1.0};  // [r,p,y,x,y,z]
   std::vector<double> odom_pose_cov_ = {0.1, 0.1, 0.1, 0.05, 0.05, 0.05};
   Eigen::Isometry3d T_base_lidar_ = Eigen::Isometry3d::Identity();
   bool has_tf_ = false;

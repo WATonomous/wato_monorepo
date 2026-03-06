@@ -92,7 +92,7 @@ In XML, reference those BT-only values with `{@bt.*}`.
    | `GetShortestRoute`     | `service_name` | `/world_modeling/get_shortest_route`       |
    | `SetRoute`             | `service_name` | `/world_modeling/set_route`                |
    | `GetAreaOccupancy`     | `service_name` | `/world_modeling/get_area_occupancy`       |
-   | `GetWorldObjects`      | `service_name` | `/world_modeling/get_dynamic_objects`      |
+   | `GetWorldObjects`      | `service_name` | `/world_modeling/get_world_objects_enriched` |
    | `GetLaneletsByRegElem` | `service_name` | `/world_modeling/get_lanelets_by_reg_elem` |
    | `SpawnWall`            | `service_name` | `/world_modeling/spawn_wall`               |
    | `DespawnWall`          | `service_name` | `/world_modeling/despawn_wall`             |
@@ -150,7 +150,7 @@ On launch the behaviour tree will be expecting a goal point published to the top
 It could achieved by using a ros command:
 
 ```sh
-ros2 topic pub --once /goal_point geometry_msgs/msg/Point "{x: 1.0, y: 2.0, z: 0.0}"
+ros2 topic pub --once /goal_point geometry_msgs/msg/PointStamped "{header: {frame_id: 'map'}, point: {x: 1.0, y: 2.0, z: 0.0}}"
 ```
 
 or using the publish panel on Foxglove.

@@ -573,8 +573,14 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
       factor_summary += factor_plugins_[i]->getName() + ":" + std::to_string(result.factors.size());
 
       if (result.timestamp.has_value()) {
-        // This plugin contributes a state at its sensor timestamp
-        new_values.insert(key, current_pose_);  // initial estimate
+        // This plugin contributes a state at its sensor timestamp.
+        // Use the plugin's own initial value if provided (e.g. GICP-matched pose),
+        // otherwise fall back to the motion model pose.
+        if (result.values.exists(key)) {
+          new_values.insert(key, result.values.at<gtsam::Pose3>(key));
+        } else {
+          new_values.insert(key, current_pose_);
+        }
         keygroup_states.push_back({key, result.timestamp.value()});
       }
 
@@ -592,30 +598,29 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
           }
         }
       }
-      new_values.insert(result.values);
+      // Insert any additional values from the plugin (e.g. bias keys),
+      // skipping the pose key already handled above.
+      for (const auto& kv : result.values) {
+        if (!new_values.exists(kv.key)) {
+          new_values.insert(kv.key, kv.value);
+        }
+      }
     }
 
     // Phase B: Motion model — connect consecutive states by timestamp
     std::sort(keygroup_states.begin(), keygroup_states.end(),
               [](auto& a, auto& b) { return a.t < b.t; });
 
+    // Motion model only connects states WITHIN this keygroup (intra-keygroup).
+    // Inter-keygroup connectivity comes from factor plugins (LISO BetweenFactors,
+    // GPS absolute constraints). No motion model chaining between keygroups.
     if (!keygroup_states.empty()) {
-      // Connect from previous keygroup's last state to this keygroup's first
-      if (current_keygroup_ > 0) {
-        motion_model_->generateMotionModel(
-            last_keygroup_state_.key, last_keygroup_state_.timestamp,
-            keygroup_states.front().key, keygroup_states.front().t,
-            new_factors, new_values);
-      }
-      // Connect within this keygroup
       for (size_t i = 0; i + 1 < keygroup_states.size(); i++) {
         motion_model_->generateMotionModel(
             keygroup_states[i].key, keygroup_states[i].t,
             keygroup_states[i+1].key, keygroup_states[i+1].t,
             new_factors, new_values);
       }
-      last_keygroup_state_ = {keygroup_states.back().key,
-                               keygroup_states.back().t};
     }
 
     // Track accumulated graph for serialization

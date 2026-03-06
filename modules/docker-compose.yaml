@@ -242,7 +242,7 @@ services:
         - "${ACTION_IMAGE}:main"
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
+    command: /bin/bash -c "ros2 launch action_bringup action_launch.yaml"
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}

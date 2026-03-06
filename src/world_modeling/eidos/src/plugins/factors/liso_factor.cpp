@@ -5,6 +5,7 @@
 
 #include <pluginlib/class_list_macros.hpp>
 #include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/inference/Symbol.h>
 #include <small_gicp/registration/registration_helper.hpp>
 
@@ -37,6 +38,11 @@ void LisoFactor::onInitialize() {
   node_->declare_parameter(prefix + ".min_scan_distance", min_scan_distance_);
   node_->declare_parameter(prefix + ".odom_pose_cov", odom_pose_cov_);
   node_->declare_parameter(prefix + ".lidar_frame", lidar_frame_);
+  node_->declare_parameter(prefix + ".initialization.imu_topic", imu_topic_);
+  node_->declare_parameter(prefix + ".initialization.imu_frame", imu_frame_);
+  node_->declare_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
+  node_->declare_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
+  node_->declare_parameter(prefix + ".initialization.first_state_prior_cov", first_state_prior_cov_);
 
   // Read parameters
   std::string lidar_topic, odom_topic;
@@ -55,6 +61,11 @@ void LisoFactor::onInitialize() {
   node_->get_parameter(prefix + ".min_scan_distance", min_scan_distance_);
   node_->get_parameter(prefix + ".odom_pose_cov", odom_pose_cov_);
   node_->get_parameter(prefix + ".lidar_frame", lidar_frame_);
+  node_->get_parameter(prefix + ".initialization.imu_topic", imu_topic_);
+  node_->get_parameter(prefix + ".initialization.imu_frame", imu_frame_);
+  node_->get_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
+  node_->get_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
+  node_->get_parameter(prefix + ".initialization.first_state_prior_cov", first_state_prior_cov_);
 
   node_->get_parameter("frames.map", map_frame_);
   node_->get_parameter("frames.base_link", base_link_frame_);
@@ -66,6 +77,11 @@ void LisoFactor::onInitialize() {
   lidar_sub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>(
       lidar_topic, rclcpp::SensorDataQoS(),
       std::bind(&LisoFactor::lidarCallback, this, std::placeholders::_1),
+      sub_opts);
+
+  imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
+      imu_topic_, rclcpp::SensorDataQoS(),
+      std::bind(&LisoFactor::imuCallback, this, std::placeholders::_1),
       sub_opts);
 
   // Create odometry publisher
@@ -90,10 +106,22 @@ void LisoFactor::reset() {
   first_scan_ = true;
   scan_received_ = false;
   has_tf_ = false;
+  has_imu_tf_ = false;
   has_last_factor_ = false;
   has_prev_liso_ = false;
   has_last_match_ = false;
+  gyro_tracking_active_ = false;
+  gyro_delta_rpy_ = Eigen::Vector3d::Zero();
+  last_gyro_time_ = 0.0;
+  imu_warmup_complete_ = false;
+  imu_warmup_count_ = 0;
+  warmup_quat_sum_ = Eigen::Vector4d::Zero();
+  warmup_quat_hemisphere_set_ = false;
 
+  {
+    std::lock_guard lock(imu_mtx_);
+    imu_buffer_.clear();
+  }
   {
     std::unique_lock lock(submap_mtx_);
     cached_submap_.reset();
@@ -106,11 +134,13 @@ void LisoFactor::reset() {
 }
 
 bool LisoFactor::isReady() const {
-  return scan_received_;
+  return scan_received_ && imu_warmup_complete_;
 }
 
 std::string LisoFactor::getReadyStatus() const {
-  return scan_received_ ? "LiDAR data received" : "waiting for LiDAR data";
+  if (!imu_warmup_complete_) return "IMU warmup (stationarity + gravity alignment)";
+  if (!scan_received_) return "waiting for LiDAR data";
+  return "ready";
 }
 
 // ---------------------------------------------------------------------------
@@ -128,7 +158,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   // Don't process scans until TRACKING — IMU needs to calibrate gravity first
   if (core_->getState() != SlamState::TRACKING) return;
 
-  // Look up static TF: base_link ← lidar (once)
+  // Look up static TF: base_link <- lidar (once)
   if (!has_tf_) {
     try {
       auto tf_msg = tf_->lookupTransform(base_link_frame_, lidar_frame_,
@@ -188,9 +218,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     cached_pcl_cloud_ = pcl_cloud;
     cached_timestamp_ = scan_time;
 
-    // Use motion model pose or identity as initial pose
-    auto mm_pose = core_->getMotionModelPose();
-    cached_pose_ = mm_pose.value_or(gtsam::Pose3::Identity());
+    // Seed from warmup gravity alignment (guaranteed by isReady() gate)
+    cached_pose_ = gtsam::Pose3(initial_gravity_orientation_, gtsam::Point3(0, 0, 0));
     cached_result_ = small_gicp::RegistrationResult();
     cached_result_.converged = true;
     cached_result_.num_inliers = scan->size();
@@ -201,26 +230,28 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
     // Seed last match tracking for initial guess computation
     last_matched_pose_ = cached_pose_;
-    if (mm_pose.has_value()) {
-      last_matched_mm_pose_ = *mm_pose;
-    }
     has_last_match_ = true;
+
+    // Start gyro tracking from this scan time
+    gyro_tracking_active_ = true;
+    gyro_delta_rpy_ = Eigen::Vector3d::Zero();
+    last_gyro_time_ = scan_time;
 
     RCLCPP_INFO(node_->get_logger(), "[%s] first scan cached (%zu points), awaiting submap",
                 name_.c_str(), scan->size());
     return;
   }
 
-  // Initial guess: last GICP pose + motion model delta since last match
-  auto mm_pose = core_->getMotionModelPose();
+  // Initial guess: last GICP pose + raw gyro-integrated rotation delta
+  // Independent of motion model — avoids feedback loop through graph optimization
   Eigen::Isometry3d init_guess = Eigen::Isometry3d::Identity();
-  if (has_last_match_ && mm_pose.has_value()) {
-    // delta = last_mm⁻¹ * current_mm (motion model increment since last match)
-    gtsam::Pose3 delta = last_matched_mm_pose_.between(*mm_pose);
-    gtsam::Pose3 predicted = last_matched_pose_.compose(delta);
+  if (has_last_match_) {
+    // gyro_delta_rpy_ has been accumulating since last successful match
+    gtsam::Rot3 delta_rot = gtsam::Rot3::RzRyRx(gyro_delta_rpy_);
+    gtsam::Rot3 init_rotation = last_matched_pose_.rotation() * delta_rot;
+    gtsam::Point3 init_translation = last_matched_pose_.translation();
+    gtsam::Pose3 predicted(init_rotation, init_translation);
     init_guess = Eigen::Isometry3d(predicted.matrix());
-  } else if (mm_pose.has_value()) {
-    init_guess = Eigen::Isometry3d(mm_pose->matrix());
   }
 
   // Scan-to-submap matching
@@ -266,10 +297,11 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   // Track last successful match for initial guess computation
   last_matched_pose_ = matched_pose;
-  if (mm_pose.has_value()) {
-    last_matched_mm_pose_ = *mm_pose;
-  }
   has_last_match_ = true;
+
+  // Reset gyro accumulator — next initial guess starts from this matched pose
+  gyro_delta_rpy_ = Eigen::Vector3d::Zero();
+  last_gyro_time_ = scan_time;
 
   // Publish odometry at LiDAR rate
   if (odom_pub_->is_activated()) {
@@ -297,6 +329,107 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
     odom_pub_->publish(odom_msg);
   }
+}
+
+// ---------------------------------------------------------------------------
+// IMU callback — buffer messages + integrate gyro for initial guess
+// ---------------------------------------------------------------------------
+void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
+  double current_time = stamp2Sec(msg->header.stamp);
+
+  // Look up static TF: base_link <- imu_link (once, needed for warmup + gyro integration)
+  if (!has_imu_tf_) {
+    try {
+      auto tf_msg = tf_->lookupTransform(base_link_frame_, imu_frame_,
+                                          tf2::TimePointZero);
+      const auto& r = tf_msg.transform.rotation;
+      R_base_imu_ = Eigen::Quaterniond(r.w, r.x, r.y, r.z).toRotationMatrix();
+      has_imu_tf_ = true;
+      RCLCPP_INFO(node_->get_logger(), "[%s] got TF %s <- %s (IMU)",
+                  name_.c_str(), base_link_frame_.c_str(), imu_frame_.c_str());
+    } catch (const tf2::TransformException&) {
+      return;  // can't do anything without IMU TF
+    }
+  }
+
+  // Buffer IMU messages (keep ~5s for potential future use)
+  {
+    std::lock_guard lock(imu_mtx_);
+    imu_buffer_.push_back(*msg);
+    while (imu_buffer_.size() > 2500) {  // ~5s at 500Hz
+      imu_buffer_.pop_front();
+    }
+  }
+
+  // Warmup: stationarity detection + averaged gravity alignment from IMU orientation
+  if (!imu_warmup_complete_) {
+    bool has_valid_orientation = msg->orientation_covariance[0] >= 0.0;
+    double gyr_mag = std::sqrt(
+        msg->angular_velocity.x * msg->angular_velocity.x +
+        msg->angular_velocity.y * msg->angular_velocity.y +
+        msg->angular_velocity.z * msg->angular_velocity.z);
+
+    if (gyr_mag < imu_stationary_gyr_threshold_ && has_valid_orientation) {
+      Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x,
+                           msg->orientation.y, msg->orientation.z);
+      if (q.squaredNorm() > 0.5) {
+        q.normalize();
+
+        // Ensure hemisphere consistency: flip q if it's in the opposite hemisphere
+        // from the first sample (q and -q represent the same rotation)
+        if (!warmup_quat_hemisphere_set_) {
+          warmup_quat_reference_ = q;
+          warmup_quat_hemisphere_set_ = true;
+        } else if (q.dot(warmup_quat_reference_) < 0.0) {
+          q.coeffs() = -q.coeffs();
+        }
+
+        warmup_quat_sum_ += Eigen::Vector4d(q.w(), q.x(), q.y(), q.z());
+        imu_warmup_count_++;
+      }
+    } else {
+      // Motion detected — reset accumulation
+      imu_warmup_count_ = 0;
+      warmup_quat_sum_ = Eigen::Vector4d::Zero();
+      warmup_quat_hemisphere_set_ = false;
+    }
+
+    if (imu_warmup_count_ >= imu_warmup_samples_) {
+      // Average quaternion over the stationary window
+      Eigen::Vector4d avg = warmup_quat_sum_ / imu_warmup_count_;
+      Eigen::Quaterniond q_avg(avg(0), avg(1), avg(2), avg(3));
+      q_avg.normalize();
+
+      // R_world_base = R_world_imu * R_base_imu^T
+      Eigen::Matrix3d R_world_imu = q_avg.toRotationMatrix();
+      Eigen::Matrix3d R_world_base = R_world_imu * R_base_imu_.transpose();
+      initial_gravity_orientation_ = gtsam::Rot3(R_world_base);
+      imu_warmup_complete_ = true;
+      RCLCPP_INFO(node_->get_logger(),
+                  "[%s] IMU warmup complete — gravity aligned from %d samples "
+                  "(rpy: %.4f, %.4f, %.4f)",
+                  name_.c_str(), imu_warmup_count_,
+                  initial_gravity_orientation_.roll(),
+                  initial_gravity_orientation_.pitch(),
+                  initial_gravity_orientation_.yaw());
+    }
+    last_gyro_time_ = current_time;
+    return;  // don't integrate gyro until warmup is done
+  }
+
+  // Integrate angular velocity for initial guess rotation tracking
+  if (gyro_tracking_active_ && last_gyro_time_ > 0.0) {
+    double dt = current_time - last_gyro_time_;
+    if (dt > 0.0 && dt < 0.1) {  // sanity check: skip if dt is negative or too large
+      // Transform angular velocity from IMU frame to base_link frame
+      Eigen::Vector3d omega_imu(msg->angular_velocity.x,
+                                 msg->angular_velocity.y,
+                                 msg->angular_velocity.z);
+      Eigen::Vector3d omega_base = R_base_imu_ * omega_imu;
+      gyro_delta_rpy_ += omega_base * dt;  // Euler integration (fine for small dt at 500Hz)
+    }
+  }
+  last_gyro_time_ = current_time;
 }
 
 // ---------------------------------------------------------------------------
@@ -329,8 +462,16 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
     }
   }
 
+  // Consume the cached result so stale data is never re-used
+  has_cached_result_ = false;
+
   // Set timestamp so SlamCore creates a new state
   result.timestamp = cached_timestamp_;
+
+  // Provide the GICP-matched pose as the initial value for this key.
+  // LISO owns its state's initial value — the scan was matched at this exact pose,
+  // so it's the best linearization point for the BetweenFactor.
+  result.values.insert(key, cached_pose_);
 
   // Store body-frame clouds in MapManager
   // small_gicp cloud for submap assembly, PCL cloud for visualizers/loop closure
@@ -363,8 +504,20 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
         prev_liso_key_, key, relative_pose, noise);
     result.factors.push_back(between_factor);
     added_between = true;
+  } else {
+    // First LISO state: add a loose prior to anchor it in the graph.
+    // Without inter-keygroup motion model, this state would otherwise be
+    // unconstrained. The prior is loose enough that GPS and subsequent
+    // BetweenFactors dominate once available.
+    auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
+        (gtsam::Vector(6) << first_state_prior_cov_[0], first_state_prior_cov_[1],
+         first_state_prior_cov_[2], first_state_prior_cov_[3],
+         first_state_prior_cov_[4], first_state_prior_cov_[5]).finished());
+    result.factors.push_back(
+        gtsam::make_shared<gtsam::PriorFactor<gtsam::Pose3>>(
+            key, cached_pose_, prior_noise));
+    added_between = false;
   }
-  // First LISO state: no factors emitted — ImuFactor anchors this state.
 
   // Update distance gate + relative tracking
   last_factor_position_ = current_pos;
@@ -377,7 +530,7 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
   RCLCPP_INFO(node_->get_logger(),
               "\033[36m[%s] %s at (%c,%lu) t=%.3f inliers=%zu\033[0m",
               name_.c_str(),
-              added_between ? "BetweenFactor" : "state only (no factors)",
+              added_between ? "BetweenFactor" : "PriorFactor (first state)",
               sym.chr(), sym.index(), cached_timestamp_,
               cached_result_.num_inliers);
 
