@@ -16,3 +16,7 @@ trajectory_planner_node:
     
     # Costmap thresholds
     lethal_cost_threshold: 100  # Costmap value considered lethal obstacle
+
+    # Path length hysteresis (suppresses lattice planner flickering)
+    short_path_stable_threshold: 3    # Consecutive shorter-path cycles before accepting a shorter path
+    path_length_drop_threshold: 0.5   # Minimum drop (m) that counts as "shorter"

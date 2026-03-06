@@ -66,6 +66,12 @@ private:
   /// Current lane speed limit in m/s. Falls back to config max_speed if unavailable.
   double current_speed_limit_mps_{0.0};
   bool has_speed_limit_{false};
+
+  // Path length hysteresis to suppress flickering from the lattice planner
+  double prev_path_length_{0.0};
+  int short_path_count_{0};
+  int short_path_stable_threshold_{3};
+  double path_length_drop_threshold_{0.5};
 };
 
 }  // namespace wato_trajectory_planner
