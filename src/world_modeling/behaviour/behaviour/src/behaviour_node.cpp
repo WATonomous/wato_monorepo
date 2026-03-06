@@ -123,6 +123,11 @@ void BehaviourNode::init()
       tree_->updateBlackboard("current_lane_ctx", msg);
     });
 
+  route_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::RouteAhead>(
+    "route_ahead", 10, [this](const lanelet_msgs::msg::RouteAhead::SharedPtr msg) {
+      tree_->updateBlackboard("route_ahead", msg);
+    });
+
   ego_odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
     "ego/odom", rclcpp::QoS(10), [this](nav_msgs::msg::Odometry::SharedPtr msg) {
       tree_->updateBlackboard("ego_odom", msg);
