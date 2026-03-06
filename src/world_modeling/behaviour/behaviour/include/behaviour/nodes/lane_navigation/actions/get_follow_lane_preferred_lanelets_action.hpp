@@ -73,8 +73,6 @@ public:
     }
 
     setOutput("out_preferred_lanelet_ids", preferred);
-    std::cout << "[GetFollowLanePreferredLanelets]: Result=SUCCESS (preferred_ids_count=" << preferred.size() << ")"
-              << std::endl;
     return BT::NodeStatus::SUCCESS;
   }
 };

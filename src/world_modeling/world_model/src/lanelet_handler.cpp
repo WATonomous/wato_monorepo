@@ -169,15 +169,21 @@ std::optional<int64_t> LaneletHandler::findCurrentLaneletId(
     return alignment * dist_weight;
   };
 
-  // 1. If route exists, check if ego is on a route lanelet
+  // 1. If route exists, find the closest route lanelet to ego
   {
     std::lock_guard<std::mutex> lock(route_mutex_);
     if (!active_route_.empty()) {
+      int64_t best_id = -1;
+      double best_dist = std::numeric_limits<double>::max();
       for (const auto & ll : active_route_) {
         double dist = lanelet::geometry::distance2d(ll, search_point);
-        if (dist <= route_priority_threshold_m) {
-          return ll.id();  // On route - use this lanelet
+        if (dist < best_dist) {
+          best_dist = dist;
+          best_id = ll.id();
         }
+      }
+      if (best_id >= 0 && best_dist <= route_priority_threshold_m) {
+        return best_id;
       }
     }
   }

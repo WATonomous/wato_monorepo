@@ -70,7 +70,6 @@ public:
       setOutput("error_message", response->error_message);
       if (response->error_message == "wall_not_found") {
         // if wall not found then assuming it is not there, so return SUCCESS
-        RCLCPP_WARN(logger(), "[DespawnWallService] Wall not found");
         setOutput("out_wall_id", 0);
         return BT::NodeStatus::SUCCESS;
       }
