@@ -32,7 +32,12 @@
 namespace pid_control
 {
 
-enum class VelocitySource { NONE, CAN, ODOM };
+enum class VelocitySource
+{
+  NONE,
+  CAN,
+  ODOM
+};
 
 class GainScheduledPidNode : public rclcpp_lifecycle::LifecycleNode
 {

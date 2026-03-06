@@ -31,7 +31,12 @@
 namespace pid_control
 {
 
-enum class VelocitySource { NONE, CAN, ODOM };
+enum class VelocitySource
+{
+  NONE,
+  CAN,
+  ODOM
+};
 
 class VelDrivenFeedforwardPidNode : public rclcpp_lifecycle::LifecycleNode
 {

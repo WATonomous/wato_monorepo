@@ -67,19 +67,23 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
 
   // Subscriptions
   ackermann_sub_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
-    "ackermann", rclcpp::QoS(10),
+    "ackermann",
+    rclcpp::QoS(10),
     std::bind(&VelDrivenFeedforwardPidNode::ackermann_callback, this, std::placeholders::_1));
 
   steering_meas_sub_ = this->create_subscription<roscco_msg::msg::SteeringAngle>(
-    "steering_feedback", rclcpp::QoS(10),
+    "steering_feedback",
+    rclcpp::QoS(10),
     std::bind(&VelDrivenFeedforwardPidNode::steering_feedback_callback, this, std::placeholders::_1));
 
   velocity_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "velocity_feedback", rclcpp::QoS(10),
+    "velocity_feedback",
+    rclcpp::QoS(10),
     std::bind(&VelDrivenFeedforwardPidNode::velocity_feedback_callback, this, std::placeholders::_1));
 
   odom_meas_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    "odom_feedback", rclcpp::QoS(10),
+    "odom_feedback",
+    rclcpp::QoS(10),
     std::bind(&VelDrivenFeedforwardPidNode::odom_feedback_callback, this, std::placeholders::_1));
 
   // Publishers
@@ -87,20 +91,19 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   feedforward_pub_ = this->create_publisher<pid_msgs::msg::Feedforward>("feedforward", rclcpp::QoS(10));
 
   // Parameter change callback
-  param_callback_handle_ = this->add_on_set_parameters_callback(
-    [this](const std::vector<rclcpp::Parameter> & params) {
-      for (const auto & param : params) {
-        if (param.get_name() == "feedforward.coefficients" ||
-            param.get_name() == "output_clamp_max" ||
-            param.get_name() == "output_clamp_min")
-        {
-          feedforward_rebuild_pending_ = true;
-        }
+  param_callback_handle_ = this->add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
+    for (const auto & param : params) {
+      if (
+        param.get_name() == "feedforward.coefficients" || param.get_name() == "output_clamp_max" ||
+        param.get_name() == "output_clamp_min")
+      {
+        feedforward_rebuild_pending_ = true;
       }
-      rcl_interfaces::msg::SetParametersResult result;
-      result.successful = true;
-      return result;
-    });
+    }
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+    return result;
+  });
 
   RCLCPP_INFO(this->get_logger(), "Configured successfully");
   return CallbackReturn::SUCCESS;
@@ -190,23 +193,20 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_shut
   return CallbackReturn::SUCCESS;
 }
 
-void VelDrivenFeedforwardPidNode::ackermann_callback(
-  const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
+void VelDrivenFeedforwardPidNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
 {
   steering_setpoint_ = msg->drive.steering_angle;
   velocity_setpoint_ = msg->drive.speed;
   ackermann_received_ = true;
 }
 
-void VelDrivenFeedforwardPidNode::steering_feedback_callback(
-  const roscco_msg::msg::SteeringAngle::SharedPtr msg)
+void VelDrivenFeedforwardPidNode::steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg)
 {
   steering_meas_ = msg->angle;
   steering_meas_received_ = true;
 }
 
-void VelDrivenFeedforwardPidNode::velocity_feedback_callback(
-  const std_msgs::msg::Float64::SharedPtr msg)
+void VelDrivenFeedforwardPidNode::velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
   if (velocity_source_ == VelocitySource::ODOM) {
     return;  // Locked to odometry source
@@ -222,8 +222,7 @@ void VelDrivenFeedforwardPidNode::velocity_feedback_callback(
   velocity_meas_received_ = true;
 }
 
-void VelDrivenFeedforwardPidNode::odom_feedback_callback(
-  const nav_msgs::msg::Odometry::SharedPtr msg)
+void VelDrivenFeedforwardPidNode::odom_feedback_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   if (velocity_source_ == VelocitySource::CAN) {
     return;  // Locked to CAN source
@@ -244,8 +243,7 @@ void VelDrivenFeedforwardPidNode::odom_feedback_callback(
   velocity_meas_received_ = true;
 }
 
-double VelDrivenFeedforwardPidNode::compute_feedforward(
-  double velocity, double steering_setpoint) const
+double VelDrivenFeedforwardPidNode::compute_feedforward(double velocity, double steering_setpoint) const
 {
   // T_ff = (c0 + c1*v + c2*v^2 + ...) * steering_setpoint
   double ff = 0.0;

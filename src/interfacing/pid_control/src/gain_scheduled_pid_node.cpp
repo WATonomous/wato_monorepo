@@ -38,8 +38,7 @@ GainScheduledPidNode::GainScheduledPidNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "GainScheduledPidNode created (unconfigured)");
 }
 
-GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_configure(
-  const rclcpp_lifecycle::State & /*state*/)
+GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Configuring...");
 
@@ -71,19 +70,21 @@ GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_configure(
 
   // Subscriptions
   ackermann_sub_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
-    "ackermann", rclcpp::QoS(10),
-    std::bind(&GainScheduledPidNode::ackermann_callback, this, std::placeholders::_1));
+    "ackermann", rclcpp::QoS(10), std::bind(&GainScheduledPidNode::ackermann_callback, this, std::placeholders::_1));
 
   steering_meas_sub_ = this->create_subscription<roscco_msg::msg::SteeringAngle>(
-    "steering_feedback", rclcpp::QoS(10),
+    "steering_feedback",
+    rclcpp::QoS(10),
     std::bind(&GainScheduledPidNode::steering_feedback_callback, this, std::placeholders::_1));
 
   velocity_meas_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "velocity_feedback", rclcpp::QoS(10),
+    "velocity_feedback",
+    rclcpp::QoS(10),
     std::bind(&GainScheduledPidNode::velocity_feedback_callback, this, std::placeholders::_1));
 
   odom_meas_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    "odom_feedback", rclcpp::QoS(10),
+    "odom_feedback",
+    rclcpp::QoS(10),
     std::bind(&GainScheduledPidNode::odom_feedback_callback, this, std::placeholders::_1));
 
   // Publishers
@@ -91,28 +92,23 @@ GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_configure(
   pid_gains_pub_ = this->create_publisher<pid_msgs::msg::PidGains>("pid_gains", rclcpp::QoS(10));
 
   // Parameter change callback
-  param_callback_handle_ = this->add_on_set_parameters_callback(
-    [this](const std::vector<rclcpp::Parameter> & params) {
-      for (const auto & param : params) {
-        const auto & name = param.get_name();
-        if (name.find("gain_schedule.") == 0 ||
-            name == "output_clamp_max" ||
-            name == "output_clamp_min")
-        {
-          schedule_rebuild_pending_ = true;
-        }
+  param_callback_handle_ = this->add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
+    for (const auto & param : params) {
+      const auto & name = param.get_name();
+      if (name.find("gain_schedule.") == 0 || name == "output_clamp_max" || name == "output_clamp_min") {
+        schedule_rebuild_pending_ = true;
       }
-      rcl_interfaces::msg::SetParametersResult result;
-      result.successful = true;
-      return result;
-    });
+    }
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+    return result;
+  });
 
   RCLCPP_INFO(this->get_logger(), "Configured successfully");
   return CallbackReturn::SUCCESS;
 }
 
-GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_activate(
-  const rclcpp_lifecycle::State & /*state*/)
+GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Activating...");
 
@@ -121,15 +117,13 @@ GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_activate(
   last_time_ = this->now();
   auto period = std::chrono::duration<double>(1.0 / update_rate);
   timer_ = this->create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-    std::bind(&GainScheduledPidNode::control_loop, this));
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&GainScheduledPidNode::control_loop, this));
 
   RCLCPP_INFO(this->get_logger(), "Activated - control loop running at %.1f Hz", update_rate);
   return CallbackReturn::SUCCESS;
 }
 
-GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_deactivate(
-  const rclcpp_lifecycle::State & /*state*/)
+GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating...");
 
@@ -142,8 +136,7 @@ GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_cleanup(
-  const rclcpp_lifecycle::State & /*state*/)
+GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up...");
 
@@ -171,8 +164,7 @@ GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_cleanup(
   return CallbackReturn::SUCCESS;
 }
 
-GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_shutdown(
-  const rclcpp_lifecycle::State & /*state*/)
+GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down...");
 
@@ -193,23 +185,20 @@ GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_shutdown(
   return CallbackReturn::SUCCESS;
 }
 
-void GainScheduledPidNode::ackermann_callback(
-  const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
+void GainScheduledPidNode::ackermann_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
 {
   steering_setpoint_ = msg->drive.steering_angle;
   velocity_setpoint_ = msg->drive.speed;
   ackermann_received_ = true;
 }
 
-void GainScheduledPidNode::steering_feedback_callback(
-  const roscco_msg::msg::SteeringAngle::SharedPtr msg)
+void GainScheduledPidNode::steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg)
 {
   steering_meas_ = msg->angle;
   steering_meas_received_ = true;
 }
 
-void GainScheduledPidNode::velocity_feedback_callback(
-  const std_msgs::msg::Float64::SharedPtr msg)
+void GainScheduledPidNode::velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
   if (velocity_source_ == VelocitySource::ODOM) {
     return;
@@ -225,8 +214,7 @@ void GainScheduledPidNode::velocity_feedback_callback(
   velocity_meas_received_ = true;
 }
 
-void GainScheduledPidNode::odom_feedback_callback(
-  const nav_msgs::msg::Odometry::SharedPtr msg)
+void GainScheduledPidNode::odom_feedback_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   if (velocity_source_ == VelocitySource::CAN) {
     return;
@@ -262,7 +250,9 @@ void GainScheduledPidNode::rebuild_gain_schedule()
     RCLCPP_ERROR(
       this->get_logger(),
       "Gain schedule size mismatch: %zu breakpoints require %zu gain values, got %zu",
-      speed_breakpoints_.size(), expected_size, steering_gains_matrix_.size());
+      speed_breakpoints_.size(),
+      expected_size,
+      steering_gains_matrix_.size());
   }
 }
 
@@ -319,8 +309,10 @@ void GainScheduledPidNode::control_loop()
             size_t lo = i * 3;
             size_t hi = (i + 1) * 3;
             interp_p = steering_gains_matrix_[lo] + t * (steering_gains_matrix_[hi] - steering_gains_matrix_[lo]);
-            interp_i = steering_gains_matrix_[lo + 1] + t * (steering_gains_matrix_[hi + 1] - steering_gains_matrix_[lo + 1]);
-            interp_d = steering_gains_matrix_[lo + 2] + t * (steering_gains_matrix_[hi + 2] - steering_gains_matrix_[lo + 2]);
+            interp_i =
+              steering_gains_matrix_[lo + 1] + t * (steering_gains_matrix_[hi + 1] - steering_gains_matrix_[lo + 1]);
+            interp_d =
+              steering_gains_matrix_[lo + 2] + t * (steering_gains_matrix_[hi + 2] - steering_gains_matrix_[lo + 2]);
             break;
           }
         }
