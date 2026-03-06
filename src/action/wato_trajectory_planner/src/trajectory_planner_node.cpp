@@ -23,18 +23,30 @@ namespace wato_trajectory_planner
 TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode("trajectory_planner_node", options)
 {
+  RCLCPP_INFO(get_logger(), "Trajectory Planner lifecycle node created");
+
+  // Obstacle avoidance distances
   declare_parameter("safe_distance", 10.0);
   declare_parameter("stop_distance", 2.0);
+
+  // Speed and path resolution
   declare_parameter("max_speed", 20.0);
   declare_parameter("interpolation_resolution", 0.1);
+
+  // Vehicle geometry used for costmap collision checks
   declare_parameter("footprint_radius", 1.2);
   declare_parameter("vehicle_front_offset", 2.5);
+
+  // Path length hysteresis tuning
   declare_parameter("short_path_stable_threshold", 3);
   declare_parameter("path_length_drop_threshold", 0.5);
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
 {
+  RCLCPP_INFO(get_logger(), "Configuring Trajectory Planner node");
+
+  // Build config from declared parameters and construct the planning core
   TrajectoryConfig config;
   config.safe_distance = get_parameter("safe_distance").as_double();
   config.stop_distance = get_parameter("stop_distance").as_double();
@@ -43,13 +55,15 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   config.footprint_radius = get_parameter("footprint_radius").as_double();
 
   short_path_stable_threshold_ = get_parameter("short_path_stable_threshold").as_int();
-  path_length_drop_threshold_  = get_parameter("path_length_drop_threshold").as_double();
+  path_length_drop_threshold_ = get_parameter("path_length_drop_threshold").as_double();
 
   core_ = std::make_unique<TrajectoryCore>(config);
 
+  // Publishers — activated separately in on_activate
   traj_pub_ = create_publisher<wato_trajectory_msgs::msg::Trajectory>("trajectory", 10);
   marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("trajectory_markers", 10);
 
+  // Subscribers
   path_sub_ = create_subscription<nav_msgs::msg::Path>(
     "input_path", 10, std::bind(&TrajectoryPlannerNode::path_callback, this, std::placeholders::_1));
 
@@ -57,31 +71,37 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
     "costmap", 10, std::bind(&TrajectoryPlannerNode::costmap_callback, this, std::placeholders::_1));
 
   lane_context_sub_ = create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
-    "lane_context", 10,
-    std::bind(&TrajectoryPlannerNode::lane_context_callback, this, std::placeholders::_1));
+    "lane_context", 10, std::bind(&TrajectoryPlannerNode::lane_context_callback, this, std::placeholders::_1));
 
+  // TF listener for cross-frame path transforms
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
+  RCLCPP_INFO(get_logger(), "Trajectory Planner node configured successfully");
   return CallbackReturn::SUCCESS;
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_activate(const rclcpp_lifecycle::State &)
 {
+  RCLCPP_INFO(get_logger(), "Activating Trajectory Planner node");
   traj_pub_->on_activate();
   marker_pub_->on_activate();
+  RCLCPP_INFO(get_logger(), "Trajectory Planner node activated");
   return CallbackReturn::SUCCESS;
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_deactivate(const rclcpp_lifecycle::State &)
 {
+  RCLCPP_INFO(get_logger(), "Deactivating Trajectory Planner node");
   traj_pub_->on_deactivate();
   marker_pub_->on_deactivate();
+  RCLCPP_INFO(get_logger(), "Trajectory Planner node deactivated");
   return CallbackReturn::SUCCESS;
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_cleanup(const rclcpp_lifecycle::State &)
 {
+  RCLCPP_INFO(get_logger(), "Cleaning up Trajectory Planner node");
   traj_pub_.reset();
   marker_pub_.reset();
   path_sub_.reset();
@@ -90,11 +110,13 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_cleanup(const rc
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
+  RCLCPP_INFO(get_logger(), "Trajectory Planner node cleaned up");
   return CallbackReturn::SUCCESS;
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_shutdown(const rclcpp_lifecycle::State & state)
 {
+  RCLCPP_INFO(get_logger(), "Shutting down Trajectory Planner node");
   return on_cleanup(state);
 }
 
@@ -127,34 +149,36 @@ void TrajectoryPlannerNode::path_callback(const nav_msgs::msg::Path::SharedPtr m
 
 void TrajectoryPlannerNode::costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
 {
+  // Cache latest costmap; used on the next path callback to check for obstacles
   latest_costmap_ = msg;
 }
 
-void TrajectoryPlannerNode::lane_context_callback(
-  const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
+void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
 {
+  // Update speed limit from the current lanelet; replaces the config max_speed cap
   current_speed_limit_mps_ = msg->current_lanelet.speed_limit_mps;
   has_speed_limit_ = true;
 }
 
 void TrajectoryPlannerNode::update_trajectory()
 {
+  // Wait until all inputs are ready before computing
   if (!latest_path_ || !latest_costmap_ || !core_) {
     return;
   }
 
-  // Transform path to costmap frame if necessary
+  // Transform path to costmap frame if the frames differ
   nav_msgs::msg::Path transformed_path = *latest_path_;
   if (latest_path_->header.frame_id != latest_costmap_->header.frame_id) {
     try {
-      // Check if transform is available
+      // Check if transform is available before attempting lookup
       if (!tf_buffer_->canTransform(
-          latest_costmap_->header.frame_id,
-          latest_path_->header.frame_id,
-          tf2::TimePointZero))
+            latest_costmap_->header.frame_id, latest_path_->header.frame_id, tf2::TimePointZero))
       {
         RCLCPP_WARN_THROTTLE(
-          get_logger(), *get_clock(), 1000,
+          get_logger(),
+          *get_clock(),
+          1000,
           "Cannot transform path from %s to %s",
           latest_path_->header.frame_id.c_str(),
           latest_costmap_->header.frame_id.c_str());
@@ -164,11 +188,9 @@ void TrajectoryPlannerNode::update_trajectory()
       // Transform path
       transformed_path.header.frame_id = latest_costmap_->header.frame_id;
       transformed_path.poses.clear();
-      
+
       geometry_msgs::msg::TransformStamped transform = tf_buffer_->lookupTransform(
-        latest_costmap_->header.frame_id,
-        latest_path_->header.frame_id,
-        tf2::TimePointZero);
+        latest_costmap_->header.frame_id, latest_path_->header.frame_id, tf2::TimePointZero);
 
       for (const auto & pose : latest_path_->poses) {
         geometry_msgs::msg::PoseStamped transformed_pose;
@@ -182,19 +204,17 @@ void TrajectoryPlannerNode::update_trajectory()
   }
 
   // Use lane speed limit if available, otherwise fall back to config max_speed
-  double limit_speed = has_speed_limit_
-    ? current_speed_limit_mps_
-    : get_parameter("max_speed").as_double();
+  double limit_speed = has_speed_limit_ ? current_speed_limit_mps_ : get_parameter("max_speed").as_double();
 
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed);
-  
+
   // Publish trajectory
   traj_pub_->publish(traj);
 
   // Visualization
   if (marker_pub_->get_subscription_count() > 0) {
     visualization_msgs::msg::MarkerArray markers;
-    
+
     // Delete all previous markers first
     visualization_msgs::msg::Marker delete_marker;
     delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
@@ -210,7 +230,7 @@ void TrajectoryPlannerNode::update_trajectory()
       sphere.type = visualization_msgs::msg::Marker::SPHERE;
       sphere.action = visualization_msgs::msg::Marker::ADD;
       sphere.pose = point.pose;
-      
+
       // Size correlates with speed
       // Base size 0.1m, scales up to 0.5m at max speed
       double speed_ratio = std::max(0.0, std::min(1.0, point.max_speed / limit_speed));
@@ -238,20 +258,20 @@ void TrajectoryPlannerNode::update_trajectory()
         label.text = speed_str.substr(0, speed_str.find(".") + 2) + " m/s";
         markers.markers.push_back(label);
       }
-      
+
       sphere.scale.x = diameter;
       sphere.scale.y = diameter;
       sphere.scale.z = diameter;
-      
+
       // Uniform color (Purple)
       sphere.color.r = 0.6f;
       sphere.color.g = 0.2f;
       sphere.color.b = 0.8f;
       sphere.color.a = 0.8f;
-      
+
       markers.markers.push_back(sphere);
     }
-    
+
     marker_pub_->publish(markers);
   }
 }

@@ -37,6 +37,7 @@ public:
 
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
+  // Lifecycle callbacks
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
   CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
@@ -44,30 +45,39 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
+  // Subscription callbacks
   void path_callback(const nav_msgs::msg::Path::SharedPtr msg);
   void costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
   void lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
+
+  // Recomputes and publishes trajectory when new path or costmap arrives
   void update_trajectory();
 
+  // Planning core — stateless, holds trajectory config
   std::unique_ptr<TrajectoryCore> core_;
+
+  // Publishers
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr traj_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
-  
+
+  // Subscribers
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr lane_context_sub_;
 
+  // TF — used to transform path into costmap frame when frames differ
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
+  // Cached latest inputs from upstream nodes
   nav_msgs::msg::Path::SharedPtr latest_path_;
   nav_msgs::msg::OccupancyGrid::SharedPtr latest_costmap_;
 
-  /// Current lane speed limit in m/s. Falls back to config max_speed if unavailable.
+  // Speed limit from lane context; falls back to config max_speed if unavailable
   double current_speed_limit_mps_{0.0};
   bool has_speed_limit_{false};
 
-  // Path length hysteresis to suppress flickering from the lattice planner
+  // Path length hysteresis — suppresses transient path-length drops from the lattice planner
   double prev_path_length_{0.0};
   int short_path_count_{0};
   int short_path_stable_threshold_{3};
