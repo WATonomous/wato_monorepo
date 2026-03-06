@@ -1,0 +1,46 @@
+/**:
+  ros__parameters:
+    topics:
+      imu: "/novatel/oem7/imu/data"
+      center: "/lidar_cc/velodyne_points"
+      ne: "/lidar_ne/velodyne_points"
+      nw: "/lidar_nw/velodyne_points"
+
+    outputs:
+      ne_deskewed_cc: "/lidar_ne/points_deskewed_cc"
+      nw_deskewed_cc: "/lidar_nw/points_deskewed_cc"
+      merged: "/lidar/all/points_merged"
+
+    frames:
+      center: "lidar_cc"
+
+    runtime:
+      qos_depth: 20
+      max_pair_dt_sec: 0.08
+      max_imu_buffer_sec: 20.0
+      max_imu_interp_gap_sec: 0.05
+
+    timing:
+      ne_time_offset_sec: 0.0
+      nw_time_offset_sec: 0.0
+
+    # Initial side->center seeds from lidar_lidar_calib configs.
+    extrinsic:
+      ne:
+        xyz:
+          x: 0.924884
+          y: -0.972881
+          z: -0.840734
+        rpy:
+          roll: 0.017163
+          pitch: 0.108708
+          yaw: -0.580009
+      nw:
+        xyz:
+          x: 1.102008
+          y: 0.748385
+          z: -0.824361
+        rpy:
+          roll: 0.049416
+          pitch: 0.068287
+          yaw: 0.246267

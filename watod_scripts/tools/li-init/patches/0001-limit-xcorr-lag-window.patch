@@ -1,0 +1,31 @@
+diff --git a/include/LI_init/LI_init.cpp b/include/LI_init/LI_init.cpp
+--- a/include/LI_init/LI_init.cpp
++++ b/include/LI_init/LI_init.cpp
+@@ -157,10 +157,19 @@ void LI_Init::xcorr_temporal_init(const double &odom_freq) {
+	for (int i = 0; i < N; i++) {
+	    mean_IMU_ang_vel += (IMU_state_group[i].ang_vel.norm() - mean_IMU_ang_vel) / (i + 1);
+	    mean_LiDAR_ang_vel += (Lidar_state_group[i].ang_vel.norm() - mean_LiDAR_ang_vel) / (i + 1);
+	}
+
++    // Constrain lag search window to avoid boundary solutions.
++    const double max_lag_sec = 0.5;
++    int max_lag = static_cast<int>(odom_freq * max_lag_sec + 0.5);
++    if (max_lag < 1) max_lag = 1;
++    if (max_lag > N - 1) max_lag = N - 1;
++
+	//Calculate zero-centered cross correlation
+	double max_corr = -DBL_MAX;
+-    for (int lag = -N + 1; lag < N; lag++) {
++    for (int lag = -max_lag; lag <= max_lag; lag++) {
+	    double corr = 0;
+	    int cnt = 0;
+	    for (int i = 0; i < N; i++) {
+		   int j = i + lag;
+@@ -185,6 +194,8 @@ void LI_Init::xcorr_temporal_init(const double &odom_freq) {
+	}
+
+	time_lag_1 = lag_IMU_wtr_Lidar / odom_freq;
++    cout << "Xcorr max lag [s]: " << max_lag_sec << endl;
++    cout << "Xcorr max lag [n]: " << max_lag << endl;
+	cout << "Max Cross-correlation: IMU lag wtr Lidar : " << -lag_IMU_wtr_Lidar << endl;
+ }

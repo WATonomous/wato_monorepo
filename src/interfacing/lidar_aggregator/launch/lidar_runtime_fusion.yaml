@@ -1,0 +1,14 @@
+---
+launch:
+  - arg:
+      name: "config_file"
+      default: "$(find-pkg-share lidar_aggregator)/config/runtime_fusion.yaml"
+      description: "Path to runtime fusion parameters"
+
+  - node:
+      pkg: "lidar_aggregator"
+      exec: "lidar_aggregator_node"
+      name: "lidar_runtime_fusion"
+      namespace: ""
+      param:
+        - from: "$(var config_file)"

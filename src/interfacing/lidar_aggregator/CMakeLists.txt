@@ -29,10 +29,16 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common)
+find_package(Eigen3 REQUIRED)
 
 add_library(lidar_aggregator SHARED
   src/lidar_aggregator_node.cpp
-  src/lidar_aggregator_core.cpp
 )
 
 target_include_directories(lidar_aggregator PUBLIC
@@ -40,29 +46,46 @@ target_include_directories(lidar_aggregator PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+ament_target_dependencies(lidar_aggregator
+  rclcpp
+  rclcpp_components
+  sensor_msgs
+  geometry_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  pcl_conversions
+)
+
 # Link libraries
 target_link_libraries(lidar_aggregator
-    PRIVATE
-    rclcpp_components::component
-    rclcpp::rclcpp
-    ${sensor_msgs_TARGETS}
+  rclcpp_components::component
+  rclcpp::rclcpp
+  tf2::tf2
+  ${PCL_LIBRARIES}
+  Eigen3::Eigen
 )
 
 # Register component and create executable
-rclcpp_compoenents_register_node(lidar_aggregator_component
-  PLUGIN lidar_aggregator::LidarAggregatorNode
+rclcpp_components_register_node(lidar_aggregator
+  PLUGIN "lidar_aggregator::LidarAggregatorNode"
   EXECUTABLE lidar_aggregator_node
 )
 
 # Install component library and executable
-install(TARGETS lidar_aggregator_component
+install(TARGETS lidar_aggregator
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 # Install config
 install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# Install launch
+install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
 
