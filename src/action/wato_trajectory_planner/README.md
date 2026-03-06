@@ -17,6 +17,7 @@ The planner subscribes to a geometric path (from `local_planning`) and a costmap
 ### Launching
 
 To launch the planner in isolation with default parameters:
+
 ```bash
 ros2 launch wato_trajectory_planner trajectory_planner.launch.py
 ```
@@ -56,13 +57,13 @@ Parameters are defined in `config/trajectory_planner_params.yaml`.
 
 ### Tuning Guide
 
-1.  **Car stops too early/late**: Adjust `vehicle_front_offset` to match the actual vehicle geometry.
-2.  **Car is too jerky**: Increase `safe_distance` to provide a longer deceleration ramp.
-3.  **Car hits obstacles on sides**: Increase `footprint_radius` to widen the safety corridor.
-4.  **High CPU usage**: Increase `interpolation_resolution` (e.g., to 0.2m), but be careful not to miss small obstacles.
+1. **Car stops too early/late**: Adjust `vehicle_front_offset` to match the actual vehicle geometry.
+2. **Car is too jerky**: Increase `safe_distance` to provide a longer deceleration ramp.
+3. **Car hits obstacles on sides**: Increase `footprint_radius` to widen the safety corridor.
+4. **High CPU usage**: Increase `interpolation_resolution` (e.g., to 0.2m), but be careful not to miss small obstacles.
 
 ## Troubleshooting
 
--   **No Trajectory Output**: Check if `input_path` and `costmap` topics are publishing and correctly remapped.
--   **"TrajectoryCore: Empty path"**: The upstream local planner is not producing a path.
--   **Collisions not detected**: Verify `costmap` has data (lethal obstacles > 100) and that `tf2` transforms between path frame and costmap frame are valid.
+- **No Trajectory Output**: Check if `input_path` and `costmap` topics are publishing and correctly remapped.
+- **"TrajectoryCore: Empty path"**: The upstream local planner is not producing a path.
+- **Collisions not detected**: Verify `costmap` has data (lethal obstacles > 100) and that `tf2` transforms between path frame and costmap frame are valid.

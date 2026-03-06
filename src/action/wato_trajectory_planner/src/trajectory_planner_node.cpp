@@ -14,6 +14,10 @@
 
 #include "wato_trajectory_planner/trajectory_planner_node.hpp"
 
+#include <algorithm>
+#include <memory>
+#include <string>
+
 #include "rclcpp_components/register_node_macro.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 

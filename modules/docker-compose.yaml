@@ -3,7 +3,7 @@ services:
 
   #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
-    profiles: [ "infrastructure_pre" ]
+    profiles: ["infrastructure_pre"]
     build:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
@@ -13,7 +13,7 @@ services:
     image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
 
   infrastructure_deps:
-    profiles: [ "infrastructure_pre" ]
+    profiles: ["infrastructure_pre"]
     build:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
@@ -57,7 +57,7 @@ services:
 
   #################### INTERFACING SERVICE ####################
   interfacing_source:
-    profiles: [ "interfacing_pre" ]
+    profiles: ["interfacing_pre"]
     build:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
@@ -67,7 +67,7 @@ services:
     image: "${INTERFACING_IMAGE}:source_${TAG}"
 
   interfacing_deps:
-    profiles: [ "interfacing_pre" ]
+    profiles: ["interfacing_pre"]
     build:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
@@ -109,7 +109,7 @@ services:
 
   #################### PERCEPTION SERVICE ####################
   perception_source:
-    profiles: [ "perception_pre" ]
+    profiles: ["perception_pre"]
     build:
       context: ..
       dockerfile: docker/perception.Dockerfile
@@ -119,7 +119,7 @@ services:
     image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
 
   perception_deps:
-    profiles: [ "perception_pre" ]
+    profiles: ["perception_pre"]
     build:
       context: ..
       dockerfile: docker/perception.Dockerfile
@@ -159,7 +159,7 @@ services:
 
   #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
-    profiles: [ "world_modeling_pre" ]
+    profiles: ["world_modeling_pre"]
     build:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
@@ -169,7 +169,7 @@ services:
     image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
 
   world_modeling_deps:
-    profiles: [ "world_modeling_pre" ]
+    profiles: ["world_modeling_pre"]
     build:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
@@ -207,7 +207,7 @@ services:
 
   #################### ACTION SERVICE ####################
   action_source:
-    profiles: [ "action_pre" ]
+    profiles: ["action_pre"]
     build:
       context: ..
       dockerfile: docker/action.Dockerfile
@@ -217,7 +217,7 @@ services:
     image: "${ACTION_IMAGE}:source_${TAG}"
 
   action_deps:
-    profiles: [ "action_pre" ]
+    profiles: ["action_pre"]
     build:
       context: ..
       dockerfile: docker/action.Dockerfile
@@ -268,7 +268,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              capabilities: [ gpu ]
+              capabilities: [gpu]
 
   carla_sim_no_gpu:
     image: carlasim/carla:0.10.0
@@ -277,7 +277,7 @@ services:
     command: /bin/bash -c "./CarlaUnreal.sh -nosound -nullrhi -carla-rpc-port=${CARLA_PORT}"
 
   simulation_source:
-    profiles: [ "simulation_pre" ]
+    profiles: ["simulation_pre"]
     build:
       context: ..
       dockerfile: docker/simulation.Dockerfile
@@ -287,7 +287,7 @@ services:
     image: "${SIMULATION_IMAGE}:source_${TAG}"
 
   simulation_deps:
-    profiles: [ "simulation_pre" ]
+    profiles: ["simulation_pre"]
     build:
       context: ..
       dockerfile: docker/simulation.Dockerfile

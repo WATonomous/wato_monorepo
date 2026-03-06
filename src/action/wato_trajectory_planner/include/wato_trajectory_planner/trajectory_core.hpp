@@ -48,8 +48,10 @@ public:
    * @return wato_trajectory_msgs::msg::Trajectory
    */
   wato_trajectory_msgs::msg::Trajectory compute_trajectory(
-    const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap,
-    double limit_speed, double current_speed = 0.0);
+    const nav_msgs::msg::Path & path,
+    const nav_msgs::msg::OccupancyGrid & costmap,
+    double limit_speed,
+    double current_speed = 0.0);
 
   /**
    * @brief Finds the distance to the first lethal obstacle along the path.
@@ -66,4 +68,3 @@ private:
 };
 
 }  // namespace wato_trajectory_planner
-

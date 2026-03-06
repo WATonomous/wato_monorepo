@@ -83,22 +83,18 @@ void VirtualWallLayer::spawnWallCallback(
         // The input pose coordinates are assumed to be in position_frame
         geometry_msgs::msg::PoseStamped input_pose;
         input_pose.header.frame_id = request->position_frame;
-        input_pose.header.stamp = rclcpp::Time(0); // Use latest available transform
+        input_pose.header.stamp = rclcpp::Time(0);  // Use latest available transform
         input_pose.pose = request->pose.pose;
 
         geometry_msgs::msg::PoseStamped transformed_pose;
         // Transform into the target frame (request->pose.header.frame_id)
-        auto tf = tf_buffer_->lookupTransform(
-            wall.pose.header.frame_id, 
-            request->position_frame, 
-            tf2::TimePointZero);
-            
+        auto tf = tf_buffer_->lookupTransform(wall.pose.header.frame_id, request->position_frame, tf2::TimePointZero);
+
         tf2::doTransform(input_pose, transformed_pose, tf);
-        
+
         // Update the wall pose with the transformed result
         // The header.frame_id remains the target frame
         wall.pose = transformed_pose;
-        
       } catch (const tf2::TransformException & ex) {
         response->success = false;
         response->error_message = std::string("Failed to transform from position_frame: ") + ex.what();
