@@ -9,7 +9,7 @@ launch:
         - from: "$(find-pkg-share wato_trajectory_planner)/config/trajectory_planner_params.yaml"
       remap:
         - from: "input_path"
-          to: "/action/local_planning/path"
+          to: "/action/lattice_planning/path"
         - from: "costmap"
           to: "/world_modeling/costmap"
         - from: "trajectory"
