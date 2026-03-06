@@ -60,8 +60,7 @@ public:
 
   BT::NodeStatus tick() override
   {
-    auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(
-      *this, "active_traffic_control_element");
+    auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
 
     int32_t active_wall_id = 0;
 
@@ -80,8 +79,8 @@ public:
         if (wid) active_wall_id = *wid;
         setOutput("out_yield_wall_id", static_cast<int32_t>(0));
       }
-      std::cout << "[ResetIntersectionContext]: Clearing element (subtype=" << subtype
-                << ", wall_id=" << active_wall_id << ")" << std::endl;
+      std::cout << "[ResetIntersectionContext]: Clearing element (subtype=" << subtype << ", wall_id=" << active_wall_id
+                << ")" << std::endl;
     } else {
       std::cout << "[ResetIntersectionContext]: No active element to clear" << std::endl;
     }

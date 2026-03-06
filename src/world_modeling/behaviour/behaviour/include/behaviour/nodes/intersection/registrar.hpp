@@ -28,8 +28,8 @@
 #include "behaviour/nodes/intersection/actions/get_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_line_pose_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_cars_action.hpp"
-#include "behaviour/nodes/intersection/actions/reset_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_traffic_light_state_action.hpp"
+#include "behaviour/nodes/intersection/actions/reset_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
 
 // conditions
