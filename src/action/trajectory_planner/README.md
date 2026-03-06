@@ -1,6 +1,6 @@
 # WATO Trajectory Planner
 
-The `wato_trajectory_planner` package implements a longitudinal trajectory planner that refines a geometric path into a velocity-profiled trajectory. It ensures collision avoidance by scaling velocity based on the distance to obstacles detected in the costmap.
+The `trajectory_planner` package implements a longitudinal trajectory planner that refines a geometric path into a velocity-profiled trajectory. It ensures collision avoidance by scaling velocity based on the distance to obstacles detected in the costmap.
 
 ## Overview
 
@@ -19,7 +19,7 @@ The planner subscribes to a geometric path (from `local_planning`) and a costmap
 To launch the planner in isolation with default parameters:
 
 ```bash
-ros2 launch wato_trajectory_planner trajectory_planner.launch.py
+ros2 launch trajectory_planner trajectory_planner.launch.py
 ```
 
 This launch file remaps:

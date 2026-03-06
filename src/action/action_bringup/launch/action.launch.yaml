@@ -28,13 +28,13 @@ launch:
           to: "/behaviour/execute_behaviour"
 
   - node:
-      pkg: "wato_trajectory_planner"
-      exec: "wato_trajectory_planner_node"
+      pkg: "trajectory_planner"
+      exec: "trajectory_planner_node"
       name: "trajectory_planner_node"
       namespace: "action/trajectory_planning"
       output: "screen"
       param:
-        - from: "$(find-pkg-share wato_trajectory_planner)/config/trajectory_planner_params.yaml"
+        - from: "$(find-pkg-share trajectory_planner)/config/trajectory_planner_params.yaml"
       remap:
         - from: "input_path"
           to: "/action/lattice_planning/path"

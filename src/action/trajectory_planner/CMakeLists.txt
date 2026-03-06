@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.8)
-project(wato_trajectory_planner)
+project(trajectory_planner)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -62,7 +62,7 @@ ament_target_dependencies(${PROJECT_NAME}_component
 # Register component and generate executable
 rclcpp_components_register_node(
   ${PROJECT_NAME}_component
-  PLUGIN "wato_trajectory_planner::TrajectoryPlannerNode"
+  PLUGIN "trajectory_planner::TrajectoryPlannerNode"
   EXECUTABLE ${PROJECT_NAME}_node
 )
 
@@ -90,5 +90,15 @@ install(DIRECTORY config/
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
+
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+
+  add_wato_test(test_trajectory_core
+    test/test_trajectory_core.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_component
+  )
+endif()
 
 ament_package()

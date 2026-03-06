@@ -21,7 +21,7 @@
 #include "nav_msgs/msg/path.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
-namespace wato_trajectory_planner
+namespace trajectory_planner
 {
 
 struct TrajectoryConfig
@@ -67,4 +67,4 @@ private:
   TrajectoryConfig config_;
 };
 
-}  // namespace wato_trajectory_planner
+}  // namespace trajectory_planner

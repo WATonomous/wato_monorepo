@@ -23,11 +23,11 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
+#include "trajectory_planner/trajectory_core.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
-#include "wato_trajectory_planner/trajectory_core.hpp"
 
-namespace wato_trajectory_planner
+namespace trajectory_planner
 {
 
 class TrajectoryPlannerNode : public rclcpp_lifecycle::LifecycleNode
@@ -84,4 +84,4 @@ private:
   double path_length_drop_threshold_{0.5};
 };
 
-}  // namespace wato_trajectory_planner
+}  // namespace trajectory_planner

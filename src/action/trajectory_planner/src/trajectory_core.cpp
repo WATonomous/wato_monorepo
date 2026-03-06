@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wato_trajectory_planner/trajectory_core.hpp"
+#include "trajectory_planner/trajectory_core.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -22,7 +22,7 @@
 // For pure C++ logging without node dependency, we can use iostream or rclcpp::Logger if passed.
 // For now, let's stick to safe defaults.
 
-namespace wato_trajectory_planner
+namespace trajectory_planner
 {
 
 TrajectoryCore::TrajectoryCore(const TrajectoryConfig & config)
@@ -143,4 +143,4 @@ std::optional<double> TrajectoryCore::find_first_collision(
   return std::nullopt;
 }
 
-}  // namespace wato_trajectory_planner
+}  // namespace trajectory_planner

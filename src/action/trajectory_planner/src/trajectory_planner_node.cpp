@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wato_trajectory_planner/trajectory_planner_node.hpp"
+#include "trajectory_planner/trajectory_planner_node.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -21,7 +21,7 @@
 #include "rclcpp_components/register_node_macro.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
-namespace wato_trajectory_planner
+namespace trajectory_planner
 {
 
 TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options)
@@ -280,6 +280,6 @@ void TrajectoryPlannerNode::update_trajectory()
   }
 }
 
-}  // namespace wato_trajectory_planner
+}  // namespace trajectory_planner
 
-RCLCPP_COMPONENTS_REGISTER_NODE(wato_trajectory_planner::TrajectoryPlannerNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(trajectory_planner::TrajectoryPlannerNode)
