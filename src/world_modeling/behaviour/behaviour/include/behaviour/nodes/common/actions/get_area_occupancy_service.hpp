@@ -59,7 +59,7 @@ public:
   BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
   {
     setOutput("error_message", std::string(BT::toStr(error)));
-    RCLCPP_ERROR(logger(), "GetAreaOccupancy service failed: %d", error);
+    RCLCPP_ERROR(logger(), "[%s] service failed: %s", name().c_str(), std::string(BT::toStr(error)).c_str());
     return BT::NodeStatus::FAILURE;
   }
 };

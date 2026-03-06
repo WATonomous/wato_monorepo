@@ -54,6 +54,10 @@ public:
       return BT::NodeStatus::FAILURE;  // used for gating in a Fallback
     }
 
+    if (*wall_id <= 0) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     return BT::NodeStatus::SUCCESS;
   }
 };

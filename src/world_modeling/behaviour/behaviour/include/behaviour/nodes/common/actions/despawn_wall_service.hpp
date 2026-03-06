@@ -41,6 +41,7 @@ public:
   {
     return providedBasicPorts({
       BT::InputPort<int32_t>("wall_id"),
+      BT::OutputPort<int32_t>("out_wall_id"),
       BT::OutputPort<std::string>("error_message"),
     });
   }
@@ -69,13 +70,14 @@ public:
       setOutput("error_message", response->error_message);
       if (response->error_message == "wall_not_found") {
         // if wall not found then assuming it is not there, so return SUCCESS
-        RCLCPP_WARN(logger(), "[DespawnWallService] Wall not found");
+        setOutput("out_wall_id", 0);
         return BT::NodeStatus::SUCCESS;
       }
       return BT::NodeStatus::FAILURE;
     }
 
     RCLCPP_INFO(logger(), "[DespawnWallService] service response received");
+    setOutput("out_wall_id", 0);
     return BT::NodeStatus::SUCCESS;
   }
 

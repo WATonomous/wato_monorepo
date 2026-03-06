@@ -26,6 +26,7 @@ launch:
           to: "/ego/odom"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
+
   - node:
       pkg: "lattice_planning_markers"
       exec: "lattice_planning_markers_node"

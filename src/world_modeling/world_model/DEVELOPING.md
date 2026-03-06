@@ -174,4 +174,4 @@ private:
 4. Add classification mapping in `WorldModelWriter::classify()`
 5. Add `runPipeline<NewType>(...)` call in `WorldModelWriter::onMessage()`
 6. Add enrichment overload in `LaneletEnricher`
-7. Add collection calls in publishers/services that iterate entity types (e.g., `DynamicObjectsPublisher::collectEntities<NewType>()`)
+7. Add collection calls in publishers/services that iterate entity types (e.g., `WorldObjectsEnrichedPublisher::collectEntities<NewType>()`)

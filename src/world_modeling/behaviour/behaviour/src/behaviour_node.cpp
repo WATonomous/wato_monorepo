@@ -36,7 +36,7 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("map_frame", "map");
   this->declare_parameter("base_frame", "base_link");
   this->declare_parameter("enable_console_logging", false);
-  this->declare_parameter("bt.traffic_light_state_hypothesis_index", 1);
+  this->declare_parameter("traffic_light_state_hypothesis_index", 1);
   this->declare_parameter("world_objects_hypothesis_index", 0);
   this->declare_parameter("bt.left_lane_change_areas", std::vector<std::string>{"left_lane_change_corridor"});
   this->declare_parameter("bt.right_lane_change_areas", std::vector<std::string>{"right_lane_change_corridor"});
@@ -49,7 +49,7 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("get_shortest_route_timeout_ms", 6000);
   this->declare_parameter("set_route_timeout_ms", 6000);
   this->declare_parameter("get_area_occupancy_timeout_ms", 5000);
-  this->declare_parameter("get_dynamic_objects_timeout_ms", 5000);
+  this->declare_parameter("get_world_objects_enriched_timeout_ms", 5000);
   this->declare_parameter("get_lanelets_by_reg_elem_timeout_ms", 5000);
   this->declare_parameter("wall_service_timeout_ms", 5000);
 
@@ -68,8 +68,10 @@ void BehaviourNode::init()
   base_frame_ = this->get_parameter("base_frame").as_string();
   double tick_rate_hz = this->get_parameter("rate_hz").as_double();
   bool enable_console_logging = this->get_parameter("enable_console_logging").as_bool();
-  int traffic_light_state_hypothesis_index = this->get_parameter("bt.traffic_light_state_hypothesis_index").as_int();
-  int world_objects_hypothesis_index = this->get_parameter("world_objects_hypothesis_index").as_int();
+  std::size_t traffic_light_state_hypothesis_index =
+    static_cast<std::size_t>(this->get_parameter("traffic_light_state_hypothesis_index").as_int());
+  std::size_t world_objects_hypothesis_index =
+    static_cast<std::size_t>(this->get_parameter("world_objects_hypothesis_index").as_int());
   std::vector<std::string> left_lane_change_areas = this->get_parameter("bt.left_lane_change_areas").as_string_array();
   std::vector<std::string> right_lane_change_areas =
     this->get_parameter("bt.right_lane_change_areas").as_string_array();
@@ -95,7 +97,7 @@ void BehaviourNode::init()
 
   // xml specific values
   tree_->updateBlackboard("world_objects_hypothesis_index", world_objects_hypothesis_index);
-  tree_->updateBlackboard("bt.traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
+  tree_->updateBlackboard("traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
   tree_->updateBlackboard("bt.left_lane_change_areas", left_lane_change_areas);
   tree_->updateBlackboard("bt.right_lane_change_areas", right_lane_change_areas);
   tree_->updateBlackboard("bt.intersection_wall_of_doom_width", stop_line_wall_width);
@@ -110,15 +112,20 @@ void BehaviourNode::init()
   tick_tree_timer_ = this->create_wall_timer(tick_period, std::bind(&BehaviourNode::tickTreeTimerCallback, this));
 
   // subscribers
-  goal_point_sub_ = this->create_subscription<geometry_msgs::msg::Point>(
-    "goal_point", 10, [this](const geometry_msgs::msg::Point::SharedPtr msg) {
+  goal_point_sub_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
+    "goal_point", 10, [this](const geometry_msgs::msg::PointStamped::SharedPtr msg) {
       tree_->updateBlackboard("goal_point", msg);
-      RCLCPP_INFO(this->get_logger(), "New goal received: x=%.2f, y=%.2f", msg->x, msg->y);
+      RCLCPP_INFO(this->get_logger(), "New goal received: x=%.2f, y=%.2f", msg->point.x, msg->point.y);
     });
 
   current_lane_context_sub_ = this->create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
     "lane_context", 10, [this](const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg) {
       tree_->updateBlackboard("current_lane_ctx", msg);
+    });
+
+  route_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::RouteAhead>(
+    "route_ahead", 10, [this](const lanelet_msgs::msg::RouteAhead::SharedPtr msg) {
+      tree_->updateBlackboard("route_ahead", msg);
     });
 
   ego_odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(

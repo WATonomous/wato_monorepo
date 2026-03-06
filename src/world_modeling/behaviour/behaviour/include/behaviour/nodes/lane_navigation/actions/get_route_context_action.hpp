@@ -112,9 +112,6 @@ public:
 
     setOutput("out_lane_transition", transition_enum);
     setOutput("out_next_lanelet", next_lanelet);
-    std::cout << "[GetRouteContext]: Result=SUCCESS (transition set, next_lanelet_id=" << next_lanelet->id << ")"
-              << std::endl;
-
     return BT::NodeStatus::SUCCESS;
   }
 };
