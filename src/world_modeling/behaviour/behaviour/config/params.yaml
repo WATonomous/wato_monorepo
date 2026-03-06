@@ -27,11 +27,11 @@
     # World objects hypothesis index (which detection result to use for classification)
     world_objects_hypothesis_index: 0
 
+    # Traffic light state hypothesis index to use
+    traffic_light_state_hypothesis_index: 1
+
     # Behavior-tree XML specific config (blackboard keys referenced as {@bt.*})
     bt:
-      # Traffic light state hypothesis index to use
-      traffic_light_state_hypothesis_index: 1
-
       # Lane change safety check areas (must match world_model's occupancy_areas config)
       left_lane_change_areas:
         - "left_lane_change_corridor"
@@ -58,8 +58,8 @@
     # Service timeouts (milliseconds)
     get_shortest_route_timeout_ms: 50000
     set_route_timeout_ms: 50000
-    get_area_occupancy_timeout_ms: 5000
-    get_dynamic_objects_timeout_ms: 5000
+    get_area_occupancy_timeout_ms: 30000
+    get_world_objects_enriched_timeout_ms: 30000
     get_lanelets_by_reg_elem_timeout_ms: 5000
     wall_service_timeout_ms: 5000
 

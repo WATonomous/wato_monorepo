@@ -50,7 +50,7 @@ public:
     return {
       BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("stop_sign"),
       BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
-      BT::InputPort<int>("hypothesis_index"),
+      BT::InputPort<std::size_t>("hypothesis_index"),
       BT::InputPort<double>("stop_sign_line_threshold_m"),
       BT::OutputPort<std::vector<std::string>>("out_stop_sign_car_ids"),
       BT::OutputPort<std::vector<world_model_msgs::msg::WorldObject>>("out_stop_sign_cars"),
@@ -73,18 +73,13 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto hypothesis_index = ports::tryGet<int>(*this, "hypothesis_index");
+    auto hypothesis_index = ports::tryGet<std::size_t>(*this, "hypothesis_index");
     if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
     auto stop_sign_line_threshold_m = ports::tryGet<double>(*this, "stop_sign_line_threshold_m");
     if (!ports::require(stop_sign_line_threshold_m, "stop_sign_line_threshold_m", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
-    }
-
-    if (*hypothesis_index < 0) {
-      std::cout << "[GetStopSignCars] invalid hypothesis_index" << std::endl;
       return BT::NodeStatus::FAILURE;
     }
 

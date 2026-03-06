@@ -1,14 +1,13 @@
-joy_node:
+/**/joy_node:
   ros__parameters:
     deadzone: 0.05
 
-/interfacing/joystick_node:
+/**/joystick_node:
   ros__parameters:
     # left shoulder buttons
     enable_axis: 2
 
-
-    # button to toggle between /joystick/ackermann and /joystick/roscco
+    # button to toggle between joystick/ackermann and joystick/roscco
     toggle_button: 1  # B on xbox
 
     # OSCC board arming button
@@ -24,7 +23,7 @@ joy_node:
 
     # ROSCCO SCALLING ---- max speed and steering angle
     roscco_max_speed: 1.0
-    roscco_max_steering_angle: 0.3
+    roscco_max_steering_angle: 0.2
 
     # invert steering and throttle
     invert_steering: true

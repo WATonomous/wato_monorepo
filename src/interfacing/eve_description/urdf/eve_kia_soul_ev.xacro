@@ -16,16 +16,20 @@
   <!-- Include chassis -->
   <xacro:include filename="eve_chassis.xacro"/>
 
-  <!-- Instantiate chassis with position relative to base_link -->
-  <xacro:chassis parent="base_link">
-    <origin xyz="-0.8629 0 -1.72" rpy="0 0 0"/>
+  <!-- Instantiate chassis with position relative to base_footprint -->
+  <!-- x: rear axle is 0.8629m behind sensor mast -->
+  <xacro:chassis parent="base_footprint">
+    <origin xyz="-0.8629 0 0" rpy="0 0 0"/>
   </xacro:chassis>
 
   <!-- Include roof mount and sensors -->
   <xacro:include filename="eve_roof_mount.xacro"/>
 
   <!-- Base link is the roof frame; attach roof sensors directly to base_link -->
-  <xacro:roof_mount parent="base_link"/>
+  <xacro:roof_mount
+    parent="base_link"
+    imu_xyz="-0.973762 -0.033626 -1.316802"
+    imu_rpy="-0.006167 0.042198 -0.083116"/>
 
   <!-- Nominal lower camera extrinsics (placeholder values; update once measured) -->
   <xacro:lower_cameras parent="base_link"/>

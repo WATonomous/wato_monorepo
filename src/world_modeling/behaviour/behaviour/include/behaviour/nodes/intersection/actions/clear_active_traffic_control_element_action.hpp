@@ -42,6 +42,7 @@ public:
       BT::OutputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
       BT::OutputPort<int64_t>("active_traffic_control_lanelet_id"),
       BT::OutputPort<int64_t>("active_traffic_control_element_id"),
+      BT::OutputPort<int32_t>("wall_id"),
     };
   }
 
@@ -53,6 +54,7 @@ public:
     setOutput("active_traffic_control_element", cleared);
     setOutput("active_traffic_control_lanelet_id", static_cast<int64_t>(0));
     setOutput("active_traffic_control_element_id", static_cast<int64_t>(0));
+    setOutput("wall_id", static_cast<int32_t>(0));
     return BT::NodeStatus::SUCCESS;
   }
 };
