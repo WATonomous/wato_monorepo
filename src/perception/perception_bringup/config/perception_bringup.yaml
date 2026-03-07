@@ -58,6 +58,13 @@ multi_camera_sync:
       - "/camera_pano_ee/image_rect_compressed"
       - "/camera_pano_ss/image_rect_compressed"
 
+    # CameraInfo topics (one per camera, same order). Required for batched ~/multi_camera_info.
+    camera_info_topics:
+      - "/camera_pano_ww/camera_info"
+      - "/camera_pano_nn/camera_info"
+      - "/camera_pano_ee/camera_info"
+      - "/camera_pano_ss/camera_info"
+
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
       - "camera_pano_ww"
@@ -94,8 +101,8 @@ multi_camera_sync:
 # =============================================================================
 /**/deep_object_detection_node:
   ros__parameters:
-    model_path: "/ws/models/models/yolov8m.onnx"
-    class_names_path: "/ws/src/deep_ros/deep_object_detection/config/coco_classes.txt"
+    model_path: "/ws/models/yolov8m.onnx"
+    class_names_path: "/ws/install/deep_object_detection/share/deep_object_detection/config/coco_classes.txt"
     use_compressed_images: true  # Set to true for compressed images, false for uncompressed (shared memory)
 
     Model:
@@ -137,3 +144,35 @@ multi_camera_sync:
       device_id: 0
       trt_engine_cache_enable: true
       trt_engine_cache_path: "/tmp/deep_ros_ort_trt_cache"
+
+# =============================================================================
+# Tracking Node
+# =============================================================================
+/**/tracking_node:
+  ros__parameters:
+    frame_rate: 2
+    track_buffer: 30
+    track_thresh: 0.5
+    high_thresh: 0.6
+    match_thresh: 1.0
+    use_maj_cls: true
+    output_frame: "map"
+
+# =============================================================================
+# Lifecycle Managers
+# =============================================================================
+detection_lifecycle_manager:
+  ros__parameters:
+    node_names: ["deep_object_detection_node"]
+    autostart: true
+    transition_timeout_s: 10.0
+    bond_timeout_s: 4.0
+    bond_enabled: false
+
+perception_lifecycle_manager:
+  ros__parameters:
+    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
+    autostart: true
+    transition_timeout_s: 10.0
+    bond_timeout_s: 4.0
+    bond_enabled: false
