@@ -42,36 +42,48 @@ void FactorGraphVisualization::deactivate() {
   pub_->on_deactivate();
 }
 
-// Helper to get color for a state key based on its symbol character
-static std_msgs::msg::ColorRGBA stateColor(unsigned char chr) {
+// Helper to get color for a state based on its owner plugin name
+static std_msgs::msg::ColorRGBA stateColor(const std::string& owner) {
   std_msgs::msg::ColorRGBA c;
   c.a = 0.9f;
-  if (chr == 255) {
+  if (owner.empty()) {
     // Prior/init state — white
     c.r = 1.0f; c.g = 1.0f; c.b = 1.0f;
-  } else if (chr == 0) {
-    // First factor plugin (GPS) — yellow
+  } else if (owner.find("gps") != std::string::npos) {
+    // GPS — yellow
     c.r = 1.0f; c.g = 1.0f; c.b = 0.0f;
-  } else if (chr == 1) {
-    // Second factor plugin (loop closure) — orange
+  } else if (owner.find("liso") != std::string::npos) {
+    // LISO — cyan
+    c.r = 0.0f; c.g = 1.0f; c.b = 1.0f;
+  } else if (owner.find("loop") != std::string::npos) {
+    // Loop closure — orange
     c.r = 1.0f; c.g = 0.5f; c.b = 0.0f;
   } else {
-    // Cycling colors for others
-    static const float palette[][3] = {
-      {0.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}, {0.5f, 1.0f, 0.5f}, {0.5f, 0.5f, 1.0f}
-    };
-    int idx = (chr - 2) % 4;
-    c.r = palette[idx][0]; c.g = palette[idx][1]; c.b = palette[idx][2];
+    // Hash-based color for unknown plugins
+    std::hash<std::string> hasher;
+    size_t h = hasher(owner);
+    c.r = 0.3f + 0.7f * ((h & 0xFF) / 255.0f);
+    c.g = 0.3f + 0.7f * (((h >> 8) & 0xFF) / 255.0f);
+    c.b = 0.3f + 0.7f * (((h >> 16) & 0xFF) / 255.0f);
   }
   return c;
 }
 
-// Helper to get a label prefix for a state key
-static std::string stateLabel(unsigned char chr) {
-  if (chr == 255) return "P";
-  if (chr == 0) return "G";
-  if (chr == 1) return "L";
-  return std::string(1, 'A' + chr);
+// Helper to get a label prefix for a state based on its owner plugin
+static std::string stateLabel(const std::string& owner, uint64_t idx) {
+  std::string prefix;
+  if (owner.empty()) {
+    prefix = "X";
+  } else if (owner.find("gps") != std::string::npos) {
+    prefix = "G";
+  } else if (owner.find("liso") != std::string::npos) {
+    prefix = "L";
+  } else if (!owner.empty()) {
+    prefix = std::string(1, std::toupper(owner[0]));
+  } else {
+    prefix = "?";
+  }
+  return prefix + std::to_string(idx);
 }
 
 void FactorGraphVisualization::onOptimizationComplete(
@@ -91,17 +103,9 @@ void FactorGraphVisualization::onOptimizationComplete(
   int marker_id = 0;
   auto stamp = node_->now();
 
-  // ---- States: collect positions and group overlapping states by index ----
+  // ---- States: collect positions, color by owner plugin ----
   std::unordered_map<gtsam::Key, geometry_msgs::msg::Point> key_positions;
-
-  // Group states by index — states with same index are in the same keygroup
-  // and will overlap spatially, so we combine them into one sphere + merged label
-  struct StateInfo {
-    unsigned char chr;
-    uint64_t idx;
-    geometry_msgs::msg::Point pos;
-  };
-  std::map<uint64_t, std::vector<StateInfo>> index_groups;
+  const auto& map_manager = core_->getMapManager();
 
   for (const auto& kv : optimized_values) {
     gtsam::Key key = kv.key;
@@ -114,7 +118,6 @@ void FactorGraphVisualization::onOptimizationComplete(
     }
 
     gtsam::Symbol sym(key);
-    unsigned char chr = sym.chr();
     uint64_t idx = sym.index();
 
     geometry_msgs::msg::Point pos;
@@ -123,17 +126,8 @@ void FactorGraphVisualization::onOptimizationComplete(
     pos.z = pose.translation().z();
     key_positions[key] = pos;
 
-    index_groups[idx].push_back({chr, idx, pos});
-  }
-
-  // Emit one sphere + one combined text label per group
-  for (const auto& [idx, states] : index_groups) {
-    if (states.empty()) continue;
-
-    // Use the first state's position (they overlap anyway)
-    auto pos = states.front().pos;
-    // Use the highest-priority color (prior > plugin states)
-    auto color = stateColor(states.front().chr);
+    std::string owner = map_manager.getOwnerPlugin(key);
+    auto color = stateColor(owner);
 
     // Sphere marker — full opacity
     visualization_msgs::msg::Marker sphere;
@@ -152,13 +146,7 @@ void FactorGraphVisualization::onOptimizationComplete(
     sphere.color.a = 1.0f;
     marker_array.markers.push_back(sphere);
 
-    // Combined text label
-    std::string combined_label;
-    for (const auto& s : states) {
-      if (!combined_label.empty()) combined_label += "/";
-      combined_label += stateLabel(s.chr) + std::to_string(s.idx);
-    }
-
+    // Text label
     visualization_msgs::msg::Marker text;
     text.header.frame_id = map_frame_;
     text.header.stamp = stamp;
@@ -171,7 +159,7 @@ void FactorGraphVisualization::onOptimizationComplete(
     text.pose.orientation.w = 1.0;
     text.scale.z = state_scale_ * 0.6;
     text.color.r = 1.0f; text.color.g = 1.0f; text.color.b = 1.0f; text.color.a = 1.0f;
-    text.text = combined_label;
+    text.text = stateLabel(owner, idx);
     marker_array.markers.push_back(text);
   }
 

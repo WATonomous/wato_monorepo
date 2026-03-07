@@ -52,7 +52,11 @@ public:
 
   /// Add a keyframe. The gtsam_key is used for random access; poses are
   /// appended to the PCL clouds for KD-tree queries.
-  void addKeyframe(gtsam::Key gtsam_key, const PoseType& pose);
+  void addKeyframe(gtsam::Key gtsam_key, const PoseType& pose,
+                   const std::string& owner = "");
+
+  /// Get the name of the plugin that created a keyframe (empty if unknown).
+  std::string getOwnerPlugin(gtsam::Key gtsam_key) const;
 
   /// Update all keyframe poses after optimization. Uses stored key→index map.
   void updatePoses(const gtsam::Values& optimized);
@@ -99,6 +103,7 @@ private:
   // Key→cloud_index mapping for random access
   std::map<gtsam::Key, int> key_to_cloud_index_;
   std::vector<gtsam::Key> key_list_;  // insertion-ordered list of keys
+  std::map<gtsam::Key, std::string> key_owner_plugin_;  // key → plugin name
 
   // Type registry: key -> handler
   std::unordered_map<std::string, TypeHandler> type_handlers_;

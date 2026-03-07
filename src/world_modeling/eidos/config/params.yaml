@@ -8,8 +8,6 @@ eidos_node:
 
     # ---- SLAM core ----
     slam_rate: 10.0                    # Hz, main SLAM loop frequency
-    max_displacement: 1.0              # meters of travel before creating a new keyframe state
-    max_rotation: 0.2                  # radians of rotation before creating a new keyframe state
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
 
     # ---- Core topics / services ----
@@ -27,8 +25,7 @@ eidos_node:
 
       # -- Topics --
       imu_topic: "imu/data"                                                  # sensor_msgs/Imu input
-      odom_incremental_topic: "motion_model/odometry/imu_incremental"        # nav_msgs/Odometry output (raw IMU prediction)
-      odom_fused_topic: "motion_model/odometry/imu"                          # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
+      odom_topic: "motion_model/odometry/imu_incremental"                    # nav_msgs/Odometry output (IMU prediction)
 
       # -- IMU covariance diagonals [x, y, z] --
       # Epson EG320N datasheet: VRW=0.05 m/s/√hr → 6.9e-7, ARW=0.1 °/√hr → 8.5e-10
@@ -95,7 +92,6 @@ eidos_node:
       min_gps_movement: 5.0         # meters, minimum displacement between GPS injections
 
       # -- Covariances --
-      bias_prior_cov: [2500.0, 2500.0, 2500.0]  # [x, y, z] utm→map bias prior covariance; lower = more stable
       gps_cov: [1.0, 1.0, 1.0]                  # [x, y, z] BiasedGPSFactor measurement covariance (m^2)
 
     # ==========================================================================
@@ -169,6 +165,13 @@ eidos_node:
       pointcloud_from: ""
       voxel_leaf_size: 0.4
       publish_rate: 1.0
+      mode: "windowed"            # "windowed" or "accumulate"
+
+      accumulate:                 # WARNING: grows unboundedly, will degrade performance on long drives
+        skip_factor: 1            # append every Nth keyframe (1 = all, 2 = every other, etc.)
+
+      windowed:
+        radius: 50.0              # meters, radius around current pose
 
     # ==========================================================================
     # GPS Visualization
@@ -210,17 +213,9 @@ eidos_node:
     prior:
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [r, p, y, x, y, z] state 0 prior covariance
 
-    # ---- Core (not per-plugin) ----
-    keyframe:
-      density: 2.0                  # meters, voxel size for spatial downsampling of keyframe poses
-      search_radius: 10.0           # meters, radius for keyframe neighborhood queries
-
     map:
       load_directory: ""            # if set, load prior map on startup
       save_directory: "/tmp/eidos_maps/"
-
-    performance:
-      num_cores: 8                  # number of CPU cores for parallel scan matching
 
 # ==========================================================================
 # robot_localization dual-EKF

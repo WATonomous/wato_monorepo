@@ -45,7 +45,8 @@ std::vector<std::string> MapManager::getKeysForPlugin(
 
 // ---- Keyframe pose management ----
 
-void MapManager::addKeyframe(gtsam::Key gtsam_key, const PoseType& pose) {
+void MapManager::addKeyframe(gtsam::Key gtsam_key, const PoseType& pose,
+                             const std::string& owner) {
   std::lock_guard<std::mutex> lock(mtx_);
 
   int cloud_index = static_cast<int>(key_poses_3d_->size());
@@ -63,6 +64,16 @@ void MapManager::addKeyframe(gtsam::Key gtsam_key, const PoseType& pose) {
 
   key_to_cloud_index_[gtsam_key] = cloud_index;
   key_list_.push_back(gtsam_key);
+  if (!owner.empty()) {
+    key_owner_plugin_[gtsam_key] = owner;
+  }
+}
+
+std::string MapManager::getOwnerPlugin(gtsam::Key gtsam_key) const {
+  std::lock_guard<std::mutex> lock(mtx_);
+  auto it = key_owner_plugin_.find(gtsam_key);
+  if (it == key_owner_plugin_.end()) return "";
+  return it->second;
 }
 
 void MapManager::updatePoses(const gtsam::Values& optimized) {

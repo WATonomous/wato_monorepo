@@ -8,23 +8,14 @@ eidos_node:
 
     # ---- SLAM core ----
     slam_rate: 10.0                    # Hz, main SLAM loop frequency
-    max_displacement: 10.0              # meters of travel before creating a new keyframe state
-    max_rotation: 0.1                  # radians of rotation before creating a new keyframe state
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
 
     prior:
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [r, p, y, x, y, z] state 0 prior covariance
 
-    keyframe:
-      density: 2.0                    # meters, voxel size for spatial downsampling of keyframe poses
-      search_radius: 50.0             # meters, radius for keyframe neighborhood queries
-
     map:
       load_directory: ""              # if set, load prior map on startup
       save_directory: "/tmp/eidos_maps/"
-
-    performance:
-      num_cores: 8                    # number of CPU cores for parallel scan matching
 
     # ---- Core topics / services ----
     topics:
@@ -61,8 +52,7 @@ eidos_node:
 
       # -- Topics --
       imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
-      odom_incremental_topic: "motion_model/odometry/imu_incremental"            # nav_msgs/Odometry output (raw IMU prediction)
-      odom_fused_topic: "motion_model/odometry/imu"                              # nav_msgs/Odometry output (graph-corrected + IMU-incremented)
+      odom_topic: "motion_model/odometry/imu_incremental"                        # nav_msgs/Odometry output (IMU prediction)
 
       # -- Frames --
       imu_frame: "imu_link"
@@ -109,10 +99,9 @@ eidos_node:
       # -- Covariances --
       gps_cov: [2.0, 2.0, 100.0]   # [x, y, z] BiasedGPSFactor measurement covariance floor (m^2)
 
-      # -- Initialization (heading alignment + UTM→map bias prior) --
+      # -- Initialization (heading alignment) --
       initialization:
         imu_topic: "/novatel/oem7/imu/data"          # sensor_msgs/Imu input (orientation for heading alignment)
-        bias_prior_cov: [1.0e4, 1.0e4, 1.0e4]       # [x, y, z] utm→map bias prior covariance
 
     # ==========================================================================
     # LISO Factor (LiDAR-Inertial Submap Odometry)
@@ -133,7 +122,6 @@ eidos_node:
       initialization:
         warmup_samples: 200                    # consecutive stationary IMU samples required (~0.4s at 500Hz)
         stationary_gyr_threshold: 0.005        # rad/s, angular velocity magnitude below this = stationary
-        first_state_prior_cov: [0.1, 0.1, 0.1, 1.0, 1.0, 1.0]  # [r,p,y,x,y,z] anchors first LISO state
 
       # -- Downsampling --
       scan_ds_resolution: 0.5
@@ -152,7 +140,7 @@ eidos_node:
       # -- Quality filtering --
       min_inliers: 50
       min_noise: 0.01
-      min_scan_distance: 5.0        # meters, minimum displacement between LISO factor injections
+      min_scan_distance: 10.0        # meters, minimum displacement between LISO factor injections
 
       # -- Published odometry covariance diagonals [x, y, z, roll, pitch, yaw] --
       odom_pose_cov: [0.01, 0.01, 0.01, 0.005, 0.005, 0.005]
@@ -193,6 +181,13 @@ eidos_node:
       pointcloud_from: "liso_factor"
       voxel_leaf_size: 0.4
       publish_rate: 1.0
+      mode: "accumulate"          # "windowed" or "accumulate"
+
+      accumulate:                 # WARNING: grows unboundedly, will degrade performance on long drives
+        skip_factor: 5            # append every Nth keyframe (1 = all, 2 = every other, etc.)
+
+      windowed:
+        radius: 50.0              # meters, radius around current pose
 
     # ==========================================================================
     # GPS Visualization
@@ -243,7 +238,7 @@ ekf_filter_node_local:
     publish_tf: true
 
     # Eidos IMU preintegrated odometry — full pose + velocity
-    odom0: motion_model/odometry/imu
+    odom0: motion_model/odometry/imu_incremental
     odom0_config: [true,true,true, true,true,true, true,true,true, true,true,true, false,false,false]
 
 ekf_filter_node_global:
@@ -258,7 +253,7 @@ ekf_filter_node_global:
     # Eidos IMU preintegrated odometry — position + orientation (differential) + velocity
     # Differential orientation: only rotation deltas, so SLAM sets the absolute heading
     # and IMU fills in smooth changes between SLAM updates without double-counting
-    odom0: motion_model/odometry/imu
+    odom0: motion_model/odometry/imu_incremental
     odom0_config: [true,true,true, true,true,true, true,true,true, false,false,false, false,false,false]
     odom0_differential: true
 

@@ -80,16 +80,6 @@ public:
   }
 
   /**
-   * @brief Called after ISAM2 optimization.
-   */
-  virtual void onOptimizationComplete(
-      const gtsam::Values& optimized_values,
-      bool loop_closure_detected) {
-    (void)optimized_values;
-    (void)loop_closure_detected;
-  }
-
-  /**
    * @brief Whether the motion model is ready (has enough sensor data).
    */
   virtual bool isReady() const { return true; }

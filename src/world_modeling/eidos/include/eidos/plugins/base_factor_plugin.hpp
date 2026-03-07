@@ -105,6 +105,12 @@ public:
   virtual bool isReady() const { return true; }
 
   /**
+   * @brief Returns true when the plugin has buffered data ready to produce factors.
+   * SlamCore polls this each tick to decide whether to allocate a state.
+   */
+  virtual bool hasData() const { return false; }
+
+  /**
    * @brief Returns a human-readable description of what the plugin is waiting for.
    * Empty string means the plugin is ready. Used for warmup logging.
    */

@@ -33,6 +33,7 @@ public:
 
   std::optional<gtsam::Pose3> processFrame(double timestamp) override;
   StampedFactorResult getFactors(gtsam::Key key) override;
+  bool hasData() const override;
 
 private:
   // ---- Background thread ----
@@ -52,7 +53,7 @@ private:
   };
 
   std::vector<LoopConstraint> loop_queue_;
-  std::mutex loop_queue_mtx_;
+  mutable std::mutex loop_queue_mtx_;
 
   // ---- Loop closure state ----
   std::map<int, int> loop_index_container_;

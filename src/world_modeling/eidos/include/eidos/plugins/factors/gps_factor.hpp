@@ -33,8 +33,7 @@ namespace eidos {
  * and provides BiasedGPSFactor constraints to the pose graph.
  *
  * The bias (Point3) represents the utm→map offset and is refined by the
- * optimizer as GPS data accumulates. State 0 must be anchored with a tight
- * translation prior so that the bias is well-determined.
+ * optimizer as GPS data accumulates.
  */
 class GpsFactor : public FactorPlugin {
 public:
@@ -52,6 +51,7 @@ public:
       const gtsam::Values& optimized_values, bool loop_closure_detected) override;
   bool isReady() const override;
   std::string getReadyStatus() const override;
+  bool hasData() const override;
 
 private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
@@ -67,7 +67,7 @@ private:
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
   std::deque<sensor_msgs::msg::NavSatFix> gps_queue_;
-  std::mutex gps_lock_;
+  mutable std::mutex gps_lock_;
 
   PointType last_gps_point_;
   bool has_last_gps_ = false;
@@ -98,7 +98,6 @@ private:
   float cov_threshold_;
   bool use_elevation_;
   float min_gps_movement_;
-  std::vector<double> bias_prior_cov_;  // [x, y, z]
   std::vector<double> gps_cov_;         // [x, y, z] BiasedGPSFactor measurement covariance
 };
 

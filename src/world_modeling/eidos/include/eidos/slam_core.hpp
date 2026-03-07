@@ -34,10 +34,10 @@ namespace eidos {
  * @brief Lifecycle-managed SLAM node. Runs a timer-driven SLAM loop,
  * manages plugins, PoseGraph, and MapManager.
  *
- * Uses a keygroup model: each SLAM tick (when displacement is met) forms
- * a keygroup. Each factor plugin contributes 0 or 1 states at its own
- * sensor timestamp. A motion model plugin generates constraints between
- * consecutive states across keygroups.
+ * Uses a single timeline model: each plugin independently creates states
+ * at its own cadence via hasData()/getFactors(). A motion model plugin
+ * connects every consecutive state pair as a backbone, guaranteeing
+ * full-rank constraints and kinematically feasible trajectories.
  */
 class SlamCore : public rclcpp_lifecycle::LifecycleNode {
 public:
@@ -50,7 +50,7 @@ public:
   MapManager& getMapManager();
   SlamState getState() const;
   gtsam::Pose3 getCurrentPose() const;
-  int getCurrentKeygroup() const;
+  uint64_t getCurrentStateIndex() const;
   const gtsam::NonlinearFactorGraph& getAccumulatedGraph() const;
   std::optional<gtsam::Pose3> getMotionModelPose() const;
 
@@ -67,6 +67,7 @@ protected:
 private:
   // ---- SLAM loop ----
   void slamLoop();
+  void visLoop();
   void handleInitializing();
   void handleWarmingUp(double timestamp);
   void handleRelocalizing(double timestamp);
@@ -100,7 +101,6 @@ private:
   // ---- SLAM state ----
   SlamState state_ = SlamState::INITIALIZING;
   gtsam::Pose3 current_pose_;
-  int current_keygroup_ = -1;
   float current_transform_[6] = {0};
 
   // Motion model delta tracking: current_pose = last_optimized * delta(mm)
@@ -108,12 +108,12 @@ private:
   gtsam::Pose3 mm_pose_at_last_optimization_;
   bool has_optimization_anchor_ = false;
 
-  // ---- Keygroup state tracking ----
-  struct KeygroupState {
-    gtsam::Key key;
-    double timestamp;
-  };
-  KeygroupState last_keygroup_state_;  // last state (by timestamp) from previous keygroup
+  // ---- Single-timeline state tracking ----
+  uint64_t next_state_index_ = 0;   // monotonic counter for Symbol('x', N)
+  gtsam::Key last_state_key_ = 0;
+  double last_state_timestamp_ = 0.0;
+  std::string last_state_owner_;     // plugin name that created the last state ("" for state 0)
+  bool has_last_state_ = false;
 
   // ---- Core components ----
   std::unique_ptr<PoseGraph> pose_graph_;
@@ -129,9 +129,17 @@ private:
   std::vector<std::shared_ptr<RelocalizationPlugin>> reloc_plugins_;
   std::vector<std::shared_ptr<VisualizationPlugin>> vis_plugins_;
 
-  // ---- Timer ----
+  // ---- Timers ----
   rclcpp::TimerBase::SharedPtr slam_timer_;
   rclcpp::CallbackGroup::SharedPtr slam_callback_group_;
+  rclcpp::TimerBase::SharedPtr vis_timer_;
+  rclcpp::CallbackGroup::SharedPtr vis_callback_group_;
+
+  // ---- Visualization state (written by SLAM loop, read by vis timer) ----
+  gtsam::Values vis_values_;
+  bool vis_loop_closure_ = false;
+  bool vis_pending_ = false;
+  std::mutex vis_mtx_;
 
   // ---- Publishers ----
   rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
@@ -144,16 +152,9 @@ private:
 
   // ---- Parameters (populated from ROS params in onConfigure) ----
   double slam_rate_;
-  double max_displacement_;
-  double max_rotation_;
   double relocalization_timeout_;
   std::string map_frame_;
-  std::string odom_frame_;
   std::string base_link_frame_;
-
-  // Keyframe parameters
-  float keyframe_density_;
-  float keyframe_search_radius_;
 
   // Map parameters
   std::string map_load_directory_;

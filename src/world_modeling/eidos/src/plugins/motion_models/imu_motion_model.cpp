@@ -1,8 +1,6 @@
 #include "eidos/plugins/motion_models/imu_motion_model.hpp"
 
 #include <cmath>
-#include <fstream>
-#include <limits>
 
 #include <pluginlib/class_list_macros.hpp>
 #include <tf2/LinearMath/Quaternion.h>
@@ -65,8 +63,7 @@ void ImuMotionModel::onInitialize() {
   node_->declare_parameter(prefix + ".initialization.stationary_acc_threshold", 0.05);
   node_->declare_parameter(prefix + ".initialization.stationary_gyr_threshold", 0.005);
   node_->declare_parameter(prefix + ".initialization.stationary_samples", 200);
-  node_->declare_parameter(prefix + ".odom_incremental_topic", name_ + "/odometry/imu_incremental");
-  node_->declare_parameter(prefix + ".odom_fused_topic", name_ + "/odometry/imu");
+  node_->declare_parameter(prefix + ".odom_topic", name_ + "/odometry/imu_incremental");
   node_->declare_parameter(prefix + ".imu_frame", "imu_link");
   node_->declare_parameter(prefix + ".odom_pose_cov", odom_pose_cov_);
   node_->declare_parameter(prefix + ".odom_twist_cov", odom_twist_cov_);
@@ -127,58 +124,19 @@ void ImuMotionModel::onInitialize() {
       std::bind(&ImuMotionModel::imuCallback, this, std::placeholders::_1),
       sub_opts);
 
-  // ---- Create publishers ----
-  std::string odom_incremental_topic, odom_fused_topic;
-  node_->get_parameter(prefix + ".odom_incremental_topic", odom_incremental_topic);
-  node_->get_parameter(prefix + ".odom_fused_topic", odom_fused_topic);
+  // ---- Create publisher ----
+  std::string odom_topic;
+  node_->get_parameter(prefix + ".odom_topic", odom_topic);
 
-  imu_odom_incremental_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(
-      odom_incremental_topic, 10);
-  imu_odom_fused_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(
-      odom_fused_topic, 10);
-
-  // ---- Register keyframe data types with MapManager ----
-  auto& map_manager = core_->getMapManager();
-  map_manager.registerType("imu_motion_model/bias", {
-    [](const std::any& data, const std::string& path) {
-      auto bias = std::any_cast<gtsam::imuBias::ConstantBias>(data);
-      std::ofstream ofs(path, std::ios::binary);
-      auto acc = bias.accelerometer();
-      auto gyr = bias.gyroscope();
-      ofs.write(reinterpret_cast<const char*>(acc.data()), 3 * sizeof(double));
-      ofs.write(reinterpret_cast<const char*>(gyr.data()), 3 * sizeof(double));
-    },
-    [](const std::string& path) -> std::any {
-      std::ifstream ifs(path, std::ios::binary);
-      double acc[3], gyr[3];
-      ifs.read(reinterpret_cast<char*>(acc), 3 * sizeof(double));
-      ifs.read(reinterpret_cast<char*>(gyr), 3 * sizeof(double));
-      return gtsam::imuBias::ConstantBias(
-          gtsam::Vector3(acc[0], acc[1], acc[2]),
-          gtsam::Vector3(gyr[0], gyr[1], gyr[2]));
-    }
-  });
-  map_manager.registerType("imu_motion_model/velocity", {
-    [](const std::any& data, const std::string& path) {
-      auto vel = std::any_cast<gtsam::Vector3>(data);
-      std::ofstream ofs(path, std::ios::binary);
-      ofs.write(reinterpret_cast<const char*>(vel.data()), 3 * sizeof(double));
-    },
-    [](const std::string& path) -> std::any {
-      std::ifstream ifs(path, std::ios::binary);
-      double v[3];
-      ifs.read(reinterpret_cast<char*>(v), 3 * sizeof(double));
-      return gtsam::Vector3(v[0], v[1], v[2]);
-    }
-  });
+  imu_odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(
+      odom_topic, 10);
 
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized", name_.c_str());
 }
 
 void ImuMotionModel::activate() {
   active_ = true;
-  imu_odom_incremental_pub_->on_activate();
-  imu_odom_fused_pub_->on_activate();
+  imu_odom_pub_->on_activate();
 
   // Look up the static transform: imu_frame_ -> base_link_frame_
   try {
@@ -207,8 +165,7 @@ void ImuMotionModel::activate() {
 
 void ImuMotionModel::deactivate() {
   active_ = false;
-  imu_odom_incremental_pub_->on_deactivate();
-  imu_odom_fused_pub_->on_deactivate();
+  imu_odom_pub_->on_deactivate();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
@@ -217,22 +174,18 @@ void ImuMotionModel::reset() {
   {
     std::lock_guard<std::mutex> lock(imu_lock_);
     imu_queue_.clear();
-    imu_queue_imu_.clear();
-    imu_odom_queue_.clear();
   }
   stationary_buffer_.clear();
   stationary_acc_rms_.store(0.0, std::memory_order_relaxed);
   stationary_gyr_rms_.store(0.0, std::memory_order_relaxed);
   stationary_count_.store(0, std::memory_order_relaxed);
-  graph_odom_affine_ = Eigen::Isometry3d::Identity();
-  graph_odom_time_ = -1;
   gtsam::imuBias::ConstantBias zero_bias;
   imu_integrator_imu_->resetIntegrationAndSetBias(zero_bias);
+  odom_reference_state_ = gtsam::NavState();
+  odom_reference_bias_ = gtsam::imuBias::ConstantBias();
   prev_state_ = gtsam::NavState();
   prev_vel_ = gtsam::Vector3::Zero();
   prev_bias_ = gtsam::imuBias::ConstantBias();
-  prev_state_odom_ = gtsam::NavState();
-  prev_bias_odom_ = gtsam::imuBias::ConstantBias();
   last_imu_t_imu_ = -1;
   last_generated_time_ = -1;
   initialized_ = false;
@@ -277,11 +230,6 @@ std::string ImuMotionModel::getReadyStatus() const {
 std::optional<gtsam::Rot3> ImuMotionModel::getInitialOrientation() const {
   if (stationary_buffer_.empty()) return std::nullopt;
 
-  // Average the gravity direction from IMU orientations collected during warmup.
-  // Each orientation in stationary_buffer_ is already in base_link frame.
-  // We rotate the world-frame gravity vector [0, 0, -1] by q^{-1} to get
-  // the gravity direction in body frame, then average across all samples.
-  // This is more robust than averaging Euler angles for larger tilts.
   Eigen::Vector3d gravity_sum = Eigen::Vector3d::Zero();
   int count = 0;
 
@@ -291,7 +239,6 @@ std::optional<gtsam::Rot3> ImuMotionModel::getInitialOrientation() const {
     if (q.squaredNorm() < 0.01) continue;
     q.normalize();
 
-    // q rotates body → world.  gravity_body = q^{-1} * [0, 0, -1]
     Eigen::Vector3d gravity_body = q.inverse() * Eigen::Vector3d(0, 0, -1);
     gravity_sum += gravity_body;
     count++;
@@ -301,15 +248,6 @@ std::optional<gtsam::Rot3> ImuMotionModel::getInitialOrientation() const {
 
   Eigen::Vector3d avg_gravity = (gravity_sum / count).normalized();
 
-  // Build a rotation that aligns body-frame [0, 0, -1] with avg_gravity,
-  // while keeping yaw = 0 (heading is set by GPS).
-  // avg_gravity is the "down" direction in body frame.
-  // We need Rot3 R such that R * [0,0,-1] = avg_gravity (in body frame coords)
-  // i.e., the world z-axis maps through R^{-1} to avg_gravity.
-  //
-  // Equivalently: extract roll, pitch from the average gravity vector.
-  //   pitch = asin(avg_gravity.x)      (forward tilt)
-  //   roll  = atan2(-avg_gravity.y, -avg_gravity.z) (lateral tilt)
   double pitch = std::asin(std::clamp(avg_gravity.x(), -1.0, 1.0));
   double roll = std::atan2(-avg_gravity.y(), -avg_gravity.z());
 
@@ -341,10 +279,11 @@ void ImuMotionModel::onStateZero(
   prev_vel_ = gtsam::Vector3::Zero();
   prev_bias_ = gtsam::imuBias::ConstantBias();
   prev_state_ = gtsam::NavState(initial_pose, prev_vel_);
-  prev_state_odom_ = prev_state_;
-  prev_bias_odom_ = prev_bias_;
 
-  imu_integrator_imu_->resetIntegrationAndSetBias(prev_bias_);
+  // Set up odometry reference (fixed for the lifetime of this tracking session)
+  odom_reference_state_ = prev_state_;
+  odom_reference_bias_ = prev_bias_;
+  imu_integrator_imu_->resetIntegrationAndSetBias(odom_reference_bias_);
 
   // Discard all pre-initialization IMU messages
   {
@@ -352,7 +291,6 @@ void ImuMotionModel::onStateZero(
     imu_queue_.clear();
   }
 
-  // Use the key's symbol index for V/B keys to avoid collisions
   gtsam::Symbol sym(key);
 
   // Add priors for V and B
@@ -367,7 +305,7 @@ void ImuMotionModel::onStateZero(
   values.insert(B(sym.index()), prev_bias_);
 
   last_generated_key_ = key;
-  last_generated_time_ = -1;  // will be set by first generateMotionModel call
+  last_generated_time_ = -1;
   initialized_ = true;
 
   RCLCPP_INFO(node_->get_logger(),
@@ -383,13 +321,11 @@ void ImuMotionModel::onStateZero(
 void ImuMotionModel::drainAndIntegrate(
     gtsam::PreintegratedImuMeasurements& integrator,
     double t_begin, double t_end) {
-  // Create a fresh integrator for this segment
   integrator.resetIntegrationAndSetBias(prev_bias_);
 
   std::lock_guard<std::mutex> lock(imu_lock_);
 
   double last_time = -1;
-  // Drain IMU measurements in the range (t_begin, t_end]
   while (!imu_queue_.empty()) {
     double imu_time = stamp2Sec(imu_queue_.front().header.stamp);
     if (imu_time <= t_begin) {
@@ -417,16 +353,13 @@ void ImuMotionModel::generateMotionModel(
   gtsam::Symbol sym_begin(key_begin);
   gtsam::Symbol sym_end(key_end);
 
-  // Create a preintegrated measurement for this segment
   gtsam::PreintegratedImuMeasurements integrator(preint_params_, prev_bias_);
   drainAndIntegrate(integrator, t_begin, t_end);
 
   double dt = integrator.deltaTij();
   if (dt <= 0) {
-    // No IMU data available — use a small default dt
     dt = std::abs(t_end - t_begin);
     if (dt < 1e-6) dt = default_imu_dt_;
-    // Add a single zero measurement with the time gap
     integrator.integrateMeasurement(gtsam::Vector3::Zero(), gtsam::Vector3::Zero(), dt);
     dt = integrator.deltaTij();
   }
@@ -446,7 +379,7 @@ void ImuMotionModel::generateMotionModel(
           gtsam::noiseModel::Diagonal::Sigmas(
               std::sqrt(dt) * noise_between_bias_)));
 
-  // Predict values for new state
+  // Predict initial values for new state
   gtsam::NavState prop_state = integrator.predict(prev_state_, prev_bias_);
 
   if (!values.exists(V(sym_end.index()))) {
@@ -455,6 +388,10 @@ void ImuMotionModel::generateMotionModel(
   if (!values.exists(B(sym_end.index()))) {
     values.insert(B(sym_end.index()), prev_bias_);
   }
+
+  // Update prev_state_ so successive calls chain correctly
+  prev_state_ = prop_state;
+  prev_vel_ = prop_state.v();
 
   RCLCPP_INFO(node_->get_logger(),
       "\033[35m[%s] ImuFactor (%c,%lu)->(%c,%lu) dt=%.3f |v|=%.3f\033[0m",
@@ -465,69 +402,6 @@ void ImuMotionModel::generateMotionModel(
 
   last_generated_key_ = key_end;
   last_generated_time_ = t_end;
-}
-
-// ---------------------------------------------------------------------------
-// onOptimizationComplete
-// ---------------------------------------------------------------------------
-void ImuMotionModel::onOptimizationComplete(
-    const gtsam::Values& optimized_values, bool /*loop_closure_detected*/) {
-  if (!active_ || !initialized_) return;
-
-  std::lock_guard<std::mutex> lock(imu_lock_);
-
-  gtsam::Symbol sym(last_generated_key_);
-  if (!optimized_values.exists(last_generated_key_)) return;
-
-  auto graph_pose = optimized_values.at<gtsam::Pose3>(last_generated_key_);
-
-  // Extract velocity and bias
-  gtsam::Vector3 graph_vel = prev_vel_;
-  if (optimized_values.exists(V(sym.index()))) {
-    graph_vel = optimized_values.at<gtsam::Vector3>(V(sym.index()));
-  }
-  gtsam::imuBias::ConstantBias graph_bias = prev_bias_;
-  if (optimized_values.exists(B(sym.index()))) {
-    graph_bias = optimized_values.at<gtsam::imuBias::ConstantBias>(B(sym.index()));
-  }
-
-  // Update state
-  prev_state_ = gtsam::NavState(graph_pose, graph_vel);
-  prev_vel_ = graph_vel;
-  prev_bias_ = graph_bias;
-
-  // Store graph correction for fused odometry
-  auto q = graph_pose.rotation().toQuaternion();
-  auto t_vec = graph_pose.translation();
-  graph_odom_affine_ = Eigen::Isometry3d::Identity();
-  graph_odom_affine_.linear() =
-      Eigen::Quaterniond(q.w(), q.x(), q.y(), q.z()).toRotationMatrix();
-  graph_odom_affine_.translation() =
-      Eigen::Vector3d(t_vec.x(), t_vec.y(), t_vec.z());
-  graph_odom_time_ = (last_generated_time_ > 0) ? last_generated_time_ : node_->now().seconds();
-
-  // Update real-time prediction state to graph-optimized values
-  prev_state_odom_ = prev_state_;
-  prev_bias_odom_ = prev_bias_;
-
-  // Pop old messages from real-time queue
-  double last_imu_qt = -1;
-  while (!imu_queue_imu_.empty() &&
-         stamp2Sec(imu_queue_imu_.front().header.stamp) < last_generated_time_) {
-    last_imu_qt = stamp2Sec(imu_queue_imu_.front().header.stamp);
-    imu_queue_imu_.pop_front();
-  }
-
-  if (!imu_queue_imu_.empty()) {
-    imu_integrator_imu_->resetIntegrationAndSetBias(prev_bias_odom_);
-    for (const auto& msg : imu_queue_imu_) {
-      double imu_time = stamp2Sec(msg.header.stamp);
-      double dt = (last_imu_qt < 0) ? default_imu_dt_ : (imu_time - last_imu_qt);
-      auto [acc, gyr] = extractMeasurement(msg);
-      imu_integrator_imu_->integrateMeasurement(acc, gyr, dt);
-      last_imu_qt = imu_time;
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -570,7 +444,7 @@ gtsam::NavState ImuMotionModel::integrateSingleAndPredict(
   auto [acc, gyr] = extractMeasurement(imu_converted);
   imu_integrator_imu_->integrateMeasurement(acc, gyr, dt);
 
-  return imu_integrator_imu_->predict(prev_state_odom_, prev_bias_odom_);
+  return imu_integrator_imu_->predict(odom_reference_state_, odom_reference_bias_);
 }
 
 void ImuMotionModel::storeImuPose(const gtsam::Pose3& base_pose) {
@@ -583,94 +457,43 @@ void ImuMotionModel::publishIncrementalOdom(
     const sensor_msgs::msg::Imu& imu_converted,
     const gtsam::Pose3& base_pose,
     const gtsam::NavState& state) {
-  auto odom_incremental = nav_msgs::msg::Odometry();
-  odom_incremental.header.stamp = imu_converted.header.stamp;
-  odom_incremental.header.frame_id = odom_frame_;
-  odom_incremental.child_frame_id = base_link_frame_;
+  auto odom = nav_msgs::msg::Odometry();
+  odom.header.stamp = imu_converted.header.stamp;
+  odom.header.frame_id = odom_frame_;
+  odom.child_frame_id = base_link_frame_;
 
-  odom_incremental.pose.pose.position.x = base_pose.translation().x();
-  odom_incremental.pose.pose.position.y = base_pose.translation().y();
-  odom_incremental.pose.pose.position.z = base_pose.translation().z();
-  odom_incremental.pose.pose.orientation.x = base_pose.rotation().toQuaternion().x();
-  odom_incremental.pose.pose.orientation.y = base_pose.rotation().toQuaternion().y();
-  odom_incremental.pose.pose.orientation.z = base_pose.rotation().toQuaternion().z();
-  odom_incremental.pose.pose.orientation.w = base_pose.rotation().toQuaternion().w();
+  odom.pose.pose.position.x = base_pose.translation().x();
+  odom.pose.pose.position.y = base_pose.translation().y();
+  odom.pose.pose.position.z = base_pose.translation().z();
+  odom.pose.pose.orientation.x = base_pose.rotation().toQuaternion().x();
+  odom.pose.pose.orientation.y = base_pose.rotation().toQuaternion().y();
+  odom.pose.pose.orientation.z = base_pose.rotation().toQuaternion().z();
+  odom.pose.pose.orientation.w = base_pose.rotation().toQuaternion().w();
 
-  odom_incremental.twist.twist.linear.x = state.velocity().x();
-  odom_incremental.twist.twist.linear.y = state.velocity().y();
-  odom_incremental.twist.twist.linear.z = state.velocity().z();
-  odom_incremental.twist.twist.angular.x =
-      imu_converted.angular_velocity.x + prev_bias_odom_.gyroscope().x();
-  odom_incremental.twist.twist.angular.y =
-      imu_converted.angular_velocity.y + prev_bias_odom_.gyroscope().y();
-  odom_incremental.twist.twist.angular.z =
-      imu_converted.angular_velocity.z + prev_bias_odom_.gyroscope().z();
+  odom.twist.twist.linear.x = state.velocity().x();
+  odom.twist.twist.linear.y = state.velocity().y();
+  odom.twist.twist.linear.z = state.velocity().z();
+  odom.twist.twist.angular.x = imu_converted.angular_velocity.x;
+  odom.twist.twist.angular.y = imu_converted.angular_velocity.y;
+  odom.twist.twist.angular.z = imu_converted.angular_velocity.z;
 
   // Pose covariance diagonal (6x6 row-major: x, y, z, roll, pitch, yaw)
-  odom_incremental.pose.covariance[0]  = odom_pose_cov_[0];
-  odom_incremental.pose.covariance[7]  = odom_pose_cov_[1];
-  odom_incremental.pose.covariance[14] = odom_pose_cov_[2];
-  odom_incremental.pose.covariance[21] = odom_pose_cov_[3];
-  odom_incremental.pose.covariance[28] = odom_pose_cov_[4];
-  odom_incremental.pose.covariance[35] = odom_pose_cov_[5];
+  odom.pose.covariance[0]  = odom_pose_cov_[0];
+  odom.pose.covariance[7]  = odom_pose_cov_[1];
+  odom.pose.covariance[14] = odom_pose_cov_[2];
+  odom.pose.covariance[21] = odom_pose_cov_[3];
+  odom.pose.covariance[28] = odom_pose_cov_[4];
+  odom.pose.covariance[35] = odom_pose_cov_[5];
 
   // Twist covariance diagonal
-  odom_incremental.twist.covariance[0]  = odom_twist_cov_[0];
-  odom_incremental.twist.covariance[7]  = odom_twist_cov_[1];
-  odom_incremental.twist.covariance[14] = odom_twist_cov_[2];
-  odom_incremental.twist.covariance[21] = odom_twist_cov_[3];
-  odom_incremental.twist.covariance[28] = odom_twist_cov_[4];
-  odom_incremental.twist.covariance[35] = odom_twist_cov_[5];
+  odom.twist.covariance[0]  = odom_twist_cov_[0];
+  odom.twist.covariance[7]  = odom_twist_cov_[1];
+  odom.twist.covariance[14] = odom_twist_cov_[2];
+  odom.twist.covariance[21] = odom_twist_cov_[3];
+  odom.twist.covariance[28] = odom_twist_cov_[4];
+  odom.twist.covariance[35] = odom_twist_cov_[5];
 
-  imu_odom_incremental_pub_->publish(odom_incremental);
-
-  imu_odom_queue_.push_back(odom_incremental);
-}
-
-void ImuMotionModel::publishFusedOdom(
-    const sensor_msgs::msg::Imu& /*imu_converted*/) {
-  if (graph_odom_time_ < 0) return;
-
-  while (!imu_odom_queue_.empty()) {
-    if (stamp2Sec(imu_odom_queue_.front().header.stamp) <= graph_odom_time_)
-      imu_odom_queue_.pop_front();
-    else
-      break;
-  }
-
-  if (imu_odom_queue_.empty()) return;
-
-  auto odom_to_affine = [](const nav_msgs::msg::Odometry& o) {
-    Eigen::Isometry3d a = Eigen::Isometry3d::Identity();
-    a.linear() = Eigen::Quaterniond(
-        o.pose.pose.orientation.w, o.pose.pose.orientation.x,
-        o.pose.pose.orientation.y, o.pose.pose.orientation.z)
-                     .toRotationMatrix();
-    a.translation() = Eigen::Vector3d(
-        o.pose.pose.position.x, o.pose.pose.position.y,
-        o.pose.pose.position.z);
-    return a;
-  };
-
-  Eigen::Isometry3d imu_odom_front = odom_to_affine(imu_odom_queue_.front());
-  Eigen::Isometry3d imu_odom_back = odom_to_affine(imu_odom_queue_.back());
-  Eigen::Isometry3d imu_increment = imu_odom_front.inverse() * imu_odom_back;
-
-  Eigen::Isometry3d fused = graph_odom_affine_ * imu_increment;
-  Eigen::Quaterniond fused_q(fused.linear());
-  Eigen::Vector3d fused_t = fused.translation();
-
-  auto odom_fused = imu_odom_queue_.back();
-  odom_fused.header.frame_id = odom_frame_;
-  odom_fused.child_frame_id = base_link_frame_;
-  odom_fused.pose.pose.position.x = fused_t.x();
-  odom_fused.pose.pose.position.y = fused_t.y();
-  odom_fused.pose.pose.position.z = fused_t.z();
-  odom_fused.pose.pose.orientation.x = fused_q.x();
-  odom_fused.pose.pose.orientation.y = fused_q.y();
-  odom_fused.pose.pose.orientation.z = fused_q.z();
-  odom_fused.pose.pose.orientation.w = fused_q.w();
-  imu_odom_fused_pub_->publish(odom_fused);
+  imu_odom_pub_->publish(odom);
 }
 
 void ImuMotionModel::imuCallback(
@@ -682,16 +505,17 @@ void ImuMotionModel::imuCallback(
 
   if (core_->getState() != SlamState::TRACKING) return;
 
-  std::lock_guard<std::mutex> lock(imu_lock_);
+  // Buffer for generateMotionModel() stitching
+  {
+    std::lock_guard<std::mutex> lock(imu_lock_);
+    imu_queue_.push_back(imu_converted);
+  }
 
-  imu_queue_.push_back(imu_converted);
-  imu_queue_imu_.push_back(imu_converted);
-
+  // Real-time odometry prediction
   auto current_state = integrateSingleAndPredict(imu_converted);
   gtsam::Pose3 base_pose(current_state.quaternion(), current_state.position());
   storeImuPose(base_pose);
   publishIncrementalOdom(imu_converted, base_pose, current_state);
-  publishFusedOdom(imu_converted);
 }
 
 // ---------------------------------------------------------------------------

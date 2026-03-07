@@ -5,7 +5,6 @@
 
 #include <pluginlib/class_list_macros.hpp>
 #include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/inference/Symbol.h>
 #include <small_gicp/registration/registration_helper.hpp>
 
@@ -42,7 +41,6 @@ void LisoFactor::onInitialize() {
   node_->declare_parameter(prefix + ".imu_frame", imu_frame_);
   node_->declare_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
   node_->declare_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
-  node_->declare_parameter(prefix + ".initialization.first_state_prior_cov", first_state_prior_cov_);
 
   // Read parameters
   std::string lidar_topic, odom_topic;
@@ -65,7 +63,6 @@ void LisoFactor::onInitialize() {
   node_->get_parameter(prefix + ".imu_frame", imu_frame_);
   node_->get_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
   node_->get_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
-  node_->get_parameter(prefix + ".initialization.first_state_prior_cov", first_state_prior_cov_);
 
   node_->get_parameter("frames.map", map_frame_);
   node_->get_parameter("frames.base_link", base_link_frame_);
@@ -141,6 +138,11 @@ std::string LisoFactor::getReadyStatus() const {
   if (!imu_warmup_complete_) return "IMU warmup (stationarity + gravity alignment)";
   if (!scan_received_) return "waiting for LiDAR data";
   return "ready";
+}
+
+bool LisoFactor::hasData() const {
+  std::lock_guard lock(result_mtx_);
+  return has_cached_result_;
 }
 
 // ---------------------------------------------------------------------------
@@ -284,15 +286,26 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   gtsam::Pose3 matched_pose(gtsam::Rot3(result.T_target_source.rotation()),
                              gtsam::Point3(result.T_target_source.translation()));
 
-  // Cache result atomically for getFactors
+  // Cache result for getFactors only when the distance gate is satisfied.
+  // This runs at LiDAR rate, so the factor is locked in at the exact scan
+  // where min_scan_distance is crossed — independent of SlamCore's poll rate.
   {
     std::lock_guard lock(result_mtx_);
-    cached_result_ = result;
-    cached_pose_ = matched_pose;
-    cached_cloud_ = scan;
-    cached_pcl_cloud_ = pcl_cloud;
-    cached_timestamp_ = scan_time;
-    has_cached_result_ = true;
+    bool should_cache = false;
+    if (!has_last_factor_) {
+      should_cache = true;  // first factor always ready
+    } else {
+      double dist = (matched_pose.translation() - last_factor_position_).norm();
+      should_cache = (dist >= min_scan_distance_);
+    }
+    if (should_cache && !has_cached_result_) {
+      cached_result_ = result;
+      cached_pose_ = matched_pose;
+      cached_cloud_ = scan;
+      cached_pcl_cloud_ = pcl_cloud;
+      cached_timestamp_ = scan_time;
+      has_cached_result_ = true;
+    }
   }
 
   // Track last successful match for initial guess computation
@@ -458,38 +471,21 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
   std::lock_guard lock(result_mtx_);
   if (!has_cached_result_) return result;
 
-  // Distance gate: skip if we haven't moved enough since last injected factor
-  gtsam::Point3 current_pos = cached_pose_.translation();
-  if (has_last_factor_) {
-    double dist = (current_pos - last_factor_position_).norm();
-    if (dist < min_scan_distance_) {
-      return result;  // no timestamp = no new state, no factors
-    }
-  }
-
-  // Consume the cached result so stale data is never re-used
+  // Consume the cached result
   has_cached_result_ = false;
+  gtsam::Point3 current_pos = cached_pose_.translation();
 
-  // Set timestamp so SlamCore creates a new state
+  // Every LISO state follows the same path: timestamp + initial value + clouds.
+  // SlamCore handles PriorFactor for the very first state.
   result.timestamp = cached_timestamp_;
-
-  // Provide the GICP-matched pose as the initial value for this key.
-  // LISO owns its state's initial value — the scan was matched at this exact pose,
-  // so it's the best linearization point for the BetweenFactor.
   result.values.insert(key, cached_pose_);
 
   // Store body-frame clouds in MapManager
-  // small_gicp cloud for submap assembly, PCL cloud for visualizers/loop closure
   core_->getMapManager().addKeyframeData(key, "liso_factor/gicp_cloud", cached_cloud_);
   core_->getMapManager().addKeyframeData(key, "liso_factor/cloud", cached_pcl_cloud_);
 
-  // BetweenFactor only: relative LiDAR odometry between consecutive LISO states.
-  // No PriorFactor — GICP cannot observe absolute Z on flat ground, so pinning
-  // the absolute pose causes a Z-drift feedback loop. GPS and IMU gravity
-  // handle absolute positioning; LISO only contributes relative constraints.
-  bool added_between = false;
+  // BetweenFactor: relative LiDAR odometry from previous LISO state
   if (has_prev_liso_) {
-    // Build covariance from GICP information matrix H
     Eigen::Matrix<double, 6, 6> cov;
     double det = cached_result_.H.determinant();
     if (std::abs(det) > 1e-10) {
@@ -497,8 +493,6 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
     } else {
       cov = Eigen::Matrix<double, 6, 6>::Identity() * 0.1;
     }
-
-    // Apply noise floor to prevent overconfident factors
     for (int i = 0; i < 6; i++) {
       cov(i, i) = std::max(cov(i, i), min_noise_);
     }
@@ -508,23 +502,9 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
     auto between_factor = gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
         prev_liso_key_, key, relative_pose, noise);
     result.factors.push_back(between_factor);
-    added_between = true;
-  } else {
-    // First LISO state: add a loose prior to anchor it in the graph.
-    // Without inter-keygroup motion model, this state would otherwise be
-    // unconstrained. The prior is loose enough that GPS and subsequent
-    // BetweenFactors dominate once available.
-    auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
-        (gtsam::Vector(6) << first_state_prior_cov_[0], first_state_prior_cov_[1],
-         first_state_prior_cov_[2], first_state_prior_cov_[3],
-         first_state_prior_cov_[4], first_state_prior_cov_[5]).finished());
-    result.factors.push_back(
-        gtsam::make_shared<gtsam::PriorFactor<gtsam::Pose3>>(
-            key, cached_pose_, prior_noise));
-    added_between = false;
   }
 
-  // Update distance gate + relative tracking
+  // Update tracking
   last_factor_position_ = current_pos;
   has_last_factor_ = true;
   prev_liso_key_ = key;
@@ -535,7 +515,7 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
   RCLCPP_INFO(node_->get_logger(),
               "\033[36m[%s] %s at (%c,%lu) t=%.3f inliers=%zu\033[0m",
               name_.c_str(),
-              added_between ? "BetweenFactor" : "PriorFactor (first state)",
+              result.factors.empty() ? "origin" : "BetweenFactor",
               sym.chr(), sym.index(), cached_timestamp_,
               cached_result_.num_inliers);
 
@@ -555,6 +535,11 @@ void LisoFactor::onOptimizationComplete(
 // ---------------------------------------------------------------------------
 void LisoFactor::rebuildSubmap() {
   if (core_->getState() != SlamState::TRACKING) return;
+  auto t0 = std::chrono::steady_clock::now();
+  auto ms_since = [&t0]() {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - t0).count();
+  };
 
   const auto& map_manager = core_->getMapManager();
   auto key_list = map_manager.getKeyList();
@@ -565,10 +550,12 @@ void LisoFactor::rebuildSubmap() {
 
   auto collected_keys = bfsCollectStates(start_key, submap_radius_);
   if (collected_keys.empty()) return;
+  double t_bfs = ms_since();
 
   // Assemble world-frame submap
   auto merged = std::make_shared<small_gicp::PointCloud>();
   auto poses_6d = map_manager.getKeyPoses6D();
+  size_t total_raw_points = 0;
 
   for (gtsam::Key k : collected_keys) {
     auto cloud_data = map_manager.getKeyframeData(k, "liso_factor/gicp_cloud");
@@ -592,6 +579,7 @@ void LisoFactor::rebuildSubmap() {
     world_T_d.matrix() = world_T.matrix().cast<double>();
 
     // Transform body-frame cloud to world frame
+    total_raw_points += body_cloud->size();
     for (size_t i = 0; i < body_cloud->size(); i++) {
       Eigen::Vector3d p = world_T_d * body_cloud->point(i).head<3>();
       merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
@@ -599,10 +587,12 @@ void LisoFactor::rebuildSubmap() {
   }
 
   if (merged->empty()) return;
+  double t_assemble = ms_since();
 
   // Preprocess merged submap: downsample + normals + covariances + KdTree
   auto [submap, submap_tree] = small_gicp::preprocess_points(
       *merged, submap_ds_resolution_, num_neighbors_, num_threads_);
+  double t_preprocess = ms_since();
 
   // Update cached submap under exclusive lock
   {
@@ -611,8 +601,12 @@ void LisoFactor::rebuildSubmap() {
     cached_submap_tree_ = submap_tree;
   }
 
-  RCLCPP_DEBUG(node_->get_logger(), "[%s] submap rebuilt: %zu states, %zu points",
-               name_.c_str(), collected_keys.size(), submap->size());
+  RCLCPP_INFO(node_->get_logger(),
+      "\033[33m[SUBMAP]\033[0m states=%zu raw_pts=%zu merged=%zu final=%zu | "
+      "bfs=%.1fms assemble=%.1fms preprocess=%.1fms total=%.1fms",
+      collected_keys.size(), total_raw_points, merged->size(), submap->size(),
+      t_bfs, t_assemble - t_bfs, t_preprocess - t_assemble, t_preprocess);
+
 }
 
 // ---------------------------------------------------------------------------

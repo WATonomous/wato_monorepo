@@ -78,6 +78,14 @@ void EuclideanDistanceLoopClosureFactor::reset() {
 }
 
 // ---------------------------------------------------------------------------
+// hasData - true when loop closure constraints are queued
+// ---------------------------------------------------------------------------
+bool EuclideanDistanceLoopClosureFactor::hasData() const {
+  std::lock_guard<std::mutex> lock(loop_queue_mtx_);
+  return !loop_queue_.empty();
+}
+
+// ---------------------------------------------------------------------------
 // processFrame - loop closure does not produce a pose estimate
 // ---------------------------------------------------------------------------
 std::optional<gtsam::Pose3>

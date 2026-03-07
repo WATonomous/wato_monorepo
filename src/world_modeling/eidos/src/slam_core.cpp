@@ -5,7 +5,6 @@
 #include <cmath>
 #include <functional>
 
-#include <Eigen/Geometry>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
 namespace eidos {
@@ -29,14 +28,9 @@ SlamCore::CallbackReturn SlamCore::on_configure(
 
   // Parameters
   declare_parameter("slam_rate", slam_rate_);
-  declare_parameter("max_displacement", max_displacement_);
-  declare_parameter("max_rotation", max_rotation_);
   declare_parameter("relocalization_timeout", relocalization_timeout_);
   declare_parameter("frames.map", map_frame_);
-  declare_parameter("frames.odometry", odom_frame_);
   declare_parameter("frames.base_link", base_link_frame_);
-  declare_parameter("keyframe.density", keyframe_density_);
-  declare_parameter("keyframe.search_radius", keyframe_search_radius_);
   declare_parameter("map.load_directory", map_load_directory_);
   declare_parameter("map.save_directory", map_save_directory_);
   declare_parameter("prior.pose_cov", prior_pose_cov_);
@@ -52,14 +46,9 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("topics.pose", std::string("slam/pose"));
 
   get_parameter("slam_rate", slam_rate_);
-  get_parameter("max_displacement", max_displacement_);
-  get_parameter("max_rotation", max_rotation_);
   get_parameter("relocalization_timeout", relocalization_timeout_);
   get_parameter("frames.map", map_frame_);
-  get_parameter("frames.odometry", odom_frame_);
   get_parameter("frames.base_link", base_link_frame_);
-  get_parameter("keyframe.density", keyframe_density_);
-  get_parameter("keyframe.search_radius", keyframe_search_radius_);
   get_parameter("map.load_directory", map_load_directory_);
   get_parameter("map.save_directory", map_save_directory_);
   get_parameter("prior.pose_cov", prior_pose_cov_);
@@ -161,6 +150,14 @@ SlamCore::CallbackReturn SlamCore::on_activate(
       std::bind(&SlamCore::slamLoop, this),
       slam_callback_group_);
 
+  // Start visualization timer — separate callback group so it never blocks SLAM
+  vis_callback_group_ = create_callback_group(
+      rclcpp::CallbackGroupType::MutuallyExclusive);
+  vis_timer_ = create_wall_timer(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+      std::bind(&SlamCore::visLoop, this),
+      vis_callback_group_);
+
   RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATED]\033[0m Eidos SLAM active");
   return CallbackReturn::SUCCESS;
 }
@@ -169,6 +166,10 @@ SlamCore::CallbackReturn SlamCore::on_deactivate(
     const rclcpp_lifecycle::State&) {
   RCLCPP_INFO(get_logger(), "\033[36m[DEACTIVATING]\033[0m ...");
 
+  if (vis_timer_) {
+    vis_timer_->cancel();
+    vis_timer_.reset();
+  }
   if (slam_timer_) {
     slam_timer_->cancel();
     slam_timer_.reset();
@@ -225,7 +226,12 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   // Reset SLAM state
   state_ = SlamState::INITIALIZING;
   current_pose_ = gtsam::Pose3();
-  current_keygroup_ = -1;
+  next_state_index_ = 0;
+  last_state_key_ = 0;
+  last_state_timestamp_ = 0.0;
+  last_state_owner_.clear();
+  has_last_state_ = false;
+  has_optimization_anchor_ = false;
   std::fill(std::begin(current_transform_), std::end(current_transform_), 0.0f);
   loop_closure_detected_ = false;
   accumulated_graph_ = gtsam::NonlinearFactorGraph();
@@ -277,10 +283,29 @@ void SlamCore::slamLoop() {
     publishStatus();
   }
 
+  // Hand off to vis timer — never block the SLAM loop
   if (run_vis) {
-    for (auto& plugin : vis_plugins_) {
-      plugin->onOptimizationComplete(vis_values, vis_loop_closure);
-    }
+    std::lock_guard<std::mutex> lock(vis_mtx_);
+    vis_values_ = std::move(vis_values);
+    vis_loop_closure_ = vis_loop_closure;
+    vis_pending_ = true;
+  }
+}
+
+void SlamCore::visLoop() {
+  gtsam::Values values;
+  bool loop_closure = false;
+
+  {
+    std::lock_guard<std::mutex> lock(vis_mtx_);
+    if (!vis_pending_) return;
+    values = std::move(vis_values_);
+    loop_closure = vis_loop_closure_;
+    vis_pending_ = false;
+  }
+
+  for (auto& plugin : vis_plugins_) {
+    plugin->onOptimizationComplete(values, loop_closure);
   }
 }
 
@@ -341,7 +366,7 @@ void SlamCore::handleWarmingUp(double timestamp) {
   }
 }
 
-void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double timestamp) {
+void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double /*timestamp*/) {
   RCLCPP_INFO(get_logger(), "\033[32m[TRACKING]\033[0m Beginning at [%.2f, %.2f, %.2f]",
       initial_pose.translation().x(), initial_pose.translation().y(),
       initial_pose.translation().z());
@@ -353,109 +378,18 @@ void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double timestamp)
   current_transform_[3] = static_cast<float>(initial_pose.translation().x());
   current_transform_[4] = static_cast<float>(initial_pose.translation().y());
   current_transform_[5] = static_cast<float>(initial_pose.translation().z());
-  current_keygroup_ = 0;
 
-  // Create first keyframe with prior factor
-  // State 0 uses index 255 (reserved for init/prior state)
-  gtsam::Key key0 = gtsam::Symbol(255, 0);
+  // No state created here.  The first plugin to produce data via
+  // hasData()/getFactors() creates state 0 through the normal
+  // handleTracking() path.  handleTracking() detects the very first
+  // state (!has_last_state_) and adds the PriorFactor + motion model init.
+  next_state_index_ = 0;
+  has_last_state_ = false;
+  last_state_owner_.clear();
 
-  gtsam::NonlinearFactorGraph initial_factors;
-  gtsam::Values initial_values;
-  initial_values.insert(key0, current_pose_);
-
-  auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
-      (gtsam::Vector(6) << prior_pose_cov_[0], prior_pose_cov_[1], prior_pose_cov_[2],
-       prior_pose_cov_[3], prior_pose_cov_[4], prior_pose_cov_[5]).finished());
-  initial_factors.addPrior(key0, current_pose_, prior_noise);
-
-  // Motion model state 0 initialization (e.g., IMU: V(0), B(0) priors)
-  if (motion_model_) {
-    motion_model_->onStateZero(key0, timestamp, current_pose_,
-                                initial_factors, initial_values);
-  }
-
-  // Collect factors from all factor plugins for state 0
-  // Same keygroup logic as handleTracking: plugins may contribute states
-  struct KgState { gtsam::Key key; double t; };
-  std::vector<KgState> keygroup_states;
-
-  for (size_t i = 0; i < factor_plugins_.size(); i++) {
-    gtsam::Key plugin_key = gtsam::Symbol(static_cast<unsigned char>(i), 0);
-    auto plugin_result = factor_plugins_[i]->getFactors(plugin_key);
-
-    if (plugin_result.timestamp.has_value()) {
-      // Plugin wants to create a state — insert initial pose value
-      initial_values.insert(plugin_key, current_pose_);
-      keygroup_states.push_back({plugin_key, plugin_result.timestamp.value()});
-    }
-
-    for (auto& f : plugin_result.factors) initial_factors.add(f);
-    initial_values.insert(plugin_result.values);
-  }
-
-  // Connect plugin states to key0 via motion model (sorted by timestamp)
-  std::sort(keygroup_states.begin(), keygroup_states.end(),
-            [](auto& a, auto& b) { return a.t < b.t; });
-
-  // Build chain: key0 → first plugin state → ... → last plugin state
-  gtsam::Key chain_prev = key0;
-  double chain_prev_t = timestamp;
-  for (auto& ks : keygroup_states) {
-    if (motion_model_) {
-      motion_model_->generateMotionModel(
-          chain_prev, chain_prev_t, ks.key, ks.t,
-          initial_factors, initial_values);
-    }
-    chain_prev = ks.key;
-    chain_prev_t = ks.t;
-  }
-
-  // Track last state for motion model chaining
-  last_keygroup_state_ = {chain_prev, chain_prev_t};
-
-  // Store and optimize
-  accumulated_graph_.add(initial_factors);
-  if (!accumulated_values_.exists(key0)) {
-    accumulated_values_.insert(key0, current_pose_);
-  }
-  for (auto& ks : keygroup_states) {
-    if (!accumulated_values_.exists(ks.key)) {
-      accumulated_values_.insert(ks.key, current_pose_);
-    }
-  }
-  auto optimized = pose_graph_->update(initial_factors, initial_values);
-
-  // Store keyframes — key0 first, then plugin states
-  PoseType pose_6d = gtsamPose3ToPoseType(current_pose_, timestamp);
-  pose_6d.intensity = 0.0f;
-  map_manager_->addKeyframe(key0, pose_6d);
-
-  for (auto& ks : keygroup_states) {
-    gtsam::Pose3 pose = optimized.exists(ks.key)
-        ? optimized.at<gtsam::Pose3>(ks.key) : current_pose_;
-    PoseType kf_pose = gtsamPose3ToPoseType(pose, ks.t);
-    kf_pose.intensity = static_cast<float>(map_manager_->numKeyframes());
-    map_manager_->addKeyframe(ks.key, kf_pose);
-  }
-
-  // Set state before notifying plugins
   state_ = SlamState::TRACKING;
 
-  // Notify all factors of initial optimization
-  for (auto& plugin : factor_plugins_) {
-    plugin->onOptimizationComplete(optimized, false);
-  }
-  if (motion_model_) {
-    motion_model_->onOptimizationComplete(optimized, false);
-  }
-
-  // Notify visualizers
-  for (auto& plugin : vis_plugins_) {
-    plugin->onOptimizationComplete(optimized, false);
-  }
-
   publishPose();
-  publishOdometry();
 }
 
 void SlamCore::handleRelocalizing(double timestamp) {
@@ -489,31 +423,38 @@ void SlamCore::handleRelocalizing(double timestamp) {
 void SlamCore::handleTracking(double timestamp, bool& run_vis,
                               gtsam::Values& vis_values,
                               bool& vis_loop_closure) {
+  auto t0 = std::chrono::steady_clock::now();
+  auto elapsed_ms = [&t0]() {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - t0).count();
+  };
+
   // 1. Get pose estimate via motion model delta from last optimized pose
-  //    The motion model's absolute pose is only used for EKF odometry downstream.
-  //    For graph initial values, we use: last_optimized * delta(mm).
   std::optional<gtsam::Pose3> best_pose;
 
   if (motion_model_) {
     auto mm_pose = motion_model_->getCurrentPose();
     if (mm_pose.has_value()) {
       if (has_optimization_anchor_) {
-        // Relative delta: last_optimized * (mm_at_last_opt⁻¹ * mm_now)
         gtsam::Pose3 delta = mm_pose_at_last_optimization_.between(*mm_pose);
         best_pose = last_optimized_pose_.compose(delta);
       } else {
-        best_pose = mm_pose;  // No anchor yet — use absolute (first keygroup only)
+        best_pose = mm_pose;
       }
     }
   }
 
-  // Fall back to factor plugins
+  double t_pose_est = elapsed_ms();
+
+  // Fall back to factor plugins for pose estimate
   for (auto& plugin : factor_plugins_) {
     auto pose = plugin->processFrame(timestamp);
     if (pose.has_value() && !best_pose.has_value()) {
       best_pose = pose;
     }
   }
+
+  double t_process_frame = elapsed_ms();
 
   if (!best_pose.has_value()) {
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000,
@@ -529,183 +470,209 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   current_transform_[4] = static_cast<float>(current_pose_.translation().y());
   current_transform_[5] = static_cast<float>(current_pose_.translation().z());
 
-  // 2. Check displacement since last state
-  bool new_state = false;
-  auto poses_6d = map_manager_->getKeyPoses6D();
-  if (poses_6d->empty()) {
-    return;
-  } else {
-    auto last_pose = poses_6d->points.back();
-    Eigen::Affine3f last_affine = poseTypeToAffine3f(last_pose);
-    Eigen::Affine3f current_affine = rpyxyzToAffine3f(current_transform_);
-    Eigen::Affine3f delta = last_affine.inverse() * current_affine;
+  // 2. Collect new states from all plugins that have data
+  struct NewState {
+    gtsam::Key key;
+    double timestamp;
+    StampedFactorResult result;
+    std::string owner;
+  };
+  std::vector<NewState> new_states;
 
-    float dx, dy, dz, droll, dpitch, dyaw;
-    pcl::getTranslationAndEulerAngles(delta, dx, dy, dz, droll, dpitch, dyaw);
+  gtsam::NonlinearFactorGraph new_factors;
+  gtsam::Values new_values;
+  loop_closure_detected_ = false;
 
-    float translation = std::sqrt(dx * dx + dy * dy + dz * dz);
-    float rotation = std::max({std::abs(droll), std::abs(dpitch), std::abs(dyaw)});
+  for (size_t i = 0; i < factor_plugins_.size(); i++) {
+    if (!factor_plugins_[i]->hasData()) continue;
 
-    if (translation > max_displacement_ || rotation > max_rotation_) {
-      new_state = true;
-    }
-  }
+    gtsam::Key key = gtsam::Symbol('x', next_state_index_);
+    auto result = factor_plugins_[i]->getFactors(key);
 
-  // 3. If new state, form a keygroup
-  if (new_state) {
-    current_keygroup_++;
-
-    gtsam::NonlinearFactorGraph new_factors;
-    gtsam::Values new_values;
-
-    // Phase A: Collect factors from each plugin
-    struct KgState { gtsam::Key key; double t; };
-    std::vector<KgState> keygroup_states;
-
-    loop_closure_detected_ = false;
-    std::string factor_summary;
-
-    for (size_t i = 0; i < factor_plugins_.size(); i++) {
-      gtsam::Key key = gtsam::Symbol(static_cast<unsigned char>(i), current_keygroup_);
-      auto result = factor_plugins_[i]->getFactors(key);
-
-      if (!factor_summary.empty()) factor_summary += ", ";
-      factor_summary += factor_plugins_[i]->getName() + ":" + std::to_string(result.factors.size());
-
-      if (result.timestamp.has_value()) {
-        // This plugin contributes a state at its sensor timestamp.
-        // Use the plugin's own initial value if provided (e.g. GICP-matched pose),
-        // otherwise fall back to the motion model pose.
-        if (result.values.exists(key)) {
-          new_values.insert(key, result.values.at<gtsam::Pose3>(key));
-        } else {
-          new_values.insert(key, current_pose_);
-        }
-        keygroup_states.push_back({key, result.timestamp.value()});
-      }
-
+    if (result.timestamp.has_value()) {
+      // Plugin creates a state at its sensor timestamp
+      next_state_index_++;
+      new_states.push_back({key, result.timestamp.value(),
+                            std::move(result), factor_plugins_[i]->getName()});
+    } else {
+      // No new state — add factors directly (loop closure, bias priors, etc.)
       for (auto& f : result.factors) {
         new_factors.add(f);
-        // Detect loop closure: BetweenFactor connecting keys from distant keygroups
+        // BetweenFactor<Pose3> without a new state = loop closure
         auto between =
             boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f);
         if (between) {
-          gtsam::Symbol s1(between->key1()), s2(between->key2());
-          int gap = std::abs(static_cast<int>(s1.index()) -
-                             static_cast<int>(s2.index()));
-          if (gap > 1) {
-            loop_closure_detected_ = true;
-          }
+          loop_closure_detected_ = true;
         }
       }
-      // Insert any additional values from the plugin (e.g. bias keys),
-      // skipping the pose key already handled above.
       for (const auto& kv : result.values) {
         if (!new_values.exists(kv.key)) {
           new_values.insert(kv.key, kv.value);
         }
       }
     }
+  }
 
-    // Phase B: Motion model — connect consecutive states by timestamp
-    std::sort(keygroup_states.begin(), keygroup_states.end(),
-              [](auto& a, auto& b) { return a.t < b.t; });
+  double t_collect = elapsed_ms();
 
-    // Motion model only connects states WITHIN this keygroup (intra-keygroup).
-    // Inter-keygroup connectivity comes from factor plugins (LISO BetweenFactors,
-    // GPS absolute constraints). No motion model chaining between keygroups.
-    if (!keygroup_states.empty()) {
-      for (size_t i = 0; i + 1 < keygroup_states.size(); i++) {
-        motion_model_->generateMotionModel(
-            keygroup_states[i].key, keygroup_states[i].t,
-            keygroup_states[i+1].key, keygroup_states[i+1].t,
-            new_factors, new_values);
-      }
-    }
-
-    // Track accumulated graph for serialization
-    accumulated_graph_.add(new_factors);
-    for (const auto& ks : keygroup_states) {
-      if (!accumulated_values_.exists(ks.key)) {
-        accumulated_values_.insert(ks.key, current_pose_);
-      }
-    }
-
-    // Optimize
-    auto optimized = pose_graph_->update(new_factors, new_values);
-
-    // Handle loop closure
-    if (loop_closure_detected_) {
-      pose_graph_->updateExtra(5);
-      optimized = pose_graph_->getOptimizedValues();
-      map_manager_->updatePoses(optimized);
-    }
-
-    // Store keyframes for each state in this keygroup
-    for (auto& ks : keygroup_states) {
-      gtsam::Pose3 pose;
-      if (optimized.exists(ks.key)) {
-        pose = optimized.at<gtsam::Pose3>(ks.key);
-      } else {
-        pose = current_pose_;
-      }
-      PoseType pose_6d = gtsamPose3ToPoseType(pose, ks.t);
-      pose_6d.intensity = static_cast<float>(map_manager_->numKeyframes());
-      map_manager_->addKeyframe(ks.key, pose_6d);
-    }
-
-    // Get latest optimized pose (from last state in keygroup)
-    // and anchor the motion model delta tracking
-    if (!keygroup_states.empty()) {
-      auto last_key = keygroup_states.back().key;
-      if (optimized.exists(last_key)) {
-        auto latest_pose = optimized.at<gtsam::Pose3>(last_key);
-        current_pose_ = latest_pose;
-        current_transform_[0] = static_cast<float>(latest_pose.rotation().roll());
-        current_transform_[1] = static_cast<float>(latest_pose.rotation().pitch());
-        current_transform_[2] = static_cast<float>(latest_pose.rotation().yaw());
-        current_transform_[3] = static_cast<float>(latest_pose.translation().x());
-        current_transform_[4] = static_cast<float>(latest_pose.translation().y());
-        current_transform_[5] = static_cast<float>(latest_pose.translation().z());
-
-        // Anchor: next cycle computes current_pose = latest_pose * delta(mm)
-        last_optimized_pose_ = latest_pose;
-        if (motion_model_) {
-          auto mm_now = motion_model_->getCurrentPose();
-          if (mm_now.has_value()) {
-            mm_pose_at_last_optimization_ = *mm_now;
-          }
-        }
-        has_optimization_anchor_ = true;
-      }
-    }
-
-    RCLCPP_INFO(get_logger(),
-        "\033[32m[TRACKING]\033[0m keygroup=%d states=%zu optimized: (%.3f, %.3f, %.3f) factors: %zu [%s]",
-        current_keygroup_, keygroup_states.size(),
-        current_pose_.translation().x(), current_pose_.translation().y(),
-        current_pose_.translation().z(), new_factors.size(), factor_summary.c_str());
-
-    // Notify plugins of optimization result
-    for (auto& plugin : factor_plugins_) {
-      plugin->onOptimizationComplete(optimized, loop_closure_detected_);
-    }
-    if (motion_model_) {
-      motion_model_->onOptimizationComplete(optimized, loop_closure_detected_);
-    }
-
-    // Signal visualization
-    run_vis = true;
-    vis_values = optimized;
-    vis_loop_closure = loop_closure_detected_;
-
+  // 3. Nothing to optimize this tick
+  if (new_states.empty() && new_factors.empty()) {
     publishPose();
+    publishOdometry();
+    return;
+  }
 
-    // Only publish graph-optimized odometry when the graph actually grew
-    if (!keygroup_states.empty()) {
-      publishOdometry();
+  // 4. Sort new states by timestamp
+  std::sort(new_states.begin(), new_states.end(),
+            [](auto& a, auto& b) { return a.timestamp < b.timestamp; });
+
+  // 5. Chain with motion model and collect factors/values
+  std::string factor_summary;
+  for (auto& ns : new_states) {
+    // Insert initial value for the pose state
+    if (ns.result.values.exists(ns.key)) {
+      new_values.insert(ns.key, ns.result.values.at<gtsam::Pose3>(ns.key));
+    } else {
+      new_values.insert(ns.key, current_pose_);
+    }
+
+    // Add factors from this plugin
+    for (auto& f : ns.result.factors) {
+      new_factors.add(f);
+    }
+
+    // Add any additional values (bias keys, etc.)
+    for (const auto& kv : ns.result.values) {
+      if (!new_values.exists(kv.key)) {
+        new_values.insert(kv.key, kv.value);
+      }
+    }
+
+    // First state ever: anchor with PriorFactor + motion model init
+    if (!has_last_state_) {
+      gtsam::Pose3 anchor_pose = ns.result.values.exists(ns.key)
+          ? ns.result.values.at<gtsam::Pose3>(ns.key) : current_pose_;
+      auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
+          (gtsam::Vector(6) << prior_pose_cov_[0], prior_pose_cov_[1], prior_pose_cov_[2],
+           prior_pose_cov_[3], prior_pose_cov_[4], prior_pose_cov_[5]).finished());
+      new_factors.addPrior(ns.key, anchor_pose, prior_noise);
+
+      if (motion_model_) {
+        motion_model_->onStateZero(ns.key, ns.timestamp, anchor_pose,
+                                    new_factors, new_values);
+      }
+    }
+
+    // Motion model: only connect cross-sensor state transitions.
+    // Same-plugin consecutive states are already constrained by the plugin's
+    // own factors (e.g. LISO BetweenFactors). The motion model bridges
+    // sensor A → sensor B transitions.
+    if (has_last_state_ && motion_model_ && last_state_owner_ != ns.owner) {
+      motion_model_->generateMotionModel(
+          last_state_key_, last_state_timestamp_,
+          ns.key, ns.timestamp,
+          new_factors, new_values);
+    }
+
+    // Update last state tracking
+    last_state_key_ = ns.key;
+    last_state_timestamp_ = ns.timestamp;
+    last_state_owner_ = ns.owner;
+    has_last_state_ = true;
+
+    if (!factor_summary.empty()) factor_summary += ", ";
+    factor_summary += ns.owner + ":" + std::to_string(ns.result.factors.size());
+  }
+
+  double t_chain = elapsed_ms();
+
+  // 6. Track accumulated graph for serialization
+  accumulated_graph_.add(new_factors);
+  for (const auto& ns : new_states) {
+    if (!accumulated_values_.exists(ns.key)) {
+      accumulated_values_.insert(ns.key, current_pose_);
     }
   }
+
+  // 7. Optimize
+  auto optimized = pose_graph_->update(new_factors, new_values);
+  double t_optimize = elapsed_ms();
+
+  // 8. Handle loop closure
+  if (loop_closure_detected_) {
+    pose_graph_->updateExtra(5);
+    optimized = pose_graph_->getOptimizedValues();
+    map_manager_->updatePoses(optimized);
+  }
+
+  // 9. Store keyframes for each new state
+  for (auto& ns : new_states) {
+    gtsam::Pose3 pose = optimized.exists(ns.key)
+        ? optimized.at<gtsam::Pose3>(ns.key) : current_pose_;
+    PoseType pose_6d = gtsamPose3ToPoseType(pose, ns.timestamp);
+    pose_6d.intensity = static_cast<float>(map_manager_->numKeyframes());
+    map_manager_->addKeyframe(ns.key, pose_6d, ns.owner);
+  }
+
+  double t_keyframes = elapsed_ms();
+
+  // 10. Update current pose from latest optimized state
+  if (!new_states.empty()) {
+    auto last_key = new_states.back().key;
+    if (optimized.exists(last_key)) {
+      auto latest_pose = optimized.at<gtsam::Pose3>(last_key);
+      current_pose_ = latest_pose;
+      current_transform_[0] = static_cast<float>(latest_pose.rotation().roll());
+      current_transform_[1] = static_cast<float>(latest_pose.rotation().pitch());
+      current_transform_[2] = static_cast<float>(latest_pose.rotation().yaw());
+      current_transform_[3] = static_cast<float>(latest_pose.translation().x());
+      current_transform_[4] = static_cast<float>(latest_pose.translation().y());
+      current_transform_[5] = static_cast<float>(latest_pose.translation().z());
+
+      last_optimized_pose_ = latest_pose;
+      if (motion_model_) {
+        auto mm_now = motion_model_->getCurrentPose();
+        if (mm_now.has_value()) {
+          mm_pose_at_last_optimization_ = *mm_now;
+        }
+      }
+      has_optimization_anchor_ = true;
+    }
+  }
+
+  RCLCPP_INFO(get_logger(),
+      "\033[32m[TRACKING]\033[0m state_idx=%lu states=%zu pos=(%.3f, %.3f, %.3f) factors=%zu [%s]",
+      next_state_index_, new_states.size(),
+      current_pose_.translation().x(), current_pose_.translation().y(),
+      current_pose_.translation().z(), new_factors.size(), factor_summary.c_str());
+
+  // 11. Notify factor plugins of optimization result
+  for (size_t i = 0; i < factor_plugins_.size(); i++) {
+    double t_before = elapsed_ms();
+    factor_plugins_[i]->onOptimizationComplete(optimized, loop_closure_detected_);
+    double t_after = elapsed_ms();
+    RCLCPP_INFO(get_logger(),
+        "\033[33m[TIMING]\033[0m plugin_notify[%s]=%.1fms",
+        factor_plugins_[i]->getName().c_str(), t_after - t_before);
+  }
+
+  double t_total = elapsed_ms();
+
+  RCLCPP_INFO(get_logger(),
+      "\033[33m[TIMING]\033[0m total=%.1fms | pose_est=%.1f | processFrame=%.1f | "
+      "collect=%.1f | chain=%.1f | optimize=%.1f | keyframes=%.1f | notify=%.1f",
+      t_total, t_pose_est, t_process_frame - t_pose_est,
+      t_collect - t_process_frame, t_chain - t_collect,
+      t_optimize - t_chain, t_keyframes - t_optimize,
+      t_total - t_keyframes);
+
+  // Signal visualization
+  run_vis = true;
+  vis_values = optimized;
+  vis_loop_closure = loop_closure_detected_;
+
+  publishPose();
+  publishOdometry();
 }
 
 // ---- Plugin loading ----
@@ -864,7 +831,7 @@ void SlamCore::publishStatus() {
   msg.header.stamp = now();
   msg.header.frame_id = map_frame_;
   msg.state = static_cast<uint8_t>(state_);
-  msg.current_state_index = current_keygroup_;
+  msg.current_state_index = static_cast<int>(next_state_index_);
   msg.num_keyframes = map_manager_->numKeyframes();
   msg.num_factors = pose_graph_->numFactors();
   msg.loop_closure_detected = loop_closure_detected_;
@@ -948,8 +915,8 @@ gtsam::Pose3 SlamCore::getCurrentPose() const {
   return current_pose_;
 }
 
-int SlamCore::getCurrentKeygroup() const {
-  return current_keygroup_;
+uint64_t SlamCore::getCurrentStateIndex() const {
+  return next_state_index_;
 }
 
 const gtsam::NonlinearFactorGraph& SlamCore::getAccumulatedGraph() const {

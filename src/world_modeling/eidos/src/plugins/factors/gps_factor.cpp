@@ -7,7 +7,6 @@
 
 #include <pluginlib/class_list_macros.hpp>
 #include <gtsam_unstable/slam/BiasedGPSFactor.h>
-#include <gtsam/slam/PriorFactor.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
@@ -30,8 +29,6 @@ void GpsFactor::onInitialize() {
   node_->declare_parameter(prefix + ".use_elevation", false);
   node_->declare_parameter(prefix + ".min_gps_movement", 5.0);
 
-  node_->declare_parameter(prefix + ".initialization.bias_prior_cov",
-      std::vector<double>{10000.0, 10000.0, 10000.0});
   node_->declare_parameter(prefix + ".gps_cov", std::vector<double>{1.0, 1.0, 1.0});
   node_->declare_parameter(prefix + ".initialization.imu_topic", "imu/data");
 
@@ -42,7 +39,6 @@ void GpsFactor::onInitialize() {
   node_->get_parameter(prefix + ".cov_threshold", cov_threshold_);
   node_->get_parameter(prefix + ".use_elevation", use_elevation_);
   node_->get_parameter(prefix + ".min_gps_movement", min_gps_movement_);
-  node_->get_parameter(prefix + ".initialization.bias_prior_cov", bias_prior_cov_);
   node_->get_parameter(prefix + ".gps_cov", gps_cov_);
 
   // Read frame names from slam_core parameters
@@ -169,6 +165,11 @@ std::string GpsFactor::getReadyStatus() const {
   return gps_received_ ? "fix acquired" : "no NavSatFix received";
 }
 
+bool GpsFactor::hasData() const {
+  std::lock_guard<std::mutex> lock(gps_lock_);
+  return !gps_queue_.empty();
+}
+
 // ---------------------------------------------------------------------------
 // processFrame - GPS does not provide a pose estimate
 // ---------------------------------------------------------------------------
@@ -250,11 +251,6 @@ StampedFactorResult GpsFactor::getFactors(gtsam::Key key) {
         utm_rotated.y() - map_pos.y(),
         use_elevation_ ? (utm_rotated.z() - map_pos.z()) : 0.0);
 
-    auto bias_prior_noise = gtsam::noiseModel::Diagonal::Variances(
-        (gtsam::Vector(3) << bias_prior_cov_[0], bias_prior_cov_[1], bias_prior_cov_[2]).finished());
-    result.factors.push_back(
-        gtsam::make_shared<gtsam::PriorFactor<gtsam::Point3>>(
-            bias_key_, latest_bias_, bias_prior_noise));
     result.values.insert(bias_key_, latest_bias_);
 
     bias_initialized_ = true;

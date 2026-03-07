@@ -47,6 +47,7 @@ public:
 
   bool isReady() const override;
   std::string getReadyStatus() const override;
+  bool hasData() const override;
 
 private:
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
@@ -71,7 +72,7 @@ private:
   pcl::PointCloud<PointType>::Ptr cached_pcl_cloud_;  // body-frame (for MapManager/visualizers)
   double cached_timestamp_ = 0.0;
   bool has_cached_result_ = false;
-  std::mutex result_mtx_;
+  mutable std::mutex result_mtx_;
 
   // Subscription + publisher
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
@@ -129,7 +130,6 @@ private:
   std::string imu_frame_ = "imu_link";
   int imu_warmup_samples_ = 200;
   double imu_stationary_gyr_threshold_ = 0.005;  // rad/s
-  std::vector<double> first_state_prior_cov_ = {0.1, 0.1, 0.1, 1.0, 1.0, 1.0};  // [r,p,y,x,y,z]
   std::vector<double> odom_pose_cov_ = {0.1, 0.1, 0.1, 0.05, 0.05, 0.05};
   Eigen::Isometry3d T_base_lidar_ = Eigen::Isometry3d::Identity();
   bool has_tf_ = false;
