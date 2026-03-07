@@ -1,7 +1,7 @@
 ---
 services:
 
-#################### INFRASTRUCTURE SERVICES ####################
+  #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
     profiles: ["infrastructure_pre"]
     build:
@@ -55,7 +55,7 @@ services:
     ports:
       - "${LOG_VIEWER__PORT}:8888"
 
-#################### INTERFACING SERVICE ####################
+  #################### INTERFACING SERVICE ####################
   interfacing_source:
     profiles: ["interfacing_pre"]
     build:
@@ -107,7 +107,7 @@ services:
         condition: service_started
         required: false
 
-#################### PERCEPTION SERVICE ####################
+  #################### PERCEPTION SERVICE ####################
   perception_source:
     profiles: ["perception_pre"]
     build:
@@ -168,7 +168,7 @@ services:
         condition: service_started
         required: false
 
-#################### WORLD MODELING SERVICE ####################
+  #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
     profiles: ["world_modeling_pre"]
     build:
@@ -216,7 +216,7 @@ services:
         condition: service_started
         required: false
 
-#################### ACTION SERVICE ####################
+  #################### ACTION SERVICE ####################
   action_source:
     profiles: ["action_pre"]
     build:
@@ -264,7 +264,7 @@ services:
         condition: service_started
         required: false
 
-#################### SIMULATION SERVICES ####################
+  #################### SIMULATION SERVICES ####################
   carla_sim:
     image: carlasim/carla:0.10.0
     runtime: nvidia

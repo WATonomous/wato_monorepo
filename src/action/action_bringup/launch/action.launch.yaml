@@ -1,4 +1,4 @@
-# action_launch.yaml
+# action.launch.yaml
 
 launch:
   - arg:
@@ -28,6 +28,24 @@ launch:
           to: "/behaviour/execute_behaviour"
 
   - node:
+      pkg: "trajectory_planner"
+      exec: "trajectory_planner_node"
+      name: "trajectory_planner_node"
+      namespace: "action/trajectory_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share trajectory_planner)/config/trajectory_planner_params.yaml"
+      remap:
+        - from: "input_path"
+          to: "/action/lattice_planning/path"
+        - from: "costmap"
+          to: "/world_modeling/costmap"
+        - from: "trajectory"
+          to: "/action/trajectory_planning/trajectory"
+        - from: "lane_context"
+          to: "/world_modeling/lanelet/lane_context"
+
+  - node:
       pkg: "lattice_planning_markers"
       exec: "lattice_planning_markers_node"
       name: "lattice_planning_markers_node"
@@ -41,16 +59,17 @@ launch:
         - from: "available_paths"
           to: "/action/lattice_planning/available_paths"
 
-   # Lifecycle Manager
+  # Lifecycle Manager
   - node:
-      pkg: wato_lifecycle_manager
-      exec: wato_lifecycle_manager_node
-      name: action_lifecycle_manager
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "action_lifecycle_manager"
       namespace: "action"
-      output: screen
       param:
-        - name: node_names
+        - name: "node_names"
           value:
+            - /action/lattice_planning/local_planner_node
+            - /action/trajectory_planning/trajectory_planner_node
             - /action/lattice_planning/lattice_planning_node
         - name: autostart
           value: $(var autostart)
