@@ -111,6 +111,61 @@
 #       antiwindup: true
 #       antiwindup_strategy: "conditional_integration"
 
+# Velocity-Driven Feedforward PID Control
+/**/vel_driven_feedforward_pid_node:
+  ros__parameters:
+    update_rate: 20.0
+    output_clamp_max: 0.2
+    output_clamp_min: -0.2
+    steering_pid:
+      p: 1.2
+      i: 0.0
+      d: 0.15
+      i_clamp_max: 1.0
+      i_clamp_min: -1.0
+      u_clamp_max: 0.2
+      u_clamp_min: -0.2
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+    velocity_pid:
+      p: 1.0
+      i: 0.07
+      d: 0.0
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+    feedforward:
+      coefficients: [0.0]   # T_ff = (c0 + c1*v + c2*v^2 + ...) * steering_setpoint
+
+# Gain-Scheduled PID Control
+/**/gain_scheduled_pid_node:
+  ros__parameters:
+    update_rate: 20.0
+    output_clamp_max: 0.2
+    output_clamp_min: -0.2
+    gain_schedule:
+      speed_breakpoints: [0.0, 5.0, 10.0]
+      steering_gains_matrix: [1.2, 0.0, 0.15, 1.2, 0.0, 0.15, 1.5, 0.0, 0.2]
+      i_clamp_max: 1.0
+      i_clamp_min: -1.0
+      antiwindup: true
+    velocity_pid:
+      p: 1.0
+      i: 0.07
+      d: 0.0
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+
 # OSCC Interfacing
 /**/oscc_interfacing:
   ros__parameters:

@@ -17,7 +17,7 @@
   <exec_depend>sensor_interfacing</exec_depend>
   <exec_depend>camera_sync</exec_depend>
   <exec_depend>deep_object_detection</exec_depend>
-  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>tracking</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

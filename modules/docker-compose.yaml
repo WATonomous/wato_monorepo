@@ -1,7 +1,7 @@
 ---
 services:
 
-#################### INFRASTRUCTURE SERVICES ####################
+  #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
     profiles: ["infrastructure_pre"]
     build:
@@ -55,7 +55,7 @@ services:
     ports:
       - "${LOG_VIEWER__PORT}:8888"
 
-#################### INTERFACING SERVICE ####################
+  #################### INTERFACING SERVICE ####################
   interfacing_source:
     profiles: ["interfacing_pre"]
     build:
@@ -107,7 +107,7 @@ services:
         condition: service_started
         required: false
 
-#################### PERCEPTION SERVICE ####################
+  #################### PERCEPTION SERVICE ####################
   perception_source:
     profiles: ["perception_pre"]
     build:
@@ -148,9 +148,7 @@ services:
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
     volumes:
-      - /mnt/wato-drive2/perception_models:/perception_models
       - ../models:/ws/models
-      - ../models:/workspaces/deep_ros/models # mount your local models into the container, don't know how we are actually doing this
       - ../src/perception/perception_bringup/config:/ws/src/perception/perception_bringup/config
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
@@ -170,7 +168,7 @@ services:
         condition: service_started
         required: false
 
-#################### WORLD MODELING SERVICE ####################
+  #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
     profiles: ["world_modeling_pre"]
     build:
@@ -218,7 +216,7 @@ services:
         condition: service_started
         required: false
 
-#################### ACTION SERVICE ####################
+  #################### ACTION SERVICE ####################
   action_source:
     profiles: ["action_pre"]
     build:
@@ -266,7 +264,7 @@ services:
         condition: service_started
         required: false
 
-#################### SIMULATION SERVICES ####################
+  #################### SIMULATION SERVICES ####################
   carla_sim:
     image: carlasim/carla:0.10.0
     runtime: nvidia
