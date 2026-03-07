@@ -19,6 +19,7 @@
 
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <std_msgs/msg/bool.hpp>
 
 namespace ackermann_mux
@@ -56,7 +57,7 @@ public:
    * @param node Pointer to the parent ROS node (for creating subscriptions).
    * @param cfg Configuration specifying topic, priority, and mask settings.
    */
-  InputHandle(rclcpp::Node * node, const InputConfig & cfg);
+  InputHandle(rclcpp_lifecycle::LifecycleNode * node, const InputConfig & cfg);
 
   /**
    * @brief Returns the configuration for this input.
@@ -108,7 +109,7 @@ private:
    */
   void on_mask_callback(const std_msgs::msg::Bool::ConstSharedPtr msg);
 
-  rclcpp::Node * node_{nullptr};
+  rclcpp_lifecycle::LifecycleNode * node_{nullptr};
   InputConfig cfg_;
 
   rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr sub_cmd_;

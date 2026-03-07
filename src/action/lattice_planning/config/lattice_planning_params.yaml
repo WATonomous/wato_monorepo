@@ -1,0 +1,65 @@
+action:
+  lattice_planning:
+    lattice_planning_node:
+      ros__parameters:
+
+        # Topic names
+        lanelet_ahead_topic: "lanelet_ahead"
+        odom_topic: "odom"
+        bt_topic: "execute_behaviour"
+
+        # Publishing
+        path_topic: "path"
+        available_paths_topic: "available_paths"
+
+        # Path generation parameters
+        # -  Cost Function  -
+        cost_function:
+          lateral_movement_weight: 2.0
+          physical_limits_weight: 4.0
+          preferred_lane_cost: 20.0
+          unknown_occupancy_cost: 50.0
+          max_curvature_change: 0.1
+
+        # -  Corridor  -
+        num_horizons: 3
+        # must be same length as specified above
+        lookahead_distances: [10.0, 15.0, 20.0]  # meters
+
+        # -  Path Generation  -
+        path_gen:
+          max_iterations: 20
+          path_steps: 35
+          convergence_tolerance: 0.15
+          newton_damping: 0.7
+          max_step_size: 1.0
+
+        # Cubic spiral coefficient calculation parameters
+        # For k(s) = c0 + c1*s + c2*s^2 + c3*s^3
+        # These constants define how intermediate curvatures k0, k1, k2, k3 map to polynomial coefficients
+        # These are derived from the paper mentioned in the readme, DO NOT CHANGE unless you know what you are doing
+
+        spiral_coeffs:
+          # C1 coefficient (linear term)
+          # c1 = (c1_k0_coeff * k0 + c1_k1_coeff * k1 + c1_k2_coeff * k2 + c1_k3_coeff * k3) / (c1_divisor * sf)
+          c1_k0_coeff: -11.0
+          c1_k1_coeff: 18.0
+          c1_k2_coeff: -9.0
+          c1_k3_coeff: 2.0
+          c1_divisor: 2.0
+
+          # C2 coefficient (quadratic term)
+          # c2 = (c2_k0_coeff * k0 + c2_k1_coeff * k1 + c2_k2_coeff * k2 + c2_k3_coeff * k3) / (c2_divisor * sf^2)
+          c2_k0_coeff: 18.0    # 9 * 2
+          c2_k1_coeff: -45.0   # 9 * -5
+          c2_k2_coeff: 36.0    # 9 * 4
+          c2_k3_coeff: -9.0    # 9 * -1
+          c2_divisor: 2.0
+
+          # C3 coefficient (cubic term)
+          # c3 = (c3_k0_coeff * k0 + c3_k1_coeff * k1 + c3_k2_coeff * k2 + c3_k3_coeff * k3) / (c3_divisor * sf^3)
+          c3_k0_coeff: -9.0
+          c3_k1_coeff: 27.0    # -9 * -3
+          c3_k2_coeff: -27.0   # -9 * 3
+          c3_k3_coeff: 9.0     # -9 * -1
+          c3_divisor: 2.0
