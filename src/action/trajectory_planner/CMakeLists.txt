@@ -31,8 +31,6 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(wato_lifecycle_manager REQUIRED)
 
-include_directories(include)
-
 # Component Library
 add_library(${PROJECT_NAME}_component SHARED
   src/trajectory_core.cpp
@@ -45,18 +43,20 @@ target_include_directories(${PROJECT_NAME}_component
     $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(${PROJECT_NAME}_component
-  rclcpp
-  rclcpp_components
-  rclcpp_lifecycle
-  nav_msgs
-  geometry_msgs
-  visualization_msgs
-  lanelet_msgs
-  wato_trajectory_msgs
-  tf2_ros
-  tf2_geometry_msgs
-  wato_lifecycle_manager
+target_link_libraries(${PROJECT_NAME}_component
+  PUBLIC
+    ${nav_msgs_TARGETS}
+    ${wato_trajectory_msgs_TARGETS}
+  PRIVATE
+    rclcpp::rclcpp
+    rclcpp_lifecycle::rclcpp_lifecycle
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${lanelet_msgs_TARGETS}
+    tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
+    ${wato_lifecycle_manager_TARGETS}
 )
 
 # Register component and generate executable

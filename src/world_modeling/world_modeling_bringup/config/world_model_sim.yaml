@@ -19,7 +19,6 @@
   ros__parameters:
     # Map
     osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
-
     projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
 
     # Frames

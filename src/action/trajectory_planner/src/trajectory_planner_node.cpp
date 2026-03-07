@@ -37,13 +37,12 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("max_speed", 20.0);
   declare_parameter("interpolation_resolution", 0.1);
 
-  // Vehicle geometry used for costmap collision checks
-  declare_parameter("footprint_radius", 1.2);
-  declare_parameter("vehicle_front_offset", 2.5);
-
-  // Path length hysteresis tuning
-  declare_parameter("short_path_stable_threshold", 3);
-  declare_parameter("path_length_drop_threshold", 0.5);
+  // Vehicle footprint bounding box for costmap collision checks
+  declare_parameter("footprint_frame", std::string("base_link"));
+  declare_parameter("footprint_x_min", -0.5);
+  declare_parameter("footprint_y_min", -1.2);
+  declare_parameter("footprint_x_max", 3.5);
+  declare_parameter("footprint_y_max", 1.2);
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
@@ -56,10 +55,14 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   config.stop_distance = get_parameter("stop_distance").as_double();
   config.max_speed = get_parameter("max_speed").as_double();
   config.interpolation_resolution = get_parameter("interpolation_resolution").as_double();
-  config.footprint_radius = get_parameter("footprint_radius").as_double();
-
-  short_path_stable_threshold_ = get_parameter("short_path_stable_threshold").as_int();
-  path_length_drop_threshold_ = get_parameter("path_length_drop_threshold").as_double();
+  config.footprint_x_min = get_parameter("footprint_x_min").as_double();
+  config.footprint_y_min = get_parameter("footprint_y_min").as_double();
+  config.footprint_x_max = get_parameter("footprint_x_max").as_double();
+  config.footprint_y_max = get_parameter("footprint_y_max").as_double();
+  // footprint_frame stored for documentation; bounding box is defined in vehicle body frame
+  // aligned with path pose orientation at runtime
+  std::string footprint_frame = get_parameter("footprint_frame").as_string();
+  (void)footprint_frame;  // used as configuration documentation; TF lookup deferred
 
   core_ = std::make_unique<TrajectoryCore>(config);
 
@@ -126,27 +129,6 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_shutdown(const r
 
 void TrajectoryPlannerNode::path_callback(const nav_msgs::msg::Path::SharedPtr msg)
 {
-  // Compute incoming path length
-  double new_length = 0.0;
-  for (size_t i = 1; i < msg->poses.size(); ++i) {
-    new_length += std::hypot(
-      msg->poses[i].pose.position.x - msg->poses[i - 1].pose.position.x,
-      msg->poses[i].pose.position.y - msg->poses[i - 1].pose.position.y);
-  }
-
-  // Hysteresis: suppress path-length drops unless they persist for K consecutive cycles.
-  // This prevents single-cycle flickering from the lattice planner from propagating to
-  // the trajectory output, while still allowing genuine shortening (e.g. approaching a
-  // stop) to take effect after short_path_stable_threshold_ cycles.
-  if (new_length < prev_path_length_ - path_length_drop_threshold_) {
-    if (++short_path_count_ < short_path_stable_threshold_) {
-      return;
-    }
-  } else {
-    short_path_count_ = 0;
-  }
-
-  prev_path_length_ = new_length;
   latest_path_ = msg;
   update_trajectory();
 }

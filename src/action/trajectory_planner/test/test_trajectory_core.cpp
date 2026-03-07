@@ -88,7 +88,10 @@ TEST_CASE_METHOD(
   cfg.max_speed = 20.0;
   cfg.stop_distance = 2.0;
   cfg.safe_distance = 10.0;
-  cfg.footprint_radius = 0.0;
+  cfg.footprint_x_min = 0.0;
+  cfg.footprint_x_max = 0.0;
+  cfg.footprint_y_min = 0.0;
+  cfg.footprint_y_max = 0.0;
   trajectory_planner::TrajectoryCore core(cfg);
 
   auto path = make_straight_path({0.0, 4.0, 8.0, 12.0, 16.0});
@@ -123,7 +126,10 @@ TEST_CASE_METHOD(
   cfg.stop_distance = 2.0;
   cfg.safe_distance = 10.0;
   cfg.interpolation_resolution = 0.5;
-  cfg.footprint_radius = 0.0;
+  cfg.footprint_x_min = 0.0;
+  cfg.footprint_x_max = 0.0;
+  cfg.footprint_y_min = 0.0;
+  cfg.footprint_y_max = 0.0;
   trajectory_planner::TrajectoryCore core(cfg);
 
   auto path = make_straight_path({0.0, 4.0, 8.0, 12.0, 16.0});
@@ -167,7 +173,10 @@ TEST_CASE_METHOD(
   "[trajectory_core][collision]")
 {
   trajectory_planner::TrajectoryConfig cfg;
-  cfg.footprint_radius = 0.0;
+  cfg.footprint_x_min = 0.0;
+  cfg.footprint_x_max = 0.0;
+  cfg.footprint_y_min = 0.0;
+  cfg.footprint_y_max = 0.0;
   trajectory_planner::TrajectoryCore core(cfg);
 
   auto path = make_straight_path({0.0, 4.0, 8.0, 16.0});
@@ -182,7 +191,10 @@ TEST_CASE_METHOD(
   "[trajectory_core][collision]")
 {
   trajectory_planner::TrajectoryConfig cfg;
-  cfg.footprint_radius = 0.0;
+  cfg.footprint_x_min = 0.0;
+  cfg.footprint_x_max = 0.0;
+  cfg.footprint_y_min = 0.0;
+  cfg.footprint_y_max = 0.0;
   cfg.interpolation_resolution = 0.5;
   trajectory_planner::TrajectoryCore core(cfg);
 

@@ -10,13 +10,10 @@ trajectory_planner_node:
     # Path interpolation
     interpolation_resolution: 0.1  # Resolution (m) for path interpolation
 
-    # Vehicle geometry
-    vehicle_front_offset: 2.5  # Distance (m) from base_link to front bumper
-    footprint_radius: 1.2      # Radius (m) for collision checking around path points
-
-    # Costmap thresholds
-    lethal_cost_threshold: 100  # Costmap value considered lethal obstacle
-
-    # Path length hysteresis (suppresses lattice planner flickering)
-    short_path_stable_threshold: 3    # Consecutive shorter-path cycles before accepting a shorter path
-    path_length_drop_threshold: 0.5   # Minimum drop (m) that counts as "shorter"
+    # Vehicle footprint bounding box in footprint_frame (m)
+    # x: forward/backward, y: left/right (ROS convention)
+    footprint_frame: "base_link"
+    footprint_x_min: -0.5    # rear of vehicle
+    footprint_y_min: -1.2    # right side
+    footprint_x_max: 3.5     # front bumper
+    footprint_y_max: 1.2     # left side

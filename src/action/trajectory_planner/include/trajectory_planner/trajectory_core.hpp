@@ -26,11 +26,14 @@ namespace trajectory_planner
 
 struct TrajectoryConfig
 {
-  double safe_distance = 10.0;
-  double stop_distance = 2.0;
-  double max_speed = 20.0;  // Default limit if lanelet speed limit unavailable
-  double interpolation_resolution = 0.1;
-  double footprint_radius = 1.0;  // Simple radius check for now
+  double safe_distance;
+  double stop_distance;
+  double max_speed;
+  double interpolation_resolution;
+  double footprint_x_min;  // rear extent (m)
+  double footprint_y_min;  // right extent (m)
+  double footprint_x_max;  // front extent (m)
+  double footprint_y_max;  // left extent (m)
 };
 
 class TrajectoryCore

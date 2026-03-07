@@ -25,6 +25,8 @@
 namespace trajectory_planner
 {
 
+static constexpr int8_t LETHAL_COST = 100;
+
 TrajectoryCore::TrajectoryCore(const TrajectoryConfig & config)
 : config_(config)
 {}
@@ -125,15 +127,21 @@ std::optional<double> TrajectoryCore::find_first_collision(
       double interp_x = prev_pose.x + s * (curr_pt.x - prev_pose.x);
       double interp_y = prev_pose.y + s * (curr_pt.y - prev_pose.y);
 
-      // Check the robot footprint (approximated as a square) for lethal obstacles.
-      // Samples 5 points: center + 4 corners. If any hit a lethal cell (cost >= 100),
-      // return the distance along the path where the collision occurs.
-      double r = config_.footprint_radius;
-      if (get_cost(interp_x, interp_y) >= 100) return total_dist + (s * segment_len);
-      if (get_cost(interp_x + r, interp_y + r) >= 100) return total_dist + (s * segment_len);
-      if (get_cost(interp_x - r, interp_y + r) >= 100) return total_dist + (s * segment_len);
-      if (get_cost(interp_x + r, interp_y - r) >= 100) return total_dist + (s * segment_len);
-      if (get_cost(interp_x - r, interp_y - r) >= 100) return total_dist + (s * segment_len);
+      // Check the vehicle bounding box corners rotated to path heading for lethal obstacles.
+      double theta = std::atan2(curr_pt.y - prev_pose.y, curr_pt.x - prev_pose.x);
+      double cos_t = std::cos(theta);
+      double sin_t = std::sin(theta);
+
+      auto check_corner = [&](double lx, double ly) -> bool {
+        double wx = interp_x + lx * cos_t - ly * sin_t;
+        double wy = interp_y + lx * sin_t + ly * cos_t;
+        return get_cost(wx, wy) >= LETHAL_COST;
+      };
+
+      if (check_corner(config_.footprint_x_min, config_.footprint_y_min)) return total_dist + (s * segment_len);
+      if (check_corner(config_.footprint_x_min, config_.footprint_y_max)) return total_dist + (s * segment_len);
+      if (check_corner(config_.footprint_x_max, config_.footprint_y_min)) return total_dist + (s * segment_len);
+      if (check_corner(config_.footprint_x_max, config_.footprint_y_max)) return total_dist + (s * segment_len);
     }
 
     total_dist += segment_len;

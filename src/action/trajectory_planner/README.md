@@ -1,46 +1,28 @@
 # WATO Trajectory Planner
 
-The `trajectory_planner` package implements a longitudinal trajectory planner that refines a geometric path into a velocity-profiled trajectory. It ensures collision avoidance by scaling velocity based on the distance to obstacles detected in the costmap.
+The `trajectory_planner` package refines a geometric path into a velocity-profiled trajectory. It checks for obstacles along the path using a vehicle footprint and smoothly decelerates when a collision is imminent.
 
 ## Overview
 
-The planner subscribes to a geometric path (from `local_planning`) and a costmap (from `world_modeling`). It checks for collisions along the path using a footprint-based check and generates a `wato_trajectory_msgs/Trajectory` where each point has a target velocity.
+The node subscribes to a path (from `local_planning`) and a costmap (from `world_modeling`). It interpolates the path at a fixed resolution, sweeps the vehicle footprint at each point, and finds the distance to the first lethal obstacle. Velocity at each point is then scaled linearly between `max_speed` (at `safe_distance`) and 0 (at `stop_distance`).
 
-**Key Features:**
-- **Linear Velocity Scaling**: Smoothly decelerates from `max_speed` to 0 as obstacles approach.
-- **Dynamic Speed Limit**: Respects the speed limit of the current lanelet (via `/world_modeling/lanelet/lane_context`).
-- **Footprint Checking**: Checks a radius around interpolated path points to ensure the vehicle body clears obstacles.
-- **Configurable**: Safety distances, vehicle geometry, and interpolation resolution are all tunable.
+The lane speed limit from `/world_modeling/lanelet/lane_context` further caps velocity when available.
 
 ## Usage
 
-### Launching
-
-To launch the planner in isolation with default parameters:
-
 ```bash
-ros2 launch trajectory_planner trajectory_planner.launch.py
+ros2 launch trajectory_planner trajectory_planner.launch.yaml
 ```
 
-This launch file remaps:
-- `input_path` -> `/action/local_planning/path`
-- `costmap` -> `/world_modeling/costmap`
-- `trajectory` -> `/action/trajectory_planning/trajectory`
-- `lane_context` -> `/world_modeling/lanelet/lane_context`
-
-### Integration
-
-To integrate with the full stack, ensure this node is included in `action_launch.yaml` or similar bringup configurations.
+Topic remappings:
+- `input_path` → `/action/local_planning/path`
+- `costmap` → `/world_modeling/costmap`
+- `trajectory` → `/action/trajectory_planning/trajectory`
+- `lane_context` → `/world_modeling/lanelet/lane_context`
 
 ## Visualization
 
-The planner publishes a `visualization_msgs/MarkerArray` on the topic `~trajectory_markers` (remapped to `/action/trajectory_planning/trajectory_markers`).
-
-- **Markers**: Spheres along the trajectory path.
-- **Size**: The diameter of each sphere represents the target speed at that point.
-  - **Small**: Low speed (approaching stop).
-  - **Large**: High speed (up to max limit).
-- **Color**: Uniform purple for clarity.
+Publishes `visualization_msgs/MarkerArray` on `~trajectory_markers`. Each point is rendered as a purple sphere whose diameter scales with target speed (larger = faster).
 
 ## Configuration
 
@@ -49,21 +31,24 @@ Parameters are defined in `config/trajectory_planner_params.yaml`.
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `safe_distance` | 10.0 m | Distance to obstacle where deceleration begins. |
-| `stop_distance` | 2.0 m | Distance to obstacle where vehicle must be fully stopped (relative to front bumper). |
-| `max_speed` | 5.0 m/s | Maximum target speed if not constrained by lanelet/curvature. |
-| `vehicle_front_offset` | 2.5 m | Distance from `base_link` (path origin) to the front bumper. |
-| `footprint_radius` | 1.2 m | Radius around path points to check for collisions (approx vehicle width/2 + buffer). |
-| `interpolation_resolution` | 0.1 m | Spacing of points for collision checking. |
+| `stop_distance` | 2.0 m | Distance to obstacle where vehicle must be fully stopped. |
+| `max_speed` | 20.0 m/s | Maximum speed when no lanelet limit is available. |
+| `interpolation_resolution` | 0.1 m | Point spacing along path for collision checking. |
+| `footprint_frame` | `base_link` | Frame in which the footprint is defined. |
+| `footprint_x_min` | -0.5 m | Rear extent of vehicle. |
+| `footprint_x_max` | 3.5 m | Front extent of vehicle (front bumper). |
+| `footprint_y_min` | -1.2 m | Right extent of vehicle. |
+| `footprint_y_max` | 1.2 m | Left extent of vehicle. |
 
 ### Tuning Guide
 
-1. **Car stops too early/late**: Adjust `vehicle_front_offset` to match the actual vehicle geometry.
-2. **Car is too jerky**: Increase `safe_distance` to provide a longer deceleration ramp.
-3. **Car hits obstacles on sides**: Increase `footprint_radius` to widen the safety corridor.
-4. **High CPU usage**: Increase `interpolation_resolution` (e.g., to 0.2m), but be careful not to miss small obstacles.
+1. **Car stops too early/late**: Adjust `stop_distance` or the `footprint_x_max` to match actual front bumper position.
+2. **Car is too jerky**: Increase `safe_distance` to lengthen the deceleration ramp.
+3. **Car clips obstacles on the sides**: Increase `footprint_y_min`/`footprint_y_max` to widen the safety corridor.
+4. **High CPU usage**: Increase `interpolation_resolution` (e.g. 0.2 m), but avoid missing narrow obstacles.
 
 ## Troubleshooting
 
-- **No Trajectory Output**: Check if `input_path` and `costmap` topics are publishing and correctly remapped.
+- **No trajectory output**: Verify `input_path` and `costmap` topics are publishing and remapped correctly.
 - **"TrajectoryCore: Empty path"**: The upstream local planner is not producing a path.
-- **Collisions not detected**: Verify `costmap` has data (lethal obstacles > 100) and that `tf2` transforms between path frame and costmap frame are valid.
+- **Collisions not detected**: Confirm the costmap contains lethal cells (cost > 100) and that TF transforms between the path frame and costmap frame are available.
