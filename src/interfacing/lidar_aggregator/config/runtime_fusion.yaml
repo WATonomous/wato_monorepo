@@ -10,6 +10,8 @@
       ne_deskewed_cc: "/lidar_ne/points_deskewed_cc"
       nw_deskewed_cc: "/lidar_nw/points_deskewed_cc"
       merged: "/lidar/all/points_merged"
+      estimated_offsets: "/lidar/sync/estimated_offsets"
+      offset_scores: "/lidar/sync/offset_scores"
 
     frames:
       center: "lidar_cc"
@@ -26,6 +28,7 @@
 
     estimation:
       enable_online_offset: false
+      write_back_to_params: true
       search_half_window_sec: 0.03
       search_step_sec: 0.003
       ema_alpha: 0.2

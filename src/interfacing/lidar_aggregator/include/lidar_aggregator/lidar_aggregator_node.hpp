@@ -17,6 +17,7 @@
 #include <pcl/point_types.h>
 
 #include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -45,6 +46,7 @@ private:
   struct OffsetEstimatorConfig
   {
     bool enabled = false;
+    bool write_back_to_params = true;
     double search_half_window_sec = 0.03;
     double search_step_sec = 0.003;
     double ema_alpha = 0.2;
@@ -95,7 +97,8 @@ private:
     const RigidTransform & t_center_side,
     double & side_time_offset_sec,
     double & last_score_out,
-    const char * side_name);
+    const char * side_name,
+    const char * side_param_name);
 
   double score_side_offset_candidate(
     const pcl::PointCloud<pcl::PointXYZI> & center_cloud,
@@ -104,6 +107,8 @@ private:
     const rclcpp::Time & side_stamp,
     const RigidTransform & t_center_side,
     double candidate_offset_sec) const;
+
+  void publish_offset_diagnostics_locked(const rclcpp::Time & stamp);
 
   void try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg);
 
@@ -129,6 +134,8 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_ne_deskewed_cc_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_nw_deskewed_cc_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_merged_;
+  rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_estimated_offsets_;
+  rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_offset_scores_;
 
   std::string imu_topic_;
   std::string center_topic_;
@@ -138,6 +145,8 @@ private:
   std::string deskewed_ne_output_topic_;
   std::string deskewed_nw_output_topic_;
   std::string merged_output_topic_;
+  std::string estimated_offsets_output_topic_;
+  std::string offset_scores_output_topic_;
   std::string center_frame_;
 
   int qos_depth_ = 20;

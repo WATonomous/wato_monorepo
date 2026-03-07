@@ -92,6 +92,9 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
   pub_ne_deskewed_cc_ = create_publisher<sensor_msgs::msg::PointCloud2>(deskewed_ne_output_topic_, qos);
   pub_nw_deskewed_cc_ = create_publisher<sensor_msgs::msg::PointCloud2>(deskewed_nw_output_topic_, qos);
   pub_merged_ = create_publisher<sensor_msgs::msg::PointCloud2>(merged_output_topic_, qos);
+  pub_estimated_offsets_ =
+    create_publisher<geometry_msgs::msg::Vector3Stamped>(estimated_offsets_output_topic_, qos);
+  pub_offset_scores_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(offset_scores_output_topic_, qos);
 
   RCLCPP_INFO(
     get_logger(),
@@ -112,6 +115,8 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<std::string>("outputs.ne_deskewed_cc", "/lidar_ne/points_deskewed_cc");
   declare_parameter<std::string>("outputs.nw_deskewed_cc", "/lidar_nw/points_deskewed_cc");
   declare_parameter<std::string>("outputs.merged", "/lidar/all/points_merged");
+  declare_parameter<std::string>("outputs.estimated_offsets", "/lidar/sync/estimated_offsets");
+  declare_parameter<std::string>("outputs.offset_scores", "/lidar/sync/offset_scores");
 
   declare_parameter<std::string>("frames.center", "lidar_cc");
   declare_parameter<int>("runtime.qos_depth", 20);
@@ -123,6 +128,7 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<double>("timing.nw_time_offset_sec", 0.0);
 
   declare_parameter<bool>("estimation.enable_online_offset", false);
+  declare_parameter<bool>("estimation.write_back_to_params", true);
   declare_parameter<double>("estimation.search_half_window_sec", 0.03);
   declare_parameter<double>("estimation.search_step_sec", 0.003);
   declare_parameter<double>("estimation.ema_alpha", 0.2);
@@ -155,6 +161,8 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("outputs.ne_deskewed_cc", deskewed_ne_output_topic_);
   get_parameter("outputs.nw_deskewed_cc", deskewed_nw_output_topic_);
   get_parameter("outputs.merged", merged_output_topic_);
+  get_parameter("outputs.estimated_offsets", estimated_offsets_output_topic_);
+  get_parameter("outputs.offset_scores", offset_scores_output_topic_);
 
   get_parameter("frames.center", center_frame_);
   get_parameter("runtime.qos_depth", qos_depth_);
@@ -164,6 +172,7 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("timing.ne_time_offset_sec", ne_time_offset_sec_);
   get_parameter("timing.nw_time_offset_sec", nw_time_offset_sec_);
   get_parameter("estimation.enable_online_offset", estimator_cfg_.enabled);
+  get_parameter("estimation.write_back_to_params", estimator_cfg_.write_back_to_params);
   get_parameter("estimation.search_half_window_sec", estimator_cfg_.search_half_window_sec);
   get_parameter("estimation.search_step_sec", estimator_cfg_.search_step_sec);
   get_parameter("estimation.ema_alpha", estimator_cfg_.ema_alpha);
@@ -468,7 +477,8 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
   const RigidTransform & t_center_side,
   double & side_time_offset_sec,
   double & last_score_out,
-  const char * side_name)
+  const char * side_name,
+  const char * side_param_name)
 {
   if (!estimator_cfg_.enabled || !center_msg || !side_msg) {
     return false;
@@ -530,6 +540,10 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
   side_time_offset_sec = std::clamp(side_time_offset_sec, estimator_cfg_.min_offset_sec, estimator_cfg_.max_offset_sec);
   last_score_out = best_score;
 
+  if (estimator_cfg_.write_back_to_params) {
+    set_parameters({rclcpp::Parameter(side_param_name, side_time_offset_sec)});
+  }
+
   RCLCPP_INFO_THROTTLE(
     get_logger(),
     *get_clock(),
@@ -542,6 +556,24 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
     best_score,
     abs_gyro_z);
   return true;
+}
+
+void LidarAggregatorNode::publish_offset_diagnostics_locked(const rclcpp::Time & stamp)
+{
+  geometry_msgs::msg::Vector3Stamped offsets_msg;
+  offsets_msg.header.stamp = stamp;
+  offsets_msg.header.frame_id = center_frame_;
+  offsets_msg.vector.x = ne_time_offset_sec_;
+  offsets_msg.vector.y = nw_time_offset_sec_;
+  offsets_msg.vector.z = 0.0;
+  pub_estimated_offsets_->publish(offsets_msg);
+
+  geometry_msgs::msg::Vector3Stamped score_msg;
+  score_msg.header = offsets_msg.header;
+  score_msg.vector.x = estimator_runtime_.ne_last_score;
+  score_msg.vector.y = estimator_runtime_.nw_last_score;
+  score_msg.vector.z = 0.0;
+  pub_offset_scores_->publish(score_msg);
 }
 
 void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg)
@@ -557,17 +589,20 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
       t_center_ne_,
       ne_time_offset_sec_,
       estimator_runtime_.ne_last_score,
-      "ne");
+      "ne",
+      "timing.ne_time_offset_sec");
     maybe_update_side_offset_locked(
       center_msg,
       latest_nw_,
       t_center_nw_,
       nw_time_offset_sec_,
       estimator_runtime_.nw_last_score,
-      "nw");
+      "nw",
+      "timing.nw_time_offset_sec");
   }
 
   const rclcpp::Time center_stamp(center_msg->header.stamp);
+  publish_offset_diagnostics_locked(center_stamp);
 
   const rclcpp::Time ne_aligned = rclcpp::Time(latest_ne_->header.stamp) + rclcpp::Duration::from_seconds(ne_time_offset_sec_);
   const rclcpp::Time nw_aligned = rclcpp::Time(latest_nw_->header.stamp) + rclcpp::Duration::from_seconds(nw_time_offset_sec_);
