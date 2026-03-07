@@ -16,6 +16,7 @@ RUN apt-get -qq update && \
         | sort > /tmp/colcon_install_list && \
     (grep 'pip3 install' /tmp/rosdep_output || true) \
         | sed 's/.*pip3 install //' \
+        | sed 's/ --hash=[^ ]*//g' \
         | sort > /tmp/colcon_pip_install_list
 
 ################################ Install Rosdeps ################################
