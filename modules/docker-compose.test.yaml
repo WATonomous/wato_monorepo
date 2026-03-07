@@ -33,6 +33,9 @@ services:
     build:
       target: build
     image: "${PERCEPTION_IMAGE:?}:test_${TAG}"
+    runtime: runc
+    deploy:
+      resources: {}
     environment:
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
