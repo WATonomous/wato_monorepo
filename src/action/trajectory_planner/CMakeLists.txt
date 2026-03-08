@@ -26,6 +26,7 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
+find_package(behaviour_msgs REQUIRED)
 find_package(wato_trajectory_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -54,6 +55,7 @@ target_link_libraries(${PROJECT_NAME}_component
     ${geometry_msgs_TARGETS}
     ${visualization_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
+    ${behaviour_msgs_TARGETS}
     tf2_ros::tf2_ros
     tf2_geometry_msgs::tf2_geometry_msgs
     ${wato_lifecycle_manager_TARGETS}

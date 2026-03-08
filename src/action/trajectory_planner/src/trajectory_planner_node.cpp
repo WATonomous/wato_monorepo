@@ -80,6 +80,9 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   lane_context_sub_ = create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
     "lane_context", 10, std::bind(&TrajectoryPlannerNode::lane_context_callback, this, std::placeholders::_1));
 
+  bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
+    "execute_behaviour", 10, std::bind(&TrajectoryPlannerNode::bt_callback, this, std::placeholders::_1));
+
   // TF listener for cross-frame path transforms
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -146,10 +149,15 @@ void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::Curre
   has_speed_limit_ = true;
 }
 
+void TrajectoryPlannerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
+{
+  bt_requested_behaviour = msg->behaviour;
+}
+
 void TrajectoryPlannerNode::update_trajectory()
 {
   // Wait until all inputs are ready before computing
-  if (!latest_path_ || !latest_costmap_ || !core_) {
+  if (!latest_path_ || !latest_costmap_ || !core_ || bt_requested_behaviour.empty()) {
     return;
   }
 
@@ -191,7 +199,7 @@ void TrajectoryPlannerNode::update_trajectory()
 
   // Use lane speed limit if available, otherwise fall back to config max_speed
   double limit_speed = has_speed_limit_ ? current_speed_limit_mps_ : get_parameter("max_speed").as_double();
-
+  if (bt_requested_behaviour == "standby") limit_speed = 0.0;
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed);
 
   // Publish trajectory

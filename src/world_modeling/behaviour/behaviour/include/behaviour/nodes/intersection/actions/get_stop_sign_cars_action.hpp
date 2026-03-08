@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -38,11 +40,12 @@ namespace behaviour
    * @class GetStopSignCarsAction
    * @brief SyncActionNode to collect stop-sign queued car IDs.
    */
-class GetStopSignCarsAction : public BT::SyncActionNode
+class GetStopSignCarsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetStopSignCarsAction(const std::string & name, const BT::NodeConfig & config)
+  GetStopSignCarsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -60,7 +63,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetStopSignCars] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
@@ -108,14 +111,14 @@ public:
         continue;
       }
 
-      const auto cars_in_lanelet = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+      const auto cars_in_lanelet = utils::world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
 
       for (const auto * obj : cars_in_lanelet) {
         if (obj == nullptr) {
           continue;
         }
 
-        const double distance_to_stop_line = geometry::objectToWayDistanceXY(*obj, *stop_line_way);
+        const double distance_to_stop_line = utils::geometry::objectToWayDistanceXY(*obj, *stop_line_way);
         if (!std::isfinite(distance_to_stop_line) || distance_to_stop_line > *stop_sign_line_threshold_m) {
           continue;
         }

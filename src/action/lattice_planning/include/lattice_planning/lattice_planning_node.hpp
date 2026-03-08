@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include <geometry_msgs/msg/point.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -93,6 +94,9 @@ private:
   // parameter structs
   CostFunctionParams cf_params;
 
+  // parameter variables
+  double control_rate_hz_;
+
   // corridor construction
   int num_horizons;
   std::vector<double> lookahead_s_m;  // in metres
@@ -102,6 +106,8 @@ private:
   std::optional<PathPoint> car_frenet_point;
   std::unordered_map<int64_t, int> preferred_lanelets;
 
+  bool changing_lanes = false;
+  std::vector<PathPoint> current_lane_centerline_;
   // subscribers
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
@@ -111,4 +117,7 @@ private:
   // publishers
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<lattice_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
+
+  // timers
+  rclcpp::TimerBase::SharedPtr publish_timer_;
 };

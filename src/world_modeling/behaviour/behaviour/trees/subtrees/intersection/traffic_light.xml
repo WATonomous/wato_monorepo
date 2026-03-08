@@ -34,11 +34,52 @@
                             error_message="{traffic_light.despawn_wall_error_msg}"
                             service_name="/world_modeling/despawn_wall" />
                     </Fallback>
-                </Sequence>
+	                </Sequence>
 
-                <!-- fail safe: any non-green state or detection failure => spawn wall (only if not already spawned) -->
-                <Fallback name="SpawnIfNeeded">
-                    <WallIdExist wall_id="{traffic_light.wall_id}" />
+	                <Sequence name="Right Turn Yield Release">
+	                    <WallIdExist wall_id="{traffic_light.wall_id}" />
+	                    <EgoStoppedForDuration
+	                        ego_odom="{@ego_odom}"
+	                        threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
+	                        duration_msec="2000" />
+	                    <GetForwardLanelet
+	                        lane_ctx="{@current_lane_ctx}"
+	                        route_ahead="{@route_ahead}"
+	                        lanelets_ahead="{@lanelets_ahead}"
+	                        lanelets_ahead_index_map="{@lanelets_ahead_index_map}"
+	                        out_lanelet="{traffic_light.forward_lanelet}" />
+	                    <IsLaneletTurnDirection
+	                        lanelet="{traffic_light.forward_lanelet}"
+	                        expected="right" />
+	                    <!-- TODO(WATonomous): Restore the right-of-way occupancy gate once
+	                         traffic-light-associated right_of_way lanelets are available in
+	                         the map / regulatory-element path.
+	                    <GetWorldObjectsSub
+	                        objects="{traffic_light.objects}"
+	                        error_message="{traffic_light.get_objects_error_msg}"
+	                        topic_name="/world_modeling/world_objects_enriched" />
+	                    <GetYieldingRightOfWayLaneletId
+	                        lane_ctx="{@current_lane_ctx}"
+	                        out_lanelet_id="{traffic_light.right_of_way_lanelet_id}" />
+	                    <EmptyLanelet
+	                        lanelet_id="{traffic_light.right_of_way_lanelet_id}"
+	                        objects="{traffic_light.objects}"
+	                        hypothesis_index="{@world_objects_hypothesis_index}" />
+	                    -->
+	                    <Fallback name="DespawnIfNeeded">
+	                        <Inverter>
+	                            <WallIdExist wall_id="{traffic_light.wall_id}" />
+	                        </Inverter>
+	                        <DespawnWall wall_id="{traffic_light.wall_id}"
+	                            out_wall_id="{traffic_light.wall_id}"
+	                            error_message="{traffic_light.despawn_wall_error_msg}"
+	                            service_name="/world_modeling/despawn_wall" />
+	                    </Fallback>
+	                </Sequence>
+
+	                <!-- fail safe: any non-green state or detection failure => spawn wall (only if not already spawned) -->
+	                <Fallback name="SpawnIfNeeded">
+	                    <WallIdExist wall_id="{traffic_light.wall_id}" />
                     <Sequence>
                         <GetStopLinePose
                             reg_elem="{traffic_light}"

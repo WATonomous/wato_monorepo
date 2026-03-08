@@ -64,6 +64,7 @@ private:
   double wheelbase_fallback_;
   double max_steering_angle_;
   double idle_timeout_sec_;
+  double K_P_STEERING;
   bool invert_steering_;
 
   // Cached wheelbase from TF (0.0 = not yet resolved)

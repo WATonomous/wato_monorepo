@@ -45,6 +45,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("wheelbase_fallback", 2.5667);
   declare_parameter("max_steering_angle", 0.5);
   declare_parameter("idle_timeout_sec", 2.0);
+  declare_parameter("K_P_STEERING", 1.0);
   declare_parameter("invert_steering_", false);
 }
 
@@ -64,6 +65,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   wheelbase_fallback_ = get_parameter("wheelbase_fallback").as_double();
   max_steering_angle_ = get_parameter("max_steering_angle").as_double();
   idle_timeout_sec_ = get_parameter("idle_timeout_sec").as_double();
+  K_P_STEERING = get_parameter("K_P_STEERING").as_double();
   invert_steering_ = get_parameter("invert_steering_").as_bool();
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
@@ -229,7 +231,7 @@ void PurePursuitNode::controlCallback()
   // Pure pursuit math
   double ld_sq = lookahead_x * lookahead_x + lookahead_y * lookahead_y;
   double curvature = 2.0 * lookahead_y / ld_sq;
-  double steering_angle = std::atan(wheelbase * curvature);
+  double steering_angle = K_P_STEERING * std::atan(wheelbase * curvature);
 
   // Clamp steering
   steering_angle = std::clamp(steering_angle, -max_steering_angle_, max_steering_angle_);

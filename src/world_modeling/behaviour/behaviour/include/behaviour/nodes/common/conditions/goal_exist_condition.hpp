@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -29,11 +31,12 @@ namespace behaviour
  * @class GoalExistCondition
  * @brief ConditionNode to check whether a goal point is available.
  */
-class GoalExistCondition : public BT::ConditionNode
+class GoalExistCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  GoalExistCondition(const std::string & name, const BT::NodeConfig & config)
+  GoalExistCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -44,11 +47,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      static bool logged = false;
-      if (!logged) {
-        std::cout << "[GoalExist]: Missing " << port_name << " input" << std::endl;
-        logged = true;
-      }
+        RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto gp = ports::tryGetPtr<geometry_msgs::msg::PointStamped>(*this, "goal_point");

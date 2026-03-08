@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -29,11 +31,12 @@ namespace behaviour
  * @class WallIdExistCondition
  * @brief ConditionNode to check whether a wall_id is available.
  */
-class WallIdExistCondition : public BT::ConditionNode
+class WallIdExistCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  WallIdExistCondition(const std::string & name, const BT::NodeConfig & config)
+  WallIdExistCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -46,7 +49,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[WallIdValid] Missing " << port_name << " input -> treat as no-op" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input -> treat as no-op" );
     };
 
     auto wall_id = ports::tryGet<int32_t>(*this, "wall_id");
