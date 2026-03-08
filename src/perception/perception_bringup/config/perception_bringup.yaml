@@ -159,6 +159,45 @@ multi_camera_sync:
     output_frame: "map"
 
 # =============================================================================
+# Spatial Association Node
+# =============================================================================
+/**/spatial_association_node:
+  ros__parameters:
+    lidar_frame: lidar_cc
+    euclid_params:
+      cluster_tolerance: 0.20
+      min_cluster_size: 20
+      max_cluster_size: 800
+      use_adaptive_clustering: true
+      close_threshold: 10.0
+      close_tolerance_mult: 1.5
+    density_filter_params:
+      density_weight: 0.6
+      size_weight: 0.8
+      distance_weight: 0.4
+      score_threshold: 0.6
+    merge_threshold: 0.30
+    object_detection_confidence: 0.40
+    voxel_size: 0.1
+    quality_filter_params:
+      max_distance: 60.0
+      min_points: 5
+      min_height: 0.15
+      min_points_default: 10
+      min_points_far: 8
+      min_points_medium: 12
+      min_points_large: 30
+      distance_threshold_far: 30.0
+      distance_threshold_medium: 20.0
+      volume_threshold_large: 8.0
+      min_density: 5.0
+      max_density: 1000.0
+      max_dimension: 15.0
+      max_aspect_ratio: 15.0
+    publish_visualization: false
+    debug_logging: false
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
@@ -171,7 +210,7 @@ detection_lifecycle_manager:
 
 perception_lifecycle_manager:
   ros__parameters:
-    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
+    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node", "/spatial_association_node"]
     autostart: true
     transition_timeout_s: 10.0
     bond_timeout_s: 4.0

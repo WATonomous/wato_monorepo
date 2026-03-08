@@ -1,0 +1,140 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Spatial association LIFECYCLE node. One of three modes (set exactly one to true):
+#   use_standalone (default true): run the node executable (self-configure/activate).
+#   use_own_container: create MT component container, load composable node, start lifecycle manager.
+#   load_into_existing_container: load composable node into target_container (e.g. perception_container).
+---
+launch:
+  - arg:
+      name: config_file
+      default: $(find-pkg-share spatial_association)/config/params.yaml
+      description: Path to spatial_association params YAML
+
+  - arg:
+      name: use_standalone
+      default: "true"
+      description: Run standalone lifecycle node executable (default)
+  - arg:
+      name: use_own_container
+      default: "false"
+      description: Create MT component container, load composable node, start lifecycle manager
+  - arg:
+      name: load_into_existing_container
+      default: "false"
+      description: Load composable node into target_container (set target_container when true)
+  - arg:
+      name: target_container
+      default: ""
+      description: Container name when load_into_existing_container is true (e.g. perception_container)
+  - arg:
+      name: container_name
+      default: "spatial_association_container"
+      description: Name of container when use_own_container is true
+
+  # -------------------------------------------------------------------------
+  # Standalone: lifecycle node executable (self-configures and self-activates)
+  # -------------------------------------------------------------------------
+  - node:
+      pkg: spatial_association
+      exec: spatial_association_node
+      name: spatial_association_node
+      output: screen
+      if: $(var use_standalone)
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: multi_image
+          to: /multi_camera_sync/multi_image_raw
+        - from: multi_camera_info
+          to: /multi_camera_sync/multi_camera_info
+        - from: non_ground_cloud
+          to: /perception/non_ground_cloud
+        - from: detections
+          to: /perception/detections
+        - from: detection_3d
+          to: /perception/detections_3D
+
+  # -------------------------------------------------------------------------
+  # Composed: own MT container + load composable node + lifecycle manager
+  # -------------------------------------------------------------------------
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container_mt
+      name: $(var container_name)
+      namespace: ""
+      output: screen
+      if: $(var use_own_container)
+
+  - load_composable_node:
+      target: $(var container_name)
+      if: $(var use_own_container)
+      composable_node:
+        - pkg: spatial_association
+          plugin: spatial_association::SpatialAssociationNode
+          name: spatial_association_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: $(var config_file)
+          remap:
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_raw
+            - from: multi_camera_info
+              to: /multi_camera_sync/multi_camera_info
+            - from: non_ground_cloud
+              to: /perception/non_ground_cloud
+            - from: detections
+              to: /perception/detections
+            - from: detection_3d
+              to: /perception/detections_3D
+
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: spatial_association_lifecycle_manager
+      output: screen
+      if: $(var use_own_container)
+      param:
+        - name: node_names
+          value: ["/spatial_association_node"]
+        - name: autostart
+          value: true
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false
+
+  # -------------------------------------------------------------------------
+  # Composed: load into existing container (e.g. from perception_bringup)
+  # -------------------------------------------------------------------------
+  - load_composable_node:
+      target: $(var target_container)
+      if: $(var load_into_existing_container)
+      composable_node:
+        - pkg: spatial_association
+          plugin: spatial_association::SpatialAssociationNode
+          name: spatial_association_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: $(var config_file)
+          remap:
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_raw
+            - from: multi_camera_info
+              to: /multi_camera_sync/multi_camera_info
+            - from: non_ground_cloud
+              to: /perception/non_ground_cloud
+            - from: detections
+              to: /perception/detections
+            - from: detection_3d
+              to: /perception/detections_3D
