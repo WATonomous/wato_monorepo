@@ -253,9 +253,21 @@ debug_logging: false                     # Enable verbose logging
 ### Topic Configuration
 
 #### Subscribers
-- `/non_ground_cloud`: Non-ground filtered point cloud (from patchwork)
-- `/batched_camera_message`: Batch detection messages from cameras
-- `/CAM_FRONT/camera_info`, `/CAM_FRONT_LEFT/camera_info`, `/CAM_FRONT_RIGHT/camera_info`: Camera calibration
+- `multi_camera_info` (remapped to e.g. `/multi_camera_sync/multi_camera_info`): **Single batched** camera calibration from the deep_ros camera_sync node. The node does not subscribe to individual per-camera `camera_info` topics.
+- `multi_image`: Batched images from camera_sync (optional; used to keep the subscription graph consistent).
+- `non_ground_cloud`: Non-ground filtered point cloud (from patchwork++)
+- `detections`: Per-camera 2D detections from deep_object_detection
+
+#### Camera name / frame_id (deep_ros compatibility)
+- The same **camera name** (frame_id) must be used in three places so the node can associate detections with camera info and TF:
+  1. **MultiCameraInfo**: each `camera_infos[i].header.frame_id` (set by camera_sync from its `camera_names` or from the source CameraInfo).
+  2. **Detection2DArray**: `header.frame_id` (set by deep_object_detection per batched image; must match the camera name for that image).
+  3. **TF**: the camera optical frame name in the TF tree (published by sensor_interfacing) must match so `lookupTransform(camera_frame_id, lidar_frame)` succeeds.
+- Entries in MultiCameraInfo with empty `header.frame_id` are skipped and a throttled warning is logged.
+
+#### Transforms (TF)
+- Camera↔lidar transforms are **not** hardcoded. The node uses the TF tree (subscribes via `tf2_ros::Buffer`/`TransformListener`) to look up the transform from the lidar frame to each camera frame. These transforms are expected to be published by **sensor_interfacing** (e.g. static transforms or from the robot description).
+- Parameter `lidar_frame` (default: `lidar_cc`) specifies the frame of the lidar point cloud. Use `lidar_cc` when the non-ground cloud comes from the center lidar (e.g. `/lidar_cc/velodyne_points` → patchwork++ → `non_ground_cloud`).
 
 #### Publishers
 - `/detection_3d`: 3D detections (`vision_msgs::msg::Detection3DArray`)

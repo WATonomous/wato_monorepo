@@ -82,12 +82,15 @@ private:
   bool publish_visualization_;
   bool debug_logging_;
 
-  // Camera info cache (frame_id → CameraInfo)
+  // Camera info cache keyed by frame_id (camera name). Same frame_id is used in
+  // MultiCameraInfo.camera_infos[].header.frame_id, Detection2DArray.header.frame_id,
+  // and TF (camera optical frame from sensor_interfacing).
   std::unordered_map<std::string, sensor_msgs::msg::CameraInfo::SharedPtr> camInfoMap_;
 
   /**
-   * @brief Called when a batched MultiCameraInfo arrives from camera_sync.
-   * Populates camInfoMap_ with CameraInfo for each camera in one shot.
+   * @brief Called when a batched MultiCameraInfo arrives from the deep_ros camera_sync node.
+   * Replaces camInfoMap_ with the batch contents. Uses each entry's header.frame_id as the
+   * key so lookups match Detection2DArray.header.frame_id and TF frame names.
    */
   void multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::SharedPtr msg);
 
@@ -97,7 +100,9 @@ private:
 
   /**
    * @brief Called for each per-camera Detection2DArray from deep_object_detection.
-   * Uses cached cluster indices and CameraInfo to match 2D detections with 3D clusters.
+   * msg->header.frame_id must match a key in camInfoMap_ (from MultiCameraInfo) and the
+   * camera optical frame in TF. Uses cached cluster indices and CameraInfo to match 2D
+   * detections with 3D clusters.
    */
   void detectionCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
 

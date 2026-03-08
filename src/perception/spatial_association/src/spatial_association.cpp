@@ -107,7 +107,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
       kMultiImage, 10, std::bind(&SpatialAssociationNode::multiImageCallback, this, std::placeholders::_1));
 
     multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
-      kMultiCameraInfo, rclcpp::SensorDataQoS(),
+      kMultiCameraInfo,
+      rclcpp::SensorDataQoS(),
       std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
 
     dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
@@ -200,9 +201,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   const rclcpp_lifecycle::State & previous_state)
 {
   RCLCPP_INFO(
-    this->get_logger(),
-    "Shutting down Spatial Association node from state: %s",
-    previous_state.label().c_str());
+    this->get_logger(), "Shutting down Spatial Association node from state: %s", previous_state.label().c_str());
 
   non_ground_cloud_sub_.reset();
   multi_image_sub_.reset();
@@ -231,7 +230,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
 
 void SpatialAssociationNode::initializeParams()
 {
-  this->declare_parameter<std::string>("lidar_top_frame", "LIDAR_TOP");
+  this->declare_parameter<std::string>("lidar_frame", "lidar_cc");
 
   this->declare_parameter<bool>("publish_visualization", true);
   this->declare_parameter<bool>("debug_logging", false);
@@ -271,7 +270,7 @@ void SpatialAssociationNode::initializeParams()
 
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
   voxel_size_ = static_cast<float>(this->get_parameter("voxel_size").as_double());
-  lidar_frame_ = this->get_parameter("lidar_top_frame").as_string();
+  lidar_frame_ = this->get_parameter("lidar_frame").as_string();
 
   euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
   euclid_min_cluster_size_ = this->get_parameter("euclid_params.min_cluster_size").as_int();
@@ -300,20 +299,37 @@ void SpatialAssociationNode::initializeParams()
 // Callbacks
 // ---------------------------------------------------------------------------
 
-void SpatialAssociationNode::multiCameraInfoCallback(
-  const deep_msgs::msg::MultiCameraInfo::SharedPtr msg)
+void SpatialAssociationNode::multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::SharedPtr msg)
 {
+  // Populate camera info cache from deep_ros batched message. Each entry is keyed by
+  // header.frame_id so it matches Detection2DArray.header.frame_id and TF camera frame names.
+  camInfoMap_.clear();
+  size_t skipped = 0;
   for (const auto & info : msg->camera_infos) {
-    const auto & frame_id = info.header.frame_id;
-    if (camInfoMap_.find(frame_id) == camInfoMap_.end()) {
-      RCLCPP_INFO(this->get_logger(), "Received CameraInfo for '%s' via MultiCameraInfo", frame_id.c_str());
+    const std::string & frame_id = info.header.frame_id;
+    if (frame_id.empty()) {
+      skipped++;
+      continue;
     }
     camInfoMap_[frame_id] = std::make_shared<sensor_msgs::msg::CameraInfo>(info);
   }
+  if (skipped > 0) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *get_clock(),
+      5000,
+      "MultiCameraInfo: skipped %zu entry/entries with empty frame_id",
+      skipped);
+  }
+  if (debug_logging_ && !msg->camera_infos.empty()) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Updated CameraInfo cache from MultiCameraInfo: %zu camera(s) (frame_ids: keys for TF and detections)",
+      camInfoMap_.size());
+  }
 }
 
-void SpatialAssociationNode::multiImageCallback(
-  const deep_msgs::msg::MultiImage::SharedPtr /*msg*/)
+void SpatialAssociationNode::multiImageCallback(const deep_msgs::msg::MultiImage::SharedPtr /*msg*/)
 {
   // Camera intrinsics are now received via MultiCameraInfo; nothing to do here
   // beyond keeping the subscription alive so the node stays in the graph.
@@ -355,9 +371,10 @@ void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::Poin
 
 void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
 {
-  const auto & frame_id = msg->header.frame_id;
+  // frame_id must match MultiCameraInfo.camera_infos[].header.frame_id and the camera
+  // optical frame name in TF (sensor_interfacing). deep_ros uses the same camera name for both.
+  const std::string & frame_id = msg->header.frame_id;
 
-  // Need CameraInfo for this camera
   const auto it = camInfoMap_.find(frame_id);
   if (it == camInfoMap_.end()) {
     RCLCPP_WARN_THROTTLE(
@@ -377,15 +394,16 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
 
   const auto & camera_info = it->second;
 
-  geometry_msgs::msg::TransformStamped tf_cam_to_lidar;
+  // Look up lidar -> camera transform from TF (published by sensor_interfacing).
+  geometry_msgs::msg::TransformStamped tf_lidar_to_cam;
   try {
-    tf_cam_to_lidar = tf_buffer_->lookupTransform(frame_id, lidar_frame_, tf2::TimePointZero);
+    tf_lidar_to_cam = tf_buffer_->lookupTransform(frame_id, lidar_frame_, tf2::TimePointZero);
   } catch (tf2::TransformException & e) {
     RCLCPP_WARN(get_logger(), "TF %s->%s failed: %s", lidar_frame_.c_str(), frame_id.c_str(), e.what());
     return;
   }
 
-  auto detection_results = processDetections(*msg, tf_cam_to_lidar, camera_info->p);
+  auto detection_results = processDetections(*msg, tf_lidar_to_cam, camera_info->p);
 
   // Publish 3D detections
   if (detection_3d_pub_ && detection_3d_pub_->is_activated()) {
@@ -445,7 +463,7 @@ DetectionOutputs SpatialAssociationNode::processDetections(
     RCLCPP_INFO(
       this->get_logger(),
       "Camera %s: %zu clusters before IOU filtering, %zu detections",
-      transform.child_frame_id.c_str(),
+      transform.header.frame_id.c_str(),
       working_cluster_indices.size(),
       detection.detections.size());
   }
@@ -457,7 +475,7 @@ DetectionOutputs SpatialAssociationNode::processDetections(
     RCLCPP_INFO(
       this->get_logger(),
       "Camera %s: %zu clusters kept after IOU filtering",
-      transform.child_frame_id.c_str(),
+      transform.header.frame_id.c_str(),
       working_cluster_indices.size());
   }
 

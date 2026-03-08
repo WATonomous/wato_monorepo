@@ -1,7 +1,8 @@
 spatial_association:
   ros__parameters:
-    # Frame (not a topic; remap topics in launch)
-    lidar_top_frame: LIDAR_TOP
+    # Lidar frame for the point cloud (must match sensor_interfacing, e.g. lidar_cc).
+    # Camera<->lidar transforms are read from TF (published by sensor_interfacing).
+    lidar_frame: lidar_cc
 
     # filtering parameters
 
