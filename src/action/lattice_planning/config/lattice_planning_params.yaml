@@ -12,6 +12,9 @@ action:
         path_topic: "path"
         available_paths_topic: "available_paths"
 
+        # Control Frequency
+        control_rate_hz = 2.0
+
         # Path generation parameters
         # -  Cost Function  -
         cost_function:

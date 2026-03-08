@@ -19,6 +19,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <chrono>
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
@@ -42,12 +43,15 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   final_path_topic = this->declare_parameter("path_topic", "path");
   available_paths_topic = this->declare_parameter("available_paths_topic", "available_paths");
 
+  // Control Frequency
+  control_rate_hz_ = this->declare_parameter("control_rate_hz", 2.0);
+
   // Path generation parameters
   //  - Corridor -
   num_horizons = this->declare_parameter("num_horizons", 3);
   lookahead_s_m = this->declare_parameter("lookahead_distances", std::vector<double>{10.0, 15.0, 20.0});
 
-  //  - Cost Funcation -
+  //  - Cost Function -
   cf_params.lateral_movement_weight = this->declare_parameter("cost_function.lateral_movement_weight", 2.0);
   cf_params.physical_limits_weight = this->declare_parameter("cost_function.physical_limits_weight", 4.0);
   cf_params.preferred_lane_cost = this->declare_parameter("cost_function.preferred_lane_cost", 20.0);
@@ -92,6 +96,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
   available_paths_pub_ = this->create_publisher<lattice_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
+  const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
+  publish_timer_ = this->create_wall_timer(period, std::bind(&LatticePlanningNode::plan_and_publish_path, this));
+  publish_timer_->cancel();
+
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -108,6 +116,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
     bt_topic, 10, std::bind(&LatticePlanningNode::set_preferred_lanes, this, std::placeholders::_1));
   path_pub_->on_activate();
   available_paths_pub_->on_activate();
+  publish_timer_->reset();
   RCLCPP_INFO(this->get_logger(), "Node Activated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -118,6 +127,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   RCLCPP_INFO(this->get_logger(), "Deactivating Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
+  publish_timer_->cancel();
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -128,6 +138,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   RCLCPP_INFO(this->get_logger(), "Cleaning up Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
+  publish_timer_.reset();
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -138,6 +149,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   RCLCPP_INFO(this->get_logger(), "Shutting down Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
+  publish_timer_.reset();
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -233,7 +245,6 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
       if (curr_horizon >= num_horizons) break;
     }
   }
-  plan_and_publish_path();
 }
 
 void LatticePlanningNode::plan_and_publish_path()
