@@ -53,7 +53,6 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/perception:/ws/src/perception
-      - ${MONO_DIR}/src/wato_msgs/perception_msgs/camera_object_detection_msgs:/ws/src/camera_object_detection_msgs
       - ${MONO_DIR}/bags:/ws/bags
       - ${MONO_DIR}/models:/ws/models
     environment:

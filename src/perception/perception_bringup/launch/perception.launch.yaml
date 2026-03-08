@@ -96,31 +96,6 @@ launch:
           param:
             - from: $(var config_file)
 
-  # Spatial association: 2D detections + non-ground cloud -> 3D detections (in perception_container)
-  - load_composable_node:
-      target: perception_container
-      composable_node:
-        - pkg: spatial_association
-          plugin: spatial_association::SpatialAssociationNode
-          name: spatial_association_node
-          namespace: ""
-          extra_arg:
-            - name: use_intra_process_comms
-              value: "true"
-          param:
-            - from: $(var config_file)
-          remap:
-            - from: multi_image
-              to: /multi_camera_sync/multi_image_raw
-            - from: multi_camera_info
-              to: /multi_camera_sync/multi_camera_info
-            - from: non_ground_cloud
-              to: /perception/non_ground_cloud
-            - from: detections
-              to: /perception/detections
-            - from: detection_3d
-              to: /perception/detections_3D
-
   # Load 3D tracking into the shared container
   - load_composable_node:
       target: perception_container

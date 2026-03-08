@@ -199,7 +199,7 @@
           "colorMap": "turbo"
         },
         "/carla/top_lidar/points": {
-          "visible": false,
+          "visible": true,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
