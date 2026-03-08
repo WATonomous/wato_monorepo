@@ -93,6 +93,9 @@ private:
   // parameter structs
   CostFunctionParams cf_params;
 
+  // parameter variables
+  double control_rate_hz_;
+
   // corridor construction
   int num_horizons;
   std::vector<double> lookahead_s_m;  // in metres
@@ -111,4 +114,7 @@ private:
   // publishers
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<lattice_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
+
+  // timers
+  rclcpp::TimerBase::SharedPtr publish_timer_;
 };
