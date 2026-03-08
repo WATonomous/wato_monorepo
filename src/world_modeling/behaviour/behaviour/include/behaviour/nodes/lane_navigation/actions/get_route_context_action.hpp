@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -45,11 +47,12 @@ namespace behaviour
  * - `route_index_map` and `route` refer to the same route ordering.
  * - Transition list is aligned with lanelet ordering by index.
  */
-class GetRouteContextAction : public BT::SyncActionNode
+class GetRouteContextAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetRouteContextAction(const std::string & name, const BT::NodeConfig & config)
+  GetRouteContextAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -65,7 +68,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetRouteContextAction]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
@@ -87,7 +90,7 @@ public:
     auto current_it = map->find(current_id);
     if (current_it == map->end()) {
       // Current lanelet not found on route
-      std::cout << "[GetRouteContext]: Current lanelet ID " << current_id << " not found on route" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet ID " << current_id << " not found on route" );
       return BT::NodeStatus::FAILURE;
     }
 
@@ -99,7 +102,7 @@ public:
       auto current_lanelet_ptr = std::make_shared<lanelet_msgs::msg::Lanelet>(current_lane_context->current_lanelet);
       setOutput("out_next_lanelet", current_lanelet_ptr);
 
-      std::cout << "[GetRouteContext]: Result=SUCCESS (end of route, default SUCCESSOR)" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Result=SUCCESS (end of route, default SUCCESSOR)" );
       return BT::NodeStatus::SUCCESS;
     }
 

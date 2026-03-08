@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -33,11 +35,12 @@ namespace behaviour
    * @class GoalReachedCondition
    * @brief ConditionNode to check whether ego is within goal distance threshold.
    */
-class GoalReachedCondition : public BT::ConditionNode
+class GoalReachedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  GoalReachedCondition(const std::string & name, const BT::NodeConfig & config)
+  GoalReachedCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -51,7 +54,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GoalReached]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto ego_odom = ports::tryGetPtr<nav_msgs::msg::Odometry>(*this, "ego_odom");
@@ -64,7 +67,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
     if (goal_lanelet->centerline.empty()) {
-      std::cout << "[GoalReached]: goal_lanelet centerline is empty" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "goal_lanelet centerline is empty" );
       return BT::NodeStatus::FAILURE;
     }
 
@@ -85,13 +88,13 @@ public:
 
     // Check if within threshold
     if (distance <= threshold) {
-      std::cout << "[GoalReached]: Distance " << distance << " is within threshold " << threshold
-                << " (goal_lanelet_id=" << goal_lanelet->id << ")" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Distance " << distance << " is within threshold " << threshold
+                << " (goal_lanelet_id=" << goal_lanelet->id << ")" );
       return BT::NodeStatus::SUCCESS;
     }
 
-    std::cout << "[GoalReached]: Distance " << distance << " is outside threshold " << threshold
-              << " (goal_lanelet_id=" << goal_lanelet->id << ")" << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Distance " << distance << " is outside threshold " << threshold
+              << " (goal_lanelet_id=" << goal_lanelet->id << ")" );
     return BT::NodeStatus::FAILURE;
   }
 };

@@ -128,7 +128,7 @@ public:
   std::optional<int64_t> findCurrentLaneletId(
     const geometry_msgs::msg::Point & point,
     double heading_rad,
-    double route_priority_threshold_m = 10.0,
+    double route_priority_threshold_m = 0.1,
     double heading_search_radius_m = 15.0,
     std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
 
@@ -208,6 +208,23 @@ public:
     const geometry_msgs::msg::Point & current_pos, double lookahead_distance_m) const;
 
   /**
+   * @brief Compute the remaining arc-length along a lanelet centerline to its end.
+   *
+   * Projects the query point onto the closest centerline segment, then measures
+   * the arc-length from that projected point to the end of the lanelet.
+   * This is useful when a caller needs a continuously-varying distance to the
+   * end of the current lanelet rather than a coarse nearest-vertex estimate.
+   *
+   * @param lanelet Lanelet whose centerline defines the path to follow.
+   * @param point Query point in the map frame.
+   * @return Remaining distance in meters from the projected point to the end
+   *         of the lanelet centerline. Returns 0.0 for degenerate centerlines.
+   */
+  double getRemainingDistanceToLaneletEnd(
+    const lanelet::ConstLanelet & lanelet,
+    const geometry_msgs::msg::Point & point) const;
+
+  /**
    * @brief Get legally reachable lanelets ahead of ego within a radius.
    *
    * Uses BFS through the routing graph starting from the current lanelet,
@@ -282,6 +299,14 @@ public:
    * @return Fully populated lanelet message.
    */
   lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
+
+  /**
+   * @brief Determine whether a lanelet should be treated as an intersection lanelet.
+   *
+   * Uses map semantics first (turn direction / subtype) and falls back to routing-graph
+   * conflicts, which are a stronger signal than turn direction alone.
+   */
+  bool isIntersectionLanelet(const lanelet::ConstLanelet & ll) const;
 
   // Accessors
 

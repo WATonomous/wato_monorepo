@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -29,11 +31,12 @@ namespace behaviour
  * @class GlobalRouteExistCondition
  * @brief ConditionNode to check whether a route exists and is non-empty.
  */
-class GlobalRouteExistCondition : public BT::ConditionNode
+class GlobalRouteExistCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  GlobalRouteExistCondition(const std::string & name, const BT::NodeConfig & config)
+  GlobalRouteExistCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -44,7 +47,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GlobalRouteExist]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
@@ -53,7 +56,7 @@ public:
     }
 
     if (route->lanelets.empty()) {
-      std::cout << "[GlobalRouteExist]: Route does not exist or is empty" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Route does not exist or is empty" );
       return BT::NodeStatus::FAILURE;
     }
     return BT::NodeStatus::SUCCESS;

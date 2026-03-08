@@ -70,7 +70,7 @@ public:
       setOutput("error_message", response->error_message);
       if (response->error_message == "wall_not_found") {
         // if wall not found then assuming it is not there, so return SUCCESS
-        setOutput("out_wall_id", 0);
+        setOutput("out_wall_id", ports::null_wall_id);
         return BT::NodeStatus::SUCCESS;
       }
       return BT::NodeStatus::FAILURE;

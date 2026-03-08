@@ -13,11 +13,13 @@
 // limitations under the License.
 
 #include "behaviour/behaviour_node.hpp"
+#include "behaviour/utils/types.hpp"
 
 #include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace behaviour
@@ -43,15 +45,11 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("bt.intersection_wall_of_doom_width", 5.0);
   this->declare_parameter("bt.intersection_wall_of_doom_length", 1.0);
   this->declare_parameter("bt.ego_stopped_velocity_threshold", 0.1);
-  this->declare_parameter("bt.intersection_lookahead_m", 40.0);
+  this->declare_parameter("bt.intersection_lookahead_m", 100.0);
   this->declare_parameter("bt.stop_sign_stop_line_proximity_m", 8.0);
   this->declare_parameter("bt.goal_reached_threshold_m", 1.0);
-  this->declare_parameter("get_shortest_route_timeout_ms", 6000);
-  this->declare_parameter("set_route_timeout_ms", 6000);
-  this->declare_parameter("get_area_occupancy_timeout_ms", 5000);
-  this->declare_parameter("get_world_objects_enriched_timeout_ms", 5000);
-  this->declare_parameter("get_lanelets_by_reg_elem_timeout_ms", 5000);
-  this->declare_parameter("wall_service_timeout_ms", 5000);
+  this->declare_parameter("service_timeout_ms", 6000);
+  this->declare_parameter("wait_for_service_timeout_ms", 60000);
 
   // Init TF
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -95,9 +93,11 @@ void BehaviourNode::init()
   tree_->updateBlackboard("map_frame", map_frame_);
   tree_->updateBlackboard("base_frame", base_frame_);
 
-  // xml specific values
+  // xml specific values configured via parameters
   tree_->updateBlackboard("world_objects_hypothesis_index", world_objects_hypothesis_index);
   tree_->updateBlackboard("traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
+  // initialize overtake stage to be IDLE
+  tree_->updateBlackboard("overtake.stage", types::OvertakeStage::IDLE);
   tree_->updateBlackboard("bt.left_lane_change_areas", left_lane_change_areas);
   tree_->updateBlackboard("bt.right_lane_change_areas", right_lane_change_areas);
   tree_->updateBlackboard("bt.intersection_wall_of_doom_width", stop_line_wall_width);
@@ -125,7 +125,26 @@ void BehaviourNode::init()
 
   route_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::RouteAhead>(
     "route_ahead", 10, [this](const lanelet_msgs::msg::RouteAhead::SharedPtr msg) {
+      auto route_ahead_index_map = std::make_shared<std::unordered_map<int64_t, std::size_t>>();
+      route_ahead_index_map->reserve(msg->lanelets.size());
+      for (std::size_t i = 0; i < msg->lanelets.size(); ++i) {
+        (*route_ahead_index_map)[msg->lanelets[i].id] = i;
+      }
+
       tree_->updateBlackboard("route_ahead", msg);
+      tree_->updateBlackboard("route_ahead_index_map", route_ahead_index_map);
+    });
+
+  lanelets_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
+    "lanelet_ahead", 10, [this](const lanelet_msgs::msg::LaneletAhead::SharedPtr msg) {
+      auto lanelets_ahead_index_map = std::make_shared<std::unordered_map<int64_t, std::size_t>>();
+      lanelets_ahead_index_map->reserve(msg->lanelets.size());
+      for (std::size_t i = 0; i < msg->lanelets.size(); ++i) {
+        (*lanelets_ahead_index_map)[msg->lanelets[i].id] = i;
+      }
+
+      tree_->updateBlackboard("lanelets_ahead", msg);
+      tree_->updateBlackboard("lanelets_ahead_index_map", lanelets_ahead_index_map);
     });
 
   ego_odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -161,7 +180,9 @@ int main(int argc, char * argv[])
   auto node = std::make_shared<behaviour::BehaviourNode>();
   node->init();
 
-  rclcpp::spin(node);
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+  executor.spin();
   rclcpp::shutdown();
   return 0;
 }

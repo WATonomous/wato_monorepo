@@ -12,6 +12,9 @@ action:
         path_topic: "path"
         available_paths_topic: "available_paths"
 
+        # Control Frequency
+        control_rate_hz: 2.0
+
         # Path generation parameters
         # -  Cost Function  -
         cost_function:
@@ -20,6 +23,7 @@ action:
           preferred_lane_cost: 20.0
           unknown_occupancy_cost: 50.0
           max_curvature_change: 0.1
+          centerline_weight: 1.0
 
         # -  Corridor  -
         num_horizons: 3

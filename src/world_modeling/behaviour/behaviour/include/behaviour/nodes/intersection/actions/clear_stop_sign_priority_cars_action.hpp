@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -27,11 +29,12 @@ namespace behaviour
  * @class ClearStopSignPriorityCarsAction
  * @brief SyncActionNode to clear stop-sign priority car IDs.
  */
-class ClearStopSignPriorityCarsAction : public BT::SyncActionNode
+class ClearStopSignPriorityCarsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  ClearStopSignPriorityCarsAction(const std::string & name, const BT::NodeConfig & config)
+  ClearStopSignPriorityCarsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -44,7 +47,6 @@ public:
 
   BT::NodeStatus tick() override
   {
-    std::cout << "[ClearStopSignPriorityCars]: Clearing stop sign priority car ids" << std::endl;
     setOutput("priority_car_ids", std::vector<std::string>{});
     setOutput("priority_latched", false);
     return BT::NodeStatus::SUCCESS;
