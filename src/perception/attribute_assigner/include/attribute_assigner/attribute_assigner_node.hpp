@@ -24,12 +24,14 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <unordered_map>
 // Other
+#include <deep_msgs/msg/multi_image_compressed.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <diagnostic_updater/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
-#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 
 #include "attribute_assigner/attribute_assigner_core.hpp"
@@ -41,9 +43,11 @@ namespace wato::perception::attribute_assigner
 /**
  * @brief ROS 2 lifecycle composable node for assigning semantic attributes to 2D detections.
  *
- * Subscribes to a Detection2DArray topic, enriches traffic light and car detections
- * with attribute hypotheses (traffic light state, car behavior), and publishes the
- * enriched detections. Supports full lifecycle management and component loading.
+ * Synchronizes MultiImage (from camera_sync) and Detection2DArray topics.
+ * Uses detection-driven processing: when synchronized messages arrive, looks up
+ * relevant images by detection frame_id, decompresses only needed images once,
+ * crops to detection bounding boxes, and enriches traffic light and car detections
+ * with attribute hypotheses (traffic light state, car behavior).
  *
  * Traffic light attributes: green, yellow, red
  * Car behavior attributes: turning left, turning right, braking, hazard lights
@@ -63,7 +67,7 @@ public:
    */
   explicit AttributeAssignerNode(const rclcpp::NodeOptions & options);
 
-  static constexpr auto kImageTopic = "input_image";  ///< Input image topic (same frame as detections)
+  static constexpr auto kMultiImageTopic = "input_multi_image";  ///< Input MultiImage topic
   static constexpr auto kInputTopic = "input_detections";  ///< Input detections topic name
   static constexpr auto kOutputTopic = "output_detections";  ///< Output enriched detections topic name
 
@@ -115,13 +119,20 @@ private:
   void declareParameters(Params & params);
 
   /**
-   * @brief Synced callback: image + detections. Converts image to cv::Mat, runs core, publishes enriched detections.
-   * @param image_msg Camera image (same frame as detections)
-   * @param detections_msg YOLOv8 Detection2DArray (COCO class IDs)
+   * @brief Synced callback: MultiImage + detections. Decompresses only needed images, crops, classifies.
+   * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
+   * @param detections_msg Detection2DArray with detections indexed by source_id (frame_id)
    */
   void syncedCallback(
-    const sensor_msgs::msg::Image::ConstSharedPtr & image_msg,
+    const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
     const vision_msgs::msg::Detection2DArray::ConstSharedPtr & detections_msg);
+
+  /**
+   * @brief Decompress a CompressedImage to cv::Mat in BGR format.
+   * @param compressed_img The compressed image message
+   * @return Decompressed BGR cv::Mat (empty on error)
+   */
+  cv::Mat decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const;
 
   /**
    * @brief Log total processed messages and average processing time.
@@ -163,11 +174,11 @@ private:
    */
   void updateDiagnostics(const std_msgs::msg::Header::_stamp_type & timestamp);
 
-  using ImageMsg = sensor_msgs::msg::Image;
+  using MultiImageMsg = deep_msgs::msg::MultiImageCompressed;
   using DetectionsMsg = vision_msgs::msg::Detection2DArray;
-  using SyncPolicy = message_filters::sync_policies::ApproximateTime<ImageMsg, DetectionsMsg>;
+  using SyncPolicy = message_filters::sync_policies::ApproximateTime<MultiImageMsg, DetectionsMsg>;
 
-  std::unique_ptr<message_filters::Subscriber<ImageMsg, rclcpp_lifecycle::LifecycleNode>> image_sub_;
+  std::unique_ptr<message_filters::Subscriber<MultiImageMsg, rclcpp_lifecycle::LifecycleNode>> multi_image_sub_;
   std::unique_ptr<message_filters::Subscriber<DetectionsMsg, rclcpp_lifecycle::LifecycleNode>> detections_sub_;
   std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
 

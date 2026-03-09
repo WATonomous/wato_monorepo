@@ -131,12 +131,12 @@ public:
    */
   double getLastProcessingTimeMs() const;
 
-  /// Attribute class_id prefix for traffic light states
-  static constexpr auto kStatePrefix = "state:";
-  /// Attribute class_id prefix for car behaviors
-  static constexpr auto kBehaviorPrefix = "behavior:";
+  /**
+   * @brief Get the parameters used by this core instance.
+   * @return Reference to the parameters struct
+   */
+  const Params & getParams() const { return params_; }
 
-private:
   /**
    * @brief Check if a detection's best hypothesis matches a traffic light class.
    * @param det The detection to check
@@ -147,7 +147,7 @@ private:
   /**
    * @brief Check if a detection's best hypothesis matches a car/vehicle class.
    * @param det The detection to check
-   * @return true if the detection is a car or vehicle
+   * @return true if the detection is a car or vehicle  
    */
   bool isCar(const vision_msgs::msg::Detection2D & det) const;
 
@@ -214,6 +214,13 @@ private:
    * @return A populated ObjectHypothesisWithPose message
    */
   static vision_msgs::msg::ObjectHypothesisWithPose makeHypothesis(const std::string & class_id, double score);
+
+  /// Attribute class_id prefix for traffic light states
+  static constexpr auto kStatePrefix = "state:";
+  /// Attribute class_id prefix for car behaviors
+  static constexpr auto kBehaviorPrefix = "behavior:";
+
+private:
 
   Params params_;
   std::unordered_set<std::string> traffic_light_ids_;  ///< Fast lookup for traffic light class IDs

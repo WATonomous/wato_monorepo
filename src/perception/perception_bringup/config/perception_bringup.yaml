@@ -53,24 +53,18 @@ multi_camera_sync:
     # For raw images, use topics like: ["/camera1/image_raw", "/camera2/image_raw"]
     # For compressed images, use topics like: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      - "/camera_pano_ww/image_rect_compressed"
-      - "/camera_pano_nn/image_rect_compressed"
-      - "/camera_pano_ee/image_rect_compressed"
-      - "/camera_pano_ss/image_rect_compressed"
+      - "/CAM_FRONT/image_rect_compressed"
+      - "/CAM_FRONT_LEFT/image_rect_compressed"
 
     # CameraInfo topics (one per camera, same order). Required for batched ~/multi_camera_info.
     camera_info_topics:
-      - "/camera_pano_ww/camera_info"
-      - "/camera_pano_nn/camera_info"
-      - "/camera_pano_ee/camera_info"
-      - "/camera_pano_ss/camera_info"
+      - "/CAM_FRONT/camera_info"
+      - "/CAM_FRONT_LEFT/camera_info"
 
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
-      - "camera_pano_ww"
-      - "camera_pano_nn"
-      - "camera_pano_ee"
-      - "camera_pano_ss"
+      - "CAM_FRONT"
+      - "CAM_FRONT_LEFT"
 
     # Whether to use compressed images (sensor_msgs/CompressedImage) instead of raw (sensor_msgs/Image)
     # Set to true if your camera topics publish compressed images
@@ -78,7 +72,7 @@ multi_camera_sync:
 
     # Maximum time difference in milliseconds for message synchronization
     # Larger values allow more tolerance but may reduce temporal accuracy
-    sync_tolerance_ms: 2000.0
+    sync_tolerance_ms: 200.0
 
     # Queue size for message filters
     # Larger values can handle more variable frame rates but use more memory
@@ -139,8 +133,8 @@ multi_camera_sync:
         class_idx: 5
 
     Backend:
-      plugin: "onnxruntime_gpu"
-      execution_provider: "tensorrt"
+      plugin: "onnxruntime_cpu"
+      execution_provider: "cpu"
       device_id: 0
       trt_engine_cache_enable: true
       trt_engine_cache_path: "/tmp/deep_ros_ort_trt_cache"
@@ -159,11 +153,44 @@ multi_camera_sync:
     output_frame: "map"
 
 # =============================================================================
+# Attribute Assigner Node
+# =============================================================================
+/**/attribute_assigner_node:
+  ros__parameters:
+    # Class ID mappings (COCO dataset: traffic_light=9, car=2, truck=7, bus=5)
+    traffic_light_class_ids: ["traffic_light", "9"]
+    car_class_ids: ["car", "2", "truck", "7", "bus", "5"]
+    min_detection_confidence: 0.3
+
+    # Traffic light color detection thresholds (HSV-based)
+    traffic_light_min_saturation: 60.0
+    traffic_light_min_value: 80.0
+
+    # Car signal detection thresholds (HSV-based)
+    car_brake_min_brightness: 90.0
+    car_amber_hue_lo: 12.0
+    car_amber_hue_hi: 35.0
+    car_amber_min_saturation: 80.0
+    car_amber_min_value: 100.0
+
+    # QoS Configuration for subscribers
+    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_subscriber_depth: 10
+
+    # QoS Configuration for publishers
+    qos_publisher_reliability: "reliable"      # Options: "reliable", "best_effort"
+    qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
+    qos_publisher_depth: 10
+
+    # Message synchronization
+    sync_queue_size: 10
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
   ros__parameters:
-    node_names: ["deep_object_detection_node"]
+    node_names: ["deep_object_detection_node", "attribute_assigner_node"]
     autostart: true
     transition_timeout_s: 10.0
     bond_timeout_s: 4.0

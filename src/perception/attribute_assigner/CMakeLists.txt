@@ -36,6 +36,7 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(deep_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # ---- Core library (image-based attribute logic) ----
@@ -75,6 +76,7 @@ target_link_libraries(${PROJECT_NAME}_node
     ${sensor_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${std_msgs_TARGETS}
+    ${deep_msgs_TARGETS}
     ${PROJECT_NAME}_core
   PRIVATE
     rclcpp_components::component
@@ -146,6 +148,7 @@ ament_export_dependencies(
   sensor_msgs
   message_filters
   cv_bridge
+  deep_msgs
   OpenCV
 )
 

@@ -17,16 +17,18 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <cv_bridge/cv_bridge.hpp>
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
-#include <sensor_msgs/msg/image.hpp>
 
 namespace wato::perception::attribute_assigner
 {
@@ -74,7 +76,7 @@ void AttributeAssignerNode::declareParameters(Params & params)
 }
 
 void AttributeAssignerNode::syncedCallback(
-  const sensor_msgs::msg::Image::ConstSharedPtr & image_msg,
+  const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const vision_msgs::msg::Detection2DArray::ConstSharedPtr & detections_msg)
 {
   if (!core_) {
@@ -82,34 +84,113 @@ void AttributeAssignerNode::syncedCallback(
     return;
   }
 
-  cv_bridge::CvImageConstPtr cv_ptr;
-  try {
-    cv_ptr = cv_bridge::toCvShare(image_msg, "bgr8");
-  } catch (const cv_bridge::Exception & e) {
-    RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "cv_bridge exception: %s", e.what());
-    return;
-  }
-
-  const cv::Mat & image = cv_ptr->image;
-  if (image.empty()) {
+  if (!multi_image_msg || multi_image_msg->images.empty()) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "Received empty image; passing detections through");
+      this->get_logger(), *this->get_clock(), 5000,
+      "Received empty MultiImage; passing %zu detections through", detections_msg->detections.size());
     if (detections_pub_ && detections_pub_->is_activated()) {
       detections_pub_->publish(*detections_msg);
     }
     return;
   }
 
-  vision_msgs::msg::Detection2DArray enriched;
-  try {
-    enriched = core_->process(image, *detections_msg);
-  } catch (const std::exception & e) {
-    RCLCPP_ERROR_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "Error during attribute assignment: %s", e.what());
+  const auto start = std::chrono::steady_clock::now();
+
+  // Build frame_id -> MultiImage index lookup for O(1) access
+  std::unordered_map<std::string, size_t> frame_id_to_index;
+  for (size_t i = 0; i < multi_image_msg->images.size(); ++i) {
+    frame_id_to_index[multi_image_msg->images[i].header.frame_id] = i;
+  }
+
+  // First pass: collect unique frame_ids that have traffic lights or cars
+  std::unordered_set<std::string> frames_to_decompress;
+  for (const auto & det : detections_msg->detections) {
+    if (!core_->isTrafficLight(det) && !core_->isCar(det)) {
+      continue;
+    }
+    const double score = core_->getBestScore(det);
+    if (score < core_->getParams().min_detection_confidence) {
+      continue;
+    }
+    // Use detection's header.frame_id to identify which camera this came from
+    if (!det.header.frame_id.empty() && frame_id_to_index.count(det.header.frame_id) > 0) {
+      frames_to_decompress.insert(det.header.frame_id);
+    }
+  }
+
+  // If no frames to decompress, pass through
+  if (frames_to_decompress.empty()) {
+    if (detections_pub_ && detections_pub_->is_activated()) {
+      detections_pub_->publish(*detections_msg);
+    }
     return;
   }
 
-  const double time_taken = core_->getLastProcessingTimeMs();
+  // Decompress only the needed images (once per frame)
+  std::unordered_map<std::string, cv::Mat> decompressed_images;
+  for (const auto & frame_id : frames_to_decompress) {
+    const size_t idx = frame_id_to_index[frame_id];
+    cv::Mat image = decompressImage(multi_image_msg->images[idx]);
+    if (!image.empty()) {
+      decompressed_images[frame_id] = std::move(image);
+    } else {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(), *this->get_clock(), 5000,
+        "Failed to decompress image for frame_id '%s'", frame_id.c_str());
+    }
+  }
+
+  // Process detections
+  vision_msgs::msg::Detection2DArray enriched;
+  enriched.header = detections_msg->header;
+  enriched.detections.reserve(detections_msg->detections.size());
+
+  for (const auto & det : detections_msg->detections) {
+    vision_msgs::msg::Detection2D enriched_det = det;
+
+    // Check if this detection is a traffic light or car
+    const bool is_traffic_light = core_->isTrafficLight(det);
+    const bool is_car = core_->isCar(det);
+    if (!is_traffic_light && !is_car) {
+      enriched.detections.push_back(enriched_det);
+      continue;
+    }
+
+    const double score = core_->getBestScore(det);
+    if (score < core_->getParams().min_detection_confidence) {
+      enriched.detections.push_back(enriched_det);
+      continue;
+    }
+
+    // Look up the decompressed image by detection's frame_id
+    const std::string& frame_id = det.header.frame_id;
+    auto img_it = decompressed_images.find(frame_id);
+    if (img_it == decompressed_images.end() || img_it->second.empty()) {
+      enriched.detections.push_back(enriched_det);
+      continue;
+    }
+
+    // Crop to detection bbox
+    cv::Mat crop = core_->cropToBbox(img_it->second, det);
+    if (crop.empty()) {
+      enriched.detections.push_back(enriched_det);
+      continue;
+    }
+
+    // Classify and append attributes
+    if (is_traffic_light) {
+      auto attrs = core_->classifyTrafficLightState(crop);
+      core_->appendTrafficLightHypotheses(enriched_det, attrs);
+    } else if (is_car) {
+      auto attrs = core_->classifyCarBehavior(crop);
+      core_->appendCarHypotheses(enriched_det, attrs);
+    }
+
+    enriched.detections.push_back(enriched_det);
+  }
+
+  const auto end = std::chrono::steady_clock::now();
+  const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
   updateStatistics(time_taken);
 
   if (detections_pub_ && detections_pub_->is_activated()) {
@@ -120,10 +201,23 @@ void AttributeAssignerNode::syncedCallback(
 
   RCLCPP_DEBUG(
     this->get_logger(),
-    "Processed %zu detections, %lu total. Time: %.3f ms",
+    "Processed %zu detections (%zu frames decompressed). Time: %.3f ms",
     detections_msg->detections.size(),
-    core_->getProcessedCount(),
+    decompressed_images.size(),
     time_taken);
+}
+
+cv::Mat AttributeAssignerNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
+{
+  try {
+    cv::Mat image = cv::imdecode(cv::Mat(compressed_img.data), cv::IMREAD_COLOR);
+    return image;  // Returns empty Mat on failure
+  } catch (const cv::Exception & e) {
+    RCLCPP_ERROR_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "OpenCV exception during decompression: %s", e.what());
+    return cv::Mat();
+  }
 }
 
 void AttributeAssignerNode::updateStatistics(double time_taken)
@@ -292,13 +386,14 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   RCLCPP_INFO(this->get_logger(), "Activating Attribute Assigner node");
 
   try {
-    image_sub_ = std::make_unique<message_filters::Subscriber<ImageMsg, rclcpp_lifecycle::LifecycleNode>>(
-      this, kImageTopic, subscriber_qos_.get_rmw_qos_profile());
+    // Synchronize MultiImage with Detection2DArray
+    multi_image_sub_ = std::make_unique<message_filters::Subscriber<MultiImageMsg, rclcpp_lifecycle::LifecycleNode>>(
+      this, kMultiImageTopic, subscriber_qos_.get_rmw_qos_profile());
     detections_sub_ = std::make_unique<message_filters::Subscriber<DetectionsMsg, rclcpp_lifecycle::LifecycleNode>>(
       this, kInputTopic, subscriber_qos_.get_rmw_qos_profile());
 
     sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(
-      SyncPolicy(sync_queue_size_), *image_sub_, *detections_sub_);
+      SyncPolicy(sync_queue_size_), *multi_image_sub_, *detections_sub_);
     sync_->registerCallback(
       std::bind(&AttributeAssignerNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
 
@@ -318,8 +413,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
 
     RCLCPP_INFO(
       this->get_logger(),
-      "Node activated. Subscribed to image '%s' and detections '%s'; publishing -> '%s'",
-      kImageTopic,
+      "Node activated. Subscribed to MultiImage '%s' and detections '%s'; publishing -> '%s'",
+      kMultiImageTopic,
       kInputTopic,
       detections_pub_->get_topic_name());
 
@@ -340,7 +435,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   }
 
   sync_.reset();
-  image_sub_.reset();
+  multi_image_sub_.reset();
   detections_sub_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
@@ -353,7 +448,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   RCLCPP_INFO(this->get_logger(), "Cleaning up Attribute Assigner node");
 
   sync_.reset();
-  image_sub_.reset();
+  multi_image_sub_.reset();
   detections_sub_.reset();
   detections_pub_.reset();
   pub_diagnostic_.reset();
@@ -371,7 +466,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     this->get_logger(), "Shutting down Attribute Assigner node from state: %s", previous_state.label().c_str());
 
   sync_.reset();
-  image_sub_.reset();
+  multi_image_sub_.reset();
   detections_sub_.reset();
   detections_pub_.reset();
   core_.reset();
