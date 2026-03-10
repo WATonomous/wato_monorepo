@@ -237,6 +237,69 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
   const auto &current_ll = *match.lanelet;
   double required_distance = initial_state.v * prediction_horizon_ + 10.0;
 
+  // =========================================================================
+  // Curvature-aware scoring context
+  // =========================================================================
+  // On curved roads, heading deviation and lateral offset from centerline are
+  // expected. Compute the road curvature so we can relax penalties accordingly.
+  double road_curvature = computeCurvatureAtIndex(current_ll.centerline,
+                                                  match.closest_centerline_idx);
+
+  // Expected heading deviation on a curve: curvature * lookahead ≈ a few deg
+  // Expected lateral offset on a curve: v^2 * curvature / (2 * lateral_accel)
+  // We use these to discount heading_diff and lateral_offset in scoring.
+  double curvature_heading_tolerance =
+      std::min(road_curvature * 5.0, 0.3); // up to ~17 deg
+  double curvature_lateral_tolerance =
+      std::min(speed * speed * road_curvature / 8.0, 1.0); // up to 1m
+
+  double adjusted_heading_diff =
+      std::max(0.0, match.heading_diff - curvature_heading_tolerance);
+  double adjusted_lateral_offset =
+      (std::abs(match.lateral_offset) > curvature_lateral_tolerance)
+          ? match.lateral_offset
+          : match.lateral_offset * 0.3; // discount expected curve offset
+
+  // =========================================================================
+  // Heuristic 1: Stop persistence — stopped vehicles stay stopped
+  // =========================================================================
+  if (speed < 0.5) {
+    TrajectoryHypothesis hyp;
+    hyp.header.stamp = current_time;
+    hyp.header.frame_id = frame_id;
+    hyp.intent = Intent::STOP;
+    hyp.probability = 3.0; // high raw score, will be normalized
+
+    // Generate stationary trajectory
+    for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
+      geometry_msgs::msg::PoseStamped pose_stamped;
+      pose_stamped.header.frame_id = frame_id;
+      pose_stamped.header.stamp =
+          current_time + rclcpp::Duration::from_seconds(t);
+      pose_stamped.pose.position.x = initial_state.x;
+      pose_stamped.pose.position.y = initial_state.y;
+      pose_stamped.pose.position.z = 0.0;
+      pose_stamped.pose.orientation = detection.bbox.center.orientation;
+      hyp.poses.push_back(pose_stamped);
+    }
+    hypotheses.push_back(hyp);
+  }
+
+  // =========================================================================
+  // Heuristic 10: Maneuver inertia — retrieve previous dominant intent
+  // =========================================================================
+  Intent prev_intent = Intent::UNKNOWN;
+  auto prev_it = previous_intent_.find(detection.id);
+  if (prev_it != previous_intent_.end()) {
+    prev_intent = prev_it->second;
+  }
+
+  // =========================================================================
+  // Heuristic 6/7: Lateral velocity for lane-change evidence
+  // =========================================================================
+  double lateral_vel =
+      estimateLateralVelocity(detection.id, match.lateral_offset);
+
   // --- Hypothesis: Follow current lane (continue straight / follow road) ---
   {
     auto path = extractForwardPath(current_ll, match.closest_centerline_idx,
@@ -247,10 +310,7 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
       hyp.header.frame_id = frame_id;
 
       // Determine intent based on lanelet geometry
-      // If the lanelet is an intersection or has significant curvature, it
-      // might be a turn
       if (current_ll.is_intersection) {
-        // Check heading change from entry to exit of path
         double entry_heading =
             std::atan2(path[1].y() - path[0].y(), path[1].x() - path[0].x());
         size_t last = path.size() - 1;
@@ -268,15 +328,28 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
         hyp.intent = Intent::CONTINUE_STRAIGHT;
       }
 
-      // Score: heading alignment + lateral offset proximity + straight prior
-      hyp.probability =
-          computeGeometricScore(match.heading_diff, match.lateral_offset, 2.0);
+      // Heuristic 1: Motion persistence — continuing trajectory gets high base
+      // Heuristic 4: Lane-center preference — use curvature-adjusted offsets
+      double lane_follow_prior = 2.5;
+      hyp.probability = computeGeometricScore(
+          adjusted_heading_diff, adjusted_lateral_offset, lane_follow_prior);
 
       hyp.poses = bicycle_model_->generateTrajectory(
           initial_state, path, prediction_horizon_, time_step_, current_time,
           frame_id);
 
+      // Heuristic 9: Smoothness preference — penalize rough trajectories
       if (!hyp.poses.empty()) {
+        double smoothness = computeTrajectorySmoothness(hyp.poses);
+        // Smooth trajectories (low curvature) get higher score
+        double smoothness_factor = std::exp(-smoothness * 2.0);
+        hyp.probability *= (0.5 + 0.5 * smoothness_factor);
+
+        // Heuristic 10: Maneuver inertia — boost if continuing previous intent
+        if (prev_intent != Intent::UNKNOWN && prev_intent == hyp.intent) {
+          hyp.probability *= 1.3;
+        }
+
         hypotheses.push_back(hyp);
       }
     }
@@ -300,7 +373,6 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
       for (const auto &pt : succ_ll->centerline) {
         path.emplace_back(pt.x, pt.y);
       }
-      // Extend through successor's successors if needed
       if (computePathLength(path) < required_distance) {
         for (int64_t succ_succ_id : succ_ll->successor_ids) {
           const auto *ss = findLaneletById(succ_succ_id);
@@ -321,7 +393,6 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
       hyp.header.stamp = current_time;
       hyp.header.frame_id = frame_id;
 
-      // Determine intent from heading change through successor
       double entry_heading =
           std::atan2(path[1].y() - path[0].y(), path[1].x() - path[0].x());
       size_t last = path.size() - 1;
@@ -337,16 +408,26 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
         hyp.intent = Intent::CONTINUE_STRAIGHT;
       }
 
-      // Lower prior for turns vs straight
+      // Heuristic 8: Route commitment — lower prior for turns
       double maneuver_prior = (std::abs(heading_change) > 0.3) ? 0.5 : 1.5;
       hyp.probability = computeGeometricScore(
-          match.heading_diff, match.lateral_offset, maneuver_prior);
+          adjusted_heading_diff, adjusted_lateral_offset, maneuver_prior);
 
       hyp.poses = bicycle_model_->generateTrajectory(
           initial_state, path, prediction_horizon_, time_step_, current_time,
           frame_id);
 
       if (!hyp.poses.empty()) {
+        // Heuristic 9: Smoothness preference
+        double smoothness = computeTrajectorySmoothness(hyp.poses);
+        double smoothness_factor = std::exp(-smoothness * 2.0);
+        hyp.probability *= (0.5 + 0.5 * smoothness_factor);
+
+        // Heuristic 10: Maneuver inertia
+        if (prev_intent != Intent::UNKNOWN && prev_intent == hyp.intent) {
+          hyp.probability *= 1.3;
+        }
+
         hypotheses.push_back(hyp);
       }
     }
@@ -363,19 +444,49 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
       hyp.header.frame_id = frame_id;
       hyp.intent = Intent::LANE_CHANGE_LEFT;
 
-      // Lane change is more likely if vehicle is already drifting left
-      // (positive lateral offset)
-      double lc_prior = 0.3;
-      if (match.lateral_offset > 0.3)
-        lc_prior = 0.8; // Drifting toward left lane
-      hyp.probability = computeGeometricScore(match.heading_diff,
-                                              match.lateral_offset, lc_prior);
+      // Heuristic 3: Lane-change completion — require sustained lateral
+      // velocity toward the target lane, not just positional offset which can
+      // occur naturally on curves.
+      double lc_prior = 0.15; // base: lane changes are uncommon
+      // Only boost if lateral velocity is consistently toward the left lane
+      if (lateral_vel > 0.3) {
+        lc_prior = 0.6; // active lateral motion toward left
+      }
+
+      // Heuristic 8: Route commitment — suppress lane changes in
+      // intersections
+      if (current_ll.is_intersection) {
+        lc_prior *= 0.1;
+      }
+
+      // Heuristic 7: Curvature suppression — on curves, lateral offset is
+      // expected and should NOT trigger lane-change. Scale down the prior
+      // proportionally to road curvature.
+      if (road_curvature > 0.005) { // ~200m radius or tighter
+        lc_prior *= std::max(0.1, 1.0 - road_curvature * 50.0);
+      }
+
+      hyp.probability = computeGeometricScore(
+          adjusted_heading_diff, adjusted_lateral_offset, lc_prior);
 
       hyp.poses = bicycle_model_->generateTrajectory(
           initial_state, path, prediction_horizon_, time_step_, current_time,
           frame_id);
 
       if (!hyp.poses.empty()) {
+        // Heuristic 9: Smoothness preference
+        double smoothness = computeTrajectorySmoothness(hyp.poses);
+        double smoothness_factor = std::exp(-smoothness * 2.0);
+        hyp.probability *= (0.5 + 0.5 * smoothness_factor);
+
+        // Heuristic 10: Maneuver inertia — boost if already changing left,
+        // penalize contradictory switch from right
+        if (prev_intent == Intent::LANE_CHANGE_LEFT) {
+          hyp.probability *= 1.5; // Heuristic 3: completing a lane change
+        } else if (prev_intent == Intent::LANE_CHANGE_RIGHT) {
+          hyp.probability *= 0.1; // Heuristic 10: rarely switch directions
+        }
+
         hypotheses.push_back(hyp);
       }
     }
@@ -392,17 +503,37 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
       hyp.header.frame_id = frame_id;
       hyp.intent = Intent::LANE_CHANGE_RIGHT;
 
-      double lc_prior = 0.3;
-      if (match.lateral_offset < -0.3)
-        lc_prior = 0.8; // Drifting toward right lane
-      hyp.probability = computeGeometricScore(match.heading_diff,
-                                              match.lateral_offset, lc_prior);
+      double lc_prior = 0.15;
+      if (lateral_vel < -0.3) {
+        lc_prior = 0.6; // active lateral motion toward right
+      }
+
+      if (current_ll.is_intersection) {
+        lc_prior *= 0.1;
+      }
+
+      if (road_curvature > 0.005) {
+        lc_prior *= std::max(0.1, 1.0 - road_curvature * 50.0);
+      }
+
+      hyp.probability = computeGeometricScore(
+          adjusted_heading_diff, adjusted_lateral_offset, lc_prior);
 
       hyp.poses = bicycle_model_->generateTrajectory(
           initial_state, path, prediction_horizon_, time_step_, current_time,
           frame_id);
 
       if (!hyp.poses.empty()) {
+        double smoothness = computeTrajectorySmoothness(hyp.poses);
+        double smoothness_factor = std::exp(-smoothness * 2.0);
+        hyp.probability *= (0.5 + 0.5 * smoothness_factor);
+
+        if (prev_intent == Intent::LANE_CHANGE_RIGHT) {
+          hyp.probability *= 1.5;
+        } else if (prev_intent == Intent::LANE_CHANGE_LEFT) {
+          hyp.probability *= 0.1;
+        }
+
         hypotheses.push_back(hyp);
       }
     }
@@ -421,6 +552,17 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
       for (auto &h : hypotheses)
         h.probability = uniform;
     }
+
+    // Record the dominant intent for maneuver inertia on next cycle
+    double best_prob = 0.0;
+    Intent best_intent = Intent::UNKNOWN;
+    for (const auto &h : hypotheses) {
+      if (h.probability > best_prob) {
+        best_prob = h.probability;
+        best_intent = h.intent;
+      }
+    }
+    previous_intent_[detection.id] = best_intent;
   }
 
   RCLCPP_DEBUG(node_->get_logger(),
@@ -640,6 +782,85 @@ double TrajectoryPredictor::computeGeometricScore(double heading_diff,
   double heading_score = std::exp(-heading_diff * heading_diff / 0.2);
   double lateral_score = std::exp(-lateral_offset * lateral_offset / 4.0);
   return heading_score * lateral_score * maneuver_prior;
+}
+
+double TrajectoryPredictor::computeCurvatureAtIndex(
+    const std::vector<geometry_msgs::msg::Point> &centerline,
+    size_t idx) const {
+  if (centerline.size() < 3) {
+    return 0.0;
+  }
+  // Use three-point discrete curvature: kappa = 2*|cross(p1-p0, p2-p1)| /
+  // (|p1-p0| * |p2-p1| * |p2-p0|)
+  size_t i0 = (idx > 0) ? idx - 1 : 0;
+  size_t i1 = idx;
+  size_t i2 = (idx + 1 < centerline.size()) ? idx + 1 : centerline.size() - 1;
+  if (i0 == i1 || i1 == i2) {
+    return 0.0;
+  }
+
+  double ax = centerline[i1].x - centerline[i0].x;
+  double ay = centerline[i1].y - centerline[i0].y;
+  double bx = centerline[i2].x - centerline[i1].x;
+  double by = centerline[i2].y - centerline[i1].y;
+
+  double cross = std::abs(ax * by - ay * bx);
+  double la = std::sqrt(ax * ax + ay * ay);
+  double lb = std::sqrt(bx * bx + by * by);
+  double lc = std::sqrt((centerline[i2].x - centerline[i0].x) *
+                            (centerline[i2].x - centerline[i0].x) +
+                        (centerline[i2].y - centerline[i0].y) *
+                            (centerline[i2].y - centerline[i0].y));
+
+  double denom = la * lb * lc;
+  if (denom < 1e-9) {
+    return 0.0;
+  }
+  return 2.0 * cross / denom;
+}
+
+double TrajectoryPredictor::computeTrajectorySmoothness(
+    const std::vector<geometry_msgs::msg::PoseStamped> &poses) const {
+  if (poses.size() < 3) {
+    return 0.0;
+  }
+  // Mean absolute heading change rate (approximate curvature)
+  double total_curvature = 0.0;
+  for (size_t i = 1; i + 1 < poses.size(); ++i) {
+    double dx1 = poses[i].pose.position.x - poses[i - 1].pose.position.x;
+    double dy1 = poses[i].pose.position.y - poses[i - 1].pose.position.y;
+    double dx2 = poses[i + 1].pose.position.x - poses[i].pose.position.x;
+    double dy2 = poses[i + 1].pose.position.y - poses[i].pose.position.y;
+
+    double h1 = std::atan2(dy1, dx1);
+    double h2 = std::atan2(dy2, dx2);
+    double dh = h2 - h1;
+    while (dh > M_PI)
+      dh -= 2.0 * M_PI;
+    while (dh < -M_PI)
+      dh += 2.0 * M_PI;
+
+    total_curvature += std::abs(dh);
+  }
+  return total_curvature / static_cast<double>(poses.size() - 2);
+}
+
+double
+TrajectoryPredictor::estimateLateralVelocity(const std::string &vehicle_id,
+                                             double lateral_offset) {
+  rclcpp::Time now = node_->get_clock()->now();
+  double lateral_vel = 0.0;
+
+  auto it = lateral_offset_history_.find(vehicle_id);
+  if (it != lateral_offset_history_.end()) {
+    double dt = (now - it->second.stamp).seconds();
+    if (dt > 0.01 && dt < 2.0) {
+      lateral_vel = (lateral_offset - it->second.lateral_offset) / dt;
+    }
+  }
+
+  lateral_offset_history_[vehicle_id] = {lateral_offset, now};
+  return lateral_vel;
 }
 
 // =============================================================================

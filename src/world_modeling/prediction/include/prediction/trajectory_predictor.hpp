@@ -177,6 +177,29 @@ private:
   double computeGeometricScore(double heading_diff, double lateral_offset,
                                double maneuver_prior) const;
 
+  /// Compute path curvature at a given centerline index (1/radius)
+  double computeCurvatureAtIndex(
+      const std::vector<geometry_msgs::msg::Point> &centerline,
+      size_t idx) const;
+
+  /// Compute trajectory smoothness penalty (mean absolute curvature)
+  double computeTrajectorySmoothness(
+      const std::vector<geometry_msgs::msg::PoseStamped> &poses) const;
+
+  /// Estimate lateral velocity (rate of change of lateral offset)
+  double estimateLateralVelocity(const std::string &vehicle_id,
+                                 double lateral_offset);
+
+  // Per-vehicle lateral offset history for lateral velocity estimation
+  struct LateralOffsetStamped {
+    double lateral_offset;
+    rclcpp::Time stamp;
+  };
+  std::unordered_map<std::string, LateralOffsetStamped> lateral_offset_history_;
+
+  // Per-vehicle previous intent for maneuver inertia
+  std::unordered_map<std::string, Intent> previous_intent_;
+
   rclcpp_lifecycle::LifecycleNode *node_;
   double prediction_horizon_;
   double time_step_;
