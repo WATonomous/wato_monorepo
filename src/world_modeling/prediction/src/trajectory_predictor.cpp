@@ -141,8 +141,12 @@ double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & 
         speed = std::clamp(raw_speed, 0.0, 3.0);
       }
     } else if (dt >= 2.0) {
-      // Track went stale: avoid reviving a stopped object at default speed.
-      speed = 0.0;
+      // Track went stale: keep continuity from the last estimate instead of
+      // snapping to zero, which can create one-frame false STOP intents.
+      // Apply a mild decay so very old measurements lose influence gradually.
+      const double stale_s = dt - 2.0;
+      const double decay = std::exp(-0.15 * stale_s);
+      speed = std::clamp(it->second.speed * decay, 0.0, 25.0);
     } else {
       // Extremely small dt: retain previous estimate to avoid spikes.
       speed = it->second.speed;
@@ -267,11 +271,13 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   double adjusted_lateral_offset = (std::abs(match.lateral_offset) > curvature_lateral_tolerance)
                                      ? match.lateral_offset
                                      : match.lateral_offset * 0.3;  // discount expected curve offset
+  const bool confirmed_stop = hasConfirmedStopEvidence(detection.id, speed);
 
   // =========================================================================
-  // Heuristic 1: Stop persistence — stopped vehicles stay stopped
+  // Heuristic 1: Stop persistence — require multiple consecutive low-speed
+  // updates before emitting STOP to avoid one-frame parked flips.
   // =========================================================================
-  if (speed < 0.5) {
+  if (confirmed_stop) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
@@ -949,6 +955,17 @@ double TrajectoryPredictor::estimateLateralVelocity(const std::string & vehicle_
   return lateral_vel;
 }
 
+bool TrajectoryPredictor::hasConfirmedStopEvidence(const std::string & vehicle_id, double speed)
+{
+  auto & low_speed_count = stop_evidence_count_[vehicle_id];
+  if (speed < kStopSpeedThresholdMps) {
+    low_speed_count = std::min(low_speed_count + 1, kConsecutiveStopUpdatesRequired);
+  } else {
+    low_speed_count = 0;
+  }
+  return low_speed_count >= kConsecutiveStopUpdatesRequired;
+}
+
 // =============================================================================
 // Geometric fallback (original behavior, used when no lanelet data)
 // =============================================================================
@@ -969,9 +986,8 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
   initial_state.a = 0.0;
   initial_state.delta = 0.0;
 
-  // Mirror lanelet-aware behavior: stopped vehicles should remain stationary
-  // even when we fall back to geometric prediction.
-  if (speed < 0.5) {
+  // Mirror lanelet-aware behavior with the same 3-update stop confirmation.
+  if (hasConfirmedStopEvidence(detection.id, speed)) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
