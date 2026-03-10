@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rosidl_runtime_cpp/message_initialization.hpp"
 
 namespace prediction {
 
@@ -101,7 +102,8 @@ lanelet_msgs::msg::LaneletAhead TrajectoryPredictor::queryVehicleLanelets(
   if (lanelet_query_fn_) {
     lanelet_query_fn_(vehicle_id, position, heading_rad);
   }
-  return {};
+  return lanelet_msgs::msg::LaneletAhead(
+      rosidl_runtime_cpp::MessageInitialization::ALL);
 }
 
 void TrajectoryPredictor::updateVehicleLaneletCache(
@@ -128,18 +130,29 @@ double TrajectoryPredictor::estimateSpeed(
       double dx = x - it->second.x;
       double dy = y - it->second.y;
       double raw_speed = std::sqrt(dx * dx + dy * dy) / dt;
-      // Clamp to a sane range: [0.5, 25.0] m/s for vehicles, [0.1, 3.0] for
-      // pedestrians/cyclists
+      // Clamp to a sane range: [0.0, 25.0] m/s for vehicles, [0.0, 3.0] for
+      // pedestrians/cyclists (allow zero speed for stopped objects)
       if (length > 3.5) {
-        speed = std::clamp(raw_speed, 0.5, 25.0);
+        speed = std::clamp(raw_speed, 0.0, 25.0);
       } else {
-        speed = std::clamp(raw_speed, 0.1, 3.0);
+        speed = std::clamp(raw_speed, 0.0, 3.0);
       }
+    } else if (dt >= 2.0) {
+      // Track went stale: avoid reviving a stopped object at default speed.
+      speed = 0.0;
+    } else {
+      // Extremely small dt: retain previous estimate to avoid spikes.
+      speed = it->second.speed;
     }
   }
 
   // Update history
-  position_history_[detection.id] = {x, y, now};
+  PositionStamped history_entry;
+  history_entry.x = x;
+  history_entry.y = y;
+  history_entry.speed = speed;
+  history_entry.stamp = now;
+  position_history_[detection.id] = history_entry;
 
   return speed;
 }
@@ -262,14 +275,13 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
 
   // =========================================================================
   // Heuristic 1: Stop persistence — stopped vehicles stay stopped
-  // Default intent for non-moving vehicles is STOP
   // =========================================================================
   if (speed < 0.5) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 1.0; // Only hypothesis for stopped vehicles
+    hyp.probability = 3.0; // high raw score, will be normalized
 
     // Generate stationary trajectory
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
@@ -288,15 +300,6 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
     hyp.lanelet_ids.push_back(current_ll.id);
 
     hypotheses.push_back(hyp);
-    
-    // Record STOP as the dominant intent
-    previous_intent_[detection.id] = Intent::STOP;
-    
-    // Return immediately - stopped vehicles only get STOP intent
-    RCLCPP_DEBUG(node_->get_logger(),
-                 "Vehicle %s is stopped (speed %.2f m/s), only STOP hypothesis generated",
-                 detection.id.c_str(), speed);
-    return hypotheses;
   }
 
   // =========================================================================
@@ -518,9 +521,8 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
         }
 
         // Track lanelet IDs for lane change path
-        hyp.lanelet_ids =
-            extractLaneChangePathLaneletIds(current_ll, current_ll.left_lane_id,
-                                            required_distance);
+        hyp.lanelet_ids = extractLaneChangePathLaneletIds(
+            current_ll, current_ll.left_lane_id, required_distance);
 
         hypotheses.push_back(hyp);
       }
@@ -570,9 +572,8 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
         }
 
         // Track lanelet IDs for lane change path
-        hyp.lanelet_ids =
-            extractLaneChangePathLaneletIds(current_ll, current_ll.right_lane_id,
-                                            required_distance);
+        hyp.lanelet_ids = extractLaneChangePathLaneletIds(
+            current_ll, current_ll.right_lane_id, required_distance);
 
         hypotheses.push_back(hyp);
       }
@@ -987,6 +988,31 @@ TrajectoryPredictor::generateGeometricVehicleHypotheses(
   initial_state.v = speed;
   initial_state.a = 0.0;
   initial_state.delta = 0.0;
+
+  // Mirror lanelet-aware behavior: stopped vehicles should remain stationary
+  // even when we fall back to geometric prediction.
+  if (speed < 0.5) {
+    TrajectoryHypothesis hyp;
+    hyp.header.stamp = current_time;
+    hyp.header.frame_id = frame_id;
+    hyp.intent = Intent::STOP;
+    hyp.probability = 3.0; // high raw score, will be normalized
+
+    for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
+      geometry_msgs::msg::PoseStamped pose_stamped;
+      pose_stamped.header.frame_id = frame_id;
+      pose_stamped.header.stamp =
+          current_time + rclcpp::Duration::from_seconds(t);
+      pose_stamped.pose.position.x = initial_state.x;
+      pose_stamped.pose.position.y = initial_state.y;
+      pose_stamped.pose.position.z = detection.bbox.center.position.z;
+      pose_stamped.pose.orientation = detection.bbox.center.orientation;
+      hyp.poses.push_back(pose_stamped);
+    }
+
+    hypotheses.push_back(hyp);
+    return hypotheses;
+  }
 
   // Continue Straight
   {
