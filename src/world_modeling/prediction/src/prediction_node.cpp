@@ -323,18 +323,16 @@ void PredictionNode::applyConfidenceSmoothing(
 
   if (state.has_observation) {
     const double dt = (now - state.last_update).seconds();
-    if (dt > 0.01 && dt < 2.0) {
+    if (dt > 0.01) {
       const double dx = observed_x - state.last_observed_x;
       const double dy = observed_y - state.last_observed_y;
       const double speed_mps = std::sqrt(dx * dx + dy * dy) / dt;
       if (speed_mps <= stop_stationary_speed_threshold_mps_) {
         state.stationary_duration_s += dt;
       } else {
-        state.stationary_duration_s = 0.0;
+        // Decay instead of hard reset so brief jitter does not spike moving confidence.
+        state.stationary_duration_s = std::max(0.0, state.stationary_duration_s - dt);
       }
-    } else if (dt >= 2.0) {
-      // Reset after stale tracks so we require consecutive stationary observations again.
-      state.stationary_duration_s = 0.0;
     }
   } else {
     state.stationary_duration_s = 0.0;
